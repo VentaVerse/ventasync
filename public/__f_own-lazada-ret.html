@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="MpkAhkr94wK9V3EGFPxudCMPEsBEE8z8jDgc1xLR">
+        
+    
+    <title>Lazada returns and refunds - SHA Musical Goods Trading</title>
+    <link rel="icon" type="image/png" href="http://localhost/images/brand/ventasync-icon.png">
+    <link rel="shortcut icon" href="http://localhost/images/brand/ventasync-icon.png">
+    <link rel="apple-touch-icon" href="http://localhost/images/brand/ventasync-icon.png">
+    <script>
+(function () {
+    var KEY = 'xenon-theme';
+    function resolve(mode) {
+        if (mode === 'dark' || mode === 'light') return mode;
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    function apply(mode) {
+        document.documentElement.setAttribute('data-theme', resolve(mode));
+        document.documentElement.setAttribute('data-theme-mode', mode);
+    }
+    var stored = null;
+    try { stored = localStorage.getItem(KEY); } catch (e) {}
+    apply(stored || 'light');
+
+    window.xenonTheme = {
+        get: function () { try { return localStorage.getItem(KEY) || 'light'; } catch (e) { return 'light'; } },
+        set: function (mode) {
+            try { localStorage.setItem(KEY, mode); } catch (e) {}
+            apply(mode);
+        }
+    };
+
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
+        if (window.xenonTheme.get() === 'system') apply('system');
+    });
+})();
+</script>
+    <link rel="preload" as="style" href="/build/assets/blotter-kkHK5tef.css" /><link rel="modulepreload" as="script" href="/build/assets/app-DNEv9yXH.js" /><link rel="stylesheet" href="/build/assets/blotter-kkHK5tef.css" /><script type="module" src="/build/assets/app-DNEv9yXH.js"></script>    </head>
+<body class="x-app bl-app x-app--channel"
+      style="--ch: #0f146d; --ch-deep: #0f146d; --ch-lift: #7b7eaf;">
+
+<div class="x-shell" x-data="{ nav: false }" @keydown.escape.window="nav = false">
+    <aside class="x-sidebar x-sidebar--channel" :class="nav && 'is-open'" id="channel-nav">
+        <nav class="x-cnav" aria-label="Lazada navigation">
+    <div class="x-cnav__top">
+        <a class="x-cnav__back" href="http://localhost/integrations">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="m15 18-6-6 6-6"/></svg>
+            All channels
+        </a>
+
+        
+        <button type="button" class="x-cnav__close" @click="nav = false"
+                aria-label="Close channel navigation">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+    </div>
+
+    
+    <div class="x-cnav__head ">
+        <span class="x-cnav__name">Lazada</span>
+        
+                
+                <span class="x-cnav__state x-cnav__state--setup">
+            Sign-in expired
+        </span>
+    </div>
+
+    
+    
+            <a class="x-cnav__item "
+           href="http://localhost/integrations/lazada">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+ Overview
+        </a>
+    
+            <div class="x-cnav__group">
+            <span class="x-cnav__group-label">Sell</span>
+                            <a class="x-cnav__child "
+                   href="http://localhost/integrations/lazada/orders?tab=TO_SHIP">Orders</a>
+                            <a class="x-cnav__child is-active"
+                   href="http://localhost/integrations/lazada/orders/returns">Returns</a>
+                    </div>
+            <div class="x-cnav__group">
+            <span class="x-cnav__group-label">Catalogue</span>
+                            <a class="x-cnav__child "
+                   href="http://localhost/integrations/lazada/products">Listings</a>
+                            <a class="x-cnav__child "
+                   href="http://localhost/integrations/lazada/product-groups">Product Groups</a>
+                            <a class="x-cnav__child "
+                   href="http://localhost/integrations/lazada/categories">Categories</a>
+                            <a class="x-cnav__child "
+                   href="http://localhost/integrations/lazada/brands">Brands</a>
+                    </div>
+            <div class="x-cnav__group">
+            <span class="x-cnav__group-label">Channel</span>
+                            <a class="x-cnav__child "
+                   href="http://localhost/integrations/lazada/settings">Settings</a>
+                    </div>
+    </nav>
+    </aside>
+
+    
+    <div class="x-scrim" x-show="nav" x-cloak @click="nav = false" aria-hidden="true"></div>
+
+    <div class="x-main">
+        <header class="x-topbar">
+            
+            <div class="x-topbar__left">
+                
+                <button type="button" class="x-navtoggle"
+                        @click="nav = true"
+                        :aria-expanded="nav ? 'true' : 'false'"
+                        aria-controls="channel-nav"
+                        aria-label="Open channel navigation">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+                </button>
+
+                
+                <div class="x-topbar__crumb">
+                    <span class="x-crumb x-crumb--channel">
+                                            <span class="x-crumb__part">Integrations</span>
+                    <span class="x-crumb__sep">/</span>                                <span class="x-crumb__part">Lazada</span>
+                    <span class="x-crumb__sep">/</span>                                <span class="x-crumb__part x-crumb__part--current">Returns and refunds</span>
+            </span>
+                </div>
+            </div>
+
+            <div class="x-topbar__right">
+                
+                <button type="button" class="x-search-trigger"
+                        x-data="{ mac: /Mac|iPod|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '') }"
+                        @click="$dispatch('xenon-open-palette')"
+                        aria-label="Search. Opens the command palette.">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                    <span class="x-search-trigger__label">Search</span>
+                    <kbd class="x-search-trigger__hint" x-text="mac ? '&#8984;K' : 'Ctrl K'"></kbd>
+                </button>
+
+                <div class="x-theme" x-data="{ mode: (window.xenonTheme && window.xenonTheme.get()) || 'light' }">
+                    <button type="button" class="x-theme__btn" :class="mode === 'light' && 'is-on'" @click="mode='light'; window.xenonTheme.set('light')" aria-label="Light theme"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+</button>
+                    <button type="button" class="x-theme__btn" :class="mode === 'dark' && 'is-on'" @click="mode='dark'; window.xenonTheme.set('dark')" aria-label="Dark theme"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+</button>
+                    <button type="button" class="x-theme__btn" :class="mode === 'system' && 'is-on'" @click="mode='system'; window.xenonTheme.set('system')" aria-label="Match system theme"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+</button>
+                </div>
+
+                                                        <div class="x-menu x-account" x-data="{ open: false }" @keydown.escape.window="if (open) { open = false; $refs.trigger.focus() }">
+    <button type="button"
+            x-ref="trigger"
+            class="x-menu__trigger x-menu__trigger--custom"
+            :aria-expanded="open ? 'true' : 'false'"
+            aria-haspopup="true"
+            aria-label="the owner - account menu"
+            @click.stop="open = !open">
+                    <span class="x-account__avatar" aria-hidden="true">P</span>
+                            <span class="x-account__name" title="the owner">the owner</span>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+    <div class="x-menu__panel" role="group" aria-label="the owner - account menu" x-show="open" x-cloak x-transition.duration.120ms @click.outside="open = false">
+        <div class="x-account__card">
+                            <div class="x-account__card-name">the owner</div>
+                                                            <div class="x-account__card-email">hello@example.com</div>
+                                                    </div>
+                        <div class="x-menu__sep"></div>
+                        
+                        <form method="POST" action="http://localhost/logout">
+                            <input type="hidden" name="_token" value="MpkAhkr94wK9V3EGFPxudCMPEsBEE8z8jDgc1xLR" autocomplete="off">                            <button type="submit" class="x-menu__item">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                                Logout
+                            </button>
+                        </form>
+    </div>
+</div>
+                            </div>
+        </header>
+        
+        <main class="x-content ">
+            <div class="alert danger">
+        <svg class="alert__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        <span>
+            Lazada: Access token expired. Order sync is paused.
+                            <a href="http://localhost/integrations/lazada/settings">Open settings</a>
+                    </span>
+    </div>
+
+<div id="js-flash-container"></div>
+            <div id="lazada-returns-page" class="co-page">
+<div class="x-list-head">
+    <div>
+        <h1 class="x-page-title">Returns and refunds</h1>
+        <p class="x-page-sub">
+            76 returns        </p>
+    </div>
+</div>
+
+
+<div class="x-cmdbar">
+    <form method="POST" action="http://localhost/integrations/lazada/orders/returns/fetch" id="formFetchLazadaReturns" class="x-cmdbar__row"
+          data-confirm="Fetch every return and refund Lazada has on file? This walks the channel's full history and can take a while."
+          data-confirm-tone="primary">
+        <input type="hidden" name="_token" value="MpkAhkr94wK9V3EGFPxudCMPEsBEE8z8jDgc1xLR" autocomplete="off">        <div class="x-cmdbar__field">
+            <label class="x-cmdbar__label" for="lzReturnFrom">Fetch from</label>
+            
+            <input type="date" class="x-input x-cmdbar__date" id="lzReturnFrom" name="date_from" value="2026-08-04">
+        </div>
+        <div class="x-cmdbar__field">
+            <label class="x-cmdbar__label" for="lzReturnTo">Fetch to</label>
+            <input type="date" class="x-input x-cmdbar__date" id="lzReturnTo" name="date_to" value="2026-08-19">
+        </div>
+        <div class="x-cmdbar__spacer"></div>
+        <div class="x-cmdbar__actions">
+            <button type="submit" class="x-btn x-btn--primary x-btn--md" id="btnFetchLazadaReturns">Fetch returns</button>
+            <span class="bl-hint">
+    <button type="button" class="bl-hint__btn"
+            aria-label="More information" aria-describedby="hint-nBz9yZzdAl">
+        <span aria-hidden="true">?</span>
+    </button>
+    <span class="bl-hint__bubble" role="tooltip" id="hint-nBz9yZzdAl">Fetch pulls the returns opened between these dates. Update statuses ignores them and re-reads every return on file.</span>
+</span>
+        </div>
+    </form>
+
+    
+    <form method="POST" action="http://localhost/integrations/lazada/orders/returns/fetch" id="formUpdateLazadaReturns"
+          data-confirm="Re-read every return Lazada has on file, ignoring the dates? This refreshes statuses for returns the buyer may have cancelled."
+          data-confirm-tone="primary">
+        <input type="hidden" name="_token" value="MpkAhkr94wK9V3EGFPxudCMPEsBEE8z8jDgc1xLR" autocomplete="off">        <button type="submit" class="x-btn x-btn--secondary x-btn--md" id="btnUpdateLazadaReturns">Update statuses</button>
+    </form>
+</div>
+
+
+
+<div class="x-segment-bar">
+    
+    <nav class="x-segment" aria-label="Return status">
+                                
+            
+            <a href="http://localhost/integrations/lazada/orders/returns?tab=ALL"
+               class="x-segment__item is-active"
+                aria-current="page" >
+                <span>All</span>
+                                    <span class="x-segment__count">76</span>
+                            </a>
+                                
+            
+            <a href="http://localhost/integrations/lazada/orders/returns?tab=RETURN_INITIATED"
+               class="x-segment__item "
+               >
+                <span>Return started</span>
+                                    <span class="x-segment__count">0</span>
+                            </a>
+                                
+            
+            <a href="http://localhost/integrations/lazada/orders/returns?tab=IN_PROGRESS"
+               class="x-segment__item "
+               >
+                <span>Package returning</span>
+                                    <span class="x-segment__count">0</span>
+                            </a>
+                                
+            
+            <a href="http://localhost/integrations/lazada/orders/returns?tab=DISPUTE"
+               class="x-segment__item "
+               >
+                <span>Disputed</span>
+                                    <span class="x-segment__count">0</span>
+                            </a>
+                                
+            
+            <a href="http://localhost/integrations/lazada/orders/returns?tab=REFUND_ISSUED"
+               class="x-segment__item "
+               >
+                <span>Refunded</span>
+                                    <span class="x-segment__count">34</span>
+                            </a>
+                                
+            
+            <a href="http://localhost/integrations/lazada/orders/returns?tab=CLOSED"
+               class="x-segment__item "
+               >
+                <span>Closed</span>
+                                    <span class="x-segment__count">0</span>
+                            </a>
+                                
+            
+            <a href="http://localhost/integrations/lazada/orders/returns?tab=REJECTED"
+               class="x-segment__item "
+               >
+                <span>Rejected</span>
+                                    <span class="x-segment__count">42</span>
+                            </a>
+            </nav>
+    <a class="x-segment-bar__aside" href="http://localhost/integrations/lazada/orders?tab=TO_SHIP">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="m15 18-6-6 6-6"/></svg>
+        All orders
+    </a>
+</div>
+
+
+<form method="GET" action="http://localhost/integrations/lazada/orders/returns" class="x-filters" id="orders-filter">
+    <input type="hidden" name="tab" value="ALL">
+
+    
+    <input type="search" class="x-input x-filters__find" name="q" value="" placeholder="Return no, order no or product" aria-label="Find a return by return number, order number or product">
+
+    
+    <span class="x-filters__group">
+        <span class="x-filters__group-label" id="lz-opened-label">Opened</span>
+        <input type="date" class="x-input x-filters__date" name="opened_from" value="" aria-label="Opened on or after" title="Opened on or after">
+        <input type="date" class="x-input x-filters__date" name="opened_to" value="" aria-label="Opened on or before" title="Opened on or before">
+    </span>
+
+    <div class="x-select-wrap x-filters__select x-filters__select--wide">
+        <select name="sort" class="x-input" data-autosubmit aria-label="Sort returns">
+                            <option value="updated_desc" selected>Last update, newest first</option>
+                            <option value="updated_asc" >Last update, oldest first</option>
+                            <option value="opened_desc" >Opened, newest first</option>
+                            <option value="opened_asc" >Opened, oldest first</option>
+                    </select>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" class="x-select-wrap__chevron"><path d="m6 9 6 6 6-6"/></svg>
+    </div>
+
+    <div class="x-select-wrap x-filters__select x-filters__select--narrow">
+        <select name="per_page" class="x-input" data-autosubmit aria-label="Returns per page">
+                            <option value="10" selected>10 per page</option>
+                            <option value="20" >20 per page</option>
+                            <option value="50" >50 per page</option>
+                    </select>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" class="x-select-wrap__chevron"><path d="m6 9 6 6 6-6"/></svg>
+    </div>
+
+    <button type="submit" class="x-btn x-btn--secondary x-btn--md">Search</button>
+
+    </form>
+
+<div class="x-table-wrap">
+    <table class="x-table x-table--stack">
+        <caption class="x-sr">Lazada returns and refunds</caption>        <thead><tr>
+            <th scope="col" class="lz-col-rproducts">Returned products</th>
+            <th scope="col" class="lz-col-rqty">Qty</th>
+            <th scope="col" class="lz-col-refund x-td-num">Refund</th>
+            <th scope="col" class="lz-col-rtotal x-td-num">Total</th>
+            <th scope="col" class="lz-col-rtrack">Return tracking</th>
+            <th scope="col" class="lz-col-rstatus">Status</th>
+            <th scope="col" class="lz-col-ract"><span class="x-sr">Actions</span></th>
+        </tr></thead>        <tbody><tr class="co-band">
+            <td colspan="7">
+                <div class="co-band__row">
+                    <div class="co-band__left">
+                        <span class="co-band__label">Buyer</span>
+                                                    <span class="co-band__value">#500077152456</span>
+                                                <span class="co-band__label">Return</span>
+                        <span class="co-band__value co-band__value--mono">801333827752456</span>
+                        <span class="co-band__label">Order</span>
+                                                    <a class="co-sn" href="http://localhost/integrations/lazada/orders/1080845833652456">1080845833652456</a>
+                                                                            <span class="co-band__muted">(1 item)</span>
+                                                                            <span class="co-band__muted">Return</span>
+                                                                            <a class="co-ref" href="http://localhost/sales/orders/42129">Sales order 42129</a>
+                                            </div>
+                    <div class="co-band__right">
+                                                    <span class="co-band__label">Updated</span>
+                            <span class="co-band__value co-band__value--mono">2026-04-02 15:11</span>
+                                            </div>
+                </div>
+            </td>
+        </tr>
+                            <tr class="co-itemrow co-itemrow--last">
+            <td class="lz-col-rproducts" data-label="Returned products">
+                <div class="co-item">
+                    <div class="order-img-wrap">
+                                                    <img class="order-img" src="https://ph-live.slatic.net/p/97340b4656cc95880cca7ea8a0c8b914.jpg" alt="">
+                                            </div>
+                    <div class="co-item__body">
+                        <span class="co-item__name">18296038918</span>
+                        <div class="co-item__meta">
+                                                            <span class="co-item__sku">WAM-PHD</span>
+                                                    </div>
+                                            </div>
+                </div>
+            </td>
+
+            <td class="lz-col-rqty" data-label="Qty">
+                <span class="co-qty">&times;1</span>
+            </td>
+
+            <td class="lz-col-refund x-td-num" data-label="Refund">
+                                    <span class="co-price">₱7,029.00</span>
+                                            <span class="co-total__method">of ₱7,100.00</span>
+                                                </td>
+
+                        <td class="lz-col-rtotal x-td-num" rowspan="1" data-label="Total">
+                <span class="co-total">
+                                            ₱7,029.00
+                                    </span>
+            </td>
+
+            <td class="lz-col-rtrack" rowspan="1" data-label="Return tracking">
+                                    <span class="lz-track">860002960163</span>
+                                
+                                    <span class="co-ship__note">Back with us</span>
+                            </td>
+
+            <td class="lz-col-rstatus" rowspan="1" data-label="Status">
+                <div class="co-status">
+                    <span class="x-badge x-badge--success">
+    <span class="x-badge__dot" aria-hidden="true"></span>    <span class="x-badge__label">Refunded</span>
+</span>
+                    
+                                            <span class="co-status__note">Reason: Change of mind</span>
+                                    </div>
+            </td>
+
+            <td class="lz-col-ract" rowspan="1">
+                                    <div class="co-actions">
+                        <a href="http://localhost/integrations/lazada/orders/1080845833652456" class="x-btn x-btn--secondary x-btn--sm">Open order</a>
+                    </div>
+                            </td>
+                    </tr>
+                            <tr class="co-band">
+            <td colspan="7">
+                <div class="co-band__row">
+                    <div class="co-band__left">
+                        <span class="co-band__label">Buyer</span>
+                                                    <span class="co-band__value">#501785376854</span>
+                                                <span class="co-band__label">Return</span>
+                        <span class="co-band__value co-band__value--mono">801320445876854</span>
+                        <span class="co-band__label">Order</span>
+                                                    <a class="co-sn" href="http://localhost/integrations/lazada/orders/1081018421076854">1081018421076854</a>
+                                                                            <span class="co-band__muted">(1 item)</span>
+                                                                            <span class="co-band__muted">Return</span>
+                                                                            <a class="co-ref" href="http://localhost/sales/orders/42140">Sales order 42140</a>
+                                            </div>
+                    <div class="co-band__right">
+                                                    <span class="co-band__label">Updated</span>
+                            <span class="co-band__value co-band__value--mono">2026-03-29 11:53</span>
+                                            </div>
+                </div>
+            </td>
+        </tr>
+                            <tr class="co-itemrow co-itemrow--last">
+            <td class="lz-col-rproducts" data-label="Returned products">
+                <div class="co-item">
+                    <div class="order-img-wrap">
+                                                    <img class="order-img" src="https://sg-live-01.slatic.net/p/bddfbd73a7481569470fab741b7b5068.png" alt="">
+                                            </div>
+                    <div class="co-item__body">
+                        <span class="co-item__name">14214687361</span>
+                        <div class="co-item__meta">
+                                                            <span class="co-item__sku">flat-patch-trs-25</span>
+                                                    </div>
+                                            </div>
+                </div>
+            </td>
+
+            <td class="lz-col-rqty" data-label="Qty">
+                <span class="co-qty">&times;1</span>
+            </td>
+
+            <td class="lz-col-refund x-td-num" data-label="Refund">
+                                    <span class="co-price">₱262.00</span>
+                                            <span class="co-total__method">of ₱262.00</span>
+                                                </td>
+
+                        <td class="lz-col-rtotal x-td-num" rowspan="1" data-label="Total">
+                <span class="co-total">
+                                            ₱262.00
+                                    </span>
+            </td>
+
+            <td class="lz-col-rtrack" rowspan="1" data-label="Return tracking">
+                                    <span class="co-empty-mark">-</span>
+                                
+                            </td>
+
+            <td class="lz-col-rstatus" rowspan="1" data-label="Status">
+                <div class="co-status">
+                    <span class="x-badge x-badge--success">
+    <span class="x-badge__dot" aria-hidden="true"></span>    <span class="x-badge__label">Refunded</span>
+</span>
+                    
+                                            <span class="co-status__note">Reason: Change of mind</span>
+                                    </div>
+            </td>
+
+            <td class="lz-col-ract" rowspan="1">
+                                    <div class="co-actions">
+                        <a href="http://localhost/integrations/lazada/orders/1081018421076854" class="x-btn x-btn--secondary x-btn--sm">Open order</a>
+                    </div>
+                            </td>
+                    </tr>
+                            <tr class="co-band">
+            <td colspan="7">
+                <div class="co-band__row">
+                    <div class="co-band__left">
+                        <span class="co-band__label">Buyer</span>
+                                                    <span class="co-band__value">#500022396675</span>
+                                                <span class="co-band__label">Return</span>
+                        <span class="co-band__value co-band__value--mono">660225292196675</span>
+                        <span class="co-band__label">Order</span>
+                                                    <a class="co-sn" href="http://localhost/integrations/lazada/orders/478686894296675">478686894296675</a>
+                                                                            <span class="co-band__muted">(1 item)</span>
+                                                                            <span class="co-band__muted">Return</span>
+                                                                    </div>
+                    <div class="co-band__right">
+                                                    <span class="co-band__label">Updated</span>
+                            <span class="co-band__value co-band__value--mono">2026-03-29 02:21</span>
+                                            </div>
+                </div>
+            </td>
+        </tr>
+                            <tr class="co-itemrow co-itemrow--last">
+            <td class="lz-col-rproducts" data-label="Returned products">
+                <div class="co-item">
+                    <div class="order-img-wrap">
+                                                    <img class="order-img" src="https://ph-live.slatic.net/p/68ae30c21ba239fa737fde39326ed642.jpg" alt="">
+                                            </div>
+                    <div class="co-item__body">
+                        <span class="co-item__name">1534334475</span>
+                        <div class="co-item__meta">
+                                                            <span class="co-item__sku">stereo-angled</span>
+                                                    </div>
+                                            </div>
+                </div>
+            </td>
+
+            <td class="lz-col-rqty" data-label="Qty">
+                <span class="co-qty">&times;1</span>
+            </td>
+
+            <td class="lz-col-refund x-td-num" data-label="Refund">
+                                    <span class="co-price">₱79.00</span>
+                                            <span class="co-total__method">of ₱60.00</span>
+                                                </td>
+
+                        <td class="lz-col-rtotal x-td-num" rowspan="1" data-label="Total">
+                <span class="co-total">
+                                            ₱79.00
+                                    </span>
+            </td>
+
+            <td class="lz-col-rtrack" rowspan="1" data-label="Return tracking">
+                                    <span class="co-empty-mark">-</span>
+                                
+                            </td>
+
+            <td class="lz-col-rstatus" rowspan="1" data-label="Status">
+                <div class="co-status">
+                    <span class="x-badge x-badge--danger">
+    <span class="x-badge__dot" aria-hidden="true"></span>    <span class="x-badge__label">Cancellation requested</span>
+</span>
+                    
+                                            <span class="co-status__note">Reason: Received wrong item</span>
+                                    </div>
+            </td>
+
+            <td class="lz-col-ract" rowspan="1">
+                                    <div class="co-actions">
+                        <a href="http://localhost/integrations/lazada/orders/478686894296675" class="x-btn x-btn--secondary x-btn--sm">Open order</a>
+                    </div>
+                            </td>
+                    </tr>
+                            <tr class="co-band">
+            <td colspan="7">
+                <div class="co-band__row">
+                    <div class="co-band__left">
+                        <span class="co-band__label">Buyer</span>
+                                                    <span class="co-band__value">#500022396675</span>
+                                                <span class="co-band__label">Return</span>
+                        <span class="co-band__value co-band__value--mono">660229227896675</span>
+                        <span class="co-band__label">Order</span>
+                                                    <a class="co-sn" href="http://localhost/integrations/lazada/orders/478686894296675">478686894296675</a>
+                                                                            <span class="co-band__muted">(1 item)</span>
+                                                                            <span class="co-band__muted">Return</span>
+                                                                    </div>
+                    <div class="co-band__right">
+                                                    <span class="co-band__label">Updated</span>
+                            <span class="co-band__value co-band__value--mono">2026-03-29 02:21</span>
+                                            </div>
+                </div>
+            </td>
+        </tr>
+                            <tr class="co-itemrow co-itemrow--last">
+            <td class="lz-col-rproducts" data-label="Returned products">
+                <div class="co-item">
+                    <div class="order-img-wrap">
+                                                    <img class="order-img" src="https://ph-live.slatic.net/p/68ae30c21ba239fa737fde39326ed642.jpg" alt="">
+                                            </div>
+                    <div class="co-item__body">
+                        <span class="co-item__name">1534334475</span>
+                        <div class="co-item__meta">
+                                                            <span class="co-item__sku">stereo-angled</span>
+                                                    </div>
+                                            </div>
+                </div>
+            </td>
+
+            <td class="lz-col-rqty" data-label="Qty">
+                <span class="co-qty">&times;1</span>
+            </td>
+
+            <td class="lz-col-refund x-td-num" data-label="Refund">
+                                    <span class="co-price">₱79.00</span>
+                                            <span class="co-total__method">of ₱60.00</span>
+                                                </td>
+
+                        <td class="lz-col-rtotal x-td-num" rowspan="1" data-label="Total">
+                <span class="co-total">
+                                            ₱79.00
+                                    </span>
+            </td>
+
+            <td class="lz-col-rtrack" rowspan="1" data-label="Return tracking">
+                                    <span class="co-empty-mark">-</span>
+                                
+                            </td>
+
+            <td class="lz-col-rstatus" rowspan="1" data-label="Status">
+                <div class="co-status">
+                    <span class="x-badge x-badge--danger">
+    <span class="x-badge__dot" aria-hidden="true"></span>    <span class="x-badge__label">Cancellation requested</span>
+</span>
+                    
+                                            <span class="co-status__note">Reason: Received wrong item</span>
+                                    </div>
+            </td>
+
+            <td class="lz-col-ract" rowspan="1">
+                                    <div class="co-actions">
+                        <a href="http://localhost/integrations/lazada/orders/478686894296675" class="x-btn x-btn--secondary x-btn--sm">Open order</a>
+                    </div>
+                            </td>
+                    </tr>
+                            <tr class="co-band">
+            <td colspan="7">
+                <div class="co-band__row">
+                    <div class="co-band__left">
+                        <span class="co-band__label">Buyer</span>
+                                                    <span class="co-band__value">#11947665</span>
+                                                <span class="co-band__label">Return</span>
+                        <span class="co-band__value co-band__value--mono">660386439847665</span>
+                        <span class="co-band__label">Order</span>
+                                                    <a class="co-sn" href="http://localhost/integrations/lazada/orders/493341120247665">493341120247665</a>
+                                                                            <span class="co-band__muted">(1 item)</span>
+                                                                            <span class="co-band__muted">Return</span>
+                                                                    </div>
+                    <div class="co-band__right">
+                                                    <span class="co-band__label">Updated</span>
+                            <span class="co-band__value co-band__value--mono">2026-03-29 02:21</span>
+                                            </div>
+                </div>
+            </td>
+        </tr>
+                            <tr class="co-itemrow co-itemrow--last">
+            <td class="lz-col-rproducts" data-label="Returned products">
+                <div class="co-item">
+                    <div class="order-img-wrap">
+                                                    <img class="order-img" src="https://ph-live.slatic.net/p/602771326cf5db0def62a30d8b10200c.jpg" alt="">
+                                            </div>
+                    <div class="co-item__body">
+                        <span class="co-item__name">1381528715</span>
+                        <div class="co-item__meta">
+                                                            <span class="co-item__sku">flat-patch-20cm</span>
+                                                    </div>
+                                            </div>
+                </div>
+            </td>
+
+            <td class="lz-col-rqty" data-label="Qty">
+                <span class="co-qty">&times;2</span>
+            </td>
+
+            <td class="lz-col-refund x-td-num" data-label="Refund">
+                                    <span class="co-price">₱359.00</span>
+                                            <span class="co-total__method">of ₱160.00</span>
+                                                </td>
+
+                        <td class="lz-col-rtotal x-td-num" rowspan="1" data-label="Total">
+                <span class="co-total">
+                                            ₱179.50
+                                    </span>
+            </td>
+
+            <td class="lz-col-rtrack" rowspan="1" data-label="Return tracking">
+                                    <span class="co-empty-mark">-</span>
+                                
+                            </td>
+
+            <td class="lz-col-rstatus" rowspan="1" data-label="Status">
+                <div class="co-status">
+                    <span class="x-badge x-badge--danger">
+    <span class="x-badge__dot" aria-hidden="true"></span>    <span class="x-badge__label">Cancellation requested</span>
+</span>
+                    
+                                            <span class="co-status__note">Reason: Description doesn&#039;t match item</span>
+                                    </div>
+            </td>
+
+            <td class="lz-col-ract" rowspan="1">
+                                    <div class="co-actions">
+                        <a href="http://localhost/integrations/lazada/orders/493341120247665" class="x-btn x-btn--secondary x-btn--sm">Open order</a>
+                    </div>
+                            </td>
+                    </tr>
+                            <tr class="co-band">
+            <td colspan="7">
+                <div class="co-band__row">
+                    <div class="co-band__left">
+                        <span class="co-band__label">Buyer</span>
+                                                    <span class="co-band__value">#500007062390</span>
+                                                <span class="co-band__label">Return</span>
+                        <span class="co-band__value co-band__value--mono">660550929362390</span>
+                        <span class="co-band__label">Order</span>
+                                                    <a class="co-sn" href="http://localhost/integrations/lazada/orders/496836450862390">496836450862390</a>
+                                                                            <span class="co-band__muted">(1 item)</span>
+                                                                            <span class="co-band__muted">Return</span>
+                                                                    </div>
+                    <div class="co-band__right">
+                                                    <span class="co-band__label">Updated</span>
+                            <span class="co-band__value co-band__value--mono">2026-03-29 02:21</span>
+                                            </div>
+                </div>
+            </td>
+        </tr>
+                            <tr class="co-itemrow co-itemrow--last">
+            <td class="lz-col-rproducts" data-label="Returned products">
+                <div class="co-item">
+                    <div class="order-img-wrap">
+                                                    <img class="order-img" src="/storage/catalog/Mosky/New-Gear-Day-Mosky-1-TO-3-Way-Daisy-Chain-Power-Cable.jpg" alt="">
+                                            </div>
+                    <div class="co-item__body">
+                        <span class="co-item__name">1053092784</span>
+                        <div class="co-item__meta">
+                                                            <span class="co-item__sku">mos-3-way</span>
+                                                    </div>
+                                            </div>
+                </div>
+            </td>
+
+            <td class="lz-col-rqty" data-label="Qty">
+                <span class="co-qty">&times;1</span>
+            </td>
+
+            <td class="lz-col-refund x-td-num" data-label="Refund">
+                                    <span class="co-price">₱133.00</span>
+                                            <span class="co-total__method">of ₱95.00</span>
+                                                </td>
+
+                        <td class="lz-col-rtotal x-td-num" rowspan="1" data-label="Total">
+                <span class="co-total">
+                                            ₱133.00
+                                    </span>
+            </td>
+
+            <td class="lz-col-rtrack" rowspan="1" data-label="Return tracking">
+                                    <span class="co-empty-mark">-</span>
+                                
+                            </td>
+
+            <td class="lz-col-rstatus" rowspan="1" data-label="Status">
+                <div class="co-status">
+                    <span class="x-badge x-badge--success">
+    <span class="x-badge__dot" aria-hidden="true"></span>    <span class="x-badge__label">Refunded</span>
+</span>
+                    
+                                            <span class="co-status__note">Reason: Item doesn&#039;t work properly</span>
+                                    </div>
+            </td>
+
+            <td class="lz-col-ract" rowspan="1">
+                                    <div class="co-actions">
+                        <a href="http://localhost/integrations/lazada/orders/496836450862390" class="x-btn x-btn--secondary x-btn--sm">Open order</a>
+                    </div>
+                            </td>
+                    </tr>
+                            <tr class="co-band">
+            <td colspan="7">
+                <div class="co-band__row">
+                    <div class="co-band__left">
+                        <span class="co-band__label">Buyer</span>
+                                                    <span class="co-band__value">#179143</span>
+                                                <span class="co-band__label">Return</span>
+                        <span class="co-band__value co-band__value--mono">660581599479143</span>
+                        <span class="co-band__label">Order</span>
+                                                    <a class="co-sn" href="http://localhost/integrations/lazada/orders/500541238179143">500541238179143</a>
+                                                                            <span class="co-band__muted">(1 item)</span>
+                                                                            <span class="co-band__muted">Return</span>
+                                                                    </div>
+                    <div class="co-band__right">
+                                                    <span class="co-band__label">Updated</span>
+                            <span class="co-band__value co-band__value--mono">2026-03-29 02:21</span>
+                                            </div>
+                </div>
+            </td>
+        </tr>
+                            <tr class="co-itemrow co-itemrow--last">
+            <td class="lz-col-rproducts" data-label="Returned products">
+                <div class="co-item">
+                    <div class="order-img-wrap">
+                                                    <img class="order-img" src="/storage/catalog/Kmmk-Solutions/shop-b-squareplug-sps6s-short-body-straight-trs-connector-up-to-6.2mm.jpg" alt="">
+                                            </div>
+                    <div class="co-item__body">
+                        <span class="co-item__name">14892879413</span>
+                        <div class="co-item__meta">
+                                                            <span class="co-item__sku">sqrplg-SPS6-S</span>
+                                                    </div>
+                                            </div>
+                </div>
+            </td>
+
+            <td class="lz-col-rqty" data-label="Qty">
+                <span class="co-qty">&times;1</span>
+            </td>
+
+            <td class="lz-col-refund x-td-num" data-label="Refund">
+                                    <span class="co-price">₱254.00</span>
+                                            <span class="co-total__method">of ₱235.00</span>
+                                                </td>
+
+                        <td class="lz-col-rtotal x-td-num" rowspan="1" data-label="Total">
+                <span class="co-total">
+                                            ₱254.00
+                                    </span>
+            </td>
+
+            <td class="lz-col-rtrack" rowspan="1" data-label="Return tracking">
+                                    <span class="co-empty-mark">-</span>
+                                
+                            </td>
+
+            <td class="lz-col-rstatus" rowspan="1" data-label="Status">
+                <div class="co-status">
+                    <span class="x-badge x-badge--danger">
+    <span class="x-badge__dot" aria-hidden="true"></span>    <span class="x-badge__label">Cancellation requested</span>
+</span>
+                    
+                                            <span class="co-status__note">Reason: Item is physically damaged</span>
+                                    </div>
+            </td>
+
+            <td class="lz-col-ract" rowspan="1">
+                                    <div class="co-actions">
+                        <a href="http://localhost/integrations/lazada/orders/500541238179143" class="x-btn x-btn--secondary x-btn--sm">Open order</a>
+                    </div>
+                            </td>
+                    </tr>
+                            <tr class="co-band">
+            <td colspan="7">
+                <div class="co-band__row">
+                    <div class="co-band__left">
+                        <span class="co-band__label">Buyer</span>
+                                                    <span class="co-band__value">#500016600067</span>
+                                                <span class="co-band__label">Return</span>
+                        <span class="co-band__value co-band__value--mono">692110174400067</span>
+                        <span class="co-band__label">Order</span>
+                                                    <a class="co-sn" href="http://localhost/integrations/lazada/orders/537621224900067">537621224900067</a>
+                                                                            <span class="co-band__muted">(1 item)</span>
+                                                                            <span class="co-band__muted">Return</span>
+                                                                    </div>
+                    <div class="co-band__right">
+                                                    <span class="co-band__label">Updated</span>
+                            <span class="co-band__value co-band__value--mono">2026-03-29 02:21</span>
+                                            </div>
+                </div>
+            </td>
+        </tr>
+                            <tr class="co-itemrow co-itemrow--last">
+            <td class="lz-col-rproducts" data-label="Returned products">
+                <div class="co-item">
+                    <div class="order-img-wrap">
+                                                    <img class="order-img" src="https://ph-live.slatic.net/p/dbc403c762bee9d17c34ec0c401dcb6b.jpg" alt="">
+                                            </div>
+                    <div class="co-item__body">
+                        <span class="co-item__name">15480982280</span>
+                        <div class="co-item__meta">
+                                                            <span class="co-item__sku">TS-Straight-Muted</span>
+                                                    </div>
+                                            </div>
+                </div>
+            </td>
+
+            <td class="lz-col-rqty" data-label="Qty">
+                <span class="co-qty">&times;1</span>
+            </td>
+
+            <td class="lz-col-refund x-td-num" data-label="Refund">
+                                    <span class="co-price">₱96.14</span>
+                                            <span class="co-total__method">of ₱61.82</span>
+                                                </td>
+
+                        <td class="lz-col-rtotal x-td-num" rowspan="1" data-label="Total">
+                <span class="co-total">
+                                            ₱96.14
+                                    </span>
+            </td>
+
+            <td class="lz-col-rtrack" rowspan="1" data-label="Return tracking">
+                                    <span class="co-empty-mark">-</span>
+                                
+                            </td>
+
+            <td class="lz-col-rstatus" rowspan="1" data-label="Status">
+                <div class="co-status">
+                    <span class="x-badge x-badge--success">
+    <span class="x-badge__dot" aria-hidden="true"></span>    <span class="x-badge__label">Refunded</span>
+</span>
+                    
+                                            <span class="co-status__note">Reason: Received wrong item</span>
+                                    </div>
+            </td>
+
+            <td class="lz-col-ract" rowspan="1">
+                                    <div class="co-actions">
+                        <a href="http://localhost/integrations/lazada/orders/537621224900067" class="x-btn x-btn--secondary x-btn--sm">Open order</a>
+                    </div>
+                            </td>
+                    </tr>
+                            <tr class="co-band">
+            <td colspan="7">
+                <div class="co-band__row">
+                    <div class="co-band__left">
+                        <span class="co-band__label">Buyer</span>
+                                                    <span class="co-band__value">#6212522</span>
+                                                <span class="co-band__label">Return</span>
+                        <span class="co-band__value co-band__value--mono">692615200112522</span>
+                        <span class="co-band__label">Order</span>
+                                                    <a class="co-sn" href="http://localhost/integrations/lazada/orders/540128239812522">540128239812522</a>
+                                                                            <span class="co-band__muted">(1 item)</span>
+                                                                            <span class="co-band__muted">Return</span>
+                                                                    </div>
+                    <div class="co-band__right">
+                                                    <span class="co-band__label">Updated</span>
+                            <span class="co-band__value co-band__value--mono">2026-03-29 02:21</span>
+                                            </div>
+                </div>
+            </td>
+        </tr>
+                            <tr class="co-itemrow co-itemrow--last">
+            <td class="lz-col-rproducts" data-label="Returned products">
+                <div class="co-item">
+                    <div class="order-img-wrap">
+                                                    <img class="order-img" src="/storage/catalog/Mosky/New-Gear-Day-Mosky-Black-RAT-Distortion-Mini-Guitar-Effect-Pedal.jpg" alt="">
+                                            </div>
+                    <div class="co-item__body">
+                        <span class="co-item__name">4720562162</span>
+                        <div class="co-item__meta">
+                                                            <span class="co-item__sku">mos-black-rat</span>
+                                                    </div>
+                                            </div>
+                </div>
+            </td>
+
+            <td class="lz-col-rqty" data-label="Qty">
+                <span class="co-qty">&times;1</span>
+            </td>
+
+            <td class="lz-col-refund x-td-num" data-label="Refund">
+                                    <span class="co-price">₱500.00</span>
+                                            <span class="co-total__method">of ₱1,190.00</span>
+                                                </td>
+
+                        <td class="lz-col-rtotal x-td-num" rowspan="1" data-label="Total">
+                <span class="co-total">
+                                            ₱500.00
+                                    </span>
+            </td>
+
+            <td class="lz-col-rtrack" rowspan="1" data-label="Return tracking">
+                                    <span class="co-empty-mark">-</span>
+                                
+                            </td>
+
+            <td class="lz-col-rstatus" rowspan="1" data-label="Status">
+                <div class="co-status">
+                    <span class="x-badge x-badge--success">
+    <span class="x-badge__dot" aria-hidden="true"></span>    <span class="x-badge__label">Refunded</span>
+</span>
+                    
+                                            <span class="co-status__note">Reason: Received wrong item</span>
+                                    </div>
+            </td>
+
+            <td class="lz-col-ract" rowspan="1">
+                                    <div class="co-actions">
+                        <a href="http://localhost/integrations/lazada/orders/540128239812522" class="x-btn x-btn--secondary x-btn--sm">Open order</a>
+                    </div>
+                            </td>
+                    </tr>
+                            <tr class="co-band">
+            <td colspan="7">
+                <div class="co-band__row">
+                    <div class="co-band__left">
+                        <span class="co-band__label">Buyer</span>
+                                                    <span class="co-band__value">#16510454</span>
+                                                <span class="co-band__label">Return</span>
+                        <span class="co-band__value co-band__value--mono">694447558110454</span>
+                        <span class="co-band__label">Order</span>
+                                                    <a class="co-sn" href="http://localhost/integrations/lazada/orders/552068922510454">552068922510454</a>
+                                                                            <span class="co-band__muted">(1 item)</span>
+                                                                            <span class="co-band__muted">Return</span>
+                                                                    </div>
+                    <div class="co-band__right">
+                                                    <span class="co-band__label">Updated</span>
+                            <span class="co-band__value co-band__value--mono">2026-03-29 02:21</span>
+                                            </div>
+                </div>
+            </td>
+        </tr>
+                            <tr class="co-itemrow co-itemrow--last">
+            <td class="lz-col-rproducts" data-label="Returned products">
+                <div class="co-item">
+                    <div class="order-img-wrap">
+                                                    <img class="order-img" src="/storage/catalog/products_2020/New-Gear-Day-9V-2A-Power-Supply-Adapter-Converter-for-Guitar-Bass-Effect-100~240V-Input-US-Plug.jpg" alt="">
+                                            </div>
+                    <div class="co-item__body">
+                        <span class="co-item__name">6800258386</span>
+                        <div class="co-item__meta">
+                                                            <span class="co-item__sku">mp-9v</span>
+                                                    </div>
+                                            </div>
+                </div>
+            </td>
+
+            <td class="lz-col-rqty" data-label="Qty">
+                <span class="co-qty">&times;1</span>
+            </td>
+
+            <td class="lz-col-refund x-td-num" data-label="Refund">
+                                    <span class="co-price">₱328.00</span>
+                                            <span class="co-total__method">of ₱290.00</span>
+                                                </td>
+
+                        <td class="lz-col-rtotal x-td-num" rowspan="1" data-label="Total">
+                <span class="co-total">
+                                            ₱328.00
+                                    </span>
+            </td>
+
+            <td class="lz-col-rtrack" rowspan="1" data-label="Return tracking">
+                                    <span class="lz-track">860000722292</span>
+                                
+                                    <span class="co-ship__note">Back with us</span>
+                            </td>
+
+            <td class="lz-col-rstatus" rowspan="1" data-label="Status">
+                <div class="co-status">
+                    <span class="x-badge x-badge--success">
+    <span class="x-badge__dot" aria-hidden="true"></span>    <span class="x-badge__label">Refunded</span>
+</span>
+                    
+                                            <span class="co-status__note">Reason: Item doesn&#039;t work properly</span>
+                                    </div>
+            </td>
+
+            <td class="lz-col-ract" rowspan="1">
+                                    <div class="co-actions">
+                        <a href="http://localhost/integrations/lazada/orders/552068922510454" class="x-btn x-btn--secondary x-btn--sm">Open order</a>
+                    </div>
+                            </td>
+                    </tr></tbody>
+    </table>
+</div>
+
+<div class="x-pager">
+                    <span class="x-pager__count x-num">1 to 10 of 76</span>
+        
+        <div class="x-pager__nav">
+            <button type="button" class="x-btn x-btn--secondary x-btn--sm" disabled="disabled"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="m15 18-6-6 6-6"/></svg>
+ Previous</button>
+
+                            
+                
+                <ol class="x-pager__pages" aria-label="Pages"
+                    x-data
+                    x-init="$nextTick(() => {
+                        const on = $el.querySelector('.is-on');
+                        if (! on) return;
+                        // Rect deltas, not offsetLeft. offsetLeft is measured
+                        // from the offsetParent, and the <li> between the item
+                        // and this container makes that the wrong origin - it
+                        // reported page 5 of 8 as sitting at the far right end
+                        // of the strip and scrolled there.
+                        const item = on.getBoundingClientRect();
+                        const box = $el.getBoundingClientRect();
+                        $el.scrollLeft += (item.left - box.left) - (box.width - item.width) / 2;
+                    })">
+                                            <li>
+                                                            <span class="x-pager__page is-on" aria-current="page">
+                                    <span class="x-sr">Page </span>1<span class="x-sr"> of 8, current page</span>
+                                </span>
+                                                    </li>
+                                            <li>
+                                                            <a class="x-pager__page" href="http://localhost/integrations/lazada/orders/returns?page=2">
+                                    <span class="x-sr">Page </span>2
+                                </a>
+                                                    </li>
+                                            <li>
+                                                            <a class="x-pager__page" href="http://localhost/integrations/lazada/orders/returns?page=3">
+                                    <span class="x-sr">Page </span>3
+                                </a>
+                                                    </li>
+                                            <li>
+                                                            <span class="x-pager__gap" aria-hidden="true">&hellip;</span>
+                                                    </li>
+                                            <li>
+                                                            <a class="x-pager__page" href="http://localhost/integrations/lazada/orders/returns?page=8">
+                                    <span class="x-sr">Page </span>8
+                                </a>
+                                                    </li>
+                                    </ol>
+            
+            <a href="http://localhost/integrations/lazada/orders/returns?page=2" class="x-btn x-btn--secondary x-btn--sm">Next <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="m9 18 6-6-6-6"/></svg></a>
+        </div>
+    </div>
+
+
+<div id="lzLoadingOverlay" class="modal-backdrop">
+    <div class="modal co-modal co-modal--sm">
+        <div class="co-progress">
+            <span class="co-spinner co-spinner--lg" aria-hidden="true"></span>
+            <div>
+                <div id="lzLoadingTitle" class="co-progress__title">Fetching returns</div>
+                <div class="co-progress__note">Please keep this tab open.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</div>
+        </main>
+    </div>
+</div>
+<div class="modal-backdrop" id="x-confirm-modal">
+    
+    <div class="modal modal--sm" role="dialog" aria-modal="true"
+         aria-labelledby="x-confirm-modal-title"
+         aria-describedby="x-confirm-modal-message">
+        <div class="modal-header">
+            <h3 id="x-confirm-modal-title">Confirm</h3>
+            <button class="modal-close" type="button" id="x-confirm-modal-close" aria-label="Close">&times;</button>
+        </div>
+        <p class="x-confirm__message" id="x-confirm-modal-message"></p>
+        <div class="d-flex justify-end gap-8">
+            <button type="button" class="x-btn x-btn--secondary x-btn--md" id="x-confirm-modal-cancel">Cancel</button>
+            <button type="button" class="x-btn x-btn--danger x-btn--md" id="x-confirm-modal-ok">Confirm</button>
+        </div>
+    </div>
+</div>
+<div class="x-palette" x-data="xenonPalette(JSON.parse('[{\u0022label\u0022:\u0022Dashboard\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/dashboard\u0022,\u0022hay\u0022:\u0022dashboard dashboard home overview summary\u0022},{\u0022label\u0022:\u0022Sales \\\/ Orders\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/sales\\\/orders\u0022,\u0022hay\u0022:\u0022sales orders sale customer invoice marketplace\u0022},{\u0022label\u0022:\u0022Sales \\\/ Payments\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/sales\\\/order-payments\u0022,\u0022hay\u0022:\u0022sales payments paid settlement remittance\u0022},{\u0022label\u0022:\u0022Fulfilment\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/integrations\\\/orders\u0022,\u0022hay\u0022:\u0022fulfilment fulfilment fulfilment fulfillment ship pack marketplace orders\u0022},{\u0022label\u0022:\u0022Channels \\\/ All channels\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/integrations\u0022,\u0022hay\u0022:\u0022channels all channels integrations status connection sync marketplace board\u0022},{\u0022label\u0022:\u0022Channels \\\/ Lazada\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/integrations\\\/lazada\u0022,\u0022hay\u0022:\u0022channels lazada lazada seller center orders listings\u0022},{\u0022label\u0022:\u0022Channels \\\/ Shopee\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/integrations\\\/shopee\u0022,\u0022hay\u0022:\u0022channels shopee shopee seller center orders listings\u0022},{\u0022label\u0022:\u0022Channels \\\/ TikTok Shop\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/integrations\\\/tiktok\u0022,\u0022hay\u0022:\u0022channels tiktok shop tiktok seller center orders listings\u0022},{\u0022label\u0022:\u0022Channels \\\/ Venta Shop A\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/integrations\\\/venta\\\/2\u0022,\u0022hay\u0022:\u0022channels venta shop a venta shop a seller center orders store\u0022},{\u0022label\u0022:\u0022Channels \\\/ Venta Shop B\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/integrations\\\/venta\\\/3\u0022,\u0022hay\u0022:\u0022channels venta shop b venta shop b seller center orders store\u0022},{\u0022label\u0022:\u0022Channels \\\/ OpenCart Shop A\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/integrations\\\/opencart\\\/1\u0022,\u0022hay\u0022:\u0022channels opencart shop a opencart shop a seller center orders store\u0022},{\u0022label\u0022:\u0022Channels \\\/ OpenCart Shop B\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/integrations\\\/opencart\\\/2\u0022,\u0022hay\u0022:\u0022channels opencart shop b opencart shop b seller center orders store\u0022},{\u0022label\u0022:\u0022Catalogue \\\/ Products\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/catalog\\\/products\u0022,\u0022hay\u0022:\u0022catalogue products sku variation stock price\u0022},{\u0022label\u0022:\u0022Catalogue \\\/ Categories\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/catalog\\\/categories\u0022,\u0022hay\u0022:\u0022catalogue categories taxonomy group\u0022},{\u0022label\u0022:\u0022Catalogue \\\/ Manufacturers\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/catalog\\\/manufacturers\u0022,\u0022hay\u0022:\u0022catalogue manufacturers brand supplier\u0022},{\u0022label\u0022:\u0022Catalogue \\\/ Reviews\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/catalog\\\/reviews\u0022,\u0022hay\u0022:\u0022catalogue reviews rating feedback comment\u0022},{\u0022label\u0022:\u0022Purchasing \\\/ Purchase Orders\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/purchasing\\\/purchase-orders\u0022,\u0022hay\u0022:\u0022purchasing purchase orders po buy restock inbound\u0022},{\u0022label\u0022:\u0022Purchasing \\\/ Vendors\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/purchasing\\\/vendors\u0022,\u0022hay\u0022:\u0022purchasing vendors supplier seller source\u0022},{\u0022label\u0022:\u0022Purchasing \\\/ Reorder Suggestions\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/purchasing\\\/reorder-suggestions\u0022,\u0022hay\u0022:\u0022purchasing reorder suggestions \u0022},{\u0022label\u0022:\u0022Warehousing \\\/ Transfers\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/warehousing\\\/transfers\u0022,\u0022hay\u0022:\u0022warehousing transfers move stock transfer location\u0022},{\u0022label\u0022:\u0022Warehousing \\\/ Inventory\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/warehousing\\\/inventory\u0022,\u0022hay\u0022:\u0022warehousing inventory stock quantity count adjust\u0022},{\u0022label\u0022:\u0022Warehousing \\\/ Locations\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/warehousing\\\/locations\u0022,\u0022hay\u0022:\u0022warehousing locations warehouse branch store\u0022},{\u0022label\u0022:\u0022Warehousing \\\/ Stock Adjustment\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/warehousing\\\/adjust\u0022,\u0022hay\u0022:\u0022warehousing stock adjustment \u0022},{\u0022label\u0022:\u0022Reports \\\/ Orders\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/reports\\\/orders\u0022,\u0022hay\u0022:\u0022reports orders revenue sales report\u0022},{\u0022label\u0022:\u0022Reports \\\/ Products\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/reports\\\/products\u0022,\u0022hay\u0022:\u0022reports products profit margin markup cogs\u0022},{\u0022label\u0022:\u0022Reports \\\/ Categories\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/reports\\\/categories\u0022,\u0022hay\u0022:\u0022reports categories category profit\u0022},{\u0022label\u0022:\u0022Reports \\\/ Fees\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/reports\\\/fees\u0022,\u0022hay\u0022:\u0022reports fees commission charge marketplace fee\u0022},{\u0022label\u0022:\u0022Reports \\\/ Payouts\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/reports\\\/payouts\u0022,\u0022hay\u0022:\u0022reports payouts settlement remittance disbursement\u0022},{\u0022label\u0022:\u0022Reports \\\/ Inventory\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/reports\\\/inventory\u0022,\u0022hay\u0022:\u0022reports inventory stock value on hand\u0022},{\u0022label\u0022:\u0022Petty Cash\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/petty-cash\u0022,\u0022hay\u0022:\u0022petty cash petty cash \u0022},{\u0022label\u0022:\u0022Petty Cash \\\/ Settings\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/petty-cash\\\/settings\u0022,\u0022hay\u0022:\u0022petty cash settings \u0022},{\u0022label\u0022:\u0022Audit \\u0026 Monitoring \\\/ Activity Log\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/activity-log\u0022,\u0022hay\u0022:\u0022audit \\u0026 monitoring activity log \u0022},{\u0022label\u0022:\u0022Settings\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/settings\u0022,\u0022hay\u0022:\u0022settings settings config currency user permission extension order status\u0022}]'))" x-show="open" x-cloak
+     @keydown.escape.window="close()"
+     @keydown.window.prevent.cmd.k="toggle()"
+     @keydown.window.prevent.ctrl.k="toggle()"
+     @xenon-open-palette.window="openPalette()">
+    <div class="x-palette__scrim" @click="close()"></div>
+    <div class="x-palette__panel" role="dialog" aria-modal="true" aria-label="Command palette">
+        <div class="x-palette__search">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="search" class="x-palette__input" x-ref="input" x-model="q"
+                   placeholder="Search pages, orders and products" aria-label="Search"
+                   autocomplete="off" spellcheck="false" role="combobox" aria-expanded="true"
+                   @input="search()"
+                   @keydown.down.prevent="move(1)"
+                   @keydown.up.prevent="move(-1)"
+                   @keydown.enter.prevent="go()">
+        </div>
+        <div class="x-palette__results" role="listbox" aria-label="Results">
+            <template x-if="routes().length">
+                <div class="x-palette__group">
+                    <p class="x-palette__group-title">Pages</p>
+                    <template x-for="(r, i) in routes()" :key="r.url">
+                        <a :href="r.url" class="x-palette__item" role="option"
+                           :aria-selected="idx === i ? 'true' : 'false'"
+                           :class="idx === i && 'is-active'"
+                           @mouseenter="idx = i" x-text="r.label"></a>
+                    </template>
+                </div>
+            </template>
+
+            <template x-if="records.orders.length">
+                <div class="x-palette__group">
+                    <p class="x-palette__group-title">Orders</p>
+                    <template x-for="(o, i) in records.orders" :key="'order-' + o.id">
+                        <a :href="o.url" class="x-palette__item x-palette__item--record" role="option"
+                           :aria-selected="idx === routes().length + i ? 'true' : 'false'"
+                           :class="idx === routes().length + i && 'is-active'"
+                           @mouseenter="idx = routes().length + i">
+                            <span class="x-palette__item-title" x-text="'#' + o.id + (o.firstname || o.lastname ? ' · ' + [o.firstname, o.lastname].filter(Boolean).join(' ') : '')"></span>
+                            <span class="x-palette__item-meta" x-text="o.total_display"></span>
+                        </a>
+                    </template>
+                </div>
+            </template>
+
+            <template x-if="records.products.length">
+                <div class="x-palette__group">
+                    <p class="x-palette__group-title">Products</p>
+                    <template x-for="(p, i) in records.products" :key="'product-' + p.id">
+                        <a :href="p.url" class="x-palette__item x-palette__item--record" role="option"
+                           :aria-selected="idx === routes().length + records.orders.length + i ? 'true' : 'false'"
+                           :class="idx === routes().length + records.orders.length + i && 'is-active'"
+                           @mouseenter="idx = routes().length + records.orders.length + i">
+                            <span class="x-palette__item-title" x-text="p.name"></span>
+                            <span class="x-palette__item-meta" x-text="p.sku || ('ID ' + p.id)"></span>
+                        </a>
+                    </template>
+                </div>
+            </template>
+
+            <template x-if="q.length >= 2 && !routes().length && !records.orders.length && !records.products.length">
+                <p class="x-palette__empty">Nothing matches "<span x-text="q"></span>".</p>
+            </template>
+        </div>
+        <div class="x-palette__hints">
+            <span><kbd>&uarr;</kbd><kbd>&darr;</kbd> navigate</span>
+            <span><kbd>&crarr;</kbd> open</span>
+            <span><kbd>esc</kbd> close</span>
+        </div>
+    </div>
+</div>
+</body>
+</html>

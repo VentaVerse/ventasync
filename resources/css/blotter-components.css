@@ -4216,15 +4216,25 @@
      * reviewed in.
      *
      * DESIGN.md had already settled this and the repaint overrode it -
-     * --bl-brand "means 'you can act here': focus rings, active rows". It
-     * measures 8.40:1 on the dark ground and clears the light one too, which
-     * is the entire reason a single token owns this job rather than seven
-     * brand hues taking turns.
+     * --bl-brand "means 'you can act here': focus rings, active rows".
+     *
+     * THE FIRST ATTEMPT AT THAT FIX TRADED ONE THEME FOR THE OTHER. It took
+     * --bl-brand literally: #4fb9d4 measures 8.40:1 on the dark ground and
+     * 2.03:1 on the light one, so the ring that had been invisible in dark on
+     * two channels became invisible in light on all of them. Fixing the theme
+     * that was measured while breaking the one that was not is the same
+     * mistake the repaint made, one theme over.
+     *
+     * --bl-brand-deep is the pair member that survives both, because it is
+     * itself redefined per theme: #1c7f9b on the light ground (4.10) and
+     * #8fd9ea on the dark one (12.10). A ring has to be visible in both or it
+     * is not a ring, and the guard below now asserts the ratio rather than
+     * just the token name.
      *
      * The channel keeps the card cap, the segment underline and the primary
      * button. It does not get the one mark whose only purpose is to be seen. */
     .x-app--channel :focus-visible,
-    .fh-scope :focus-visible { outline-color: var(--bl-brand); }
+    .fh-scope :focus-visible { outline-color: var(--bl-brand-deep); }
 
     /* DARK THEME. --ch-deep is computed against white, so it only answers
        the light theme's question; on a near-black sheet the same colour can

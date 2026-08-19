@@ -553,6 +553,95 @@ class FoundationTest extends TestCase
     }
 
     /**
+     * The focus ring is visible in BOTH themes.
+     *
+     * The name-only guard above was not enough, and this test exists because
+     * of what it let through. The ring was moved off the channel accent and
+     * onto --bl-brand, which measures 8.40:1 on the dark ground and 2.03:1 on
+     * the light one - so a fix for the theme that had been measured broke the
+     * theme that had not, and the guard passed because the token name was
+     * right.
+     *
+     * A focus indicator needs 3:1 against what it sits on (WCAG 1.4.11). This
+     * resolves whatever token the channel-scoped rule actually names, in each
+     * theme's own declaration, and measures it against that theme's ground.
+     */
+    public function test_the_focus_ring_clears_three_to_one_in_both_themes(): void
+    {
+        $components = File::get(resource_path('css/blotter-components.css'));
+
+        preg_match(
+            '/\.fh-scope :focus-visible\s*\{[^}]*outline-color:\s*var\(\s*(--[a-z0-9-]+)/i',
+            $components,
+            $m
+        );
+
+        $this->assertNotEmpty($m, 'the channel-scoped focus ring rule was not found');
+        $token = $m[1];
+
+        $root = File::get(resource_path('css/blotter.css'));
+
+        // Each theme declares its own value for the same token; the ring is
+        // only as good as the weaker of the two.
+        $themes = [
+            'light' => ['ground' => '--bl-paper', 'block' => $this->cssBlock($root, ':root')],
+            'dark' => ['ground' => '--bl-paper', 'block' => $this->cssBlock($root, "[data-theme='dark']")],
+        ];
+
+        $failures = [];
+
+        foreach ($themes as $name => $spec) {
+            $ring = $this->cssHex($spec['block'], $token);
+            $ground = $this->cssHex($spec['block'], $spec['ground']);
+
+            $this->assertNotNull($ring, "{$token} is not declared as a hex in the {$name} theme");
+            $this->assertNotNull($ground, "{$spec['ground']} is not declared as a hex in the {$name} theme");
+
+            $ratio = $this->contrastRatio($ring, $ground);
+
+            if ($ratio < 3.0) {
+                $failures[] = sprintf('%s: %s on the ground measures %.2f', $name, $token, $ratio);
+            }
+        }
+
+        $this->assertSame(
+            [],
+            $failures,
+            "The focus ring is not visible in every theme. WCAG 1.4.11 asks 3:1 of a focus\n"
+            ."indicator, and a ring that only works in one theme is not a ring:\n\n".implode("\n", $failures)
+        );
+    }
+
+    /**
+     * The body of the first rule with this exact selector.
+     */
+    private function cssBlock(string $css, string $selector): string
+    {
+        $start = strpos($css, $selector.' {');
+
+        if ($start === false) {
+            return '';
+        }
+
+        $open = strpos($css, '{', $start);
+        $close = strpos($css, '}', $open);
+
+        return substr($css, $open, $close - $open);
+    }
+
+    /**
+     * @return array<int, int>|null
+     */
+    private function cssHex(string $block, string $token): ?array
+    {
+        if (preg_match('/'.preg_quote($token, '/').':\s*(#[0-9a-f]{6})/i', $block, $m) !== 1) {
+            return null;
+        }
+
+        return array_map('hexdec', str_split(ltrim($m[1], '#'), 2));
+    }
+
+    /**
      * Every stylesheet that reaches a served page.
      *
      * Read off the filesystem rather than off the @import lists, so a file

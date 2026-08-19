@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Two pages, one list</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0b1228; --ink2:#3c4763; --ink3:#5f6b85;
+    --paper:#eef2f8; --sheet:#fff; --rule:#dbe2ee; --rule2:#c8d2e2;
+    --chrome:#f4f7fb; --bad:#cb3327; --badwash:#fdeeec;
+    --good:#0c7a54; --attn:#9e5c05; --brand:#1c7f9b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+       font-family:Archivo,system-ui,sans-serif;line-height:1.55}
+  .wrap{max-width:1180px;margin:0 auto;padding:44px 28px 90px}
+
+  h1{font-size:34px;line-height:1.15;margin:0 0 10px;letter-spacing:-.02em}
+  .lede{font-size:17px;color:var(--ink2);margin:0 0 8px;max-width:66ch}
+  h2{font-size:22px;margin:54px 0 6px;letter-spacing:-.01em}
+  h2 .n{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--ink3);
+        margin-right:10px;font-weight:600}
+  .sub{color:var(--ink2);margin:0 0 22px;max-width:70ch}
+  hr{border:0;border-top:1px solid var(--rule);margin:44px 0 0}
+
+  /* ---------- wireframe pages ---------- */
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:26px}
+  @media (max-width:860px){.pair{grid-template-columns:1fr}}
+
+  .win{background:var(--sheet);border:1px solid var(--rule2);border-radius:12px;
+       overflow:hidden;box-shadow:0 1px 2px rgba(11,18,40,.05)}
+  .win__bar{display:flex;align-items:center;gap:6px;padding:9px 12px;
+            background:var(--chrome);border-bottom:1px solid var(--rule)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--rule2)}
+  .win__url{margin-left:8px;font-family:'JetBrains Mono',monospace;font-size:11px;
+            color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .win__body{padding:14px;min-height:300px}
+  .win__tag{position:absolute;top:-11px;left:14px;background:var(--ink);color:#fff;
+            font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+            padding:3px 9px;border-radius:20px}
+  .winwrap{position:relative}
+
+  /* wireframe bits */
+  .crumb{font-size:11px;color:var(--ink3);margin-bottom:8px;font-family:'JetBrains Mono',monospace}
+  .ttl{font-size:17px;font-weight:700;margin:0 0 12px}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px}
+  .card{background:var(--chrome);border:1px solid var(--rule);border-radius:7px;
+        padding:7px 8px;font-size:10px;color:var(--ink3)}
+  .card b{display:block;font-size:14px;color:var(--ink)}
+  .tabs{display:flex;gap:4px;background:var(--chrome);border:1px solid var(--rule);
+        border-radius:9px;padding:3px;margin-bottom:10px}
+  .tab{font-size:11px;padding:5px 9px;border-radius:6px;color:var(--ink3);white-space:nowrap}
+  .tab.on{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 0 0 1px var(--rule2)}
+  .rows{border:1px solid var(--rule);border-radius:9px;overflow:hidden}
+  .row{display:flex;align-items:center;gap:8px;padding:9px 10px;border-bottom:1px solid var(--rule)}
+  .row:last-child{border-bottom:0}
+  .sk{height:8px;border-radius:4px;background:var(--rule)}
+  .thumb{width:26px;height:26px;border-radius:5px;background:var(--rule);flex:none}
+
+  .banner{display:flex;gap:9px;align-items:flex-start;background:var(--badwash);
+          border:1px solid #f3c9c4;border-left:3px solid var(--bad);border-radius:8px;
+          padding:10px 12px;margin-bottom:12px}
+  .banner__x{color:var(--bad);font-weight:700;font-size:13px;flex:none}
+  .banner__t{font-size:12px;color:#7d211a;line-height:1.45}
+  .banner__t a{color:var(--brand);font-weight:600}
+
+  .ghost{border:1.5px dashed #e0a9a2;border-radius:8px;padding:10px 12px;margin-bottom:12px;
+         font-size:12px;color:#a8564d;background:repeating-linear-gradient(135deg,
+         transparent,transparent 7px,rgba(203,51,39,.045) 7px,rgba(203,51,39,.045) 14px)}
+  .ghost b{color:#7d211a}
+
+  .tiny{font-size:11px;color:var(--bad);font-weight:600}
+
+  /* ---------- annotation ---------- */
+  .diffs{margin-top:24px;border:1px solid var(--rule2);border-radius:12px;overflow:hidden;background:var(--sheet)}
+  table{width:100%;border-collapse:collapse}
+  th,td{text-align:left;padding:11px 14px;font-size:13.5px;border-bottom:1px solid var(--rule)}
+  th{background:var(--chrome);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3)}
+  tr:last-child td{border-bottom:0}
+  td.same{color:var(--ink3)}
+  .pill{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px}
+  .pill--bad{background:var(--badwash);color:#7d211a}
+  .pill--ok{background:#e8f5ef;color:var(--good)}
+
+  /* ---------- options ---------- */
+  .opts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:24px}
+  @media (max-width:940px){.opts{grid-template-columns:1fr}}
+  .opt{background:var(--sheet);border:1px solid var(--rule2);border-radius:12px;padding:18px;
+       display:flex;flex-direction:column}
+  .opt--pick{border-color:var(--good);box-shadow:0 0 0 3px rgba(12,122,84,.09)}
+  .opt__k{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink3);margin-bottom:4px}
+  .opt__t{font-size:16px;font-weight:700;margin:0 0 8px}
+  .opt__d{font-size:13px;color:var(--ink2);margin:0 0 14px;flex:1}
+  .opt__flag{font-size:12px;padding:8px 10px;border-radius:7px;margin-bottom:12px}
+  .flag--warn{background:#fdf3e3;color:#7a4a05;border:1px solid #f0d9ae}
+  .flag--good{background:#e8f5ef;color:#0a5c40;border:1px solid #b9e2d0}
+
+  /* diagram */
+  .dia{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+  .box{border:1.5px solid var(--rule2);border-radius:7px;padding:7px 10px;font-size:11.5px;
+       font-weight:600;background:var(--chrome)}
+  .box--live{background:#fff;border-color:var(--ink);color:var(--ink)}
+  .box--gone{border-style:dashed;color:#b0bacd;background:transparent;text-decoration:line-through}
+  .arw{color:var(--ink3);font-size:14px}
+
+  .rec{margin-top:34px;background:var(--sheet);border:1px solid var(--rule2);
+       border-left:4px solid var(--good);border-radius:12px;padding:20px 22px}
+  .rec h3{margin:0 0 8px;font-size:17px}
+  .rec p{margin:0 0 10px;color:var(--ink2);font-size:14.5px;max-width:78ch}
+  .rec p:last-child{margin-bottom:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Two pages, one list</h1>
+  <p class="lede">Your orders list is written once. It is then displayed by <b>two different pages</b>,
+     and those two pages disagree about what goes around it. This is what that looks like.</p>
+
+  <hr>
+
+  <h2><span class="n">01</span>The same list, in two places</h2>
+  <p class="sub">Both of these show the identical Shopee orders table &mdash; same rows, same filters,
+     same everything inside the box. Only the wrapping differs.</p>
+
+  <div class="pair">
+    <div class="winwrap">
+      <span class="win__tag">The hub</span>
+      <div class="win">
+        <div class="win__bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i>
+          <span class="win__url">/integrations/orders?channel=shopee</span></div>
+        <div class="win__body">
+          <div class="crumb">Fulfilment / Shopee</div>
+          <div class="ttl">Shopee</div>
+          <div class="cards">
+            <div class="card"><b>24</b>Lazada</div>
+            <div class="card"><b>0</b>Shopee</div>
+            <div class="card"><b>0</b>TikTok</div>
+            <div class="card"><b>0</b>Storefront</div>
+          </div>
+          <div class="tabs"><span class="tab on">All</span><span class="tab">To Ship</span>
+            <span class="tab">Shipping</span><span class="tab">Delivered</span></div>
+          <div class="rows">
+            <div class="row"><i class="thumb"></i><i class="sk" style="width:46%"></i></div>
+            <div class="row"><i class="thumb"></i><i class="sk" style="width:62%"></i></div>
+            <div class="row"><i class="thumb"></i><i class="sk" style="width:38%"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="winwrap">
+      <span class="win__tag">The channel's own page</span>
+      <div class="win">
+        <div class="win__bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i>
+          <span class="win__url">/integrations/shopee/orders</span></div>
+        <div class="win__body">
+          <div class="crumb">Integrations / Shopee / Orders</div>
+          <div class="ttl">Orders</div>
+          <div class="tabs"><span class="tab on">All</span><span class="tab">To Ship</span>
+            <span class="tab">Shipping</span><span class="tab">Delivered</span></div>
+          <div class="rows">
+            <div class="row"><i class="thumb"></i><i class="sk" style="width:46%"></i></div>
+            <div class="row"><i class="thumb"></i><i class="sk" style="width:62%"></i></div>
+            <div class="row"><i class="thumb"></i><i class="sk" style="width:38%"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="diffs">
+    <table>
+      <tr><th style="width:30%">&nbsp;</th><th>The hub</th><th>The channel's own page</th></tr>
+      <tr><td>The order list itself</td><td class="same">identical</td><td class="same">identical</td></tr>
+      <tr><td>Trail at the top</td><td>Fulfilment / Shopee</td><td>Integrations / Shopee / Orders</td></tr>
+      <tr><td>Browser tab says</td><td>Shopee fulfilment</td><td>Shopee orders</td></tr>
+      <tr><td>Channel cards above</td><td><span class="pill pill--ok">shown</span></td><td>&mdash;</td></tr>
+      <tr><td><b>Error banner</b></td>
+          <td><span class="pill pill--bad">never appears</span></td>
+          <td><span class="pill pill--ok">appears</span></td></tr>
+    </table>
+  </div>
+
+  <h2><span class="n">02</span>The moment it costs you</h2>
+  <p class="sub">Lazada's sign-in expires. Orders stop arriving. Here is what each page tells you
+     about it.</p>
+
+  <div class="pair">
+    <div class="winwrap">
+      <span class="win__tag">The hub &mdash; where you start your day</span>
+      <div class="win">
+        <div class="win__bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i>
+          <span class="win__url">/integrations/orders?channel=lazada</span></div>
+        <div class="win__body">
+          <div class="crumb">Fulfilment / Lazada</div>
+          <div class="ttl">Lazada</div>
+          <div class="ghost"><b>Nothing here.</b> This page has no place to put the warning,
+            so it never shows one.</div>
+          <div class="cards">
+            <div class="card"><b>24</b>Lazada<br><span class="tiny">not syncing</span></div>
+            <div class="card"><b>0</b>Shopee</div>
+            <div class="card"><b>0</b>TikTok</div>
+            <div class="card"><b>0</b>Storefront</div>
+          </div>
+          <div class="rows">
+            <div class="row"><i class="thumb"></i><i class="sk" style="width:52%"></i></div>
+            <div class="row"><i class="thumb"></i><i class="sk" style="width:41%"></i></div>
+          </div>
+          <p style="font-size:12px;color:var(--ink3);margin:10px 0 0">
+            Two small words on a card. No reason, nothing to click.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="winwrap">
+      <span class="win__tag">The channel's own page</span>
+      <div class="win">
+        <div class="win__bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i>
+          <span class="win__url">/integrations/lazada/orders</span></div>
+        <div class="win__body">
+          <div class="crumb">Integrations / Lazada / Orders</div>
+          <div class="ttl">Orders</div>
+          <div class="banner">
+            <span class="banner__x">!</span>
+            <span class="banner__t"><b>Lazada: Access token expired.</b> Order sync is paused.
+              <a href="#">Open settings</a></span>
+          </div>
+          <div class="rows">
+            <div class="row"><i class="thumb"></i><i class="sk" style="width:52%"></i></div>
+            <div class="row"><i class="thumb"></i><i class="sk" style="width:41%"></i></div>
+          </div>
+          <p style="font-size:12px;color:var(--ink3);margin:10px 0 0">
+            What broke, what it stopped, and the way to fix it.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="sub" style="margin-top:20px">
+    The hub is the page that shows every channel at once &mdash; the one place you would notice a
+    channel had gone quiet. It is the only one that cannot tell you why.</p>
+
+  <hr>
+
+  <h2><span class="n">03</span>Three ways out</h2>
+  <p class="sub">Every fix is really an answer to one question: <b>is the hub a signpost, or is it
+     the workbench?</b></p>
+
+  <div class="opts">
+
+    <div class="opt">
+      <div class="opt__k">Option A</div>
+      <p class="opt__t">The hub becomes a signpost</p>
+      <div class="dia">
+        <span class="box box--live">Hub</span><span class="arw">&rarr;</span>
+        <span class="box box--live">Channel page</span>
+      </div>
+      <p class="opt__d">Pick a channel and it takes you to that channel's page. The hub stops
+        showing lists altogether. One page to maintain, and the warning comes for free.</p>
+      <div class="opt__flag flag--warn"><b>Conflicts with a call you already made.</b>
+        You asked for Returns to open inside the hub &ldquo;without teleporting&rdquo;.
+        This brings the teleporting back.</div>
+    </div>
+
+    <div class="opt">
+      <div class="opt__k">Option B</div>
+      <p class="opt__t">The hub becomes the only workbench</p>
+      <div class="dia">
+        <span class="box box--live">Hub</span>
+        <span class="arw">&nbsp;</span>
+        <span class="box box--gone">Channel page</span>
+      </div>
+      <p class="opt__d">The channel's own orders page goes away and everything happens in the hub.
+        Matches what you asked for, and there is only ever one screen.</p>
+      <div class="opt__flag flag--warn"><b>The biggest job of the three.</b>
+        Those channel pages also carry products, settings and returns, so they cannot simply be
+        deleted &mdash; each one needs somewhere to go first.</div>
+    </div>
+
+    <div class="opt opt--pick">
+      <div class="opt__k">Option C &mdash; recommended</div>
+      <p class="opt__t">Both stay, and share one frame</p>
+      <div class="dia">
+        <span class="box box--live">Hub</span>
+        <span class="box box--live">Channel page</span>
+        <span class="arw">&darr;</span>
+        <span class="box box--live">one shared frame</span>
+      </div>
+      <p class="opt__d">Keep both pages, but make the warning region, the trail and the title come
+        from one place instead of two. The hub gains the banner immediately.</p>
+      <div class="opt__flag flag--good"><b>Smallest change, fixes the real harm.</b>
+        Nothing moves for you. It also stops the next bug from having to be fixed twice.</div>
+    </div>
+
+  </div>
+
+  <div class="rec">
+    <h3>What I'd do</h3>
+    <p><b>Option C now, Option B later &mdash; if ever.</b> The thing that actually hurts is the
+       missing warning on the page where you would notice a channel had gone quiet. C fixes that
+       without moving anything you use, and it can be done and checked in one sitting.</p>
+    <p>B is the tidier end state and it matches how you said you want to work, but it is a project:
+       the channel pages hold more than orders, so each of those screens needs a home before the
+       page can go. That is worth planning deliberately, not as a side effect of fixing a banner.</p>
+    <p>A I would not do. It undoes a decision you already made for a good reason.</p>
+  </div>
+
+</div>
+</body>
+</html>

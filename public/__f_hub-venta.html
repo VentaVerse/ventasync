@@ -1,0 +1,2028 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="MpkAhkr94wK9V3EGFPxudCMPEsBEE8z8jDgc1xLR">
+    <title>Shop A fulfilment</title>
+    <script>
+(function () {
+    var KEY = 'xenon-theme';
+    function resolve(mode) {
+        if (mode === 'dark' || mode === 'light') return mode;
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    function apply(mode) {
+        document.documentElement.setAttribute('data-theme', resolve(mode));
+        document.documentElement.setAttribute('data-theme-mode', mode);
+    }
+    var stored = null;
+    try { stored = localStorage.getItem(KEY); } catch (e) {}
+    apply(stored || 'light');
+
+    window.xenonTheme = {
+        get: function () { try { return localStorage.getItem(KEY) || 'light'; } catch (e) { return 'light'; } },
+        set: function (mode) {
+            try { localStorage.setItem(KEY, mode); } catch (e) {}
+            apply(mode);
+        }
+    };
+
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
+        if (window.xenonTheme.get() === 'system') apply('system');
+    });
+})();
+</script>
+    <link rel="preload" as="style" href="/build/assets/blotter-kkHK5tef.css" /><link rel="modulepreload" as="script" href="/build/assets/app-DNEv9yXH.js" /><link rel="stylesheet" href="/build/assets/blotter-kkHK5tef.css" /><script type="module" src="/build/assets/app-DNEv9yXH.js"></script>    </head>
+
+<body class="bl-app min-h-screen">
+<!--
+    IMPECCABLE DIRECTION CONTRACT (v2.3)
+    THESIS: Money and work-in-hand are stated loudly in colour, everything else is a quiet white sheet. Refuses the terminal arrangement v2.2 shipped, where restraint was total and the product read as unfinished from across the room.
+    OWN-WORLD: Tinted cool ground; white sheets raised on soft shadow at 16px corners; five saturated identity fills (cyan, violet, amber, green, rose) carrying headline figures in white; navy sidebar; Archivo with tabular figures, JetBrains Mono for identifiers; drawn icons at one stroke weight. State colour (amber/green/red) is separate from identity colour and never appears on a fill.
+    STORY: The operator reads today's money and today's queue in one glance, sees which channels are stale, and acts on a row without leaving the page.
+    FIRST VIEWPORT: Five filled metric blocks across the top; a row of channel chips under them; then latest orders beside inventory and purchasing. Zero-value blocks drop to white so absence never shouts.
+    FORM: Colour-forward admin, pinned by the owner from CoreUI Pro, Purple React and Devias. User-pinned direction, so no concept roll; session seed a9ccf491.
+    FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+-->
+<div x-data="{ nav: false }" class="lg:grid lg:grid-cols-[216px_minmax(0,1fr)] min-h-screen">
+
+    
+    <aside @keydown.escape.window="nav = false"
+           :class="nav && '!flex'"
+           class="fixed inset-y-0 left-0 z-40 hidden w-[216px] flex-col border-r border-side-rule bg-side
+                  lg:static lg:flex">
+        <div class="flex items-center gap-2.5 border-b border-side-rule px-4 py-3.5">
+            
+            <span class="grid h-[22px] w-[22px] place-items-center rounded-[--radius-ctrl] bg-lime text-[12px] font-bold tracking-tight text-side">V</span>
+                        <span class="min-w-0 truncate text-[14.5px] font-semibold tracking-tight text-white"
+                  title="SHA Musical Goods Trading">SHA Musical Goods Trading</span>
+            <button type="button" @click="nav = false"
+                    class="ml-auto text-side-ink hover:text-white lg:hidden" aria-label="Close navigation">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto">
+            <nav class="x-nav flex flex-col gap-px py-2.5" data-nav aria-label="Main"
+     x-data="{ group: null }">
+                                    <a class="x-nav__item flex items-center gap-2.5 px-4 py-1.5 text-[13.5px] font-medium no-underline
+                      text-side-ink hover:bg-side-hover hover:text-white"
+               href="http://localhost/dashboard"
+                           >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                <span>Dashboard</span>
+                
+                
+                            </a>
+                                            <div class="x-nav__group">
+                <button type="button"
+                        @click="group = (group === 'g1' ? null : 'g1')"
+                        :aria-expanded="group === 'g1' ? 'true' : 'false'"
+                        class="flex w-full items-center gap-2.5 px-4 py-1.5 text-left text-[13.5px]
+                               font-medium text-side-ink hover:bg-side-hover hover:text-white">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1V2l-2 1-2-1-2 1-2-1-2 1-2-1z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
+                    <span class="flex-1">Sales</span>
+                    
+                    <span class="transition-transform duration-150 "
+                          :class="{ 'rotate-90': group === 'g1' }">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="m9 18 6-6-6-6"/></svg>
+                    </span>
+                </button>
+                
+                
+                <div class="bl-collapse "
+                     :class="{ 'is-open': group === 'g1' }"
+                     :inert="group !== 'g1'">
+                    <div class="bl-collapse__inner flex flex-col gap-px">
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/sales/orders"
+                                                   >Orders</a>
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/sales/order-payments"
+                                                   >Payments</a>
+                                        </div>
+                </div>
+            </div>
+                                            <a class="x-nav__item flex items-center gap-2.5 px-4 py-1.5 text-[13.5px] font-medium no-underline
+                      bg-side-active text-white font-semibold"
+               href="http://localhost/integrations/orders"
+                aria-current="page"             >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20a15 15 0 0 1 0-20"/></svg>
+                <span>Fulfilment</span>
+                
+                
+                                    <span class="ml-auto min-w-[20px] rounded-full bg-attn px-1.5 text-center
+                                 text-[11px] font-semibold tabular-nums text-white">53</span>
+                            </a>
+                                            <div class="x-nav__group">
+                <button type="button"
+                        @click="group = (group === 'g3' ? null : 'g3')"
+                        :aria-expanded="group === 'g3' ? 'true' : 'false'"
+                        class="flex w-full items-center gap-2.5 px-4 py-1.5 text-left text-[13.5px]
+                               font-medium text-side-ink hover:bg-side-hover hover:text-white">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="M12 22v-5M9 8V2M15 8V2M18 8v3a6 6 0 0 1-12 0V8z"/></svg>
+                    <span class="flex-1">Channels</span>
+                    
+                    <span class="transition-transform duration-150 "
+                          :class="{ 'rotate-90': group === 'g3' }">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="m9 18 6-6-6-6"/></svg>
+                    </span>
+                </button>
+                
+                
+                <div class="bl-collapse "
+                     :class="{ 'is-open': group === 'g3' }"
+                     :inert="group !== 'g3'">
+                    <div class="bl-collapse__inner flex flex-col gap-px">
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/integrations"
+                                                   >All channels</a>
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/integrations/lazada"
+                                                   >Lazada</a>
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/integrations/shopee"
+                                                   >Shopee</a>
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/integrations/tiktok"
+                                                   >TikTok Shop</a>
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/integrations/venta/2"
+                                                   >Venta Shop A</a>
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/integrations/venta/3"
+                                                   >Venta Shop B</a>
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/integrations/opencart/1"
+                                                   >OpenCart Shop A</a>
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/integrations/opencart/2"
+                                                   >OpenCart Shop B</a>
+                                        </div>
+                </div>
+            </div>
+                                            <div class="x-nav__group">
+                <button type="button"
+                        @click="group = (group === 'g4' ? null : 'g4')"
+                        :aria-expanded="group === 'g4' ? 'true' : 'false'"
+                        class="flex w-full items-center gap-2.5 px-4 py-1.5 text-left text-[13.5px]
+                               font-medium text-side-ink hover:bg-side-hover hover:text-white">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="m7.5 4.27 9 5.15M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3.3 7 12 12l8.7-5M12 22V12"/></svg>
+                    <span class="flex-1">Catalogue</span>
+                    
+                    <span class="transition-transform duration-150 "
+                          :class="{ 'rotate-90': group === 'g4' }">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="m9 18 6-6-6-6"/></svg>
+                    </span>
+                </button>
+                
+                
+                <div class="bl-collapse "
+                     :class="{ 'is-open': group === 'g4' }"
+                     :inert="group !== 'g4'">
+                    <div class="bl-collapse__inner flex flex-col gap-px">
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/catalog/products"
+                                                   >Products</a>
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/catalog/categories"
+                                                   >Categories</a>
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/catalog/manufacturers"
+                                                   >Manufacturers</a>
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/catalog/reviews"
+                                                   >Reviews</a>
+                                        </div>
+                </div>
+            </div>
+                                            <div class="x-nav__group">
+                <button type="button"
+                        @click="group = (group === 'g5' ? null : 'g5')"
+                        :aria-expanded="group === 'g5' ? 'true' : 'false'"
+                        class="flex w-full items-center gap-2.5 px-4 py-1.5 text-left text-[13.5px]
+                               font-medium text-side-ink hover:bg-side-hover hover:text-white">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="M14 18V6H2v12h2M14 9h4l4 4v5h-2"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>
+                    <span class="flex-1">Purchasing</span>
+                    
+                    <span class="transition-transform duration-150 "
+                          :class="{ 'rotate-90': group === 'g5' }">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="m9 18 6-6-6-6"/></svg>
+                    </span>
+                </button>
+                
+                
+                <div class="bl-collapse "
+                     :class="{ 'is-open': group === 'g5' }"
+                     :inert="group !== 'g5'">
+                    <div class="bl-collapse__inner flex flex-col gap-px">
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/purchasing/purchase-orders"
+                                                   >Purchase Orders</a>
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/purchasing/vendors"
+                                                   >Vendors</a>
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/purchasing/reorder-suggestions"
+                                                   >Reorder Suggestions</a>
+                                        </div>
+                </div>
+            </div>
+                                            <div class="x-nav__group">
+                <button type="button"
+                        @click="group = (group === 'g6' ? null : 'g6')"
+                        :aria-expanded="group === 'g6' ? 'true' : 'false'"
+                        class="flex w-full items-center gap-2.5 px-4 py-1.5 text-left text-[13.5px]
+                               font-medium text-side-ink hover:bg-side-hover hover:text-white">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
+                    <span class="flex-1">Warehousing</span>
+                    
+                    <span class="transition-transform duration-150 "
+                          :class="{ 'rotate-90': group === 'g6' }">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="m9 18 6-6-6-6"/></svg>
+                    </span>
+                </button>
+                
+                
+                <div class="bl-collapse "
+                     :class="{ 'is-open': group === 'g6' }"
+                     :inert="group !== 'g6'">
+                    <div class="bl-collapse__inner flex flex-col gap-px">
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/warehousing/transfers"
+                                                   >Transfers</a>
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/warehousing/inventory"
+                                                   >Inventory</a>
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/warehousing/locations"
+                                                   >Locations</a>
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/warehousing/adjust"
+                                                   >Stock Adjustment</a>
+                                        </div>
+                </div>
+            </div>
+                                            <div class="x-nav__group">
+                <button type="button"
+                        @click="group = (group === 'g7' ? null : 'g7')"
+                        :aria-expanded="group === 'g7' ? 'true' : 'false'"
+                        class="flex w-full items-center gap-2.5 px-4 py-1.5 text-left text-[13.5px]
+                               font-medium text-side-ink hover:bg-side-hover hover:text-white">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18M7 6h1v4M16.71 13.88l.7.71-2.82 2.82"/></svg>
+                    <span class="flex-1">Reports</span>
+                    
+                    <span class="transition-transform duration-150 "
+                          :class="{ 'rotate-90': group === 'g7' }">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="m9 18 6-6-6-6"/></svg>
+                    </span>
+                </button>
+                
+                
+                <div class="bl-collapse "
+                     :class="{ 'is-open': group === 'g7' }"
+                     :inert="group !== 'g7'">
+                    <div class="bl-collapse__inner flex flex-col gap-px">
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/reports/orders"
+                                                   >Orders</a>
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/reports/products"
+                                                   >Products</a>
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/reports/categories"
+                                                   >Categories</a>
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/reports/fees"
+                                                   >Fees</a>
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/reports/payouts"
+                                                   >Payouts</a>
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/reports/inventory"
+                                                   >Inventory</a>
+                                        </div>
+                </div>
+            </div>
+                                            <div class="x-nav__group">
+                <button type="button"
+                        @click="group = (group === 'g8' ? null : 'g8')"
+                        :aria-expanded="group === 'g8' ? 'true' : 'false'"
+                        class="flex w-full items-center gap-2.5 px-4 py-1.5 text-left text-[13.5px]
+                               font-medium text-side-ink hover:bg-side-hover hover:text-white">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>
+                    <span class="flex-1">Petty Cash</span>
+                    
+                    <span class="transition-transform duration-150 "
+                          :class="{ 'rotate-90': group === 'g8' }">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="m9 18 6-6-6-6"/></svg>
+                    </span>
+                </button>
+                
+                
+                <div class="bl-collapse "
+                     :class="{ 'is-open': group === 'g8' }"
+                     :inert="group !== 'g8'">
+                    <div class="bl-collapse__inner flex flex-col gap-px">
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/petty-cash"
+                                                   >Petty Cash</a>
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/petty-cash/settings"
+                                                   >Settings</a>
+                                        </div>
+                </div>
+            </div>
+                                            <div class="x-nav__group">
+                <button type="button"
+                        @click="group = (group === 'g9' ? null : 'g9')"
+                        :aria-expanded="group === 'g9' ? 'true' : 'false'"
+                        class="flex w-full items-center gap-2.5 px-4 py-1.5 text-left text-[13.5px]
+                               font-medium text-side-ink hover:bg-side-hover hover:text-white">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                    <span class="flex-1">Audit &amp; Monitoring</span>
+                    
+                    <span class="transition-transform duration-150 "
+                          :class="{ 'rotate-90': group === 'g9' }">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="m9 18 6-6-6-6"/></svg>
+                    </span>
+                </button>
+                
+                
+                <div class="bl-collapse "
+                     :class="{ 'is-open': group === 'g9' }"
+                     :inert="group !== 'g9'">
+                    <div class="bl-collapse__inner flex flex-col gap-px">
+                                                                    <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
+                                  text-side-ink hover:bg-side-hover hover:text-white"
+                           href="http://localhost/activity-log"
+                                                   >Activity Log</a>
+                                        </div>
+                </div>
+            </div>
+                                            <a class="x-nav__item flex items-center gap-2.5 px-4 py-1.5 text-[13.5px] font-medium no-underline
+                      text-side-ink hover:bg-side-hover hover:text-white"
+               href="http://localhost/settings"
+                           >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <span>Settings</span>
+                
+                
+                            </a>
+            </nav>
+        </div>
+
+        <div class="flex items-center justify-between gap-2 border-t border-side-rule px-4 py-2.5 text-[12px] text-side-ink">
+            <span class="min-w-0 truncate" title="SHA Musical Goods Trading">SHA Musical Goods Trading</span>
+            <span class="shrink-0">v0.1.9</span>
+        </div>
+    </aside>
+
+    
+    <div x-show="nav" x-cloak @click="nav = false"
+         class="fixed inset-0 z-30 bg-ink/40 lg:hidden" aria-hidden="true"></div>
+
+    <div class="flex min-w-0 flex-col">
+        <header class="flex items-center gap-3.5 border-b border-rule-2 px-gutter py-2.5">
+            <button type="button" @click="nav = true"
+                    class="grid h-[30px] w-8 place-items-center rounded-[2px] border border-rule-2 bg-sheet lg:hidden"
+                    aria-label="Open navigation">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+            </button>
+
+            
+            <button type="button" class="x-search-trigger"
+                    x-data="{ mac: /Mac|iPod|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '') }"
+                    @click="$dispatch('xenon-open-palette')"
+                    aria-label="Search. Opens the command palette.">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                <span class="x-search-trigger__label">Search products, orders, SKUs</span>
+                <kbd class="x-search-trigger__hint" x-text="mac ? '&#8984;K' : 'Ctrl K'"></kbd>
+            </button>
+
+            
+            <div class="ml-auto flex shrink-0 items-center gap-4">
+                
+                <div class="flex items-center gap-px" x-data="{ mode: (window.xenonTheme && window.xenonTheme.get()) || 'light' }">
+                    <button type="button" @click="mode='light'; window.xenonTheme.set('light')"
+                            :class="mode === 'light' ? 'bg-ink text-paper' : 'text-ink-3 hover:text-ink'"
+                            class="grid h-6 w-6 place-items-center rounded-[2px]" aria-label="Light theme">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+                    </button>
+                    <button type="button" @click="mode='dark'; window.xenonTheme.set('dark')"
+                            :class="mode === 'dark' ? 'bg-ink text-paper' : 'text-ink-3 hover:text-ink'"
+                            class="grid h-6 w-6 place-items-center rounded-[2px]" aria-label="Dark theme">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+                    </button>
+                    <button type="button" @click="mode='system'; window.xenonTheme.set('system')"
+                            :class="mode === 'system' ? 'bg-ink text-paper' : 'text-ink-3 hover:text-ink'"
+                            class="grid h-6 w-6 place-items-center rounded-[2px]" aria-label="Match system theme">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                    </button>
+                </div>
+
+                                                        <div class="x-account" x-data="{ open: false }" @keydown.escape="open = false">
+                        <button type="button" @click="open = !open" :aria-expanded="open ? 'true' : 'false'"
+                                class="flex items-center gap-2 text-[13px] font-medium">
+                            <span class="x-account__avatar">
+                                PA
+                            </span>
+                            <span class="hidden sm:inline">the owner</span>
+                        </button>
+                        <div x-show="open" x-cloak @click.outside="open = false"
+                             class="absolute right-0 z-50 mt-1.5 w-56 border border-rule-2 bg-sheet py-1">
+                            <div class="border-b border-rule px-3.5 pb-2 pt-1">
+                                <div class="text-[13px] font-semibold">the owner</div>
+                                                                    <div class="text-[12px] text-ink-3">hello@example.com</div>
+                                                            </div>
+                            <form method="POST" action="http://localhost/logout">
+                                <input type="hidden" name="_token" value="MpkAhkr94wK9V3EGFPxudCMPEsBEE8z8jDgc1xLR" autocomplete="off">                                <button type="submit"
+                                        class="flex w-full items-center gap-2 px-3.5 py-1.5 text-left text-[13px] text-ink-2 hover:bg-chrome-2 hover:text-ink">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                                    Log out
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                            </div>
+        </header>
+
+        
+        <main class="x-content min-w-0 flex-1">
+            
+            
+<div class="fh-scope"
+      style="--ch: #7c3aed; --ch-deep: #7c3aed; --ch-lift: #9863f1;" >
+
+<div class="fh-head">
+    
+            <a class="fh-head__back" href="http://localhost/integrations/orders">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="m15 18-6-6 6-6"/></svg>
+            All channels
+        </a>
+    
+    
+        <h1 class="x-page-title">
+        Shop A    </h1>
+            <p class="fh-head__state">
+            <span class="fh-head__work is-live">1 order waiting</span>
+            <span class="fh-head__sep" aria-hidden="true">&middot;</span>
+            <span class="fh-head__link is-bad">not syncing</span>
+        </p>
+    </div>
+
+    
+    <nav class="fh-grid" aria-label="Fulfilment surfaces">
+                    <a href="http://localhost/integrations/orders?channel=lazada&amp;tab=TO_SHIP"
+               class="fh-card  is-stalled"
+               style="--ch: #0f146d; --ch-deep: #0f146d; --ch-lift: #7b7eaf;"
+               >
+
+                
+                <span class="fh-card__top">
+                    <span class="fh-card__name">Lazada</span>
+                </span>
+
+                
+                                                    <span class="fh-card__lead x-num  is-stale">51</span>
+                
+                
+                                    
+                    <span class="fh-card__label is-bad">
+                                                    not connected &middot; last known
+                                            </span>
+                
+                
+                                    <span class="fh-card__today">
+                        <span class="x-num">0</span> today
+                                                    <span class="fh-card__sep">&middot;</span>
+                            <span class="x-num">₱0.00</span>
+                                            </span>
+                            </a>
+                    <a href="http://localhost/integrations/orders?channel=shopee"
+               class="fh-card  is-stalled"
+               style="--ch: #ee4d2d; --ch-deep: #c33f25; --ch-lift: #ee4d2d;"
+               >
+
+                
+                <span class="fh-card__top">
+                    <span class="fh-card__name">Shopee</span>
+                </span>
+
+                
+                                                    <span class="fh-card__lead x-num ">1</span>
+                
+                
+                                    
+                    <span class="fh-card__label is-attn">
+                                                    not syncing
+                                            </span>
+                
+                
+                                    <span class="fh-card__today">
+                        <span class="x-num">0</span> today
+                                                    <span class="fh-card__sep">&middot;</span>
+                            <span class="x-num">₱0.00</span>
+                                            </span>
+                            </a>
+                    <a href="http://localhost/integrations/orders?channel=tiktok"
+               class="fh-card  is-stalled"
+               style="--ch: #1e1e1e; --ch-deep: #1e1e1e; --ch-lift: #818181;"
+               >
+
+                
+                <span class="fh-card__top">
+                    <span class="fh-card__name">TikTok</span>
+                </span>
+
+                
+                                                    <span class="fh-card__lead x-num is-clear">0</span>
+                
+                
+                                    
+                    <span class="fh-card__label is-bad">
+                                                    not connected
+                                            </span>
+                
+                
+                                    <span class="fh-card__today">
+                        <span class="x-num">0</span> today
+                                                    <span class="fh-card__sep">&middot;</span>
+                            <span class="x-num">₱0.00</span>
+                                            </span>
+                            </a>
+                    <a href="http://localhost/integrations/orders?channel=venta%3A2"
+               class="fh-card is-open is-stalled"
+               style="--ch: #7c3aed; --ch-deep: #7c3aed; --ch-lift: #9863f1;"
+                aria-current="page" >
+
+                
+                <span class="fh-card__top">
+                    <span class="fh-card__name">Shop A</span>
+                </span>
+
+                
+                                                    <span class="fh-card__lead x-num ">1</span>
+                
+                
+                                    
+                    <span class="fh-card__label is-attn">
+                                                    not syncing
+                                            </span>
+                
+                
+                                    <span class="fh-card__today">
+                        <span class="x-num">0</span> today
+                                                    <span class="fh-card__sep">&middot;</span>
+                            <span class="x-num">₱0.00</span>
+                                            </span>
+                            </a>
+            </nav>
+
+    
+            
+        <div class="x-fh-panel co-page" id="venta-orders-page">
+            <div class="x-fh-panel__scope">
+                <span class="x-fh-panel__scope-label">Store</span>
+                <span class="x-fh-panel__scope-value">Shop A</span>
+            </div>
+            <div class="x-cmdbar">
+    
+    <form method="POST" action="http://localhost/integrations/venta/2/orders/fetch" id="formFetchVentaOrders" class="x-cmdbar__row"
+          data-confirm="Fetch orders from this Venta store for the chosen dates? Any order that has not been seen before will adjust stock."
+          data-confirm-tone="primary">
+        <input type="hidden" name="_token" value="MpkAhkr94wK9V3EGFPxudCMPEsBEE8z8jDgc1xLR" autocomplete="off">        <div class="x-cmdbar__field">
+            <label class="x-cmdbar__label" for="vtDateFrom">Fetch from</label>
+            <input type="date" class="x-input x-cmdbar__date" id="vtDateFrom" name="date_from" value="2026-08-04">
+        </div>
+        <div class="x-cmdbar__field">
+            <label class="x-cmdbar__label" for="vtDateTo">Fetch to</label>
+            <input type="date" class="x-input x-cmdbar__date" id="vtDateTo" name="date_to" value="2026-08-19">
+        </div>
+        <div class="x-cmdbar__spacer"></div>
+        <div class="x-cmdbar__actions">
+            <button type="submit" class="x-btn x-btn--primary x-btn--md" id="btnFetchVentaOrders">Fetch orders</button>
+            <span class="bl-hint">
+    <button type="button" class="bl-hint__btn"
+            aria-label="More information" aria-describedby="hint-BFt06I2zS4">
+        <span aria-hidden="true">?</span>
+    </button>
+    <span class="bl-hint__bubble" role="tooltip" id="hint-BFt06I2zS4">Fetching pulls the orders this store created between those two dates.</span>
+</span>
+        </div>
+    </form>
+</div>
+
+
+<div class="x-segment-bar">
+    
+    <nav class="x-segment" aria-label="Order status">
+        <a href="http://localhost/integrations/orders?channel=venta%3A2"
+           class="x-segment__item is-active"
+            aria-current="page" >
+            <span>All</span>
+            <span class="x-segment__count">138</span>
+        </a>
+                                <a href="http://localhost/integrations/orders?channel=venta%3A2&amp;status=Delivered"
+               class="x-segment__item "
+               >
+                <span>Delivered</span>
+                <span class="x-segment__count">128</span>
+            </a>
+                                <a href="http://localhost/integrations/orders?channel=venta%3A2&amp;status=Canceled"
+               class="x-segment__item "
+               >
+                <span>Canceled</span>
+                <span class="x-segment__count">6</span>
+            </a>
+                                <a href="http://localhost/integrations/orders?channel=venta%3A2&amp;status=Start%20Pickup"
+               class="x-segment__item "
+               >
+                <span>Start Pickup</span>
+                <span class="x-segment__count">1</span>
+            </a>
+                                <a href="http://localhost/integrations/orders?channel=venta%3A2&amp;status=Shipped"
+               class="x-segment__item "
+               >
+                <span>Shipped</span>
+                <span class="x-segment__count">2</span>
+            </a>
+                                <a href="http://localhost/integrations/orders?channel=venta%3A2&amp;status=In%20Transit%20to%20Manila"
+               class="x-segment__item "
+               >
+                <span>In Transit To Manila</span>
+                <span class="x-segment__count">1</span>
+            </a>
+            </nav>
+</div>
+
+
+<form method="GET" action="http://localhost/integrations/orders" class="x-filters" id="orders-filter">
+    <input type="hidden" name="channel" value="venta:2">
+        <input type="hidden" name="sort" value="order_created_at">
+    <input type="hidden" name="dir" value="desc">
+
+    
+    <input type="search" class="x-input x-filters__find" name="q" value="" placeholder="Order no, customer, product or tracking" aria-label="Find an order by order number, customer, product or tracking">
+
+    <span class="x-filters__group">
+        <span class="x-filters__group-label">Placed</span>
+        <input type="date" class="x-input x-filters__date" name="placed_from" value="" aria-label="Placed on or after" title="Placed on or after">
+        <input type="date" class="x-input x-filters__date" name="placed_to" value="" aria-label="Placed on or before" title="Placed on or before">
+    </span>
+
+    <div class="x-select-wrap x-filters__select x-filters__select--narrow">
+        <select name="per_page" class="x-input" data-autosubmit aria-label="Orders per page">
+                            <option value="10" selected>10 per page</option>
+                            <option value="20" >20 per page</option>
+                            <option value="50" >50 per page</option>
+                    </select>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" class="x-select-wrap__chevron"><path d="m6 9 6 6 6-6"/></svg>
+    </div>
+
+    <button type="submit" class="x-btn x-btn--secondary x-btn--md">Search</button>
+
+    </form>
+
+
+<div class="vt-selectbar">
+    <label class="vt-selectbar__pick" for="venta-select-all">
+        <input type="checkbox" id="venta-select-all" class="vt-pick">
+        <span>Select all on this page</span>
+    </label>
+    <span class="vt-selectbar__count" id="venta-bulk-count" role="status"></span>
+    <div class="vt-selectbar__spacer"></div>
+    <form id="venta-bulk-delete-form" class="vt-selectbar__form" method="POST"
+          action="http://localhost/integrations/venta/2/orders/bulk-delete"
+          data-confirm="Delete the selected orders from this store? The sales orders they created are not affected."
+          hidden>
+        <input type="hidden" name="_token" value="MpkAhkr94wK9V3EGFPxudCMPEsBEE8z8jDgc1xLR" autocomplete="off">        <button type="submit" class="x-btn x-btn--danger x-btn--sm">Delete selected</button>
+    </form>
+</div>
+<div class="x-table-wrap">
+    <table class="x-table x-table--stack">
+        <caption class="x-sr">Storefront orders</caption>        <thead><tr>
+            <th scope="col" class="vt-col-products">Products</th>
+            <th scope="col" class="vt-col-qty">Qty</th>
+            <th scope="col" class="vt-col-price x-td-num">Price</th>
+            <th scope="col" class="vt-col-total x-td-num">
+                <a class="x-th-sort x-th-sort--num" href="http://localhost/integrations/orders?channel=venta%3A2&amp;sort=total&amp;dir=asc">
+                    Amount
+                                    </a>
+            </th>
+            <th scope="col" class="vt-col-pay">
+                <a class="x-th-sort" href="http://localhost/integrations/orders?channel=venta%3A2&amp;sort=payment_method&amp;dir=asc">
+                    Payment
+                                    </a>
+            </th>
+            <th scope="col" class="vt-col-track">
+                <a class="x-th-sort" href="http://localhost/integrations/orders?channel=venta%3A2&amp;sort=tracking_number&amp;dir=asc">
+                    Tracking
+                                    </a>
+            </th>
+            <th scope="col" class="vt-col-status">
+                <a class="x-th-sort" href="http://localhost/integrations/orders?channel=venta%3A2&amp;sort=status&amp;dir=asc">
+                    Status
+                                    </a>
+            </th>
+            <th scope="col" class="vt-col-date">
+                <a class="x-th-sort" href="http://localhost/integrations/orders?channel=venta%3A2&amp;sort=order_created_at&amp;dir=asc">
+                    Date
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="m6 9 6 6 6-6"/></svg>
+                </a>
+            </th>
+            <th scope="col" class="vt-col-act"><span class="x-sr">Actions</span></th>
+        </tr></thead>        <tbody><tr class="co-band">
+            <td colspan="9">
+                <div class="co-band__row">
+                    <div class="co-band__left">
+                                                    <input type="checkbox" class="vt-pick venta-order-check" name="ids[]"
+                                   value="183" form="venta-bulk-delete-form"
+                                   aria-label="Select order 29851">
+                                                <span class="co-band__label">Customer</span>
+                                                    <span class="co-band__value">Sweep Throwaway</span>
+                                                <span class="co-band__label">Order</span>
+                                                    <span class="co-band__value co-band__value--mono">29851</span>
+                                                                    </div>
+                    <div class="co-band__right">
+                                                    <a class="co-ref" href="http://localhost/sales/orders/43015">Sales order 43015</a>
+                                            </div>
+                </div>
+            </td>
+        </tr>
+                <tr class="co-itemrow co-itemrow--last">
+            <td class="vt-col-products" data-label="Products">
+                <div class="co-item">
+                    <div class="co-item__body">
+                        <span class="co-item__name">Unnamed product</span>
+                        <div class="co-item__meta">
+                                                                                </div>
+                    </div>
+                </div>
+            </td>
+
+            <td class="vt-col-qty" data-label="Qty">
+                <span class="co-qty">&times;1</span>
+            </td>
+
+            <td class="vt-col-price x-td-num" data-label="Price">
+                                    <span class="co-empty-mark">-</span>
+                            </td>
+
+                        <td class="vt-col-total x-td-num" rowspan="1" data-label="Amount">
+                <span class="co-total">₱100.00</span>
+            </td>
+
+            <td class="vt-col-pay" rowspan="1" data-label="Payment">
+                                    <span class="vt-pay">Bank Transfer</span>
+                            </td>
+
+            <td class="vt-col-track" rowspan="1" data-label="Tracking">
+                                    <span class="co-empty-mark">-</span>
+                            </td>
+
+            <td class="vt-col-status" rowspan="1" data-label="Status">
+                <div class="co-status">
+                    <span class="x-badge x-badge--danger">
+    <span class="x-badge__dot" aria-hidden="true"></span>    <span class="x-badge__label">Canceled</span>
+</span>
+                </div>
+            </td>
+
+            <td class="vt-col-date" rowspan="1" data-label="Date">
+                                    <span class="co-date">2026-08-08 20:39</span>
+                            </td>
+
+            <td class="vt-col-act" rowspan="1">
+                                <div class="co-actions">
+                    
+                    <div class="x-menu" x-data="{ open: false }" @keydown.escape.window="if (open) { open = false; $refs.trigger.focus() }">
+    <button type="button"
+            x-ref="trigger"
+            class="x-menu__trigger"
+            :aria-expanded="open ? 'true' : 'false'"
+            aria-haspopup="true"
+            aria-label="Order 29851 actions"
+            @click.stop="open = !open">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
+            </svg>
+            </button>
+    <div class="x-menu__panel" role="group" aria-label="Order 29851 actions" x-show="open" x-cloak x-transition.duration.120ms @click.outside="open = false">
+        <button type="button" class="x-menu__item x-menu__item--danger"
+                                data-confirm="Delete order 29851 from this store? The sales order it created is not affected."
+                                data-confirm-submit="vt-del-183">Delete</button>
+                        <form id="vt-del-183" method="POST"
+                              action="http://localhost/integrations/venta/2/orders/183" class="x-sr">
+                            <input type="hidden" name="_token" value="MpkAhkr94wK9V3EGFPxudCMPEsBEE8z8jDgc1xLR" autocomplete="off">                            <input type="hidden" name="_method" value="DELETE">                        </form>
+    </div>
+</div>
+                </div>
+                            </td>
+                    </tr>
+                            <tr class="co-band">
+            <td colspan="9">
+                <div class="co-band__row">
+                    <div class="co-band__left">
+                                                    <input type="checkbox" class="vt-pick venta-order-check" name="ids[]"
+                                   value="182" form="venta-bulk-delete-form"
+                                   aria-label="Select order 29850">
+                                                <span class="co-band__label">Customer</span>
+                                                    <span class="co-band__value">UAT Test</span>
+                                                <span class="co-band__label">Order</span>
+                                                    <span class="co-band__value co-band__value--mono">29850</span>
+                                                                            <span class="co-band__muted">(1 item)</span>
+                                            </div>
+                    <div class="co-band__right">
+                                                    <a class="co-ref" href="http://localhost/sales/orders/42995">Sales order 42995</a>
+                                            </div>
+                </div>
+            </td>
+        </tr>
+                <tr class="co-itemrow co-itemrow--last">
+            <td class="vt-col-products" data-label="Products">
+                <div class="co-item">
+                    <div class="co-item__body">
+                        <span class="co-item__name">UAT Test Item</span>
+                        <div class="co-item__meta">
+                                                            <span class="co-item__sku">UAT-001</span>
+                                                                                </div>
+                    </div>
+                </div>
+            </td>
+
+            <td class="vt-col-qty" data-label="Qty">
+                <span class="co-qty">&times;1</span>
+            </td>
+
+            <td class="vt-col-price x-td-num" data-label="Price">
+                                    <span class="co-price">₱500.00</span>
+                            </td>
+
+                        <td class="vt-col-total x-td-num" rowspan="1" data-label="Amount">
+                <span class="co-total">₱500.00</span>
+            </td>
+
+            <td class="vt-col-pay" rowspan="1" data-label="Payment">
+                                    <span class="vt-pay">Bank Transfer</span>
+                            </td>
+
+            <td class="vt-col-track" rowspan="1" data-label="Tracking">
+                                    <span class="co-ship__no">SPEPH065515515378</span>
+                            </td>
+
+            <td class="vt-col-status" rowspan="1" data-label="Status">
+                <div class="co-status">
+                    <span class="x-badge x-badge--neutral">
+    <span class="x-badge__dot" aria-hidden="true"></span>    <span class="x-badge__label">Start Pickup</span>
+</span>
+                </div>
+            </td>
+
+            <td class="vt-col-date" rowspan="1" data-label="Date">
+                                    <span class="co-date">2026-08-08 14:49</span>
+                            </td>
+
+            <td class="vt-col-act" rowspan="1">
+                                <div class="co-actions">
+                    
+                    <div class="x-menu" x-data="{ open: false }" @keydown.escape.window="if (open) { open = false; $refs.trigger.focus() }">
+    <button type="button"
+            x-ref="trigger"
+            class="x-menu__trigger"
+            :aria-expanded="open ? 'true' : 'false'"
+            aria-haspopup="true"
+            aria-label="Order 29850 actions"
+            @click.stop="open = !open">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
+            </svg>
+            </button>
+    <div class="x-menu__panel" role="group" aria-label="Order 29850 actions" x-show="open" x-cloak x-transition.duration.120ms @click.outside="open = false">
+        <button type="button" class="x-menu__item x-menu__item--danger"
+                                data-confirm="Delete order 29850 from this store? The sales order it created is not affected."
+                                data-confirm-submit="vt-del-182">Delete</button>
+                        <form id="vt-del-182" method="POST"
+                              action="http://localhost/integrations/venta/2/orders/182" class="x-sr">
+                            <input type="hidden" name="_token" value="MpkAhkr94wK9V3EGFPxudCMPEsBEE8z8jDgc1xLR" autocomplete="off">                            <input type="hidden" name="_method" value="DELETE">                        </form>
+    </div>
+</div>
+                </div>
+                            </td>
+                    </tr>
+                            <tr class="co-band">
+            <td colspan="9">
+                <div class="co-band__row">
+                    <div class="co-band__left">
+                                                    <input type="checkbox" class="vt-pick venta-order-check" name="ids[]"
+                                   value="330" form="venta-bulk-delete-form"
+                                   aria-label="Select order 29979">
+                                                <span class="co-band__label">Customer</span>
+                                                    <span class="co-band__value">Russel Sarmiento</span>
+                                                <span class="co-band__label">Order</span>
+                                                    <span class="co-band__value co-band__value--mono">29979</span>
+                                                                            <span class="co-band__muted">(3 items)</span>
+                                            </div>
+                    <div class="co-band__right">
+                                                    <a class="co-ref" href="http://localhost/sales/orders/44289">Sales order 44289</a>
+                                            </div>
+                </div>
+            </td>
+        </tr>
+                <tr class="co-itemrow ">
+            <td class="vt-col-products" data-label="Products">
+                <div class="co-item">
+                    <div class="co-item__body">
+                        <span class="co-item__name">Mosky Audio ISO-8 Fully Isolated Power supply for Guitar Effects Pedals</span>
+                        <div class="co-item__meta">
+                                                            <span class="co-item__sku">mos-iso-8</span>
+                                                                                </div>
+                    </div>
+                </div>
+            </td>
+
+            <td class="vt-col-qty" data-label="Qty">
+                <span class="co-qty">&times;1</span>
+            </td>
+
+            <td class="vt-col-price x-td-num" data-label="Price">
+                                    <span class="co-price">₱1,590.00</span>
+                            </td>
+
+                        <td class="vt-col-total x-td-num" rowspan="3" data-label="Amount">
+                <span class="co-total">₱10,040.00</span>
+            </td>
+
+            <td class="vt-col-pay" rowspan="3" data-label="Payment">
+                                    <span class="vt-pay">Bank Transfer — BPI</span>
+                            </td>
+
+            <td class="vt-col-track" rowspan="3" data-label="Tracking">
+                                    <span class="co-empty-mark">-</span>
+                            </td>
+
+            <td class="vt-col-status" rowspan="3" data-label="Status">
+                <div class="co-status">
+                    <span class="x-badge x-badge--neutral">
+    <span class="x-badge__dot" aria-hidden="true"></span>    <span class="x-badge__label">In Transit To Manila</span>
+</span>
+                </div>
+            </td>
+
+            <td class="vt-col-date" rowspan="3" data-label="Date">
+                                    <span class="co-date">2026-07-17 11:41</span>
+                            </td>
+
+            <td class="vt-col-act" rowspan="3">
+                                <div class="co-actions">
+                    
+                    <div class="x-menu" x-data="{ open: false }" @keydown.escape.window="if (open) { open = false; $refs.trigger.focus() }">
+    <button type="button"
+            x-ref="trigger"
+            class="x-menu__trigger"
+            :aria-expanded="open ? 'true' : 'false'"
+            aria-haspopup="true"
+            aria-label="Order 29979 actions"
+            @click.stop="open = !open">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
+            </svg>
+            </button>
+    <div class="x-menu__panel" role="group" aria-label="Order 29979 actions" x-show="open" x-cloak x-transition.duration.120ms @click.outside="open = false">
+        <button type="button" class="x-menu__item x-menu__item--danger"
+                                data-confirm="Delete order 29979 from this store? The sales order it created is not affected."
+                                data-confirm-submit="vt-del-330">Delete</button>
+                        <form id="vt-del-330" method="POST"
+                              action="http://localhost/integrations/venta/2/orders/330" class="x-sr">
+                            <input type="hidden" name="_token" value="MpkAhkr94wK9V3EGFPxudCMPEsBEE8z8jDgc1xLR" autocomplete="off">                            <input type="hidden" name="_method" value="DELETE">                        </form>
+    </div>
+</div>
+                </div>
+                            </td>
+                    </tr>
+                <tr class="co-itemrow ">
+            <td class="vt-col-products" data-label="Products">
+                <div class="co-item">
+                    <div class="co-item__body">
+                        <span class="co-item__name">Valeton GP-5 Multi Effects AMP, IR and NAM Profile Loaders Mini Guitar Pedal</span>
+                        <div class="co-item__meta">
+                                                            <span class="co-item__sku">VALETON-GP5</span>
+                                                                                </div>
+                    </div>
+                </div>
+            </td>
+
+            <td class="vt-col-qty" data-label="Qty">
+                <span class="co-qty">&times;1</span>
+            </td>
+
+            <td class="vt-col-price x-td-num" data-label="Price">
+                                    <span class="co-price">₱3,450.00</span>
+                            </td>
+
+                    </tr>
+                <tr class="co-itemrow co-itemrow--last">
+            <td class="vt-col-products" data-label="Products">
+                <div class="co-item">
+                    <div class="co-item__body">
+                        <span class="co-item__name">Valeton GP-50 Multi Effects AMP, IR and NAM Profile Loaders Dual Switch Guitar Pedal</span>
+                        <div class="co-item__meta">
+                                                            <span class="co-item__sku">VALETON-GP50</span>
+                                                                                </div>
+                    </div>
+                </div>
+            </td>
+
+            <td class="vt-col-qty" data-label="Qty">
+                <span class="co-qty">&times;1</span>
+            </td>
+
+            <td class="vt-col-price x-td-num" data-label="Price">
+                                    <span class="co-price">₱5,000.00</span>
+                            </td>
+
+                    </tr>
+                            <tr class="co-band">
+            <td colspan="9">
+                <div class="co-band__row">
+                    <div class="co-band__left">
+                                                    <input type="checkbox" class="vt-pick venta-order-check" name="ids[]"
+                                   value="329" form="venta-bulk-delete-form"
+                                   aria-label="Select order 29978">
+                                                <span class="co-band__label">Customer</span>
+                                                    <span class="co-band__value">Russel Sarmiento</span>
+                                                <span class="co-band__label">Order</span>
+                                                    <span class="co-band__value co-band__value--mono">29978</span>
+                                                                            <span class="co-band__muted">(2 items)</span>
+                                            </div>
+                    <div class="co-band__right">
+                                                    <a class="co-ref" href="http://localhost/sales/orders/44278">Sales order 44278</a>
+                                            </div>
+                </div>
+            </td>
+        </tr>
+                <tr class="co-itemrow ">
+            <td class="vt-col-products" data-label="Products">
+                <div class="co-item">
+                    <div class="co-item__body">
+                        <span class="co-item__name">Valeton GP-5 Multi Effects AMP, IR and NAM Profile Loaders Mini Guitar Pedal</span>
+                        <div class="co-item__meta">
+                                                            <span class="co-item__sku">VALETON-GP5</span>
+                                                                                </div>
+                    </div>
+                </div>
+            </td>
+
+            <td class="vt-col-qty" data-label="Qty">
+                <span class="co-qty">&times;1</span>
+            </td>
+
+            <td class="vt-col-price x-td-num" data-label="Price">
+                                    <span class="co-price">₱3,450.00</span>
+                            </td>
+
+                        <td class="vt-col-total x-td-num" rowspan="2" data-label="Amount">
+                <span class="co-total">₱8,450.00</span>
+            </td>
+
+            <td class="vt-col-pay" rowspan="2" data-label="Payment">
+                                    <span class="vt-pay">Bank Transfer — BPI</span>
+                            </td>
+
+            <td class="vt-col-track" rowspan="2" data-label="Tracking">
+                                    <span class="co-empty-mark">-</span>
+                            </td>
+
+            <td class="vt-col-status" rowspan="2" data-label="Status">
+                <div class="co-status">
+                    <span class="x-badge x-badge--success">
+    <span class="x-badge__dot" aria-hidden="true"></span>    <span class="x-badge__label">Delivered</span>
+</span>
+                </div>
+            </td>
+
+            <td class="vt-col-date" rowspan="2" data-label="Date">
+                                    <span class="co-date">2026-07-16 14:51</span>
+                            </td>
+
+            <td class="vt-col-act" rowspan="2">
+                                <div class="co-actions">
+                    
+                    <div class="x-menu" x-data="{ open: false }" @keydown.escape.window="if (open) { open = false; $refs.trigger.focus() }">
+    <button type="button"
+            x-ref="trigger"
+            class="x-menu__trigger"
+            :aria-expanded="open ? 'true' : 'false'"
+            aria-haspopup="true"
+            aria-label="Order 29978 actions"
+            @click.stop="open = !open">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
+            </svg>
+            </button>
+    <div class="x-menu__panel" role="group" aria-label="Order 29978 actions" x-show="open" x-cloak x-transition.duration.120ms @click.outside="open = false">
+        <button type="button" class="x-menu__item x-menu__item--danger"
+                                data-confirm="Delete order 29978 from this store? The sales order it created is not affected."
+                                data-confirm-submit="vt-del-329">Delete</button>
+                        <form id="vt-del-329" method="POST"
+                              action="http://localhost/integrations/venta/2/orders/329" class="x-sr">
+                            <input type="hidden" name="_token" value="MpkAhkr94wK9V3EGFPxudCMPEsBEE8z8jDgc1xLR" autocomplete="off">                            <input type="hidden" name="_method" value="DELETE">                        </form>
+    </div>
+</div>
+                </div>
+                            </td>
+                    </tr>
+                <tr class="co-itemrow co-itemrow--last">
+            <td class="vt-col-products" data-label="Products">
+                <div class="co-item">
+                    <div class="co-item__body">
+                        <span class="co-item__name">Valeton GP-50 Multi Effects AMP, IR and NAM Profile Loaders Dual Switch Guitar Pedal</span>
+                        <div class="co-item__meta">
+                                                            <span class="co-item__sku">VALETON-GP50</span>
+                                                                                </div>
+                    </div>
+                </div>
+            </td>
+
+            <td class="vt-col-qty" data-label="Qty">
+                <span class="co-qty">&times;1</span>
+            </td>
+
+            <td class="vt-col-price x-td-num" data-label="Price">
+                                    <span class="co-price">₱5,000.00</span>
+                            </td>
+
+                    </tr>
+                            <tr class="co-band">
+            <td colspan="9">
+                <div class="co-band__row">
+                    <div class="co-band__left">
+                                                    <input type="checkbox" class="vt-pick venta-order-check" name="ids[]"
+                                   value="328" form="venta-bulk-delete-form"
+                                   aria-label="Select order 29977">
+                                                <span class="co-band__label">Customer</span>
+                                                    <span class="co-band__value">Russel Sarmiento</span>
+                                                <span class="co-band__label">Order</span>
+                                                    <span class="co-band__value co-band__value--mono">29977</span>
+                                                                            <span class="co-band__muted">(1 item)</span>
+                                            </div>
+                    <div class="co-band__right">
+                                                    <a class="co-ref" href="http://localhost/sales/orders/44247">Sales order 44247</a>
+                                            </div>
+                </div>
+            </td>
+        </tr>
+                <tr class="co-itemrow co-itemrow--last">
+            <td class="vt-col-products" data-label="Products">
+                <div class="co-item">
+                    <div class="co-item__body">
+                        <span class="co-item__name">Valeton GP-50 Multi Effects AMP, IR and NAM Profile Loaders Dual Switch Guitar Pedal</span>
+                        <div class="co-item__meta">
+                                                            <span class="co-item__sku">VALETON-GP50</span>
+                                                                                </div>
+                    </div>
+                </div>
+            </td>
+
+            <td class="vt-col-qty" data-label="Qty">
+                <span class="co-qty">&times;2</span>
+            </td>
+
+            <td class="vt-col-price x-td-num" data-label="Price">
+                                    <span class="co-price">₱5,000.00</span>
+                            </td>
+
+                        <td class="vt-col-total x-td-num" rowspan="1" data-label="Amount">
+                <span class="co-total">₱10,000.00</span>
+            </td>
+
+            <td class="vt-col-pay" rowspan="1" data-label="Payment">
+                                    <span class="vt-pay">Bank Transfer — BPI</span>
+                            </td>
+
+            <td class="vt-col-track" rowspan="1" data-label="Tracking">
+                                    <span class="co-empty-mark">-</span>
+                            </td>
+
+            <td class="vt-col-status" rowspan="1" data-label="Status">
+                <div class="co-status">
+                    <span class="x-badge x-badge--success">
+    <span class="x-badge__dot" aria-hidden="true"></span>    <span class="x-badge__label">Delivered</span>
+</span>
+                </div>
+            </td>
+
+            <td class="vt-col-date" rowspan="1" data-label="Date">
+                                    <span class="co-date">2026-07-14 14:27</span>
+                            </td>
+
+            <td class="vt-col-act" rowspan="1">
+                                <div class="co-actions">
+                    
+                    <div class="x-menu" x-data="{ open: false }" @keydown.escape.window="if (open) { open = false; $refs.trigger.focus() }">
+    <button type="button"
+            x-ref="trigger"
+            class="x-menu__trigger"
+            :aria-expanded="open ? 'true' : 'false'"
+            aria-haspopup="true"
+            aria-label="Order 29977 actions"
+            @click.stop="open = !open">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
+            </svg>
+            </button>
+    <div class="x-menu__panel" role="group" aria-label="Order 29977 actions" x-show="open" x-cloak x-transition.duration.120ms @click.outside="open = false">
+        <button type="button" class="x-menu__item x-menu__item--danger"
+                                data-confirm="Delete order 29977 from this store? The sales order it created is not affected."
+                                data-confirm-submit="vt-del-328">Delete</button>
+                        <form id="vt-del-328" method="POST"
+                              action="http://localhost/integrations/venta/2/orders/328" class="x-sr">
+                            <input type="hidden" name="_token" value="MpkAhkr94wK9V3EGFPxudCMPEsBEE8z8jDgc1xLR" autocomplete="off">                            <input type="hidden" name="_method" value="DELETE">                        </form>
+    </div>
+</div>
+                </div>
+                            </td>
+                    </tr>
+                            <tr class="co-band">
+            <td colspan="9">
+                <div class="co-band__row">
+                    <div class="co-band__left">
+                                                    <input type="checkbox" class="vt-pick venta-order-check" name="ids[]"
+                                   value="325" form="venta-bulk-delete-form"
+                                   aria-label="Select order 29976">
+                                                <span class="co-band__label">Customer</span>
+                                                    <span class="co-band__value">Jero Enriquez</span>
+                                                <span class="co-band__label">Order</span>
+                                                    <span class="co-band__value co-band__value--mono">29976</span>
+                                                                            <span class="co-band__muted">(2 items)</span>
+                                            </div>
+                    <div class="co-band__right">
+                                                    <a class="co-ref" href="http://localhost/sales/orders/44237">Sales order 44237</a>
+                                            </div>
+                </div>
+            </td>
+        </tr>
+                <tr class="co-itemrow ">
+            <td class="vt-col-products" data-label="Products">
+                <div class="co-item">
+                    <div class="co-item__body">
+                        <span class="co-item__name">Qable TS50 Mono Silent / Mute Straight to Angled Plug Cable for Instruments</span>
+                        <div class="co-item__meta">
+                                                            <span class="co-item__sku">QB-TS50-10-AS-MUTE</span>
+                                                                                        <span class="co-item__var">10 Ft</span>
+                                                    </div>
+                    </div>
+                </div>
+            </td>
+
+            <td class="vt-col-qty" data-label="Qty">
+                <span class="co-qty">&times;4</span>
+            </td>
+
+            <td class="vt-col-price x-td-num" data-label="Price">
+                                    <span class="co-price">₱348.75</span>
+                            </td>
+
+                        <td class="vt-col-total x-td-num" rowspan="2" data-label="Amount">
+                <span class="co-total">₱16,695.00</span>
+            </td>
+
+            <td class="vt-col-pay" rowspan="2" data-label="Payment">
+                                    <span class="vt-pay">Bank Transfer — GOtyme</span>
+                            </td>
+
+            <td class="vt-col-track" rowspan="2" data-label="Tracking">
+                                    <span class="co-ship__no">LCZX-L1AG-K84R</span>
+                            </td>
+
+            <td class="vt-col-status" rowspan="2" data-label="Status">
+                <div class="co-status">
+                    <span class="x-badge x-badge--success">
+    <span class="x-badge__dot" aria-hidden="true"></span>    <span class="x-badge__label">Shipped</span>
+</span>
+                </div>
+            </td>
+
+            <td class="vt-col-date" rowspan="2" data-label="Date">
+                                    <span class="co-date">2026-07-13 22:54</span>
+                            </td>
+
+            <td class="vt-col-act" rowspan="2">
+                                <div class="co-actions">
+                    
+                    <div class="x-menu" x-data="{ open: false }" @keydown.escape.window="if (open) { open = false; $refs.trigger.focus() }">
+    <button type="button"
+            x-ref="trigger"
+            class="x-menu__trigger"
+            :aria-expanded="open ? 'true' : 'false'"
+            aria-haspopup="true"
+            aria-label="Order 29976 actions"
+            @click.stop="open = !open">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
+            </svg>
+            </button>
+    <div class="x-menu__panel" role="group" aria-label="Order 29976 actions" x-show="open" x-cloak x-transition.duration.120ms @click.outside="open = false">
+        <button type="button" class="x-menu__item x-menu__item--danger"
+                                data-confirm="Delete order 29976 from this store? The sales order it created is not affected."
+                                data-confirm-submit="vt-del-325">Delete</button>
+                        <form id="vt-del-325" method="POST"
+                              action="http://localhost/integrations/venta/2/orders/325" class="x-sr">
+                            <input type="hidden" name="_token" value="MpkAhkr94wK9V3EGFPxudCMPEsBEE8z8jDgc1xLR" autocomplete="off">                            <input type="hidden" name="_method" value="DELETE">                        </form>
+    </div>
+</div>
+                </div>
+                            </td>
+                    </tr>
+                <tr class="co-itemrow co-itemrow--last">
+            <td class="vt-col-products" data-label="Products">
+                <div class="co-item">
+                    <div class="co-item__body">
+                        <span class="co-item__name">Valeton GP-50 Multi Effects AMP, IR and NAM Profile Loaders Dual Switch Guitar Pedal</span>
+                        <div class="co-item__meta">
+                                                            <span class="co-item__sku">VALETON-GP50</span>
+                                                                                </div>
+                    </div>
+                </div>
+            </td>
+
+            <td class="vt-col-qty" data-label="Qty">
+                <span class="co-qty">&times;3</span>
+            </td>
+
+            <td class="vt-col-price x-td-num" data-label="Price">
+                                    <span class="co-price">₱5,000.00</span>
+                            </td>
+
+                    </tr>
+                            <tr class="co-band">
+            <td colspan="9">
+                <div class="co-band__row">
+                    <div class="co-band__left">
+                                                    <input type="checkbox" class="vt-pick venta-order-check" name="ids[]"
+                                   value="324" form="venta-bulk-delete-form"
+                                   aria-label="Select order 29975">
+                                                <span class="co-band__label">Customer</span>
+                                                    <span class="co-band__value">Faye Carumba</span>
+                                                <span class="co-band__label">Order</span>
+                                                    <span class="co-band__value co-band__value--mono">29975</span>
+                                                                            <span class="co-band__muted">(3 items)</span>
+                                            </div>
+                    <div class="co-band__right">
+                                                    <a class="co-ref" href="http://localhost/sales/orders/44232">Sales order 44232</a>
+                                            </div>
+                </div>
+            </td>
+        </tr>
+                <tr class="co-itemrow ">
+            <td class="vt-col-products" data-label="Products">
+                <div class="co-item">
+                    <div class="co-item__body">
+                        <span class="co-item__name">M-Vave TANK PRO Guitar and Bass Multi-Effects Processor PRE-ORDER</span>
+                        <div class="co-item__meta">
+                                                            <span class="co-item__sku">m-vave-tank-pro-blk</span>
+                                                                                        <span class="co-item__var">Black</span>
+                                                    </div>
+                    </div>
+                </div>
+            </td>
+
+            <td class="vt-col-qty" data-label="Qty">
+                <span class="co-qty">&times;14</span>
+            </td>
+
+            <td class="vt-col-price x-td-num" data-label="Price">
+                                    <span class="co-price">₱5,000.00</span>
+                            </td>
+
+                        <td class="vt-col-total x-td-num" rowspan="3" data-label="Amount">
+                <span class="co-total">₱150,000.00</span>
+            </td>
+
+            <td class="vt-col-pay" rowspan="3" data-label="Payment">
+                                    <span class="vt-pay">Bank Transfer — BDO</span>
+                            </td>
+
+            <td class="vt-col-track" rowspan="3" data-label="Tracking">
+                                    <span class="co-empty-mark">-</span>
+                            </td>
+
+            <td class="vt-col-status" rowspan="3" data-label="Status">
+                <div class="co-status">
+                    <span class="x-badge x-badge--success">
+    <span class="x-badge__dot" aria-hidden="true"></span>    <span class="x-badge__label">Delivered</span>
+</span>
+                </div>
+            </td>
+
+            <td class="vt-col-date" rowspan="3" data-label="Date">
+                                    <span class="co-date">2026-07-13 14:46</span>
+                            </td>
+
+            <td class="vt-col-act" rowspan="3">
+                                <div class="co-actions">
+                    
+                    <div class="x-menu" x-data="{ open: false }" @keydown.escape.window="if (open) { open = false; $refs.trigger.focus() }">
+    <button type="button"
+            x-ref="trigger"
+            class="x-menu__trigger"
+            :aria-expanded="open ? 'true' : 'false'"
+            aria-haspopup="true"
+            aria-label="Order 29975 actions"
+            @click.stop="open = !open">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
+            </svg>
+            </button>
+    <div class="x-menu__panel" role="group" aria-label="Order 29975 actions" x-show="open" x-cloak x-transition.duration.120ms @click.outside="open = false">
+        <button type="button" class="x-menu__item x-menu__item--danger"
+                                data-confirm="Delete order 29975 from this store? The sales order it created is not affected."
+                                data-confirm-submit="vt-del-324">Delete</button>
+                        <form id="vt-del-324" method="POST"
+                              action="http://localhost/integrations/venta/2/orders/324" class="x-sr">
+                            <input type="hidden" name="_token" value="MpkAhkr94wK9V3EGFPxudCMPEsBEE8z8jDgc1xLR" autocomplete="off">                            <input type="hidden" name="_method" value="DELETE">                        </form>
+    </div>
+</div>
+                </div>
+                            </td>
+                    </tr>
+                <tr class="co-itemrow ">
+            <td class="vt-col-products" data-label="Products">
+                <div class="co-item">
+                    <div class="co-item__body">
+                        <span class="co-item__name">M-Vave TANK PRO Guitar and Bass Multi-Effects Processor PRE-ORDER</span>
+                        <div class="co-item__meta">
+                                                            <span class="co-item__sku">m-vave-tank-pro-green</span>
+                                                                                        <span class="co-item__var">Green</span>
+                                                    </div>
+                    </div>
+                </div>
+            </td>
+
+            <td class="vt-col-qty" data-label="Qty">
+                <span class="co-qty">&times;5</span>
+            </td>
+
+            <td class="vt-col-price x-td-num" data-label="Price">
+                                    <span class="co-price">₱5,000.00</span>
+                            </td>
+
+                    </tr>
+                <tr class="co-itemrow co-itemrow--last">
+            <td class="vt-col-products" data-label="Products">
+                <div class="co-item">
+                    <div class="co-item__body">
+                        <span class="co-item__name">M-Vave TANK PRO Guitar and Bass Multi-Effects Processor PRE-ORDER</span>
+                        <div class="co-item__meta">
+                                                            <span class="co-item__sku">m-vave-tank-pro-slvr</span>
+                                                                                        <span class="co-item__var">Silver</span>
+                                                    </div>
+                    </div>
+                </div>
+            </td>
+
+            <td class="vt-col-qty" data-label="Qty">
+                <span class="co-qty">&times;11</span>
+            </td>
+
+            <td class="vt-col-price x-td-num" data-label="Price">
+                                    <span class="co-price">₱5,000.00</span>
+                            </td>
+
+                    </tr>
+                            <tr class="co-band">
+            <td colspan="9">
+                <div class="co-band__row">
+                    <div class="co-band__left">
+                                                    <input type="checkbox" class="vt-pick venta-order-check" name="ids[]"
+                                   value="323" form="venta-bulk-delete-form"
+                                   aria-label="Select order 29974">
+                                                <span class="co-band__label">Customer</span>
+                                                    <span class="co-band__value">Russel Sarmiento</span>
+                                                <span class="co-band__label">Order</span>
+                                                    <span class="co-band__value co-band__value--mono">29974</span>
+                                                                            <span class="co-band__muted">(1 item)</span>
+                                            </div>
+                    <div class="co-band__right">
+                                                    <a class="co-ref" href="http://localhost/sales/orders/44226">Sales order 44226</a>
+                                            </div>
+                </div>
+            </td>
+        </tr>
+                <tr class="co-itemrow co-itemrow--last">
+            <td class="vt-col-products" data-label="Products">
+                <div class="co-item">
+                    <div class="co-item__body">
+                        <span class="co-item__name">Valeton GP-50 Multi Effects AMP, IR and NAM Profile Loaders Dual Switch Guitar Pedal</span>
+                        <div class="co-item__meta">
+                                                            <span class="co-item__sku">VALETON-GP50</span>
+                                                                                </div>
+                    </div>
+                </div>
+            </td>
+
+            <td class="vt-col-qty" data-label="Qty">
+                <span class="co-qty">&times;1</span>
+            </td>
+
+            <td class="vt-col-price x-td-num" data-label="Price">
+                                    <span class="co-price">₱5,000.00</span>
+                            </td>
+
+                        <td class="vt-col-total x-td-num" rowspan="1" data-label="Amount">
+                <span class="co-total">₱5,000.00</span>
+            </td>
+
+            <td class="vt-col-pay" rowspan="1" data-label="Payment">
+                                    <span class="vt-pay">Bank Transfer — BPI</span>
+                            </td>
+
+            <td class="vt-col-track" rowspan="1" data-label="Tracking">
+                                    <span class="co-empty-mark">-</span>
+                            </td>
+
+            <td class="vt-col-status" rowspan="1" data-label="Status">
+                <div class="co-status">
+                    <span class="x-badge x-badge--success">
+    <span class="x-badge__dot" aria-hidden="true"></span>    <span class="x-badge__label">Delivered</span>
+</span>
+                </div>
+            </td>
+
+            <td class="vt-col-date" rowspan="1" data-label="Date">
+                                    <span class="co-date">2026-07-13 07:16</span>
+                            </td>
+
+            <td class="vt-col-act" rowspan="1">
+                                <div class="co-actions">
+                    
+                    <div class="x-menu" x-data="{ open: false }" @keydown.escape.window="if (open) { open = false; $refs.trigger.focus() }">
+    <button type="button"
+            x-ref="trigger"
+            class="x-menu__trigger"
+            :aria-expanded="open ? 'true' : 'false'"
+            aria-haspopup="true"
+            aria-label="Order 29974 actions"
+            @click.stop="open = !open">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
+            </svg>
+            </button>
+    <div class="x-menu__panel" role="group" aria-label="Order 29974 actions" x-show="open" x-cloak x-transition.duration.120ms @click.outside="open = false">
+        <button type="button" class="x-menu__item x-menu__item--danger"
+                                data-confirm="Delete order 29974 from this store? The sales order it created is not affected."
+                                data-confirm-submit="vt-del-323">Delete</button>
+                        <form id="vt-del-323" method="POST"
+                              action="http://localhost/integrations/venta/2/orders/323" class="x-sr">
+                            <input type="hidden" name="_token" value="MpkAhkr94wK9V3EGFPxudCMPEsBEE8z8jDgc1xLR" autocomplete="off">                            <input type="hidden" name="_method" value="DELETE">                        </form>
+    </div>
+</div>
+                </div>
+                            </td>
+                    </tr>
+                            <tr class="co-band">
+            <td colspan="9">
+                <div class="co-band__row">
+                    <div class="co-band__left">
+                                                    <input type="checkbox" class="vt-pick venta-order-check" name="ids[]"
+                                   value="321" form="venta-bulk-delete-form"
+                                   aria-label="Select order 29971">
+                                                <span class="co-band__label">Customer</span>
+                                                    <span class="co-band__value">Russel Sarmiento</span>
+                                                <span class="co-band__label">Order</span>
+                                                    <span class="co-band__value co-band__value--mono">29971</span>
+                                                                            <span class="co-band__muted">(1 item)</span>
+                                            </div>
+                    <div class="co-band__right">
+                                                    <a class="co-ref" href="http://localhost/sales/orders/44207">Sales order 44207</a>
+                                            </div>
+                </div>
+            </td>
+        </tr>
+                <tr class="co-itemrow co-itemrow--last">
+            <td class="vt-col-products" data-label="Products">
+                <div class="co-item">
+                    <div class="co-item__body">
+                        <span class="co-item__name">Valeton GP-150 Guitar Multi-Effect Processor</span>
+                        <div class="co-item__meta">
+                                                            <span class="co-item__sku">valeton-gp-150</span>
+                                                                                </div>
+                    </div>
+                </div>
+            </td>
+
+            <td class="vt-col-qty" data-label="Qty">
+                <span class="co-qty">&times;1</span>
+            </td>
+
+            <td class="vt-col-price x-td-num" data-label="Price">
+                                    <span class="co-price">₱7,500.00</span>
+                            </td>
+
+                        <td class="vt-col-total x-td-num" rowspan="1" data-label="Amount">
+                <span class="co-total">₱7,500.00</span>
+            </td>
+
+            <td class="vt-col-pay" rowspan="1" data-label="Payment">
+                                    <span class="vt-pay">Bank Transfer — BPI</span>
+                            </td>
+
+            <td class="vt-col-track" rowspan="1" data-label="Tracking">
+                                    <span class="co-empty-mark">-</span>
+                            </td>
+
+            <td class="vt-col-status" rowspan="1" data-label="Status">
+                <div class="co-status">
+                    <span class="x-badge x-badge--success">
+    <span class="x-badge__dot" aria-hidden="true"></span>    <span class="x-badge__label">Delivered</span>
+</span>
+                </div>
+            </td>
+
+            <td class="vt-col-date" rowspan="1" data-label="Date">
+                                    <span class="co-date">2026-07-11 13:22</span>
+                            </td>
+
+            <td class="vt-col-act" rowspan="1">
+                                <div class="co-actions">
+                    
+                    <div class="x-menu" x-data="{ open: false }" @keydown.escape.window="if (open) { open = false; $refs.trigger.focus() }">
+    <button type="button"
+            x-ref="trigger"
+            class="x-menu__trigger"
+            :aria-expanded="open ? 'true' : 'false'"
+            aria-haspopup="true"
+            aria-label="Order 29971 actions"
+            @click.stop="open = !open">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
+            </svg>
+            </button>
+    <div class="x-menu__panel" role="group" aria-label="Order 29971 actions" x-show="open" x-cloak x-transition.duration.120ms @click.outside="open = false">
+        <button type="button" class="x-menu__item x-menu__item--danger"
+                                data-confirm="Delete order 29971 from this store? The sales order it created is not affected."
+                                data-confirm-submit="vt-del-321">Delete</button>
+                        <form id="vt-del-321" method="POST"
+                              action="http://localhost/integrations/venta/2/orders/321" class="x-sr">
+                            <input type="hidden" name="_token" value="MpkAhkr94wK9V3EGFPxudCMPEsBEE8z8jDgc1xLR" autocomplete="off">                            <input type="hidden" name="_method" value="DELETE">                        </form>
+    </div>
+</div>
+                </div>
+                            </td>
+                    </tr>
+                            <tr class="co-band">
+            <td colspan="9">
+                <div class="co-band__row">
+                    <div class="co-band__left">
+                                                    <input type="checkbox" class="vt-pick venta-order-check" name="ids[]"
+                                   value="319" form="venta-bulk-delete-form"
+                                   aria-label="Select order 29970">
+                                                <span class="co-band__label">Customer</span>
+                                                    <span class="co-band__value">Russel Sarmiento</span>
+                                                <span class="co-band__label">Order</span>
+                                                    <span class="co-band__value co-band__value--mono">29970</span>
+                                                                            <span class="co-band__muted">(2 items)</span>
+                                            </div>
+                    <div class="co-band__right">
+                                                    <a class="co-ref" href="http://localhost/sales/orders/44178">Sales order 44178</a>
+                                            </div>
+                </div>
+            </td>
+        </tr>
+                <tr class="co-itemrow ">
+            <td class="vt-col-products" data-label="Products">
+                <div class="co-item">
+                    <div class="co-item__body">
+                        <span class="co-item__name">Valeton GP-200 Multi Effects Pedal with free Gigbag</span>
+                        <div class="co-item__meta">
+                                                            <span class="co-item__sku">valeton-gp-200r</span>
+                                                                                        <span class="co-item__var">Red</span>
+                                                    </div>
+                    </div>
+                </div>
+            </td>
+
+            <td class="vt-col-qty" data-label="Qty">
+                <span class="co-qty">&times;1</span>
+            </td>
+
+            <td class="vt-col-price x-td-num" data-label="Price">
+                                    <span class="co-price">₱17,000.00</span>
+                            </td>
+
+                        <td class="vt-col-total x-td-num" rowspan="2" data-label="Amount">
+                <span class="co-total">₱18,590.00</span>
+            </td>
+
+            <td class="vt-col-pay" rowspan="2" data-label="Payment">
+                                    <span class="vt-pay">Bank Transfer — BPI</span>
+                            </td>
+
+            <td class="vt-col-track" rowspan="2" data-label="Tracking">
+                                    <span class="co-empty-mark">-</span>
+                            </td>
+
+            <td class="vt-col-status" rowspan="2" data-label="Status">
+                <div class="co-status">
+                    <span class="x-badge x-badge--success">
+    <span class="x-badge__dot" aria-hidden="true"></span>    <span class="x-badge__label">Delivered</span>
+</span>
+                </div>
+            </td>
+
+            <td class="vt-col-date" rowspan="2" data-label="Date">
+                                    <span class="co-date">2026-07-09 07:40</span>
+                            </td>
+
+            <td class="vt-col-act" rowspan="2">
+                                <div class="co-actions">
+                    
+                    <div class="x-menu" x-data="{ open: false }" @keydown.escape.window="if (open) { open = false; $refs.trigger.focus() }">
+    <button type="button"
+            x-ref="trigger"
+            class="x-menu__trigger"
+            :aria-expanded="open ? 'true' : 'false'"
+            aria-haspopup="true"
+            aria-label="Order 29970 actions"
+            @click.stop="open = !open">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
+            </svg>
+            </button>
+    <div class="x-menu__panel" role="group" aria-label="Order 29970 actions" x-show="open" x-cloak x-transition.duration.120ms @click.outside="open = false">
+        <button type="button" class="x-menu__item x-menu__item--danger"
+                                data-confirm="Delete order 29970 from this store? The sales order it created is not affected."
+                                data-confirm-submit="vt-del-319">Delete</button>
+                        <form id="vt-del-319" method="POST"
+                              action="http://localhost/integrations/venta/2/orders/319" class="x-sr">
+                            <input type="hidden" name="_token" value="MpkAhkr94wK9V3EGFPxudCMPEsBEE8z8jDgc1xLR" autocomplete="off">                            <input type="hidden" name="_method" value="DELETE">                        </form>
+    </div>
+</div>
+                </div>
+                            </td>
+                    </tr>
+                <tr class="co-itemrow co-itemrow--last">
+            <td class="vt-col-products" data-label="Products">
+                <div class="co-item">
+                    <div class="co-item__body">
+                        <span class="co-item__name">Mosky Audio ISO-8 Fully Isolated Power supply for Guitar Effects Pedals</span>
+                        <div class="co-item__meta">
+                                                            <span class="co-item__sku">mos-iso-8</span>
+                                                                                </div>
+                    </div>
+                </div>
+            </td>
+
+            <td class="vt-col-qty" data-label="Qty">
+                <span class="co-qty">&times;1</span>
+            </td>
+
+            <td class="vt-col-price x-td-num" data-label="Price">
+                                    <span class="co-price">₱1,590.00</span>
+                            </td>
+
+                    </tr></tbody>
+    </table>
+</div>
+
+<div class="x-pager">
+                    <span class="x-pager__count x-num">1 to 10 of 138</span>
+        
+        <div class="x-pager__nav">
+            <button type="button" class="x-btn x-btn--secondary x-btn--sm" disabled="disabled"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="m15 18-6-6 6-6"/></svg>
+ Previous</button>
+
+                            
+                
+                <ol class="x-pager__pages" aria-label="Pages"
+                    x-data
+                    x-init="$nextTick(() => {
+                        const on = $el.querySelector('.is-on');
+                        if (! on) return;
+                        // Rect deltas, not offsetLeft. offsetLeft is measured
+                        // from the offsetParent, and the <li> between the item
+                        // and this container makes that the wrong origin - it
+                        // reported page 5 of 8 as sitting at the far right end
+                        // of the strip and scrolled there.
+                        const item = on.getBoundingClientRect();
+                        const box = $el.getBoundingClientRect();
+                        $el.scrollLeft += (item.left - box.left) - (box.width - item.width) / 2;
+                    })">
+                                            <li>
+                                                            <span class="x-pager__page is-on" aria-current="page">
+                                    <span class="x-sr">Page </span>1<span class="x-sr"> of 14, current page</span>
+                                </span>
+                                                    </li>
+                                            <li>
+                                                            <a class="x-pager__page" href="http://localhost/integrations/orders?channel=venta%3A2&amp;page=2">
+                                    <span class="x-sr">Page </span>2
+                                </a>
+                                                    </li>
+                                            <li>
+                                                            <a class="x-pager__page" href="http://localhost/integrations/orders?channel=venta%3A2&amp;page=3">
+                                    <span class="x-sr">Page </span>3
+                                </a>
+                                                    </li>
+                                            <li>
+                                                            <span class="x-pager__gap" aria-hidden="true">&hellip;</span>
+                                                    </li>
+                                            <li>
+                                                            <a class="x-pager__page" href="http://localhost/integrations/orders?channel=venta%3A2&amp;page=14">
+                                    <span class="x-sr">Page </span>14
+                                </a>
+                                                    </li>
+                                    </ol>
+            
+            <a href="http://localhost/integrations/orders?channel=venta%3A2&amp;page=2" class="x-btn x-btn--secondary x-btn--sm">Next <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><path d="m9 18 6-6-6-6"/></svg></a>
+        </div>
+    </div>
+        </div>
+    
+</div>
+        </main>
+    </div>
+</div>
+
+<div class="modal-backdrop" id="x-confirm-modal">
+    
+    <div class="modal modal--sm" role="dialog" aria-modal="true"
+         aria-labelledby="x-confirm-modal-title"
+         aria-describedby="x-confirm-modal-message">
+        <div class="modal-header">
+            <h3 id="x-confirm-modal-title">Confirm</h3>
+            <button class="modal-close" type="button" id="x-confirm-modal-close" aria-label="Close">&times;</button>
+        </div>
+        <p class="x-confirm__message" id="x-confirm-modal-message"></p>
+        <div class="d-flex justify-end gap-8">
+            <button type="button" class="x-btn x-btn--secondary x-btn--md" id="x-confirm-modal-cancel">Cancel</button>
+            <button type="button" class="x-btn x-btn--danger x-btn--md" id="x-confirm-modal-ok">Confirm</button>
+        </div>
+    </div>
+</div>
+<div class="x-palette" x-data="xenonPalette(JSON.parse('[{\u0022label\u0022:\u0022Dashboard\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/dashboard\u0022,\u0022hay\u0022:\u0022dashboard dashboard home overview summary\u0022},{\u0022label\u0022:\u0022Sales \\\/ Orders\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/sales\\\/orders\u0022,\u0022hay\u0022:\u0022sales orders sale customer invoice marketplace\u0022},{\u0022label\u0022:\u0022Sales \\\/ Payments\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/sales\\\/order-payments\u0022,\u0022hay\u0022:\u0022sales payments paid settlement remittance\u0022},{\u0022label\u0022:\u0022Fulfilment\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/integrations\\\/orders\u0022,\u0022hay\u0022:\u0022fulfilment fulfilment fulfilment fulfillment ship pack marketplace orders\u0022},{\u0022label\u0022:\u0022Channels \\\/ All channels\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/integrations\u0022,\u0022hay\u0022:\u0022channels all channels integrations status connection sync marketplace board\u0022},{\u0022label\u0022:\u0022Channels \\\/ Lazada\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/integrations\\\/lazada\u0022,\u0022hay\u0022:\u0022channels lazada lazada seller center orders listings\u0022},{\u0022label\u0022:\u0022Channels \\\/ Shopee\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/integrations\\\/shopee\u0022,\u0022hay\u0022:\u0022channels shopee shopee seller center orders listings\u0022},{\u0022label\u0022:\u0022Channels \\\/ TikTok Shop\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/integrations\\\/tiktok\u0022,\u0022hay\u0022:\u0022channels tiktok shop tiktok seller center orders listings\u0022},{\u0022label\u0022:\u0022Channels \\\/ Venta Shop A\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/integrations\\\/venta\\\/2\u0022,\u0022hay\u0022:\u0022channels venta shop a venta shop a seller center orders store\u0022},{\u0022label\u0022:\u0022Channels \\\/ Venta Shop B\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/integrations\\\/venta\\\/3\u0022,\u0022hay\u0022:\u0022channels venta shop b venta shop b seller center orders store\u0022},{\u0022label\u0022:\u0022Channels \\\/ OpenCart Shop A\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/integrations\\\/opencart\\\/1\u0022,\u0022hay\u0022:\u0022channels opencart shop a opencart shop a seller center orders store\u0022},{\u0022label\u0022:\u0022Channels \\\/ OpenCart Shop B\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/integrations\\\/opencart\\\/2\u0022,\u0022hay\u0022:\u0022channels opencart shop b opencart shop b seller center orders store\u0022},{\u0022label\u0022:\u0022Catalogue \\\/ Products\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/catalog\\\/products\u0022,\u0022hay\u0022:\u0022catalogue products sku variation stock price\u0022},{\u0022label\u0022:\u0022Catalogue \\\/ Categories\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/catalog\\\/categories\u0022,\u0022hay\u0022:\u0022catalogue categories taxonomy group\u0022},{\u0022label\u0022:\u0022Catalogue \\\/ Manufacturers\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/catalog\\\/manufacturers\u0022,\u0022hay\u0022:\u0022catalogue manufacturers brand supplier\u0022},{\u0022label\u0022:\u0022Catalogue \\\/ Reviews\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/catalog\\\/reviews\u0022,\u0022hay\u0022:\u0022catalogue reviews rating feedback comment\u0022},{\u0022label\u0022:\u0022Purchasing \\\/ Purchase Orders\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/purchasing\\\/purchase-orders\u0022,\u0022hay\u0022:\u0022purchasing purchase orders po buy restock inbound\u0022},{\u0022label\u0022:\u0022Purchasing \\\/ Vendors\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/purchasing\\\/vendors\u0022,\u0022hay\u0022:\u0022purchasing vendors supplier seller source\u0022},{\u0022label\u0022:\u0022Purchasing \\\/ Reorder Suggestions\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/purchasing\\\/reorder-suggestions\u0022,\u0022hay\u0022:\u0022purchasing reorder suggestions \u0022},{\u0022label\u0022:\u0022Warehousing \\\/ Transfers\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/warehousing\\\/transfers\u0022,\u0022hay\u0022:\u0022warehousing transfers move stock transfer location\u0022},{\u0022label\u0022:\u0022Warehousing \\\/ Inventory\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/warehousing\\\/inventory\u0022,\u0022hay\u0022:\u0022warehousing inventory stock quantity count adjust\u0022},{\u0022label\u0022:\u0022Warehousing \\\/ Locations\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/warehousing\\\/locations\u0022,\u0022hay\u0022:\u0022warehousing locations warehouse branch store\u0022},{\u0022label\u0022:\u0022Warehousing \\\/ Stock Adjustment\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/warehousing\\\/adjust\u0022,\u0022hay\u0022:\u0022warehousing stock adjustment \u0022},{\u0022label\u0022:\u0022Reports \\\/ Orders\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/reports\\\/orders\u0022,\u0022hay\u0022:\u0022reports orders revenue sales report\u0022},{\u0022label\u0022:\u0022Reports \\\/ Products\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/reports\\\/products\u0022,\u0022hay\u0022:\u0022reports products profit margin markup cogs\u0022},{\u0022label\u0022:\u0022Reports \\\/ Categories\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/reports\\\/categories\u0022,\u0022hay\u0022:\u0022reports categories category profit\u0022},{\u0022label\u0022:\u0022Reports \\\/ Fees\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/reports\\\/fees\u0022,\u0022hay\u0022:\u0022reports fees commission charge marketplace fee\u0022},{\u0022label\u0022:\u0022Reports \\\/ Payouts\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/reports\\\/payouts\u0022,\u0022hay\u0022:\u0022reports payouts settlement remittance disbursement\u0022},{\u0022label\u0022:\u0022Reports \\\/ Inventory\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/reports\\\/inventory\u0022,\u0022hay\u0022:\u0022reports inventory stock value on hand\u0022},{\u0022label\u0022:\u0022Petty Cash\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/petty-cash\u0022,\u0022hay\u0022:\u0022petty cash petty cash \u0022},{\u0022label\u0022:\u0022Petty Cash \\\/ Settings\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/petty-cash\\\/settings\u0022,\u0022hay\u0022:\u0022petty cash settings \u0022},{\u0022label\u0022:\u0022Audit \\u0026 Monitoring \\\/ Activity Log\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/activity-log\u0022,\u0022hay\u0022:\u0022audit \\u0026 monitoring activity log \u0022},{\u0022label\u0022:\u0022Settings\u0022,\u0022url\u0022:\u0022http:\\\/\\\/localhost\\\/settings\u0022,\u0022hay\u0022:\u0022settings settings config currency user permission extension order status\u0022}]'))" x-show="open" x-cloak
+     @keydown.escape.window="close()"
+     @keydown.window.prevent.cmd.k="toggle()"
+     @keydown.window.prevent.ctrl.k="toggle()"
+     @xenon-open-palette.window="openPalette()">
+    <div class="x-palette__scrim" @click="close()"></div>
+    <div class="x-palette__panel" role="dialog" aria-modal="true" aria-label="Command palette">
+        <div class="x-palette__search">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" ><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="search" class="x-palette__input" x-ref="input" x-model="q"
+                   placeholder="Search pages, orders and products" aria-label="Search"
+                   autocomplete="off" spellcheck="false" role="combobox" aria-expanded="true"
+                   @input="search()"
+                   @keydown.down.prevent="move(1)"
+                   @keydown.up.prevent="move(-1)"
+                   @keydown.enter.prevent="go()">
+        </div>
+        <div class="x-palette__results" role="listbox" aria-label="Results">
+            <template x-if="routes().length">
+                <div class="x-palette__group">
+                    <p class="x-palette__group-title">Pages</p>
+                    <template x-for="(r, i) in routes()" :key="r.url">
+                        <a :href="r.url" class="x-palette__item" role="option"
+                           :aria-selected="idx === i ? 'true' : 'false'"
+                           :class="idx === i && 'is-active'"
+                           @mouseenter="idx = i" x-text="r.label"></a>
+                    </template>
+                </div>
+            </template>
+
+            <template x-if="records.orders.length">
+                <div class="x-palette__group">
+                    <p class="x-palette__group-title">Orders</p>
+                    <template x-for="(o, i) in records.orders" :key="'order-' + o.id">
+                        <a :href="o.url" class="x-palette__item x-palette__item--record" role="option"
+                           :aria-selected="idx === routes().length + i ? 'true' : 'false'"
+                           :class="idx === routes().length + i && 'is-active'"
+                           @mouseenter="idx = routes().length + i">
+                            <span class="x-palette__item-title" x-text="'#' + o.id + (o.firstname || o.lastname ? ' · ' + [o.firstname, o.lastname].filter(Boolean).join(' ') : '')"></span>
+                            <span class="x-palette__item-meta" x-text="o.total_display"></span>
+                        </a>
+                    </template>
+                </div>
+            </template>
+
+            <template x-if="records.products.length">
+                <div class="x-palette__group">
+                    <p class="x-palette__group-title">Products</p>
+                    <template x-for="(p, i) in records.products" :key="'product-' + p.id">
+                        <a :href="p.url" class="x-palette__item x-palette__item--record" role="option"
+                           :aria-selected="idx === routes().length + records.orders.length + i ? 'true' : 'false'"
+                           :class="idx === routes().length + records.orders.length + i && 'is-active'"
+                           @mouseenter="idx = routes().length + records.orders.length + i">
+                            <span class="x-palette__item-title" x-text="p.name"></span>
+                            <span class="x-palette__item-meta" x-text="p.sku || ('ID ' + p.id)"></span>
+                        </a>
+                    </template>
+                </div>
+            </template>
+
+            <template x-if="q.length >= 2 && !routes().length && !records.orders.length && !records.products.length">
+                <p class="x-palette__empty">Nothing matches "<span x-text="q"></span>".</p>
+            </template>
+        </div>
+        <div class="x-palette__hints">
+            <span><kbd>&uarr;</kbd><kbd>&darr;</kbd> navigate</span>
+            <span><kbd>&crarr;</kbd> open</span>
+            <span><kbd>esc</kbd> close</span>
+        </div>
+    </div>
+</div>
+</body>
+</html>
