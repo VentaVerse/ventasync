@@ -39,16 +39,24 @@ class LazadaReturnsPanel
 
         // Tab logic
         $tab = strtoupper((string)$request->query('tab', 'ALL'));
-        $allowedTabs = ['ALL', 'RETURN_INITIATED', 'IN_PROGRESS', 'DISPUTE', 'REFUND_ISSUED', 'CLOSED', 'REJECTED'];
+        $allowedTabs = ['ALL', 'RETURN_INITIATED', 'IN_PROGRESS', 'DISPUTE', 'REFUND_ISSUED', 'CLOSED', 'REJECTED', 'OTHER'];
         if (!in_array($tab, $allowedTabs, true)) { $tab = 'ALL'; }
 
+        // The values on the RIGHT are what Lazada actually stores, not what
+        // its documentation lists. Written from the docs, this map matched
+        // none of the 76 rows in the table: every tab read 0 while All read
+        // 76, because the live vocabulary is REFUND_SUCCESS, REQUEST_CANCEL
+        // and REFUND_REJECT and none of the three appeared here. The
+        // documented spellings are kept alongside them - Lazada is free to
+        // send either - and the OTHER tab below now catches whatever comes
+        // next instead of dropping it out of the strip entirely.
         $tabStatusMap = [
             'RETURN_INITIATED' => ['return initiated', 'return_initiated', 'requested', 'pending'],
             'IN_PROGRESS'      => ['in progress', 'in_progress', 'processing', 'approved', 'return_in_progress', 'shipped_back', 'received'],
             'DISPUTE'          => ['dispute in progress', 'dispute_in_progress', 'dispute'],
-            'REFUND_ISSUED'    => ['refund issued', 'refund_issued', 'refund_paid', 'refunded'],
+            'REFUND_ISSUED'    => ['refund issued', 'refund_issued', 'refund_paid', 'refunded', 'refund_success'],
             'CLOSED'           => ['closed', 'completed'],
-            'REJECTED'         => ['rejected', 'cancelled', 'canceled'],
+            'REJECTED'         => ['rejected', 'cancelled', 'canceled', 'request_cancel', 'refund_reject'],
         ];
 
         $tabs = [
@@ -66,8 +74,15 @@ class LazadaReturnsPanel
 
         $baseCountQuery = LazadaReverseOrder::query()->where('region', $region);
 
+        // Everything the map does not name, so a status Lazada invents is
+        // reachable instead of silently absent from every tab.
+        $mappedStatuses = array_values(array_unique(array_merge(...array_values($tabStatusMap))));
+
         // Apply tab filter
-        if ($tab !== 'ALL') {
+        if ($tab === 'OTHER') {
+            $query->whereRaw('LOWER(reverse_status) NOT IN (' . implode(',', array_fill(0, count($mappedStatuses), '?')) . ')',
+                array_map('strtolower', $mappedStatuses));
+        } elseif ($tab !== 'ALL') {
             $statuses = $tabStatusMap[$tab] ?? [];
             if (!empty($statuses)) {
                 $query->where(function ($q) use ($statuses) {
@@ -94,6 +109,15 @@ class LazadaReturnsPanel
                     $q->orWhereRaw('LOWER(reverse_status) = ?', [strtolower($s)]);
                 }
             })->count();
+        }
+
+        $otherCount = (clone $baseCountQuery)
+            ->whereRaw('LOWER(reverse_status) NOT IN (' . implode(',', array_fill(0, count($mappedStatuses), '?')) . ')',
+                array_map('strtolower', $mappedStatuses))
+            ->count();
+        if ($otherCount > 0) {
+            $tabs['OTHER'] = 'Other';
+            $tab_counts['OTHER'] = $otherCount;
         }
 
         $orders = $query

@@ -198,6 +198,16 @@
    a restack that comments elsewhere refer to and that never existed in
    the bundle. It exists now.
 
+   THE GATE IS AN OPT-IN CLASS, not :has(.co-band). It was the latter, and
+   that made a desktop layout choice silently decide whether a screen
+   worked on a phone: Shopee's returns list is the one marketplace list
+   not built from order bands, so it matched nothing, kept its desktop
+   grid at 745px inside a 326px viewport, and put Buyer, Refund, Status
+   and every action behind a second scroll axis. Its 50 data-label
+   attributes were inert the whole time. A list now says whether it
+   stacks, and the next list built without a band inherits nothing by
+   accident.
+
    THIS FILE, not blotter-components.css, because the per-channel column
    widths (.sp-col-products { width: 31% } and its Lazada and TikTok
    twins) are unlayered page vocabulary, and unlayered rules beat
@@ -213,36 +223,42 @@
    ------------------------------------------------------------------ */
 @media (max-width: 700px) {
     /* Column headers describe columns, and there are none now. */
-    .x-table:has(.co-band) > thead { display: none; }
+    .x-table--stack > thead { display: none; }
 
-    .x-table:has(.co-band),
-    .x-table:has(.co-band) > tbody,
-    .x-table:has(.co-band) > tbody > tr,
-    .x-table:has(.co-band) > tbody > tr > td {
+    .x-table--stack,
+    .x-table--stack > tbody,
+    .x-table--stack > tbody > tr,
+    .x-table--stack > tbody > tr > td {
         display: block;
         width: auto;
     }
 
     /* The gap between orders does more work here than on a desktop,
        because there are no column edges left to line the eye up. */
-    .x-table:has(.co-band) > tbody > tr.co-band > td {
+    .x-table--stack > tbody > tr.co-band > td {
         border-top-width: 12px;
         padding: 10px 12px;
     }
 
-    .x-table:has(.co-band) > tbody > tr.co-itemrow > td {
+    .x-table--stack > tbody > tr:not(.co-band) > td {
         padding: 5px 12px;
         border-bottom: 0;
         text-align: left;
     }
 
-    .x-table:has(.co-band) > tbody > tr.co-itemrow > td:last-child {
+    .x-table--stack > tbody > tr:not(.co-band) > td:last-child {
         padding-bottom: 11px;
     }
 
     /* Each figure says which figure it is, since the header that used to
-       say so is gone. The product cell names itself. */
-    .x-table:has(.co-band) > tbody > tr.co-itemrow > td[data-label]:not([data-label='Products'])::before {
+       say so is gone. The product cell names itself.
+
+       Scoped to "any row that is not a band" rather than to .co-itemrow:
+       a stacked list does not have to use the band anatomy, and when these
+       rules named co-itemrow the one list that does not (Shopee returns)
+       stacked without labels, so its Buyer and Refund cells printed bare
+       values with nothing saying which was which. */
+    .x-table--stack > tbody > tr:not(.co-band) > td[data-label]:not([data-label='Products'])::before {
         content: attr(data-label);
         display: block;
         margin-bottom: 1px;
@@ -256,13 +272,13 @@
     /* The product keeps its thumbnail beside its name rather than
        stacking under it: the name is what identifies the row and it
        needs the width. */
-    .x-table:has(.co-band) > tbody > tr.co-itemrow > td .co-item {
+    .x-table--stack > tbody > tr:not(.co-band) > td .co-item {
         display: flex;
         gap: 10px;
         align-items: flex-start;
     }
 
-    .x-table:has(.co-band) > tbody > tr.co-itemrow > td .co-item > .order-img-wrap {
+    .x-table--stack > tbody > tr:not(.co-band) > td .co-item > .order-img-wrap {
         flex: 0 0 56px;
         width: 56px;
         min-height: 0;
@@ -270,13 +286,13 @@
 
     /* Everything beside the image takes the rest of the row and wraps
        like prose instead of one word per line. */
-    .x-table:has(.co-band) > tbody > tr.co-itemrow > td .co-item > :not(.order-img-wrap) {
+    .x-table--stack > tbody > tr:not(.co-band) > td .co-item > :not(.order-img-wrap) {
         flex: 1 1 auto;
         min-width: 0;
     }
 
     /* A row action is a thumb target here, not a column. */
-    .x-table:has(.co-band) > tbody > tr.co-itemrow > td .x-btn {
+    .x-table--stack > tbody > tr:not(.co-band) > td .x-btn {
         min-height: 40px;
     }
 }

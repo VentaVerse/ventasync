@@ -739,13 +739,20 @@ class IntegrationController extends Controller
 
             $panel = app($panelClass);
 
+            $panelData = $panelStoreId === null
+                ? $panel->build($request)
+                : $panel->build($request, $panelStoreId);
+
             $data = array_merge(
                 $data,
-                $panelStoreId === null
-                    ? $panel->build($request)
-                    : $panel->build($request, $panelStoreId),
+                $panelData,
                 [
                     'selectedView' => $selectedView,
+                    // Shopee's returns panel paginates as $returns and
+                    // Lazada's as $orders; the head needs one name.
+                    'fhReturnsTotal' => $selectedView === 'returns'
+                        ? (($panelData['returns'] ?? $panelData['orders'] ?? null)?->total() ?? 0)
+                        : 0,
                     // Whether this channel has a returns list to offer at
                     // all, so the panel can show or hide the link rather
                     // than the view guessing per channel.

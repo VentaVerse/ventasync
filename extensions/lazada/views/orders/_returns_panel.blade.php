@@ -42,6 +42,14 @@
 
 <div id="lazada-returns-page" class="co-page">
 
+{{-- The head is the HOST's, not the panel's. The orders panels are
+     headless for exactly this reason: on the fulfilment hub the page
+     already carries an <h1> naming the channel, so a panel that brought
+     its own printed two <h1> elements and told the operator where they
+     were twice, neither time about returns. The seller-centre wrapper
+     renders this block itself; the hub folds the word into its own
+     title. --}}
+@if($panelOwnsHead ?? false)
 <div class="x-list-head">
     <div>
         <h1 class="x-page-title">Returns</h1>
@@ -50,6 +58,7 @@
         </p>
     </div>
 </div>
+@endif
 
 @if($canManageLazadaOrders)
 {{-- One command bar, the same grammar as the Orders page's fetch bar. The
@@ -61,17 +70,22 @@
      mistake Shopee's returns page was built to avoid; so is hiding one it
      does. --}}
 <div class="x-cmdbar">
-    <form method="POST" action="{{ route('ext.lazada.orders.fetch_returns') }}" id="formFetchLazadaReturns" class="x-cmdbar__row">
+    <form method="POST" action="{{ route('ext.lazada.orders.fetch_returns') }}" id="formFetchLazadaReturns" class="x-cmdbar__row"
+          data-confirm="Fetch every return and refund Lazada has on file? This walks the channel's full history and can take a while."
+          data-confirm-tone="primary">
         @csrf
         <div class="x-cmdbar__field">
             <label class="x-cmdbar__label" for="lzReturnFrom">From</label>
+            {{-- Prefilled to the same 15-day window the orders bar uses.
+                 Empty meant "walk the entire history", which is the slowest
+                 call on the surface and was also its default. --}}
             <x-ui.input type="date" id="lzReturnFrom" name="date_from" class="x-cmdbar__date"
-                        value="{{ old('date_from', request('date_from')) }}" />
+                        value="{{ old('date_from', request('date_from', now()->subDays(15)->format('Y-m-d'))) }}" />
         </div>
         <div class="x-cmdbar__field">
             <label class="x-cmdbar__label" for="lzReturnTo">To</label>
             <x-ui.input type="date" id="lzReturnTo" name="date_to" class="x-cmdbar__date"
-                        value="{{ old('date_to', request('date_to')) }}" />
+                        value="{{ old('date_to', request('date_to', now()->format('Y-m-d'))) }}" />
         </div>
         <div class="x-cmdbar__spacer"></div>
         <div class="x-cmdbar__actions">
@@ -173,7 +187,7 @@
     @endphp
     <x-ui.empty title="No returns here" :description="$lzEmptyDesc" />
 @else
-<x-ui.table>
+<x-ui.table class="x-table--stack">
     <x-slot:head>
         {{-- The Orders page's column format, with this page's own fields
              poured into it: the per-line refund sits where the unit price
@@ -326,7 +340,7 @@
                             : \App\Support\Money::base($itPrice) }}</span>
                     @endif
                 @else
-                    <span class="co-empty-mark">&mdash;</span>
+                    <span class="co-empty-mark">-</span>
                 @endif
             </td>
 
@@ -347,7 +361,7 @@
                 @if($firstTracking)
                     <span class="lz-track">{{ $firstTracking }}</span>
                 @else
-                    <span class="co-empty-mark">&mdash;</span>
+                    <span class="co-empty-mark">-</span>
                 @endif
                 @if($ofc)
                     <span class="co-ship__note">{{ str_replace('_', ' ', $ofc) }}</span>

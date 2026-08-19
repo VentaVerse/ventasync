@@ -257,7 +257,7 @@
     @endphp
     <x-ui.empty title="No orders here" :description="$ttEmptyDesc" />
 @else
-<x-ui.table>
+<x-ui.table class="x-table--stack">
     <x-slot:head>
         {{-- The legacy column format, the same one Shopee and Lazada settled
              on: one row per item so Qty and Price align in their own columns,

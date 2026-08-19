@@ -61,6 +61,14 @@
 
 <div id="shopee-returns-page" class="co-page">
 
+{{-- The head is the HOST's, not the panel's. The orders panels are
+     headless for exactly this reason: on the fulfilment hub the page
+     already carries an <h1> naming the channel, so a panel that brought
+     its own printed two <h1> elements and told the operator where they
+     were twice, neither time about returns. The seller-centre wrapper
+     renders this block itself; the hub folds the word into its own
+     title. --}}
+@if($panelOwnsHead ?? false)
 <div class="x-list-head">
     <div>
         <h1 class="x-page-title">Returns</h1>
@@ -69,6 +77,7 @@
         </p>
     </div>
 </div>
+@endif
 
 @if($canManageShopeeOrders)
 {{-- One command bar, same grammar as the Orders page's fetch/update bar:
@@ -79,7 +88,9 @@
      do. Per D3 (no backend changes), the fix is not to invent a param the
      controller would ignore; it is to say plainly what the button does. --}}
 <div class="x-cmdbar">
-    <form method="POST" action="{{ route('ext.shopee.orders.fetch_returns') }}" id="formFetchReturns" class="x-cmdbar__row">
+    <form method="POST" action="{{ route('ext.shopee.orders.fetch_returns') }}" id="formFetchReturns" class="x-cmdbar__row"
+          data-confirm="Fetch every return and refund Shopee has on file? This walks the channel's full history and can take a while."
+          data-confirm-tone="primary">
         @csrf
         <div class="x-cmdbar__spacer"></div>
         <div class="x-cmdbar__actions">
@@ -183,7 +194,7 @@
     @endphp
     <x-ui.empty title="No returns here" :description="$rtEmptyDesc" />
 @else
-<x-ui.table>
+<x-ui.table class="x-table--stack">
     <x-slot:head>
         <tr>
             <th scope="col" class="sp-col-order">Return</th>
@@ -275,7 +286,7 @@
                 @endif
             </td>
 
-            <td class="sp-col-total" data-label="Refund">
+            <td class="sp-col-total x-td-num" data-label="Refund">
                 <span class="co-total">
                     @if($ret->refund_amount !== null)
                         {{ $ret->currency

@@ -84,6 +84,12 @@
        step alone, which is the correct behaviour: dark surfaces read
        elevation as lightness, not as shadow. */
     box-shadow: 0 0 0 1px var(--bl-rule-2), 0 1px 2px rgba(0, 0, 0, .05);
+    /* Nested inside the trough, so its corner has to follow the trough's.
+       The trough is --bl-r-ctrl (11px) with 3px of padding, which leaves an
+       8px inner curve; a 4px pill inside that reads as a square sitting in
+       a round hole, most visibly on the first and last item where the two
+       corners are adjacent. */
+    border-radius: calc(var(--bl-r-ctrl) - 3px);
 }
 
 /* Counts are reference information, not emphasis, so they take the muted

@@ -190,7 +190,7 @@
     </form>
 </div>
 @endif
-<x-ui.table>
+<x-ui.table class="x-table--stack">
     <x-slot:head>
         {{-- The legacy column format the other three channels settled on: one
              row per item so Qty and Price align in their own columns, and the

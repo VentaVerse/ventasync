@@ -77,20 +77,25 @@ class ChannelStatusTone
             'RETRY_SHIP'         => 'warning',
         ],
 
-        // Shopee returns. Moved verbatim from
-        // extensions/shopee/views/orders/returns.blade.php. Nothing here is
-        // settled-and-well, because a return that reached its end is not a
-        // good outcome; the page's own states run from "needs looking at" to
-        // "closed", and none of them is the seller's win.
+        // Shopee returns. REVISED 2026-08-19 to obey the rule this class
+        // states rather than an argument about whether a return is ever a
+        // "win". It isn't - but that is not what these tones mean. neutral
+        // is documented above as "nothing to say... reserved for statuses no
+        // map has heard of", and assigning it to seven KNOWN statuses made
+        // seven of ten rows grey on a list whose whole job is to show which
+        // case needs a person. A settled return is settled; a parcel coming
+        // back is the operator's move (the class docblock names that exact
+        // case as warning); a return still with Shopee's own review is
+        // in-flight.
         'shopee.returns' => [
             'REQUESTED'           => 'warning',
             'PROCESSING'          => 'warning',
-            'ACCEPTED'            => 'neutral',
+            'ACCEPTED'            => 'warning',
             'JUDGING'             => 'info',
             'SELLER_DISPUTE'      => 'info',
-            'REFUND_PAID'         => 'neutral',
-            'SELLER_COMPENSATION' => 'neutral',
-            'CLOSED'              => 'danger',
+            'REFUND_PAID'         => 'success',
+            'SELLER_COMPENSATION' => 'success',
+            'CLOSED'              => 'neutral',
             'CANCELLED'           => 'danger',
         ],
 
@@ -238,11 +243,19 @@ class ChannelStatusTone
             'SHIPPED_BACK'       => 'info',
             'DISPUTE'            => 'info',
             'DISPUTE_IN_PROGRESS' => 'info',
-            'REFUND_ISSUED'      => 'neutral',
-            'REFUND_PAID'        => 'neutral',
-            'REFUNDED'           => 'neutral',
+            'REFUND_ISSUED'      => 'success',
+            'REFUND_PAID'        => 'success',
+            'REFUNDED'           => 'success',
+            // The two Lazada actually sends, which were in neither map and
+            // so printed raw as "Refund success" and "Request cancel".
+            'REFUND_SUCCESS'     => 'success',
+            'REQUEST_CANCEL'     => 'danger',
+            'REFUND_REJECT'      => 'danger',
+            // CLOSED is neutral on both channels now. It was danger on
+            // Shopee and neutral here, so one word meant two things across
+            // two pages of one feature.
             'CLOSED'             => 'neutral',
-            'COMPLETED'          => 'neutral',
+            'COMPLETED'          => 'success',
             'REJECTED'           => 'danger',
             'CANCELLED'          => 'danger',
             'CANCELED'           => 'danger',
@@ -513,7 +526,10 @@ class ChannelStatusTone
             'REJECTED'            => 'Rejected',
             'CANCELLED'           => 'Cancelled',
             'CANCELED'            => 'Cancelled',
-        ],
+                    'REFUND_SUCCESS'     => 'Refunded',
+            'REQUEST_CANCEL'     => 'Cancellation requested',
+            'REFUND_REJECT'      => 'Refund refused',
+],
 
         // Said the way a buyer says them. The only constant that does not
         // read as English on its own is partially_received, which the old

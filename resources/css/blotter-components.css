@@ -1388,9 +1388,29 @@
         color: var(--bl-ink-3);
     }
 
+    /* The hub panel is a raised sheet (it is in blotter.css's sheet list),
+       and a sheet has to hold its contents off its own edge. It did not:
+       --bl-pad is deliberately 0 inside .x-content, so every child - the
+       tab strip, the filter row, the table, the pager - started 1px inside
+       the card border with no gutter at all, and the Order number field
+       sat against the card's left edge.
+
+       Redeclaring the token on the card is the designed opt-in for exactly
+       this, and it is the third time this project has needed it (the
+       dashboard rail and the channel Overview panels were the first two):
+       a var() fallback cannot help, because 0 is a real value and it wins.
+       Declared here rather than as a literal so anything inside asking for
+       --bl-pad resolves to the same number. */
     .x-fh-panel {
         min-width: 0;
+        --bl-pad: 20px;
+        padding-inline: var(--bl-pad);
+        padding-block: var(--bl-pad) 4px;
     }
+
+    /* The command bar carries its own 16px, so it would sit 36px in while
+       everything below it sits at 20px. It gives that up inside the card. */
+    .x-fh-panel > .x-cmdbar { padding-inline: 0; }
 
     .x-fh-panel__scope {
         display: flex;
@@ -1539,89 +1559,6 @@
 
     .fh-card__top .fh-card__name { color: #fff; }
 
-    /* ------------------------------------------------------------
-       CHANNEL IDENTITY
-
-       A marketplace page used to look exactly like every other
-       marketplace page: you read the breadcrumb to find out whose orders
-       you were packing. The channel's own colour now drives the surfaces
-       that belong to it.
-
-       Two scopes, one rule. .x-app--channel is a seller-centre page,
-       which is always about one channel. .fh-scope is the fulfilment hub,
-       which is about one channel only while a panel is open and stays
-       neutral otherwise - so both publish --ch / --ch-deep and everything
-       below just asks for them, with the neutral as the fallback.
-
-       WHAT DOES NOT MOVE: state colour. Amber still means needs-a-person,
-       red still means trouble, and Ship by OVERDUE is still the loudest
-       thing on the page. Identity is spent on chrome and on the primary
-       action; it is never spent on a status.
-       ------------------------------------------------------------ */
-
-    /* The rule under the top bar is the first thing on screen and the
-       cheapest place to say where you are. */
-    .x-app--channel .x-topbar { border-bottom: 2px solid var(--ch, var(--bl-rule)); }
-
-    /* The sidebar name deliberately does NOT take the channel colour. That
-       was the first cut and it was wrong: the channel sidebar is near-black
-       (--bl-side-bg #0b1228) and three of the seven brand colours are dark
-       too, so measured against that ground TikTok's black came out at
-       1.11:1, Lazada's navy at 1.19:1 and Venta's violet at 3.26:1 - a name
-       you cannot read is worse than a name with no colour on it. Every
-       surface below sits on a light ground instead, where all seven work.
-       The sidebar already says which channel this is, in words. */
-
-    /* Which view of the list you are in. The underline is the channel's,
-       the lift is the control's own. */
-    .x-app--channel .x-segment__item.is-active,
-    .fh-scope .x-segment__item.is-active {
-        box-shadow: inset 0 -2px 0 0 var(--ch, transparent),
-                    0 0 0 1px var(--bl-rule-2),
-                    0 1px 2px rgba(0, 0, 0, .05);
-    }
-
-    /* The way into an order. --ch-deep because this is text on a sheet. */
-    .x-app--channel .co-sn,
-    .x-app--channel .co-ref,
-    .x-app--channel .x-row-link,
-    .fh-scope .co-sn,
-    .fh-scope .co-ref,
-    .fh-scope .x-row-link { color: var(--ch-deep, var(--bl-brand-deep)); }
-
-    /* The page's primary action. Deepened, because it carries white text. */
-    .x-app--channel .x-btn--primary,
-    .fh-scope .x-btn--primary {
-        background: var(--ch-deep, var(--bl-ink));
-        border-color: var(--ch-deep, var(--bl-ink));
-    }
-
-    .x-app--channel :focus-visible,
-    .fh-scope :focus-visible { outline-color: var(--ch, var(--bl-brand)); }
-
-    /* DARK THEME. --ch-deep is computed against white, so it only answers
-       the light theme's question; on a near-black sheet the same colour can
-       vanish. Lazada is the proof: its navy clears white at 15.66:1 and sits
-       at about 1.3:1 on the dark sheet, so every order reference on a Lazada
-       page disappeared the moment the theme switched. --ch-lift is the same
-       hue walked toward white until it clears the dark sheet instead.
-
-       The primary button inverts here the way --bl-ink already does in this
-       theme: a light fill carrying dark text, rather than a dark fill
-       carrying light text. */
-    [data-theme='dark'] .x-app--channel .co-sn,
-    [data-theme='dark'] .x-app--channel .co-ref,
-    [data-theme='dark'] .x-app--channel .x-row-link,
-    [data-theme='dark'] .fh-scope .co-sn,
-    [data-theme='dark'] .fh-scope .co-ref,
-    [data-theme='dark'] .fh-scope .x-row-link { color: var(--ch-lift, var(--bl-brand)); }
-
-    [data-theme='dark'] .x-app--channel .x-btn--primary,
-    [data-theme='dark'] .fh-scope .x-btn--primary {
-        background: var(--ch-lift, var(--bl-ink));
-        border-color: var(--ch-lift, var(--bl-ink));
-        color: var(--bl-paper);
-    }
 
     /* The card cap keeps the brand fill in both themes - it is a filled
        block on a sheet, not text on the page, so the white name on it is
@@ -4047,5 +3984,103 @@
 
     @media (prefers-reduced-motion: reduce) {
         .bl-hint__bubble { transition: none; transform: none; }
+    }
+}
+
+/* ============================================================
+   CHANNEL IDENTITY, in the app layer.
+
+   This block lived in @layer components and lost: the active tab's
+   channel underline never rendered, because components/segment.css is
+   page vocabulary and page vocabulary outranks components. The rule was
+   correct and invisible for as long as it existed.
+
+   The app layer is declared above both in blotter.css and exists for
+   exactly this: a cross-cutting rule that has to win over a component AND
+   over the vocabulary dressing it.
+   ============================================================ */
+@layer app {
+    /* ------------------------------------------------------------
+       CHANNEL IDENTITY
+
+       A marketplace page used to look exactly like every other
+       marketplace page: you read the breadcrumb to find out whose orders
+       you were packing. The channel's own colour now drives the surfaces
+       that belong to it.
+
+       Two scopes, one rule. .x-app--channel is a seller-centre page,
+       which is always about one channel. .fh-scope is the fulfilment hub,
+       which is about one channel only while a panel is open and stays
+       neutral otherwise - so both publish --ch / --ch-deep and everything
+       below just asks for them, with the neutral as the fallback.
+
+       WHAT DOES NOT MOVE: state colour. Amber still means needs-a-person,
+       red still means trouble, and Ship by OVERDUE is still the loudest
+       thing on the page. Identity is spent on chrome and on the primary
+       action; it is never spent on a status.
+       ------------------------------------------------------------ */
+
+    /* The rule under the top bar is the first thing on screen and the
+       cheapest place to say where you are. */
+    .x-app--channel .x-topbar { border-bottom: 2px solid var(--ch, var(--bl-rule)); }
+
+    /* The sidebar name deliberately does NOT take the channel colour. That
+       was the first cut and it was wrong: the channel sidebar is near-black
+       (--bl-side-bg #0b1228) and three of the seven brand colours are dark
+       too, so measured against that ground TikTok's black came out at
+       1.11:1, Lazada's navy at 1.19:1 and Venta's violet at 3.26:1 - a name
+       you cannot read is worse than a name with no colour on it. Every
+       surface below sits on a light ground instead, where all seven work.
+       The sidebar already says which channel this is, in words. */
+
+    /* Which view of the list you are in. The underline is the channel's,
+       the lift is the control's own. */
+    .x-app--channel .x-segment__item.is-active,
+    .fh-scope .x-segment__item.is-active {
+        box-shadow: inset 0 -2px 0 0 var(--ch, transparent),
+                    0 0 0 1px var(--bl-rule-2),
+                    0 1px 2px rgba(0, 0, 0, .05);
+    }
+
+    /* The way into an order. --ch-deep because this is text on a sheet. */
+    .x-app--channel .co-sn,
+    .x-app--channel .co-ref,
+    .x-app--channel .x-row-link,
+    .fh-scope .co-sn,
+    .fh-scope .co-ref,
+    .fh-scope .x-row-link { color: var(--ch-deep, var(--bl-brand-deep)); }
+
+    /* The page's primary action. Deepened, because it carries white text. */
+    .x-app--channel .x-btn--primary,
+    .fh-scope .x-btn--primary {
+        background: var(--ch-deep, var(--bl-ink));
+        border-color: var(--ch-deep, var(--bl-ink));
+    }
+
+    .x-app--channel :focus-visible,
+    .fh-scope :focus-visible { outline-color: var(--ch, var(--bl-brand)); }
+
+    /* DARK THEME. --ch-deep is computed against white, so it only answers
+       the light theme's question; on a near-black sheet the same colour can
+       vanish. Lazada is the proof: its navy clears white at 15.66:1 and sits
+       at about 1.3:1 on the dark sheet, so every order reference on a Lazada
+       page disappeared the moment the theme switched. --ch-lift is the same
+       hue walked toward white until it clears the dark sheet instead.
+
+       The primary button inverts here the way --bl-ink already does in this
+       theme: a light fill carrying dark text, rather than a dark fill
+       carrying light text. */
+    [data-theme='dark'] .x-app--channel .co-sn,
+    [data-theme='dark'] .x-app--channel .co-ref,
+    [data-theme='dark'] .x-app--channel .x-row-link,
+    [data-theme='dark'] .fh-scope .co-sn,
+    [data-theme='dark'] .fh-scope .co-ref,
+    [data-theme='dark'] .fh-scope .x-row-link { color: var(--ch-lift, var(--bl-brand)); }
+
+    [data-theme='dark'] .x-app--channel .x-btn--primary,
+    [data-theme='dark'] .fh-scope .x-btn--primary {
+        background: var(--ch-lift, var(--bl-ink));
+        border-color: var(--ch-lift, var(--bl-ink));
+        color: var(--bl-paper);
     }
 }

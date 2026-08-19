@@ -78,8 +78,22 @@
         </a>
     @endif
 
-    <h1 class="x-page-title">{{ $selectedChannelLabel ?? 'Fulfilment' }}</h1>
-    @if($fhWork)
+    {{-- The head names the VIEW, not just the channel. The returns panel
+         used to bring its own page title, which put two of them on this
+         page and neither said "returns"; taking that away left the page
+         titled "Shopee" above a list of returns, which is worse. The word
+         belongs here, once. --}}
+    @php $fhIsReturns = ($selectedView ?? 'orders') === 'returns'; @endphp
+    <h1 class="x-page-title">
+        {{ $selectedChannelLabel ?? 'Fulfilment' }}@if($fhIsReturns) returns @endif
+    </h1>
+    @if($fhIsReturns)
+        {{-- "24 orders waiting" is an orders figure and said nothing true
+             about this list. A returns view counts returns. --}}
+        <p class="x-page-sub">
+            {{ number_format($fhReturnsTotal ?? 0) }} {{ ($fhReturnsTotal ?? 0) === 1 ? 'return' : 'returns' }}@if(($active_tab ?? 'ALL') !== 'ALL' && isset($tabs[$active_tab])) in {{ $tabs[$active_tab] }}@endif
+        </p>
+    @elseif($fhWork)
         <p class="fh-head__state">
             <span class="{{ $fhWaiting > 0 ? 'fh-head__work is-live' : 'fh-head__work' }}">{{ $fhWork }}</span>
             <span class="fh-head__sep" aria-hidden="true">&middot;</span>

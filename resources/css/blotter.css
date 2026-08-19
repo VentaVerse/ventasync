@@ -31,6 +31,42 @@
 
 @import 'tailwindcss';
 
+/* ============================================================
+   THE CASCADE, DECLARED.
+
+   Three rules written this month landed in a file that could not win and
+   did nothing at all: the phone reflow for order tables, .x-btn--sm (so
+   every "small" button in the application rendered at the medium size),
+   and the channel accent on an active tab. Each looked right in the
+   source. None of them errored. They lost on layer precedence, silently,
+   which is the one failure mode CSS gives no signal for.
+
+   The cause: the page vocabularies below are imported UNLAYERED, and an
+   unlayered rule beats every layered one no matter how specific the
+   layered one is. So blotter-components - the file whose whole job is to
+   dress those vocabularies - could never override them, and three
+   separate comments in this codebase document the workaround rather than
+   the rule.
+
+   Declaring the order makes precedence a thing you can read instead of a
+   thing you discover. Later layers win:
+
+     theme, base       Tailwind's own, untouched
+     components        blotter-components / -pages / -extensions
+     vocabulary        the page vocabularies imported below
+     app               cross-cutting rules that must win over both, which
+                       today means channel identity
+     utilities         Tailwind utilities, last so a utility class still
+                       does what a utility class promises
+
+   vocabulary sits ABOVE components deliberately: several vocabularies
+   already rely on outranking it (segment.css's sub-tab strip,
+   channel-settings' pill fills, marketplace-common's reflow), and
+   inverting that today would silently undo them. What changes is that
+   there is now a layer ABOVE both for a rule that has to win.
+   ============================================================ */
+@layer theme, base, components, vocabulary, app, utilities;
+
 /* Page and component vocabularies. Their structure predates the Blotter
    shell (it was designed against real content, and keeping it was cheaper
    and more faithful than re-guessing it), but as of 2026-08-18 they speak
@@ -43,38 +79,38 @@
    deliberately restyled keeps its Blotter version and only the untouched
    remainder comes through here. Every vocabulary that gets re-authored
    properly should be deleted from this list. */
-@import './pages/channel-settings.css';
-@import './pages/channel-catalog.css';
-@import './pages/purchasing.css';
-@import './pages/group-form.css';
-@import './pages/automations.css';
-@import './pages/warehousing.css';
-@import './pages/reviews.css';
-@import './pages/lazada-orders.css';
-@import './pages/shopee-orders.css';
-@import './pages/product-vendors.css';
-@import './pages/petty-cash.css';
-@import './pages/reports.css';
-@import './pages/channel-listing.css';
-@import './pages/api-explorer.css';
-@import './pages/integrations.css';
-@import './pages/tiktok-orders.css';
-@import './pages/marketplace-returns.css';
-@import './pages/venta-orders.css';
-@import './pages/shopify-orders.css';
-@import './pages/marketplace-common.css';
-@import './pages/licenses.css';
-@import './pages/order-form.css';
-@import './components/invoice-request.css';
-@import './components/inline-input.css';
-@import './components/currency-dual.css';
-@import './components/currency-rate.css';
-@import './components/typeahead.css';
-@import './components/permission-pill.css';
-@import './components/sla-chip.css';
-@import './components/tabs.css';
-@import './components/toolbar.css';
-@import './components/segment.css';
+@import './pages/channel-settings.css' layer(vocabulary);
+@import './pages/channel-catalog.css' layer(vocabulary);
+@import './pages/purchasing.css' layer(vocabulary);
+@import './pages/group-form.css' layer(vocabulary);
+@import './pages/automations.css' layer(vocabulary);
+@import './pages/warehousing.css' layer(vocabulary);
+@import './pages/reviews.css' layer(vocabulary);
+@import './pages/lazada-orders.css' layer(vocabulary);
+@import './pages/shopee-orders.css' layer(vocabulary);
+@import './pages/product-vendors.css' layer(vocabulary);
+@import './pages/petty-cash.css' layer(vocabulary);
+@import './pages/reports.css' layer(vocabulary);
+@import './pages/channel-listing.css' layer(vocabulary);
+@import './pages/api-explorer.css' layer(vocabulary);
+@import './pages/integrations.css' layer(vocabulary);
+@import './pages/tiktok-orders.css' layer(vocabulary);
+@import './pages/marketplace-returns.css' layer(vocabulary);
+@import './pages/venta-orders.css' layer(vocabulary);
+@import './pages/shopify-orders.css' layer(vocabulary);
+@import './pages/marketplace-common.css' layer(vocabulary);
+@import './pages/licenses.css' layer(vocabulary);
+@import './pages/order-form.css' layer(vocabulary);
+@import './components/invoice-request.css' layer(vocabulary);
+@import './components/inline-input.css' layer(vocabulary);
+@import './components/currency-dual.css' layer(vocabulary);
+@import './components/currency-rate.css' layer(vocabulary);
+@import './components/typeahead.css' layer(vocabulary);
+@import './components/permission-pill.css' layer(vocabulary);
+@import './components/sla-chip.css' layer(vocabulary);
+@import './components/tabs.css' layer(vocabulary);
+@import './components/toolbar.css' layer(vocabulary);
+@import './components/segment.css' layer(vocabulary);
 @import './blotter-components.css';
 @import './blotter-pages.css';
 @import './blotter-extensions.css';
