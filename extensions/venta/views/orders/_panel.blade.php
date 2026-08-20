@@ -130,7 +130,7 @@
     <nav class="x-segment" aria-label="Order status">
         <a href="{{ $panelSelfUrl([], ['page', 'status']) }}"
            class="x-segment__item {{ $vtStatus === '' ? 'is-active' : '' }}"
-           @if($vtStatus === '') aria-current="page" @endif>
+           @if($vtStatus === '') aria-current="true" @endif>
             <span>All</span>
             <span class="x-segment__count">{{ number_format($statusCounts->sum()) }}</span>
         </a>
@@ -138,7 +138,7 @@
             @php $vtKey = (string) $vtKey; @endphp
             <a href="{{ $panelSelfUrl(['status' => $vtKey], ['page']) }}"
                class="x-segment__item {{ $vtStatus === $vtKey ? 'is-active' : '' }}"
-               @if($vtStatus === $vtKey) aria-current="page" @endif>
+               @if($vtStatus === $vtKey) aria-current="true" @endif>
                 <span>{{ $vtStatusLabel($vtKey) }}</span>
                 <span class="x-segment__count">{{ number_format($vtCount) }}</span>
             </a>
@@ -181,7 +181,7 @@
 
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
         <select name="per_page" class="x-input" data-autosubmit aria-label="Orders per page">
-            @foreach([10, 20, 50] as $n)
+            @foreach([10, 20, 50, 100] as $n)
                 <option value="{{ $n }}" @selected(($perPage ?? 10) === $n)>{{ $n }} per page</option>
             @endforeach
         </select>

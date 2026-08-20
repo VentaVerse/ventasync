@@ -175,7 +175,7 @@
                  the person using it. --}}
             <a href="{{ $panelSelfUrl(['tab' => $key], ['page', 'pending_sub']) }}"
                class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
-               @if($isActive) aria-current="page" @endif>
+               @if($isActive) aria-current="true" @endif>
                 <span>{{ $label }}</span>
                 @if($count !== null)
                     <span class="x-segment__count">{{ number_format($count) }}</span>
@@ -292,7 +292,7 @@
 
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
         <select name="per_page" class="x-input" data-autosubmit aria-label="Orders per page">
-            @foreach([10, 20, 50] as $n)
+            @foreach([10, 20, 50, 100] as $n)
                 <option value="{{ $n }}" @selected($perPage === $n)>{{ $n }} per page</option>
             @endforeach
         </select>

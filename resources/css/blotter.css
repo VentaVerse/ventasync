@@ -115,6 +115,7 @@
 @import './components/desk-tools.css' layer(vocabulary);
 @import './components/selectbar.css' layer(vocabulary);
 @import './components/segment.css' layer(vocabulary);
+@import './components/nav-badge.css';
 @import './blotter-components.css';
 @import './blotter-pages.css';
 @import './blotter-extensions.css';

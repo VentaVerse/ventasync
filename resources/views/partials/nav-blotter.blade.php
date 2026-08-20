@@ -50,16 +50,20 @@
                      comes from a composer, so this stays a lookup: the partial
                      never learns which entry is special. Zero prints nothing,
                      because an empty badge is a thing to check. --}}
-                {{-- bg-attn, not bg-attn-fill. White on --bl-attn-fill
-                     (#c77a0a) measures 3.38:1, and this is 11px text, which
-                     needs 4.5. --bl-attn (#9e5c05) is the same state one step
-                     down and measures 5.27, so the badge borrows the token
-                     already used for attn-coloured TEXT rather than earning a
-                     new one. The fill token keeps its job: dots and bars,
-                     where nothing is printed on top. --}}
+                {{-- One class, because this badge needs a rule per THEME and a
+                     utility cannot express that.
+
+                     The reasoning that picked bg-attn over bg-attn-fill was
+                     right and only half the problem: it measured the LIGHT
+                     value. --bl-attn is #9e5c05 in light, where white reads
+                     5.27:1, and #e8a851 in dark, where white reads 2.07:1 -
+                     so the count telling staff there is work waiting was the
+                     least legible thing in the sidebar every evening. Dark
+                     ink on amber in dark theme, which is the same answer
+                     DESIGN.md already records for .bl-stat--amber. Styles in
+                     components/nav-badge.css. --}}
                 @if(($blBadge = $navBadges[$entry['route']] ?? 0) > 0)
-                    <span class="ml-auto min-w-[20px] rounded-full bg-attn px-1.5 text-center
-                                 text-[11px] font-semibold tabular-nums text-white">{{ number_format($blBadge) }}</span>
+                    <span class="ml-auto x-nav__badge">{{ number_format($blBadge) }}</span>
                 @endif
             </a>
         @else

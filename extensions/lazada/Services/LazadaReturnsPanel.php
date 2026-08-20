@@ -51,7 +51,7 @@ class LazadaReturnsPanel
         if (!in_array($sortKey, $allowedSort, true)) { $sortKey = 'updated_desc'; }
 
         $perPage = (int)$request->query('per_page', 10);
-        if (!in_array($perPage, [10,20,50], true)) { $perPage = 10; }
+        if (!in_array($perPage, [10, 20, 50, 100], true)) { $perPage = 10; }
 
         // Tab logic
         $tab = strtoupper((string)$request->query('tab', 'ALL'));

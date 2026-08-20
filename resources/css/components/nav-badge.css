@@ -1,0 +1,32 @@
+/* ---------------------------------------------------------------------
+   The sidebar's "work is waiting" count.
+
+   Amber is the one state fill white cannot sit on, and this badge proved
+   it twice. --bl-attn-fill (#c77a0a) gives white 3.38:1; --bl-attn is
+   #9e5c05 in light (5.27:1, fine) and #e8a851 in dark, where white drops
+   to 2.07:1 - a third of what 11px text needs. The fix is the one
+   DESIGN.md already records for .bl-stat--amber: keep the fill, switch
+   the ink.
+   --------------------------------------------------------------------- */
+@layer components {
+    .x-nav__badge {
+        min-width: 20px;
+        padding: 0 6px;
+        border-radius: var(--bl-r-pill);
+        background: var(--bl-attn);
+        /* White, not --bl-paper: the tinted ground reads 4.69:1 on the light
+           amber where plain white reads 5.27, and this is 11px. */
+        color: #fff;
+        font-size: 11px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        text-align: center;
+    }
+
+    /* 11px text on #e8a851 needs dark ink, not a lighter amber: lightening
+       the fill would cost the state its identity, which is the whole reason
+       the badge is amber and not grey. */
+    [data-theme='dark'] .x-nav__badge {
+        color: #2c1c02;
+    }
+}

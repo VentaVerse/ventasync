@@ -46,7 +46,7 @@ class TikTokOrdersPanel
         $placedTo = trim((string) ($filters['placed_to'] ?? ''));
 
         $perPage = (int) $request->query('per_page', 10);
-        if (!in_array($perPage, [10, 20, 50], true)) {
+        if (!in_array($perPage, [10, 20, 50, 100], true)) {
             $perPage = 10;
         }
 

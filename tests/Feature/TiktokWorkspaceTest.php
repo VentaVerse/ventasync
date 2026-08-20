@@ -455,7 +455,13 @@ class TiktokWorkspaceTest extends TestCase
             'action="' . e(route('ext.tiktok.orders.ship', $ids['AWAITING_SHIPMENT'])) . '"',
             false
         );
-        $response->assertSee('data-confirm="Ship this order?"', false);
+        /* The confirm names what it does to the marketplace. "Ship this
+           order?" asked nothing checkable - every sibling confirm on this
+           surface states the consequence, and this one is a push TikTok
+           cannot take back. */
+        $response->assertSee('data-confirm="Mark this order shipped on TikTok Shop?', false);
+        $response->assertSee('cannot be undone from here', false);
+        $response->assertDontSee('data-confirm="Ship this order?"', false);
     }
 
     /**

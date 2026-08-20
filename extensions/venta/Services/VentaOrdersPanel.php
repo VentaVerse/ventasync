@@ -117,7 +117,7 @@ class VentaOrdersPanel
            page in the product by a factor of five - 138 orders in one scroll,
            about 32,000px - and the operator had no way to shorten it. */
         $perPage = (int) $request->query('per_page', 10);
-        if (! in_array($perPage, [10, 20, 50], true)) {
+        if (! in_array($perPage, [10, 20, 50, 100], true)) {
             $perPage = 10;
         }
 
