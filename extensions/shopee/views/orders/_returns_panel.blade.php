@@ -393,6 +393,24 @@
             <td class="sp-col-status" data-label="Status">
                 <div class="co-status">
                     <x-ui.badge :tone="$tone">{{ $statusLabel }}</x-ui.badge>
+
+                    {{-- Your clock, and only while it is running.
+                         Shopee sends return_seller_due_date while there is
+                         something for you to answer and 0 once there is not,
+                         so a cancelled return shows no countdown rather than
+                         a dead one. The label says "Respond by" because that
+                         is the obligation - the buyer's own shipping
+                         deadline is a different field and is deliberately not
+                         shown, since a countdown on someone else's
+                         obligation is worse than none.
+
+                         Lazada's returns carry no deadline of any kind, so
+                         that list has no chip. The asymmetry is the
+                         marketplaces', and inventing a Lazada countdown to
+                         make the two pages match would be inventing data. --}}
+                    @if($ret->sellerDueAt())
+                        <x-sla-chip :deadline="$ret->sellerDueAt()" label="Respond by" />
+                    @endif
                     {{-- Both lines used to print Shopee's own constants at
                          the operator - CHANGE_MIND under a badge that said
                          "Requested" - and neither said which was the

@@ -65,7 +65,7 @@
         <span class="sla-chip {{ $tier }}"
               data-sla-deadline="{{ $ts }}"
               data-sla-label="{{ $label }}"
-              title="Ship by {{ $deadlineLabel }}">
+              title="{{ $label }} {{ $deadlineLabel }}">
             <svg class="sla-chip__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <circle cx="8" cy="8.5" r="5.5"/>
                 <path d="M8 5.5v3l2 1.5"/>
@@ -77,8 +77,15 @@
                  which has no keyboard path and no touch path at all - the
                  same objection DESIGN.md already raises against title as a
                  sole reading path. The attribute stays for the mouse; this
-                 gives everyone else the date. --}}
-            <span class="x-sr">(ship by {{ $deadlineLabel }})</span>
+                 gives everyone else the date.
+
+                 Both say $label, not the overdue word: a chip reading
+                 "Overdue 2d 4h" still has to name WHICH deadline passed, and
+                 this component now serves two - a shipping one on orders and
+                 a respond-by one on Shopee returns. Hardcoding "ship by"
+                 here told a returns operator the wrong thing about the right
+                 date. --}}
+            <span class="x-sr">({{ \Illuminate\Support\Str::lower($label) }} {{ $deadlineLabel }})</span>
         </span>
     </span>
 @endif
