@@ -712,7 +712,7 @@
                     @endif
                 </span>
                 @if($paymentBadge)
-                    <span class="co-total__method">{{ $paymentBadge }}</span>
+                    <span class="co-total__method">{{ \App\Support\ChannelStatusTone::labelFor('lazada.payment', $paymentBadge) }}</span>
                 @endif
             </td>
 

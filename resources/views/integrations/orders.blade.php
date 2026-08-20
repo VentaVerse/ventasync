@@ -192,7 +192,13 @@
             <a href="{{ $fhCardUrl }}"
                class="fh-card {{ $selectedChannel === $fhCard['id'] ? 'is-open' : '' }} {{ $fhCard['stalled'] ? 'is-stalled' : '' }}"
                style="--ch: {{ \App\Support\ChannelAccent::raw($fhCard['accent']) }}; --ch-deep: {{ \App\Support\ChannelAccent::deep($fhCard['accent']) }}; --ch-lift: {{ \App\Support\ChannelAccent::onDark($fhCard['accent']) }};"
-               @if($selectedChannel === $fhCard['id']) aria-current="page" @endif>
+               {{-- "true", not "page": the card selects WHICH CHANNEL the panel
+                    below shows, which is a choice within a set. The sidebar
+                    nav and the pager each legitimately claim "page" - one for
+                    the section, one for the page of results - and a third
+                    claim from a filter left assistive tech with three
+                    elements asserting they were the location. --}}
+               @if($selectedChannel === $fhCard['id']) aria-current="true" @endif>
 
                 {{-- The channel's own colour, filled rather than dotted. An
                      8px square said which channel this was only to someone

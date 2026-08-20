@@ -3109,8 +3109,21 @@
         color: #fff;
     }
 
+    /* Full white, and the hierarchy carried by weight instead.
+     *
+     * This dimmed the label to 75% white to sit the word behind the figure,
+     * which put #f2ccc9 on #cb3327 at 3.53:1 - 11px text needs 4.5. So the
+     * one word naming the state was the least legible thing on the loudest
+     * chip on the busiest queue. Opacity is the wrong instrument for
+     * hierarchy on a saturated fill; the figure leads on weight now and both
+     * halves are legible. Full white measures 5.20:1. */
     .sla-chip--overdue .sla-chip__label {
-        color: color-mix(in srgb, #fff 75%, transparent);
+        color: #fff;
+        font-weight: 500;
+    }
+
+    .sla-chip--overdue .sla-chip__time {
+        font-weight: 700;
     }
 
     [data-theme='dark'] .sla-chip--overdue {

@@ -481,6 +481,24 @@ class ChannelStatusTone
             'REFUNDED'             => 'Refunded',
         ],
 
+        /* Lazada sends payment METHODS as constants and they were reaching
+         * the screen verbatim - an order row read "GCASH_PP" beside its
+         * amount. Shopee does not need this surface: it already sends
+         * "Cash on Delivery" and "SPayLater" as prose, which is why the leak
+         * was Lazada-only despite both panels using the identical code path.
+         *
+         * Mapped from what the data actually contains, not from a guess at
+         * their catalogue. Anything unlisted still degrades to sentence case
+         * through labelFor()'s fallback rather than shouting. */
+        'lazada.payment' => [
+            'COD' => 'Cash on delivery',
+            'GCASH_PP' => 'GCash',
+            'MIXEDCARD' => 'Card',
+            'PAY_LATER' => 'Pay later',
+            'QRPH' => 'QR Ph',
+            'WALLET_PAYMAYA2C2P' => 'Maya wallet',
+        ],
+
         'lazada.reverse_type' => [
             'RETURN' => 'Return',
             'CANCEL' => 'Cancellation',
