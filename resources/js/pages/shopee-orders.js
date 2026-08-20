@@ -58,6 +58,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var page = document.getElementById('shopee-orders-page');
     var returnsPage = document.getElementById('shopee-returns-page');
     var detailPage = document.getElementById('shopee-order-detail-page');
+    var returnDetail = document.getElementById('shopee-return-detail-page');
 
     if (page) {
         initFetchUpdateOverlay();
@@ -82,6 +83,10 @@ document.addEventListener('DOMContentLoaded', function () {
     // and the shared detail anatomy states that decision in CSS
     // (.od-page .order-img-wrap { cursor: default }). What it does need is
     // the broken-image handling the old page had as an inline onerror="".
+    if (returnDetail) {
+        initReturnSolutions(returnDetail);
+    }
+
     if (detailPage) {
         initShipModal();
         initTrackingModal();
@@ -462,6 +467,75 @@ document.addEventListener('DOMContentLoaded', function () {
         var btnCloseShip = document.getElementById('btnCloseShip');
         if (btnCloseShip) btnCloseShip.addEventListener('click', closeShip);
         shipModal.addEventListener('click', function (e) { if (e.target === shipModal) closeShip(); });
+    }
+
+    /* ------------------------------------------------------------------
+       What Shopee will accept on this return.
+
+       Asked on demand, never on load: it is a live marketplace call and the
+       answer is only wanted once someone has decided to act on this return.
+
+       Fails closed. A solution is drawn as available only when the server
+       says eligibility is true, and any refusal is printed as the reason
+       rather than as an empty list - "we did not get to ask" and "there is
+       nothing to offer" are different facts and must not share a rendering.
+       ------------------------------------------------------------------ */
+    function initReturnSolutions(root) {
+        var btn = root.querySelector('[data-solutions-ask]');
+        var out = root.querySelector('[data-solutions-out]');
+        var url = root.getAttribute('data-solutions-url');
+        if (!btn || !out || !url) return;
+
+        var esc = function (s) {
+            return String(s === null || s === undefined ? '' : s).replace(/[&<>"]/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+            });
+        };
+
+        var money = function (n) {
+            if (n === null || n === undefined) return null;
+            return Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        };
+
+        var note = function (text, tone) {
+            out.innerHTML = '<p class="rs__note rs__note--' + tone + '">' + esc(text) + '</p>';
+        };
+
+        btn.addEventListener('click', function () {
+            btn.disabled = true;
+            note('Asking Shopee\u2026', 'wait');
+
+            fetch(url, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (data) {
+                    btn.disabled = false;
+                    if (!data) { note('The request did not complete. Nothing is offered here until it does.', 'bad'); return; }
+                    if (!data.ok) { note(data.message || 'Shopee did not answer.', 'bad'); return; }
+
+                    var open = (data.solutions || []).filter(function (s) { return s.eligible; });
+                    if (!open.length) {
+                        note('Shopee is not offering either resolution on this return right now.', 'none');
+                        return;
+                    }
+
+                    out.innerHTML = open.map(function (s) {
+                        var cap = s.adjustable
+                            ? (s.max_refund_amount !== null
+                                ? 'You can counter with a different amount, up to ' + esc(money(s.max_refund_amount)) + '.'
+                                : 'You can counter with a different amount.')
+                            : 'The amount is fixed - it cannot be countered.';
+                        return '<div class="rs__opt"><b>' + esc(s.label) + '</b>' +
+                               '<span>' + esc(s.blurb) + '</span>' +
+                               '<em>' + cap + '</em></div>';
+                    }).join('') +
+                    '<p class="rs__note rs__note--wait">Offer it in Shopee Seller Centre. ' +
+                    'This panel reports what is permitted; it does not submit.</p>';
+                })
+                .catch(function () {
+                    btn.disabled = false;
+                    note('The request failed. Nothing is offered here until it succeeds.', 'bad');
+                });
+        });
     }
 
     /* ------------------------------------------------------------------

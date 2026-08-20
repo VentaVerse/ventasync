@@ -176,6 +176,13 @@ Route::middleware(['auth'])->prefix('integrations')->group(function () {
         Route::get('/shopee/orders', [ShopeeOrderController::class, 'index'])->name('ext.shopee.orders.index');
         Route::get('/shopee/orders/returns', [ShopeeOrderController::class, 'returns'])->name('ext.shopee.orders.returns');
         Route::get('/shopee/orders/returns/{returnSn}', [ShopeeOrderController::class, 'returnDetail'])->where('returnSn', '[A-Za-z0-9]+')->name('ext.shopee.orders.return_detail');
+        // A READ, deliberately in the read tier: it asks Shopee what may be
+        // offered on this return and pushes nothing. It is the call that lets
+        // the interface show only resolutions Shopee will accept, instead of
+        // guessing and failing in front of a customer.
+        Route::get('/shopee/orders/returns/{returnSn}/solutions', [ShopeeOrderController::class, 'returnSolutions'])
+            ->where('returnSn', '[A-Za-z0-9]+')
+            ->name('ext.shopee.orders.return_solutions');
         Route::get('/shopee/orders/{orderSn}', [ShopeeOrderController::class, 'show'])->name('ext.shopee.orders.show');
         Route::get('/shopee/orders/{orderSn}/tracking', [ShopeeOrderController::class, 'getTrackingNumber'])->name('ext.shopee.orders.tracking');
         Route::get('/shopee/orders/{orderSn}/shipping-addresses', [ShopeeOrderController::class, 'getShippingAddresses'])->name('ext.shopee.orders.shipping_addresses');

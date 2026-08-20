@@ -106,7 +106,8 @@
     };
 @endphp
 
-<div class="od-page">
+<div class="od-page" id="shopee-return-detail-page"
+     data-solutions-url="{{ route('ext.shopee.orders.return_solutions', ['returnSn' => $return->return_sn]) }}">
 
     <a class="od-back" href="{{ route('ext.shopee.orders.returns') }}">
         <x-ui.icon name="chevron-left" size="14" />
@@ -156,6 +157,27 @@
             <div class="od-note__body">{{ $adviceText }}</div>
         </div>
     @endif
+
+    {{-- What Shopee will actually accept on this return.
+         Asked on request rather than on load: it is a live call, and a
+         returns list of thirty would otherwise make thirty of them before
+         anyone had decided to act on one.
+
+         It reports only what Shopee permits. Nothing here submits - the
+         resolutions themselves are still made in Seller Centre until the
+         write calls have been exercised against a live shop, because our
+         sandbox refuses the permission and a resolution that fails does so
+         in front of a customer. --}}
+    <div class="rs" data-return-solutions>
+        <div class="rs__head">
+            <div>
+                <h2 class="rs__title">What can be offered</h2>
+                <p class="rs__sub">Shopee decides which resolutions are open on a return, and up to how much.</p>
+            </div>
+            <x-ui.button size="sm" type="button" data-solutions-ask>Ask Shopee</x-ui.button>
+        </div>
+        <div class="rs__out" data-solutions-out role="status" aria-live="polite"></div>
+    </div>
 
     <div class="od-body">
         {{-- ============ MAIN COLUMN ============ --}}

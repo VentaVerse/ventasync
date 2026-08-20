@@ -33,6 +33,117 @@ class ShopeeOrderController extends Controller
      * Rich, order-style detail view for a single Shopee return.
      * Read-only (Phase 1): renders data already captured in the return's raw payload.
      */
+    /**
+     * What Shopee will actually let us offer on this return.
+     *
+     * A seller cannot propose any resolution on any return: what is permitted
+     * depends on the return's state, its reason, the market and what the buyer
+     * asked for. /api/v2/returns/get_available_solutions answers that per
+     * return, and it answers with two objects - offer_return_refund (send it
+     * back, then get money) and offer_refund (keep it, get money anyway) -
+     * each carrying eligibility, whether the amount can be countered, and the
+     * ceiling if it can.
+     *
+     * WHY THIS ONE FIRST, AND ALONE. It is a READ, so it sits in the same
+     * permission tier as the return list and can be verified against live
+     * without pushing anything to a marketplace. The write side (offer,
+     * accept_offer, dispute, confirm) cannot be exercised in our sandbox at
+     * all, and the failure mode of guessing is a button that a customer
+     * watches fail. This call is what lets the interface offer only choices
+     * that exist.
+     *
+     * FAILS CLOSED. A solution is reported available only when Shopee says
+     * eligibility is true. A refused call, a missing token or an unparseable
+     * body all report nothing available with the reason attached - never a
+     * silent empty list, which would read as "no options" rather than "we did
+     * not get to ask".
+     */
+    public function returnSolutions(Request $request, ShopeeClient $client, string $returnSn)
+    {
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+
+        if (!$auth || empty($auth['access_token']) || empty($auth['shop_id'])) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Shopee is not connected. Reconnect in settings before asking what can be offered.',
+            ], 200);
+        }
+
+        $res = $client->shopGet(
+            $auth['mode'],
+            (int) $auth['partner_id'],
+            (string) $auth['partner_key'],
+            (string) $auth['access_token'],
+            (int) $auth['shop_id'],
+            '/api/v2/returns/get_available_solutions',
+            ['return_sn' => $returnSn]
+        );
+
+        ShopeeApiLog::safeCreate([
+            'pack'            => 'shopee.returns.get_available_solutions',
+            'method'          => 'GET',
+            'api_path'        => '/api/v2/returns/get_available_solutions',
+            'auth_required'   => true,
+            'request_params'  => ['return_sn' => $returnSn],
+            'response_status' => (int) ($res['status'] ?? 0),
+            'ok'              => (bool) ($res['ok'] ?? false),
+            'response_body'   => $res['body'] ?? null,
+        ]);
+
+        $body = $res['body'] ?? [];
+        $error = is_array($body) ? trim((string) ($body['error'] ?? '')) : '';
+
+        if (!($res['ok'] ?? false) || $error !== '') {
+            $message = is_array($body) ? trim((string) ($body['message'] ?? '')) : '';
+
+            return response()->json([
+                'ok' => false,
+                'message' => $message !== ''
+                    ? 'Shopee said: ' . $message
+                    : 'Shopee did not answer. Nothing is offered here until it does.',
+            ], 200);
+        }
+
+        $data = (is_array($body) ? ($body['response'] ?? []) : []) ?: [];
+
+        return response()->json([
+            'ok' => true,
+            'return_sn' => (string) ($data['return_sn'] ?? $returnSn),
+            'solutions' => [
+                self::readSolution($data, 'offer_return_refund', 'Return and refund',
+                    'The buyer sends the item back, then is refunded.'),
+                self::readSolution($data, 'offer_refund', 'Refund only',
+                    'The buyer keeps the item and is refunded anyway.'),
+            ],
+        ]);
+    }
+
+    /**
+     * One solution object, read conservatively.
+     *
+     * max_refund_amount is documented as present only when the amount is
+     * adjustable, so reading it unconditionally yields null - and a null
+     * rendered as a number is a ceiling of zero, which is a lie about how much
+     * can be offered.
+     */
+    private static function readSolution(array $data, string $key, string $label, string $blurb): array
+    {
+        $node = is_array($data[$key] ?? null) ? $data[$key] : [];
+        $eligible = ($node['eligibility'] ?? false) === true || ($node['eligibility'] ?? null) === 'true';
+        $adjustable = ($node['refund_amount_adjustable'] ?? false) === true;
+        $max = $node['max_refund_amount'] ?? null;
+
+        return [
+            'key' => $key,
+            'label' => $label,
+            'blurb' => $blurb,
+            'eligible' => $eligible,
+            'adjustable' => $adjustable && $eligible,
+            'max_refund_amount' => ($adjustable && $eligible && is_numeric($max)) ? (float) $max : null,
+        ];
+    }
+
     public function returnDetail(Request $request, string $returnSn)
     {
         $settingRaw = ShopeeSetting::query()->first();

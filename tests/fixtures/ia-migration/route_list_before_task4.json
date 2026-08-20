@@ -1380,6 +1380,11 @@
         "name": "ext.shopee.orders.return_detail"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "integrations/shopee/orders/returns/{returnSn}/solutions",
+        "name": "ext.shopee.orders.return_solutions"
+    },
+    {
         "method": "POST",
         "uri": "integrations/shopee/orders/update-statuses",
         "name": "ext.shopee.orders.update_statuses"
