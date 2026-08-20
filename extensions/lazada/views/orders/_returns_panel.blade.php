@@ -507,6 +507,17 @@
                          nothing to fold. Copying the layout here would have
                          deleted a real number off the page. What carries
                          across is the treatment. --}}
+                    {{-- Lazada's own seller clock, documented as `sla` in
+                         milliseconds on each reverse order line. It is absent
+                         from every return in our sandbox, so this renders
+                         nothing today and starts working the moment real data
+                         carries one. Reported as "Lazada has no deadline"
+                         before the docs were read; that was reading our data,
+                         not the API. --}}
+                    @if($order->sellerDueAt())
+                        <x-sla-chip :deadline="$order->sellerDueAt()" label="Respond by" />
+                    @endif
+
                     @if($order->reason)
                         <span class="co-status__note">Reason: {{ \Illuminate\Support\Str::limit($order->reason, 40) }}</span>
                     @endif

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Extensions\lazada\Models\LazadaReverseOrder;
 use Extensions\shopee\Models\ShopeeReturn;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
@@ -116,25 +117,68 @@ class ShopeeReturnDeadlineTest extends TestCase
     }
 
     /**
-     * Lazada's returns abstain, and that is a decision rather than an
-     * oversight.
+     * Lazada has a seller deadline too, and I said it did not.
      *
-     * Its reverse-order payload carries return_order_line_gmt_create,
-     * _gmt_modified and trade_order_gmt_create - when things happened - and no
-     * deadline of any kind. Adding a countdown there would mean deriving one
-     * from a creation date and a guessed window, which is inventing data to
-     * make two pages match. If Lazada ever ships a real deadline field, delete
-     * this test in the same change that reads it.
+     * The first report of this work said "Lazada carries no deadline of any
+     * kind" on the evidence of our own stored payloads, where the field is
+     * genuinely absent from all 76 reverse orders. The API documents one:
+     * `sla`, "seller operation sla in milliseconds", on each line of
+     * reverse_order_lines, in both endpoints we already call. Reading our
+     * data is not the same as reading the API, and the doc site is a
+     * JavaScript app that no plain fetch can read - which is how it went
+     * unchecked. See docs/marketplace-api/ at the workspace root.
+     *
+     * So Lazada reads the field now. It renders nothing until real data
+     * carries one, which is the safe direction: no countdown is honest, a
+     * wrong countdown is not.
      */
-    public function test_lazada_returns_do_not_invent_a_deadline(): void
+    public function test_lazada_reads_its_own_seller_sla(): void
     {
-        $panel = File::get(base_path('extensions/lazada/views/orders/_returns_panel.blade.php'));
+        $model = new LazadaReverseOrder;
+        $model->raw = ['reverse_order_lines' => [['sla' => 1786000000000]]];
 
-        $this->assertStringNotContainsString(
-            'sla-chip',
-            $panel,
-            "Lazada's reverse-order payload has no deadline field. A countdown here would be derived, "
-            ."not reported - see this test's docblock before adding one."
-        );
+        $this->assertSame(1786000000, $model->sellerDueAt(), 'the documented millisecond sla must be converted');
+
+        $panel = File::get(base_path('extensions/lazada/views/orders/_returns_panel.blade.php'));
+        $this->assertStringContainsString('sellerDueAt()', $panel);
+    }
+
+    /**
+     * An order can hold several returned lines, each with its own clock. The
+     * earliest is the order's deadline - it expires first, and the operator
+     * acts on the order rather than on one line of it.
+     */
+    public function test_the_earliest_line_sets_the_orders_deadline(): void
+    {
+        $model = new LazadaReverseOrder;
+        $model->raw = ['reverse_order_lines' => [
+            ['sla' => 1786000000000],
+            ['sla' => 1785000000000],
+            ['sla' => 0],
+            ['sla' => 1787000000000],
+        ]];
+
+        $this->assertSame(1785000000, $model->sellerDueAt());
+    }
+
+    /**
+     * Absent, zero and malformed all mean "no clock", and none of them may
+     * become 1970 - which would render as the most overdue return on the page.
+     */
+    public function test_lazada_shows_nothing_when_there_is_no_sla(): void
+    {
+        foreach ([
+            [],
+            ['reverse_order_lines' => []],
+            ['reverse_order_lines' => [['sla' => 0]]],
+            ['reverse_order_lines' => [['sla' => null]]],
+            ['reverse_order_lines' => [['sla' => 'soon']]],
+            ['reverse_order_lines' => [[]]],
+            ['reverse_order_lines' => 'not an array'],
+        ] as $raw) {
+            $model = new LazadaReverseOrder;
+            $model->raw = $raw;
+            $this->assertNull($model->sellerDueAt(), 'no clock must stay no clock: '.json_encode($raw));
+        }
     }
 }
