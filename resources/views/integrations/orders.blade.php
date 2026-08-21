@@ -130,7 +130,13 @@
          belongs here, once. --}}
     @php $fhIsReturns = ($selectedView ?? 'orders') === 'returns'; @endphp
     <h1 class="x-page-title">
-        {{ $selectedChannelLabel ?? 'Fulfilment' }}@if($fhIsReturns) returns @endif
+        {{-- "returns and refunds", matching the view's own page. One view
+             was carrying three names: "Returns" in the nav, "Returns and
+             refunds" on its own page, and "Shopee returns" here. The nav may
+             stay short, because a nav item is read beside its siblings and
+             the context carries it. Two page titles for one page cannot both
+             be right. --}}
+        {{ $selectedChannelLabel ?? 'Fulfilment' }}@if($fhIsReturns) returns and refunds @endif
     </h1>
     @if($fhIsReturns)
         {{-- "24 orders waiting" is an orders figure and said nothing true
