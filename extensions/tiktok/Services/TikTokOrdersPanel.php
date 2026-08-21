@@ -2,6 +2,7 @@
 
 namespace Extensions\tiktok\Services;
 
+use App\Support\FulfilmentSteps;
 use Extensions\tiktok\Models\TikTokOrder;
 use Illuminate\Http\Request;
 
@@ -62,15 +63,15 @@ class TikTokOrdersPanel
             $pendingSubtab = '';
         }
 
-        $tabs = [
-            'ALL'          => 'All',
-            'UNPAID'       => 'Unpaid',
-            'TO_SHIP'      => 'To Ship',
-            'IN_TRANSIT'   => 'Shipping',
-            'DELIVERED'    => 'Delivered',
-            'COMPLETED'    => 'Completed',
-            'CANCELLED'    => 'Cancelled',
-        ];
+        $tabs = FulfilmentSteps::tabs([
+            'ALL'          => 'all',
+            'UNPAID'       => 'unpaid',
+            'TO_SHIP'      => 'to_ship',
+            'IN_TRANSIT'   => 'shipping',
+            'DELIVERED'    => 'delivered',
+            'COMPLETED'    => 'completed',
+            'CANCELLED'    => 'cancelled',
+        ]);
 
         // Per-marketplace sort persistence, see ShopeeOrderController
         // for the rationale. Session key is namespaced to "tiktok".

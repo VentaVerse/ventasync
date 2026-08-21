@@ -2,6 +2,7 @@
 
 namespace Extensions\venta\Services;
 
+use App\Support\FulfilmentSteps;
 use Extensions\venta\Models\VentaOrder;
 use Extensions\venta\Models\VentaSetting;
 use Illuminate\Http\Request;
@@ -130,6 +131,19 @@ class VentaOrdersPanel
             ->selectRaw('status, COUNT(*) as cnt')
             ->groupBy('status')
             ->pluck('cnt', 'status');
+
+        // In lifecycle order, not in the order a GROUP BY handed them back.
+        //
+        // The strip came out sorted by nothing in particular, which put
+        // "Ready for pickup" - the one step on this list that is somebody's
+        // move - fourth, behind Delivered and Cancelled. Every other channel
+        // puts the work third, and a supervisor crossing between them reads
+        // position before they read words. A store can add statuses this map
+        // has never heard of; those keep their place at the end rather than
+        // being guessed at.
+        $statusCounts = collect(
+            FulfilmentSteps::order($statusCounts, 'venta.orders')
+        );
 
         // Read for the one store this panel is about. On the hub the tab
         // already knows the label, but the panel is also rendered by the

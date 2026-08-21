@@ -2,6 +2,7 @@
 
 namespace Extensions\lazada\Services;
 
+use App\Support\FulfilmentSteps;
 use Extensions\lazada\Models\LazadaOrder;
 use Extensions\lazada\Models\LazadaSetting;
 use Illuminate\Http\Request;
@@ -121,15 +122,17 @@ class LazadaOrdersPanel
         // enumerated, so the next status Lazada invents surfaces by itself.
         $mappedStatuses = array_values(array_unique(array_merge(...array_values($tabStatusMap))));
 
-        $tabs = [
-            'ALL'             => 'All',
-            'UNPAID'          => 'Unpaid',
-            'TO_SHIP'         => 'To Ship',
-            'SHIPPING'        => 'Shipping',
-            'DELIVERED'       => 'Delivered',
-            'CANCELLATION'    => 'Cancellation',
-            'FAILED_DELIVERY' => 'Failed Delivery',
-        ];
+        $tabs = FulfilmentSteps::tabs([
+            'ALL'             => 'all',
+            'UNPAID'          => 'unpaid',
+            'TO_SHIP'         => 'to_ship',
+            'SHIPPING'        => 'shipping',
+            'DELIVERED'       => 'delivered',
+            // The key stays CANCELLATION - it is Lazada's filter value - but
+            // the word a packer reads is Cancelled, the same as everywhere.
+            'CANCELLATION'    => 'cancelled',
+            'FAILED_DELIVERY' => 'failed',
+        ]);
 
         $query = LazadaOrder::query()
             ->where('region', $setting->region ?? 'ph')
@@ -227,7 +230,7 @@ class LazadaOrdersPanel
 
         $otherCount = (clone $baseCountQuery)->whereNotIn('status', $mappedStatuses)->count();
         if ($otherCount > 0) {
-            $tabs['OTHER'] = 'Other';
+            $tabs['OTHER'] = FulfilmentSteps::label('other');
             $tab_counts['OTHER'] = $otherCount;
         }
 

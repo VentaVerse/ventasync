@@ -2,6 +2,7 @@
 
 namespace Extensions\shopee\Services;
 
+use App\Support\FulfilmentSteps;
 use Extensions\shopee\Models\ShopeeOrder;
 use Extensions\shopee\Models\ShopeeSetting;
 use Illuminate\Http\Request;
@@ -129,15 +130,15 @@ class ShopeeOrdersPanel
         // All, which is the property that was quietly untrue.
         $mappedStatuses = array_values(array_unique(array_merge(...array_values($tabStatusMap))));
 
-        $tabs = [
-            'ALL'                 => 'All',
-            'UNPAID'              => 'Unpaid',
-            'PENDING'             => 'To Ship',
-            'SHIPPING'            => 'Shipping',
-            'DELIVERED_COMPLETED' => 'Delivered',
-            'CANCELLED'           => 'Cancelled',
-            'FAILED_DELIVERY'     => 'Failed Delivery',
-        ];
+        $tabs = FulfilmentSteps::tabs([
+            'ALL'                 => 'all',
+            'UNPAID'              => 'unpaid',
+            'PENDING'             => 'to_ship',
+            'SHIPPING'            => 'shipping',
+            'DELIVERED_COMPLETED' => 'delivered',
+            'CANCELLED'           => 'cancelled',
+            'FAILED_DELIVERY'     => 'failed',
+        ]);
 
         $query = ShopeeOrder::query()
             ->where('region', $auth['region'] ?? 'ph')
@@ -210,7 +211,7 @@ class ShopeeOrdersPanel
 
         $otherCount = (clone $baseCountQuery)->whereNotIn('status', $mappedStatuses)->count();
         if ($otherCount > 0) {
-            $tabs['OTHER'] = 'Other';
+            $tabs['OTHER'] = FulfilmentSteps::label('other');
             $tab_counts['OTHER'] = $otherCount;
         }
 

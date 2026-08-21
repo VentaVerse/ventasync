@@ -705,7 +705,11 @@ class ChannelStatusTone
      */
     private static function key(?string $status): string
     {
-        return strtoupper(trim(str_replace(' ', '_', (string) $status)));
+        // Trim BEFORE folding spaces: the other way round, a padded status
+        // becomes "__LIKE_THIS_" and matches nothing, because trim() does
+        // not consider an underscore whitespace. Same fix as
+        // FulfilmentSteps::stepFor(), which is where it was noticed.
+        return strtoupper(str_replace(' ', '_', trim((string) $status)));
     }
 
     /**
