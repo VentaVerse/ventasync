@@ -184,21 +184,7 @@
          it must not do. The staleness is a caveat printed under the count,
          never a substitute for it. --}}
     @php $fhIsReturnsViewNav = ($selectedView ?? 'orders') === 'returns'; @endphp
-    {{-- Compact once a channel is open.
-
-         The cards exist to answer "is anything waiting, anywhere". Once one
-         is selected that question is answered and the page's job becomes the
-         panel below, but the strip went on spending 178px restating itself -
-         including the card for the channel you are already looking at, which
-         is a link to this page. Measured at 1440x900 the first order row sat
-         at 530px on the hub against 352px on the channel's own page, so the
-         entry surface showed about one order.
-
-         A modifier rather than a second markup path: every card keeps its
-         name, its count and its state, so nothing leaves the accessibility
-         tree. What goes is today's contribution, which is a summary line for
-         a summary view. --}}
-    <nav class="fh-grid {{ $selectedChannel ? 'fh-grid--compact' : '' }}" aria-label="Fulfilment surfaces">
+    <nav class="fh-grid" aria-label="Fulfilment surfaces">
         @foreach($fhChannels as $fhCard)
             {{-- The view rides with the link. Switching channel from a
                  returns list used to land on that channel's ORDERS, so the
@@ -318,10 +304,14 @@
                      nineteen returns today. --}}
                 @if(! $fhIsReturnsView && $fhCard['todayOrders'] !== null)
                     <span class="fh-card__today">
-                        <span class="x-num">{{ number_format($fhCard['todayOrders']) }}</span> today
+                        <span class="fh-card__count"><span class="x-num">{{ number_format($fhCard['todayOrders']) }}</span> today</span>
+                        {{-- Money is the one fact on this line that does not
+                             need a label to be read, so it is given the ink
+                             and the far edge instead of a middot and the same
+                             grey as the count beside it. The separator is
+                             gone: the space between them does that job. --}}
                         @if($fhCard['todayRevenue'] !== null)
-                            <span class="fh-card__sep">&middot;</span>
-                            <span class="x-num">{{ \App\Support\Money::base((float) $fhCard['todayRevenue']) }}</span>
+                            <span class="fh-card__money x-num">{{ \App\Support\Money::base((float) $fhCard['todayRevenue']) }}</span>
                         @endif
                     </span>
                 @endif

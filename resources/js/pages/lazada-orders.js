@@ -54,7 +54,6 @@ document.addEventListener('DOMContentLoaded', function () {
         initPackPrintModal(page);
         initBulkPackModal();
         initLogisticsModal();
-        initImagePreview();
     }
 
     // The order detail page (extensions/lazada/views/orders/show.blade.php)
@@ -65,10 +64,9 @@ document.addEventListener('DOMContentLoaded', function () {
     // module's existing one rather than a second implementation.
     //
     // It has no fetch/update command bar and no pack-print follow-up, so
-    // neither initialiser is called here. initImagePreview() is deliberately
-    // not called either: this page's thumbnails are already the 96px the
-    // list's preview zooms up to, which is what
-    // `.od-page .order-img-wrap { cursor: default }` already states.
+    // neither initialiser is called here. The thumbnail preview opts itself
+    // out of detail pages now - see order-thumb-preview.js, which states the
+    // reason once instead of three modules each declining separately.
     if (detailPage) {
         initLogisticsModal();
         initBrokenImages(detailPage);
@@ -79,7 +77,6 @@ document.addEventListener('DOMContentLoaded', function () {
     // the item-thumbnail hover preview.
     if (returnsPage) {
         initFetchReturnsOverlay();
-        initImagePreview();
     }
 
     /* ------------------------------------------------------------------
@@ -394,44 +391,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }, true);
     }
 
-    /* ------------------------------------------------------------------
-       Thumbnail hover preview (order-img-wrap / img.order-img).
-       ------------------------------------------------------------------ */
-    function initImagePreview() {
-        if (document.querySelector('.order-img-preview')) return;
-
-        var preview = document.createElement('div');
-        preview.className = 'order-img-preview';
-        var previewImg = document.createElement('img');
-        previewImg.src = '';
-        previewImg.alt = '';
-        preview.appendChild(previewImg);
-        document.body.appendChild(preview);
-
-        document.addEventListener('mouseover', function (e) {
-            var wrap = e.target.closest ? e.target.closest('.order-img-wrap') : null;
-            if (!wrap) return;
-            var img = wrap.querySelector('img.order-img');
-            if (!img || !img.src) return;
-            previewImg.src = img.src;
-            var rect = wrap.getBoundingClientRect();
-            var top = rect.top + rect.height / 2 - 110;
-            var left = rect.right + 12;
-            if (left + 230 > window.innerWidth) left = rect.left - 232;
-            if (top + 220 > window.innerHeight) top = window.innerHeight - 224;
-            if (top < 4) top = 4;
-            preview.style.transformOrigin = (left < rect.left ? 'right' : 'left') + ' center';
-            preview.style.top = top + 'px';
-            preview.style.left = left + 'px';
-            preview.classList.add('visible');
-        }, false);
-
-        document.addEventListener('mouseout', function (e) {
-            var wrap = e.target.closest ? e.target.closest('.order-img-wrap') : null;
-            if (!wrap) return;
-            var related = e.relatedTarget;
-            if (related && wrap.contains(related)) return;
-            preview.classList.remove('visible');
-        }, false);
-    }
+    /* The thumbnail hover preview used to live here, in two channel-private
+       copies of the same function. It is resources/js/order-thumb-preview.js
+       now, bound once for every fulfilment list, because the storefront list
+       needed it too and a third copy was not the answer. */
 });

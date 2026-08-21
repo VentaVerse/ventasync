@@ -8,6 +8,7 @@ import './thumb-fallback';
 import './plot-readout';
 import './list-filters';
 import './order-selection';
+import './order-thumb-preview';
 import './desk-tools';
 import './legacy-flash';
 import './pages/shopee-orders';

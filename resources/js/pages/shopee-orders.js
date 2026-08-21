@@ -64,7 +64,6 @@ document.addEventListener('DOMContentLoaded', function () {
         initFetchUpdateOverlay();
         initShipModal();
         initTrackingModal();
-        initImagePreview();
     }
 
     // The order detail page (extensions/shopee/views/orders/show.blade.php)
@@ -78,10 +77,10 @@ document.addEventListener('DOMContentLoaded', function () {
     // overlay ELEMENT is still present, and initShipModal() uses it for the
     // "Shipping order" and "Generating AWB" states exactly as on the list.
     //
-    // initImagePreview() is deliberately NOT called: the detail page's
-    // thumbnails are already the 96px the preview zooms a list row's up to,
-    // and the shared detail anatomy states that decision in CSS
-    // (.od-page .order-img-wrap { cursor: default }). What it does need is
+    // The thumbnail preview opts itself out of detail pages now - see
+    // order-thumb-preview.js, which states the reason (these thumbnails are
+    // already the size the preview zooms to) once rather than in each
+    // channel's module. What this page does need is
     // the broken-image handling the old page had as an inline onerror="".
     if (returnDetail) {
         initReturnSolutions(returnDetail);
@@ -103,7 +102,6 @@ document.addEventListener('DOMContentLoaded', function () {
     // the returns page root id" means in practice.
     if (returnsPage) {
         initFetchReturnsOverlay();
-        initImagePreview();
     }
 
     /* ------------------------------------------------------------------
@@ -688,42 +686,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }, true);
     }
 
-    /* ------------------------------------------------------------------
-       Thumbnail hover preview (order-img-wrap / img.order-img).
-       ------------------------------------------------------------------ */
-    function initImagePreview() {
-        var preview = document.createElement('div');
-        preview.className = 'order-img-preview';
-        var previewImg = document.createElement('img');
-        previewImg.src = '';
-        previewImg.alt = '';
-        preview.appendChild(previewImg);
-        document.body.appendChild(preview);
-
-        document.addEventListener('mouseover', function (e) {
-            var wrap = e.target.closest('.order-img-wrap');
-            if (!wrap) return;
-            var img = wrap.querySelector('img.order-img');
-            if (!img || !img.src) return;
-            previewImg.src = img.src;
-            var rect = wrap.getBoundingClientRect();
-            var top = rect.top + rect.height / 2 - 110;
-            var left = rect.right + 12;
-            if (left + 230 > window.innerWidth) left = rect.left - 232;
-            if (top + 220 > window.innerHeight) top = window.innerHeight - 224;
-            if (top < 4) top = 4;
-            preview.style.transformOrigin = (left < rect.left ? 'right' : 'left') + ' center';
-            preview.style.top = top + 'px';
-            preview.style.left = left + 'px';
-            preview.classList.add('visible');
-        }, false);
-
-        document.addEventListener('mouseout', function (e) {
-            var wrap = e.target.closest('.order-img-wrap');
-            if (!wrap) return;
-            var related = e.relatedTarget;
-            if (related && wrap.contains(related)) return;
-            preview.classList.remove('visible');
-        }, false);
-    }
+    /* The thumbnail hover preview used to live here, in two channel-private
+       copies of the same function. It is resources/js/order-thumb-preview.js
+       now, bound once for every fulfilment list, because the storefront list
+       needed it too and a third copy was not the answer. */
 });

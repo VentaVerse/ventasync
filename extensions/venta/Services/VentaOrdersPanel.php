@@ -2,6 +2,7 @@
 
 namespace Extensions\venta\Services;
 
+use Illuminate\Support\Facades\DB;
 use App\Support\FulfilmentSteps;
 use Extensions\venta\Models\VentaOrder;
 use Extensions\venta\Models\VentaSetting;
@@ -124,6 +125,19 @@ class VentaOrdersPanel
 
         $orders = $query->paginate($perPage)->withQueryString();
 
+        // Product thumbnails, resolved from the local catalogue.
+        //
+        // The storefront's order payload carries no image: it ships an id, a
+        // name, a sku and a price. The marketplaces do carry one, so their
+        // rows had a picture and these did not, on a surface whose whole
+        // point is that the four read the same way. A packer identifies what
+        // to pull off the shelf by looking at it.
+        //
+        // The catalogue is the right source anyway. These products were
+        // pushed to the storefront FROM here, so the ERP holds the image the
+        // storefront is showing, and one lookup keyed by sku covers a page.
+        $vtImages = $this->imagesForOrders($orders->getCollection());
+
         // Counts for the segment bar, over the whole store rather than the
         // filtered list: a count that moved when you clicked it would be
         // telling you about the filter, not about the store.
@@ -160,6 +174,7 @@ class VentaOrdersPanel
             'storeId'      => $storeId,
             'storeLabel'   => $storeLabel,
             'per_page'     => $perPage,
+            'vtImages'     => $vtImages,
             'filters'      => [
                 'q' => $q,
                 'status' => $status,
@@ -167,5 +182,87 @@ class VentaOrdersPanel
                 'placed_to' => $placedTo,
             ],
         ];
+    }
+
+    /**
+     * sku => image path, for every product on this page of orders.
+     *
+     * Three ways in, tried in order of how much they actually mean:
+     *
+     *   1. product.sku      the same identifier the storefront was given
+     *   2. product.model    OpenCart's own identifier, which some of this
+     *                       catalogue uses where sku is blank
+     *   3. venta_product_links  the explicit mapping, which is the most
+     *                       correct of the three and also the sparsest
+     *
+     * Measured against the current data, sku reaches 78 of 113 distinct
+     * skus, model another 21, and the link table 3 more that neither found.
+     * The rest have no catalogue image at all, and render the same "No
+     * image" the marketplace panels render for the same absence.
+     *
+     * One query per source per page, never per row: this is a list that
+     * routinely shows a hundred lines.
+     *
+     * @param  \Illuminate\Support\Collection<int, VentaOrder>  $orders
+     * @return array<string, string>
+     */
+    private function imagesForOrders($orders): array
+    {
+        $skus = [];
+
+        foreach ($orders as $order) {
+            foreach ($order->products ?? [] as $product) {
+                $sku = trim((string) $product->sku);
+
+                if ($sku !== '') {
+                    $skus[$sku] = true;
+                }
+            }
+        }
+
+        if ($skus === []) {
+            return [];
+        }
+
+        $skus = array_keys($skus);
+
+        $bySku = DB::table('product')
+            ->whereIn('sku', $skus)
+            ->where('image', '!=', '')
+            ->whereNotNull('image')
+            ->pluck('image', 'sku')
+            ->all();
+
+        $byModel = DB::table('product')
+            ->whereIn('model', $skus)
+            ->where('image', '!=', '')
+            ->whereNotNull('image')
+            ->pluck('image', 'model')
+            ->all();
+
+        $linked = [];
+        $linkIds = DB::table('venta_product_links')
+            ->whereIn('sku', $skus)
+            ->pluck('product_id', 'sku')
+            ->all();
+
+        if ($linkIds !== []) {
+            $linkImages = DB::table('product')
+                ->whereIn('product_id', array_values($linkIds))
+                ->where('image', '!=', '')
+                ->whereNotNull('image')
+                ->pluck('image', 'product_id')
+                ->all();
+
+            foreach ($linkIds as $sku => $productId) {
+                if (isset($linkImages[$productId])) {
+                    $linked[(string) $sku] = $linkImages[$productId];
+                }
+            }
+        }
+
+        // Union in precedence order: + keeps the left operand's entry for a
+        // key present in both, which is what array_merge would reverse.
+        return $bySku + $byModel + $linked;
     }
 }

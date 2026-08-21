@@ -50,6 +50,7 @@
     /* The service exposes this as per_page, not perPage. Read under the
        wrong name it fell through ?? to 10, so the control reported 10 while
        the list paginated by 50. */
+    $vtImages = $vtImages ?? [];
     $vtPerPage = (int) ($per_page ?? 10);
     $vtPlacedFrom = (string) ($filters['placed_from'] ?? '');
     $vtPlacedTo = (string) ($filters['placed_to'] ?? '');
@@ -427,6 +428,22 @@
         <tr class="co-itemrow {{ $vtIdx === $vtLineCount - 1 ? 'co-itemrow--last' : '' }}">
             <td class="vt-col-products" data-label="Products">
                 <div class="co-item">
+                    {{-- The same picture the marketplace rows carry. A packer
+                         identifies what to pull off the shelf by looking at
+                         it, and this was the one channel of four that showed
+                         nothing. The storefront's payload has no image, so it
+                         is resolved from the catalogue these products were
+                         pushed to the storefront from. --}}
+                    @php
+                        $vtImg = trim((string) ($vtImages[trim((string) ($vtItem?->sku ?? ''))] ?? ''));
+                    @endphp
+                    <div class="order-img-wrap">
+                        @if($vtImg !== '')
+                            <img class="order-img" src="{{ asset('storage/' . ltrim($vtImg, '/')) }}" alt="" loading="lazy">
+                        @else
+                            <span class="co-item__none">No image</span>
+                        @endif
+                    </div>
                     <div class="co-item__body">
                         <span class="co-item__name">{{ trim((string) ($vtItem?->name ?? '')) !== '' ? $vtItem->name : 'Unnamed product' }}</span>
                         <div class="co-item__meta">
