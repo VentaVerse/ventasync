@@ -119,6 +119,24 @@ let opt2Values = []; // [{name, option_value_id?}]
 let comboData  = {}; // key "v1|v2" → {sku, quantity, absolute_price, absolute_cost} (2-option)
 let mode       = 'none'; // 'none' | 'one' | 'two'
 
+/* THE SHAPE THE TABLE IS CURRENTLY DRAWN IN, which is not always `mode`.
+ *
+ * saveTableToState() harvests the DOM back into state and has to read the
+ * rows the way they were WRITTEN. It used to branch on `mode`, and every
+ * mode transition sets `mode` before renderTable() redraws - so for one
+ * call, `mode` said 'one' while the tbody still held combination rows.
+ *
+ * renderTable() opens by calling saveTableToState(), so that call landed in
+ * the one-axis branch and harvested a 10-row combination grid into 5 single
+ * values BY FLAT ROW INDEX: Small took (Small,Red), Medium took (Small,Blue)
+ * which is empty, Large took (Medium,Red). Removing a second axis scrambled
+ * and part-erased every value, which is the other half of the data loss and
+ * the half that survived fixing the first.
+ *
+ * This is set at the END of every render, so it always describes what is on
+ * screen rather than what is about to be. */
+let renderedMode = 'none';
+
 // ---- DOM refs ----
 const $opt1Group      = document.getElementById('option1-group');
 const $opt2Group      = document.getElementById('option2-group');
@@ -277,8 +295,47 @@ function addOpt1Value(name) {
     if (last && !name) last.focus();
 }
 
+/* THE FIRST COLUMN INHERITS. THIS IS THE FIX FOR THE DATA LOSS.
+ *
+ * The grid only becomes a combination grid once the second axis has a value
+ * (renderTable's `is2` requires opt2Values.length > 0), and renderTable reads
+ * every cell from comboData, falling back to zeros for a missing key. On a
+ * product that was one-axis, comboData is EMPTY - the real SKUs, quantities
+ * and prices are in opt1Values - so the first value added to a second axis
+ * rendered a grid of zeros. saveTableToState() then wrote those zeros back
+ * over comboData, and Remove on the axis copied them into opt1Values, which
+ * is why backing out did not undo it. The next click is Save, and zero stock
+ * and zero price go to every marketplace.
+ *
+ * Seeding comboData[(i1, 0)] from opt1Values[i1] at the moment of conversion
+ * makes it lossless: the first column keeps everything it had, and the
+ * genuinely new combinations start empty, which is what they are.
+ *
+ * Guarded on comboData being empty so this only ever runs on the one-axis to
+ * two-axis transition. A product that already has combinations arrives with
+ * comboData populated from the server and must not be touched. */
+function seedFirstColumnFromOneAxis() {
+    if (Object.keys(comboData).length > 0) return;
+
+    opt1Values.forEach((v1, i1) => {
+        comboData[comboKey(i1, 0)] = {
+            sku: v1.sku || '',
+            quantity: v1.quantity || 0,
+            absolute_price: v1.absolute_price || 0,
+            absolute_cost: v1.absolute_cost || 0,
+        };
+    });
+}
+
 function addOpt2Value(name) {
     name = (name || '').trim();
+
+    // Before the first value turns this into a combination grid.
+    if (opt2Values.length === 0) {
+        saveTableToState();
+        seedFirstColumnFromOneAxis();
+    }
+
     opt2Values.push({ name });
     renderOpt2List();
     renderTable();
@@ -291,7 +348,8 @@ function addOpt2Value(name) {
 // ---- Table state ----
 
 function saveTableToState() {
-    if (mode === 'one') {
+    // renderedMode, not mode: read the rows as they were drawn.
+    if (renderedMode === 'one') {
         $tbody.querySelectorAll('tr').forEach((row, i) => {
             if (i >= opt1Values.length) return;
             const nameInput = row.querySelector('.js-value-name');
@@ -305,7 +363,7 @@ function saveTableToState() {
             const costInput = row.querySelector('.js-cost');
             if (costInput) opt1Values[i].absolute_cost = parseFloat(costInput.value || '0');
         });
-    } else if (mode === 'two') {
+    } else if (renderedMode === 'two') {
         $tbody.querySelectorAll('tr').forEach(row => {
             const key = row.dataset.comboKey;
             if (!key) return;
@@ -484,6 +542,9 @@ function renderTable() {
     clearChildren($tbody);
 
     if (opt1Values.length === 0) {
+        // Nothing drawn means nothing to harvest next time round.
+        renderedMode = mode === 'one' ? 'one' : 'none';
+
         if (mode === 'one') {
             $tableWrap.classList.remove('d-none');
             $thead.appendChild(buildHeaderRow(false));
@@ -512,6 +573,9 @@ function renderTable() {
             $tbody.appendChild(buildOneOptRow(v, idx));
         });
     }
+
+    // Last, so it describes what is on screen rather than what was intended.
+    renderedMode = is2 ? 'two' : 'one';
 }
 
 // ---- Product quantity sync ----
@@ -621,21 +685,63 @@ document.getElementById('remove-opt1-btn').addEventListener('click', () => {
 });
 
 document.getElementById('add-opt2-btn').addEventListener('click', () => {
-    setMode('two');
-    $opt2Name.focus();
+    /* A second axis multiplies the grid, and that is worth saying out loud
+       before someone invests in naming it. Not a warning - with the seed
+       above, nothing is lost - but "5 values" becoming "10 combinations you
+       now have to fill in" is a change of shape a person should agree to.
+
+       Primary tone, not danger: this destroys nothing. The dialog is the same
+       one Delete product and the cost override already use. */
+    const existing = opt1Values.length;
+
+    if (existing === 0 || typeof window.confirmModal !== 'function') {
+        setMode('two');
+        $opt2Name.focus();
+        return;
+    }
+
+    window.confirmModal(
+        'Add a second variation? Your ' + existing + ' value' + (existing === 1 ? '' : 's')
+        + ' become combinations of the two. The first column keeps its SKU, stock and price;'
+        + ' the new combinations start empty.',
+        document.getElementById('add-opt2-btn')
+    ).then((ok) => {
+        if (!ok) return;
+        setMode('two');
+        $opt2Name.focus();
+    });
 });
 
 document.getElementById('remove-opt2-btn').addEventListener('click', () => {
     saveTableToState();
-    // Carry first combo column data back to opt1Values
+    /* Carry the first combination column back to the single axis.
+     *
+     * This is what made the data loss permanent: it happily copied a row of
+     * zeros over a value that had real stock and a real price, so Remove -
+     * the control a person reaches for to undo - completed the damage instead
+     * of reversing it. It cannot write an empty row over a non-empty value
+     * any more. Clearing a value's fields deliberately and then removing the
+     * axis still works, because then the value itself is empty too. */
     opt1Values.forEach((v1, i1) => {
         const first = comboData[comboKey(i1, 0)];
-        if (first) {
-            v1.sku = first.sku || '';
-            v1.quantity = first.quantity || 0;
-            v1.absolute_price = first.absolute_price || 0;
-            v1.absolute_cost = first.absolute_cost || 0;
-        }
+        if (!first) return;
+
+        const firstIsEmpty = !first.sku
+            && !Number(first.quantity)
+            && !Number(first.absolute_price)
+            && !Number(first.absolute_cost);
+
+        const valueHasData = !!v1.sku
+            || !!Number(v1.quantity)
+            || !!Number(v1.absolute_price)
+            || !!Number(v1.absolute_cost);
+
+        if (firstIsEmpty && valueHasData) return;
+
+        v1.sku = first.sku || '';
+        v1.quantity = first.quantity || 0;
+        v1.absolute_price = first.absolute_price || 0;
+        v1.absolute_cost = first.absolute_cost || 0;
     });
     opt2Values = [];
     renderOpt2List();
