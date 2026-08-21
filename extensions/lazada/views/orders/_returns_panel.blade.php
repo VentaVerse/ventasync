@@ -85,7 +85,7 @@
           data-confirm-tone="primary">
         @csrf
         <div class="x-cmdbar__field">
-            <label class="x-cmdbar__label" for="lzReturnFrom">Fetch from</label>
+            <label class="x-cmdbar__label" for="lzReturnFrom">Pull orders from</label>
             {{-- Prefilled to the same 15-day window the orders bar uses.
                  Empty meant "walk the entire history", which is the slowest
                  call on the surface and was also its default. --}}
@@ -93,7 +93,7 @@
                         value="{{ old('date_from', request('date_from', now()->subDays(15)->format('Y-m-d'))) }}" />
         </div>
         <div class="x-cmdbar__field">
-            <label class="x-cmdbar__label" for="lzReturnTo">Fetch to</label>
+            <label class="x-cmdbar__label" for="lzReturnTo">Pull orders to</label>
             <x-ui.input type="date" id="lzReturnTo" name="date_to" class="x-cmdbar__date"
                         value="{{ old('date_to', request('date_to', now()->format('Y-m-d'))) }}" />
         </div>

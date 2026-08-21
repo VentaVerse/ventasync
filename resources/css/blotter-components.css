@@ -3117,6 +3117,18 @@
      * chip on the busiest queue. Opacity is the wrong instrument for
      * hierarchy on a saturated fill; the figure leads on weight now and both
      * halves are legible. Full white measures 5.20:1. */
+    /* The date under the countdown.
+       Quiet on purpose: the pill above it is the alarm, this is the fact you
+       check against a cutoff. Tabular so a column of them compares. */
+    .sla-chip__when {
+        display: block;
+        margin-top: 3px;
+        font-size: 11px;
+        font-variant-numeric: tabular-nums;
+        color: var(--bl-ink-3);
+        white-space: nowrap;
+    }
+
     .sla-chip--overdue .sla-chip__label {
         color: #fff;
         font-weight: 500;

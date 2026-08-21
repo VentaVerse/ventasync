@@ -93,7 +93,7 @@
         in_array($status, ['REQUESTED', 'PROCESSING', 'JUDGING', 'SELLER_DISPUTE'], true)
             => ['This return is still with Shopee. There is nothing to do yet, beyond watching it.', ''],
         $status === 'ACCEPTED' && $needsLogistics === true
-            => ['The goods are on their way back. Check them against the list below when they arrive, put them back into stock, then set the order to Returned.', 'od-note--warn'],
+            => ['The goods are on their way back. Check them against the list below when they arrive, put them back into stock, then set the order to Returned. That last step happens on the order itself, linked under The order below.', 'od-note--warn'],
         $status === 'ACCEPTED' && $needsLogistics === false
             => ['A refund only. Nothing is coming back, so do not put anything into stock.', ''],
         $status === 'REFUND_PAID'
@@ -172,7 +172,7 @@
         <div class="rs__head">
             <div>
                 <h2 class="rs__title">What can be offered</h2>
-                <p class="rs__sub">Shopee decides which resolutions are open on a return, and up to how much.</p>
+                <p class="rs__sub">Shopee decides which resolutions are open on a return, and up to how much. Asking shows the answer here. Nothing is sent to the buyer and nothing is resolved.</p>
             </div>
             <x-ui.button size="sm" type="button" data-solutions-ask>Ask Shopee</x-ui.button>
         </div>

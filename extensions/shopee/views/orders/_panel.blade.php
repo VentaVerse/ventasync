@@ -86,7 +86,7 @@
           data-confirm-tone="primary">
         @csrf
         <div class="x-cmdbar__field">
-            <label class="x-cmdbar__label" for="spDateFrom">Fetch from</label>
+            <label class="x-cmdbar__label" for="spDateFrom">Pull orders from</label>
             {{-- Pre-filled, as TikTok's bar already was. Both dates are
                  required, so a blank pair meant the page's only primary
                  button could not succeed in its default state and said so
@@ -95,7 +95,7 @@
                         value="{{ old('date_from', request('date_from', now()->subDays(15)->format('Y-m-d'))) }}" />
         </div>
         <div class="x-cmdbar__field">
-            <label class="x-cmdbar__label" for="spDateTo">Fetch to</label>
+            <label class="x-cmdbar__label" for="spDateTo">Pull orders to</label>
             <x-ui.input type="date" id="spDateTo" name="date_to" class="x-cmdbar__date"
                         value="{{ old('date_to', request('date_to', now()->format('Y-m-d'))) }}" />
         </div>
@@ -274,7 +274,7 @@
          them. A caller with "sometime last week" and a product name could not
          narrow this list at all. --}}
     <span class="x-filters__group">
-        <span class="x-filters__group-label">Placed</span>
+        <span class="x-filters__group-label">Show orders placed</span>
         <x-ui.input type="date" name="placed_from" class="x-filters__date"
                     value="{{ $placedFromFilter }}" aria-label="Placed on or after" title="Placed on or after" />
         <x-ui.input type="date" name="placed_to" class="x-filters__date"
@@ -378,6 +378,7 @@
             <x-ui.button type="submit" variant="secondary" size="sm">Print pick list</x-ui.button>
             <x-ui.button type="submit" variant="secondary" size="sm"
                          formaction="{{ route('fulfilment.print.packing', ['channel' => 'shopee']) }}">Print packing lists</x-ui.button>
+            <x-ui.hint label="About these two lists">One pick list for the whole selection, with lines consolidated by SKU so three of the same item is one trip to the shelf. Packing lists are one per order, nothing consolidated, to go in the parcel.</x-ui.hint>
         </form>
     </x-ui.selectbar>
 

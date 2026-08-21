@@ -73,19 +73,19 @@
             </svg>
             <span class="sla-chip__label">{{ $shownLabel }}</span>
             <span class="sla-chip__time">{{ $initial }}</span>
-            {{-- The actual deadline reached a reader only through title=,
-                 which has no keyboard path and no touch path at all - the
-                 same objection DESIGN.md already raises against title as a
-                 sole reading path. The attribute stays for the mouse; this
-                 gives everyone else the date.
+            {{-- The date is VISIBLE now, not hidden behind a hover.
 
-                 Both say $label, not the overdue word: a chip reading
-                 "Overdue 2d 4h" still has to name WHICH deadline passed, and
-                 this component now serves two - a shipping one on orders and
-                 a respond-by one on Shopee returns. Hardcoding "ship by"
-                 here told a returns operator the wrong thing about the right
-                 date. --}}
-            <span class="x-sr">({{ \Illuminate\Support\Str::lower($label) }} {{ $deadlineLabel }})</span>
+                 It lived in title= and a screen-reader span, so a mouse user
+                 got it after about a second of hovering and a phone user
+                 never got it at all. DESIGN.md already rejects title as a
+                 sole reading path for exactly this reason, in the charts
+                 section, and the chip predated that lesson.
+
+                 The countdown answers "how long"; the date answers "by when",
+                 and a packer deciding what to touch next needs both. title=
+                 stays for the mouse; the screen-reader span goes, because a
+                 visible date makes it a duplicate announcement. --}}
         </span>
+        <span class="sla-chip__when">{{ $deadlineLabel }}</span>
     </span>
 @endif

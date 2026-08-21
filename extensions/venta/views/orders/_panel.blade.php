@@ -86,12 +86,12 @@
           data-confirm-tone="primary">
         @csrf
         <div class="x-cmdbar__field">
-            <label class="x-cmdbar__label" for="vtDateFrom">Fetch from</label>
+            <label class="x-cmdbar__label" for="vtDateFrom">Pull orders from</label>
             <x-ui.input type="date" id="vtDateFrom" name="date_from" class="x-cmdbar__date"
                         value="{{ old('date_from', request('date_from', now()->subDays(15)->format('Y-m-d'))) }}" />
         </div>
         <div class="x-cmdbar__field">
-            <label class="x-cmdbar__label" for="vtDateTo">Fetch to</label>
+            <label class="x-cmdbar__label" for="vtDateTo">Pull orders to</label>
             <x-ui.input type="date" id="vtDateTo" name="date_to" class="x-cmdbar__date"
                         value="{{ old('date_to', request('date_to', now()->format('Y-m-d'))) }}" />
         </div>
@@ -172,7 +172,7 @@
                 aria-label="Find an order by order number, customer, product or tracking" />
 
     <span class="x-filters__group">
-        <span class="x-filters__group-label">Placed</span>
+        <span class="x-filters__group-label">Show orders placed</span>
         <x-ui.input type="date" name="placed_from" class="x-filters__date"
                     value="{{ $vtPlacedFrom }}" aria-label="Placed on or after" title="Placed on or after" />
         <x-ui.input type="date" name="placed_to" class="x-filters__date"
@@ -263,6 +263,7 @@
             <x-ui.button type="submit" variant="secondary" size="sm" formtarget="_blank">Print pick list</x-ui.button>
             <x-ui.button type="submit" variant="secondary" size="sm" formtarget="_blank"
                          formaction="{{ route('fulfilment.print.packing', ['channel' => 'venta']) }}">Print packing lists</x-ui.button>
+            <x-ui.hint label="About these two lists">One pick list for the whole selection, with lines consolidated by SKU so three of the same item is one trip to the shelf. Packing lists are one per order, nothing consolidated, to go in the parcel.</x-ui.hint>
             <x-ui.button type="submit" variant="danger" size="sm"
                          formaction="{{ route('ext.venta.orders.bulk_delete', $storeId) }}"
                          data-confirm="Delete the selected orders from this store? The sales orders they created are not affected.">Delete selected</x-ui.button>

@@ -99,9 +99,22 @@ class ShopeeReturnDeadlineTest extends TestCase
         )->__toString();
 
         $this->assertStringContainsString('title="Respond by', $html);
-        $this->assertStringContainsString('(respond by', $html);
         $this->assertStringNotContainsString('ship by', $html);
         $this->assertStringNotContainsString('Ship by', $html);
+
+        /* The date is VISIBLE, not hidden behind a hover.
+         *
+         * It used to reach a reader only through title= and a screen-reader
+         * span, so a mouse user waited on a tooltip and a phone user never
+         * got it at all. This asserts the rendered element rather than the
+         * attribute, because the attribute was never the reading path that
+         * mattered. */
+        $this->assertStringContainsString('sla-chip__when', $html);
+        $this->assertStringContainsString(date('Y-m-d', time() - 90000), $html);
+
+        // And it is not announced twice: a visible date makes the old
+        // screen-reader span a duplicate.
+        $this->assertStringNotContainsString('(respond by', $html);
 
         // The visible label still flips to Overdue; only the date keeps the
         // caller's wording.
