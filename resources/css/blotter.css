@@ -2479,6 +2479,24 @@
        Gated on pointer: coarse rather than on width, because the constraint
        is the input device, not the window. A 390px browser on a desktop
        keeps the tighter rhythm; a tablet at 1024px gets the bigger targets. */
+    /* The floor is not a phone concern.
+       ------------------------------------------------------------------
+       The uplift below is gated on pointer: coarse, which left the row
+       kebab at a measured 14x14 on the desk against the 24x24 floor
+       (WCAG 2.5.8) - and the desk is where most orders are worked. It
+       shows up on the storefront rows, where the kebab is icon-only and
+       so has nothing but its glyph to size it; the channels whose
+       triggers carry a word were already past the floor by accident of
+       their label.
+
+       A mouse is precise, not infinitely precise. The coarse block still
+       goes further, because a finger needs more than a mouse does. */
+    .x-menu__trigger {
+        min-width: 24px;
+        min-height: 24px;
+        justify-content: center;
+    }
+
     @media (pointer: coarse) {
         .x-nav__item,
         .x-nav__child,

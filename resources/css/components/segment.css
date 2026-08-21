@@ -5,12 +5,26 @@
 
    Why a segment and not the old .tabs strip: tabs imply separate pages, and
    these are seven filters over one page. A segment reads as "pick one",
-   which is what the control actually does. The active item is lifted onto
-   --bl-sheet inside a --bl-chrome trough, so the selected state is
-   carried by elevation and a hairline ring, not by a brand colour. That
-   matters because colour on these pages has exactly one job, telling the
-   operator which orders need them, and a coloured tab would compete with
-   the status column for that job.
+   which is what the control actually does.
+
+   THE SELECTED STATE IS A CHANNEL-COLOURED FILL. This paragraph used to
+   argue the opposite - that the selection is carried by elevation and a
+   hairline ring, never by a brand colour, because colour on these pages has
+   one job and a coloured tab would compete with the status column for it.
+   the owner asked for the fill directly, and the argument was worth less than it
+   sounds: the trough and the lifted pill went at the same time, so there was
+   nothing left for a pill to be lifted out of.
+
+   The competition the old paragraph feared is real and is answered by
+   position rather than by hue. The tab strip is chrome at the top of the
+   page; the status column is data inside a row. Nobody scanning rows for
+   work mistakes the header for a row. What would have been a genuine
+   collision - two levels of tabs both filled - is handled where the sub
+   strip is defined below.
+
+   Leaving the old paragraph in place would have been worse than deleting
+   it: a comment asserting the opposite of the code is how the next reader
+   gets talked out of what they can see on screen.
 
    The trough scrolls horizontally on its own below the desktop widths so a
    seven-item control never widens the page. */
@@ -174,11 +188,23 @@
     color: var(--bl-ink-3);
 }
 
-/* On a filled tab the count sits on the fill, so it is stepped back from
-   the label by transparency rather than by a grey token that would be
-   fighting the colour underneath it. */
+/* FULL OPACITY, AND THE STEP BACK COMES FROM WEIGHT.
+ *
+ * This was --bl-paper at 72%, on the reasoning that transparency steps the
+ * count back from the label without fighting the colour underneath. It does
+ * step it back; it also drops it under AA on any fill that is not almost
+ * black. Composited over the actual fills it measured 3.08:1 on Shopee and
+ * 3.34:1 on Venta in light theme, and 3.44-3.78:1 on all four in dark,
+ * against the 4.5:1 a 12px label needs. Lazada and TikTok passed in light
+ * only because their fills are near-black - an accident of two palettes, not
+ * a working rule.
+ *
+ * Weight is the safe axis. It carries hierarchy without touching the
+ * contrast, which is exactly what transparency cannot do on a coloured
+ * ground: every point of alpha spends legibility to buy emphasis. */
 .x-segment__item.is-active .x-segment__count {
-    color: color-mix(in srgb, var(--bl-paper) 72%, transparent);
+    color: var(--bl-paper);
+    font-weight: 450;
 }
 
 /* The sub level. A second, quieter row that only appears under the one
