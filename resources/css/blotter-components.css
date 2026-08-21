@@ -942,8 +942,8 @@
     /* THE TILE HAD NO RULE AT ALL.
        ------------------------------------------------------------------
        The stylesheet described a tidy grid and the script built
-       .fm-pick__item with a bare <img> and a <span class="label">, neither of
-       which any rule matched. So every thumbnail sized itself to its own
+       .fm-pick__item with a bare img element and a span carrying the class
+       "label", neither of which any rule matched. So every thumbnail sized itself to its own
        photograph: a portrait shot stood twice as tall as its neighbours,
        pushed its caption down into the row beneath, and the 76-character
        filenames ran straight through the tile next door. The delete control
