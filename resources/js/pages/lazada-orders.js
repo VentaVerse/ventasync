@@ -155,6 +155,12 @@ document.addEventListener('DOMContentLoaded', function () {
         if (updateBtn) updateBtn.addEventListener('click', function () { clickedBtn = 'update'; });
 
         fetchForm.addEventListener('submit', function (e) {
+            // A submit that will not happen must not raise the overlay: the
+            // confirmation dialog preventDefaults this same event from a
+            // capture-phase listener, and Cancel never takes an overlay down.
+            // See the note above the submit handler in confirm-modal.js.
+            if (e.defaultPrevented) return;
+
             var dateFrom = fetchForm.querySelector('input[name="date_from"]');
             var dateTo = fetchForm.querySelector('input[name="date_to"]');
 
@@ -188,7 +194,13 @@ document.addEventListener('DOMContentLoaded', function () {
         var form = document.getElementById('formFetchLazadaReturns');
         if (!form || !overlay) return;
 
-        form.addEventListener('submit', function () {
+        form.addEventListener('submit', function (e) {
+            // A submit that will not happen must not raise the overlay: the
+            // confirmation dialog preventDefaults this same event from a
+            // capture-phase listener, and Cancel never takes an overlay down.
+            // See the note above the submit handler in confirm-modal.js.
+            if (e.defaultPrevented) return;
+
             if (title) title.textContent = 'Fetching returns';
             showModal(overlay);
         });

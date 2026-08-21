@@ -143,6 +143,12 @@ document.addEventListener('DOMContentLoaded', function () {
         if (updateBtn) updateBtn.addEventListener('click', function () { clickedBtn = 'update'; });
 
         fetchForm.addEventListener('submit', function (e) {
+            // A submit that will not happen must not raise the overlay: the
+            // confirmation dialog preventDefaults this same event from a
+            // capture-phase listener, and Cancel never takes an overlay down.
+            // See the note above the submit handler in confirm-modal.js.
+            if (e.defaultPrevented) return;
+
             var isUpdate = clickedBtn === 'update';
 
             // Update statuses refreshes a fixed 30-day window server-side and

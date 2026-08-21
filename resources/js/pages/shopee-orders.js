@@ -122,6 +122,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (fetchForm) {
             fetchForm.addEventListener('submit', function (e) {
+                // A submit that will not happen must not raise the overlay: the
+                // confirmation dialog preventDefaults this same event from a
+                // capture-phase listener, and Cancel never takes an overlay down.
+                // See the note above the submit handler in confirm-modal.js.
+                if (e.defaultPrevented) return;
+
                 // Require From/To dates.
                 var dateFrom = fetchForm.querySelector('input[name="date_from"]');
                 var dateTo = fetchForm.querySelector('input[name="date_to"]');
@@ -149,7 +155,13 @@ document.addEventListener('DOMContentLoaded', function () {
         var fetchReturnsForm = document.getElementById('formFetchReturns');
         if (!fetchReturnsForm || !overlay) return;
 
-        fetchReturnsForm.addEventListener('submit', function () {
+        fetchReturnsForm.addEventListener('submit', function (e) {
+            // A submit that will not happen must not raise the overlay: the
+            // confirmation dialog preventDefaults this same event from a
+            // capture-phase listener, and Cancel never takes an overlay down.
+            // See the note above the submit handler in confirm-modal.js.
+            if (e.defaultPrevented) return;
+
             document.getElementById('spLoadingTitle').textContent = 'Fetching returns…';
             overlay.style.display = 'flex';
         });

@@ -143,6 +143,29 @@ document.addEventListener('DOMContentLoaded', function () {
 
     okBtn.addEventListener('click', function () { close(true); });
 
+    // THIS RUNS BEFORE THE FORM'S OWN SUBMIT LISTENERS, AND DOES NOT STOP THEM.
+    //
+    // It is a capture-phase listener on document, so it sees the event first
+    // and can preventDefault before the browser acts. What preventDefault
+    // does NOT do is stop propagation: the event still travels on to the
+    // form's own listeners, which have no idea a confirmation is pending.
+    //
+    // On the fulfilment pages that meant Fetch orders raised a full-screen
+    // "Fetching orders - please keep this tab open" the instant the button
+    // was pressed, behind a dialog still asking whether to fetch at all, and
+    // choosing Cancel left it there permanently, because the cancel path has
+    // nothing to take an overlay down with.
+    //
+    // Stopping propagation here would fix that by breaking something worse:
+    // per-form validation and other listeners would never see the event, and
+    // a confirmed submit would reach the server without them. So the contract
+    // is the other direction, and any listener that acts on a submit as
+    // though the work has started MUST honour it:
+    //
+    //     if (e.defaultPrevented) return;
+    //
+    // On the re-submit that a confirmed dialog performs, nothing prevents the
+    // event, so those listeners run exactly when the work really begins.
     document.addEventListener('submit', function (e) {
         var form = e.target;
 
