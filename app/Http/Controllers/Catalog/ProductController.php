@@ -579,14 +579,36 @@ public function store(Request $request)
         $pfxProduct = $pfx . 'product';
 
         $request->validate([
+            /* WHAT A PRODUCT ACTUALLY NEEDS TO EXIST IS A NAME.
+             *
+             * Model, SKU, price and quantity were all required, and none of
+             * them earns it:
+             *
+             *   model     the owner does not want the field at all. It exists
+             *             because Lazada and Shopee have one, and the channel
+             *             mapping fills that in - so a blank model here is a
+             *             normal state, not a half-finished record.
+             *   sku       plenty of catalogue lines never get one. UniqueSku
+             *             was already written to pass on an empty value, so
+             *             the rule and the requirement have disagreed for as
+             *             long as both existed.
+             *   price     a product being set up before it is priced is an
+             *             ordinary Tuesday. Null means zero, which is what
+             *             the column holds anyway.
+             *   quantity  same, and on a product with variations it is not
+             *             even editable - it is the sum of the rows below.
+             *
+             * Requiring a field is a claim that the record is meaningless
+             * without it. That is true of the name and of nothing else here.
+             */
             'name' => 'required|string|max:255',
-            'model' => 'required|string|max:64',
-            'sku' => ['required', 'string', 'max:64', new UniqueSku()],
-            'price' => 'required|numeric',
+            'model' => 'nullable|string|max:64',
+            'sku' => ['nullable', 'string', 'max:64', new UniqueSku()],
+            'price' => 'nullable|numeric',
             'cost_amount' => 'nullable|numeric',
             'cost_percentage' => 'nullable|numeric',
             'cost_additional' => 'nullable|numeric',
-            'quantity' => 'required|integer',
+            'quantity' => 'nullable|integer',
             // Physical attributes (needed for marketplace payloads e.g. Lazada)
             'weight' => 'nullable|numeric',
             'length' => 'nullable|numeric',
@@ -644,7 +666,16 @@ public function store(Request $request)
         $productId = DB::transaction(function () use ($request, $langId, $resolvedManufacturerId, $categoryIds, $pfx, $forcedQty) {
             $p = new Product();
 
-            $p->model = $request->model ?? ($request->sku ?? '');
+            /* A BLANK MODEL STAYS BLANK. It used to fall back to the SKU,
+             * and Laravel's ConvertEmptyStringsToNull makes that fire on an
+             * ordinary empty box rather than only on an absent field - so
+             * clearing the model silently refilled it with the SKU and the
+             * next reader could not tell an intended model from a copy.
+             *
+             * The field only exists because Lazada and Shopee have one, and
+             * the channel mapping supplies it there. Empty is a real answer
+             * here, so it is recorded as one. */
+            $p->model = trim((string) ($request->input('model') ?? ''));
             $p->sku = $request->sku ?? '';
             $p->upc = '';
             $p->ean = '';
@@ -1089,14 +1120,36 @@ public function store(Request $request)
         $pfxProduct = config('catalog.prefix') . 'product';
 
         $request->validate([
+            /* WHAT A PRODUCT ACTUALLY NEEDS TO EXIST IS A NAME.
+             *
+             * Model, SKU, price and quantity were all required, and none of
+             * them earns it:
+             *
+             *   model     the owner does not want the field at all. It exists
+             *             because Lazada and Shopee have one, and the channel
+             *             mapping fills that in - so a blank model here is a
+             *             normal state, not a half-finished record.
+             *   sku       plenty of catalogue lines never get one. UniqueSku
+             *             was already written to pass on an empty value, so
+             *             the rule and the requirement have disagreed for as
+             *             long as both existed.
+             *   price     a product being set up before it is priced is an
+             *             ordinary Tuesday. Null means zero, which is what
+             *             the column holds anyway.
+             *   quantity  same, and on a product with variations it is not
+             *             even editable - it is the sum of the rows below.
+             *
+             * Requiring a field is a claim that the record is meaningless
+             * without it. That is true of the name and of nothing else here.
+             */
             'name' => 'required|string|max:255',
-            'model' => 'required|string|max:64',
-            'sku' => ['required', 'string', 'max:64', new UniqueSku((int) $id)],
-            'price' => 'required|numeric',
+            'model' => 'nullable|string|max:64',
+            'sku' => ['nullable', 'string', 'max:64', new UniqueSku((int) $id)],
+            'price' => 'nullable|numeric',
             'cost_amount' => 'nullable|numeric',
             'cost_percentage' => 'nullable|numeric',
             'cost_additional' => 'nullable|numeric',
-            'quantity' => 'required|integer',
+            'quantity' => 'nullable|integer',
             // Physical attributes (needed for marketplace payloads e.g. Lazada)
             'weight' => 'nullable|numeric',
             'length' => 'nullable|numeric',
@@ -1161,7 +1214,16 @@ public function store(Request $request)
             // Detect product-level SKU change
             $oldProductSku = trim((string) $p->sku);
 
-            $p->model = $request->model ?? ($request->sku ?? '');
+            /* A BLANK MODEL STAYS BLANK. It used to fall back to the SKU,
+             * and Laravel's ConvertEmptyStringsToNull makes that fire on an
+             * ordinary empty box rather than only on an absent field - so
+             * clearing the model silently refilled it with the SKU and the
+             * next reader could not tell an intended model from a copy.
+             *
+             * The field only exists because Lazada and Shopee have one, and
+             * the channel mapping supplies it there. Empty is a real answer
+             * here, so it is recorded as one. */
+            $p->model = trim((string) ($request->input('model') ?? ''));
             $p->sku = $request->sku ?? '';
 
             $newProductSku = trim((string) $p->sku);

@@ -68,11 +68,11 @@
                         </div>
                     </x-ui.field>
 
-                    <x-ui.field label="Model" name="model" :required="true">
+                    <x-ui.field label="Model" name="model">
                         <x-ui.input id="f-model" name="model" class="fm-input--num" value="{{ old('model') }}" />
                     </x-ui.field>
 
-                    <x-ui.field label="SKU" name="sku" :required="true">
+                    <x-ui.field label="SKU" name="sku">
                         <x-ui.input id="f-sku" name="sku" class="fm-input--num" value="{{ old('sku') }}" />
                     </x-ui.field>
 
@@ -115,7 +115,7 @@
                 </div>
 
                 <div class="fm-fields">
-                    <x-ui.field label="Selling price" for="product_price" name="price" :required="true">
+                    <x-ui.field label="Selling price" for="product_price" name="price">
                         <x-ui.input id="product_price" name="price" class="fm-input--num" value="{{ old('price', '0') }}" />
                     </x-ui.field>
                 </div>
@@ -210,7 +210,7 @@
                 <div class="fm-card__head"><h2 class="fm-card__title">Inventory</h2></div>
                 <div class="fm-card__body">
                     <div class="fm-fields fm-fields--2">
-                        <x-ui.field label="Quantity" for="product_quantity" name="quantity" :required="true">
+                        <x-ui.field label="Quantity" for="product_quantity" name="quantity">
                             <x-ui.input id="product_quantity" name="quantity" class="fm-input--num" value="{{ old('quantity', '0') }}" />
                         </x-ui.field>
 

@@ -141,11 +141,11 @@
                         </div>
                     </x-ui.field>
 
-                    <x-ui.field label="Model" name="model" :required="true">
+                    <x-ui.field label="Model" name="model">
                         <x-ui.input id="f-model" name="model" class="fm-input--num" value="{{ old('model', $product->model) }}" />
                     </x-ui.field>
 
-                    <x-ui.field label="SKU" name="sku" :required="true">
+                    <x-ui.field label="SKU" name="sku">
                         <x-ui.input id="f-sku" name="sku" class="fm-input--num" value="{{ old('sku', $product->sku) }}" />
                     </x-ui.field>
 
@@ -195,7 +195,7 @@
                 <p class="fm-section__note" id="cost-lock-note">Set when a purchase order is received.</p>
 
                 <div class="fm-fields">
-                    <x-ui.field label="Selling price" for="product_price" name="price" :required="true">
+                    <x-ui.field label="Selling price" for="product_price" name="price">
                         <x-ui.input id="product_price" name="price" class="fm-input--num" value="{{ old('price', $trim($product->price)) }}" />
                     </x-ui.field>
                 </div>
@@ -296,7 +296,7 @@
                 </div>
                 <div class="fm-card__body">
                     <div class="fm-fields fm-fields--2">
-                        <x-ui.field label="Quantity" for="product_quantity" name="quantity" :required="true">
+                        <x-ui.field label="Quantity" for="product_quantity" name="quantity">
                             <x-ui.input id="product_quantity" name="quantity" class="fm-input--num" value="{{ old('quantity', $product->quantity) }}" />
                         </x-ui.field>
 
