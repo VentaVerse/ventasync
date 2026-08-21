@@ -63,7 +63,6 @@
                             {{-- Filled in by pages/product-form.js from the
                                  chosen manufacturer, and prepended back into
                                  the name value on submit. --}}
-                            <span class="fm-group__prefix d-none" id="name_mfg_prefix"></span>
                             <x-ui.input id="product_name" name="name" value="{{ old('name') }}" />
                         </div>
                     </x-ui.field>

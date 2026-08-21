@@ -135,7 +135,6 @@
 
                     <x-ui.field label="Name" for="product_name" name="name" :required="true" wide>
                         <div class="fm-group">
-                            <span class="fm-group__prefix d-none" id="name_mfg_prefix"></span>
                             <x-ui.input id="product_name" name="name"
                                         value="{{ old('name', html_entity_decode($product->name ?? '')) }}" />
                         </div>

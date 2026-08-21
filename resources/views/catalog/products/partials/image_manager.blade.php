@@ -84,7 +84,7 @@
         </x-ui.button>
         <x-ui.button type="button" size="sm" id="pimServerUrlBtn">Add from URL</x-ui.button>
         <input type="text" id="pimServerSearch" class="x-input fm-pick__search"
-               placeholder="Search this folder" aria-label="Search this folder">
+               placeholder="Search all images and folders" aria-label="Search all images and folders">
         <div class="x-select-wrap">
           <select id="pimServerSort" class="x-input" aria-label="Sort images in this folder">
             <option value="newest">Newest first</option>
@@ -181,6 +181,7 @@
   const dropOverlay = document.getElementById('pimDropOverlay');
 
   let currentServerPath = '';
+  let searchMode = false;
   let cachedServerFiles = [];
   let cachedServerFolders = [];
 
@@ -310,6 +311,18 @@
     label.title = f.name || '';
     card.appendChild(label);
 
+    /* Where it came from. A result list spanning 240 folders is unreadable
+       without it - two files can carry the same name and mean different
+       pictures, and picking the wrong one is silent. Only in search: inside
+       a folder listing every row would repeat the same line. */
+    if (searchMode && f.folder) {
+      const where = document.createElement('span');
+      where.className = 'fm-pick__where';
+      where.textContent = f.folder;
+      where.title = f.folder;
+      card.appendChild(where);
+    }
+
     card.addEventListener('click', () => {
       // Single-pick: hand the file back and get out of the way.
       if (pickOne) {
@@ -382,13 +395,14 @@
     serverGrid.textContent = '';
     serverEmpty.classList.add('d-none');
 
-    const q = (serverSearch.value || '').trim().toLowerCase();
     const sort = serverSort.value || 'newest';
 
+    /* No client-side filtering any more. In a folder listing there is nothing
+       to filter - the server sent exactly this folder - and in search mode
+       the server has already decided what matches, including files that match
+       by their FOLDER's name and would be thrown away by a filter on the
+       filename. */
     let filtered = cachedServerFiles;
-    if (q) {
-      filtered = filtered.filter(f => (f.name || '').toLowerCase().includes(q));
-    }
 
     filtered = [...filtered];
     if (sort === 'newest') filtered.sort((a,b) => (b.modified||0) - (a.modified||0));
@@ -408,9 +422,9 @@
     }
   }
 
-  async function loadServerDir(path, startAtManufacturer){
-    const mid = getManufacturerId();
+  async function loadServerDir(path){
     currentServerPath = String(path || '').replace(/\\/g,'/').replace(/^\/+|\/+$/g,'');
+    searchMode = false;
 
     serverGrid.textContent = '';
     serverFolders.textContent = '';
@@ -418,9 +432,7 @@
     serverSearch.value = '';
 
     const u = new URL(@json(route('products.images.browse')), window.location.origin);
-    if (mid) u.searchParams.set('manufacturer_id', mid);
     if (currentServerPath) u.searchParams.set('path', currentServerPath);
-    if (startAtManufacturer) u.searchParams.set('start_at_manufacturer', '1');
 
     const resp = await fetch(u.toString(), {headers: {'X-CSRF-TOKEN': csrf, 'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest'}});
     const data = await resp.json().catch(() => ({}));
@@ -442,35 +454,35 @@
       serverUpBtn.dataset.parent = String(parent || '');
     }
 
-    cachedServerFolders.forEach(d => serverFolders.appendChild(buildFolderCard(d)));
-    if (serverFoldersTitle) {
-        serverFoldersTitle.classList.toggle('d-none', cachedServerFolders.length === 0);
-    }
+    renderServerFolders();
     renderServerFiles();
   }
 
-  async function openServerModal(){
-    const mid = getManufacturerId();
-    if (!mid) {
-      // The library is organised by manufacturer folder, so there is no
-      // sensible folder to open yet. Says so where the operator is looking
-      // instead of through window.showFlashError, which needs a
-      // #js-flash-container that layouts.shell does not render.
-      const wrap = document.getElementById('manufacturer_search');
-      if (wrap) {
-        wrap.classList.add('input-error');
-        wrap.focus();
-        wrap.scrollIntoView({behavior:'smooth', block:'center'});
-        const field = wrap.closest('.fm-field');
-        if (field && !field.querySelector('.fm-error--js')) {
-          const err = document.createElement('div');
-          err.className = 'fm-error fm-error--js';
-          err.textContent = 'Choose a manufacturer first. Images are filed under it.';
-          field.appendChild(err);
-        }
-      }
-      return;
+  /* Extracted so a search can redraw the folder half too. It used to be
+     inline in loadServerDir, which meant only a directory listing could
+     produce folders - and a search that matches folder names has to be able
+     to show them. */
+  function renderServerFolders() {
+    serverFolders.textContent = '';
+    cachedServerFolders.forEach(d => serverFolders.appendChild(buildFolderCard(d)));
+
+    if (serverFoldersTitle) {
+      serverFoldersTitle.classList.toggle('d-none', cachedServerFolders.length === 0);
+      // In a result list the heading has to say what it is a list OF.
+      serverFoldersTitle.textContent = searchMode ? 'Matching folders' : 'Folders';
     }
+  }
+
+  async function openServerModal(){
+    /* NO MANUFACTURER GATE. It used to refuse to open at all until a
+       manufacturer was chosen, because uploads were filed under one - and
+       that has not been true for a while: the modal's upload already posts
+       to whatever folder you are browsing. The gate was left guarding a rule
+       it had stopped enforcing, and it blocked the library on a product that
+       simply had not been categorised yet.
+
+       Where a file goes is now the operator's decision, made by standing in
+       a folder, which is what a file browser is for. */
     // Remember who opened it, so closing hands focus back rather than
     // stranding it on a button that is no longer on screen.
     pickReturnFocus = document.activeElement;
@@ -487,7 +499,14 @@
         if (target === panel) panel.setAttribute('tabindex', '-1');
         target.focus();
     }
-    await loadServerDir('', true);
+    /* ALWAYS THE ROOT.
+       The old behaviour jumped to the manufacturer's folder, which was handy
+       right up to the moment a product's pictures were not all in it - and
+       then it was a guess dressed as a shortcut, with no way to tell which
+       you were getting. One predictable starting point removes every "what
+       if" that surrounded it, and search now reaches the whole library
+       anyway, so nothing was actually being saved by the jump. */
+    await loadServerDir('');
   }
 
   function attachIfNew(path, url) {
@@ -621,12 +640,67 @@
     await loadServerDir(currentServerPath || '');
   });
 
-  // Search and sort
+  /* SEARCH REACHES THE WHOLE LIBRARY, not the folder you happen to be in.
+     ------------------------------------------------------------------
+     It used to filter cachedServerFiles, which only ever holds the current
+     directory - so the box labelled "search" answered a question about where
+     you were standing rather than about the library, and finding a picture
+     still meant knowing which of 240 folders it was in.
+
+     The server does the walk now and returns three things at once: folders
+     whose name matches, images whose name matches wherever they live, and
+     every image inside a matching folder. Asking for "Bigsby" gets the
+     Bigsby folder AND the Bigsby pictures, which are different answers to
+     the same question and both worth having.
+
+     Debounced, because each keystroke is a real request. 250ms is long
+     enough that typing a word costs one search and short enough that it
+     still feels like it is keeping up. */
   let searchTimer = null;
+
+  async function runLibrarySearch(query) {
+    const u = new URL(@json(route('products.images.browse')), window.location.origin);
+    u.searchParams.set('q', query);
+
+    const resp = await fetch(u.toString(), {
+      headers: {'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+    });
+    const data = await resp.json().catch(() => ({}));
+
+    // A slower earlier request must not overwrite a newer answer.
+    if ((serverSearch.value || '').trim() !== query) return;
+
+    searchMode = true;
+    cachedServerFolders = (data && data.folders) ? data.folders : [];
+    cachedServerFiles = (data && data.files) ? data.files : [];
+
+    renderServerFolders();
+    renderServerFiles();
+
+    serverEmpty.textContent = (!cachedServerFolders.length && !cachedServerFiles.length)
+      ? 'Nothing in the library matches "' + query + '".'
+      : 'Nothing in this folder.';
+
+    if (data && data.truncated) {
+      showToast('Showing the first ' + cachedServerFiles.length + ' matches. Narrow the search to see fewer.');
+    }
+  }
+
   serverSearch.addEventListener('input', () => {
     clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => renderServerFiles(), 200);
+    const query = (serverSearch.value || '').trim();
+
+    searchTimer = setTimeout(() => {
+      // Clearing the box returns you to the folder you were browsing, rather
+      // than leaving you in a result list with no way back.
+      if (query === '') {
+        loadServerDir(currentServerPath);
+        return;
+      }
+      runLibrarySearch(query);
+    }, 250);
   });
+
   serverSort.addEventListener('change', () => renderServerFiles());
 
   // Drag to reorder. First tile is the main image, so order is the wire.

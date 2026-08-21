@@ -204,40 +204,23 @@ document.addEventListener('DOMContentLoaded', function () {
     const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
     const manufacturerStoreUrl = form.dataset.manufacturerStoreUrl || '';
 
-    // ---- Manufacturer name as a fixed prefix on the product name --------
-    // The stored product name includes the manufacturer; the input holds the
-    // remainder, and the prefix is prepended back on submit. Unchanged
-    // behaviour, unchanged element ids.
-    function updateMfgPrefix(mfgName) {
-        const prefix = document.getElementById('name_mfg_prefix');
-        const nameField = document.getElementById('product_name');
-        if (!prefix || !nameField) return;
-        const name = (mfgName || '').trim();
-        if (name) {
-            prefix.textContent = name;
-            prefix.classList.remove('d-none');
-            const current = (nameField.value || '').trim();
-            if (current.toLowerCase().indexOf(name.toLowerCase()) === 0) {
-                nameField.value = current.substring(name.length).replace(/^\s+/, '');
-            }
-        } else {
-            prefix.classList.add('d-none');
-            prefix.textContent = '';
-        }
-    }
-
-    form.addEventListener('submit', function () {
-        const prefix = document.getElementById('name_mfg_prefix');
-        const nameField = document.getElementById('product_name');
-        if (!prefix || !nameField) return;
-        const mfg = (prefix.textContent || '').trim();
-        const current = (nameField.value || '').trim();
-        if (mfg && current && current.toLowerCase().indexOf(mfg.toLowerCase()) !== 0) {
-            nameField.value = mfg + ' ' + current;
-        } else if (mfg && !current) {
-            nameField.value = mfg;
-        }
-    });
+    /* THE MANUFACTURER IS NO LONGER GLUED TO THE PRODUCT NAME.
+     *
+     * Picking a manufacturer used to chop its name off the front of the name
+     * field, park it in a grey prefix chip, and paste it back on submit. Two
+     * costs, both paid every time:
+     *
+     *   - the field lied. It showed "T-Shirt" while the record said
+     *     "Pedallion T-Shirt", so what you read was never what you were
+     *     saving, and a name that merely happened to start with the
+     *     manufacturer's letters got silently truncated.
+     *   - changing manufacturer rewrote the product's name as a side effect
+     *     of a different field.
+     *
+     * The name is now whatever is typed in the name box, and nothing else
+     * edits it. Existing names are untouched: they already contain whatever
+     * they contain, and now they are shown in full.
+     */
 
     setupTypeahead({
         inputId: 'manufacturer_search',
@@ -245,7 +228,6 @@ document.addEventListener('DOMContentLoaded', function () {
         listId: 'manufacturer_list',
         url: '/api/catalog/manufacturers?term=',
         onSelect: function (item) {
-            updateMfgPrefix(item.name);
             const nameField = document.getElementById('product_name');
             if (nameField && !(nameField.value || '').trim()) nameField.focus();
         },
@@ -293,11 +275,6 @@ document.addEventListener('DOMContentLoaded', function () {
             return row;
         },
     });
-
-    const mfgInput = document.getElementById('manufacturer_search');
-    if (mfgInput && (mfgInput.value || '').trim()) {
-        updateMfgPrefix(mfgInput.value.trim());
-    }
 
     setupTypeahead({
         inputId: 'category_search',
