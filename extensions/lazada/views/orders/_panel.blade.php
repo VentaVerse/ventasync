@@ -97,60 +97,6 @@
         'promised_shipping_desc' => 'Ship-by time, latest first',
     ];
 @endphp
-@if($canManageLazadaOrders)
-{{-- One command bar, the same grammar as Shopee's: every child of the row
-     ends in a box exactly --control-h tall and the row is bottom aligned, so
-     the date inputs, the checkbox and the two buttons share a baseline and a
-     top edge. The three stacked cards this replaces each set their own
-     control heights, which is what left the buttons off the baseline of
-     their own date inputs. --}}
-<div class="x-cmdbar" data-desk-tool>
-    {{-- See the note on Shopee's bar: a fetch writes unseen orders and
-         writing an order adjusts stock, so the action names its own
-         consequence before it runs. --}}
-    <form method="POST" action="{{ route('ext.lazada.orders.fetch') }}" id="formFetchLazadaOrders" class="x-cmdbar__row"
-          data-confirm="Fetch Lazada orders for the chosen dates? Any order that has not been seen before will adjust stock."
-          data-confirm-tone="primary">
-        @csrf
-        <div class="x-cmdbar__field">
-            <label class="x-cmdbar__label" for="lzDateFrom">Pull orders from</label>
-            {{-- Pre-filled, matching TikTok's bar. --}}
-            <x-ui.input type="date" id="lzDateFrom" name="date_from" class="x-cmdbar__date"
-                        value="{{ old('date_from', request('date_from', now()->subDays(15)->format('Y-m-d'))) }}" />
-        </div>
-        <div class="x-cmdbar__field">
-            <label class="x-cmdbar__label" for="lzDateTo">Pull orders to</label>
-            <x-ui.input type="date" id="lzDateTo" name="date_to" class="x-cmdbar__date"
-                        value="{{ old('date_to', request('date_to', now()->format('Y-m-d'))) }}" />
-        </div>
-        {{-- "Skip stock adjust" was here, and it is retired 2026-08-19.
-
-             It was opt-OUT, so the default behaviour of this page's primary
-             button was to move inventory, and the control that stopped it
-             read as "do less" while meaning "let the stock ledger diverge,
-             permanently, with no audit line and no undo". Nobody had
-             documented why it existed; the reason turned out to be a
-             development-era double-decrement that the sync's own dedupe
-             (marketplace_source + marketplace_order_id) and the
-             status-change guard in adjustStock have since closed. The owner
-             confirmed he has never used it on live.
-
-             The one legitimate use survives where it belongs: OpenCart's
-             historical import, behind the --no-stock flag on its sync
-             command, where skipping stock for years of already-fulfilled
-             orders is the correct behaviour rather than a trap. --}}
-        <div class="x-cmdbar__spacer"></div>
-        <div class="x-cmdbar__actions">
-            <x-ui.button type="submit" variant="primary" id="btnFetchOrders">Fetch orders</x-ui.button>
-            <x-ui.button type="submit" variant="secondary" id="btnUpdateOrders"
-                         data-confirm="Re-read the statuses of Lazada orders in the chosen dates? Existing orders are updated in place; no new orders are pulled."
-                         data-confirm-tone="primary"
-                         formaction="{{ route('ext.lazada.orders.update_statuses') }}">Update statuses</x-ui.button>
-            <x-ui.hint>Fetch pulls the orders created between these dates. Update statuses uses the same two dates, so both are required.</x-ui.hint>
-        </div>
-    </form>
-</div>
-@endif
 
 @if($last_result)
     <div class="co-notice {{ $last_result['ok'] ? 'co-notice--ok' : 'co-notice--fail' }}" role="status" aria-live="polite">
@@ -306,6 +252,26 @@
      doing one job, one of them a form whose only control was a select. The
      selects auto-submit through the shared data-autosubmit handler that
      /sales/orders already uses. --}}
+@php
+    /* What the Filters button has to admit to.
+     *
+     * A fold that hides an ACTIVE filter is worse than no fold, because the
+     * list is then narrowed by something invisible. Sort and page size count
+     * only when they are not the default, since a default is not a choice
+     * the reader made. */
+    $lzActiveFilters = 0;
+    if (($placedFromFilter ?? '') !== '') { $lzActiveFilters++; }
+    if (($placedToFilter ?? '') !== '') { $lzActiveFilters++; }
+    if (($sort ?? '') !== '' && ($sort ?? '') !== ('created_' . (($active_tab ?? '') === 'TO_SHIP' ? 'asc' : 'desc'))) { $lzActiveFilters++; }
+    if ((int) ($perPage ?? 10) !== 10) { $lzActiveFilters++; }
+@endphp
+
+{{-- One toolbar, after the tabs.
+
+     The queue you are working is chosen first, so the tabs come first. Then
+     one row: the search everyone uses, the filters most people set once, and
+     the marketplace pull nobody touches per order. --}}
+<div class="x-toolbar">
 <form method="GET" action="{{ $panelBaseUrl }}" class="x-filters" data-desk-tool id="orders-filter">
 @foreach($panelHiddenParams as $panelHiddenKey => $panelHiddenValue)
         <input type="hidden" name="{{ $panelHiddenKey }}" value="{{ $panelHiddenValue }}">
@@ -344,31 +310,39 @@
          tell the marketplace what to send and do not touch the rows below
          them. A caller with "sometime last week" and a product name could not
          narrow this list at all. --}}
+    {{-- Folded, with the count of what is actually set.
+
+         Search stays out of the fold because it is the control used most.
+         The date range, the sort and the page size are per-session choices
+         that are set once and then sat on, and keeping all three in the row
+         cost 88px above every order on the page. --}}
+    <x-ui.foldout label="Filters" :count="$lzActiveFilters ?: null">
     <span class="x-filters__group">
-        <span class="x-filters__group-label">Show orders placed</span>
-        <x-ui.input type="date" name="placed_from" class="x-filters__date"
-                    value="{{ $placedFromFilter }}" aria-label="Placed on or after" title="Placed on or after" />
-        <x-ui.input type="date" name="placed_to" class="x-filters__date"
-                    value="{{ $placedToFilter }}" aria-label="Placed on or before" title="Placed on or before" />
-    </span>
+            <span class="x-filters__group-label">Show orders placed</span>
+            <x-ui.input type="date" name="placed_from" class="x-filters__date"
+                        value="{{ $placedFromFilter }}" aria-label="Placed on or after" title="Placed on or after" />
+            <x-ui.input type="date" name="placed_to" class="x-filters__date"
+                        value="{{ $placedToFilter }}" aria-label="Placed on or before" title="Placed on or before" />
+        </span>
 
-    <div class="x-select-wrap x-filters__select x-filters__select--wide">
-        <select name="sort" class="x-input" data-autosubmit aria-label="Sort orders">
-            @foreach($lzSortLabels as $value => $label)
-                <option value="{{ $value }}" @selected(($sort ?? '') === $value)>{{ $label }}</option>
-            @endforeach
-        </select>
-        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-    </div>
+        <div class="x-select-wrap x-filters__select x-filters__select--wide">
+            <select name="sort" class="x-input" data-autosubmit aria-label="Sort orders">
+                @foreach($lzSortLabels as $value => $label)
+                    <option value="{{ $value }}" @selected(($sort ?? '') === $value)>{{ $label }}</option>
+                @endforeach
+            </select>
+            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+        </div>
 
-    <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="per_page" class="x-input" data-autosubmit aria-label="Orders per page">
-            @foreach([10, 20, 50, 100] as $n)
-                <option value="{{ $n }}" @selected($perPage === $n)>{{ $n }} per page</option>
-            @endforeach
-        </select>
-        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-    </div>
+        <div class="x-select-wrap x-filters__select x-filters__select--narrow">
+            <select name="per_page" class="x-input" data-autosubmit aria-label="Orders per page">
+                @foreach([10, 20, 50, 100] as $n)
+                    <option value="{{ $n }}" @selected($perPage === $n)>{{ $n }} per page</option>
+                @endforeach
+            </select>
+            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+        </div>
+    </x-ui.foldout>
 
     <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
 
@@ -376,6 +350,63 @@
         <a class="x-filters__reset" href="{{ $panelUrl(['tab' => $active_tab, 'per_page' => $perPage]) }}">Reset</a>
     @endif
 </form>
+
+@if($canManageLazadaOrders)
+    {{-- The marketplace pull, folded.
+
+         Five controls that write to stock and are used a few times a day,
+         not per order, and they sat above every order on every page load.
+         The phone already folds this band; this is the same decision at the
+         desk. It is a sibling of the filter form, never a child: a form
+         inside a form is not valid markup. --}}
+    <x-ui.foldout label="Sync" class="x-toolbar__sync"
+                  hint="Pulls orders from Lazada for the dates below. Fetching an order that has not been seen before adjusts stock.">
+        <div class="x-cmdbar x-cmdbar--folded">
+            <form method="POST" action="{{ route('ext.lazada.orders.fetch') }}" id="formFetchLazadaOrders" class="x-cmdbar__row"
+              data-confirm="Fetch Lazada orders for the chosen dates? Any order that has not been seen before will adjust stock."
+              data-confirm-tone="primary">
+            @csrf
+            <div class="x-cmdbar__field">
+                <label class="x-cmdbar__label" for="lzDateFrom">Pull orders from</label>
+                {{-- Pre-filled, matching TikTok's bar. --}}
+                <x-ui.input type="date" id="lzDateFrom" name="date_from" class="x-cmdbar__date"
+                            value="{{ old('date_from', request('date_from', now()->subDays(15)->format('Y-m-d'))) }}" />
+            </div>
+            <div class="x-cmdbar__field">
+                <label class="x-cmdbar__label" for="lzDateTo">Pull orders to</label>
+                <x-ui.input type="date" id="lzDateTo" name="date_to" class="x-cmdbar__date"
+                            value="{{ old('date_to', request('date_to', now()->format('Y-m-d'))) }}" />
+            </div>
+            {{-- "Skip stock adjust" was here, and it is retired 2026-08-19.
+    
+                 It was opt-OUT, so the default behaviour of this page's primary
+                 button was to move inventory, and the control that stopped it
+                 read as "do less" while meaning "let the stock ledger diverge,
+                 permanently, with no audit line and no undo". Nobody had
+                 documented why it existed; the reason turned out to be a
+                 development-era double-decrement that the sync's own dedupe
+                 (marketplace_source + marketplace_order_id) and the
+                 status-change guard in adjustStock have since closed. The owner
+                 confirmed he has never used it on live.
+    
+                 The one legitimate use survives where it belongs: OpenCart's
+                 historical import, behind the --no-stock flag on its sync
+                 command, where skipping stock for years of already-fulfilled
+                 orders is the correct behaviour rather than a trap. --}}
+            <div class="x-cmdbar__spacer"></div>
+            <div class="x-cmdbar__actions">
+                <x-ui.button type="submit" variant="primary" id="btnFetchOrders">Fetch orders</x-ui.button>
+                <x-ui.button type="submit" variant="secondary" id="btnUpdateOrders"
+                             data-confirm="Re-read the statuses of Lazada orders in the chosen dates? Existing orders are updated in place; no new orders are pulled."
+                             data-confirm-tone="primary"
+                             formaction="{{ route('ext.lazada.orders.update_statuses') }}">Update statuses</x-ui.button>
+                <x-ui.hint>Fetch pulls the orders created between these dates. Update statuses uses the same two dates, so both are required.</x-ui.hint>
+            </div>
+        </form>
+        </div>
+    </x-ui.foldout>
+@endif
+</div>
 
 @if($orders->count() === 0)
     @php

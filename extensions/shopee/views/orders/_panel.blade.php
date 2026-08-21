@@ -74,58 +74,6 @@
      inputs. Every child of the row ends in a box exactly --control-h tall
      and the row is bottom aligned, so the controls share a baseline and,
      being the same height, a top edge too. --}}
-<div class="x-cmdbar" data-desk-tool>
-    {{-- This form moves stock. A fetch writes any order it has not seen
-         before, and writing an order adjusts inventory unless Skip stock
-         adjust is ticked, which is opt-OUT. It had no confirmation at all,
-         while it was also the only primary button on the page and, on a
-         phone, the widest tap target on the screen a packer uses. Tone is
-         primary rather than danger: this is consequential, not destructive. --}}
-    <form method="POST" action="{{ route('ext.shopee.orders.fetch') }}" id="formFetchShopeeOrders" class="x-cmdbar__row"
-          data-confirm="Fetch Shopee orders for the chosen dates? Any order that has not been seen before will adjust stock."
-          data-confirm-tone="primary">
-        @csrf
-        <div class="x-cmdbar__field">
-            <label class="x-cmdbar__label" for="spDateFrom">Pull orders from</label>
-            {{-- Pre-filled, as TikTok's bar already was. Both dates are
-                 required, so a blank pair meant the page's only primary
-                 button could not succeed in its default state and said so
-                 only inside a hint bubble. --}}
-            <x-ui.input type="date" id="spDateFrom" name="date_from" class="x-cmdbar__date"
-                        value="{{ old('date_from', request('date_from', now()->subDays(15)->format('Y-m-d'))) }}" />
-        </div>
-        <div class="x-cmdbar__field">
-            <label class="x-cmdbar__label" for="spDateTo">Pull orders to</label>
-            <x-ui.input type="date" id="spDateTo" name="date_to" class="x-cmdbar__date"
-                        value="{{ old('date_to', request('date_to', now()->format('Y-m-d'))) }}" />
-        </div>
-        {{-- "Skip stock adjust" was here, and it is retired 2026-08-19.
-
-             It was opt-OUT, so the default behaviour of this page's primary
-             button was to move inventory, and the control that stopped it
-             read as "do less" while meaning "let the stock ledger diverge,
-             permanently, with no audit line and no undo". Nobody had
-             documented why it existed; the reason turned out to be a
-             development-era double-decrement that the sync's own dedupe
-             (marketplace_source + marketplace_order_id) and the
-             status-change guard in adjustStock have since closed. The owner
-             confirmed he has never used it on live.
-
-             The one legitimate use survives where it belongs: OpenCart's
-             historical import, behind the --no-stock flag on its sync
-             command, where skipping stock for years of already-fulfilled
-             orders is the correct behaviour rather than a trap. --}}
-        <div class="x-cmdbar__spacer"></div>
-        <div class="x-cmdbar__actions">
-            <x-ui.button type="submit" variant="primary" id="btnFetchOrders">Fetch orders</x-ui.button>
-            <x-ui.button type="submit" variant="secondary" id="btnUpdateOrders"
-                         data-confirm="Re-read the statuses of Shopee orders in the chosen dates? Existing orders are updated in place; no new orders are pulled."
-                         data-confirm-tone="primary"
-                         formaction="{{ route('ext.shopee.orders.update_statuses') }}">Update statuses</x-ui.button>
-            <x-ui.hint>Fetch pulls the orders created between these dates. Update statuses uses the same two dates, so both are required.</x-ui.hint>
-        </div>
-    </form>
-</div>
 @endif
 
 @if($last_result)
@@ -251,6 +199,19 @@
 {{-- One filter row. Search, sort and per page were three separate card
      forms doing one job. The selects auto-submit through the shared
      data-autosubmit handler that /sales/orders already uses. --}}
+@php
+    /* What the Filters button admits to. A fold that hides an active filter
+       is worse than no fold. Sort and page size count only when they are not
+       the default, because a default is not a choice the reader made. */
+    $spActiveFilters = 0;
+    if (($placedFromFilter ?? '') !== '') { $spActiveFilters++; }
+    if (($placedToFilter ?? '') !== '') { $spActiveFilters++; }
+    if (($sort ?? '') !== '' && ($sort ?? '') !== ('created_' . (($active_tab ?? '') === 'PENDING' ? 'asc' : 'desc'))) { $spActiveFilters++; }
+    if ((int) ($perPage ?? 10) !== 10) { $spActiveFilters++; }
+@endphp
+
+{{-- One toolbar, after the tabs: choose the queue, then narrow it. --}}
+<div class="x-toolbar">
 <form method="GET" action="{{ $panelBaseUrl }}" class="x-filters" data-desk-tool id="orders-filter">
 @foreach($panelHiddenParams as $panelHiddenKey => $panelHiddenValue)
         <input type="hidden" name="{{ $panelHiddenKey }}" value="{{ $panelHiddenValue }}">
@@ -273,31 +234,37 @@
          tell the marketplace what to send and do not touch the rows below
          them. A caller with "sometime last week" and a product name could not
          narrow this list at all. --}}
+    {{-- Folded, with the count of what is set. Search stays out: it is the
+         control used most. See ext-lazada's panel for the reasoning; both
+         hosts fold the same way so a packer crossing channels does not
+         relearn the toolbar. --}}
+    <x-ui.foldout label="Filters" :count="$spActiveFilters ?: null">
     <span class="x-filters__group">
-        <span class="x-filters__group-label">Show orders placed</span>
-        <x-ui.input type="date" name="placed_from" class="x-filters__date"
-                    value="{{ $placedFromFilter }}" aria-label="Placed on or after" title="Placed on or after" />
-        <x-ui.input type="date" name="placed_to" class="x-filters__date"
-                    value="{{ $placedToFilter }}" aria-label="Placed on or before" title="Placed on or before" />
-    </span>
+            <span class="x-filters__group-label">Show orders placed</span>
+            <x-ui.input type="date" name="placed_from" class="x-filters__date"
+                        value="{{ $placedFromFilter }}" aria-label="Placed on or after" title="Placed on or after" />
+            <x-ui.input type="date" name="placed_to" class="x-filters__date"
+                        value="{{ $placedToFilter }}" aria-label="Placed on or before" title="Placed on or before" />
+        </span>
 
-    <div class="x-select-wrap x-filters__select x-filters__select--wide">
-        <select name="sort" class="x-input" data-autosubmit aria-label="Sort orders">
-            @foreach($spSortLabels as $value => $label)
-                <option value="{{ $value }}" @selected(($sort ?? '') === $value)>{{ $label }}</option>
-            @endforeach
-        </select>
-        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-    </div>
+        <div class="x-select-wrap x-filters__select x-filters__select--wide">
+            <select name="sort" class="x-input" data-autosubmit aria-label="Sort orders">
+                @foreach($spSortLabels as $value => $label)
+                    <option value="{{ $value }}" @selected(($sort ?? '') === $value)>{{ $label }}</option>
+                @endforeach
+            </select>
+            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+        </div>
 
-    <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="per_page" class="x-input" data-autosubmit aria-label="Orders per page">
-            @foreach([10, 20, 50, 100] as $n)
-                <option value="{{ $n }}" @selected($perPage === $n)>{{ $n }} per page</option>
-            @endforeach
-        </select>
-        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-    </div>
+        <div class="x-select-wrap x-filters__select x-filters__select--narrow">
+            <select name="per_page" class="x-input" data-autosubmit aria-label="Orders per page">
+                @foreach([10, 20, 50, 100] as $n)
+                    <option value="{{ $n }}" @selected($perPage === $n)>{{ $n }} per page</option>
+                @endforeach
+            </select>
+            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+        </div>
+    </x-ui.foldout>
 
     <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
 
@@ -305,6 +272,61 @@
         <a class="x-filters__reset" href="{{ $panelUrl(['tab' => $active_tab, 'per_page' => $perPage]) }}">Reset</a>
     @endif
 </form>
+
+@if($canManageShopeeOrders)
+    {{-- The marketplace pull, folded. Used a few times a day, not per order,
+         and it wrote to stock from above every row on every page load. --}}
+    <x-ui.foldout label="Sync" class="x-toolbar__sync"
+                  hint="Pulls orders from Shopee for the dates below. Fetching an order that has not been seen before adjusts stock.">
+        <div class="x-cmdbar x-cmdbar--folded">
+            <form method="POST" action="{{ route('ext.shopee.orders.fetch') }}" id="formFetchShopeeOrders" class="x-cmdbar__row"
+              data-confirm="Fetch Shopee orders for the chosen dates? Any order that has not been seen before will adjust stock."
+              data-confirm-tone="primary">
+            @csrf
+            <div class="x-cmdbar__field">
+                <label class="x-cmdbar__label" for="spDateFrom">Pull orders from</label>
+                {{-- Pre-filled, as TikTok's bar already was. Both dates are
+                     required, so a blank pair meant the page's only primary
+                     button could not succeed in its default state and said so
+                     only inside a hint bubble. --}}
+                <x-ui.input type="date" id="spDateFrom" name="date_from" class="x-cmdbar__date"
+                            value="{{ old('date_from', request('date_from', now()->subDays(15)->format('Y-m-d'))) }}" />
+            </div>
+            <div class="x-cmdbar__field">
+                <label class="x-cmdbar__label" for="spDateTo">Pull orders to</label>
+                <x-ui.input type="date" id="spDateTo" name="date_to" class="x-cmdbar__date"
+                            value="{{ old('date_to', request('date_to', now()->format('Y-m-d'))) }}" />
+            </div>
+            {{-- "Skip stock adjust" was here, and it is retired 2026-08-19.
+    
+                 It was opt-OUT, so the default behaviour of this page's primary
+                 button was to move inventory, and the control that stopped it
+                 read as "do less" while meaning "let the stock ledger diverge,
+                 permanently, with no audit line and no undo". Nobody had
+                 documented why it existed; the reason turned out to be a
+                 development-era double-decrement that the sync's own dedupe
+                 (marketplace_source + marketplace_order_id) and the
+                 status-change guard in adjustStock have since closed. The owner
+                 confirmed he has never used it on live.
+    
+                 The one legitimate use survives where it belongs: OpenCart's
+                 historical import, behind the --no-stock flag on its sync
+                 command, where skipping stock for years of already-fulfilled
+                 orders is the correct behaviour rather than a trap. --}}
+            <div class="x-cmdbar__spacer"></div>
+            <div class="x-cmdbar__actions">
+                <x-ui.button type="submit" variant="primary" id="btnFetchOrders">Fetch orders</x-ui.button>
+                <x-ui.button type="submit" variant="secondary" id="btnUpdateOrders"
+                             data-confirm="Re-read the statuses of Shopee orders in the chosen dates? Existing orders are updated in place; no new orders are pulled."
+                             data-confirm-tone="primary"
+                             formaction="{{ route('ext.shopee.orders.update_statuses') }}">Update statuses</x-ui.button>
+                <x-ui.hint>Fetch pulls the orders created between these dates. Update statuses uses the same two dates, so both are required.</x-ui.hint>
+            </div>
+        </form>
+        </div>
+    </x-ui.foldout>
+@endif
+</div>
 
 @if($orders->count() === 0)
     @php

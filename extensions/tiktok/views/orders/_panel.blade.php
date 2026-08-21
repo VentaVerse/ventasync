@@ -81,35 +81,6 @@
      top edge. The three stacked cards this replaces each set their own
      control heights, which is what left the buttons off the baseline of
      their own date inputs. --}}
-<div class="x-cmdbar" data-desk-tool>
-    {{-- See the note on Shopee's bar: a fetch writes unseen orders and
-         writing an order adjusts stock, so the action names its own
-         consequence before it runs. --}}
-    <form method="POST" action="{{ route('ext.tiktok.orders.fetch') }}" id="formFetchTiktokOrders" class="x-cmdbar__row"
-          data-confirm="Fetch TikTok Shop orders for the chosen dates? Any order that has not been seen before will adjust stock."
-          data-confirm-tone="primary">
-        @csrf
-        <div class="x-cmdbar__field">
-            <label class="x-cmdbar__label" for="ttDateFrom">Pull orders from</label>
-            <x-ui.input type="date" id="ttDateFrom" name="date_from" class="x-cmdbar__date"
-                        value="{{ old('date_from', request('date_from', now()->subDays(15)->format('Y-m-d'))) }}" />
-        </div>
-        <div class="x-cmdbar__field">
-            <label class="x-cmdbar__label" for="ttDateTo">Pull orders to</label>
-            <x-ui.input type="date" id="ttDateTo" name="date_to" class="x-cmdbar__date"
-                        value="{{ old('date_to', request('date_to', now()->format('Y-m-d'))) }}" />
-        </div>
-        <div class="x-cmdbar__spacer"></div>
-        <div class="x-cmdbar__actions">
-            <x-ui.button type="submit" variant="primary" id="btnFetchOrders">Fetch orders</x-ui.button>
-            <x-ui.button type="submit" variant="secondary" id="btnUpdateOrders"
-                         data-confirm="Re-read order statuses from TikTok? This refreshes the last 30 days and ignores the dates above."
-                         data-confirm-tone="primary"
-                         formaction="{{ route('ext.tiktok.orders.updateStatuses') }}">Update statuses</x-ui.button>
-            <x-ui.hint>Fetch pulls the orders created between these dates. Update statuses ignores them and refreshes the last 30 days.</x-ui.hint>
-        </div>
-    </form>
-</div>
 @endif
 
 @if($last_result)
@@ -234,6 +205,18 @@
      doing one job, one of them a form whose only control was a select. The
      selects auto-submit through the shared data-autosubmit handler that
      /sales/orders already uses. --}}
+@php
+    /* What the Filters button admits to. A fold that hides an active filter
+       is worse than no fold. */
+    $ttActiveFilters = 0;
+    if (($placedFromFilter ?? '') !== '') { $ttActiveFilters++; }
+    if (($placedToFilter ?? '') !== '') { $ttActiveFilters++; }
+    if (($sort ?? '') !== '' && ($sort ?? '') !== ('created_' . (($active_tab ?? '') === 'TO_SHIP' ? 'asc' : 'desc'))) { $ttActiveFilters++; }
+    if ((int) ($perPage ?? 10) !== 10) { $ttActiveFilters++; }
+@endphp
+
+{{-- One toolbar, after the tabs: choose the queue, then narrow it. --}}
+<div class="x-toolbar">
 <form method="GET" action="{{ $panelBaseUrl }}" class="x-filters" data-desk-tool id="orders-filter">{{-- The caller's context params, kept across every filter change. The loop
      is written tight against its own lines because Blade eats the newline
      after @endforeach: laid out conventionally, a caller passing no params
@@ -259,31 +242,35 @@
          tell the marketplace what to send and do not touch the rows below
          them. A caller with "sometime last week" and a product name could not
          narrow this list at all. --}}
+    {{-- Folded, with the count of what is set. Same fold as Lazada and
+         Shopee, so a packer crossing channels does not relearn the toolbar. --}}
+    <x-ui.foldout label="Filters" :count="$ttActiveFilters ?: null">
     <span class="x-filters__group">
-        <span class="x-filters__group-label">Show orders placed</span>
-        <x-ui.input type="date" name="placed_from" class="x-filters__date"
-                    value="{{ $placedFromFilter }}" aria-label="Placed on or after" title="Placed on or after" />
-        <x-ui.input type="date" name="placed_to" class="x-filters__date"
-                    value="{{ $placedToFilter }}" aria-label="Placed on or before" title="Placed on or before" />
-    </span>
+            <span class="x-filters__group-label">Show orders placed</span>
+            <x-ui.input type="date" name="placed_from" class="x-filters__date"
+                        value="{{ $placedFromFilter }}" aria-label="Placed on or after" title="Placed on or after" />
+            <x-ui.input type="date" name="placed_to" class="x-filters__date"
+                        value="{{ $placedToFilter }}" aria-label="Placed on or before" title="Placed on or before" />
+        </span>
 
-    <div class="x-select-wrap x-filters__select x-filters__select--wide">
-        <select name="sort" class="x-input" data-autosubmit aria-label="Sort orders">
-            @foreach($ttSortLabels as $value => $label)
-                <option value="{{ $value }}" @selected(($sort ?? '') === $value)>{{ $label }}</option>
-            @endforeach
-        </select>
-        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-    </div>
+        <div class="x-select-wrap x-filters__select x-filters__select--wide">
+            <select name="sort" class="x-input" data-autosubmit aria-label="Sort orders">
+                @foreach($ttSortLabels as $value => $label)
+                    <option value="{{ $value }}" @selected(($sort ?? '') === $value)>{{ $label }}</option>
+                @endforeach
+            </select>
+            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+        </div>
 
-    <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="per_page" class="x-input" data-autosubmit aria-label="Orders per page">
-            @foreach([10, 20, 50, 100] as $n)
-                <option value="{{ $n }}" @selected($perPage === $n)>{{ $n }} per page</option>
-            @endforeach
-        </select>
-        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-    </div>
+        <div class="x-select-wrap x-filters__select x-filters__select--narrow">
+            <select name="per_page" class="x-input" data-autosubmit aria-label="Orders per page">
+                @foreach([10, 20, 50, 100] as $n)
+                    <option value="{{ $n }}" @selected($perPage === $n)>{{ $n }} per page</option>
+                @endforeach
+            </select>
+            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+        </div>
+    </x-ui.foldout>
 
     <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
 
@@ -291,6 +278,40 @@
         <a class="x-filters__reset" href="{{ $panelUrl(['tab' => $active_tab, 'per_page' => $perPage]) }}">Reset</a>
     @endif
 </form>
+
+@if($canManageTiktokOrders)
+    {{-- The marketplace pull, folded. --}}
+    <x-ui.foldout label="Sync" class="x-toolbar__sync"
+                  hint="Pulls orders from TikTok Shop for the dates below. Fetching an order that has not been seen before adjusts stock.">
+        <div class="x-cmdbar x-cmdbar--folded">
+            <form method="POST" action="{{ route('ext.tiktok.orders.fetch') }}" id="formFetchTiktokOrders" class="x-cmdbar__row"
+              data-confirm="Fetch TikTok Shop orders for the chosen dates? Any order that has not been seen before will adjust stock."
+              data-confirm-tone="primary">
+            @csrf
+            <div class="x-cmdbar__field">
+                <label class="x-cmdbar__label" for="ttDateFrom">Pull orders from</label>
+                <x-ui.input type="date" id="ttDateFrom" name="date_from" class="x-cmdbar__date"
+                            value="{{ old('date_from', request('date_from', now()->subDays(15)->format('Y-m-d'))) }}" />
+            </div>
+            <div class="x-cmdbar__field">
+                <label class="x-cmdbar__label" for="ttDateTo">Pull orders to</label>
+                <x-ui.input type="date" id="ttDateTo" name="date_to" class="x-cmdbar__date"
+                            value="{{ old('date_to', request('date_to', now()->format('Y-m-d'))) }}" />
+            </div>
+            <div class="x-cmdbar__spacer"></div>
+            <div class="x-cmdbar__actions">
+                <x-ui.button type="submit" variant="primary" id="btnFetchOrders">Fetch orders</x-ui.button>
+                <x-ui.button type="submit" variant="secondary" id="btnUpdateOrders"
+                             data-confirm="Re-read order statuses from TikTok? This refreshes the last 30 days and ignores the dates above."
+                             data-confirm-tone="primary"
+                             formaction="{{ route('ext.tiktok.orders.updateStatuses') }}">Update statuses</x-ui.button>
+                <x-ui.hint>Fetch pulls the orders created between these dates. Update statuses ignores them and refreshes the last 30 days.</x-ui.hint>
+            </div>
+        </form>
+        </div>
+    </x-ui.foldout>
+@endif
+</div>
 
 @if($orders->count() === 0)
     @php
