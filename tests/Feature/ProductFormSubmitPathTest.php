@@ -99,4 +99,66 @@ class ProductFormSubmitPathTest extends TestCase
 
         $this->assertStringContainsString("'manufacturer_id' => 'nullable|integer'", $controller);
     }
+
+    /**
+     * EVERY FIELD THE GRID EDITS REACHES THE PAYLOAD.
+     *
+     * This is the gap that shipped two dead features. The variation image and
+     * the variation status were both persisted correctly by the controller,
+     * covered by tests that POST to the endpoint, and green - while the FORM
+     * never sent the field at all. An endpoint test cannot see that; it
+     * supplies the payload itself.
+     *
+     * The grid edits its rows through a fixed set of input classes and
+     * serialises them into hidden inputs at submit. Anything in that set with
+     * no matching addHidden is a control the operator can change and the
+     * server will never hear about.
+     */
+    public function test_every_editable_grid_field_is_serialised_into_the_payload(): void
+    {
+        $source = $this->optionsSource();
+
+        // class in the grid => key in the payload
+        $fields = [
+            'js-sku' => 'sku',
+            'js-qty' => 'quantity',
+            'js-price' => 'absolute_price',
+            'js-cost' => 'absolute_cost',
+            'js-image' => 'image',
+            'js-enabled' => 'status',
+        ];
+
+        $missing = [];
+
+        foreach ($fields as $class => $key) {
+            // The control has to exist in the grid at all.
+            if (! str_contains($source, $class)) {
+                $missing[] = $class.' (control not built)';
+                continue;
+            }
+
+            // And be serialised on BOTH branches: a single-axis product and a
+            // combination grid go through different loops.
+            foreach (['values', 'combinations'] as $branch) {
+                if (! str_contains($source, "'".$branch."[' + ")) {
+                    continue;
+                }
+
+                $needle = "][".$key."]'";
+
+                if (substr_count($source, $needle) < 2) {
+                    $missing[] = $key.' (not serialised on both branches)';
+                    break;
+                }
+            }
+        }
+
+        $this->assertSame([], array_unique($missing), sprintf(
+            "These grid fields never reach the server: %s\n\n"
+            ."A control the operator can change and the payload does not carry is a\n"
+            ."feature that looks complete and does nothing. Add an addHidden for it in\n"
+            ."beforeSubmit(), on the values branch AND the combinations branch.",
+            implode(', ', array_unique($missing))
+        ));
+    }
 }

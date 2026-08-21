@@ -116,7 +116,7 @@ const EXISTING_VALUES2 = @json($existingOptions->count() > 1 ? ($existingOptions
 const EXISTING_COMBOS  = @json($existingCombinations ?? []);
 
 // State
-let opt1Values = []; // [{name, option_value_id?, sku, image, quantity, absolute_price, absolute_cost}]
+let opt1Values = []; // [{name, option_value_id?, sku, status, image, quantity, absolute_price, absolute_cost}]
 let opt2Values = []; // [{name, option_value_id?}]
 let comboData  = {}; // key "v1|v2" → {sku, image, quantity, absolute_price, absolute_cost} (2-option)
 let mode       = 'none'; // 'none' | 'one' | 'two'
@@ -287,7 +287,7 @@ function renderOpt2List() {
 
 function addOpt1Value(name) {
     name = (name || '').trim();
-    opt1Values.push({ name, sku: '', image: '', quantity: 0, absolute_price: 0, absolute_cost: 0 });
+    opt1Values.push({ name, sku: '', image: '', status: 1, quantity: 0, absolute_price: 0, absolute_cost: 0 });
     renderOpt1List();
     renderTable();
     recalcProductQty();
@@ -323,6 +323,7 @@ function seedFirstColumnFromOneAxis() {
         comboData[comboKey(i1, 0)] = {
             sku: v1.sku || '',
             image: v1.image || '',
+            status: v1.status === undefined ? 1 : v1.status,
             quantity: v1.quantity || 0,
             absolute_price: v1.absolute_price || 0,
             absolute_cost: v1.absolute_cost || 0,
@@ -361,6 +362,8 @@ function saveTableToState() {
             if (skuInput) opt1Values[i].sku = skuInput.value;
             const imgInput = row.querySelector('.js-image');
             if (imgInput) opt1Values[i].image = imgInput.value;
+            const onInput = row.querySelector('.js-enabled');
+            if (onInput) opt1Values[i].status = onInput.checked ? 1 : 0;
             // Still legacy only while it is still blank. Type a SKU and the
             // row stops being one; clear it again and it goes back to being
             // a record that never had one, which is the truth either way.
@@ -382,6 +385,7 @@ function saveTableToState() {
                 sku: comboSku.value || '',
                 legacyBlankSku: !!comboSku.dataset.legacyBlank && !(comboSku.value || '').trim(),
                 image: (row.querySelector('.js-image') || {}).value || '',
+                status: (row.querySelector('.js-enabled') || {}).checked ? 1 : 0,
                 quantity: parseInt(row.querySelector('.js-qty').value || '0', 10),
                 absolute_price: parseFloat(row.querySelector('.js-price').value || '0'),
                 absolute_cost: parseFloat(row.querySelector('.js-cost').value || '0'),
@@ -748,7 +752,7 @@ function renderTable() {
         opt1Values.forEach((v1, i1) => {
             opt2Values.forEach((v2, i2) => {
                 const key = comboKey(i1, i2);
-                const d = comboData[key] || { sku: '', image: '', quantity: 0, absolute_price: 0, absolute_cost: 0 };
+                const d = comboData[key] || { sku: '', image: '', status: 1, quantity: 0, absolute_price: 0, absolute_cost: 0 };
                 $tbody.appendChild(buildComboRow(i1, i2, v1.name, v2.name, d));
             });
         });
@@ -822,6 +826,7 @@ function beforeSubmit() {
             addHidden('combinations[' + ci + '][opt2]', opt2Values[parts[1]] ? opt2Values[parts[1]].name : '');
             addHidden('combinations[' + ci + '][sku]', (row.querySelector('.js-sku') || {}).value || '');
             addHidden('combinations[' + ci + '][image]', (row.querySelector('.js-image') || {}).value || '');
+            addHidden('combinations[' + ci + '][status]', (row.querySelector('.js-enabled') || {}).checked ? 1 : 0);
             addHidden('combinations[' + ci + '][quantity]', (row.querySelector('.js-qty') || {}).value || 0);
             addHidden('combinations[' + ci + '][absolute_price]', (row.querySelector('.js-price') || {}).value || 0);
             addHidden('combinations[' + ci + '][absolute_cost]', (row.querySelector('.js-cost') || {}).value || 0);
@@ -840,6 +845,7 @@ function beforeSubmit() {
             addHidden('values[' + idx + '][name]', name);
             addHidden('values[' + idx + '][sku]', (row.querySelector('.js-sku') || {}).value || '');
             addHidden('values[' + idx + '][image]', (row.querySelector('.js-image') || {}).value || '');
+            addHidden('values[' + idx + '][status]', (row.querySelector('.js-enabled') || {}).checked ? 1 : 0);
             addHidden('values[' + idx + '][quantity]', (row.querySelector('.js-qty') || {}).value || 0);
             addHidden('values[' + idx + '][absolute_price]', (row.querySelector('.js-price') || {}).value || 0);
             addHidden('values[' + idx + '][absolute_cost]', (row.querySelector('.js-cost') || {}).value || 0);
@@ -975,6 +981,7 @@ function removeSecondAxis() {
 
         v1.sku = first.sku || '';
         v1.image = first.image || '';
+        v1.status = first.status === undefined ? 1 : first.status;
         v1.quantity = first.quantity || 0;
         v1.absolute_price = first.absolute_price || 0;
         v1.absolute_cost = first.absolute_cost || 0;
@@ -988,7 +995,7 @@ function removeSecondAxis() {
 
 $addRowBtn.addEventListener('click', () => {
     saveTableToState();
-    opt1Values.push({ name: '', sku: '', image: '', quantity: 0, absolute_price: 0, absolute_cost: 0 });
+    opt1Values.push({ name: '', sku: '', image: '', status: 1, quantity: 0, absolute_price: 0, absolute_cost: 0 });
     renderTable();
     const rows = $tbody.querySelectorAll('tr');
     const lastRow = rows[rows.length - 1];
