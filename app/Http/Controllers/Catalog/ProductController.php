@@ -322,7 +322,7 @@ if ($q !== '') {
             ->whereIn('c.product_id', $pageIds)
             ->orderBy('c.product_id')
             ->orderBy('c.sort_order')
-            ->get(['c.id', 'c.product_id', 'c.sku', 'c.quantity', 'c.absolute_price', 'c.image']);
+            ->get(['c.id', 'c.product_id', 'c.sku', 'c.quantity', 'c.absolute_price', 'c.image', 'c.status']);
 
         // Load pivot → option value names + option group names for each combo
         $comboIds = $comboRows->pluck('id')->all();
@@ -1041,14 +1041,19 @@ public function store(Request $request)
              * across by the join between them - one hop, one query for the
              * whole product rather than one per row. */
             $imageByPovId = [];
+            $statusByPovId = [];
             $comboImages = DB::table('product_option_combinations as c')
                 ->join('product_option_combination_values as cv', 'cv.combination_id', '=', 'c.id')
                 ->where('c.product_id', (int) $id)
-                ->whereNotNull('c.image')
-                ->where('c.image', '!=', '')
-                ->get(['cv.product_option_value_id', 'c.image']);
+                ->get(['cv.product_option_value_id', 'c.image', 'c.status']);
 
             foreach ($comboImages as $row) {
+                $statusByPovId[(int) $row->product_option_value_id] ??= (int) ($row->status ?? 1);
+
+                if (trim((string) ($row->image ?? '')) === '') {
+                    continue;
+                }
+
                 // A two-axis combination joins two values and its image
                 // belongs to neither of them alone, so only single-value
                 // combinations contribute here. groupBy would hide that.
@@ -1062,6 +1067,7 @@ public function store(Request $request)
                 foreach ($values as $i => $value) {
                     $povId = (int) $value['product_option_value_id'];
                     $existingValuesByPoId[$poId][$i]['image'] = $imageByPovId[$povId] ?? '';
+                    $existingValuesByPoId[$poId][$i]['status'] = $statusByPovId[$povId] ?? 1;
                 }
             }
 
@@ -1099,6 +1105,7 @@ public function store(Request $request)
                         'opt1_name' => html_entity_decode($opt1Name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                         'opt2_name' => html_entity_decode($opt2Name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                         'sku' => $combo->sku,
+                        'status' => (int) ($combo->status ?? 1),
                         'image' => (string) ($combo->image ?? ''),
                         'quantity' => (int) $combo->quantity,
                         'absolute_price' => (float) $combo->absolute_price,
@@ -1699,6 +1706,7 @@ public function store(Request $request)
          * without this map the image would have nowhere to come from and
          * every save would write null over whatever was there. */
         $imageByOptionValueId = [];
+        $statusByOptionValueId = [];
 
         foreach ($values as $v) {
             if (!is_array($v)) continue;
@@ -1711,6 +1719,12 @@ public function store(Request $request)
 
             $seenOptionValueIds[] = $optionValueId;
             $imageByOptionValueId[$optionValueId] = trim((string) ($v['image'] ?? ''));
+            // Absent means enabled: a payload that predates this column, or
+            // a caller that does not know about it, must not switch a
+            // variation off as a side effect of saying nothing.
+            $statusByOptionValueId[$optionValueId] = array_key_exists('status', $v)
+                ? (int) (bool) $v['status']
+                : 1;
 
             $data = [
                 'sku' => trim((string) ($v['sku'] ?? '')),
@@ -1798,10 +1812,12 @@ public function store(Request $request)
 
         foreach ($povRows as $pov) {
             $image = $imageByOptionValueId[(int) $pov->option_value_id] ?? '';
+            $status = $statusByOptionValueId[(int) $pov->option_value_id] ?? 1;
 
             $comboId = DB::table('product_option_combinations')->insertGetId([
                 'product_id' => $productId,
                 'sku' => $pov->sku ?? '',
+                'status' => $status,
                 'image' => $image !== '' ? $image : null,
                 'quantity' => (int) $pov->quantity,
                 'absolute_price' => (float) ($pov->absolute_price ?? 0),
@@ -1893,6 +1909,7 @@ public function store(Request $request)
             $comboId = DB::table('product_option_combinations')->insertGetId([
                 'product_id' => $productId,
                 'sku' => trim((string) ($combo['sku'] ?? '')),
+                'status' => array_key_exists('status', $combo) ? (int) (bool) $combo['status'] : 1,
                 'image' => $image !== '' ? $image : null,
                 'quantity' => (int) ($combo['quantity'] ?? 0),
                 'absolute_price' => (float) ($combo['absolute_price'] ?? 0),

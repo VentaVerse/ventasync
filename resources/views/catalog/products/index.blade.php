@@ -313,7 +313,18 @@
                                     </td>
                                     <td class="num {{ $orTone }}">{{ number_format($orQty) }}</td>
                                     <td class="num">{{ \App\Support\Money::base((float) ($or->absolute_price ?? 0)) }}</td>
-                                    <td></td>
+                                    {{-- The Status column was empty on these rows. A variation
+                                         can be withdrawn on its own now, so the column that
+                                         answers "is this on sale" has something to say about
+                                         them. Read-only here: the edit form is where it is
+                                         changed, the same as the product's own status. --}}
+                                    <td>
+                                        @if((int) ($or->status ?? 1) === 1)
+                                            <span class="bl-state bl-state-good"><i></i>Enabled</span>
+                                        @else
+                                            <span class="bl-state bl-state-off"><i></i>Disabled</span>
+                                        @endif
+                                    </td>
                                     <td></td>
                                 </tr>
                             @endforeach

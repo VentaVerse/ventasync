@@ -44,6 +44,7 @@ class ProductOptionController extends Controller
             'values.*.name' => 'required|string|max:128',
             'values.*.sku' => 'nullable|string|max:64',
             'values.*.image' => 'nullable|string|max:255',
+            'values.*.status' => 'nullable|boolean',
             'values.*.quantity' => 'nullable|integer',
             'values.*.absolute_price' => 'nullable|numeric',
             'values.*.absolute_cost' => 'nullable|numeric',
@@ -242,6 +243,7 @@ class ProductOptionController extends Controller
                     'pov_id' => $povId,
                     'sku' => (string) ($v['sku'] ?? ''),
                     'image' => trim((string) ($v['image'] ?? '')),
+                    'status' => array_key_exists('status', $v) ? (int) (bool) $v['status'] : 1,
                     'quantity' => (int) ($v['quantity'] ?? 0),
                     'absolute_price' => (float) ($v['absolute_price'] ?? 0),
                     'absolute_cost' => (float) ($v['absolute_cost'] ?? 0),
@@ -280,6 +282,7 @@ class ProductOptionController extends Controller
             'combinations.*.opt2' => 'required|string|max:128',
             'combinations.*.sku' => 'nullable|string|max:64',
             'combinations.*.image' => 'nullable|string|max:255',
+            'combinations.*.status' => 'nullable|boolean',
             'combinations.*.quantity' => 'nullable|integer',
             'combinations.*.absolute_price' => 'nullable|numeric',
             'combinations.*.absolute_cost' => 'nullable|numeric',
@@ -416,12 +419,16 @@ class ProductOptionController extends Controller
                 $qty = (int) ($c['quantity'] ?? 0);
                 $sku = (string) ($c['sku'] ?? '');
                 $image = trim((string) ($c['image'] ?? ''));
+                // Absent means enabled, so an older payload cannot switch a
+                // variation off by omission.
+                $status = array_key_exists('status', $c) ? (int) (bool) $c['status'] : 1;
 
                 $comboId = DB::table('product_option_combinations')->insertGetId([
                     'product_id' => $id,
                     'sku' => $sku,
                     // Null, not '', so "inherit the product's image" is one
                     // value rather than two that read the same.
+                    'status' => $status,
                     'image' => $image !== '' ? $image : null,
                     'quantity' => $qty,
                     'absolute_price' => $absPrice,
@@ -523,6 +530,7 @@ class ProductOptionController extends Controller
                     ->where('id', $comboId)
                     ->update([
                         'sku' => $rv['sku'],
+                        'status' => $rv['status'] ?? 1,
                         'image' => $rv['image'] !== '' ? $rv['image'] : null,
                         'quantity' => $rv['quantity'],
                         'absolute_price' => $rv['absolute_price'],
@@ -535,6 +543,7 @@ class ProductOptionController extends Controller
                 $comboId = DB::table('product_option_combinations')->insertGetId([
                     'product_id' => $productId,
                     'sku' => $rv['sku'],
+                    'status' => $rv['status'] ?? 1,
                     'image' => $rv['image'] !== '' ? $rv['image'] : null,
                     'quantity' => $rv['quantity'],
                     'absolute_price' => $rv['absolute_price'],

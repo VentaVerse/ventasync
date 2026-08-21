@@ -459,6 +459,9 @@ function buildHeaderRow(is2) {
        are the same on every line and that nobody can act on here.
        That width is what pays for the image. */
     tr.appendChild(th('fm-vcol-img', 'Image'));
+    /* Offered for sale, or not. Narrow on purpose: it is a state, not a
+       field, and the columns either side of it are things you type into. */
+    tr.appendChild(th('fm-vcol-on', 'On'));
     /* Named, not empty. A header with no text is a column a screen reader
        cannot announce; the other six all say what they are. */
     const thAct = th('fm-vcol-act', '');
@@ -499,6 +502,38 @@ function labelFor(column, rowName, idx) {
         : ('value ' + ((idx || 0) + 1));
 
     return column + ' for ' + who;
+}
+
+/* Whether this variation is offered for sale.
+ *
+ * The same switch the product's own Enabled uses, at the same size, because
+ * it is the same decision one level down - a person who has met one has met
+ * the other. It carries a real checkbox so it is reachable by keyboard and
+ * announced as a switch, with the row identity in its label: a column of
+ * eleven identical toggles is unusable without one.
+ *
+ * Nothing here touches stock. A disabled variation still counts toward the
+ * product's on-hand total, because on-hand is a fact about a shelf and a
+ * withdrawn variation whose units are still in the building is still stock
+ * somebody has to account for.
+ */
+function buildStatusCell(enabled, rowName, idx) {
+    const td = createEl('td', { className: 'fm-vcol-on' });
+
+    const label = createEl('label', { className: 'fm-switch fm-switch--sm' });
+
+    const input = createEl('input', {
+        type: 'checkbox',
+        className: 'fm-switch__input js-enabled',
+        'aria-label': labelFor('Offered for sale', rowName, idx),
+    });
+    input.checked = enabled !== false && enabled !== 0 && enabled !== '0';
+
+    label.appendChild(input);
+    label.appendChild(createEl('span', { className: 'fm-switch__track' }));
+    td.appendChild(label);
+
+    return td;
 }
 
 function buildImageCell(imagePath, rowName, idx) {
@@ -620,6 +655,7 @@ function buildComboRow(i1, i2, v1Name, v2Name, data) {
     tr.appendChild(tdCost);
 
     tr.appendChild(buildImageCell(data.image, rowName, i1));
+    tr.appendChild(buildStatusCell(data.status, rowName, i1));
 
     // A combination row has no per-row remove: the combinations are the
     // product of the two axes, so you remove a VALUE, not a cell.
@@ -666,6 +702,7 @@ function buildOneOptRow(v, idx) {
     tr.appendChild(tdCost);
 
     tr.appendChild(buildImageCell(v.image, v.name, idx));
+    tr.appendChild(buildStatusCell(v.status, v.name, idx));
 
     const tdActions = document.createElement('td');
     const removeBtn = createEl('button', { className: 'fm-vars__rowx', type: 'button', title: 'Remove', 'aria-label': 'Remove value' }, '\u00d7');
@@ -1261,6 +1298,7 @@ if (EXISTING_OPTION) {
                see the validation below, which refuses to hold a save hostage
                to fields nobody touched. */
             legacyBlankSku: !String(v.sku || '').trim(),
+            status: v.status === undefined ? 1 : Number(v.status),
             image: v.image || '',
             quantity: v.quantity || 0,
             absolute_price: parseFloat(v.absolute_price) || 0,
@@ -1286,6 +1324,7 @@ if (EXISTING_OPTION) {
                     comboData[comboKey(i1, i2)] = {
                         sku: c.sku || '',
                         legacyBlankSku: !String(c.sku || '').trim(),
+                        status: c.status === undefined ? 1 : Number(c.status),
                         image: c.image || '',
                         quantity: c.quantity || 0,
                         absolute_price: parseFloat(c.absolute_price) || 0,

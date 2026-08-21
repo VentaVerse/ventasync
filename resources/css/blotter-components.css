@@ -543,12 +543,28 @@
        On is brand cyan, the token whose stated meaning is "you can act
        here", rather than ink - a switch that reads as OFF-but-dark is the
        other classic switch defect. */
+    /* THE OFF STATE HAD NO READABLE BOUNDARY AND NO READABLE KNOB.
+       ------------------------------------------------------------------
+       Measured: the track reached 1.19:1 against its surround in light and
+       1.13 in dark, the border 1.27 and 1.51, and the knob was the same
+       luminance as the track it sits on - so a switch that was off was
+       effectively invisible, and where the knob sat could not be read at
+       all. The ON state was always fine, which is how it survived.
+
+       Both fixed with the token the inputs and fold triggers already pass
+       on: --bl-field-edge is the edge of a CONTROL and carries the 3:1 floor
+       (WCAG 1.4.11); --bl-rule-2 is a hairline between things and does not.
+       The knob takes the same edge so its position is legible against a
+       track of nearly its own lightness.
+
+       This mattered more the moment the switch stopped being one control on
+       the form and became one per variation row. */
     .fm-switch__track {
         position: relative;
         flex: none;
         width: 40px;
         height: 24px;
-        border: 1px solid var(--bl-rule-2);
+        border: 1px solid var(--bl-field-edge);
         border-radius: 999px;
         background: var(--bl-chrome-2);
         transition: background-color .16s ease, border-color .16s ease;
@@ -559,9 +575,10 @@
         position: absolute;
         top: 2px;
         left: 2px;
-        width: 18px;
-        height: 18px;
+        width: 16px;
+        height: 16px;
         border-radius: 50%;
+        border: 1px solid var(--bl-field-edge);
         background: var(--bl-sheet);
         box-shadow: 0 1px 2px rgba(19, 26, 43, .28);
         transition: transform .16s cubic-bezier(.2, .7, .3, 1);
@@ -572,7 +589,10 @@
         background: var(--bl-brand-deep);
     }
 
-    .fm-switch__input:checked + .fm-switch__track::after { transform: translateX(16px); }
+    .fm-switch__input:checked + .fm-switch__track::after {
+        border-color: var(--bl-brand-deep);
+        transform: translateX(18px);
+    }
 
     .fm-switch__input:focus-visible + .fm-switch__track {
         outline: 2px solid var(--bl-brand);
@@ -1181,7 +1201,7 @@
            an image column that put the SKU field at about eight characters.
            A floor lets the table keep its columns legible and hand the
            overflow to the scroller, which is what the scroller is for. */
-        min-width: 760px;
+        min-width: 780px;
         border-collapse: collapse;
         font-variant-numeric: tabular-nums;
     }
@@ -1193,6 +1213,26 @@
        beside it. Sized to the row rather than to the picture, so a column of
        them keeps the grid's rhythm instead of turning into a filmstrip. */
     .fm-vcol-img { width: 64px; }
+
+    /* Offered for sale. A state, not a field, so it takes the least width in
+       the grid and the switch inside it is a step down from the product's
+       own - same control, one level in. */
+    .fm-vcol-on { width: 52px; }
+
+    .fm-switch--sm .fm-switch__track {
+        width: 32px;
+        height: 19px;
+    }
+
+    .fm-switch--sm .fm-switch__track::after {
+        width: 13px;
+        height: 13px;
+    }
+
+    .fm-switch--sm .fm-switch__input:checked + .fm-switch__track::after {
+        transform: translateX(13px);
+    }
+
 
     .fm-vimg {
         position: relative;

@@ -310,4 +310,102 @@ class VariationImageTest extends TestCase
         $this->assertSame('catalog/small-red.jpg', $bySku['S-R']);
         $this->assertSame('catalog/small-blue.jpg', $bySku['S-B']);
     }
+
+    /**
+     * A variation can be withdrawn from sale on its own.
+     *
+     * A product could be turned off as a whole and nothing smaller, so a
+     * discontinued size had to be deleted - destroying its SKU and history -
+     * or zeroed, which says "temporarily out" rather than "not sold any
+     * more".
+     */
+    public function test_a_variation_can_be_disabled_on_its_own(): void
+    {
+        [$productId] = $this->productWithOneAxis(['Small', 'Large']);
+
+        $this->actingAs($this->operator())
+            ->put("/catalog/products/{$productId}", $this->productFormPayload($productId, [
+                ['name' => 'Small', 'sku' => 'S', 'status' => 0,
+                 'quantity' => 3, 'absolute_price' => 120, 'absolute_cost' => 0],
+                ['name' => 'Large', 'sku' => 'L', 'status' => 1,
+                 'quantity' => 5, 'absolute_price' => 130, 'absolute_cost' => 0],
+            ]))->assertRedirect();
+
+        $bySku = DB::table('product_option_combinations')
+            ->where('product_id', $productId)->pluck('status', 'sku');
+
+        $this->assertSame(0, (int) $bySku['S']);
+        $this->assertSame(1, (int) $bySku['L']);
+    }
+
+    /**
+     * DISABLING DOES NOT TOUCH STOCK. On-hand is a fact about a shelf, and a
+     * withdrawn variation whose units are still in the building is still
+     * stock somebody has to account for. The parent total keeps counting it.
+     */
+    public function test_disabling_a_variation_does_not_change_the_stock_it_holds(): void
+    {
+        [$productId] = $this->productWithOneAxis(['Small', 'Large']);
+
+        $this->actingAs($this->operator())
+            ->put("/catalog/products/{$productId}", $this->productFormPayload($productId, [
+                ['name' => 'Small', 'sku' => 'S', 'status' => 0,
+                 'quantity' => 3, 'absolute_price' => 120, 'absolute_cost' => 0],
+                ['name' => 'Large', 'sku' => 'L', 'status' => 1,
+                 'quantity' => 5, 'absolute_price' => 130, 'absolute_cost' => 0],
+            ]))->assertRedirect();
+
+        $this->assertSame(3, (int) DB::table('product_option_combinations')
+            ->where('product_id', $productId)->where('sku', 'S')->value('quantity'));
+
+        $this->assertSame(8, (int) DB::table(config('catalog.prefix').'product')
+            ->where('product_id', $productId)->value('quantity'),
+            'the parent total still counts a disabled variation');
+    }
+
+    /**
+     * A payload that says nothing about status must not switch anything off.
+     * Every variation in the database predates this column.
+     */
+    public function test_a_payload_without_status_leaves_a_variation_enabled(): void
+    {
+        [$productId] = $this->productWithOneAxis(['Small']);
+
+        $this->actingAs($this->operator())
+            ->put("/catalog/products/{$productId}", $this->productFormPayload($productId, [
+                ['name' => 'Small', 'sku' => 'S', 'quantity' => 1,
+                 'absolute_price' => 100, 'absolute_cost' => 0],
+            ]))->assertRedirect();
+
+        $this->assertSame(1, (int) DB::table('product_option_combinations')
+            ->where('product_id', $productId)->value('status'));
+    }
+
+    /** The two-axis branch persists it too - a different method entirely. */
+    public function test_a_two_axis_combination_can_be_disabled(): void
+    {
+        [$productId] = $this->productWithOneAxis(['Small', 'Large']);
+
+        $this->actingAs($this->operator())
+            ->put("/catalog/products/{$productId}", [
+                'name' => 'Image Tee', 'model' => 'MDL-VIMG', 'sku' => 'SKU-VIMG',
+                'price' => 100, 'quantity' => 0, 'status' => 1,
+                '_options_format' => 'absolute',
+                'option1_name' => 'Size', 'option2_name' => 'Colour',
+                'option1_values' => ['Small'], 'option2_values' => ['Red', 'Blue'],
+                'combinations' => [
+                    ['opt1' => 'Small', 'opt2' => 'Red', 'sku' => 'S-R', 'status' => 0,
+                     'quantity' => 1, 'absolute_price' => 100, 'absolute_cost' => 0],
+                    ['opt1' => 'Small', 'opt2' => 'Blue', 'sku' => 'S-B', 'status' => 1,
+                     'quantity' => 2, 'absolute_price' => 100, 'absolute_cost' => 0],
+                ],
+            ])->assertRedirect();
+
+        $bySku = DB::table('product_option_combinations')
+            ->where('product_id', $productId)->pluck('status', 'sku');
+
+        // Withdrawing Small/Red must not withdraw Small/Blue.
+        $this->assertSame(0, (int) $bySku['S-R']);
+        $this->assertSame(1, (int) $bySku['S-B']);
+    }
 }
