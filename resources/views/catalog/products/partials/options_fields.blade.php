@@ -949,7 +949,39 @@ if (form) {
     const checkSkusUrl = @json(route('products.check_skus'));
     const excludeProductId = {{ isset($product) ? (int) $product->product_id : 0 }};
 
+    /* SUBMIT SO THAT EVERY OTHER LISTENER STILL GETS A TURN.
+     *
+     * This used to call form.submit(), which submits WITHOUT firing the
+     * submit event - so on any product with variations, every other submit
+     * listener on the form was silently skipped. The manufacturer guard was
+     * the visible casualty: it printed its error in red and the form saved
+     * anyway, in the same click. Anything added later would have been
+     * skipped the same way, and nothing would have said so.
+     *
+     * requestSubmit() fires the event, which is the whole point. The flag is
+     * what stops this listener from catching its own re-entry and looping -
+     * the same shape confirm-modal.js uses for exactly the same reason. */
+    function submitPastThisListener() {
+        beforeSubmit();
+
+        if (form.requestSubmit) {
+            form._optionsValidated = true;
+            form.requestSubmit();
+            return;
+        }
+
+        // Pre-2020 fallback. Skips the event, which is the old bug, but a
+        // browser without requestSubmit cannot have it both ways.
+        form.submit();
+    }
+
     form.addEventListener('submit', (e) => {
+        // Our own re-entry: stand aside and let the submission proceed.
+        if (form._optionsValidated) {
+            form._optionsValidated = false;
+            return;
+        }
+
         recalcProductQty();
         clearOptError();
 
@@ -1066,8 +1098,7 @@ if (form) {
 
         // AJAX cross-product SKU uniqueness check
         if (allSkus.length === 0) {
-            beforeSubmit();
-            form.submit();
+            submitPastThisListener();
             return;
         }
 
@@ -1093,12 +1124,13 @@ if (form) {
                     if (remoteBad) remoteBad.focus();
                     return;
                 }
-                beforeSubmit();
-                form.submit();
+                submitPastThisListener();
             })
             .catch(() => {
-                beforeSubmit();
-                form.submit();
+                // The uniqueness check could not be reached. The server
+                // validates SKUs itself, so this proceeds rather than
+                // blocking a save on a network hiccup.
+                submitPastThisListener();
             });
     });
 }

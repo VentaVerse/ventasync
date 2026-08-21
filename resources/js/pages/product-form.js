@@ -285,37 +285,32 @@ document.addEventListener('DOMContentLoaded', function () {
         hiddenName: 'category_ids[]',
     });
 
-    // ---- A product must carry a real manufacturer -----------------------
-    // Not a controller rule (manufacturer_id is nullable there), but the
-    // image library is organised by manufacturer folder, so a product with
-    // manufacturer 0 has nowhere for its pictures to live. Same guard the
-    // pre-redesign form had, same message.
-    const mfgHidden = document.getElementById('manufacturer_id');
-    if (mfgHidden && mfgInput) {
-        form.addEventListener('submit', function (e) {
-            const val = parseInt(mfgHidden.value, 10);
-            if (!val || val <= 0) {
-                e.preventDefault();
-                mfgInput.classList.add('input-error');
-                mfgInput.focus();
-                mfgInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                const wrap = mfgInput.closest('.fm-field');
-                if (wrap && !wrap.querySelector('.fm-error--js')) {
-                    const err = document.createElement('div');
-                    err.className = 'fm-error fm-error--js';
-                    err.textContent = 'Choose a manufacturer from the list.';
-                    wrap.appendChild(err);
-                }
-            }
-        });
-
-        mfgInput.addEventListener('input', function () {
-            mfgInput.classList.remove('input-error');
-            const wrap = mfgInput.closest('.fm-field');
-            const err = wrap ? wrap.querySelector('.fm-error--js') : null;
-            if (err) err.remove();
-        });
-    }
+    /* THE MANUFACTURER GUARD IS RETIRED.
+     *
+     * It hard-blocked submit whenever manufacturer_id was 0, and its own
+     * comment gave the only reason: "the image library is organised by
+     * manufacturer folder, so a product with manufacturer 0 has nowhere for
+     * its pictures to live." That is no longer true. The library opens at the
+     * root, uploads land in whatever folder is open, and the two endpoints
+     * that ever filed by manufacturer have no callers.
+     *
+     * The comment also admitted the rest: manufacturer_id is nullable in the
+     * controller. So the guard enforced a rule the server did not have, for a
+     * reason that has since been deleted - and it did it without a Required
+     * marker, so the field looked optional right up until the save was
+     * refused.
+     *
+     * It was also bypassable, which is what made it worse than useless. On a
+     * product with variations the options module submits through
+     * form.submit(), which does not fire the submit event, so this listener
+     * never ran: the form showed "Choose a manufacturer from the list" in red
+     * AND saved anyway, in the same click. An error and a success for one
+     * action is the fastest way to teach an operator to distrust every
+     * message on the page.
+     *
+     * The typeahead itself stays. Choosing a manufacturer is still useful;
+     * being unable to save without one was not.
+     */
 
     // ---- Cost preview ---------------------------------------------------
     // cost = cost_amount + (cost_percentage / 100 * price) + cost_additional
