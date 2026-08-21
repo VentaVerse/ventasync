@@ -903,20 +903,15 @@
         flex-wrap: wrap;
         align-items: center;
         gap: 7px;
-        margin-left: auto;
     }
 
     .fm-pick__search {
         max-width: 220px;
     }
 
-    .fm-pick__nav {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 6px;
-        font-size: 12.5px;
-    }
+    /* Pushes search and sort to the far end of the toolbar, so "where am I"
+       sits left and "narrow this down" sits right. */
+    .fm-pick__gap { flex: 1 1 auto; }
 
     .fm-pick__path {
         font-family: var(--font-mono);
@@ -927,38 +922,157 @@
     /* The grid scrolls inside the panel rather than pushing it past the
        bottom of the screen. */
     .fm-pick__body {
+        position: relative;
         flex: 1 1 auto;
         min-height: 0;
-        overflow-y: auto;
-        overscroll-behavior: contain;
-        min-height: 0;
         overflow: auto;
+        overscroll-behavior: contain;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
     }
 
     .fm-pick__grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
         gap: 9px;
+        align-items: start;
     }
 
+    /* THE TILE HAD NO RULE AT ALL.
+       ------------------------------------------------------------------
+       The stylesheet described a tidy grid and the script built
+       .fm-pick__item with a bare <img> and a <span class="label">, neither of
+       which any rule matched. So every thumbnail sized itself to its own
+       photograph: a portrait shot stood twice as tall as its neighbours,
+       pushed its caption down into the row beneath, and the 76-character
+       filenames ran straight through the tile next door. The delete control
+       landed inline after the caption text, mid-filename.
+
+       A fixed square is what a file browser wants: the cell is about finding
+       the picture, not about displaying it, and equal cells are what make a
+       grid scannable. */
+    .fm-pick__item {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        padding: 0;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-sheet);
+        text-align: left;
+        cursor: pointer;
+        overflow: hidden;
+    }
+
+    .fm-pick__item:hover {
+        border-color: var(--bl-field-edge);
+        box-shadow: var(--bl-lift);
+    }
+
+    .fm-pick__item > img {
+        display: block;
+        width: 100%;
+        aspect-ratio: 1;
+        object-fit: cover;
+        background: var(--bl-chrome);
+    }
+
+    /* A FOLDER IS NAVIGATION, AN IMAGE IS THE CONTENT, so they do not get the
+       same weight. At the square the thumbnails use, fourteen folders filled
+       three rows and pushed every picture below the fold - the dialog opened
+       on a wall of identical icons and you had to scroll to reach the thing
+       you came for. Short enough to scan, tall enough to hit. */
+    .fm-pick__ico {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 58px;
+        background: var(--bl-chrome);
+        color: var(--bl-ink-3);
+    }
+
+    /* The caption. One line, ellipsised, with the full name on the title
+       attribute - these are legacy filenames and some run past 70
+       characters. */
     .fm-pick__label {
         display: block;
-        margin-top: 4px;
+        padding: 0 7px 7px;
         font-size: 11.5px;
+        line-height: 1.35;
         color: var(--bl-ink-2);
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
 
-    .fm-pick__drop {
-        padding: 22px 14px;
-        border: 1px dashed var(--bl-rule-2);
-        border-radius: var(--bl-r-ctrl);
-        text-align: center;
-        font-size: 13px;
+    /* The section headings above each grid. Distinct from the tile caption,
+       which is what .fm-pick__label used to have to be as well. */
+    .fm-pick__group {
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
         color: var(--bl-ink-3);
     }
+
+    /* Deleting a file off the server is destructive and rare, so it is a
+       corner control that appears on hover or focus rather than a permanent
+       glyph competing with the filename - which is where it used to sit,
+       inline, immediately after the caption text. */
+    .fm-pick__del {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        border: 0;
+        border-radius: var(--bl-r-dot);
+        background: color-mix(in srgb, var(--bl-ink) 72%, transparent);
+        color: var(--bl-paper);
+        font-size: 14px;
+        line-height: 1;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity var(--bl-motion-fast);
+    }
+
+    .fm-pick__item:hover .fm-pick__del,
+    .fm-pick__del:focus-visible {
+        opacity: 1;
+    }
+
+    /* Shown only while something is being dragged over the dialog.
+       The script has always toggled aria-hidden on this element and nothing
+       ever acted on it, so a dashed "Drop files to upload them here" box sat
+       permanently under the grid, reading as an empty region rather than as
+       an invitation. It is an overlay now, over the thing you are dropping
+       onto, which is the only place it means anything. */
+    .fm-pick__drop {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px dashed var(--bl-brand-deep);
+        border-radius: var(--bl-r-ctrl);
+        background: color-mix(in srgb, var(--bl-sheet) 88%, transparent);
+        text-align: center;
+        font-size: 13px;
+        font-weight: 560;
+        color: var(--bl-ink);
+        pointer-events: none;
+    }
+
+    .fm-pick__drop[aria-hidden='true'] { display: none; }
 
     .fm-pick__empty,
     .fm-pick__msg {
@@ -967,12 +1081,16 @@
         color: var(--bl-ink-3);
     }
 
+    /* This sits in the HEAD, and was styled as a footer bar: a border-top and
+       padding above a Close button already under the title, which drew a
+       short rule floating across the top of the dialog and read as a broken
+       divider. It is a group of controls on the title row, so it behaves like
+       one and takes the far edge. */
     .fm-pick__actions {
         display: flex;
         align-items: center;
         gap: 7px;
-        padding-top: 11px;
-        border-top: 1px solid var(--bl-rule);
+        margin-left: auto;
     }
 
     /* ------------------------------------------------------------

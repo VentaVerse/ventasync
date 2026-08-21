@@ -195,4 +195,119 @@ class VariationImageTest extends TestCase
         $this->assertNull($bySku['L-R']);
         $this->assertSame('catalog/large-blue.jpg', $bySku['L-B']);
     }
+
+    /**
+     * THE PATH THE FORM ACTUALLY TAKES.
+     *
+     * The edit page posts to products.update, not to products.options.update,
+     * and ProductController has its own combination-writing code entirely
+     * separate from ProductOptionController's. The first version of this test
+     * file exercised the options endpoint, passed, and shipped a feature that
+     * did nothing when a person pressed Save changes - because the save they
+     * press goes somewhere else.
+     *
+     * Assert on the endpoint the button posts to, not the one that looks like
+     * it owns the concept.
+     */
+    private function productFormPayload(int $productId, array $values): array
+    {
+        return [
+            'name' => 'Image Tee',
+            'model' => 'MDL-VIMG',
+            'sku' => 'SKU-VIMG',
+            'price' => 100,
+            'quantity' => 0,
+            'status' => 1,
+            // The hidden field the variations partial ships. Without it the
+            // controller falls through to the legacy option path and the
+            // whole absolute-options branch never runs - which is a trap
+            // worth encoding, since a payload missing it looks perfectly
+            // reasonable and silently tests nothing.
+            '_options_format' => 'absolute',
+            'option_name' => 'Size',
+            'values' => $values,
+        ];
+    }
+
+    public function test_the_products_update_endpoint_saves_the_variation_image(): void
+    {
+        [$productId] = $this->productWithOneAxis(['Small', 'Large']);
+
+        $response = $this->actingAs($this->operator())
+            ->put("/catalog/products/{$productId}", $this->productFormPayload($productId, [
+                ['name' => 'Small', 'sku' => 'S', 'image' => 'catalog/small.jpg',
+                 'quantity' => 3, 'absolute_price' => 120, 'absolute_cost' => 0],
+                ['name' => 'Large', 'sku' => 'L', 'image' => '',
+                 'quantity' => 5, 'absolute_price' => 130, 'absolute_cost' => 0],
+            ]));
+
+        $response->assertRedirect();
+
+        $bySku = DB::table('product_option_combinations')
+            ->where('product_id', $productId)->pluck('image', 'sku');
+
+        $this->assertSame('catalog/small.jpg', $bySku['S'],
+            'the image must survive the save the form actually performs');
+        $this->assertNull($bySku['L']);
+    }
+
+    /**
+     * And it must survive a SECOND save that does not change it. This path
+     * rebuilds every combination from product_option_value rows, which do not
+     * carry the image - so without carrying it across, the next save of any
+     * unrelated field would silently wipe it.
+     */
+    public function test_a_later_save_does_not_wipe_an_image_it_was_given_again(): void
+    {
+        [$productId] = $this->productWithOneAxis(['Small']);
+        $operator = $this->operator();
+
+        $payload = $this->productFormPayload($productId, [
+            ['name' => 'Small', 'sku' => 'S', 'image' => 'catalog/small.jpg',
+             'quantity' => 3, 'absolute_price' => 120, 'absolute_cost' => 0],
+        ]);
+
+        $this->actingAs($operator)->put("/catalog/products/{$productId}", $payload)->assertRedirect();
+        $this->actingAs($operator)->put("/catalog/products/{$productId}", $payload)->assertRedirect();
+
+        $this->assertSame('catalog/small.jpg', DB::table('product_option_combinations')
+            ->where('product_id', $productId)->value('image'));
+    }
+
+    /**
+     * The two-axis branch of the same endpoint. Different method
+     * (saveAbsoluteTwoOptions), different write site, so it needs its own
+     * assertion rather than being assumed to follow.
+     */
+    public function test_the_products_update_endpoint_saves_a_two_axis_image(): void
+    {
+        [$productId] = $this->productWithOneAxis(['Small', 'Large']);
+
+        $this->actingAs($this->operator())
+            ->put("/catalog/products/{$productId}", [
+                'name' => 'Image Tee', 'model' => 'MDL-VIMG', 'sku' => 'SKU-VIMG',
+                'price' => 100, 'quantity' => 0, 'status' => 1,
+                '_options_format' => 'absolute',
+                'option1_name' => 'Size',
+                'option2_name' => 'Colour',
+                'option1_values' => ['Small', 'Large'],
+                'option2_values' => ['Red', 'Blue'],
+                'combinations' => [
+                    ['opt1' => 'Small', 'opt2' => 'Red', 'sku' => 'S-R',
+                     'image' => 'catalog/small-red.jpg', 'quantity' => 1,
+                     'absolute_price' => 100, 'absolute_cost' => 0],
+                    ['opt1' => 'Small', 'opt2' => 'Blue', 'sku' => 'S-B',
+                     'image' => 'catalog/small-blue.jpg', 'quantity' => 2,
+                     'absolute_price' => 100, 'absolute_cost' => 0],
+                ],
+            ])->assertRedirect();
+
+        $bySku = DB::table('product_option_combinations')
+            ->where('product_id', $productId)->pluck('image', 'sku');
+
+        // Same option value "Small", two different pictures. This is the
+        // assertion the option-value storage design could never have met.
+        $this->assertSame('catalog/small-red.jpg', $bySku['S-R']);
+        $this->assertSame('catalog/small-blue.jpg', $bySku['S-B']);
+    }
 }

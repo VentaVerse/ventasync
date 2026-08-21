@@ -65,14 +65,15 @@
     </div>
 
     <div class="fm-pick__body" id="pimModalBody">
-      <div class="fm-pick__nav">
+      {{-- Where you are and what you can do to it, on one line. These were
+           two stacked rows - Up and the path, then the tools - which spent a
+           second row of a dialog that is already scrolling its grid. --}}
+      <div class="fm-pick__tools">
         <x-ui.button type="button" size="sm" id="pimServerUpBtn" disabled>
           <x-ui.icon name="corner-up-left" size="14" /> Up
         </x-ui.button>
         <span class="fm-pick__path" id="pimServerPath">/</span>
-      </div>
-
-      <div class="fm-pick__tools">
+        <span class="fm-pick__gap"></span>
         {{-- Visually hidden, but still reachable: x-sr keeps it in the tab
              order, so it needs a name like any other control. --}}
         <input type="file" id="pimServerUploadInput" class="x-sr"
@@ -104,10 +105,10 @@
         <x-ui.button type="button" size="sm" id="pimUrlCancel">Cancel</x-ui.button>
       </div>
 
-      <div class="fm-pick__label" id="pimServerFoldersTitle">Folders</div>
+      <div class="fm-pick__group" id="pimServerFoldersTitle">Folders</div>
       <div class="fm-pick__grid" id="pimServerFolders"></div>
 
-      <div class="fm-pick__label" id="pimServerFilesTitle">Images</div>
+      <div class="fm-pick__group" id="pimServerFilesTitle">Images</div>
       <div class="fm-pick__grid" id="pimServerGrid"></div>
       <div class="fm-pick__empty d-none" id="pimServerEmpty">Nothing in this folder.</div>
 
@@ -119,7 +120,7 @@
 {{-- Cloned per folder tile. A <template> rather than an innerHTML string:
      this project builds DOM, it does not paste markup. --}}
 <template id="pimFolderIcon">
-  <span class="icon">
+  <span class="fm-pick__ico">
     <x-ui.icon name="folder" size="28" />
   </span>
 </template>
@@ -164,6 +165,8 @@
   const serverGrid = document.getElementById('pimServerGrid');
   const serverFolders = document.getElementById('pimServerFolders');
   const serverEmpty = document.getElementById('pimServerEmpty');
+  const serverFoldersTitle = document.getElementById('pimServerFoldersTitle');
+  const serverFilesTitle = document.getElementById('pimServerFilesTitle');
   const serverPath = document.getElementById('pimServerPath');
   const serverSearch = document.getElementById('pimServerSearch');
   const serverSort = document.getElementById('pimServerSort');
@@ -302,7 +305,7 @@
     card.appendChild(thumb);
 
     const label = document.createElement('span');
-    label.className = 'label';
+    label.className = 'fm-pick__label';
     label.textContent = f.name || '';
     label.title = f.name || '';
     card.appendChild(label);
@@ -312,7 +315,7 @@
       if (pickOne) {
         const done = pickOne;
         pickOne = null;
-        modal.classList.remove('active');
+        closeModal();
         done({ path: f.path, url: f.url });
         return;
       }
@@ -363,7 +366,7 @@
     if (iconTpl) card.appendChild(iconTpl.content.firstElementChild.cloneNode(true));
 
     const label = document.createElement('span');
-    label.className = 'label';
+    label.className = 'fm-pick__label';
     label.textContent = d.name || '';
     label.title = d.name || '';
     card.appendChild(label);
@@ -394,6 +397,11 @@
     else if (sort === 'name_desc') filtered.sort((a,b) => (b.name||'').localeCompare(a.name||''));
 
     filtered.forEach(f => serverGrid.appendChild(buildFileCard(f)));
+
+    /* "Images" over an empty grid is a label for nothing, and this dialog
+       showed both of its headings unconditionally - so an empty folder read
+       as two broken regions rather than as an empty folder. */
+    if (serverFilesTitle) serverFilesTitle.classList.toggle('d-none', filtered.length === 0);
 
     if (!cachedServerFolders.length && !filtered.length) {
       serverEmpty.classList.remove('d-none');
@@ -435,6 +443,9 @@
     }
 
     cachedServerFolders.forEach(d => serverFolders.appendChild(buildFolderCard(d)));
+    if (serverFoldersTitle) {
+        serverFoldersTitle.classList.toggle('d-none', cachedServerFolders.length === 0);
+    }
     renderServerFiles();
   }
 
@@ -460,7 +471,22 @@
       }
       return;
     }
+    // Remember who opened it, so closing hands focus back rather than
+    // stranding it on a button that is no longer on screen.
+    pickReturnFocus = document.activeElement;
     modal.classList.add('active');
+
+    // Into the dialog, on the first thing in it. Not the Close button: that
+    // is the way out, and opening a file browser with the exit selected reads
+    // as "are you sure", which is not the question being asked.
+    const panel = modal.querySelector('.fm-pick');
+    const target = panel.querySelector('#pimServerUpBtn:not([disabled])')
+        || panel.querySelector('#pimServerSearch')
+        || panel;
+    if (target && typeof target.focus === 'function') {
+        if (target === panel) panel.setAttribute('tabindex', '-1');
+        target.focus();
+    }
     await loadServerDir('', true);
   }
 
@@ -620,19 +646,69 @@
     });
   }
 
+  /* FOCUS BEHAVIOUR, because this now says aria-modal="true".
+     ------------------------------------------------------------------
+     It said it was a modal dialog and behaved like a floating div: opening it
+     left focus wherever it was, so the next Tab walked into the sidebar
+     BEHIND the dim, operating a page the operator could not see. Claiming
+     modal semantics and not keeping focus is worse than claiming nothing,
+     because a screen reader tells the user they are in a dialog and then the
+     keyboard disagrees.
+
+     Same three obligations the confirm dialog in confirm-modal.js already
+     meets: take focus on open, keep it inside while open, hand it back to
+     whatever opened you. */
+  let pickReturnFocus = null;
+
+  function focusablesIn(el) {
+    return Array.prototype.filter.call(
+      el.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'),
+      (n) => !n.disabled && n.offsetParent !== null
+    );
+  }
+
+  function closeModal() {
+    pickOne = null;
+    modal.classList.remove('active');
+
+    if (pickReturnFocus && typeof pickReturnFocus.focus === 'function') {
+      pickReturnFocus.focus();
+    }
+    pickReturnFocus = null;
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab' || !modal.classList.contains('active')) return;
+
+    const panel = modal.querySelector('.fm-pick');
+    const items = focusablesIn(panel);
+    if (!items.length) return;
+
+    const first = items[0];
+    const last = items[items.length - 1];
+
+    // Wrap at both ends, and pull focus back in if it has escaped.
+    if (!panel.contains(document.activeElement)) {
+      e.preventDefault();
+      first.focus();
+    } else if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  });
+
   // Dialog close
   modal.addEventListener('click', (e) => {
     const t = e.target;
     if (t === modal || (t && t.closest && t.closest('[data-close="1"]'))) {
-      pickOne = null;
-      modal.classList.remove('active');
+      closeModal();
     }
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && modal.classList.contains('active')) {
-      pickOne = null;
-      modal.classList.remove('active');
-    }
+    if (e.key === 'Escape' && modal.classList.contains('active')) closeModal();
   });
 
   render();

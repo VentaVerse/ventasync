@@ -1606,6 +1606,17 @@ public function store(Request $request)
 
         $seenOptionValueIds = [];
 
+        /* The variation image, carried from the form to the combination
+         * rebuild below.
+         *
+         * It cannot ride along in product_option_value the way sku and
+         * quantity do, because it is not stored there - it belongs to the
+         * COMBINATION, which is the sellable unit. And the rebuild at the end
+         * of this method reads its rows back out of product_option_value, so
+         * without this map the image would have nowhere to come from and
+         * every save would write null over whatever was there. */
+        $imageByOptionValueId = [];
+
         foreach ($values as $v) {
             if (!is_array($v)) continue;
             $valueName = trim($v['name'] ?? '');
@@ -1616,6 +1627,7 @@ public function store(Request $request)
                 : $this->findOrCreateOptionValue($optionId, $valueName);
 
             $seenOptionValueIds[] = $optionValueId;
+            $imageByOptionValueId[$optionValueId] = trim((string) ($v['image'] ?? ''));
 
             $data = [
                 'sku' => trim((string) ($v['sku'] ?? '')),
@@ -1702,9 +1714,12 @@ public function store(Request $request)
             ->get();
 
         foreach ($povRows as $pov) {
+            $image = $imageByOptionValueId[(int) $pov->option_value_id] ?? '';
+
             $comboId = DB::table('product_option_combinations')->insertGetId([
                 'product_id' => $productId,
                 'sku' => $pov->sku ?? '',
+                'image' => $image !== '' ? $image : null,
                 'quantity' => (int) $pov->quantity,
                 'absolute_price' => (float) ($pov->absolute_price ?? 0),
                 'absolute_cost' => (float) ($pov->absolute_cost ?? 0),
@@ -1787,9 +1802,15 @@ public function store(Request $request)
             $pov2Id = $opt2PovMap[strtolower($v2Name)] ?? null;
             if (!$pov1Id || !$pov2Id) continue;
 
+            // Straight off the row here, because a combination in this path
+            // IS the form row - unlike the single-axis path, which rebuilds
+            // from product_option_value and needs the image mapped across.
+            $image = trim((string) ($combo['image'] ?? ''));
+
             $comboId = DB::table('product_option_combinations')->insertGetId([
                 'product_id' => $productId,
                 'sku' => trim((string) ($combo['sku'] ?? '')),
+                'image' => $image !== '' ? $image : null,
                 'quantity' => (int) ($combo['quantity'] ?? 0),
                 'absolute_price' => (float) ($combo['absolute_price'] ?? 0),
                 'absolute_cost' => (float) ($combo['absolute_cost'] ?? 0),
