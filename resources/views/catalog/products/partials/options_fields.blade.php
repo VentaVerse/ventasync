@@ -43,7 +43,8 @@
                     <div class="fm-label">Values</div>
                     <div class="fm-vars__values" id="opt1-value-list"></div>
                     <div class="fm-vars__add">
-                        <input class="x-input" id="opt1-new-value" placeholder="Value name, Enter to add" autocomplete="off">
+                        <input class="x-input" id="opt1-new-value" placeholder="Value name, Enter to add"
+                               aria-label="Add a value to variation 1" autocomplete="off">
                         <x-ui.button type="button" size="sm" id="opt1-add-value-btn">Add</x-ui.button>
                     </div>
                 </div>
@@ -73,7 +74,8 @@
                     <div class="fm-label">Values</div>
                     <div class="fm-vars__values" id="opt2-value-list"></div>
                     <div class="fm-vars__add">
-                        <input class="x-input" id="opt2-new-value" placeholder="Value name, Enter to add" autocomplete="off">
+                        <input class="x-input" id="opt2-new-value" placeholder="Value name, Enter to add"
+                               aria-label="Add a value to variation 2" autocomplete="off">
                         <x-ui.button type="button" size="sm" id="opt2-add-value-btn">Add</x-ui.button>
                     </div>
                 </div>
@@ -423,18 +425,25 @@ function bindRowEvents(tr) {
 
 function buildHeaderRow(is2) {
     const tr = document.createElement('tr');
+
+    /* scope="col" on every header. Built headers had none, while the two
+       hand-written tables on this surface scope all of theirs - so the one
+       table a person is most likely to get lost in was the one with no column
+       association at all. It does not name the inputs (a header never names a
+       control inside a cell, which is what the aria-labels above are for) but
+       it is what lets a screen reader answer "which column am I in". */
+    const th = (cls, text) => createEl('th', { className: cls, scope: 'col' }, text);
+
     if (is2) {
-        const th1 = createEl('th', { className: 'fm-vcol-opt' }, $opt1Name.value || 'Variation 1');
-        const th2 = createEl('th', { className: 'fm-vcol-opt' }, $opt2Name.value || 'Variation 2');
-        tr.appendChild(th1);
-        tr.appendChild(th2);
+        tr.appendChild(th('fm-vcol-opt', $opt1Name.value || 'Variation 1'));
+        tr.appendChild(th('fm-vcol-opt', $opt2Name.value || 'Variation 2'));
     } else {
-        tr.appendChild(createEl('th', { className: 'fm-vcol-name' }, 'Value'));
+        tr.appendChild(th('fm-vcol-name', 'Value'));
     }
-    tr.appendChild(createEl('th', { className: 'fm-vcol-sku' }, 'SKU'));
-    tr.appendChild(createEl('th', { className: 'fm-vcol-qty' }, 'Qty'));
-    tr.appendChild(createEl('th', { className: 'fm-vcol-price' }, 'Price'));
-    tr.appendChild(createEl('th', { className: 'fm-vcol-cost' }, 'Cost'));
+    tr.appendChild(th('fm-vcol-sku', 'SKU'));
+    tr.appendChild(th('fm-vcol-qty', 'Qty'));
+    tr.appendChild(th('fm-vcol-price', 'Price'));
+    tr.appendChild(th('fm-vcol-cost', 'Cost'));
     /* PROFIT / MARGIN / MARKUP USED TO SIT HERE and they are gone on purpose.
        They were read-only, they restated the Pricing metrics strip further up
        the same form, and with cost at 0 - which is most of this catalogue -
@@ -442,8 +451,8 @@ function buildHeaderRow(is2) {
        were 187px of the 780px this table gets, spent on three numbers that
        are the same on every line and that nobody can act on here.
        That width is what pays for the image. */
-    tr.appendChild(createEl('th', { className: 'fm-vcol-img' }, 'Image'));
-    tr.appendChild(createEl('th', { className: 'fm-vcol-act' }));
+    tr.appendChild(th('fm-vcol-img', 'Image'));
+    tr.appendChild(th('fm-vcol-act', ''));
     return tr;
 }
 
@@ -461,7 +470,27 @@ function buildHeaderRow(is2) {
  * server was holding but the form did not send would be dropped on the next
  * save.
  */
-function buildImageCell(imagePath) {
+/* EVERY CELL IN THIS GRID SAYS WHAT IT IS.
+ *
+ * A five-value grid is 25 inputs; a realistic six-sizes-by-eight-colours one
+ * is 192. None of them carried a label, an aria-label or a placeholder, and a
+ * column header does not name a form control inside a cell - so to a screen
+ * reader the whole grid was a field of anonymous boxes, in the one section
+ * where getting the wrong row means shipping the wrong thing.
+ *
+ * The row identity is the value name, or both value names in a combination
+ * grid, which is exactly how a person refers to these rows out loud: "the SKU
+ * for Small, Red". Falls back to the position when a value has not been named
+ * yet, because "SKU for value 3" still beats nothing. */
+function labelFor(column, rowName, idx) {
+    const who = (rowName && String(rowName).trim())
+        ? String(rowName).trim()
+        : ('value ' + ((idx || 0) + 1));
+
+    return column + ' for ' + who;
+}
+
+function buildImageCell(imagePath, rowName, idx) {
     const td = createEl('td', { className: 'fm-vcol-img' });
 
     const hidden = createEl('input', { type: 'hidden', className: 'js-image' });
@@ -509,9 +538,12 @@ function buildImageCell(imagePath) {
 
         btn.classList.toggle('is-empty', !src);
         // The accessible name carries the state, since the thumbnail cannot.
+        const who = (rowName && String(rowName).trim())
+            ? String(rowName).trim()
+            : ('value ' + ((idx || 0) + 1));
         btn.setAttribute('aria-label', own
-            ? 'Change this variation\'s image'
-            : 'Choose an image. This variation currently uses the product image.');
+            ? 'Change the image for ' + who
+            : 'Choose an image for ' + who + '. It currently uses the product image.');
         clear.classList.toggle('d-none', !own);
     }
 
@@ -551,23 +583,30 @@ function buildComboRow(i1, i2, v1Name, v2Name, data) {
     tr.appendChild(td1);
     tr.appendChild(td2);
 
+    // "SKU for Small, Red" - the way a person refers to the row out loud.
+    const rowName = [v1Name, v2Name].filter(Boolean).join(', ');
+
     const tdSku   = document.createElement('td');
-    tdSku.appendChild(createInput('js-sku', 'text', data.sku));
+    tdSku.appendChild(createInput('js-sku', 'text', data.sku,
+        { 'aria-label': labelFor('SKU', rowName, i1) }));
     tr.appendChild(tdSku);
 
     const tdQty   = document.createElement('td');
-    tdQty.appendChild(createInput('js-qty', 'number', data.quantity));
+    tdQty.appendChild(createInput('js-qty', 'number', data.quantity,
+        { 'aria-label': labelFor('Quantity', rowName, i1) }));
     tr.appendChild(tdQty);
 
     const tdPrice = document.createElement('td');
-    tdPrice.appendChild(createInput('js-price', 'number', data.absolute_price, { step: '0.01' }));
+    tdPrice.appendChild(createInput('js-price', 'number', data.absolute_price,
+        { step: '0.01', 'aria-label': labelFor('Price', rowName, i1) }));
     tr.appendChild(tdPrice);
 
     const tdCost  = document.createElement('td');
-    tdCost.appendChild(createInput('js-cost', 'number', data.absolute_cost, { step: '0.01' }));
+    tdCost.appendChild(createInput('js-cost', 'number', data.absolute_cost,
+        { step: '0.01', 'aria-label': labelFor('Cost', rowName, i1) }));
     tr.appendChild(tdCost);
 
-    tr.appendChild(buildImageCell(data.image));
+    tr.appendChild(buildImageCell(data.image, rowName, i1));
 
     // A combination row has no per-row remove: the combinations are the
     // product of the two axes, so you remove a VALUE, not a cell.
@@ -584,27 +623,34 @@ function buildOneOptRow(v, idx) {
 
     // Value name (editable input)
     const tdName = document.createElement('td');
-    const nameInput = createInput('js-value-name', 'text', v.name, { placeholder: 'Value name' });
+    const nameInput = createInput('js-value-name', 'text', v.name, {
+        placeholder: 'Value name',
+        'aria-label': labelFor('Variation value name', v.name, idx),
+    });
     tdName.appendChild(nameInput);
     tr.appendChild(tdName);
 
     const tdSku = document.createElement('td');
-    tdSku.appendChild(createInput('js-sku', 'text', v.sku || ''));
+    tdSku.appendChild(createInput('js-sku', 'text', v.sku || '',
+        { 'aria-label': labelFor('SKU', v.name, idx) }));
     tr.appendChild(tdSku);
 
     const tdQty = document.createElement('td');
-    tdQty.appendChild(createInput('js-qty', 'number', v.quantity || 0));
+    tdQty.appendChild(createInput('js-qty', 'number', v.quantity || 0,
+        { 'aria-label': labelFor('Quantity', v.name, idx) }));
     tr.appendChild(tdQty);
 
     const tdPrice = document.createElement('td');
-    tdPrice.appendChild(createInput('js-price', 'number', v.absolute_price || 0, { step: '0.01' }));
+    tdPrice.appendChild(createInput('js-price', 'number', v.absolute_price || 0,
+        { step: '0.01', 'aria-label': labelFor('Price', v.name, idx) }));
     tr.appendChild(tdPrice);
 
     const tdCost = document.createElement('td');
-    tdCost.appendChild(createInput('js-cost', 'number', v.absolute_cost || 0, { step: '0.01' }));
+    tdCost.appendChild(createInput('js-cost', 'number', v.absolute_cost || 0,
+        { step: '0.01', 'aria-label': labelFor('Cost', v.name, idx) }));
     tr.appendChild(tdCost);
 
-    tr.appendChild(buildImageCell(v.image));
+    tr.appendChild(buildImageCell(v.image, v.name, idx));
 
     const tdActions = document.createElement('td');
     const removeBtn = createEl('button', { className: 'fm-vars__rowx', type: 'button', title: 'Remove', 'aria-label': 'Remove value' }, '\u00d7');

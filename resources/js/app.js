@@ -9,6 +9,7 @@ import './plot-readout';
 import './list-filters';
 import './order-selection';
 import './order-thumb-preview';
+import './field-a11y';
 import './desk-tools';
 import './legacy-flash';
 import './pages/shopee-orders';

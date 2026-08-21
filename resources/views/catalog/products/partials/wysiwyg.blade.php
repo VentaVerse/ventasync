@@ -48,7 +48,31 @@ document.addEventListener('DOMContentLoaded', function () {
             ['para', ['ul', 'ol', 'paragraph']],
             ['insert', ['link', 'table']],
             ['view', ['codeview']]
-        ]
+        ],
+        callbacks: {
+            /* The editor Summernote builds is a role="textbox" div with no
+               accessible name: the real <textarea name="description"> is
+               correctly labelled and then hidden, so the label never reaches
+               the control a person actually types in. It was announced as an
+               unnamed edit area on both product forms.
+
+               Named from the hidden textarea's own label where there is one,
+               so the two never drift apart, with the field's purpose as the
+               fallback. */
+            onInit: function () {
+                const $note = jQuery(this);
+                const editable = $note.next('.note-editor').find('.note-editable')[0];
+                if (!editable) return;
+
+                const textarea = $note[0];
+                const label = textarea.id
+                    ? document.querySelector('label[for="' + CSS.escape(textarea.id) + '"]')
+                    : null;
+
+                editable.setAttribute('aria-label',
+                    (label && label.textContent.trim()) || 'Product description');
+            }
+        }
     });
 });
 </script>

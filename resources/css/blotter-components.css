@@ -4684,3 +4684,25 @@
         color: var(--bl-paper);
     }
 }
+
+/* THE ONE CONTROL ON THIS SURFACE WITH NO FOCUS RING.
+   ------------------------------------------------------------------
+   Summernote's editable div ships `outline: none` and nothing in its place,
+   so a keyboard walk of the product form - 41 stops, every other one ringed -
+   went silent exactly where the typing happens. The global :focus-visible
+   rule never reached it because the vendor rule is more specific.
+
+   THE SELECTOR MIRRORS THE VENDOR'S ON PURPOSE. Summernote declares
+   `.note-editor .note-editing-area .note-editable { outline: none }`, which
+   is three classes, and its stylesheet is pushed from the CDN AFTER our
+   bundle - so a two-class rule of ours tied on specificity and lost on order.
+   Repeating the vendor's own chain and adding :focus takes it to four, which
+   wins without reaching for !important on a third-party override.
+
+   Inset offset, because the editor sits flush inside its frame and a ring
+   drawn outside it would be clipped by the frame's own border. */
+.note-editor .note-editing-area .note-editable:focus,
+.note-editor .note-editing-area .note-editable:focus-visible {
+    outline: 2px solid var(--bl-brand-deep);
+    outline-offset: -2px;
+}

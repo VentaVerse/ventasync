@@ -32,9 +32,9 @@
   a stray Enter.
 --}}
 
-<section class="fm-section">
+<section class="fm-section" aria-labelledby="sec-images">
     <div class="fm-section__head">
-        <h2 class="fm-section__title">Images</h2>
+        <h2 class="fm-section__title" id="sec-images">Images</h2>
         <x-ui.hint label="How image order works">Drag a tile to reorder. The first image is the one the
             catalogue and the marketplaces show, and it is marked Main.</x-ui.hint>
         <div class="fm-section__aside">
@@ -55,9 +55,9 @@
 
 @push('scripts')
 <div class="modal-backdrop" id="pimServerModal">
-  <div class="fm-pick">
+  <div class="fm-pick" role="dialog" aria-modal="true" aria-labelledby="pimPickTitle">
     <div class="fm-pick__head">
-      <h3 class="fm-pick__title">Image library</h3>
+      <h3 class="fm-pick__title" id="pimPickTitle">Image library</h3>
       <div class="fm-pick__actions">
         <span class="fm-pick__msg" id="pimModalMsg" role="status" aria-live="polite"></span>
         <x-ui.button type="button" size="sm" data-close="1">Close</x-ui.button>
@@ -73,15 +73,19 @@
       </div>
 
       <div class="fm-pick__tools">
+        {{-- Visually hidden, but still reachable: x-sr keeps it in the tab
+             order, so it needs a name like any other control. --}}
         <input type="file" id="pimServerUploadInput" class="x-sr"
+               aria-label="Choose image files to upload"
                accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple>
         <x-ui.button type="button" size="sm" id="pimServerUploadBtn">
           <x-ui.icon name="upload" size="14" /> Upload files
         </x-ui.button>
         <x-ui.button type="button" size="sm" id="pimServerUrlBtn">Add from URL</x-ui.button>
-        <input type="text" id="pimServerSearch" class="x-input fm-pick__search" placeholder="Search this folder">
+        <input type="text" id="pimServerSearch" class="x-input fm-pick__search"
+               placeholder="Search this folder" aria-label="Search this folder">
         <div class="x-select-wrap">
-          <select id="pimServerSort" class="x-input">
+          <select id="pimServerSort" class="x-input" aria-label="Sort images in this folder">
             <option value="newest">Newest first</option>
             <option value="oldest">Oldest first</option>
             <option value="name_asc">Name A to Z</option>
@@ -94,7 +98,8 @@
       {{-- Paste an image address here instead of a browser prompt(). Same
            endpoint, same payload; this project does not use native dialogs. --}}
       <div class="fm-pick__tools d-none" id="pimUrlRow">
-        <input type="url" id="pimUrlInput" class="x-input fm-pick__search" placeholder="https://example.com/photo.jpg">
+        <input type="url" id="pimUrlInput" class="x-input fm-pick__search"
+               aria-label="Image address to add" placeholder="https://example.com/photo.jpg">
         <x-ui.button type="button" size="sm" variant="primary" id="pimUrlGo">Add</x-ui.button>
         <x-ui.button type="button" size="sm" id="pimUrlCancel">Cancel</x-ui.button>
       </div>

@@ -115,9 +115,9 @@
             {{-- ---------------------------------------------------------
                  General
                  --------------------------------------------------------- --}}
-            <section class="fm-section">
+            <section class="fm-section" aria-labelledby="sec-general">
                 <div class="fm-section__head">
-                    <h2 class="fm-section__title">General</h2>
+                    <h2 class="fm-section__title" id="sec-general">General</h2>
                 </div>
 
                 <div class="fm-fields">
@@ -185,9 +185,9 @@
             {{-- ---------------------------------------------------------
                  Pricing
                  --------------------------------------------------------- --}}
-            <section class="fm-section">
+            <section class="fm-section" aria-labelledby="sec-pricing">
                 <div class="fm-section__head">
-                    <h2 class="fm-section__title">Pricing</h2>
+                    <h2 class="fm-section__title" id="sec-pricing">Pricing</h2>
                     <div class="fm-section__aside">
                         <x-ui.button type="button" size="sm" id="cost-override-btn">Edit by hand</x-ui.button>
                     </div>
@@ -254,9 +254,9 @@
             {{-- ---------------------------------------------------------
                  Variations
                  --------------------------------------------------------- --}}
-            <section class="fm-section">
+            <section class="fm-section" aria-labelledby="sec-variations">
                 <div class="fm-section__head">
-                    <h2 class="fm-section__title">Variations</h2>
+                    <h2 class="fm-section__title" id="sec-variations">Variations</h2>
                 </div>
                 <p class="fm-section__note">With variations, this product's quantity is the total of its variation quantities. A variation can go negative if it is oversold. Every variation needs its own SKU.</p>
 
