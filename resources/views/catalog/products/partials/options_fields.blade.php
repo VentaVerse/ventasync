@@ -7,10 +7,10 @@
 
   Wire, unchanged: a hidden `_options_format=absolute` marks the format, and
   beforeSubmit() generates the hidden inputs the controller reads -
-  `option_name` + `values[i][name|sku|quantity|absolute_price|absolute_cost|
+  `option_name` + `values[i][name|sku|quantity|absolute_price|cost_amount|
   option_value_id]` for one axis, `option1_name` + `option2_name` +
   `option1_values[i]` + `option2_values[i]` + `combinations[i][opt1|opt2|sku|
-  quantity|absolute_price|absolute_cost]` for two. Every id the script binds
+  quantity|absolute_price|cost_amount]` for two. Every id the script binds
   to is unchanged; only classes moved to the `fm-` set. See
   ProductController::saveAbsoluteOptions.
 
@@ -85,6 +85,20 @@
 
     {{-- Values / combination grid --}}
     <div id="data-table-wrap" class="d-none">
+        {{-- The rest of the product's cost equation, said once.
+
+             Cost, Cost % and Additional cost sit in the pricing section as
+             three fields and a total. A variation gets ONE of those fields,
+             because a commission share and inbound shipping describe how the
+             product is bought and sold rather than which size is on the
+             label. Without this line the grid's Cost column would look like
+             the whole story and read 10,000 where the unit actually costs
+             10,220.
+
+             Hidden while the parent charges neither, which is most of this
+             catalogue - there the amount IS the unit cost and a note saying
+             so is noise. --}}
+        <p id="vars-cost-note" class="fm-vars__note d-none"></p>
         <div class="fm-vars__scroll">
             <table class="fm-vars__table" id="data-table">
                 <thead id="data-thead"></thead>
@@ -116,9 +130,9 @@ const EXISTING_VALUES2 = @json($existingOptions->count() > 1 ? ($existingOptions
 const EXISTING_COMBOS  = @json($existingCombinations ?? []);
 
 // State
-let opt1Values = []; // [{name, option_value_id?, sku, status, image, quantity, absolute_price, absolute_cost}]
+let opt1Values = []; // [{name, option_value_id?, sku, status, image, quantity, absolute_price, cost_amount}]
 let opt2Values = []; // [{name, option_value_id?}]
-let comboData  = {}; // key "v1|v2" → {sku, image, quantity, absolute_price, absolute_cost} (2-option)
+let comboData  = {}; // key "v1|v2" → {sku, image, quantity, absolute_price, cost_amount} (2-option)
 let mode       = 'none'; // 'none' | 'one' | 'two'
 
 /* THE SHAPE THE TABLE IS CURRENTLY DRAWN IN, which is not always `mode`.
@@ -287,7 +301,7 @@ function renderOpt2List() {
 
 function addOpt1Value(name) {
     name = (name || '').trim();
-    opt1Values.push({ name, sku: '', image: '', status: 1, quantity: 0, absolute_price: 0, absolute_cost: 0 });
+    opt1Values.push({ name, sku: '', image: '', status: 1, quantity: 0, absolute_price: 0, cost_amount: 0 });
     renderOpt1List();
     renderTable();
     recalcProductQty();
@@ -326,7 +340,7 @@ function seedFirstColumnFromOneAxis() {
             status: v1.status === undefined ? 1 : v1.status,
             quantity: v1.quantity || 0,
             absolute_price: v1.absolute_price || 0,
-            absolute_cost: v1.absolute_cost || 0,
+            cost_amount: v1.cost_amount || 0,
         };
     });
 }
@@ -374,7 +388,7 @@ function saveTableToState() {
             const priceInput = row.querySelector('.js-price');
             if (priceInput) opt1Values[i].absolute_price = parseFloat(priceInput.value || '0');
             const costInput = row.querySelector('.js-cost');
-            if (costInput) opt1Values[i].absolute_cost = parseFloat(costInput.value || '0');
+            if (costInput) opt1Values[i].cost_amount = parseFloat(costInput.value || '0');
         });
     } else if (renderedMode === 'two') {
         $tbody.querySelectorAll('tr').forEach(row => {
@@ -388,17 +402,47 @@ function saveTableToState() {
                 status: (row.querySelector('.js-enabled') || {}).checked ? 1 : 0,
                 quantity: parseInt(row.querySelector('.js-qty').value || '0', 10),
                 absolute_price: parseFloat(row.querySelector('.js-price').value || '0'),
-                absolute_cost: parseFloat(row.querySelector('.js-cost').value || '0'),
+                cost_amount: parseFloat(row.querySelector('.js-cost').value || '0'),
             };
         });
     }
+}
+
+/* The parent's percentage and additional, live.
+
+   Read from the DOM on every recompute rather than captured once, because on
+   the create form these two are typed and the grid has to follow them. On the
+   edit form they are readonly and this simply returns the same pair. */
+function parentCostFormula() {
+    const num = (id) => {
+        const el = document.getElementById(id);
+        return el ? (parseFloat(el.value) || 0) : 0;
+    };
+    return { pct: num('cost_percentage'), add: num('cost_additional') };
+}
+
+function costFormulaApplies() {
+    const f = parentCostFormula();
+    return f.pct !== 0 || f.add !== 0;
+}
+
+/* What the variation actually costs. Against its OWN price - that is the
+   whole reason the percentage is worth applying per row instead of once. */
+function variationUnitCost(amount, price) {
+    const f = parentCostFormula();
+    return amount + (f.pct / 100 * price) + f.add;
 }
 
 function calcRowMetrics(row) {
     const priceInput = row.querySelector('.js-price');
     const costInput  = row.querySelector('.js-cost');
     const price  = parseFloat(priceInput ? priceInput.value : 0) || 0;
-    const cost   = parseFloat(costInput ? costInput.value : 0) || 0;
+    const amount = parseFloat(costInput ? costInput.value : 0) || 0;
+    /* Profit, margin and markup are worked against the UNIT cost, not the
+       amount. A row that cost 10,000 to buy and carries 220 of freight does
+       not make the extra 220 of profit, and this table is where somebody
+       decides what to charge. */
+    const cost   = variationUnitCost(amount, price);
     const profit = price - cost;
     const margin = price > 0 ? (profit / price * 100) : 0;
     const markup = cost > 0 ? (profit / cost * 100) : 0;
@@ -419,6 +463,39 @@ function calcRowMetrics(row) {
         markupEl.textContent = markup.toFixed(1) + '%';
         markupEl.className = ('fm-num js-markup ' + cls).trim();
     }
+
+    /* The worked-out figure, under the amount that produced it. Drawn only
+       when the two differ, so nobody reads a second number that restates the
+       field above it. */
+    const unitEl = row.querySelector('.js-unitcost');
+    if (unitEl) {
+        const applies = costFormulaApplies();
+        unitEl.classList.toggle('d-none', !applies);
+        unitEl.textContent = applies ? ('= ' + cost.toFixed(2)) : '';
+    }
+}
+
+/* One builder for both row shapes, because the cell now has two parts and
+   the single-axis and combination tables were already drifting apart on the
+   ones that did not. */
+let costCellSeq = 0;
+function buildCostCell(amount, rowName, idx) {
+    const td = document.createElement('td');
+    const unitId = 'vcost-' + (costCellSeq++);
+
+    const input = createInput('js-cost', 'number', amount || 0, {
+        step: '0.01',
+        'aria-label': labelFor('Cost', rowName, idx),
+        /* Described by the worked-out total, so the figure is announced when
+           the field is entered rather than only drawn beside it. */
+        'aria-describedby': unitId,
+    });
+    td.appendChild(input);
+
+    const unit = createEl('span', { className: 'fm-vars__unit js-unitcost d-none', id: unitId });
+    td.appendChild(unit);
+
+    return td;
 }
 
 function bindRowEvents(tr) {
@@ -454,6 +531,9 @@ function buildHeaderRow(is2) {
     tr.appendChild(th('fm-vcol-sku', 'SKU'));
     tr.appendChild(th('fm-vcol-qty', 'Qty'));
     tr.appendChild(th('fm-vcol-price', 'Price'));
+    /* "Cost", matching the parent's field of the same name rather than the
+       parent's TOTAL, which is called Unit cost. Same word, same meaning, so
+       the equation reads across the two. */
     tr.appendChild(th('fm-vcol-cost', 'Cost'));
     /* PROFIT / MARGIN / MARKUP USED TO SIT HERE and they are gone on purpose.
        They were read-only, they restated the Pricing metrics strip further up
@@ -653,10 +733,7 @@ function buildComboRow(i1, i2, v1Name, v2Name, data) {
         { step: '0.01', 'aria-label': labelFor('Price', rowName, i1) }));
     tr.appendChild(tdPrice);
 
-    const tdCost  = document.createElement('td');
-    tdCost.appendChild(createInput('js-cost', 'number', data.absolute_cost,
-        { step: '0.01', 'aria-label': labelFor('Cost', rowName, i1) }));
-    tr.appendChild(tdCost);
+    tr.appendChild(buildCostCell(data.cost_amount, rowName, i1));
 
     tr.appendChild(buildImageCell(data.image, rowName, i1));
     tr.appendChild(buildStatusCell(data.status, rowName, i1));
@@ -700,10 +777,7 @@ function buildOneOptRow(v, idx) {
         { step: '0.01', 'aria-label': labelFor('Price', v.name, idx) }));
     tr.appendChild(tdPrice);
 
-    const tdCost = document.createElement('td');
-    tdCost.appendChild(createInput('js-cost', 'number', v.absolute_cost || 0,
-        { step: '0.01', 'aria-label': labelFor('Cost', v.name, idx) }));
-    tr.appendChild(tdCost);
+    tr.appendChild(buildCostCell(v.cost_amount, v.name, idx));
 
     tr.appendChild(buildImageCell(v.image, v.name, idx));
     tr.appendChild(buildStatusCell(v.status, v.name, idx));
@@ -752,7 +826,7 @@ function renderTable() {
         opt1Values.forEach((v1, i1) => {
             opt2Values.forEach((v2, i2) => {
                 const key = comboKey(i1, i2);
-                const d = comboData[key] || { sku: '', image: '', status: 1, quantity: 0, absolute_price: 0, absolute_cost: 0 };
+                const d = comboData[key] || { sku: '', image: '', status: 1, quantity: 0, absolute_price: 0, cost_amount: 0 };
                 $tbody.appendChild(buildComboRow(i1, i2, v1.name, v2.name, d));
             });
         });
@@ -829,7 +903,7 @@ function beforeSubmit() {
             addHidden('combinations[' + ci + '][status]', (row.querySelector('.js-enabled') || {}).checked ? 1 : 0);
             addHidden('combinations[' + ci + '][quantity]', (row.querySelector('.js-qty') || {}).value || 0);
             addHidden('combinations[' + ci + '][absolute_price]', (row.querySelector('.js-price') || {}).value || 0);
-            addHidden('combinations[' + ci + '][absolute_cost]', (row.querySelector('.js-cost') || {}).value || 0);
+            addHidden('combinations[' + ci + '][cost_amount]', (row.querySelector('.js-cost') || {}).value || 0);
             ci++;
         });
     } else {
@@ -848,7 +922,7 @@ function beforeSubmit() {
             addHidden('values[' + idx + '][status]', (row.querySelector('.js-enabled') || {}).checked ? 1 : 0);
             addHidden('values[' + idx + '][quantity]', (row.querySelector('.js-qty') || {}).value || 0);
             addHidden('values[' + idx + '][absolute_price]', (row.querySelector('.js-price') || {}).value || 0);
-            addHidden('values[' + idx + '][absolute_cost]', (row.querySelector('.js-cost') || {}).value || 0);
+            addHidden('values[' + idx + '][cost_amount]', (row.querySelector('.js-cost') || {}).value || 0);
 
             // Preserve option_value_id for existing values
             if (idx < opt1Values.length && opt1Values[idx].option_value_id) {
@@ -970,12 +1044,12 @@ function removeSecondAxis() {
         const firstIsEmpty = !first.sku
             && !Number(first.quantity)
             && !Number(first.absolute_price)
-            && !Number(first.absolute_cost);
+            && !Number(first.cost_amount);
 
         const valueHasData = !!v1.sku
             || !!Number(v1.quantity)
             || !!Number(v1.absolute_price)
-            || !!Number(v1.absolute_cost);
+            || !!Number(v1.cost_amount);
 
         if (firstIsEmpty && valueHasData) return;
 
@@ -984,7 +1058,7 @@ function removeSecondAxis() {
         v1.status = first.status === undefined ? 1 : first.status;
         v1.quantity = first.quantity || 0;
         v1.absolute_price = first.absolute_price || 0;
-        v1.absolute_cost = first.absolute_cost || 0;
+        v1.cost_amount = first.cost_amount || 0;
     });
     opt2Values = [];
     renderOpt2List();
@@ -995,7 +1069,7 @@ function removeSecondAxis() {
 
 $addRowBtn.addEventListener('click', () => {
     saveTableToState();
-    opt1Values.push({ name: '', sku: '', image: '', status: 1, quantity: 0, absolute_price: 0, absolute_cost: 0 });
+    opt1Values.push({ name: '', sku: '', image: '', status: 1, quantity: 0, absolute_price: 0, cost_amount: 0 });
     renderTable();
     const rows = $tbody.querySelectorAll('tr');
     const lastRow = rows[rows.length - 1];
@@ -1309,7 +1383,7 @@ if (EXISTING_OPTION) {
             image: v.image || '',
             quantity: v.quantity || 0,
             absolute_price: parseFloat(v.absolute_price) || 0,
-            absolute_cost: parseFloat(v.absolute_cost) || 0,
+            cost_amount: parseFloat(v.cost_amount) || 0,
         });
     });
 
@@ -1335,7 +1409,7 @@ if (EXISTING_OPTION) {
                         image: c.image || '',
                         quantity: c.quantity || 0,
                         absolute_price: parseFloat(c.absolute_price) || 0,
-                        absolute_cost: parseFloat(c.absolute_cost) || 0,
+                        cost_amount: parseFloat(c.cost_amount) || 0,
                     };
                 }
             });
@@ -1347,6 +1421,48 @@ if (EXISTING_OPTION) {
 } else {
     recalcProductQty();
 }
+
+/* ---- The parent's half of the equation, kept in step ----
+ *
+ * The note is written here rather than in the template because it quotes
+ * numbers the operator can still be typing: on the create form Cost % and
+ * Additional cost are editable, and a note that fixed itself at page load
+ * would go stale the moment either changed. On the edit form both are
+ * readonly and this runs exactly once. */
+function refreshCostFormula() {
+    const note = document.getElementById('vars-cost-note');
+    const { pct, add } = parentCostFormula();
+    const applies = pct !== 0 || add !== 0;
+
+    if (note) {
+        note.classList.toggle('d-none', !applies);
+        if (applies) {
+            /* Named the way the pricing section names them, so the two
+               read as one equation rather than two vocabularies. */
+            const parts = [];
+            if (pct !== 0) parts.push(pct + '% cost share');
+            if (add !== 0) parts.push(add + ' additional cost');
+            note.textContent = 'Cost is what you pay per unit. Every variation also carries this product\u2019s '
+                + parts.join(' and ')
+                + ', so the figure under each amount is what the unit really costs.';
+        } else {
+            note.textContent = '';
+        }
+    }
+
+    $tbody.querySelectorAll('tr').forEach(calcRowMetrics);
+}
+
+['cost_percentage', 'cost_additional'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', refreshCostFormula);
+    // Also on change, because "Edit by hand" un-readonlys these fields by
+    // script and a programmatic value assignment fires neither on its own.
+    el.addEventListener('change', refreshCostFormula);
+});
+
+refreshCostFormula();
 
 // ---- Highlight duplicate SKU fields on validation error ----
 @if($errors->has('option_sku'))

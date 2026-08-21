@@ -123,7 +123,7 @@ class ProductFormSubmitPathTest extends TestCase
             'js-sku' => 'sku',
             'js-qty' => 'quantity',
             'js-price' => 'absolute_price',
-            'js-cost' => 'absolute_cost',
+            'js-cost' => 'cost_amount',
             'js-image' => 'image',
             'js-enabled' => 'status',
         ];

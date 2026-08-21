@@ -1042,13 +1042,20 @@ public function store(Request $request)
              * whole product rather than one per row. */
             $imageByPovId = [];
             $statusByPovId = [];
+            /* And the cost AMOUNT rides the same hop, for the same reason.
+             * product_option_value has a cost_amount column that no code has
+             * ever written to - every row in this catalogue holds 0 - so
+             * reading it would blank the column on every edit. The
+             * combination is where the number actually lives. */
+            $costAmountByPovId = [];
             $comboImages = DB::table('product_option_combinations as c')
                 ->join('product_option_combination_values as cv', 'cv.combination_id', '=', 'c.id')
                 ->where('c.product_id', (int) $id)
-                ->get(['cv.product_option_value_id', 'c.image', 'c.status']);
+                ->get(['cv.product_option_value_id', 'c.image', 'c.status', 'c.cost_amount']);
 
             foreach ($comboImages as $row) {
                 $statusByPovId[(int) $row->product_option_value_id] ??= (int) ($row->status ?? 1);
+                $costAmountByPovId[(int) $row->product_option_value_id] ??= (float) ($row->cost_amount ?? 0);
 
                 if (trim((string) ($row->image ?? '')) === '') {
                     continue;
@@ -1068,6 +1075,8 @@ public function store(Request $request)
                     $povId = (int) $value['product_option_value_id'];
                     $existingValuesByPoId[$poId][$i]['image'] = $imageByPovId[$povId] ?? '';
                     $existingValuesByPoId[$poId][$i]['status'] = $statusByPovId[$povId] ?? 1;
+                    $existingValuesByPoId[$poId][$i]['cost_amount'] = $costAmountByPovId[$povId]
+                        ?? (float) $value['absolute_cost'];
                 }
             }
 
@@ -1110,6 +1119,7 @@ public function store(Request $request)
                         'quantity' => (int) $combo->quantity,
                         'absolute_price' => (float) $combo->absolute_price,
                         'absolute_cost' => (float) $combo->absolute_cost,
+                        'cost_amount' => (float) ($combo->cost_amount ?? 0),
                     ];
                 }
             }
@@ -1655,6 +1665,56 @@ public function store(Request $request)
         }
     }
 
+    /**
+     * The parent's cost formula, in the two parts a variation inherits.
+     *
+     * A product composes its unit cost from a fixed amount, a share of the
+     * selling price, and an additional. Only the AMOUNT is a property of the
+     * particular variation - a commission percentage and inbound shipping
+     * describe how you buy and sell the product, not the size printed on the
+     * label - so the other two stay on the parent and reach every row.
+     *
+     * Read from the request first because the parent is being saved in the
+     * same submission, and the row in the database is still the old one at
+     * the point the variations are written. The fallback is for callers that
+     * touch variations without posting the parent's pricing fields.
+     *
+     * @return array{0: float, 1: float} [percentage, additional]
+     */
+    private function parentCostFormula(int $productId, Request $request): array
+    {
+        $pct = $request->has('cost_percentage') ? (float) $request->input('cost_percentage', 0) : null;
+        $add = $request->has('cost_additional') ? (float) $request->input('cost_additional', 0) : null;
+
+        if ($pct === null || $add === null) {
+            $row = DB::table(config('catalog.prefix') . 'product')
+                ->where('product_id', $productId)
+                ->first(['cost_percentage', 'cost_additional']);
+
+            $pct ??= (float) ($row->cost_percentage ?? 0);
+            $add ??= (float) ($row->cost_additional ?? 0);
+        }
+
+        return [$pct, $add];
+    }
+
+    /**
+     * What one variation actually costs, against its OWN selling price.
+     *
+     * The percentage is the reason this is computed per row rather than once
+     * for the product: a 2% commission on a 990 variation and on a 2,490 one
+     * are different amounts of money, and the whole point of an absolute
+     * price per variation is that they differ.
+     *
+     * Never taken from the client. The browser prints this figure so nobody
+     * saves a cost they have not seen, but the number that is stored is
+     * worked out here.
+     */
+    private function variationUnitCost(float $amount, float $price, float $pct, float $add): float
+    {
+        return round($amount + ($pct / 100 * $price) + $add, 4);
+    }
+
     private function saveAbsoluteOneOption(int $productId, Request $request, array &$skuChanges = []): void
     {
         $pfx = config('catalog.prefix');
@@ -1707,6 +1767,9 @@ public function store(Request $request)
          * every save would write null over whatever was there. */
         $imageByOptionValueId = [];
         $statusByOptionValueId = [];
+        $costAmountByOptionValueId = [];
+
+        [$parentPct, $parentAdd] = $this->parentCostFormula($productId, $request);
 
         foreach ($values as $v) {
             if (!is_array($v)) continue;
@@ -1726,6 +1789,13 @@ public function store(Request $request)
                 ? (int) (bool) $v['status']
                 : 1;
 
+            /* absolute_cost is the fallback so a payload written before the
+             * formula reached variations still lands somewhere sensible: the
+             * one number it carried was the cost, and the cost is now the
+             * amount. */
+            $costAmount = (float) ($v['cost_amount'] ?? $v['absolute_cost'] ?? 0);
+            $costAmountByOptionValueId[$optionValueId] = $costAmount;
+
             $data = [
                 'sku' => trim((string) ($v['sku'] ?? '')),
                 'quantity' => (int) ($v['quantity'] ?? 0),
@@ -1737,10 +1807,15 @@ public function store(Request $request)
                 'weight_prefix' => '+',
                 'cost' => 0,
                 'cost_prefix' => '+',
-                'cost_amount' => 0,
-                'cost_percentage' => 0,
-                'cost_additional' => 0,
-                'absolute_cost' => (float) ($v['absolute_cost'] ?? 0),
+                'cost_amount' => $costAmount,
+                'cost_percentage' => $parentPct,
+                'cost_additional' => $parentAdd,
+                'absolute_cost' => $this->variationUnitCost(
+                    $costAmount,
+                    (float) ($v['absolute_price'] ?? 0),
+                    $parentPct,
+                    $parentAdd
+                ),
             ];
 
             if (isset($existingPovs[$optionValueId])) {
@@ -1813,6 +1888,8 @@ public function store(Request $request)
         foreach ($povRows as $pov) {
             $image = $imageByOptionValueId[(int) $pov->option_value_id] ?? '';
             $status = $statusByOptionValueId[(int) $pov->option_value_id] ?? 1;
+            $costAmount = $costAmountByOptionValueId[(int) $pov->option_value_id]
+                ?? (float) ($pov->cost_amount ?? 0);
 
             $comboId = DB::table('product_option_combinations')->insertGetId([
                 'product_id' => $productId,
@@ -1821,6 +1898,7 @@ public function store(Request $request)
                 'image' => $image !== '' ? $image : null,
                 'quantity' => (int) $pov->quantity,
                 'absolute_price' => (float) ($pov->absolute_price ?? 0),
+                'cost_amount' => $costAmount,
                 'absolute_cost' => (float) ($pov->absolute_cost ?? 0),
                 'subtract' => 1,
                 'sort_order' => $sort++,
@@ -1877,6 +1955,8 @@ public function store(Request $request)
         $poId1 = $this->ensureProductOption($productId, $optionId1);
         $poId2 = $this->ensureProductOption($productId, $optionId2);
 
+        [$parentPct, $parentAdd] = $this->parentCostFormula($productId, $request);
+
         // Sync POV rows for each option (structural — pricing lives in combinations)
         $opt1PovMap = $this->syncOptionValues($productId, $optionId1, $poId1, $opt1ValueNames);
         $opt2PovMap = $this->syncOptionValues($productId, $optionId2, $poId2, $opt2ValueNames);
@@ -1906,14 +1986,23 @@ public function store(Request $request)
             // from product_option_value and needs the image mapped across.
             $image = trim((string) ($combo['image'] ?? ''));
 
+            $comboPrice = (float) ($combo['absolute_price'] ?? 0);
+            $comboCostAmount = (float) ($combo['cost_amount'] ?? $combo['absolute_cost'] ?? 0);
+
             $comboId = DB::table('product_option_combinations')->insertGetId([
                 'product_id' => $productId,
                 'sku' => trim((string) ($combo['sku'] ?? '')),
                 'status' => array_key_exists('status', $combo) ? (int) (bool) $combo['status'] : 1,
                 'image' => $image !== '' ? $image : null,
                 'quantity' => (int) ($combo['quantity'] ?? 0),
-                'absolute_price' => (float) ($combo['absolute_price'] ?? 0),
-                'absolute_cost' => (float) ($combo['absolute_cost'] ?? 0),
+                'absolute_price' => $comboPrice,
+                'cost_amount' => $comboCostAmount,
+                'absolute_cost' => $this->variationUnitCost(
+                    $comboCostAmount,
+                    $comboPrice,
+                    $parentPct,
+                    $parentAdd
+                ),
                 'subtract' => 1,
                 'sort_order' => $sort++,
                 'created_at' => $now,
