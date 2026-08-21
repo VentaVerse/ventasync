@@ -52,6 +52,9 @@ Route::prefix('catalog')->group(function () {
         Route::post('/products', [ProductController::class, 'store'])->name('products.store');
         Route::post('/products/bulk', [ProductController::class, 'bulkAction'])->name('products.bulk');
         Route::post('/products/check-skus', [ProductController::class, 'checkSkus'])->name('products.check_skus');
+        // Making a folder is a WRITE to the library, so it sits in the
+        // manage tier beside upload and delete rather than with browse.
+        Route::post('/products/images/folder', [ProductImageController::class, 'createFolder'])->name('products.images.create_folder');
         Route::get('/products/{id}/edit', [ProductController::class, 'edit'])->whereNumber('id')->name('products.edit');
         Route::put('/products/{id}', [ProductController::class, 'update'])->whereNumber('id')->name('products.update');
         Route::delete('/products/{id}', [ProductController::class, 'destroy'])->whereNumber('id')->name('products.destroy');

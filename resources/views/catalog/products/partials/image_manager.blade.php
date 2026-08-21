@@ -83,6 +83,9 @@
           <x-ui.icon name="upload" size="14" /> Upload files
         </x-ui.button>
         <x-ui.button type="button" size="sm" id="pimServerUrlBtn">Add from URL</x-ui.button>
+        <x-ui.button type="button" size="sm" id="pimNewFolderBtn">
+          <x-ui.icon name="folder" size="14" /> New folder
+        </x-ui.button>
         <input type="text" id="pimServerSearch" class="x-input fm-pick__search"
                placeholder="Search all images and folders" aria-label="Search all images and folders">
         <div class="x-select-wrap">
@@ -94,6 +97,16 @@
           </select>
           <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
         </div>
+      </div>
+
+      {{-- Naming a folder, inline. Not a prompt(): this project does not use
+           native dialogs, and a prompt cannot show the error the server sends
+           back when a name collides or carries an illegal character. --}}
+      <div class="fm-pick__tools d-none" id="pimFolderRow">
+        <input type="text" id="pimFolderName" class="x-input fm-pick__search"
+               aria-label="New folder name" placeholder="Folder name" autocomplete="off" maxlength="64">
+        <x-ui.button type="button" size="sm" variant="primary" id="pimFolderGo">Create</x-ui.button>
+        <x-ui.button type="button" size="sm" id="pimFolderCancel">Cancel</x-ui.button>
       </div>
 
       {{-- Paste an image address here instead of a browser prompt(). Same
@@ -584,6 +597,7 @@
 
   if (serverUrlBtn) {
     serverUrlBtn.addEventListener('click', () => {
+      folderRow.classList.add('d-none');
       urlRow.classList.remove('d-none');
       urlInput.value = '';
       urlInput.focus();
@@ -772,6 +786,79 @@
       e.preventDefault();
       first.focus();
     }
+  });
+
+  /* Making a folder.
+     ------------------------------------------------------------------
+     It lands in whatever folder you are currently looking at, which is the
+     only place it could mean anything, and the library reloads there so the
+     new folder is visible rather than merely reported. */
+  const newFolderBtn = document.getElementById('pimNewFolderBtn');
+  const folderRow = document.getElementById('pimFolderRow');
+  const folderName = document.getElementById('pimFolderName');
+  const folderGo = document.getElementById('pimFolderGo');
+  const folderCancel = document.getElementById('pimFolderCancel');
+
+  function closeFolderRow() {
+    folderRow.classList.add('d-none');
+    folderName.value = '';
+  }
+
+  async function createFolder() {
+    const name = (folderName.value || '').trim();
+    if (!name) {
+      folderName.focus();
+      return;
+    }
+
+    folderGo.disabled = true;
+
+    try {
+      const resp = await fetch(@json(route('products.images.create_folder')), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': csrf,
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: JSON.stringify({ path: currentServerPath || '', name: name }),
+      });
+
+      const data = await resp.json().catch(() => ({}));
+
+      if (!resp.ok || !data.ok) {
+        // The server's own words: it knows whether the name collided, held a
+        // slash, or was refused for a character this library cannot address.
+        showToast(data.message || 'The folder could not be created.', 'error');
+        folderName.focus();
+        folderName.select();
+        return;
+      }
+
+      closeFolderRow();
+      showToast('Folder created');
+      await loadServerDir(currentServerPath || '');
+    } finally {
+      folderGo.disabled = false;
+    }
+  }
+
+  if (newFolderBtn) {
+    newFolderBtn.addEventListener('click', () => {
+      urlRow.classList.add('d-none');
+      folderRow.classList.remove('d-none');
+      folderName.focus();
+    });
+  }
+
+  folderGo.addEventListener('click', createFolder);
+  folderCancel.addEventListener('click', closeFolderRow);
+
+  folderName.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); createFolder(); }
+    // Escape closes the row, not the whole dialog behind it.
+    if (e.key === 'Escape') { e.stopPropagation(); closeFolderRow(); }
   });
 
   // Dialog close

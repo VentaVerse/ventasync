@@ -316,6 +316,11 @@
     },
     {
         "method": "POST",
+        "uri": "catalog/products/images/folder",
+        "name": "products.images.create_folder"
+    },
+    {
+        "method": "POST",
         "uri": "catalog/products/images/import-url",
         "name": "products.images.import_url"
     },

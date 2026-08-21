@@ -790,6 +790,69 @@ class ProductImageController extends Controller
         }
     }
 
+
+    /**
+     * Create one folder inside the catalogue library.
+     *
+     * The library has always HAD folders - 240 of them - and no way to make
+     * one: a directory only came into being as a side effect of an upload
+     * landing in it. So "organise your images yourself" was advice about a
+     * capability that did not exist, and the only filing anyone could do was
+     * whatever the manufacturer gate did for them. Retiring that gate without
+     * this would have left people with no way to organise anything.
+     *
+     * ONE LEVEL, INSIDE THE CURRENT FOLDER. The name is a single segment: it
+     * may not contain a slash, so this cannot create a tree, walk up out of
+     * the library, or be talked into a path by a crafted name. Nesting is
+     * done by making a folder and then going into it, which is also how a
+     * person thinks about it.
+     */
+    public function createFolder(Request $request)
+    {
+        $request->validate([
+            'path' => 'nullable|string|max:255',
+            'name' => 'required|string|max:64',
+        ]);
+
+        $parent = $this->normalizeCatalogSubPath((string) $request->input('path', ''));
+        $name = trim((string) $request->input('name'));
+
+        // A single segment. Not a path, not a traversal, not a hidden file.
+        if ($name === '' || str_contains($name, '/') || str_contains($name, '\\')) {
+            return response()->json(['ok' => false, 'message' => 'A folder name cannot contain a slash.'], 422);
+        }
+
+        if (str_starts_with($name, '.')) {
+            return response()->json(['ok' => false, 'message' => 'A folder name cannot start with a dot.'], 422);
+        }
+
+        // The same character set the rest of the library is addressed by, so
+        // a folder made here is always reachable by browse and by search.
+        if (! preg_match("#^[A-Za-z0-9_\- .&']+$#", $name)) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Use letters, numbers, spaces, and - _ . & only.',
+            ], 422);
+        }
+
+        $rel = ($parent !== '' ? $parent.'/' : '').$name;
+        $dir = 'catalog/'.$rel;
+
+        $disk = Storage::disk('public');
+
+        if ($disk->exists($dir)) {
+            return response()->json(['ok' => false, 'message' => 'A folder called "'.$name.'" is already here.'], 422);
+        }
+
+        $disk->makeDirectory($dir);
+
+        if (! $disk->exists($dir)) {
+            return response()->json(['ok' => false, 'message' => 'The folder could not be created.'], 500);
+        }
+
+        return response()->json(['ok' => true, 'path' => $rel, 'name' => $name]);
+    }
+
     public function browse(Request $request)
     {
         $request->validate([
