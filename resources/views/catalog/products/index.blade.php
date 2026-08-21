@@ -87,15 +87,25 @@
                  class="flex flex-wrap items-center gap-2 border-y border-rule-2 bg-attn-wash px-gutter py-2.5">
                 <span class="text-[13px] font-semibold">
                     <span x-text="selected.length"></span> selected
+                    {{-- Selection is page-scoped and never said so: "50
+                         selected" out of 2,081 across 42 pages reads as the
+                         whole catalogue. --}}
+                    <span class="text-ink-3 font-normal"
+                          x-show="selected.length === ids.length && ids.length > 0">on this page</span>
                 </span>
                 <div class="ml-auto flex gap-1.5">
                     <button type="button" class="bl-btn bl-btn-sm"
                             @click="$refs.bulkAction.value = 'enable'; $refs.bulkForm.requestSubmit()">Enable</button>
                     <button type="button" class="bl-btn bl-btn-sm"
                             @click="$refs.bulkAction.value = 'disable'; $refs.bulkForm.requestSubmit()">Disable</button>
+                    {{-- The dialog names the count. Without it, "Delete the
+                         selected products?" reads identically whether you
+                         ticked one row or hit Select all and took 50, and
+                         Select all is one click away from this button. Bound
+                         with :data-confirm so it follows the selection. --}}
                     <button type="button" class="bl-btn bl-btn-sm x-btn--danger"
                             @click="$refs.bulkAction.value = 'delete'"
-                            data-confirm="Delete the selected products? This cannot be undone."
+                            :data-confirm="'Delete ' + selected.length + (selected.length === 1 ? ' product' : ' products') + '? This cannot be undone.'"
                             data-confirm-submit="product-bulk-form">Delete</button>
                 </div>
             </div>

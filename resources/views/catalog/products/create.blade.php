@@ -47,7 +47,7 @@
 
                 <div class="fm-fields">
                     <x-ui.field label="Manufacturer" for="manufacturer_search" name="manufacturer_name"
-                                hint="Type to search, then pick from the list. Images are filed under the manufacturer, so this has to be set before you can add any."
+                                hint="Type to search, then pick from the list. Used on marketplace listings."
                                 wide>
                         <div class="fm-ta">
                         <x-ui.input id="manufacturer_search" name="manufacturer_name" autocomplete="off"

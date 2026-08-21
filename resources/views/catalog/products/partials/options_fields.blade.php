@@ -361,6 +361,11 @@ function saveTableToState() {
             if (skuInput) opt1Values[i].sku = skuInput.value;
             const imgInput = row.querySelector('.js-image');
             if (imgInput) opt1Values[i].image = imgInput.value;
+            // Still legacy only while it is still blank. Type a SKU and the
+            // row stops being one; clear it again and it goes back to being
+            // a record that never had one, which is the truth either way.
+            opt1Values[i].legacyBlankSku = !!(skuInput && skuInput.dataset.legacyBlank)
+                && !(skuInput.value || '').trim();
             const qtyInput = row.querySelector('.js-qty');
             if (qtyInput) opt1Values[i].quantity = parseInt(qtyInput.value || '0', 10);
             const priceInput = row.querySelector('.js-price');
@@ -372,8 +377,10 @@ function saveTableToState() {
         $tbody.querySelectorAll('tr').forEach(row => {
             const key = row.dataset.comboKey;
             if (!key) return;
+            const comboSku = row.querySelector('.js-sku');
             comboData[key] = {
-                sku: row.querySelector('.js-sku').value || '',
+                sku: comboSku.value || '',
+                legacyBlankSku: !!comboSku.dataset.legacyBlank && !(comboSku.value || '').trim(),
                 image: (row.querySelector('.js-image') || {}).value || '',
                 quantity: parseInt(row.querySelector('.js-qty').value || '0', 10),
                 absolute_price: parseFloat(row.querySelector('.js-price').value || '0'),
@@ -452,7 +459,11 @@ function buildHeaderRow(is2) {
        are the same on every line and that nobody can act on here.
        That width is what pays for the image. */
     tr.appendChild(th('fm-vcol-img', 'Image'));
-    tr.appendChild(th('fm-vcol-act', ''));
+    /* Named, not empty. A header with no text is a column a screen reader
+       cannot announce; the other six all say what they are. */
+    const thAct = th('fm-vcol-act', '');
+    thAct.appendChild(createEl('span', { className: 'x-sr' }, 'Row actions'));
+    tr.appendChild(thAct);
     return tr;
 }
 
@@ -587,8 +598,10 @@ function buildComboRow(i1, i2, v1Name, v2Name, data) {
     const rowName = [v1Name, v2Name].filter(Boolean).join(', ');
 
     const tdSku   = document.createElement('td');
-    tdSku.appendChild(createInput('js-sku', 'text', data.sku,
-        { 'aria-label': labelFor('SKU', rowName, i1) }));
+    const skuCombo = createInput('js-sku', 'text', data.sku,
+        { 'aria-label': labelFor('SKU', rowName, i1) });
+    if (data.legacyBlankSku) skuCombo.dataset.legacyBlank = '1';
+    tdSku.appendChild(skuCombo);
     tr.appendChild(tdSku);
 
     const tdQty   = document.createElement('td');
@@ -631,8 +644,10 @@ function buildOneOptRow(v, idx) {
     tr.appendChild(tdName);
 
     const tdSku = document.createElement('td');
-    tdSku.appendChild(createInput('js-sku', 'text', v.sku || '',
-        { 'aria-label': labelFor('SKU', v.name, idx) }));
+    const skuOne = createInput('js-sku', 'text', v.sku || '',
+        { 'aria-label': labelFor('SKU', v.name, idx) });
+    if (v.legacyBlankSku) skuOne.dataset.legacyBlank = '1';
+    tdSku.appendChild(skuOne);
     tr.appendChild(tdSku);
 
     const tdQty = document.createElement('td');
@@ -808,14 +823,41 @@ document.getElementById('add-option-btn').addEventListener('click', () => {
 });
 
 document.getElementById('remove-opt1-btn').addEventListener('click', () => {
-    opt1Values = [];
-    opt2Values = [];
-    comboData = {};
-    renderOpt1List();
-    renderOpt2List();
-    $opt1Name.value = '';
-    $opt2Name.value = '';
-    setMode('none');
+    /* THE DESTRUCTIVE CONTROL ASKS, AND THE SAFE ONE ALREADY DID.
+     *
+     * This wipes every value, every combination and every SKU, quantity,
+     * price and image attached to them, in one click, with no undo anywhere
+     * on this form - while "Second variation", which destroys nothing, opened
+     * a carefully written dialog. That is a precise inversion of risk, and
+     * Remove is the control a person reaches for to BACK OUT of a mistake.
+     *
+     * The count comes from the grid rather than a generic warning, because
+     * "10 combinations" is the fact that decides whether you meant it. */
+    const wipe = () => {
+        opt1Values = [];
+        opt2Values = [];
+        comboData = {};
+        renderOpt1List();
+        renderOpt2List();
+        $opt1Name.value = '';
+        $opt2Name.value = '';
+        setMode('none');
+    };
+
+    const rows = $tbody.querySelectorAll('tr').length;
+
+    if (rows === 0 || typeof window.confirmModal !== 'function') {
+        wipe();
+        return;
+    }
+
+    const label = ($opt1Name.value || '').trim() || 'this variation';
+
+    window.confirmModal(
+        'Remove ' + label + '? Its ' + rows + (rows === 1 ? ' row' : ' rows')
+        + ', with their SKUs, stock, prices and images, are deleted when you save.',
+        document.getElementById('remove-opt1-btn')
+    ).then((ok) => { if (ok) wipe(); });
 });
 
 document.getElementById('add-opt2-btn').addEventListener('click', () => {
@@ -847,6 +889,28 @@ document.getElementById('add-opt2-btn').addEventListener('click', () => {
 });
 
 document.getElementById('remove-opt2-btn').addEventListener('click', () => {
+    /* Removing the second axis keeps column one and discards every other
+       combination - real data, silently, with no undo. It asks too, and it
+       names what survives as well as what does not, because "the first column
+       is kept" is the difference between a mistake and a decision. */
+    const dropped = Math.max(0, $tbody.querySelectorAll('tr').length - opt1Values.length);
+
+    if (dropped > 0 && typeof window.confirmModal === 'function') {
+        const label = ($opt2Name.value || '').trim() || 'the second variation';
+
+        window.confirmModal(
+            'Remove ' + label + '? The first column keeps its SKUs, stock and prices; '
+            + dropped + (dropped === 1 ? ' other combination is' : ' other combinations are')
+            + ' deleted when you save.',
+            document.getElementById('remove-opt2-btn')
+        ).then((ok) => { if (ok) removeSecondAxis(); });
+        return;
+    }
+
+    removeSecondAxis();
+});
+
+function removeSecondAxis() {
     saveTableToState();
     /* Carry the first combination column back to the single axis.
      *
@@ -883,7 +947,7 @@ document.getElementById('remove-opt2-btn').addEventListener('click', () => {
     $opt2Name.value = '';
     comboData = {};
     setMode('one');
-});
+}
 
 $addRowBtn.addEventListener('click', () => {
     saveTableToState();
@@ -938,6 +1002,16 @@ if (form) {
         $optError.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
+    /* A notice, not an error: same place, different weight, and it never
+       stops a submit. showOptError scrolls the block into view because it is
+       blocking; this one does not, because the save is already on its way. */
+    function showOptNotice(message) {
+        $optError.textContent = '';
+        const div = createEl('div', { className: 'fm-note--soft' }, message);
+        $optError.appendChild(div);
+        $optError.classList.remove('d-none');
+    }
+
     function clearOptError() {
         $optError.textContent = '';
         $optError.classList.add('d-none');
@@ -966,7 +1040,16 @@ if (form) {
 
         if (form.requestSubmit) {
             form._optionsValidated = true;
-            form.requestSubmit();
+
+            /* Out of the current event dispatch first.
+               requestSubmit() is specified to do NOTHING while the form is
+               already firing submission events, and one of the three exits
+               here is synchronous - it runs inside the very submit handler
+               that is calling it. That path silently stopped submitting the
+               moment this switched from form.submit(), which does not care.
+               It only surfaced once legacy rows were allowed through
+               validation and could reach the synchronous exit at all. */
+            setTimeout(() => form.requestSubmit(), 0);
             return;
         }
 
@@ -1049,6 +1132,7 @@ if (form) {
         }
 
         const skuInputMap = {};
+        let legacyBlankCount = 0;
         $tbody.querySelectorAll('tr').forEach(row => {
             const nameInput = row.querySelector('.js-value-name');
             const skuInput = row.querySelector('.js-sku');
@@ -1060,9 +1144,26 @@ if (form) {
                 if (!firstBadInput) firstBadInput = nameInput;
             }
 
+            /* A MISSING SKU IS ONLY AN ERROR ON A ROW SOMEBODY IS MAKING.
+             *
+             * This used to mark every blank SKU red and refuse the save, so a
+             * product imported in 2017 without variation SKUs could not be
+             * saved at all - open it to change one price and five fields you
+             * never touched hold the form hostage, on a rule the server never
+             * applied when the record was written. On a six-by-eight product
+             * that is 48 SKUs invented before you can fix a typo.
+             *
+             * It also contradicted the rest of the form, where SKU is
+             * deliberately optional. A row that ARRIVED blank keeps its right
+             * to be blank; a row being created now does not, because that is
+             * the moment the operator can actually supply one. */
             if (skuInput && !sku) {
-                skuInput.classList.add('input-error');
-                if (!firstBadInput) firstBadInput = skuInput;
+                if (skuInput.dataset.legacyBlank) {
+                    legacyBlankCount++;
+                } else {
+                    skuInput.classList.add('input-error');
+                    if (!firstBadInput) firstBadInput = skuInput;
+                }
             }
 
             if (sku) {
@@ -1087,13 +1188,25 @@ if (form) {
             errors.unshift('All variation values must have a name.');
         }
         if ($tbody.querySelectorAll('.js-sku.input-error').length > 0 && !errors.some(e => e.includes('SKU'))) {
-            errors.push('All variation values must have a SKU.');
+            const missing = $tbody.querySelectorAll('.js-sku.input-error').length;
+            errors.push(missing === 1
+                ? 'One new variation needs a SKU.'
+                : missing + ' new variations need a SKU.');
         }
 
         if (errors.length > 0) {
             showOptError(errors);
             if (firstBadInput) firstBadInput.focus();
             return;
+        }
+
+        /* Said once, and not in the way of the save. These rows are going to
+           the marketplaces without an identifier, which is worth knowing and
+           is not a reason to refuse the edit somebody actually came to make. */
+        if (legacyBlankCount > 0) {
+            showOptNotice(legacyBlankCount === 1
+                ? 'One variation has no SKU. It will not map to a marketplace listing.'
+                : legacyBlankCount + ' variations have no SKU. They will not map to marketplace listings.');
         }
 
         // AJAX cross-product SKU uniqueness check
@@ -1143,6 +1256,11 @@ if (EXISTING_OPTION) {
             name: v.option_value_name || v.name,
             option_value_id: v.option_value_id,
             sku: v.sku || '',
+            /* This row came from the database. If it arrived without a SKU,
+               it is a legacy record, not something the operator left blank -
+               see the validation below, which refuses to hold a save hostage
+               to fields nobody touched. */
+            legacyBlankSku: !String(v.sku || '').trim(),
             image: v.image || '',
             quantity: v.quantity || 0,
             absolute_price: parseFloat(v.absolute_price) || 0,
@@ -1167,6 +1285,7 @@ if (EXISTING_OPTION) {
                 if (i1 >= 0 && i2 >= 0) {
                     comboData[comboKey(i1, i2)] = {
                         sku: c.sku || '',
+                        legacyBlankSku: !String(c.sku || '').trim(),
                         image: c.image || '',
                         quantity: c.quantity || 0,
                         absolute_price: parseFloat(c.absolute_price) || 0,

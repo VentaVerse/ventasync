@@ -952,8 +952,19 @@
        A fixed square is what a file browser wants: the cell is about finding
        the picture, not about displaying it, and equal cells are what make a
        grid scannable. */
-    .fm-pick__item {
+    /* The cell owns the positioning context, because the delete control is
+       now a SIBLING of the tile rather than a child of it - a button cannot
+       legally contain another button, and the accessibility tree showed the
+       cost: the tile's name swallowed the delete button's label. */
+    .fm-pick__cell {
         position: relative;
+        display: flex;
+        min-width: 0;
+    }
+
+    .fm-pick__cell > .fm-pick__item { flex: 1 1 auto; min-width: 0; }
+
+    .fm-pick__item {
         display: flex;
         flex-direction: column;
         gap: 5px;
@@ -1058,7 +1069,7 @@
         transition: opacity var(--bl-motion-fast);
     }
 
-    .fm-pick__item:hover .fm-pick__del,
+    .fm-pick__cell:hover .fm-pick__del,
     .fm-pick__del:focus-visible {
         opacity: 1;
     }
@@ -1312,58 +1323,7 @@
        These rules only remove its chrome so the editor sits on the page as
        another ruled field rather than as a widget from another design.
        ------------------------------------------------------------ */
-    .fm-page .note-editor.note-frame {
-        margin: 0;
-        border: 1px solid var(--bl-rule-2);
-        border-radius: var(--bl-r-ctrl);
-        background: var(--bl-sheet);
-    }
 
-    .fm-page .note-editor .note-toolbar {
-        padding: 4px 6px;
-        border-bottom: 1px solid var(--bl-rule);
-        background: var(--bl-chrome);
-    }
-
-    .fm-page .note-editor .note-btn {
-        border: 1px solid transparent;
-        border-radius: var(--bl-r-ctrl);
-        background: none;
-        color: var(--bl-ink-2);
-    }
-
-    .fm-page .note-editor .note-btn:hover,
-    .fm-page .note-editor .note-btn.active {
-        border-color: var(--bl-rule-2);
-        background: var(--bl-sheet);
-        color: var(--bl-ink);
-    }
-
-    .fm-page .note-editor .note-editable {
-        min-height: 180px;
-        padding: 12px 14px;
-        background: var(--bl-sheet);
-        color: var(--bl-ink);
-        font-family: var(--font-sans);
-        font-size: 13.5px;
-        line-height: 1.55;
-    }
-
-    .fm-page .note-editor .note-placeholder {
-        padding: 12px 14px;
-        color: var(--bl-ink-3);
-    }
-
-    .fm-page .note-editor .note-statusbar {
-        border-top: 1px solid var(--bl-rule);
-        background: var(--bl-chrome);
-    }
-
-    .fm-page .note-editor .note-codable {
-        background: var(--bl-chrome);
-        color: var(--bl-ink);
-        font-family: var(--font-mono);
-    }
 
     /* ------------------------------------------------------------
        Shared display components
@@ -4837,4 +4797,73 @@
 .note-editor .note-editing-area .note-editable:focus-visible {
     outline: 2px solid var(--bl-brand-deep);
     outline-offset: -2px;
+}
+
+
+/* THE EDITOR CHROME, LIFTED OUT OF @layer components.
+   ------------------------------------------------------------------
+   These rules never applied. They sat inside @layer components while
+   Summernote's stylesheet is pushed from a CDN unlayered - and unlayered CSS
+   beats every layer, regardless of specificity or source order. Measured
+   before the move: the toolbar computed #f5f5f5 in BOTH themes against
+   --bl-chrome values of #f5f8fc and #0d1424, so in dark it was the brightest
+   object on the page and it was a toolbar.
+
+   Light theme is why nobody caught it: #f5f5f5 against #f5f8fc is a
+   difference of three units, so the rules looked like they worked.
+
+   The focus ring further down this file has always been at file scope, which
+   is why that one does work. Same lesson, applied properly this time: a rule
+   competing with an unlayered vendor sheet cannot live in a layer. */
+.fm-page .note-editor.note-frame {
+    margin: 0;
+    border: 1px solid var(--bl-rule-2);
+    border-radius: var(--bl-r-ctrl);
+    background: var(--bl-sheet);
+}
+
+.fm-page .note-editor .note-toolbar {
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--bl-rule);
+    background: var(--bl-chrome);
+}
+
+.fm-page .note-editor .note-btn {
+    border: 1px solid transparent;
+    border-radius: var(--bl-r-ctrl);
+    background: none;
+    color: var(--bl-ink-2);
+}
+
+.fm-page .note-editor .note-btn:hover,
+.fm-page .note-editor .note-btn.active {
+    border-color: var(--bl-rule-2);
+    background: var(--bl-sheet);
+    color: var(--bl-ink);
+}
+
+.fm-page .note-editor .note-editable {
+    min-height: 180px;
+    padding: 12px 14px;
+    background: var(--bl-sheet);
+    color: var(--bl-ink);
+    font-family: var(--font-sans);
+    font-size: 13.5px;
+    line-height: 1.55;
+}
+
+.fm-page .note-editor .note-placeholder {
+    padding: 12px 14px;
+    color: var(--bl-ink-3);
+}
+
+.fm-page .note-editor .note-statusbar {
+    border-top: 1px solid var(--bl-rule);
+    background: var(--bl-chrome);
+}
+
+.fm-page .note-editor .note-codable {
+    background: var(--bl-chrome);
+    color: var(--bl-ink);
+    font-family: var(--font-mono);
 }

@@ -34,8 +34,17 @@ class ProductFormSubmitPathTest extends TestCase
     {
         $source = $this->optionsSource();
 
-        $this->assertStringContainsString('form.requestSubmit();', $source,
+        $this->assertStringContainsString('form.requestSubmit()', $source,
             'requestSubmit fires the submit event; form.submit() does not');
+
+        /* And it has to leave the current dispatch first. requestSubmit() is
+           specified to do NOTHING while the form is already firing
+           submission events, and one of this listener's three exits is
+           synchronous - it runs inside the very handler calling it. That
+           path silently stopped submitting when this moved off form.submit(),
+           and stayed hidden until legacy rows could reach it. */
+        $this->assertStringContainsString('setTimeout(() => form.requestSubmit(), 0);', $source,
+            'a synchronous requestSubmit inside the submit handler is a no-op');
 
         // One way out, so a later edit cannot reintroduce a direct submit at
         // one of the three exits this listener has.

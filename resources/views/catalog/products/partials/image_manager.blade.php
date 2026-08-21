@@ -307,7 +307,38 @@
     syncHidden();
   }
 
+  /* One drawn cross, for both grids. The product grid built its own inline
+     and the picker was still typing a multiplication sign. */
+  function closeIcon() {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', '13');
+    svg.setAttribute('height', '13');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2.5');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('aria-hidden', 'true');
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'M18 6 6 18M6 6l12 12');
+    svg.appendChild(path);
+
+    return svg;
+  }
+
   function buildFileCard(f) {
+    /* A CELL WRAPPING TWO SIBLING BUTTONS, not a button inside a button.
+       ------------------------------------------------------------------
+       The delete control used to be a child of the tile, which is invalid -
+       a button permits no interactive descendant - and Chrome's own
+       accessibility tree showed what it costs: the SELECT action's name
+       absorbed the delete label, so the filename was announced twice and the
+       word "Delete" was read as part of the name of the control that picks
+       the image. Two actions, two siblings, two names. */
+    const cell = document.createElement('div');
+    cell.className = 'fm-pick__cell';
+
     const card = document.createElement('button');
     card.type = 'button';
     card.className = 'fm-pick__item';
@@ -355,10 +386,14 @@
       }
     });
 
+    cell.appendChild(card);
+
     const del = document.createElement('button');
     del.type = 'button';
     del.className = 'fm-pick__del';
-    del.textContent = '×';
+    // Drawn, not typed. The craft floor bans a glyph standing in for an icon,
+    // and the product grid 200 lines up was already fixed; this was missed.
+    del.appendChild(closeIcon());
     del.setAttribute('aria-label', 'Delete ' + (f.name || 'image') + ' from the server');
     del.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -378,9 +413,9 @@
         showToast('Deleted');
       });
     });
-    card.appendChild(del);
+    cell.appendChild(del);
 
-    return card;
+    return cell;
   }
 
   function buildFolderCard(d) {
@@ -447,8 +482,20 @@
     const u = new URL(@json(route('products.images.browse')), window.location.origin);
     if (currentServerPath) u.searchParams.set('path', currentServerPath);
 
-    const resp = await fetch(u.toString(), {headers: {'X-CSRF-TOKEN': csrf, 'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest'}});
-    const data = await resp.json().catch(() => ({}));
+    let data = null;
+    try {
+      const resp = await fetch(u.toString(), {headers: {'X-CSRF-TOKEN': csrf, 'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest'}});
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      data = await resp.json();
+    } catch (e) {
+      /* A REQUEST THAT FAILED IS NOT AN EMPTY FOLDER. Both of these used to
+         swallow the error and render "Nothing in this folder", which is a
+         false statement made with total confidence - and it looks exactly
+         like a folder you have already emptied. */
+      serverEmpty.textContent = 'The library could not be reached. Check your connection and try again.';
+      serverEmpty.classList.remove('d-none');
+      return;
+    }
 
     cachedServerFolders = (data && data.folders) ? data.folders : [];
     cachedServerFiles = (data && data.files) ? data.files : [];
@@ -500,6 +547,15 @@
     // stranding it on a button that is no longer on screen.
     pickReturnFocus = document.activeElement;
     modal.classList.add('active');
+
+    /* Lock the page behind the dim. Wheeling over the backdrop scrolled the
+       form underneath - measured, 924 to 981 - so the thing you came back to
+       was not the thing you left. The scrollbar's width is replaced as
+       padding so the page does not jump sideways as it locks. */
+    const barWidth = window.innerWidth - document.documentElement.clientWidth;
+    document.body.dataset.pimPadding = document.body.style.paddingRight || '';
+    document.body.style.overflow = 'hidden';
+    if (barWidth > 0) document.body.style.paddingRight = barWidth + 'px';
 
     // Into the dialog, on the first thing in it. Not the Close button: that
     // is the way out, and opening a file browser with the exit selected reads
@@ -676,10 +732,18 @@
     const u = new URL(@json(route('products.images.browse')), window.location.origin);
     u.searchParams.set('q', query);
 
-    const resp = await fetch(u.toString(), {
-      headers: {'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
-    });
-    const data = await resp.json().catch(() => ({}));
+    let data = null;
+    try {
+      const resp = await fetch(u.toString(), {
+        headers: {'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+      });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      data = await resp.json();
+    } catch (e) {
+      serverEmpty.textContent = 'The search could not be run. Check your connection and try again.';
+      serverEmpty.classList.remove('d-none');
+      return;
+    }
 
     // A slower earlier request must not overwrite a newer answer.
     if ((serverSearch.value || '').trim() !== query) return;
@@ -758,6 +822,10 @@
   function closeModal() {
     pickOne = null;
     modal.classList.remove('active');
+
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = document.body.dataset.pimPadding || '';
+    delete document.body.dataset.pimPadding;
 
     if (pickReturnFocus && typeof pickReturnFocus.focus === 'function') {
       pickReturnFocus.focus();
