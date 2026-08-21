@@ -27,12 +27,20 @@
 .x-segment {
     display: flex;
     align-items: center;
-    gap: 2px;
+    /* Enough air to read as separate objects, not enough to stop reading as
+       one control. Below about 5px a row of bordered pills reads as a table
+       of cells; above about 10px it stops being a segmented control at all. */
+    gap: 6px;
     min-width: 0;
+    background: transparent;
+    border: 0;
+    /* Not a trough. This is room for the FOCUS RING.
+       The strip clips on the y axis so it can never grow a second row, and
+       the ring is a 2px outline at a 1px offset - so with the padding gone
+       along with the trough, a keyboard user tabbing across the tabs would
+       have watched it get shaved off at the top and bottom. Three pixels is
+       exactly the ring's reach. */
     padding: 3px;
-    background: var(--bl-chrome);
-    border: 1px solid var(--bl-rule);
-    border-radius: var(--bl-r-ctrl);
 
     /* Setting one axis to a non-visible value forces the other to auto per
        the CSS Overflow spec. Declaring it keeps the clipping deliberate:
@@ -45,74 +53,24 @@
 
 .x-segment::-webkit-scrollbar { display: none; }
 
-/* THE STRIP SAYS WHEN IT HAS MORE.
+/* THE EDGE FADE IS GONE, AND THE BORDERS REPLACED IT.
  *
- * Seven filters do not fit a 390px phone, and the trough hides its scrollbar
- * on purpose, so the four tabs past the right edge were reachable but
- * unadvertised - an operator on the floor saw All / To Ship / Shipped and had
- * no reason to believe Cancelled or Returns were anywhere on the screen.
+ * A four-layer background trick used to darken whichever edge still had
+ * content behind it - two shadows fixed to the viewport, two opaque covers
+ * scrolling with the content, so the browser's own scroll position did the
+ * work with no resize listener. It was a good mechanism and it is not needed
+ * any more.
  *
- * The two shadows scroll with the viewport; the two covers scroll with the
- * content (background-attachment: local). At rest the left cover sits exactly
- * over the left shadow and hides it, and once the content scrolls the cover
- * travels away and the shadow appears. The right pair does the same in
- * reverse. The result is an edge that darkens only in the direction there is
- * something left to reach, worked out by the browser's own scroll position
- * rather than by a resize listener.
+ * Now that every tab carries its own border, a tab cut off by the trough
+ * edge is visibly a cut-off tab: you can see a border enter and not leave.
+ * The separation does the job the fade was doing, and it does it without
+ * painting a gradient over live content. The owner asked for the gradient gone;
+ * this is what makes that safe rather than a loss.
  *
- * The covers must be opaque and must match the trough, hence painting
- * --bl-chrome as both the colour and the two cover gradients. */
-.x-segment {
-    background-color: var(--bl-chrome);
-    background-image:
-        linear-gradient(to right, rgba(15, 23, 42, .16), rgba(15, 23, 42, 0)),
-        linear-gradient(to left,  rgba(15, 23, 42, .16), rgba(15, 23, 42, 0)),
-        linear-gradient(to right, var(--bl-chrome), var(--bl-chrome)),
-        linear-gradient(to left,  var(--bl-chrome), var(--bl-chrome));
-    background-position: left center, right center, left center, right center;
-    background-repeat: no-repeat;
-    background-size: 16px 100%, 16px 100%, 20px 100%, 20px 100%;
-    background-attachment: scroll, scroll, local, local;
-}
-
-/* On a dark sheet a black shadow is invisible, so the edge lightens instead.
-   Same four layers, same mechanism, inverted ink. */
-[data-theme='dark'] .x-segment {
-    background-image:
-        linear-gradient(to right, rgba(255, 255, 255, .14), rgba(255, 255, 255, 0)),
-        linear-gradient(to left,  rgba(255, 255, 255, .14), rgba(255, 255, 255, 0)),
-        linear-gradient(to right, var(--bl-chrome), var(--bl-chrome)),
-        linear-gradient(to left,  var(--bl-chrome), var(--bl-chrome));
-}
-
-/* THE SUB LEVEL KEEPS THE AFFORDANCE, because it can now overflow.
- *
- * It used to opt out, on the stated reasoning that it "never overflows - it
- * carries two items". That was true when its items were 30px tall and 12.5px,
- * and stopped being true the moment they were promoted to 42px and 14.5px
- * with wider padding: Lazada carries THREE sub steps, and at 390px they
- * measure 485px inside a 328px trough, hiding To Handover almost entirely.
- *
- * The promotion was right and the opt-out was a leftover from before it. The
- * strip that matters most on the smallest screen was the one strip with no
- * way to say it had more to the right. It uses the same four-layer mechanism
- * as its parent, redeclared here because .x-segment--sub sets its own ground
- * below and the shorthand would otherwise wipe the layers. */
-.x-segment--sub {
-    background-image:
-        linear-gradient(to right, rgba(15, 23, 42, .16), rgba(15, 23, 42, 0)),
-        linear-gradient(to left,  rgba(15, 23, 42, .16), rgba(15, 23, 42, 0)),
-        linear-gradient(to right, var(--bl-chrome), var(--bl-chrome)),
-        linear-gradient(to left,  var(--bl-chrome), var(--bl-chrome));
-}
-
-[data-theme='dark'] .x-segment--sub {
-    background-image:
-        linear-gradient(to right, rgba(255, 255, 255, .14), rgba(255, 255, 255, 0)),
-        linear-gradient(to left,  rgba(255, 255, 255, .14), rgba(255, 255, 255, 0)),
-        linear-gradient(to right, var(--bl-chrome), var(--bl-chrome)),
-        linear-gradient(to left,  var(--bl-chrome), var(--bl-chrome));
-}
+ * The trough went with it. A container drawn around a row of already-bordered
+ * pills is a box inside a box - the ground, the ring and the padding were all
+ * saying "these belong together", which is now said by the fact that they sit
+ * in a row and look alike. */
 
 /* An item is an <a> when it navigates and a <button> when it switches a
    view in place (the error log's severity filter, which narrows lines
@@ -124,8 +82,6 @@
     align-items: center;
     gap: var(--bl-space-2);
     flex: none;
-    background: transparent;
-    border: 0;
     font-family: inherit;
     cursor: pointer;
     /* Sized for a working surface, per the owner: "Make the tabs bigger".
@@ -133,7 +89,14 @@
        clicked all day, so they earn control-scale hit targets. */
     height: 36px;
     padding: 0 14px;
-    border-radius: var(--bl-r-dot);
+    /* Its own edge, so the tabs read as separate things rather than as
+       regions of one strip. --bl-field-edge, not --bl-rule: this is the
+       boundary of a control and carries the 3:1 floor (WCAG 1.4.11), which
+       a hairline rule does not - measured, --bl-rule-2 came out at 1.13:1
+       against this ground. */
+    border: 1px solid var(--bl-field-edge);
+    border-radius: var(--bl-r-ctrl);
+    background: var(--bl-sheet);
     color: var(--bl-ink-2);
     font-size: 14px;
     font-weight: 500;
@@ -176,20 +139,29 @@
     }
 }
 
+/* The selected view is FILLED, not ringed.
+ *
+ * It used to be a white pill lifted on a hairline ring inside a grey trough.
+ * With the trough gone there is nothing for a lifted pill to be lifted out
+ * of, and the ring it carried was a second border on an element that now has
+ * one of its own - two edges, 1px apart, saying the same thing.
+ *
+ * Filled is also simply louder, which this control has earned: it is the
+ * primary mode switch on the busiest page in the product, and the answer to
+ * "which queue am I looking at" should be readable from across the room.
+ *
+ * Outside a channel scope the fill is the page's ink. Inside one it is that
+ * marketplace's own colour - see the channel block in blotter-components.css,
+ * which sits in @layer app and so wins over this file's vocabulary layer. */
 .x-segment__item.is-active {
-    background: var(--bl-sheet);
-    color: var(--bl-ink);
-    /* A ring plus the faintest possible drop, not a shadow stack. In dark
-       theme the drop is invisible and the lift is carried by the surface
-       step alone, which is the correct behaviour: dark surfaces read
-       elevation as lightness, not as shadow. */
-    box-shadow: 0 0 0 1px var(--bl-rule-2), 0 1px 2px rgba(0, 0, 0, .05);
-    /* Nested inside the trough, so its corner has to follow the trough's.
-       The trough is --bl-r-ctrl (11px) with 3px of padding, which leaves an
-       8px inner curve; a 4px pill inside that reads as a square sitting in
-       a round hole, most visibly on the first and last item where the two
-       corners are adjacent. */
-    border-radius: calc(var(--bl-r-ctrl) - 3px);
+    background: var(--bl-ink);
+    border-color: var(--bl-ink);
+    /* --bl-paper, not #fff. It is the light ink this product actually prints
+       on a filled surface, and it is what ChannelAccent::deep() measures its
+       4.5:1 guarantee against; measuring against a white that never reaches
+       the screen is how that guarantee gets overstated. */
+    color: var(--bl-paper);
+    box-shadow: none;
 }
 
 /* Counts are reference information, not emphasis, so they take the muted
@@ -202,7 +174,12 @@
     color: var(--bl-ink-3);
 }
 
-.x-segment__item.is-active .x-segment__count { color: var(--bl-ink-2); }
+/* On a filled tab the count sits on the fill, so it is stepped back from
+   the label by transparency rather than by a grey token that would be
+   fighting the colour underneath it. */
+.x-segment__item.is-active .x-segment__count {
+    color: color-mix(in srgb, var(--bl-paper) 72%, transparent);
+}
 
 /* The sub level. A second, quieter row that only appears under the one
    segment that has sub steps (Shopee's To Ship splits into To Pack and To
@@ -250,16 +227,13 @@
  * two levels remain tellable apart without the working one having to
  * whisper. */
 .x-segment--sub {
-    /* background-COLOR, not the shorthand. The shorthand resets
-       background-image and background-attachment, which is where the
-       scroll-edge affordance lives - so declaring it here silently undid the
-       four layers set above and left this strip unable to say it had more to
-       the right. The one strip that most needed the mark was the one strip
-       that lost it, to a property nobody would think to look at. */
-    background-color: var(--bl-chrome);
-    border: 1px solid var(--bl-rule);
+    /* No trough here either, for the same reason as the parent: its items
+       carry their own edges now. What still says "second level" is position
+       and the way the selected step is marked, not a box drawn around it. */
+    background: transparent;
+    border: 0;
+    gap: 6px;
     padding: 3px;
-    gap: 3px;
     margin-bottom: var(--bl-space-4);
 }
 
@@ -296,17 +270,32 @@
    be a lie. Measured on the built page, the active step carries the brand
    tint, that channel underline and a hairline ring - enough marking that a
    fourth would be noise. */
+/* TWO LEVELS, ONE COLOUR, TWO TREATMENTS.
+ *
+ * The parent strip fills its selected tab with the channel's colour. If this
+ * strip did the same, the two rows would be indistinguishable and the page
+ * would appear to have two answers to the same question.
+ *
+ * So the sub step takes the same colour and inverts the relationship: a pale
+ * wash of it as the ground, the colour itself as the edge, and the page's own
+ * ink for the label. That reads unmistakably as the same family and just as
+ * unmistakably as the quieter of the two.
+ *
+ * The label is --bl-ink rather than the accent for a measured reason recorded
+ * here before: the accent on its own wash came out at 4.21:1, under the 4.5 a
+ * 12.5px label needs, while --bl-ink on the same ground measures 16.96:1.
+ * Identity goes to the ground, legibility to the text, rather than asking one
+ * colour to do both and missing. */
 .x-segment--sub .x-segment__item.is-active {
-    background: var(--bl-brand-wash);
+    background: color-mix(in srgb, var(--ch, var(--bl-brand-deep)) 12%, var(--bl-sheet));
+    border-color: var(--ch, var(--bl-brand-deep));
     color: var(--bl-ink);
-    /* The tint is the mark at this level, not the lifted pill the parent
-       strip uses. Inside a channel scope the accent rule adds its own
-       underline on top of this, which is what the two levels look like in
-       practice; this keeps the bare case honest for anywhere a sub strip
-       renders outside one. */
+    font-weight: 650;
     box-shadow: none;
 }
 
+/* Back to the muted token: this count sits on a pale ground, not on a fill,
+   so it does not need the transparency treatment the parent's does. */
 .x-segment--sub .x-segment__item.is-active .x-segment__count { color: var(--bl-ink-2); }
 
 /* The far side of the bar can carry more than one standing item (Returns

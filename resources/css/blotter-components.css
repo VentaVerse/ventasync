@@ -4443,13 +4443,75 @@
        surface below sits on a light ground instead, where all seven work.
        The sidebar already says which channel this is, in words. */
 
-    /* Which view of the list you are in. The underline is the channel's,
-       the lift is the control's own. */
+    /* WHICH VIEW OF THE LIST YOU ARE IN, IN THE CHANNEL'S OWN COLOUR.
+     *
+     * This used to be a 2px underline under a white pill. The pill is gone -
+     * every tab carries its own border now and the selected one is filled -
+     * so the channel takes the fill itself. One mark instead of three, and
+     * the loudest thing on the strip is the answer to the question the strip
+     * exists to ask.
+     *
+     * --ch-deep, not --ch. The label is printed on this, and the brand hex
+     * mostly cannot hold it: Shopee's orange measures 3.66:1 against the
+     * light ink. deep() walks the colour down to the lightest step that
+     * clears 4.5:1 against --bl-paper specifically, which is the ink that
+     * actually lands here.
+     *
+     * @layer app, so it beats the vocabulary layer segment.css sits in. The
+     * fallbacks are what an unscoped strip gets, and they resolve to the ink
+     * fill that file already specifies. */
     .x-app--channel .x-segment__item.is-active,
     .fh-scope .x-segment__item.is-active {
-        box-shadow: inset 0 -2px 0 0 var(--ch, transparent),
-                    0 0 0 1px var(--bl-rule-2),
-                    0 1px 2px rgba(0, 0, 0, .05);
+        background: var(--ch-deep, var(--bl-ink));
+        border-color: var(--ch-deep, var(--bl-ink));
+        color: var(--bl-paper);
+        box-shadow: none;
+    }
+
+    /* Dark theme inverts it, the same way the primary button does here.
+     *
+     * A colour dark enough to hold light ink on a white page disappears on a
+     * near-black one - Lazada's navy sits at barely 1.3:1 against the dark
+     * sheet, so a navy-filled tab would read as an empty slot. --ch-lift is
+     * the same colour walked the other way, toward white, until it clears
+     * that sheet. */
+    [data-theme='dark'] .x-app--channel .x-segment__item.is-active,
+    [data-theme='dark'] .fh-scope .x-segment__item.is-active {
+        background: var(--ch-lift, var(--bl-ink));
+        border-color: var(--ch-lift, var(--bl-ink));
+    }
+
+    /* THE SUB STEP TAKES THE SAME COLOUR AND INVERTS THE RELATIONSHIP.
+     *
+     * The rule above matches every active segment item in a channel scope,
+     * including the ones on the sub strip - so To Pack came out filled in
+     * exactly the orange To Ship was filled in, one above the other, and the
+     * page appeared to give two answers to the same question. Both levels
+     * have to speak the channel, and only one of them can shout.
+     *
+     * So the second level wears the colour as a wash and an edge, with the
+     * page's own ink for the label. Same family, unmistakably quieter. It has
+     * to be restated inside @layer app because the rule it is correcting is
+     * here; the copy in segment.css is what an unscoped sub strip gets. */
+    .x-app--channel .x-segment--sub .x-segment__item.is-active,
+    .fh-scope .x-segment--sub .x-segment__item.is-active {
+        background: color-mix(in srgb, var(--ch, var(--bl-brand-deep)) 12%, var(--bl-sheet));
+        border-color: var(--ch, var(--bl-brand-deep));
+        color: var(--bl-ink);
+    }
+
+    .x-app--channel .x-segment--sub .x-segment__item.is-active .x-segment__count,
+    .fh-scope .x-segment--sub .x-segment__item.is-active .x-segment__count {
+        color: var(--bl-ink-2);
+    }
+
+    /* On the dark sheet a 12% wash of the brand hex is indistinguishable
+       from the sheet itself, so the tint is taken from --ch-lift, which is
+       the channel walked toward white until it clears that sheet. */
+    [data-theme='dark'] .x-app--channel .x-segment--sub .x-segment__item.is-active,
+    [data-theme='dark'] .fh-scope .x-segment--sub .x-segment__item.is-active {
+        background: color-mix(in srgb, var(--ch-lift, var(--bl-brand)) 18%, var(--bl-sheet));
+        border-color: var(--ch-lift, var(--bl-brand));
     }
 
     /* THE CHANNEL COLOURS THE CHROME, NOT THE DATA.
