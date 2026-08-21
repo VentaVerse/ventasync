@@ -799,6 +799,13 @@
         color: var(--bl-ink-3);
     }
 
+    /* A variation's thumb, one step down from its parent's. */
+    .bl-thumb--sm {
+        width: 26px;
+        height: 26px;
+        font-size: 8px;
+    }
+
     /* The image sits over its own placeholder rather than beside it, so
        thumb-fallback.js can remove a broken one and the placeholder is
        already in place underneath. */
@@ -2655,5 +2662,35 @@
         .od-body,
         .fm-body,
         .cw-body { align-items: start; }
+    }
+}
+
+/* THE VARIATION ROWS UNDER A PRODUCT.
+   ------------------------------------------------------------------
+   Subordinate, not a peer: a variation is part of the product above it, and
+   a list where both read at the same weight is a list of 60 things rather
+   than 50 products with some detail. The rule between a product and its own
+   variations is dropped so the group reads as one block, and the indent is
+   on the CONTENT rather than the cell so the checkbox and id columns stay in
+   their tracks.
+
+   No hover lift and no row link: these are not separate records to open. The
+   product above is the thing you edit, and it already carries the link. */
+@layer components {
+    .bl-varrow > td {
+        border-top: 0;
+        padding-top: 3px;
+        padding-bottom: 3px;
+        background: color-mix(in srgb, var(--bl-chrome) 55%, transparent);
+    }
+
+    .bl-varrow:last-of-type > td { padding-bottom: 9px; }
+
+    .bl-varrow__body { padding-left: 22px; }
+
+    /* One step quieter than the product's own name, which stays semibold. */
+    .bl-varrow__body > span:last-child > span:first-child {
+        font-size: 13px;
+        color: var(--bl-ink-2);
     }
 }

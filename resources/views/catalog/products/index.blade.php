@@ -260,6 +260,63 @@
                                     @endif
                                 </td>
                             </tr>
+
+                            {{-- THE VARIATIONS, UNDER THEIR PARENT.
+                                 ------------------------------------------------------------
+                                 The legacy list showed these and the redesign dropped them,
+                                 keeping the query that loads them - which is why the data was
+                                 still here, batched, waiting. A parent that says "2 variations"
+                                 makes you open the product to learn what they are and how many
+                                 of each you hold, which is the question the list exists to
+                                 answer.
+
+                                 Always shown rather than behind a disclosure: only 64 of 2,081
+                                 products carry variations at all, the median is 3 and the most
+                                 any one has is 15 - so this costs a few rows on the pages that
+                                 have any and nothing at all on the rest.
+
+                                 The image is the variation's OWN, and not the parent's as a
+                                 fallback: the parent sits directly above, so repeating its
+                                 photograph down the variations would be the same picture four
+                                 times in the column whose job is telling them apart. That slot
+                                 existed in the legacy row too and was hardcoded null in the
+                                 controller, so it never once rendered - there was no
+                                 per-variation image to put in it until now. --}}
+                            @foreach($p->option_rows ?? [] as $or)
+                                @php
+                                    $orImg = trim((string) ($or->option_image ?? ''));
+                                    $orSrc = $orImg !== '' ? asset('storage/' . ltrim($orImg, '/')) : '';
+                                    $orQty = (int) ($or->quantity ?? 0);
+                                    $orTone = $orQty < 0 ? 'text-bad' : ($orQty === 0 ? 'text-attn' : '');
+                                @endphp
+                                <tr class="bl-varrow">
+                                    @if($canManageProducts)<td></td>@endif
+                                    <td></td>
+                                    <td>
+                                        <div class="flex items-center gap-2.5 bl-varrow__body">
+                                            <span class="bl-thumb bl-thumb--sm">
+                                                None
+                                                @if($orSrc)
+                                                    <img src="{{ $orSrc }}" alt="" data-thumb loading="lazy" decoding="async">
+                                                @endif
+                                            </span>
+                                            <span class="min-w-0">
+                                                <span class="block truncate">{{ $or->option_value_name ?: '-' }}</span>
+                                                <span class="flex flex-wrap items-center gap-x-2.5 text-[12px] text-ink-3">
+                                                    <span class="bl-mono">{{ $or->sku ?: '-' }}</span>
+                                                    @if(!empty($or->option_name))
+                                                        <span>{{ $or->option_name }}</span>
+                                                    @endif
+                                                </span>
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td class="num {{ $orTone }}">{{ number_format($orQty) }}</td>
+                                    <td class="num">{{ \App\Support\Money::base((float) ($or->absolute_price ?? 0)) }}</td>
+                                    <td></td>
+                                    <td></td>
+                                </tr>
+                            @endforeach
                         @endforeach
                     </tbody>
                 </table>

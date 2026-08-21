@@ -322,7 +322,7 @@ if ($q !== '') {
             ->whereIn('c.product_id', $pageIds)
             ->orderBy('c.product_id')
             ->orderBy('c.sort_order')
-            ->get(['c.id', 'c.product_id', 'c.sku', 'c.quantity', 'c.absolute_price']);
+            ->get(['c.id', 'c.product_id', 'c.sku', 'c.quantity', 'c.absolute_price', 'c.image']);
 
         // Load pivot → option value names + option group names for each combo
         $comboIds = $comboRows->pluck('id')->all();
@@ -358,7 +358,15 @@ if ($q !== '') {
             $optionNames = array_unique(array_map(fn($e) => $e['option_name'], $entries));
             $c->option_value_name = implode(' + ', $valueNames);
             $c->option_name = implode(' / ', $optionNames);
-            $c->option_image = null;
+            /* The variation's own picture, or nothing.
+             *
+             * NOT the parent's image as a fallback here: the list shows the
+             * parent on its own row directly above, so repeating it down the
+             * variations would be the same photograph four times in a column
+             * whose whole job is telling them apart. The view falls back to
+             * the placeholder instead, which says "no picture for this one"
+             * rather than implying they all look alike. */
+            $c->option_image = trim((string) ($c->image ?? '')) ?: null;
             $optionRowsByProduct[$pid] ??= [];
             $optionRowsByProduct[$pid][] = $c;
         }
@@ -805,6 +813,11 @@ public function store(Request $request)
                 'op.order_product_id',
                 'o.order_id',
                 'o.date_added',
+                // Which channel sold it. The global order list has always
+                // shown this; the per-product history did not, so a table of
+                // forty sales across four marketplaces could not say which
+                // one any of them came from.
+                'o.marketplace_source',
                 'op.name',
                 'op.quantity',
                 'op.price',
@@ -839,7 +852,15 @@ public function store(Request $request)
             $s->markup = $cost > 0 ? round(($profit / $cost) * 100, 1) : 0;
         }
 
-        return view('catalog.products.sales', compact('product', 'sales'));
+        /* The same registry-driven map the Orders index and the dashboard
+           use, so core carries no marketplace-specific knowledge and a new
+           channel appears here the day it registers itself. */
+        $sourceLabelsMap = [];
+        foreach (app(\App\Integrations\IntegrationRegistry::class)->availableMarketplaceSourceOptions() as $opt) {
+            $sourceLabelsMap[$opt['value']] = $opt;
+        }
+
+        return view('catalog.products.sales', compact('product', 'sales', 'sourceLabelsMap'));
     }
 
     public function stockHistory($id)

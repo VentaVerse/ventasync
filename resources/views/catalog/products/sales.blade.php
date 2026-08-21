@@ -81,6 +81,12 @@
             <tr>
                 <th scope="col" class="fm-vcol-qty">Order</th>
                 <th scope="col" class="fm-vcol-price">Date</th>
+                {{-- Which channel sold it. The global order list has carried
+                     this from the start; this page did not, so forty sales
+                     across four marketplaces could not say where any of them
+                     came from - on the one page where the question is
+                     obviously being asked. --}}
+                <th scope="col" class="x-col-chan">Channel</th>
                 <th scope="col">Product</th>
                 <th scope="col" class="x-td-num fm-vcol-qty">Qty</th>
                 <th scope="col" class="x-td-num fm-vcol-price">Sales</th>
@@ -95,6 +101,16 @@
             <tr>
                 <td data-label="Order"><a class="x-row-link x-num" href="{{ route('orders.show', $s->order_id) }}">{{ $s->order_id }}</a></td>
                 <td data-label="Date"><span class="x-num">{{ \Carbon\Carbon::parse($s->date_added)->format('Y-m-d') }}</span></td>
+                @php
+                    /* Read exactly the way the Orders index reads it, so the
+                       same order is labelled the same on both pages. */
+                    $src = trim((string) ($s->marketplace_source ?? ''));
+                    $chanKey = $src === '' ? '' : strtok($src, ':');
+                    $chanTone = $src === '' ? 'neutral' : $chanKey;
+                    $chanOpt = $src === '' ? null : (($sourceLabelsMap ?? [])[$src] ?? null);
+                    $chanLabel = $src === '' ? 'Manual' : ($chanOpt['label'] ?? ucfirst($chanKey));
+                @endphp
+                <td data-label="Channel"><x-ui.badge :tone="$chanTone" :dot="false">{{ $chanLabel }}</x-ui.badge></td>
                 <td data-label="Product">
                     <div class="co-item__name">{{ $s->name }}</div>
                     @if(count($s->options))
