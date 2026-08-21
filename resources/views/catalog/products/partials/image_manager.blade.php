@@ -131,6 +131,25 @@
   const PIM_PRODUCT_ID = @json($pimProductId);
   const PIM_TOKEN = @json($pimToken);
 
+  /* SINGLE-PICK MODE, for callers that want one image rather than another
+     entry in the product gallery.
+     ------------------------------------------------------------------
+     The variations grid needs a picture per variation, and it needs the
+     library that already exists: the same folders, the same upload, the same
+     manufacturer scoping. What it does not want is the tile click appending
+     to the product's own image list.
+
+     So the modal grows one extra state. When pickOne is set, choosing a file
+     hands it to that callback and closes instead of adding. It is cleared on
+     every exit, including the ones the operator takes by pressing Escape or
+     clicking the backdrop, so the mode can never leak into the next open. */
+  let pickOne = null;
+
+  window.pimPickOne = function (onPicked) {
+    pickOne = typeof onPicked === 'function' ? onPicked : null;
+    openServerModal();
+  };
+
   const grid = document.getElementById('pimGrid');
   const empty = document.getElementById('pimEmpty');
   const imagesJson = document.getElementById('pimImagesJson');
@@ -189,6 +208,14 @@
   function render(){
     grid.textContent = '';
     empty.classList.toggle('d-none', items.length > 0);
+
+    /* What a variation with no image of its own inherits.
+       Position 1 IS the main image on this form, so this is republished on
+       every render rather than read once: dragging a different photo to the
+       front changes what every inheriting variation shows, and the grid
+       downstream should follow that without being told. */
+    window.pimPrimaryImage = items.length ? items[0].url : '';
+    document.dispatchEvent(new CustomEvent('pim:primary-changed'));
 
     items.forEach((it, idx) => {
       const div = document.createElement('div');
@@ -276,6 +303,15 @@
     card.appendChild(label);
 
     card.addEventListener('click', () => {
+      // Single-pick: hand the file back and get out of the way.
+      if (pickOne) {
+        const done = pickOne;
+        pickOne = null;
+        modal.classList.remove('active');
+        done({ path: f.path, url: f.url });
+        return;
+      }
+
       if (!items.some(x => x.path === f.path)) {
         items.push({path: f.path, url: f.url});
         render();
@@ -583,11 +619,15 @@
   modal.addEventListener('click', (e) => {
     const t = e.target;
     if (t === modal || (t && t.closest && t.closest('[data-close="1"]'))) {
+      pickOne = null;
       modal.classList.remove('active');
     }
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && modal.classList.contains('active')) modal.classList.remove('active');
+    if (e.key === 'Escape' && modal.classList.contains('active')) {
+      pickOne = null;
+      modal.classList.remove('active');
+    }
   });
 
   render();

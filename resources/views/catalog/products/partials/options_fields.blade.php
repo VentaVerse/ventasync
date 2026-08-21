@@ -114,9 +114,9 @@ const EXISTING_VALUES2 = @json($existingOptions->count() > 1 ? ($existingOptions
 const EXISTING_COMBOS  = @json($existingCombinations ?? []);
 
 // State
-let opt1Values = []; // [{name, option_value_id?, sku, quantity, absolute_price, absolute_cost}]
+let opt1Values = []; // [{name, option_value_id?, sku, image, quantity, absolute_price, absolute_cost}]
 let opt2Values = []; // [{name, option_value_id?}]
-let comboData  = {}; // key "v1|v2" → {sku, quantity, absolute_price, absolute_cost} (2-option)
+let comboData  = {}; // key "v1|v2" → {sku, image, quantity, absolute_price, absolute_cost} (2-option)
 let mode       = 'none'; // 'none' | 'one' | 'two'
 
 /* THE SHAPE THE TABLE IS CURRENTLY DRAWN IN, which is not always `mode`.
@@ -285,7 +285,7 @@ function renderOpt2List() {
 
 function addOpt1Value(name) {
     name = (name || '').trim();
-    opt1Values.push({ name, sku: '', quantity: 0, absolute_price: 0, absolute_cost: 0 });
+    opt1Values.push({ name, sku: '', image: '', quantity: 0, absolute_price: 0, absolute_cost: 0 });
     renderOpt1List();
     renderTable();
     recalcProductQty();
@@ -320,6 +320,7 @@ function seedFirstColumnFromOneAxis() {
     opt1Values.forEach((v1, i1) => {
         comboData[comboKey(i1, 0)] = {
             sku: v1.sku || '',
+            image: v1.image || '',
             quantity: v1.quantity || 0,
             absolute_price: v1.absolute_price || 0,
             absolute_cost: v1.absolute_cost || 0,
@@ -356,6 +357,8 @@ function saveTableToState() {
             if (nameInput) opt1Values[i].name = nameInput.value.trim();
             const skuInput = row.querySelector('.js-sku');
             if (skuInput) opt1Values[i].sku = skuInput.value;
+            const imgInput = row.querySelector('.js-image');
+            if (imgInput) opt1Values[i].image = imgInput.value;
             const qtyInput = row.querySelector('.js-qty');
             if (qtyInput) opt1Values[i].quantity = parseInt(qtyInput.value || '0', 10);
             const priceInput = row.querySelector('.js-price');
@@ -369,6 +372,7 @@ function saveTableToState() {
             if (!key) return;
             comboData[key] = {
                 sku: row.querySelector('.js-sku').value || '',
+                image: (row.querySelector('.js-image') || {}).value || '',
                 quantity: parseInt(row.querySelector('.js-qty').value || '0', 10),
                 absolute_price: parseFloat(row.querySelector('.js-price').value || '0'),
                 absolute_cost: parseFloat(row.querySelector('.js-cost').value || '0'),
@@ -431,11 +435,111 @@ function buildHeaderRow(is2) {
     tr.appendChild(createEl('th', { className: 'fm-vcol-qty' }, 'Qty'));
     tr.appendChild(createEl('th', { className: 'fm-vcol-price' }, 'Price'));
     tr.appendChild(createEl('th', { className: 'fm-vcol-cost' }, 'Cost'));
-    tr.appendChild(createEl('th', { className: 'fm-vcol-num' }, 'Profit'));
-    tr.appendChild(createEl('th', { className: 'fm-vcol-num' }, 'Margin'));
-    tr.appendChild(createEl('th', { className: 'fm-vcol-num' }, 'Markup'));
+    /* PROFIT / MARGIN / MARKUP USED TO SIT HERE and they are gone on purpose.
+       They were read-only, they restated the Pricing metrics strip further up
+       the same form, and with cost at 0 - which is most of this catalogue -
+       every row printed an identical "370.00 / 100.0% / 0.0%". Measured, they
+       were 187px of the 780px this table gets, spent on three numbers that
+       are the same on every line and that nobody can act on here.
+       That width is what pays for the image. */
+    tr.appendChild(createEl('th', { className: 'fm-vcol-img' }, 'Image'));
     tr.appendChild(createEl('th', { className: 'fm-vcol-act' }));
     return tr;
+}
+
+/* The image cell.
+ * ------------------------------------------------------------------
+ * A button showing what this variation looks like, or the product's own
+ * picture greyed back when it has none of its own. Empty is not an error and
+ * is not blank: inheriting the parent is the normal case and the cell says so
+ * rather than leaving a hole.
+ *
+ * The path travels in a hidden input beside the thumbnail, so it rides with
+ * the row through every re-render and through submit exactly the way sku and
+ * quantity do. That matters more here than it looks: saving a two-axis
+ * product DELETES its combinations and re-inserts them, so an image the
+ * server was holding but the form did not send would be dropped on the next
+ * save.
+ */
+function buildImageCell(imagePath) {
+    const td = createEl('td', { className: 'fm-vcol-img' });
+
+    const hidden = createEl('input', { type: 'hidden', className: 'js-image' });
+    hidden.value = imagePath || '';
+    td.appendChild(hidden);
+
+    const btn = createEl('button', {
+        type: 'button',
+        className: 'fm-vimg',
+        title: 'Choose an image for this variation',
+    });
+
+    const img = createEl('img', { alt: '', loading: 'lazy' });
+
+    /* A path that does not resolve is not a picture, and the browser's own
+       broken-image glyph is the worst possible way to say so: it reads as a
+       fault in the page rather than as a missing file. This catalogue was
+       imported from a legacy store and carries plenty of references to files
+       that are no longer on disk. Falling back to the empty state says the
+       true thing - there is nothing to show here, pick something. */
+    img.addEventListener('error', () => {
+        if (img.parentNode) btn.removeChild(img);
+        btn.classList.add('is-empty');
+    });
+    const clear = createEl('button', {
+        type: 'button',
+        className: 'fm-vimg__x',
+        title: 'Use the product image instead',
+        'aria-label': 'Use the product image instead',
+    }, '\u00d7');
+
+    function paint() {
+        const own = hidden.value;
+        const src = own || (window.pimPrimaryImage || '');
+
+        if (src) {
+            img.src = src.indexOf('/') === 0 || src.indexOf('http') === 0
+                ? src
+                : ('/storage/' + src.replace(/^\/+/, ''));
+            img.classList.toggle('is-inherited', !own);
+            if (!img.parentNode) btn.appendChild(img);
+        } else if (img.parentNode) {
+            btn.removeChild(img);
+        }
+
+        btn.classList.toggle('is-empty', !src);
+        // The accessible name carries the state, since the thumbnail cannot.
+        btn.setAttribute('aria-label', own
+            ? 'Change this variation\'s image'
+            : 'Choose an image. This variation currently uses the product image.');
+        clear.classList.toggle('d-none', !own);
+    }
+
+    btn.addEventListener('click', () => {
+        if (typeof window.pimPickOne !== 'function') return;
+        window.pimPickOne((picked) => {
+            hidden.value = (picked && picked.path) || '';
+            paint();
+        });
+    });
+
+    clear.addEventListener('click', (e) => {
+        e.stopPropagation();
+        hidden.value = '';
+        paint();
+    });
+
+    td.appendChild(btn);
+    td.appendChild(clear);
+    paint();
+
+    // An inheriting cell shows the product's main image, so it has to follow
+    // when somebody drags a different photo to the front.
+    document.addEventListener('pim:primary-changed', () => {
+        if (!hidden.value) paint();
+    });
+
+    return td;
 }
 
 function buildComboRow(i1, i2, v1Name, v2Name, data) {
@@ -463,18 +567,10 @@ function buildComboRow(i1, i2, v1Name, v2Name, data) {
     tdCost.appendChild(createInput('js-cost', 'number', data.absolute_cost, { step: '0.01' }));
     tr.appendChild(tdCost);
 
-    const tdProfit = document.createElement('td');
-    tdProfit.appendChild(createEl('span', { className: 'fm-num js-profit' }, '-'));
-    tr.appendChild(tdProfit);
+    tr.appendChild(buildImageCell(data.image));
 
-    const tdMargin = document.createElement('td');
-    tdMargin.appendChild(createEl('span', { className: 'fm-num js-margin' }, '-'));
-    tr.appendChild(tdMargin);
-
-    const tdMarkup = document.createElement('td');
-    tdMarkup.appendChild(createEl('span', { className: 'fm-num js-markup' }, '-'));
-    tr.appendChild(tdMarkup);
-
+    // A combination row has no per-row remove: the combinations are the
+    // product of the two axes, so you remove a VALUE, not a cell.
     tr.appendChild(document.createElement('td'));
 
     bindRowEvents(tr);
@@ -508,17 +604,7 @@ function buildOneOptRow(v, idx) {
     tdCost.appendChild(createInput('js-cost', 'number', v.absolute_cost || 0, { step: '0.01' }));
     tr.appendChild(tdCost);
 
-    const tdProfit = document.createElement('td');
-    tdProfit.appendChild(createEl('span', { className: 'fm-num js-profit' }, '-'));
-    tr.appendChild(tdProfit);
-
-    const tdMargin = document.createElement('td');
-    tdMargin.appendChild(createEl('span', { className: 'fm-num js-margin' }, '-'));
-    tr.appendChild(tdMargin);
-
-    const tdMarkup = document.createElement('td');
-    tdMarkup.appendChild(createEl('span', { className: 'fm-num js-markup' }, '-'));
-    tr.appendChild(tdMarkup);
+    tr.appendChild(buildImageCell(v.image));
 
     const tdActions = document.createElement('td');
     const removeBtn = createEl('button', { className: 'fm-vars__rowx', type: 'button', title: 'Remove', 'aria-label': 'Remove value' }, '\u00d7');
@@ -564,7 +650,7 @@ function renderTable() {
         opt1Values.forEach((v1, i1) => {
             opt2Values.forEach((v2, i2) => {
                 const key = comboKey(i1, i2);
-                const d = comboData[key] || { sku: '', quantity: 0, absolute_price: 0, absolute_cost: 0 };
+                const d = comboData[key] || { sku: '', image: '', quantity: 0, absolute_price: 0, absolute_cost: 0 };
                 $tbody.appendChild(buildComboRow(i1, i2, v1.name, v2.name, d));
             });
         });
@@ -637,6 +723,7 @@ function beforeSubmit() {
             addHidden('combinations[' + ci + '][opt1]', opt1Values[parts[0]] ? opt1Values[parts[0]].name : '');
             addHidden('combinations[' + ci + '][opt2]', opt2Values[parts[1]] ? opt2Values[parts[1]].name : '');
             addHidden('combinations[' + ci + '][sku]', (row.querySelector('.js-sku') || {}).value || '');
+            addHidden('combinations[' + ci + '][image]', (row.querySelector('.js-image') || {}).value || '');
             addHidden('combinations[' + ci + '][quantity]', (row.querySelector('.js-qty') || {}).value || 0);
             addHidden('combinations[' + ci + '][absolute_price]', (row.querySelector('.js-price') || {}).value || 0);
             addHidden('combinations[' + ci + '][absolute_cost]', (row.querySelector('.js-cost') || {}).value || 0);
@@ -654,6 +741,7 @@ function beforeSubmit() {
 
             addHidden('values[' + idx + '][name]', name);
             addHidden('values[' + idx + '][sku]', (row.querySelector('.js-sku') || {}).value || '');
+            addHidden('values[' + idx + '][image]', (row.querySelector('.js-image') || {}).value || '');
             addHidden('values[' + idx + '][quantity]', (row.querySelector('.js-qty') || {}).value || 0);
             addHidden('values[' + idx + '][absolute_price]', (row.querySelector('.js-price') || {}).value || 0);
             addHidden('values[' + idx + '][absolute_cost]', (row.querySelector('.js-cost') || {}).value || 0);
@@ -739,6 +827,7 @@ document.getElementById('remove-opt2-btn').addEventListener('click', () => {
         if (firstIsEmpty && valueHasData) return;
 
         v1.sku = first.sku || '';
+        v1.image = first.image || '';
         v1.quantity = first.quantity || 0;
         v1.absolute_price = first.absolute_price || 0;
         v1.absolute_cost = first.absolute_cost || 0;
@@ -752,7 +841,7 @@ document.getElementById('remove-opt2-btn').addEventListener('click', () => {
 
 $addRowBtn.addEventListener('click', () => {
     saveTableToState();
-    opt1Values.push({ name: '', sku: '', quantity: 0, absolute_price: 0, absolute_cost: 0 });
+    opt1Values.push({ name: '', sku: '', image: '', quantity: 0, absolute_price: 0, absolute_cost: 0 });
     renderTable();
     const rows = $tbody.querySelectorAll('tr');
     const lastRow = rows[rows.length - 1];
@@ -976,6 +1065,7 @@ if (EXISTING_OPTION) {
             name: v.option_value_name || v.name,
             option_value_id: v.option_value_id,
             sku: v.sku || '',
+            image: v.image || '',
             quantity: v.quantity || 0,
             absolute_price: parseFloat(v.absolute_price) || 0,
             absolute_cost: parseFloat(v.absolute_cost) || 0,
@@ -999,6 +1089,7 @@ if (EXISTING_OPTION) {
                 if (i1 >= 0 && i2 >= 0) {
                     comboData[comboKey(i1, i2)] = {
                         sku: c.sku || '',
+                        image: c.image || '',
                         quantity: c.quantity || 0,
                         absolute_price: parseFloat(c.absolute_price) || 0,
                         absolute_cost: parseFloat(c.absolute_cost) || 0,

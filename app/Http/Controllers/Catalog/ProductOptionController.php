@@ -43,6 +43,7 @@ class ProductOptionController extends Controller
             'values' => 'nullable|array',
             'values.*.name' => 'required|string|max:128',
             'values.*.sku' => 'nullable|string|max:64',
+            'values.*.image' => 'nullable|string|max:255',
             'values.*.quantity' => 'nullable|integer',
             'values.*.absolute_price' => 'nullable|numeric',
             'values.*.absolute_cost' => 'nullable|numeric',
@@ -240,6 +241,7 @@ class ProductOptionController extends Controller
                 $resolvedValues[] = [
                     'pov_id' => $povId,
                     'sku' => (string) ($v['sku'] ?? ''),
+                    'image' => trim((string) ($v['image'] ?? '')),
                     'quantity' => (int) ($v['quantity'] ?? 0),
                     'absolute_price' => (float) ($v['absolute_price'] ?? 0),
                     'absolute_cost' => (float) ($v['absolute_cost'] ?? 0),
@@ -277,6 +279,7 @@ class ProductOptionController extends Controller
             'combinations.*.opt1' => 'required|string|max:128',
             'combinations.*.opt2' => 'required|string|max:128',
             'combinations.*.sku' => 'nullable|string|max:64',
+            'combinations.*.image' => 'nullable|string|max:255',
             'combinations.*.quantity' => 'nullable|integer',
             'combinations.*.absolute_price' => 'nullable|numeric',
             'combinations.*.absolute_cost' => 'nullable|numeric',
@@ -412,10 +415,14 @@ class ProductOptionController extends Controller
                 $absCost = (float) ($c['absolute_cost'] ?? 0);
                 $qty = (int) ($c['quantity'] ?? 0);
                 $sku = (string) ($c['sku'] ?? '');
+                $image = trim((string) ($c['image'] ?? ''));
 
                 $comboId = DB::table('product_option_combinations')->insertGetId([
                     'product_id' => $id,
                     'sku' => $sku,
+                    // Null, not '', so "inherit the product's image" is one
+                    // value rather than two that read the same.
+                    'image' => $image !== '' ? $image : null,
                     'quantity' => $qty,
                     'absolute_price' => $absPrice,
                     'absolute_cost' => $absCost,
@@ -516,6 +523,7 @@ class ProductOptionController extends Controller
                     ->where('id', $comboId)
                     ->update([
                         'sku' => $rv['sku'],
+                        'image' => $rv['image'] !== '' ? $rv['image'] : null,
                         'quantity' => $rv['quantity'],
                         'absolute_price' => $rv['absolute_price'],
                         'absolute_cost' => $rv['absolute_cost'],
@@ -527,6 +535,7 @@ class ProductOptionController extends Controller
                 $comboId = DB::table('product_option_combinations')->insertGetId([
                     'product_id' => $productId,
                     'sku' => $rv['sku'],
+                    'image' => $rv['image'] !== '' ? $rv['image'] : null,
                     'quantity' => $rv['quantity'],
                     'absolute_price' => $rv['absolute_price'],
                     'absolute_cost' => $rv['absolute_cost'],
@@ -617,8 +626,19 @@ class ProductOptionController extends Controller
             'option_id' => $optionId, 'image' => '', 'sort_order' => 0,
         ]);
 
+        /* option_id is NOT NULL with no default on this table, so omitting it
+           made every insert here fatal: typing a variation value that did not
+           already exist - "Red", the first time anyone adds a colour - threw
+           a 1364 and the whole save 500'd inside its transaction. The row is
+           also wrong without it, since option_value_description is keyed by
+           the option as well as the value. Found by the round-trip test for
+           the variation image, which is the first thing to exercise this path
+           with a genuinely new value. */
         DB::table($p . 'option_value_description')->insert([
-            'option_value_id' => $optionValueId, 'language_id' => $langId, 'name' => $name,
+            'option_value_id' => $optionValueId,
+            'language_id' => $langId,
+            'option_id' => $optionId,
+            'name' => $name,
         ]);
 
         return $optionValueId;

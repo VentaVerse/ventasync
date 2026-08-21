@@ -983,6 +983,36 @@ public function store(Request $request)
                 }
             }
 
+            /* The variation image lives on the COMBINATION, because that is
+             * the sellable unit. A single-axis product builds its grid from
+             * product_option_value rows, so the image has to be carried
+             * across by the join between them - one hop, one query for the
+             * whole product rather than one per row. */
+            $imageByPovId = [];
+            $comboImages = DB::table('product_option_combinations as c')
+                ->join('product_option_combination_values as cv', 'cv.combination_id', '=', 'c.id')
+                ->where('c.product_id', (int) $id)
+                ->whereNotNull('c.image')
+                ->where('c.image', '!=', '')
+                ->get(['cv.product_option_value_id', 'c.image']);
+
+            foreach ($comboImages as $row) {
+                // A two-axis combination joins two values and its image
+                // belongs to neither of them alone, so only single-value
+                // combinations contribute here. groupBy would hide that.
+                $povId = (int) $row->product_option_value_id;
+                $imageByPovId[$povId] = isset($imageByPovId[$povId])
+                    ? $imageByPovId[$povId]
+                    : (string) $row->image;
+            }
+
+            foreach ($existingValuesByPoId as $poId => $values) {
+                foreach ($values as $i => $value) {
+                    $povId = (int) $value['product_option_value_id'];
+                    $existingValuesByPoId[$poId][$i]['image'] = $imageByPovId[$povId] ?? '';
+                }
+            }
+
             foreach ($existingOptions as $o) {
                 $o->name = html_entity_decode((string)$o->name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
                 $o->option_name = $o->name;
@@ -1017,6 +1047,7 @@ public function store(Request $request)
                         'opt1_name' => html_entity_decode($opt1Name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                         'opt2_name' => html_entity_decode($opt2Name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                         'sku' => $combo->sku,
+                        'image' => (string) ($combo->image ?? ''),
                         'quantity' => (int) $combo->quantity,
                         'absolute_price' => (float) $combo->absolute_price,
                         'absolute_cost' => (float) $combo->absolute_cost,
