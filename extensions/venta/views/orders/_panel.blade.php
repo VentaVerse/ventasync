@@ -514,7 +514,13 @@
                           target="_blank">
                         @csrf
                         <input type="hidden" name="ids[]" value="{{ $o->id }}">
-                        <span class="x-docs__label">Print</span>
+                        {{-- No "Print" group label here, unlike the Lazada
+                             row. That label groups three documents; this is
+                             one, and this column is 85px against Lazada's
+                             276px, so the label only pushed the link onto a
+                             second line. The link text is word-for-word the
+                             one Lazada uses, which is the part that has to
+                             match. --}}
                         <button type="submit" class="x-doc">Packing list</button>
                     </form>
 
