@@ -195,6 +195,19 @@
 
 {{-- One filter row, replacing the old search card and the old separate
      per-page form. --}}
+@php
+    /* What the Filters button admits to. */
+    $sprActiveFilters = 0;
+    if (($openedFromFilter ?? '') !== '') { $sprActiveFilters++; }
+    if (($openedToFilter ?? '') !== '') { $sprActiveFilters++; }
+    if (($sort ?? 'updated_desc') !== 'updated_desc') { $sprActiveFilters++; }
+    if ((int) ($perPage ?? 10) !== 10) { $sprActiveFilters++; }
+@endphp
+
+{{-- One toolbar, after the tabs: choose the queue, then narrow it. Same
+     fold as the other channels, so nobody relearns the toolbar crossing
+     between them. --}}
+<div class="x-toolbar">
 <form method="GET" action="{{ $panelBaseUrl }}" class="x-filters" data-desk-tool id="orders-filter">
 @foreach($panelHiddenParams as $panelHiddenKey => $panelHiddenValue)    <input type="hidden" name="{{ $panelHiddenKey }}" value="{{ $panelHiddenValue }}">
 @endforeach    <input type="hidden" name="tab" value="{{ $active_tab }}">
@@ -213,31 +226,36 @@
          label existed the only thing separating them was a word screen
          readers could hear and nobody else could see. On Lazada that put
          four identical boxes on one screen, two of which write orders. --}}
-    <span class="x-filters__group">
-        <span class="x-filters__group-label" id="sp-opened-label">Opened</span>
-        <x-ui.input type="date" name="opened_from" class="x-filters__date"
-                    value="{{ $openedFromFilter }}" aria-label="Opened on or after" title="Opened on or after" />
-        <x-ui.input type="date" name="opened_to" class="x-filters__date"
-                    value="{{ $openedToFilter }}" aria-label="Opened on or before" title="Opened on or before" />
-    </span>
+    {{-- Folded, with a count of what is set. Search stays out: it is the
+         control used most. A fold that hides an ACTIVE filter would be worse
+         than no fold, which is what the count is for. --}}
+    <x-ui.foldout label="Filters" :count="$sprActiveFilters ?: null">
+        <span class="x-filters__group">
+            <span class="x-filters__group-label" id="sp-opened-label">Opened</span>
+            <x-ui.input type="date" name="opened_from" class="x-filters__date"
+                        value="{{ $openedFromFilter }}" aria-label="Opened on or after" title="Opened on or after" />
+            <x-ui.input type="date" name="opened_to" class="x-filters__date"
+                        value="{{ $openedToFilter }}" aria-label="Opened on or before" title="Opened on or before" />
+        </span>
 
-    <div class="x-select-wrap x-filters__select x-filters__select--wide">
-        <select name="sort" class="x-input" data-autosubmit aria-label="Sort returns">
-            @foreach($rtSortLabels as $value => $label)
-                <option value="{{ $value }}" @selected(($sort ?? 'updated_desc') === $value)>{{ $label }}</option>
-            @endforeach
-        </select>
-        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-    </div>
+        <div class="x-select-wrap x-filters__select x-filters__select--wide">
+            <select name="sort" class="x-input" data-autosubmit aria-label="Sort returns">
+                @foreach($rtSortLabels as $value => $label)
+                    <option value="{{ $value }}" @selected(($sort ?? 'updated_desc') === $value)>{{ $label }}</option>
+                @endforeach
+            </select>
+            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+        </div>
 
-    <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="per_page" class="x-input" data-autosubmit aria-label="Returns per page">
-            @foreach([10, 20, 50, 100] as $n)
-                <option value="{{ $n }}" @selected($perPage === $n)>{{ $n }} per page</option>
-            @endforeach
-        </select>
-        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-    </div>
+        <div class="x-select-wrap x-filters__select x-filters__select--narrow">
+            <select name="per_page" class="x-input" data-autosubmit aria-label="Returns per page">
+                @foreach([10, 20, 50, 100] as $n)
+                    <option value="{{ $n }}" @selected($perPage === $n)>{{ $n }} per page</option>
+                @endforeach
+            </select>
+            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+        </div>
+    </x-ui.foldout>
 
     <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
 
@@ -245,6 +263,7 @@
         <a class="x-filters__reset" href="{{ $panelUrl(['tab' => $active_tab, 'per_page' => $perPage]) }}">Reset</a>
     @endif
 </form>
+</div>
 
 @if($returns->count() === 0)
     @php

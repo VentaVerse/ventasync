@@ -79,47 +79,6 @@
      them empty does. Promising a filter the fetch does not perform is the
      mistake Shopee's returns page was built to avoid; so is hiding one it
      does. --}}
-<div class="x-cmdbar" data-desk-tool>
-    <form method="POST" action="{{ route('ext.lazada.orders.fetch_returns') }}" id="formFetchLazadaReturns" class="x-cmdbar__row"
-          data-confirm="Fetch every return and refund Lazada has on file? This walks the channel's full history and can take a while."
-          data-confirm-tone="primary">
-        @csrf
-        <div class="x-cmdbar__field">
-            <label class="x-cmdbar__label" for="lzReturnFrom">Pull orders from</label>
-            {{-- Prefilled to the same 15-day window the orders bar uses.
-                 Empty meant "walk the entire history", which is the slowest
-                 call on the surface and was also its default. --}}
-            <x-ui.input type="date" id="lzReturnFrom" name="date_from" class="x-cmdbar__date"
-                        value="{{ old('date_from', request('date_from', now()->subDays(15)->format('Y-m-d'))) }}" />
-        </div>
-        <div class="x-cmdbar__field">
-            <label class="x-cmdbar__label" for="lzReturnTo">Pull orders to</label>
-            <x-ui.input type="date" id="lzReturnTo" name="date_to" class="x-cmdbar__date"
-                        value="{{ old('date_to', request('date_to', now()->format('Y-m-d'))) }}" />
-        </div>
-        <div class="x-cmdbar__spacer"></div>
-        <div class="x-cmdbar__actions">
-            <x-ui.button type="submit" variant="primary" id="btnFetchLazadaReturns">Fetch returns</x-ui.button>
-            <x-ui.hint>Fetch pulls the returns opened between these dates. Update statuses ignores them and re-reads every return on file.</x-ui.hint>
-        </div>
-    </form>
-
-    {{-- Update statuses, the same pair the orders bar carries and for the
-         same reason. A buyer can cancel a return at any time, and this
-         channel's fetch is date-scoped - so a return opened outside the
-         chosen window never gets re-read and a cancellation on an older one
-         sits stale indefinitely. This posts to the same endpoint with no
-         range, which that controller already treats as "walk everything".
-
-         Shopee needs no equivalent: its get_return_list takes no range, so
-         its Fetch already re-reads the full history every time. --}}
-    <form method="POST" action="{{ route('ext.lazada.orders.fetch_returns') }}" id="formUpdateLazadaReturns"
-          data-confirm="Re-read every return Lazada has on file, ignoring the dates? This refreshes statuses for returns the buyer may have cancelled."
-          data-confirm-tone="primary">
-        @csrf
-        <x-ui.button type="submit" variant="secondary" id="btnUpdateLazadaReturns">Update statuses</x-ui.button>
-    </form>
-</div>
 @endif
 
 @if($last_result)
@@ -199,6 +158,19 @@
 
 {{-- One filter row, replacing the old search card and the separate per-page
      form that sat below the table. --}}
+@php
+    /* What the Filters button admits to. */
+    $lzrActiveFilters = 0;
+    if (($openedFromFilter ?? '') !== '') { $lzrActiveFilters++; }
+    if (($openedToFilter ?? '') !== '') { $lzrActiveFilters++; }
+    if (($sort ?? 'updated_desc') !== 'updated_desc') { $lzrActiveFilters++; }
+    if ((int) ($perPage ?? 10) !== 10) { $lzrActiveFilters++; }
+@endphp
+
+{{-- One toolbar, after the tabs: choose the queue, then narrow it. Same
+     fold as the other channels, so nobody relearns the toolbar crossing
+     between them. --}}
+<div class="x-toolbar">
 <form method="GET" action="{{ $panelBaseUrl }}" class="x-filters" data-desk-tool id="orders-filter">
 @foreach($panelHiddenParams as $panelHiddenKey => $panelHiddenValue)    <input type="hidden" name="{{ $panelHiddenKey }}" value="{{ $panelHiddenValue }}">
 @endforeach
@@ -218,31 +190,36 @@
          label existed the only thing separating them was a word screen
          readers could hear and nobody else could see. On Lazada that put
          four identical boxes on one screen, two of which write orders. --}}
-    <span class="x-filters__group">
-        <span class="x-filters__group-label" id="lz-opened-label">Opened</span>
-        <x-ui.input type="date" name="opened_from" class="x-filters__date"
-                    value="{{ $openedFromFilter }}" aria-label="Opened on or after" title="Opened on or after" />
-        <x-ui.input type="date" name="opened_to" class="x-filters__date"
-                    value="{{ $openedToFilter }}" aria-label="Opened on or before" title="Opened on or before" />
-    </span>
+    {{-- Folded, with a count of what is set. Search stays out: it is the
+         control used most. A fold that hides an ACTIVE filter would be worse
+         than no fold, which is what the count is for. --}}
+    <x-ui.foldout label="Filters" :count="$lzrActiveFilters ?: null">
+        <span class="x-filters__group">
+            <span class="x-filters__group-label" id="lz-opened-label">Opened</span>
+            <x-ui.input type="date" name="opened_from" class="x-filters__date"
+                        value="{{ $openedFromFilter }}" aria-label="Opened on or after" title="Opened on or after" />
+            <x-ui.input type="date" name="opened_to" class="x-filters__date"
+                        value="{{ $openedToFilter }}" aria-label="Opened on or before" title="Opened on or before" />
+        </span>
 
-    <div class="x-select-wrap x-filters__select x-filters__select--wide">
-        <select name="sort" class="x-input" data-autosubmit aria-label="Sort returns">
-            @foreach($rtSortLabels as $value => $label)
-                <option value="{{ $value }}" @selected(($sort ?? 'updated_desc') === $value)>{{ $label }}</option>
-            @endforeach
-        </select>
-        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-    </div>
+        <div class="x-select-wrap x-filters__select x-filters__select--wide">
+            <select name="sort" class="x-input" data-autosubmit aria-label="Sort returns">
+                @foreach($rtSortLabels as $value => $label)
+                    <option value="{{ $value }}" @selected(($sort ?? 'updated_desc') === $value)>{{ $label }}</option>
+                @endforeach
+            </select>
+            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+        </div>
 
-    <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="per_page" class="x-input" data-autosubmit aria-label="Returns per page">
-            @foreach([10, 20, 50, 100] as $n)
-                <option value="{{ $n }}" @selected($perPage === $n)>{{ $n }} per page</option>
-            @endforeach
-        </select>
-        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-    </div>
+        <div class="x-select-wrap x-filters__select x-filters__select--narrow">
+            <select name="per_page" class="x-input" data-autosubmit aria-label="Returns per page">
+                @foreach([10, 20, 50, 100] as $n)
+                    <option value="{{ $n }}" @selected($perPage === $n)>{{ $n }} per page</option>
+                @endforeach
+            </select>
+            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+        </div>
+    </x-ui.foldout>
 
     <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
 
@@ -250,6 +227,56 @@
         <a class="x-filters__reset" href="{{ $panelUrl(['tab' => $active_tab, 'per_page' => $perPage]) }}">Reset</a>
     @endif
 </form>
+
+@if($canManageLazadaOrders)
+    {{-- The marketplace pull, folded. Used a few times a day, never per
+         order, and it sat above every row on every page load. --}}
+    <x-ui.foldout label="Sync" class="x-toolbar__sync"
+                  hint="Pulls returns from Lazada opened between the dates below.">
+        <div class="x-cmdbar x-cmdbar--folded">
+            <form method="POST" action="{{ route('ext.lazada.orders.fetch_returns') }}" id="formFetchLazadaReturns" class="x-cmdbar__row"
+              data-confirm="Fetch every return and refund Lazada has on file? This walks the channel's full history and can take a while."
+              data-confirm-tone="primary">
+            @csrf
+            <div class="x-cmdbar__field">
+                <label class="x-cmdbar__label" for="lzReturnFrom">Pull orders from</label>
+                {{-- Prefilled to the same 15-day window the orders bar uses.
+                     Empty meant "walk the entire history", which is the slowest
+                     call on the surface and was also its default. --}}
+                <x-ui.input type="date" id="lzReturnFrom" name="date_from" class="x-cmdbar__date"
+                            value="{{ old('date_from', request('date_from', now()->subDays(15)->format('Y-m-d'))) }}" />
+            </div>
+            <div class="x-cmdbar__field">
+                <label class="x-cmdbar__label" for="lzReturnTo">Pull orders to</label>
+                <x-ui.input type="date" id="lzReturnTo" name="date_to" class="x-cmdbar__date"
+                            value="{{ old('date_to', request('date_to', now()->format('Y-m-d'))) }}" />
+            </div>
+            <div class="x-cmdbar__spacer"></div>
+            <div class="x-cmdbar__actions">
+                <x-ui.button type="submit" variant="primary" id="btnFetchLazadaReturns">Fetch returns</x-ui.button>
+                <x-ui.hint>Fetch pulls the returns opened between these dates. Update statuses ignores them and re-reads every return on file.</x-ui.hint>
+            </div>
+        </form>
+    
+        {{-- Update statuses, the same pair the orders bar carries and for the
+             same reason. A buyer can cancel a return at any time, and this
+             channel's fetch is date-scoped - so a return opened outside the
+             chosen window never gets re-read and a cancellation on an older one
+             sits stale indefinitely. This posts to the same endpoint with no
+             range, which that controller already treats as "walk everything".
+    
+             Shopee needs no equivalent: its get_return_list takes no range, so
+             its Fetch already re-reads the full history every time. --}}
+        <form method="POST" action="{{ route('ext.lazada.orders.fetch_returns') }}" id="formUpdateLazadaReturns"
+              data-confirm="Re-read every return Lazada has on file, ignoring the dates? This refreshes statuses for returns the buyer may have cancelled."
+              data-confirm-tone="primary">
+            @csrf
+            <x-ui.button type="submit" variant="secondary" id="btnUpdateLazadaReturns">Update statuses</x-ui.button>
+        </form>
+        </div>
+    </x-ui.foldout>
+@endif
+</div>
 
 @if($orders->count() === 0)
     @php

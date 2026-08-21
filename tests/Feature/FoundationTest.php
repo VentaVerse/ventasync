@@ -837,6 +837,92 @@ class FoundationTest extends TestCase
     }
 
     /**
+     * The marketplace pull never stands above the work again.
+     *
+     * Four stacked bands put the first order a packer could touch 517px down
+     * a 900px screen, and the widest of them was a sync form used a few times
+     * a day and never per order. Folding it is only half a fix: the value is
+     * that it stays folded on every channel, because a packer crossing from
+     * Lazada to Shopee should not meet a different toolbar.
+     */
+    public function test_no_fulfilment_panel_stacks_a_command_bar_above_the_rows(): void
+    {
+        $loose = [];
+
+        foreach ($this->fulfilmentPanels() as $label => $markup) {
+            if (! str_contains($markup, 'class="x-cmdbar"')) {
+                continue;
+            }
+
+            // The bar may exist; it may not sit outside a fold. Everything
+            // from the fold's open tag to its close is sanctioned ground.
+            $folded = preg_replace('/<x-ui\.foldout\b.*?<\/x-ui\.foldout>/s', '', $markup);
+
+            if (str_contains((string) $folded, 'class="x-cmdbar"')) {
+                $loose[] = $label;
+            }
+        }
+
+        $this->assertSame([], $loose, sprintf(
+            "These panels render a command bar outside a fold: %s\n\n"
+            ."The sync form belongs in <x-ui.foldout label=\"Sync\">. Left loose it sits\n"
+            ."above every row on every page load, for a control touched a few times a day.",
+            implode(', ', $loose)
+        ));
+    }
+
+    /**
+     * A fold that hides an ACTIVE filter is worse than no fold, because the
+     * list is then narrowed by something invisible. The count on the trigger
+     * is what buys the right to hide anything, so it is not optional.
+     */
+    public function test_a_filters_fold_says_how_much_it_is_hiding(): void
+    {
+        $silent = [];
+
+        foreach ($this->fulfilmentPanels() as $label => $markup) {
+            preg_match_all('/<x-ui\.foldout[^>]*label="Filters"[^>]*>/s', $markup, $matches);
+
+            foreach ($matches[0] as $tag) {
+                if (! str_contains($tag, ':count=')) {
+                    $silent[] = $label;
+                }
+            }
+        }
+
+        $this->assertSame([], $silent, sprintf(
+            "These panels fold their filters without a count: %s\n\n"
+            ."Bind :count to a tally of the filters that are actually set. Without it a\n"
+            ."date left in the fold narrows the list with nothing on screen saying so.",
+            implode(', ', $silent)
+        ));
+    }
+
+    /**
+     * Every orders and returns panel across the channels, keyed by a label
+     * that names the channel and which list it is.
+     */
+    private function fulfilmentPanels(): array
+    {
+        $panels = array_merge(
+            glob(base_path('extensions/*/views/orders/_panel.blade.php')) ?: [],
+            glob(base_path('extensions/*/views/orders/_returns_panel.blade.php')) ?: []
+        );
+
+        $this->assertNotEmpty($panels, 'no fulfilment panels found to check');
+
+        $out = [];
+
+        foreach ($panels as $panel) {
+            $channel = basename(dirname($panel, 3));
+            $kind = str_contains(basename($panel), 'returns') ? 'returns' : 'orders';
+            $out[$channel.' '.$kind] = File::get($panel);
+        }
+
+        return $out;
+    }
+
+    /**
      * Every stylesheet that reaches a served page.
      *
      * Read off the filesystem rather than off the @import lists, so a file

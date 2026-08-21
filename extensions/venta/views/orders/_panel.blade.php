@@ -47,6 +47,10 @@
         || auth()->user()?->hasPermission('manage_orders'));
 
     $vtQ = (string) ($filters['q'] ?? '');
+    /* The service exposes this as per_page, not perPage. Read under the
+       wrong name it fell through ?? to 10, so the control reported 10 while
+       the list paginated by 50. */
+    $vtPerPage = (int) ($per_page ?? 10);
     $vtPlacedFrom = (string) ($filters['placed_from'] ?? '');
     $vtPlacedTo = (string) ($filters['placed_to'] ?? '');
     $vtStatus = (string) ($filters['status'] ?? '');
@@ -77,31 +81,6 @@
      every child of the row ends in a box exactly --control-h tall and the
      row is bottom aligned, so the date inputs and the button share a
      baseline and a top edge. --}}
-<div class="x-cmdbar" data-desk-tool>
-    {{-- See the note on Shopee's bar: a fetch writes unseen orders and
-         writing an order adjusts stock, so the action names its own
-         consequence before it runs. --}}
-    <form method="POST" action="{{ route('ext.venta.orders.fetch', $storeId) }}" id="formFetchVentaOrders" class="x-cmdbar__row"
-          data-confirm="Fetch orders from this Venta store for the chosen dates? Any order that has not been seen before will adjust stock."
-          data-confirm-tone="primary">
-        @csrf
-        <div class="x-cmdbar__field">
-            <label class="x-cmdbar__label" for="vtDateFrom">Pull orders from</label>
-            <x-ui.input type="date" id="vtDateFrom" name="date_from" class="x-cmdbar__date"
-                        value="{{ old('date_from', request('date_from', now()->subDays(15)->format('Y-m-d'))) }}" />
-        </div>
-        <div class="x-cmdbar__field">
-            <label class="x-cmdbar__label" for="vtDateTo">Pull orders to</label>
-            <x-ui.input type="date" id="vtDateTo" name="date_to" class="x-cmdbar__date"
-                        value="{{ old('date_to', request('date_to', now()->format('Y-m-d'))) }}" />
-        </div>
-        <div class="x-cmdbar__spacer"></div>
-        <div class="x-cmdbar__actions">
-            <x-ui.button type="submit" variant="primary" id="btnFetchVentaOrders">Fetch orders</x-ui.button>
-            <x-ui.hint>Fetching pulls the orders this store created between those two dates.</x-ui.hint>
-        </div>
-    </form>
-</div>
 @endif
 
 {{-- Status filters as a segmented control. The statuses are whatever this
@@ -148,6 +127,18 @@
 
 {{-- One filter row. Search was its own card form on the legacy page, sitting
      under a second card holding the status badges; both are one job. --}}
+@php
+    /* What the Filters button admits to. */
+    $vtActiveFilters = 0;
+    if (($vtPlacedFrom ?? '') !== '') { $vtActiveFilters++; }
+    if (($vtPlacedTo ?? '') !== '') { $vtActiveFilters++; }
+    if ($vtPerPage !== 10) { $vtActiveFilters++; }
+@endphp
+
+{{-- One toolbar, after the tabs: choose the queue, then narrow it. Same
+     fold as the other channels, so nobody relearns the toolbar crossing
+     between them. --}}
+<div class="x-toolbar">
 <form method="GET" action="{{ $panelBaseUrl }}" class="x-filters" data-desk-tool id="orders-filter">{{-- The caller's context params, kept across every filter change. The loop
      is written tight against its own lines because Blade eats the newline
      after @endforeach: laid out conventionally, a caller passing no params
@@ -171,22 +162,27 @@
                 placeholder="Order no, customer, product or tracking"
                 aria-label="Find an order by order number, customer, product or tracking" />
 
-    <span class="x-filters__group">
-        <span class="x-filters__group-label">Show orders placed</span>
-        <x-ui.input type="date" name="placed_from" class="x-filters__date"
-                    value="{{ $vtPlacedFrom }}" aria-label="Placed on or after" title="Placed on or after" />
-        <x-ui.input type="date" name="placed_to" class="x-filters__date"
-                    value="{{ $vtPlacedTo }}" aria-label="Placed on or before" title="Placed on or before" />
-    </span>
+    {{-- Folded, with a count of what is set. Search stays out: it is the
+         control used most. A fold that hides an ACTIVE filter would be worse
+         than no fold, which is what the count is for. --}}
+    <x-ui.foldout label="Filters" :count="$vtActiveFilters ?: null">
+        <span class="x-filters__group">
+            <span class="x-filters__group-label">Show orders placed</span>
+            <x-ui.input type="date" name="placed_from" class="x-filters__date"
+                        value="{{ $vtPlacedFrom }}" aria-label="Placed on or after" title="Placed on or after" />
+            <x-ui.input type="date" name="placed_to" class="x-filters__date"
+                        value="{{ $vtPlacedTo }}" aria-label="Placed on or before" title="Placed on or before" />
+        </span>
 
-    <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="per_page" class="x-input" data-autosubmit aria-label="Orders per page">
-            @foreach([10, 20, 50, 100] as $n)
-                <option value="{{ $n }}" @selected(($perPage ?? 10) === $n)>{{ $n }} per page</option>
-            @endforeach
-        </select>
-        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-    </div>
+        <div class="x-select-wrap x-filters__select x-filters__select--narrow">
+            <select name="per_page" class="x-input" data-autosubmit aria-label="Orders per page">
+                @foreach([10, 20, 50, 100] as $n)
+                    <option value="{{ $n }}" @selected($vtPerPage === $n)>{{ $n }} per page</option>
+                @endforeach
+            </select>
+            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+        </div>
+    </x-ui.foldout>
 
     <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
 
@@ -194,6 +190,37 @@
         <a class="x-filters__reset" href="{{ $panelUrl() }}">Reset</a>
     @endif
 </form>
+
+@if($canManageVentaOrders)
+    {{-- The marketplace pull, folded. Used a few times a day, never per
+         order, and it sat above every row on every page load. --}}
+    <x-ui.foldout label="Sync" class="x-toolbar__sync"
+                  hint="Pulls orders from this storefront for the dates below.">
+        <div class="x-cmdbar x-cmdbar--folded">
+            <form method="POST" action="{{ route('ext.venta.orders.fetch', $storeId) }}" id="formFetchVentaOrders" class="x-cmdbar__row"
+              data-confirm="Fetch orders from this Venta store for the chosen dates? Any order that has not been seen before will adjust stock."
+              data-confirm-tone="primary">
+            @csrf
+            <div class="x-cmdbar__field">
+                <label class="x-cmdbar__label" for="vtDateFrom">Pull orders from</label>
+                <x-ui.input type="date" id="vtDateFrom" name="date_from" class="x-cmdbar__date"
+                            value="{{ old('date_from', request('date_from', now()->subDays(15)->format('Y-m-d'))) }}" />
+            </div>
+            <div class="x-cmdbar__field">
+                <label class="x-cmdbar__label" for="vtDateTo">Pull orders to</label>
+                <x-ui.input type="date" id="vtDateTo" name="date_to" class="x-cmdbar__date"
+                            value="{{ old('date_to', request('date_to', now()->format('Y-m-d'))) }}" />
+            </div>
+            <div class="x-cmdbar__spacer"></div>
+            <div class="x-cmdbar__actions">
+                <x-ui.button type="submit" variant="primary" id="btnFetchVentaOrders">Fetch orders</x-ui.button>
+                <x-ui.hint>Fetching pulls the orders this store created between those two dates.</x-ui.hint>
+            </div>
+        </form>
+        </div>
+    </x-ui.foldout>
+@endif
+</div>
 
 @if($orders->count() === 0)
     @php
