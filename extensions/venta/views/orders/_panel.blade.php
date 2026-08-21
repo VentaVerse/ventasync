@@ -291,9 +291,15 @@
             <x-ui.button type="submit" variant="secondary" size="sm" formtarget="_blank"
                          formaction="{{ route('fulfilment.print.packing', ['channel' => 'venta']) }}">Print packing lists</x-ui.button>
             <x-ui.hint label="About these two lists">One pick list for the whole selection, with lines consolidated by SKU so three of the same item is one trip to the shelf. Packing lists are one per order, nothing consolidated, to go in the parcel.</x-ui.hint>
+            {{-- Detached from the productive run on purpose. The last
+                 control in this bar is where the other three channels put
+                 Pack and print, so the muscle memory that ends a selection
+                 with a confident click must not land on a delete. --}}
+            <span class="x-selectbar__split"></span>
             <x-ui.button type="submit" variant="danger" size="sm"
                          formaction="{{ route('ext.venta.orders.bulk_delete', $storeId) }}"
-                         data-confirm="Delete the selected orders from this store? The sales orders they created are not affected.">Delete selected</x-ui.button>
+                         data-confirm="Delete the selected orders from this store? The sales orders they created are not affected."
+                         data-confirm-count="Delete :n selected orders from this store? The sales orders they created are not affected.">Delete selected</x-ui.button>
         </form>
     </x-ui.selectbar>
 @endif
@@ -491,9 +497,30 @@
                     <span class="co-empty-mark">-</span>
                 @else
                 <div class="co-actions">
-                    {{-- Delete is the only write this page offers a row, and
-                         it is destructive, so it never stands as a button of
-                         its own: it lives behind an overflow trigger that
+                    {{-- The productive control, in the slot the other three
+                         channels use for one. A row that ended in Delete
+                         where Shopee, Lazada and TikTok end in Print taught
+                         the opposite of the gesture they teach, and a packer
+                         crossing between them all morning is the person who
+                         pays for that.
+
+                         Packing list, not pick list: a pick list consolidates
+                         a whole selection by SKU so three of an item is one
+                         trip to the shelf, which for a single order is just a
+                         packing list under another name. The shared route
+                         takes ids[], so one order is a selection of one. --}}
+                    <form method="POST" class="x-docs"
+                          action="{{ route('fulfilment.print.packing', ['channel' => 'venta']) }}"
+                          target="_blank">
+                        @csrf
+                        <input type="hidden" name="ids[]" value="{{ $o->id }}">
+                        <span class="x-docs__label">Print</span>
+                        <button type="submit" class="x-doc">Packing list</button>
+                    </form>
+
+                    {{-- Delete is the only other write this page offers a row,
+                         and it is destructive, so it never stands as a button
+                         of its own: it lives behind an overflow trigger that
                          appears on hover or focus, or in the selection bar
                          above once rows are picked. --}}
                     <x-ui.menu label="Order {{ $vtNumber }} actions">

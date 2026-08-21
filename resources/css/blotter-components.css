@@ -3173,33 +3173,54 @@
     .lz-col-status { width: 12%; }
     .lz-col-act { width: 26%; }
 
-    .lz-docs {
+    /* The per-order document links a fulfilment row offers.
+       ------------------------------------------------------------------
+       Named .x-doc rather than .lz-doc because it is not Lazada's: the
+       storefront rows carry the same affordance, and the critique kept
+       finding the same control under a different name per channel. It also
+       means the coarse-pointer uplift has one selector to target instead of
+       one per marketplace. */
+    /* ------------------------------------------------------------------
+       Picking documents. These are printing, not fulfilment: the packer
+       reaches for them constantly but they change nothing, so they read as a
+       row of links under the buttons rather than as three more controls of the
+       same weight. The pipe separators the old row used are gone; the space
+       between them does that job without drawing anything.
+       ------------------------------------------------------------------ */
+
+    .x-docs {
         display: flex;
         flex-wrap: wrap;
         align-items: baseline;
-        gap: 4px 12px;
-        margin-top: 8px;
+        gap: var(--bl-space-1) var(--bl-space-3);
+        margin-top: var(--bl-space-2);
     }
 
-    .lz-docs__label {
+    .x-docs__label {
         font-size: 11px;
         font-weight: 500;
+        letter-spacing: .02em;
         color: var(--bl-ink-3);
     }
 
-    .lz-doc {
+    .x-doc {
+        /* The whole row carries a stretched link overlay (.x-row-link::after in
+           components/ui-table.css), so anything clickable inside it has to be
+           lifted above that overlay or the row swallows the click. */
         position: relative;
         z-index: 1;
         font-size: 12px;
         color: var(--bl-ink-2);
         text-decoration: none;
+        transition: color var(--bl-motion-fast);
     }
 
-    .lz-doc:hover {
+    .x-doc:hover {
         color: var(--bl-ink);
         text-decoration: underline;
         text-underline-offset: 2px;
     }
+
 
     @media (max-width: 900px) {
         .lz-col-ship { display: none; }

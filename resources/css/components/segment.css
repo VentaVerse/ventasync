@@ -145,11 +145,16 @@
 
 .x-segment__item:hover { color: var(--bl-ink); }
 
-/* THE ONE CONTROL THE TOUCH UPLIFT MISSED.
+/* A CONTROL THE TOUCH UPLIFT MISSED.
  *
- * blotter.css raises .bl-seg__item to 44px under pointer: coarse, and every
- * other target on these pages is covered by that block or its neighbours -
- * the row kebab goes 14px to 44, the pager likewise. The fulfilment status
+ * blotter.css raises .bl-seg__item to 44px under pointer: coarse, and the
+ * row kebab goes 14px to 44, the pager likewise. This comment used to claim
+ * that covered "every other target on these pages". It did not: a browser
+ * pass measured the row action buttons at 86x25 and the per-order document
+ * links at 61x17, which are the two controls a packer touches MOST per
+ * order. They are lifted now, at the foot of this file. A comment asserting
+ * a guard that does not exist is worse than no comment, because the next
+ * person to audit targets reads it and moves on. The fulfilment status
  * tabs are .x-segment__item, a different class family that was never aliased
  * to it, so the primary mode switch on the busiest screen in the product -
  * the thing a packer taps all day to move between To Ship and Shipped - kept
@@ -346,4 +351,29 @@
 
     .x-segment-bar__aside,
     .x-segment-bar__aside-group { align-self: flex-start; }
+}
+
+/* The two controls a packer actually touches per order.
+   ------------------------------------------------------------------
+   Measured at 86x25 (.x-btn--sm, Print waybill / Tracking / Arrange
+   shipment) and 61x17 (.x-doc, Packing list / Pick list) against a 24x24
+   floor, with the small buttons sitting a few pixels apart. Mis-taps here
+   open the wrong document in the middle of packing an order.
+
+   Padding rather than min-height on the links, so a wrapped row of them
+   keeps its baseline rhythm instead of turning into a column of boxes. */
+@media (pointer: coarse) {
+    .x-btn--sm {
+        min-height: 44px;
+        padding-block: var(--bl-space-2);
+    }
+
+    .x-doc {
+        display: inline-block;
+        padding-block: var(--bl-space-2);
+    }
+
+    .x-docs {
+        gap: var(--bl-space-1) var(--bl-space-3);
+    }
 }

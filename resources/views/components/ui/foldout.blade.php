@@ -31,7 +31,10 @@
             x-ref="foldTrigger"
             id="{{ $foldId }}-t"
             class="x-fold__trigger"
-            aria-haspopup="true"
+            {{-- No aria-haspopup. It defaults to "menu", and this panel is a
+                 role="group" of form fields, so a screen reader was promised
+                 a menu and handed a group. aria-expanded plus aria-controls
+                 is the whole contract a disclosure needs. --}}
             aria-controls="{{ $foldId }}-p"
             :aria-expanded="open ? 'true' : 'false'"
             @click.stop="open = !open">

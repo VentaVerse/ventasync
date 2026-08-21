@@ -58,6 +58,22 @@
 
 .x-selectbar__actions[hidden] { display: none; }
 
+/* A gap that means "the run of productive actions ended here".
+   ------------------------------------------------------------------
+   The storefront bar carries a delete, and it used to sit in the terminal
+   slot the marketplace bars use for Pack and print. Same bar, same shape,
+   same last position, opposite consequence. This pushes the destructive
+   control away from that run so the confident click that ends a selection
+   does not land on it, and gives it a rule to read as a boundary rather
+   than as more spacing. */
+.x-selectbar__split {
+    flex: 1 1 auto;
+    min-width: var(--bl-space-4);
+    align-self: stretch;
+    border-right: 1px solid var(--bl-rule-2);
+    margin-inline: var(--bl-space-1);
+}
+
 /* The per-order checkbox lives in the order's own band rather than in a
    column of its own, because the thing being selected is the order and the
    band is the order's row. It also spares every one of these tables a column
@@ -70,25 +86,41 @@
     cursor: pointer;
 }
 
-/* On a phone a 14px square is under a third of what a finger needs, and
-   there is one per order. The box grows a little and its hit area grows to
-   the full 44px through an outset pseudo element, so the target is real
-   without a 44px square inside every band pushing rows off the screen. */
+/* The hit area is not a phone concern.
+   ------------------------------------------------------------------
+   This uplift used to be gated on pointer: coarse, which left the desktop
+   box at a measured 14x14 effective target against the 24x24 floor (WCAG
+   2.5.8) - and the desk is where most orders are actually picked. A mouse
+   is precise, not infinitely precise, and this is the control that decides
+   which orders an irreversible bulk action applies to.
+   
+   The outset pseudo element does the work so the box itself stays small:
+   a 44px square inside every order band would push rows off the screen. */
+.x-pick {
+    position: relative;
+}
+
+.x-pick::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 24px;
+    height: 24px;
+    transform: translate(-50%, -50%);
+}
+
+/* A finger needs more than a mouse does, so the coarse case still goes
+   further - a bigger box and the full 44px. */
 @media (pointer: coarse) {
     .x-pick {
         width: 20px;
         height: 20px;
-        position: relative;
     }
 
     .x-pick::after {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
         width: 44px;
         height: 44px;
-        transform: translate(-50%, -50%);
     }
 }
 

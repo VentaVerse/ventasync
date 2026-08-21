@@ -44,6 +44,25 @@ function initOrderSelection(scope) {
             ? ''
             : picked.length + (picked.length === 1 ? ' order selected' : ' orders selected');
 
+        // A confirmation names the number it is about to act on.
+        //
+        // These dialogs guard irreversible marketplace writes, and the
+        // dialog covers the selection bar that holds the count - so the
+        // operator was being asked to commit to a number they could no
+        // longer see. [data-confirm-count] carries the wording with an :n
+        // placeholder, and the live count is written into [data-confirm]
+        // here, where the count is already known.
+        actions.forEach(function (container) {
+            var counted = container.querySelectorAll('[data-confirm-count]');
+
+            Array.prototype.forEach.call(counted, function (el) {
+                el.setAttribute(
+                    'data-confirm',
+                    el.getAttribute('data-confirm-count').replace(':n', picked.length)
+                );
+            });
+        });
+
         selectAll.checked = all.length > 0 && picked.length === all.length;
         selectAll.indeterminate = picked.length > 0 && picked.length < all.length;
     }

@@ -1882,7 +1882,7 @@ class WorkspaceInteriorsTest extends TestCase
      */
     private function pageContent(string $html, string $label): string
     {
-        preg_match('/<main class="x-content[^"]*">(.*?)<\/main>/s', $html, $main);
+        preg_match('/<main\b[^>]*class="x-content[^"]*"[^>]*>(.*?)<\/main>/s', $html, $main);
         $inside = $main[1] ?? '';
         $this->assertNotEmpty($inside, "No content region rendered for {$label}.");
 

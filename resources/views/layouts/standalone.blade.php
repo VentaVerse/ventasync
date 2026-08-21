@@ -55,12 +55,17 @@
     @stack('styles')
 </head>
 <body class="x-app">
+{{-- The bypass block (WCAG 2.4.1). A keyboard user passed 15 to 17 stops
+     through the shell before reaching the first control inside the content
+     on every page of this application, on every page load. Visible only on
+     focus, so it costs the mouse nothing. --}}
+<a class="x-skip" href="#main">Skip to content</a>
 <div class="x-standalone">
     <header class="x-standalone__head">
         <span class="x-standalone__brand">{{ $__companyName }}</span>
     </header>
 
-    <main class="x-content x-standalone__body @yield('content-class', '')">
+    <main id="main" tabindex="-1" class="x-content x-standalone__body @yield('content-class', '')">
         {{-- Same flash contract every other converted page has. A page that
              cannot show a redirect message is a page that silently loses
              one. --}}

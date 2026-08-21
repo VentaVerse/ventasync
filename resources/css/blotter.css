@@ -972,12 +972,57 @@
         gap: 8px;
     }
 
+    /* The bypass block. Off-screen until focused, then a real control at
+       the top-left of the viewport - not display:none, which would take it
+       out of the tab order and defeat the entire point. It carries the same
+       focus ring as everything else, and z-index above the sticky header it
+       jumps out of. */
+    .x-skip {
+        position: fixed;
+        top: var(--bl-space-2);
+        left: var(--bl-space-2);
+        z-index: 200;
+        padding: var(--bl-space-2) var(--bl-space-4);
+        border: 1px solid var(--bl-field-edge);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-sheet);
+        color: var(--bl-ink);
+        font-size: 13px;
+        font-weight: 560;
+        text-decoration: none;
+        transform: translateY(calc(-100% - var(--bl-space-4)));
+        transition: transform var(--bl-motion-fast);
+    }
+
+    /* :focus, not :focus-visible. A skip link is reached by Tab and by
+       nothing else, so there is no mouse case to suppress, and
+       :focus-visible would leave it hidden for anything that moves focus
+       programmatically. */
+    .x-skip:focus {
+        transform: translateY(0);
+    }
+
+    /* The content region takes focus from the skip link but must never
+       show a ring for it: it is a landmark, not a control. */
+    .x-content:focus {
+        outline: none;
+    }
+
     .x-btn {
         display: inline-flex;
         align-items: center;
         gap: 6px;
         padding: 6px 13px;
-        border: 1px solid var(--bl-rule-2);
+        /* --bl-field-edge, not --bl-rule-2. A control's boundary has to
+           reach 3:1 against the surface behind it (WCAG 1.4.11), and a
+           secondary button is a white fill on a near-white chrome, so the
+           border is the ONLY thing that says a control is there. At
+           --bl-rule-2 it measured 1.13:1 light and 1.63:1 dark across 62
+           buttons on a single fulfilment page. This is the same token the
+           inputs and the fold triggers already use, where it measures 3.23
+           and 3.75. --bl-rule-2 stays what it is: a rule between things,
+           not the edge of a control. */
+        border: 1px solid var(--bl-field-edge);
         border-radius: var(--bl-r-ctrl);
         background: var(--bl-sheet);
         color: var(--bl-ink);

@@ -234,7 +234,7 @@ class MultistoreWorkspaceTest extends TestCase
         // :class and an id. The classes are still required; only the
         // assumption that nothing else sits in the tag is relaxed.
         preg_match('/<aside class="x-sidebar x-sidebar--channel"[^>]*>(.*?)<\/aside>/s', $html, $sidebar);
-        preg_match('/<main class="x-content[^"]*">(.*?)<\/main>/s', $html, $content);
+        preg_match('/<main\b[^>]*class="x-content[^"]*"[^>]*>(.*?)<\/main>/s', $html, $content);
 
         $this->assertNotEmpty($sidebar[1] ?? '', 'No channel sidebar rendered.');
         $this->assertNotEmpty($content[1] ?? '', 'No content region rendered.');

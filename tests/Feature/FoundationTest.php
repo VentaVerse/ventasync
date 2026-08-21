@@ -899,6 +899,73 @@ class FoundationTest extends TestCase
     }
 
     /**
+     * Every shell offers a way past it.
+     *
+     * A keyboard user passed 15 to 17 stops through the sidebar, the header
+     * and the channel nav before reaching the first control inside the
+     * content, on every page load. The link is the whole of WCAG 2.4.1 and
+     * it costs a mouse user nothing, being visible only on focus.
+     */
+    public function test_every_shell_layout_offers_a_bypass_block(): void
+    {
+        $missing = [];
+
+        foreach (glob(resource_path('views/layouts/*.blade.php')) ?: [] as $layout) {
+            $markup = File::get($layout);
+            $name = basename($layout, '.blade.php');
+
+            // A layout with no content landmark has nothing to skip TO. The
+            // print and guest shells are single-purpose pages, not shells.
+            if (! str_contains($markup, '<main')) {
+                continue;
+            }
+
+            if (! str_contains($markup, 'class="x-skip"')) {
+                $missing[] = $name.' (no skip link)';
+                continue;
+            }
+
+            // The link has to point at something that exists in the same
+            // document, or it is a bypass block that bypasses nothing.
+            if (! preg_match('/<a class="x-skip" href="#([\w-]+)"/', $markup, $m)) {
+                $missing[] = $name.' (skip link has no fragment target)';
+                continue;
+            }
+
+            if (! str_contains($markup, 'id="'.$m[1].'"')) {
+                $missing[] = $name.' (skip target #'.$m[1].' is not in this layout)';
+            }
+        }
+
+        $this->assertSame([], $missing, sprintf(
+            "These layouts do not offer a working bypass block: %s\n\n"
+            ."Add <a class=\"x-skip\" href=\"#main\">Skip to content</a> as the first element\n"
+            ."in <body>, and give the content landmark id=\"main\" tabindex=\"-1\".",
+            implode(', ', $missing)
+        ));
+    }
+
+    /**
+     * A control's edge carries the 3:1 boundary floor (WCAG 1.4.11), and a
+     * secondary button is a white fill on a near-white chrome, so its border
+     * is the only thing saying a control is there. --bl-rule-2 is a rule
+     * between things and measured 1.13:1; --bl-field-edge is the edge of a
+     * control and measures 3.23.
+     */
+    public function test_the_base_control_edge_is_not_a_hairline_rule(): void
+    {
+        $css = File::get(resource_path('css/blotter.css'));
+
+        preg_match('/\n    \.x-btn \{(.+?)\n    \}/s', $css, $m);
+
+        $this->assertNotEmpty($m, '.x-btn base rule not found in blotter.css');
+
+        $this->assertStringContainsString('var(--bl-field-edge)', $m[1],
+            'the base button border must use the control-edge token, not a hairline rule');
+        $this->assertStringNotContainsString('border: 1px solid var(--bl-rule-2)', $m[1]);
+    }
+
+    /**
      * Every orders and returns panel across the channels, keyed by a label
      * that names the channel and which list it is.
      */

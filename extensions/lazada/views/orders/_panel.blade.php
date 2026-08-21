@@ -496,7 +496,8 @@
                 <x-ui.button type="submit" variant="primary" size="sm"
                              formaction="{{ route('ext.lazada.orders.bulk_pack_print') }}"
                              formtarget="_self"
-                             data-confirm="Pack the selected orders on Lazada? This creates a package for each one and cannot be undone from here.">Pack and print selected</x-ui.button>
+                             data-confirm="Pack the selected orders on Lazada? This creates a package for each one and cannot be undone from here."
+                         data-confirm-count="Pack :n selected orders on Lazada? This creates a package for each one and cannot be undone from here.">Pack and print selected</x-ui.button>
             @endif
         </form>
     </x-ui.selectbar>
@@ -855,13 +856,13 @@
                          the buttons rather than as four more controls of the
                          same weight. The pipe separators the legacy row used
                          are gone; spacing separates them. --}}
-                    <div class="lz-docs">
-                        <span class="lz-docs__label">Print</span>
+                    <div class="x-docs">
+                        <span class="x-docs__label">Print</span>
                         @if($hasAwb && !$showsAwbButton)
-                            <a class="lz-doc" href="{{ route('ext.lazada.orders.awb', ['orderId' => $orderId]) }}" target="_blank" rel="noopener">Waybill</a>
+                            <a class="x-doc" href="{{ route('ext.lazada.orders.awb', ['orderId' => $orderId]) }}" target="_blank" rel="noopener">Waybill</a>
                         @endif
-                        <a class="lz-doc" href="{{ route('ext.lazada.orders.packing_list', ['orderId' => $orderId]) }}" target="_blank" rel="noopener">Packing list</a>
-                        <a class="lz-doc" href="{{ route('ext.lazada.orders.pick_list', ['orderId' => $orderId]) }}" target="_blank" rel="noopener">Pick list</a>
+                        <a class="x-doc" href="{{ route('ext.lazada.orders.packing_list', ['orderId' => $orderId]) }}" target="_blank" rel="noopener">Packing list</a>
+                        <a class="x-doc" href="{{ route('ext.lazada.orders.pick_list', ['orderId' => $orderId]) }}" target="_blank" rel="noopener">Pick list</a>
                     </div>
                 @endif
                 @endif

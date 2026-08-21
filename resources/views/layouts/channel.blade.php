@@ -40,6 +40,11 @@
 @endphp
 <body class="x-app bl-app x-app--channel"
       style="--ch: {{ \App\Support\ChannelAccent::raw($__chAccent) }}; --ch-deep: {{ \App\Support\ChannelAccent::deep($__chAccent) }}; --ch-lift: {{ \App\Support\ChannelAccent::onDark($__chAccent) }};">
+{{-- The bypass block (WCAG 2.4.1). A keyboard user passed 15 to 17 stops
+     through the shell before reaching the first control inside the content
+     on every page of this application, on every page load. Visible only on
+     focus, so it costs the mouse nothing. --}}
+<a class="x-skip" href="#main">Skip to content</a>
 {{-- The channel shell is off-canvas below 1024px and permanent above it, the
      same arrangement layouts/blotter.blade.php already runs for the global
      shell. It is a drawer rather than the horizontal strip the legacy
@@ -178,7 +183,7 @@
              #js-flash-container that showFlashError()/showFlashSuccess()
              write into. Reproducing that contract is what makes this a
              layout those views can actually live in. --}}
-        <main class="x-content @yield('content-class', '')">
+        <main id="main" tabindex="-1" class="x-content @yield('content-class', '')">
             @include('partials.legacy-page-contract')
             @yield('content')
         </main>

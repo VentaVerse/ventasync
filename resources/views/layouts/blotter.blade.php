@@ -12,6 +12,11 @@
 {{-- bl-app marks a page as converted to the v2.2 shell, the same way x-app
      marked the shell before it. The suite asserts on it. --}}
 <body class="bl-app min-h-screen">
+{{-- The bypass block (WCAG 2.4.1). A keyboard user passed 15 to 17 stops
+     through the shell before reaching the first control inside the content
+     on every page of this application, on every page load. Visible only on
+     focus, so it costs the mouse nothing. --}}
+<a class="x-skip" href="#main">Skip to content</a>
 <!--
     IMPECCABLE DIRECTION CONTRACT (v2.3)
     THESIS: Money and work-in-hand are stated loudly in colour, everything else is a quiet white sheet. Refuses the terminal arrangement v2.2 shipped, where restraint was total and the product read as unfinished from across the room.
@@ -143,7 +148,7 @@
              this one. It is not a style hook here: the suite slices the page
              on it to prove a panel rendered inside the content area rather
              than anywhere else on the document. --}}
-        <main class="x-content min-w-0 flex-1">
+        <main id="main" tabindex="-1" class="x-content min-w-0 flex-1">
             {{ $slot ?? '' }}
             @yield('content')
         </main>
