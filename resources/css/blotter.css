@@ -194,6 +194,14 @@
     --bl-ink-3: #5f6b85;
     --bl-rule: #eaeef5;
     --bl-rule-2: #dfe5ee;
+    /* A CONTROL boundary, not a container hairline.
+       WCAG 1.4.11 asks 3:1 of the edge that tells you where an input is.
+       --bl-rule-2 gives 1.29 in light and 1.51 in dark, so a text field, a
+       date picker and a select were all outlined in something nearly
+       invisible. Container hairlines keep rule-2: they separate regions,
+       they do not delimit anything operable. */
+    --bl-field-edge: #79879f;
+    --bl-alert-link: #17708a;
 
     /* State. Unchanged in meaning, slightly more chromatic so it still
        reads at a glance on a brighter ground. Each one clears 4.5:1 on
@@ -397,6 +405,8 @@
     --bl-ink-3: #8792a9;
     --bl-rule: #1e2739;
     --bl-rule-2: #2c3852;
+    --bl-field-edge: #57708f;
+    --bl-alert-link: var(--bl-brand-deep);
 
     --bl-attn: #e8a851;
     --bl-attn-fill: #c77a0a;

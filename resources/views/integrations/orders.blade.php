@@ -318,7 +318,11 @@
              through the panel service (Shopee, Lazada and TikTok all use a
              *_orders_last_result session key) are unaffected: this reads the
              plain status/error keys only, so nothing renders twice. --}}
-        <div class="co-notice {{ session('error') ? 'co-notice--fail' : 'co-notice--ok' }}">
+        {{-- role=status so the outcome is spoken. This region is the only
+             feedback a fetch, a pack or a delete produces, and it announced
+             nothing at all. --}}
+        <div class="co-notice {{ session('error') ? 'co-notice--fail' : 'co-notice--ok' }}"
+             role="status" aria-live="polite">
             <span class="co-notice__title">{{ session('error') ? 'Failed' : 'Done' }}</span>
             <span class="co-notice__body">{{ session('error') ?: session('status') }}</span>
         </div>

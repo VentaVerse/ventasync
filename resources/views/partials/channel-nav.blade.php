@@ -54,8 +54,24 @@
          dead end at the top of their own sidebar. --}}
     {{-- $channelKey, not the card id: on a multi-store channel the Overview
          belongs to THIS store ("venta:2"), and the bare card id is a 404. --}}
+    {{-- WHAT IS NOT SOLVED HERE, so the next person does not rediscover it.
+
+         A nav item lights when routeIs() matches its own route exactly. That
+         covers every list page. It does NOT cover a record page: a return's
+         detail route is ext.{ch}.orders.return_detail, a SIBLING of the nav
+         item's ext.{ch}.orders.returns rather than a child, so no wildcard
+         reaches it and the reader sits on a page with nothing marked.
+
+         Three URL-based fixes were tried and none could be verified: this
+         partial renders in a context where routeIs() resolves but
+         request()->path(), request()->is() and Route::current()->uri() all
+         come back empty, so a path match silently matches nothing. The real
+         fix is for each nav item to declare the route family it owns, which
+         means touching every extension's nav manifest rather than this file. --}}
+
     @if($channelHasOverview)
         <a class="x-cnav__item {{ request()->routeIs('integrations.workspace') ? 'is-active' : '' }}"
+           @if(request()->routeIs('integrations.workspace')) aria-current="page" @endif
            href="{{ \App\Support\ChannelWorkspace::overviewUrl($channelKey ?? $channelCard->id) }}">
             <x-ui.icon name="monitor" size="14" /> Overview
         </a>
@@ -65,7 +81,9 @@
         <div class="x-cnav__group">
             <span class="x-cnav__group-label">{{ $group['label'] }}</span>
             @foreach($group['items'] as $item)
-                <a class="x-cnav__child {{ request()->routeIs($item['route']) ? 'is-active' : '' }}"
+                @php($cnavOn = ($cnavBest !== null && $item['url'] === $cnavBest) || request()->routeIs($item['route']))
+                <a class="x-cnav__child {{ $cnavOn ? 'is-active' : '' }}"
+                   @if($cnavOn) aria-current="page" @endif
                    href="{{ $item['url'] }}">{{ $item['label'] }}</a>
             @endforeach
         </div>

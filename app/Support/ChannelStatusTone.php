@@ -409,7 +409,7 @@ class ChannelStatusTone
         'shopee.orders' => [
             'UNPAID'             => 'Unpaid',
             'READY_TO_SHIP'      => 'Ready to ship',
-            'PROCESSED'          => 'To handover',
+            'PROCESSED'          => 'To hand over',
             'SHIPPED'            => 'Shipped',
             'TO_CONFIRM_RECEIVE' => 'Awaiting confirmation',
             'COMPLETED'          => 'Completed',

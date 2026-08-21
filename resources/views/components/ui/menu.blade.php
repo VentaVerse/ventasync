@@ -1,5 +1,11 @@
 @props(['label' => 'Actions'])
 
+@php
+    // A stable handle for this instance, so the panel can point at its own
+    // trigger rather than repeating the trigger's name.
+    $menuId = 'menu-' . \Illuminate\Support\Str::random(10);
+@endphp
+
 {{-- The popup below is a plain group of native <a>/<button> items, not a
      full ARIA menu widget. It has no arrow-key, Home/End or typeahead
      navigation, only the browser's ordinary Tab order between items. Using
@@ -19,6 +25,7 @@
      this component needing to know what that class does. --}}
 <div {{ $attributes->merge(['class' => 'x-menu']) }} x-data="{ open: false }" @keydown.escape.window="if (open) { open = false; $refs.trigger.focus() }">
     <button type="button"
+            id="{{ $menuId }}-t"
             x-ref="trigger"
             class="x-menu__trigger{{ isset($trigger) ? ' x-menu__trigger--custom' : '' }}"
             :aria-expanded="open ? 'true' : 'false'"
@@ -33,7 +40,11 @@
             </svg>
         @endisset
     </button>
-    <div class="x-menu__panel" role="group" aria-label="{{ $label }}" x-show="open" x-cloak x-transition.duration.120ms @click.outside="open = false">
+    {{-- The panel is named BY its trigger, not again. Labelling both put
+         the same string on the button and on the group it opens, so ten
+         row menus announced twenty identical names and read as twenty
+         menus to anyone counting. --}}
+    <div class="x-menu__panel" role="group" aria-labelledby="{{ $menuId }}-t" x-show="open" x-cloak x-transition.duration.120ms @click.outside="open = false">
         {{ $slot }}
     </div>
 </div>

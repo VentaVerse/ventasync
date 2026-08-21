@@ -98,7 +98,7 @@
      where this page's other standing link already lives. --}}
 
 @if($last_result)
-    <div class="co-notice {{ $last_result['ok'] ? 'co-notice--ok' : 'co-notice--fail' }}">
+    <div class="co-notice {{ $last_result['ok'] ? 'co-notice--ok' : 'co-notice--fail' }}" role="status" aria-live="polite">
         <span class="co-notice__title">{{ $last_result['ok'] ? 'Done' : 'Failed' }}</span>
         @if(!empty($last_result['message']))
             <span class="co-notice__body">{{ $last_result['message'] }}</span>
@@ -165,7 +165,7 @@
                  the person using it. --}}
             <a href="{{ $panelSelfUrl(['tab' => $key], ['page']) }}"
                class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
-               @if($isActive) aria-current="page" @endif>
+               @if($isActive) aria-current="true" @endif>
                 <span>{{ $label }}</span>
                 @if($count !== null)
                     <span class="x-segment__count">{{ number_format($count) }}</span>
@@ -232,7 +232,7 @@
 
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
         <select name="per_page" class="x-input" data-autosubmit aria-label="Returns per page">
-            @foreach([10, 20, 50] as $n)
+            @foreach([10, 20, 50, 100] as $n)
                 <option value="{{ $n }}" @selected($perPage === $n)>{{ $n }} per page</option>
             @endforeach
         </select>
