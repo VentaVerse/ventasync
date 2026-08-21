@@ -28,6 +28,25 @@
         || $groupFilter !== 'all'
         || $erpStatus !== 'all';
 
+    $sort = (string) ($sort ?? 'id');
+    $dir = (string) ($dir ?? 'asc');
+
+    /* The same pair Lazada's listings page uses. Current query in, sort and
+       dir replaced, page dropped so a re-sort starts at the top. The
+       controller allow-lists the column, so an edited URL cannot reach
+       anything it does not name. */
+    $toggleDir = function (string $col) use ($sort, $dir) {
+        if ($sort !== $col) return 'asc';
+        return $dir === 'asc' ? 'desc' : 'asc';
+    };
+    $sortUrl = function (string $col) use ($toggleDir) {
+        $qp = request()->query();
+        $qp['sort'] = $col;
+        $qp['dir'] = $toggleDir($col);
+        unset($qp['page']);
+        return url()->current() . '?' . http_build_query($qp);
+    };
+
     $unmatched = $unmatchedItems ?? collect();
     $hasUnmatched = $unmatched->count() > 0;
 @endphp
@@ -42,7 +61,15 @@
     <div>
         <h1 class="x-page-title">Listings</h1>
         <p class="x-page-sub">
-            {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product' : 'products' }} in scope for Shopee
+            {{-- A filtered total must not wear an unfiltered total's wording:
+                 a search matching nothing rendered "0 products in scope for
+                 Shopee" on a shop with two thousand. --}}
+            @if($hasFilters)
+                {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product' : 'products' }}
+                {{ $products->total() === 1 ? 'matches' : 'match' }}
+            @else
+                {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product' : 'products' }} in scope for Shopee
+            @endif
         </p>
     </div>
     @if($canManageShopee)
@@ -209,6 +236,9 @@
             <option value="all" @selected($syncStatus === 'all')>Listed or not</option>
             <option value="listed" @selected($syncStatus === 'listed')>Listed on Shopee</option>
             <option value="not_listed" @selected($syncStatus === 'not_listed')>Not listed</option>
+            {{-- Where the two above say where a product IS, this says what
+                 happened to it. It is the reason to open this page. --}}
+            <option value="error" @selected($syncStatus === 'error')>Last sync failed</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
@@ -227,8 +257,11 @@
      to its own route, exactly as before; the module injects the ticked ids
      into whichever form is submitted. Delete keeps the transparent danger
      treatment, not a solid red fill. --}}
-<div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar>
-    <span class="cc-bulkbar__count"><span class="x-num" x-text="selected.length"></span> selected</span>
+{{-- role="status" so the bar arriving is heard, not only seen. aria-live is
+     on the COUNT rather than the whole bar: the buttons do not change, and
+     re-reading five labels on every tick would be worse than silence. --}}
+<div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar role="status">
+    <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected</span>
     <div class="cc-bulkbar__actions">
         <form method="POST" action="{{ route('ext.shopee.products.bulk_push') }}" data-bulk-form
               data-bulk-confirm="Push the selected products to Shopee? Anything already listed is skipped.">
@@ -261,7 +294,14 @@
                 :description="$hasFilters
                     ? 'Try clearing the search, or widening the group and status filters.'
                     : 'This list shows catalogue products that belong to a Shopee product group, plus anything already linked to a Shopee listing. Create a product group to bring products into scope.'">
-        @if(!$hasFilters)
+        {{-- An empty state that says "try clearing the search" and offers no
+             way to do it is a dead end. The way out belongs where the reader
+             already is. --}}
+        @if($hasFilters)
+        <x-slot:action>
+            <x-ui.button :href="route('ext.shopee.products.index')">Clear filters</x-ui.button>
+        </x-slot:action>
+        @else
         <x-slot:action>
             <x-ui.button :href="route('ext.shopee.product-groups.index')">Go to Product Groups</x-ui.button>
         </x-slot:action>
@@ -280,10 +320,30 @@
                        aria-label="Select every product on this page">
             </th>
             @endif
-            <th scope="col" class="cc-col-id">ID</th>
-            <th scope="col">Product</th>
-            <th scope="col" class="cc-col-qty x-td-num">Stock</th>
-            <th scope="col" class="cc-col-price x-td-num">Price</th>
+            <th scope="col" class="cc-col-id">
+                <a class="x-th-sort" href="{{ $sortUrl('id') }}">
+                    ID
+                    @if($sort === 'id')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
+                </a>
+            </th>
+            <th scope="col">
+                <a class="x-th-sort" href="{{ $sortUrl('product') }}">
+                    Product
+                    @if($sort === 'product')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
+                </a>
+            </th>
+            <th scope="col" class="cc-col-qty x-td-num">
+                <a class="x-th-sort x-th-sort--num" href="{{ $sortUrl('quantity') }}">
+                    Stock
+                    @if($sort === 'quantity')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
+                </a>
+            </th>
+            <th scope="col" class="cc-col-price x-td-num">
+                <a class="x-th-sort x-th-sort--num" href="{{ $sortUrl('price') }}">
+                    Price
+                    @if($sort === 'price')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
+                </a>
+            </th>
             <th scope="col" class="cc-col-chanid">Shopee ID</th>
             <th scope="col" class="cc-col-stat">Catalogue</th>
             <th scope="col" class="cc-col-sync">Listing</th>
@@ -391,10 +451,45 @@
 
             <td class="cc-col-err" data-label="Last sync">
                 @if($syncFailed)
-                    <span class="cc-err">
-                        @if($link->last_sync_error_code)<span class="cc-err__code">{{ $link->last_sync_error_code }}</span> @endif
-                        {{ $link->last_sync_error_message ? Str::limit($link->last_sync_error_message, 80) : 'Failed' }}
-                    </span>
+                    @php
+                        $reason = trim((string) ($link->last_sync_error_message ?? ''));
+                        // 120, matching the group pages. At 80 the actionable
+                        // half of a marketplace validation message was cut off
+                        // with no way to reach the rest, so the one column
+                        // that only fills when something is wrong could not
+                        // say what was wrong.
+                        $clipped = Str::limit($reason, 120);
+                    @endphp
+
+                    @if($reason === '')
+                        <span class="cc-err">
+                            @if($link->last_sync_error_code)<span class="cc-err__code">{{ $link->last_sync_error_code }}</span> @endif
+                            Failed
+                        </span>
+                    @elseif($clipped === $reason)
+                        <span class="cc-err">
+                            @if($link->last_sync_error_code)<span class="cc-err__code">{{ $link->last_sync_error_code }}</span> @endif
+                            {{ $reason }}
+                        </span>
+                    @else
+                        {{-- <details>, not a tooltip, and the same component the
+                             group pages use: a title attribute waits a second,
+                             never appears on a phone, and cannot be reached
+                             from the keyboard. --}}
+                        <details class="cc-reason">
+                            <summary class="cc-reason__summary">
+                                <span class="cc-err cc-reason__clip">
+                                    @if($link->last_sync_error_code)<span class="cc-err__code">{{ $link->last_sync_error_code }}</span> @endif
+                                    {{ $clipped }}
+                                </span>
+                                <span class="cc-reason__toggle">
+                                    <x-ui.icon name="chevron-down" size="12" class="cc-reason__chevron" />
+                                    <span class="cc-reason__label">Full reason</span>
+                                </span>
+                            </summary>
+                            <p class="cc-err cc-reason__full">{{ $reason }}</p>
+                        </details>
+                    @endif
                     @if($link->last_synced_at)
                         <span class="cc-when">{{ $link->last_synced_at->diffForHumans() }}</span>
                     @endif
@@ -467,12 +562,18 @@
      single `.active` class partials/confirm-modal.blade.php and the orders
      pages' own overlay already use. --}}
 <div id="shopee-listings-progress" class="modal-backdrop">
-    <div class="modal co-modal co-modal--sm">
-        <div class="cc-progress">
+    {{-- A dialog, and one that speaks. This overlay covers the page for
+         several seconds while a marketplace call is in flight and carried no
+         role, no name and no live region, so the only signal that anything
+         was happening was the spinner - which is to say none at all for
+         anyone not looking at it. --}}
+    <div class="modal co-modal co-modal--sm" role="dialog" aria-modal="true"
+         aria-labelledby="shopee-listings-progress-title" aria-describedby="shopee-listings-progress-note">
+        <div class="cc-progress" role="status" aria-live="polite">
             <span class="co-spinner co-spinner--lg" aria-hidden="true"></span>
             <div>
-                <div class="cc-progress__title" data-progress-title>Talking to Shopee</div>
-                <div class="cc-progress__note">Please keep this tab open.</div>
+                <div class="cc-progress__title" id="shopee-listings-progress-title" data-progress-title>Talking to Shopee</div>
+                <div class="cc-progress__note" id="shopee-listings-progress-note">Please keep this tab open.</div>
             </div>
         </div>
     </div>

@@ -102,8 +102,11 @@
      The old page carried both a data-confirm attribute AND a confirmModal()
      call in its own submit handler, so the operator could be asked twice for
      the same deletion. One mechanism, one question. --}}
-<div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar>
-    <span class="cc-bulkbar__count"><span class="x-num" x-text="selected.length"></span> selected</span>
+{{-- role="status" so the bar arriving is heard, not only seen. aria-live is
+     on the COUNT rather than the whole bar: the buttons do not change, and
+     re-reading their labels on every tick would be worse than silence. --}}
+<div class="cc-bulkbar" x-show="selected.length  role="status"> 0" x-cloak data-bulkbar>
+    <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected</span>
     <div class="cc-bulkbar__actions">
         <form method="POST" action="{{ route('ext.lazada.product-groups.push', $group->id) }}" data-bulk-form
               data-bulk-confirm="Push the selected products to Lazada? Anything already pushed is skipped.">
@@ -389,13 +392,13 @@
                         </form>
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.lazada.product-groups.unlinkProduct', [$group->id, $p->product_id]) }}" data-slow-action
-                              data-confirm="Unlink this product from Lazada? The product stays in the group but sync will stop.">
+                              data-confirm="Unlink {{ $pName ?: 'this product' }} from Lazada? The product stays in the group but sync will stop.">
                             @csrf
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
                             <button type="submit" class="x-menu__item x-menu__item--danger">Unlink from Lazada</button>
                         </form>
                         <form method="POST" action="{{ route('ext.lazada.product-groups.deleteFromLazada', $group->id) }}" data-slow-action
-                              data-confirm="Delete this product from Lazada? It is removed at the marketplace and this cannot be undone.">
+                              data-confirm="Delete {{ $pName ?: 'this product' }} from Lazada? It is removed at the marketplace and this cannot be undone.">
                             @csrf
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
                             <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
@@ -414,7 +417,7 @@
                     @if($isManual)
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.lazada.product-groups.removeProduct', [$group->id, $p->product_id]) }}"
-                              data-confirm="Take this product out of the group? Nothing is deleted from the catalogue, and nothing already live on Lazada is touched.">
+                              data-confirm="Take {{ $pName ?: 'this product' }} out of the group? Nothing is deleted from the catalogue, and nothing already live on Lazada is touched.">
                             @csrf
                             @method('DELETE')
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
@@ -465,12 +468,18 @@
      components/modals.css's .modal-backdrop show/hide mechanics, the same
      single `.active` class the confirm dialog and the orders pages use. --}}
 <div id="lazada-group-progress" class="modal-backdrop">
-    <div class="modal co-modal co-modal--sm">
-        <div class="cc-progress">
+    {{-- A dialog, and one that speaks. This overlay covers the page for
+         several seconds while a marketplace call is in flight and carried no
+         role, no name and no live region, so the only signal that anything
+         was happening was the spinner - which is to say none at all for
+         anyone not looking at it. --}}
+    <div class="modal co-modal co-modal--sm" role="dialog" aria-modal="true"
+         aria-labelledby="lazada-group-progress-title" aria-describedby="lazada-group-progress-note">
+        <div class="cc-progress" role="status" aria-live="polite">
             <span class="co-spinner co-spinner--lg" aria-hidden="true"></span>
             <div>
-                <div class="cc-progress__title" data-progress-title>Talking to Lazada</div>
-                <div class="cc-progress__note">Please keep this tab open.</div>
+                <div class="cc-progress__title" id="lazada-group-progress-title" data-progress-title>Talking to Lazada</div>
+                <div class="cc-progress__note" id="lazada-group-progress-note">Please keep this tab open.</div>
             </div>
         </div>
     </div>

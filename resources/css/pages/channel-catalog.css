@@ -335,6 +335,11 @@
 .cc-err__code {
     font-family: var(--font-mono);
     font-weight: 500;
+    /* .cc-err sets overflow-wrap: anywhere so a long URL in a marketplace
+       message cannot widen the column. It also broke the error CODE mid-
+       token, so VALIDATION_ERROR rendered as "VALIDATION_" over "ERROR" and
+       read as two separate things. A code is one word or it is nothing. */
+    white-space: nowrap;
 }
 
 /* ── Belief vs fact, under the push badge ─────────────────────────────
@@ -657,18 +662,30 @@
 .cc-progress__note { margin-top: 2px; font-size: 12px; color: var(--bl-ink-3); }
 
 /* ------------------------------------------------------------------
-   Phones. The generic 640px restack in components/ui-table.css puts
-   every row on a 1fr/auto two-column grid, which crowds a checkbox and
-   a 96px photo into one narrow column. One cell per line instead, the
-   same fix pages/catalog.css and components/channel-orders.css both
-   apply to their own media rows.
+   Phones.
+
+   This block used to open by describing what "the generic 640px restack
+   in components/ui-table.css" did, and cite pages/catalog.css and
+   components/channel-orders.css as precedent. All three files were gone -
+   folded into blotter-components.css during a consolidation that did not
+   bring the restack with them - so for as long as that was true, these
+   overrides set grid properties on elements that were still table rows and
+   did nothing at all. Measured before the restack was rewritten: 808px of
+   horizontal travel to reach a row's actions menu at 390px.
+
+   The generic rule now lives in blotter-components.css and gives every cell
+   its own line with the row's actions in the corner, which is what the
+   overrides below were asking for, so they are gone rather than repeated.
+   What is left here is the part that is genuinely this page's: the cells
+   that hold more than one figure.
    ------------------------------------------------------------------ */
 
 @media (max-width: 640px) {
-    .cc-page .x-table tbody tr { grid-template-columns: 1fr; }
-    .cc-page .x-table tbody td { width: auto; padding-top: 3px; padding-bottom: 3px; }
-    .cc-page .x-table tbody td:first-child { padding-top: var(--bl-space-2); }
-    .cc-page .x-table tbody td:last-child  { padding-bottom: var(--bl-space-2); }
+    /* Four columns of nowrap figures do not fit a 328px card, and they were
+       the last thing keeping this table scrolling sideways inside itself.
+       Name and one figure per line; the tabular alignment the desktop grid
+       exists for survives within each column. */
+    .cc-var { grid-template-columns: minmax(0, 1fr) auto; }
 
     /* The single-action bar stacks: the sentence above, the button below
        it, both full width. */

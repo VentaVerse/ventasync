@@ -35,11 +35,14 @@
     // below can ask for it without a per-channel stylesheet. --ch is the
     // brand hex for marks nothing is read against; --ch-deep is the same
     // colour darkened until white text clears 4.5:1, for the fills that
-    // carry a label. See App\Support\ChannelAccent for why both exist.
+    // carry a label. --ch-cta is --ch-deep unless the channel's colour cannot
+    // be told from the alert red, in which case the filled primary button
+    // gives up the channel rather than dress a create action as a delete.
+    // See App\Support\ChannelAccent for why all of them exist.
     $__chAccent = $channelCard->accent ?? null;
 @endphp
 <body class="x-app bl-app x-app--channel"
-      style="--ch: {{ \App\Support\ChannelAccent::raw($__chAccent) }}; --ch-deep: {{ \App\Support\ChannelAccent::deep($__chAccent) }}; --ch-lift: {{ \App\Support\ChannelAccent::onDark($__chAccent) }};">
+      style="--ch: {{ \App\Support\ChannelAccent::raw($__chAccent) }}; --ch-deep: {{ \App\Support\ChannelAccent::deep($__chAccent) }}; --ch-cta: {{ \App\Support\ChannelAccent::cta($__chAccent) }}; --ch-lift: {{ \App\Support\ChannelAccent::onDark($__chAccent) }};">
 {{-- The bypass block (WCAG 2.4.1). A keyboard user passed 15 to 17 stops
      through the shell before reaching the first control inside the content
      on every page of this application, on every page load. Visible only on

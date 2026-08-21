@@ -66,8 +66,11 @@
      header, where it was on screen with nothing selected and did nothing when
      pressed. It appears here only once at least one row is ticked. Same route,
      same `ids[]` payload; the module injects the ticked ids. --}}
-<div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar>
-    <span class="cc-bulkbar__count"><span class="x-num" x-text="selected.length"></span> selected</span>
+{{-- role="status" so the bar arriving is heard, not only seen. aria-live is
+     on the COUNT rather than the whole bar: the buttons do not change, and
+     re-reading their labels on every tick would be worse than silence. --}}
+<div class="cc-bulkbar" x-show="selected.length  role="status"> 0" x-cloak data-bulkbar>
+    <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected</span>
     <div class="cc-bulkbar__actions">
         <form method="POST" action="{{ route('ext.opencart.product-groups.push', [$setting->id, $group->id]) }}" data-bulk-form
               data-bulk-confirm="Push the selected products to {{ $storeName }}? Anything already there is overwritten with the catalogue's version.">
@@ -215,14 +218,14 @@
                 <x-ui.menu label="Product {{ $p->product_id }} actions">
                     <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalogue</a>
                     <form method="POST" action="{{ route('ext.opencart.products.push', [$setting->id, $p->product_id]) }}" data-slow-action
-                          data-confirm="Push this product to {{ $storeName }}? Anything already there is overwritten with the catalogue's version.">
+                          data-confirm="Push {{ $pName ?: 'this product' }} to {{ $storeName }}? Anything already there is overwritten with the catalogue's version.">
                         @csrf
                         <button type="submit" class="x-menu__item">Push to {{ $storeName }}</button>
                     </form>
                     @if($isManual)
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.opencart.product-groups.removeProduct', [$setting->id, $group->id, $p->product_id]) }}"
-                              data-confirm="Take this product out of the group? Nothing is deleted from the catalogue, and nothing already on {{ $storeName }} is touched.">
+                              data-confirm="Take {{ $pName ?: 'this product' }} out of the group? Nothing is deleted from the catalogue, and nothing already on {{ $storeName }} is touched.">
                             @csrf
                             @method('DELETE')
                             <button type="submit" class="x-menu__item x-menu__item--danger">Remove from group</button>
@@ -270,12 +273,18 @@
      and the page has to say so, or the operator clicks again. Rides
      components/modals.css's .modal-backdrop show/hide mechanics. --}}
 <div id="opencart-group-progress" class="modal-backdrop">
-    <div class="modal co-modal co-modal--sm">
-        <div class="cc-progress">
+    {{-- A dialog, and one that speaks. This overlay covers the page for
+         several seconds while a marketplace call is in flight and carried no
+         role, no name and no live region, so the only signal that anything
+         was happening was the spinner - which is to say none at all for
+         anyone not looking at it. --}}
+    <div class="modal co-modal co-modal--sm" role="dialog" aria-modal="true"
+         aria-labelledby="opencart-group-progress-title" aria-describedby="opencart-group-progress-note">
+        <div class="cc-progress" role="status" aria-live="polite">
             <span class="co-spinner co-spinner--lg" aria-hidden="true"></span>
             <div>
-                <div class="cc-progress__title" data-progress-title>Talking to OpenCart</div>
-                <div class="cc-progress__note">Please keep this tab open.</div>
+                <div class="cc-progress__title" id="opencart-group-progress-title" data-progress-title>Talking to OpenCart</div>
+                <div class="cc-progress__note" id="opencart-group-progress-note">Please keep this tab open.</div>
             </div>
         </div>
     </div>

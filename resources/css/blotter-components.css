@@ -1446,6 +1446,147 @@
         background: color-mix(in srgb, var(--bl-brand) 4%, var(--bl-sheet));
     }
 
+    /* ------------------------------------------------------------
+       Phones: a row stops being a row.
+       ------------------------------------------------------------
+       THIS RULE WENT MISSING AND NOBODY NOTICED, because the CSS that
+       depended on it still looked handled.
+
+       It used to live in components/ui-table.css. That file was folded into
+       this one and the restack did not come with it, leaving three page
+       stylesheets setting grid-template-columns on elements that were still
+       display: table-row - channel-catalog.css, reviews.css and reports.css
+       - and nine comments across six files citing a stylesheet that no
+       longer exists. Two more of the files those comments name as precedent,
+       pages/catalog.css and components/channel-orders.css, are gone as well.
+
+       What it cost, measured at 390px before this was restored: the Lazada
+       listings table rendered 1,136px wide inside a 328px box, so reaching a
+       row's actions menu - the only way to act on a row - took 808px of
+       horizontal travel, by which point the product name had left the
+       screen. You acted on a row you could no longer identify. 430px of
+       travel at 768px, which is a tablet, not a phone. And every data-label
+       attribute in 73 of the 76 tables in this application was inert: the
+       markup had opted in all along and the stylesheet had stopped asking.
+
+       Two columns by auto-flow is the generic shape, per the note the old
+       file left behind in channel-catalog.css. Pages that want a different
+       one override grid-template-columns and always did; those overrides
+       start working again the moment this rule exists. */
+    @media (max-width: 640px) {
+        /* A header strip heads nothing once the columns are gone, but it
+           still names the cells for anyone reading the DOM, so it is hidden
+           from sight rather than removed - the ::before labels below are
+           what a sighted reader gets instead. */
+        .x-table > thead {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            clip-path: inset(50%);
+            white-space: nowrap;
+        }
+
+        /* THE TABLE ITSELF HAS TO STOP BEING A TABLE FIRST.
+           display: grid on a <tr> computes to grid and then does nothing:
+           a table-row-group may only contain table-rows, so the engine wraps
+           the grid in an anonymous row and the table algorithm goes on
+           sizing the columns. Measured, the row reported display: grid and
+           laid out on the table's own 88px/420px columns, which reads as a
+           cascade problem and is not one. Taking the table and the group out
+           of table display is what actually hands the row to grid. */
+        .x-table,
+        .x-table > tbody {
+            display: block;
+        }
+
+        /* ONE CELL PER LINE, and the row's actions in the corner.
+           Deterministic placement rather than auto-flow into a two-column
+           track list: an `auto` track is sized to its widest cell, and on
+           these tables that was a product name or an eight-line sync error,
+           so the card kept 200px of horizontal travel inside itself. Every
+           cell spanning the full width cannot overflow, and a phone reading
+           a dense marketplace row wants it stacked anyway - which is what
+           channel-catalog.css asked for in its own override. */
+        .x-table > tbody > tr {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: start;
+            gap: 2px var(--bl-space-3);
+            padding: var(--bl-space-3) var(--bl-space-3);
+            border-bottom: 1px solid var(--bl-rule);
+        }
+
+        /* The card's own bottom edge draws that line. */
+        .x-table > tbody > tr:last-child {
+            border-bottom: 0;
+        }
+
+        /* Every cell full width. reviews.css and reports.css each carry a
+           multi-column template for their own rows; both have been inert
+           since the restack went missing, and a phone reading a dense row
+           wants one field per line regardless, so they stay inert. A page
+           that genuinely wants columns back sets grid-column on its own
+           cells - the template alone will not do it. */
+        .x-table > tbody > tr > td {
+            grid-column: 1 / -1;
+            min-width: 0;
+            padding: 0;
+            border-bottom: 0;
+            overflow-wrap: anywhere;
+        }
+
+        /* A cell that was only ever legible under its column header gets
+           the header back. Same shape purchasing.css and warehousing.css
+           already use for their own stacked lines, so a reader who has seen
+           one has seen all three. */
+        .x-table > tbody > tr > td[data-label]::before {
+            content: attr(data-label);
+            display: block;
+            margin-bottom: 2px;
+            font-size: 11px;
+            color: var(--bl-ink-3);
+        }
+
+        /* Numerals stop being a column the moment the column does. Right
+           alignment with nothing to align against just reads as crooked. */
+        .x-table > tbody > tr > td.x-td-num {
+            text-align: left;
+        }
+
+        /* The row's actions, held in the top corner rather than buried at
+           the foot of a 350px card. This is the cell 808px of horizontal
+           scroll used to hide; putting it back in the stack would only
+           trade one hunt for another. Row 1, so it sits beside whatever
+           identifies the row rather than below it. */
+        .x-table > tbody > tr > td.x-td-actions {
+            grid-column: 2;
+            grid-row: 1;
+            justify-self: end;
+        }
+
+        .x-table > tbody > tr > td.x-td-actions::before {
+            content: none;
+        }
+
+        /* And the cell that names the row keeps the corner company instead
+           of running under it. */
+        .x-table > tbody > tr > td:first-child {
+            grid-column: 1;
+            grid-row: 1;
+        }
+
+        /* Hovering a card is not hovering a row; the tint spanned one cell
+           of a grid rather than the line, which read as a rendering fault. */
+        .x-table > tbody > tr:hover > td {
+            background: none;
+        }
+
+        .x-table > tbody > tr:hover {
+            background: color-mix(in srgb, var(--bl-brand) 4%, var(--bl-sheet));
+        }
+    }
+
     .x-td-num {
         text-align: right;
     }
@@ -1509,13 +1650,27 @@
         display: inline-flex;
     }
 
+    /* Fixed, and placed by the component's script - see the reasoning in
+       components/ui/menu.blade.php. The short version: every table sits in
+       .x-table-wrap { overflow-x: auto }, and overflow-x: auto forces
+       overflow-y from visible to auto, so an absolutely positioned panel was
+       clipped at the wrapper's bottom edge on the last rows of every list.
+
+       top/left are placeholders the script overwrites. They are declared so
+       the panel has a defined position for the one frame between being shown
+       and being measured, rather than falling back to its static offset. */
     .x-menu__panel {
-        position: absolute;
-        top: 100%;
-        right: 0;
+        position: fixed;
+        top: 0;
+        left: 0;
         z-index: 40;
         min-width: 176px;
-        margin-top: 4px;
+        max-width: min(320px, calc(100vw - 16px));
+        /* When neither side of the trigger has room - a short viewport, or a
+           menu that has grown past one - the panel scrolls rather than
+           running off the screen. */
+        max-height: calc(100vh - 16px);
+        overflow-y: auto;
         padding: 4px 0;
         border: 1px solid var(--bl-rule-2);
         border-radius: var(--bl-r-ctrl);
@@ -1541,7 +1696,25 @@
         color: var(--bl-ink);
     }
 
-    .x-menu__item--danger:hover {
+    /* Red AT REST, not only under a pointer.
+       ------------------------------------------------------------------
+       This rule was :hover only, so "Delete from Lazada" and "Push stock"
+       rendered the same #4a5468 until a mouse crossed them - and a keyboard
+       user, who gets :focus-visible and never :hover, saw the destructive
+       items in a seven-item menu with no colour cue at all. Two of those
+       items destroy a live marketplace listing.
+
+       The hover pair also failed contrast: #cb3327 on --bl-chrome-2 measures
+       4.38:1 in light, under AA for 13px text, precisely while the pointer is
+       on the delete item. Deepening the hover ground rather than lightening
+       the text keeps the red the same red the confirm dialog uses. */
+    .x-menu__item--danger {
+        color: var(--bl-bad);
+    }
+
+    .x-menu__item--danger:hover,
+    .x-menu__item--danger:focus-visible {
+        background: color-mix(in srgb, var(--bl-bad) 10%, var(--bl-sheet));
         color: var(--bl-bad);
     }
 
@@ -4798,11 +4971,21 @@
     .fh-scope .co-ref:hover,
     .fh-scope .x-row-link:hover { color: var(--ch-deep, var(--bl-brand-deep)); }
 
-    /* The page's primary action. Deepened, because it carries white text. */
+    /* The page's primary action. Deepened, because it carries white text.
+
+       --ch-cta, not --ch-deep. This is the one place the channel's colour
+       lands on something shaped and weighted exactly like the destructive
+       button in a confirm dialog, and on Shopee the two were also eight
+       parts in 255 apart: "New listing" and "Delete this listing from
+       Shopee" arrived in the same red, with the dialog opening on top of the
+       page carrying the other one. cta() measures every channel against the
+       alert colour and hands back the neutral for any that cannot be told
+       from it. The cap, the underline and the ring keep --ch-deep - none of
+       them is ever mistaken for a button. */
     .x-app--channel .x-btn--primary,
     .fh-scope .x-btn--primary {
-        background: var(--ch-deep, var(--bl-ink));
-        border-color: var(--ch-deep, var(--bl-ink));
+        background: var(--ch-cta, var(--bl-ink));
+        border-color: var(--ch-cta, var(--bl-ink));
     }
 
     /* THE FOCUS RING IS NOT THE CHANNEL'S TO COLOUR.

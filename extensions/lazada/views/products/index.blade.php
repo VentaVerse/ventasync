@@ -62,7 +62,18 @@
     <div>
         <h1 class="x-page-title">Listings</h1>
         <p class="x-page-sub">
-            {{ number_format($paginator->total()) }} {{ $paginator->total() === 1 ? 'listing' : 'listings' }} mapped to Lazada
+            {{-- $paginator->total() is the FILTERED total, so a search that
+                 matches nothing rendered "0 listings mapped to Lazada" on a
+                 shop with two thousand of them - which reads as though the
+                 mapping had been wiped. A filtered count says what it is
+                 counting. --}}
+            @if($hasFilters)
+                {{ number_format($paginator->total()) }} of {{ number_format($totalListings) }}
+                {{ $totalListings === 1 ? 'listing' : 'listings' }}
+                {{ $paginator->total() === 1 ? 'matches' : 'match' }}
+            @else
+                {{ number_format($paginator->total()) }} {{ $paginator->total() === 1 ? 'listing' : 'listings' }} mapped to Lazada
+            @endif
         </p>
     </div>
     @if($canManageLazada)
@@ -226,6 +237,10 @@
             <option value="uploaded" @selected($syncStatus === 'uploaded')>Uploaded to Lazada</option>
             <option value="not_uploaded" @selected($syncStatus === 'not_uploaded')>Not uploaded</option>
             <option value="deleted" @selected($syncStatus === 'deleted')>Deleted from Lazada</option>
+            {{-- The reason to open this page. Separated from the three above
+                 because they describe where a listing IS and this one
+                 describes what happened to it. --}}
+            <option value="error" @selected($syncStatus === 'error')>Last sync failed</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
@@ -272,8 +287,14 @@
      to its own route, exactly as before; the module injects the ticked ids
      into whichever form is submitted. Delete keeps the transparent danger
      treatment, not a solid red fill. --}}
-<div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar>
-    <span class="cc-bulkbar__count"><span class="x-num" x-text="selected.length"></span> selected</span>
+{{-- role="status" so the bar arriving is heard, not only seen. Ticking a
+     row made five actions appear with no announcement of any kind, so a
+     screen reader user selected twelve listings and was never told the count
+     or that anything had opened. aria-live is on the COUNT rather than the
+     whole bar: the buttons do not change, and re-reading five labels on
+     every tick would be worse than silence. --}}
+<div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar role="status">
+    <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected</span>
     <div class="cc-bulkbar__actions">
         <form method="POST" action="{{ $bulkUploadUrl }}" data-bulk-form
               data-bulk-confirm="Upload the selected listings to Lazada? Anything already uploaded is skipped.">
@@ -306,7 +327,15 @@
                 :description="$hasFilters
                     ? 'Try clearing the search, or widening the group and status filters.'
                     : 'A listing is a catalogue product mapped to a Lazada category, brand and attributes. Add one, or create a product group to map a batch at once.'">
-        @if($canManageLazada && !$hasFilters)
+        {{-- An empty state that tells you to clear the search and offers no
+             way to do it is a dead end: the only control that clears it was
+             a 30x19px link back up in the filter bar, above the fold on a
+             phone. The way out belongs where the reader already is. --}}
+        @if($hasFilters)
+        <x-slot:action>
+            <x-ui.button :href="route('ext.lazada.products.index')">Clear filters</x-ui.button>
+        </x-slot:action>
+        @elseif($canManageLazada)
         <x-slot:action>
             <x-ui.button variant="primary" :href="route('ext.lazada.products.create')">New listing</x-ui.button>
         </x-slot:action>
@@ -362,7 +391,12 @@
                     @if($sort === 'lazada_status')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
-            <th scope="col" class="cc-col-err">Last sync</th>
+            <th scope="col" class="cc-col-err">
+                <a class="x-th-sort" href="{{ $sortUrl('last_sync') }}">
+                    Last sync
+                    @if($sort === 'last_sync')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
+                </a>
+            </th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
@@ -522,10 +556,45 @@
 
             <td class="cc-col-err" data-label="Last sync">
                 @if($syncFailed)
-                    <span class="cc-err">
-                        @if($l->last_sync_error_code)<span class="cc-err__code">{{ $l->last_sync_error_code }}</span> @endif
-                        {{ $l->last_sync_error_message ? Str::limit($l->last_sync_error_message, 80) : 'Failed' }}
-                    </span>
+                    @php
+                        $reason = trim((string) ($l->last_sync_error_message ?? ''));
+                        // 120, matching the group page. Str::limit at 80 cut
+                        // the actionable half off every Lazada validation
+                        // message and offered no way to reach the rest, so
+                        // the one column that only fills when something is
+                        // wrong could not say what was wrong.
+                        $clipped = Str::limit($reason, 120);
+                    @endphp
+
+                    @if($reason === '')
+                        <span class="cc-err">
+                            @if($l->last_sync_error_code)<span class="cc-err__code">{{ $l->last_sync_error_code }}</span> @endif
+                            Failed
+                        </span>
+                    @elseif($clipped === $reason)
+                        <span class="cc-err">
+                            @if($l->last_sync_error_code)<span class="cc-err__code">{{ $l->last_sync_error_code }}</span> @endif
+                            {{ $reason }}
+                        </span>
+                    @else
+                        {{-- <details>, not a tooltip, and the same component
+                             the group page already uses: a title attribute
+                             waits a second, never appears on a phone, and
+                             cannot be reached from the keyboard. --}}
+                        <details class="cc-reason">
+                            <summary class="cc-reason__summary">
+                                <span class="cc-err cc-reason__clip">
+                                    @if($l->last_sync_error_code)<span class="cc-err__code">{{ $l->last_sync_error_code }}</span> @endif
+                                    {{ $clipped }}
+                                </span>
+                                <span class="cc-reason__toggle">
+                                    <x-ui.icon name="chevron-down" size="12" class="cc-reason__chevron" />
+                                    <span class="cc-reason__label">Full reason</span>
+                                </span>
+                            </summary>
+                            <p class="cc-err cc-reason__full">{{ $reason }}</p>
+                        </details>
+                    @endif
                     @if($l->last_synced_at)
                         <span class="cc-when">{{ \Carbon\Carbon::parse($l->last_synced_at)->diffForHumans() }}</span>
                     @endif
@@ -548,12 +617,24 @@
                      as before. The menu panel is z-index 20
                      (components/ui-table.css), above the row's stretched-link
                      overlay, so its controls stay clickable. --}}
+                @php
+                    // What the operator is about to act on, for the confirms
+                    // below. The bulk path renders six product names and a
+                    // count; the single-row path said "this listing" while
+                    // the row it came from sat behind a backdrop - and it is
+                    // the path taken ten times a day, half-attentive, from a
+                    // seven-item menu.
+                    $rowLabel = $pName !== '' ? $pName : ($pSku !== '' ? $pSku : 'listing ' . $l->id);
+                @endphp
                 <x-ui.menu label="Listing {{ $l->id }} actions">
-                    <a class="x-menu__item" href="{{ $editUrl }}">Edit listing</a>
+                    {{-- --primary exists for exactly this and was used in
+                         one file out of four: the action that always works,
+                         so nobody reads seven items to find it. --}}
+                    <a class="x-menu__item x-menu__item--primary" href="{{ $editUrl }}">Edit listing</a>
 
                     @if(!$hasItemId)
                         <form method="POST" action="{{ route('ext.lazada.products.upload', $l->id) }}" data-slow-action
-                              data-confirm="Upload this product to Lazada?">
+                              data-confirm="Upload {{ $rowLabel }} to Lazada?">
                             @csrf
                             <button type="submit" class="x-menu__item">Upload to Lazada</button>
                         </form>
@@ -574,12 +655,12 @@
                         </form>
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.lazada.products.unlink', $l->id) }}" data-slow-action
-                              data-confirm="Unlink this listing from Lazada? Only the link is removed. The Lazada listing stays up and syncing stops.">
+                              data-confirm="Unlink {{ $rowLabel }} from Lazada? Only the link is removed. The Lazada listing stays up and syncing stops.">
                             @csrf
                             <button type="submit" class="x-menu__item x-menu__item--danger">Unlink from Lazada</button>
                         </form>
                         <form method="POST" action="{{ route('ext.lazada.products.delete_lazada', $l->id) }}" data-slow-action
-                              data-confirm="Delete this listing from Lazada? The listing is removed at the marketplace and this cannot be undone.">
+                              data-confirm="Delete {{ $rowLabel }} from Lazada? The listing is removed at the marketplace and this cannot be undone.">
                             @csrf
                             <button type="submit" class="x-menu__item x-menu__item--danger">Delete from Lazada</button>
                         </form>
@@ -588,7 +669,7 @@
                     @if($isUnlinked)
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.lazada.products.remove', $l->id) }}" data-slow-action
-                              data-confirm="Remove this listing from the local list? Nothing on Lazada is deleted.">
+                              data-confirm="Remove {{ $rowLabel }} from the local list? Nothing on Lazada is deleted.">
                             @csrf
                             <button type="submit" class="x-menu__item x-menu__item--danger">Remove from this list</button>
                         </form>
@@ -610,12 +691,18 @@
      single `.active` class partials/confirm-modal.blade.php and the orders
      pages' own overlay already use. --}}
 <div id="lazada-listings-progress" class="modal-backdrop">
-    <div class="modal co-modal co-modal--sm">
-        <div class="cc-progress">
+    {{-- A dialog, and one that speaks. This overlay covers the page for
+         several seconds while a marketplace call is in flight and carried no
+         role, no name and no live region, so the only signal that anything
+         was happening was the spinner - which is to say, none at all for
+         anyone not looking at it. --}}
+    <div class="modal co-modal co-modal--sm" role="dialog" aria-modal="true"
+         aria-labelledby="lazada-progress-title" aria-describedby="lazada-progress-note">
+        <div class="cc-progress" role="status" aria-live="polite">
             <span class="co-spinner co-spinner--lg" aria-hidden="true"></span>
             <div>
-                <div class="cc-progress__title" data-progress-title>Talking to Lazada</div>
-                <div class="cc-progress__note">Please keep this tab open.</div>
+                <div class="cc-progress__title" id="lazada-progress-title" data-progress-title>Talking to Lazada</div>
+                <div class="cc-progress__note" id="lazada-progress-note">Please keep this tab open.</div>
             </div>
         </div>
     </div>

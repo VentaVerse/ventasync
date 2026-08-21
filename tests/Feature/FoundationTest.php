@@ -558,6 +558,66 @@ class FoundationTest extends TestCase
     }
 
     /**
+     * And the alert colour it measures AGAINST is the alert colour we paint.
+     *
+     * ChannelAccent::cta() hands a channel the neutral instead of its own
+     * colour when the two cannot be told apart, so that a create button never
+     * arrives in the same red as "this cannot be undone". That judgement is
+     * only as good as the red it is compared with: let ALERT drift from
+     * --bl-bad and the guard either stops firing for a channel that needs it
+     * or fires for one that does not, and either way it does so silently.
+     *
+     * Same class of drift the test above exists for.
+     */
+    public function test_the_alert_clearance_is_measured_against_the_alert_colour(): void
+    {
+        $css = File::get(resource_path('css/blotter.css'));
+
+        preg_match('/--bl-bad:\s*(#[0-9a-f]{6})/i', $css, $m);
+        $this->assertNotEmpty($m, '--bl-bad is not declared as a plain hex in blotter.css');
+
+        $bad = array_map('hexdec', str_split(ltrim($m[1], '#'), 2));
+
+        $reflected = new \ReflectionClass(\App\Support\ChannelAccent::class);
+        $alert = $reflected->getConstant('ALERT');
+
+        $this->assertSame(
+            $bad,
+            $alert,
+            'ChannelAccent::ALERT and --bl-bad have drifted apart, so the guard '
+            ."that keeps a primary button from looking destructive is measuring\n"
+            .'against a colour the UI does not paint. --bl-bad is '.$m[1]
+            .'; the constant is rgb('.implode(', ', $alert).').'
+        );
+    }
+
+    /**
+     * The guard actually fires for the channel it exists for, and only there.
+     *
+     * Shopee's deep orange lands 14.6 from the alert red - the same colour to
+     * any reader. Every other channel is more than 200 away. If a future
+     * change to deep(), to the threshold, or to a channel's manifest quietly
+     * moves Shopee back onto the red, or takes a channel's identity away that
+     * never had a problem, this is what says so.
+     */
+    public function test_only_a_channel_that_reads_as_the_alert_colour_gives_up_its_own(): void
+    {
+        $this->assertSame(
+            '#0b1228',
+            \App\Support\ChannelAccent::cta('#EE4D2D'),
+            'Shopee\'s orange reads as the alert red on a filled button and must fall back to the neutral'
+        );
+
+        foreach (['#0F146D' => 'Lazada', '#000000' => 'TikTok', '#1a8f5f' => 'Venta'] as $hex => $name) {
+            $this->assertSame(
+                \App\Support\ChannelAccent::deep($hex),
+                \App\Support\ChannelAccent::cta($hex),
+                $name.' is nowhere near the alert colour and must keep its own on the primary button'
+            );
+        }
+    }
+
+    /**
      * Every channel's deep accent actually clears the floor it claims.
      *
      * The generator is only as good as its reference colour, and the previous

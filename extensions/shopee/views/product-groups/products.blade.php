@@ -139,8 +139,11 @@
      The old page carried both a data-confirm attribute AND a confirmModal()
      call in its own submit handler, so the operator could be asked twice for
      the same deletion. One mechanism, one question. --}}
-<div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar>
-    <span class="cc-bulkbar__count"><span class="x-num" x-text="selected.length"></span> selected</span>
+{{-- role="status" so the bar arriving is heard, not only seen. aria-live is
+     on the COUNT rather than the whole bar: the buttons do not change, and
+     re-reading their labels on every tick would be worse than silence. --}}
+<div class="cc-bulkbar" x-show="selected.length  role="status"> 0" x-cloak data-bulkbar>
+    <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected</span>
     <div class="cc-bulkbar__actions">
         {{-- Send, not Push. The old wording promised "anything already pushed
              is skipped", which was true and was the defect: a product whose
@@ -469,7 +472,7 @@
                     @if($isManual)
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.shopee.product-groups.removeProduct', [$group->id, $p->product_id]) }}"
-                              data-confirm="Take this product out of the group? Nothing is deleted from the catalogue, and nothing already live on Shopee is touched.">
+                              data-confirm="Take {{ $pName ?: 'this product' }} out of the group? Nothing is deleted from the catalogue, and nothing already live on Shopee is touched.">
                             @csrf
                             @method('DELETE')
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
@@ -480,13 +483,13 @@
                     @if($hasShopeeId)
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.shopee.product-groups.unlinkProduct', [$group->id, $p->product_id]) }}" data-slow-action
-                              data-confirm="Unlink this product from Shopee? The listing stays on Shopee; the ERP just stops tracking it. Send will re-find it.">
+                              data-confirm="Unlink {{ $pName ?: 'this product' }} from Shopee? The listing stays on Shopee; the ERP just stops tracking it. Send will re-find it.">
                             @csrf
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
                             <button type="submit" class="x-menu__item x-menu__item--danger">Unlink from Shopee</button>
                         </form>
                         <form method="POST" action="{{ route('ext.shopee.product-groups.deleteFromShopee', $group->id) }}" data-slow-action
-                              data-confirm="Delete this product from Shopee? It is removed at the marketplace and this cannot be undone.">
+                              data-confirm="Delete {{ $pName ?: 'this product' }} from Shopee? It is removed at the marketplace and this cannot be undone.">
                             @csrf
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
                             <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
@@ -537,12 +540,18 @@
      components/modals.css's .modal-backdrop show/hide mechanics, the same
      single `.active` class the confirm dialog and the orders pages use. --}}
 <div id="shopee-group-progress" class="modal-backdrop">
-    <div class="modal co-modal co-modal--sm">
-        <div class="cc-progress">
+    {{-- A dialog, and one that speaks. This overlay covers the page for
+         several seconds while a marketplace call is in flight and carried no
+         role, no name and no live region, so the only signal that anything
+         was happening was the spinner - which is to say none at all for
+         anyone not looking at it. --}}
+    <div class="modal co-modal co-modal--sm" role="dialog" aria-modal="true"
+         aria-labelledby="shopee-group-progress-title" aria-describedby="shopee-group-progress-note">
+        <div class="cc-progress" role="status" aria-live="polite">
             <span class="co-spinner co-spinner--lg" aria-hidden="true"></span>
             <div>
-                <div class="cc-progress__title" data-progress-title>Talking to Shopee</div>
-                <div class="cc-progress__note">Please keep this tab open.</div>
+                <div class="cc-progress__title" id="shopee-group-progress-title" data-progress-title>Talking to Shopee</div>
+                <div class="cc-progress__note" id="shopee-group-progress-note">Please keep this tab open.</div>
             </div>
         </div>
     </div>

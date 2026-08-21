@@ -45,6 +45,22 @@ class ChannelAccent
     /** The dark theme's sheet, which onDark() has to clear. */
     private const DARK_SHEET = [17, 24, 40];
 
+    /* THE ALERT RED A FILLED ACTION MUST NOT BE MISTAKEN FOR.
+     *
+     * Kept in sync with --bl-bad in blotter.css; FoundationTest asserts the
+     * two agree, the same way LIGHT_INK_ON_ACCENT is held to --bl-paper. */
+    private const ALERT = [203, 51, 39];
+
+    /* How near is too near, as a straight-line distance in RGB.
+     *
+     * Crude on purpose. A perceptual metric would be more correct and this
+     * question does not need one: the case it exists for is Shopee, whose
+     * deep orange lands 14.6 away from the alert red - the two are the same
+     * colour to any reader - while the next nearest channel, Lazada's navy,
+     * sits at 203. Nothing real falls between, so a threshold anywhere in
+     * that gap answers it, and 60 is comfortably inside. */
+    private const ALERT_CLEARANCE = 60.0;
+
     /* THE TEXT THAT ACTUALLY SITS ON THESE COLOURS.
      *
      * deep() used to measure against pure white, and the UI never paints
@@ -94,6 +110,49 @@ class ChannelAccent
         }
 
         return self::NEUTRAL;
+    }
+
+    /**
+     * The channel's colour for a FILLED PRIMARY ACTION, which is the one
+     * place it can be mistaken for a warning.
+     *
+     * A channel states itself on the card cap, the segment underline and the
+     * page's primary button. That is settled and it is right - but the
+     * primary button is the only one of the three that shares a shape and a
+     * weight with the destructive button in a confirm dialog. On Shopee the
+     * two also share a colour: deep() lands its orange on #c33f25 and the
+     * alert red is #cb3327, which is eight parts in 255. "New listing" and
+     * "Delete this listing from Shopee - this cannot be undone" arrive in the
+     * same red, and the dialog opens on top of the page carrying the other
+     * one.
+     *
+     * This is not a fault in deep(). Shopee's brand simply IS a red-orange,
+     * and walking it down the value axis keeps the hue, as it should. So the
+     * fix is not a second hand-picked hex for Shopee - this class exists to
+     * avoid exactly that list - but a rule that any channel is measured
+     * against: a fill that cannot be told from the alert colour gives up the
+     * channel and takes the neutral ink, which is what a non-channel page's
+     * primary button wears anyway. Only the filled CTA yields. The cap, the
+     * underline and the ring keep the channel, because none of them is ever
+     * confused for a button.
+     */
+    public static function cta(?string $hex): string
+    {
+        $deep = self::deep($hex);
+
+        return self::distance(self::rgb($deep), self::ALERT) < self::ALERT_CLEARANCE
+            ? self::NEUTRAL
+            : $deep;
+    }
+
+    /** Straight-line distance between two colours in RGB. */
+    private static function distance(array $a, array $b): float
+    {
+        return sqrt(
+            (($a[0] - $b[0]) ** 2)
+            + (($a[1] - $b[1]) ** 2)
+            + (($a[2] - $b[2]) ** 2)
+        );
     }
 
     /**

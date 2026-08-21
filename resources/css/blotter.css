@@ -238,6 +238,11 @@
          --ch       the brand hex, for marks nothing is read against
          --ch-deep  darkened until white text clears 4.5:1, for filled
                     surfaces carrying a label
+         --ch-cta   --ch-deep, unless the channel cannot be told apart from
+                    the alert red, in which case the neutral. Only the
+                    filled primary button takes this one: it is the sole
+                    place the channel's colour lands on something shaped
+                    and weighted like the destructive button in a dialog
          --ch-lift  lightened until it clears the DARK theme's sheet, because
                     a colour dark enough to hold white text disappears there
     
@@ -247,6 +252,7 @@
        names its own fallback; this is the belt to that pair of braces. */
     --ch: var(--bl-brand-deep);
     --ch-deep: var(--bl-ink);
+    --ch-cta: var(--bl-ink);
     --ch-lift: var(--bl-ink);
 
     /* ACCENTS. New in v2.3.

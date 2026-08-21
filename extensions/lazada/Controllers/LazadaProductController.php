@@ -864,7 +864,11 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         // Search & filter params
         $q = trim((string) $request->query('q', ''));
         $syncStatus = (string) $request->query('sync_status', 'all');
-        if (!in_array($syncStatus, ['all', 'not_uploaded', 'uploaded', 'deleted'], true)) {
+        // 'error' is why a seller opens this page. last_sync_ok has been
+        // written on every push all along and was readable in one column and
+        // filterable from nowhere, so finding the listings that failed among
+        // two thousand meant paging through forty screens looking for red.
+        if (!in_array($syncStatus, ['all', 'not_uploaded', 'uploaded', 'deleted', 'error'], true)) {
             $syncStatus = 'all';
         }
         $groupFilter = $request->query('group', 'all');
@@ -874,7 +878,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         // Sorting (UI-driven). Keep this strict to avoid injection / unexpected behavior.
         $sort = (string) $request->query('sort', 'id');
         $dir = strtolower((string) $request->query('dir', 'desc')) === 'asc' ? 'asc' : 'desc';
-        $allowedSorts = ['id', 'product', 'group', 'lazada_item_id', 'quantity', 'product_status', 'lazada_status', 'manufacturer'];
+        $allowedSorts = ['id', 'product', 'group', 'lazada_item_id', 'quantity', 'product_status', 'lazada_status', 'manufacturer', 'last_sync'];
         if (!in_array($sort, $allowedSorts, true)) {
             $sort = 'id';
         }
@@ -896,6 +900,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             $query->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '');
         } elseif ($syncStatus === 'deleted') {
             $query->whereNotNull('lazada_deleted_at');
+        } elseif ($syncStatus === 'error') {
+            $query->where('last_sync_ok', false)->whereNotNull('last_sync_ok');
         } elseif ($syncStatus === 'not_uploaded') {
             $query->where(function ($qb) {
                 $qb->whereNull('lazada_item_id')->orWhere('lazada_item_id', '=', '');
@@ -1054,6 +1060,23 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 return (int)($p->quantity ?? -1);
             }
 
+            /* Failures first when sorted descending, then most recent.
+             * Never-synced rows sort below both, because "we have not tried"
+             * is not an outcome and does not belong between the two that are.
+             * The timestamp is padded so it compares as a string alongside
+             * the flag rather than needing a second sort key. */
+            if ($sort === 'last_sync') {
+                if (is_null($l->last_sync_ok)) {
+                    return '0|';
+                }
+
+                $stamp = $l->last_synced_at
+                    ? \Carbon\Carbon::parse($l->last_synced_at)->format('YmdHis')
+                    : '00000000000000';
+
+                return sprintf('%d|%s', $l->last_sync_ok ? 1 : 2, $stamp);
+            }
+
             if ($sort === 'price') {
                 return (float)($p->price ?? 0);
             }
@@ -1118,6 +1141,9 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'sort' => $sort,
             'dir' => $dir,
             'q' => $q,
+            // The unfiltered total, so a filtered count can say what it is
+            // a count OF rather than borrowing the wording of a total.
+            'totalListings' => LazadaProduct::query()->count(),
             'syncStatus' => $syncStatus,
             'manufacturerFilter' => $manufacturerFilter,
             'erpStatus' => $erpStatus,

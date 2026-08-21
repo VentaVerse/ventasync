@@ -31,6 +31,29 @@ class ShopeeProductController extends Controller
         $groupFilter = (string) $request->get('group', 'all');
         $erpStatus = (string) $request->get('erp_status', 'all');
 
+        /* Sorting. Lazada's listings page has had six sortable headers since
+         * it was built and this one had none, on tables that look identical -
+         * so a seller who runs both learns to click a header on one channel
+         * and it silently does nothing on the other.
+         *
+         * Allow-listed and mapped to a real column here rather than
+         * interpolated, so an edited URL cannot reach anything this array
+         * does not name. Ordered in SQL because this page paginates at the
+         * database, unlike Lazada's, which sorts a collection. */
+        $sortColumns = [
+            'id' => 'p.product_id',
+            'product' => 'pd.name',
+            'quantity' => 'p.quantity',
+            'price' => 'p.price',
+            'product_status' => 'p.status',
+            'manufacturer' => 'm.name',
+        ];
+        $sort = (string) $request->get('sort', 'id');
+        if (!array_key_exists($sort, $sortColumns)) {
+            $sort = 'id';
+        }
+        $dir = strtolower((string) $request->get('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+
         // Build product group → product mapping
         $groupMapping = $this->getGroupProductMapping();
 
@@ -115,9 +138,29 @@ class ShopeeProductController extends Controller
             if (!empty($listedIds)) {
                 $query->whereNotIn('p.product_id', $listedIds);
             }
+        } elseif ($syncStatus === 'error') {
+            /* The reason to open this page. last_sync_ok is written on every
+             * push and was readable in one column and filterable from
+             * nowhere, so finding what failed among two thousand products
+             * meant paging through forty screens looking for red. */
+            $failedIds = ShopeeProductLink::query()
+                ->where('last_sync_ok', false)
+                ->whereNotNull('last_sync_ok')
+                ->pluck('product_id')->unique()->toArray();
+
+            if (empty($failedIds)) {
+                $query->whereRaw('1=0');
+            } else {
+                $query->whereIn('p.product_id', $failedIds);
+            }
         }
 
-        $query->orderBy('p.product_id', 'asc');
+        $query->orderBy($sortColumns[$sort], $dir);
+        // A stable tiebreak, or two products with the same name swap places
+        // between pages and a row appears twice while another never shows.
+        if ($sortColumns[$sort] !== 'p.product_id') {
+            $query->orderBy('p.product_id', 'asc');
+        }
 
         $products = $query->paginate(50)->withQueryString();
 
@@ -192,6 +235,8 @@ class ShopeeProductController extends Controller
             'products' => $products,
             'q' => $q,
             'shopeeLinks' => $shopeeLinks,
+            'sort' => $sort,
+            'dir' => $dir,
             'syncStatus' => $syncStatus,
             'manufacturerFilter' => $manufacturerFilter,
             'groupFilter' => $groupFilter,

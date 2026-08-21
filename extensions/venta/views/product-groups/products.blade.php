@@ -109,8 +109,11 @@
      action is still its own form posting `ids[]` to its own route; the module
      injects the ticked ids into whichever form is submitted. Remove from group
      keeps the transparent danger treatment, not a solid red fill. --}}
-<div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar>
-    <span class="cc-bulkbar__count"><span class="x-num" x-text="selected.length"></span> selected</span>
+{{-- role="status" so the bar arriving is heard, not only seen. aria-live is
+     on the COUNT rather than the whole bar: the buttons do not change, and
+     re-reading their labels on every tick would be worse than silence. --}}
+<div class="cc-bulkbar" x-show="selected.length  role="status"> 0" x-cloak data-bulkbar>
+    <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected</span>
     <div class="cc-bulkbar__actions">
         <form method="POST" action="{{ route('ext.venta.product-groups.push', [$setting->id, $group->id]) }}" data-bulk-form
               data-bulk-confirm="Push the selected products to {{ $storeName }}? Anything already pushed is updated in place.">
@@ -515,12 +518,18 @@
      components/modals.css's .modal-backdrop show/hide mechanics, the same
      single `.active` class the confirm dialog and the orders pages use. --}}
 <div id="venta-group-progress" class="modal-backdrop">
-    <div class="modal co-modal co-modal--sm">
-        <div class="cc-progress">
+    {{-- A dialog, and one that speaks. This overlay covers the page for
+         several seconds while a marketplace call is in flight and carried no
+         role, no name and no live region, so the only signal that anything
+         was happening was the spinner - which is to say none at all for
+         anyone not looking at it. --}}
+    <div class="modal co-modal co-modal--sm" role="dialog" aria-modal="true"
+         aria-labelledby="venta-group-progress-title" aria-describedby="venta-group-progress-note">
+        <div class="cc-progress" role="status" aria-live="polite">
             <span class="co-spinner co-spinner--lg" aria-hidden="true"></span>
             <div>
-                <div class="cc-progress__title" data-progress-title>Talking to Venta</div>
-                <div class="cc-progress__note">Please keep this tab open.</div>
+                <div class="cc-progress__title" id="venta-group-progress-title" data-progress-title>Talking to Venta</div>
+                <div class="cc-progress__note" id="venta-group-progress-note">Please keep this tab open.</div>
             </div>
         </div>
     </div>

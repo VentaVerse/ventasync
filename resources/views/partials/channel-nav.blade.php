@@ -81,7 +81,14 @@
         <div class="x-cnav__group">
             <span class="x-cnav__group-label">{{ $group['label'] }}</span>
             @foreach($group['items'] as $item)
-                @php($cnavOn = ($cnavBest !== null && $item['url'] === $cnavBest) || request()->routeIs($item['route']))
+                {{-- routeIs alone. The URL half of this test read a
+                     $cnavBest that nothing in the application has ever
+                     defined - wreckage of one of the three attempts the note
+                     above describes - so it warned on every render of every
+                     workspace page and its branch could not be reached.
+                     Removing it changes no highlight; it only stops the
+                     partial claiming to do something it does not. --}}
+                @php($cnavOn = request()->routeIs($item['route']))
                 <a class="x-cnav__child {{ $cnavOn ? 'is-active' : '' }}"
                    @if($cnavOn) aria-current="page" @endif
                    href="{{ $item['url'] }}">{{ $item['label'] }}</a>

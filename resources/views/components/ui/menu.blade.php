@@ -23,7 +23,58 @@
      the ui-kit-v2 reference page) pixel-identical to before. $attributes
      lets a caller add its own modifier class to the root element without
      this component needing to know what that class does. --}}
-<div {{ $attributes->merge(['class' => 'x-menu']) }} x-data="{ open: false }" @keydown.escape.window="if (open) { open = false; $refs.trigger.focus() }">
+{{-- THE PANEL IS FIXED AND PLACED BY SCRIPT, not absolute inside the row.
+
+     Every list in this product renders through <x-ui.table>, which wraps its
+     table in .x-table-wrap { overflow-x: auto } so a wide table scrolls
+     inside its own box rather than dragging the page sideways. But
+     overflow-x: auto forces the OTHER axis from visible to auto - that is the
+     spec, not a bug - so the wrapper clipped vertically too, and a row menu
+     on the last rows of any table was cut off mid-item. Screenshotted on the
+     Lazada group listing: "Push stock" sheared in half at the wrapper's edge.
+
+     Taking the panel out of flow is what fixes it, and it buys the second
+     half of the same problem for free: the last row of a long table has no
+     room BELOW it either, so the panel now flips above its trigger when that
+     is where the space is. An absolutely positioned panel could do neither.
+
+     The cost is that a fixed element does not travel with a scrolling
+     ancestor, so place() re-runs on scroll (captured at the window, which is
+     the only way to hear the table's own horizontal scroll - scroll events do
+     not bubble) and on resize. Both bail immediately while closed. --}}
+<div {{ $attributes->merge(['class' => 'x-menu']) }}
+     x-data="{
+        open: false,
+        place() {
+            const t = $refs.trigger, p = $refs.panel;
+            if (!t || !p) return;
+
+            const r = t.getBoundingClientRect();
+            const gap = 4, edge = 8;
+            const h = p.offsetHeight, w = p.offsetWidth;
+
+            /* Below by default, above when below does not fit and above
+               fits better. Not simply 'above when near the bottom': on a
+               short viewport neither side fits and the clamp below is what
+               keeps the panel on screen. */
+            const room = window.innerHeight - r.bottom - gap;
+            const up = room < h && (r.top - gap) > room;
+
+            let top = up ? r.top - gap - h : r.bottom + gap;
+            top = Math.max(edge, Math.min(top, window.innerHeight - h - edge));
+
+            /* Right edge to right edge, as it read before. Clamped so a
+               trigger near the left edge cannot push the panel off it. */
+            let left = r.right - w;
+            left = Math.max(edge, Math.min(left, window.innerWidth - w - edge));
+
+            p.style.top = top + 'px';
+            p.style.left = left + 'px';
+        },
+     }"
+     @keydown.escape.window="if (open) { open = false; $refs.trigger.focus() }"
+     @scroll.window.capture="if (open) place()"
+     @resize.window="if (open) place()">
     <button type="button"
             id="{{ $menuId }}-t"
             x-ref="trigger"
@@ -31,7 +82,11 @@
             :aria-expanded="open ? 'true' : 'false'"
             aria-haspopup="true"
             aria-label="{{ $label }}"
-            @click.stop="open = !open">
+            {{-- Placed after it is shown, because a display:none panel
+                 measures 0 and there would be nothing to place. Alpine's
+                 enter transition starts at opacity 0, so the frame it
+                 spends unplaced is a frame nobody sees. --}}
+            @click.stop="open = !open; if (open) $nextTick(() => place())">
         @isset($trigger)
             {{ $trigger }}
         @else
@@ -44,7 +99,7 @@
          the same string on the button and on the group it opens, so ten
          row menus announced twenty identical names and read as twenty
          menus to anyone counting. --}}
-    <div class="x-menu__panel" role="group" aria-labelledby="{{ $menuId }}-t" x-show="open" x-cloak x-transition.duration.120ms @click.outside="open = false">
+    <div class="x-menu__panel" x-ref="panel" role="group" aria-labelledby="{{ $menuId }}-t" x-show="open" x-cloak x-transition.duration.120ms @click.outside="open = false">
         {{ $slot }}
     </div>
 </div>
