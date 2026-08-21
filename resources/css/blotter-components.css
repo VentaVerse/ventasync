@@ -1527,6 +1527,55 @@
 
     .fh-card:hover { border-color: var(--bl-rule-2); box-shadow: var(--bl-lift-2); }
 
+    /* The strip after a channel has been chosen.
+       ------------------------------------------------------------------
+       The cards keep the grid that already sizes them; what changes is that
+       each one lays its contents out in a ROW instead of a column, so the
+       strip loses its height rather than its width. Height is the whole
+       point: the cards were pushing the first order row to 530px on a 900px
+       screen, against 352px on the channel's own page.
+
+       Every card keeps its name, its count and its state. The one thing
+       dropped is today's contribution, which is a summary line and this is
+       no longer the summary. */
+    .fh-grid--compact {
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 8px;
+        margin-bottom: var(--bl-space-4);
+    }
+
+    .fh-grid--compact .fh-card {
+        flex-direction: row;
+        align-items: center;
+        gap: 9px;
+        padding: 4px 13px 4px 4px;
+        box-shadow: none;
+    }
+
+    .fh-grid--compact .fh-card:hover { box-shadow: var(--bl-lift); }
+
+    /* The cap stops bleeding to the card's edges and becomes the pill's own
+       accent lozenge, keeping the channel colour and the white name on it. */
+    .fh-grid--compact .fh-card__top {
+        margin: 0;
+        padding: 5px 10px;
+        border-radius: 999px;
+    }
+
+    .fh-grid--compact .fh-card__lead {
+        margin-top: 0;
+        margin-left: auto;
+        font-size: 16px;
+        letter-spacing: 0;
+    }
+
+    .fh-grid--compact .fh-card__label {
+        font-size: 11.5px;
+        white-space: nowrap;
+    }
+
+    .fh-grid--compact .fh-card__today { display: none; }
+
     /* WHICH CHANNEL is now carried by the cap, and which card is OPEN by the
        ring around it. Those are two different questions and they get two
        different devices, which is why the open state does not tint: the

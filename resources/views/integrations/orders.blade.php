@@ -184,7 +184,21 @@
          it must not do. The staleness is a caveat printed under the count,
          never a substitute for it. --}}
     @php $fhIsReturnsViewNav = ($selectedView ?? 'orders') === 'returns'; @endphp
-    <nav class="fh-grid" aria-label="Fulfilment surfaces">
+    {{-- Compact once a channel is open.
+
+         The cards exist to answer "is anything waiting, anywhere". Once one
+         is selected that question is answered and the page's job becomes the
+         panel below, but the strip went on spending 178px restating itself -
+         including the card for the channel you are already looking at, which
+         is a link to this page. Measured at 1440x900 the first order row sat
+         at 530px on the hub against 352px on the channel's own page, so the
+         entry surface showed about one order.
+
+         A modifier rather than a second markup path: every card keeps its
+         name, its count and its state, so nothing leaves the accessibility
+         tree. What goes is today's contribution, which is a summary line for
+         a summary view. --}}
+    <nav class="fh-grid {{ $selectedChannel ? 'fh-grid--compact' : '' }}" aria-label="Fulfilment surfaces">
         @foreach($fhChannels as $fhCard)
             {{-- The view rides with the link. Switching channel from a
                  returns list used to land on that channel's ORDERS, so the
