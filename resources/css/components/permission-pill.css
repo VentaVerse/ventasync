@@ -57,11 +57,21 @@
     font-family: inherit;
 }
 
-:root[data-theme="dark"] .x-app #perm-picker-v2 {
+/* NO .x-app IN THIS SELECTOR, and the reason is worth keeping.
+
+   It used to read `:root[data-theme="dark"] .x-app #perm-picker-v2`, and
+   .x-app is emitted by exactly two layouts - standalone and channel. Every
+   user-group view extends layouts.blotter, whose body class is `bl-app`. So
+   the rule never matched on the only page that uses this component, the
+   token stayed #fff, and the ACTIVE segment - the one thing on the row that
+   says what access the group has - rendered white on a pale thumb.
+
+   Measured as shipped: 1.58:1 on manage, 2.45:1 on view, 2.16:1 on off, at
+   11px. The comment below claimed 7.05 / 6.94 / 8.50. A stated ratio nobody
+   re-measured, on a rule that could not fire. */
+:root[data-theme="dark"] #perm-picker-v2 {
     /* Every thumb colour is a light value on the dark theme, so the
-       active segment's label flips to near-black rather than white.
-       Measured against all three thumbs: 7.05:1 (off), 6.94:1 (view),
-       8.50:1 (manage). */
+       active segment's label flips to near-black rather than white. */
     --pill-text-active: var(--bl-paper);
 }
 

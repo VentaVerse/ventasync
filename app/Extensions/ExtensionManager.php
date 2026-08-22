@@ -323,6 +323,100 @@ class ExtensionManager
      *
      * @return string[]
      */
+    /**
+     * Every permission key anything on disk still claims.
+     *
+     * The union of config/permissions.php and every extension manifest
+     * present in the extensions directory - INCLUDING DISABLED ONES, because
+     * a disabled extension is coming back and its groups' grants have to
+     * survive the trip. Only an extension whose folder is gone stops
+     * claiming its keys.
+     *
+     * @return array<int, string>
+     */
+    public function claimedPermissionKeys(): array
+    {
+        $keys = array_keys((array) config('permissions', []));
+
+        /* The label file counts as a declaration, and leaving it out gets the
+         * answer wrong. manage_users_groups is not in config and not in any
+         * manifest - it is a legacy alias User::hasPermission still honours
+         * for pre-rebuild groups - but it carries a label here, which is what
+         * says somebody meant it. The four *_messages keys carry none.
+         *
+         * That distinction is the whole difference between a key kept on
+         * purpose and a key left behind. */
+        $keys = array_merge($keys, array_keys((array) trans('permissions')));
+
+        foreach ($this->getManifests() as $manifest) {
+            $keys = array_merge($keys, $this->permissionKeys($manifest));
+        }
+
+        return array_values(array_unique(array_filter($keys, 'is_string')));
+    }
+
+    /**
+     * Permission rows nothing on disk declares any more.
+     *
+     * THE LIST WAS APPEND-ONLY UNTIL THIS EXISTED. syncPermissions() inserts
+     * the keys a manifest names and never removes one that has left it, and
+     * the uninstall path deletes by the manifest's CURRENT keys - so a
+     * permission dropped from a manifest is unreachable by both. It survives
+     * every sync and it survives uninstall.
+     *
+     * Found four that way: view_lazada_messages, manage_lazada_messages and
+     * the Shopee pair, left behind by a messages feature that no longer has a
+     * route, a nav entry or a manifest entry. They were four rows on the user
+     * group screen that granted nothing and could never be removed.
+     *
+     * Reporting is separate from removing on purpose. Deleting a permission
+     * revokes it from every group that holds it, so this answers the question
+     * and lets a person decide.
+     *
+     * @return array<int, string> orphaned keys, sorted
+     */
+    public function orphanedPermissionKeys(): array
+    {
+        if (!Schema::hasTable('permissions')) {
+            return [];
+        }
+
+        $claimed = array_flip($this->claimedPermissionKeys());
+
+        $orphans = DB::table('permissions')
+            ->pluck('key')
+            ->filter(fn ($key) => !isset($claimed[$key]))
+            ->values()
+            ->all();
+
+        sort($orphans);
+
+        return $orphans;
+    }
+
+    /**
+     * Delete the rows nothing declares, and the grants that pointed at them.
+     *
+     * @return int the number of permission rows removed
+     */
+    public function pruneOrphanedPermissions(): int
+    {
+        $orphans = $this->orphanedPermissionKeys();
+
+        if ($orphans === []) {
+            return 0;
+        }
+
+        $ids = DB::table('permissions')->whereIn('key', $orphans)->pluck('id')->all();
+
+        DB::transaction(function () use ($ids) {
+            DB::table('user_group_permissions')->whereIn('permission_id', $ids)->delete();
+            DB::table('permissions')->whereIn('id', $ids)->delete();
+        });
+
+        return count($ids);
+    }
+
     private function permissionKeys(array $manifest): array
     {
         $keys = [];

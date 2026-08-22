@@ -112,8 +112,13 @@
             }
         }
     }
+    /* NOT USED FOR THE ORPHAN TEST ANY MORE - see the recount after the
+       collapse below. This walk predicted which ids a pill would surface, the
+       collapse then changed the answer, and the two drifted: manage_catalog
+       gained a control and was still emitted as an untouchable hidden input,
+       so its id would have been submitted twice. The rendered rows are the
+       only honest source for "does this permission have a control". */
     $pillSurfacedIds = array_flip($pillSurfacedIds);
-    $orphanSelected = array_values(array_filter($selected, fn($id) => !isset($pillSurfacedIds[$id])));
 
     // Walk the tree, build everything we need for render, accumulate totals.
     $renderGroups = [];
@@ -219,8 +224,24 @@
                 $orphan = $section;
             }
 
-            // Surface the orphan's parent as the first row of the host's body.
-            $parentRow = $buildRows([$orphan['parent']]);
+            /* BOTH TWINS, not just the orphan.
+             *
+             * This passed only $orphan['parent'] - the view_<X> record - so
+             * $buildRows saw one tier and rendered a TWO-segment pill. The
+             * row then read "Catalog (View All)  [Off | View]" for a group
+             * holding manage_catalog, which is not an incomplete statement
+             * but a false one, and there was no control anywhere on the page
+             * that could grant manage_catalog in the first place.
+             *
+             * Thirteen permissions were unreachable this way, every one of
+             * them a domain-wide Manage: catalog, sales, marketplace_api,
+             * settings, purchasing, warehousing, audit. The Administrator
+             * group holds five of them and could not be rebuilt through its
+             * own editor. They survived only as hidden carry-over inputs.
+             *
+             * Handing $buildRows both records lets it do what it already
+             * knew how to do: same base, both tiers present, three segments. */
+            $parentRow = $buildRows([$orphan['parent'], $host['parent']]);
             array_unshift($host['subsections'], ['label' => null, 'rows' => $parentRow]);
 
             // Tally the inserted row into the host's counts.
@@ -244,6 +265,82 @@
         }
     }
     $renderGroups = $collapsed;
+
+    /* ONE COUNT, TAKEN FROM WHAT RENDERS.
+     *
+     * $totalPills was incremented in two places - once per row as each
+     * section was built, and again for every twin folded in afterwards - so
+     * it ran 7 ahead of the 37 controls on screen. A fully granted
+     * Administrator displayed "37 / 44" and data-full could never reach 1,
+     * which taught the operator to disbelieve the only progress indicator on
+     * the page.
+     *
+     * Recounting here costs one walk and cannot drift, because it counts the
+     * same array the markup below iterates. The per-section tallies keep
+     * their own increments; only the global figures are re-derived. */
+    /* A SECTION PARENT THAT IS A REAL PERMISSION GETS A ROW, twin or no twin.
+     *
+     * The collapse above only surfaces a parent when a view_/manage_ pair of
+     * SECTIONS exists to fold together. A domain with children and no twin -
+     * petty_cash, whose parent is view_petty_cash - fell through it, so the
+     * permission was assignable in the database and had no control on the
+     * page. Same defect as the twin case, reached by a different route, which
+     * is why it is fixed here by asking what is missing rather than by
+     * enumerating another special case. */
+    foreach ($renderGroups as $i => $section) {
+        $parent = $section['parent'] ?? null;
+
+        if (! $parent) {
+            continue;
+        }
+
+        $alreadyShown = false;
+
+        foreach ($section['subsections'] as $sub) {
+            foreach ($sub['rows'] as $row) {
+                foreach (['view', 'manage'] as $tier) {
+                    if ($row[$tier] && $row[$tier]->id === $parent->id) {
+                        $alreadyShown = true;
+                    }
+                }
+            }
+        }
+
+        if (! $alreadyShown && ! empty($section['subsections'])) {
+            array_unshift(
+                $renderGroups[$i]['subsections'],
+                ['label' => null, 'rows' => $buildRows([$parent])]
+            );
+        }
+    }
+
+    $totalPills = 0;
+    $grantedPills = 0;
+    $surfacedIds = [];
+
+    foreach ($renderGroups as $section) {
+        foreach ($section['subsections'] as $sub) {
+            foreach ($sub['rows'] as $row) {
+                $totalPills++;
+
+                if ($row['state'] === 'manage' || $row['state'] === 'view') {
+                    $grantedPills++;
+                }
+
+                foreach (['view', 'manage'] as $tier) {
+                    if ($row[$tier]) {
+                        $surfacedIds[$row[$tier]->id] = true;
+                    }
+                }
+            }
+        }
+    }
+
+    /* What is granted and has no control anywhere. After the fix above this
+       is only ever a permission the hierarchy could not place at all - a key
+       left behind by a removed feature, say - and it is still carried through
+       the save rather than silently revoked. */
+    $orphanSelected = array_values(array_filter($selected, fn ($id) => !isset($surfacedIds[$id])));
 @endphp
 
 <div id="perm-picker-v2"

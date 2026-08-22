@@ -1530,6 +1530,25 @@
            cells - the template alone will not do it. */
         .x-table > tbody > tr > td {
             grid-column: 1 / -1;
+            /* WIDTH HAS TO GO BACK TO AUTO, and forgetting it is what this
+               comment is here to prevent.
+
+               A column width on a <td> is a hint the table layout algorithm
+               weighs against every other column. On a GRID ITEM it is
+               literal. `.bl-col-actions { width: 1% }` - the ordinary
+               shrink-to-fit trick - resolved to 12px on a 328px card, and
+               its buttons laid out from there to negative x: measured, "Edit
+               permissions" sat at -130..-19 on the user groups list, 0%
+               visible and unreachable at every width from 360 to 640, with
+               no scroll that could bring it back. Two dozen .cc-col-* and
+               .bl-col-* classes carry a fixed px or % width and every one of
+               them behaves this way once the row is a grid.
+
+               channel-catalog.css used to carry exactly this reset for its
+               own cells and I removed it as redundant when the generic rule
+               landed. It was not redundant; it was the only thing standing
+               between those widths and this. */
+            width: auto;
             min-width: 0;
             padding: 0;
             border-bottom: 0;

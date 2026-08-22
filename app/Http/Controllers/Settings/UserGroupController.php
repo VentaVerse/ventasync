@@ -9,6 +9,7 @@ use App\Models\Admin\Permission;
 use App\Services\ActivityLogger;
 use App\Services\PermissionHierarchy;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class UserGroupController extends Controller
 {
@@ -130,22 +131,59 @@ class UserGroupController extends Controller
         ]);
 
         $original = $group->getAttributes();
+
+        /* THE NAME BEFORE THE EDIT, captured here because the safeguard below
+         * depends on it. It used to run after $group->name was reassigned, so
+         * it tested the SUBMITTED name: renaming Administrator to anything
+         * else and pressing "Off all" in the same save stripped the group that
+         * holds manage_user_groups, and nobody could reach this page again.
+         * A guard that a single field edit switches off is not a guard. */
+        $originalName = strtolower((string) ($original['name'] ?? ''));
+
         $group->name = $request->name;
         $group->save();
 
         $permissionIds = $request->permissions ?? [];
 
         // Safeguard: Administrator group must always keep core permissions
-        if (strtolower($group->name) === 'administrator') {
+        if ($originalName === 'administrator') {
             $coreKeys = ['manage_settings', 'manage_user_groups', 'manage_users'];
             $coreIds = Permission::whereIn('key', $coreKeys)->pluck('id')->all();
             $permissionIds = array_values(array_unique(array_merge($permissionIds, $coreIds)));
         }
 
         $permissionIds = $this->applyChildParentElevation($permissionIds);
+
+        /* WHAT ACCESS ACTUALLY MOVED, which is the only reason this page
+         * exists and was the one thing the ledger did not record.
+         *
+         * diff() was called with ['name'], so renaming a group was logged and
+         * handing somebody every permission in the application was not. This
+         * is the screen that decides who can delete a live marketplace
+         * listing; a change here has to be answerable on Monday morning.
+         *
+         * Keys, not ids: an id means nothing to whoever reads the ledger, and
+         * a permission row can be deleted and reissued with a different one.
+         * Read before the sync, because after it there is nothing to compare. */
+        $before = $group->permissions()->pluck('key', 'permissions.id');
+
         $group->permissions()->sync($permissionIds);
 
+        $after = $group->fresh()->permissions()->pluck('key', 'permissions.id');
+
+        $granted = $after->diffKeys($before)->values()->sort()->values()->all();
+        $revoked = $before->diffKeys($after)->values()->sort()->values()->all();
+
         $changes = ActivityLogger::diff($original, $group->getAttributes(), ['name']);
+
+        if ($granted !== []) {
+            $changes['permissions_granted'] = $granted;
+        }
+
+        if ($revoked !== []) {
+            $changes['permissions_revoked'] = $revoked;
+        }
+
         ActivityLogger::log('updated', 'User Group', $group->id, $group->name, $changes);
 
         return redirect()->route('user_groups.index');
@@ -161,15 +199,28 @@ class UserGroupController extends Controller
                 ->with('error', 'Administrator user group cannot be deleted');
         }
 
-        $group->permissions()->detach();
-                $assigned = User::where('user_group_id', (int) $group->id)->count();
+        /* ASK BEFORE DESTROYING. detach() used to run first and the count
+         * second, so refusing the delete left the group standing with every
+         * permission stripped: reproduced on Fulfilment, 14 permissions to 0,
+         * while the operator read "Cannot delete this group because there are
+         * 1 user(s) assigned to it" and reasonably concluded nothing had
+         * happened. The person in that group lost every menu and found out
+         * hours later. */
+        $assigned = User::where('user_group_id', (int) $group->id)->count();
+
         if ($assigned > 0) {
             return redirect()->route('user_groups.index')
                 ->with('error', 'Cannot delete this group because there are '.$assigned.' user(s) assigned to it');
         }
 
         $groupName = $group->name;
-        $group->delete();
+
+        /* And both writes together, so a failure between them cannot leave a
+         * group with no permissions instead of no group. */
+        DB::transaction(function () use ($group) {
+            $group->permissions()->detach();
+            $group->delete();
+        });
 
         ActivityLogger::log('deleted', 'User Group', (int) $id, $groupName);
 
