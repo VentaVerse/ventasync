@@ -171,9 +171,59 @@ return [
         'settings' => 'Settings',
         'general' => 'General',
         'audit' => 'Audit & Monitoring',
+
+        // Nobody clicks these. The phone app and API tokens sign in against
+        // them, so they are named for the audience rather than the code.
+        'api' => 'Mobile app access',
+        'api_v1' => 'Partner API access',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Area notes
+    |--------------------------------------------------------------------------
+    |
+    | One line under an area heading, for the areas whose name is not enough
+    | on its own. Most need none - "Catalogue" explains itself.
+    |
+    */
+
+    'elevated' => [
+        'settings/user_group' => 'sets what every group may do, this one included',
+        'settings/user' => 'creates logins and moves people between groups',
+        'settings/api_client' => 'issues keys that reach the data from outside',
+        'settings/extension' => 'installs code that runs with full access',
+    ],
+
+    'notes' => [
+        'api' => 'What the VentaSync phone app may reach when this group signs in on it. Nothing here appears in the web interface.',
+        'api_v1' => 'What an outside system may read using an API client key issued to this group.',
     ],
 
     'rows' => [
+        // Machine-facing rows, named for what the caller is doing rather than
+        // for the controller answering. "Auth" and "Device Token" are what
+        // the code calls them; neither tells an administrator anything.
+        'api/auth' => 'Sign in on the phone app',
+        'api/device_token' => 'Push notifications',
+        'api/dashboard' => 'Dashboard figures',
+        'api/catalog' => 'Browse the catalogue',
+        'api/product' => 'Products',
+        'api/order' => 'Orders',
+        'api/marketplace_order' => 'Marketplace orders',
+        'api/marketplace_config' => 'Channel settings',
+        'api_v1/product' => 'Products',
+        'api_v1/order' => 'Orders',
+        'api_v1/inventory' => 'Inventory',
+
+        // Str::headline stutters a controller whose class name already ends
+        // in Api and sits in an api_ file: "Api Report Api".
+        'reports/api_report_api' => 'Reports over the API',
+        'venta/api_venta_order_api' => 'Orders over the API',
+
+        // The bare controller here is the ledger, not the settings:
+        // Petty Cash keeps those in their own controller.
+        'pettycash/overview' => 'Transactions',
         // The bare controller of a channel is its connection, not an
         // "overview": it holds the credentials, the sandbox/live switch and
         // the API explorer. Named for what granting it actually hands over.
@@ -182,7 +232,6 @@ return [
         'tiktok/overview' => 'Connection & API',
         'venta/overview' => 'Connection & API',
         'opencart/overview' => 'Connection & API',
-        'pettycash/overview' => 'Petty Cash',
 
         // "Warehouse Transfer" inside a group already titled Warehousing
         // says warehouse twice.

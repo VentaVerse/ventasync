@@ -76,6 +76,8 @@ class UserGroupController extends Controller
                     // Two segments when there is no write route to manage.
                     'segments' => $manage ? 3 : 2,
                     'state' => $state,
+                    'elevated' => $row['elevated'],
+                    'elevatedWhy' => $row['elevatedWhy'],
                 ];
             }
 
@@ -83,6 +85,8 @@ class UserGroupController extends Controller
                 $groups[] = [
                     'area' => $group['area'],
                     'label' => $group['label'],
+                    'machine' => $group['machine'],
+                    'note' => $group['note'],
                     'rows' => $out,
                 ];
             }

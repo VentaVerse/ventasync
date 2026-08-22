@@ -109,7 +109,9 @@
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
-    color: var(--bl-ink-2);
+    /* Was --bl-ink-2 on --bl-chrome: 4.20:1 at 12px, under the 4.5 AA floor.
+       The page's one text-contrast failure, in light theme only. */
+    color: var(--bl-ink);
     background: var(--bl-chrome);
     border: 1px solid var(--bl-rule);
     padding: 2px 8px;
@@ -304,10 +306,21 @@
     border: 1px solid var(--bl-rule);
     border-radius: var(--bl-r-ctrl);
     margin-bottom: var(--bl-space-3);
-    overflow: hidden;
+    /* NOT overflow:hidden. That makes this box a scroll container, and a
+       sticky child positions against its nearest scrolling ancestor - so
+       the head would stick inside a box that never scrolls, which is to
+       say not at all. overflow:clip clips the same corners without
+       becoming one. */
+    overflow: clip;
 }
 
 .permv2-group-head {
+    /* The area name is the only thing that tells eight rows called "Order"
+       apart, and it used to scroll away after the first few rows. 59px
+       clears the sticky toolbar above it. */
+    position: sticky;
+    top: 59px;
+    z-index: 3;
     appearance: none;
     background: var(--bl-chrome);
     border: none;
@@ -465,6 +478,10 @@
     border-bottom: 1px solid var(--bl-rule);
     transition: background var(--bl-motion-fast);
 }
+/* Both sticky layers - toolbar and the group's own head - float above the
+   rows. Without this a row scrolled to by keyboard or filter arrives under
+   them, sliced in half. */
+.permv2-row { scroll-margin-top: 110px; }
 .permv2-row:last-child { border-bottom: none; }
 .permv2-row:hover { background: var(--bl-chrome-2); }
 .permv2-row[data-hidden="1"] { display: none; }
@@ -637,3 +654,65 @@
        below still carry the same information per row. */
     .permv2-group-stats { display: none; }
 }
+
+
+/* ------------------- ELEVATED, NOTES, MACHINE AREAS ------------------- */
+
+/* The route table can count a controller's actions; it cannot know that one
+   of them is privilege escalation. These three rules are the only place on
+   the page where risk is visible, so they are deliberately loud. */
+.permv2-row-tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: 1px 6px;
+    border-radius: var(--bl-r-dot);
+    white-space: nowrap;
+}
+.permv2-row-tag[data-tag="elevated"] {
+    color: var(--bl-warn-deep);
+    background: var(--bl-warn-wash);
+    border: 1px solid var(--bl-warn-deep);
+}
+.permv2-row[data-elevated="1"] {
+    box-shadow: inset 3px 0 0 var(--bl-warn-deep);
+}
+
+.permv2-group-note {
+    display: block;
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--bl-ink-2);
+    margin-top: 2px;
+    max-width: 62ch;
+    white-space: normal;
+}
+
+/* Machine areas sit last and open closed; the muted head says "this is not
+   part of the web interface" before the note has to. */
+.permv2-group[data-machine="1"] .permv2-group-head { background: var(--bl-chrome-2); }
+.permv2-group[data-machine="1"] .permv2-group-title-text { color: var(--bl-ink-2); }
+
+@media (max-width: 640px) {
+    /* Two stacked sticky layers eat a phone viewport. The toolbar stays;
+       the heads scroll with their groups. */
+    .permv2-group-head { position: static; }
+    .permv2-row { scroll-margin-top: 76px; }
+}
+
+.permv2-note {
+    margin: 0 0 var(--bl-space-3);
+    padding: var(--bl-space-3);
+    max-width: 68ch;
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--bl-ink);
+    background: var(--bl-brand-wash);
+    border-left: 3px solid var(--bl-brand-deep);
+    border-radius: 0 var(--bl-r-ctrl) var(--bl-r-ctrl) 0;
+}
+.permv2-note[hidden] { display: none; }

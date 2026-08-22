@@ -226,6 +226,23 @@ document.addEventListener('DOMContentLoaded', function () {
         // alone is enough to stop the button/link's default action.
         confirmModal(msg, btn).then(function (ok) {
             if (!ok) return;
+
+            /* THE TRIGGER IS TOLD IT WAS CONFIRMED.
+             *
+             * preventDefault stops the browser's default action, but it does
+             * not stop other listeners: this is a capture listener and it
+             * deliberately does not stopImmediatePropagation (see above -
+             * doing so broke unrelated document-level listeners). So a
+             * <button type="button"> that does its work in its OWN click
+             * handler runs that work immediately, while this dialog is still
+             * asking. The dialog is then decoration, and Cancel undoes
+             * nothing.
+             *
+             * Such a button should do nothing on click and listen for this
+             * instead. Additive: buttons that only submit a named form via
+             * data-confirm-submit are unaffected. */
+            btn.dispatchEvent(new CustomEvent('confirm:accepted', { bubbles: true }));
+
             if (submitId) {
                 var f = document.getElementById(submitId);
                 if (f) {

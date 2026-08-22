@@ -81,6 +81,37 @@ class PermissionCatalogue
         'App\\Http\\Controllers\\Fulfilment\\',
     ];
 
+    /**
+     * Areas nobody reaches through the sidebar.
+     *
+     * The mobile app and API tokens sign in against these; a person never
+     * clicks one. They are real permissions and they stay grantable - hiding
+     * them would be a security change dressed up as tidying - but they are
+     * answering a different question from the rest of the page, so they sort
+     * last and open closed.
+     */
+    private const MACHINE_AREAS = ['api', 'api_v1'];
+
+    /**
+     * The handful of keys that can end an afternoon.
+     *
+     * The route table can count a controller's actions. It cannot know that
+     * one of settings/user_group's six is "grant yourself anything", while
+     * all eight of settings/currency's are "rename the peso". That is a
+     * judgement, so it is written down rather than derived, and it is kept
+     * deliberately short: a list where everything is elevated marks nothing.
+     *
+     * Every 'overview' key joins them by rule, not by hand - an extension's bare
+     * controller holds its credentials and its API explorer, which is the
+     * marketplace account itself.
+     */
+    private const ELEVATED_KEYS = [
+        'settings/user_group',
+        'settings/user',
+        'settings/api_client',
+        'settings/extension',
+    ];
+
 
     /** @var array<string, array>|null */
     private ?array $entries = null;
@@ -274,12 +305,75 @@ class PermissionCatalogue
      *
      * @return array<int, array{area:string,label:string,rows:array<int,array>}>
      */
+    /** Machine-facing areas answer to a token, not to a person. */
+    public function isMachineArea(string $area): bool
+    {
+        return in_array($area, self::MACHINE_AREAS, true);
+    }
+
+    /**
+     * Why this row is marked, in the words of what it hands over.
+     *
+     * A tag that only says "Elevated" makes the reader guess. Falls back to
+     * a general sentence rather than to nothing, so a key added to the list
+     * without wording still explains itself.
+     */
+    public function elevatedWhy(string $key): string
+    {
+        if (! $this->isElevated($key)) {
+            return '';
+        }
+
+        $lang = 'permissions.elevated.' . $key;
+        $translated = __($lang);
+
+        if ($translated !== $lang) {
+            return (string) $translated;
+        }
+
+        return Str::endsWith($key, '/overview')
+            ? 'holds the account credentials'
+            : 'can widen what others may do';
+    }
+
+    /**
+     * Hand-kept, plus every extension's own settings screen by rule.
+     *
+     * An extension's bare controller is usually its credentials and its API
+     * explorer, which is the marketplace account itself. Usually, not always:
+     * Petty Cash publishes a separate settings controller, and its bare one
+     * is just the ledger. That difference is derivable rather than a second
+     * hand-kept list - an area that has somewhere else to keep its settings
+     * is not keeping them here.
+     */
+    public function isElevated(string $key): bool
+    {
+        if (in_array($key, self::ELEVATED_KEYS, true)) {
+            return true;
+        }
+
+        if (! Str::endsWith($key, '/overview')) {
+            return false;
+        }
+
+        return ! isset($this->all()[Str::before($key, '/') . '/settings']);
+    }
+
+    /**
+     * The areas, grouped and labelled, ready to render.
+     *
+     * @return array<int, array{area:string,label:string,machine:bool,note:?string,rows:array<int,array>}>
+     */
     public function grouped(): array
     {
         $areas = [];
 
         foreach ($this->all() as $entry) {
-            $areas[$entry['area']][] = $entry + ['label' => $this->rowLabel($entry['key'])];
+            $areas[$entry['area']][] = $entry + [
+                'label' => $this->rowLabel($entry['key']),
+                'elevated' => $this->isElevated($entry['key']),
+                'elevatedWhy' => $this->elevatedWhy($entry['key']),
+            ];
         }
 
         $out = [];
@@ -287,14 +381,20 @@ class PermissionCatalogue
         foreach ($areas as $area => $rows) {
             usort($rows, fn ($a, $b) => strcmp($a['label'], $b['label']));
 
+            $note = __('permissions.notes.' . $area);
+
             $out[] = [
                 'area' => $area,
                 'label' => $this->areaLabel($area),
+                'machine' => $this->isMachineArea($area),
+                'note' => $note === 'permissions.notes.' . $area ? null : (string) $note,
                 'rows' => $rows,
             ];
         }
 
-        usort($out, fn ($a, $b) => strcmp($a['label'], $b['label']));
+        // Machine areas last, then alphabetical. A person scanning for their
+        // own work should not have to read past the mobile app to find it.
+        usort($out, fn ($a, $b) => [$a['machine'], $a['label']] <=> [$b['machine'], $b['label']]);
 
         return $out;
     }

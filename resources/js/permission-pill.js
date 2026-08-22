@@ -66,46 +66,14 @@
             inp.disabled = !(state !== 'off' && inp.dataset.tier === state);
         });
 
-        // Parent → children Off cascade. If THIS pill is the parent of its
-        // group (i.e. its base matches the group's key) and the new state
-        // is "off", flip every sibling pill in the same group to off too.
-        // Matches the server-side cascade in UserGroupController so the
-        // visible form state never diverges from what will be saved.
-        // Recursion is bounded: cascaded children have a different base
-        // than the group key, so they don't re-trigger this branch.
+        /* THE PARENT/CHILD CASCADE IS GONE, WITH THE TREE IT SERVED.
+           It compared pill.dataset.base ("catalog/product") against
+           group.dataset.groupKey ("catalog"), which can never be equal now
+           that every key is area/name - so both branches were unreachable.
+           An area is a folder of controllers; no controller is the parent of
+           another. edit.blade.php promised this behaviour in prose long
+           after the code stopped doing it; that sentence is gone too. */
         const group = pill.closest('.permv2-group');
-        if (group && state === 'off') {
-            const groupKey = group.dataset.groupKey;
-            const myBase = pill.dataset.base;
-            if (myBase && myBase === groupKey) {
-                group.querySelectorAll('.permv2-pill').forEach((sib) => {
-                    if (sib !== pill && sib.dataset.state !== 'off') {
-                        setPillState(sib, 'off');
-                    }
-                });
-            }
-        }
-
-        // Child → parent View elevation. If THIS pill is a CHILD of its
-        // group (its base differs from the group key) and the new state
-        // grants any tier, ensure the parent pill is not Off, promote it
-        // to "view" (or "manage" for container parents that don't expose
-        // a view tier). Symmetric counterpart to the parent-off cascade
-        // above: keeps the invariant that the parent's tier is always
-        // >= max(children's tiers), so a child grant never lands as a
-        // dead permission (parent Off hides the sidebar section,
-        // rendering the child unreachable from nav).
-        if (group && (state === 'view' || state === 'manage')) {
-            const groupKey = group.dataset.groupKey;
-            const myBase = pill.dataset.base;
-            if (myBase && myBase !== groupKey) {
-                const parentPill = group.querySelector('.permv2-pill[data-base="' + groupKey + '"]');
-                if (parentPill && parentPill.dataset.state === 'off') {
-                    const parentSupportsView = !!parentPill.querySelector('input[data-tier="view"]');
-                    setPillState(parentPill, parentSupportsView ? 'view' : 'manage');
-                }
-            }
-        }
 
         recomputeGroupStats(group);
         recomputeGlobal();
@@ -161,6 +129,82 @@
                         + ' for this group? Everyone in it loses that access when you save.'
             );
         }
+
+        refreshConfirms();
+    }
+
+    /* ----------------------------------------------------- confirmations
+     *
+     * WIDENING IS GUARDED AS CAREFULLY AS REVOKING.
+     *
+     * "Off all" was confirmed and "Manage all" was not, which had it exactly
+     * backwards. Switching everything off is loud: someone rings within the
+     * hour and it is one click back. Granting all sixty-four areas is silent
+     * forever, and one of the areas it grants is the power to grant.
+     *
+     * Each message is rebuilt whenever the state or the filter changes, so
+     * it names THIS click:
+     *   :n  what the action covers - the filter narrows cascades, never presets
+     *   :c  how many areas would actually change
+     *   :e  the elevated areas it hands over, and only when it hands one
+     */
+    const elevatedNames = picker.dataset.elevatedNames || '';
+
+    function plural(n, word) {
+        return n + ' ' + word + (n === 1 ? '' : 's');
+    }
+
+    function summarise(targetFor, scope) {
+        let changes = 0;
+        let grantsElevated = false;
+
+        scope.forEach((pill) => {
+            const target = targetFor(pill);
+            if (target === null || target === pill.dataset.state) return;
+            changes++;
+            const row = pill.closest('.permv2-row');
+            if (target !== 'off' && row && row.dataset.elevated === '1') {
+                grantsElevated = true;
+            }
+        });
+
+        return { changes, grantsElevated };
+    }
+
+    function fill(btn, scopeLabel, summary) {
+        const template = btn.getAttribute('data-confirm-count');
+        if (!template) return;
+
+        const elevatedClause = summary.grantsElevated && elevatedNames
+            ? ' It hands over ' + elevatedNames + ' - anyone in this group could then change'
+              + ' permissions, including their own.'
+            : '';
+
+        btn.setAttribute('data-confirm', template
+            .replace(':n', scopeLabel)
+            .replace(':c', summary.changes === 0
+                ? 'Nothing'
+                : plural(summary.changes, 'area'))
+            .replace(':e', elevatedClause));
+    }
+
+    function refreshConfirms() {
+        const scope = cascadeScope();
+        const filtered = scope.length !== pills.length;
+        const scopeLabel = filtered
+            ? 'the ' + plural(scope.length, 'area') + ' matching your filter'
+            : 'all ' + plural(pills.length, 'area');
+
+        picker.querySelectorAll('.permv2-cascade[data-confirm-count]').forEach((btn) => {
+            fill(btn, scopeLabel, summarise((pill) => cascadeTarget(pill, btn.dataset.cascade), scope));
+        });
+
+        // Presets ignore the filter on purpose, so they are always scoped to
+        // every pill and their wording says so rather than quoting a total
+        // the operator cannot see.
+        picker.querySelectorAll('button[data-preset][data-confirm-count]').forEach((btn) => {
+            fill(btn, scopeLabel, summarise((pill) => presetTarget(pill, btn.dataset.preset), pills));
+        });
     }
 
     // ---------------------------------------------------------------- click + kbd
@@ -207,64 +251,108 @@
     });
 
     // ---------------------------------------------------------------- group toggle
+    /* THE ONLY PLACE COLLAPSE IS WRITTEN.
+       It used to be written in two: this handler set both halves, and
+       applySearch set dataset.collapsed alone. After any search, ten of
+       fifteen heads reported "collapsed" over nine visible rows that were
+       still in the tab order. One function, both halves, always. */
+    function setCollapsed(group, collapsed) {
+        const head = group.querySelector('.permv2-group-head');
+        group.dataset.collapsed = collapsed ? '1' : '0';
+        if (head) head.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    }
+
     groups.forEach((group) => {
         const head = group.querySelector('.permv2-group-head');
         if (!head) return;
         head.addEventListener('click', () => {
-            const collapsed = group.dataset.collapsed === '1';
-            group.dataset.collapsed = collapsed ? '0' : '1';
-            head.setAttribute('aria-expanded', collapsed ? 'true' : 'false');
+            setCollapsed(group, group.dataset.collapsed !== '1');
+            // The operator's own choice, so it survives the next search.
+            group.dataset.userCollapsed = group.dataset.collapsed;
         });
     });
 
     // ---------------------------------------------------------------- cascade buttons
-    function cascadeAll(targetState, scope) {
-        const scopePills = scope
-            ? Array.from(scope.querySelectorAll('.permv2-pill'))
-            : pills;
-        scopePills.forEach((pill) => {
-            // A pill's actual supported segments depend on which tier
-            // permissions exist for that resource base. Coerce to the
-            // closest-meaningful tier:
-            //   - "off"    → "off" (universal).
-            //   - "view"   → "view" if supported, else stays at current
-            //                tier's lowest available (i.e. no change if
-            //                only manage exists, Operator/Viewer presets
-            //                shouldn't accidentally over-grant).
-            //   - "manage" → "manage" if supported, else fall back to
-            //                "view" (view-only resources can't be "managed").
-            const inputs = pill.querySelectorAll('input[type="hidden"][data-tier]');
-            const supportsView = !!pill.querySelector('input[data-tier="view"]');
-            const supportsManage = !!pill.querySelector('input[data-tier="manage"]');
+    /* WHAT ONE CASCADE WOULD DO TO ONE PILL, in one place.
+       The confirmation quotes a number; the click applies a change. When
+       two pieces of code work that out separately they drift, and the
+       drift shows up as a dialog that promises the wrong thing. */
+    function cascadeTarget(pill, targetState) {
+        const supportsView = !!pill.querySelector('input[data-tier="view"]');
+        const supportsManage = !!pill.querySelector('input[data-tier="manage"]');
 
-            let coerced = targetState;
-            if (targetState === 'manage' && !supportsManage) {
-                coerced = supportsView ? 'view' : 'off';
-            } else if (targetState === 'view' && !supportsView) {
-                // Skip, view-only cascade shouldn't elevate a manage-only
-                // resource to manage. Leave the pill alone.
-                return;
-            }
-            // Only act on visible (not search-hidden) rows.
+        if (targetState === 'manage' && !supportsManage) {
+            return supportsView ? 'view' : 'off';
+        }
+        // A view-only cascade must not elevate a manage-only row to manage.
+        if (targetState === 'view' && !supportsView) return null;
+        return targetState;
+    }
+
+    /* The pills one cascade may touch: cascades respect the filter, so a
+       hidden row is out of scope. Presets deliberately do not - see
+       applyPreset - and the confirmations say which is which. */
+    function cascadeScope() {
+        return pills.filter((pill) => {
             const row = pill.closest('.permv2-row');
-            if (row && row.dataset.hidden === '1') return;
+            return !(row && row.dataset.hidden === '1');
+        });
+    }
+
+    function cascadeAll(targetState) {
+        cascadeScope().forEach((pill) => {
+            const coerced = cascadeTarget(pill, targetState);
+            if (coerced === null) return;
             setPillState(pill, coerced);
         });
     }
 
+    /* Every widening action is guarded now, so no handler may fire on the
+       raw click: confirm-modal.js preventDefaults the default action but
+       cannot stop this listener, so acting here would run the cascade while
+       the dialog was still asking, and Cancel would undo nothing. Guarded
+       buttons wait for confirm:accepted instead. */
+    function onActivate(btn, fn) {
+        const guarded = btn.hasAttribute('data-confirm') || btn.hasAttribute('data-confirm-count');
+        btn.addEventListener(guarded ? 'confirm:accepted' : 'click', fn);
+    }
+
     cascades.forEach((btn) => {
-        btn.addEventListener('click', () => {
-            cascadeAll(btn.dataset.cascade);
-            // "Off all" must also detach orphan hidden inputs (container
-            // permissions like manage_marketplace_api that have no pill).
-            // For "View all" / "Manage all" we leave them attached, they're
-            // implied-redundant given any child grant, but harmless.
-            const orphans = picker.querySelectorAll('input[type="hidden"][data-orphan="1"]');
-            orphans.forEach((inp) => {
-                inp.disabled = (btn.dataset.cascade === 'off');
-            });
-        });
+        // The orphan-input sweep went with the container permissions it
+        // existed for: every key is now area/name and every one has a pill.
+        onActivate(btn, () => cascadeAll(btn.dataset.cascade));
     });
+
+    /* Screens that gate themselves rather than at the door.
+       They are absent from this page on purpose, so a search for one should
+       say why instead of returning the same dead end as a typo. Keyed on the
+       words an operator would actually type, and each answer names where the
+       permission really lives. */
+    const SELF_GATED = [
+        { words: ['fulfilment', 'fulfillment', 'pack', 'pick', 'ship', 'awb', 'waybill'],
+          says: 'The fulfilment hub is not one permission. It shows each channel\u2019s queue '
+              + 'to whoever holds that channel, so grant Shopee, Lazada or TikTok Shop instead.' },
+        { words: ['channel', 'channels', 'hub', 'integration', 'integrations', 'marketplace'],
+          says: 'The channels hub is not one permission. It shows only the cards a person\u2019s '
+              + 'own permissions already allow, so grant the channel itself instead.' },
+        { words: ['automation', 'automations'],
+          says: 'Automations are gated per row, by the integration each one touches. '
+              + 'Grant the channel and its automations come with it.' },
+        { words: ['dashboard', 'home', 'search'],
+          says: 'Everyone signed in gets this one. It has no permission to grant.' },
+        { words: ['stock', 'inventory', 'price', 'quantity'],
+          says: 'These are fields rather than screens. Look under Catalogue for products '
+              + 'and Warehousing for stock on hand.' },
+    ];
+
+    function explainQuery(q) {
+        const why = picker.querySelector('[data-permv2="why"]');
+        if (!why) return;
+        const hit = q.length >= 3
+            && SELF_GATED.find((e) => e.words.some((w) => w.startsWith(q) || q.startsWith(w)));
+        why.textContent = hit ? hit.says : '';
+        why.hidden = !hit;
+    }
 
     // ---------------------------------------------------------------- search
     function applySearch(query) {
@@ -287,12 +375,21 @@
             });
             group.style.display = groupHasMatch ? '' : 'none';
             if (groupHasMatch) anyVisible = true;
-            // Auto-expand groups during search for instant visibility.
-            if (q !== '' && groupHasMatch) {
-                group.dataset.collapsed = '0';
+
+            /* Searching borrows the collapse state; it does not take it.
+               Force-expanding a match is right - a hit inside a shut group
+               is a hit nobody sees - but it used to be permanent, so one
+               keystroke undid however long the operator had spent shutting
+               fourteen areas to make sixty-four rows tractable. */
+            if (q !== '') {
+                if (groupHasMatch) setCollapsed(group, false);
+            } else {
+                setCollapsed(group, group.dataset.userCollapsed === '1');
             }
         });
         picker.dataset.empty = (q !== '' && !anyVisible) ? '1' : '0';
+        explainQuery(q);
+        refreshConfirms();
     }
 
     if (searchInput) {
@@ -339,10 +436,11 @@
             }
         });
         presetMenu?.querySelectorAll('button[data-preset]').forEach((btn) => {
-            btn.addEventListener('click', () => {
-                applyPreset(btn.dataset.preset);
-                closePresets(true);
-            });
+            // Dismiss the menu on the click so the dialog is not asking from
+            // behind it, but do not return focus - confirm-modal is taking
+            // it, and puts it back on this button when it closes.
+            btn.addEventListener('click', () => closePresets(false));
+            onActivate(btn, () => applyPreset(btn.dataset.preset));
         });
     }
 
@@ -370,39 +468,41 @@
      *   administrator → every pill = manage.
      */
     function applyPreset(name) {
+        pills.forEach((pill) => {
+            const target = presetTarget(pill, name);
+            if (target !== null) setPillState(pill, target);
+        });
+    }
+
+    function presetTarget(pill, name) {
         /* "Settings-ish" is now just the area, because every key is
            area/name. That list of five bases it replaces was a hand-kept
            guess at the same question and had already missed api_clients and
            order_statuses - both of which an Operator preset happily granted. */
         const isSettingsKey = (base) => base.startsWith('settings/');
 
-        pills.forEach((pill) => {
-            const base = pill.dataset.base || '';
-            const supportsView = !!pill.querySelector('input[data-tier="view"]');
-            const supportsManage = !!pill.querySelector('input[data-tier="manage"]');
+        const base = pill.dataset.base || '';
+        const supportsView = !!pill.querySelector('input[data-tier="view"]');
+        const supportsManage = !!pill.querySelector('input[data-tier="manage"]');
 
-            // Pick the best tier each preset wants, falling back to whatever
-            // the pill actually supports. A resource that only has view_X
-            // (e.g. petty_cash_transactions) tops out at "view", Operator
-            // and Administrator presets still grant it at that tier.
-            const target = (preferred) => {
-                if (preferred === 'manage') {
-                    return supportsManage ? 'manage' : (supportsView ? 'view' : 'off');
-                }
-                if (preferred === 'view') {
-                    return supportsView ? 'view' : (supportsManage ? 'manage' : 'off');
-                }
-                return 'off';
-            };
-
-            if (name === 'viewer') {
-                setPillState(pill, isSettingsKey(base) ? 'off' : target('view'));
-            } else if (name === 'operator') {
-                setPillState(pill, isSettingsKey(base) ? 'off' : target('manage'));
-            } else if (name === 'administrator') {
-                setPillState(pill, target('manage'));
+        // Pick the best tier each preset wants, falling back to whatever
+        // the pill actually supports. A resource that only has view_X
+        // (e.g. petty_cash_transactions) tops out at "view", Operator
+        // and Administrator presets still grant it at that tier.
+        const target = (preferred) => {
+            if (preferred === 'manage') {
+                return supportsManage ? 'manage' : (supportsView ? 'view' : 'off');
             }
-        });
+            if (preferred === 'view') {
+                return supportsView ? 'view' : (supportsManage ? 'manage' : 'off');
+            }
+            return 'off';
+        };
+
+        if (name === 'viewer') return isSettingsKey(base) ? 'off' : target('view');
+        if (name === 'operator') return isSettingsKey(base) ? 'off' : target('manage');
+        if (name === 'administrator') return target('manage');
+        return null;
     }
 
     // ---------------------------------------------------------------- init

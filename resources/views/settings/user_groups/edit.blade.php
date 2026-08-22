@@ -44,9 +44,19 @@
                     <span class="fm-stamp__k">ID</span>
                     <span class="fm-stamp__v">{{ $group->id }}</span>
                 </span>
+                @php
+                    $areaTotal = 0;
+                    $areaGranted = 0;
+                    foreach ($permissionGroups as $g) {
+                        foreach ($g['rows'] as $r) {
+                            $areaTotal++;
+                            if ($r['state'] !== 'off') $areaGranted++;
+                        }
+                    }
+                @endphp
                 <span class="fm-stamp">
-                    <span class="fm-stamp__k">Granted</span>
-                    <span class="fm-stamp__v">{{ count($selected) }}</span>
+                    <span class="fm-stamp__k">Areas granted</span>
+                    <span class="fm-stamp__v">{{ $areaGranted }} of {{ $areaTotal }}</span>
                 </span>
             </div>
         </div>
@@ -91,7 +101,7 @@
                 <p class="fm-section__note">
                     Every area has its own level. Off means the area does not appear at all.
                     View means read but not change. Manage means full control, and includes view.
-                    Switching an area off switches everything under it off with it.
+                    Areas marked <b>Elevated</b> can widen what other people may do.
                 </p>
 
                 <div class="st-perm">
