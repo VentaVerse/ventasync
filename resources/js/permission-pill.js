@@ -26,6 +26,11 @@
     if (!picker) return;
 
     const counter = picker.querySelector('[data-permv2="counter"]');
+    /* The counter the ear gets. The visible one reads "38 / 38", which is
+       right for the eye and useless spoken, so it is aria-hidden and this
+       carries the sentence. */
+    const counterSay = picker.querySelector('[data-permv2="counter-say"]');
+    const offCascade = picker.querySelector('.permv2-cascade[data-cascade="off"]');
     const counterTotal = parseInt(picker.dataset.total, 10) || 0;
     const pills = Array.from(picker.querySelectorAll('.permv2-pill'));
     const groups = Array.from(picker.querySelectorAll('.permv2-group'));
@@ -137,6 +142,24 @@
             counter.textContent = granted + ' / ' + counterTotal;
             counter.dataset.empty = granted === 0 ? '1' : '0';
             counter.dataset.full = granted === counterTotal ? '1' : '0';
+        }
+
+        if (counterSay) {
+            counterSay.textContent = granted + ' of ' + counterTotal + ' areas granted';
+        }
+
+        /* The confirmation names what is actually about to go, because the
+           number changes as the operator works and a fixed message would be
+           wrong the moment they touched a pill. Read at click time by
+           confirm-modal.js, so updating the attribute is enough. */
+        if (offCascade) {
+            offCascade.setAttribute(
+                'data-confirm',
+                granted === 0
+                    ? 'Every area is already off for this group. Switch off anyway?'
+                    : 'Switch off all ' + granted + ' granted area' + (granted === 1 ? '' : 's')
+                        + ' for this group? Everyone in it loses that access when you save.'
+            );
         }
     }
 
@@ -297,17 +320,42 @@
         });
         document.addEventListener('click', (ev) => {
             if (!presetWrap.contains(ev.target)) {
-                presetWrap.dataset.open = '0';
-                presetTrigger.setAttribute('aria-expanded', 'false');
+                closePresets(false);
+            }
+        });
+
+        /* Escape closes it and the focus goes back to the trigger.
+           It declared aria-haspopup and role="menu" and implemented none of
+           the contract - no arrow keys, no focus move, and Escape left it
+           open with focus stranded inside a panel the operator had asked to
+           dismiss. The roles are gone (see the partial, and the same call
+           components/ui/menu.blade.php already documents); this is the part
+           worth keeping, because every other dismissible thing in this
+           application closes on Escape. */
+        presetWrap.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Escape' && presetWrap.dataset.open === '1') {
+                ev.stopPropagation();
+                closePresets(true);
             }
         });
         presetMenu?.querySelectorAll('button[data-preset]').forEach((btn) => {
             btn.addEventListener('click', () => {
                 applyPreset(btn.dataset.preset);
-                presetWrap.dataset.open = '0';
-                presetTrigger.setAttribute('aria-expanded', 'false');
+                closePresets(true);
             });
         });
+    }
+
+    function closePresets(returnFocus) {
+        if (!presetWrap) return;
+        presetWrap.dataset.open = '0';
+        if (presetTrigger) {
+            presetTrigger.setAttribute('aria-expanded', 'false');
+            // Only when the operator dismissed it themselves. Stealing focus
+            // on a click elsewhere would yank them back out of wherever they
+            // just went.
+            if (returnFocus) presetTrigger.focus();
+        }
     }
 
     /**

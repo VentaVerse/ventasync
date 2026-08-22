@@ -315,6 +315,185 @@ class UserGroupPermissionsTest extends TestCase
             'a key that carries a label was meant, and pruning it would silently drop a compatibility alias');
     }
 
+    /**
+     * The most destructive control on the page was the only unguarded one.
+     *
+     * Deleting an EMPTY group opens a confirmation dialog. Revoking every
+     * permission from a group three administrators are in did not. The guard
+     * rail was on the reversible action and absent from the irreversible one.
+     */
+    public function test_revoking_everything_asks_first(): void
+    {
+        $html = $this->actingAs($this->admin())
+            ->get(route('user_groups.create'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertMatchesRegularExpression(
+            '/data-cascade="off"[^>]*data-confirm="[^"]+"|data-confirm="[^"]+"[^>]*data-cascade="off"/',
+            $html,
+            'the "Off all" cascade must carry data-confirm, the same house convention Delete uses'
+        );
+    }
+
+    /**
+     * The picker announces itself, and says something worth hearing.
+     *
+     * Nothing on it had aria-live, so "Off all" removed every permission in
+     * silence. And the visible counter reads "38 / 38", which is right for
+     * the eye and useless spoken - so it is hidden from assistive technology
+     * and a sentence is carried alongside it.
+     */
+    public function test_the_permission_count_is_announced_as_a_sentence(): void
+    {
+        $html = $this->actingAs($this->admin())
+            ->get(route('user_groups.create'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('data-permv2="counter-say"', $html);
+        $this->assertMatchesRegularExpression('/role="status"[^>]*data-permv2="counter-say"/', $html,
+            'the spoken counter has to be a live region or it announces nothing');
+        $this->assertMatchesRegularExpression('/data-permv2="counter"[^>]*aria-hidden="true"/', $html,
+            'the terse "n / n" must not be announced alongside the sentence');
+
+        $js = File::get(resource_path('js/permission-pill.js'));
+        $this->assertStringContainsString('counter-say', $js,
+            'a live region nothing updates is a live region that never fires');
+    }
+
+    /**
+     * THE GROUPING IS THE DESIGN'S BEST IDEA AND IT WAS SIGHTED-ONLY.
+     *
+     * Eight <section> elements with no accessible name produce no landmark
+     * and no grouping, and the section titles are buttons rather than
+     * headings, so the whole 38-row form exposed three headings. Someone
+     * navigating by structure heard one flat run of pills with no domain
+     * boundary anywhere in it, and the six channel sub-labels were plain
+     * divs with no tie to the rows beneath them.
+     */
+    public function test_the_domain_sections_and_channel_subgroups_are_named(): void
+    {
+        $html = $this->actingAs($this->admin())
+            ->get(route('user_groups.create'))
+            ->assertOk()
+            ->getContent();
+
+        preg_match_all('/<section class="permv2-group"([^>]*)>/', $html, $sections);
+        $this->assertNotEmpty($sections[1], 'the picker must render its domain sections');
+
+        foreach ($sections[1] as $attrs) {
+            $this->assertStringContainsString('aria-labelledby', $attrs,
+                'a section with no accessible name is not a landmark and not a group');
+        }
+
+        // And every id they point at has to exist, or the name resolves to
+        // nothing and the assertion above is satisfied by a broken reference.
+        preg_match_all('/<section class="permv2-group"[^>]*aria-labelledby="([^"]+)"/', $html, $refs);
+
+        foreach ($refs[1] as $id) {
+            $this->assertStringContainsString('id="' . $id . '"', $html,
+                "the section names itself after #{$id}, which does not exist");
+        }
+
+        preg_match_all('/class="permv2-subgroup" role="group" aria-labelledby="([^"]+)"/', $html, $subs);
+        $this->assertNotEmpty($subs[1], 'the channel subgroups must be real groups, not bare divs');
+
+        foreach ($subs[1] as $id) {
+            $this->assertStringContainsString('id="' . $id . '"', $html);
+        }
+    }
+
+    /**
+     * A control announces what it actually does.
+     *
+     * The preset panel declared aria-haspopup="menu", role="menu" and
+     * role="menuitem" and implemented none of the contract: no arrow keys, no
+     * focus move, and Escape left it open with focus stranded inside. This is
+     * the same call components/ui/menu.blade.php already documents.
+     */
+    public function test_the_preset_panel_does_not_claim_to_be_a_menu(): void
+    {
+        $html = $this->actingAs($this->admin())
+            ->get(route('user_groups.create'))
+            ->assertOk()
+            ->getContent();
+
+        $picker = substr($html, (int) strpos($html, 'perm-picker-v2'));
+
+        $this->assertStringNotContainsString('role="menuitem"', $picker);
+        $this->assertStringNotContainsString('aria-haspopup', $picker,
+            'aria-haspopup defaults to "menu"; a group of buttons must not promise one');
+        $this->assertMatchesRegularExpression('/data-permv2="preset-menu"[^>]*role="group"/', $picker);
+
+        // Escape is the part worth keeping, because everything else
+        // dismissible in this application closes on it.
+        $js = File::get(resource_path('js/permission-pill.js'));
+        $this->assertStringContainsString("ev.key === 'Escape'", $js);
+    }
+
+    /** The save says what moved instead of returning to an unchanged-looking list. */
+    public function test_saving_reports_what_changed(): void
+    {
+        $group = $this->groupWith('Fulfilment', ['view_products']);
+        $grant = Permission::where('key', 'view_orders')->value('id');
+
+        $this->actingAs($this->admin())
+            ->put(route('user_groups.update', $group->id), [
+                'name' => 'Fulfilment',
+                'permissions' => [$grant],
+            ])
+            ->assertRedirect(route('user_groups.index'))
+            ->assertSessionHas('status');
+
+        $this->assertStringContainsString('revoked', (string) session('status'));
+    }
+
+    /** And says nothing when nothing moved, because "0 granted, 0 revoked" is noise. */
+    public function test_saving_without_changing_anything_says_nothing(): void
+    {
+        $group = $this->groupWith('Fulfilment', ['view_products']);
+        $actor = $this->admin();
+
+        /* Save once first. A child grant elevates its parent - documented in
+         * applyChildParentElevation - so submitting only view_products ADDS
+         * view_catalog, and that is a real change. The settled state after
+         * one save is what a genuine no-op looks like. */
+        $this->actingAs($actor)->put(route('user_groups.update', $group->id), [
+            'name' => 'Fulfilment',
+            'permissions' => [Permission::where('key', 'view_products')->value('id')],
+        ])->assertRedirect();
+
+        $settled = $group->fresh()->permissions()->pluck('permissions.id')->all();
+
+        $this->actingAs($actor)
+            ->put(route('user_groups.update', $group->id), [
+                'name' => 'Fulfilment',
+                'permissions' => $settled,
+            ])
+            ->assertRedirect()
+            ->assertSessionMissing('status');
+    }
+
+    /**
+     * A zero is quieter, not fainter.
+     *
+     * opacity: .45 on 11px text measured 1.85:1 light and 2.17:1 dark, the
+     * dimmest text on the page and less than half the AA floor. Opacity could
+     * not fix it: only 1.0 clears 4.5:1 in both themes.
+     */
+    public function test_the_empty_section_counters_are_not_faded_below_readable(): void
+    {
+        $css = File::get(resource_path('css/components/permission-pill.css'));
+        $rules = preg_replace('#/\*.*?\*/#s', '', $css);
+
+        $this->assertDoesNotMatchRegularExpression(
+            '/\.permv2-stat\[data-zero="1"\]\s*\{[^}]*opacity/',
+            $rules,
+            'fading this text is what put it at 1.85:1; de-emphasise the pip instead'
+        );
+    }
+
     public function test_pruning_removes_the_permission_and_the_grants_pointing_at_it(): void
     {
         $manager = $this->app->make(ExtensionManager::class);

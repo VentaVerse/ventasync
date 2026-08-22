@@ -186,6 +186,32 @@ class UserGroupController extends Controller
 
         ActivityLogger::log('updated', 'User Group', $group->id, $group->name, $changes);
 
+        /* SAY WHAT MOVED, on the way out.
+         *
+         * Save redirected to a list of ID and Name with no flash and no diff,
+         * so the last thing the operator saw after changing who can delete a
+         * live marketplace listing was the same uninformative table they
+         * started from, with no evidence anything had happened.
+         *
+         * The counts, not the keys: the ledger carries the keys for whoever
+         * audits it later, and a person who has just pressed Save wants to
+         * know the shape of what they did. Silent when nothing changed,
+         * because "0 granted, 0 revoked" is noise. */
+        if ($granted !== [] || $revoked !== []) {
+            $parts = [];
+
+            if ($granted !== []) {
+                $parts[] = count($granted) . ' granted';
+            }
+
+            if ($revoked !== []) {
+                $parts[] = count($revoked) . ' revoked';
+            }
+
+            return redirect()->route('user_groups.index')
+                ->with('status', $group->name . ': ' . implode(', ', $parts) . '.');
+        }
+
         return redirect()->route('user_groups.index');
     }
 

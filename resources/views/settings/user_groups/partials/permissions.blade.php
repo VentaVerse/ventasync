@@ -364,14 +364,40 @@
             <span>Permissions</span>
             <span class="permv2-counter"
                   data-permv2="counter"
+                  aria-hidden="true"
                   data-empty="{{ $grantedPills === 0 ? '1' : '0' }}"
                   data-full="{{ $grantedPills === $totalPills ? '1' : '0' }}">
                 {{ $grantedPills }} / {{ $totalPills }}
             </span>
+
+            {{-- THE SAME FIGURE, SAID OUT LOUD.
+
+                 The visible counter reads "38 / 38", which is right for the
+                 eye and useless in the ear, so it is hidden from assistive
+                 technology and this carries the announcement instead. It is
+                 also the only announcement the picker makes at all: pressing
+                 "Off all" revoked every permission in the group and said
+                 nothing, on the screen that decides who can delete a live
+                 marketplace listing.
+
+                 role="status" rather than aria-live="assertive": a change
+                 here should be heard after the operator's own action is
+                 announced, not cut across it. --}}
+            <span class="x-sr" role="status" data-permv2="counter-say">
+                {{ $grantedPills }} of {{ $totalPills }} areas granted
+            </span>
         </div>
 
         <div class="permv2-actions">
-            <button type="button" class="permv2-cascade" data-cascade="off" title="Set every pill to Off">
+            {{-- data-confirm, because this is the most destructive control
+                 on the page and it was the only unguarded one. Deleting an
+                 empty group already opens a dialog; revoking every permission
+                 from a group three administrators are in did not. The count
+                 in the message is refreshed by the script as pills change, so
+                 it names what is actually about to go. --}}
+            <button type="button" class="permv2-cascade" data-cascade="off"
+                    data-confirm="Switch every area off for this group? Everyone in it loses all access until you save something back."
+                    title="Set every pill to Off">
                 <span class="permv2-dot"></span> Off all
             </button>
             <button type="button" class="permv2-cascade" data-cascade="view" title="Set every pill that supports View to View">
@@ -382,23 +408,37 @@
             </button>
 
             <div class="permv2-preset" data-permv2="preset" data-open="0">
+                {{-- No aria-haspopup. It defaults to "menu" and this panel is
+                     a group of buttons, so it promised a menu and handed over
+                     a group - the identical mistake components/ui/menu.blade.php
+                     documents. aria-expanded plus aria-controls is the whole
+                     contract a disclosure needs. --}}
                 <button type="button"
+                        id="permv2-preset-trigger"
                         class="permv2-preset-trigger"
                         data-permv2="preset-trigger"
-                        aria-haspopup="menu"
+                        aria-controls="permv2-preset-menu"
                         aria-expanded="false">
                     Preset
                 </button>
-                <div class="permv2-preset-menu" data-permv2="preset-menu" role="menu">
-                    <button type="button" data-preset="viewer" role="menuitem">
+                {{-- NOT role="menu", for the reason components/ui/menu.blade.php
+                     already writes down at length: role="menu" promises
+                     children with role="menuitem", arrow-key navigation and
+                     typeahead, and this is three buttons with none of it. It
+                     announced itself as a menu and behaved like a div, which
+                     is worse than saying nothing. A group of buttons, named
+                     by its trigger, is what it actually is. --}}
+                <div class="permv2-preset-menu" id="permv2-preset-menu" data-permv2="preset-menu"
+                     role="group" aria-labelledby="permv2-preset-trigger">
+                    <button type="button" data-preset="viewer">
                         <span class="permv2-preset-name">Viewer</span>
                         <span class="permv2-preset-hint">Read-only across products, sales, marketplaces. Settings stay locked.</span>
                     </button>
-                    <button type="button" data-preset="operator" role="menuitem">
+                    <button type="button" data-preset="operator">
                         <span class="permv2-preset-name">Operator</span>
                         <span class="permv2-preset-hint">Full control of day-to-day work. Cannot touch user groups or system settings.</span>
                     </button>
-                    <button type="button" data-preset="administrator" role="menuitem">
+                    <button type="button" data-preset="administrator">
                         <span class="permv2-preset-name">Administrator</span>
                         <span class="permv2-preset-hint">Every permission granted. Equivalent to the built-in Administrator group.</span>
                     </button>
@@ -432,7 +472,18 @@
          Groups
          ============================================================ --}}
     @foreach($renderGroups as $section)
-        <section class="permv2-group" data-group-key="{{ $section['key'] }}" data-collapsed="0">
+        {{-- A NAMED REGION, so the grouping is not sighted-only.
+
+             The eight domain sections are the design's best idea and were
+             invisible to a screen reader: a bare <section> has no accessible
+             name, so it produces no landmark and no grouping, and the whole
+             37-row form exposed three headings. Someone navigating by
+             structure heard one flat list of pills with no domain boundaries
+             anywhere in it. --}}
+        <section class="permv2-group"
+                 data-group-key="{{ $section['key'] }}"
+                 data-collapsed="0"
+                 aria-labelledby="permv2-title-{{ $section['key'] }}">
             <button type="button"
                     class="permv2-group-head"
                     aria-expanded="true"
@@ -441,7 +492,7 @@
                     <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>
                 </span>
                 <span class="permv2-group-title">
-                    <span class="permv2-group-title-text">{{ $section['label'] }}</span>
+                    <span class="permv2-group-title-text" id="permv2-title-{{ $section['key'] }}">{{ $section['label'] }}</span>
                     @if($section['parent']->description)
                         <span class="permv2-group-desc">{{ $section['parent']->description }}</span>
                     @endif
@@ -466,8 +517,20 @@
 
             <div class="permv2-group-body" id="permv2-body-{{ $section['key'] }}">
                 @foreach($section['subsections'] as $sub)
+                    @php
+                        $subId = 'permv2-sub-' . $section['key'] . '-' . $loop->index;
+                    @endphp
+
+                    {{-- The channel boundary, said rather than only drawn.
+
+                         Lazada, Shopee, TikTok Shop and the rest were plain
+                         <div>s, so twelve marketplace pills arrived as one
+                         undivided run with nothing marking where one channel
+                         ended and the next began. role="group" is what ties
+                         the label to the rows it heads. --}}
                     @if(!empty($sub['label']))
-                        <div class="permv2-subgroup-label">{{ $sub['label'] }}</div>
+                        <div class="permv2-subgroup" role="group" aria-labelledby="{{ $subId }}">
+                        <div class="permv2-subgroup-label" id="{{ $subId }}">{{ $sub['label'] }}</div>
                     @endif
 
                     @foreach($sub['rows'] as $row)
@@ -586,6 +649,10 @@
                             </div>
                         </div>
                     @endforeach
+
+                    @if(!empty($sub['label']))
+                        </div>
+                    @endif
                 @endforeach
             </div>
         </section>
