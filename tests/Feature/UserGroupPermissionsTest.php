@@ -181,35 +181,57 @@ class UserGroupPermissionsTest extends TestCase
     public function test_every_declared_permission_can_be_set_from_the_page(): void
     {
         $actor = $this->admin();
-        $manager = $this->app->make(ExtensionManager::class);
-
-        // Orphans are keys nothing on disk declares; they are a separate
-        // defect with its own command and must not mask this one.
-        $orphans = array_flip($manager->orphanedPermissionKeys());
+        $catalogue = $this->app->make(\App\Services\PermissionCatalogue::class);
 
         $html = $this->actingAs($actor)
             ->get(route('user_groups.create'))
             ->assertOk()
             ->getContent();
 
+        /* THE CATALOGUE IS THE CONTRACT, not every row in the table.
+         *
+         * The table holds both schemes during the changeover: the old
+         * hand-written keys, which still open the doors they used to and are
+         * being retired, and the route-derived ones the editor renders. A
+         * permission that CAN be granted here has to be visible here - that
+         * is what this guards - and the old rows are deliberately not on
+         * offer, because offering a key nothing derives is how the previous
+         * list drifted in the first place. */
         $missing = [];
 
-        foreach (Permission::orderBy('key')->get() as $permission) {
-            if (isset($orphans[$permission->key])) {
-                continue;
-            }
-
-            // A row binds its ids into the pill's segment markup.
-            if (! str_contains($html, '"' . $permission->id . '"')) {
-                $missing[] = $permission->key;
+        foreach ($catalogue->keys() as $key) {
+            if (! str_contains($html, 'data-perm-key="' . $key . '"')) {
+                $missing[] = $key;
             }
         }
 
         $this->assertSame([], $missing, sprintf(
-            "These permissions exist in the database and have no control on the page: %s\n\n"
+            "These permissions are derived from the routes and have no control on the page: %s\n\n"
             ."A permission that can be granted and cannot be seen is one nobody can audit.",
             implode(', ', $missing)
         ));
+    }
+
+    /**
+     * And the old scheme is deliberately absent, not accidentally missing.
+     *
+     * Retiring those keys is a later, separate step - they still open the
+     * doors they always did through the transition shim - but they must not
+     * appear on this screen, or an operator would be setting a key that the
+     * catalogue no longer derives and nothing would say which of the two
+     * mattered.
+     */
+    public function test_the_retired_key_scheme_is_not_offered(): void
+    {
+        $html = $this->actingAs($this->admin())
+            ->get(route('user_groups.create'))
+            ->assertOk()
+            ->getContent();
+
+        foreach (['manage_products', 'view_products', 'manage_lazada', 'view_settings'] as $old) {
+            $this->assertStringNotContainsString('data-perm-key="' . $old . '"', $html,
+                $old . ' belongs to the retired scheme and must not be offered as a control');
+        }
     }
 
     /**
@@ -396,12 +418,17 @@ class UserGroupPermissionsTest extends TestCase
                 "the section names itself after #{$id}, which does not exist");
         }
 
-        preg_match_all('/class="permv2-subgroup" role="group" aria-labelledby="([^"]+)"/', $html, $subs);
-        $this->assertNotEmpty($subs[1], 'the channel subgroups must be real groups, not bare divs');
+        /* No subgroup assertion any more, and its absence is the point.
+         *
+         * Channels used to be nested inside a "Marketplace API" container,
+         * which is why they needed a role="group" of their own to be heard.
+         * The catalogue makes each channel a top-level area - Lazada, Shopee,
+         * TikTok Shop - so the nesting that needed naming is gone rather than
+         * unnamed. What matters is that every area IS named, asserted above. */
+        $catalogue = $this->app->make(\App\Services\PermissionCatalogue::class);
 
-        foreach ($subs[1] as $id) {
-            $this->assertStringContainsString('id="' . $id . '"', $html);
-        }
+        $this->assertCount(count($catalogue->grouped()), $sections[1],
+            'every area the catalogue derives should render as its own named section');
     }
 
     /**

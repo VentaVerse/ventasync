@@ -370,8 +370,11 @@
      *   administrator → every pill = manage.
      */
     function applyPreset(name) {
-        const SETTINGS_KEYS = ['settings', 'user_groups', 'users', 'website_settings', 'error_log'];
-        const isSettingsKey = (base) => SETTINGS_KEYS.some((s) => base === s || base.startsWith(s));
+        /* "Settings-ish" is now just the area, because every key is
+           area/name. That list of five bases it replaces was a hand-kept
+           guess at the same question and had already missed api_clients and
+           order_statuses - both of which an Operator preset happily granted. */
+        const isSettingsKey = (base) => base.startsWith('settings/');
 
         pills.forEach((pill) => {
             const base = pill.dataset.base || '';

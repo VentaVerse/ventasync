@@ -232,6 +232,86 @@ class PermissionCatalogue
         return $map;
     }
 
+    /**
+     * How an area group is titled: "Lazada", "Catalogue", "Settings".
+     *
+     * An extension is asked for its own name, so core never holds a list of
+     * marketplaces - the same bargain Permission::label already makes. Core
+     * areas fall back to a lang entry and then to the key itself, humanised.
+     * NOTHING IS EVER HIDDEN FOR WANT OF A LABEL: an area with no wording
+     * anywhere still renders, wearing its key. Coverage does not wait on
+     * somebody writing prose.
+     */
+    public function areaLabel(string $area): string
+    {
+        $manifest = app(\App\Extensions\ExtensionManager::class)->getManifest($area);
+
+        if ($manifest && ! empty($manifest['name'])) {
+            return (string) $manifest['name'];
+        }
+
+        $key = 'permissions.areas.' . $area;
+        $translated = __($key);
+
+        if ($translated !== $key) {
+            return (string) $translated;
+        }
+
+        return Str::headline($area);
+    }
+
+    /**
+     * How one row is titled: "Products", "Product Groups", "Order Statuses".
+     *
+     * The leaf of the key, humanised, unless a lang entry says better. The
+     * bare controller of an extension is its settings screen rather than an
+     * overview - Lazada's holds the credentials, the sandbox switch and the
+     * API explorer - so it is named for what it is.
+     */
+    public function rowLabel(string $key): string
+    {
+        $lang = 'permissions.rows.' . $key;
+        $translated = __($lang);
+
+        if ($translated !== $lang) {
+            return (string) $translated;
+        }
+
+        $leaf = Str::after($key, '/');
+
+        return $leaf === 'overview' ? 'Settings & API' : Str::headline($leaf);
+    }
+
+    /**
+     * The areas, grouped and labelled, ready to render.
+     *
+     * @return array<int, array{area:string,label:string,rows:array<int,array>}>
+     */
+    public function grouped(): array
+    {
+        $areas = [];
+
+        foreach ($this->all() as $entry) {
+            $areas[$entry['area']][] = $entry + ['label' => $this->rowLabel($entry['key'])];
+        }
+
+        $out = [];
+
+        foreach ($areas as $area => $rows) {
+            usort($rows, fn ($a, $b) => strcmp($a['label'], $b['label']));
+
+            $out[] = [
+                'area' => $area,
+                'label' => $this->areaLabel($area),
+                'rows' => $rows,
+            ];
+        }
+
+        usort($out, fn ($a, $b) => strcmp($a['label'], $b['label']));
+
+        return $out;
+    }
+
     /** Every permission key this catalogue implies, both tiers. */
     public function keys(): array
     {

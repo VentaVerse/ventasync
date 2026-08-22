@@ -7,6 +7,7 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use App\Models\Admin\Permission;
 use App\Services\ActivityLogger;
+use App\Services\PermissionCatalogue;
 use App\Services\PermissionHierarchy;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,56 +20,72 @@ class UserGroupController extends Controller
      * automatically when they're installed — core has no hardcoded
      * marketplace / purchasing / warehousing knowledge here.
      */
-    private function getGroupedPermissions(): array
+    /**
+     * The permission areas, derived from the routes, ready to render.
+     *
+     * The tree this replaced was built from config/permissions.php and a
+     * hand-kept parent/child hierarchy, which is why it needed twin
+     * collapsing, orphan carry-over and a parent-surfacing pass to show
+     * everything the database held - and still missed thirteen keys.
+     *
+     * There is no tree now. An area is a folder of controllers and a row is
+     * one controller, which is what OpenCart's model gives us: the shape
+     * comes from the routes, so the view has nothing to reconcile.
+     *
+     * @return array<int, array{area:string,label:string,rows:array<int,array>}>
+     */
+    private function getGroupedPermissions(array $selected = []): array
     {
-        $all = Permission::orderBy('key')->get()->keyBy('key');
-        $tree = app(PermissionHierarchy::class)->groupedTree();
-
-        $resolve = function (array $keys) use ($all): array {
-            $out = [];
-            foreach ($keys as $k) {
-                if ($all->has($k)) {
-                    $out[] = $all->get($k);
-                }
-            }
-            return $out;
-        };
+        $catalogue = app(PermissionCatalogue::class);
+        $rows = Permission::whereIn('key', $catalogue->keys())->get()->keyBy('key');
+        $held = array_flip($selected);
 
         $groups = [];
-        foreach ($tree as $entry) {
-            $parent = $all->get($entry['parent_key']);
-            if (!$parent) {
-                // Parent permission doesn't exist in DB (e.g. extension
-                // disabled and permissions removed). Skip the whole group.
-                continue;
-            }
-            // Group label = the parent permission's resolved label, which the
-            // Permission model accessor walks through the
-            // ext-{owner}::permissions → core lang → humanized chain. This
-            // means an extension-owned top-level group (Purchasing,
-            // Warehousing, Petty Cash) picks up its label from the
-            // extension's own lang file without core knowing the extension.
-            $group = [
-                'key'    => $entry['key'],
-                'label'  => $parent->label,
-                'parent' => $parent,
-            ];
-            if (!empty($entry['subgroups'])) {
-                $subgroups = [];
-                foreach ($entry['subgroups'] as $sg) {
-                    $kids = $resolve($sg['children']);
-                    if (!empty($kids)) {
-                        $subgroups[] = ['label' => $sg['label'], 'children' => $kids];
-                    }
+
+        foreach ($catalogue->grouped() as $group) {
+            $out = [];
+
+            foreach ($group['rows'] as $row) {
+                $view = $rows->get('view_' . $row['key']);
+                $manage = $rows->get('manage_' . $row['key']);
+
+                /* A row nothing in the database backs cannot be granted, so
+                 * it is not offered. That happens when the migration has not
+                 * run yet, or an extension registered after it did; the sync
+                 * command is what closes it, and showing a control that
+                 * cannot save would be worse than showing nothing. */
+                if (! $view && ! $manage) {
+                    continue;
                 }
-                if (empty($subgroups)) {
-                    continue; // container with no surviving children
+
+                $state = 'off';
+
+                if ($manage && isset($held[$manage->id])) {
+                    $state = 'manage';
+                } elseif ($view && isset($held[$view->id])) {
+                    $state = 'view';
                 }
-                $group['subgroups'] = $subgroups;
-            } else {
-                $group['children'] = $resolve($entry['children'] ?? []);
+
+                $out[] = [
+                    'key' => $row['key'],
+                    'label' => $row['label'],
+                    'routes' => $row['routes'],
+                    'writes' => $row['writes'],
+                    'view' => $view,
+                    'manage' => $manage,
+                    // Two segments when there is no write route to manage.
+                    'segments' => $manage ? 3 : 2,
+                    'state' => $state,
+                ];
             }
-            $groups[] = $group;
+
+            if ($out !== []) {
+                $groups[] = [
+                    'area' => $group['area'],
+                    'label' => $group['label'],
+                    'rows' => $out,
+                ];
+            }
         }
 
         return $groups;
@@ -89,7 +106,9 @@ class UserGroupController extends Controller
     public function create()
     {
         $permissionGroups = $this->getGroupedPermissions();
-        return view('settings.user_groups.create', compact('permissionGroups'));
+        $selected = [];
+
+        return view('settings.user_groups.create', compact('permissionGroups', 'selected'));
     }
 
     public function store(Request $request)
@@ -114,8 +133,8 @@ class UserGroupController extends Controller
     public function edit($id)
     {
         $group = UserGroup::findOrFail((int)$id);
-        $permissionGroups = $this->getGroupedPermissions();
         $selected = $group->permissions()->pluck('permissions.id')->all();
+        $permissionGroups = $this->getGroupedPermissions($selected);
 
         return view('settings.user_groups.edit', compact('group', 'permissionGroups', 'selected'));
     }

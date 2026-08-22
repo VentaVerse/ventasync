@@ -151,4 +151,50 @@ return [
         'description' => null,
     ],
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Area and row wording for the user-group editor
+    |--------------------------------------------------------------------------
+    |
+    | The editor derives every row from the route table, so this file only
+    | ever IMPROVES wording - it never decides what appears. An area or row
+    | with no entry here still renders, wearing its humanised key, which is
+    | what keeps a new controller from being invisible until somebody writes
+    | prose for it.
+    |
+    */
+
+    'areas' => [
+        'catalog' => 'Catalogue',
+        'sales' => 'Sales',
+        'settings' => 'Settings',
+        'general' => 'General',
+        'audit' => 'Audit & Monitoring',
+    ],
+
+    'rows' => [
+        // The bare controller of a channel is its connection, not an
+        // "overview": it holds the credentials, the sandbox/live switch and
+        // the API explorer. Named for what granting it actually hands over.
+        'lazada/overview' => 'Connection & API',
+        'shopee/overview' => 'Connection & API',
+        'tiktok/overview' => 'Connection & API',
+        'venta/overview' => 'Connection & API',
+        'opencart/overview' => 'Connection & API',
+        'pettycash/overview' => 'Petty Cash',
+
+        // "Warehouse Transfer" inside a group already titled Warehousing
+        // says warehouse twice.
+        'warehousing/warehouse' => 'Locations',
+        'warehousing/warehouse_inventory' => 'Inventory',
+        'warehousing/warehouse_transfer' => 'Transfers',
+
+        'settings/api_client' => 'API Clients',
+        'settings/settings_hub' => 'Settings Home',
+        'settings/setting' => 'General Settings',
+        'catalog/product_option' => 'Product Variations',
+        'reports/report' => 'Reports',
+        'audit/activity_log' => 'Activity Log',
+    ],
 ];
