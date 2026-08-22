@@ -52,3 +52,11 @@ CLAUDE.md
 
 # Impeccable skill state: local design-tool bookkeeping, not product source.
 .impeccable/
+
+# Working scratch: captured test-suite runs, render fixtures, measurement
+# screenshots and one-off scripts. Evidence for work in progress, never
+# product source. Collected here out of the home directory, where it had
+# accumulated 37MB of loose suite*.out logs and h4.html-style render dumps
+# with nothing saying which session made them or whether they still mattered.
+# Safe to delete wholesale at any time.
+/.scratch/
