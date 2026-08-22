@@ -85,7 +85,14 @@ Route::middleware(['auth'])->prefix('integrations')->group(function () {
         // Payload preview / build — POST but pure compute (no persistence, no
         // marketplace call). Surfaces what WOULD be sent so an operator can
         // audit before a write user actually pushes. Read-only.
-        Route::post('/lazada/product/payload-preview', [LazadaController::class, 'productPayloadPreview'])->name('ext.lazada.product_payload_preview');
+        Route::post('/lazada/product/payload-preview', [LazadaController::class, 'productPayloadPreview'])
+            ->name('ext.lazada.product_payload_preview')
+            /* A POST that reads. It builds and returns the payload we WOULD
+               send, changing nothing, and is a POST only because a product id
+               list does not fit a query string. Without this the verb alone
+               would put it behind the manage tier and take a preview away
+               from the people most likely to want one. */
+            ->defaults('permission_tier', 'view');
         Route::post('/lazada/products/{id}/payload/build', [LazadaProductController::class, 'buildPayload'])->whereNumber('id')->name('ext.lazada.products.payload_build');
     });
 
@@ -196,7 +203,11 @@ Route::middleware(['auth'])->prefix('integrations')->group(function () {
         // POST because it carries a list of ids, not because it writes. Same
         // read tier as the single AWB above: printing a waybill for orders
         // already on file is not a marketplace push.
-        Route::post('/lazada/orders/bulk-awb', [LazadaOrderController::class, 'bulkAwb'])->name('ext.lazada.orders.bulk_awb');
+        Route::post('/lazada/orders/bulk-awb', [LazadaOrderController::class, 'bulkAwb'])
+            ->name('ext.lazada.orders.bulk_awb')
+            // Fetches AWB PDFs for a list of orders. A read, POSTed because
+            // the list is the body. A read-only operator holds it today.
+            ->defaults('permission_tier', 'view');
         Route::get('/lazada/orders/{orderId}/packing-list', [LazadaOrderController::class, 'packingList'])->name('ext.lazada.orders.packing_list');
         Route::get('/lazada/orders/{orderId}/pick-list', [LazadaOrderController::class, 'pickList'])->name('ext.lazada.orders.pick_list');
         Route::get('/lazada/orders/{orderId}/logistics-trace', [LazadaOrderController::class, 'logisticsTrace'])->name('ext.lazada.orders.logistics_trace');

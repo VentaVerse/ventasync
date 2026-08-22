@@ -40,6 +40,24 @@ class ChannelWorkspaceController extends Controller
             abort(404);
         }
 
+        /* AND THE CHANNEL HAS TO BE YOURS TO LOOK AT.
+         *
+         * This checked only that the channel exists and has a workspace, so
+         * anyone signed in could open /integrations/lazada and read that
+         * shop's connection state and today's figures. The nav inside the
+         * page is filtered by the layout's composer, which is what hid the
+         * gap: the LINKS were right and the door was not.
+         *
+         * 404 rather than 403, matching the two aborts above: a channel you
+         * may not see should not confirm itself by refusing you differently
+         * from one that does not exist.
+         *
+         * The board already declines to link here for these users, so this
+         * only closes the typed-URL path. */
+        if (! $request->user()?->hasPermission($card->permission)) {
+            abort(404);
+        }
+
         $state = $workspace->state($card, $channel);
 
         // channelCard, channelGroups and channelState are deliberately absent

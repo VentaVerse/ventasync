@@ -37,6 +37,21 @@ class Kernel extends HttpKernel
             \Illuminate\View\Middleware\ShareErrorsFromSession::class,
             \App\Http\Middleware\VerifyCsrfToken::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
+
+            /* EVERY WEB ROUTE IS GATED ON ITS OWN CONTROLLER.
+             *
+             * Not per route, and that is the point. Under the `perm:` argument
+             * this joins, a route that forgot to declare one was simply open -
+             * measured before this change, twenty authenticated routes carried
+             * no permission at all. Here the gate follows from what the route
+             * IS, so a controller added tomorrow is protected the moment it
+             * exists and nobody has to remember anything.
+             *
+             * After SubstituteBindings so the route is fully resolved, and
+             * inside `web` only: the API group authenticates with a token and
+             * carries its own checks. See App\Services\PermissionCatalogue
+             * for what is never gated and why. */
+            \App\Http\Middleware\EnsureControllerPermission::class,
         ],
 
         'api' => [
