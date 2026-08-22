@@ -336,7 +336,16 @@ class ExtensionManager
      */
     public function claimedPermissionKeys(): array
     {
-        $keys = array_keys((array) config('permissions', []));
+        /* THE DERIVED CATALOGUE CLAIMS ITS OWN KEYS, and forgetting that made
+         * this command a weapon. It reads config, the label file and the
+         * manifests - none of which know about keys derived from the route
+         * table - so once the catalogue existed, `permissions:reconcile
+         * --prune` would have reported every route-derived key as abandoned
+         * and offered to delete the entire permission system, grants
+         * included. Caught by running the report, not by reading it. */
+        $keys = app(\App\Services\PermissionCatalogue::class)->keys();
+
+        $keys = array_merge($keys, array_keys((array) config('permissions', [])));
 
         /* The label file counts as a declaration, and leaving it out gets the
          * answer wrong. manage_users_groups is not in config and not in any

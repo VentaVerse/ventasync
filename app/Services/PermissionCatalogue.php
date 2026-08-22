@@ -79,21 +79,8 @@ class PermissionCatalogue
         'App\\Http\\Controllers\\Integrations\\',
         'App\\Http\\Controllers\\AutomationsController',
         'App\\Http\\Controllers\\Fulfilment\\',
-        /* THE MOBILE AND PARTNER API IS NOT PART OF THIS MODEL.
-         *
-         * Those routes live in the `api` middleware group, authenticate with
-         * a Sanctum token rather than a session, and carry their own checks -
-         * MarketplaceOrderController builds `manage_{platform}_orders` per
-         * request. They belong to a token's scope, not to a person's user
-         * group, and listing them on the group editor would put twelve rows
-         * in front of an operator that no operator can act on. */
-        'App\\Http\\Controllers\\Api\\',
     ];
 
-    /** Extension API controllers, same reasoning as the core Api namespace. */
-    private const NEVER_GATED_CONTAINS = [
-        '\\Controllers\\Api\\',
-    ];
 
     /** @var array<string, array>|null */
     private ?array $entries = null;
@@ -345,11 +332,6 @@ class PermissionCatalogue
             }
         }
 
-        foreach (self::NEVER_GATED_CONTAINS as $fragment) {
-            if (str_contains($class, $fragment)) {
-                return true;
-            }
-        }
 
         return false;
     }

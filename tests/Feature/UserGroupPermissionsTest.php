@@ -521,6 +521,37 @@ class UserGroupPermissionsTest extends TestCase
         );
     }
 
+    /**
+     * THE PRUNE MUST NEVER OFFER TO DELETE THE PERMISSION SYSTEM.
+     *
+     * claimedPermissionKeys reads config, the label file and the manifests.
+     * None of them knows about keys derived from the route table, so once the
+     * catalogue existed this command reported every derived key as abandoned
+     * and offered to remove the lot, grants included. It was caught by
+     * running the report rather than reading the code, which is the only
+     * reason it is a test and not an incident.
+     */
+    public function test_the_derived_catalogue_is_never_reported_as_abandoned(): void
+    {
+        $manager = $this->app->make(ExtensionManager::class);
+        $catalogue = $this->app->make(\App\Services\PermissionCatalogue::class);
+
+        $orphans = array_flip($manager->orphanedPermissionKeys());
+        $claimed = [];
+
+        foreach ($catalogue->keys() as $key) {
+            if (isset($orphans[$key])) {
+                $claimed[] = $key;
+            }
+        }
+
+        $this->assertSame([], $claimed, sprintf(
+            "These keys are derived from the routes and reconcile would delete them: %s\n\n"
+            .'A prune that removes the live scheme takes every grant with it.',
+            implode(', ', array_slice($claimed, 0, 8))
+        ));
+    }
+
     public function test_pruning_removes_the_permission_and_the_grants_pointing_at_it(): void
     {
         $manager = $this->app->make(ExtensionManager::class);
