@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\Log;
 
 class ShopeeProductController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, ShopeeClient $client)
     {
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
@@ -32,6 +32,39 @@ class ShopeeProductController extends Controller
         $manufacturerFilter = (string) $request->get('manufacturer', 'all');
         $groupFilter = (string) $request->get('group', 'all');
         $erpStatus = (string) $request->get('erp_status', 'all');
+
+        /* ── The seller center's own tabs (quest 1 slice 2, 2026-08-24) ──
+         *
+         * All / Live / Unlisted / Violation / Under review, each one a
+         * get_item_list status filter answered by Shopee ON THIS LOAD.
+         * Live by design (the owner): the whole point of the tab is whether
+         * the marketplace shows the item right now, so there is no cache
+         * to be stale. When Shopee does not answer, the tabs say so and
+         * the catalogue view continues without them. */
+        $tabMap = ['live' => 'NORMAL', 'unlisted' => 'UNLIST', 'violation' => 'BANNED', 'reviewing' => 'REVIEWING'];
+        $shopeeTab = (string) $request->get('shopee_tab', 'all');
+        if (!array_key_exists($shopeeTab, $tabMap)) {
+            $shopeeTab = 'all';
+        }
+
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+        $liveCounts = null;
+        $liveTabError = null;
+        if ($setting && $auth['complete']) {
+            try {
+                $liveCounts = [];
+                foreach ($tabMap as $tabKey => $itemStatus) {
+                    $liveCounts[$tabKey] = $this->liveItemCount($client, $auth, $itemStatus);
+                }
+            } catch (\Throwable $e) {
+                $liveCounts = null;
+                $liveTabError = 'Shopee did not answer (' . $e->getMessage() . '), so the live tabs and statuses are unavailable right now. The catalogue below is unaffected.';
+                $shopeeTab = 'all';
+            }
+        } else {
+            $shopeeTab = 'all';
+        }
 
         /* Sorting. Lazada's listings page has had six sortable headers since
          * it was built and this one had none, on tables that look identical -
@@ -157,6 +190,22 @@ class ShopeeProductController extends Controller
             }
         }
 
+        // A live tab narrows the table to the products whose Shopee items
+        // hold that status right now. Only linked products can match: the
+        // tab is a view of the shop, and an unpushed product is not in it.
+        if ($shopeeTab !== 'all' && $liveCounts !== null) {
+            try {
+                $itemIds = $this->liveItemIds($client, $auth, $tabMap[$shopeeTab]);
+                $tabProductIds = ShopeeProductLink::query()
+                    ->whereIn('shopee_item_id', $itemIds ?: [0])
+                    ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+                $query->whereIn('p.product_id', $tabProductIds ?: [0]);
+            } catch (\Throwable $e) {
+                $liveTabError = 'Shopee did not answer (' . $e->getMessage() . '), so the live tabs and statuses are unavailable right now. The catalogue below is unaffected.';
+                $shopeeTab = 'all';
+            }
+        }
+
         $query->orderBy($sortColumns[$sort], $dir);
         // A stable tiebreak, or two products with the same name swap places
         // between pages and a row appears twice while another never shows.
@@ -211,6 +260,36 @@ class ShopeeProductController extends Controller
             $optionRowsByProductId = $optionRows->groupBy(fn($r) => (int) $r->product_id);
         }
 
+        /* The live status chip per linked row on this page: one
+         * get_item_base_info call for the page's item ids (chunked at
+         * Shopee's 50 cap). Failure leaves the map empty and the rows fall
+         * back to the plain Listed badge - absent, never stale. */
+        $liveStatuses = [];
+        if ($liveCounts !== null && $shopeeLinks->isNotEmpty()) {
+            $pageItemIds = $shopeeLinks->flatten()
+                ->pluck('shopee_item_id')->map(fn ($v) => (int) $v)
+                ->filter()->unique()->values()->all();
+            try {
+                foreach (array_chunk($pageItemIds, 50) as $chunk) {
+                    $r = $client->shopGet(
+                        $auth['mode'],
+                        (int) $auth['partner_id'], (string) $auth['partner_key'],
+                        (string) $auth['access_token'], (int) $auth['shop_id'],
+                        '/api/v2/product/get_item_base_info',
+                        ['item_id_list' => implode(',', $chunk)]
+                    );
+                    if (!($r['ok'] ?? false)) {
+                        continue;
+                    }
+                    foreach ((($r['body'] ?? [])['response']['item_list'] ?? []) as $it) {
+                        $liveStatuses[(int) ($it['item_id'] ?? 0)] = (string) ($it['item_status'] ?? '');
+                    }
+                }
+            } catch (\Throwable) {
+                $liveStatuses = [];
+            }
+        }
+
         // Load unmatched items
         $unmatchedItems = ShopeeUnmatchedItem::query()
             ->where('status', 'unmatched')
@@ -248,7 +327,64 @@ class ShopeeProductController extends Controller
             'groupsByProductId' => $pageGroupMap,
             'unmatchedItems' => $unmatchedItems,
             'optionRowsByProductId' => $optionRowsByProductId,
+            'shopeeTab' => $shopeeTab,
+            'liveCounts' => $liveCounts,
+            'liveTabError' => $liveTabError,
+            'liveStatuses' => $liveStatuses,
         ]);
+    }
+
+    /** total_count for one item_status, one cheap page_size=1 call. */
+    private function liveItemCount(ShopeeClient $client, array $auth, string $itemStatus): int
+    {
+        $r = $client->shopGet(
+            $auth['mode'],
+            (int) $auth['partner_id'], (string) $auth['partner_key'],
+            (string) $auth['access_token'], (int) $auth['shop_id'],
+            '/api/v2/product/get_item_list',
+            ['offset' => 0, 'page_size' => 1, 'item_status' => $itemStatus]
+        );
+
+        if (!($r['ok'] ?? false)) {
+            throw new \RuntimeException(is_array($r['body'] ?? null)
+                ? (string) ($r['body']['message'] ?? ($r['body']['error'] ?? 'no response'))
+                : 'no response');
+        }
+
+        return (int) ((($r['body'] ?? [])['response']['total_count']) ?? 0);
+    }
+
+    /** Every item id in one status, paged at 100, capped at 1000 items. */
+    private function liveItemIds(ShopeeClient $client, array $auth, string $itemStatus): array
+    {
+        $itemIds = [];
+        $offset = 0;
+        for ($pageN = 0; $pageN < 10; $pageN++) {
+            $r = $client->shopGet(
+                $auth['mode'],
+                (int) $auth['partner_id'], (string) $auth['partner_key'],
+                (string) $auth['access_token'], (int) $auth['shop_id'],
+                '/api/v2/product/get_item_list',
+                ['offset' => $offset, 'page_size' => 100, 'item_status' => $itemStatus]
+            );
+            if (!($r['ok'] ?? false)) {
+                throw new \RuntimeException(is_array($r['body'] ?? null)
+                    ? (string) ($r['body']['message'] ?? ($r['body']['error'] ?? 'no response'))
+                    : 'no response');
+            }
+            $resp = ($r['body'] ?? [])['response'] ?? [];
+            foreach (($resp['item'] ?? []) as $it) {
+                if ($id = $it['item_id'] ?? null) {
+                    $itemIds[] = (int) $id;
+                }
+            }
+            if (!($resp['has_next_page'] ?? false) || empty($resp['item'] ?? [])) {
+                break;
+            }
+            $offset = (int) ($resp['next_offset'] ?? $offset + 100);
+        }
+
+        return array_values(array_unique($itemIds));
     }
 
     public function addProduct(Request $request)

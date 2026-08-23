@@ -193,11 +193,51 @@
 </section>
 @endif
 
+{{-- The seller center's tabs, answered by Shopee on this page load
+     (quest 1 slice 2). All is the whole catalogue view; the other four
+     narrow the table to the items Shopee holds in that status right now.
+     Absent entirely when Shopee cannot be asked - a tab bar that cannot
+     answer is worse than none, and the note below says why it is gone. --}}
+@if(($liveTabError ?? null) !== null)
+    <div class="fm-note fm-note--warn" role="status">
+        <div class="fm-note__body">{{ $liveTabError }}</div>
+    </div>
+@elseif(($liveCounts ?? null) !== null)
+    @php
+        $liveTabDefs = [
+            'all' => 'All',
+            'live' => 'Live',
+            'unlisted' => 'Unlisted',
+            'violation' => 'Violation',
+            'reviewing' => 'Under review',
+        ];
+        $tabQuery = request()->except('page', 'shopee_tab');
+    @endphp
+    <div class="x-segment-bar">
+        <nav class="x-segment" aria-label="Shopee listing status">
+            @foreach($liveTabDefs as $tabKey => $tabLabel)
+                @php $isActive = ($shopeeTab ?? 'all') === $tabKey; @endphp
+                <a href="{{ route('ext.shopee.products.index', $tabKey === 'all' ? $tabQuery : array_merge($tabQuery, ['shopee_tab' => $tabKey])) }}"
+                   class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
+                   @if($isActive) aria-current="true" @endif>
+                    <span>{{ $tabLabel }}</span>
+                    @if($tabKey !== 'all' && isset($liveCounts[$tabKey]))
+                        <span class="x-segment__count">{{ number_format($liveCounts[$tabKey]) }}</span>
+                    @endif
+                </a>
+            @endforeach
+        </nav>
+    </div>
+@endif
+
 {{-- One filter row. The old page had a five-column CSS grid of labelled
      selects inside a card; the selects here submit on change (data-autosubmit,
      resources/js/list-filters.js) so there is no Filter button to press, and
      Clear is a link because it is navigation. --}}
 <form method="GET" action="{{ route('ext.shopee.products.index') }}" class="x-filters" id="shopee-listings-filter">
+    @if(($shopeeTab ?? 'all') !== 'all')
+        <input type="hidden" name="shopee_tab" value="{{ $shopeeTab }}">
+    @endif
     <x-ui.input type="search" name="q" class="x-filters__search"
                 value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search listings" />
 
@@ -442,7 +482,23 @@
             </td>
 
             <td class="cc-col-sync" data-label="Listing">
-                @if($link)
+                @php
+                    /* Shopee's live answer for this row when the page-load
+                       fetch got one; the plain Listed badge otherwise.
+                       Absent beats stale, as everywhere on this surface. */
+                    $rowLiveStatus = $link ? ($liveStatuses[(int) $link->shopee_item_id] ?? null) : null;
+                    $rowLiveMap = [
+                        'NORMAL' => ['Live', 'success'],
+                        'UNLIST' => ['Unlisted', 'neutral'],
+                        'BANNED' => ['Violation', 'danger'],
+                        'REVIEWING' => ['Under review', 'warning'],
+                        'SELLER_DELETE' => ['Deleted', 'neutral'],
+                        'SHOPEE_DELETE' => ['Deleted by Shopee', 'danger'],
+                    ];
+                @endphp
+                @if($rowLiveStatus !== null && isset($rowLiveMap[$rowLiveStatus]))
+                    <x-ui.badge :tone="$rowLiveMap[$rowLiveStatus][1]">{{ $rowLiveMap[$rowLiveStatus][0] }}</x-ui.badge>
+                @elseif($link)
                     <x-ui.badge tone="success">Listed</x-ui.badge>
                 @else
                     <x-ui.badge tone="neutral">Not listed</x-ui.badge>
@@ -536,6 +592,21 @@
                                 @csrf
                                 <button type="submit" class="x-menu__item">Push price</button>
                             </form>
+                            @if($rowLiveStatus === 'NORMAL')
+                                <form method="POST" action="{{ route('ext.shopee.listings.toggle', $p->product_id) }}" data-slow-action
+                                      data-confirm="Unlist this item from Shopee? Buyers stop seeing it immediately. It can be relisted at any time.">
+                                    @csrf
+                                    <input type="hidden" name="action" value="unlist">
+                                    <button type="submit" class="x-menu__item">Unlist from Shopee</button>
+                                </form>
+                            @elseif($rowLiveStatus === 'UNLIST')
+                                <form method="POST" action="{{ route('ext.shopee.listings.toggle', $p->product_id) }}" data-slow-action
+                                      data-confirm="Relist this item on Shopee? Buyers see it again immediately.">
+                                    @csrf
+                                    <input type="hidden" name="action" value="list">
+                                    <button type="submit" class="x-menu__item">Relist on Shopee</button>
+                                </form>
+                            @endif
                             <div class="x-menu__sep"></div>
                             <form method="POST" action="{{ route('ext.shopee.products.unlink', $p->product_id) }}" data-slow-action
                                   data-confirm="Unlink this product from Shopee? Only the link is removed. The Shopee listing stays up and can be matched again later.">
