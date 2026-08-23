@@ -331,6 +331,49 @@ class ShopeeListingPageTest extends TestCase
         $r->assertDontSee('Unlist from Shopee');
     }
 
+    public function test_push_update_sends_the_merged_listing_onto_the_live_item(): void
+    {
+        $productId = $this->seedProduct();
+        ShopeeProductLink::query()->create([
+            'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
+        ]);
+        ShopeeListing::query()->create([
+            'product_id' => $productId,
+            'shopee_category_id' => 100013, 'logistic_ids' => [8003],
+            'item_name' => 'A Shopee-only title',
+            // description left null: the catalogue's wording goes.
+        ]);
+
+        $r = $this->actingAs($this->manager())
+            ->post(route('ext.shopee.listings.push_update', $productId));
+
+        $sent = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/update_item');
+        $this->assertNotNull($sent, 'The update must reach update_item.');
+        $this->assertSame(990077, (int) $sent['body']['item_id']);
+        $this->assertSame('A Shopee-only title', $sent['body']['item_name'], 'The override goes.');
+        $this->assertSame('The catalogue wording.', $sent['body']['description'], 'Null means the catalogue goes.');
+        $this->assertSame(100013, (int) $sent['body']['category_id']);
+        $this->assertSame(8003, (int) $sent['body']['logistic_info'][0]['logistic_id']);
+        $this->assertArrayNotHasKey('original_price', $sent['body'], 'Price never rides a content update.');
+        $this->assertArrayNotHasKey('seller_stock', $sent['body'], 'Stock never rides a content update.');
+        $r->assertSessionHas('status');
+
+        $listing = ShopeeListing::query()->where('product_id', $productId)->firstOrFail();
+        $this->assertSame('listing', $listing->last_push_source);
+        $this->assertNotNull($listing->last_pushed_at);
+    }
+
+    public function test_push_update_refuses_a_product_that_is_not_on_shopee(): void
+    {
+        $productId = $this->seedProduct();
+
+        $r = $this->actingAs($this->manager())
+            ->post(route('ext.shopee.listings.push_update', $productId));
+
+        $this->assertNull(collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/update_item'));
+        $r->assertSessionHas('error');
+    }
+
     public function test_the_page_is_a_manage_surface_even_as_a_get(): void
     {
         $productId = $this->seedProduct();

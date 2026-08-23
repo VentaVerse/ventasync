@@ -2751,6 +2751,129 @@ class ShopeeProductController extends Controller
             ->with('status', 'Listing saved. These settings drive the next push and price sync.');
     }
 
+    /**
+     * Push the listing's content and settings onto the LIVE Shopee item.
+     *
+     * The missing half of the listing lifecycle: Save writes the record and
+     * the record drives the NEXT push - but an already-listed item never
+     * gets another add_item, so until this, an edited title or parcel never
+     * reached Shopee at all. update_item is a partial update: only content
+     * and settings go. Price and stock are deliberately absent - they have
+     * their own syncs and their own rules (the price rule computes, stock
+     * is live).
+     */
+    public function pushListingUpdate(int $productId, ShopeeClient $client)
+    {
+        $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
+        if (!$link) {
+            return redirect()->back()->with('error', 'This product is not on Shopee yet, so there is nothing to update. Push it first.');
+        }
+
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+            return redirect()->back()->with('error', "Missing Shopee {$modeLabel} settings.");
+        }
+
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+        $product = DB::table($pfx . 'product as p')
+            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+                $j->on('p.product_id', '=', 'pd.product_id')
+                  ->where('pd.language_id', '=', $langId);
+            })
+            ->where('p.product_id', $productId)
+            ->first(['p.product_id', 'pd.name', 'pd.description', 'p.weight', 'p.length', 'p.width', 'p.height']);
+        if (!$product) {
+            abort(404, 'Product not found.');
+        }
+
+        $listing = ShopeeListing::query()->where('product_id', $productId)->first();
+
+        // The same merge rule as every push: the listing's own value when
+        // set, the catalogue's otherwise.
+        $coreName = html_entity_decode((string) ($product->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $coreDescription = trim(strip_tags(html_entity_decode((string) ($product->description ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+
+        $itemName = ($listing && $listing->item_name !== null && trim($listing->item_name) !== '') ? $listing->item_name : $coreName;
+        $description = ($listing && $listing->description !== null && trim($listing->description) !== '') ? $listing->description : $coreDescription;
+
+        $payload = [
+            'item_id' => (int) $link->shopee_item_id,
+            'item_name' => mb_substr($itemName, 0, 255),
+            'description' => mb_substr($description, 0, 5000),
+            'weight' => (float) (($listing?->weight) ?? $product->weight),
+            'dimension' => [
+                'package_length' => (int) (($listing?->package_length) ?? $product->length),
+                'package_width' => (int) (($listing?->package_width) ?? $product->width),
+                'package_height' => (int) (($listing?->package_height) ?? $product->height),
+            ],
+        ];
+        if ($listing && $listing->shopee_category_id) {
+            $payload['category_id'] = (int) $listing->shopee_category_id;
+        }
+        if ($listing && !empty($listing->logistic_ids)) {
+            $payload['logistic_info'] = array_map(
+                fn ($lid) => ['logistic_id' => (int) $lid, 'enabled' => true],
+                $listing->logistic_ids
+            );
+        }
+
+        $path = '/api/v2/product/update_item';
+        try {
+            $result = $client->shopPost(
+                $auth['mode'],
+                (int) $auth['partner_id'], (string) $auth['partner_key'],
+                (string) $auth['access_token'], (int) $auth['shop_id'],
+                $path, [], $payload
+            );
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error', 'Update failed: Shopee did not answer (' . $e->getMessage() . ').');
+        }
+
+        ShopeeApiLog::safeCreate([
+            'pack' => 'shopee.listings.update_item', 'method' => 'POST',
+            'api_path' => $path, 'auth_required' => true,
+            'request_params' => $payload,
+            'response_status' => $result['status'] ?? null,
+            'ok' => (bool) ($result['ok'] ?? false),
+            'response_body' => $result['body'] ?? null, 'user_id' => auth()->id(),
+        ]);
+
+        $apiError = is_array($result['body'] ?? null) ? (string) ($result['body']['error'] ?? '') : '';
+        if (!($result['ok'] ?? false) || $apiError !== '') {
+            $msg = is_array($result['body'] ?? null)
+                ? (string) ($result['body']['message'] ?? ($result['body']['error'] ?? 'no response'))
+                : 'no response';
+            return redirect()->back()->with('error', 'Update failed: ' . $msg);
+        }
+
+        // Provenance (#104): what went, from where, when.
+        ShopeeListing::query()->updateOrCreate(
+            ['product_id' => $productId],
+            [
+                'last_pushed_at' => now(),
+                'last_push_source' => 'listing',
+                'last_push_settings' => [
+                    'category_id' => $listing?->shopee_category_id,
+                    'logistic_ids' => $listing?->logistic_ids ?? [],
+                    'markup_percent' => $listing?->markup_percent,
+                    'markup_fixed' => $listing?->markup_fixed,
+                ],
+            ]
+        );
+
+        ActivityLogger::log(
+            'updated',
+            'Shopee Product',
+            $productId,
+            'Pushed a content update onto Shopee item ' . $link->shopee_item_id
+        );
+
+        return redirect()->back()->with('status', 'Update pushed. Shopee now shows this listing\'s content. Price and stock were not touched - they have their own syncs.');
+    }
+
     public function toggleListing(Request $request, int $productId, ShopeeClient $client)
     {
         $request->validate(['action' => 'required|in:list,unlist']);

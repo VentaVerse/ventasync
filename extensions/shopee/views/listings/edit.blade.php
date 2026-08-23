@@ -91,16 +91,25 @@
         <section class="fm-section">
             <div class="fm-section__head">
                 <h2 class="fm-section__title">On Shopee right now</h2>
-                @if($live && $canManage)
+                @if($canManage)
                     <div class="fm-section__aside">
-                        @if($live['item_status'] === 'NORMAL')
+                        {{-- The other half of Save: the record drives the
+                             NEXT push, and this sends it onto the LIVE item
+                             now. Offered even when the live fetch failed -
+                             the push reports its own outcome. --}}
+                        <form method="POST" action="{{ route('ext.shopee.listings.push_update', $product->product_id) }}"
+                              data-confirm="Push this listing's content and settings onto the live Shopee item? Title, description, parcel, category and couriers are updated. Price and stock are not touched - they have their own syncs.">
+                            @csrf
+                            <x-ui.button type="submit">Push update to Shopee</x-ui.button>
+                        </form>
+                        @if($live && $live['item_status'] === 'NORMAL')
                             <form method="POST" action="{{ route('ext.shopee.listings.toggle', $product->product_id) }}"
                                   data-confirm="Unlist this item from Shopee? Buyers stop seeing it immediately. It stays here and can be relisted at any time.">
                                 @csrf
                                 <input type="hidden" name="action" value="unlist">
                                 <x-ui.button type="submit">Unlist from Shopee</x-ui.button>
                             </form>
-                        @elseif($live['item_status'] === 'UNLIST')
+                        @elseif($live && $live['item_status'] === 'UNLIST')
                             <form method="POST" action="{{ route('ext.shopee.listings.toggle', $product->product_id) }}"
                                   data-confirm="Relist this item on Shopee? Buyers see it again immediately.">
                                 @csrf
@@ -404,9 +413,11 @@
     </form>
 
     <div class="fm-bar">
-        <span class="fm-bar__meta">{{ $canManage
-            ? 'Saving changes this record only. Shopee sees it on the next push or price sync.'
-            : 'You can read this. Editing needs the Shopee manage permission.' }}</span>
+        <span class="fm-bar__meta">{{ !$canManage
+            ? 'You can read this. Editing needs the Shopee manage permission.'
+            : ($link
+                ? 'Saving changes this record only. Push update to Shopee sends it onto the live listing.'
+                : 'Saving changes this record only. Shopee sees it when the product is pushed.') }}</span>
         <div class="fm-bar__actions">
             <a class="fm-cancel" href="{{ route('ext.shopee.products.index') }}">{{ $canManage ? 'Cancel' : 'Back' }}</a>
             @if($canManage)
