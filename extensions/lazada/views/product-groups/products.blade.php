@@ -30,7 +30,7 @@
 @php
     // Read tier on this route is `view_lazada|manage_lazada`; every push,
     // sync, link, unlink and remove below is `manage_lazada`.
-    $canManageLazada = auth()->user()?->hasPermission('manage_lazada') ?? false;
+    $canManageLazada = auth()->user()?->hasPermission('manage_lazada/product_group') ?? false;
 
     $returnTo = request()->getRequestUri();
 

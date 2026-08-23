@@ -8,7 +8,7 @@
 @php
     // Read tier is `view_shopee|manage_shopee`; create, edit and destroy are
     // all `manage_shopee`. Replaces a hardcoded `true`.
-    $canManageShopee = auth()->user()?->hasPermission('manage_shopee') ?? false;
+    $canManageShopee = auth()->user()?->hasPermission('manage_shopee/product_group') ?? false;
 @endphp
 
 <div class="cc-page">

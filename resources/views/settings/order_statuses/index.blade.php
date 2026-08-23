@@ -7,7 +7,7 @@
     // routes/settings.php gates the list on view_order_statuses|manage_order_statuses
     // and every write on manage_order_statuses. The pre-redesign view hardcoded
     // this to true.
-    $canManageOrderStatuses = auth()->user()?->hasPermission('manage_order_statuses') ?? false;
+    $canManageOrderStatuses = auth()->user()?->hasPermission('manage_settings/order_status') ?? false;
 
     $hasFilters = ($q ?? '') !== '';
 @endphp

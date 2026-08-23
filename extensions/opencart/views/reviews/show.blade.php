@@ -11,8 +11,8 @@
     // replace a hardcoded `true`, which rendered every control for a
     // read-tier operator and only turned them away on submit.
     $user = auth()->user();
-    $canManage = $user?->hasPermission('manage_reviews') ?? false;
-    $canManageVenta = $user?->hasPermission('manage_venta') ?? false;
+    $canManage = $user?->hasPermission('manage_opencart/review') ?? false;
+    $canManageVenta = $user?->hasPermission('manage_opencart/review') ?? false;
 
     // The controller refuses a push or a skip in any other state.
     $ocOpen = in_array($review->oc_sync_status, ['pending', 'error'], true);

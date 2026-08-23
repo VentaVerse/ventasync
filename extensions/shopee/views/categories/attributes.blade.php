@@ -24,7 +24,7 @@
 @php
     // The GET is `view_shopee|manage_shopee`; the fetch POST is
     // `manage_shopee` (extensions/shopee/routes/web.php).
-    $canManageShopee = auth()->user()?->hasPermission('manage_shopee') ?? false;
+    $canManageShopee = auth()->user()?->hasPermission('manage_shopee/category_attribute') ?? false;
 
     $attributes = $attributes ?? [];
     $requiredCount = collect($attributes)->filter(fn ($a) => !empty($a['required']))->count();

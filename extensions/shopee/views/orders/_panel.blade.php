@@ -35,7 +35,7 @@
     // (perm:manage_shopee_orders on every write POST) is the real gate; this
     // flag only stops the panel offering buttons that would 403.
     $canManageShopeeOrders = $canManageShopeeOrders
-        ?? (auth()->user()?->hasPermission('manage_shopee_orders') ?? false);
+        ?? (auth()->user()?->hasPermission('manage_shopee/order') ?? false);
 
     $tabs = $tabs ?? [];
     $active_tab = strtoupper((string) ($active_tab ?? 'ALL'));

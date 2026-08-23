@@ -14,7 +14,7 @@
     // page OFFERS the fetch, nothing more - the route middleware is the real
     // gate. It replaces a hardcoded `true`, which showed every read-only
     // operator a button the route would refuse.
-    $canManageLazada = auth()->user()?->hasPermission('manage_lazada') ?? false;
+    $canManageLazada = auth()->user()?->hasPermission('manage_lazada/brand') ?? false;
 
     $q = (string) ($q ?? '');
     $hasSearch = $q !== '';

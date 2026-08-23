@@ -6,12 +6,6 @@
     "author": "VentaSync",
     "tier": "community",
     "license_required": false,
-    "permissions": [
-        {"key": "view_venta",          "parent": "manage_marketplace_api", "subgroup": "Venta", "tiers": ["view","manage"]},
-        {"key": "manage_venta",        "parent": "manage_marketplace_api", "subgroup": "Venta", "tiers": ["view","manage"]},
-        {"key": "view_venta_orders",   "parent": "manage_marketplace_api", "subgroup": "Venta", "tiers": ["view","manage"]},
-        {"key": "manage_venta_orders", "parent": "manage_marketplace_api", "subgroup": "Venta", "tiers": ["view","manage"]}
-    ],
     "tables": [
         "venta_settings",
         "venta_product_groups",

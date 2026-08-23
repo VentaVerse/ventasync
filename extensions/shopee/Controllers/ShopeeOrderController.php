@@ -202,7 +202,7 @@ class ShopeeOrderController extends Controller
         // view-tier operator (view_shopee_orders without manage_shopee_orders)
         // must always see the page rendered from stored data — never a live
         // API pull, never a write — regardless of the `refresh` query string.
-        $canManage = (bool) $request->user()?->hasPermission('manage_shopee_orders');
+        $canManage = (bool) $request->user()?->hasPermission('manage_shopee/order');
 
         if ($hasCreds && $canManage && $refresh) {
             try {

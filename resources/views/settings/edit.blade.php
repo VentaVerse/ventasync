@@ -50,7 +50,7 @@
     // view_website_settings|manage_website_settings and settings.update on
     // manage_website_settings alone. The pre-redesign view hardcoded this to
     // true, so a read-tier operator saw a Save button that would bounce.
-    $canManage = auth()->user()?->hasPermission('manage_website_settings') ?? false;
+    $canManage = auth()->user()?->hasPermission('manage_settings/setting') ?? false;
     $ro = ! $canManage;
 @endphp
 

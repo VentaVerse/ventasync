@@ -86,19 +86,31 @@ class ExtensionServiceProvider extends ServiceProvider
                 $this->loadTranslationsFrom($langPath);
             }
 
-            // Auto-sync permissions on boot (cached to avoid DB queries every
-            // request). Same try/catch boot resilience as the core sync
-            // above, for the same reason.
-            $cacheKey = 'ext_perms_synced_' . $id . '_' . md5(json_encode($manifests[$id]['permissions'] ?? []));
+        }
+
+        /* ─── Derived permission sync, ONCE, after every provider is in ────
+         *
+         * Permission rows derive from the route table, so the sync can only
+         * run after ALL extension providers have registered their routes -
+         * running it per extension inside the loop above (as the manifest
+         * sync used to) would derive from a half-built table. booted() is
+         * the first moment the routes are complete.
+         *
+         * Cached on a fingerprint of the enabled-extension list, so the
+         * routine boot does one cache read; enabling an extension changes
+         * the fingerprint and the next boot converges. Same try/catch boot
+         * resilience as the core sync above, for the same reason. */
+        $this->app->booted(function () use ($manager, $enabledIds) {
+            $syncKey = 'derived_perms_synced_' . md5(json_encode($enabledIds));
             try {
-                if (!cache()->has($cacheKey)) {
-                    $manager->syncPermissions($id);
-                    cache()->put($cacheKey, true, now()->addHours(24));
+                if (!cache()->has($syncKey)) {
+                    $manager->syncPermissions();
+                    cache()->put($syncKey, true, now()->addHours(24));
                 }
             } catch (\Throwable) {
                 // Next boot with a working database re-syncs.
             }
-        }
+        });
 
         // No view composer here any more. This used to bind
         // $extensionNavGroups onto layouts.app, which was the only view that

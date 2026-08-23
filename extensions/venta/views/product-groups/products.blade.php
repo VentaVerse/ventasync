@@ -17,7 +17,7 @@
     // link, unlink and remove below is `manage_venta`. Replaces a hardcoded
     // `true`, which offered a read-only operator a dozen controls the routes
     // would refuse.
-    $canManageVenta = auth()->user()?->hasPermission('manage_venta') ?? false;
+    $canManageVenta = auth()->user()?->hasPermission('manage_venta/product_group') ?? false;
 
     $storeName = $setting->store_name ?: 'Unnamed store';
     $returnTo = request()->getRequestUri();

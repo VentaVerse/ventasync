@@ -23,7 +23,7 @@
     // by the plain list it is a builder for, and the Save button is absent: a
     // form you can fill in and never submit is worse than a form that says up
     // front it is a read.
-    $canManageVenta = auth()->user()?->hasPermission('manage_venta') ?? false;
+    $canManageVenta = auth()->user()?->hasPermission('manage_venta/product_group') ?? false;
 
     $storeName = $setting->store_name ?: 'Unnamed store';
 

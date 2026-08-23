@@ -29,7 +29,7 @@ use Illuminate\Support\Facades\Route;
 // under /catalog, where its nav group puts it.
 //
 // ── OpenCart Settings + Catalog — READ ──────────────────────────
-Route::middleware(['auth', 'perm:view_opencart|manage_opencart'])->prefix('channels')->group(function () {
+Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::get('/opencart/{store}/settings', [OpenCartController::class, 'showSettings'])->name('ext.opencart.settings.show');
     Route::get('/opencart/settings', [OpenCartController::class, 'index'])->name('ext.opencart.index');
 
@@ -41,7 +41,7 @@ Route::middleware(['auth', 'perm:view_opencart|manage_opencart'])->prefix('chann
 });
 
 // ── OpenCart Settings + Catalog — WRITES ────────────────────────
-Route::middleware(['auth', 'perm:manage_opencart'])->prefix('channels')->group(function () {
+Route::middleware(['auth'])->prefix('channels')->group(function () {
     // "Add New Store" modal target — minimal create with name + base_url only.
     Route::post('/opencart/stores', [OpenCartController::class, 'createStore'])->name('ext.opencart.stores.store');
 
@@ -61,7 +61,10 @@ Route::middleware(['auth', 'perm:manage_opencart'])->prefix('channels')->group(f
     Route::post('/opencart/{store}/products/{product}/push', [OpenCartController::class, 'pushProduct'])->name('ext.opencart.products.push');
 
     // Product Groups — writes
-    Route::get('/opencart/{store}/product-groups/create', [OpenCartProductGroupController::class, 'create'])->name('ext.opencart.product-groups.create');
+    Route::get('/opencart/{store}/product-groups/create', [OpenCartProductGroupController::class, 'create'])->name('ext.opencart.product-groups.create')
+        // A form page is a MANAGE surface even though it is a GET: the old
+        // perm: group said so, and removing the group must not demote it.
+        ->defaults('permission_tier', 'manage');
     Route::post('/opencart/{store}/product-groups', [OpenCartProductGroupController::class, 'store'])->name('ext.opencart.product-groups.store');
     Route::put('/opencart/{store}/product-groups/{group}', [OpenCartProductGroupController::class, 'update'])->name('ext.opencart.product-groups.update');
     Route::delete('/opencart/{store}/product-groups/{group}', [OpenCartProductGroupController::class, 'destroy'])->name('ext.opencart.product-groups.destroy');
@@ -71,7 +74,7 @@ Route::middleware(['auth', 'perm:manage_opencart'])->prefix('channels')->group(f
 });
 
 // ── OpenCart Orders — READ ──────────────────────────────────────
-Route::middleware(['auth', 'perm:view_opencart_orders|manage_opencart_orders'])->prefix('channels')->group(function () {
+Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::get('/opencart/{store}/orders', [\Extensions\opencart\Controllers\OpenCartOrderController::class, 'index'])->name('ext.opencart.orders.index');
 });
 
@@ -83,13 +86,13 @@ Route::middleware(['auth', 'perm:view_opencart_orders|manage_opencart_orders'])-
 // group, so their URI nests under /catalog/reviews (not /opencart) even
 // though the controller stays in this extension. Route names unchanged;
 // old /reviews/* URIs 301 via routes/redirects.php.
-Route::middleware(['auth', 'perm:view_reviews|manage_reviews'])->group(function () {
+Route::middleware(['auth'])->group(function () {
     Route::get('/catalog/reviews', [ReviewController::class, 'index'])->name('ext.opencart.reviews.index');
     Route::get('/catalog/reviews/{id}', [ReviewController::class, 'show'])->name('ext.opencart.reviews.show')->whereNumber('id');
 });
 
 // ── Reviews — WRITES (push, fetch, delete) ──────────────────────
-Route::middleware(['auth', 'perm:manage_reviews'])->group(function () {
+Route::middleware(['auth'])->group(function () {
     Route::post('/catalog/reviews/{id}/push', [ReviewController::class, 'pushToOpenCart'])->name('ext.opencart.reviews.push')->whereNumber('id');
     Route::post('/catalog/reviews/{id}/skip', [ReviewController::class, 'skip'])->name('ext.opencart.reviews.skip')->whereNumber('id');
     Route::post('/catalog/reviews/bulk-push', [ReviewController::class, 'bulkPush'])->name('ext.opencart.reviews.bulk_push');

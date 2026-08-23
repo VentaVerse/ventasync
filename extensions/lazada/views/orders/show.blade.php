@@ -88,7 +88,7 @@
     // the seller-center round read the permission properly. The route
     // middleware is the real gate; this flag only stops the page offering
     // what the operator has no business triggering.
-    $canManageLazadaOrders = auth()->user()?->hasPermission('manage_lazada_orders') ?? false;
+    $canManageLazadaOrders = auth()->user()?->hasPermission('manage_lazada/order') ?? false;
 
     // Currency is resolved through App\Support\Money, which reads the symbol
     // from the currencies table, so no symbol is written into this view. An

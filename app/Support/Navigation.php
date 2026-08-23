@@ -502,26 +502,6 @@ class Navigation
         return '/'.trim($path, '/');
     }
 
-    /**
-     * Read the pipe-delimited permission from the route's own `perm:`
-     * middleware. Returns null for an auth-only route or an unknown one.
-     */
-    public static function permissionFor(string $routeName): ?string
-    {
-        $route = Route::getRoutes()->getByName($routeName);
-
-        if (!$route) {
-            return null;
-        }
-
-        foreach ($route->gatherMiddleware() as $middleware) {
-            if (is_string($middleware) && str_starts_with($middleware, 'perm:')) {
-                return substr($middleware, 5);
-            }
-        }
-
-        return null;
-    }
 
     /**
      * Same any-match parsing EnsurePermission uses. Never can(): this app
@@ -554,14 +534,39 @@ class Navigation
             return false;
         }
 
-        $permission = self::permissionFor($routeName);
+        /* THE SIDEBAR MIRRORS THE DOOR, OR IT LIES.
+         *
+         * This used to parse the route's own perm: middleware, which was the
+         * gate before EnsureControllerPermission replaced it - so the moment
+         * the perm: arguments came off the routes, every extension link
+         * vanished for everyone. The authority now is the same one the door
+         * uses: the route's controller derives a key from the catalogue, a
+         * nav link is a GET so it needs the view tier, and the door's
+         * legacy fallback applies here too so a pre-rebuild group keeps its
+         * links exactly as long as it keeps its access. */
+        $route = Route::getRoutes()->getByName($routeName);
+        $action = (string) $route->getActionName();
 
-        if ($permission === null) {
+        if (! str_contains($action, '@')) {
+            return true; // closure routes carry no derivable gate
+        }
+
+        [$class] = explode('@', $action);
+        $catalogue = app(\App\Services\PermissionCatalogue::class);
+        $key = $catalogue->keyForController($class);
+
+        if ($key === null) {
+            return true; // never gated: dashboard, hubs that gate per item
+        }
+
+        $tier = $route->defaults['permission_tier'] ?? 'view';
+
+        if ($user->hasPermission($tier . '_' . $key)) {
             return true;
         }
 
-        foreach (explode('|', $permission) as $key) {
-            if ($user->hasPermission(trim($key))) {
+        foreach ($catalogue->legacyKeysFor($class)[$tier] ?? [] as $legacy) {
+            if ($user->hasPermission($legacy)) {
                 return true;
             }
         }

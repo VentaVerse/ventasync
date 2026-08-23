@@ -32,7 +32,7 @@
     // is manage-only. The route middleware is the real gate; this flag stops
     // the page offering controls that would 403, which the previous version
     // did not do at all: it hardcoded the manage tier on.
-    $canManageShopee = auth()->user()?->hasPermission('manage_shopee') ?? false;
+    $canManageShopee = auth()->user()?->hasPermission('manage_shopee/product_group') ?? false;
 
     $selectedCategoryId = (int) old('shopee_category_id', $group->shopee_category_id ?? 0);
     $selectedBrandId = (int) old('shopee_brand_id', $group->shopee_brand_id ?? 0);

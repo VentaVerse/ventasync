@@ -13,7 +13,7 @@
     // Read tier on this route is `view_venta|manage_venta`; create, update and
     // destroy are `manage_venta`. Replaces a hardcoded `true`, which showed a
     // read-only operator four controls the routes would refuse.
-    $canManageVenta = auth()->user()?->hasPermission('manage_venta') ?? false;
+    $canManageVenta = auth()->user()?->hasPermission('manage_venta/product_group') ?? false;
 
     $storeName = $setting->store_name ?: 'Unnamed store';
 @endphp

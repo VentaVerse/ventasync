@@ -42,18 +42,14 @@ class User extends Authenticatable
     /**
      * Permission expansion: having a parent permission grants the user
      * all its children; having any child satisfies the parent check
-     * (for sidebar visibility). The hierarchy is built dynamically from
-     * core config (config/permissions.php) plus each extension manifest's
-     * permission declarations — see App\Services\PermissionHierarchy.
+     * (for sidebar visibility). Keys derive from the route table — see
+     * App\Services\PermissionCatalogue; manifests declare none.
      *
-     * Tier-aware (Phase 1 of the view/manage split):
-     *   - hasPermission('manage_lazada')          → checks manage_lazada
-     *   - hasPermission('manage_lazada', 'manage') → same, explicit
-     *   - hasPermission('manage_lazada', 'view')   → also true if user has manage_lazada
-     *                                                (manage-implies-view cascade)
-     *   - hasPermission('view_lazada')            → true if view_lazada OR manage_lazada
-     *   - hasPermission('view_lazada', 'view')    → same as above
-     *   - hasPermission('view_lazada', 'manage')  → true ONLY if user has manage_lazada
+     * Tier-aware (view/manage split), shown with a derived key:
+     *   - hasPermission('manage_lazada/order')  → checks manage_lazada/order
+     *   - hasPermission('view_lazada/order')    → true if view_lazada/order
+     *                                             OR manage_lazada/order
+     *                                             (manage-implies-view cascade)
      *
      * The "manage implies view" cascade lives here ONLY. Middleware, Blade
      * directives, and Policies all delegate to this method, so we never want
@@ -117,6 +113,33 @@ class User extends Authenticatable
         // Legacy compatibility for pre-Laravel-rebuild permission key
         if ($key === 'manage_settings' || $key === 'manage_users' || $key === 'manage_user_groups') {
             $keysToCheck[] = 'manage_users_groups';
+        }
+
+        /* TRANSITION BRIDGE - dies in Phase D with LegacyGrantMap.
+         *
+         * A derived key (the slash is the tell) is also satisfied by any
+         * RETIRED key whose frozen translation covers it. Without this, a
+         * group the grant migration never reached - restored from an old
+         * backup, or built by a test the old way - would pass the door
+         * (whose shim reads the same table) and then lose every menu entry
+         * and button, because those ask this method directly. One
+         * vocabulary bridge, in the one place the docblock above promises
+         * tier rules live, so the door and the interface cannot disagree.
+         *
+         * Tier-aware, never widening: a view-tier ask accepts a legacy key
+         * translating to either tier of the base (manage implies view); a
+         * manage-tier ask accepts only a legacy key translating to the
+         * manage side. */
+        if (str_contains($key, '/') && $effectiveTier !== null && $base !== null) {
+            $accept = $effectiveTier === 'view'
+                ? ['view_' . $base, 'manage_' . $base]
+                : ['manage_' . $base];
+
+            foreach (\App\Services\LegacyGrantMap::TRANSLATIONS as $legacy => $derived) {
+                if (array_intersect($accept, $derived) !== []) {
+                    $keysToCheck[] = $legacy;
+                }
+            }
         }
 
         return $group->permissions()->whereIn('key', array_unique($keysToCheck))->exists();

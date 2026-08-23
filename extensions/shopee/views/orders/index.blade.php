@@ -17,7 +17,7 @@
     // Ship and Reset render only for the manage tier. The route middleware
     // (perm:manage_shopee_orders on every write POST) is the real gate; this
     // flag only stops the page offering buttons that would 403.
-    $canManageShopeeOrders = auth()->user()?->hasPermission('manage_shopee_orders') ?? false;
+    $canManageShopeeOrders = auth()->user()?->hasPermission('manage_shopee/order') ?? false;
 
     $tabs = $tabs ?? [];
     $active_tab = strtoupper((string) ($active_tab ?? 'ALL'));

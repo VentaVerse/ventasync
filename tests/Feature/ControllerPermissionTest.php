@@ -211,14 +211,14 @@ class ControllerPermissionTest extends TestCase
      */
     public function test_an_old_scheme_grant_still_opens_the_door_it_used_to(): void
     {
-        $user = $this->userWith(['manage_products']);
+        $user = $this->userWith(['manage_products', 'manage_api/product', 'manage_catalog/manufacturer', 'manage_catalog/category', 'manage_api/catalog', 'manage_catalog/product', 'manage_catalog/product_image', 'manage_catalog/product_option', 'manage_purchasing/product_vendor']);
 
         $this->actingAs($user)->get(route('products.index'))->assertOk();
     }
 
     public function test_the_shim_never_promotes_a_view_grant_to_a_write(): void
     {
-        $user = $this->userWith(['view_products']);
+        $user = $this->userWith(['view_products', 'view_catalog/manufacturer', 'view_catalog/category', 'view_api/catalog', 'view_catalog/product', 'view_catalog/product_image']);
 
         $this->actingAs($user)->get(route('products.index'))->assertOk();
 

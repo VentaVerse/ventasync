@@ -11,7 +11,7 @@
     // Read tier on this route is `view_tiktok|manage_tiktok`; the sync POST is
     // `manage_tiktok` only. Replaces a hardcoded `true`, which showed every
     // read-only operator a button the route would refuse.
-    $canManageTiktok = auth()->user()?->hasPermission('manage_tiktok') ?? false;
+    $canManageTiktok = auth()->user()?->hasPermission('manage_tiktok/product_group') ?? false;
 
     $q = (string) ($q ?? '');
     $hasSearch = $q !== '';

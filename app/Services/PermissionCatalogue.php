@@ -206,38 +206,38 @@ class PermissionCatalogue
     /** @return array<string, array{view: array<int,string>, manage: array<int,string>}> */
     private function buildLegacyMap(): array
     {
+        /* FROM THE FROZEN TABLE, NOT THE ROUTES. This used to read the
+         * perm: middleware off the route table, which was correct exactly
+         * until Phase A removed those arguments - reading them then would
+         * find nothing and strike the shim blind. LegacyGrantMap holds the
+         * table's last true reading; here it is inverted into
+         * controller => the legacy keys that used to open it.
+         *
+         * A manage_ key satisfies both tiers - it always did, through
+         * hasPermission's manage-implies-view expansion. A view_ key
+         * satisfies only view, so the shim cannot widen anyone's access on
+         * the way through. */
+        $byKey = [];
+
+        foreach ($this->all() as $entry) {
+            $byKey[$entry['key']] = $entry['controller'];
+        }
+
         $map = [];
 
-        foreach (Route::getRoutes() as $route) {
-            $action = $route->getActionName();
+        foreach (LegacyGrantMap::TRANSLATIONS as $old => $derived) {
+            foreach ($derived as $tiered) {
+                [$tier, $key] = explode('_', $tiered, 2);
+                $class = $byKey[$key] ?? null;
 
-            if (! str_contains($action, '@')) {
-                continue;
-            }
-
-            [$class] = explode('@', $action);
-
-            foreach ($route->gatherMiddleware() as $middleware) {
-                if (! is_string($middleware) || ! str_starts_with($middleware, 'perm:')) {
-                    continue;
+                if ($class === null) {
+                    continue; // extension not loaded in this process
                 }
 
-                foreach (preg_split('/[,|]/', substr($middleware, 5)) as $old) {
-                    $old = trim($old);
+                $map[$class]['view'][$old] = true;
 
-                    if ($old === '') {
-                        continue;
-                    }
-
-                    /* A manage_ key satisfies both tiers - it always did,
-                     * through hasPermission's manage-implies-view expansion.
-                     * A view_ key satisfies only view, so the shim cannot
-                     * widen anyone's access on the way through. */
-                    $map[$class]['view'][$old] = true;
-
-                    if (str_starts_with($old, 'manage_')) {
-                        $map[$class]['manage'][$old] = true;
-                    }
+                if ($tier === 'manage' && str_starts_with($old, 'manage_')) {
+                    $map[$class]['manage'][$old] = true;
                 }
             }
         }

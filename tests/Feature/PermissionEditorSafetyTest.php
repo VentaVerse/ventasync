@@ -352,4 +352,45 @@ class PermissionEditorSafetyTest extends TestCase
             }
         }
     }
+    /**
+     * NOBODY WRITES THE RETIRED VOCABULARY ANY MORE.
+     *
+     * Phase A moved all 110 in-code hasPermission calls onto derived keys
+     * (the slash is the tell). A new call written in the old shape would
+     * silently gate on a key nothing grants after Phase D deletes the
+     * legacy rows - the button or menu would just vanish for everyone. The
+     * transition shims (User::hasPermission's bridge, the door's fallback)
+     * hold legacy keys as DATA, not as call sites, and are exempt.
+     */
+    public function test_no_code_asks_for_a_retired_permission_key(): void
+    {
+        $offenders = [];
+
+        $scan = function (string $dir) use (&$offenders) {
+            $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(base_path($dir)));
+            foreach ($it as $file) {
+                if (! preg_match('/\.(php)$/', (string) $file) || str_contains((string) $file, '/vendor/')) {
+                    continue;
+                }
+                $source = file_get_contents((string) $file);
+                if ($source === false) {
+                    continue;
+                }
+                if (preg_match_all("/hasPermission\('((?:view|manage)_[a-z_]+)'/", $source, $m)) {
+                    foreach ($m[1] as $key) {
+                        if (! str_contains($key, '/')) {
+                            $offenders[] = str_replace(base_path() . '/', '', (string) $file) . ' :: ' . $key;
+                        }
+                    }
+                }
+            }
+        };
+
+        $scan('app');
+        $scan('extensions');
+        $scan('resources');
+
+        $this->assertSame([], array_values(array_unique($offenders)),
+            'These call sites ask for retired keys; use the derived key the door enforces.');
+    }
 }

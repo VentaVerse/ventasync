@@ -53,7 +53,7 @@
     // map, logging, log delete, purge) is `manage_tiktok`. Replaces a hardcoded
     // `true`, which offered a read-only operator every one of those controls
     // and let each of them be refused.
-    $canManageTiktok = auth()->user()?->hasPermission('manage_tiktok') ?? false;
+    $canManageTiktok = auth()->user()?->hasPermission('manage_tiktok/overview') ?? false;
 
     $currentMode = $setting->mode ?? 'live';
     $isSandbox = $currentMode === 'sandbox';

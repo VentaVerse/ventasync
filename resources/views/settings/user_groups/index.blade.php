@@ -7,7 +7,7 @@
     // routes/settings.php gates the list on view_user_groups|manage_user_groups
     // and every write on manage_user_groups. The pre-redesign view hardcoded
     // this to true and offered Edit and Delete to the read tier.
-    $canManageUserGroups = auth()->user()?->hasPermission('manage_user_groups') ?? false;
+    $canManageUserGroups = auth()->user()?->hasPermission('manage_settings/user_group') ?? false;
 
     $hasFilters = ($q ?? '') !== '';
 @endphp

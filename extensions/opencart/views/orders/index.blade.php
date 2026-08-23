@@ -19,7 +19,7 @@
     //
     // Read here rather than left to the panel because the page header below
     // needs it for its own button.
-    $canManageOcOrders = auth()->user()?->hasPermission('manage_orders') ?? false;
+    $canManageOcOrders = auth()->user()?->hasPermission('manage_sales/order') ?? false;
 
     // The count in the deck names what is actually listed, so standing on a
     // status filter it says that status rather than the whole storefront.

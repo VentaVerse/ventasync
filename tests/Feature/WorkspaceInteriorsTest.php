@@ -123,7 +123,7 @@ class WorkspaceInteriorsTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'Interiors Viewer']);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_shopee', 'view_shopee/dashboard'])->pluck('id')->all()
+            Permission::whereIn('key', ['view_shopee', 'view_shopee/overview', 'view_shopee/category', 'view_shopee/category_attribute', 'view_shopee/logistics', 'view_shopee/product_group', 'view_shopee/product', 'view_shopee/dashboard'])->pluck('id')->all()
         );
 
         return User::factory()->create(['user_group_id' => $group->id]);
@@ -134,7 +134,7 @@ class WorkspaceInteriorsTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'Interiors Manager']);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['manage_shopee', 'manage_shopee/dashboard'])->pluck('id')->all()
+            Permission::whereIn('key', ['manage_shopee', 'manage_shopee/overview', 'manage_shopee/category', 'manage_shopee/category_attribute', 'manage_shopee/logistics', 'manage_shopee/product_group', 'manage_shopee/product', 'manage_shopee/dashboard'])->pluck('id')->all()
         );
 
         return User::factory()->create(['user_group_id' => $group->id]);
@@ -964,7 +964,7 @@ class WorkspaceInteriorsTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'Lazada Interiors Viewer']);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_lazada', 'view_lazada/dashboard'])->pluck('id')->all()
+            Permission::whereIn('key', ['view_lazada', 'view_lazada/overview', 'view_lazada/product', 'view_lazada/brand', 'view_lazada/category', 'view_lazada/category_attribute', 'view_lazada/product_group', 'view_lazada/dashboard'])->pluck('id')->all()
         );
 
         return User::factory()->create(['user_group_id' => $group->id]);
@@ -974,7 +974,7 @@ class WorkspaceInteriorsTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'Lazada Interiors Manager']);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['manage_lazada', 'manage_lazada/dashboard'])->pluck('id')->all()
+            Permission::whereIn('key', ['manage_lazada', 'manage_lazada/overview', 'manage_lazada/product', 'manage_lazada/brand', 'manage_lazada/category', 'manage_lazada/category_attribute', 'manage_lazada/product_group', 'manage_lazada/dashboard'])->pluck('id')->all()
         );
 
         return User::factory()->create(['user_group_id' => $group->id]);
@@ -1725,12 +1725,12 @@ class WorkspaceInteriorsTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    private function tiktokViewer(): User { return $this->tierUser('TikTok Viewer', ['view_tiktok', 'view_tiktok/dashboard']); }
-    private function tiktokManager(): User { return $this->tierUser('TikTok Manager', ['manage_tiktok', 'manage_tiktok/dashboard']); }
-    private function ventaViewer(): User { return $this->tierUser('Venta Viewer', ['view_venta', 'view_venta/dashboard']); }
-    private function ventaManager(): User { return $this->tierUser('Venta Manager', ['manage_venta', 'manage_venta/dashboard']); }
-    private function opencartViewer(): User { return $this->tierUser('OpenCart Viewer', ['view_opencart', 'view_opencart/dashboard']); }
-    private function opencartManager(): User { return $this->tierUser('OpenCart Manager', ['manage_opencart', 'manage_opencart/dashboard']); }
+    private function tiktokViewer(): User { return $this->tierUser('TikTok Viewer', ['view_tiktok', 'view_tiktok/overview', 'view_tiktok/product_group', 'view_tiktok/dashboard']); }
+    private function tiktokManager(): User { return $this->tierUser('TikTok Manager', ['manage_tiktok', 'manage_tiktok/overview', 'manage_tiktok/product_group', 'manage_tiktok/dashboard']); }
+    private function ventaViewer(): User { return $this->tierUser('Venta Viewer', ['view_venta', 'view_venta/overview', 'view_venta/product_group', 'view_venta/dashboard']); }
+    private function ventaManager(): User { return $this->tierUser('Venta Manager', ['manage_venta', 'manage_venta/overview', 'manage_venta/product_group', 'manage_venta/review', 'manage_venta/dashboard']); }
+    private function opencartViewer(): User { return $this->tierUser('OpenCart Viewer', ['view_opencart', 'view_opencart/overview', 'view_opencart/product_group', 'view_opencart/dashboard']); }
+    private function opencartManager(): User { return $this->tierUser('OpenCart Manager', ['manage_opencart', 'manage_opencart/overview', 'manage_opencart/product_group', 'manage_opencart/dashboard']); }
 
     /**
      * Enough of a TikTok settings row that the Connection tab renders every

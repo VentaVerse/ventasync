@@ -7,7 +7,7 @@
     // Reading the list needs view_website_settings|manage_website_settings;
     // every write (create, edit, delete, refresh rates) needs
     // manage_website_settings specifically. See routes/settings.php.
-    $canManageCurrencies = auth()->user()?->hasPermission('manage_website_settings') ?? false;
+    $canManageCurrencies = auth()->user()?->hasPermission('manage_settings/currency') ?? false;
 
     // Never hardcoded: the default currency is whatever the `currencies`
     // table says it is, resolved once per request and cached by Money.

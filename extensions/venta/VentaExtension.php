@@ -72,9 +72,9 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
                     // center at /integrations/venta:{id}, built from exactly
                     // this menu, with these ['store' => id] params carried
                     // through unchanged.
-                    new MenuItem('Settings', 'ext.venta.settings.show', 'view_venta', null, ['store' => $store->id], 'Channel'),
-                    new MenuItem('Product Groups', 'ext.venta.product-groups.index', 'view_venta', null, ['store' => $store->id], 'Catalogue'),
-                    new MenuItem('Orders', 'ext.venta.orders.index', 'view_venta_orders', null, ['store' => $store->id], 'Sell'),
+                    new MenuItem('Settings', 'ext.venta.settings.show', 'view_venta/overview', null, ['store' => $store->id], 'Channel'),
+                    new MenuItem('Product Groups', 'ext.venta.product-groups.index', 'view_venta/product_group', null, ['store' => $store->id], 'Catalogue'),
+                    new MenuItem('Orders', 'ext.venta.orders.index', 'view_venta/order', null, ['store' => $store->id], 'Sell'),
                 ],
                 status: $store->enabled ? 'active' : 'setup_pending',
             );
@@ -98,7 +98,7 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
                 stores: $stores,
                 addStore: new \App\Integrations\AddStoreAction(
                     route: 'ext.venta.stores.store',
-                    permission: 'manage_venta',
+                    permission: 'manage_venta/overview',
                 ),
             ),
         ];
@@ -154,7 +154,7 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
             routeName: 'ext.venta.orders.index',
             // OrderTab visibility uses view tier so a Venta Orders Viewer
             // still sees the per-store tab on the unified Orders workspace.
-            permission: 'view_venta_orders',
+            permission: 'view_venta/order',
             routeParams: ['store' => $storeId],
             /* COUNT THE TABLE THE TABS COUNT.
              *
@@ -384,6 +384,6 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
 
     public function credentialManagePermission(): string
     {
-        return 'manage_venta';
+        return 'manage_venta/overview';
     }
 }

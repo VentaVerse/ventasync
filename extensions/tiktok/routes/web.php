@@ -19,8 +19,11 @@ use Illuminate\Support\Facades\Route;
 // pre-dispatch constraint.
 Route::get('/tiktok/callback', [TikTokController::class, 'callback'])->name('ext.tiktok.callback');
 
-Route::middleware(['auth', 'perm:manage_tiktok'])->group(function () {
-    Route::get('/tiktok/authorize', [TikTokController::class, 'redirectToAuth'])->name('ext.tiktok.authorize');
+Route::middleware(['auth'])->group(function () {
+    Route::get('/tiktok/authorize', [TikTokController::class, 'redirectToAuth'])->name('ext.tiktok.authorize')
+        // A form page is a MANAGE surface even though it is a GET: the old
+        // perm: group said so, and removing the group must not demote it.
+        ->defaults('permission_tier', 'manage');
 });
 
 // ── Tier-aware permission map (Phase 4 of view/manage split) ────────────
@@ -36,7 +39,7 @@ Route::middleware(['auth', 'perm:manage_tiktok'])->group(function () {
 Route::middleware(['auth'])->prefix('channels')->group(function () {
 
     // ── TikTok Settings + Catalog management — READ ─────────────
-    Route::middleware(['perm:view_tiktok|manage_tiktok'])->group(function () {
+    Route::group([], function () {
         // `/tiktok/settings`, not a bare `/tiktok`: /integrations/tiktok is
         // the workspace Overview, registered ahead of every extension route,
         // so a bare channel segment here would never be reached.
@@ -53,7 +56,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     });
 
     // ── TikTok Settings + Catalog WRITES ────────────────────────
-    Route::middleware(['perm:manage_tiktok'])->group(function () {
+    Route::group([], function () {
         // OAuth / token / mode. ext.tiktok.authorize is NOT here: it is one of
         // the two exempt OAuth surfaces registered above, outside this prefix.
         Route::post('/tiktok/save', [TikTokController::class, 'save'])->name('ext.tiktok.save');
@@ -78,7 +81,10 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         Route::post('/tiktok/categories/sync', [TikTokProductGroupController::class, 'syncCategories'])->name('ext.tiktok.categories.sync');
 
         // Product groups — writes
-        Route::get('/tiktok/product-groups/create', [TikTokProductGroupController::class, 'create'])->name('ext.tiktok.product-groups.create');
+        Route::get('/tiktok/product-groups/create', [TikTokProductGroupController::class, 'create'])->name('ext.tiktok.product-groups.create')
+        // A form page is a MANAGE surface even though it is a GET: the old
+        // perm: group said so, and removing the group must not demote it.
+        ->defaults('permission_tier', 'manage');
         Route::post('/tiktok/product-groups', [TikTokProductGroupController::class, 'store'])->name('ext.tiktok.product-groups.store');
         Route::put('/tiktok/product-groups/{id}', [TikTokProductGroupController::class, 'update'])->name('ext.tiktok.product-groups.update');
         Route::delete('/tiktok/product-groups/{id}', [TikTokProductGroupController::class, 'destroy'])->name('ext.tiktok.product-groups.destroy');
@@ -96,7 +102,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     });
 
     // ── TikTok Orders — READ (browse, show, AWB/tracking download) ──
-    Route::middleware(['perm:view_tiktok_orders|manage_tiktok_orders'])->group(function () {
+    Route::group([], function () {
         Route::get('/tiktok/orders', [TikTokOrderController::class, 'index'])->name('ext.tiktok.orders.index');
         Route::get('/tiktok/orders/{id}/show', [TikTokOrderController::class, 'show'])->name('ext.tiktok.orders.show');
         Route::get('/tiktok/orders/{id}/awb', [TikTokOrderController::class, 'awbPdf'])->name('ext.tiktok.orders.awb');
@@ -104,7 +110,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     });
 
     // ── TikTok Orders — WRITE (sync, ship) ──────────────────────
-    Route::middleware(['perm:manage_tiktok_orders'])->group(function () {
+    Route::group([], function () {
         Route::post('/tiktok/orders/fetch', [TikTokOrderController::class, 'fetch'])->name('ext.tiktok.orders.fetch');
         Route::post('/tiktok/orders/update-statuses', [TikTokOrderController::class, 'updateStatuses'])->name('ext.tiktok.orders.updateStatuses');
         Route::post('/tiktok/orders/{id}/ship', [TikTokOrderController::class, 'shipOrder'])->name('ext.tiktok.orders.ship');

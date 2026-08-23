@@ -26,8 +26,11 @@ use Illuminate\Support\Facades\Route;
 // it per the migration ledger's pre-dispatch constraint.
 Route::get('/lazada/callback', [LazadaController::class, 'callback'])->name('lazada.callback');
 
-Route::middleware(['auth', 'perm:manage_lazada'])->group(function () {
-    Route::get('/lazada/authorize', [LazadaController::class, 'redirectToAuth'])->name('ext.lazada.authorize');
+Route::middleware(['auth'])->group(function () {
+    Route::get('/lazada/authorize', [LazadaController::class, 'redirectToAuth'])->name('ext.lazada.authorize')
+        // A form page is a MANAGE surface even though it is a GET: the old
+        // perm: group said so, and removing the group must not demote it.
+        ->defaults('permission_tier', 'manage');
 });
 
 // ── Tier-aware permission map (Phase 3 of view/manage split) ────────────
@@ -53,7 +56,7 @@ Route::middleware(['auth', 'perm:manage_lazada'])->group(function () {
 Route::middleware(['auth'])->prefix('channels')->group(function () {
 
     // ── Lazada Settings + Catalog management ────────────────────
-    Route::middleware(['perm:view_lazada|manage_lazada'])->group(function () {
+    Route::group([], function () {
         // Settings page (renders the screen, no writes).
         //
         // `/lazada/settings`, not a bare `/lazada`: /integrations/lazada is
@@ -97,7 +100,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     });
 
     // ── Lazada Settings + Catalog WRITES ────────────────────────
-    Route::middleware(['perm:manage_lazada'])->group(function () {
+    Route::group([], function () {
         // OAuth / token / mode. ext.lazada.authorize is NOT here: it is one of
         // the two exempt OAuth surfaces registered above, outside this prefix.
         Route::post('/lazada/save', [LazadaController::class, 'save'])->name('ext.lazada.save');
@@ -134,7 +137,10 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         Route::post('/lazada/order/awb/pdf', [LazadaController::class, 'awbPdfGet'])->name('ext.lazada.awb_pdf_get');
 
         // Lazada Product Groups — writes
-        Route::get('/lazada/product-groups/create', [LazadaProductGroupController::class, 'create'])->name('ext.lazada.product-groups.create');
+        Route::get('/lazada/product-groups/create', [LazadaProductGroupController::class, 'create'])->name('ext.lazada.product-groups.create')
+        // A form page is a MANAGE surface even though it is a GET: the old
+        // perm: group said so, and removing the group must not demote it.
+        ->defaults('permission_tier', 'manage');
         Route::post('/lazada/product-groups', [LazadaProductGroupController::class, 'store'])->name('ext.lazada.product-groups.store');
         Route::put('/lazada/product-groups/{id}', [LazadaProductGroupController::class, 'update'])->whereNumber('id')->name('ext.lazada.product-groups.update');
         Route::delete('/lazada/product-groups/{id}', [LazadaProductGroupController::class, 'destroy'])->whereNumber('id')->name('ext.lazada.product-groups.destroy');
@@ -154,9 +160,15 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         Route::post('/lazada/product-groups/fetch-attributes', [LazadaProductGroupController::class, 'fetchAttributesAjax'])->name('ext.lazada.product-groups.fetchAttributes');
 
         // Lazada Products — writes
-        Route::get('/lazada/products/create', [LazadaProductController::class, 'create'])->name('ext.lazada.products.create');
+        Route::get('/lazada/products/create', [LazadaProductController::class, 'create'])->name('ext.lazada.products.create')
+        // A form page is a MANAGE surface even though it is a GET: the old
+        // perm: group said so, and removing the group must not demote it.
+        ->defaults('permission_tier', 'manage');
         Route::post('/lazada/products', [LazadaProductController::class, 'store'])->name('ext.lazada.products.store');
-        Route::get('/lazada/products/{id}/edit', [LazadaProductController::class, 'edit'])->whereNumber('id')->name('ext.lazada.products.edit');
+        Route::get('/lazada/products/{id}/edit', [LazadaProductController::class, 'edit'])->whereNumber('id')->name('ext.lazada.products.edit')
+        // A form page is a MANAGE surface even though it is a GET: the old
+        // perm: group said so, and removing the group must not demote it.
+        ->defaults('permission_tier', 'manage');
         Route::put('/lazada/products/{id}', [LazadaProductController::class, 'update'])->whereNumber('id')->name('ext.lazada.products.update');
         Route::post('/lazada/products/{id}/template/sync', [LazadaProductController::class, 'syncTemplate'])->whereNumber('id')->name('ext.lazada.products.template_sync');
         Route::post('/lazada/products/{id}/attributes', [LazadaProductController::class, 'saveAttributes'])->whereNumber('id')->name('ext.lazada.products.attributes_save');
@@ -195,7 +207,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     // ── Lazada Orders — READ (browse, view show pages, download docs) ──
     // Read-only orders viewer can pull AWB/packing/pick docs because those
     // are server-rendered from already-fetched data, not marketplace pushes.
-    Route::middleware(['perm:view_lazada_orders|manage_lazada_orders'])->group(function () {
+    Route::group([], function () {
         Route::get('/lazada/orders', [LazadaOrderController::class, 'index'])->name('ext.lazada.orders.index');
         Route::get('/lazada/orders/returns', [LazadaOrderController::class, 'returns'])->name('ext.lazada.orders.returns');
         Route::get('/lazada/orders/{orderId}', [LazadaOrderController::class, 'show'])->name('ext.lazada.orders.show');
@@ -216,7 +228,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     });
 
     // ── Lazada Orders — WRITE (sync, pack, ship, cancel) ───────
-    Route::middleware(['perm:manage_lazada_orders'])->group(function () {
+    Route::group([], function () {
         Route::post('/lazada/orders/returns/fetch', [LazadaOrderController::class, 'fetchReturns'])->name('ext.lazada.orders.fetch_returns');
         Route::post('/lazada/orders/fetch', [LazadaOrderController::class, 'fetch'])->name('ext.lazada.orders.fetch');
         Route::post('/lazada/orders/update-statuses', [LazadaOrderController::class, 'updateStatuses'])->name('ext.lazada.orders.update_statuses');

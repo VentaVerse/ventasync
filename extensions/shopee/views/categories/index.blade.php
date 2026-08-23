@@ -14,7 +14,7 @@
     // decides whether the page OFFERS the fetch, nothing more - the route
     // middleware is the real gate. It replaces a hardcoded `true`, which
     // showed every read-only operator a button that 403s.
-    $canManageShopee = auth()->user()?->hasPermission('manage_shopee') ?? false;
+    $canManageShopee = auth()->user()?->hasPermission('manage_shopee/category') ?? false;
 
     $q = (string) ($q ?? '');
     $hasSearch = $q !== '';

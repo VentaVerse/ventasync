@@ -33,13 +33,13 @@
     // nothing would check. Coalesced, because the seller center reads the
     // same flag before this include for its own page header.
     $canManageOcOrders = $canManageOcOrders
-        ?? (auth()->user()?->hasPermission('manage_orders') ?? false);
+        ?? (auth()->user()?->hasPermission('manage_sales/order') ?? false);
 
     // Opening a sales order needs the core read tier. The legacy page linked
     // there from every row regardless, so an operator holding only
     // view_opencart_orders was offered a View button that 403s.
     $canOpenOcOrders = $canOpenOcOrders ?? ($canManageOcOrders
-        || (auth()->user()?->hasPermission('view_orders') ?? false));
+        || (auth()->user()?->hasPermission('view_sales/order') ?? false));
 
     $ocQ = (string) ($filters['q'] ?? '');
     $ocStatusId = (int) ($filters['status'] ?? 0);

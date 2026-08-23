@@ -30,7 +30,7 @@
 @php
     // Read tier on this route is `view_shopee|manage_shopee`; every push,
     // sync, link, unlink and remove below is `manage_shopee`.
-    $canManageShopee = auth()->user()?->hasPermission('manage_shopee') ?? false;
+    $canManageShopee = auth()->user()?->hasPermission('manage_shopee/product_group') ?? false;
 
     $returnTo = request()->getRequestUri();
 

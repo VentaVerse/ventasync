@@ -11,7 +11,7 @@
     // Read tier is `view_lazada|manage_lazada`; the fetch POST is
     // `manage_lazada` only. Replaces a hardcoded `true`, which showed every
     // read-only operator a button the route would refuse.
-    $canManageLazada = auth()->user()?->hasPermission('manage_lazada') ?? false;
+    $canManageLazada = auth()->user()?->hasPermission('manage_lazada/category') ?? false;
 
     $q = (string) ($q ?? '');
     $hasSearch = $q !== '';

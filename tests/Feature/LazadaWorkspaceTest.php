@@ -33,7 +33,7 @@ class LazadaWorkspaceTest extends TestCase
         $group = UserGroup::create(['name' => 'Lazada Workspace Operators']);
 
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_lazada', 'view_lazada/dashboard', 'view_lazada_orders'])
+            Permission::whereIn('key', ['view_lazada', 'view_lazada/dashboard', 'view_lazada_orders', 'view_lazada/overview', 'view_lazada/product', 'view_lazada/brand', 'view_lazada/category', 'view_lazada/category_attribute', 'view_lazada/product_group', 'view_lazada/order'])
                 ->pluck('id')
                 ->all()
         );
@@ -54,7 +54,7 @@ class LazadaWorkspaceTest extends TestCase
         $group = UserGroup::create(['name' => 'Lazada Workspace Order Desk']);
 
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_lazada_orders'])
+            Permission::whereIn('key', ['view_lazada_orders', 'view_lazada/order'])
                 ->pluck('id')
                 ->all()
         );
@@ -378,7 +378,7 @@ class LazadaWorkspaceTest extends TestCase
         $group = UserGroup::create(['name' => 'Lazada Order Desk Managers']);
 
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_lazada', 'view_lazada/dashboard', 'view_lazada_orders', 'manage_lazada_orders'])
+            Permission::whereIn('key', ['view_lazada', 'view_lazada/dashboard', 'view_lazada_orders', 'manage_lazada_orders', 'view_lazada/overview', 'view_lazada/product', 'view_lazada/brand', 'view_lazada/category', 'view_lazada/category_attribute', 'view_lazada/product_group', 'view_lazada/order', 'manage_lazada/order'])
                 ->pluck('id')
                 ->all()
         );

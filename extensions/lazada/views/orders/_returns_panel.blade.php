@@ -27,7 +27,7 @@
     // (perm:manage_lazada_orders on the POST) is the real gate; this flag
     // only stops the page offering a button that would 403. The old page
     // hardcoded it to true and showed a viewer a button that always failed.
-    $canManageLazadaOrders = auth()->user()?->hasPermission('manage_lazada_orders') ?? false;
+    $canManageLazadaOrders = auth()->user()?->hasPermission('manage_lazada/order') ?? false;
 
     $tabs = $tabs ?? [];
     $active_tab = strtoupper((string) ($active_tab ?? 'ALL'));

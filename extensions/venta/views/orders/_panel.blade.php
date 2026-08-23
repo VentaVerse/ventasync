@@ -41,10 +41,10 @@
     // (perm:manage_venta_orders on every write POST) is the real gate; this
     // flag only stops the panel offering controls that would 403.
     $canManageVentaOrders = $canManageVentaOrders
-        ?? (auth()->user()?->hasPermission('manage_venta_orders') ?? false);
+        ?? (auth()->user()?->hasPermission('manage_venta/order') ?? false);
 
-    $canOpenSalesOrders = $canOpenSalesOrders ?? (bool) (auth()->user()?->hasPermission('view_orders')
-        || auth()->user()?->hasPermission('manage_orders'));
+    $canOpenSalesOrders = $canOpenSalesOrders ?? (bool) (auth()->user()?->hasPermission('view_sales/order')
+        || auth()->user()?->hasPermission('manage_sales/order'));
 
     $vtQ = (string) ($filters['q'] ?? '');
     /* The service exposes this as per_page, not perPage. Read under the

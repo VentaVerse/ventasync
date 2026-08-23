@@ -22,7 +22,7 @@
     //
     // Read here rather than left to the panel because the ltrim mirror below
     // branches on it, and because the deck above needs the scope label.
-    $canManageVentaOrders = auth()->user()?->hasPermission('manage_venta_orders') ?? false;
+    $canManageVentaOrders = auth()->user()?->hasPermission('manage_venta/order') ?? false;
 
     // The count in the deck names what is actually listed, so standing on a
     // status filter it says that status rather than the whole store.

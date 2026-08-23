@@ -129,47 +129,22 @@ class PermissionsSyncCatalogue extends Command
     }
 
     /**
-     * old key => [new keys], read straight off the route table.
+     * legacy key => the derived keys that cover what it used to gate.
+     *
+     * FROM THE FROZEN TABLE. This used to be derived live from the perm:
+     * middleware on the route table, and was correct exactly until Phase A
+     * removed those arguments - so the table's last true reading is frozen
+     * in LegacyGrantMap, and this command translates from it. That keeps
+     * the translation available for a database restored from an old backup,
+     * which is the one case that still needs it.
+     *
+     * Tier discipline is inside the table itself: a view_ key maps only to
+     * view_ targets. Never elevate on a migration.
      *
      * @return array<string, array<int, string>>
      */
     public function derivedMap(PermissionCatalogue $catalogue): array
     {
-        $map = [];
-
-        foreach (Route::getRoutes() as $route) {
-            $action = $route->getActionName();
-
-            if (! str_contains($action, '@')) {
-                continue;
-            }
-
-            [$class] = explode('@', $action);
-            $new = $catalogue->keyForController($class);
-
-            if (! $new) {
-                continue;
-            }
-
-            foreach ($route->gatherMiddleware() as $middleware) {
-                if (! is_string($middleware) || ! str_starts_with($middleware, 'perm:')) {
-                    continue;
-                }
-
-                foreach (preg_split('/[,|]/', substr($middleware, 5)) as $old) {
-                    $old = trim($old);
-
-                    if ($old === '') {
-                        continue;
-                    }
-
-                    // Same tier out as in. Never elevate on a migration.
-                    $tier = str_starts_with($old, 'manage_') ? 'manage' : 'view';
-                    $map[$old][$tier . '_' . $new] = true;
-                }
-            }
-        }
-
-        return array_map(fn ($set) => array_keys($set), $map);
+        return \App\Services\LegacyGrantMap::TRANSLATIONS;
     }
 }

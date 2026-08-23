@@ -58,7 +58,7 @@ class ShopeeOrderDetailTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'Shopee Detail Viewers']);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_shopee', 'view_shopee/dashboard', 'view_shopee_orders'])->pluck('id')->all()
+            Permission::whereIn('key', ['view_shopee', 'view_shopee/dashboard', 'view_shopee_orders', 'view_shopee/overview', 'view_shopee/category', 'view_shopee/category_attribute', 'view_shopee/logistics', 'view_shopee/product_group', 'view_shopee/product', 'view_shopee/order'])->pluck('id')->all()
         );
 
         return User::factory()->create(['user_group_id' => $group->id]);
@@ -69,7 +69,7 @@ class ShopeeOrderDetailTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'Shopee Detail Managers']);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_shopee', 'view_shopee/dashboard', 'manage_shopee_orders'])->pluck('id')->all()
+            Permission::whereIn('key', ['view_shopee', 'view_shopee/dashboard', 'manage_shopee_orders', 'view_shopee/overview', 'view_shopee/category', 'view_shopee/category_attribute', 'view_shopee/logistics', 'view_shopee/product_group', 'view_shopee/product', 'manage_shopee/order'])->pluck('id')->all()
         );
 
         return User::factory()->create(['user_group_id' => $group->id]);

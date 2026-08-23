@@ -51,12 +51,15 @@ use Illuminate\Support\Facades\Route;
 // the marketplace, not a link a browser follows. They keep their URIs
 // permanently, which is the documented exception to the workspace-context
 // rule, not a step still to be done.
-Route::middleware(['auth', 'perm:view_shopee|manage_shopee'])->group(function () {
+Route::middleware(['auth'])->group(function () {
     Route::get('/shopee', [ShopeeController::class, 'index'])->name('ext.shopee.index');
 });
 
-Route::middleware(['auth', 'perm:manage_shopee'])->group(function () {
-    Route::get('/shopee/authorize', [ShopeeController::class, 'redirectToShopeeAuth'])->name('ext.shopee.authorize');
+Route::middleware(['auth'])->group(function () {
+    Route::get('/shopee/authorize', [ShopeeController::class, 'redirectToShopeeAuth'])->name('ext.shopee.authorize')
+        // A form page is a MANAGE surface even though it is a GET: the old
+        // perm: group said so, and removing the group must not demote it.
+        ->defaults('permission_tier', 'manage');
 });
 
 // Everything below moves under /integrations. Route NAMES are unchanged; the
@@ -65,7 +68,7 @@ Route::middleware(['auth', 'perm:manage_shopee'])->group(function () {
 Route::middleware(['auth'])->prefix('channels')->group(function () {
 
     // ── Shopee Settings + Catalog management ────────────────────
-    Route::middleware(['perm:view_shopee|manage_shopee'])->group(function () {
+    Route::group([], function () {
         // Catalog browsing (lists, search)
         Route::get('/shopee/categories', [ShopeeCategoryController::class, 'index'])->name('ext.shopee.categories.index');
         Route::get('/shopee/categories/{id}/attributes', [ShopeeCategoryAttributeController::class, 'show'])->name('ext.shopee.categories.attributes.show');
@@ -92,7 +95,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     });
 
     // ── Shopee Settings + Catalog WRITES ────────────────────────
-    Route::middleware(['perm:manage_shopee'])->group(function () {
+    Route::group([], function () {
         // OAuth / token / mode. ext.shopee.authorize is NOT here: it is one of
         // the two exempt OAuth surfaces registered above, outside this prefix.
         Route::post('/shopee/save', [ShopeeController::class, 'save'])->name('ext.shopee.save');
@@ -124,7 +127,10 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         Route::post('/shopee/logistics/fetch', [ShopeeLogisticsController::class, 'fetch'])->name('ext.shopee.logistics.fetch');
 
         // Shopee Product Groups — writes
-        Route::get('/shopee/product-groups/create', [ShopeeProductGroupController::class, 'create'])->name('ext.shopee.product-groups.create');
+        Route::get('/shopee/product-groups/create', [ShopeeProductGroupController::class, 'create'])->name('ext.shopee.product-groups.create')
+        // A form page is a MANAGE surface even though it is a GET: the old
+        // perm: group said so, and removing the group must not demote it.
+        ->defaults('permission_tier', 'manage');
         Route::post('/shopee/product-groups', [ShopeeProductGroupController::class, 'store'])->name('ext.shopee.product-groups.store');
         Route::put('/shopee/product-groups/{id}', [ShopeeProductGroupController::class, 'update'])->name('ext.shopee.product-groups.update');
         Route::delete('/shopee/product-groups/{id}', [ShopeeProductGroupController::class, 'destroy'])->name('ext.shopee.product-groups.destroy');
@@ -150,7 +156,10 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         Route::post('/shopee/product-groups/fetch-attributes', [ShopeeProductGroupController::class, 'fetchAttributesAjax'])->name('ext.shopee.product-groups.fetchAttributes');
 
         // Shopee Products — writes
-        Route::get('/shopee/products/add', [ShopeeProductController::class, 'addProduct'])->name('ext.shopee.products.add');
+        Route::get('/shopee/products/add', [ShopeeProductController::class, 'addProduct'])->name('ext.shopee.products.add')
+        // A form page is a MANAGE surface even though it is a GET: the old
+        // perm: group said so, and removing the group must not demote it.
+        ->defaults('permission_tier', 'manage');
         Route::post('/shopee/products/sync-ids', [ShopeeProductController::class, 'syncProductIds'])->name('ext.shopee.products.sync_ids');
         Route::post('/shopee/products/bulk/push', [ShopeeProductController::class, 'bulkPushToShopee'])->name('ext.shopee.products.bulk_push');
         Route::post('/shopee/products/bulk/sync/quantity', [ShopeeProductController::class, 'bulkSyncQuantity'])->name('ext.shopee.products.bulk_sync_quantity');
@@ -172,7 +181,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     // ── Shopee Orders — READ (browse, view show pages, download docs) ──
     // Read-only orders viewer can pull tracking / AWB / shipping address
     // queries because those are server-rendered from already-fetched data.
-    Route::middleware(['perm:view_shopee_orders|manage_shopee_orders'])->group(function () {
+    Route::group([], function () {
         Route::get('/shopee/orders', [ShopeeOrderController::class, 'index'])->name('ext.shopee.orders.index');
         Route::get('/shopee/orders/returns', [ShopeeOrderController::class, 'returns'])->name('ext.shopee.orders.returns');
         Route::get('/shopee/orders/returns/{returnSn}', [ShopeeOrderController::class, 'returnDetail'])->where('returnSn', '[A-Za-z0-9]+')->name('ext.shopee.orders.return_detail');
@@ -191,7 +200,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     });
 
     // ── Shopee Orders — WRITE (sync, ship, reset) ──────────────
-    Route::middleware(['perm:manage_shopee_orders'])->group(function () {
+    Route::group([], function () {
         Route::post('/shopee/orders/fetch', [ShopeeOrderController::class, 'fetch'])->name('ext.shopee.orders.fetch');
         Route::post('/shopee/orders/update-statuses', [ShopeeOrderController::class, 'updateStatuses'])->name('ext.shopee.orders.update_statuses');
         Route::post('/shopee/orders/reset', [ShopeeOrderController::class, 'reset'])->name('ext.shopee.orders.reset');

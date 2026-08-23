@@ -11,7 +11,7 @@
     // the routes themselves - orders.show is perm:view_orders|manage_orders,
     // every POST/PUT/DELETE below is perm:manage_orders - so the UI now
     // asks the same question the middleware asks.
-    $canManageOrders = auth()->user()?->hasPermission('manage_orders') ?? false;
+    $canManageOrders = auth()->user()?->hasPermission('manage_sales/order') ?? false;
 
     $registry = app(\App\Integrations\IntegrationRegistry::class);
 

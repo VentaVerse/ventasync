@@ -9,7 +9,7 @@
     // Read tier is `view_shopee|manage_shopee`; the fetch POST is
     // `manage_shopee` only. Replaces a hardcoded `true` that offered every
     // read-only operator a button the route would 403.
-    $canManageShopee = auth()->user()?->hasPermission('manage_shopee') ?? false;
+    $canManageShopee = auth()->user()?->hasPermission('manage_shopee/logistics') ?? false;
 
     $enabledCount = $channels->filter(fn ($c) => $c->enabled || $c->force_enable)->count();
 @endphp

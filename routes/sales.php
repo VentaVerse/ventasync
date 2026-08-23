@@ -21,7 +21,7 @@ Route::prefix('sales')->group(function () {
     // write-tier group below (/orders/create, /orders/bulk, etc.) win the
     // match order — otherwise Laravel's first-match-wins router would
     // dispatch them to OrderController@show with id="create".
-    Route::middleware(['perm:view_orders|manage_orders'])->group(function () {
+    Route::group([], function () {
         Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
         Route::get('/orders/search-products', [OrderController::class, 'searchProducts'])->name('orders.search_products');
         Route::get('/orders/{id}', [OrderController::class, 'show'])->whereNumber('id')->name('orders.show');
@@ -29,8 +29,11 @@ Route::prefix('sales')->group(function () {
     });
 
     // ── Orders — WRITE ──
-    Route::middleware(['perm:manage_orders'])->group(function () {
-        Route::get('/orders/create', [OrderController::class, 'create'])->name('orders.create');
+    Route::group([], function () {
+        Route::get('/orders/create', [OrderController::class, 'create'])->name('orders.create')
+        // A form page is a MANAGE surface even though it is a GET: the old
+        // perm: group said so, and removing the group must not demote it.
+        ->defaults('permission_tier', 'manage');
         Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
         Route::post('/orders/{id}/update-product-cost', [OrderController::class, 'updateProductCost'])->whereNumber('id')->name('orders.update_product_cost');
         Route::post('/orders/{id}/backfill-costs', [OrderController::class, 'backfillCosts'])->whereNumber('id')->name('orders.backfill_costs');
@@ -41,7 +44,10 @@ Route::prefix('sales')->group(function () {
         Route::post('/orders/bulk', [OrderController::class, 'bulkAction'])->name('orders.bulk');
         Route::post('/orders/{id}/status', [OrderController::class, 'updateStatus'])->whereNumber('id')->name('orders.update_status');
         Route::post('/orders/{id}/toggle-override', [OrderController::class, 'toggleOverride'])->whereNumber('id')->name('orders.toggle_override');
-        Route::get('/orders/{id}/edit', [OrderController::class, 'edit'])->whereNumber('id')->name('orders.edit');
+        Route::get('/orders/{id}/edit', [OrderController::class, 'edit'])->whereNumber('id')->name('orders.edit')
+        // A form page is a MANAGE surface even though it is a GET: the old
+        // perm: group said so, and removing the group must not demote it.
+        ->defaults('permission_tier', 'manage');
         Route::put('/orders/{id}', [OrderController::class, 'update'])->whereNumber('id')->name('orders.update');
         Route::delete('/orders/{id}', [OrderController::class, 'destroy'])->whereNumber('id')->name('orders.destroy');
         Route::post('/orders/{id}/payments', [OrderController::class, 'storePayment'])->whereNumber('id')->name('orders.store_payment');

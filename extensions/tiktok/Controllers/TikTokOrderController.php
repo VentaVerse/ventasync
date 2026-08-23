@@ -69,7 +69,7 @@ class TikTokOrderController extends Controller
         // manage_tiktok_orders) must never trigger a live API pull + write,
         // even by adding `?refresh=1` themselves. They still get the page
         // rendered from stored data.
-        $canManage = (bool) $request->user()?->hasPermission('manage_tiktok_orders');
+        $canManage = (bool) $request->user()?->hasPermission('manage_tiktok/order');
 
         if ($request->boolean('refresh') && $canManage) {
             try {

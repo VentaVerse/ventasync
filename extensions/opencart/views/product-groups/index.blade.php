@@ -12,7 +12,7 @@
 @php
     // Read tier on this route is `view_opencart|manage_opencart`; create,
     // update and destroy are `manage_opencart`. Replaces a hardcoded `true`.
-    $canManageOpencart = auth()->user()?->hasPermission('manage_opencart') ?? false;
+    $canManageOpencart = auth()->user()?->hasPermission('manage_opencart/product_group') ?? false;
 
     $storeName = $setting->store_name ?: 'Unnamed store';
 @endphp

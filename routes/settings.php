@@ -23,7 +23,7 @@ use App\Http\Controllers\Settings\OrderStatusController;
 Route::prefix('settings')->group(function () {
     // ── Website Settings + Currencies + Extensions + Error Log ─────────
     // Settings + Currencies, READ
-    Route::middleware(['perm:view_website_settings|manage_website_settings'])->group(function () {
+    Route::group([], function () {
         Route::get('/', [SettingsHubController::class, 'index'])->name('settings.hub');
 
         // IA migration (2026-08-08, Task 3), spec decision 4: the once-tabbed
@@ -51,14 +51,20 @@ Route::prefix('settings')->group(function () {
     });
 
     // Settings + Currencies + Extensions, WRITE
-    Route::middleware(['perm:manage_website_settings'])->group(function () {
+    Route::group([], function () {
         Route::post('/', [SettingController::class, 'update'])->name('settings.update');
         Route::post('/mail/test', [SettingController::class, 'sendTestMail'])->name('settings.mail.test');
 
         // Currencies, writes (rate updates, CRUD)
-        Route::get('/currencies/create', [CurrencyController::class, 'create'])->name('currencies.create');
+        Route::get('/currencies/create', [CurrencyController::class, 'create'])->name('currencies.create')
+        // A form page is a MANAGE surface even though it is a GET: the old
+        // perm: group said so, and removing the group must not demote it.
+        ->defaults('permission_tier', 'manage');
         Route::post('/currencies', [CurrencyController::class, 'store'])->name('currencies.store');
-        Route::get('/currencies/{id}/edit', [CurrencyController::class, 'edit'])->name('currencies.edit');
+        Route::get('/currencies/{id}/edit', [CurrencyController::class, 'edit'])->name('currencies.edit')
+        // A form page is a MANAGE surface even though it is a GET: the old
+        // perm: group said so, and removing the group must not demote it.
+        ->defaults('permission_tier', 'manage');
         Route::put('/currencies/{id}', [CurrencyController::class, 'update'])->name('currencies.update');
         Route::delete('/currencies/{id}', [CurrencyController::class, 'destroy'])->name('currencies.destroy');
         Route::post('/currencies/update-rates', [CurrencyController::class, 'updateRates'])->name('currencies.update_rates');
@@ -77,50 +83,68 @@ Route::prefix('settings')->group(function () {
     // ── Error Log, READ ──
     // Error Log is its own resource (separate `view_error_log` / `manage_error_log`
     // tiers). Viewing the log is read; clearing/test-firing are writes.
-    Route::middleware(['perm:view_error_log|manage_error_log'])->group(function () {
+    Route::group([], function () {
         Route::get('/error-log', [ErrorLogController::class, 'index'])->name('error_log.index');
     });
-    Route::middleware(['perm:manage_error_log'])->group(function () {
+    Route::group([], function () {
         Route::post('/error-log/clear', [ErrorLogController::class, 'clear'])->name('error_log.clear');
         Route::post('/error-log/test', [ErrorLogController::class, 'test'])->name('error_log.test');
     });
 
     // ── API Applications (Settings → API), READ ──
-    Route::middleware(['perm:view_api_clients|manage_api_clients'])->group(function () {
+    Route::group([], function () {
         Route::get('/api', [ApiClientController::class, 'index'])->name('api_clients.index');
     });
     // ── API Applications, WRITE ──
-    Route::middleware(['perm:manage_api_clients'])->group(function () {
-        Route::get('/api/create', [ApiClientController::class, 'create'])->name('api_clients.create');
+    Route::group([], function () {
+        Route::get('/api/create', [ApiClientController::class, 'create'])->name('api_clients.create')
+        // A form page is a MANAGE surface even though it is a GET: the old
+        // perm: group said so, and removing the group must not demote it.
+        ->defaults('permission_tier', 'manage');
         Route::post('/api', [ApiClientController::class, 'store'])->name('api_clients.store');
-        Route::get('/api/{apiClient}/edit', [ApiClientController::class, 'edit'])->whereNumber('apiClient')->name('api_clients.edit');
+        Route::get('/api/{apiClient}/edit', [ApiClientController::class, 'edit'])->whereNumber('apiClient')->name('api_clients.edit')
+        // A form page is a MANAGE surface even though it is a GET: the old
+        // perm: group said so, and removing the group must not demote it.
+        ->defaults('permission_tier', 'manage');
         Route::put('/api/{apiClient}', [ApiClientController::class, 'update'])->whereNumber('apiClient')->name('api_clients.update');
         Route::post('/api/{apiClient}/rotate', [ApiClientController::class, 'rotate'])->whereNumber('apiClient')->name('api_clients.rotate');
         Route::delete('/api/{apiClient}', [ApiClientController::class, 'destroy'])->whereNumber('apiClient')->name('api_clients.destroy');
     });
 
     // ── Users, READ ──
-    Route::middleware(['perm:view_users|manage_users'])->group(function () {
+    Route::group([], function () {
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
     });
     // ── Users, WRITE ──
-    Route::middleware(['perm:manage_users'])->group(function () {
-        Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
+    Route::group([], function () {
+        Route::get('/users/create', [UserController::class, 'create'])->name('users.create')
+        // A form page is a MANAGE surface even though it is a GET: the old
+        // perm: group said so, and removing the group must not demote it.
+        ->defaults('permission_tier', 'manage');
         Route::post('/users', [UserController::class, 'store'])->name('users.store');
-        Route::get('/users/{id}/edit', [UserController::class, 'edit'])->name('users.edit');
+        Route::get('/users/{id}/edit', [UserController::class, 'edit'])->name('users.edit')
+        // A form page is a MANAGE surface even though it is a GET: the old
+        // perm: group said so, and removing the group must not demote it.
+        ->defaults('permission_tier', 'manage');
         Route::put('/users/{id}', [UserController::class, 'update'])->name('users.update');
         Route::delete('/users/{id}', [UserController::class, 'destroy'])->name('users.destroy');
     });
 
     // ── User Groups, READ ──
-    Route::middleware(['perm:view_user_groups|manage_user_groups'])->group(function () {
+    Route::group([], function () {
         Route::get('/user-groups', [UserGroupController::class, 'index'])->name('user_groups.index');
     });
     // ── User Groups, WRITE ──
-    Route::middleware(['perm:manage_user_groups'])->group(function () {
-        Route::get('/user-groups/create', [UserGroupController::class, 'create'])->name('user_groups.create');
+    Route::group([], function () {
+        Route::get('/user-groups/create', [UserGroupController::class, 'create'])->name('user_groups.create')
+        // A form page is a MANAGE surface even though it is a GET: the old
+        // perm: group said so, and removing the group must not demote it.
+        ->defaults('permission_tier', 'manage');
         Route::post('/user-groups', [UserGroupController::class, 'store'])->name('user_groups.store');
-        Route::get('/user-groups/{id}/edit', [UserGroupController::class, 'edit'])->name('user_groups.edit');
+        Route::get('/user-groups/{id}/edit', [UserGroupController::class, 'edit'])->name('user_groups.edit')
+        // A form page is a MANAGE surface even though it is a GET: the old
+        // perm: group said so, and removing the group must not demote it.
+        ->defaults('permission_tier', 'manage');
         Route::put('/user-groups/{id}', [UserGroupController::class, 'update'])->name('user_groups.update');
         Route::delete('/user-groups/{id}', [UserGroupController::class, 'destroy'])->name('user_groups.destroy');
     });
@@ -132,15 +156,21 @@ Route::prefix('settings')->group(function () {
     // Statuses" card already points at the name, not the URI, and self-heals).
     // Task 4 completes the move by relocating the physical registration here
     // too (Task 3 deliberately left it in its original position in web.php).
-    Route::middleware(['perm:view_order_statuses|manage_order_statuses'])->group(function () {
+    Route::group([], function () {
         Route::get('/order-statuses', [OrderStatusController::class, 'index'])->name('order_statuses.index');
     });
     // ── Order Statuses, WRITE ──
-    Route::middleware(['perm:manage_order_statuses'])->group(function () {
-        Route::get('/order-statuses/create', [OrderStatusController::class, 'create'])->name('order_statuses.create');
+    Route::group([], function () {
+        Route::get('/order-statuses/create', [OrderStatusController::class, 'create'])->name('order_statuses.create')
+        // A form page is a MANAGE surface even though it is a GET: the old
+        // perm: group said so, and removing the group must not demote it.
+        ->defaults('permission_tier', 'manage');
         Route::post('/order-statuses', [OrderStatusController::class, 'store'])->name('order_statuses.store');
         Route::post('/order-statuses/bulk', [OrderStatusController::class, 'bulkAction'])->name('order_statuses.bulk');
-        Route::get('/order-statuses/{id}/edit', [OrderStatusController::class, 'edit'])->name('order_statuses.edit');
+        Route::get('/order-statuses/{id}/edit', [OrderStatusController::class, 'edit'])->name('order_statuses.edit')
+        // A form page is a MANAGE surface even though it is a GET: the old
+        // perm: group said so, and removing the group must not demote it.
+        ->defaults('permission_tier', 'manage');
         Route::put('/order-statuses/{id}', [OrderStatusController::class, 'update'])->name('order_statuses.update');
         Route::delete('/order-statuses/{id}', [OrderStatusController::class, 'destroy'])->name('order_statuses.destroy');
     });
@@ -148,6 +178,6 @@ Route::prefix('settings')->group(function () {
 
 // /api/currencies never carried the /settings segment: kept as its
 // original full literal, outside the prefix group.
-Route::middleware(['perm:view_website_settings|manage_website_settings'])->group(function () {
+Route::group([], function () {
     Route::get('/api/currencies', [CurrencyController::class, 'lookup'])->name('api.currencies');
 });

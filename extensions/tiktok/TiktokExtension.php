@@ -90,10 +90,10 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                 // the dashboard's door gives, or the menu offers a 404.
                 permission: 'view_tiktok/dashboard',
                 menu: [
-                    new MenuItem('Orders', 'ext.tiktok.orders.index', 'view_tiktok_orders', group: 'Sell'),
-                    new MenuItem('Product Groups', 'ext.tiktok.product-groups.index', 'view_tiktok', group: 'Catalogue'),
-                    new MenuItem('Categories', 'ext.tiktok.categories.index', 'view_tiktok', group: 'Catalogue'),
-                    new MenuItem('Settings', 'ext.tiktok.index', 'view_tiktok', group: 'Channel'),
+                    new MenuItem('Orders', 'ext.tiktok.orders.index', 'view_tiktok/order', group: 'Sell'),
+                    new MenuItem('Product Groups', 'ext.tiktok.product-groups.index', 'view_tiktok/product_group', group: 'Catalogue'),
+                    new MenuItem('Categories', 'ext.tiktok.categories.index', 'view_tiktok/product_group', group: 'Catalogue'),
+                    new MenuItem('Settings', 'ext.tiktok.index', 'view_tiktok/overview', group: 'Channel'),
                 ],
             ),
         ];
@@ -111,7 +111,7 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                 // OrderTab visibility uses view tier so a TikTok Orders Viewer
                 // still sees the marketplace's orders tab on the unified Orders
                 // workspace.
-                permission: 'view_tiktok_orders',
+                permission: 'view_tiktok/order',
                 unprocessedCounter: function () {
                     if (!Schema::hasTable('tiktok_orders')) {
                         return 0;
@@ -531,6 +531,6 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
 
     public function credentialManagePermission(): string
     {
-        return 'manage_tiktok';
+        return 'manage_tiktok/overview';
     }
 }

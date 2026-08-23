@@ -46,5 +46,39 @@ abstract class TestCase extends BaseTestCase
         }
 
         parent::setUp();
+
+        $this->seedLegacyPermissionRows();
+    }
+
+    /**
+     * TRANSITION SCAFFOLDING - dies in Phase D with LegacyGrantMap.
+     *
+     * Production still carries the retired scheme's permission rows (the
+     * one-vocabulary plan deletes them in Phase D, after soak), and dozens
+     * of tests build groups that hold them - deliberately, because a
+     * pre-rebuild group keeping its access IS the behaviour under test.
+     * Nothing creates those rows any more: the manifest permission sync
+     * that used to is gone. So the fresh test schema gets them here, from
+     * the same frozen table the door's shim reads, keeping the tests on
+     * exactly the rows production has.
+     */
+    private function seedLegacyPermissionRows(): void
+    {
+        try {
+            if (! \Illuminate\Support\Facades\Schema::hasTable('permissions')) {
+                return;
+            }
+
+            $legacy = array_keys(\App\Services\LegacyGrantMap::TRANSLATIONS);
+            $existing = \Illuminate\Support\Facades\DB::table('permissions')
+                ->whereIn('key', $legacy)->pluck('key')->all();
+
+            foreach (array_diff($legacy, $existing) as $key) {
+                \Illuminate\Support\Facades\DB::table('permissions')->insert(['key' => $key]);
+            }
+        } catch (\Throwable) {
+            // A test that boots without a usable database (the destructive-
+            // command guard) must not fail here instead of where it means to.
+        }
     }
 }

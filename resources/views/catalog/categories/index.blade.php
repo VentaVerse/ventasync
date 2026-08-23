@@ -8,7 +8,7 @@
     // manage_categories are real, distinct route-middleware tiers here
     // (routes/catalog.php), so the manage check is a genuine permission
     // read rather than a hardcoded true.
-    $canManageCategories = auth()->user()?->hasPermission('manage_categories') ?? false;
+    $canManageCategories = auth()->user()?->hasPermission('manage_catalog/category') ?? false;
 
     $hasFilters = $q !== '';
 @endphp

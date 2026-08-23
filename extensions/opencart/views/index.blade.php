@@ -27,7 +27,7 @@
     // below (save, delete, test, sync, push, push qty, sync window, review
     // settings, password unlock, fetch statuses, save mapping) is
     // `manage_opencart`. Replaces a hardcoded `true`.
-    $canManageOpencart = auth()->user()?->hasPermission('manage_opencart') ?? false;
+    $canManageOpencart = auth()->user()?->hasPermission('manage_opencart/overview') ?? false;
 
     // showSettings() always hands over exactly one store and $singleStore =
     // true, so three pieces of the pre-redesign page were unreachable markup on

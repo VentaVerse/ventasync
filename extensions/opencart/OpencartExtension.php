@@ -79,9 +79,9 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                     // center at /integrations/opencart:{id}, built from
                     // exactly this menu, with these ['store' => id] params
                     // carried through unchanged.
-                    new MenuItem('Settings', 'ext.opencart.settings.show', 'view_opencart', null, ['store' => $store->id], 'Channel'),
-                    new MenuItem('Product Groups', 'ext.opencart.product-groups.index', 'view_opencart', null, ['store' => $store->id], 'Catalogue'),
-                    new MenuItem('Orders', 'ext.opencart.orders.index', 'view_opencart_orders', null, ['store' => $store->id], 'Sell'),
+                    new MenuItem('Settings', 'ext.opencart.settings.show', 'view_opencart/overview', null, ['store' => $store->id], 'Channel'),
+                    new MenuItem('Product Groups', 'ext.opencart.product-groups.index', 'view_opencart/product_group', null, ['store' => $store->id], 'Catalogue'),
+                    new MenuItem('Orders', 'ext.opencart.orders.index', 'view_opencart/order', null, ['store' => $store->id], 'Sell'),
                 ],
                 status: $store->enabled ? 'active' : 'setup_pending',
             );
@@ -103,11 +103,11 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                 // the dashboard's door gives, or the menu offers a 404.
                 permission: 'view_opencart/dashboard',
                 menu: [
-                    new MenuItem('Reviews', 'ext.opencart.reviews.index', 'view_reviews'),
+                    new MenuItem('Reviews', 'ext.opencart.reviews.index', 'view_opencart/review'),
                 ],
                 addStore: new \App\Integrations\AddStoreAction(
                     route: 'ext.opencart.stores.store',
-                    permission: 'manage_opencart',
+                    permission: 'manage_opencart/overview',
                 ),
                 stores: $stores,
             ),
@@ -163,7 +163,7 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
             accent: '#1f8fea',
             routeName: 'ext.opencart.orders.index',
             // OrderTab visibility uses view tier.
-            permission: 'view_opencart_orders',
+            permission: 'view_opencart/order',
             routeParams: ['store' => $storeId],
             unprocessedCounter: function () use ($marketplaceSource, $orderTable) {
                 if (!Schema::hasTable($orderTable)) {
@@ -453,6 +453,6 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
 
     public function credentialManagePermission(): string
     {
-        return 'manage_opencart';
+        return 'manage_opencart/overview';
     }
 }

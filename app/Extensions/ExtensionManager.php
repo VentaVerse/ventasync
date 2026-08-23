@@ -181,7 +181,8 @@ class ExtensionManager
             ]
         );
 
-        $this->syncPermissions($id);
+        $this->registerProviderNow($id);
+        $this->syncPermissions();
         $this->clearCache();
 
         return true;
@@ -236,7 +237,15 @@ class ExtensionManager
 
         $extension->update(['enabled' => true]);
 
-        $this->syncPermissions($id);
+        /* REGISTER THE PROVIDER NOW, NOT NEXT REQUEST.
+         *
+         * Permission rows derive from the route table, and an extension
+         * enabled mid-request has not loaded its routes yet - the old
+         * manifest-based sync did not care, the derived one does. Loading
+         * the provider here also means the extension is usable the moment
+         * the admin clicks Enable, instead of one full request later. */
+        $this->registerProviderNow($id);
+        $this->syncPermissions();
         $this->clearCache();
 
         return true;
@@ -317,20 +326,16 @@ class ExtensionManager
     }
 
     /**
-     * Pull permission keys out of a manifest's "permissions" array,
-     * accepting both legacy string form and the new object form
-     * ({key, parent?, subgroup?, label?}).
-     *
-     * @return string[]
-     */
-    /**
      * Every permission key anything on disk still claims.
      *
-     * The union of config/permissions.php and every extension manifest
-     * present in the extensions directory - INCLUDING DISABLED ONES, because
-     * a disabled extension is coming back and its groups' grants have to
-     * survive the trip. Only an extension whose folder is gone stops
-     * claiming its keys.
+     * The route-derived catalogue plus config/permissions.php plus the
+     * label file. Manifests no longer declare permissions - an extension
+     * claims keys by having routes. A DISABLED extension's routes are
+     * absent, so its exact keys cannot be derived here; every extension
+     * present on disk instead claims its whole area by prefix
+     * ({tier}_{id}/...) in orphanedPermissionKeys(), because a disabled
+     * extension is coming back and its groups' grants have to survive the
+     * trip. Only an extension whose folder is GONE stops claiming.
      *
      * @return array<int, string>
      */
@@ -357,9 +362,11 @@ class ExtensionManager
          * purpose and a key left behind. */
         $keys = array_merge($keys, array_keys((array) trans('permissions')));
 
-        foreach ($this->getManifests() as $manifest) {
-            $keys = array_merge($keys, $this->permissionKeys($manifest));
-        }
+        /* Manifests no longer declare permissions - routes do (the
+         * catalogue read above already claims every extension's keys). The
+         * merge that used to sit here is gone with the manifest blocks; the
+         * legacy keys they declared are now claimed only by the label file,
+         * exactly until Phase D retires the labels and the rows together. */
 
         return array_values(array_unique(array_filter($keys, 'is_string')));
     }
@@ -392,9 +399,33 @@ class ExtensionManager
 
         $claimed = array_flip($this->claimedPermissionKeys());
 
+        /* An extension on disk claims its whole area, enabled or not. A
+         * disabled extension has no routes to derive exact keys from, but
+         * deleting its rows would take its groups' grants with them - and
+         * it is coming back. The area prefix is exactly the shape
+         * removePermissions() deletes on UNINSTALL, when the claim really
+         * does end. */
+        $areaPrefixes = array_map(
+            fn ($id) => [\Illuminate\Support\Str::snake($id) . '/'],
+            array_keys($this->getManifests())
+        );
+        $areaPrefixes = array_merge(...($areaPrefixes ?: [[]]));
+
+        $claimedByArea = function (string $key) use ($areaPrefixes): bool {
+            foreach (['view_', 'manage_'] as $tier) {
+                foreach ($areaPrefixes as $prefix) {
+                    if (str_starts_with($key, $tier . $prefix)) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        };
+
         $orphans = DB::table('permissions')
             ->pluck('key')
-            ->filter(fn ($key) => !isset($claimed[$key]))
+            ->filter(fn ($key) => !isset($claimed[$key]) && !$claimedByArea($key))
             ->values()
             ->all();
 
@@ -426,18 +457,6 @@ class ExtensionManager
         return count($ids);
     }
 
-    private function permissionKeys(array $manifest): array
-    {
-        $keys = [];
-        foreach ($manifest['permissions'] ?? [] as $perm) {
-            if (is_string($perm)) {
-                $keys[] = $perm;
-            } elseif (is_array($perm) && !empty($perm['key']) && is_string($perm['key'])) {
-                $keys[] = $perm['key'];
-            }
-        }
-        return $keys;
-    }
 
     /**
      * Sync core permission rows declared in config/permissions.php.
@@ -489,33 +508,40 @@ class ExtensionManager
      * Insert permission rows declared in the extension manifest.
      * Grants them to the Administrator group automatically.
      */
-    public function syncPermissions(string $id): void
+    /**
+     * Bring the permissions table up to date with the route table.
+     *
+     * AN EXTENSION CONTRIBUTES PERMISSIONS BY HAVING ROUTES - NOTHING ELSE.
+     * This used to ingest each manifest's "permissions" array, which is how
+     * the application ended up speaking two permission vocabularies at once:
+     * 55 declared keys gating cards, tabs and dashboards that the
+     * route-derived editor could not grant. The manifest blocks are gone;
+     * every key now derives from a controller that answers a real route,
+     * and a key cannot exist for a screen that is gone.
+     *
+     * New keys are granted to the Administrator group, which by definition
+     * holds everything. Never removes anything - pruning is a deliberate,
+     * reported act (permissions:reconcile), not a boot side effect.
+     */
+    public function syncPermissions(): void
     {
         if (!Schema::hasTable('permissions')) {
             return;
         }
 
-        $manifest = $this->getManifest($id);
-        $keys = $this->permissionKeys($manifest);
+        $wanted = app(\App\Services\PermissionCatalogue::class)->keys();
+        $existing = DB::table('permissions')->whereIn('key', $wanted)->pluck('key')->all();
+        $missing = array_diff($wanted, $existing);
 
-        if (empty($keys)) {
+        if ($missing === []) {
             return;
         }
 
         $adminGroupId = DB::table('user_groups')->where('name', 'Administrator')->value('id');
 
-        foreach ($keys as $key) {
-            $existing = DB::table('permissions')->where('key', $key)->first();
+        foreach ($missing as $key) {
+            $permId = DB::table('permissions')->insertGetId(['key' => $key]);
 
-            if (!$existing) {
-                $permId = DB::table('permissions')->insertGetId([
-                    'key' => $key,
-                ]);
-            } else {
-                $permId = $existing->id;
-            }
-
-            // Grant to Administrator group
             if ($adminGroupId) {
                 DB::table('user_group_permissions')->updateOrInsert([
                     'user_group_id' => $adminGroupId,
@@ -524,9 +550,22 @@ class ExtensionManager
             }
         }
 
-        // Permission hierarchy depends on manifest contents; bust the
-        // cached tree so the next request rebuilds with the new keys.
+        // Cached hierarchy must pick up the new keys.
         app(\App\Services\PermissionHierarchy::class)->invalidate();
+    }
+
+    /**
+     * Register an extension's provider into the running application, so its
+     * routes exist before anything derives from them. Safe to call twice:
+     * the container ignores a provider it already holds.
+     */
+    protected function registerProviderNow(string $id): void
+    {
+        $providerClass = $this->getProviderClass($id);
+
+        if ($providerClass && class_exists($providerClass)) {
+            app()->register($providerClass);
+        }
     }
 
     /**
@@ -539,14 +578,15 @@ class ExtensionManager
             return;
         }
 
-        $manifest = $this->getManifest($id);
-        $keys = $this->permissionKeys($manifest);
-
-        if (empty($keys)) {
-            return;
-        }
-
-        $permIds = DB::table('permissions')->whereIn('key', $keys)->pluck('id')->all();
+        // The extension's keys are the ones its area owns: {tier}_{id}/...
+        // Derived rather than read from the manifest, because the manifest
+        // no longer declares permissions - routes do, and this extension's
+        // routes are going away with it.
+        $permIds = DB::table('permissions')
+            ->where('key', 'like', 'view\_' . $id . '/%')
+            ->orWhere('key', 'like', 'manage\_' . $id . '/%')
+            ->pluck('id')
+            ->all();
 
         if (!empty($permIds)) {
             DB::table('user_group_permissions')->whereIn('permission_id', $permIds)->delete();

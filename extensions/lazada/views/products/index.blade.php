@@ -15,7 +15,7 @@
     // dismiss, unlink and delete below is `manage_lazada`. Replaces a
     // hardcoded `true` that showed a read-only operator five bulk buttons and
     // seven row actions, all of which the route middleware would refuse.
-    $canManageLazada = auth()->user()?->hasPermission('manage_lazada') ?? false;
+    $canManageLazada = auth()->user()?->hasPermission('manage_lazada/product') ?? false;
 
     $q = (string) ($q ?? '');
     $syncStatus = (string) ($syncStatus ?? 'all');

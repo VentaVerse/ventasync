@@ -8,7 +8,7 @@
     // clearing and test-firing are manage_error_log. The pre-redesign view
     // hardcoded this to true and showed a read-tier operator a red Clear
     // button that would bounce.
-    $canManage = auth()->user()?->hasPermission('manage_error_log') ?? false;
+    $canManage = auth()->user()?->hasPermission('manage_settings/error_log') ?? false;
 
     // AppServiceProvider's handler writes one line per error, always in this
     // shape:

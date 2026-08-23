@@ -169,8 +169,10 @@
     $rangeHeading = $ranges[$range]['heading'] ?? $ranges['30d']['heading'];
     $rangeTitle = $ranges[$range]['title'] ?? $ranges['30d']['title'];
 
+    // Same tier the old broad manage_purchasing key asked: the card leads
+    // to the purchase-orders page, so its own manage key is the gate.
     $canSeePurchasing = RouteFacade::has('ext.purchasing.purchase_orders.index')
-        && $user?->hasPermission('manage_purchasing');
+        && $user?->hasPermission('manage_purchasing/purchase_order');
 @endphp
 
 @section('content')

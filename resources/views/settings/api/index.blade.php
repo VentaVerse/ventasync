@@ -6,7 +6,7 @@
 @php
     // Reading needs view_api_clients|manage_api_clients; every write needs
     // manage_api_clients. See routes/settings.php.
-    $canManage = auth()->user()?->hasPermission('manage_api_clients') ?? false;
+    $canManage = auth()->user()?->hasPermission('manage_settings/api_client') ?? false;
 
     // The plaintext token exists for exactly one request, flashed by
     // ApiClientController after create or rotate. It is never stored in

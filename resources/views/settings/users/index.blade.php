@@ -9,7 +9,7 @@
     // reachable state here. The pre-redesign view hardcoded
     // $canManageUsers = true, which offered Edit and Delete to a read-tier
     // operator and let the route bounce them afterwards.
-    $canManageUsers = auth()->user()?->hasPermission('manage_users') ?? false;
+    $canManageUsers = auth()->user()?->hasPermission('manage_settings/user') ?? false;
 
     $hasFilters = ($q ?? '') !== '';
     $currentUserId = auth()->id();

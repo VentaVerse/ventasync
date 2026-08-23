@@ -5,7 +5,7 @@
 @php
     // Real, distinct route-middleware tiers here (routes/catalog.php), same
     // as Categories - unlike the documented view_products gap.
-    $canManageManufacturers = auth()->user()?->hasPermission('manage_manufacturers') ?? false;
+    $canManageManufacturers = auth()->user()?->hasPermission('manage_catalog/manufacturer') ?? false;
 
     $hasFilters = $q !== '';
 @endphp

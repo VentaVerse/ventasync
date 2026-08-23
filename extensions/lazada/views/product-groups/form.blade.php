@@ -33,7 +33,7 @@
     // (extensions/lazada/routes/web.php), so a view_lazada operator can open
     // this page on an existing group and every write behind it would 403.
     // The previous version hardcoded the manage tier on.
-    $canManageLazada = auth()->user()?->hasPermission('manage_lazada') ?? false;
+    $canManageLazada = auth()->user()?->hasPermission('manage_lazada/product_group') ?? false;
 
     $selectedCategoryId = (string) old('lazada_category_id', $group->lazada_category_id ?? '');
 

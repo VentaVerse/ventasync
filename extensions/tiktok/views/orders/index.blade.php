@@ -24,7 +24,7 @@
     // carried, which showed a read-only operator a command bar and a Ship
     // button that all 403 on submit. Reading the permission is what the
     // flag was written for.
-    $canManageTiktokOrders = auth()->user()?->hasPermission('manage_tiktok_orders') ?? false;
+    $canManageTiktokOrders = auth()->user()?->hasPermission('manage_tiktok/order') ?? false;
 
     $tabs = $tabs ?? [];
     $active_tab = strtoupper((string) ($active_tab ?? 'ALL'));

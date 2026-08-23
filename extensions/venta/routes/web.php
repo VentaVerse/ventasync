@@ -28,7 +28,7 @@ use Illuminate\Support\Facades\Route;
 //
 // Route NAMES are unchanged throughout. Venta has no OAuth surface: it
 // authenticates with a stored API token, so nothing here is exempt.
-Route::middleware(['auth', 'perm:view_venta|manage_venta'])->prefix('channels')->group(function () {
+Route::middleware(['auth'])->prefix('channels')->group(function () {
     // Settings (renders the screen; per-store config is loaded into a form)
     Route::get('/venta/{store}/settings', [VentaController::class, 'showSettings'])->name('ext.venta.settings.show');
 
@@ -52,7 +52,7 @@ Route::middleware(['auth', 'perm:view_venta|manage_venta'])->prefix('channels')-
 });
 
 // ── Venta Settings + Catalog — WRITES ───────────────────────────
-Route::middleware(['auth', 'perm:manage_venta'])->prefix('channels')->group(function () {
+Route::middleware(['auth'])->prefix('channels')->group(function () {
     // "Add New Store" modal target — creates a row with name + base_url only.
     Route::post('/venta/stores', [VentaController::class, 'createStore'])->name('ext.venta.stores.store');
 
@@ -70,7 +70,10 @@ Route::middleware(['auth', 'perm:manage_venta'])->prefix('channels')->group(func
     Route::post('/venta/fetch-brands', [VentaController::class, 'fetchBrands'])->name('ext.venta.fetch_brands');
 
     // Product Groups — writes (create, update, destroy, push)
-    Route::get('/venta/{store}/product-groups/create', [VentaProductGroupController::class, 'create'])->name('ext.venta.product-groups.create');
+    Route::get('/venta/{store}/product-groups/create', [VentaProductGroupController::class, 'create'])->name('ext.venta.product-groups.create')
+        // A form page is a MANAGE surface even though it is a GET: the old
+        // perm: group said so, and removing the group must not demote it.
+        ->defaults('permission_tier', 'manage');
     Route::post('/venta/{store}/product-groups', [VentaProductGroupController::class, 'store'])->name('ext.venta.product-groups.store');
     Route::put('/venta/{store}/product-groups/{group}', [VentaProductGroupController::class, 'update'])->name('ext.venta.product-groups.update');
     Route::delete('/venta/{store}/product-groups/{group}', [VentaProductGroupController::class, 'destroy'])->name('ext.venta.product-groups.destroy');
@@ -99,19 +102,19 @@ Route::middleware(['auth', 'perm:manage_venta'])->prefix('channels')->group(func
 });
 
 // ── Venta Orders — READ ─────────────────────────────────────────
-Route::middleware(['auth', 'perm:view_venta_orders|manage_venta_orders'])->prefix('channels')->group(function () {
+Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::get('/venta/{store}/orders', [VentaOrderController::class, 'index'])->name('ext.venta.orders.index');
 });
 
 // ── Venta Orders — WRITES ───────────────────────────────────────
-Route::middleware(['auth', 'perm:manage_venta_orders'])->prefix('channels')->group(function () {
+Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::post('/venta/{store}/orders/fetch', [VentaOrderController::class, 'fetch'])->name('ext.venta.orders.fetch');
     Route::delete('/venta/{store}/orders/{order}', [VentaOrderController::class, 'destroy'])->name('ext.venta.orders.destroy');
     Route::post('/venta/{store}/orders/bulk-delete', [VentaOrderController::class, 'bulkDelete'])->name('ext.venta.orders.bulk_delete');
 });
 
 // Venta Reviews (push marketplace reviews to Venta stores) — write tier
-Route::middleware(['auth', 'perm:manage_venta'])->prefix('channels')->group(function () {
+Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::post('/venta/reviews/{id}/push', [VentaReviewController::class, 'push'])->name('ext.venta.reviews.push')->whereNumber('id');
     Route::post('/venta/reviews/push-all', [VentaReviewController::class, 'pushAll'])->name('ext.venta.reviews.push_all');
 });

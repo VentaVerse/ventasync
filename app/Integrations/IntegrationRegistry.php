@@ -70,11 +70,11 @@ class IntegrationRegistry
      * visibleCards() answers "may this user be shown this channel", which is
      * the right question on the status board and in the channel picker. It is
      * the wrong question when a route has already authorised the request: a
-     * user holding only view_shopee_orders is explicitly allowed through
-     * perm:view_shopee_orders|manage_shopee_orders on /shopee/orders, yet the
-     * Shopee card itself declares view_shopee, and this app removed
-     * parent/child permission cascades, so the card gate would deny a page
-     * the route just granted. Callers that already hold an authorisation
+     * user holding only view_shopee/order is admitted to /shopee/orders by
+     * the door (EnsureControllerPermission), yet the Shopee card itself
+     * declares view_shopee/dashboard, and this app removed parent/child
+     * permission cascades, so the card gate would deny a page the door just
+     * granted. Callers that already hold an authorisation
      * decision use this and let the route stay the authority.
      *
      * Nothing here is a permission bypass: the enable and license gates still

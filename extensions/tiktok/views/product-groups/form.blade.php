@@ -28,7 +28,7 @@
     // (extensions/tiktok/routes/web.php), so a view_tiktok operator can open
     // this page on an existing group. The previous version hardcoded the
     // manage tier on and offered a Save button that would 403.
-    $canManageTiktok = auth()->user()?->hasPermission('manage_tiktok') ?? false;
+    $canManageTiktok = auth()->user()?->hasPermission('manage_tiktok/product_group') ?? false;
 
     $selectedCategoryId = (string) old('tiktok_category_id', $group->tiktok_category_id ?? '');
     $selectedCategory = $selectedCategoryId !== ''

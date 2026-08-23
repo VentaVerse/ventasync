@@ -8,7 +8,7 @@
     // (view_website_settings|manage_website_settings); install, toggle,
     // reinstall and uninstall are all manage_website_settings. The
     // pre-redesign page offered every one of them to a read-tier operator.
-    $canManage = auth()->user()?->hasPermission('manage_website_settings') ?? false;
+    $canManage = auth()->user()?->hasPermission('manage_settings/extension') ?? false;
 
     // ExtensionManager::all() is the whole inventory: one entry per
     // extensions/*/extension.json on disk, merged with the `extensions`

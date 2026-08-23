@@ -377,7 +377,7 @@ class ShopeeProductGroupController extends Controller
         // It still runs for a manager, because adopting a link created on
         // another page is genuinely useful, and it is recorded below rather
         // than happening in silence.
-        $canWriteBackfill = auth()->user()?->hasPermission('manage_shopee') ?? false;
+        $canWriteBackfill = auth()->user()?->hasPermission('manage_shopee/product_group') ?? false;
 
         $pivotProductIds = $products->pluck('product_id')->toArray();
         if ($canWriteBackfill && !empty($pivotProductIds)) {

@@ -417,7 +417,7 @@ class TikTokProductGroupController extends Controller
         // A WRITE inside a GET. Gated on the manage tier, so an operator
         // holding only view_tiktok reads the page without mutating rows. See
         // the same guard in ShopeeProductGroupController::products().
-        $canWriteBackfill = auth()->user()?->hasPermission('manage_tiktok') ?? false;
+        $canWriteBackfill = auth()->user()?->hasPermission('manage_tiktok/product_group') ?? false;
 
         if ($canWriteBackfill && !empty($productIds)) {
             $missingPivots = TikTokProductGroupProduct::query()

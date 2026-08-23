@@ -72,8 +72,16 @@ class OrderPrintController extends Controller
         $slug = self::PERMISSIONS[$channel];
         $user = $request->user();
 
+        /* THE SAME KEY THE CHANNEL'S OWN ORDERS SCREEN DERIVES.
+         *
+         * This asked the legacy view_{slug}_orders while the channel screen's
+         * door asked view_{slug}/order, so the same orders gave two answers:
+         * a group granted Lazada orders in the editor could read them in the
+         * seller center and be refused their pick list here. One key, both
+         * surfaces. View tier suffices - these lists are reads - and manage
+         * implies view, so an operator with the write tier prints too. */
         abort_unless(
-            $user?->hasPermission('view_'.$slug.'_orders') || $user?->hasPermission('manage_'.$slug.'_orders'),
+            $user?->hasPermission('view_'.$slug.'/order'),
             403
         );
 

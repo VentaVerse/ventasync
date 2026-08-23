@@ -224,7 +224,7 @@ class LazadaOrderController extends Controller
         // check this explicitly rather than relying on the param. A
         // view-tier operator (view_lazada_orders without manage_lazada_orders)
         // always gets the page rendered from stored data.
-        $canManage = (bool) $request->user()?->hasPermission('manage_lazada_orders');
+        $canManage = (bool) $request->user()?->hasPermission('manage_lazada/order');
 
         if ($hasCreds && $canManage && $needsDetail) {
             try {

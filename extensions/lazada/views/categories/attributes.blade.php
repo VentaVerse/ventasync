@@ -24,7 +24,7 @@
 @php
     // The GET is `view_lazada|manage_lazada`; the fetch POST is
     // `manage_lazada` (extensions/lazada/routes/web.php).
-    $canManageLazada = auth()->user()?->hasPermission('manage_lazada') ?? false;
+    $canManageLazada = auth()->user()?->hasPermission('manage_lazada/category_attribute') ?? false;
 
     $attributes = $attributes ?? [];
     $requiredCount = collect($attributes)->filter(fn ($a) => !empty($a['required']))->count();

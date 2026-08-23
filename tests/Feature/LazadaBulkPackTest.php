@@ -69,7 +69,7 @@ class LazadaBulkPackTest extends TestCase
      */
     public function test_a_read_only_operator_cannot_pack_a_selection(): void
     {
-        $viewer = $this->userWith(['view_lazada', 'view_lazada/dashboard', 'view_lazada_orders']);
+        $viewer = $this->userWith(['view_lazada', 'view_lazada/dashboard', 'view_lazada_orders', 'view_lazada/overview', 'view_lazada/product', 'view_lazada/brand', 'view_lazada/category', 'view_lazada/category_attribute', 'view_lazada/product_group', 'view_lazada/order']);
 
         $this->actingAs($viewer)
             ->post(route('ext.lazada.orders.bulk_pack_print'), ['ids' => [1, 2, 3]])
@@ -85,7 +85,7 @@ class LazadaBulkPackTest extends TestCase
      */
     public function test_a_read_only_operator_may_still_print_waybills(): void
     {
-        $viewer = $this->userWith(['view_lazada', 'view_lazada/dashboard', 'view_lazada_orders']);
+        $viewer = $this->userWith(['view_lazada', 'view_lazada/dashboard', 'view_lazada_orders', 'view_lazada/overview', 'view_lazada/product', 'view_lazada/brand', 'view_lazada/category', 'view_lazada/category_attribute', 'view_lazada/product_group', 'view_lazada/order']);
 
         $response = $this->actingAs($viewer)
             ->post(route('ext.lazada.orders.bulk_awb'), ['ids' => [1, 2, 3]]);
@@ -97,7 +97,7 @@ class LazadaBulkPackTest extends TestCase
 
     public function test_someone_with_no_lazada_permission_reaches_neither(): void
     {
-        $outsider = $this->userWith(['view_products']);
+        $outsider = $this->userWith(['view_products', 'view_catalog/manufacturer', 'view_catalog/category', 'view_api/catalog', 'view_catalog/product', 'view_catalog/product_image']);
 
         $this->actingAs($outsider)
             ->post(route('ext.lazada.orders.bulk_pack_print'), ['ids' => [1]])
@@ -117,7 +117,7 @@ class LazadaBulkPackTest extends TestCase
      */
     public function test_more_than_fifty_orders_is_refused_with_an_instruction(): void
     {
-        $manager = $this->userWith(['view_lazada', 'view_lazada/dashboard', 'manage_lazada_orders']);
+        $manager = $this->userWith(['view_lazada', 'view_lazada/dashboard', 'manage_lazada_orders', 'view_lazada/overview', 'view_lazada/product', 'view_lazada/brand', 'view_lazada/category', 'view_lazada/category_attribute', 'view_lazada/product_group', 'manage_lazada/order']);
 
         $response = $this->actingAs($manager)
             ->from('/channels/lazada/orders')
@@ -133,7 +133,7 @@ class LazadaBulkPackTest extends TestCase
 
     public function test_an_empty_selection_is_refused_before_anything_is_packed(): void
     {
-        $manager = $this->userWith(['view_lazada', 'view_lazada/dashboard', 'manage_lazada_orders']);
+        $manager = $this->userWith(['view_lazada', 'view_lazada/dashboard', 'manage_lazada_orders', 'view_lazada/overview', 'view_lazada/product', 'view_lazada/brand', 'view_lazada/category', 'view_lazada/category_attribute', 'view_lazada/product_group', 'manage_lazada/order']);
 
         $this->actingAs($manager)
             ->from('/channels/lazada/orders')
@@ -153,7 +153,7 @@ class LazadaBulkPackTest extends TestCase
      */
     public function test_a_non_numeric_id_is_rejected_rather_than_queried(): void
     {
-        $manager = $this->userWith(['view_lazada', 'view_lazada/dashboard', 'manage_lazada_orders']);
+        $manager = $this->userWith(['view_lazada', 'view_lazada/dashboard', 'manage_lazada_orders', 'view_lazada/overview', 'view_lazada/product', 'view_lazada/brand', 'view_lazada/category', 'view_lazada/category_attribute', 'view_lazada/product_group', 'manage_lazada/order']);
 
         $this->actingAs($manager)
             ->from('/channels/lazada/orders')

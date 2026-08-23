@@ -30,7 +30,7 @@
 @php
     // Read tier on this route is `view_tiktok|manage_tiktok`; every push,
     // sync, link, unlink and remove below is `manage_tiktok`.
-    $canManageTiktok = auth()->user()?->hasPermission('manage_tiktok') ?? false;
+    $canManageTiktok = auth()->user()?->hasPermission('manage_tiktok/product_group') ?? false;
 
     $returnTo = request()->getRequestUri();
 

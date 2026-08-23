@@ -35,7 +35,7 @@
     // `manage_shopee` (extensions/shopee/routes/web.php), so a read-tier
     // operator can reach this page. The previous version offered them the
     // whole form and a Push button that would 403.
-    $canManageShopee = auth()->user()?->hasPermission('manage_shopee') ?? false;
+    $canManageShopee = auth()->user()?->hasPermission('manage_shopee/product') ?? false;
 
     $selectedCategoryId = (int) old('category_id', $groupCategoryId ?? 0);
 

@@ -14,7 +14,7 @@
     // dismiss and delete below is `manage_shopee`. Replaces a hardcoded
     // `true` that showed a read-only operator five bulk buttons and eight
     // row actions, all of which the route middleware would 403.
-    $canManageShopee = auth()->user()?->hasPermission('manage_shopee') ?? false;
+    $canManageShopee = auth()->user()?->hasPermission('manage_shopee/product') ?? false;
 
     $q = (string) ($q ?? '');
     $syncStatus = (string) ($syncStatus ?? 'all');

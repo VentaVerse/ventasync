@@ -49,7 +49,7 @@
     // persists, ship triggers a marketplace state change). The route
     // middleware is the real gate (perm:manage_shopee_orders on the ship
     // POST); this flag only stops the page offering what would 403.
-    $canManageShopeeOrders = auth()->user()?->hasPermission('manage_shopee_orders') ?? false;
+    $canManageShopeeOrders = auth()->user()?->hasPermission('manage_shopee/order') ?? false;
 
     // Tone and label from the same maps the orders list uses, so a status
     // means the same colour and reads the same words on both surfaces. No

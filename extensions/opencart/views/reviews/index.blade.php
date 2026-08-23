@@ -10,7 +10,7 @@
     // `view_reviews|manage_reviews`, so a read-tier operator gets here and
     // must not be shown a control the middleware would turn away. Replaces
     // a hardcoded `$canManageReviews = true`.
-    $canManage = auth()->user()?->hasPermission('manage_reviews') ?? false;
+    $canManage = auth()->user()?->hasPermission('manage_opencart/review') ?? false;
 
     $hasFilters = $q !== '' || $rating > 0 || $syncStatus !== '' || $hasMedia !== '' || $dateFrom !== '' || $dateTo !== '';
 

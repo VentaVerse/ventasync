@@ -13,7 +13,7 @@
     // Lazada's Product Groups page gates its own: that form exists only to be
     // saved, and the PUT behind it is manage-only, so offering it to an
     // operator who cannot submit it is offering a dead end.
-    $canManageTiktok = auth()->user()?->hasPermission('manage_tiktok') ?? false;
+    $canManageTiktok = auth()->user()?->hasPermission('manage_tiktok/product_group') ?? false;
 @endphp
 
 <div class="cc-page">

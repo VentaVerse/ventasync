@@ -32,7 +32,7 @@
     // below stay here because this view reads them itself before the
     // include: $canManageLazadaOrders in the ltrim whitespace mirror further
     // down, and the rest in the page title's subtitle.
-    $canManageLazadaOrders = auth()->user()?->hasPermission('manage_lazada_orders') ?? false;
+    $canManageLazadaOrders = auth()->user()?->hasPermission('manage_lazada/order') ?? false;
 
     $tabs = $tabs ?? [];
     $active_tab = strtoupper((string) ($active_tab ?? 'ALL'));

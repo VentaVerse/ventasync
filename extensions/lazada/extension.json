@@ -6,12 +6,6 @@
     "author": "VentaSync",
     "tier": "community",
     "license_required": false,
-    "permissions": [
-        {"key": "view_lazada",          "parent": "manage_marketplace_api", "subgroup": "Lazada", "tiers": ["view","manage"]},
-        {"key": "manage_lazada",        "parent": "manage_marketplace_api", "subgroup": "Lazada", "tiers": ["view","manage"]},
-        {"key": "view_lazada_orders",   "parent": "manage_marketplace_api", "subgroup": "Lazada", "tiers": ["view","manage"]},
-        {"key": "manage_lazada_orders", "parent": "manage_marketplace_api", "subgroup": "Lazada", "tiers": ["view","manage"]}
-    ],
     "tables": [
         "lazada_settings",
         "lazada_api_logs",

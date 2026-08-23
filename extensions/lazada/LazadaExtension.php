@@ -82,22 +82,22 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                 accent: '#0f146d',
                 // Card + menu use the VIEW tier so read-only operators still
                 // see Lazada in the Integrations hub and contextual sidebar.
-                // User::hasPermission('view_lazada') returns true for users who
-                // hold either view_lazada OR manage_lazada (cascade), so
-                // managers are not excluded by tightening this gate.
+                // User::hasPermission('view_lazada/dashboard') is satisfied by the
+                // view or the manage tier (manage implies view), so managers
+                // are not excluded by tightening this gate.
                 // The dashboard's own derived key (lazada/dashboard), not the
                 // legacy view_lazada: the card decides who sees this channel
                 // in the hub and the nav, and that must be the same answer
                 // the dashboard's door gives, or the menu offers a 404.
                 permission: 'view_lazada/dashboard',
                 menu: [
-                    new MenuItem('Orders', 'ext.lazada.orders.index', 'view_lazada_orders', null, ['tab' => 'TO_SHIP'], 'Sell'),
-                    new MenuItem('Returns', 'ext.lazada.orders.returns', 'view_lazada_orders', group: 'Sell'),
-                    new MenuItem('Listings', 'ext.lazada.products.index', 'view_lazada', group: 'Catalogue'),
-                    new MenuItem('Product Groups', 'ext.lazada.product-groups.index', 'view_lazada', group: 'Catalogue'),
-                    new MenuItem('Categories', 'ext.lazada.categories.index', 'view_lazada', group: 'Catalogue'),
-                    new MenuItem('Brands', 'ext.lazada.brands.index', 'view_lazada', group: 'Catalogue'),
-                    new MenuItem('Settings', 'ext.lazada.index', 'view_lazada', group: 'Channel'),
+                    new MenuItem('Orders', 'ext.lazada.orders.index', 'view_lazada/order', null, ['tab' => 'TO_SHIP'], 'Sell'),
+                    new MenuItem('Returns', 'ext.lazada.orders.returns', 'view_lazada/order', group: 'Sell'),
+                    new MenuItem('Listings', 'ext.lazada.products.index', 'view_lazada/product', group: 'Catalogue'),
+                    new MenuItem('Product Groups', 'ext.lazada.product-groups.index', 'view_lazada/product_group', group: 'Catalogue'),
+                    new MenuItem('Categories', 'ext.lazada.categories.index', 'view_lazada/category', group: 'Catalogue'),
+                    new MenuItem('Brands', 'ext.lazada.brands.index', 'view_lazada/brand', group: 'Catalogue'),
+                    new MenuItem('Settings', 'ext.lazada.index', 'view_lazada/overview', group: 'Channel'),
                 ],
             ),
         ];
@@ -116,7 +116,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                 // still sees the marketplace's orders tab on the unified Orders
                 // workspace. The destination route GETs are read-tier gated,
                 // and per-action write buttons are gated separately in the view.
-                permission: 'view_lazada_orders',
+                permission: 'view_lazada/order',
                 routeParams: ['tab' => 'TO_SHIP'],
                 unprocessedCounter: function () {
                     if (!Schema::hasTable('lazada_orders')) {
@@ -697,6 +697,6 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
 
     public function credentialManagePermission(): string
     {
-        return 'manage_lazada';
+        return 'manage_lazada/overview';
     }
 }

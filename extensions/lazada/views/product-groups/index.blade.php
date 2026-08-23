@@ -8,7 +8,7 @@
 @php
     // Read tier is `view_lazada|manage_lazada`; create, edit and destroy are
     // all `manage_lazada`. Replaces a hardcoded `true`.
-    $canManageLazada = auth()->user()?->hasPermission('manage_lazada') ?? false;
+    $canManageLazada = auth()->user()?->hasPermission('manage_lazada/product_group') ?? false;
 @endphp
 
 <div class="cc-page">

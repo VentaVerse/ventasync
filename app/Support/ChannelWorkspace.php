@@ -911,13 +911,39 @@ class ChannelWorkspace
             return false;
         }
 
-        $routePermission = Navigation::permissionFor($item->routeName);
+        /* THE ROUTE'S OWN GATE IS THE DOOR'S, not the retired perm:
+         * middleware. Same mirror Navigation::allows() holds - derived key
+         * from the route's controller, view tier for a GET, the door's
+         * legacy fallback included - but against the $user THIS method was
+         * handed, because callers here pass the user explicitly rather than
+         * reading the session. */
+        $action = (string) $route->getActionName();
 
-        if ($routePermission !== null && ! $this->holdsAny($user, $routePermission)) {
-            return false;
+        if (! str_contains($action, '@')) {
+            return true;
         }
 
-        return true;
+        [$class] = explode('@', $action);
+        $catalogue = app(\App\Services\PermissionCatalogue::class);
+        $key = $catalogue->keyForController($class);
+
+        if ($key === null) {
+            return true; // never gated: gates per item inside
+        }
+
+        $tier = $route->defaults['permission_tier'] ?? 'view';
+
+        if ($user->hasPermission($tier . '_' . $key)) {
+            return true;
+        }
+
+        foreach ($catalogue->legacyKeysFor($class)[$tier] ?? [] as $legacy) {
+            if ($user->hasPermission($legacy)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** Same pipe-delimited any-match parsing EnsurePermission uses. */

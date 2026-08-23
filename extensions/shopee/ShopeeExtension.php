@@ -82,22 +82,22 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
                 accent: '#ee4d2d',
                 // Card + menu use the VIEW tier so read-only operators still
                 // see Shopee in the Integrations hub and contextual sidebar.
-                // User::hasPermission('view_shopee') returns true for users who
-                // hold either view_shopee OR manage_shopee (cascade), so
-                // managers are not excluded by tightening this gate.
+                // User::hasPermission('view_shopee/dashboard') is satisfied by the
+                // view or the manage tier (manage implies view), so managers
+                // are not excluded by tightening this gate.
                 // The dashboard's own derived key (shopee/dashboard), not the
                 // legacy view_shopee: the card decides who sees this channel
                 // in the hub and the nav, and that must be the same answer
                 // the dashboard's door gives, or the menu offers a 404.
                 permission: 'view_shopee/dashboard',
                 menu: [
-                    new MenuItem('Orders', 'ext.shopee.orders.index', 'view_shopee_orders', group: 'Sell'),
-                    new MenuItem('Returns', 'ext.shopee.orders.returns', 'view_shopee_orders', group: 'Sell'),
-                    new MenuItem('Listings', 'ext.shopee.products.index', 'view_shopee', group: 'Catalogue'),
-                    new MenuItem('Product Groups', 'ext.shopee.product-groups.index', 'view_shopee', group: 'Catalogue'),
-                    new MenuItem('Categories', 'ext.shopee.categories.index', 'view_shopee', group: 'Catalogue'),
-                    new MenuItem('Logistics', 'ext.shopee.logistics.index', 'view_shopee', group: 'Channel'),
-                    new MenuItem('Settings', 'ext.shopee.index', 'view_shopee', group: 'Channel'),
+                    new MenuItem('Orders', 'ext.shopee.orders.index', 'view_shopee/order', group: 'Sell'),
+                    new MenuItem('Returns', 'ext.shopee.orders.returns', 'view_shopee/order', group: 'Sell'),
+                    new MenuItem('Listings', 'ext.shopee.products.index', 'view_shopee/product', group: 'Catalogue'),
+                    new MenuItem('Product Groups', 'ext.shopee.product-groups.index', 'view_shopee/product_group', group: 'Catalogue'),
+                    new MenuItem('Categories', 'ext.shopee.categories.index', 'view_shopee/category', group: 'Catalogue'),
+                    new MenuItem('Logistics', 'ext.shopee.logistics.index', 'view_shopee/logistics', group: 'Channel'),
+                    new MenuItem('Settings', 'ext.shopee.index', 'view_shopee/overview', group: 'Channel'),
                 ],
             ),
         ];
@@ -116,7 +116,7 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
                 // still sees the marketplace's orders tab on the unified Orders
                 // workspace. The destination route GETs are read-tier gated,
                 // and per-action write buttons are gated separately in the view.
-                permission: 'view_shopee_orders',
+                permission: 'view_shopee/order',
                 unprocessedCounter: function () {
                     if (!Schema::hasTable('shopee_orders')) {
                         return 0;
@@ -621,6 +621,6 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
 
     public function credentialManagePermission(): string
     {
-        return 'manage_shopee';
+        return 'manage_shopee/overview';
     }
 }

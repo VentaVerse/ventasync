@@ -83,7 +83,7 @@ class OrderDetailTest extends TestCase
      */
     private function viewer(): User
     {
-        Permission::firstOrCreate(['key' => 'view_orders']);
+        Permission::firstOrCreate(['key' => 'view_sales/order']);
 
         $group = UserGroup::create(['name' => 'Order Viewers']);
         $group->permissions()->attach(
@@ -98,7 +98,7 @@ class OrderDetailTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'Order Managers']);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['manage_orders'])->pluck('id')->all()
+            Permission::whereIn('key', ['manage_orders', 'manage_api/order', 'manage_sales/order'])->pluck('id')->all()
         );
 
         return User::factory()->create(['user_group_id' => $group->id]);
