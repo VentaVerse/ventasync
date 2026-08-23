@@ -1616,6 +1616,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/shopee/products/fetch-attributes",
+        "name": "ext.shopee.products.fetchAttributes"
+    },
+    {
+        "method": "POST",
         "uri": "channels/shopee/products/rebuild-cache",
         "name": "ext.shopee.products.rebuild_cache"
     },

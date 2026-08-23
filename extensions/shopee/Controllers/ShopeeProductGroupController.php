@@ -633,7 +633,26 @@ class ShopeeProductGroupController extends Controller
             ->where('shopee_product_group_id', $groupId)
             ->pluck('value', 'attribute_key')
             ->toArray();
-        if (empty($savedByKey)) {
+
+        return $this->attributeListFromSaved($savedByKey, $categoryId);
+    }
+
+    /**
+     * Resolve saved attribute values against the category's cached template
+     * into the attribute_list shape add_item / update_item expect. Shared
+     * with the LISTING pushes (#98), which hold their values on
+     * shopee_listings.attribute_values.
+     *
+     * Saved values are looked up by attribute id FIRST, then by name. The
+     * form has always posted attributes[<attribute_id>] (that is the key
+     * the template rows carry), but this resolver used to read by display
+     * NAME only - so every value saved under an id silently vanished from
+     * the payload and group pushes sent an empty attribute_list. Found
+     * while re-homing the form onto the listing (2026-08-24).
+     */
+    public function attributeListFromSaved(array $savedByKey, int $categoryId): array
+    {
+        if (empty($savedByKey) || $categoryId <= 0) {
             return [];
         }
 
@@ -657,7 +676,7 @@ class ShopeeProductGroupController extends Controller
             $attrKey = (string) ($attr['display_attribute_name'] ?? $attr['original_attribute_name'] ?? $attr['attribute_name'] ?? '');
             if ($attrId <= 0 || $attrKey === '') continue;
 
-            $value = trim((string) ($savedByKey[$attrKey] ?? ''));
+            $value = trim((string) ($savedByKey[(string) $attrId] ?? $savedByKey[$attrKey] ?? ''));
             if ($value === '') continue;
 
             // Determine input shape: enum (one of attribute_value_list) vs free text.
@@ -694,6 +713,71 @@ class ShopeeProductGroupController extends Controller
         }
 
         return $out;
+    }
+
+    /**
+     * The category's cached attribute sheet, normalized for rendering, plus
+     * the template row itself. Shared with the listing page.
+     */
+    public function normalizedAttributesFor(int $categoryId): array
+    {
+        $template = $categoryId > 0
+            ? ShopeeCategoryTemplate::query()->where('category_id', $categoryId)->first()
+            : null;
+
+        return [
+            'template' => $template,
+            'attributes' => $template ? $this->extractAttributes($template->attributes) : [],
+        ];
+    }
+
+    /**
+     * Fetch and cache the category's attribute tree when it has never been
+     * read. Quiet on failure by design: the caller renders whatever the
+     * cache holds, and the operator can re-pick the category to retry.
+     */
+    public function ensureTemplate(int $categoryId, ShopeeClient $client): void
+    {
+        if ($categoryId <= 0 || ShopeeCategoryTemplate::query()->where('category_id', $categoryId)->exists()) {
+            return;
+        }
+
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            return;
+        }
+
+        try {
+            $result = $client->shopGet(
+                $auth['mode'],
+                (int) $auth['partner_id'], (string) $auth['partner_key'],
+                (string) $auth['access_token'], (int) $auth['shop_id'],
+                '/api/v2/product/get_attribute_tree',
+                ['category_id' => $categoryId, 'language' => $auth['region'] ?: 'en']
+            );
+        } catch (\Throwable) {
+            return;
+        }
+
+        if (!($result['ok'] ?? false)) {
+            return;
+        }
+
+        $body = $result['body'] ?? null;
+        $response = is_array($body) ? ($body['response'] ?? $body) : null;
+        $attrList = is_array($response)
+            ? ($response['attribute_list'] ?? $response['attribute_tree'] ?? $response['attributes'] ?? null)
+            : null;
+
+        ShopeeCategoryTemplate::query()->updateOrCreate(
+            ['category_id' => $categoryId],
+            [
+                'region' => (string) ($auth['region'] ?? ''),
+                'attributes' => $attrList ?? ($response ?? $body),
+                'fetched_at' => now(),
+            ]
+        );
     }
 
     /**

@@ -585,6 +585,14 @@ class ShopeeProductController extends Controller
             'brand' => ['brand_id' => 0, 'original_brand_name' => 'No Brand'],
         ];
 
+        // Answers already held on the listing ride a form push too (#98).
+        $existingListing = ShopeeListing::query()->where('product_id', $productId)->first();
+        $attributeList = app(ShopeeProductGroupController::class)
+            ->attributeListFromSaved($existingListing?->attribute_values ?? [], (int) $request->input('category_id'));
+        if (!empty($attributeList)) {
+            $payload['attribute_list'] = $attributeList;
+        }
+
         $path = '/api/v2/product/add_item';
         $result = $client->shopPost(
             $auth['mode'],
@@ -835,6 +843,13 @@ class ShopeeProductController extends Controller
             'brand' => ['brand_id' => 0, 'original_brand_name' => 'No Brand'],
         ];
 
+        // The listing's answers to the category's attribute sheet (#98).
+        $attributeList = app(ShopeeProductGroupController::class)
+            ->attributeListFromSaved($listing->attribute_values ?? [], (int) $listing->shopee_category_id);
+        if (!empty($attributeList)) {
+            $payload['attribute_list'] = $attributeList;
+        }
+
         $path = '/api/v2/product/add_item';
         $result = $client->shopPost(
             $auth['mode'],
@@ -1026,6 +1041,13 @@ class ShopeeProductController extends Controller
                 'logistic_info' => $logisticInfo,
                 'brand' => ['brand_id' => 0, 'original_brand_name' => 'No Brand'],
             ];
+
+            // The listing's attribute answers ride the bulk push too (#98).
+            $attributeList = app(ShopeeProductGroupController::class)
+                ->attributeListFromSaved($listing->attribute_values ?? [], (int) $listing->shopee_category_id);
+            if (!empty($attributeList)) {
+                $payload['attribute_list'] = $attributeList;
+            }
 
             $path = '/api/v2/product/add_item';
             $result = $client->shopPost(
@@ -2701,6 +2723,11 @@ class ShopeeProductController extends Controller
         return app(ShopeeProductGroupController::class)->categoryLookup($request);
     }
 
+    public function fetchAttributes(Request $request, ShopeeClient $client)
+    {
+        return app(ShopeeProductGroupController::class)->fetchAttributesAjax($request, $client);
+    }
+
     // ── The individual listing page (quest 1, 2026-08-24) ──────────────
     //
     // One product on Shopee, presented the way the seller center presents
@@ -2752,12 +2779,41 @@ class ShopeeProductController extends Controller
         }
 
 
+        /* The category's attribute sheet (#98): what Shopee's own form
+         * would ask for this category, read from the marketplace once and
+         * cached. Fetched here when never read, so the section appears the
+         * first time an operator lands on a listing whose category we have
+         * not seen - the mirrored form, not a hardcoded one. */
+        $categoryId = (int) ($listing->shopee_category_id ?? 0);
+        $groupController = app(ShopeeProductGroupController::class);
+        if ($categoryId > 0) {
+            $groupController->ensureTemplate($categoryId, app(ShopeeClient::class));
+        }
+        $sheet = $groupController->normalizedAttributesFor($categoryId);
+        $savedAttributes = $listing->attribute_values ?? [];
+
+        $missingRequiredAttributes = [];
+        foreach ($sheet['attributes'] as $attr) {
+            if (empty($attr['required'])) {
+                continue;
+            }
+            $key = (string) ($attr['key'] ?? '');
+            $value = trim((string) ($savedAttributes[$key] ?? $savedAttributes[$attr['name']] ?? ''));
+            if ($value === '') {
+                $missingRequiredAttributes[] = (string) $attr['name'];
+            }
+        }
+
         return view('ext-shopee::listings.edit', [
             'product' => $product,
             'listing' => $listing,
             'link' => $link,
             'live' => $live,
             'liveError' => $liveError,
+            'attrTemplate' => $sheet['template'],
+            'attrRows' => $sheet['attributes'],
+            'savedAttributes' => $savedAttributes,
+            'missingRequiredAttributes' => $missingRequiredAttributes,
             'logistics' => $this->fetchLogistics(),
         ]);
     }
@@ -2782,6 +2838,8 @@ class ShopeeProductController extends Controller
             'package_length' => 'nullable|integer|min:1|max:1000000',
             'package_width' => 'nullable|integer|min:1|max:1000000',
             'package_height' => 'nullable|integer|min:1|max:1000000',
+            'attributes' => 'nullable|array',
+            'attributes.*' => 'nullable|string|max:500',
         ]);
 
         /* Content fields are OVERRIDES: an emptied field returns to null,
@@ -2803,6 +2861,12 @@ class ShopeeProductController extends Controller
                 'package_length' => $blank($data['package_length'] ?? null),
                 'package_width' => $blank($data['package_width'] ?? null),
                 'package_height' => $blank($data['package_height'] ?? null),
+                // Only answered attributes are kept; an emptied field is
+                // simply no longer an answer.
+                'attribute_values' => array_filter(
+                    array_map(fn ($v) => trim((string) $v), $data['attributes'] ?? []),
+                    fn ($v) => $v !== ''
+                ) ?: null,
             ]
         );
 
@@ -2877,6 +2941,13 @@ class ShopeeProductController extends Controller
                 fn ($lid) => ['logistic_id' => (int) $lid, 'enabled' => true],
                 $listing->logistic_ids
             );
+        }
+        if ($listing && $listing->shopee_category_id) {
+            $attributeList = app(ShopeeProductGroupController::class)
+                ->attributeListFromSaved($listing->attribute_values ?? [], (int) $listing->shopee_category_id);
+            if (!empty($attributeList)) {
+                $payload['attribute_list'] = $attributeList;
+            }
         }
 
         $path = '/api/v2/product/update_item';

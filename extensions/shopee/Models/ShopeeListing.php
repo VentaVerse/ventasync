@@ -17,13 +17,14 @@ class ShopeeListing extends Model
         'product_id',
         'shopee_category_id', 'shopee_brand_id', 'logistic_ids',
         'markup_percent', 'markup_fixed',
-        'item_name', 'description', 'weight',
+        'item_name', 'description', 'attribute_values', 'weight',
         'package_length', 'package_width', 'package_height',
         'last_pushed_at', 'last_push_source', 'last_push_settings',
     ];
 
     protected $casts = [
         'logistic_ids' => 'array',
+        'attribute_values' => 'array',
         'last_push_settings' => 'array',
         'last_pushed_at' => 'datetime',
         'markup_percent' => 'float',

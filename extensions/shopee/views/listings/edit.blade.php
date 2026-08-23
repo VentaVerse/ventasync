@@ -49,6 +49,12 @@
     if (!$listing || !$listing->shopee_category_id) $missing[] = 'a Shopee category';
     if (!$listing || empty($listing->logistic_ids)) $missing[] = 'at least one courier';
     if (empty($product->image)) $missing[] = 'a product image on the catalogue product';
+    if (!empty($missingRequiredAttributes)) {
+        $missing[] = 'answers for ' . count($missingRequiredAttributes) . ' required '
+            . \Illuminate\Support\Str::plural('attribute', count($missingRequiredAttributes))
+            . ' (' . implode(', ', array_slice($missingRequiredAttributes, 0, 5))
+            . (count($missingRequiredAttributes) > 5 ? ' and more' : '') . ')';
+    }
 @endphp
 
 <div class="fm-page">
@@ -273,6 +279,32 @@
                     </div>
                 </section>
 
+                {{-- ── The category's own attribute sheet (#98) ────────
+                     What Shopee's form would ask for this category:
+                     required-ness, option lists and free-text fields read
+                     from the marketplace's published template, never
+                     hardcoded. Same partial and same wire as the group
+                     form; picking a different category above reloads it. --}}
+                <section class="fm-section"
+                         data-attributes-fetch
+                         data-attributes-url="{{ route('ext.shopee.products.fetchAttributes') }}"
+                         data-attributes-field="shopee_category_id"
+                         data-attributes-source="#sl-category-value"
+                         @if(empty($attrRows) && !$attrTemplate) hidden @endif>
+                    <div class="fm-section__head">
+                        <h2 class="fm-section__title">Category attributes</h2>
+                    </div>
+                    <p class="fm-section__note">What Shopee asks for this category. Answers are saved with the listing and go with every push. Required ones block nothing here, but Shopee refuses a push without them.</p>
+                    <div data-attributes-target>
+                        @include('ext-shopee::product-groups._attributes', [
+                            'attributes' => $attrRows,
+                            'saved' => $savedAttributes,
+                            'template' => $attrTemplate,
+                            'canManage' => $canManage,
+                        ])
+                    </div>
+                </section>
+
             </div>
 
             <div class="fm-col fm-col--side">
@@ -288,7 +320,7 @@
                                  data-combo-search-url="{{ route('ext.shopee.products.searchCategories') }}"
                                  data-combo-lookup-url="{{ route('ext.shopee.products.categoryLookup') }}">
                                 <div class="gf-combo__field">
-                                    <input type="hidden" name="shopee_category_id" data-combo-value
+                                    <input type="hidden" id="sl-category-value" name="shopee_category_id" data-combo-value
                                            value="{{ $selectedCategoryId > 0 ? $selectedCategoryId : '' }}">
                                     <x-ui.input id="sl-category" type="search" autocomplete="off"
                                                 data-combo-input
