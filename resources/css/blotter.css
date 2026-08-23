@@ -1045,6 +1045,16 @@
         cursor: pointer;
     }
 
+    /* A disabled button LOOKS disabled. The pager's Previous on page one of
+       one rendered pixel-identical to the live Next beside it - flagged in
+       two critiques running. Not display:none, because a pager that loses
+       buttons as you reach its ends jumps around under the cursor. */
+    .x-btn:disabled {
+        opacity: .45;
+        cursor: default;
+        pointer-events: none;
+    }
+
     .x-btn--primary {
         background: var(--bl-ink);
         border-color: var(--bl-ink);

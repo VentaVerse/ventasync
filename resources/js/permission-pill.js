@@ -116,6 +116,12 @@
             counterSay.textContent = granted + ' of ' + counterTotal + ' areas granted';
         }
 
+        const zeroHint = picker.querySelector('[data-permv2="zerohint"]');
+
+        if (zeroHint) {
+            zeroHint.hidden = granted !== 0;
+        }
+
         /* The confirmation names what is actually about to go, because the
            number changes as the operator works and a fixed message would be
            wrong the moment they touched a pill. Read at click time by
@@ -262,6 +268,12 @@
     }
 
     groups.forEach((group) => {
+        /* The restore baseline is wherever the group STARTED, not only
+           where the operator clicked it. Without this seed, one search
+           popped the machine areas open permanently - their collapse came
+           from the server, so the click handler had never recorded it. */
+        group.dataset.userCollapsed = group.dataset.collapsed;
+
         const head = group.querySelector('.permv2-group-toggle');
         if (!head) return;
         head.addEventListener('click', () => {
@@ -360,11 +372,12 @@
 
     function explainQuery(q) {
         const why = picker.querySelector('[data-permv2="why"]');
-        if (!why) return;
+        if (!why) return false;
         const hit = q.length >= 3
             && SELF_GATED.find((e) => e.words.some((w) => w.startsWith(q) || q.startsWith(w)));
         why.textContent = hit ? hit.says : '';
         why.hidden = !hit;
+        return !!hit;
     }
 
     // ---------------------------------------------------------------- search
@@ -400,8 +413,11 @@
                 setCollapsed(group, group.dataset.userCollapsed === '1');
             }
         });
-        picker.dataset.empty = (q !== '' && !anyVisible) ? '1' : '0';
-        explainQuery(q);
+        /* When the explanatory note is answering ("the fulfilment hub is
+           not one permission..."), a second line saying "Nothing matches"
+           argues with it. The note alone is the answer. */
+        const explained = explainQuery(q);
+        picker.dataset.empty = (q !== '' && !anyVisible && !explained) ? '1' : '0';
         refreshConfirms();
     }
 
@@ -516,6 +532,20 @@
         if (name === 'operator') return isSettingsKey(base) ? 'off' : target('manage');
         if (name === 'administrator') return target('manage');
         return null;
+    }
+
+    /* THE STICKY OFFSET IS MEASURED, NOT ASSUMED. The area heads pin just
+       below the toolbar, and the toolbar's height changes when it wraps at
+       tablet widths - a hardcoded offset left every head 23px underneath
+       it there. One observer keeps the CSS variable equal to reality. */
+    const toolbar = picker.querySelector('.permv2-toolbar');
+
+    if (toolbar && 'ResizeObserver' in window) {
+        const setToolbarHeight = () => {
+            picker.style.setProperty('--permv2-toolbar-h', Math.ceil(toolbar.getBoundingClientRect().height) + 'px');
+        };
+        new ResizeObserver(setToolbarHeight).observe(toolbar);
+        setToolbarHeight();
     }
 
     // ---------------------------------------------------------------- init

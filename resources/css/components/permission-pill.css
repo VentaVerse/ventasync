@@ -30,6 +30,12 @@
    ============================================================ */
 
 #perm-picker-v2 {
+    /* The sticky offset the area heads pin at. This default matches the
+       one-line toolbar; permission-pill.js overwrites it with the
+       toolbar's REAL rendered height, because the toolbar wraps taller at
+       tablet widths and a constant put every pinned head underneath it. */
+    --permv2-toolbar-h: 59px;
+
     /* Local aliases. Scoped to the picker so the tier language cannot
        leak into anything else, and so a palette change to
        base/tokens.css repaints this file for free. */
@@ -274,31 +280,10 @@
 .permv2-search-icon svg { width: 100%; height: 100%; stroke: currentColor; fill: none; stroke-width: 2; }
 
 /* Inline footnote sits under the toolbar */
-.permv2-footnote {
-    display: flex;
-    align-items: center;
-    gap: var(--bl-space-2);
-    margin: 0 var(--bl-space-1) var(--bl-space-4);
-    font-size: 12px;
-    color: var(--bl-ink-2);
-    line-height: 1.4;
-}
-.permv2-footnote-icon {
-    flex-shrink: 0;
-    width: 14px;
-    height: 14px;
-    color: var(--bl-ink-3);
-}
-.permv2-footnote-icon svg { width: 100%; height: 100%; stroke: currentColor; fill: none; stroke-width: 2; }
-.permv2-footnote kbd {
-    font-family: var(--font-mono);
-    background: var(--bl-chrome);
-    color: var(--bl-ink-2);
-    padding: 1px 6px;
-    border-radius: var(--bl-r-dot);
-    font-size: 11px;
-    border: 1px solid var(--bl-rule);
-}
+
+
+
+
 
 /* ----------------------------- GROUP ----------------------------- */
 .permv2-group {
@@ -316,12 +301,15 @@
 
 .permv2-group-head {
     /* The area name is the only thing that tells eight rows called "Order"
-       apart, and it used to scroll away after the first few rows. 59px
-       clears the sticky toolbar above it. A <div> now: it holds the
-       collapse toggle AND the area's set-all cluster, and buttons cannot
-       nest. */
+       apart, and it used to scroll away after the first few rows. The
+       offset clears the sticky toolbar above it - MEASURED, not assumed:
+       a hardcoded 59px was right only at desktop widths, and the moment
+       the toolbar wrapped taller (641-1024px) every pinned head slid
+       23px underneath it, slicing the one label that disambiguates eight
+       rows called "Orders". permission-pill.js keeps the variable equal
+       to the toolbar's real rendered height. */
     position: sticky;
-    top: 59px;
+    top: var(--permv2-toolbar-h, 59px);
     z-index: 3;
     background: var(--bl-chrome);
     border-bottom: 1px solid var(--bl-rule);
@@ -413,13 +401,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.permv2-group-desc {
-    font-size: 11px;
-    font-weight: 400;
-    letter-spacing: 0;
-    text-transform: none;
-    color: var(--bl-ink-3);
-}
+
 
 .permv2-group-stats {
     display: flex;
@@ -460,57 +442,15 @@
 .permv2-group[data-collapsed="1"] .permv2-group-body { display: none; }
 
 /* Subgroup header inside a group */
-.permv2-subgroup-label {
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-    color: var(--bl-ink-3);
-    padding: var(--bl-space-3) var(--bl-space-4) var(--bl-space-1);
-    background: var(--bl-chrome);
-    border-bottom: 1px solid var(--bl-rule);
-    display: flex;
-    align-items: center;
-    gap: var(--bl-space-2);
-}
-.permv2-subgroup-label::before {
-    content: '';
-    flex: 0 0 12px;
-    height: 1px;
-    background: var(--bl-rule-2);
-}
-.permv2-subgroup-label::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--bl-rule);
-}
+
+
+
 
 /* Parent (group itself) row, at the very top of a flat group */
-.permv2-parent {
-    padding: var(--bl-space-3) var(--bl-space-4);
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: var(--bl-space-3);
-    align-items: center;
-    background: var(--bl-chrome);
-    border-bottom: 1px solid var(--bl-rule);
-}
-.permv2-parent-label {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--bl-ink);
-}
-.permv2-parent-desc {
-    font-size: 11px;
-    color: var(--bl-ink-3);
-    margin-top: 2px;
-}
-.permv2-parent-hint {
-    font-size: 11px;
-    color: var(--bl-brand-deep);
-    font-weight: 500;
-}
+
+
+
+
 
 /* ----------------------------- ROW ----------------------------- */
 .permv2-row {
@@ -525,7 +465,7 @@
 /* Both sticky layers - toolbar and the group's own head - float above the
    rows. Without this a row scrolled to by keyboard or filter arrives under
    them, sliced in half. */
-.permv2-row { scroll-margin-top: 110px; }
+.permv2-row { scroll-margin-top: calc(var(--permv2-toolbar-h, 59px) + 51px); }
 .permv2-row:last-child { border-bottom: none; }
 .permv2-row:hover { background: var(--bl-chrome-2); }
 .permv2-row[data-hidden="1"] { display: none; }
@@ -659,13 +599,8 @@
 #perm-picker-v2[data-empty="1"] .permv2-empty { display: block; }
 #perm-picker-v2[data-empty="1"] .permv2-group { display: none; }
 
-.permv2-empty-icon {
-    width: 24px;
-    height: 24px;
-    margin: 0 auto var(--bl-space-3);
-    color: var(--bl-rule-2);
-}
-.permv2-empty-icon svg { width: 100%; height: 100%; stroke: currentColor; fill: none; stroke-width: 1.75; }
+
+
 
 /* ----------------------------- RESPONSIVE ----------------------------- */
 @media (max-width: 1024px) {
@@ -676,7 +611,7 @@
     .permv2-actions { justify-content: flex-start; }
     .permv2-group-head { padding-right: var(--bl-space-3); }
     .permv2-group-toggle { padding: var(--bl-space-3) 0 var(--bl-space-3) var(--bl-space-3); }
-    .permv2-parent { padding: var(--bl-space-3); }
+
     .permv2-row {
         grid-template-columns: 1fr;
         gap: var(--bl-space-2);
@@ -685,7 +620,7 @@
     .permv2-row-info { order: 1; }
     .permv2-pill { order: 2; align-self: flex-start; }
     .permv2-group-stats { gap: var(--bl-space-2); }
-    .permv2-subgroup-label { padding: var(--bl-space-3) var(--bl-space-3) var(--bl-space-1); }
+
 }
 
 @media (max-width: 640px) {
@@ -693,7 +628,7 @@
     .permv2-pill[data-segments="3"] { width: 174px; }
     .permv2-pill-seg { font-size: 10px; padding: 0 var(--bl-space-1); gap: 3px; }
     .permv2-group-title { font-size: 11px; }
-    .permv2-group-desc { display: none; }
+
     /* The group header's manage/view tallies would push the header
        wider than a 390px frame next to a long domain name. The pills
        below still carry the same information per row. */
@@ -730,6 +665,32 @@
        the heads scroll with their groups. */
     .permv2-group-head { position: static; }
     .permv2-row { scroll-margin-top: 76px; }
+
+    /* THE TITLE OWNS THE ROW; THE CLUSTER WRAPS UNDER IT. Side by side on
+       a phone, a collapsed machine area rendered "Mobile app access" as
+       the single letter "M" with its note wrapping one word per line in
+       the sliver the cluster left over. Screenshot-confirmed, then fixed
+       by giving the head one column. */
+    .permv2-group-head {
+        grid-template-columns: 1fr;
+        padding-right: 0;
+    }
+    .permv2-group-set {
+        justify-self: end;
+        margin: 0 var(--bl-space-3) var(--bl-space-2) 0;
+    }
+
+    /* The title and its note sit side by side on desktop (flex row); on a
+       phone the note steals the row and the title ellipsised down to one
+       letter. Stack them. */
+    .permv2-group-title {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+    }
+    .permv2-group-title-text {
+        white-space: normal;
+    }
 }
 
 .permv2-note {

@@ -167,6 +167,14 @@
 
     <div class="permv2-empty" data-permv2="empty" role="status">Nothing matches that filter.</div>
 
+    {{-- One line, only while the group holds nothing: the fastest start is
+         not 72 individual switches. Hidden by JS on the first grant. --}}
+    @if($canManage)
+        <p class="permv2-note" data-permv2="zerohint" @if($grantedRows !== 0) hidden @endif>
+            Nothing granted yet. The Preset menu is the fastest start; the filter finds any single area.
+        </p>
+    @endif
+
     @foreach($permissionGroups as $group)
         @php
             $manageCount = collect($group['rows'])->where('state', 'manage')->count();
@@ -229,7 +237,10 @@
                             ->map(fn ($r) => $r['label'])->implode(', ');
                     @endphp
                     <span class="permv2-group-set" role="group" aria-label="Set every {{ $group['label'] }} row">
-                        <button type="button" data-groupset="off" title="Every {{ $group['label'] }} row to Off">Off</button>
+                        {{-- Off asks, like every bulk revoke on the page: it
+                             was the one unguarded multi-row click left. --}}
+                        <button type="button" data-groupset="off" title="Every {{ $group['label'] }} row to Off"
+                                data-confirm="Switch every {{ $group['label'] }} row off for this group?">Off</button>
                         <button type="button" data-groupset="view" title="Every {{ $group['label'] }} row to View"
                                 @if($groupWarned !== '') data-confirm="Give this group View on every {{ $group['label'] }} row? That includes {{ $groupWarned }}." data-confirm-tone="primary" @endif>View</button>
                         <button type="button" data-groupset="manage" title="Every {{ $group['label'] }} row to Manage"
