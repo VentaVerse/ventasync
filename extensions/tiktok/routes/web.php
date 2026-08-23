@@ -1,6 +1,7 @@
 <?php
 
-use Extensions\tiktok\Controllers\TikTokController;
+use Extensions\tiktok\Controllers\TiktokSettingsController;
+use Extensions\tiktok\Controllers\TiktokApiExplorerController;
 use Extensions\tiktok\Controllers\TikTokOrderController;
 use Extensions\tiktok\Controllers\TikTokProductGroupController;
 use Illuminate\Support\Facades\Route;
@@ -17,10 +18,10 @@ use Illuminate\Support\Facades\Route;
 // there. A 301 cannot rescue a value that is checked rather than followed.
 // ext.tiktok.authorize is exempted with it per the migration ledger's
 // pre-dispatch constraint.
-Route::get('/tiktok/callback', [TikTokController::class, 'callback'])->name('ext.tiktok.callback');
+Route::get('/tiktok/callback', [TiktokSettingsController::class, 'callback'])->name('ext.tiktok.callback');
 
 Route::middleware(['auth'])->group(function () {
-    Route::get('/tiktok/authorize', [TikTokController::class, 'redirectToAuth'])->name('ext.tiktok.authorize')
+    Route::get('/tiktok/authorize', [TiktokSettingsController::class, 'redirectToAuth'])->name('ext.tiktok.authorize')
         // A form page is a MANAGE surface even though it is a GET: the old
         // perm: group said so, and removing the group must not demote it.
         ->defaults('permission_tier', 'manage');
@@ -43,7 +44,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         // `/tiktok/settings`, not a bare `/tiktok`: /integrations/tiktok is
         // the workspace Overview, registered ahead of every extension route,
         // so a bare channel segment here would never be reached.
-        Route::get('/tiktok/settings', [TikTokController::class, 'index'])->name('ext.tiktok.index');
+        Route::get('/tiktok/settings', [TiktokSettingsController::class, 'index'])->name('ext.tiktok.index');
 
         // Catalog browsing
         Route::get('/tiktok/categories', [TikTokProductGroupController::class, 'indexCategories'])->name('ext.tiktok.categories.index');
@@ -59,23 +60,23 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::group([], function () {
         // OAuth / token / mode. ext.tiktok.authorize is NOT here: it is one of
         // the two exempt OAuth surfaces registered above, outside this prefix.
-        Route::post('/tiktok/save', [TikTokController::class, 'save'])->name('ext.tiktok.save');
-        Route::post('/tiktok/toggle-mode', [TikTokController::class, 'toggleMode'])->name('ext.tiktok.toggle_mode');
-        Route::post('/tiktok/token/get', [TikTokController::class, 'tokenGet'])->name('ext.tiktok.token_get');
-        Route::post('/tiktok/token/refresh', [TikTokController::class, 'tokenRefresh'])->name('ext.tiktok.token_refresh');
-        Route::post('/tiktok/shops', [TikTokController::class, 'getShops'])->name('ext.tiktok.shops');
+        Route::post('/tiktok/save', [TiktokSettingsController::class, 'save'])->name('ext.tiktok.save');
+        Route::post('/tiktok/toggle-mode', [TiktokSettingsController::class, 'toggleMode'])->name('ext.tiktok.toggle_mode');
+        Route::post('/tiktok/token/get', [TiktokSettingsController::class, 'tokenGet'])->name('ext.tiktok.token_get');
+        Route::post('/tiktok/token/refresh', [TiktokSettingsController::class, 'tokenRefresh'])->name('ext.tiktok.token_refresh');
+        Route::post('/tiktok/shops', [TiktokSettingsController::class, 'getShops'])->name('ext.tiktok.shops');
 
         // API Explorer — calls live TikTok API; write tier.
-        Route::post('/tiktok/explorer/run', [TikTokController::class, 'explorerRun'])->name('ext.tiktok.explorer_run');
-        Route::post('/tiktok/packs/run', [TikTokController::class, 'packsRun'])->name('ext.tiktok.packs_run');
+        Route::post('/tiktok/explorer/run', [TiktokApiExplorerController::class, 'explorerRun'])->name('ext.tiktok.explorer_run');
+        Route::post('/tiktok/packs/run', [TiktokApiExplorerController::class, 'packsRun'])->name('ext.tiktok.packs_run');
 
         // API logging admin
-        Route::post('/tiktok/toggle-logging', [TikTokController::class, 'toggleLogging'])->name('ext.tiktok.toggle_logging');
-        Route::delete('/tiktok/api-logs', [TikTokController::class, 'clearApiLogs'])->name('ext.tiktok.clear_api_logs');
-        Route::post('/tiktok/purge-raw', [TikTokController::class, 'purgeRaw'])->name('ext.tiktok.purge_raw');
+        Route::post('/tiktok/toggle-logging', [TiktokSettingsController::class, 'toggleLogging'])->name('ext.tiktok.toggle_logging');
+        Route::delete('/tiktok/api-logs', [TiktokSettingsController::class, 'clearApiLogs'])->name('ext.tiktok.clear_api_logs');
+        Route::post('/tiktok/purge-raw', [TiktokSettingsController::class, 'purgeRaw'])->name('ext.tiktok.purge_raw');
 
         // Status-map saves
-        Route::post('/tiktok/order-status-map', [TikTokController::class, 'saveOrderStatusMap'])->name('ext.tiktok.order_status_map');
+        Route::post('/tiktok/order-status-map', [TiktokSettingsController::class, 'saveOrderStatusMap'])->name('ext.tiktok.order_status_map');
 
         // Categories — sync from TikTok and persist
         Route::post('/tiktok/categories/sync', [TikTokProductGroupController::class, 'syncCategories'])->name('ext.tiktok.categories.sync');

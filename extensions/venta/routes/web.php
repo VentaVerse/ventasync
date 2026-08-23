@@ -1,6 +1,6 @@
 <?php
 
-use Extensions\venta\Controllers\VentaController;
+use Extensions\venta\Controllers\VentaSettingsController;
 use Extensions\venta\Controllers\VentaProductGroupController;
 use Extensions\venta\Controllers\VentaOrderController;
 use Extensions\venta\Controllers\VentaReviewController;
@@ -30,10 +30,10 @@ use Illuminate\Support\Facades\Route;
 // authenticates with a stored API token, so nothing here is exempt.
 Route::middleware(['auth'])->prefix('channels')->group(function () {
     // Settings (renders the screen; per-store config is loaded into a form)
-    Route::get('/venta/{store}/settings', [VentaController::class, 'showSettings'])->name('ext.venta.settings.show');
+    Route::get('/venta/{store}/settings', [VentaSettingsController::class, 'showSettings'])->name('ext.venta.settings.show');
 
     // Legacy / fallback (redirect to first enabled store) — pure navigation
-    Route::get('/venta/settings', [VentaController::class, 'index'])->name('ext.venta.index');
+    Route::get('/venta/settings', [VentaSettingsController::class, 'index'])->name('ext.venta.index');
 
     // Product Groups — read-only list + edit-form RENDER (GETs)
     Route::get('/venta/{store}/product-groups', [VentaProductGroupController::class, 'index'])->name('ext.venta.product-groups.index');
@@ -54,20 +54,20 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
 // ── Venta Settings + Catalog — WRITES ───────────────────────────
 Route::middleware(['auth'])->prefix('channels')->group(function () {
     // "Add New Store" modal target — creates a row with name + base_url only.
-    Route::post('/venta/stores', [VentaController::class, 'createStore'])->name('ext.venta.stores.store');
+    Route::post('/venta/stores', [VentaSettingsController::class, 'createStore'])->name('ext.venta.stores.store');
 
     // Per-store settings writes
-    Route::post('/venta/save', [VentaController::class, 'save'])->name('ext.venta.save');
-    Route::delete('/venta/{id}', [VentaController::class, 'destroy'])->name('ext.venta.destroy');
-    Route::post('/venta/test', [VentaController::class, 'testConnection'])->name('ext.venta.test');
-    Route::post('/venta/save-status-map', [VentaController::class, 'saveOrderStatusMap'])->name('ext.venta.save_status_map');
-    Route::post('/venta/{id}/toggle-api-logging', [VentaController::class, 'toggleApiLogging'])->name('ext.venta.toggle_api_logging');
-    Route::delete('/venta/{id}/api-logs', [VentaController::class, 'clearApiLogs'])->name('ext.venta.clear_api_logs');
-    Route::post('/venta/fetch-statuses', [VentaController::class, 'fetchVentaStatuses'])->name('ext.venta.fetch_statuses');
+    Route::post('/venta/save', [VentaSettingsController::class, 'save'])->name('ext.venta.save');
+    Route::delete('/venta/{id}', [VentaSettingsController::class, 'destroy'])->name('ext.venta.destroy');
+    Route::post('/venta/test', [VentaSettingsController::class, 'testConnection'])->name('ext.venta.test');
+    Route::post('/venta/save-status-map', [VentaSettingsController::class, 'saveOrderStatusMap'])->name('ext.venta.save_status_map');
+    Route::post('/venta/{id}/toggle-api-logging', [VentaSettingsController::class, 'toggleApiLogging'])->name('ext.venta.toggle_api_logging');
+    Route::delete('/venta/{id}/api-logs', [VentaSettingsController::class, 'clearApiLogs'])->name('ext.venta.clear_api_logs');
+    Route::post('/venta/fetch-statuses', [VentaSettingsController::class, 'fetchVentaStatuses'])->name('ext.venta.fetch_statuses');
 
     // Fetch categories/brands from Venta API (AJAX) — calls the marketplace API
-    Route::post('/venta/fetch-categories', [VentaController::class, 'fetchCategories'])->name('ext.venta.fetch_categories');
-    Route::post('/venta/fetch-brands', [VentaController::class, 'fetchBrands'])->name('ext.venta.fetch_brands');
+    Route::post('/venta/fetch-categories', [VentaSettingsController::class, 'fetchCategories'])->name('ext.venta.fetch_categories');
+    Route::post('/venta/fetch-brands', [VentaSettingsController::class, 'fetchBrands'])->name('ext.venta.fetch_brands');
 
     // Product Groups — writes (create, update, destroy, push)
     Route::get('/venta/{store}/product-groups/create', [VentaProductGroupController::class, 'create'])->name('ext.venta.product-groups.create')

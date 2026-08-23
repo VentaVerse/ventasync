@@ -103,9 +103,12 @@ class PermissionCatalogue
      * judgement, so it is written down rather than derived, and it is kept
      * deliberately short: a list where everything is elevated marks nothing.
      *
-     * Every 'overview' key joins them by rule, not by hand - an extension's bare
-     * controller holds its credentials and its API explorer, which is the
-     * marketplace account itself.
+     * Every 'api_explorer' key joins them by rule, not by hand - the
+     * explorer sends requests to the marketplace AS THE SHOP, outside the
+     * ERP's own record keeping. (The old rule marked the bundled 'overview'
+     * keys; the Phase B split gave the dangerous half its own controller,
+     * so the mark follows it and the settings rows stop carrying a warning
+     * they no longer earn.)
      */
     private const ELEVATED_KEYS = [
         'settings/user_group',
@@ -283,10 +286,7 @@ class PermissionCatalogue
     /**
      * How one row is titled: "Products", "Product Groups", "Order Statuses".
      *
-     * The leaf of the key, humanised, unless a lang entry says better. The
-     * bare controller of an extension is its settings screen rather than an
-     * overview - Lazada's holds the credentials, the sandbox switch and the
-     * API explorer - so it is named for what it is.
+     * The leaf of the key, humanised, unless a lang entry says better.
      */
     public function rowLabel(string $key): string
     {
@@ -297,9 +297,7 @@ class PermissionCatalogue
             return (string) $translated;
         }
 
-        $leaf = Str::after($key, '/');
-
-        return $leaf === 'overview' ? 'Settings & API' : Str::headline($leaf);
+        return Str::headline(Str::after($key, '/'));
     }
 
     /**
@@ -333,32 +331,16 @@ class PermissionCatalogue
             return (string) $translated;
         }
 
-        return Str::endsWith($key, '/overview')
-            ? 'holds the account credentials'
+        return Str::endsWith($key, '/api_explorer')
+            ? 'sends requests to the marketplace as your shop'
             : 'can widen what others may do';
     }
 
-    /**
-     * Hand-kept, plus every extension's own settings screen by rule.
-     *
-     * An extension's bare controller is usually its credentials and its API
-     * explorer, which is the marketplace account itself. Usually, not always:
-     * Petty Cash publishes a separate settings controller, and its bare one
-     * is just the ledger. That difference is derivable rather than a second
-     * hand-kept list - an area that has somewhere else to keep its settings
-     * is not keeping them here.
-     */
+    /** Hand-kept, plus every marketplace API explorer by rule. */
     public function isElevated(string $key): bool
     {
-        if (in_array($key, self::ELEVATED_KEYS, true)) {
-            return true;
-        }
-
-        if (! Str::endsWith($key, '/overview')) {
-            return false;
-        }
-
-        return ! isset($this->all()[Str::before($key, '/') . '/settings']);
+        return in_array($key, self::ELEVATED_KEYS, true)
+            || Str::endsWith($key, '/api_explorer');
     }
 
     /**

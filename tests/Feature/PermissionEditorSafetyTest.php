@@ -265,23 +265,24 @@ class PermissionEditorSafetyTest extends TestCase
     }
 
     /**
-     * An area whose bare controller is not its credentials is not elevated.
+     * The mark follows the danger, not the folder shape.
      *
-     * Petty Cash publishes its own settings controller, so its bare one is
-     * the ledger. Derived from the route table rather than hand-listed: an
-     * area with somewhere else to keep its settings is not keeping them here.
+     * Phase B split every channel's bundle key: the settings row holds the
+     * connection, the api_explorer row sends requests to the marketplace
+     * as the shop. Only the second can end an afternoon, so only the
+     * second is marked - a settings row carrying a warning it no longer
+     * earns would teach people to ignore the mark.
      */
-    public function test_an_overview_is_only_elevated_when_it_is_the_settings_screen(): void
+    public function test_the_explorer_is_elevated_and_the_settings_row_is_not(): void
     {
         $catalogue = $this->app->make(PermissionCatalogue::class);
-        $all = $catalogue->all();
 
-        if (! isset($all['pettycash/overview'], $all['pettycash/settings'])) {
-            $this->markTestSkipped('Petty Cash does not publish both controllers here.');
-        }
+        $this->assertTrue($catalogue->isElevated('lazada/api_explorer'));
+        $this->assertNotSame('', $catalogue->elevatedWhy('lazada/api_explorer'));
 
-        $this->assertFalse($catalogue->isElevated('pettycash/overview'));
-        $this->assertTrue($catalogue->isElevated('shopee/overview'));
+        $this->assertFalse($catalogue->isElevated('lazada/settings'));
+        $this->assertFalse($catalogue->isElevated('pettycash/ledger'));
+        $this->assertFalse($catalogue->isElevated('pettycash/settings'));
     }
 
     /**

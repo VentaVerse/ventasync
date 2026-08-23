@@ -33,7 +33,7 @@
     // maps, logging, log delete, purge) is `manage_shopee`. Replaces a
     // hardcoded `true`, which offered a read-only operator every one of
     // those controls and let each of them 403.
-    $canManageShopee = auth()->user()?->hasPermission('manage_shopee/overview') ?? false;
+    $canManageShopee = auth()->user()?->hasPermission('manage_shopee/settings') ?? false;
 
     $currentMode = $setting->mode ?? 'sandbox';
     $isSandbox = $currentMode === 'sandbox';

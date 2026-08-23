@@ -56,7 +56,7 @@ class LazadaOrderDetailTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'Lazada Detail Viewers']);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_lazada', 'view_lazada/dashboard', 'view_lazada_orders', 'view_lazada/overview', 'view_lazada/product', 'view_lazada/brand', 'view_lazada/category', 'view_lazada/category_attribute', 'view_lazada/product_group', 'view_lazada/order'])->pluck('id')->all()
+            Permission::whereIn('key', ['view_lazada', 'view_lazada/dashboard', 'view_lazada_orders', 'view_lazada/settings', 'view_lazada/product', 'view_lazada/brand', 'view_lazada/category', 'view_lazada/category_attribute', 'view_lazada/product_group', 'view_lazada/order'])->pluck('id')->all()
         );
 
         return User::factory()->create(['user_group_id' => $group->id]);
@@ -67,7 +67,7 @@ class LazadaOrderDetailTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'Lazada Detail Managers']);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_lazada', 'view_lazada/dashboard', 'manage_lazada_orders', 'view_lazada/overview', 'view_lazada/product', 'view_lazada/brand', 'view_lazada/category', 'view_lazada/category_attribute', 'view_lazada/product_group', 'manage_lazada/order'])->pluck('id')->all()
+            Permission::whereIn('key', ['view_lazada', 'view_lazada/dashboard', 'manage_lazada_orders', 'view_lazada/settings', 'view_lazada/product', 'view_lazada/brand', 'view_lazada/category', 'view_lazada/category_attribute', 'view_lazada/product_group', 'manage_lazada/order'])->pluck('id')->all()
         );
 
         return User::factory()->create(['user_group_id' => $group->id]);

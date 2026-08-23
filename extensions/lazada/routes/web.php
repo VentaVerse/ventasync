@@ -1,6 +1,7 @@
 <?php
 
-use Extensions\lazada\Controllers\LazadaController;
+use Extensions\lazada\Controllers\LazadaSettingsController;
+use Extensions\lazada\Controllers\LazadaApiExplorerController;
 use Extensions\lazada\Controllers\LazadaProductController;
 use Extensions\lazada\Controllers\LazadaCategoryController;
 use Extensions\lazada\Controllers\LazadaCategoryAttributeController;
@@ -24,10 +25,10 @@ use Illuminate\Support\Facades\Route;
 // compared byte-for-byte on every consent round trip. A 301 cannot rescue it:
 // the value is checked, not followed. ext.lazada.authorize is exempted with
 // it per the migration ledger's pre-dispatch constraint.
-Route::get('/lazada/callback', [LazadaController::class, 'callback'])->name('lazada.callback');
+Route::get('/lazada/callback', [LazadaSettingsController::class, 'callback'])->name('lazada.callback');
 
 Route::middleware(['auth'])->group(function () {
-    Route::get('/lazada/authorize', [LazadaController::class, 'redirectToAuth'])->name('ext.lazada.authorize')
+    Route::get('/lazada/authorize', [LazadaSettingsController::class, 'redirectToAuth'])->name('ext.lazada.authorize')
         // A form page is a MANAGE surface even though it is a GET: the old
         // perm: group said so, and removing the group must not demote it.
         ->defaults('permission_tier', 'manage');
@@ -66,7 +67,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         // reachable. Naming the settings page explicitly is also what the
         // slash grammar asks for, and matches Venta and OpenCart, whose
         // settings pages have always carried the segment.
-        Route::get('/lazada/settings', [LazadaController::class, 'index'])->name('ext.lazada.index');
+        Route::get('/lazada/settings', [LazadaSettingsController::class, 'index'])->name('ext.lazada.index');
 
         // Catalog browsing (lists, search)
         Route::get('/lazada/products', [LazadaProductController::class, 'index'])->name('ext.lazada.products.index');
@@ -88,7 +89,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         // Payload preview / build — POST but pure compute (no persistence, no
         // marketplace call). Surfaces what WOULD be sent so an operator can
         // audit before a write user actually pushes. Read-only.
-        Route::post('/lazada/product/payload-preview', [LazadaController::class, 'productPayloadPreview'])
+        Route::post('/lazada/product/payload-preview', [LazadaApiExplorerController::class, 'productPayloadPreview'])
             ->name('ext.lazada.product_payload_preview')
             /* A POST that reads. It builds and returns the payload we WOULD
                send, changing nothing, and is a POST only because a product id
@@ -103,38 +104,38 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::group([], function () {
         // OAuth / token / mode. ext.lazada.authorize is NOT here: it is one of
         // the two exempt OAuth surfaces registered above, outside this prefix.
-        Route::post('/lazada/save', [LazadaController::class, 'save'])->name('ext.lazada.save');
-        Route::post('/lazada/toggle-mode', [LazadaController::class, 'toggleMode'])->name('ext.lazada.toggle_mode');
-        Route::post('/lazada/token/create', [LazadaController::class, 'tokenCreate'])->name('ext.lazada.token_create');
-        Route::post('/lazada/token/refresh', [LazadaController::class, 'tokenRefresh'])->name('ext.lazada.token_refresh');
-        Route::post('/lazada/sandbox-token/save', [LazadaController::class, 'saveSandboxToken'])->name('ext.lazada.sandbox_token_save');
+        Route::post('/lazada/save', [LazadaSettingsController::class, 'save'])->name('ext.lazada.save');
+        Route::post('/lazada/toggle-mode', [LazadaSettingsController::class, 'toggleMode'])->name('ext.lazada.toggle_mode');
+        Route::post('/lazada/token/create', [LazadaSettingsController::class, 'tokenCreate'])->name('ext.lazada.token_create');
+        Route::post('/lazada/token/refresh', [LazadaSettingsController::class, 'tokenRefresh'])->name('ext.lazada.token_refresh');
+        Route::post('/lazada/sandbox-token/save', [LazadaSettingsController::class, 'saveSandboxToken'])->name('ext.lazada.sandbox_token_save');
 
         // Status-map saves
-        Route::post('/lazada/order-status-map', [LazadaController::class, 'saveOrderStatusMap'])->name('ext.lazada.order_status_map');
-        Route::post('/lazada/reverse-status-map', [LazadaController::class, 'saveReverseStatusMap'])->name('ext.lazada.reverse_status_map');
+        Route::post('/lazada/order-status-map', [LazadaSettingsController::class, 'saveOrderStatusMap'])->name('ext.lazada.order_status_map');
+        Route::post('/lazada/reverse-status-map', [LazadaSettingsController::class, 'saveReverseStatusMap'])->name('ext.lazada.reverse_status_map');
 
         // API logging admin
-        Route::post('/lazada/toggle-logging', [LazadaController::class, 'toggleLogging'])->name('ext.lazada.toggle_logging');
-        Route::delete('/lazada/api-logs', [LazadaController::class, 'clearApiLogs'])->name('ext.lazada.clear_api_logs');
-        Route::post('/lazada/purge-raw', [LazadaController::class, 'purgeRaw'])->name('ext.lazada.purge_raw');
+        Route::post('/lazada/toggle-logging', [LazadaSettingsController::class, 'toggleLogging'])->name('ext.lazada.toggle_logging');
+        Route::delete('/lazada/api-logs', [LazadaSettingsController::class, 'clearApiLogs'])->name('ext.lazada.clear_api_logs');
+        Route::post('/lazada/purge-raw', [LazadaSettingsController::class, 'purgeRaw'])->name('ext.lazada.purge_raw');
 
         // API Explorer — these call the live Lazada API (state-changing on some
         // endpoints), even when the operator picks a "GET" route in the UI.
         // Treat the explorer as a privileged write tool.
-        Route::post('/lazada/call', [LazadaController::class, 'callApi'])->name('ext.lazada.call_api');
-        Route::post('/lazada/explorer/run', [LazadaController::class, 'explorerRun'])->name('ext.lazada.explorer_run');
-        Route::post('/lazada/packs/run', [LazadaController::class, 'packsRun'])->name('ext.lazada.packs_run');
+        Route::post('/lazada/call', [LazadaApiExplorerController::class, 'callApi'])->name('ext.lazada.call_api');
+        Route::post('/lazada/explorer/run', [LazadaApiExplorerController::class, 'explorerRun'])->name('ext.lazada.explorer_run');
+        Route::post('/lazada/packs/run', [LazadaApiExplorerController::class, 'packsRun'])->name('ext.lazada.packs_run');
 
         // Lazada Catalog POC — fetch endpoints (call the marketplace API and
         // typically persist results). Write tier.
-        Route::post('/lazada/category/tree', [LazadaController::class, 'categoryTree'])->name('ext.lazada.category_tree');
-        Route::post('/lazada/category/attributes', [LazadaController::class, 'categoryAttributes'])->name('ext.lazada.category_attributes');
-        Route::post('/lazada/category/brands', [LazadaController::class, 'brandsQuery'])->name('ext.lazada.brands_query');
-        Route::post('/lazada/products/get', [LazadaController::class, 'productsGet'])->name('ext.lazada.products_get');
-        Route::post('/lazada/product/create', [LazadaController::class, 'productCreate'])->name('ext.lazada.product_create');
-        Route::post('/lazada/orders/get', [LazadaController::class, 'ordersGet'])->name('ext.lazada.orders_get');
-        Route::post('/lazada/order/items/get', [LazadaController::class, 'orderItemsGet'])->name('ext.lazada.order_items_get');
-        Route::post('/lazada/order/awb/pdf', [LazadaController::class, 'awbPdfGet'])->name('ext.lazada.awb_pdf_get');
+        Route::post('/lazada/category/tree', [LazadaApiExplorerController::class, 'categoryTree'])->name('ext.lazada.category_tree');
+        Route::post('/lazada/category/attributes', [LazadaApiExplorerController::class, 'categoryAttributes'])->name('ext.lazada.category_attributes');
+        Route::post('/lazada/category/brands', [LazadaApiExplorerController::class, 'brandsQuery'])->name('ext.lazada.brands_query');
+        Route::post('/lazada/products/get', [LazadaApiExplorerController::class, 'productsGet'])->name('ext.lazada.products_get');
+        Route::post('/lazada/product/create', [LazadaApiExplorerController::class, 'productCreate'])->name('ext.lazada.product_create');
+        Route::post('/lazada/orders/get', [LazadaApiExplorerController::class, 'ordersGet'])->name('ext.lazada.orders_get');
+        Route::post('/lazada/order/items/get', [LazadaApiExplorerController::class, 'orderItemsGet'])->name('ext.lazada.order_items_get');
+        Route::post('/lazada/order/awb/pdf', [LazadaApiExplorerController::class, 'awbPdfGet'])->name('ext.lazada.awb_pdf_get');
 
         // Lazada Product Groups — writes
         Route::get('/lazada/product-groups/create', [LazadaProductGroupController::class, 'create'])->name('ext.lazada.product-groups.create')

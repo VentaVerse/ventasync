@@ -55,7 +55,7 @@ class TiktokOrderDetailTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'TikTok Detail Viewers']);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_tiktok', 'view_tiktok/dashboard', 'view_tiktok_orders', 'view_tiktok/overview', 'view_tiktok/product_group', 'view_tiktok/order'])->pluck('id')->all()
+            Permission::whereIn('key', ['view_tiktok', 'view_tiktok/dashboard', 'view_tiktok_orders', 'view_tiktok/settings', 'view_tiktok/product_group', 'view_tiktok/order'])->pluck('id')->all()
         );
 
         return User::factory()->create(['user_group_id' => $group->id]);
@@ -66,7 +66,7 @@ class TiktokOrderDetailTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'TikTok Detail Managers']);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_tiktok', 'view_tiktok/dashboard', 'manage_tiktok_orders', 'view_tiktok/overview', 'view_tiktok/product_group', 'manage_tiktok/order'])->pluck('id')->all()
+            Permission::whereIn('key', ['view_tiktok', 'view_tiktok/dashboard', 'manage_tiktok_orders', 'view_tiktok/settings', 'view_tiktok/product_group', 'manage_tiktok/order'])->pluck('id')->all()
         );
 
         return User::factory()->create(['user_group_id' => $group->id]);

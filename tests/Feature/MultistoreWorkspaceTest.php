@@ -487,7 +487,7 @@ class MultistoreWorkspaceTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'Multistore OpenCart Reviewers']);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_opencart', 'view_opencart/dashboard', 'view_opencart_orders', 'view_reviews', 'view_opencart/overview', 'view_opencart/product_group', 'view_opencart/order', 'view_opencart/review'])
+            Permission::whereIn('key', ['view_opencart', 'view_opencart/dashboard', 'view_opencart_orders', 'view_reviews', 'view_opencart/settings', 'view_opencart/product_group', 'view_opencart/order', 'view_opencart/review'])
                 ->pluck('id')
                 ->all()
         );
@@ -551,7 +551,7 @@ class MultistoreWorkspaceTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'Multistore Broad Operators']);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_venta', 'view_venta/dashboard', 'view_venta_orders', 'view_opencart', 'view_opencart/dashboard', 'view_opencart_orders', 'view_shopee', 'view_venta/overview', 'view_venta/product_group', 'view_venta/order', 'view_opencart/overview', 'view_opencart/product_group', 'view_opencart/order', 'view_shopee/overview', 'view_shopee/category', 'view_shopee/category_attribute', 'view_shopee/logistics', 'view_shopee/product_group', 'view_shopee/product', 'view_shopee/dashboard'])
+            Permission::whereIn('key', ['view_venta', 'view_venta/dashboard', 'view_venta_orders', 'view_opencart', 'view_opencart/dashboard', 'view_opencart_orders', 'view_shopee', 'view_venta/settings', 'view_venta/product_group', 'view_venta/order', 'view_opencart/settings', 'view_opencart/product_group', 'view_opencart/order', 'view_shopee/settings', 'view_shopee/category', 'view_shopee/category_attribute', 'view_shopee/logistics', 'view_shopee/product_group', 'view_shopee/product', 'view_shopee/dashboard'])
                 ->pluck('id')
                 ->all()
         );

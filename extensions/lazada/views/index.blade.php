@@ -46,7 +46,7 @@
     // status maps, logging, log delete, purge) is `manage_lazada`. Replaces a
     // hardcoded `true`, which offered a read-only operator every one of those
     // controls and let each of them be refused.
-    $canManageLazada = auth()->user()?->hasPermission('manage_lazada/overview') ?? false;
+    $canManageLazada = auth()->user()?->hasPermission('manage_lazada/settings') ?? false;
 
     $currentMode = $setting->mode ?? 'live';
     $isSandbox = $currentMode === 'sandbox';

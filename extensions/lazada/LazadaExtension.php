@@ -97,7 +97,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                     new MenuItem('Product Groups', 'ext.lazada.product-groups.index', 'view_lazada/product_group', group: 'Catalogue'),
                     new MenuItem('Categories', 'ext.lazada.categories.index', 'view_lazada/category', group: 'Catalogue'),
                     new MenuItem('Brands', 'ext.lazada.brands.index', 'view_lazada/brand', group: 'Catalogue'),
-                    new MenuItem('Settings', 'ext.lazada.index', 'view_lazada/overview', group: 'Channel'),
+                    new MenuItem('Settings', 'ext.lazada.index', 'view_lazada/settings', group: 'Channel'),
                 ],
             ),
         ];
@@ -697,6 +697,6 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
 
     public function credentialManagePermission(): string
     {
-        return 'manage_lazada/overview';
+        return 'manage_lazada/settings';
     }
 }

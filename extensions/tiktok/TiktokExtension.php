@@ -93,7 +93,7 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                     new MenuItem('Orders', 'ext.tiktok.orders.index', 'view_tiktok/order', group: 'Sell'),
                     new MenuItem('Product Groups', 'ext.tiktok.product-groups.index', 'view_tiktok/product_group', group: 'Catalogue'),
                     new MenuItem('Categories', 'ext.tiktok.categories.index', 'view_tiktok/product_group', group: 'Catalogue'),
-                    new MenuItem('Settings', 'ext.tiktok.index', 'view_tiktok/overview', group: 'Channel'),
+                    new MenuItem('Settings', 'ext.tiktok.index', 'view_tiktok/settings', group: 'Channel'),
                 ],
             ),
         ];
@@ -531,6 +531,6 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
 
     public function credentialManagePermission(): string
     {
-        return 'manage_tiktok/overview';
+        return 'manage_tiktok/settings';
     }
 }

@@ -79,7 +79,7 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                     // center at /integrations/opencart:{id}, built from
                     // exactly this menu, with these ['store' => id] params
                     // carried through unchanged.
-                    new MenuItem('Settings', 'ext.opencart.settings.show', 'view_opencart/overview', null, ['store' => $store->id], 'Channel'),
+                    new MenuItem('Settings', 'ext.opencart.settings.show', 'view_opencart/settings', null, ['store' => $store->id], 'Channel'),
                     new MenuItem('Product Groups', 'ext.opencart.product-groups.index', 'view_opencart/product_group', null, ['store' => $store->id], 'Catalogue'),
                     new MenuItem('Orders', 'ext.opencart.orders.index', 'view_opencart/order', null, ['store' => $store->id], 'Sell'),
                 ],
@@ -107,7 +107,7 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                 ],
                 addStore: new \App\Integrations\AddStoreAction(
                     route: 'ext.opencart.stores.store',
-                    permission: 'manage_opencart/overview',
+                    permission: 'manage_opencart/settings',
                 ),
                 stores: $stores,
             ),
@@ -453,6 +453,6 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
 
     public function credentialManagePermission(): string
     {
-        return 'manage_opencart/overview';
+        return 'manage_opencart/settings';
     }
 }

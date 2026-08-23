@@ -72,7 +72,7 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
                     // center at /integrations/venta:{id}, built from exactly
                     // this menu, with these ['store' => id] params carried
                     // through unchanged.
-                    new MenuItem('Settings', 'ext.venta.settings.show', 'view_venta/overview', null, ['store' => $store->id], 'Channel'),
+                    new MenuItem('Settings', 'ext.venta.settings.show', 'view_venta/settings', null, ['store' => $store->id], 'Channel'),
                     new MenuItem('Product Groups', 'ext.venta.product-groups.index', 'view_venta/product_group', null, ['store' => $store->id], 'Catalogue'),
                     new MenuItem('Orders', 'ext.venta.orders.index', 'view_venta/order', null, ['store' => $store->id], 'Sell'),
                 ],
@@ -98,7 +98,7 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
                 stores: $stores,
                 addStore: new \App\Integrations\AddStoreAction(
                     route: 'ext.venta.stores.store',
-                    permission: 'manage_venta/overview',
+                    permission: 'manage_venta/settings',
                 ),
             ),
         ];
@@ -384,6 +384,6 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
 
     public function credentialManagePermission(): string
     {
-        return 'manage_venta/overview';
+        return 'manage_venta/settings';
     }
 }

@@ -1,6 +1,6 @@
 <?php
 
-use Extensions\opencart\Controllers\OpenCartController;
+use Extensions\opencart\Controllers\OpenCartSettingsController;
 use Extensions\opencart\Controllers\OpenCartProductGroupController;
 use Extensions\opencart\Controllers\ReviewController;
 use Illuminate\Support\Facades\Route;
@@ -30,8 +30,8 @@ use Illuminate\Support\Facades\Route;
 //
 // ── OpenCart Settings + Catalog — READ ──────────────────────────
 Route::middleware(['auth'])->prefix('channels')->group(function () {
-    Route::get('/opencart/{store}/settings', [OpenCartController::class, 'showSettings'])->name('ext.opencart.settings.show');
-    Route::get('/opencart/settings', [OpenCartController::class, 'index'])->name('ext.opencart.index');
+    Route::get('/opencart/{store}/settings', [OpenCartSettingsController::class, 'showSettings'])->name('ext.opencart.settings.show');
+    Route::get('/opencart/settings', [OpenCartSettingsController::class, 'index'])->name('ext.opencart.index');
 
     // Product groups — read-only list + edit-form RENDER
     Route::get('/opencart/{store}/product-groups', [OpenCartProductGroupController::class, 'index'])->name('ext.opencart.product-groups.index');
@@ -43,22 +43,22 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
 // ── OpenCart Settings + Catalog — WRITES ────────────────────────
 Route::middleware(['auth'])->prefix('channels')->group(function () {
     // "Add New Store" modal target — minimal create with name + base_url only.
-    Route::post('/opencart/stores', [OpenCartController::class, 'createStore'])->name('ext.opencart.stores.store');
+    Route::post('/opencart/stores', [OpenCartSettingsController::class, 'createStore'])->name('ext.opencart.stores.store');
 
-    Route::post('/opencart/save', [OpenCartController::class, 'save'])->name('ext.opencart.save');
-    Route::delete('/opencart/{id}', [OpenCartController::class, 'destroy'])->name('ext.opencart.destroy');
-    Route::post('/opencart/test', [OpenCartController::class, 'testConnection'])->name('ext.opencart.test');
-    Route::post('/opencart/sync', [OpenCartController::class, 'syncNow'])->name('ext.opencart.sync');
-    Route::post('/opencart/sync-date', [OpenCartController::class, 'saveSyncDate'])->name('ext.opencart.sync_date');
-    Route::post('/opencart/push', [OpenCartController::class, 'pushNow'])->name('ext.opencart.push');
-    Route::post('/opencart/push-qty', [OpenCartController::class, 'pushQtyNow'])->name('ext.opencart.push_qty');
-    Route::post('/opencart/verify-password', [OpenCartController::class, 'verifyPassword'])->name('ext.opencart.verify_password');
-    Route::post('/opencart/fetch-oc-statuses', [OpenCartController::class, 'fetchOcStatuses'])->name('ext.opencart.fetch_oc_statuses');
-    Route::post('/opencart/save-status-map', [OpenCartController::class, 'saveOrderStatusMap'])->name('ext.opencart.save_status_map');
-    Route::post('/opencart/save-review-settings', [OpenCartController::class, 'saveReviewSettings'])->name('ext.opencart.save_review_settings');
+    Route::post('/opencart/save', [OpenCartSettingsController::class, 'save'])->name('ext.opencart.save');
+    Route::delete('/opencart/{id}', [OpenCartSettingsController::class, 'destroy'])->name('ext.opencart.destroy');
+    Route::post('/opencart/test', [OpenCartSettingsController::class, 'testConnection'])->name('ext.opencart.test');
+    Route::post('/opencart/sync', [OpenCartSettingsController::class, 'syncNow'])->name('ext.opencart.sync');
+    Route::post('/opencart/sync-date', [OpenCartSettingsController::class, 'saveSyncDate'])->name('ext.opencart.sync_date');
+    Route::post('/opencart/push', [OpenCartSettingsController::class, 'pushNow'])->name('ext.opencart.push');
+    Route::post('/opencart/push-qty', [OpenCartSettingsController::class, 'pushQtyNow'])->name('ext.opencart.push_qty');
+    Route::post('/opencart/verify-password', [OpenCartSettingsController::class, 'verifyPassword'])->name('ext.opencart.verify_password');
+    Route::post('/opencart/fetch-oc-statuses', [OpenCartSettingsController::class, 'fetchOcStatuses'])->name('ext.opencart.fetch_oc_statuses');
+    Route::post('/opencart/save-status-map', [OpenCartSettingsController::class, 'saveOrderStatusMap'])->name('ext.opencart.save_status_map');
+    Route::post('/opencart/save-review-settings', [OpenCartSettingsController::class, 'saveReviewSettings'])->name('ext.opencart.save_review_settings');
 
     // Single product push (from product group products page)
-    Route::post('/opencart/{store}/products/{product}/push', [OpenCartController::class, 'pushProduct'])->name('ext.opencart.products.push');
+    Route::post('/opencart/{store}/products/{product}/push', [OpenCartSettingsController::class, 'pushProduct'])->name('ext.opencart.products.push');
 
     // Product Groups — writes
     Route::get('/opencart/{store}/product-groups/create', [OpenCartProductGroupController::class, 'create'])->name('ext.opencart.product-groups.create')

@@ -97,7 +97,7 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
                     new MenuItem('Product Groups', 'ext.shopee.product-groups.index', 'view_shopee/product_group', group: 'Catalogue'),
                     new MenuItem('Categories', 'ext.shopee.categories.index', 'view_shopee/category', group: 'Catalogue'),
                     new MenuItem('Logistics', 'ext.shopee.logistics.index', 'view_shopee/logistics', group: 'Channel'),
-                    new MenuItem('Settings', 'ext.shopee.index', 'view_shopee/overview', group: 'Channel'),
+                    new MenuItem('Settings', 'ext.shopee.index', 'view_shopee/settings', group: 'Channel'),
                 ],
             ),
         ];
@@ -621,6 +621,6 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
 
     public function credentialManagePermission(): string
     {
-        return 'manage_shopee/overview';
+        return 'manage_shopee/settings';
     }
 }

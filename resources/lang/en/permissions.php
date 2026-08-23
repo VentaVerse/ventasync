@@ -189,6 +189,8 @@ return [
     */
 
     'elevated' => [
+        // The api_explorer rows carry their reason from the rule in
+        // PermissionCatalogue::elevatedWhy() - no per-channel prose needed.
         'settings/user_group' => 'sets what every group may do, this one included',
         'settings/user' => 'creates logins and moves people between groups',
         'settings/api_client' => 'issues keys that reach the data from outside',
@@ -223,15 +225,23 @@ return [
 
         // The bare controller here is the ledger, not the settings:
         // Petty Cash keeps those in their own controller.
-        'pettycash/overview' => 'Transactions',
-        // The bare controller of a channel is its connection, not an
-        // "overview": it holds the credentials, the sandbox/live switch and
-        // the API explorer. Named for what granting it actually hands over.
-        'lazada/overview' => 'Connection & API',
-        'shopee/overview' => 'Connection & API',
-        'tiktok/overview' => 'Connection & API',
-        'venta/overview' => 'Connection & API',
-        'opencart/overview' => 'Connection & API',
+        'pettycash/ledger' => 'Transactions',
+        // A channel's settings row is its connection: the credentials, the
+        // sandbox/live switch, the status maps. The API explorer - sending
+        // requests to the marketplace as the shop - is its own row now, and
+        // its own grant decision. Str::headline says "Settings" and "Api
+        // Explorer" on its own; only the explorer needs better words.
+        'lazada/settings' => 'Connection',
+        'shopee/settings' => 'Connection',
+        'tiktok/settings' => 'Connection',
+        'venta/settings' => 'Connection',
+        'opencart/settings' => 'Connection',
+        'pedallion/settings' => 'Connection',
+        'shopify/settings' => 'Connection',
+        'lazada/api_explorer' => 'API explorer',
+        'shopee/api_explorer' => 'API explorer',
+        'tiktok/api_explorer' => 'API explorer',
+        'pedallion/api_explorer' => 'API explorer',
 
         // "Warehouse Transfer" inside a group already titled Warehousing
         // says warehouse twice.

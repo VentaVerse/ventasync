@@ -26,7 +26,7 @@
     // (save, delete, test, fetch statuses, save mapping, logging toggle, log
     // delete) is `manage_venta`. Replaces a hardcoded `true`, which offered a
     // read-only operator every one of those controls.
-    $canManageVenta = auth()->user()?->hasPermission('manage_venta/overview') ?? false;
+    $canManageVenta = auth()->user()?->hasPermission('manage_venta/settings') ?? false;
 
     // showSettings() always hands over exactly one store and $singleStore =
     // true, so the pre-redesign store-selector rail and the "Add New Store"
