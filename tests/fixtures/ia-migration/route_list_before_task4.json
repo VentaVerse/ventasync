@@ -1321,6 +1321,21 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "channels/shopee/listings/{productId}",
+        "name": "ext.shopee.listings.edit"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/listings/{productId}",
+        "name": "ext.shopee.listings.update"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/listings/{productId}/toggle",
+        "name": "ext.shopee.listings.toggle"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "channels/shopee/logistics",
         "name": "ext.shopee.logistics.index"
     },

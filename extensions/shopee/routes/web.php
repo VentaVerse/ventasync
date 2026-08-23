@@ -93,6 +93,13 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         Route::get('/shopee/products', [ShopeeProductController::class, 'index'])->name('ext.shopee.products.index');
         Route::get('/shopee/products/search-catalog', [ShopeeProductController::class, 'searchCatalogProducts'])->name('ext.shopee.products.search_catalog');
         Route::get('/shopee/products/{productId}/push', [ShopeeProductController::class, 'pushForm'])->name('ext.shopee.products.push');
+
+        // The individual listing page: live marketplace state + the
+        // listing record's own settings and content. An edit form, so a
+        // MANAGE surface despite being a GET, like the push form above.
+        Route::get('/shopee/listings/{productId}', [ShopeeProductController::class, 'listing'])
+            ->whereNumber('productId')->name('ext.shopee.listings.edit')
+            ->defaults('permission_tier', 'manage');
     });
 
     // ── Shopee Settings + Catalog WRITES ────────────────────────
@@ -175,6 +182,8 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         Route::post('/shopee/products/{productId}/sync/shopee-id', [ShopeeProductController::class, 'syncSingleProductId'])->name('ext.shopee.products.sync_shopee_id');
         Route::post('/shopee/products/{productId}/sync/quantity', [ShopeeProductController::class, 'syncQuantity'])->name('ext.shopee.products.sync_quantity');
         Route::post('/shopee/products/{productId}/sync/price', [ShopeeProductController::class, 'syncPrice'])->name('ext.shopee.products.sync_price');
+        Route::post('/shopee/listings/{productId}', [ShopeeProductController::class, 'saveListing'])->whereNumber('productId')->name('ext.shopee.listings.update');
+        Route::post('/shopee/listings/{productId}/toggle', [ShopeeProductController::class, 'toggleListing'])->whereNumber('productId')->name('ext.shopee.listings.toggle');
         Route::post('/shopee/products/{productId}/unlink', [ShopeeProductController::class, 'unlink'])->name('ext.shopee.products.unlink');
         Route::post('/shopee/products/{productId}/delete', [ShopeeProductController::class, 'deleteFromShopee'])->name('ext.shopee.products.delete');
     });

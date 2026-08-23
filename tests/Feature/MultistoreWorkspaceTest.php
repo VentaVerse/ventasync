@@ -642,7 +642,7 @@ class MultistoreWorkspaceTest extends TestCase
 
             $flat = preg_replace('/\s+/', ' ', trim($crumb));
 
-            $this->assertSame(1, substr_count($crumb, 'Integrations'), 'Trail repeats on '.$path.': '.$flat);
+            $this->assertSame(1, substr_count($crumb, \App\Support\Breadcrumbs::CHANNEL_ROOT), 'Trail repeats on '.$path.': '.$flat);
             $this->assertSame(1, substr_count($crumb, $card->name), 'Channel repeats on '.$path.': '.$flat);
             $this->assertSame(1, substr_count($crumb, $store->label), 'Store missing or repeated on '.$path.': '.$flat);
         }

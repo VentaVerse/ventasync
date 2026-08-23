@@ -33,13 +33,13 @@ use Illuminate\Support\Facades\View;
 class Breadcrumbs
 {
     /**
-     * The root crumb of every channel workspace trail. Not a nav label: the
-     * Channels nav group is called "Channels", but the workspace root has read
-     * "Integrations" since the channel layout was written, it matches the
-     * /integrations URL segment, and Task 5 is explicitly not allowed to
-     * change the rendered shape of that trail.
+     * The root crumb of every channel workspace trail. "Integrations" was
+     * retired everywhere the operator can see it (the owner, 2026-08-23): the
+     * URLs live under /channels, the nav group is Channels, and the trail
+     * now says the same word. The Task 5 constraint that froze the old
+     * wording predated that ruling.
      */
-    public const CHANNEL_ROOT = 'Integrations';
+    public const CHANNEL_ROOT = 'Channels';
 
     /**
      * The trail for a request, outermost crumb first, leaf last.

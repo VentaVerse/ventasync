@@ -511,6 +511,9 @@
                      (components/ui-table.css), above the row's stretched-link
                      overlay, so its controls stay clickable. --}}
                 <x-ui.menu label="Product {{ $p->product_id }} actions">
+                    @if($canManageShopee)
+                        <a class="x-menu__item" href="{{ route('ext.shopee.listings.edit', $p->product_id) }}">Open listing</a>
+                    @endif
                     <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalogue</a>
 
                     @if($canManageShopee)

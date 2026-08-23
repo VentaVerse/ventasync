@@ -25,8 +25,15 @@ class ShopeeClient
 
     private function http(): PendingRequest
     {
+        /* throw: false, found 2026-08-24 by the listing page's live fetch.
+         * retry() THROWS on the final non-2xx response by default, which
+         * made every caller's `$result['ok'] ?? false` check unreachable
+         * for HTTP-level failures: an expired access token was a 500 page,
+         * not the handled error each call site already wrote. Connection
+         * failures (no response at all) still throw; callers that must
+         * stay up through those catch Throwable themselves. */
         return Http::timeout(30)
-            ->retry(2, 300)
+            ->retry(2, 300, throw: false)
             ->acceptJson()
             ->asJson();
     }

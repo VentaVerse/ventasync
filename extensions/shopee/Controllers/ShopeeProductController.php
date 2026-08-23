@@ -15,6 +15,7 @@ use Extensions\shopee\Models\ShopeeSetting;
 use Extensions\shopee\Models\ShopeeUnmatchedItem;
 use App\Services\ActivityLogger;
 use Extensions\shopee\Services\Shopee\ShopeeClient;
+use Extensions\shopee\Services\Shopee\ShopeeLiveListing;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -2506,6 +2507,182 @@ class ShopeeProductController extends Controller
         }
 
         return array_values(array_unique($allItemIds));
+    }
+
+    // ── The individual listing page (quest 1, 2026-08-24) ──────────────
+    //
+    // One product on Shopee, presented the way the seller center presents
+    // it: the LIVE state fetched from the marketplace on every load, and
+    // the listing record's own settings and content editable beneath it.
+    // Lives on this controller so it shares the Listings surface's derived
+    // permission key (shopee/product), exactly as Lazada's edit-listing
+    // form shares lazada/product.
+
+    public function listing(int $productId, ShopeeLiveListing $liveListing)
+    {
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $product = DB::table($pfx . 'product as p')
+            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+                $j->on('p.product_id', '=', 'pd.product_id')
+                  ->where('pd.language_id', '=', $langId);
+            })
+            ->where('p.product_id', $productId)
+            ->first([
+                'p.product_id', 'pd.name', 'pd.description', 'p.image',
+                'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status',
+                'p.weight', 'p.length', 'p.width', 'p.height',
+            ]);
+
+        if (!$product) {
+            abort(404, 'Product not found.');
+        }
+        $product->name = html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        $listing = ShopeeListing::query()->where('product_id', $productId)->first();
+        $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
+
+        // The live half. Only a linked product HAS a live half; an unpushed
+        // one shows readiness instead.
+        $live = null;
+        $liveError = null;
+        if ($link) {
+            $setting = ShopeeSetting::query()->first()?->decrypted();
+            $auth = ShopeeSetting::activeAuth($setting);
+            if (!$setting || !$auth['complete']) {
+                $liveError = 'Shopee settings are incomplete, so the live state could not be fetched.';
+            } else {
+                $result = $liveListing->fetch($auth, (int) $link->shopee_item_id);
+                $live = $result['live'];
+                $liveError = $result['error'];
+            }
+        }
+
+        $shopeeCategories = ShopeeCategory::query()
+            ->where('leaf', true)
+            ->orderBy('name')
+            ->limit(5000)
+            ->get(['category_id', 'name']);
+
+        return view('ext-shopee::listings.edit', [
+            'product' => $product,
+            'listing' => $listing,
+            'link' => $link,
+            'live' => $live,
+            'liveError' => $liveError,
+            'shopeeCategories' => $shopeeCategories,
+            'logistics' => $this->fetchLogistics(),
+        ]);
+    }
+
+    public function saveListing(Request $request, int $productId)
+    {
+        $pfx = (string) config('catalog.prefix');
+        $exists = DB::table($pfx . 'product')->where('product_id', $productId)->exists();
+        if (!$exists) {
+            abort(404, 'Product not found.');
+        }
+
+        $data = $request->validate([
+            'shopee_category_id' => 'nullable|integer|min:1',
+            'logistic_ids' => 'nullable|array',
+            'logistic_ids.*' => 'integer|min:1',
+            'markup_percent' => 'nullable|numeric|min:-100|max:1000',
+            'markup_fixed' => 'nullable|numeric|min:-1000000|max:1000000',
+            'item_name' => 'nullable|string|max:255',
+            'description' => 'nullable|string|max:5000',
+            'weight' => 'nullable|numeric|min:0.01',
+            'package_length' => 'nullable|integer|min:1|max:1000000',
+            'package_width' => 'nullable|integer|min:1|max:1000000',
+            'package_height' => 'nullable|integer|min:1|max:1000000',
+        ]);
+
+        /* Content fields are OVERRIDES: an emptied field returns to null,
+         * which means "follows the catalogue". That is the whole model -
+         * saving here never writes the core product, and clearing a field
+         * is how a divergence is deliberately ended. */
+        $blank = fn ($v) => ($v === null || trim((string) $v) === '') ? null : $v;
+
+        ShopeeListing::query()->updateOrCreate(
+            ['product_id' => $productId],
+            [
+                'shopee_category_id' => $data['shopee_category_id'] ?? null,
+                'logistic_ids' => array_map('intval', $data['logistic_ids'] ?? []),
+                'markup_percent' => $blank($data['markup_percent'] ?? null),
+                'markup_fixed' => $blank($data['markup_fixed'] ?? null),
+                'item_name' => $blank($data['item_name'] ?? null),
+                'description' => $blank($data['description'] ?? null),
+                'weight' => $blank($data['weight'] ?? null),
+                'package_length' => $blank($data['package_length'] ?? null),
+                'package_width' => $blank($data['package_width'] ?? null),
+                'package_height' => $blank($data['package_height'] ?? null),
+            ]
+        );
+
+        return redirect()->route('ext.shopee.listings.edit', $productId)
+            ->with('status', 'Listing saved. These settings drive the next push and price sync.');
+    }
+
+    public function toggleListing(Request $request, int $productId, ShopeeClient $client)
+    {
+        $request->validate(['action' => 'required|in:list,unlist']);
+        $unlist = $request->input('action') === 'unlist';
+
+        $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
+        if (!$link) {
+            return redirect()->back()->with('error', 'This product is not on Shopee, so there is nothing to ' . ($unlist ? 'unlist' : 'relist') . '.');
+        }
+
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+            return redirect()->back()->with('error', "Missing Shopee {$modeLabel} settings.");
+        }
+
+        $path = '/api/v2/product/unlist_item';
+        $body = ['item_list' => [['item_id' => (int) $link->shopee_item_id, 'unlist' => $unlist]]];
+
+        try {
+            $result = $client->shopPost(
+                $auth['mode'],
+                (int) $auth['partner_id'], (string) $auth['partner_key'],
+                (string) $auth['access_token'], (int) $auth['shop_id'],
+                $path, [], $body
+            );
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error', ($unlist ? 'Unlist' : 'Relist') . ' failed: Shopee did not answer (' . $e->getMessage() . ').');
+        }
+
+        ShopeeApiLog::safeCreate([
+            'pack' => 'shopee.listings.toggle', 'method' => 'POST',
+            'api_path' => $path, 'auth_required' => true,
+            'request_params' => $body,
+            'response_status' => $result['status'] ?? null,
+            'ok' => (bool) ($result['ok'] ?? false),
+            'response_body' => $result['body'] ?? null, 'user_id' => auth()->id(),
+        ]);
+
+        $failure = (($result['body'] ?? [])['response']['failure_list'] ?? [])[0] ?? null;
+        if (!($result['ok'] ?? false) || $failure) {
+            $msg = $failure['failed_reason']
+                ?? (is_array($result['body'] ?? null)
+                    ? (string) ($result['body']['message'] ?? ($result['body']['error'] ?? 'no response'))
+                    : 'no response');
+            return redirect()->back()->with('error', ($unlist ? 'Unlist' : 'Relist') . ' failed: ' . $msg);
+        }
+
+        ActivityLogger::log(
+            $unlist ? 'unlisted' : 'relisted',
+            'Shopee Product',
+            $productId,
+            'Item ' . $link->shopee_item_id . ($unlist ? ' unlisted from' : ' relisted on') . ' Shopee'
+        );
+
+        return redirect()->back()->with('status', $unlist
+            ? 'Unlisted. Buyers no longer see this item on Shopee.'
+            : 'Relisted. The item is visible on Shopee again.');
     }
 
 }

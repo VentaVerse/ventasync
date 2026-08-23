@@ -279,7 +279,7 @@ class TiktokWorkspaceTest extends TestCase
 
         $this->assertSame(
             1,
-            substr_count($crumb, 'Integrations'),
+            substr_count($crumb, \App\Support\Breadcrumbs::CHANNEL_ROOT),
             'Breadcrumb repeats the trail on '.$path.': '.preg_replace('/\s+/', ' ', trim($crumb))
         );
         $this->assertSame(
