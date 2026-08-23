@@ -95,16 +95,6 @@
             </section>
 
             <section class="fm-section">
-                <div class="fm-section__head">
-                    <h2 class="fm-section__title">What this group may do</h2>
-                </div>
-                <p class="fm-section__note">
-                    Every area has its own level. Off means the area does not appear at all.
-                    View means read but not change. Manage means full control, and includes view.
-                    A bold note under a row means it hands over more than its
-                    own screen - read it before granting.
-                </p>
-
                 <div class="st-perm">
                     @include('settings.user_groups.partials.permissions', [
                         'permissionGroups' => $permissionGroups,
@@ -116,7 +106,6 @@
     </div>
 
     <div class="fm-bar">
-        <span class="fm-bar__meta">Group {{ $group->id }}</span>
         <div class="fm-bar__actions">
             <a class="fm-cancel" href="{{ route('user_groups.index') }}">Cancel</a>
             <x-ui.button type="submit" variant="primary">Save changes</x-ui.button>

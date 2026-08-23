@@ -23,8 +23,7 @@
     <div class="card">
         <div class="icon">403</div>
         <h1>You are not allowed to access this page</h1>
-        <p><code>{{ request()->getPathInfo() }}</code> needs a permission your account does not have.</p>
-        <p>Contact your administrator if you need access. They can grant it under Settings&nbsp;&rsaquo;&nbsp;User&nbsp;Groups.</p>
+        <p>Contact your administrator if you need access.</p>
         <div class="actions">
             <button type="button" id="backBtn" class="btn btn-primary">&larr; Back</button>
             <a href="{{ url('/') }}" class="btn btn-secondary">Home</a>

@@ -151,11 +151,6 @@
                aria-label="Filter permissions">
     </div>
 
-    <p class="permv2-footnote">
-        <x-ui.icon name="info" size="13" class="permv2-footnote-icon" />
-        <span><b>Manage</b> includes <b>View</b>. An area with nothing to change offers
-        <b>View</b> only. Use the segmented controls, or the left and right arrow keys once one has focus.</span>
-    </p>
 
     {{-- A DEAD END TOLD THE TRUTH AND EXPLAINED NOTHING.
          Typing "fulfilment" or "channel" - two top-level sections of the
@@ -271,19 +266,13 @@
                                      and it is the one label that cannot go stale. --}}
                                 <span class="permv2-row-base" title="permission key">{{ $key }}</span>
                             </div>
-                            {{-- Built in PHP rather than inline directives: Blade
-                                 matches a directive with \B@, so an @endif sitting
-                                 straight after a word character is not recognised at
-                                 all and the @if it should close silently runs on. --}}
-                            @php
-                                $facts = $row['routes'] . ' ' . \Illuminate\Support\Str::plural('action', $row['routes']);
-                                if ($row['writes'] === 0) {
-                                    $facts .= ', all read-only';
-                                }
-                            @endphp
-                            <div class="permv2-row-desc" id="{{ $pillId }}-desc">
-                                {{ $facts }}@if($row['warning'] !== '') &middot; {{ $row['warning'] }}@endif
-                            </div>
+                            {{-- No action counts: The owner's call, and right -
+                                 route arithmetic is trivia to an operator. A row
+                                 is its title; only the handful that reach past
+                                 their own screen carry one factual sentence. --}}
+                            @if($row['warning'] !== '')
+                                <div class="permv2-row-desc" id="{{ $pillId }}-desc">{{ $row['warning'] }}</div>
+                            @endif
                         </div>
 
                         <div class="permv2-pill"
@@ -294,7 +283,7 @@
                                   in front; the action count and the warning
                                   follow via aria-describedby. --}}
                              aria-label="{{ $group['label'] }}: {{ $row['label'] }} permission level"
-                             aria-describedby="{{ $pillId }}-desc"
+                             @if($row['warning'] !== '') aria-describedby="{{ $pillId }}-desc" @endif
                              data-segments="{{ $row['segments'] }}"
                              data-state="{{ $state }}"
                              data-base="{{ $key }}">

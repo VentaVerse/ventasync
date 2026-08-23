@@ -62,9 +62,15 @@ return [
     ],
 
     'rows' => [
-        // Machine-facing rows, named for what the caller is doing rather than
-        // for the controller answering. "Auth" and "Device Token" are what
-        // the code calls them; neither tells an administrator anything.
+        /* ONE RULE: A ROW IS TITLED EXACTLY AS ITS SCREEN IS TITLED IN THE
+           MENUS. The owner's spec - the administrator already knows every menu,
+           so a permission whose title matches the menu needs no further
+           explanation. Where one key serves several menu entries (Orders +
+           Returns, six report screens), the primary entry names it. Keys
+           with no menu presence keep a plural, menu-shaped title. */
+
+        // Machine-facing rows, named for what the caller is doing rather
+        // than for the controller answering.
         'api/auth' => 'Sign in on the phone app',
         'api/device_token' => 'Push notifications',
         'api/dashboard' => 'Dashboard figures',
@@ -80,23 +86,66 @@ return [
         // Str::headline stutters a controller whose class name already ends
         // in Api and sits in an api_ file: "Api Report Api".
         'reports/api_report_api' => 'Reports over the API',
+        // Six report screens, one key: the group name titles it.
+        'reports/report' => 'Reports',
         'venta/api_venta_order_api' => 'Orders over the API',
 
-        // The bare controller here is the ledger, not the settings:
-        // Petty Cash keeps those in their own controller.
+        // Core, titled as the sidebar titles them.
+        'sales/order' => 'Orders',
+        'catalog/product' => 'Products',
+        'catalog/category' => 'Categories',
+        'catalog/manufacturer' => 'Manufacturers',
+        'catalog/product_image' => 'Product Images',
+        'catalog/product_option' => 'Variations',
+        'purchasing/purchase_order' => 'Purchase Orders',
+        'purchasing/vendor' => 'Vendors',
+        'purchasing/reorder' => 'Reorder Suggestions',
+        'purchasing/product_vendor' => 'Product Vendors',
+        'settings/user' => 'Users',
+        'settings/user_group' => 'User Groups',
+        'settings/order_status' => 'Order Statuses',
+        'settings/currency' => 'Currencies',
+        'settings/extension' => 'Extensions',
+        'settings/api_client' => 'API Clients',
+        'settings/setting' => 'General Settings',
+        'settings/error_log' => 'Error Log',
+        'settings/settings_hub' => 'Settings Home',
         'pettycash/ledger' => 'Transactions',
-        // A channel's settings row is its connection: the credentials, the
-        // sandbox/live switch, the status maps. The API explorer - sending
-        // requests to the marketplace as the shop - is its own row now, and
-        // its own grant decision. Str::headline says "Settings" and "Api
-        // Explorer" on its own; only the explorer needs better words.
-        'lazada/settings' => 'Connection',
-        'shopee/settings' => 'Connection',
-        'tiktok/settings' => 'Connection',
-        'venta/settings' => 'Connection',
-        'opencart/settings' => 'Connection',
-        'pedallion/settings' => 'Connection',
-        'shopify/settings' => 'Connection',
+
+        // Channel workspaces, titled as their own sidebars title them:
+        // Overview, Orders, Listings, Product Groups, Categories, Brands,
+        // Logistics, Settings. The API explorer has no menu entry - it
+        // lives inside the Settings page - and is named for what it is.
+        'lazada/dashboard' => 'Overview',
+        'shopee/dashboard' => 'Overview',
+        'tiktok/dashboard' => 'Overview',
+        'venta/dashboard' => 'Overview',
+        'opencart/dashboard' => 'Overview',
+        'pedallion/dashboard' => 'Overview',
+        'shopify/dashboard' => 'Overview',
+        'lazada/order' => 'Orders',
+        'shopee/order' => 'Orders',
+        'tiktok/order' => 'Orders',
+        'venta/order' => 'Orders',
+        'opencart/order' => 'Orders',
+        'pedallion/order' => 'Orders',
+        'shopify/order' => 'Orders',
+        'lazada/product' => 'Listings',
+        'shopee/product' => 'Listings',
+        'pedallion/product' => 'Listings',
+        'lazada/product_group' => 'Product Groups',
+        'shopee/product_group' => 'Product Groups',
+        'tiktok/product_group' => 'Product Groups',
+        'venta/product_group' => 'Product Groups',
+        'opencart/product_group' => 'Product Groups',
+        'pedallion/product_group' => 'Product Groups',
+        'lazada/category' => 'Categories',
+        'shopee/category' => 'Categories',
+        'pedallion/category' => 'Reference Data',
+        'lazada/category_attribute' => 'Category Attributes',
+        'shopee/category_attribute' => 'Category Attributes',
+        'lazada/brand' => 'Brands',
+        'opencart/review' => 'Reviews',
         'lazada/api_explorer' => 'API explorer',
         'shopee/api_explorer' => 'API explorer',
         'tiktok/api_explorer' => 'API explorer',
@@ -107,12 +156,5 @@ return [
         'warehousing/warehouse' => 'Locations',
         'warehousing/warehouse_inventory' => 'Inventory',
         'warehousing/warehouse_transfer' => 'Transfers',
-
-        'settings/api_client' => 'API Clients',
-        'settings/settings_hub' => 'Settings Home',
-        'settings/setting' => 'General Settings',
-        'catalog/product_option' => 'Product Variations',
-        'reports/report' => 'Reports',
-        'audit/activity_log' => 'Activity Log',
     ],
 ];
