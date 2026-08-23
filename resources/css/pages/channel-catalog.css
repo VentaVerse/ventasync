@@ -290,14 +290,35 @@
     /* A grid, not a wrapping flex row: these are three or four figures
        repeated per variation, and the whole point of mono tabular
        numerals is lost if the stock column starts at a different x on
-       every line. Value name takes the remainder; the rest are fixed and
-       right-aligned so they compare by eye. */
+       every line. Thumb first (the variation's OWN image, same rule as
+       the core product list), value name takes the remainder; the rest
+       are fixed and right-aligned so they compare by eye. */
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto auto;
-    align-items: baseline;
+    grid-template-columns: 24px minmax(0, 1fr) auto auto auto;
+    align-items: center;
     gap: var(--bl-space-1) var(--bl-space-3);
     font-size: 11px;
     color: var(--bl-ink-2);
+}
+
+/* The variation's own picture. Empty stays an outlined slot rather than
+   collapsing: a missing image is information ("no picture for this one"),
+   and the name column keeps one x across rows either way. */
+.cc-var__thumb {
+    width: 24px;
+    height: 24px;
+    flex: none;
+    background: var(--bl-chrome);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-dot);
+    overflow: hidden;
+}
+
+.cc-var__thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }
 
 .cc-var__name {
@@ -685,7 +706,7 @@
        the last thing keeping this table scrolling sideways inside itself.
        Name and one figure per line; the tabular alignment the desktop grid
        exists for survives within each column. */
-    .cc-var { grid-template-columns: minmax(0, 1fr) auto; }
+    .cc-var { grid-template-columns: 24px minmax(0, 1fr) auto; }
 
     /* The single-action bar stacks: the sentence above, the button below
        it, both full width. */

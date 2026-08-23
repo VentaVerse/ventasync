@@ -448,74 +448,11 @@ class ShopeeProductGroupController extends Controller
             ->get()
             ->keyBy('product_id');
 
-        // Option rows (variations) for display, combinations first, fallback
-        // to option values. Single-option products store SKU/qty/price on
-        // product_option_value; multi-option products store them on
-        // product_option_combinations. Mirrors the Lazada listing fix.
-        $optionRowsByProductId = collect();
-        if (!empty($pivotProductIds)) {
-            $combos = DB::table('product_option_combinations as poc')
-                ->whereIn('poc.product_id', $pivotProductIds)
-                ->orderBy('poc.product_id')
-                ->orderBy('poc.sort_order')
-                ->get();
-
-            $comboProductIds = $combos->pluck('product_id')->unique()->toArray();
-
-            if ($combos->isNotEmpty()) {
-                $comboIds = $combos->pluck('id')->toArray();
-                $comboValues = DB::table('product_option_combination_values as pocv')
-                    ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                        $j->on('pocv.product_option_value_id', '=', 'ovd.option_value_id')
-                            ->where('ovd.language_id', '=', $langId);
-                    })
-                    ->whereIn('pocv.combination_id', $comboIds)
-                    ->select('pocv.combination_id', 'ovd.name as value_name')
-                    ->get()
-                    ->groupBy('combination_id');
-
-                foreach ($combos as $c) {
-                    $valueNames = ($comboValues->get($c->id) ?? collect())->pluck('value_name')->implode(' / ');
-                    $row = (object) [
-                        'product_id'              => $c->product_id,
-                        'product_option_value_id' => $c->id,
-                        'option_name'             => 'Option',
-                        'option_value_name'       => $valueNames,
-                        'option_quantity'         => (int) $c->quantity,
-                        'option_sku'              => $c->sku,
-                        'option_absolute_price'   => (float) $c->absolute_price,
-                    ];
-                    if (!$optionRowsByProductId->has($c->product_id)) {
-                        $optionRowsByProductId[$c->product_id] = collect();
-                    }
-                    $optionRowsByProductId[$c->product_id]->push($row);
-                }
-            }
-
-            $nonComboIds = array_diff($pivotProductIds, $comboProductIds);
-            if (!empty($nonComboIds)) {
-                $optValues = DB::table($pfx . 'product_option_value as pov')
-                    ->join($pfx . 'option_description as od', function ($j) use ($langId) {
-                        $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
-                    })
-                    ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                        $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
-                    })
-                    ->whereIn('pov.product_id', $nonComboIds)
-                    ->select(
-                        'pov.product_id', 'pov.product_option_value_id',
-                        'od.name as option_name', 'ovd.name as option_value_name',
-                        'pov.quantity as option_quantity', 'pov.sku as option_sku',
-                        'pov.absolute_price as option_absolute_price'
-                    )
-                    ->orderBy('pov.product_id')
-                    ->orderBy('pov.product_option_value_id')
-                    ->get()
-                    ->groupBy('product_id');
-
-                $optionRowsByProductId = $optionRowsByProductId->merge($optValues);
-            }
-        }
+        // Variation rows: the shared combinations-first query the core
+        // product list uses, image and proper option names included
+        // (App\Support\VariationRows). The pov fallback for never-resaved
+        // products lives inside it.
+        $optionRowsByProductId = \App\Support\VariationRows::forProducts($pivotProductIds);
 
         // All product IDs in this group (for "Remove from Group" action)
         $manualIds = $group->groupProducts()->pluck('product_id')->toArray();

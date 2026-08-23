@@ -42,7 +42,10 @@ class ProductListVariationsTest extends TestCase
 
     /**
      * The controller stopped hardcoding null, which is what made the image
-     * slot dead for as long as it existed.
+     * slot dead for as long as it existed. The row-building moved into the
+     * shared App\Support\VariationRows on 2026-08-24 so the marketplace
+     * lists show the same rows; the guard follows the code to its new home
+     * and pins the controller to actually using it.
      */
     public function test_the_controller_supplies_the_variation_image(): void
     {
@@ -51,13 +54,18 @@ class ProductListVariationsTest extends TestCase
         $this->assertStringNotContainsString('$c->option_image = null;', $controller,
             'the image slot was hardcoded null and never rendered');
 
+        $this->assertStringContainsString('VariationRows::forProducts', $controller,
+            'the core list must build its variation rows through the shared query');
+
+        $helper = File::get(base_path('app/Support/VariationRows.php'));
+
         $this->assertStringContainsString(
             "\$c->option_image = trim((string) (\$c->image ?? '')) ?: null;",
-            $controller
+            $helper
         );
 
         // It has to be selected, or the property does not exist to read.
-        $this->assertStringContainsString("'c.absolute_price', 'c.image'", $controller);
+        $this->assertStringContainsString("'c.absolute_price', 'c.image'", $helper);
     }
 
     /**

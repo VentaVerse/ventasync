@@ -436,7 +436,14 @@
                                 <span>{{ $p->manufacturer_name }}</span>
                             @endif
                             @if(count($pGroups) > 0)
-                                <span class="co-item__var">{{ $pGroups[0] }}@if(count($pGroups) > 1) and {{ count($pGroups) - 1 }} more @endif</span>
+                                {{-- Which product GROUPS hold this product.
+                                     It used to render the bare group name,
+                                     which read as a category or a variation
+                                     (the class is the variation chip on
+                                     every order page). The label now says
+                                     what it is, and the full list rides on
+                                     the title for the "and N more" case. --}}
+                                <span class="co-item__var" @if(count($pGroups) > 1) title="Groups: {{ implode(', ', $pGroups) }}" @endif>Group{{ count($pGroups) > 1 ? 's' : '' }}: {{ $pGroups[0] }}@if(count($pGroups) > 1) and {{ count($pGroups) - 1 }} more @endif</span>
                             @endif
                         </div>
 
@@ -448,11 +455,14 @@
                                 @foreach($optRows as $or)
                                     @php
                                         $ovn = (string) ($or->option_value_name ?? '');
-                                        $osku = (string) ($or->option_sku ?? '');
-                                        $oqty = (int) ($or->option_quantity ?? 0);
-                                        $oprice = (float) ($or->option_absolute_price ?? 0);
+                                        $osku = (string) ($or->sku ?? '');
+                                        $oqty = (int) ($or->quantity ?? 0);
+                                        $oprice = (float) ($or->absolute_price ?? 0);
+                                        $oimg = trim((string) ($or->option_image ?? ''));
+                                        $osrc = $oimg !== '' ? asset('storage/' . ltrim($oimg, '/')) : '';
                                     @endphp
                                     <div class="cc-var">
+                                        <span class="cc-var__thumb">@if($osrc)<img src="{{ $osrc }}" alt="" loading="lazy" decoding="async">@endif</span>
                                         <span class="cc-var__name">{{ $ovn !== '' ? $ovn : 'Unnamed variation' }}</span>
                                         <span class="cc-var__sku">{{ $osku !== '' ? $osku : '' }}</span>
                                         <span class="cc-var__qty">{{ $oqty }} in stock</span>
@@ -494,6 +504,7 @@
                         'REVIEWING' => ['Under review', 'warning'],
                         'SELLER_DELETE' => ['Deleted', 'neutral'],
                         'SHOPEE_DELETE' => ['Deleted by Shopee', 'danger'],
+                        'MISSING' => ['Not found on Shopee', 'danger'],
                     ];
                 @endphp
                 @if($rowLiveStatus !== null && isset($rowLiveMap[$rowLiveStatus]))

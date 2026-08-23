@@ -537,35 +537,10 @@ class TikTokProductGroupController extends Controller
 
         $manualIds = $group->groupProducts()->pluck('product_id')->toArray();
 
-        // Preload option rows for display
+        // Variation rows: the shared combinations-first query the core
+        // product list uses (App\Support\VariationRows).
         $pageIds = $products->pluck('product_id')->all();
-        $optionRowsByProductId = collect();
-        if (!empty($pageIds)) {
-            $optionRows = DB::table($pfx . 'product_option_value as pov')
-                ->join($pfx . 'product_option as po', 'pov.product_option_id', '=', 'po.product_option_id')
-                ->leftJoin($pfx . 'option_description as od', function ($j) use ($langId) {
-                    $j->on('po.option_id', '=', 'od.option_id')
-                        ->where('od.language_id', '=', $langId);
-                })
-                ->leftJoin($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                    $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
-                        ->where('ovd.language_id', '=', $langId);
-                })
-                ->whereIn('pov.product_id', $pageIds)
-                ->orderBy('pov.product_id')
-                ->orderBy('pov.product_option_id')
-                ->orderBy('pov.product_option_value_id')
-                ->get([
-                    'pov.product_id',
-                    'od.name as option_name',
-                    'ovd.name as option_value_name',
-                    'pov.sku as option_sku',
-                    'pov.quantity as option_quantity',
-                    'pov.absolute_price as option_absolute_price',
-                ]);
-
-            $optionRowsByProductId = $optionRows->groupBy(fn($r) => (int) $r->product_id);
-        }
+        $optionRowsByProductId = \App\Support\VariationRows::forProducts($pageIds);
 
         return view('ext-tiktok::product-groups.products', [
             'group'                => $group,

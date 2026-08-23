@@ -310,6 +310,27 @@ class ShopeeListingPageTest extends TestCase
         $r->assertDontSee('shopee_tab=live', false);
     }
 
+    public function test_a_link_shopee_does_not_recognise_reads_not_found_instead_of_listed(): void
+    {
+        $productId = $this->seedProduct();
+        // A link row whose item the shop has never heard of - an item
+        // deleted in the seller center, or a row copied in from another
+        // environment's database refresh.
+        ShopeeProductLink::query()->create([
+            'product_id' => $productId, 'shopee_item_id' => 424242, 'sku' => 'LSTP-SKU-1',
+        ]);
+        $this->fakeItemList(['NORMAL' => [], 'UNLIST' => [], 'BANNED' => [], 'REVIEWING' => []]);
+        // base_info succeeds but answers with no items at all.
+        $this->getResponses['/api/v2/product/get_item_base_info'] =
+            ['ok' => true, 'status' => 200, 'body' => ['response' => ['item_list' => []]]];
+
+        $r = $this->actingAs($this->manager())->get(route('ext.shopee.products.index'));
+
+        $r->assertOk();
+        $r->assertSee('Not found on Shopee');
+        $r->assertDontSee('Unlist from Shopee');
+    }
+
     public function test_the_page_is_a_manage_surface_even_as_a_get(): void
     {
         $productId = $this->seedProduct();

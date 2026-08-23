@@ -156,6 +156,84 @@
         </div>
     @endif
 
+    {{-- ── On Lazada right now (parity with the Shopee listing page,
+         2026-08-24): the live state fetched from Lazada on this page
+         load. Only an uploaded listing has one; when Lazada does not
+         answer, the section says so and nothing stale stands in. --}}
+    @if($mode === 'edit' && !empty($listing->lazada_item_id))
+        <section class="fm-section">
+            <div class="fm-section__head">
+                <h2 class="fm-section__title">On Lazada right now</h2>
+            </div>
+            @if(($liveError ?? null) !== null)
+                <div class="fm-note fm-note--fail">
+                    <div class="fm-note__body">{{ $liveError }} Nothing below is stale data standing in for it: the live state is simply unknown until Lazada answers.</div>
+                </div>
+            @elseif(($live ?? null) !== null)
+                @php
+                    $lzStatusMap = [
+                        'active' => ['Active', 'success'],
+                        'inactive' => ['Inactive', 'neutral'],
+                        'pending' => ['Pending QC', 'warning'],
+                        'rejected' => ['Violation', 'danger'],
+                        'sold-out' => ['Sold out', 'warning'],
+                        'deleted' => ['Deleted on Lazada', 'danger'],
+                    ];
+                    [$lzLabel, $lzTone] = $lzStatusMap[$live['status']] ?? [ucfirst($live['status'] ?: 'Unknown'), 'neutral'];
+                @endphp
+                <p class="fm-section__note">Fetched from Lazada as this page loaded.</p>
+                <div class="fm-stats">
+                    <div class="fm-stat">
+                        <span class="fm-stat__k">Status</span>
+                        <span class="fm-stat__v"><x-ui.badge :tone="$lzTone">{{ $lzLabel }}</x-ui.badge></span>
+                    </div>
+                    @if($live['sub_status'] !== '')
+                        <div class="fm-stat">
+                            <span class="fm-stat__k">Detail</span>
+                            <span class="fm-stat__v">{{ $live['sub_status'] }}</span>
+                        </div>
+                    @endif
+                    @if($live['item_name'] !== '' && $live['item_name'] !== $productName)
+                        <div class="fm-stat">
+                            <span class="fm-stat__k">Title on Lazada</span>
+                            <span class="fm-stat__v">{{ $live['item_name'] }}</span>
+                        </div>
+                    @endif
+                </div>
+                @if(!empty($live['skus']))
+                    <x-ui.table caption="This item's SKUs as Lazada holds them right now">
+                        <thead>
+                            <tr>
+                                <th>Seller SKU</th>
+                                <th class="x-num">Price</th>
+                                <th class="x-num">Stock</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($live['skus'] as $lsku)
+                                <tr>
+                                    <td>{{ $lsku['seller_sku'] !== '' ? $lsku['seller_sku'] : 'none' }}</td>
+                                    <td class="x-num">
+                                        @if($lsku['special_price'] !== null && $lsku['price'] !== null && $lsku['special_price'] < $lsku['price'])
+                                            <x-money :php="$lsku['special_price']" /> <s><x-money :php="$lsku['price']" /></s>
+                                        @elseif($lsku['price'] !== null)
+                                            <x-money :php="$lsku['price']" />
+                                        @else
+                                            unknown
+                                        @endif
+                                    </td>
+                                    <td class="x-num">{{ $lsku['quantity'] !== null ? $lsku['quantity'] : 'unknown' }}</td>
+                                    <td>{{ $lsku['status'] !== '' ? ucfirst($lsku['status']) : 'unknown' }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </x-ui.table>
+                @endif
+            @endif
+        </section>
+    @endif
+
     {{-- ============================================================
          1. The listing itself.
          ============================================================ --}}

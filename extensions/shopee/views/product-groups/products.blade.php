@@ -142,7 +142,7 @@
 {{-- role="status" so the bar arriving is heard, not only seen. aria-live is
      on the COUNT rather than the whole bar: the buttons do not change, and
      re-reading their labels on every tick would be worse than silence. --}}
-<div class="cc-bulkbar" x-show="selected.length  role="status"> 0" x-cloak data-bulkbar>
+<div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar role="status">
     <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected</span>
     <div class="cc-bulkbar__actions">
         {{-- Send, not Push. The old wording promised "anything already pushed
@@ -296,11 +296,14 @@
                                 @foreach($optRows as $or)
                                     @php
                                         $ovn = (string) ($or->option_value_name ?? '');
-                                        $osku = (string) ($or->option_sku ?? '');
-                                        $oqty = (int) ($or->option_quantity ?? 0);
-                                        $oprice = (float) ($or->option_absolute_price ?? 0);
+                                        $osku = (string) ($or->sku ?? '');
+                                        $oqty = (int) ($or->quantity ?? 0);
+                                        $oprice = (float) ($or->absolute_price ?? 0);
+                                        $oimg = trim((string) ($or->option_image ?? ''));
+                                        $osrc = $oimg !== '' ? asset('storage/' . ltrim($oimg, '/')) : '';
                                     @endphp
                                     <div class="cc-var">
+                                        <span class="cc-var__thumb">@if($osrc)<img src="{{ $osrc }}" alt="" loading="lazy" decoding="async">@endif</span>
                                         <span class="cc-var__name">{{ $ovn !== '' ? $ovn : 'Unnamed variation' }}</span>
                                         <span class="cc-var__sku">{{ $osku }}</span>
                                         <span class="cc-var__qty">{{ $oqty }} in stock</span>

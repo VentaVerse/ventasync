@@ -856,10 +856,48 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
     }
 }
 
-    public function index(Request $request)
+    public function index(Request $request, \Extensions\lazada\Services\Lazada\LazadaLiveListing $liveListing)
     {
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
+
+        /* ── The seller center's own tabs, Lazada parity (2026-08-24) ──
+         * Same contract as Shopee's listings index: each tab is a
+         * /products/get filter answered by Lazada ON THIS LOAD, with its
+         * live count; when Lazada does not answer, the tabs step aside
+         * behind a note and the stored view continues - absent, never
+         * stale. */
+        $tabMap = [
+            'active' => 'live',
+            'inactive' => 'inactive',
+            'pending' => 'pending',
+            'violation' => 'rejected',
+            'soldout' => 'sold-out',
+            'deleted' => 'deleted',
+        ];
+        $lazadaTab = (string) $request->query('lazada_tab', 'all');
+        if (!array_key_exists($lazadaTab, $tabMap)) {
+            $lazadaTab = 'all';
+        }
+
+        $liveSetting = LazadaSetting::query()->first()?->decrypted();
+        $liveCreds = LazadaSetting::activeCredentials($liveSetting);
+        $liveCounts = null;
+        $liveTabError = null;
+        if ($liveSetting && $liveCreds['complete']) {
+            try {
+                $liveCounts = [];
+                foreach ($tabMap as $tabKey => $filter) {
+                    $liveCounts[$tabKey] = $liveListing->count($liveSetting, $liveCreds, $filter);
+                }
+            } catch (\Throwable $e) {
+                $liveCounts = null;
+                $liveTabError = 'Lazada did not answer (' . $e->getMessage() . '), so the live tabs and statuses are unavailable right now. The stored view below is unaffected.';
+                $lazadaTab = 'all';
+            }
+        } else {
+            $lazadaTab = 'all';
+        }
 
         // Search & filter params
         $q = trim((string) $request->query('q', ''));
@@ -953,6 +991,19 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             $query->whereIn('product_id', $statusProductIds);
         }
 
+        // A live tab narrows the table to the items Lazada holds in that
+        // status right now. Only uploaded rows can match: the tab is a
+        // view of the shop, and an unpushed product is not in it.
+        if ($lazadaTab !== 'all' && $liveCounts !== null) {
+            try {
+                $tabItemIds = $liveListing->itemIds($liveSetting, $liveCreds, $tabMap[$lazadaTab]);
+                $query->whereIn('lazada_item_id', $tabItemIds ?: ['-none-']);
+            } catch (\Throwable $e) {
+                $liveTabError = 'Lazada did not answer (' . $e->getMessage() . '), so the live tabs and statuses are unavailable right now. The stored view below is unaffected.';
+                $lazadaTab = 'all';
+            }
+        }
+
         // Load Lazada products (sorting by ERP-derived fields is done in-memory below).
         $listings = $query->get();
 
@@ -982,32 +1033,9 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
             // Preload option rows for UI (show option values + SKU + qty)
             // Keep this read-only and minimal; avoid N+1 queries on the grid.
-            $optionRows = DB::table($pfx.'product_option_value as pov')
-                ->join($pfx.'product_option as po', 'pov.product_option_id', '=', 'po.product_option_id')
-                ->leftJoin($pfx.'option_description as od', function ($j) use ($langId) {
-                    $j->on('po.option_id', '=', 'od.option_id')
-                        ->where('od.language_id', '=', $langId);
-                })
-                ->leftJoin($pfx.'option_value_description as ovd', function ($j) use ($langId) {
-                    $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
-                        ->where('ovd.language_id', '=', $langId);
-                })
-                ->whereIn('pov.product_id', $productIds)
-                ->orderBy('pov.product_id')
-                ->orderBy('pov.product_option_id')
-                ->orderBy('pov.product_option_value_id')
-                ->get([
-                    'pov.product_id',
-                    'pov.product_option_value_id',
-                    'po.option_id',
-                    'od.name as option_name',
-                    'ovd.name as option_value_name',
-                    'pov.sku as option_sku',
-                    'pov.quantity as option_quantity',
-                    'pov.absolute_price as option_absolute_price',
-                ]);
-
-            $optionRowsByProductId = $optionRows->groupBy(fn ($r) => (int) $r->product_id);
+            // Variation rows: the shared combinations-first query the core
+            // product list uses (App\Support\VariationRows).
+            $optionRowsByProductId = \App\Support\VariationRows::forProducts($productIds);
 
         }
 
@@ -1120,6 +1148,40 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
+        /* Live status chip per uploaded row on this page: one
+         * sku_seller_list lookup per 50 rows. An uploaded row ABSENT from
+         * a successful answer is marked missing - that absence is Lazada
+         * saying the shop holds no such item (deleted there, or a row
+         * copied in by a database refresh). Failure leaves the map empty
+         * and the rows fall back to the stored badge - absent, never
+         * stale. */
+        $liveStatuses = [];
+        if ($liveCounts !== null) {
+            $pageSkus = [];
+            $pageItemIds = [];
+            foreach ($paged as $l) {
+                $rowItemId = (string) ($l->lazada_item_id ?? '');
+                $rowSku = (string) ($productsById->get((int) $l->product_id)?->sku ?? '');
+                if ($rowItemId === '' || $rowSku === '') {
+                    continue;
+                }
+                $pageSkus[] = $rowSku;
+                $pageItemIds[] = $rowItemId;
+            }
+            if (!empty($pageSkus)) {
+                try {
+                    $liveStatuses = $liveListing->statusesBySku($liveSetting, $liveCreds, $pageSkus);
+                    foreach ($pageItemIds as $askedId) {
+                        if (!isset($liveStatuses[$askedId])) {
+                            $liveStatuses[$askedId] = 'missing';
+                        }
+                    }
+                } catch (\Throwable) {
+                    $liveStatuses = [];
+                }
+            }
+        }
+
         // Load unmatched items
         $unmatchedItems = \Extensions\lazada\Models\LazadaUnmatchedItem::query()
             ->where('status', 'unmatched')
@@ -1150,6 +1212,10 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'groupFilter' => $groupFilter,
             'paginator' => $paginator,
             'unmatchedItems' => $unmatchedItems,
+            'lazadaTab' => $lazadaTab,
+            'liveCounts' => $liveCounts,
+            'liveTabError' => $liveTabError,
+            'liveStatuses' => $liveStatuses,
         ]);
     }
 
@@ -2717,9 +2783,26 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         return redirect()->route('ext.lazada.products.edit', $listing->id);
     }
 
-    public function edit(int $id)
+    public function edit(int $id, \Extensions\lazada\Services\Lazada\LazadaLiveListing $liveListing)
     {
         $listing = LazadaProduct::query()->findOrFail($id);
+
+        /* The live half (Lazada parity with the Shopee listing page,
+         * 2026-08-24): what Lazada says about this item RIGHT NOW, fetched
+         * on this page load. Only an uploaded listing has a live half. */
+        $live = null;
+        $liveError = null;
+        if (!empty($listing->lazada_item_id)) {
+            $liveSetting = LazadaSetting::query()->first()?->decrypted();
+            $liveCreds = LazadaSetting::activeCredentials($liveSetting);
+            if (!$liveSetting || !$liveCreds['complete']) {
+                $liveError = 'Lazada settings are incomplete, so the live state could not be fetched.';
+            } else {
+                $result = $liveListing->fetch($liveSetting, $liveCreds, (string) $listing->lazada_item_id);
+                $live = $result['live'];
+                $liveError = $result['error'];
+            }
+        }
 
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
@@ -2863,6 +2946,8 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'payloadPreview' => session('payload_preview_json'),
             'pushRequest' => session('push_request_json'),
             'pushResponse' => session('push_response_json'),
+            'live' => $live,
+            'liveError' => $liveError,
         ]);
     }
 

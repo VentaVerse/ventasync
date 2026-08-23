@@ -197,7 +197,49 @@
      Filter button to press, and Clear is a link because it is navigation. The
      two hidden fields keep whatever column the list is sorted by from being
      dropped the moment a filter is submitted, exactly as before. --}}
+{{-- The seller center's tabs, answered by Lazada on this page load
+     (Lazada parity with Shopee's listings index, 2026-08-24). All is the
+     stored view; the other tabs narrow the table to the items Lazada
+     holds in that status right now. Absent entirely when Lazada cannot
+     be asked - the note below says why. --}}
+@if(($liveTabError ?? null) !== null)
+    <div class="fm-note fm-note--warn" role="status">
+        <div class="fm-note__body">{{ $liveTabError }}</div>
+    </div>
+@elseif(($liveCounts ?? null) !== null)
+    @php
+        $liveTabDefs = [
+            'all' => 'All',
+            'active' => 'Active',
+            'inactive' => 'Inactive',
+            'pending' => 'Pending QC',
+            'violation' => 'Violation',
+            'soldout' => 'Sold out',
+            'deleted' => 'Deleted',
+        ];
+        $tabQuery = request()->except('page', 'lazada_tab');
+    @endphp
+    <div class="x-segment-bar">
+        <nav class="x-segment" aria-label="Lazada listing status">
+            @foreach($liveTabDefs as $tabKey => $tabLabel)
+                @php $isActive = ($lazadaTab ?? 'all') === $tabKey; @endphp
+                <a href="{{ route('ext.lazada.products.index', $tabKey === 'all' ? $tabQuery : array_merge($tabQuery, ['lazada_tab' => $tabKey])) }}"
+                   class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
+                   @if($isActive) aria-current="true" @endif>
+                    <span>{{ $tabLabel }}</span>
+                    @if($tabKey !== 'all' && isset($liveCounts[$tabKey]))
+                        <span class="x-segment__count">{{ number_format($liveCounts[$tabKey]) }}</span>
+                    @endif
+                </a>
+            @endforeach
+        </nav>
+    </div>
+@endif
+
 <form method="GET" action="{{ route('ext.lazada.products.index') }}" class="x-filters" id="lazada-listings-filter">
+    @if(($lazadaTab ?? 'all') !== 'all')
+        <input type="hidden" name="lazada_tab" value="{{ $lazadaTab }}">
+    @endif
     <x-ui.input type="search" name="q" class="x-filters__search"
                 value="{{ $q }}" placeholder="Name, model, SKU or Lazada ID" aria-label="Search listings" />
 
@@ -476,7 +518,10 @@
                             @endif
                             @if($l->groups->count() > 0)
                                 @php $firstGroup = $l->groups->first(); @endphp
-                                <span class="co-item__var">{{ $firstGroup->name }}@if($l->groups->count() > 1) and {{ $l->groups->count() - 1 }} more @endif</span>
+                                {{-- Which product GROUPS hold this product;
+                                     same self-naming label as the Shopee
+                                     listings page. --}}
+                                <span class="co-item__var" @if($l->groups->count() > 1) title="Groups: {{ $l->groups->pluck('name')->implode(', ') }}" @endif>Group{{ $l->groups->count() > 1 ? 's' : '' }}: {{ $firstGroup->name }}@if($l->groups->count() > 1) and {{ $l->groups->count() - 1 }} more @endif</span>
                             @endif
                             @if($isUnlinked)
                                 <span>Unlinked</span>
@@ -495,11 +540,14 @@
                                 @foreach($optRows as $or)
                                     @php
                                         $ovn = (string) ($or->option_value_name ?? '');
-                                        $osku = (string) ($or->option_sku ?? '');
-                                        $oqtyRaw = $or->option_quantity ?? null;
-                                        $oprice = (float) ($or->option_absolute_price ?? 0);
+                                        $osku = (string) ($or->sku ?? '');
+                                        $oqtyRaw = $or->quantity ?? null;
+                                        $oprice = (float) ($or->absolute_price ?? 0);
+                                        $oimg = trim((string) ($or->option_image ?? ''));
+                                        $osrc = $oimg !== '' ? asset('storage/' . ltrim($oimg, '/')) : '';
                                     @endphp
                                     <div class="cc-var">
+                                        <span class="cc-var__thumb">@if($osrc)<img src="{{ $osrc }}" alt="" loading="lazy" decoding="async">@endif</span>
                                         <span class="cc-var__name">{{ $ovn !== '' ? $ovn : 'Unnamed variation' }}</span>
                                         <span class="cc-var__sku">{{ $osku !== '' ? $osku : '' }}</span>
                                         <span class="cc-var__qty">{{ is_null($oqtyRaw) ? '' : ((int) $oqtyRaw) . ' in stock' }}</span>
@@ -545,7 +593,27 @@
             </td>
 
             <td class="cc-col-sync" data-label="Listing">
-                @if($hasItemId)
+                @php
+                    /* Lazada's live answer for this row when the page-load
+                       lookup got one; the stored badge otherwise. An
+                       uploaded row Lazada does not recognise reads as
+                       missing rather than borrowing the stored Uploaded -
+                       the ERP's memory never overrules the marketplace. */
+                    $rowLiveStatus = $hasItemId ? ($liveStatuses[(string) $l->lazada_item_id] ?? null) : null;
+                    $rowLiveMap = [
+                        'active' => ['Active', 'success'],
+                        'inactive' => ['Inactive', 'neutral'],
+                        'pending' => ['Pending QC', 'warning'],
+                        'rejected' => ['Violation', 'danger'],
+                        'sold-out' => ['Sold out', 'warning'],
+                        'soldout' => ['Sold out', 'warning'],
+                        'deleted' => ['Deleted on Lazada', 'danger'],
+                        'missing' => ['Not found on Lazada', 'danger'],
+                    ];
+                @endphp
+                @if($rowLiveStatus !== null && isset($rowLiveMap[$rowLiveStatus]))
+                    <x-ui.badge :tone="$rowLiveMap[$rowLiveStatus][1]">{{ $rowLiveMap[$rowLiveStatus][0] }}</x-ui.badge>
+                @elseif($hasItemId)
                     <x-ui.badge tone="success">Uploaded</x-ui.badge>
                 @elseif($isDeleted)
                     <x-ui.badge tone="neutral">Deleted</x-ui.badge>

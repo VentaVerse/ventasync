@@ -231,34 +231,10 @@ class ShopeeProductController extends Controller
                 ->groupBy(fn($l) => (int) $l->product_id);
         }
 
-        // Preload option values for products on this page
-        $optionRowsByProductId = collect();
-        if (!empty($pageIds)) {
-            $optionRows = DB::table($pfx . 'product_option_value as pov')
-                ->join($pfx . 'product_option as po', 'pov.product_option_id', '=', 'po.product_option_id')
-                ->leftJoin($pfx . 'option_description as od', function ($j) use ($langId) {
-                    $j->on('po.option_id', '=', 'od.option_id')
-                      ->where('od.language_id', '=', $langId);
-                })
-                ->leftJoin($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                    $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
-                      ->where('ovd.language_id', '=', $langId);
-                })
-                ->whereIn('pov.product_id', $pageIds)
-                ->orderBy('pov.product_id')
-                ->orderBy('pov.product_option_id')
-                ->orderBy('pov.product_option_value_id')
-                ->get([
-                    'pov.product_id',
-                    'od.name as option_name',
-                    'ovd.name as option_value_name',
-                    'pov.sku as option_sku',
-                    'pov.quantity as option_quantity',
-                    'pov.absolute_price as option_absolute_price',
-                ]);
-
-            $optionRowsByProductId = $optionRows->groupBy(fn($r) => (int) $r->product_id);
-        }
+        // Variation rows for this page: combinations with their own image
+        // and SKU, exactly what the core product list shows, one shared
+        // query (App\Support\VariationRows).
+        $optionRowsByProductId = \App\Support\VariationRows::forProducts($pageIds);
 
         /* The live status chip per linked row on this page: one
          * get_item_base_info call for the page's item ids (chunked at
@@ -281,8 +257,23 @@ class ShopeeProductController extends Controller
                     if (!($r['ok'] ?? false)) {
                         continue;
                     }
+                    $answered = [];
                     foreach ((($r['body'] ?? [])['response']['item_list'] ?? []) as $it) {
-                        $liveStatuses[(int) ($it['item_id'] ?? 0)] = (string) ($it['item_status'] ?? '');
+                        $itemId = (int) ($it['item_id'] ?? 0);
+                        $liveStatuses[$itemId] = (string) ($it['item_status'] ?? '');
+                        $answered[$itemId] = true;
+                    }
+                    /* Shopee ANSWERED and this item was not in the answer:
+                     * that absence is itself a live fact - the shop holds no
+                     * such item (deleted there, or a link copied from
+                     * another environment). Saying "Listed" from our own
+                     * link row would be the ERP's memory overruling the
+                     * marketplace, which is the one thing this page must
+                     * never do. */
+                    foreach ($chunk as $askedId) {
+                        if (!isset($answered[(int) $askedId])) {
+                            $liveStatuses[(int) $askedId] = 'MISSING';
+                        }
                     }
                 }
             } catch (\Throwable) {

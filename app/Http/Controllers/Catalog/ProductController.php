@@ -314,72 +314,14 @@ if ($q !== '') {
         if (isset($row->name)) $row->name = html_entity_decode($row->name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }
 
-    // Fetch combination rows for products on this page (for list display)
+    // Variation rows for the products on this page, shared with every
+    // marketplace list that shows them (App\Support\VariationRows).
     $pageIds = $products->pluck('product_id')->map(fn($v) => (int)$v)->all();
-    $optionRowsByProduct = [];
-    if (!empty($pageIds)) {
-        $comboRows = DB::table('product_option_combinations as c')
-            ->whereIn('c.product_id', $pageIds)
-            ->orderBy('c.product_id')
-            ->orderBy('c.sort_order')
-            ->get(['c.id', 'c.product_id', 'c.sku', 'c.quantity', 'c.absolute_price', 'c.image', 'c.status']);
-
-        // Load pivot → option value names + option group names for each combo
-        $comboIds = $comboRows->pluck('id')->all();
-        $pivotData = []; // combo_id → [{value_name, option_name}]
-        if (!empty($comboIds)) {
-            $pivots = DB::table('product_option_combination_values as cv')
-                ->join($p.'product_option_value as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
-                ->join($p.'option_value_description as ovd', function ($j) use ($langId) {
-                    $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
-                      ->where('ovd.language_id', '=', $langId);
-                })
-                ->join($p.'option_description as od', function ($j) use ($langId) {
-                    $j->on('pov.option_id', '=', 'od.option_id')
-                      ->where('od.language_id', '=', $langId);
-                })
-                ->join($p.'product_option as po', 'pov.product_option_id', '=', 'po.product_option_id')
-                ->whereIn('cv.combination_id', $comboIds)
-                ->orderBy('po.product_option_id')
-                ->get(['cv.combination_id', 'ovd.name as value_name', 'od.name as option_name']);
-
-            foreach ($pivots as $pv) {
-                $pivotData[(int) $pv->combination_id][] = [
-                    'value_name' => html_entity_decode((string) $pv->value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-                    'option_name' => html_entity_decode((string) $pv->option_name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-                ];
-            }
-        }
-
-        foreach ($comboRows as $c) {
-            $pid = (int) $c->product_id;
-            $entries = $pivotData[(int) $c->id] ?? [];
-            $valueNames = array_map(fn($e) => $e['value_name'], $entries);
-            $optionNames = array_unique(array_map(fn($e) => $e['option_name'], $entries));
-            $c->option_value_name = implode(' + ', $valueNames);
-            $c->option_name = implode(' / ', $optionNames);
-            /* The variation's own picture, or nothing.
-             *
-             * NOT the parent's image as a fallback here: the list shows the
-             * parent on its own row directly above, so repeating it down the
-             * variations would be the same photograph four times in a column
-             * whose whole job is telling them apart. The view falls back to
-             * the placeholder instead, which says "no picture for this one"
-             * rather than implying they all look alike. */
-            $c->option_image = trim((string) ($c->image ?? '')) ?: null;
-            $optionRowsByProduct[$pid] ??= [];
-            $optionRowsByProduct[$pid][] = $c;
-        }
-
-        foreach ($products as $row) {
-            $pid = (int) $row->product_id;
-            $row->option_rows = $optionRowsByProduct[$pid] ?? [];
-        }
-    } else {
-        foreach ($products as $row) {
-            $row->option_rows = [];
-        }
+    $optionRowsByProduct = \App\Support\VariationRows::forProducts($pageIds);
+    foreach ($products as $row) {
+        $row->option_rows = ($optionRowsByProduct->get((int) $row->product_id) ?? collect())->all();
     }
+
     return view('catalog.products.index', compact('products', 'q', 'sort', 'dir', 'status'));
 }
 
