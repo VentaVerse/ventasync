@@ -703,15 +703,10 @@
 
 /* ------------------- ELEVATED, NOTES, MACHINE AREAS ------------------- */
 
-/* A row that hands over more than its own screen says so in ONE PLAIN
-   SENTENCE inside its description - no tag, no invented vocabulary, no
-   amber rail. The bold weight and the ink colour are the whole emphasis:
-   enough to stop a scanning eye, nothing a first-time admin has to have
-   explained. */
-.permv2-row[data-warn="1"] .permv2-row-desc b {
-    font-weight: 600;
-    color: var(--bl-ink);
-}
+/* No warning styling of any kind. The consequential rows' extra sentence
+   renders as ordinary description text - a fact, like "8 actions" - per
+   the owner's ruling: a permission does what its name says, and the admin
+   owns the decision. */
 
 .permv2-group-note {
     display: block;

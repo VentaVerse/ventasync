@@ -252,11 +252,15 @@
                         $haystack = strtolower($group['label'] . ' ' . $row['label'] . ' ' . $key);
                     @endphp
 
-                    {{-- NO "ELEVATED" TAG. It was invented vocabulary, and
-                         the owner's review was the right one: dozens of platforms,
-                         never met the word. Rows that hand over more than
-                         their own screen say so in a plain sentence below the
-                         name instead, and the bulk confirmations name them. --}}
+                    {{-- NO WARNING VOCABULARY OF ANY KIND - no tag, no bold,
+                         no "elevated". The owner's ruling, and the logic held at
+                         every step: a permission does what its name says, the
+                         admin owns the decision, and a description states
+                         facts the same way "8 actions" does. The sentence for
+                         the consequential rows survives only AS a
+                         description; the bulk-action confirmations (his
+                         earlier, explicit choice) still name those rows
+                         before a 72-row grant. --}}
                     <div class="permv2-row" data-hidden="0" data-search="{{ $haystack }}"
                          @if($row['warning'] !== '') data-warn="1" @endif>
                         <div class="permv2-row-info">
@@ -278,7 +282,7 @@
                                 }
                             @endphp
                             <div class="permv2-row-desc" id="{{ $pillId }}-desc">
-                                {{ $facts }}@if($row['warning'] !== '') &middot; <b>{{ $row['warning'] }}</b>@endif
+                                {{ $facts }}@if($row['warning'] !== '') &middot; {{ $row['warning'] }}@endif
                             </div>
                         </div>
 
