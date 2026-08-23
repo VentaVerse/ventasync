@@ -2970,6 +2970,11 @@
         "name": "user_groups.update"
     },
     {
+        "method": "POST",
+        "uri": "settings/user-groups/{id}/duplicate",
+        "name": "user_groups.duplicate"
+    },
+    {
         "method": "GET|HEAD",
         "uri": "settings/user-groups/{id}/edit",
         "name": "user_groups.edit"

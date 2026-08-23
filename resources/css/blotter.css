@@ -282,10 +282,6 @@
     --bl-a-cyan: #156176;    --bl-a-cyan-2: #367e90;
     --bl-a-violet: #5345c3;  --bl-a-violet-2: #7467ca;
     --bl-a-amber: #d98207;   --bl-a-amber-2: #f5b74b;
-    /* Readable amber. --bl-a-amber is an accent fill and is only 2.9:1 on a
-       pale ground, so a tag that must be READ needs its own pair.
-       #8a4b00 on #fdf0d9 = 6.04:1. */
-    --bl-warn-deep: #8a4b00;  --bl-warn-wash: #fdf0d9;
     --bl-a-green: #0a6647;   --bl-a-green-2: #228460;
     --bl-a-rose: #d4426a;    --bl-a-rose-2: #f4789a;
     --bl-a-indigo: #3b4dbf;  --bl-a-indigo-2: #5f6ec9;
@@ -403,8 +399,6 @@
     --bl-a-cyan: #4fb9d4;    --bl-a-cyan-2: #7fd3e6;
     --bl-a-violet: #8a7bf0;  --bl-a-violet-2: #a99dff;
     --bl-a-amber: #f5b74b;   --bl-a-amber-2: #ffd28a;
-    /* #f5b74b on #3a2a10 = 7.75:1. */
-    --bl-warn-deep: #f5b74b;  --bl-warn-wash: #3a2a10;
     --bl-a-green: #37d39a;   --bl-a-green-2: #6fe6bb;
     --bl-a-rose: #f4789a;    --bl-a-rose-2: #ffa3bc;
     --bl-a-indigo: #6f80ea; --bl-a-indigo-2: #98a6ff;

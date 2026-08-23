@@ -317,31 +317,75 @@
 .permv2-group-head {
     /* The area name is the only thing that tells eight rows called "Order"
        apart, and it used to scroll away after the first few rows. 59px
-       clears the sticky toolbar above it. */
+       clears the sticky toolbar above it. A <div> now: it holds the
+       collapse toggle AND the area's set-all cluster, and buttons cannot
+       nest. */
     position: sticky;
     top: 59px;
     z-index: 3;
-    appearance: none;
     background: var(--bl-chrome);
-    border: none;
     border-bottom: 1px solid var(--bl-rule);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: var(--bl-space-3);
+    padding-right: var(--bl-space-4);
+    transition: background var(--bl-motion-fast);
+}
+.permv2-group[data-collapsed="1"] .permv2-group-head { border-bottom-color: transparent; }
+.permv2-group-head:hover { background: var(--bl-chrome-2); }
+
+.permv2-group-toggle {
+    appearance: none;
+    background: none;
+    border: none;
     width: 100%;
     text-align: left;
     cursor: pointer;
-    padding: var(--bl-space-3) var(--bl-space-4);
+    padding: var(--bl-space-3) 0 var(--bl-space-3) var(--bl-space-4);
     display: grid;
     grid-template-columns: auto 1fr auto;
     align-items: center;
     gap: var(--bl-space-3);
     font-family: inherit;
     color: var(--bl-ink);
-    transition: background var(--bl-motion-fast);
 }
-.permv2-group[data-collapsed="1"] .permv2-group-head { border-bottom-color: transparent; }
-.permv2-group-head:hover { background: var(--bl-chrome-2); }
-.permv2-group-head:focus-visible {
+.permv2-group-toggle:focus-visible {
     outline: 2px solid var(--bl-brand-deep);
     outline-offset: -2px;
+}
+
+/* The area's own Off / View / Manage, one click instead of seven. Quiet on
+   purpose: these are shortcuts beside the heading, not the page's subject. */
+.permv2-group-set {
+    display: inline-flex;
+    gap: 2px;
+    padding: 2px;
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-dot);
+}
+.permv2-group-set button {
+    appearance: none;
+    background: none;
+    border: none;
+    border-radius: calc(var(--bl-r-dot) - 1px);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    padding: 3px 8px;
+    color: var(--bl-ink-2);
+    cursor: pointer;
+    transition: background var(--bl-motion-fast), color var(--bl-motion-fast);
+}
+.permv2-group-set button:hover {
+    background: var(--bl-chrome-2);
+    color: var(--bl-ink);
+}
+.permv2-group-set button:focus-visible {
+    outline: 2px solid var(--bl-brand-deep);
+    outline-offset: 1px;
 }
 
 .permv2-chev {
@@ -630,7 +674,8 @@
         padding: var(--bl-space-3);
     }
     .permv2-actions { justify-content: flex-start; }
-    .permv2-group-head { padding: var(--bl-space-3); }
+    .permv2-group-head { padding-right: var(--bl-space-3); }
+    .permv2-group-toggle { padding: var(--bl-space-3) 0 var(--bl-space-3) var(--bl-space-3); }
     .permv2-parent { padding: var(--bl-space-3); }
     .permv2-row {
         grid-template-columns: 1fr;
@@ -658,26 +703,14 @@
 
 /* ------------------- ELEVATED, NOTES, MACHINE AREAS ------------------- */
 
-/* The route table can count a controller's actions; it cannot know that one
-   of them is privilege escalation. These three rules are the only place on
-   the page where risk is visible, so they are deliberately loud. */
-.permv2-row-tag {
-    font-family: var(--font-mono);
-    font-size: 10px;
+/* A row that hands over more than its own screen says so in ONE PLAIN
+   SENTENCE inside its description - no tag, no invented vocabulary, no
+   amber rail. The bold weight and the ink colour are the whole emphasis:
+   enough to stop a scanning eye, nothing a first-time admin has to have
+   explained. */
+.permv2-row[data-warn="1"] .permv2-row-desc b {
     font-weight: 600;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-    padding: 1px 6px;
-    border-radius: var(--bl-r-dot);
-    white-space: nowrap;
-}
-.permv2-row-tag[data-tag="elevated"] {
-    color: var(--bl-warn-deep);
-    background: var(--bl-warn-wash);
-    border: 1px solid var(--bl-warn-deep);
-}
-.permv2-row[data-elevated="1"] {
-    box-shadow: inset 3px 0 0 var(--bl-warn-deep);
+    color: var(--bl-ink);
 }
 
 .permv2-group-note {

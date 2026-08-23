@@ -188,9 +188,10 @@ return [
     |
     */
 
-    'elevated' => [
-        // The api_explorer rows carry their reason from the rule in
-        // PermissionCatalogue::elevatedWhy() - no per-channel prose needed.
+    'warnings' => [
+        // One plain sentence under the rows that hand over more than their
+        // own screen. The api_explorer rows carry theirs from the rule in
+        // PermissionCatalogue::warningFor() - no per-channel prose needed.
         'settings/user_group' => 'sets what every group may do, this one included',
         'settings/user' => 'creates logins and moves people between groups',
         'settings/api_client' => 'issues keys that reach the data from outside',

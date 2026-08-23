@@ -227,62 +227,56 @@ class PermissionEditorSafetyTest extends TestCase
     }
 
     /**
-     * Risk is marked, and the mark is short enough to mean something.
-     *
-     * The route table can count a controller's actions; it cannot know that
-     * one of settings/user_group's six is privilege escalation. That is the
-     * only hand-kept judgement in an otherwise derived catalogue, and a list
-     * where everything is elevated marks nothing.
+     * The rows that hand over more than their own screen carry ONE PLAIN
+     * SENTENCE - and nothing else. The "Elevated" tag this replaces was
+     * invented vocabulary; the owner, who has run dozens of platforms, met it
+     * here first, which is the whole case against it. The judgement of
+     * WHICH rows warrant a sentence stays hand-kept and deliberately
+     * short: a warning on everything warns about nothing.
      */
-    public function test_the_keys_that_can_widen_access_are_marked(): void
+    public function test_the_consequential_rows_carry_a_plain_warning(): void
     {
         $catalogue = $this->app->make(PermissionCatalogue::class);
 
         foreach (['settings/user_group', 'settings/user', 'settings/api_client'] as $key) {
-            $this->assertTrue(
-                $catalogue->isElevated($key),
-                $key . ' can widen what others may do and must be marked.'
-            );
-            $this->assertNotSame('', $catalogue->elevatedWhy($key), $key . ' is marked without saying why.');
+            $this->assertNotSame('', $catalogue->warningFor($key),
+                $key . ' hands over more than its screen and must say so.');
         }
 
-        $this->assertFalse($catalogue->isElevated('settings/currency'));
-        $this->assertFalse($catalogue->isElevated('settings/order_status'));
+        // The explorer acts as the shop; the connection settings do not.
+        $this->assertNotSame('', $catalogue->warningFor('lazada/api_explorer'));
+        $this->assertSame('', $catalogue->warningFor('lazada/settings'));
+        $this->assertSame('', $catalogue->warningFor('pettycash/ledger'));
+        $this->assertSame('', $catalogue->warningFor('settings/currency'));
 
-        $marked = 0;
+        $warned = 0;
 
         foreach (array_keys($catalogue->all()) as $key) {
-            if ($catalogue->isElevated($key)) {
-                $marked++;
+            if ($catalogue->warningFor($key) !== '') {
+                $warned++;
             }
         }
 
         $this->assertLessThan(
             count($catalogue->all()) / 4,
-            $marked,
-            'Everything is marked elevated, which marks nothing.'
+            $warned,
+            'A warning on everything warns about nothing.'
         );
-    }
 
-    /**
-     * The mark follows the danger, not the folder shape.
-     *
-     * Phase B split every channel's bundle key: the settings row holds the
-     * connection, the api_explorer row sends requests to the marketplace
-     * as the shop. Only the second can end an afternoon, so only the
-     * second is marked - a settings row carrying a warning it no longer
-     * earns would teach people to ignore the mark.
-     */
-    public function test_the_explorer_is_elevated_and_the_settings_row_is_not(): void
-    {
-        $catalogue = $this->app->make(PermissionCatalogue::class);
-
-        $this->assertTrue($catalogue->isElevated('lazada/api_explorer'));
-        $this->assertNotSame('', $catalogue->elevatedWhy('lazada/api_explorer'));
-
-        $this->assertFalse($catalogue->isElevated('lazada/settings'));
-        $this->assertFalse($catalogue->isElevated('pettycash/ledger'));
-        $this->assertFalse($catalogue->isElevated('pettycash/settings'));
+        // And the retired word appears nowhere a user reads.
+        foreach ([
+            'resources/views/settings/user_groups/edit.blade.php',
+            'resources/views/settings/user_groups/partials/permissions.blade.php',
+            'resources/lang/en/permissions.php',
+        ] as $file) {
+            $source = file_get_contents(base_path($file));
+            $this->assertNotFalse($source, $file . ' is unreadable.');
+            $this->assertDoesNotMatchRegularExpression(
+                '/>(\s*)Elevated(\s*)</',
+                $source,
+                $file . ' still renders the invented word.'
+            );
+        }
     }
 
     /**
@@ -393,5 +387,35 @@ class PermissionEditorSafetyTest extends TestCase
 
         $this->assertSame([], array_values(array_unique($offenders)),
             'These call sites ask for retired keys; use the derived key the door enforces.');
+    }
+    /**
+     * A new role is almost always "like that one, minus a few rows", so
+     * the index offers Duplicate: full copy, lands on the copy's edit
+     * page, name says what it is until renamed. The name never collides -
+     * a second copy counts up rather than failing on a unique clash.
+     */
+    public function test_duplicating_a_group_copies_its_permissions(): void
+    {
+        $admin = $this->administrator();
+
+        $source = UserGroup::create(['name' => 'Copy source']);
+        $source->permissions()->attach(
+            \App\Models\Admin\Permission::whereIn('key', ['view_sales/order', 'manage_catalog/product'])->pluck('id')->all()
+        );
+
+        $this->actingAs($admin)
+            ->post(route('user_groups.duplicate', $source->id))
+            ->assertRedirect();
+
+        $copy = UserGroup::where('name', 'Copy source (copy)')->first();
+        $this->assertNotNull($copy, 'The copy was not created.');
+        $this->assertEqualsCanonicalizing(
+            ['manage_catalog/product', 'view_sales/order'],
+            $copy->permissions()->pluck('key')->all()
+        );
+
+        // A second copy counts up instead of colliding.
+        $this->actingAs($admin)->post(route('user_groups.duplicate', $source->id));
+        $this->assertNotNull(UserGroup::where('name', 'Copy source (copy 2)')->first());
     }
 }

@@ -95,22 +95,25 @@ class PermissionCatalogue
     private const MACHINE_AREAS = ['api', 'api_v1'];
 
     /**
-     * The handful of keys that can end an afternoon.
+     * The handful of keys that hand over more than their own screen.
      *
      * The route table can count a controller's actions. It cannot know that
      * one of settings/user_group's six is "grant yourself anything", while
      * all eight of settings/currency's are "rename the peso". That is a
      * judgement, so it is written down rather than derived, and it is kept
-     * deliberately short: a list where everything is elevated marks nothing.
+     * deliberately short: a warning on everything warns about nothing.
      *
      * Every 'api_explorer' key joins them by rule, not by hand - the
      * explorer sends requests to the marketplace AS THE SHOP, outside the
-     * ERP's own record keeping. (The old rule marked the bundled 'overview'
-     * keys; the Phase B split gave the dangerous half its own controller,
-     * so the mark follows it and the settings rows stop carrying a warning
-     * they no longer earn.)
+     * ERP's own record keeping.
+     *
+     * NO SPECIAL VOCABULARY REACHES THE SCREEN. An earlier version tagged
+     * these rows "Elevated", and the owner's reaction was the correct review:
+     * he has run dozens of platforms and never met the word. The row's own
+     * description carries one plain sentence instead, and the bulk-action
+     * confirmations name the rows it covers.
      */
-    private const ELEVATED_KEYS = [
+    private const WARNED_KEYS = [
         'settings/user_group',
         'settings/user',
         'settings/api_client',
@@ -312,19 +315,23 @@ class PermissionCatalogue
     }
 
     /**
-     * Why this row is marked, in the words of what it hands over.
+     * One plain sentence for a row that hands over more than its screen,
+     * or the empty string for the ordinary ones.
      *
-     * A tag that only says "Elevated" makes the reader guess. Falls back to
-     * a general sentence rather than to nothing, so a key added to the list
-     * without wording still explains itself.
+     * A lang entry (permissions.warnings.{key}) says it best; the
+     * api_explorer rule falls back to its own wording so a new channel's
+     * explorer is never silently unexplained.
      */
-    public function elevatedWhy(string $key): string
+    public function warningFor(string $key): string
     {
-        if (! $this->isElevated($key)) {
+        $warned = in_array($key, self::WARNED_KEYS, true)
+            || Str::endsWith($key, '/api_explorer');
+
+        if (! $warned) {
             return '';
         }
 
-        $lang = 'permissions.elevated.' . $key;
+        $lang = 'permissions.warnings.' . $key;
         $translated = __($lang);
 
         if ($translated !== $lang) {
@@ -334,13 +341,6 @@ class PermissionCatalogue
         return Str::endsWith($key, '/api_explorer')
             ? 'sends requests to the marketplace as your shop'
             : 'can widen what others may do';
-    }
-
-    /** Hand-kept, plus every marketplace API explorer by rule. */
-    public function isElevated(string $key): bool
-    {
-        return in_array($key, self::ELEVATED_KEYS, true)
-            || Str::endsWith($key, '/api_explorer');
     }
 
     /**
@@ -355,8 +355,7 @@ class PermissionCatalogue
         foreach ($this->all() as $entry) {
             $areas[$entry['area']][] = $entry + [
                 'label' => $this->rowLabel($entry['key']),
-                'elevated' => $this->isElevated($entry['key']),
-                'elevatedWhy' => $this->elevatedWhy($entry['key']),
+                'warning' => $this->warningFor($entry['key']),
             ];
         }
 

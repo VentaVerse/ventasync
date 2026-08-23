@@ -76,8 +76,7 @@ class UserGroupController extends Controller
                     // Two segments when there is no write route to manage.
                     'segments' => $manage ? 3 : 2,
                     'state' => $state,
-                    'elevated' => $row['elevated'],
-                    'elevatedWhy' => $row['elevatedWhy'],
+                    'warning' => $row['warning'],
                 ];
             }
 
@@ -141,6 +140,44 @@ class UserGroupController extends Controller
         $permissionGroups = $this->getGroupedPermissions($selected);
 
         return view('settings.user_groups.edit', compact('group', 'permissionGroups', 'selected'));
+    }
+
+    /**
+     * A copy of the group, permissions and all, ready to edit.
+     *
+     * Building a role from scratch means sixty-odd decisions; building it
+     * from the nearest existing role means changing the handful that
+     * differ. The copy is created immediately and lands on its edit page -
+     * a "draft" that vanished with a closed tab would teach people not to
+     * trust the button. The name says what it is until somebody renames it.
+     */
+    public function duplicate(Request $request, $id)
+    {
+        $source = UserGroup::findOrFail((int) $id);
+
+        $copy = DB::transaction(function () use ($source) {
+            $name = $source->name . ' (copy)';
+            $n = 2;
+
+            while (UserGroup::where('name', $name)->exists()) {
+                $name = $source->name . ' (copy ' . $n++ . ')';
+            }
+
+            $copy = UserGroup::create(['name' => $name]);
+            $copy->permissions()->attach($source->permissions()->pluck('permissions.id')->all());
+
+            return $copy;
+        });
+
+        ActivityLogger::log('duplicated', 'User Group', $copy->id, $copy->name, [
+            'source' => $source->name,
+            'source_id' => $source->id,
+            'permissions_copied' => $copy->permissions()->count(),
+        ]);
+
+        return redirect()
+            ->route('user_groups.edit', $copy->id)
+            ->with('status', "'{$copy->name}' created with {$source->name}'s permissions. Adjust and rename it here.");
     }
 
     public function update(Request $request, $id)

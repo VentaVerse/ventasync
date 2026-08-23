@@ -72,6 +72,13 @@
                 @if($canManageUserGroups)
                     <div class="bl-rowactions">
                         <a class="x-btn x-btn--sm" href="{{ route('user_groups.edit', $g->id) }}">Edit permissions</a>
+                        {{-- A new role is almost always "like that one, minus
+                             a few rows". POST via its own form; a GET that
+                             creates a group would be a link crawlers click. --}}
+                        <button type="button" class="x-btn x-btn--sm"
+                                data-confirm="Create a copy of {{ $g->name }} with the same permissions? You land on the copy to adjust it."
+                                data-confirm-tone="primary"
+                                data-confirm-submit="st-group-dup-{{ $g->id }}">Duplicate</button>
                         @unless($isAdminGroup)
                             <button type="button" class="x-btn x-btn--sm x-btn--danger"
                                     data-confirm="Delete {{ $g->name }}? This cannot be undone."
@@ -86,6 +93,9 @@
 
 @if($canManageUserGroups)
     @foreach($groups as $g)
+        <form id="st-group-dup-{{ $g->id }}" method="POST" action="{{ route('user_groups.duplicate', $g->id) }}" class="x-sr">
+            @csrf
+        </form>
         @if(strtolower($g->name) !== 'administrator')
             <form id="st-group-del-{{ $g->id }}" method="POST" action="{{ route('user_groups.destroy', $g->id) }}" class="x-sr">
                 @csrf

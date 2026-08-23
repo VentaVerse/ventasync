@@ -146,6 +146,9 @@ Route::prefix('settings')->group(function () {
         // perm: group said so, and removing the group must not demote it.
         ->defaults('permission_tier', 'manage');
         Route::put('/user-groups/{id}', [UserGroupController::class, 'update'])->name('user_groups.update');
+        // The most-asked request in permission administration: a new group
+        // is almost always "like that one, minus a few rows".
+        Route::post('/user-groups/{id}/duplicate', [UserGroupController::class, 'duplicate'])->name('user_groups.duplicate');
         Route::delete('/user-groups/{id}', [UserGroupController::class, 'destroy'])->name('user_groups.destroy');
     });
 

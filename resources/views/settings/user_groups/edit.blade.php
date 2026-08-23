@@ -101,7 +101,8 @@
                 <p class="fm-section__note">
                     Every area has its own level. Off means the area does not appear at all.
                     View means read but not change. Manage means full control, and includes view.
-                    Areas marked <b>Elevated</b> can widen what other people may do.
+                    A bold note under a row means it hands over more than its
+                    own screen - read it before granting.
                 </p>
 
                 <div class="st-perm">

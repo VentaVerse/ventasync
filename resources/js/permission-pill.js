@@ -146,9 +146,9 @@
      * it names THIS click:
      *   :n  what the action covers - the filter narrows cascades, never presets
      *   :c  how many areas would actually change
-     *   :e  the elevated areas it hands over, and only when it hands one
+     *   :e  the consequential rows it hands over, and only when it hands one
      */
-    const elevatedNames = picker.dataset.elevatedNames || '';
+    const warnedNames = picker.dataset.warnedNames || '';
 
     function plural(n, word) {
         return n + ' ' + word + (n === 1 ? '' : 's');
@@ -156,28 +156,27 @@
 
     function summarise(targetFor, scope) {
         let changes = 0;
-        let grantsElevated = false;
+        let grantsWarned = false;
 
         scope.forEach((pill) => {
             const target = targetFor(pill);
             if (target === null || target === pill.dataset.state) return;
             changes++;
             const row = pill.closest('.permv2-row');
-            if (target !== 'off' && row && row.dataset.elevated === '1') {
-                grantsElevated = true;
+            if (target !== 'off' && row && row.dataset.warn === '1') {
+                grantsWarned = true;
             }
         });
 
-        return { changes, grantsElevated };
+        return { changes, grantsWarned };
     }
 
     function fill(btn, scopeLabel, summary) {
         const template = btn.getAttribute('data-confirm-count');
         if (!template) return;
 
-        const elevatedClause = summary.grantsElevated && elevatedNames
-            ? ' It hands over ' + elevatedNames + ' - anyone in this group could then change'
-              + ' permissions, including their own.'
+        const warnedClause = summary.grantsWarned && warnedNames
+            ? ' It hands over ' + warnedNames + ' - rows that reach past their own screen.'
             : '';
 
         btn.setAttribute('data-confirm', template
@@ -185,7 +184,7 @@
             .replace(':c', summary.changes === 0
                 ? 'Nothing'
                 : plural(summary.changes, 'area'))
-            .replace(':e', elevatedClause));
+            .replace(':e', warnedClause));
     }
 
     function refreshConfirms() {
@@ -257,18 +256,32 @@
        fifteen heads reported "collapsed" over nine visible rows that were
        still in the tab order. One function, both halves, always. */
     function setCollapsed(group, collapsed) {
-        const head = group.querySelector('.permv2-group-head');
+        const toggle = group.querySelector('.permv2-group-toggle');
         group.dataset.collapsed = collapsed ? '1' : '0';
-        if (head) head.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        if (toggle) toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
     }
 
     groups.forEach((group) => {
-        const head = group.querySelector('.permv2-group-head');
+        const head = group.querySelector('.permv2-group-toggle');
         if (!head) return;
         head.addEventListener('click', () => {
             setCollapsed(group, group.dataset.collapsed !== '1');
             // The operator's own choice, so it survives the next search.
             group.dataset.userCollapsed = group.dataset.collapsed;
+        });
+
+        /* The area's own set-all. Scoped to this group's VISIBLE rows -
+           same filter-respecting rule the global cascades keep - and routed
+           through onActivate so a guarded button waits for its dialog. */
+        group.querySelectorAll('[data-groupset]').forEach((btn) => {
+            onActivate(btn, () => {
+                group.querySelectorAll('.permv2-pill').forEach((pill) => {
+                    const row = pill.closest('.permv2-row');
+                    if (row && row.dataset.hidden === '1') return;
+                    const coerced = cascadeTarget(pill, btn.dataset.groupset);
+                    if (coerced !== null) setPillState(pill, coerced);
+                });
+            });
         });
     });
 
