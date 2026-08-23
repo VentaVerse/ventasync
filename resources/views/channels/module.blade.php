@@ -20,7 +20,7 @@
 @endphp
 
 {{-- The store list for a channel that has no seller center of its own yet.
-     A converted channel is entered through /integrations/{channel}; this page
+     A converted channel is entered through /channels/{id}; this page
      is what the rest still land on, so it stays on the same list anatomy
      every other index in the application uses rather than keeping its own
      card grammar. --}}

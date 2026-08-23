@@ -24,7 +24,7 @@ class VentaController extends Controller
             return redirect()->route('ext.venta.settings.show', ['store' => $first->id]);
         }
         // No stores yet — bounce to the module page so the user can create one.
-        return redirect()->route('integrations.module', ['module' => 'venta']);
+        return redirect()->route('channels.module', ['module' => 'venta']);
     }
 
     public function showSettings(int $store)

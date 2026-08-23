@@ -77,7 +77,7 @@ class CatalogueRedesignTest extends TestCase
         // Holds a real permission, just not one of Catalogue's, so a
         // completely unauthenticated-request explanation cannot account for
         // a passing denial assertion.
-        return $this->userWithPermissions(['view_shopee']);
+        return $this->userWithPermissions(['view_shopee', 'view_shopee/dashboard']);
     }
 
     /**

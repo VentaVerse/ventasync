@@ -123,7 +123,7 @@ class WorkspaceInteriorsTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'Interiors Viewer']);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_shopee'])->pluck('id')->all()
+            Permission::whereIn('key', ['view_shopee', 'view_shopee/dashboard'])->pluck('id')->all()
         );
 
         return User::factory()->create(['user_group_id' => $group->id]);
@@ -134,7 +134,7 @@ class WorkspaceInteriorsTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'Interiors Manager']);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['manage_shopee'])->pluck('id')->all()
+            Permission::whereIn('key', ['manage_shopee', 'manage_shopee/dashboard'])->pluck('id')->all()
         );
 
         return User::factory()->create(['user_group_id' => $group->id]);
@@ -964,7 +964,7 @@ class WorkspaceInteriorsTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'Lazada Interiors Viewer']);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_lazada'])->pluck('id')->all()
+            Permission::whereIn('key', ['view_lazada', 'view_lazada/dashboard'])->pluck('id')->all()
         );
 
         return User::factory()->create(['user_group_id' => $group->id]);
@@ -974,7 +974,7 @@ class WorkspaceInteriorsTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'Lazada Interiors Manager']);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['manage_lazada'])->pluck('id')->all()
+            Permission::whereIn('key', ['manage_lazada', 'manage_lazada/dashboard'])->pluck('id')->all()
         );
 
         return User::factory()->create(['user_group_id' => $group->id]);
@@ -1331,7 +1331,7 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertDenied($this->actingAs($user)->get(route('ext.lazada.product-groups.create')), 'group create');
         $this->assertDenied($this->actingAs($user)->get(route('ext.lazada.products.create')), 'listing create');
         // The authorize link is the one write surface that lives outside the
-        // /integrations prefix, so it is asserted separately.
+        // /channels prefix, so it is asserted separately.
         $this->assertDenied($this->actingAs($user)->get(route('ext.lazada.authorize')), 'authorize');
 
         // Nothing was written by any of the refused calls.
@@ -1725,12 +1725,12 @@ class WorkspaceInteriorsTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    private function tiktokViewer(): User { return $this->tierUser('TikTok Viewer', ['view_tiktok']); }
-    private function tiktokManager(): User { return $this->tierUser('TikTok Manager', ['manage_tiktok']); }
-    private function ventaViewer(): User { return $this->tierUser('Venta Viewer', ['view_venta']); }
-    private function ventaManager(): User { return $this->tierUser('Venta Manager', ['manage_venta']); }
-    private function opencartViewer(): User { return $this->tierUser('OpenCart Viewer', ['view_opencart']); }
-    private function opencartManager(): User { return $this->tierUser('OpenCart Manager', ['manage_opencart']); }
+    private function tiktokViewer(): User { return $this->tierUser('TikTok Viewer', ['view_tiktok', 'view_tiktok/dashboard']); }
+    private function tiktokManager(): User { return $this->tierUser('TikTok Manager', ['manage_tiktok', 'manage_tiktok/dashboard']); }
+    private function ventaViewer(): User { return $this->tierUser('Venta Viewer', ['view_venta', 'view_venta/dashboard']); }
+    private function ventaManager(): User { return $this->tierUser('Venta Manager', ['manage_venta', 'manage_venta/dashboard']); }
+    private function opencartViewer(): User { return $this->tierUser('OpenCart Viewer', ['view_opencart', 'view_opencart/dashboard']); }
+    private function opencartManager(): User { return $this->tierUser('OpenCart Manager', ['manage_opencart', 'manage_opencart/dashboard']); }
 
     /**
      * Enough of a TikTok settings row that the Connection tab renders every
@@ -2360,7 +2360,7 @@ class WorkspaceInteriorsTest extends TestCase
             $content = $this->pageContent($html, "Venta {$label}");
 
             // Never store 1, on any page.
-            $this->assertStringNotContainsString('/integrations/venta/'.$one.'/', $content,
+            $this->assertStringNotContainsString('/channels/venta/'.$one.'/', $content,
                 "Venta {$label} for store {$two} leaked a link to store {$one}.");
             $this->assertStringNotContainsString('name="store_id" value="'.$one.'"', $content,
                 "Venta {$label} for store {$two} posts store {$one}'s id.");
@@ -2376,7 +2376,7 @@ class WorkspaceInteriorsTest extends TestCase
                 $this->assertStringContainsString('data-store-id="'.$two.'"', $content,
                     'Venta settings does not scope its AJAX calls to the store it was asked for.');
             } else {
-                $this->assertStringContainsString('/integrations/venta/'.$two.'/', $content,
+                $this->assertStringContainsString('/channels/venta/'.$two.'/', $content,
                     "Venta {$label} emitted no link scoped to the store it was asked for.");
             }
         }
@@ -2490,7 +2490,7 @@ class WorkspaceInteriorsTest extends TestCase
         $settings->assertDontSee('Save connection');
         $settings->assertDontSee('Test connection');
         $settings->assertDontSee('Delete store');
-        // Asserted as the form action, not as a bare URL: /integrations/venta/3
+        // Asserted as the form action, not as a bare URL: /channels/venta/3
         // is a PREFIX of every other store-scoped URI on this channel, so
         // assertDontSee on it alone could never pass.
         $settings->assertDontSee('action="'.e(route('ext.venta.destroy', $one)).'"', false);
@@ -2871,7 +2871,7 @@ class WorkspaceInteriorsTest extends TestCase
             $html = $this->actingAs($user)->get($url)->assertOk()->getContent();
             $content = $this->pageContent($html, "OpenCart {$label}");
 
-            $this->assertStringNotContainsString('/integrations/opencart/'.$one.'/', $content,
+            $this->assertStringNotContainsString('/channels/opencart/'.$one.'/', $content,
                 "OpenCart {$label} for store {$two} leaked a link to store {$one}.");
             $this->assertStringNotContainsString('name="store_id" value="'.$one.'"', $content,
                 "OpenCart {$label} for store {$two} posts store {$one}'s id.");
@@ -2903,7 +2903,7 @@ class WorkspaceInteriorsTest extends TestCase
                 $this->assertSame([$two], $owners,
                     'OpenCart settings showed scheduled jobs belonging to another store.');
             } else {
-                $this->assertStringContainsString('/integrations/opencart/'.$two.'/', $content,
+                $this->assertStringContainsString('/channels/opencart/'.$two.'/', $content,
                     "OpenCart {$label} emitted no link scoped to the store it was asked for.");
             }
         }
@@ -2978,8 +2978,8 @@ class WorkspaceInteriorsTest extends TestCase
         }
 
         // ext.opencart.sync has the same prefix hazard the destroy route has:
-        // /integrations/opencart/sync is a PREFIX of
-        // /integrations/opencart/sync-date, whose form legitimately renders for
+        // /channels/opencart/sync is a PREFIX of
+        // /channels/opencart/sync-date, whose form legitimately renders for
         // a reader around the disabled window fields. Asserted as the attribute
         // the module actually reads, which is empty for a reader.
         $settings->assertSee('data-sync-url=""', false);

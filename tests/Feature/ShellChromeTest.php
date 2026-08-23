@@ -22,7 +22,7 @@ class ShellChromeTest extends TestCase
 
     /**
      * Four routes render layouts.shell (/sales/orders, /settings,
-     * /ui-kit-v2, /integrations). /ui-kit-v2 is a plain reference page with
+     * /ui-kit-v2, /channels). /ui-kit-v2 is a plain reference page with
      * no controller and no query beyond the shell chrome itself, so it is
      * the cheapest one to render for assertions about the shell, not the
      * page content.

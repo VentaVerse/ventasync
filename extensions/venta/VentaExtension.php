@@ -89,7 +89,11 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
                 accent: '#7c3aed',
                 // Card uses view tier so read-only operators still see Venta in
                 // the Integrations hub. Add-store action stays manage-only.
-                permission: 'view_venta',
+                // The dashboard's own derived key (venta/dashboard), not the
+                // legacy view_venta: the card decides who sees this channel
+                // in the hub and the nav, and that must be the same answer
+                // the dashboard's door gives, or the menu offers a 404.
+                permission: 'view_venta/dashboard',
                 menu: [],
                 stores: $stores,
                 addStore: new \App\Integrations\AddStoreAction(

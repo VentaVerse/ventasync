@@ -124,7 +124,7 @@ class ReadRouteDoesNotWriteTest extends TestCase
     {
         $groupId = $this->seedAdoptableRow();
 
-        $this->actingAs($this->tierUser('Shopee Viewer', ['view_shopee']))
+        $this->actingAs($this->tierUser('Shopee Viewer', ['view_shopee', 'view_shopee/dashboard']))
             ->get(route('ext.shopee.product-groups.products', ['id' => $groupId]))
             ->assertOk();
 
@@ -141,7 +141,7 @@ class ReadRouteDoesNotWriteTest extends TestCase
     {
         $groupId = $this->seedAdoptableRow();
 
-        $this->actingAs($this->tierUser('Shopee Manager', ['view_shopee', 'manage_shopee']))
+        $this->actingAs($this->tierUser('Shopee Manager', ['view_shopee', 'view_shopee/dashboard', 'manage_shopee', 'manage_shopee/dashboard']))
             ->get(route('ext.shopee.product-groups.products', ['id' => $groupId]))
             ->assertOk();
 
@@ -160,7 +160,7 @@ class ReadRouteDoesNotWriteTest extends TestCase
     {
         $groupId = $this->seedAdoptableRow();
 
-        $this->actingAs($this->tierUser('Shopee Manager', ['view_shopee', 'manage_shopee']))
+        $this->actingAs($this->tierUser('Shopee Manager', ['view_shopee', 'view_shopee/dashboard', 'manage_shopee', 'manage_shopee/dashboard']))
             ->get(route('ext.shopee.product-groups.products', ['id' => $groupId]))
             ->assertOk();
 

@@ -108,6 +108,17 @@ class EnsureControllerPermission extends EnsurePermission
             }
         }
 
+        /* SOME PAGES MUST REFUSE BY NOT EXISTING.
+         *
+         * The channel dashboards 404 an outsider rather than redirecting
+         * with a denial flash, because a denial CONFIRMS the page - and a
+         * channel you may not see should not answer differently from one
+         * that does not exist. The fact sits on the route, same as
+         * permission_tier, because it belongs to the route. */
+        if (($route->defaults['permission_denial'] ?? null) === '404') {
+            abort(404);
+        }
+
         return $this->deny($request);
     }
 }

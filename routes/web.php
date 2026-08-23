@@ -27,7 +27,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/ui-kit-v2', fn () => view('ui-kit-v2'))->name('ui_kit_v2');
 });
 
-Route::middleware(['auth'])->group(base_path('routes/integrations.php'));
+Route::middleware(['auth'])->group(base_path('routes/channels/web.php'));
 
 Route::middleware(['auth'])->group(function () {
     // Universal admin scheduler, Automations tab on each integration

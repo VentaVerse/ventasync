@@ -25,7 +25,7 @@ class OpenCartController extends Controller
         if ($first) {
             return redirect()->route('ext.opencart.settings.show', ['store' => $first->id]);
         }
-        return redirect()->route('integrations.module', ['module' => 'opencart']);
+        return redirect()->route('channels.module', ['module' => 'opencart']);
     }
 
     public function showSettings(int $store)

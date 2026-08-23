@@ -2,7 +2,7 @@
     // Contract identical to ext-shopee::orders._panel and
     // ext-lazada::orders._panel - see the Shopee file's top @php block for
     // the full rationale. $panelBaseUrl is the caller's own route
-    // (/tiktok/orders in the seller center, /integrations/orders on the
+    // (/tiktok/orders in the seller center, /channels/fulfilment on the
     // fulfilment hub) and $panelHiddenParams are context params the caller
     // always wants kept (channel=tiktok on the hub). Query strings go
     // through Arr::query() rather than http_build_query() so the encoding

@@ -4,7 +4,7 @@
      here and no second gate is needed. --}}
 <nav class="x-cnav" aria-label="{{ $channelCard->name }} navigation">
     <div class="x-cnav__top">
-        <a class="x-cnav__back" href="{{ route('integrations.index') }}">
+        <a class="x-cnav__back" href="{{ route('channels.index') }}">
             <x-ui.icon name="chevron-left" size="12" />
             All channels
         </a>
@@ -47,7 +47,7 @@
     </div>
 
     {{-- Overview is the one destination gated on the CARD permission rather
-         than a route's own perm: middleware, because /integrations/{channel}
+         than a route's own perm: middleware, because /channels/{id}
          re-asks the card question in ChannelWorkspaceController::show. An
          operator holding only view_shopee_orders reaches /shopee/orders but
          404s on the workspace entry, so rendering this link for them is a
@@ -70,8 +70,8 @@
          means touching every extension's nav manifest rather than this file. --}}
 
     @if($channelHasOverview)
-        <a class="x-cnav__item {{ request()->routeIs('integrations.workspace') ? 'is-active' : '' }}"
-           @if(request()->routeIs('integrations.workspace')) aria-current="page" @endif
+        <a class="x-cnav__item {{ request()->routeIs('ext.*.dashboard') ? 'is-active' : '' }}"
+           @if(request()->routeIs('ext.*.dashboard')) aria-current="page" @endif
            href="{{ \App\Support\ChannelWorkspace::overviewUrl($channelKey ?? $channelCard->id) }}">
             <x-ui.icon name="monitor" size="14" /> Overview
         </a>

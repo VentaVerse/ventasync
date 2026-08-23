@@ -85,7 +85,11 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
                 // User::hasPermission('view_shopee') returns true for users who
                 // hold either view_shopee OR manage_shopee (cascade), so
                 // managers are not excluded by tightening this gate.
-                permission: 'view_shopee',
+                // The dashboard's own derived key (shopee/dashboard), not the
+                // legacy view_shopee: the card decides who sees this channel
+                // in the hub and the nav, and that must be the same answer
+                // the dashboard's door gives, or the menu offers a 404.
+                permission: 'view_shopee/dashboard',
                 menu: [
                     new MenuItem('Orders', 'ext.shopee.orders.index', 'view_shopee_orders', group: 'Sell'),
                     new MenuItem('Returns', 'ext.shopee.orders.returns', 'view_shopee_orders', group: 'Sell'),

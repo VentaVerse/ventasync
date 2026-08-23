@@ -41,7 +41,7 @@ class Navigation
             // is the daily working surface across all of them, so it sits
             // between the two at the same level. Named Fulfilment because
             // "Orders" already means the information page one group above.
-            ['label' => 'Fulfilment', 'icon' => 'globe', 'route' => 'integrations.orders',
+            ['label' => 'Fulfilment', 'icon' => 'globe', 'route' => 'channels.fulfilment',
              'keywords' => ['fulfilment', 'fulfillment', 'ship', 'pack', 'marketplace orders']],
 
             ['label' => 'Channels', 'icon' => 'plug', 'items' => self::channelEntries()],
@@ -197,7 +197,7 @@ class Navigation
     protected static function channelEntries(): array
     {
         $items = [
-            ['label' => 'All channels', 'route' => 'integrations.index',
+            ['label' => 'All channels', 'route' => 'channels.index',
              'keywords' => ['integrations', 'status', 'connection', 'sync', 'marketplace', 'board']],
         ];
 
@@ -216,19 +216,21 @@ class Navigation
                     // OpenCart would otherwise get two identical entries.
                     if ($card->stores !== []) {
                         foreach ($card->stores as $store) {
-                            // The URL carries the store in slash grammar
-                            // (`venta/2`); $store->id stays the colon key
-                            // everywhere else. See ChannelWorkspace::pathKey().
+                            // $store->id is the colon key (`venta:2`); the
+                            // dashboard route wants the bare store number.
+                            // Each channel's dashboard is its own route now
+                            // (ext.{id}.dashboard), so the entry can no
+                            // longer point at a channel that has none.
+                            $storeId = explode(':', $store->id, 2)[1] ?? null;
                             $items[] = ['label' => $card->name.' '.$store->label,
-                                        'route' => 'integrations.workspace',
-                                        'params' => ['channel' => ChannelWorkspace::pathKey($store->id)],
+                                        'route' => 'ext.'.$card->id.'.dashboard',
+                                        'params' => $storeId === null ? [] : ['store' => $storeId],
                                         'keywords' => [$card->id, $store->label, 'seller center', 'orders', 'store']];
                         }
                         continue;
                     }
 
-                    $items[] = ['label' => $card->name, 'route' => 'integrations.workspace',
-                                'params' => ['channel' => $card->id],
+                    $items[] = ['label' => $card->name, 'route' => 'ext.'.$card->id.'.dashboard',
                                 'keywords' => [$card->id, 'seller center', 'orders', 'listings']];
                     continue;
                 }
@@ -284,13 +286,13 @@ class Navigation
      *     SALES on it, while the URL - and the owner's ruling - say Settings.
      *
      * Prefix matching is segment-aware, never a bare str_starts_with: without
-     * that, /integrations/shopee would claim /integrations/shopee-legacy, and
+     * that, /channels/shopee would claim /channels/shopee-legacy, and
      * /sales/order would claim /sales/order-statuses.
      *
      * The parameter comparison the old implementation needed is gone because
      * the entry's params are already baked into the URL this compares:
-     * every seller center is integrations.workspace, but one is
-     * /integrations/venta/2 and another /integrations/venta/3.
+     * every Venta seller center is ext.venta.dashboard, but one is
+     * /channels/venta/2 and another /channels/venta/3.
      */
     public static function isActive(array $item): bool
     {

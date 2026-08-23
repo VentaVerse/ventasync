@@ -50,7 +50,7 @@ Route::middleware(['auth', 'perm:manage_lazada'])->group(function () {
 // Everything below moves under /integrations. Route NAMES are unchanged; the
 // `/lazada/…` literals inside the group are now the channel segment beneath
 // that prefix, so `/lazada/orders` reads as `/integrations/lazada/orders`.
-Route::middleware(['auth'])->prefix('integrations')->group(function () {
+Route::middleware(['auth'])->prefix('channels')->group(function () {
 
     // ── Lazada Settings + Catalog management ────────────────────
     Route::middleware(['perm:view_lazada|manage_lazada'])->group(function () {
@@ -230,4 +230,25 @@ Route::middleware(['auth'])->prefix('integrations')->group(function () {
         Route::post('/lazada/orders/{orderId}/cancel', [LazadaOrderController::class, 'cancel'])->name('ext.lazada.orders.cancel');
     });
 
+});
+
+// ── THE CHANNEL'S OWN LANDING PAGE ──────────────────────────────────────
+//
+// /channels/lazada was core's /integrations/{channel} wildcard until the
+// permissions rebuild exposed what that cost: a page rendered by a core
+// controller derives a core key, so the one page every Lazada operator lands
+// on had no entry in the permission editor and stayed gated by a legacy
+// key nobody could grant. The route lives here now, so the page derives
+// lazada/dashboard and is enforced at the door like everything else.
+//
+// The digits-only {store} tail is what keeps this from swallowing
+// /channels/lazada/orders - same rule the old wildcard relied on. On a
+// single-store channel a store suffix resolves to no card, which is a 404.
+Route::middleware(['auth'])->prefix('channels')->group(function () {
+    Route::get('/lazada/{store?}', [\Extensions\lazada\Controllers\LazadaDashboardController::class, 'show'])
+        ->where('store', '[0-9]+')
+        // Refused BY ABSENCE: a channel you may not see must answer exactly
+        // like one that does not exist. See EnsureControllerPermission.
+        ->defaults('permission_denial', '404')
+        ->name('ext.lazada.dashboard');
 });

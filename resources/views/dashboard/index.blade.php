@@ -253,7 +253,7 @@
             </span>
         </a>
 
-        <a class="bl-stat bl-stat--amber" href="{{ route('integrations.orders') }}">
+        <a class="bl-stat bl-stat--amber" href="{{ route('channels.fulfilment') }}">
             <span class="bl-stat__top">
                 <span class="bl-stat__k">Waiting to ship</span>
                 <span class="bl-stat__ic"><x-ui.icon name="send" size="17" /></span>

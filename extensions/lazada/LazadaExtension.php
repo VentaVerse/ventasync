@@ -85,7 +85,11 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                 // User::hasPermission('view_lazada') returns true for users who
                 // hold either view_lazada OR manage_lazada (cascade), so
                 // managers are not excluded by tightening this gate.
-                permission: 'view_lazada',
+                // The dashboard's own derived key (lazada/dashboard), not the
+                // legacy view_lazada: the card decides who sees this channel
+                // in the hub and the nav, and that must be the same answer
+                // the dashboard's door gives, or the menu offers a 404.
+                permission: 'view_lazada/dashboard',
                 menu: [
                     new MenuItem('Orders', 'ext.lazada.orders.index', 'view_lazada_orders', null, ['tab' => 'TO_SHIP'], 'Sell'),
                     new MenuItem('Returns', 'ext.lazada.orders.returns', 'view_lazada_orders', group: 'Sell'),

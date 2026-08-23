@@ -55,7 +55,7 @@ class TiktokOrderDetailTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'TikTok Detail Viewers']);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_tiktok', 'view_tiktok_orders'])->pluck('id')->all()
+            Permission::whereIn('key', ['view_tiktok', 'view_tiktok/dashboard', 'view_tiktok_orders'])->pluck('id')->all()
         );
 
         return User::factory()->create(['user_group_id' => $group->id]);
@@ -66,7 +66,7 @@ class TiktokOrderDetailTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'TikTok Detail Managers']);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_tiktok', 'manage_tiktok_orders'])->pluck('id')->all()
+            Permission::whereIn('key', ['view_tiktok', 'view_tiktok/dashboard', 'manage_tiktok_orders'])->pluck('id')->all()
         );
 
         return User::factory()->create(['user_group_id' => $group->id]);
@@ -157,7 +157,7 @@ class TiktokOrderDetailTest extends TestCase
     {
         $order = $this->order();
 
-        $response = $this->actingAs($this->viewer())->get('/integrations/tiktok/orders/'.$order->id.'/show');
+        $response = $this->actingAs($this->viewer())->get('/channels/tiktok/orders/'.$order->id.'/show');
 
         $response->assertOk();
 
@@ -180,7 +180,7 @@ class TiktokOrderDetailTest extends TestCase
     {
         $order = $this->order();
 
-        $response = $this->actingAs($this->viewer())->get('/integrations/tiktok/orders/'.$order->id.'/show');
+        $response = $this->actingAs($this->viewer())->get('/channels/tiktok/orders/'.$order->id.'/show');
 
         $response->assertOk();
 
@@ -245,7 +245,7 @@ class TiktokOrderDetailTest extends TestCase
             'raw' => ['id' => 'TT0000000000001', 'status' => 'UNPAID'],
         ]);
 
-        $response = $this->actingAs($this->viewer())->get('/integrations/tiktok/orders/'.$order->id.'/show');
+        $response = $this->actingAs($this->viewer())->get('/channels/tiktok/orders/'.$order->id.'/show');
 
         $response->assertOk();
         $response->assertSee('No items synced yet.');
@@ -264,12 +264,12 @@ class TiktokOrderDetailTest extends TestCase
         $order = $this->order();
         $refreshUrl = route('ext.tiktok.orders.show', ['id' => $order->id, 'refresh' => 1]);
 
-        $asManager = $this->actingAs($this->manager())->get('/integrations/tiktok/orders/'.$order->id.'/show');
+        $asManager = $this->actingAs($this->manager())->get('/channels/tiktok/orders/'.$order->id.'/show');
         $asManager->assertOk();
         $asManager->assertSee($refreshUrl, false);
         $asManager->assertSee('Refresh from TikTok');
 
-        $asViewer = $this->actingAs($this->viewer())->get('/integrations/tiktok/orders/'.$order->id.'/show');
+        $asViewer = $this->actingAs($this->viewer())->get('/channels/tiktok/orders/'.$order->id.'/show');
         $asViewer->assertOk();
         $asViewer->assertDontSee($refreshUrl, false);
         $asViewer->assertDontSee('Refresh from TikTok');
@@ -289,12 +289,12 @@ class TiktokOrderDetailTest extends TestCase
         $viewer = $this->viewer();
 
         // Both are read-tier routes, so the read tier keeps them.
-        $seen = $this->actingAs($viewer)->get('/integrations/tiktok/orders/'.$withParcel->id.'/show');
+        $seen = $this->actingAs($viewer)->get('/channels/tiktok/orders/'.$withParcel->id.'/show');
         $seen->assertSee(route('ext.tiktok.orders.awb', $withParcel->id), false);
         $seen->assertSee('btnTtTracking', false);
         $seen->assertSee(route('ext.tiktok.orders.tracking', $withParcel->id), false);
 
-        $unseen = $this->actingAs($viewer)->get('/integrations/tiktok/orders/'.$noParcel->id.'/show');
+        $unseen = $this->actingAs($viewer)->get('/channels/tiktok/orders/'.$noParcel->id.'/show');
         $unseen->assertDontSee(route('ext.tiktok.orders.awb', $noParcel->id), false);
         $unseen->assertDontSee('btnTtTracking', false);
     }
@@ -304,7 +304,7 @@ class TiktokOrderDetailTest extends TestCase
         $order = $this->order();
 
         $denied = $this->actingAs($this->viewer())
-            ->postJson('/integrations/tiktok/orders/'.$order->id.'/ship');
+            ->postJson('/channels/tiktok/orders/'.$order->id.'/ship');
 
         $denied->assertStatus(403);
         $denied->assertJson(['error' => 'permission_denied']);
@@ -325,7 +325,7 @@ class TiktokOrderDetailTest extends TestCase
         // from the CONTROLLER, which means the gate let this user through,
         // where the read tier above never reached it.
         $allowed = $this->actingAs($this->manager())
-            ->postJson('/integrations/tiktok/orders/'.$order->id.'/ship');
+            ->postJson('/channels/tiktok/orders/'.$order->id.'/ship');
 
         $allowed->assertStatus(302);
         $allowed->assertSessionHas('tiktok_orders_last_result.ok', false);
@@ -353,7 +353,7 @@ class TiktokOrderDetailTest extends TestCase
         Http::fake();
 
         $response = $this->actingAs($this->viewer())
-            ->get('/integrations/tiktok/orders/'.$order->id.'/show?refresh=1');
+            ->get('/channels/tiktok/orders/'.$order->id.'/show?refresh=1');
 
         $response->assertOk();
         Http::assertNothingSent();
@@ -384,7 +384,7 @@ class TiktokOrderDetailTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->manager())
-            ->get('/integrations/tiktok/orders/'.$order->id.'/show?refresh=1');
+            ->get('/channels/tiktok/orders/'.$order->id.'/show?refresh=1');
 
         $response->assertOk();
         Http::assertSent(fn ($request) => str_contains($request->url(), '/order/202309/orders'));
@@ -399,7 +399,7 @@ class TiktokOrderDetailTest extends TestCase
     {
         $order = $this->order('COMPLETED', ['order_id' => 'TT7788990011225']);
 
-        $response = $this->actingAs($this->manager())->get('/integrations/tiktok/orders/'.$order->id.'/show');
+        $response = $this->actingAs($this->manager())->get('/channels/tiktok/orders/'.$order->id.'/show');
 
         $response->assertOk();
         $response->assertDontSee('confirm(', false);
@@ -418,7 +418,7 @@ class TiktokOrderDetailTest extends TestCase
         // The list defaults to the To Ship tab's to_pack step, which is
         // AWAITING_SHIPMENT only; this fixture is AWAITING_COLLECTION, so the
         // All tab is what lists it.
-        $response = $this->actingAs($this->viewer())->get('/integrations/tiktok/orders?tab=ALL');
+        $response = $this->actingAs($this->viewer())->get('/channels/tiktok/orders?tab=ALL');
 
         $response->assertOk();
         // The stopgap is retired: the order number opens the detail page in

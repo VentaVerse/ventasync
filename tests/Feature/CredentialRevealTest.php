@@ -70,13 +70,13 @@ class CredentialRevealTest extends TestCase
     private function reveal(User $user, array $body)
     {
         return $this->actingAs($user)
-            ->postJson(route('integrations.credential.reveal', ['channel' => 'lazada']), $body);
+            ->postJson(route('channels.credential.reveal', ['channel' => 'lazada']), $body);
     }
 
     public function test_the_manage_tier_can_read_a_stored_credential(): void
     {
         $response = $this->reveal(
-            $this->tierUser('Lazada Manager', ['manage_lazada']),
+            $this->tierUser('Lazada Manager', ['manage_lazada', 'manage_lazada/dashboard']),
             ['field' => 'sandbox_access_token']
         );
 
@@ -92,7 +92,7 @@ class CredentialRevealTest extends TestCase
     public function test_the_read_tier_cannot_read_a_stored_credential(): void
     {
         $response = $this->reveal(
-            $this->tierUser('Lazada Viewer', ['view_lazada']),
+            $this->tierUser('Lazada Viewer', ['view_lazada', 'view_lazada/dashboard']),
             ['field' => 'sandbox_access_token']
         );
 
@@ -104,7 +104,7 @@ class CredentialRevealTest extends TestCase
     public function test_a_signed_out_visitor_cannot_read_a_stored_credential(): void
     {
         $response = $this->postJson(
-            route('integrations.credential.reveal', ['channel' => 'lazada']),
+            route('channels.credential.reveal', ['channel' => 'lazada']),
             ['field' => 'sandbox_access_token']
         );
 
@@ -120,7 +120,7 @@ class CredentialRevealTest extends TestCase
     public function test_a_field_outside_the_allowlist_is_refused(): void
     {
         $response = $this->reveal(
-            $this->tierUser('Lazada Manager', ['manage_lazada']),
+            $this->tierUser('Lazada Manager', ['manage_lazada', 'manage_lazada/dashboard']),
             ['field' => 'app_key']
         );
 
@@ -130,9 +130,9 @@ class CredentialRevealTest extends TestCase
 
     public function test_an_unknown_channel_is_refused(): void
     {
-        $response = $this->actingAs($this->tierUser('Lazada Manager', ['manage_lazada']))
+        $response = $this->actingAs($this->tierUser('Lazada Manager', ['manage_lazada', 'manage_lazada/dashboard']))
             ->postJson(
-                route('integrations.credential.reveal', ['channel' => 'not-a-channel']),
+                route('channels.credential.reveal', ['channel' => 'not-a-channel']),
                 ['field' => 'sandbox_access_token']
             );
 
@@ -146,14 +146,14 @@ class CredentialRevealTest extends TestCase
      */
     public function test_every_refusal_answers_the_same_way(): void
     {
-        $manager = $this->tierUser('Lazada Manager', ['manage_lazada']);
-        $viewer = $this->tierUser('Lazada Viewer', ['view_lazada']);
+        $manager = $this->tierUser('Lazada Manager', ['manage_lazada', 'manage_lazada/dashboard']);
+        $viewer = $this->tierUser('Lazada Viewer', ['view_lazada', 'view_lazada/dashboard']);
 
         $bodies = [
             $this->reveal($viewer, ['field' => 'sandbox_access_token'])->getContent(),
             $this->reveal($manager, ['field' => 'app_key'])->getContent(),
             $this->actingAs($manager)->postJson(
-                route('integrations.credential.reveal', ['channel' => 'not-a-channel']),
+                route('channels.credential.reveal', ['channel' => 'not-a-channel']),
                 ['field' => 'sandbox_access_token']
             )->getContent(),
         ];
@@ -165,7 +165,7 @@ class CredentialRevealTest extends TestCase
     public function test_a_read_is_written_to_the_activity_log_without_the_value(): void
     {
         $this->reveal(
-            $this->tierUser('Lazada Manager', ['manage_lazada']),
+            $this->tierUser('Lazada Manager', ['manage_lazada', 'manage_lazada/dashboard']),
             ['field' => 'sandbox_app_secret']
         )->assertOk();
 
@@ -183,7 +183,7 @@ class CredentialRevealTest extends TestCase
      */
     public function test_the_settings_page_still_carries_no_credential(): void
     {
-        $html = $this->actingAs($this->tierUser('Lazada Manager', ['manage_lazada']))
+        $html = $this->actingAs($this->tierUser('Lazada Manager', ['manage_lazada', 'manage_lazada/dashboard']))
             ->get(route('ext.lazada.index'))
             ->assertOk()
             ->getContent();

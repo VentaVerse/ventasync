@@ -117,7 +117,7 @@
          Same words and same shape as the channel sidebar's own back link, so
          leaving a channel is one gesture wherever you meet it. --}}
     @if($selectedChannel)
-        <a class="fh-head__back" href="{{ route('integrations.orders') }}">
+        <a class="fh-head__back" href="{{ route('channels.fulfilment') }}">
             <x-ui.icon name="chevron-left" size="12" />
             All channels
         </a>
@@ -191,7 +191,7 @@
                  strip that exists to move between channels quietly changed
                  the subject as well. --}}
             @php
-                $fhCardUrl = $fhIsReturnsViewNav && str_contains($fhCard['url'], '/integrations/orders')
+                $fhCardUrl = $fhIsReturnsViewNav && str_contains($fhCard['url'], '/channels/fulfilment')
                     ? $fhCard['url'] . (str_contains($fhCard['url'], '?') ? '&' : '?') . 'view=returns'
                     : $fhCard['url'];
             @endphp
@@ -352,15 +352,15 @@
         <div class="x-fh-panel co-page" data-desk-scope id="{{ ($selectedView ?? 'orders') === 'returns' ? 'shopee-returns-page' : 'shopee-orders-page' }}">
             @if(($selectedView ?? 'orders') === 'returns')
                 @include('ext-shopee::orders._returns_panel', [
-                    'panelBaseUrl' => route('integrations.orders'),
+                    'panelBaseUrl' => route('channels.fulfilment'),
                     'panelHiddenParams' => ['channel' => 'shopee', 'view' => 'returns'],
-                    'panelOrdersUrl' => route('integrations.orders', ['channel' => 'shopee']),
+                    'panelOrdersUrl' => route('channels.fulfilment', ['channel' => 'shopee']),
                 ])
             @else
                 @include('ext-shopee::orders._panel', [
-                    'panelBaseUrl' => route('integrations.orders'),
+                    'panelBaseUrl' => route('channels.fulfilment'),
                     'panelHiddenParams' => ['channel' => 'shopee'],
-                    'panelReturnsUrl' => route('integrations.orders', ['channel' => 'shopee', 'view' => 'returns']),
+                    'panelReturnsUrl' => route('channels.fulfilment', ['channel' => 'shopee', 'view' => 'returns']),
                 ])
             @endif
         </div>
@@ -378,15 +378,15 @@
              data-recreate-template="{{ route('ext.lazada.orders.recreate_package', ['orderId' => '__OID__']) }}">
             @if(($selectedView ?? 'orders') === 'returns')
                 @include('ext-lazada::orders._returns_panel', [
-                    'panelBaseUrl' => route('integrations.orders'),
+                    'panelBaseUrl' => route('channels.fulfilment'),
                     'panelHiddenParams' => ['channel' => 'lazada', 'view' => 'returns'],
-                    'panelOrdersUrl' => route('integrations.orders', ['channel' => 'lazada']),
+                    'panelOrdersUrl' => route('channels.fulfilment', ['channel' => 'lazada']),
                 ])
             @else
                 @include('ext-lazada::orders._panel', [
-                    'panelBaseUrl' => route('integrations.orders'),
+                    'panelBaseUrl' => route('channels.fulfilment'),
                     'panelHiddenParams' => ['channel' => 'lazada'],
-                    'panelReturnsUrl' => route('integrations.orders', ['channel' => 'lazada', 'view' => 'returns']),
+                    'panelReturnsUrl' => route('channels.fulfilment', ['channel' => 'lazada', 'view' => 'returns']),
                 ])
             @endif
         </div>
@@ -402,7 +402,7 @@
         <div class="x-fh-panel co-page" data-desk-scope id="tiktok-orders-page"
              data-awb-url="{{ $last_result['awb_url'] ?? '' }}">
             @include('ext-tiktok::orders._panel', [
-                'panelBaseUrl' => route('integrations.orders'),
+                'panelBaseUrl' => route('channels.fulfilment'),
                 'panelHiddenParams' => ['channel' => 'tiktok'],
             ])
         </div>
@@ -424,7 +424,7 @@
                 <span class="x-fh-panel__scope-value">{{ $storeLabel }}</span>
             </div>
             @include('ext-venta::orders._panel', [
-                'panelBaseUrl' => route('integrations.orders'),
+                'panelBaseUrl' => route('channels.fulfilment'),
                 'panelHiddenParams' => ['channel' => $selectedChannel],
             ])
         </div>
@@ -439,7 +439,7 @@
                 <span class="x-fh-panel__scope-value">{{ $storeLabel }}</span>
             </div>
             @include('ext-opencart::orders._panel', [
-                'panelBaseUrl' => route('integrations.orders'),
+                'panelBaseUrl' => route('channels.fulfilment'),
                 'panelHiddenParams' => ['channel' => $selectedChannel],
             ])
         </div>
@@ -453,7 +453,7 @@
                 <span class="x-fh-panel__scope-value">{{ $storeLabel }}</span>
             </div>
             @include('ext-shopify::orders._panel', [
-                'panelBaseUrl' => route('integrations.orders'),
+                'panelBaseUrl' => route('channels.fulfilment'),
                 'panelHiddenParams' => ['channel' => $selectedChannel],
             ])
         </div>
@@ -464,7 +464,7 @@
              responsive rules to. --}}
         <div class="x-fh-panel co-page" data-desk-scope id="pedallion-orders-page">
             @include('ext-pedallion::orders._panel', [
-                'panelBaseUrl' => route('integrations.orders'),
+                'panelBaseUrl' => route('channels.fulfilment'),
                 'panelHiddenParams' => ['channel' => 'pedallion'],
             ])
         </div>

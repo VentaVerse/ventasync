@@ -13,7 +13,7 @@
 
      Venta has NO OAuth surface. It authenticates with a stored API token, so
      nothing here is a registered redirect and nothing is exempt from the
-     /integrations prefix.
+     /channels prefix.
 
      The API token field below is always sent blank, both tiers:
      VentaController::save() now keeps the stored token when the field posts

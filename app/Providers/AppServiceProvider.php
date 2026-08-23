@@ -52,7 +52,7 @@ class AppServiceProvider extends ServiceProvider
         // not in a mail template, not in the installer.
         View::composer('partials.nav-blotter', function ($view) {
             $view->with('navBadges', [
-                'integrations.orders' => FulfilmentBadge::pending(auth()->user()),
+                'channels.fulfilment' => FulfilmentBadge::pending(auth()->user()),
             ]);
         });
 
@@ -70,7 +70,7 @@ class AppServiceProvider extends ServiceProvider
         // though the composer now fires for two views; request attributes
         // rather than a static so nothing leaks across tests sharing a
         // process.
-        View::composer(['layouts.channel', 'integrations.workspace'], function ($view) {
+        View::composer(['layouts.channel', 'channels.workspace'], function ($view) {
             $payload = request()->attributes->get('channel-workspace.compose');
 
             if ($payload === null) {
@@ -90,28 +90,25 @@ class AppServiceProvider extends ServiceProvider
                 $route = request()->route();
                 $name = (string) ($route?->getName() ?? '');
 
-                if (str_starts_with($name, 'ext.')) {
-                    $channel = explode('.', $name)[1] ?? '';
-                    $store = $route?->parameter('store');
+                // Every page in this layout is an ext.* route now - the
+                // dashboards included, since each channel owns its own
+                // ext.{id}.dashboard. Channel from the name, store from the
+                // route's own {store} parameter, colon key out.
+                $channel = str_starts_with($name, 'ext.') ? (explode('.', $name)[1] ?? '') : '';
+                $store = $route?->parameter('store');
 
-                    if ($channel !== '' && is_scalar($store) && (string) $store !== '') {
-                        $channel .= ':' . $store;
-                    }
-                } else {
-                    // /integrations/venta/2 arrives here as `venta/2`; the key
-                    // every reader below expects is `venta:2`. Same boundary
-                    // translation ChannelWorkspaceController::show applies.
-                    $channel = ChannelWorkspace::keyFromPath((string) request()->route('channel'));
+                if ($channel !== '' && is_scalar($store) && (string) $store !== '') {
+                    $channel .= ':' . $store;
                 }
 
                 // Deliberately the ungated lookup. Every page reaching this
-                // composer has already cleared its own route's perm: middleware,
+                // composer has already cleared its own route's door check,
                 // and the card's permission is a different, broader question -
                 // re-asking it here 404s users the route just let through (a
                 // view_shopee_orders-only operator on /shopee/orders, for
-                // instance). ChannelWorkspaceController::show keeps the gated
-                // card() for /integrations/{channel}, where the card permission
-                // IS the right question, and it runs before this composer.
+                // instance). ChannelDashboardController::show keeps the gated
+                // card() for /channels/{id}, where the card permission IS the
+                // right question, and it runs before this composer.
                 $card = $workspace->cardForAuthorisedPage($channel, $user);
 
                 if (! $card) {

@@ -302,7 +302,7 @@ class IntegrationController extends Controller
                 'label' => $tab->label,
                 'accent' => $tab->accent,
                 'url' => in_array($tab->id, $inPlace, true)
-                    ? route('integrations.orders', array_filter([
+                    ? route('channels.fulfilment', array_filter([
                         'channel' => $tab->id,
                         'tab' => $tab->routeParams['tab'] ?? null,
                     ]))
@@ -640,7 +640,7 @@ class IntegrationController extends Controller
                     // Logistics, Reviews, etc. also live there) - preferring
                     // it here meant any channel with a Settings item made
                     // the rest of its own menu unreachable from this board,
-                    // since integrations.module is otherwise never linked
+                    // since channels.module is otherwise never linked
                     // once the old full-menu card view was replaced by this
                     // one.
                     //
@@ -650,14 +650,14 @@ class IntegrationController extends Controller
                     // show.
                     'enterUrl' => ($hasWorkspace && $entry['workspaceKey'] !== null)
                         ? \App\Support\ChannelWorkspace::overviewUrl($entry['workspaceKey'])
-                        : route('integrations.module', ['module' => $baseId]),
+                        : route('channels.module', ['module' => $baseId]),
                     'actionLabel' => $ordersUrl ? 'View orders' : null,
                     'actionUrl' => $ordersUrl,
                 ];
             }
         }
 
-        return view('integrations.board', compact('channels'));
+        return view('channels.board', compact('channels'));
     }
 
     /**
@@ -674,7 +674,7 @@ class IntegrationController extends Controller
             abort(404);
         }
 
-        return view('integrations.module', compact('card'));
+        return view('channels.module', compact('card'));
     }
 
     /**
@@ -703,7 +703,7 @@ class IntegrationController extends Controller
 
         // Empty state, no fulfillable surfaces visible to this user
         if (empty($tabs)) {
-            return view('integrations.orders', [
+            return view('channels.fulfilment', [
                 'hasMarketplaces' => false,
                 'orderTabs' => [],
                 'selectedChannel' => null,
@@ -830,12 +830,12 @@ class IntegrationController extends Controller
                     // panel in the same wrapper with a different store.
                     'selectedChannelBase' => explode(':', $selectedTab->id, 2)[0],
                     'selectedChannelLabel' => $selectedTab->label,
-                    'panelBaseUrl' => route('integrations.orders'),
+                    'panelBaseUrl' => route('channels.fulfilment'),
                     'panelHiddenParams' => ['channel' => $selectedTab->id],
                 ]
             );
         }
 
-        return view('integrations.orders', $data);
+        return view('channels.fulfilment', $data);
     }
 }

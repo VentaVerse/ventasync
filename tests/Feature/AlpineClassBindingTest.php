@@ -20,7 +20,7 @@ use Tests\TestCase;
  * binding, which Alpine does set and unset correctly - quietly disabled every
  * link inside it. A menu that stays on screen and silently ignores clicks.
  *
- * Measured on /integrations/*: Channels sat at 258px with inert set.
+ * Measured on /channels/*: Channels sat at 258px with inert set.
  *
  * The object form states the class in both directions, so false removes it.
  */

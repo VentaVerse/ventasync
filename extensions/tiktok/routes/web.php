@@ -33,7 +33,7 @@ Route::middleware(['auth', 'perm:manage_tiktok'])->group(function () {
 // Everything below moves under /integrations. Route NAMES are unchanged; the
 // `/tiktok/…` literals inside the group are now the channel segment beneath
 // that prefix, so `/tiktok/orders` reads as `/integrations/tiktok/orders`.
-Route::middleware(['auth'])->prefix('integrations')->group(function () {
+Route::middleware(['auth'])->prefix('channels')->group(function () {
 
     // ── TikTok Settings + Catalog management — READ ─────────────
     Route::middleware(['perm:view_tiktok|manage_tiktok'])->group(function () {
@@ -109,4 +109,25 @@ Route::middleware(['auth'])->prefix('integrations')->group(function () {
         Route::post('/tiktok/orders/update-statuses', [TikTokOrderController::class, 'updateStatuses'])->name('ext.tiktok.orders.updateStatuses');
         Route::post('/tiktok/orders/{id}/ship', [TikTokOrderController::class, 'shipOrder'])->name('ext.tiktok.orders.ship');
     });
+});
+
+// ── THE CHANNEL'S OWN LANDING PAGE ──────────────────────────────────────
+//
+// /channels/tiktok was core's /integrations/{channel} wildcard until the
+// permissions rebuild exposed what that cost: a page rendered by a core
+// controller derives a core key, so the one page every Tiktok operator lands
+// on had no entry in the permission editor and stayed gated by a legacy
+// key nobody could grant. The route lives here now, so the page derives
+// tiktok/dashboard and is enforced at the door like everything else.
+//
+// The digits-only {store} tail is what keeps this from swallowing
+// /channels/tiktok/orders - same rule the old wildcard relied on. On a
+// single-store channel a store suffix resolves to no card, which is a 404.
+Route::middleware(['auth'])->prefix('channels')->group(function () {
+    Route::get('/tiktok/{store?}', [\Extensions\tiktok\Controllers\TiktokDashboardController::class, 'show'])
+        ->where('store', '[0-9]+')
+        // Refused BY ABSENCE: a channel you may not see must answer exactly
+        // like one that does not exist. See EnsureControllerPermission.
+        ->defaults('permission_denial', '404')
+        ->name('ext.tiktok.dashboard');
 });

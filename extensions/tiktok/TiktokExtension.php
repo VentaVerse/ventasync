@@ -84,7 +84,11 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                 // TikTok in the Integrations hub and contextual sidebar. The
                 // 'manage implies view' cascade in PermissionHierarchy means
                 // managers continue to see these entries.
-                permission: 'view_tiktok',
+                // The dashboard's own derived key (tiktok/dashboard), not the
+                // legacy view_tiktok: the card decides who sees this channel
+                // in the hub and the nav, and that must be the same answer
+                // the dashboard's door gives, or the menu offers a 404.
+                permission: 'view_tiktok/dashboard',
                 menu: [
                     new MenuItem('Orders', 'ext.tiktok.orders.index', 'view_tiktok_orders', group: 'Sell'),
                     new MenuItem('Product Groups', 'ext.tiktok.product-groups.index', 'view_tiktok', group: 'Catalogue'),

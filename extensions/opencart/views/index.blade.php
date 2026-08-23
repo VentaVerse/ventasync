@@ -14,7 +14,7 @@
 
      OpenCart has NO OAuth surface. It authenticates with a shared API key
      configured in the store's own ERP Sync module, so nothing here is a
-     registered redirect and nothing is exempt from the /integrations prefix.
+     registered redirect and nothing is exempt from the /channels prefix.
 
      The API key field below is always sent blank, both tiers:
      OpenCartController::save() now keeps the stored key when the field posts

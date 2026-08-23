@@ -22,7 +22,7 @@
      The wire is unchanged: the same search endpoint with the same
      two-character minimum, and the same push URL with the same three optional
      query parameters. The URL is now built from route() through a template
-     rather than from a hardcoded '/integrations/shopee/products' string, so it
+     rather than from a hardcoded '/channels/shopee/products' string, so it
      follows the address plan instead of silently breaking with it. --}}
 @section('content')
 @php

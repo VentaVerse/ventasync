@@ -61,7 +61,7 @@ Route::get('/reviews/{any?}', fn (?string $any = null) => redirect($withQuery('/
 // ─────────────────────────────────────────────────────────────────────────
 //  Task 2: channel pages under their workspace roots
 //
-//  Every seller center page moved from /{channel}/… to /integrations/{channel}
+//  Every seller center page moved from /{channel}/… to /channels/{channel}
 //  /…, so the address bar names the workspace the operator is standing in.
 //
 //  ORDERING NOTE, and the reason these are per-FAMILY rather than one
@@ -94,11 +94,11 @@ Route::get('/reviews/{any?}', fn (?string $any = null) => redirect($withQuery('/
 //  URIs as an unexplained gap; this closes it.
 // ─────────────────────────────────────────────────────────────────────────
 
-// A moved family: /{channel}/{family}/… -> /integrations/{channel}/{family}/…
+// A moved family: /{channel}/{family}/… -> /channels/{channel}/{family}/…
 // with the tail and the query string carried through untouched.
 $channelFamily = function (string $channel, string $family) use ($withQuery): void {
     Route::get("/{$channel}/{$family}/{any?}", function (?string $any = null) use ($withQuery, $channel, $family) {
-        return redirect($withQuery("/integrations/{$channel}/{$family}".($any ? '/'.$any : '')), 301);
+        return redirect($withQuery("/channels/{$channel}/{$family}".($any ? '/'.$any : '')), 301);
     })->where('any', '.*');
 };
 
@@ -109,16 +109,16 @@ foreach (['orders', 'products', 'product-groups', 'categories', 'logistics'] as 
 }
 
 // ── Lazada ──────────────────────────────────────────────────────────────
-// The settings page gained a segment of its own (/integrations/lazada is the
+// The settings page gained a segment of its own (/channels/lazada is the
 // workspace Overview), so the bare channel root points at it.
-Route::get('/lazada', fn () => redirect($withQuery('/integrations/lazada/settings'), 301));
+Route::get('/lazada', fn () => redirect($withQuery('/channels/lazada/settings'), 301));
 
 foreach (['orders', 'products', 'product-groups', 'categories', 'brands'] as $family) {
     $channelFamily('lazada', $family);
 }
 
 // ── TikTok ──────────────────────────────────────────────────────────────
-Route::get('/tiktok', fn () => redirect($withQuery('/integrations/tiktok/settings'), 301));
+Route::get('/tiktok', fn () => redirect($withQuery('/channels/tiktok/settings'), 301));
 
 foreach (['orders', 'product-groups', 'categories'] as $family) {
     $channelFamily('tiktok', $family);
@@ -127,7 +127,7 @@ foreach (['orders', 'product-groups', 'categories'] as $family) {
 // ── Pedallion ───────────────────────────────────────────────────────────
 // Single store, API key, no OAuth surface at all, so nothing here is exempt
 // and the bare channel root gets a shim like Lazada's and TikTok's do.
-Route::get('/pedallion', fn () => redirect($withQuery('/integrations/pedallion/settings'), 301));
+Route::get('/pedallion', fn () => redirect($withQuery('/channels/pedallion/settings'), 301));
 
 foreach (['orders', 'products', 'product-groups', 'categories'] as $family) {
     $channelFamily('pedallion', $family);
@@ -148,16 +148,16 @@ foreach (['orders', 'products', 'product-groups', 'categories'] as $family) {
 // shims below are identical in kind. Shopify has no OAuth surface either, so
 // its bare channel root is shimmed like theirs rather than exempted.
 foreach (['venta', 'opencart', 'shopify'] as $channel) {
-    Route::get("/{$channel}/settings/{store}", fn (string $store) => redirect($withQuery("/integrations/{$channel}/{$store}/settings"), 301))
+    Route::get("/{$channel}/settings/{store}", fn (string $store) => redirect($withQuery("/channels/{$channel}/{$store}/settings"), 301))
         ->whereNumber('store');
 
     // The storeless fallback that redirects to the first configured store.
-    Route::get("/{$channel}", fn () => redirect($withQuery("/integrations/{$channel}/settings"), 301));
+    Route::get("/{$channel}", fn () => redirect($withQuery("/channels/{$channel}/settings"), 301));
 
     // Everything else under a store: orders, product groups and their tails.
     // whereNumber('store') is what keeps this off /{channel}/settings/{store}
     // above regardless of which is registered first.
-    Route::get("/{$channel}/{store}/{any}", fn (string $store, string $any) => redirect($withQuery("/integrations/{$channel}/{$store}/{$any}"), 301))
+    Route::get("/{$channel}/{store}/{any}", fn (string $store, string $any) => redirect($withQuery("/channels/{$channel}/{$store}/{$any}"), 301))
         ->whereNumber('store')
         ->where('any', '.*');
 }
@@ -170,7 +170,13 @@ foreach (['venta', 'opencart', 'shopify'] as $channel) {
 //
 // integrations.workspace's own `channel` pattern excludes ':', so a colon URL
 // falls past it to here rather than being answered as an unknown channel.
-Route::get('/integrations/{key}', fn (string $key) => redirect($withQuery('/integrations/'.str_replace(':', '/', $key)), 301))
+Route::get('/integrations/{key}', fn (string $key) => redirect($withQuery('/channels/'.str_replace(':', '/', $key)), 301))
+    ->where('key', '[A-Za-z0-9_.-]+:[0-9]+');
+
+// The same guard under the renamed prefix: no dashboard route's own pattern
+// admits a colon, so /channels/venta:2 would otherwise fall through to 404
+// while /channels/venta/2 renders. The contract survives the rename.
+Route::get('/channels/{key}', fn (string $key) => redirect($withQuery('/channels/'.str_replace(':', '/', $key)), 301))
     ->where('key', '[A-Za-z0-9_.-]+:[0-9]+');
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -189,3 +195,18 @@ Route::get('/integrations/{key}', fn (string $key) => redirect($withQuery('/inte
 
 Route::get('/sales/order-statuses/{any?}', fn (?string $any = null) => redirect($withQuery('/settings/order-statuses'.($any ? '/'.$any : '')), 301))
     ->where('any', '.*');
+
+// ── /integrations retired (2026-08-23) ──────────────────────────────────
+// The menu said Channels and the URL said integrations; the URL lost. The
+// fulfilment hub moved AND was renamed in the same pass: /integrations/
+// orders said "orders", which already means the Sales record one menu
+// group up. GET only, same reasoning as everything above.
+Route::get('integrations/{path?}', function (?string $path = null) use ($withQuery) {
+    $path = (string) $path;
+
+    if ($path === 'orders' || str_starts_with($path, 'orders/')) {
+        $path = 'fulfilment' . substr($path, strlen('orders'));
+    }
+
+    return redirect($withQuery('/channels' . ($path === '' ? '' : '/' . $path)), 301);
+})->where('path', '.*')->name('channels.legacy');

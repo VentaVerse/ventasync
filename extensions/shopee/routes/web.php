@@ -62,7 +62,7 @@ Route::middleware(['auth', 'perm:manage_shopee'])->group(function () {
 // Everything below moves under /integrations. Route NAMES are unchanged; the
 // `/shopee/…` literals inside the group are now the channel segment beneath
 // that prefix, so `/shopee/orders` reads as `/integrations/shopee/orders`.
-Route::middleware(['auth'])->prefix('integrations')->group(function () {
+Route::middleware(['auth'])->prefix('channels')->group(function () {
 
     // ── Shopee Settings + Catalog management ────────────────────
     Route::middleware(['perm:view_shopee|manage_shopee'])->group(function () {
@@ -199,4 +199,25 @@ Route::middleware(['auth'])->prefix('integrations')->group(function () {
         Route::post('/shopee/orders/fetch-returns', [ShopeeOrderController::class, 'fetchReturns'])->name('ext.shopee.orders.fetch_returns');
     });
 
+});
+
+// ── THE CHANNEL'S OWN LANDING PAGE ──────────────────────────────────────
+//
+// /channels/shopee was core's /integrations/{channel} wildcard until the
+// permissions rebuild exposed what that cost: a page rendered by a core
+// controller derives a core key, so the one page every Shopee operator lands
+// on had no entry in the permission editor and stayed gated by a legacy
+// key nobody could grant. The route lives here now, so the page derives
+// shopee/dashboard and is enforced at the door like everything else.
+//
+// The digits-only {store} tail is what keeps this from swallowing
+// /channels/shopee/orders - same rule the old wildcard relied on. On a
+// single-store channel a store suffix resolves to no card, which is a 404.
+Route::middleware(['auth'])->prefix('channels')->group(function () {
+    Route::get('/shopee/{store?}', [\Extensions\shopee\Controllers\ShopeeDashboardController::class, 'show'])
+        ->where('store', '[0-9]+')
+        // Refused BY ABSENCE: a channel you may not see must answer exactly
+        // like one that does not exist. See EnsureControllerPermission.
+        ->defaults('permission_denial', '404')
+        ->name('ext.shopee.dashboard');
 });

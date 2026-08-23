@@ -250,13 +250,35 @@ class ControllerPermissionTest extends TestCase
 
         foreach ([
             \App\Http\Controllers\Integrations\IntegrationController::class,
-            \App\Http\Controllers\Integrations\ChannelWorkspaceController::class,
             \App\Http\Controllers\AutomationsController::class,
             \App\Http\Controllers\Fulfilment\OrderPrintController::class,
         ] as $class) {
             $this->assertTrue($catalogue->neverGated($class),
                 $class . ' decides per item and must not also be gated at the door');
         }
+    }
+
+    /**
+     * THE CHANNEL DASHBOARDS ARE NOT ON THAT LIST ANY MORE.
+     *
+     * They used to shelter behind core's /{channel} wildcard, whose
+     * controller was exempt - which is exactly how every channel dashboard
+     * fell off the permission editor and stayed gated by a legacy key
+     * nobody could grant. Each now lives on its own extension route and
+     * derives its own key, enforced at the door like any other page.
+     */
+    public function test_each_channel_dashboard_derives_its_own_key(): void
+    {
+        $catalogue = $this->app->make(PermissionCatalogue::class);
+
+        // Only lazada: it is the one extension this file's setUp installs,
+        // and the catalogue can only derive keys from routes that loaded.
+        // Every channel's own workspace test asserts its own dashboard key.
+        $this->assertArrayHasKey(
+            'lazada/dashboard',
+            $catalogue->all(),
+            "lazada's dashboard has fallen back off the permission editor"
+        );
     }
 
     /**
@@ -268,7 +290,6 @@ class ControllerPermissionTest extends TestCase
     {
         foreach ([
             'app/Http/Controllers/Integrations/IntegrationController.php',
-            'app/Http/Controllers/Integrations/ChannelWorkspaceController.php',
             'app/Http/Controllers/AutomationsController.php',
             'app/Http/Controllers/Fulfilment/OrderPrintController.php',
         ] as $file) {

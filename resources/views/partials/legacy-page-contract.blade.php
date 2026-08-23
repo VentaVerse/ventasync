@@ -80,7 +80,7 @@
     //
     // WHICH channel comes from $channelCard, which the layouts.channel view
     // composer has already resolved for this request through
-    // ChannelWorkspace, including the /integrations/venta/2 -> "venta:2"
+    // ChannelWorkspace, including the /channels/venta/2 -> "venta:2"
     // translation and the 404 when it resolves to nothing. The card's id is
     // the bare integration ("venta"), which is what a contributor is keyed by.
     //

@@ -106,7 +106,7 @@ class ShopeeOrphansRenderTest extends TestCase
 
         $this->fakeShop();
 
-        $response = $this->actingAs($this->user(['view_shopee', 'manage_shopee']))
+        $response = $this->actingAs($this->user(['view_shopee', 'view_shopee/dashboard', 'manage_shopee', 'manage_shopee/dashboard']))
             ->get(route('ext.shopee.product-groups.orphans', $groupId))
             ->assertOk();
 
@@ -121,7 +121,7 @@ class ShopeeOrphansRenderTest extends TestCase
         $groupId = $this->seedShop();
         $this->fakeShop();
 
-        $html = $this->actingAs($this->user(['view_shopee', 'manage_shopee']))
+        $html = $this->actingAs($this->user(['view_shopee', 'view_shopee/dashboard', 'manage_shopee', 'manage_shopee/dashboard']))
             ->get(route('ext.shopee.product-groups.orphans', $groupId))
             ->assertOk()->getContent();
 
@@ -140,7 +140,7 @@ class ShopeeOrphansRenderTest extends TestCase
         $groupId = $this->seedShop();
         $this->fakeShop();
 
-        $this->actingAs($this->user(['view_shopee']))
+        $this->actingAs($this->user(['view_shopee', 'view_shopee/dashboard']))
             ->get(route('ext.shopee.product-groups.orphans', $groupId))
             ->assertOk();
     }
@@ -153,7 +153,7 @@ class ShopeeOrphansRenderTest extends TestCase
 
         $before = DB::table('shopee_product_links')->count();
 
-        $this->actingAs($this->user(['view_shopee', 'manage_shopee']))
+        $this->actingAs($this->user(['view_shopee', 'view_shopee/dashboard', 'manage_shopee', 'manage_shopee/dashboard']))
             ->get(route('ext.shopee.product-groups.orphans', $groupId))
             ->assertOk();
 

@@ -28,7 +28,7 @@ use Illuminate\Support\Facades\Route;
 //
 // Route NAMES are unchanged throughout. Venta has no OAuth surface: it
 // authenticates with a stored API token, so nothing here is exempt.
-Route::middleware(['auth', 'perm:view_venta|manage_venta'])->prefix('integrations')->group(function () {
+Route::middleware(['auth', 'perm:view_venta|manage_venta'])->prefix('channels')->group(function () {
     // Settings (renders the screen; per-store config is loaded into a form)
     Route::get('/venta/{store}/settings', [VentaController::class, 'showSettings'])->name('ext.venta.settings.show');
 
@@ -52,7 +52,7 @@ Route::middleware(['auth', 'perm:view_venta|manage_venta'])->prefix('integration
 });
 
 // ── Venta Settings + Catalog — WRITES ───────────────────────────
-Route::middleware(['auth', 'perm:manage_venta'])->prefix('integrations')->group(function () {
+Route::middleware(['auth', 'perm:manage_venta'])->prefix('channels')->group(function () {
     // "Add New Store" modal target — creates a row with name + base_url only.
     Route::post('/venta/stores', [VentaController::class, 'createStore'])->name('ext.venta.stores.store');
 
@@ -99,19 +99,40 @@ Route::middleware(['auth', 'perm:manage_venta'])->prefix('integrations')->group(
 });
 
 // ── Venta Orders — READ ─────────────────────────────────────────
-Route::middleware(['auth', 'perm:view_venta_orders|manage_venta_orders'])->prefix('integrations')->group(function () {
+Route::middleware(['auth', 'perm:view_venta_orders|manage_venta_orders'])->prefix('channels')->group(function () {
     Route::get('/venta/{store}/orders', [VentaOrderController::class, 'index'])->name('ext.venta.orders.index');
 });
 
 // ── Venta Orders — WRITES ───────────────────────────────────────
-Route::middleware(['auth', 'perm:manage_venta_orders'])->prefix('integrations')->group(function () {
+Route::middleware(['auth', 'perm:manage_venta_orders'])->prefix('channels')->group(function () {
     Route::post('/venta/{store}/orders/fetch', [VentaOrderController::class, 'fetch'])->name('ext.venta.orders.fetch');
     Route::delete('/venta/{store}/orders/{order}', [VentaOrderController::class, 'destroy'])->name('ext.venta.orders.destroy');
     Route::post('/venta/{store}/orders/bulk-delete', [VentaOrderController::class, 'bulkDelete'])->name('ext.venta.orders.bulk_delete');
 });
 
 // Venta Reviews (push marketplace reviews to Venta stores) — write tier
-Route::middleware(['auth', 'perm:manage_venta'])->prefix('integrations')->group(function () {
+Route::middleware(['auth', 'perm:manage_venta'])->prefix('channels')->group(function () {
     Route::post('/venta/reviews/{id}/push', [VentaReviewController::class, 'push'])->name('ext.venta.reviews.push')->whereNumber('id');
     Route::post('/venta/reviews/push-all', [VentaReviewController::class, 'pushAll'])->name('ext.venta.reviews.push_all');
+});
+
+// ── THE CHANNEL'S OWN LANDING PAGE ──────────────────────────────────────
+//
+// /channels/venta was core's /integrations/{channel} wildcard until the
+// permissions rebuild exposed what that cost: a page rendered by a core
+// controller derives a core key, so the one page every Venta operator lands
+// on had no entry in the permission editor and stayed gated by a legacy
+// key nobody could grant. The route lives here now, so the page derives
+// venta/dashboard and is enforced at the door like everything else.
+//
+// The digits-only {store} tail is what keeps this from swallowing
+// /channels/venta/orders - same rule the old wildcard relied on. On a
+// single-store channel a store suffix resolves to no card, which is a 404.
+Route::middleware(['auth'])->prefix('channels')->group(function () {
+    Route::get('/venta/{store?}', [\Extensions\venta\Controllers\VentaDashboardController::class, 'show'])
+        ->where('store', '[0-9]+')
+        // Refused BY ABSENCE: a channel you may not see must answer exactly
+        // like one that does not exist. See EnsureControllerPermission.
+        ->defaults('permission_denial', '404')
+        ->name('ext.venta.dashboard');
 });

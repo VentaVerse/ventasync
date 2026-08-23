@@ -4438,7 +4438,7 @@
     /* .x-health / .x-waiting were the Overview's two full-bleed strips, one
        cell per figure across the page width. Both were replaced by the
        connection and waiting panels in the workspace rail (see .cw-rows in
-       pages/integrations.css), which is where a figure you glance at belongs.
+       pages/channels.css), which is where a figure you glance at belongs.
        Their rules are deleted rather than left orphaned: they had a second,
        conflicting definition in layout/channel.css, and a dead class with two
        definitions is how the next person inherits a bug. */

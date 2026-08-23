@@ -2,7 +2,7 @@
     // Contract identical to ext-shopee::orders._panel, ext-lazada::orders.
     // _panel and ext-tiktok::orders._panel, with one addition this channel
     // needs: a store. $panelBaseUrl is the caller's own route
-    // (/venta/{store}/orders in the seller center, /integrations/orders on
+    // (/venta/{store}/orders in the seller center, /channels/fulfilment on
     // the fulfilment hub) and $panelHiddenParams are context params the
     // caller always wants kept (channel=venta:2 on the hub, nothing on the
     // seller center, where the store rides in the URI path instead). Query
@@ -25,7 +25,7 @@
 
     // Which store this panel is showing is NOT said here. On the seller
     // center the sidebar head and the breadcrumb already name it; on the
-    // fulfilment hub the panel wrapper in resources/views/integrations/
+    // fulfilment hub the panel wrapper in resources/views/channels/
     // orders.blade.php names it once for whichever channel is open, so the
     // line is written in one place rather than copied into every multi-store
     // channel's partial.

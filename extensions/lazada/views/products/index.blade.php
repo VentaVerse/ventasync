@@ -265,19 +265,19 @@
     // unchanged: these five action URLs are the wire.
     $bulkUploadUrl = \Illuminate\Support\Facades\Route::has('ext.lazada.products.bulk_upload')
         ? route('ext.lazada.products.bulk_upload')
-        : url('/integrations/lazada/products/bulk/upload');
+        : url('/channels/lazada/products/bulk/upload');
     $bulkSyncQtyUrl = \Illuminate\Support\Facades\Route::has('ext.lazada.products.bulk_sync_quantity')
         ? route('ext.lazada.products.bulk_sync_quantity')
-        : url('/integrations/lazada/products/bulk/sync/quantity');
+        : url('/channels/lazada/products/bulk/sync/quantity');
     $bulkSyncPriceUrl = \Illuminate\Support\Facades\Route::has('ext.lazada.products.bulk_sync_price')
         ? route('ext.lazada.products.bulk_sync_price')
-        : url('/integrations/lazada/products/bulk/sync/price');
+        : url('/channels/lazada/products/bulk/sync/price');
     $bulkSyncLazadaIdUrl = \Illuminate\Support\Facades\Route::has('ext.lazada.products.bulk_sync_lazada_id')
         ? route('ext.lazada.products.bulk_sync_lazada_id')
-        : url('/integrations/lazada/products/bulk/sync/lazada-id');
+        : url('/channels/lazada/products/bulk/sync/lazada-id');
     $bulkDeleteUrl = \Illuminate\Support\Facades\Route::has('ext.lazada.products.bulk_delete')
         ? route('ext.lazada.products.bulk_delete')
-        : url('/integrations/lazada/products/bulk/delete');
+        : url('/channels/lazada/products/bulk/delete');
 @endphp
 
 @if($canManageLazada)

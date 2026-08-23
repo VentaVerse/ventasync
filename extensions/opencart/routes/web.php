@@ -29,7 +29,7 @@ use Illuminate\Support\Facades\Route;
 // under /catalog, where its nav group puts it.
 //
 // ── OpenCart Settings + Catalog — READ ──────────────────────────
-Route::middleware(['auth', 'perm:view_opencart|manage_opencart'])->prefix('integrations')->group(function () {
+Route::middleware(['auth', 'perm:view_opencart|manage_opencart'])->prefix('channels')->group(function () {
     Route::get('/opencart/{store}/settings', [OpenCartController::class, 'showSettings'])->name('ext.opencart.settings.show');
     Route::get('/opencart/settings', [OpenCartController::class, 'index'])->name('ext.opencart.index');
 
@@ -41,7 +41,7 @@ Route::middleware(['auth', 'perm:view_opencart|manage_opencart'])->prefix('integ
 });
 
 // ── OpenCart Settings + Catalog — WRITES ────────────────────────
-Route::middleware(['auth', 'perm:manage_opencart'])->prefix('integrations')->group(function () {
+Route::middleware(['auth', 'perm:manage_opencart'])->prefix('channels')->group(function () {
     // "Add New Store" modal target — minimal create with name + base_url only.
     Route::post('/opencart/stores', [OpenCartController::class, 'createStore'])->name('ext.opencart.stores.store');
 
@@ -71,7 +71,7 @@ Route::middleware(['auth', 'perm:manage_opencart'])->prefix('integrations')->gro
 });
 
 // ── OpenCart Orders — READ ──────────────────────────────────────
-Route::middleware(['auth', 'perm:view_opencart_orders|manage_opencart_orders'])->prefix('integrations')->group(function () {
+Route::middleware(['auth', 'perm:view_opencart_orders|manage_opencart_orders'])->prefix('channels')->group(function () {
     Route::get('/opencart/{store}/orders', [\Extensions\opencart\Controllers\OpenCartOrderController::class, 'index'])->name('ext.opencart.orders.index');
 });
 
@@ -96,4 +96,25 @@ Route::middleware(['auth', 'perm:manage_reviews'])->group(function () {
     Route::post('/catalog/reviews/fetch', [ReviewController::class, 'fetch'])->name('ext.opencart.reviews.fetch');
     Route::post('/catalog/reviews/push-all', [ReviewController::class, 'pushAll'])->name('ext.opencart.reviews.push_all');
     Route::post('/catalog/reviews/delete-all', [ReviewController::class, 'deleteAll'])->name('ext.opencart.reviews.delete_all');
+});
+
+// ── THE CHANNEL'S OWN LANDING PAGE ──────────────────────────────────────
+//
+// /channels/opencart was core's /integrations/{channel} wildcard until the
+// permissions rebuild exposed what that cost: a page rendered by a core
+// controller derives a core key, so the one page every OpenCart operator lands
+// on had no entry in the permission editor and stayed gated by a legacy
+// key nobody could grant. The route lives here now, so the page derives
+// opencart/dashboard and is enforced at the door like everything else.
+//
+// The digits-only {store} tail is what keeps this from swallowing
+// /channels/opencart/orders - same rule the old wildcard relied on. On a
+// single-store channel a store suffix resolves to no card, which is a 404.
+Route::middleware(['auth'])->prefix('channels')->group(function () {
+    Route::get('/opencart/{store?}', [\Extensions\opencart\Controllers\OpenCartDashboardController::class, 'show'])
+        ->where('store', '[0-9]+')
+        // Refused BY ABSENCE: a channel you may not see must answer exactly
+        // like one that does not exist. See EnsureControllerPermission.
+        ->defaults('permission_denial', '404')
+        ->name('ext.opencart.dashboard');
 });

@@ -57,8 +57,10 @@ class PermissionCatalogue
          *
          * Each of these already decides for itself, and more finely than a
          * single key could. The channels hub renders only the cards the
-         * viewer's own permissions allow. ChannelWorkspaceController::show
-         * re-asks the card question. AutomationsController re-checks
+         * viewer's own permissions allow. (The channel dashboards used to
+         * shelter here too, behind core's /{channel} wildcard - which is
+         * exactly how they fell off the permission editor. Each now derives
+         * its own {channel}/dashboard key from its extension's route.) AutomationsController re-checks
          * manage_{integration} per row inside a batch, specifically so no
          * authorised row smuggles an unauthorised one past.
          * OrderPrintController::resolve requires view_{channel}_orders for

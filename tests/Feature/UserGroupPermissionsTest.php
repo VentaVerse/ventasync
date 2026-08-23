@@ -228,7 +228,7 @@ class UserGroupPermissionsTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        foreach (['manage_products', 'view_products', 'manage_lazada', 'view_settings'] as $old) {
+        foreach (['manage_products', 'view_products', 'manage_lazada', 'manage_lazada/dashboard', 'view_settings'] as $old) {
             $this->assertStringNotContainsString('data-perm-key="' . $old . '"', $html,
                 $old . ' belongs to the retired scheme and must not be offered as a control');
         }

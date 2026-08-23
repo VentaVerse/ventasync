@@ -93,7 +93,7 @@
 @import './pages/reports.css' layer(vocabulary);
 @import './pages/channel-listing.css' layer(vocabulary);
 @import './pages/api-explorer.css' layer(vocabulary);
-@import './pages/integrations.css' layer(vocabulary);
+@import './pages/channels.css' layer(vocabulary);
 @import './pages/tiktok-orders.css' layer(vocabulary);
 @import './pages/marketplace-returns.css' layer(vocabulary);
 @import './pages/venta-orders.css' layer(vocabulary);

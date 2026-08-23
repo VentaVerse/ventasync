@@ -97,7 +97,11 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                 // Card uses view tier so read-only operators still see OpenCart
                 // in the Integrations hub. Reviews menu is also view-tier; the
                 // Add-store action stays manage-only.
-                permission: 'view_opencart',
+                // The dashboard's own derived key (opencart/dashboard), not the
+                // legacy view_opencart: the card decides who sees this channel
+                // in the hub and the nav, and that must be the same answer
+                // the dashboard's door gives, or the menu offers a 404.
+                permission: 'view_opencart/dashboard',
                 menu: [
                     new MenuItem('Reviews', 'ext.opencart.reviews.index', 'view_reviews'),
                 ],

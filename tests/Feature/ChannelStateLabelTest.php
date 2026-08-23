@@ -97,7 +97,7 @@ class ChannelStateLabelTest extends TestCase
     {
         $views = [
             'resources/views/partials/channel-nav.blade.php',
-            'resources/views/integrations/board.blade.php',
+            'resources/views/channels/board.blade.php',
         ];
 
         foreach ($views as $view) {

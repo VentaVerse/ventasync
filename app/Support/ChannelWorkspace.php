@@ -146,15 +146,18 @@ class ChannelWorkspace
     }
 
     /**
-     * The workspace Overview URL for a colon key.
+     * The channel dashboard URL for a colon key.
      *
      * Every caller that links to a seller center goes through this, so no
-     * caller has to remember that the URL and the key differ. Route NAME is
-     * unchanged (frozen); only the generated path shape moved.
+     * caller has to remember that the URL and the key differ. The route is
+     * the channel's OWN ext.{id}.dashboard - core's /{channel} wildcard is
+     * gone, and with it the one page the permission editor could not name.
      */
     public static function overviewUrl(string $key): string
     {
-        return route('integrations.workspace', ['channel' => self::pathKey($key)]);
+        [$channel, $store] = array_pad(explode(':', $key, 2), 2, null);
+
+        return route('ext.' . $channel . '.dashboard', $store === null ? [] : ['store' => $store]);
     }
 
     /**

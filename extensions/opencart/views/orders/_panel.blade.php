@@ -2,7 +2,7 @@
     // Contract identical to ext-venta::orders._panel, and to the three
     // single-store channels' panels it descends from. $panelBaseUrl is the
     // caller's own route (/opencart/{store}/orders in the seller center,
-    // /integrations/orders on the fulfilment hub) and $panelHiddenParams are
+    // /channels/fulfilment on the fulfilment hub) and $panelHiddenParams are
     // context params the caller always wants kept (channel=opencart:2 on the
     // hub, nothing on the seller center, where the store rides in the URI
     // path instead). Query strings go through Arr::query() rather than
