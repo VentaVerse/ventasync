@@ -1605,6 +1605,16 @@
         "name": "ext.shopee.products.bulk_sync_quantity"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/products/categories/lookup",
+        "name": "ext.shopee.products.categoryLookup"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/products/categories/search",
+        "name": "ext.shopee.products.searchCategories"
+    },
+    {
         "method": "POST",
         "uri": "channels/shopee/products/rebuild-cache",
         "name": "ext.shopee.products.rebuild_cache"

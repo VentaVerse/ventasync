@@ -380,14 +380,8 @@ class ShopeeProductController extends Controller
 
     public function addProduct(Request $request)
     {
-        $shopeeCategories = ShopeeCategory::query()
-            ->where('leaf', true)
-            ->orderBy('name')
-            ->limit(5000)
-            ->get(['category_id', 'name']);
 
         return view('ext-shopee::products.add', [
-            'shopeeCategories' => $shopeeCategories,
         ]);
     }
 
@@ -441,11 +435,6 @@ class ShopeeProductController extends Controller
             ->toArray();
         $images = array_merge($images, $additionalImages);
 
-        $shopeeCategories = ShopeeCategory::query()
-            ->where('leaf', true)
-            ->orderBy('name')
-            ->limit(5000)
-            ->get(['category_id', 'name']);
 
         $logistics = $this->fetchLogistics();
 
@@ -480,7 +469,6 @@ class ShopeeProductController extends Controller
         return view('ext-shopee::products.push', [
             'product' => $product,
             'images' => $images,
-            'shopeeCategories' => $shopeeCategories,
             'logistics' => $logistics,
             'groupLogisticIds' => $groupLogisticIds,
             'groupCategoryId' => $groupCategoryId,
@@ -2636,6 +2624,24 @@ class ShopeeProductController extends Controller
         return array_values(array_unique($allItemIds));
     }
 
+    /**
+     * The category combobox's two JSON endpoints, for the push form, the
+     * add-product page and the listing page. Same answers the group form's
+     * combobox already speaks, delegated to the one implementation - but
+     * living on THIS controller so they answer to the shopee/product key
+     * these pages are gated on, not shopee/product_group (the door keys on
+     * the routed controller).
+     */
+    public function searchCategories(Request $request)
+    {
+        return app(ShopeeProductGroupController::class)->searchCategories($request);
+    }
+
+    public function categoryLookup(Request $request)
+    {
+        return app(ShopeeProductGroupController::class)->categoryLookup($request);
+    }
+
     // ── The individual listing page (quest 1, 2026-08-24) ──────────────
     //
     // One product on Shopee, presented the way the seller center presents
@@ -2686,11 +2692,6 @@ class ShopeeProductController extends Controller
             }
         }
 
-        $shopeeCategories = ShopeeCategory::query()
-            ->where('leaf', true)
-            ->orderBy('name')
-            ->limit(5000)
-            ->get(['category_id', 'name']);
 
         return view('ext-shopee::listings.edit', [
             'product' => $product,
@@ -2698,7 +2699,6 @@ class ShopeeProductController extends Controller
             'link' => $link,
             'live' => $live,
             'liveError' => $liveError,
-            'shopeeCategories' => $shopeeCategories,
             'logistics' => $this->fetchLogistics(),
         ]);
     }

@@ -92,6 +92,8 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         // Products — list, search-catalog, push-form RENDER
         Route::get('/shopee/products', [ShopeeProductController::class, 'index'])->name('ext.shopee.products.index');
         Route::get('/shopee/products/search-catalog', [ShopeeProductController::class, 'searchCatalogProducts'])->name('ext.shopee.products.search_catalog');
+        Route::get('/shopee/products/categories/search', [ShopeeProductController::class, 'searchCategories'])->name('ext.shopee.products.searchCategories');
+        Route::get('/shopee/products/categories/lookup', [ShopeeProductController::class, 'categoryLookup'])->name('ext.shopee.products.categoryLookup');
         Route::get('/shopee/products/{productId}/push', [ShopeeProductController::class, 'pushForm'])->name('ext.shopee.products.push');
 
         // The individual listing page: live marketplace state + the

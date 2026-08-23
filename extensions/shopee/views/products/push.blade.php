@@ -270,15 +270,25 @@
                                 :hint="!empty($groupName) && !empty($groupCategoryId)
                                     ? 'Pre-selected from the ' . $groupName . ' group.'
                                     : 'Only leaf categories are listed. Shopee accepts nothing else.'">
-                        <div class="x-select-wrap">
-                            <select id="ps-category" name="category_id" class="x-input" @disabled(!$canManageShopee)>
-                                <option value="">Not set</option>
-                                @foreach($shopeeCategories as $category)
-                                    <option value="{{ (int) $category->category_id }}"
-                                            @selected($selectedCategoryId === (int) $category->category_id)>{{ $category->name }} ({{ $category->category_id }})</option>
-                                @endforeach
-                            </select>
-                            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                        {{-- The group form's searchable combobox instead of
+                             a 5,000-option select (the owner, 2026-08-24). The
+                             endpoints live on the products controller so
+                             they answer to this page's own permission key. --}}
+                        <div class="gf-combo"
+                             data-category-combo
+                             data-combo-mode="remote"
+                             data-combo-search-url="{{ route('ext.shopee.products.searchCategories') }}"
+                             data-combo-lookup-url="{{ route('ext.shopee.products.categoryLookup') }}">
+                            <div class="gf-combo__field">
+                                <input type="hidden" name="category_id" data-combo-value
+                                       value="{{ $selectedCategoryId > 0 ? $selectedCategoryId : '' }}">
+                                <x-ui.input id="ps-category" type="search" autocomplete="off"
+                                            data-combo-input
+                                            placeholder="Type to search Shopee categories"
+                                            :disabled="!$canManageShopee" />
+                                <div class="gf-combo__results" data-combo-results role="listbox"
+                                     aria-label="Shopee leaf categories" hidden></div>
+                            </div>
                         </div>
                     </x-ui.field>
                 </div>

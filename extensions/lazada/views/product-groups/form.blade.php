@@ -141,27 +141,40 @@
                 </div>
 
                 <div class="fm-fields">
-                    <x-ui.field label="Lazada category" for="pg-category" name="lazada_category_id" wide
+                    <x-ui.field label="Lazada category" for="pg-category-input" name="lazada_category_id" wide
                                 hint="Pick it before filling the attributes below. Changing it reloads them.">
-                        <div class="gf-combo">
+                        {{-- The shared searchable combobox (local mode), the
+                             same control the Shopee and TikTok group forms
+                             carry. #pg-category stays the HIDDEN value
+                             input: the attributes panel listens for change
+                             on that id and reads its value, exactly as it
+                             read the old select. --}}
+                        @php
+                            $lzSelectedCategory = $selectedCategoryId !== ''
+                                ? ($lazadaCategories ?? collect())->firstWhere('category_id', (int) $selectedCategoryId)
+                                : null;
+                            $lzCategoryOptions = ($lazadaCategories ?? collect())->map(fn ($c) => [
+                                'id'   => (string) $c->category_id,
+                                'name' => (string) $c->name,
+                            ])->values();
+                        @endphp
+                        <div class="gf-combo" data-category-combo data-combo-mode="local"
+                             @if($canManageLazada) data-combo-refresh-url="{{ route('ext.lazada.product-groups.refreshCategories') }}" @endif>
                             <div class="gf-combo__field">
-                                <div class="x-select-wrap">
-                                    <select id="pg-category" name="lazada_category_id" class="x-input"
-                                            data-combo-value @disabled(!$canManageLazada)>
-                                        <option value="">Not set</option>
-                                        @foreach(($lazadaCategories ?? collect()) as $category)
-                                            <option value="{{ (int) $category->category_id }}"
-                                                    @selected($selectedCategoryId === (string) $category->category_id)>{{ $category->name }} ({{ $category->category_id }})</option>
-                                        @endforeach
-                                    </select>
-                                    <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-                                </div>
+                                <input type="hidden" id="pg-category" name="lazada_category_id" data-combo-value
+                                       value="{{ $selectedCategoryId }}">
+                                <x-ui.input id="pg-category-input" type="search" autocomplete="off"
+                                            data-combo-input
+                                            value="{{ $lzSelectedCategory
+                                                ? $lzSelectedCategory->name . ' (' . $lzSelectedCategory->category_id . ')'
+                                                : '' }}"
+                                            placeholder="Type to search Lazada categories"
+                                            :disabled="!$canManageLazada" />
+                                <div class="gf-combo__results" data-combo-results role="listbox"
+                                     aria-label="Lazada categories" hidden></div>
                             </div>
                             @if($canManageLazada)
-                                <x-ui.button type="button" size="sm"
-                                             data-lazada-refresh-categories
-                                             data-refresh-url="{{ route('ext.lazada.product-groups.refreshCategories') }}"
-                                             data-target="#pg-category">Refresh</x-ui.button>
+                                <x-ui.button type="button" size="sm" data-combo-refresh>Refresh</x-ui.button>
                             @endif
                         </div>
                     </x-ui.field>

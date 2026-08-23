@@ -689,75 +689,6 @@ function initCategoryCombo(root) {
 }
 
 /* ==================================================================
-   3b. Lazada: re-pull the category list into a plain <select>
-
-   Lazada's category list is small enough to ship with the page, so its
-   picker is a select rather than a combobox and the Refresh button has
-   to rebuild the options rather than re-run a search. Same endpoint,
-   same headers, same response as before; the current selection is kept
-   if it is still in the new list.
-   ================================================================== */
-
-function initSelectRefresh(button) {
-    const url = button.getAttribute('data-refresh-url');
-    const select = document.querySelector(button.getAttribute('data-target') || '');
-    if (!url || !select) return;
-
-    button.addEventListener('click', function () {
-        const restore = button.textContent;
-        button.disabled = true;
-        button.textContent = 'Refreshing';
-
-        fetch(url, {
-            method: 'POST',
-            headers: {
-                Accept: 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-        })
-            .then(function (response) { return response.json(); })
-            .then(function (data) {
-                if (!data || !data.ok || !Array.isArray(data.categories)) {
-                    if (typeof window.showFlashError === 'function') {
-                        window.showFlashError((data && data.message) || 'Could not refresh the categories.');
-                    }
-                    return;
-                }
-
-                const kept = select.value;
-                select.textContent = '';
-
-                const none = document.createElement('option');
-                none.value = '';
-                none.textContent = 'Not set';
-                select.appendChild(none);
-
-                data.categories.forEach(function (category) {
-                    const option = document.createElement('option');
-                    option.value = String(category.category_id);
-                    option.textContent = category.name + ' (' + category.category_id + ')';
-                    if (String(category.category_id) === String(kept)) option.selected = true;
-                    select.appendChild(option);
-                });
-
-                if (typeof window.showFlashSuccess === 'function') {
-                    window.showFlashSuccess(data.count + ' categories refreshed.');
-                }
-            })
-            .catch(function () {
-                if (typeof window.showFlashError === 'function') {
-                    window.showFlashError('Could not reach the marketplace to refresh the categories.');
-                }
-            })
-            .finally(function () {
-                button.disabled = false;
-                button.textContent = restore;
-            });
-    });
-}
-
-/* ==================================================================
    4. Shopee: the brand select, loaded for the chosen category
 
    Shopee's brand list is per category and is fetched on demand. The
@@ -1066,7 +997,6 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('[data-group-filter-picker] .fm-field').forEach(initFilterPicker);
     document.querySelectorAll('[data-group-product-picker]').forEach(initProductPicker);
     document.querySelectorAll('[data-category-combo]').forEach(initCategoryCombo);
-    document.querySelectorAll('[data-lazada-refresh-categories]').forEach(initSelectRefresh);
     document.querySelectorAll('[data-brand-select]').forEach(initBrandSelect);
     document.querySelectorAll('[data-brand-picker]').forEach(initBrandPicker);
     document.querySelectorAll('[data-attributes-fetch]').forEach(initAttributeFetch);

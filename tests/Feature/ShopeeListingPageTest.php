@@ -374,6 +374,18 @@ class ShopeeListingPageTest extends TestCase
         $r->assertSessionHas('error');
     }
 
+    public function test_the_category_picker_endpoints_answer_to_the_products_key(): void
+    {
+        // The push form and listing page's combobox search under THEIR OWN
+        // permission key: an operator with shopee/product but no
+        // shopee/product_group must not need the group key to pick a
+        // category.
+        $this->actingAs($this->userWith(['view_shopee/product']))
+            ->get(route('ext.shopee.products.searchCategories', ['q' => 'guitar']))
+            ->assertOk()
+            ->assertJson(['ok' => true]);
+    }
+
     public function test_the_page_is_a_manage_surface_even_as_a_get(): void
     {
         $productId = $this->seedProduct();

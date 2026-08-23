@@ -279,15 +279,34 @@
                     <div class="fm-fields">
                         <x-ui.field label="Lazada category" for="lz-category" name="primary_category_id" :required="true" wide
                                     hint="Set this and save, then read the category's attribute template below.">
-                            <div class="x-select-wrap">
-                                <select id="lz-category" name="primary_category_id" class="x-input">
-                                    <option value="">Not set</option>
-                                    @foreach(($categories ?? collect()) as $category)
-                                        <option value="{{ (int) $category->category_id }}"
-                                                @selected((string) old('primary_category_id', $listing->primary_category_id) === (string) $category->category_id)>{{ $category->name }} ({{ $category->category_id }})</option>
-                                    @endforeach
-                                </select>
-                                <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                            {{-- The shared searchable combobox instead of a
+                                 5,000-option select (the owner, 2026-08-24).
+                                 Local mode: the page already carries the
+                                 cached category list. --}}
+                            @php
+                                $lzSelectedCategoryId = (string) old('primary_category_id', $listing->primary_category_id);
+                                $lzSelectedCategory = $lzSelectedCategoryId !== ''
+                                    ? ($categories ?? collect())->firstWhere('category_id', (int) $lzSelectedCategoryId)
+                                    : null;
+                                $lzCategoryOptions = ($categories ?? collect())->map(fn ($c) => [
+                                    'id'   => (string) $c->category_id,
+                                    'name' => (string) $c->name,
+                                ])->values();
+                            @endphp
+                            <div class="gf-combo" data-category-combo data-combo-mode="local">
+                                <div class="gf-combo__field">
+                                    <input type="hidden" name="primary_category_id" data-combo-value
+                                           value="{{ $lzSelectedCategoryId }}">
+                                    <x-ui.input id="lz-category" type="search" autocomplete="off"
+                                                data-combo-input
+                                                value="{{ $lzSelectedCategory
+                                                    ? $lzSelectedCategory->name . ' (' . $lzSelectedCategory->category_id . ')'
+                                                    : '' }}"
+                                                placeholder="Type to search Lazada categories" />
+                                    <div class="gf-combo__results" data-combo-results role="listbox"
+                                         aria-label="Lazada categories" hidden></div>
+                                </div>
+                                <script type="application/json" data-combo-options>{!! json_encode($lzCategoryOptions, $jsonFlags) !!}</script>
                             </div>
                         </x-ui.field>
 

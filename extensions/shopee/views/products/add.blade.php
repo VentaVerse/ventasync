@@ -85,15 +85,20 @@
 
                 <div class="fm-fields fm-fields--2">
                     <x-ui.field label="Shopee category" for="add-category"
-                                hint="Only leaf categories are listed.">
-                        <div class="x-select-wrap">
-                            <select id="add-category" class="x-input" data-carry="category_id">
-                                <option value="">Choose it on the next screen</option>
-                                @foreach($shopeeCategories as $category)
-                                    <option value="{{ (int) $category->category_id }}">{{ $category->name }} ({{ $category->category_id }})</option>
-                                @endforeach
-                            </select>
-                            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                                hint="Only leaf categories are listed. Leave it empty to choose on the next screen.">
+                        <div class="gf-combo"
+                             data-category-combo
+                             data-combo-mode="remote"
+                             data-combo-search-url="{{ route('ext.shopee.products.searchCategories') }}"
+                             data-combo-lookup-url="{{ route('ext.shopee.products.categoryLookup') }}">
+                            <div class="gf-combo__field">
+                                <input type="hidden" data-carry="category_id" data-combo-value value="">
+                                <x-ui.input id="add-category" type="search" autocomplete="off"
+                                            data-combo-input
+                                            placeholder="Type to search Shopee categories" />
+                                <div class="gf-combo__results" data-combo-results role="listbox"
+                                     aria-label="Shopee leaf categories" hidden></div>
+                            </div>
                         </div>
                     </x-ui.field>
 
