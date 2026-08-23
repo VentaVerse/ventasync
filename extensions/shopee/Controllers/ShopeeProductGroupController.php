@@ -13,6 +13,7 @@ use Extensions\shopee\Models\ShopeeLogistic;
 use Extensions\shopee\Models\ShopeeProductGroup;
 use Extensions\shopee\Models\ShopeeProductGroupAttribute;
 use Extensions\shopee\Models\ShopeeProductGroupProduct;
+use Extensions\shopee\Models\ShopeeListing;
 use Extensions\shopee\Models\ShopeeProductLink;
 use Illuminate\Support\Str;
 use Extensions\shopee\Models\ShopeeSetting;
@@ -2188,6 +2189,25 @@ class ShopeeProductGroupController extends Controller
                     'shopee_model_id' => null,
                     'sku' => $product->sku ?? '',
                 ]);
+
+                /* Provenance only (#104): the push is auditable - which
+                 * group's settings went, when - but a group push writes
+                 * NOTHING onto the listing's own settings columns. That is
+                 * the rule the owner settled: push from a group, the group's
+                 * settings go; the listing's own stay its own. */
+                ShopeeListing::query()->updateOrCreate(
+                    ['product_id' => $productId],
+                    [
+                        'last_pushed_at' => now(),
+                        'last_push_source' => 'group:' . $group->name,
+                        'last_push_settings' => [
+                            'category_id' => (int) $group->shopee_category_id,
+                            'logistic_ids' => $group->logistic_ids ?? [],
+                            'markup_percent' => (float) ($group->markup_percent ?? 0),
+                            'markup_fixed' => (float) ($group->markup_fixed ?? 0),
+                        ],
+                    ]
+                );
 
                 // Update pivot sync_status
                 $this->writeProductStatus($productId, [

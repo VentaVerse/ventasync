@@ -27,7 +27,7 @@
          aria-labelledby="x-confirm-modal-title"
          aria-describedby="x-confirm-modal-message">
         <div class="modal-header">
-            <h3 id="x-confirm-modal-title">Confirm</h3>
+            <h2 id="x-confirm-modal-title">Confirm</h2>
             <button class="modal-close" type="button" id="x-confirm-modal-close" aria-label="Close">&times;</button>
         </div>
         <p class="x-confirm__message" id="x-confirm-modal-message"></p>

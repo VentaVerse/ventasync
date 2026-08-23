@@ -8,6 +8,7 @@ use Extensions\shopee\Models\ShopeeApiLog;
 use Extensions\shopee\Models\ShopeeCategory;
 use Extensions\shopee\Models\ShopeeItemCache;
 use Extensions\shopee\Models\ShopeeLogistic;
+use Extensions\shopee\Models\ShopeeListing;
 use Extensions\shopee\Models\ShopeeProductLink;
 use Extensions\shopee\Models\ShopeeProductGroup;
 use Extensions\shopee\Models\ShopeeSetting;
@@ -320,10 +321,14 @@ class ShopeeProductController extends Controller
 
         $logistics = $this->fetchLogistics();
 
-        // Find matching product group for this product to pre-select logistics & category + markup
-        $matchingGroup = $this->findGroupForProduct($productId, $product->manufacturer_id);
-        $groupLogisticIds = $matchingGroup ? ($matchingGroup->logistic_ids ?? []) : [];
-        $groupCategoryId = $matchingGroup ? ($matchingGroup->shopee_category_id ?? null) : null;
+        /* Prefill from the product's OWN listing record (#96/#97), never
+         * from a borrowed group. The borrow used to take the FIRST group
+         * whose filter matched, and with every live group's filters empty
+         * that meant primary-key order chose the markup. A product with no
+         * listing yet starts from the catalogue values, visibly. */
+        $listing = ShopeeListing::query()->where('product_id', $productId)->first();
+        $groupLogisticIds = $listing ? ($listing->logistic_ids ?? []) : [];
+        $groupCategoryId = $listing ? ($listing->shopee_category_id ?? null) : null;
 
         // Apply product group price markup (query params from Add Product page override group)
         $basePrice = (float) $product->price;
@@ -335,8 +340,8 @@ class ShopeeProductController extends Controller
             $markupPct = $qMarkupPct !== null ? (float) $qMarkupPct : 0;
             $markupFixed = $qMarkupFixed !== null ? (float) $qMarkupFixed : 0;
         } else {
-            $markupPct = $matchingGroup ? (float) ($matchingGroup->markup_percent ?? 0) : 0;
-            $markupFixed = $matchingGroup ? (float) ($matchingGroup->markup_fixed ?? 0) : 0;
+            $markupPct = $listing ? (float) ($listing->markup_percent ?? 0) : 0;
+            $markupFixed = $listing ? (float) ($listing->markup_fixed ?? 0) : 0;
         }
         $suggestedPrice = round($basePrice + ($basePrice * $markupPct / 100) + $markupFixed, 2);
 
@@ -351,7 +356,7 @@ class ShopeeProductController extends Controller
             'logistics' => $logistics,
             'groupLogisticIds' => $groupLogisticIds,
             'groupCategoryId' => $groupCategoryId,
-            'groupName' => $matchingGroup ? $matchingGroup->name : null,
+            'groupName' => $listing ? 'this product\'s own listing' : null,
             'suggestedPrice' => $suggestedPrice,
         ]);
     }
@@ -499,8 +504,44 @@ class ShopeeProductController extends Controller
             'sku' => $request->input('item_sku') ?? '',
         ]);
 
+        /* THE PUSH FORM IS WHERE A LISTING'S SETTINGS ARE BORN (#96/#97).
+         * What the operator just chose - category, couriers, content - is
+         * saved as the product's OWN listing record, so every later
+         * one-click push and price sync uses these settings instead of
+         * borrowing a group's by primary-key order.
+         *
+         * The markup rule: the form posts a final price, so the rule the
+         * operator expressed is "this listing sells at core plus the
+         * difference". Stored as a fixed markup; price is NEVER stored
+         * (card #97), so a core price change moves this listing with it. */
+        $corePrice = (float) DB::table($pfx . 'product')->where('product_id', $productId)->value('price');
+        $pushedPrice = (float) $request->input('original_price');
+
+        ShopeeListing::query()->updateOrCreate(
+            ['product_id' => $productId],
+            [
+                'shopee_category_id' => (int) $request->input('category_id'),
+                'logistic_ids' => array_map('intval', (array) $request->input('logistic_ids', [])),
+                'markup_percent' => 0,
+                'markup_fixed' => round($pushedPrice - $corePrice, 2),
+                'item_name' => (string) $request->input('item_name'),
+                'description' => (string) $request->input('description'),
+                'weight' => (float) $request->input('weight'),
+                'package_length' => (int) $request->input('package_length'),
+                'package_width' => (int) $request->input('package_width'),
+                'package_height' => (int) $request->input('package_height'),
+                'last_pushed_at' => now(),
+                'last_push_source' => 'form',
+                'last_push_settings' => [
+                    'category_id' => (int) $request->input('category_id'),
+                    'logistic_ids' => array_map('intval', (array) $request->input('logistic_ids', [])),
+                    'price' => $pushedPrice,
+                ],
+            ]
+        );
+
         return redirect()->route('ext.shopee.products.index')
-            ->with('status', 'Product pushed to Shopee. Item ID: ' . $itemId);
+            ->with('status', 'Product pushed to Shopee. Item ID: ' . $itemId . '. Its settings are saved on the listing for one-click pushes and price sync.');
     }
 
     // ── Push Direct (auto-populate from product + product group) ─────────
@@ -543,16 +584,23 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', 'Push failed: Product is disabled. Enable it first.');
         }
 
-        // Resolve product group for category + logistics
-        $group = $this->findGroupForProduct($productId, $product->manufacturer_id);
-        if (!$group || !$group->shopee_category_id) {
-            return redirect()->back()->with('error', 'Push failed: No Shopee Product Group with a category found for this product. Assign a product group first or use the push form.');
+        /* REFUSE INSTEAD OF BORROW (#96). This used to take the FIRST
+         * product group whose filter matched; every live group's filters
+         * are empty, so primary-key order chose the markup and nothing on
+         * screen said which group priced the push. It succeeded at the
+         * wrong price, silently. Now the one-click push runs only on the
+         * product's OWN listing settings - born on the push form - and
+         * says exactly what to do when there are none. */
+        $listing = ShopeeListing::query()->where('product_id', $productId)->first();
+
+        if (!$listing || !$listing->pushable()) {
+            return redirect()->back()->with('error',
+                'Push failed: this product has no Shopee listing settings yet. '
+                . 'Push it once from the push form (its category, couriers and price rule are saved there), '
+                . 'or push it from a product group whose settings you mean.');
         }
 
-        $logisticIds = $group->logistic_ids ?? [];
-        if (empty($logisticIds)) {
-            return redirect()->back()->with('error', 'Push failed: Product Group "' . $group->name . '" has no logistics channels configured.');
-        }
+        $logisticIds = $listing->logistic_ids ?? [];
 
         // Validate required fields
         $itemName = html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
@@ -630,25 +678,26 @@ class ShopeeProductController extends Controller
             $logisticInfo[] = ['logistic_id' => (int) $lid, 'enabled' => true];
         }
 
-        // Apply product group price markup
-        $basePrice = (float) $product->price;
-        $markupPct = (float) ($group->markup_percent ?? 0);
-        $markupFixed = (float) ($group->markup_fixed ?? 0);
-        $sellingPrice = round($basePrice + ($basePrice * $markupPct / 100) + $markupFixed, 2);
+        /* The listing's own price rule; price itself is never stored, so
+         * this follows the catalogue price wherever it goes. Content the
+         * operator wrote on the listing overrides the catalogue's; null
+         * means never set, so the catalogue value goes. SKU is always the
+         * catalogue's - reconcile matches by it (card #97). */
+        $sellingPrice = $listing->priceFor((float) $product->price);
 
         $payload = [
             'original_price' => $sellingPrice,
-            'description' => mb_substr($description, 0, 5000),
-            'item_name' => mb_substr($itemName, 0, 255),
+            'description' => mb_substr(($listing->description !== null && trim($listing->description) !== '') ? $listing->description : $description, 0, 5000),
+            'item_name' => mb_substr(($listing->item_name !== null && trim($listing->item_name) !== '') ? $listing->item_name : $itemName, 0, 255),
             'seller_stock' => [['stock' => max(0, (int) $product->quantity)]],
             'item_sku' => (string) ($product->sku ?? ''),
-            'weight' => (float) $product->weight,
+            'weight' => (float) ($listing->weight ?? $product->weight),
             'dimension' => [
-                'package_length' => $pkgLength,
-                'package_width' => $pkgWidth,
-                'package_height' => $pkgHeight,
+                'package_length' => (int) ($listing->package_length ?? $pkgLength),
+                'package_width' => (int) ($listing->package_width ?? $pkgWidth),
+                'package_height' => (int) ($listing->package_height ?? $pkgHeight),
             ],
-            'category_id' => (int) $group->shopee_category_id,
+            'category_id' => (int) $listing->shopee_category_id,
             'image' => ['image_id_list' => $imageIds],
             'logistic_info' => $logisticInfo,
             'brand' => ['brand_id' => 0, 'original_brand_name' => 'No Brand'],
@@ -686,6 +735,17 @@ class ShopeeProductController extends Controller
             'shopee_model_id' => null,
             'sku' => $product->sku ?? '',
         ]);
+
+        // Provenance (#104): what went, from where, when.
+        $listing->forceFill([
+            'last_pushed_at' => now(),
+            'last_push_source' => 'listing',
+            'last_push_settings' => [
+                'category_id' => (int) $listing->shopee_category_id,
+                'logistic_ids' => $logisticIds,
+                'price' => $sellingPrice,
+            ],
+        ])->save();
 
         return redirect()->back()->with('status', 'Product pushed to Shopee. Item ID: ' . $itemId);
     }
@@ -739,9 +799,12 @@ class ShopeeProductController extends Controller
                 continue;
             }
 
-            $group = $this->findGroupForProduct($productId, $product->manufacturer_id);
-            if (!$group || !$group->shopee_category_id || empty($group->logistic_ids ?? [])) {
-                $errors[] = "#{$productId}: No product group/category/logistics";
+            /* Each product pushes on its OWN listing settings (#96) - a
+             * bulk push must not borrow a group's either. A product without
+             * them is named in the error line, not silently priced. */
+            $listing = ShopeeListing::query()->where('product_id', $productId)->first();
+            if (!$listing || !$listing->pushable()) {
+                $errors[] = "#{$productId}: no listing settings - push it once from the push form, or from a product group";
                 $errCount++;
                 continue;
             }
@@ -792,28 +855,27 @@ class ShopeeProductController extends Controller
                 continue;
             }
 
-            // Build payload
+            // Build payload from the listing's own settings and content
             $logisticInfo = [];
-            foreach ($group->logistic_ids as $lid) {
+            foreach (($listing->logistic_ids ?? []) as $lid) {
                 $logisticInfo[] = ['logistic_id' => (int) $lid, 'enabled' => true];
             }
 
-            $basePrice = (float) $product->price;
-            $sellingPrice = round($basePrice + ($basePrice * (float) ($group->markup_percent ?? 0) / 100) + (float) ($group->markup_fixed ?? 0), 2);
+            $sellingPrice = $listing->priceFor((float) $product->price);
 
             $payload = [
                 'original_price' => $sellingPrice,
-                'description' => mb_substr($description, 0, 5000),
-                'item_name' => mb_substr($itemName, 0, 255),
+                'description' => mb_substr(($listing->description !== null && trim($listing->description) !== '') ? $listing->description : $description, 0, 5000),
+                'item_name' => mb_substr(($listing->item_name !== null && trim($listing->item_name) !== '') ? $listing->item_name : $itemName, 0, 255),
                 'seller_stock' => [['stock' => max(0, (int) $product->quantity)]],
                 'item_sku' => (string) ($product->sku ?? ''),
-                'weight' => (float) $product->weight,
+                'weight' => (float) ($listing->weight ?? $product->weight),
                 'dimension' => [
-                    'package_length' => max(1, (int) $product->length),
-                    'package_width' => max(1, (int) $product->width),
-                    'package_height' => max(1, (int) $product->height),
+                    'package_length' => (int) ($listing->package_length ?? max(1, (int) $product->length)),
+                    'package_width' => (int) ($listing->package_width ?? max(1, (int) $product->width)),
+                    'package_height' => (int) ($listing->package_height ?? max(1, (int) $product->height)),
                 ],
-                'category_id' => (int) $group->shopee_category_id,
+                'category_id' => (int) $listing->shopee_category_id,
                 'image' => ['image_id_list' => $imageIds],
                 'logistic_info' => $logisticInfo,
                 'brand' => ['brand_id' => 0, 'original_brand_name' => 'No Brand'],
@@ -844,6 +906,16 @@ class ShopeeProductController extends Controller
                     'shopee_model_id' => null,
                     'sku' => $product->sku ?? '',
                 ]);
+                // Provenance (#104)
+                $listing->forceFill([
+                    'last_pushed_at' => now(),
+                    'last_push_source' => 'listing',
+                    'last_push_settings' => [
+                        'category_id' => (int) $listing->shopee_category_id,
+                        'logistic_ids' => $listing->logistic_ids ?? [],
+                        'price' => $sellingPrice,
+                    ],
+                ])->save();
                 $okCount++;
             } else {
                 $msg = is_array($body) ? ($body['message'] ?? ($body['error'] ?? 'API error')) : 'API error';
@@ -1174,6 +1246,11 @@ class ShopeeProductController extends Controller
 
         $pfx = (string) config('catalog.prefix');
         $results = $this->pushPriceForLinks($client, $auth, $pfx, $links);
+
+        if (!empty($results['skipped'])) {
+            return redirect()->back()->with('error',
+                'Price not synced: ' . implode('; ', array_slice($results['skipped'], 0, 3)));
+        }
 
         $msg = $results['ok'] > 0
             ? "Price synced to Shopee ({$results['ok']} model(s))."
@@ -1650,8 +1727,14 @@ class ShopeeProductController extends Controller
 
         $results = $this->pushPriceForLinks($client, $auth, $pfx, $links);
 
-        return redirect()->back()
-            ->with('status', "Bulk Sync Price: {$results['ok']} success, {$results['err']} error, {$skip} skipped (not linked).");
+        $summary = "Bulk Sync Price: {$results['ok']} success, {$results['err']} error, {$skip} skipped (not linked).";
+
+        if (!empty($results['skipped'])) {
+            $summary .= ' ' . count($results['skipped']) . ' without a listing price rule: '
+                . implode('; ', array_slice($results['skipped'], 0, 5));
+        }
+
+        return redirect()->back()->with('status', $summary);
     }
 
     // ── Sync Single Product ID ────────────────────────────────────
@@ -2123,6 +2206,7 @@ class ShopeeProductController extends Controller
         $ok = 0;
         $err = 0;
         $lastError = '';
+        $skipped = [];
 
         // Group links by shopee_item_id
         $grouped = [];
@@ -2155,15 +2239,23 @@ class ShopeeProductController extends Controller
                     }
                 }
 
-                // Apply product group price markup
-                $group = $this->findGroupForProduct($productId, $productRow->manufacturer_id ?? null);
-                if ($group) {
-                    $markupPct = (float) ($group->markup_percent ?? 0);
-                    $markupFixed = (float) ($group->markup_fixed ?? 0);
-                    $price = $price + ($price * $markupPct / 100) + $markupFixed;
+                /* The LISTING's price rule, never a borrowed group's (#96).
+                 * The borrow made price sync multiply every item by group
+                 * #1's markup regardless of what it was listed at. An item
+                 * whose listing has no rule is skipped BY NAME rather than
+                 * silently pushed at an unmarked price - sync it from the
+                 * group page it was pushed from, or push it once from the
+                 * form to give it a rule. */
+                $listing = ShopeeListing::query()->where('product_id', $productId)->first();
+
+                if (!$listing || ($listing->markup_percent === null && $listing->markup_fixed === null)) {
+                    $skipped[] = '#' . $productId . ': no listing price rule - sync from its product group, or push once from the form';
+                    continue;
                 }
 
-                $priceList[] = ['model_id' => $modelId, 'original_price' => round($price, 2)];
+                $price = $listing->priceFor((float) $price);
+
+                $priceList[] = ['model_id' => $modelId, 'original_price' => $price];
             }
 
             if (empty($priceList)) continue;
@@ -2205,7 +2297,7 @@ class ShopeeProductController extends Controller
             }
         }
 
-        return ['ok' => $ok, 'err' => $err, 'last_error' => $lastError];
+        return ['ok' => $ok, 'err' => $err, 'last_error' => $lastError, 'skipped' => $skipped];
     }
 
     // ── General Helpers ──────────────────────────────────────────────
@@ -2236,36 +2328,6 @@ class ShopeeProductController extends Controller
         return 0;
     }
 
-    private function findGroupForProduct(int $productId, ?int $manufacturerId): ?ShopeeProductGroup
-    {
-        $pfx = (string) config('catalog.prefix');
-        $groups = ShopeeProductGroup::all();
-
-        // Get category IDs for this product
-        $productCatIds = DB::table($pfx . 'product_to_category')
-            ->where('product_id', $productId)
-            ->pluck('category_id')
-            ->toArray();
-
-        foreach ($groups as $group) {
-            $catIds = $group->catalog_category_ids ?? [];
-            $mfgIds = $group->manufacturer_ids ?? [];
-
-            // If product group has no filters, it matches all products
-            if (empty($catIds) && empty($mfgIds)) {
-                return $group;
-            }
-
-            $catMatch = empty($catIds) || !empty(array_intersect($catIds, $productCatIds));
-            $mfgMatch = empty($mfgIds) || in_array($manufacturerId, $mfgIds);
-
-            if ($catMatch && $mfgMatch) {
-                return $group;
-            }
-        }
-
-        return null;
-    }
 
     private function getGroupProductMapping(): array
     {
