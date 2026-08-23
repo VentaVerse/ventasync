@@ -96,12 +96,17 @@ class ExtensionServiceProvider extends ServiceProvider
          * sync used to) would derive from a half-built table. booted() is
          * the first moment the routes are complete.
          *
-         * Cached on a fingerprint of the enabled-extension list, so the
-         * routine boot does one cache read; enabling an extension changes
-         * the fingerprint and the next boot converges. Same try/catch boot
+         * Cached on a fingerprint of the DERIVED KEY LIST ITSELF - not the
+         * enabled-extension list, which misses the case that bit on day
+         * one: a controller split changes the keys without changing which
+         * extensions are enabled. Deriving the list to fingerprint it costs
+         * a route-table walk the door middleware already pays per request;
+         * what the cache saves is the DB reads. Same try/catch boot
          * resilience as the core sync above, for the same reason. */
-        $this->app->booted(function () use ($manager, $enabledIds) {
-            $syncKey = 'derived_perms_synced_' . md5(json_encode($enabledIds));
+        $this->app->booted(function () use ($manager) {
+            $keys = app(\App\Services\PermissionCatalogue::class)->keys();
+            sort($keys);
+            $syncKey = 'derived_perms_synced_' . md5(json_encode($keys));
             try {
                 if (!cache()->has($syncKey)) {
                     $manager->syncPermissions();
