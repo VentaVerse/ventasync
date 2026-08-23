@@ -147,8 +147,8 @@ class ControllerPermissionTest extends TestCase
 
         $this->actingAs($user)
             ->get(route('user_groups.index'))
-            ->assertRedirect()
-            ->assertSessionHas('error');
+            ->assertStatus(403)
+            ->assertSee('You are not allowed to access this page');
     }
 
     /**
@@ -180,8 +180,8 @@ class ControllerPermissionTest extends TestCase
 
         $this->actingAs($stranger)
             ->get('/__test_ungated')
-            ->assertRedirect()
-            ->assertSessionHas('error');
+            ->assertStatus(403)
+            ->assertSee('You are not allowed to access this page');
     }
 
     /**
@@ -310,5 +310,31 @@ class ControllerPermissionTest extends TestCase
                 $file . ' is exempt from the door gate and performs no check of its own'
             );
         }
+    }
+    /**
+     * A DENIED PAGE LOAD SAYS SO, IN WORDS THE USER CAN READ.
+     *
+     * It used to redirect to the dashboard with a flashed message the
+     * dashboard never rendered - a silent teleport home that the owner
+     * correctly named as the wrong behaviour. A typed or followed URL the
+     * user lacks now answers 403 with "You are not allowed to access this
+     * page" and "Contact your administrator". Writes keep the redirect-
+     * back-with-flash, because the operator is standing on a form they
+     * were allowed to see and the message belongs there.
+     */
+    public function test_a_denied_page_load_renders_the_not_allowed_page(): void
+    {
+        $user = $this->userWith(['view_catalog/product']);
+
+        $response = $this->actingAs($user)->get(route('user_groups.index'));
+
+        $response->assertStatus(403);
+        $response->assertSee('You are not allowed to access this page');
+        $response->assertSee('Contact your administrator');
+
+        // The write path keeps its in-context redirect.
+        $this->actingAs($user)
+            ->delete(route('user_groups.destroy', 999))
+            ->assertRedirect();
     }
 }

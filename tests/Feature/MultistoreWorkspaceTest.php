@@ -737,9 +737,10 @@ class MultistoreWorkspaceTest extends TestCase
 
         $this->actingAs($user)->get('/channels/'.$channel.'/'.$first)->assertNotFound();
 
-        // The orders route's own perm: middleware denies before any view
-        // renders, so this is a redirect rather than a 404.
-        $this->actingAs($user)->get('/channels/'.$channel.'/'.$first.'/orders')->assertRedirect();
+        // The orders route's door denies the page load with the readable
+        // 403 - unlike the dashboard above, which refuses by absence so an
+        // unpermitted channel never confirms itself.
+        $this->actingAs($user)->get('/channels/'.$channel.'/'.$first.'/orders')->assertStatus(403);
     }
 
     // ------------------------------------------------------------------

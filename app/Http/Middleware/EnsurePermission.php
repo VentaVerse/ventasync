@@ -40,15 +40,18 @@ class EnsurePermission
      * Build a permission-denied response shaped to match the caller.
      *
      * - JSON / AJAX callers: 403 with a stable error envelope.
-     * - HTML callers: redirect back with a flashed error message rendered
-     *   from `session('error')`. layouts.channel renders it for every page it
-     *   hosts (partials/legacy-page-contract); on layouts.shell it is the
-     *   landing page's own @include('partials.flash') that prints it, so a
-     *   shell page without that include swallows the message. Pre-existing
-     *   and unrelated to this middleware. (The layout originally named here,
-     *   layouts/app.blade.php, was deleted in Round F Task 4.)
-     *   If `back()` would loop (no Referer, or Referer is the current
-     *   URL), fall back to `/dashboard` so the user isn't stranded.
+     * - A PAGE LOAD GETS A PAGE THAT SAYS SO: GET/HEAD HTML requests render
+     *   the 403 error page ("You are not allowed to access this page -
+     *   contact your administrator"). It used to redirect to the dashboard
+     *   with a flashed message the dashboard never rendered, so someone who
+     *   typed or followed a URL they lacked was silently teleported home
+     *   with no explanation at all - measured, then reported by the owner as
+     *   exactly the wrong behaviour. An error the user can read beats a
+     *   redirect the user cannot explain.
+     * - WRITES keep the redirect-back-with-flash: the operator is standing
+     *   on a form they were allowed to see, and the message belongs on it.
+     *   If `back()` would loop (no Referer, or Referer is the current URL),
+     *   fall back to `/dashboard` so the user isn't stranded.
      */
     protected function deny(Request $request): Response
     {
@@ -63,6 +66,10 @@ class EnsurePermission
                 'error'   => 'permission_denied',
                 'message' => $message,
             ], 403);
+        }
+
+        if (in_array($request->getMethod(), ['GET', 'HEAD'], true)) {
+            abort(403);
         }
 
         $referer = $request->headers->get('referer');

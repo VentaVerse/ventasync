@@ -158,6 +158,14 @@ class WorkspaceInteriorsTest extends TestCase
      */
     private function assertDenied(\Illuminate\Testing\TestResponse $response, string $context): void
     {
+        // A denied PAGE LOAD renders the 403 page in words the user can
+        // read; a denied WRITE redirects back with the flash. Both count.
+        if ($response->getStatusCode() === 403) {
+            $response->assertSee('You are not allowed to access this page');
+
+            return;
+        }
+
         $response->assertRedirect();
         $response->assertSessionHas('error', "You don't have permission to do this action.");
         $this->assertTrue(true, $context);

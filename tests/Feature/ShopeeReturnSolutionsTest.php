@@ -76,8 +76,8 @@ class ShopeeReturnSolutionsTest extends TestCase
 
         $this->actingAs($outsider)
             ->get(route('ext.shopee.orders.return_solutions', ['returnSn' => '220106202649696']))
-            ->assertRedirect()
-            ->assertSessionHas('error');
+            ->assertStatus(403)
+            ->assertSee('You are not allowed to access this page');
     }
 
     /**
