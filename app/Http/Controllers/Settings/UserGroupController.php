@@ -124,9 +124,9 @@ class UserGroupController extends Controller
 
         $group = UserGroup::create(['name' => $request->name]);
 
-        // Child grants auto-elevate their parent to view tier (same rule as update()).
-        $permissionIds = $this->applyChildParentElevation($request->permissions ?? []);
-        $group->permissions()->sync($permissionIds);
+        // Every row is an independent grant - the parent/child tree is
+        // retired, so exactly what was posted is exactly what lands.
+        $group->permissions()->sync($request->permissions ?? []);
 
         ActivityLogger::log('created', 'User Group', $group->id, $group->name);
 
@@ -205,14 +205,15 @@ class UserGroupController extends Controller
 
         $permissionIds = $request->permissions ?? [];
 
-        // Safeguard: Administrator group must always keep core permissions
+        /* Safeguard: the Administrator group always keeps the keys that
+         * reach THIS page and its neighbours - stripping them (an over-eager
+         * "Off all", a bad import) would lock everyone out of the screen
+         * that hands access back. Derived keys, like everything else. */
         if ($originalName === 'administrator') {
-            $coreKeys = ['manage_settings', 'manage_user_groups', 'manage_users'];
+            $coreKeys = ['manage_settings/user_group', 'manage_settings/user', 'manage_settings/setting'];
             $coreIds = Permission::whereIn('key', $coreKeys)->pluck('id')->all();
             $permissionIds = array_values(array_unique(array_merge($permissionIds, $coreIds)));
         }
-
-        $permissionIds = $this->applyChildParentElevation($permissionIds);
 
         /* WHAT ACCESS ACTUALLY MOVED, which is the only reason this page
          * exists and was the one thing the ledger did not record.
@@ -313,79 +314,4 @@ class UserGroupController extends Controller
         return redirect()->route('user_groups.index');
     }
 
-    /**
-     * Ensure a parent permission is present whenever any of its children
-     * are granted. Maintains the invariant that the parent's tier is
-     * always >= max(children's tiers), so a child grant never lands as
-     * a dead permission (parent Off hides the sidebar section, making
-     * the child unreachable from nav).
-     *
-     * Mirrors the client-side cascade in permission-pill.js: granting
-     * a child auto-elevates the parent to view tier — or to manage for
-     * container parents that don't expose a view tier.
-     *
-     * Why this is permissive (elevates parent) rather than restrictive
-     * (drops orphan children): the child grant is the explicit user
-     * action, so preserving it best matches operator intent. The UI
-     * already prevents orphan-child states; this method is the
-     * defensive backstop for DOM tamper / direct-API submission.
-     *
-     * Parent-Off-cascades-children is handled UI-side only — by the
-     * time the form posts, children have already been flipped Off, so
-     * the server just persists what was submitted.
-     *
-     * @param  array<int, int>  $permissionIds  raw ids from the form
-     * @return array<int, int>                 ids with elevated parents added
-     */
-    private function applyChildParentElevation(array $permissionIds): array
-    {
-        if (empty($permissionIds)) {
-            return $permissionIds;
-        }
-
-        $hierarchy = app(\App\Services\PermissionHierarchy::class);
-        $rows = Permission::whereIn('id', $permissionIds)->pluck('key', 'id')->all();
-        $grantedKeys = array_flip($rows);
-
-        $parentKeysToAdd = [];
-        foreach ($rows as $key) {
-            $parent = $hierarchy->parentOf($key);
-            if ($parent === null) {
-                continue; // top-level grant — no parent to elevate
-            }
-            $base = $hierarchy->baseOf($parent);
-            if ($base !== null) {
-                // Twin parent (view_X + manage_X). Granted when either tier present.
-                if (!isset($grantedKeys['view_' . $base]) && !isset($grantedKeys['manage_' . $base])) {
-                    $parentKeysToAdd[] = 'view_' . $base;
-                }
-            } elseif (!isset($grantedKeys[$parent])) {
-                // Container parent (only one key, no view/manage split).
-                $parentKeysToAdd[] = $parent;
-            }
-        }
-
-        if (empty($parentKeysToAdd)) {
-            return $permissionIds;
-        }
-
-        // Resolve to ids. view_X may not exist for a manage-only parent —
-        // fall back to manage_X in that case.
-        $parentKeysToAdd = array_unique($parentKeysToAdd);
-        $existing = Permission::whereIn('key', $parentKeysToAdd)->pluck('id', 'key')->all();
-        $fallbackKeys = [];
-        foreach ($parentKeysToAdd as $key) {
-            if (!isset($existing[$key]) && str_starts_with($key, 'view_')) {
-                $fallbackKeys[] = 'manage_' . substr($key, 5);
-            }
-        }
-        if (!empty($fallbackKeys)) {
-            $existing = array_merge(
-                $existing,
-                Permission::whereIn('key', $fallbackKeys)->pluck('id', 'key')->all()
-            );
-        }
-
-        return array_values(array_unique(array_merge($permissionIds, array_values($existing))));
-    }
 }

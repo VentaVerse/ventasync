@@ -110,38 +110,6 @@ class User extends Authenticatable
         // by the $base/$effectiveTier expansion) stays — that's tier
         // conversion on the SAME resource key, not a parent/child relation.
 
-        // Legacy compatibility for pre-Laravel-rebuild permission key
-        if ($key === 'manage_settings' || $key === 'manage_users' || $key === 'manage_user_groups') {
-            $keysToCheck[] = 'manage_users_groups';
-        }
-
-        /* TRANSITION BRIDGE - dies in Phase D with LegacyGrantMap.
-         *
-         * A derived key (the slash is the tell) is also satisfied by any
-         * RETIRED key whose frozen translation covers it. Without this, a
-         * group the grant migration never reached - restored from an old
-         * backup, or built by a test the old way - would pass the door
-         * (whose shim reads the same table) and then lose every menu entry
-         * and button, because those ask this method directly. One
-         * vocabulary bridge, in the one place the docblock above promises
-         * tier rules live, so the door and the interface cannot disagree.
-         *
-         * Tier-aware, never widening: a view-tier ask accepts a legacy key
-         * translating to either tier of the base (manage implies view); a
-         * manage-tier ask accepts only a legacy key translating to the
-         * manage side. */
-        if (str_contains($key, '/') && $effectiveTier !== null && $base !== null) {
-            $accept = $effectiveTier === 'view'
-                ? ['view_' . $base, 'manage_' . $base]
-                : ['manage_' . $base];
-
-            foreach (\App\Services\LegacyGrantMap::TRANSLATIONS as $legacy => $derived) {
-                if (array_intersect($accept, $derived) !== []) {
-                    $keysToCheck[] = $legacy;
-                }
-            }
-        }
-
         return $group->permissions()->whereIn('key', array_unique($keysToCheck))->exists();
     }
 
@@ -156,14 +124,43 @@ class User extends Authenticatable
             return [];
         }
 
-        $hierarchy = app(PermissionHierarchy::class);
-        $assigned = $group->permissions()->pluck('key')->toArray();
-        $effective = $assigned;
+        $effective = $group->permissions()->pluck('key')->toArray();
 
-        foreach ($assigned as $key) {
-            $effective = array_merge($effective, $hierarchy->childrenOf($key));
+        /* THE PHONE APP'S CONTRACT, NOT A VOCABULARY SHIM.
+         *
+         * This array goes to the mobile app at login, and the app decides
+         * its menu by matching names it was built against - the retired
+         * ones. The app's source is not in this repository to update, so
+         * the RESPONSE keeps carrying the old names a derived grant
+         * implies, alongside the real keys. Dies when the app is rebuilt
+         * against derived names; nothing inside this application reads
+         * these aliases. */
+        $aliases = [];
+
+        foreach ($effective as $key) {
+            if (! str_contains($key, '/')) {
+                continue;
+            }
+
+            [$tier, $base] = explode('_', $key, 2);
+
+            $aliases[] = match ($base) {
+                'sales/order' => $tier . '_orders',
+                'catalog/product' => $tier . '_products',
+                default => null,
+            };
+
+            if (str_ends_with($base, '/order')) {
+                $channel = substr($base, 0, -strlen('/order'));
+
+                if (! in_array($channel, ['sales', 'api', 'api_v1'], true)) {
+                    $aliases[] = $tier . '_' . $channel . '_orders';
+                    // The container the app's marketplace menu checks.
+                    $aliases[] = 'view_marketplace_api';
+                }
+            }
         }
 
-        return array_values(array_unique($effective));
+        return array_values(array_unique(array_merge($effective, array_filter($aliases))));
     }
 }

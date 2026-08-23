@@ -2,168 +2,26 @@
 
 /*
 |--------------------------------------------------------------------------
-| Core Permission Display Strings
+| Permission Display Strings
 |--------------------------------------------------------------------------
 |
-| Labels + descriptions for permissions declared by core in
-| config/permissions.php. Extension-owned permissions are NOT listed here
-| — each extension ships its own lang file at
-| extensions/{id}/lang/{locale}/permissions.php, auto-registered under the
-| `ext-{id}` translation namespace by ExtensionProvider::bootTranslations().
+| Wording for the route-derived permission catalogue - see
+| App\Services\PermissionCatalogue. Keys are {area}/{controller}; every
+| entry here OVERRIDES a derivation, never enables one: a key with no
+| wording still renders, humanised, so coverage never waits on prose.
 |
-| The Permission model resolves display strings in this order:
-|   1. ext-{owner}::permissions.{key}.{label|description}  (extension lang)
-|   2. permissions.{key}.{label|description}               (this file)
-|   3. humanized key
+|   areas    — the section headings ('catalog' => 'Catalogue')
+|   notes    — one line under an area heading, where the name is not enough
+|   rows     — row titles ('lazada/order' => ...)
+|   warnings — the plain sentence under a row that hands over more than
+|              its own screen; see PermissionCatalogue::warningFor()
 |
-| Phase 4.5 — every core resource has a view_X + manage_X twin. The view
-| tier grants read-only access (index, show, edit-form render where
-| applicable); the manage tier grants the full create/update/delete
-| toolkit on top. "Manage implies view" cascades in User::hasPermission.
+| The per-key label/description blocks that used to fill this file named
+| the retired scheme (view_products, manage_orders, ...) and left with it.
 |
 */
 
 return [
-
-    // ── Catalog (core) ────────────────────────────────────────
-    'view_catalog' => [
-        'label'       => 'Catalog (View All)',
-        'description' => 'Read-only access to every resource in the catalog domain',
-    ],
-    'manage_catalog' => [
-        'label'       => 'Catalog (All)',
-        'description' => 'Full access to all catalog features',
-    ],
-    'view_products' => [
-        'label'       => 'View Products',
-        'description' => 'Browse the product catalog (read-only)',
-    ],
-    'manage_products' => [
-        'label'       => 'Manage Products',
-        'description' => 'View, create, edit, and delete products',
-    ],
-    'view_categories' => [
-        'label'       => 'View Categories',
-        'description' => 'Browse the category tree (read-only)',
-    ],
-    'manage_categories' => [
-        'label'       => 'Manage Categories',
-        'description' => 'View, create, edit, and delete categories',
-    ],
-    'view_manufacturers' => [
-        'label'       => 'View Manufacturers',
-        'description' => 'Browse manufacturers (read-only)',
-    ],
-    'manage_manufacturers' => [
-        'label'       => 'Manage Manufacturers',
-        'description' => 'View, create, edit, and delete manufacturers',
-    ],
-
-    // ── Sales (core) ──────────────────────────────────────────
-    'view_sales' => [
-        'label'       => 'Sales (View All)',
-        'description' => 'Read-only access to every resource in the sales domain',
-    ],
-    'manage_sales' => [
-        'label'       => 'Sales (All)',
-        'description' => 'Full access to all sales features',
-    ],
-    'view_orders' => [
-        'label'       => 'View Orders',
-        'description' => 'Browse customer orders and view order details (read-only)',
-    ],
-    'manage_orders' => [
-        'label'       => 'Manage Orders',
-        'description' => 'View and manage customer orders, payments, statuses, and fees',
-    ],
-    'view_order_statuses' => [
-        'label'       => 'View Order Statuses',
-        'description' => 'Browse order status definitions (read-only)',
-    ],
-    'manage_order_statuses' => [
-        'label'       => 'Manage Order Statuses',
-        'description' => 'Create and edit order status definitions',
-    ],
-
-    // ── Marketplace API container (core; children come from extensions) ──
-    'view_marketplace_api' => [
-        'label'       => 'Marketplace API (View All)',
-        'description' => 'Read-only access to every marketplace integration',
-    ],
-    'manage_marketplace_api' => [
-        'label'       => 'Marketplace API (All)',
-        'description' => 'Full access to all marketplace integrations',
-    ],
-
-    // ── Settings (core) ───────────────────────────────────────
-    'view_settings' => [
-        'label'       => 'Settings (View All)',
-        'description' => 'Read-only access to every system settings page',
-    ],
-    'manage_settings' => [
-        'label'       => 'Settings (All)',
-        'description' => 'Full access to all system settings',
-    ],
-    'view_users' => [
-        'label'       => 'View Users',
-        'description' => 'Browse the user list (read-only)',
-    ],
-    'manage_users' => [
-        'label'       => 'Manage Users',
-        'description' => 'View, create, edit, and deactivate users',
-    ],
-    'view_user_groups' => [
-        'label'       => 'View User Groups',
-        'description' => 'Browse user groups and their permission assignments (read-only)',
-    ],
-    'manage_user_groups' => [
-        'label'       => 'Manage User Groups',
-        'description' => 'Create, edit, and delete user groups and their permissions',
-    ],
-    'view_website_settings' => [
-        'label'       => 'View Website Settings',
-        'description' => 'Browse website settings, currencies, and extensions (read-only)',
-    ],
-    'manage_website_settings' => [
-        'label'       => 'Manage Website Settings',
-        'description' => 'Edit global website configuration, currencies, and extensions',
-    ],
-    'view_error_log' => [
-        'label'       => 'View Error Log',
-        'description' => 'Read the application error log (read-only)',
-    ],
-    'manage_error_log' => [
-        'label'       => 'Manage Error Log',
-        'description' => 'View and clear application error log',
-    ],
-    'view_api_clients' => [
-        'label'       => 'View API Applications',
-        'description' => 'Browse API applications and their audit logs (read-only)',
-    ],
-    'manage_api_clients' => [
-        'label'       => 'Manage API Applications',
-        'description' => 'Create, rotate, and revoke API applications and their tokens',
-    ],
-
-    // ── Legacy (kept for hasPermission() back-compat) ─────────
-    'manage_users_groups' => [
-        'label'       => 'Users & Groups',
-        'description' => null,
-    ],
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | Area and row wording for the user-group editor
-    |--------------------------------------------------------------------------
-    |
-    | The editor derives every row from the route table, so this file only
-    | ever IMPROVES wording - it never decides what appears. An area or row
-    | with no entry here still renders, wearing its humanised key, which is
-    | what keeps a new controller from being invisible until somebody writes
-    | prose for it.
-    |
-    */
 
     'areas' => [
         'catalog' => 'Catalogue',

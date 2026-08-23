@@ -39,7 +39,7 @@ class TiktokWorkspaceTest extends TestCase
         $group = UserGroup::create(['name' => 'TikTok Workspace Operators']);
 
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_tiktok', 'view_tiktok/dashboard', 'view_tiktok_orders', 'view_tiktok/settings', 'view_tiktok/product_group', 'view_tiktok/order'])
+            Permission::whereIn('key', ['view_tiktok/dashboard', 'view_tiktok/settings', 'view_tiktok/product_group', 'view_tiktok/order'])
                 ->pluck('id')
                 ->all()
         );
@@ -60,7 +60,7 @@ class TiktokWorkspaceTest extends TestCase
         $group = UserGroup::create(['name' => 'TikTok Workspace Order Desk']);
 
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_tiktok_orders', 'view_tiktok/order'])
+            Permission::whereIn('key', ['view_tiktok/order'])
                 ->pluck('id')
                 ->all()
         );
@@ -378,7 +378,7 @@ class TiktokWorkspaceTest extends TestCase
         $group = UserGroup::create(['name' => 'TikTok Workspace Managers']);
 
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_tiktok', 'view_tiktok/dashboard', 'manage_tiktok_orders', 'view_tiktok/settings', 'view_tiktok/product_group', 'manage_tiktok/order'])
+            Permission::whereIn('key', ['view_tiktok/dashboard', 'view_tiktok/settings', 'view_tiktok/product_group', 'manage_tiktok/order'])
                 ->pluck('id')
                 ->all()
         );

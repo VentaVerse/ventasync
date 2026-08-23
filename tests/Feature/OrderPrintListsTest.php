@@ -88,7 +88,7 @@ class OrderPrintListsTest extends TestCase
     {
         $ids = $this->seedOrders();
 
-        $response = $this->actingAs($this->userWith(['view_shopee_orders', 'view_shopee/order']))
+        $response = $this->actingAs($this->userWith(['view_shopee/order']))
             ->post(route('fulfilment.print.pick', ['channel' => 'shopee']), ['ids' => $ids]);
 
         $response->assertOk();
@@ -114,7 +114,7 @@ class OrderPrintListsTest extends TestCase
     {
         $ids = $this->seedOrders();
 
-        $response = $this->actingAs($this->userWith(['view_shopee_orders', 'view_shopee/order']))
+        $response = $this->actingAs($this->userWith(['view_shopee/order']))
             ->post(route('fulfilment.print.packing', ['channel' => 'shopee']), ['ids' => $ids]);
 
         $response->assertOk();
@@ -140,12 +140,12 @@ class OrderPrintListsTest extends TestCase
 
         // Printing reveals nothing the operator cannot read on the list, and
         // contacts no marketplace, so the read tier is the right gate.
-        $this->actingAs($this->userWith(['view_shopee_orders', 'view_shopee/order']))
+        $this->actingAs($this->userWith(['view_shopee/order']))
             ->post(route('fulfilment.print.pick', ['channel' => 'shopee']), ['ids' => $ids])
             ->assertOk();
 
         // A different channel's permission opens nothing here.
-        $this->actingAs($this->userWith(['view_lazada_orders', 'view_lazada/order']))
+        $this->actingAs($this->userWith(['view_lazada/order']))
             ->post(route('fulfilment.print.pick', ['channel' => 'shopee']), ['ids' => $ids])
             ->assertForbidden();
 
@@ -161,14 +161,14 @@ class OrderPrintListsTest extends TestCase
 
     public function test_an_unknown_channel_is_not_a_channel(): void
     {
-        $this->actingAs($this->userWith(['view_shopee_orders', 'view_shopee/order']))
+        $this->actingAs($this->userWith(['view_shopee/order']))
             ->post(route('fulfilment.print.pick', ['channel' => 'nosuchchannel']), ['ids' => [1]])
             ->assertNotFound();
     }
 
     public function test_a_selection_that_no_longer_exists_says_so_rather_than_printing_nothing(): void
     {
-        $response = $this->actingAs($this->userWith(['view_shopee_orders', 'view_shopee/order']))
+        $response = $this->actingAs($this->userWith(['view_shopee/order']))
             ->post(route('fulfilment.print.pick', ['channel' => 'shopee']), ['ids' => [999111, 999112]]);
 
         // An empty sheet would claim the orders had no items rather than that

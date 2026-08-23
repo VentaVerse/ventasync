@@ -32,50 +32,9 @@ class EnsurePermission
             }
         }
 
-        /* TRANSITION, THE OTHER WAY ROUND.
-         *
-         * These `perm:` arguments name old-scheme keys, and every route also
-         * passes through EnsureControllerPermission, which gates on the key
-         * derived from the controller. During the changeover a group may hold
-         * only one scheme or the other, so each gate has to accept both or a
-         * route ends up requiring two grants nobody was told about.
-         *
-         * The derived key is the same one the other middleware would demand,
-         * at the same tier, so honouring it here widens nothing: anything
-         * this lets through, that would have let through anyway.
-         *
-         * Both shims retire together, once no group holds an old-scheme key
-         * and these `perm:` arguments can come off the routes. */
-        if ($this->satisfiedByDerivedKey($request)) {
-            return $next($request);
-        }
-
         return $this->deny($request);
     }
 
-    private function satisfiedByDerivedKey(Request $request): bool
-    {
-        $route = $request->route();
-        $action = $route?->getActionName() ?? '';
-
-        if (! str_contains($action, '@')) {
-            return false;
-        }
-
-        [$class] = explode('@', $action);
-
-        $catalogue = app(\App\Services\PermissionCatalogue::class);
-        $key = $catalogue->keyForController($class);
-
-        if ($key === null) {
-            return false;
-        }
-
-        $tier = $route->defaults['permission_tier']
-            ?? (in_array($request->getMethod(), ['GET', 'HEAD'], true) ? 'view' : 'manage');
-
-        return (bool) $request->user()?->hasPermission($tier . '_' . $key);
-    }
 
     /**
      * Build a permission-denied response shaped to match the caller.

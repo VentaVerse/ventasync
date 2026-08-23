@@ -341,34 +341,13 @@ class ExtensionManager
      */
     public function claimedPermissionKeys(): array
     {
-        /* THE DERIVED CATALOGUE CLAIMS ITS OWN KEYS, and forgetting that made
-         * this command a weapon. It reads config, the label file and the
-         * manifests - none of which know about keys derived from the route
-         * table - so once the catalogue existed, `permissions:reconcile
-         * --prune` would have reported every route-derived key as abandoned
-         * and offered to delete the entire permission system, grants
-         * included. Caught by running the report, not by reading it. */
-        $keys = app(\App\Services\PermissionCatalogue::class)->keys();
-
-        $keys = array_merge($keys, array_keys((array) config('permissions', [])));
-
-        /* The label file counts as a declaration, and leaving it out gets the
-         * answer wrong. manage_users_groups is not in config and not in any
-         * manifest - it is a legacy alias User::hasPermission still honours
-         * for pre-rebuild groups - but it carries a label here, which is what
-         * says somebody meant it. The four *_messages keys carry none.
-         *
-         * That distinction is the whole difference between a key kept on
-         * purpose and a key left behind. */
-        $keys = array_merge($keys, array_keys((array) trans('permissions')));
-
-        /* Manifests no longer declare permissions - routes do (the
-         * catalogue read above already claims every extension's keys). The
-         * merge that used to sit here is gone with the manifest blocks; the
-         * legacy keys they declared are now claimed only by the label file,
-         * exactly until Phase D retires the labels and the rows together. */
-
-        return array_values(array_unique(array_filter($keys, 'is_string')));
+        /* ONE SOURCE: the route-derived catalogue. The config file, the
+         * manifest blocks and the label-file merge that used to sit beside
+         * it each carried a piece of the retired scheme, and each is gone
+         * with it (Phase D). An extension claims keys by having routes;
+         * a disabled extension claims its area by prefix in
+         * orphanedPermissionKeys(). */
+        return app(\App\Services\PermissionCatalogue::class)->keys();
     }
 
     /**
@@ -458,51 +437,6 @@ class ExtensionManager
     }
 
 
-    /**
-     * Sync core permission rows declared in config/permissions.php.
-     * Inserts any missing keys and grants them to the Administrator
-     * group. Idempotent — safe to call on every boot.
-     *
-     * Mirrors syncPermissions($id) but reads from config instead of
-     * an extension manifest. Core permissions are CODE, not data —
-     * every install of the ERP should converge on the exact same
-     * set of permission keys without manual intervention.
-     */
-    public function syncCorePermissions(): void
-    {
-        if (!Schema::hasTable('permissions')) {
-            return;
-        }
-
-        $keys = array_keys((array) config('permissions', []));
-
-        if (empty($keys)) {
-            return;
-        }
-
-        $adminGroupId = DB::table('user_groups')->where('name', 'Administrator')->value('id');
-
-        foreach ($keys as $key) {
-            $existing = DB::table('permissions')->where('key', $key)->first();
-
-            if (!$existing) {
-                $permId = DB::table('permissions')->insertGetId([
-                    'key' => $key,
-                ]);
-            } else {
-                $permId = $existing->id;
-            }
-
-            if ($adminGroupId) {
-                DB::table('user_group_permissions')->updateOrInsert([
-                    'user_group_id' => $adminGroupId,
-                    'permission_id' => $permId,
-                ]);
-            }
-        }
-
-        app(\App\Services\PermissionHierarchy::class)->invalidate();
-    }
 
     /**
      * Insert permission rows declared in the extension manifest.

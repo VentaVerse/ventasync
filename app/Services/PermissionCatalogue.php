@@ -124,9 +124,6 @@ class PermissionCatalogue
     /** @var array<string, array>|null */
     private ?array $entries = null;
 
-    /** @var array<string, array>|null */
-    private ?array $legacy = null;
-
     /**
      * @return array<string, array{key:string,controller:string,area:string,name:string,
      *                             routes:int,writes:int,tiers:array<int,string>}>
@@ -180,83 +177,6 @@ class PermissionCatalogue
         return $this->entries = $out;
     }
 
-    /**
-     * The OLD keys that used to gate a given controller, per tier.
-     *
-     * A TRANSITION SHIM, AND IT HAS TO EXIST. The migration translates the
-     * grants that were in the database when it ran; it cannot reach a group
-     * created afterwards, or one built in a test, or one restored from a
-     * backup taken before the changeover. Without this, every such group is
-     * silently locked out of everything - 586 tests said so on the first run,
-     * which is exactly the shape a deployment would have taken.
-     *
-     * Derived from the same route table as everything else: for this
-     * controller, which `perm:` keys did its routes accept? A hand-written
-     * compatibility table would be one more thing to drift.
-     *
-     * REMOVING IT is a deliberate later step: once no group holds an
-     * old-scheme key, this returns nothing for every controller and can go.
-     * PermissionsSyncCatalogue --prune-legacy is what makes that true.
-     *
-     * @return array{view: array<int,string>, manage: array<int,string>}
-     */
-    public function legacyKeysFor(string $controller): array
-    {
-        if ($this->legacy === null) {
-            $this->legacy = $this->buildLegacyMap();
-        }
-
-        return $this->legacy[$controller] ?? ['view' => [], 'manage' => []];
-    }
-
-    /** @return array<string, array{view: array<int,string>, manage: array<int,string>}> */
-    private function buildLegacyMap(): array
-    {
-        /* FROM THE FROZEN TABLE, NOT THE ROUTES. This used to read the
-         * perm: middleware off the route table, which was correct exactly
-         * until Phase A removed those arguments - reading them then would
-         * find nothing and strike the shim blind. LegacyGrantMap holds the
-         * table's last true reading; here it is inverted into
-         * controller => the legacy keys that used to open it.
-         *
-         * A manage_ key satisfies both tiers - it always did, through
-         * hasPermission's manage-implies-view expansion. A view_ key
-         * satisfies only view, so the shim cannot widen anyone's access on
-         * the way through. */
-        $byKey = [];
-
-        foreach ($this->all() as $entry) {
-            $byKey[$entry['key']] = $entry['controller'];
-        }
-
-        $map = [];
-
-        foreach (LegacyGrantMap::TRANSLATIONS as $old => $derived) {
-            foreach ($derived as $tiered) {
-                [$tier, $key] = explode('_', $tiered, 2);
-                $class = $byKey[$key] ?? null;
-
-                if ($class === null) {
-                    continue; // extension not loaded in this process
-                }
-
-                $map[$class]['view'][$old] = true;
-
-                if ($tier === 'manage' && str_starts_with($old, 'manage_')) {
-                    $map[$class]['manage'][$old] = true;
-                }
-            }
-        }
-
-        foreach ($map as $class => $tiers) {
-            $map[$class] = [
-                'view' => array_keys($tiers['view'] ?? []),
-                'manage' => array_keys($tiers['manage'] ?? []),
-            ];
-        }
-
-        return $map;
-    }
 
     /**
      * How an area group is titled: "Lazada", "Catalogue", "Settings".

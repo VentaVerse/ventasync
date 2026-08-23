@@ -83,7 +83,7 @@ class SecurityHardeningTest extends TestCase
     {
         Http::fake();
 
-        $user = $this->userWithPermission('manage_products');
+        $user = $this->userWithPermission('manage_catalog/product_image');
 
         $response = $this->actingAs($user)->postJson(route('products.images.import_url'), [
             'url' => 'http://127.0.0.1/image.jpg',
@@ -98,7 +98,7 @@ class SecurityHardeningTest extends TestCase
     {
         Http::fake();
 
-        $user = $this->userWithPermission('manage_products');
+        $user = $this->userWithPermission('manage_catalog/product_image');
 
         $response = $this->actingAs($user)->postJson(route('products.images.import_url'), [
             'url' => 'http://192.168.1.50/image.jpg',
@@ -115,7 +115,7 @@ class SecurityHardeningTest extends TestCase
             '*' => Http::response($this->tinyJpegBytes(), 200, ['Content-Type' => 'image/jpeg']),
         ]);
 
-        $user = $this->userWithPermission('manage_products');
+        $user = $this->userWithPermission('manage_catalog/product_image');
         $token = 'sec-test-public-' . uniqid();
         $this->tmpImageDirsToClean[] = 'tmp/product-images/' . preg_replace('/[^A-Za-z0-9_-]/', '', $token);
 
@@ -158,7 +158,7 @@ class SecurityHardeningTest extends TestCase
 
     public function test_install_rejects_archive_with_traversal_entry_and_writes_nothing_outside_tmp(): void
     {
-        $user = $this->userWithPermission('manage_website_settings');
+        $user = $this->userWithPermission('manage_settings/extension');
 
         $zipPath = $this->buildZip([
             '../evil.txt' => 'pwned',
@@ -187,7 +187,7 @@ class SecurityHardeningTest extends TestCase
 
     public function test_install_rejects_manifest_id_containing_traversal(): void
     {
-        $user = $this->userWithPermission('manage_website_settings');
+        $user = $this->userWithPermission('manage_settings/extension');
 
         $zipPath = $this->buildZip([
             'extension.json' => json_encode(['id' => '../../x', 'name' => 'Bad Id']),
@@ -209,7 +209,7 @@ class SecurityHardeningTest extends TestCase
 
     public function test_install_still_works_for_a_clean_fixture_archive(): void
     {
-        $user = $this->userWithPermission('manage_website_settings');
+        $user = $this->userWithPermission('manage_settings/extension');
 
         $id = 'sec_test_clean_fixture';
         $this->extensionDirsToClean[] = $id;
@@ -274,7 +274,7 @@ class SecurityHardeningTest extends TestCase
 
     public function test_update_return_url_falls_back_for_absolute_off_site_url(): void
     {
-        $user = $this->userWithPermission('manage_products');
+        $user = $this->userWithPermission('manage_catalog/product');
         $product = $this->testProduct();
 
         $response = $this->actingAs($user)->put(
@@ -287,7 +287,7 @@ class SecurityHardeningTest extends TestCase
 
     public function test_update_return_url_falls_back_for_protocol_relative_url(): void
     {
-        $user = $this->userWithPermission('manage_products');
+        $user = $this->userWithPermission('manage_catalog/product');
         $product = $this->testProduct();
 
         $response = $this->actingAs($user)->put(
@@ -300,7 +300,7 @@ class SecurityHardeningTest extends TestCase
 
     public function test_update_return_url_is_honoured_when_site_relative(): void
     {
-        $user = $this->userWithPermission('manage_products');
+        $user = $this->userWithPermission('manage_catalog/product');
         $product = $this->testProduct();
 
         $response = $this->actingAs($user)->put(
@@ -371,7 +371,7 @@ class SecurityHardeningTest extends TestCase
 
     public function test_product_store_sanitises_description_stripping_script_onerror_and_javascript_href(): void
     {
-        $user = $this->userWithPermission('manage_products');
+        $user = $this->userWithPermission('manage_catalog/product');
 
         $response = $this->actingAs($user)->post(route('products.store'), [
             'name' => 'Sec Test XSS Product ' . uniqid(),
@@ -398,7 +398,7 @@ class SecurityHardeningTest extends TestCase
 
     public function test_product_update_sanitises_description_stripping_script_onerror_and_javascript_href(): void
     {
-        $user = $this->userWithPermission('manage_products');
+        $user = $this->userWithPermission('manage_catalog/product');
         $product = $this->testProduct();
 
         $response = $this->actingAs($user)->put(
@@ -431,7 +431,7 @@ class SecurityHardeningTest extends TestCase
      */
     public function test_product_update_preserves_legitimate_formatting_byte_for_byte(): void
     {
-        $user = $this->userWithPermission('manage_products');
+        $user = $this->userWithPermission('manage_catalog/product');
         $product = $this->testProduct();
 
         $response = $this->actingAs($user)->put(
@@ -454,7 +454,7 @@ class SecurityHardeningTest extends TestCase
 
     public function test_category_store_sanitises_description_stripping_script_onerror_and_javascript_href(): void
     {
-        $user = $this->userWithPermission('manage_categories');
+        $user = $this->userWithPermission('manage_catalog/category');
         $name = 'Sec Test XSS Category ' . uniqid();
 
         $response = $this->actingAs($user)->post(route('categories.store'), [
@@ -477,7 +477,7 @@ class SecurityHardeningTest extends TestCase
 
     public function test_category_update_sanitises_description_stripping_script_onerror_and_javascript_href(): void
     {
-        $user = $this->userWithPermission('manage_categories');
+        $user = $this->userWithPermission('manage_catalog/category');
         $categoryId = $this->createCategory($user, 'Sec Test Category Base ' . uniqid());
 
         $response = $this->actingAs($user)->put(route('categories.update', $categoryId), [
@@ -508,7 +508,7 @@ class SecurityHardeningTest extends TestCase
      */
     public function test_product_edit_page_neutralises_a_hostile_description_planted_directly_in_the_database(): void
     {
-        $user = $this->userWithPermission('manage_products');
+        $user = $this->userWithPermission('manage_catalog/product');
         $product = $this->testProduct();
         $langId = (int) config('catalog.default_language_id');
         $pfx = config('catalog.prefix');
@@ -537,7 +537,7 @@ class SecurityHardeningTest extends TestCase
 
     public function test_category_edit_page_neutralises_a_hostile_description_planted_directly_in_the_database(): void
     {
-        $user = $this->userWithPermission('manage_categories');
+        $user = $this->userWithPermission('manage_catalog/category');
         $categoryId = $this->createCategory($user, 'Sec Render Test Category ' . uniqid());
         $langId = (int) config('catalog.default_language_id');
         $pfx = config('catalog.prefix');

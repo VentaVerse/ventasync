@@ -37,7 +37,7 @@ class OrderControllerCurrencyTest extends TestCase
     private function actingAsOrderManager(): User
     {
         $group = UserGroup::create(['name' => 'Order Managers']);
-        $permission = Permission::where('key', 'manage_orders')->firstOrFail();
+        $permission = Permission::where('key', 'manage_sales/order')->firstOrFail();
         $group->permissions()->attach($permission->id);
 
         $user = User::factory()->create(['user_group_id' => $group->id]);

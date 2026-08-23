@@ -52,13 +52,14 @@ class MarketplaceOrderController extends Controller
     }
 
     /**
-     * Per-marketplace permission gate: a user with manage_{platform}_orders
-     * can access that platform's orders, regardless of the parent container
-     * permission. Returns null on pass, a 403 JsonResponse on fail.
+     * Per-marketplace permission gate: a user with manage_{platform}/order -
+     * the same derived key that opens that platform's orders screen in the
+     * web interface - can access its orders here. Returns null on pass, a
+     * 403 JsonResponse on fail.
      */
     private function denyIfNoPermission(Request $request, string $platform): ?\Illuminate\Http\JsonResponse
     {
-        $key = 'manage_' . $platform . '_orders';
+        $key = 'manage_' . $platform . '/order';
         if ($request->user()->hasPermission($key)) {
             return null;
         }

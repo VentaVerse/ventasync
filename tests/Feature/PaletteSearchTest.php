@@ -15,14 +15,13 @@ class PaletteSearchTest extends TestCase
     /**
      * Same pattern OrderControllerCurrencyTest uses: build a user group that
      * carries manage_orders and act as a user in it, so hasPermission()'s
-     * manage-implies-view cascade satisfies the controller's
-     * view_orders|manage_orders gate. There is no standalone 'view_orders'
-     * permission row seeded, only 'manage_orders'.
+     * manage-implies-view cascade satisfies the door's sales/order view
+     * tier.
      */
     private function actingAsOrderViewer(): User
     {
         $group = UserGroup::create(['name' => 'Order Viewers']);
-        $permission = Permission::where('key', 'manage_orders')->firstOrFail();
+        $permission = Permission::where('key', 'manage_sales/order')->firstOrFail();
         $group->permissions()->attach($permission->id);
 
         $user = User::factory()->create(['user_group_id' => $group->id]);

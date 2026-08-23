@@ -43,7 +43,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/dashboard', [ApiDashboardController::class, 'index']);
     Route::get('/dashboard/chart-data', [ApiDashboardController::class, 'chartData']);
 
-    Route::middleware('perm:manage_orders')->group(function () {
+    // Derived keys, same as everywhere: the legacy scheme is retired. The
+    // door middleware does not run in this group (auth:sanctum resolves the
+    // token user after group middleware would fire), so these explicit
+    // gates ARE the enforcement here.
+    Route::middleware('perm:manage_sales/order')->group(function () {
         Route::get('/orders/pending-count', [ApiOrderController::class, 'pendingCount']);
         Route::get('/orders', [ApiOrderController::class, 'index']);
         Route::get('/orders/{id}', [ApiOrderController::class, 'show']);
@@ -57,13 +61,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/marketplace/{platform}/orders', [ApiMarketplaceOrderController::class, 'index']);
     Route::get('/marketplace/{platform}/orders/{id}', [ApiMarketplaceOrderController::class, 'show']);
 
-    Route::middleware('perm:manage_venta_orders')->group(function () {
+    Route::middleware('perm:manage_venta/order')->group(function () {
         Route::get('/venta-stores', [VentaOrderApiController::class, 'stores']);
         Route::get('/venta/{store}/orders', [VentaOrderApiController::class, 'index']);
         Route::get('/venta/{store}/orders/{id}', [VentaOrderApiController::class, 'show']);
     });
 
-    Route::middleware('perm:manage_products')->group(function () {
+    Route::middleware('perm:manage_catalog/product')->group(function () {
         Route::get('/products', [ApiProductController::class, 'index']);
         Route::get('/products/{id}/quantity', [ApiProductController::class, 'showQuantity']);
         Route::put('/products/{id}/quantity', [ApiProductController::class, 'updateQuantity']);

@@ -911,12 +911,11 @@ class ChannelWorkspace
             return false;
         }
 
-        /* THE ROUTE'S OWN GATE IS THE DOOR'S, not the retired perm:
-         * middleware. Same mirror Navigation::allows() holds - derived key
-         * from the route's controller, view tier for a GET, the door's
-         * legacy fallback included - but against the $user THIS method was
-         * handed, because callers here pass the user explicitly rather than
-         * reading the session. */
+        /* THE ROUTE'S OWN GATE IS THE DOOR'S. Same mirror
+         * Navigation::allows() holds - derived key from the route's
+         * controller, view tier for a GET - but against the $user THIS
+         * method was handed, because callers here pass the user explicitly
+         * rather than reading the session. */
         $action = (string) $route->getActionName();
 
         if (! str_contains($action, '@')) {
@@ -933,17 +932,7 @@ class ChannelWorkspace
 
         $tier = $route->defaults['permission_tier'] ?? 'view';
 
-        if ($user->hasPermission($tier . '_' . $key)) {
-            return true;
-        }
-
-        foreach ($catalogue->legacyKeysFor($class)[$tier] ?? [] as $legacy) {
-            if ($user->hasPermission($legacy)) {
-                return true;
-            }
-        }
-
-        return false;
+        return $user->hasPermission($tier . '_' . $key);
     }
 
     /** Same pipe-delimited any-match parsing EnsurePermission uses. */

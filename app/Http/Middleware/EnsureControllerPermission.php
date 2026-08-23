@@ -91,23 +91,6 @@ class EnsureControllerPermission extends EnsurePermission
             return $next($request);
         }
 
-        /* TRANSITION: an old-scheme grant still opens the door it used to.
-         *
-         * The migration translates the grants that existed when it ran. It
-         * cannot reach a group made afterwards, restored from an older
-         * backup, or built by a test - and locking those out silently is the
-         * worst failure this change could have. So a group still holding
-         * manage_lazada reaches lazada/product exactly as before.
-         *
-         * Derived from the route table, never widening: a view_ key opens
-         * only the view tier. This stops answering the moment no group holds
-         * an old key, which is when it can be deleted. */
-        foreach ($this->catalogue->legacyKeysFor($class)[$tier] ?? [] as $legacy) {
-            if ($user->hasPermission($legacy)) {
-                return $next($request);
-            }
-        }
-
         /* SOME PAGES MUST REFUSE BY NOT EXISTING.
          *
          * The channel dashboards 404 an outsider rather than redirecting

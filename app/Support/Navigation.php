@@ -540,10 +540,8 @@ class Navigation
          * gate before EnsureControllerPermission replaced it - so the moment
          * the perm: arguments came off the routes, every extension link
          * vanished for everyone. The authority now is the same one the door
-         * uses: the route's controller derives a key from the catalogue, a
-         * nav link is a GET so it needs the view tier, and the door's
-         * legacy fallback applies here too so a pre-rebuild group keeps its
-         * links exactly as long as it keeps its access. */
+         * uses: the route's controller derives a key from the catalogue,
+         * and a nav link is a GET so it needs the view tier. */
         $route = Route::getRoutes()->getByName($routeName);
         $action = (string) $route->getActionName();
 
@@ -561,17 +559,7 @@ class Navigation
 
         $tier = $route->defaults['permission_tier'] ?? 'view';
 
-        if ($user->hasPermission($tier . '_' . $key)) {
-            return true;
-        }
-
-        foreach ($catalogue->legacyKeysFor($class)[$tier] ?? [] as $legacy) {
-            if ($user->hasPermission($legacy)) {
-                return true;
-            }
-        }
-
-        return false;
+        return $user->hasPermission($tier . '_' . $key);
     }
 
     /**

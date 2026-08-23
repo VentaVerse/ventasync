@@ -42,7 +42,7 @@ class ControllerPermissionTest extends TestCase
            extension registered here contributes routes the permissions table
            has never seen. Re-syncing is what production gets for free by
            booting extensions before anything migrates. */
-        $this->artisan('permissions:sync-catalogue', ['--no-migrate' => true]);
+        $this->artisan('permissions:sync-catalogue');
     }
 
     private int $groupSeq = 0;
@@ -209,16 +209,25 @@ class ControllerPermissionTest extends TestCase
      * worst failure this change could have had. It did, on the first run:
      * 586 tests.
      */
-    public function test_an_old_scheme_grant_still_opens_the_door_it_used_to(): void
+    /**
+     * THE RETIRED SCHEME HAS LEFT THE DATABASE. Phase D's migration
+     * translated every legacy grant onto derived keys and pruned the rows
+     * in one transaction, and nothing recreates them: every derived key
+     * carries a slash, and a permissions table is only converged when
+     * nothing in it lacks one.
+     */
+    public function test_the_retired_scheme_has_left_the_database(): void
     {
-        $user = $this->userWith(['manage_products', 'manage_api/product', 'manage_catalog/manufacturer', 'manage_catalog/category', 'manage_api/catalog', 'manage_catalog/product', 'manage_catalog/product_image', 'manage_catalog/product_option', 'manage_purchasing/product_vendor']);
-
-        $this->actingAs($user)->get(route('products.index'))->assertOk();
+        $this->assertSame(
+            0,
+            \Illuminate\Support\Facades\DB::table('permissions')->where('key', 'not like', '%/%')->count(),
+            'A slash-less permission row survived the Phase D prune - or something recreated one.'
+        );
     }
 
-    public function test_the_shim_never_promotes_a_view_grant_to_a_write(): void
+    public function test_a_view_grant_reaches_the_read_and_is_refused_the_write(): void
     {
-        $user = $this->userWith(['view_products', 'view_catalog/manufacturer', 'view_catalog/category', 'view_api/catalog', 'view_catalog/product', 'view_catalog/product_image']);
+        $user = $this->userWith(['view_catalog/product']);
 
         $this->actingAs($user)->get(route('products.index'))->assertOk();
 

@@ -124,7 +124,7 @@ class ReadRouteDoesNotWriteTest extends TestCase
     {
         $groupId = $this->seedAdoptableRow();
 
-        $this->actingAs($this->tierUser('Shopee Viewer', ['view_shopee', 'view_shopee/settings', 'view_shopee/category', 'view_shopee/category_attribute', 'view_shopee/logistics', 'view_shopee/product_group', 'view_shopee/product', 'view_shopee/dashboard']))
+        $this->actingAs($this->tierUser('Shopee Viewer', ['view_shopee/settings', 'view_shopee/category', 'view_shopee/category_attribute', 'view_shopee/logistics', 'view_shopee/product_group', 'view_shopee/product', 'view_shopee/dashboard']))
             ->get(route('ext.shopee.product-groups.products', ['id' => $groupId]))
             ->assertOk();
 
@@ -141,7 +141,7 @@ class ReadRouteDoesNotWriteTest extends TestCase
     {
         $groupId = $this->seedAdoptableRow();
 
-        $this->actingAs($this->tierUser('Shopee Manager', ['view_shopee', 'view_shopee/dashboard', 'manage_shopee', 'view_shopee/settings', 'view_shopee/category', 'view_shopee/category_attribute', 'view_shopee/logistics', 'view_shopee/product_group', 'view_shopee/product', 'manage_shopee/settings', 'manage_shopee/category', 'manage_shopee/category_attribute', 'manage_shopee/logistics', 'manage_shopee/product_group', 'manage_shopee/product', 'manage_shopee/dashboard']))
+        $this->actingAs($this->tierUser('Shopee Manager', ['view_shopee/dashboard', 'view_shopee/settings', 'view_shopee/category', 'view_shopee/category_attribute', 'view_shopee/logistics', 'view_shopee/product_group', 'view_shopee/product', 'manage_shopee/settings', 'manage_shopee/category', 'manage_shopee/category_attribute', 'manage_shopee/logistics', 'manage_shopee/product_group', 'manage_shopee/product', 'manage_shopee/dashboard']))
             ->get(route('ext.shopee.product-groups.products', ['id' => $groupId]))
             ->assertOk();
 
@@ -160,7 +160,7 @@ class ReadRouteDoesNotWriteTest extends TestCase
     {
         $groupId = $this->seedAdoptableRow();
 
-        $this->actingAs($this->tierUser('Shopee Manager', ['view_shopee', 'view_shopee/dashboard', 'manage_shopee', 'view_shopee/settings', 'view_shopee/category', 'view_shopee/category_attribute', 'view_shopee/logistics', 'view_shopee/product_group', 'view_shopee/product', 'manage_shopee/settings', 'manage_shopee/category', 'manage_shopee/category_attribute', 'manage_shopee/logistics', 'manage_shopee/product_group', 'manage_shopee/product', 'manage_shopee/dashboard']))
+        $this->actingAs($this->tierUser('Shopee Manager', ['view_shopee/dashboard', 'view_shopee/settings', 'view_shopee/category', 'view_shopee/category_attribute', 'view_shopee/logistics', 'view_shopee/product_group', 'view_shopee/product', 'manage_shopee/settings', 'manage_shopee/category', 'manage_shopee/category_attribute', 'manage_shopee/logistics', 'manage_shopee/product_group', 'manage_shopee/product', 'manage_shopee/dashboard']))
             ->get(route('ext.shopee.product-groups.products', ['id' => $groupId]))
             ->assertOk();
 

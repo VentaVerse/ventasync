@@ -48,8 +48,9 @@ class PaletteController extends Controller
             return false;
         };
 
-        // Matches the orders.show read-tier gate in routes/web.php exactly.
-        $canViewOrders = $hasAny('view_orders|manage_orders');
+        // Matches the door's sales/order view tier exactly (manage implies
+        // view inside hasPermission, so one key covers both grants).
+        $canViewOrders = $hasAny('view_sales/order');
 
         // Product results link to products.edit, and there is no read-only
         // products.show route to send a view_products-only user to instead
@@ -58,7 +59,7 @@ class PaletteController extends Controller
         // than the broader view_products|manage_products tier the catalog
         // list page accepts. A view-only user simply never sees products in
         // the palette, rather than seeing a result that bounces them.
-        $canViewProducts = $hasAny('manage_products');
+        $canViewProducts = $hasAny('manage_catalog/product');
 
         $orders = collect();
         if ($canViewOrders) {

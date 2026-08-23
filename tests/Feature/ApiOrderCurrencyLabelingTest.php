@@ -34,7 +34,7 @@ class ApiOrderCurrencyLabelingTest extends TestCase
     private function actingAsOrderManagerWeb(): User
     {
         $group = UserGroup::create(['name' => 'Order Managers']);
-        $permission = Permission::where('key', 'manage_orders')->firstOrFail();
+        $permission = Permission::where('key', 'manage_sales/order')->firstOrFail();
         $group->permissions()->attach($permission->id);
 
         $user = User::factory()->create(['user_group_id' => $group->id]);
@@ -117,7 +117,7 @@ class ApiOrderCurrencyLabelingTest extends TestCase
     private function orderManagerApiUser(): User
     {
         $group = UserGroup::create(['name' => 'Order Managers API']);
-        $permission = Permission::where('key', 'manage_orders')->firstOrFail();
+        $permission = Permission::where('key', 'manage_sales/order')->firstOrFail();
         $group->permissions()->attach($permission->id);
 
         $user = User::factory()->create(['user_group_id' => $group->id]);

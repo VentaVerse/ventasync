@@ -1,30 +1,30 @@
 <?php
 
-namespace App\Services;
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\DB;
 
 /**
- * THE FROZEN TRANSLATION TABLE FROM THE RETIRED PERMISSION SCHEME.
+ * Phase D of the one-vocabulary plan: the retired scheme leaves the
+ * database.
  *
- * legacy key => the derived keys that cover the routes it used to gate.
+ * TRANSLATE FIRST, PRUNE SECOND, ONE TRANSACTION. Every group holding a
+ * legacy key gets the derived keys that cover it (same tier, never
+ * widening) - creating the rows if missing - and only then do the legacy
+ * rows and their grants go. A database restored from a years-old backup
+ * and migrated forward arrives at exactly the access it had, in the only
+ * vocabulary that remains.
  *
- * Until 2026-08-23 this mapping was derived at runtime by reading the
- * perm: middleware off the route table - which was correct exactly as long
- * as the perm: arguments existed. Removing them (Phase A of the one-
- * vocabulary plan) would have struck the transition shim blind and locked
- * every pre-rebuild group out at the door. So the mapping is frozen here,
- * generated from the route table's last reading BEFORE the arguments came
- * off, plus the same-shaped entries for the extensions that were disabled
- * at capture time (pedallion, shopify, audit).
+ * The translation table is EMBEDDED, not read from LegacyGrantMap: that
+ * class is deleted in the same commit, and a migration must still run
+ * years from now against code that has long forgotten the old scheme.
  *
- * THIS IS SHIM DATA, NOT ARCHITECTURE. It exists so a group still holding
- * an old key keeps exactly the access it had, and it dies in Phase D with
- * the shims and the legacy rows. Nothing may add entries for NEW
- * functionality - a new page derives a new key and needs no translation.
+ * Pruned: every permission row whose key has no slash. After this, the
+ * permissions table holds catalogue-derived keys only, and the boot sync
+ * keeps it converged.
  */
-final class LegacyGrantMap
+return new class extends Migration
 {
-    /** @var array<string, array<int, string>> */
-    public const TRANSLATIONS = [
+    private const TRANSLATIONS = [
         'manage_activity_log' => ['manage_audit/activity_log'],
         'manage_api_clients' => ['manage_settings/api_client'],
         'manage_audit' => ['manage_audit/activity_log'],
@@ -102,4 +102,57 @@ final class LegacyGrantMap
         'view_warehousing' => ['view_warehousing/warehouse', 'view_warehousing/warehouse_inventory', 'view_warehousing/warehouse_transfer'],
         'view_website_settings' => ['view_settings/currency', 'view_settings/extension', 'view_settings/setting', 'view_settings/settings_hub'],
     ];
-}
+
+    public function up(): void
+    {
+        DB::transaction(function () {
+            $derivedIds = [];
+
+            $idFor = function (string $key) use (&$derivedIds): int {
+                if (! isset($derivedIds[$key])) {
+                    $derivedIds[$key] = DB::table('permissions')->where('key', $key)->value('id')
+                        ?? DB::table('permissions')->insertGetId(['key' => $key]);
+                }
+
+                return $derivedIds[$key];
+            };
+
+            foreach (self::TRANSLATIONS as $legacy => $derived) {
+                $legacyId = DB::table('permissions')->where('key', $legacy)->value('id');
+
+                if ($legacyId === null) {
+                    continue;
+                }
+
+                $holders = DB::table('user_group_permissions')
+                    ->where('permission_id', $legacyId)
+                    ->pluck('user_group_id');
+
+                foreach ($holders as $groupId) {
+                    foreach ($derived as $key) {
+                        DB::table('user_group_permissions')->insertOrIgnore([
+                            'user_group_id' => $groupId,
+                            'permission_id' => $idFor($key),
+                        ]);
+                    }
+                }
+            }
+
+            // Now nothing depends on them: every legacy row goes, grants
+            // included. No slash is the tell - every derived key has one.
+            $legacyIds = DB::table('permissions')
+                ->where('key', 'not like', '%/%')
+                ->pluck('id');
+
+            DB::table('user_group_permissions')->whereIn('permission_id', $legacyIds)->delete();
+            DB::table('permissions')->whereIn('id', $legacyIds)->delete();
+        });
+    }
+
+    public function down(): void
+    {
+        // The rows can be re-created empty, but the grants they carried are
+        // only reconstructable FROM the translations - which is the forward
+        // direction. Restoring the old scheme means restoring a backup.
+    }
+};

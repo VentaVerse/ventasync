@@ -61,7 +61,7 @@ class ShopeeReturnSolutionsTest extends TestCase
      */
     public function test_a_read_only_operator_may_ask_what_can_be_offered(): void
     {
-        $viewer = $this->userWith(['view_shopee', 'view_shopee/dashboard', 'view_shopee_orders', 'view_shopee/settings', 'view_shopee/category', 'view_shopee/category_attribute', 'view_shopee/logistics', 'view_shopee/product_group', 'view_shopee/product', 'view_shopee/order']);
+        $viewer = $this->userWith(['view_shopee/dashboard', 'view_shopee/settings', 'view_shopee/category', 'view_shopee/category_attribute', 'view_shopee/logistics', 'view_shopee/product_group', 'view_shopee/product', 'view_shopee/order']);
 
         $response = $this->actingAs($viewer)
             ->getJson(route('ext.shopee.orders.return_solutions', ['returnSn' => '220106202649696']));
@@ -72,7 +72,7 @@ class ShopeeReturnSolutionsTest extends TestCase
 
     public function test_someone_with_no_shopee_permission_cannot_ask(): void
     {
-        $outsider = $this->userWith(['view_products', 'view_catalog/manufacturer', 'view_catalog/category', 'view_api/catalog', 'view_catalog/product', 'view_catalog/product_image']);
+        $outsider = $this->userWith(['view_catalog/manufacturer', 'view_catalog/category', 'view_api/catalog', 'view_catalog/product', 'view_catalog/product_image']);
 
         $this->actingAs($outsider)
             ->get(route('ext.shopee.orders.return_solutions', ['returnSn' => '220106202649696']))
@@ -90,7 +90,7 @@ class ShopeeReturnSolutionsTest extends TestCase
      */
     public function test_no_connection_reports_the_reason_and_offers_nothing(): void
     {
-        $viewer = $this->userWith(['view_shopee', 'view_shopee/dashboard', 'view_shopee_orders', 'view_shopee/settings', 'view_shopee/category', 'view_shopee/category_attribute', 'view_shopee/logistics', 'view_shopee/product_group', 'view_shopee/product', 'view_shopee/order']);
+        $viewer = $this->userWith(['view_shopee/dashboard', 'view_shopee/settings', 'view_shopee/category', 'view_shopee/category_attribute', 'view_shopee/logistics', 'view_shopee/product_group', 'view_shopee/product', 'view_shopee/order']);
 
         $response = $this->actingAs($viewer)
             ->getJson(route('ext.shopee.orders.return_solutions', ['returnSn' => '220106202649696']));

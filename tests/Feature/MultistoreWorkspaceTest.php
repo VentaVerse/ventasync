@@ -174,10 +174,15 @@ class MultistoreWorkspaceTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'Multistore '.$channel.' Operators']);
 
+        // Every derived view key of the channel - what the old broad
+        // view_{channel} grant meant, in the only vocabulary left.
+        $keys = array_values(array_filter(
+            app(\App\Services\PermissionCatalogue::class)->keys(),
+            fn ($k) => str_starts_with($k, 'view_'.$channel.'/')
+        ));
+
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_'.$channel, 'view_'.$channel.'/dashboard', 'view_'.$channel.'_orders'])
-                ->pluck('id')
-                ->all()
+            Permission::whereIn('key', $keys)->pluck('id')->all()
         );
 
         return User::factory()->create(['user_group_id' => $group->id]);
@@ -193,7 +198,7 @@ class MultistoreWorkspaceTest extends TestCase
         $group = UserGroup::create(['name' => 'Multistore '.$channel.' Order Desk']);
 
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_'.$channel.'_orders'])->pluck('id')->all()
+            Permission::whereIn('key', ['view_'.$channel.'/order'])->pluck('id')->all()
         );
 
         return User::factory()->create(['user_group_id' => $group->id]);
@@ -487,7 +492,7 @@ class MultistoreWorkspaceTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'Multistore OpenCart Reviewers']);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_opencart', 'view_opencart/dashboard', 'view_opencart_orders', 'view_reviews', 'view_opencart/settings', 'view_opencart/product_group', 'view_opencart/order', 'view_opencart/review'])
+            Permission::whereIn('key', ['view_opencart/dashboard', 'view_opencart/settings', 'view_opencart/product_group', 'view_opencart/order', 'view_opencart/review'])
                 ->pluck('id')
                 ->all()
         );
@@ -495,7 +500,7 @@ class MultistoreWorkspaceTest extends TestCase
 
         // Guards the premise: this user genuinely holds the Reviews
         // permission, so its absence below is the grouping and not the gate.
-        $this->assertTrue($user->hasPermission('view_reviews'));
+        $this->assertTrue($user->hasPermission('view_opencart/review'));
 
         [$first] = $this->storeIds('opencart');
 
@@ -551,7 +556,7 @@ class MultistoreWorkspaceTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'Multistore Broad Operators']);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_venta', 'view_venta/dashboard', 'view_venta_orders', 'view_opencart', 'view_opencart/dashboard', 'view_opencart_orders', 'view_shopee', 'view_venta/settings', 'view_venta/product_group', 'view_venta/order', 'view_opencart/settings', 'view_opencart/product_group', 'view_opencart/order', 'view_shopee/settings', 'view_shopee/category', 'view_shopee/category_attribute', 'view_shopee/logistics', 'view_shopee/product_group', 'view_shopee/product', 'view_shopee/dashboard'])
+            Permission::whereIn('key', ['view_venta/dashboard', 'view_opencart/dashboard', 'view_venta/settings', 'view_venta/product_group', 'view_venta/order', 'view_opencart/settings', 'view_opencart/product_group', 'view_opencart/order', 'view_shopee/settings', 'view_shopee/category', 'view_shopee/category_attribute', 'view_shopee/logistics', 'view_shopee/product_group', 'view_shopee/product', 'view_shopee/dashboard'])
                 ->pluck('id')
                 ->all()
         );
@@ -655,8 +660,8 @@ class MultistoreWorkspaceTest extends TestCase
 
         // Guards the premise: this user holds the orders permission and not
         // the card permission, so the 404 is the card gate.
-        $this->assertTrue($user->hasPermission('view_'.$channel.'_orders'));
-        $this->assertFalse($user->hasPermission('view_'.$channel));
+        $this->assertTrue($user->hasPermission('view_'.$channel.'/order'));
+        $this->assertFalse($user->hasPermission('view_'.$channel.'/dashboard'));
 
         $this->actingAs($user)->get('/channels/'.$channel.'/'.$first)->assertNotFound();
     }
@@ -802,7 +807,7 @@ class MultistoreWorkspaceTest extends TestCase
         $group = UserGroup::create(['name' => 'Multistore '.$channel.' Order Managers']);
 
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_'.$channel, 'manage_'.$channel.'_orders', 'manage_orders', 'manage_api/order', 'manage_sales/order'])
+            Permission::whereIn('key', ['view_'.$channel.'/settings', 'manage_'.$channel.'/order', 'manage_api/order', 'manage_sales/order'])
                 ->pluck('id')
                 ->all()
         );
@@ -1004,8 +1009,8 @@ class MultistoreWorkspaceTest extends TestCase
         $manager = $this->ordersManager('venta');
         $viewer = $this->operator('venta');
 
-        $this->assertTrue($manager->hasPermission('manage_venta_orders'));
-        $this->assertFalse($viewer->hasPermission('manage_venta_orders'));
+        $this->assertTrue($manager->hasPermission('manage_venta/order'));
+        $this->assertFalse($viewer->hasPermission('manage_venta/order'));
 
         $managerView = $this->actingAs($manager)->get('/channels/venta/'.$first.'/orders');
         $managerView->assertOk();
