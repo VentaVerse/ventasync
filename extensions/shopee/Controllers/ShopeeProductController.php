@@ -656,8 +656,24 @@ class ShopeeProductController extends Controller
             ]
         );
 
+        // Variations ride the push: one Shopee model per combination,
+        // priced by the rule the listing just stored.
+        $savedListing = ShopeeListing::query()->where('product_id', $productId)->first();
+        $variations = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)->pushForProduct(
+            $client, $auth, (int) $itemId, $productId,
+            fn (float $core) => $savedListing->priceFor($core),
+            $this->tierImageUploader($client, $auth)
+        );
+
+        $flash = 'Product pushed to Shopee. Item ID: ' . $itemId . '. Its settings are saved on the listing for one-click pushes and price sync.';
+        if ($variations !== null) {
+            $flash .= $variations['ok']
+                ? ' ' . $variations['models'] . ' variations went with it.'
+                : ' The item is live, but its variations could not be created: ' . $variations['message'];
+        }
+
         return redirect()->route('ext.shopee.products.index')
-            ->with('status', 'Product pushed to Shopee. Item ID: ' . $itemId . '. Its settings are saved on the listing for one-click pushes and price sync.');
+            ->with($variations === null || $variations['ok'] ? 'status' : 'error', $flash);
     }
 
     // ── Push Direct (auto-populate from product + product group) ─────────
@@ -863,7 +879,21 @@ class ShopeeProductController extends Controller
             ],
         ])->save();
 
-        return redirect()->back()->with('status', 'Product pushed to Shopee. Item ID: ' . $itemId);
+        // Variations ride the push, priced by the listing's own rule.
+        $variations = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)->pushForProduct(
+            $client, $auth, (int) $itemId, $productId,
+            fn (float $core) => $listing->priceFor($core),
+            $this->tierImageUploader($client, $auth)
+        );
+
+        $flash = 'Product pushed to Shopee. Item ID: ' . $itemId;
+        if ($variations !== null) {
+            $flash .= $variations['ok']
+                ? '. ' . $variations['models'] . ' variations went with it.'
+                : '. The item is live, but its variations could not be created: ' . $variations['message'];
+        }
+
+        return redirect()->back()->with($variations === null || $variations['ok'] ? 'status' : 'error', $flash);
     }
 
     // ── Bulk Push to Shopee ───────────────────────────────────────
@@ -1032,6 +1062,15 @@ class ShopeeProductController extends Controller
                         'price' => $sellingPrice,
                     ],
                 ])->save();
+                // Variations ride the push, priced by the listing's rule.
+                $variations = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)->pushForProduct(
+                    $client, $auth, (int) $itemId, $productId,
+                    fn (float $core) => $listing->priceFor($core),
+                    $this->tierImageUploader($client, $auth)
+                );
+                if ($variations !== null && !$variations['ok']) {
+                    $errors[] = "#{$productId}: listed, but its variations could not be created - " . $variations['message'];
+                }
                 $okCount++;
             } else {
                 $msg = is_array($body) ? ($body['message'] ?? ($body['error'] ?? 'API error')) : 'API error';
@@ -2512,6 +2551,26 @@ class ShopeeProductController extends Controller
             if (file_exists($p)) return $p;
         }
         return null;
+    }
+
+    /**
+     * A closure the variation push can use to turn a combination's local
+     * image path into a Shopee image_id. Best effort by design: a missing
+     * file or failed upload returns null and the option simply goes
+     * without a picture.
+     */
+    private function tierImageUploader(ShopeeClient $client, array $auth): \Closure
+    {
+        return function (string $path) use ($client, $auth): ?string {
+            $localPath = $this->resolveLocalImagePath($path);
+            if (!$localPath || !file_exists($localPath)) {
+                return null;
+            }
+            $result = $this->uploadImage($client, $auth, $localPath);
+            $imageId = ($result['body']['response']['image_info']['image_id'] ?? null);
+
+            return ($result['ok'] ?? false) && $imageId ? (string) $imageId : null;
+        };
     }
 
     private function uploadImage(ShopeeClient $client, array $auth, string $localPath): array

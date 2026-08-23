@@ -2146,6 +2146,21 @@ class ShopeeProductGroupController extends Controller
                     ]
                 );
 
+                /* Variations ride the group push too, priced by the
+                 * GROUP's rule - the settings that made this push are the
+                 * settings that price its models. Content still never
+                 * comes from the group; tiers are structure, not wording. */
+                $vPct = (float) ($group->markup_percent ?? 0);
+                $vFixed = (float) ($group->markup_fixed ?? 0);
+                $variations = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)->pushForProduct(
+                    $client, $auth, (int) $itemId, $productId,
+                    fn (float $core) => round($core + ($core * $vPct / 100) + $vFixed, 2),
+                    null
+                );
+                if ($variations !== null && !$variations['ok']) {
+                    $errors[] = "#{$productId}: listed, but its variations could not be created - " . $variations['message'];
+                }
+
                 // Update pivot sync_status
                 $this->writeProductStatus($productId, [
                         'shopee_item_id' => (int) $itemId,
