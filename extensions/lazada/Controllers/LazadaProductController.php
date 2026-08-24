@@ -135,7 +135,7 @@ class LazadaProductController extends Controller
         return $this->isMapValue($value);
     }
 
-    private function isSkuLevelRequiredKey(string $key): bool
+    public function isSkuLevelRequiredKey(string $key): bool
     {
         $k = strtolower(trim($key));
         // Lazada mixes "product"-level and "sku"-level fields.
@@ -921,7 +921,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         // written on every push all along and was readable in one column and
         // filterable from nowhere, so finding the listings that failed among
         // two thousand meant paging through forty screens looking for red.
-        if (!in_array($syncStatus, ['all', 'not_uploaded', 'uploaded', 'deleted', 'error'], true)) {
+        if (!in_array($syncStatus, ['all', 'not_uploaded', 'uploaded', 'deleted', 'error', 'ready', 'not_ready'], true)) {
             $syncStatus = 'all';
         }
         $groupFilter = $request->query('group', 'all');
@@ -1021,6 +1021,22 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         // Load Lazada products (sorting by ERP-derived fields is done in-memory below).
         $listings = $query->get();
+
+        /* Readiness (#101, Lazada half): the computed "can this upload
+         * succeed" for every not-yet-uploaded listing, from the same
+         * shared answer the bulk upload refuses on. */
+        $readinessCandidates = $listings->filter(
+            fn ($l) => empty($l->lazada_item_id) && empty($l->lazada_deleted_at)
+        );
+        $readinessByListingId = app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class)
+            ->forListings($readinessCandidates);
+
+        if ($syncStatus === 'ready' || $syncStatus === 'not_ready') {
+            $wantReady = $syncStatus === 'ready';
+            $listings = $readinessCandidates->filter(
+                fn ($l) => ($readinessByListingId[(int) $l->id]['ready'] ?? false) === $wantReady
+            )->values();
+        }
 
         // Attach a small amount of product info for display
         $productIds = $listings->pluck('product_id')->filter()->unique()->values()->all();
@@ -1231,6 +1247,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'liveCounts' => $liveCounts,
             'liveTabError' => $liveTabError,
             'liveStatuses' => $liveStatuses,
+            'readinessByListingId' => $readinessByListingId,
         ]);
     }
 
@@ -2017,6 +2034,30 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         }
 
         $listings = LazadaProduct::query()->whereIn('id', $ids)->get();
+
+        /* REFUSE TO START rather than half-fail (#101, Lazada half): if any
+         * selected listing is not ready, nothing is uploaded and the
+         * unready are named with what they need. Already-uploaded rows are
+         * exempt - re-uploads update in place. */
+        $toCheck = $listings->filter(fn ($l) => empty($l->lazada_item_id));
+        $readiness = app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class)
+            ->forListings($toCheck);
+        $unready = array_filter($readiness, fn ($r) => !$r['ready']);
+        if (!empty($unready)) {
+            $lines = [];
+            foreach (array_slice($unready, 0, 5, true) as $lid => $r) {
+                $pid = (int) ($listings->firstWhere('id', $lid)?->product_id ?? 0);
+                $lines[] = "#{$pid} needs " . implode(', ', $r['missing']);
+            }
+            $summary = 'Nothing was uploaded. ' . count($unready) . ' of ' . count($ids)
+                . ' selected ' . (count($unready) === 1 ? 'is' : 'are') . ' not ready: '
+                . implode('; ', $lines)
+                . (count($unready) > 5 ? '; and ' . (count($unready) - 5) . ' more' : '')
+                . '. Untick them, or finish their listings first.';
+
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('error', $summary);
+        }
+
         $okCount = 0;
         $errCount = 0;
 
@@ -5144,7 +5185,7 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
      * Best-effort extraction of attribute definitions from Lazada category template response.
      * The response shapes vary; we keep this tolerant.
      */
-    private function extractAttributes($body): array
+    public function extractAttributes($body): array
     {
         if (!is_array($body)) {
             return [];

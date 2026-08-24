@@ -801,23 +801,55 @@ class LazadaProductGroupController extends Controller
                         ->where('product_id', $productId)
                         ->first();
                 }
+                $restoreOwnSettings = null;
             } else {
-                // Sync group settings to existing listing
+                /* THE GROUP'S SETTINGS MAKE THIS PUSH - WITHOUT BECOMING THE
+                 * LISTING'S OWN (#104's rule, ported from Shopee: a group
+                 * push writes NOTHING onto the listing's settings). The
+                 * payload builder reads the listing's rows, so the group's
+                 * values are applied for the build and restored right
+                 * after. A parameterized builder replaces this dance when
+                 * it lands; until then the rule holds. */
+                $ownSettings = [
+                    'primary_category_id' => $listing->primary_category_id,
+                    'markup_fixed'        => $listing->markup_fixed,
+                    'markup_percent'      => $listing->markup_percent,
+                ];
+                $groupAttrs = LazadaProductGroupAttribute::where('lazada_product_group_id', $group->id)
+                    ->get(['attribute_key', 'value']);
+                $ownAttrValues = \Extensions\lazada\Models\LazadaProductAttribute::query()
+                    ->where('lazada_product_id', $listing->id)
+                    ->whereIn('attribute_key', $groupAttrs->pluck('attribute_key')->all() ?: [''])
+                    ->pluck('value', 'attribute_key');
+
                 $listing->update([
                     'primary_category_id' => $group->lazada_category_id,
                     'markup_fixed'        => $group->markup_fixed,
                     'markup_percent'      => $group->markup_percent,
                 ]);
-
-                // Sync group attributes
-                $groupAttrs = LazadaProductGroupAttribute::where('lazada_product_group_id', $group->id)
-                    ->get(['attribute_key', 'value']);
                 foreach ($groupAttrs as $ga) {
                     \Extensions\lazada\Models\LazadaProductAttribute::updateOrCreate(
                         ['lazada_product_id' => $listing->id, 'attribute_key' => $ga->attribute_key],
                         ['value' => $ga->value]
                     );
                 }
+
+                $restoreOwnSettings = function () use ($listing, $ownSettings, $groupAttrs, $ownAttrValues) {
+                    $listing->update($ownSettings);
+                    foreach ($groupAttrs as $ga) {
+                        if ($ownAttrValues->has($ga->attribute_key)) {
+                            \Extensions\lazada\Models\LazadaProductAttribute::query()
+                                ->where('lazada_product_id', $listing->id)
+                                ->where('attribute_key', $ga->attribute_key)
+                                ->update(['value' => $ownAttrValues->get($ga->attribute_key)]);
+                        } else {
+                            \Extensions\lazada\Models\LazadaProductAttribute::query()
+                                ->where('lazada_product_id', $listing->id)
+                                ->where('attribute_key', $ga->attribute_key)
+                                ->delete();
+                        }
+                    }
+                };
             }
 
             // Build payload
@@ -825,17 +857,22 @@ class LazadaProductGroupController extends Controller
                 [$productPayload, $preview] = $lazCtrl->buildLazadaProductCreatePayload($listing, $setting, $client);
                 $productPayload = $lazCtrl->ensureLazadaInlinkImages($productPayload, $setting, $client);
             } catch (\Illuminate\Validation\ValidationException $e) {
+                if ($restoreOwnSettings) $restoreOwnSettings();
                 $msg = implode('; ', array_map(fn($m) => implode(', ', $m), $e->errors()));
                 $errors[] = "#{$productId}: {$msg}";
                 if ($pivot) $pivot->update(['sync_status' => 'error']);
                 $errCount++;
                 continue;
             } catch (\Throwable $e) {
+                if ($restoreOwnSettings) $restoreOwnSettings();
                 $errors[] = "#{$productId}: " . $e->getMessage();
                 if ($pivot) $pivot->update(['sync_status' => 'error']);
                 $errCount++;
                 continue;
             }
+            // The payload is built; the listing's own settings come back
+            // before anything else happens.
+            if ($restoreOwnSettings) $restoreOwnSettings();
 
             $apiPath = '/product/create';
             $timestamp = (string) round(microtime(true) * 1000);
@@ -958,15 +995,26 @@ class LazadaProductGroupController extends Controller
                 continue;
             }
 
-            // Sync group settings to listing
+            /* The GROUP's settings make this update - without becoming the
+             * listing's own (#104's rule). Applied for the build, restored
+             * right after, exactly as the create push does. */
+            $ownSettings = [
+                'primary_category_id' => $listing->primary_category_id,
+                'markup_fixed'        => $listing->markup_fixed,
+                'markup_percent'      => $listing->markup_percent,
+            ];
+            $groupAttrs = LazadaProductGroupAttribute::where('lazada_product_group_id', $group->id)
+                ->get(['attribute_key', 'value']);
+            $ownAttrValues = \Extensions\lazada\Models\LazadaProductAttribute::query()
+                ->where('lazada_product_id', $listing->id)
+                ->whereIn('attribute_key', $groupAttrs->pluck('attribute_key')->all() ?: [''])
+                ->pluck('value', 'attribute_key');
+
             $listing->update([
                 'primary_category_id' => $group->lazada_category_id,
                 'markup_fixed'        => $group->markup_fixed,
                 'markup_percent'      => $group->markup_percent,
             ]);
-
-            $groupAttrs = LazadaProductGroupAttribute::where('lazada_product_group_id', $group->id)
-                ->get(['attribute_key', 'value']);
             foreach ($groupAttrs as $ga) {
                 \Extensions\lazada\Models\LazadaProductAttribute::updateOrCreate(
                     ['lazada_product_id' => $listing->id, 'attribute_key' => $ga->attribute_key],
@@ -974,22 +1022,44 @@ class LazadaProductGroupController extends Controller
                 );
             }
 
+            $restoreOwnSettings = function () use ($listing, $ownSettings, $groupAttrs, $ownAttrValues) {
+                $listing->update($ownSettings);
+                foreach ($groupAttrs as $ga) {
+                    if ($ownAttrValues->has($ga->attribute_key)) {
+                        \Extensions\lazada\Models\LazadaProductAttribute::query()
+                            ->where('lazada_product_id', $listing->id)
+                            ->where('attribute_key', $ga->attribute_key)
+                            ->update(['value' => $ownAttrValues->get($ga->attribute_key)]);
+                    } else {
+                        \Extensions\lazada\Models\LazadaProductAttribute::query()
+                            ->where('lazada_product_id', $listing->id)
+                            ->where('attribute_key', $ga->attribute_key)
+                            ->delete();
+                    }
+                }
+            };
+
             // Build payload
             try {
                 [$productPayload, $preview] = $lazCtrl->buildLazadaProductCreatePayload($listing, $setting, $client);
                 $productPayload = $lazCtrl->ensureLazadaInlinkImages($productPayload, $setting, $client);
             } catch (\Illuminate\Validation\ValidationException $e) {
+                if ($restoreOwnSettings) $restoreOwnSettings();
                 $msg = implode('; ', array_map(fn($m) => implode(', ', $m), $e->errors()));
                 $errors[] = "#{$productId}: {$msg}";
                 if ($pivot) $pivot->update(['sync_status' => 'error']);
                 $errCount++;
                 continue;
             } catch (\Throwable $e) {
+                if ($restoreOwnSettings) $restoreOwnSettings();
                 $errors[] = "#{$productId}: " . $e->getMessage();
                 if ($pivot) $pivot->update(['sync_status' => 'error']);
                 $errCount++;
                 continue;
             }
+            // The payload is built; the listing's own settings come back
+            // before anything else happens.
+            if ($restoreOwnSettings) $restoreOwnSettings();
 
             // Inject ItemId and SkuId for update
             $productPayload['Request']['Product']['ItemId'] = (int) $listing->lazada_item_id;

@@ -225,6 +225,27 @@ class LazadaListingLiveTest extends TestCase
         $r->assertSee('from its listing');
     }
 
+    public function test_readiness_names_gaps_and_the_bulk_upload_refuses_to_start(): void
+    {
+        /* #101, Lazada half: the index answers "can this upload succeed"
+         * before anything is pressed, and a bulk upload over an unready
+         * selection refuses to start, naming what each needs. */
+        $productId = $this->seedProduct('Unready lazada product', 'LZT-UNREADY');
+        $listing = LazadaProduct::query()->create(['product_id' => $productId]);
+
+        $r = $this->actingAs($this->manager())->get(route('ext.lazada.products.index'));
+        $r->assertOk();
+        $r->assertSee('Missing:');
+        $r->assertSee('a Lazada category');
+
+        $r2 = $this->actingAs($this->manager())->post(route('ext.lazada.products.bulk_upload'), [
+            'listing_ids' => [$listing->id],
+        ]);
+        $r2->assertSessionHas('error');
+        $this->assertStringContainsString('Nothing was uploaded', session('error'));
+        $this->assertStringContainsString("#{$productId} needs", session('error'));
+    }
+
     public function test_the_edit_page_opens_with_the_items_live_state(): void
     {
         $productId = $this->seedProduct('Live edit product', 'LZT-LIVE');

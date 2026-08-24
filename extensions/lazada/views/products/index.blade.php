@@ -279,6 +279,9 @@
             <option value="uploaded" @selected($syncStatus === 'uploaded')>Uploaded to Lazada</option>
             <option value="not_uploaded" @selected($syncStatus === 'not_uploaded')>Not uploaded</option>
             <option value="deleted" @selected($syncStatus === 'deleted')>Deleted from Lazada</option>
+            {{-- The computed answer (#101): uploadable right now, or not. --}}
+            <option value="ready" @selected($syncStatus === 'ready')>Ready to upload</option>
+            <option value="not_ready" @selected($syncStatus === 'not_ready')>Not ready to upload</option>
             {{-- The reason to open this page. Separated from the three above
                  because they describe where a listing IS and this one
                  describes what happened to it. --}}
@@ -619,6 +622,18 @@
                     <x-ui.badge tone="neutral">Deleted</x-ui.badge>
                 @else
                     <x-ui.badge tone="neutral">Not uploaded</x-ui.badge>
+                    {{-- The computed readiness (#101): the answer BEFORE the
+                         upload is pressed, by the same shared computation
+                         the bulk upload refuses on. --}}
+                    @php $rowReady = $readinessByListingId[(int) $l->id] ?? null; @endphp
+                    @if($rowReady !== null)
+                        @if($rowReady['ready'])
+                            <span class="cc-checked">Ready to upload</span>
+                        @else
+                            <span class="cc-checked cc-checked--never"
+                                  title="Missing: {{ implode('; ', $rowReady['missing']) }}">Missing: {{ \Illuminate\Support\Str::limit(implode(', ', $rowReady['missing']), 80) }}</span>
+                        @endif
+                    @endif
                 @endif
             </td>
 
