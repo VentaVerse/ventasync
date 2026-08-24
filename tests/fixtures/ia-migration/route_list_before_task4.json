@@ -506,6 +506,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/lazada/listings/{id}/push-discount",
+        "name": "ext.lazada.listings.push_discount"
+    },
+    {
+        "method": "POST",
         "uri": "channels/lazada/listings/{id}/toggle",
         "name": "ext.lazada.listings.toggle"
     },

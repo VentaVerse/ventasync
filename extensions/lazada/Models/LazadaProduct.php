@@ -13,12 +13,16 @@ class LazadaProduct extends Model
         'product_id', 'primary_category_id', 'brand_id', 'brand_name_override',
         'total_price', 'lazada_item_id', 'unlinked_at',
         'last_pushed_at', 'last_push_source', 'last_push_settings',
+        'sale_percent', 'sale_starts_at', 'sale_ends_at',
     ];
 
     protected $casts = [
         'unlinked_at' => 'datetime',
         'last_pushed_at' => 'datetime',
         'last_push_settings' => 'array',
+        'sale_percent' => 'float',
+        'sale_starts_at' => 'datetime',
+        'sale_ends_at' => 'datetime',
     ];
 
     public function attributes()

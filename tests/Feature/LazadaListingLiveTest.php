@@ -289,6 +289,61 @@ class LazadaListingLiveTest extends TestCase
         $this->assertSame('active', $payload['Request']['Product']['Skus']['Sku'][0]['Status']);
     }
 
+    public function test_a_discount_rides_the_price_update_as_a_computed_sale_price(): void
+    {
+        /* Quest 2, #146: the rule (percent + window) is stored; the sale
+         * price is computed at push time from the same final price a price
+         * sync would send - Lazada's SalePrice/SaleStartDate/SaleEndDate
+         * wire, the seller center's own "Edit Special Price". */
+        $productId = $this->seedProduct('Discounted product', 'LZT-SALE');
+        $listing = LazadaProduct::query()->create([
+            'product_id' => $productId, 'lazada_item_id' => '990077',
+            'sale_percent' => 20,   // sale price 88.00 off the 110.00 final
+            'sale_starts_at' => now()->addDay(), 'sale_ends_at' => now()->addDays(8),
+        ]);
+        // markup fields are deliberately not mass-assignable
+        $listing->forceFill(['markup_percent' => 10])->save(); // final price 110.00
+        \Extensions\lazada\Models\LazadaProductVariant::query()->create([
+            'lazada_product_id' => $listing->id, 'seller_sku' => 'LZT-SALE', 'sku_id' => 555222,
+        ]);
+
+        $r = $this->actingAs($this->manager())
+            ->post(route('ext.lazada.listings.push_discount', $listing->id), ['action' => 'push']);
+
+        $sent = collect($this->sentPosts)->firstWhere('path', '/product/price_quantity/update');
+        $this->assertNotNull($sent, 'The discount must ride the price update.');
+        $xml = $sent['params']['payload'];
+        $this->assertStringContainsString('<SkuId>555222</SkuId>', $xml);
+        $this->assertStringContainsString('<Price>110.00</Price>', $xml);
+        $this->assertStringContainsString('<SalePrice>88.00</SalePrice>', $xml);
+        $this->assertStringContainsString('<SaleStartDate>' . now()->addDay()->format('Y-m-d'), $xml);
+        $this->assertStringContainsString('<SaleEndDate>' . now()->addDays(8)->format('Y-m-d'), $xml);
+        $r->assertSessionHas('status');
+
+        // Ending sends SalePrice 0 and clears the rule.
+        $this->sentPosts = [];
+        $this->actingAs($this->manager())
+            ->post(route('ext.lazada.listings.push_discount', $listing->id), ['action' => 'end']);
+        $sent = collect($this->sentPosts)->firstWhere('path', '/product/price_quantity/update');
+        $this->assertStringContainsString('<SalePrice>0</SalePrice>', $sent['params']['payload']);
+        $this->assertNull($listing->fresh()->sale_percent, 'Ending clears the stored rule.');
+    }
+
+    public function test_a_discount_without_its_window_is_refused_with_the_reason(): void
+    {
+        $productId = $this->seedProduct('Ruleless product', 'LZT-NORULE');
+        $listing = LazadaProduct::query()->create([
+            'product_id' => $productId, 'lazada_item_id' => '990077',
+        ]);
+
+        $r = $this->actingAs($this->manager())
+            ->post(route('ext.lazada.listings.push_discount', $listing->id), ['action' => 'push']);
+
+        $this->assertSame([], $this->sentPosts, 'Nothing may be sent without a saved rule.');
+        $r->assertSessionHas('error');
+        $this->assertStringContainsString('Set the discount first', session('error'));
+    }
+
     public function test_the_edit_page_opens_with_the_items_live_state(): void
     {
         $productId = $this->seedProduct('Live edit product', 'LZT-LIVE');
