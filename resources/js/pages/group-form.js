@@ -416,7 +416,22 @@ function initCategoryCombo(root) {
     const value = root.querySelector('[data-combo-value]');
     const results = root.querySelector('[data-combo-results]');
     const island = root.querySelector('[data-combo-options]');
+    const extraParam = root.getAttribute('data-combo-extra-param');
+    const extraSource = extraParam
+        ? document.querySelector(root.getAttribute('data-combo-extra-source') || '')
+        : null;
+    const extraEmptyText = root.getAttribute('data-combo-extra-empty') || 'Pick a category first.';
     if (!input || !value || !results) return;
+
+    // When what this combobox depends on changes, its own pick is void:
+    // a brand id from one category means nothing in another.
+    if (extraSource) {
+        extraSource.addEventListener('change', function () {
+            value.value = '';
+            input.value = '';
+            hide();
+        });
+    }
 
     // The popup is a real listbox and the field that opens it is a real
     // combobox: both roles need the pair of ids that ties them together,
@@ -486,6 +501,11 @@ function initCategoryCombo(root) {
     }
 
     function label(item) {
+        // Category labels carry the id (it is what API rejections quote);
+        // a brand list is names an operator recognises, the id is noise.
+        if (root.hasAttribute('data-combo-plain-label')) {
+            return String(item.name || '');
+        }
         return String(item.name || '') + ' (' + String(item.id) + ')';
     }
 
@@ -568,14 +588,27 @@ function initCategoryCombo(root) {
         const url = new URL(searchUrl, window.location.origin);
         url.searchParams.set('q', query);
         url.searchParams.set('limit', '25');
+        // A dependent combobox (the brand list belongs to a category)
+        // carries the parameter name and where to read its value from.
+        // No value yet means there is nothing to search IN: say so
+        // instead of asking the server a question it must refuse.
+        if (extraParam && extraSource) {
+            if (!extraSource.value) {
+                render([]);
+                const empty = results.querySelector('.gf-combo__empty');
+                if (empty) empty.textContent = extraEmptyText;
+                return;
+            }
+            url.searchParams.set(extraParam, extraSource.value);
+        }
         fetch(url.toString(), {
             headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
         })
             .then(function (response) { return response.json(); })
             .then(function (data) {
                 if (!data || !data.ok) return;
-                render((data.categories || []).map(function (c) {
-                    return { id: c.category_id, name: c.name };
+                render((data.categories || data.brands || []).map(function (c) {
+                    return { id: c.category_id !== undefined ? c.category_id : c.brand_id, name: c.name };
                 }));
             })
             .catch(function () { hide(); });
@@ -686,85 +719,6 @@ function initCategoryCombo(root) {
                 });
         });
     }
-}
-
-/* ==================================================================
-   4. Shopee: the brand select, loaded for the chosen category
-
-   Shopee's brand list is per category and is fetched on demand. The
-   original reset the remembered brand to "none" on every category
-   change, which is right: a brand id from one category means nothing
-   in another.
-   ================================================================== */
-
-function initBrandSelect(select) {
-    const url = select.getAttribute('data-brand-url');
-    const source = document.querySelector(select.getAttribute('data-brand-source') || '[data-combo-value]');
-    const hint = document.querySelector(select.getAttribute('data-brand-hint') || '[data-brand-hint]');
-    if (!url || !source) return;
-
-    const idleHint = hint ? hint.textContent : '';
-    let remembered = String(select.getAttribute('data-brand-selected') || '0');
-
-    function say(text) { if (hint) hint.textContent = text; }
-
-    function load(categoryId, keepSelected) {
-        if (!categoryId) {
-            select.textContent = '';
-            const none = document.createElement('option');
-            none.value = '0';
-            none.textContent = 'No brand';
-            select.appendChild(none);
-            say(idleHint);
-            return;
-        }
-
-        say('Loading the brands for this category.');
-
-        const endpoint = new URL(url, window.location.origin);
-        endpoint.searchParams.set('category_id', categoryId);
-
-        fetch(endpoint.toString(), {
-            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-        })
-            .then(function (response) { return response.json(); })
-            .then(function (data) {
-                if (!data || !data.ok) {
-                    say((data && data.message) || 'Could not load the brands for this category.');
-                    return;
-                }
-
-                const wanted = keepSelected ? remembered : '0';
-                select.textContent = '';
-
-                const none = document.createElement('option');
-                none.value = '0';
-                none.textContent = 'No brand';
-                if (wanted === '0') none.selected = true;
-                select.appendChild(none);
-
-                (data.brands || []).forEach(function (brand) {
-                    const option = document.createElement('option');
-                    option.value = String(brand.brand_id);
-                    option.textContent = brand.name;
-                    if (String(brand.brand_id) === wanted) option.selected = true;
-                    select.appendChild(option);
-                });
-
-                const count = (data.brands || []).length;
-                say(count + (count === 1 ? ' brand ' : ' brands ')
-                    + (data.cached ? 'already cached' : 'fetched from Shopee')
-                    + ' for this category. Leave it on No brand if you are not sure.');
-            })
-            .catch(function () { say('Could not reach Shopee to load the brands.'); });
-    }
-
-    if (source.value) load(source.value, true);
-
-    source.addEventListener('change', function () {
-        remembered = '0';
-        load(source.value, false);
-    });
 }
 
 /* ==================================================================
@@ -997,7 +951,6 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('[data-group-filter-picker] .fm-field').forEach(initFilterPicker);
     document.querySelectorAll('[data-group-product-picker]').forEach(initProductPicker);
     document.querySelectorAll('[data-category-combo]').forEach(initCategoryCombo);
-    document.querySelectorAll('[data-brand-select]').forEach(initBrandSelect);
     document.querySelectorAll('[data-brand-picker]').forEach(initBrandPicker);
     document.querySelectorAll('[data-attributes-fetch]').forEach(initAttributeFetch);
     bindAttributeRows();

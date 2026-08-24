@@ -875,13 +875,36 @@ class ShopeeProductGroupController extends Controller
             return response()->json(['ok' => false, 'message' => 'category_id is required.'], 422);
         }
 
-        // Serve from cache if we've fetched this category before.
-        $cached = ShopeeBrand::query()
-            ->where('category_id', $categoryId)
-            ->orderBy('name')
-            ->get(['brand_id', 'name']);
+        /* Optional search terms, for the brand COMBOBOX (2026-08-24): the
+         * plain select swallowed the whole list, the combobox asks for the
+         * 25 best matches of what the operator typed. Absent q/limit keeps
+         * the original whole-list answer for any older caller. */
+        $q = trim((string) $request->query('q', ''));
+        $limit = (int) $request->query('limit', 0);
+        $filterBrands = function ($query) use ($q, $limit) {
+            if ($q !== '') {
+                $query->where(function ($w) use ($q) {
+                    $w->where('name', 'like', '%' . $q . '%');
+                    if (ctype_digit($q)) {
+                        $w->orWhere('brand_id', (int) $q);
+                    }
+                });
+            }
+            if ($limit > 0) {
+                $query->limit(max(1, min(50, $limit)));
+            }
 
-        if ($cached->isNotEmpty()) {
+            return $query;
+        };
+
+        // Serve from cache if we've fetched this category before.
+        $cacheHasAny = ShopeeBrand::query()->where('category_id', $categoryId)->exists();
+        if ($cacheHasAny) {
+            $cached = $filterBrands(ShopeeBrand::query()
+                ->where('category_id', $categoryId)
+                ->orderBy('name'))
+                ->get(['brand_id', 'name']);
+
             return response()->json([
                 'ok' => true,
                 'cached' => true,
@@ -962,9 +985,9 @@ class ShopeeProductGroupController extends Controller
             );
         }
 
-        $brands = ShopeeBrand::query()
+        $brands = $filterBrands(ShopeeBrand::query()
             ->where('category_id', $categoryId)
-            ->orderBy('name')
+            ->orderBy('name'))
             ->get(['brand_id', 'name'])
             ->map(fn ($b) => ['brand_id' => (int) $b->brand_id, 'name' => (string) $b->name])
             ->all();

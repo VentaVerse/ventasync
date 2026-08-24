@@ -143,7 +143,7 @@
                              data-combo-lookup-url="{{ route('ext.shopee.product-groups.categoryLookup') }}"
                              @if($canManageShopee) data-combo-refresh-url="{{ route('ext.shopee.product-groups.refreshCategories') }}" @endif>
                             <div class="gf-combo__field">
-                                <input type="hidden" name="shopee_category_id" data-combo-value
+                                <input type="hidden" id="pg-category-value" name="shopee_category_id" data-combo-value
                                        value="{{ $selectedCategoryId > 0 ? $selectedCategoryId : '' }}">
                                 <x-ui.input id="pg-category" type="search" autocomplete="off"
                                             data-combo-input
@@ -159,20 +159,35 @@
                     </x-ui.field>
 
                     <x-ui.field label="Shopee brand" for="pg-brand" name="shopee_brand_id" wide>
-                        <div class="x-select-wrap">
-                            <select id="pg-brand" name="shopee_brand_id" class="x-input"
-                                    data-brand-select
-                                    data-brand-url="{{ route('ext.shopee.product-groups.brandsForCategory') }}"
-                                    data-brand-selected="{{ $selectedBrandId }}"
-                                    @disabled(!$canManageShopee)>
-                                <option value="0" @selected($selectedBrandId === 0)>No brand</option>
-                                @foreach($initialBrands as $brand)
-                                    <option value="{{ (int) $brand->brand_id }}" @selected($selectedBrandId === (int) $brand->brand_id)>{{ $brand->name }}</option>
-                                @endforeach
-                            </select>
-                            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                        @php
+                            $pgBrandName = $selectedBrandId > 0
+                                ? (string) (optional($initialBrands->firstWhere('brand_id', $selectedBrandId))->name ?? '')
+                                : '';
+                        @endphp
+                        {{-- The same searchable combobox the category uses,
+                             dependent on it (2026-08-24; the plain select
+                             swallowed whole brand lists). --}}
+                        <div class="gf-combo"
+                             data-category-combo
+                             data-combo-mode="remote"
+                             data-combo-plain-label
+                             data-combo-search-url="{{ route('ext.shopee.product-groups.brandsForCategory') }}"
+                             data-combo-extra-param="category_id"
+                             data-combo-extra-source="#pg-category-value"
+                             data-combo-extra-empty="Pick a category first - every brand list belongs to one.">
+                            <div class="gf-combo__field">
+                                <input type="hidden" name="shopee_brand_id" data-combo-value
+                                       value="{{ $selectedBrandId > 0 ? $selectedBrandId : '' }}">
+                                <x-ui.input id="pg-brand" type="search" autocomplete="off"
+                                            data-combo-input
+                                            value="{{ $pgBrandName }}"
+                                            placeholder="Type to search this category's brands"
+                                            :disabled="!$canManageShopee" />
+                                <div class="gf-combo__results" data-combo-results role="listbox"
+                                     aria-label="Shopee brands" hidden></div>
+                            </div>
                         </div>
-                        <div class="fm-hint" data-brand-hint>Brands load when you pick a category. It stays on No brand until you choose one.</div>
+                        <div class="fm-hint">Leave it empty for No brand.</div>
                     </x-ui.field>
                 </div>
             </section>

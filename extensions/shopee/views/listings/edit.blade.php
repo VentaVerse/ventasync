@@ -337,23 +337,37 @@
                 <div class="fm-card">
                     <div class="fm-card__head"><h2 class="fm-card__title">Brand</h2></div>
                     <div class="fm-card__body">
+                        @php
+                            $slBrandId = (int) ($listing->shopee_brand_id ?? 0);
+                            $slBrandName = $slBrandId > 0
+                                ? (string) (optional($initialBrands->firstWhere('brand_id', $slBrandId))->name ?? '')
+                                : '';
+                        @endphp
                         <x-ui.field label="Brand" for="sl-brand" name="shopee_brand_id"
-                                    hint="Only brands Shopee registers for the chosen category are offered.">
-                            <div class="x-select-wrap">
-                                <select id="sl-brand" name="shopee_brand_id" class="x-input"
-                                        data-brand-select
-                                        data-brand-url="{{ route('ext.shopee.products.brandsForCategory') }}"
-                                        data-brand-source="#sl-category-value"
-                                        data-brand-selected="{{ (int) ($listing->shopee_brand_id ?? 0) }}"
-                                        @disabled(!$canManage)>
-                                    <option value="0" @selected((int) ($listing->shopee_brand_id ?? 0) === 0)>No brand</option>
-                                    @foreach($initialBrands as $brand)
-                                        <option value="{{ (int) $brand->brand_id }}" @selected((int) ($listing->shopee_brand_id ?? 0) === (int) $brand->brand_id)>{{ $brand->name }}</option>
-                                    @endforeach
-                                </select>
-                                <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                                    hint="Only brands Shopee registers for the chosen category are offered. Leave it empty for No brand.">
+                            {{-- Same searchable combobox as the category,
+                                 dependent on it: the search asks for THIS
+                                 category's brands. --}}
+                            <div class="gf-combo"
+                                 data-category-combo
+                                 data-combo-mode="remote"
+                                 data-combo-plain-label
+                                 data-combo-search-url="{{ route('ext.shopee.products.brandsForCategory') }}"
+                                 data-combo-extra-param="category_id"
+                                 data-combo-extra-source="#sl-category-value"
+                                 data-combo-extra-empty="Pick a category first - every brand list belongs to one.">
+                                <div class="gf-combo__field">
+                                    <input type="hidden" name="shopee_brand_id" data-combo-value
+                                           value="{{ $slBrandId > 0 ? $slBrandId : '' }}">
+                                    <x-ui.input id="sl-brand" type="search" autocomplete="off"
+                                                data-combo-input
+                                                value="{{ $slBrandName }}"
+                                                placeholder="Type to search this category's brands"
+                                                :disabled="!$canManage" />
+                                    <div class="gf-combo__results" data-combo-results role="listbox"
+                                         aria-label="Shopee brands" hidden></div>
+                                </div>
                             </div>
-                            <div class="fm-hint" data-brand-hint>Brands load when you pick a category. It stays on No brand until you choose one.</div>
                         </x-ui.field>
                     </div>
                 </div>

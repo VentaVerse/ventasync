@@ -400,6 +400,21 @@ class ShopeeListingPageTest extends TestCase
         $this->assertSame('G7th', $sent['body']['brand']['original_brand_name']);
     }
 
+    public function test_the_brand_search_answers_this_categorys_brands_only(): void
+    {
+        \Extensions\shopee\Models\ShopeeBrand::query()->create(['category_id' => 106755, 'brand_id' => 5511, 'name' => 'G7th']);
+        \Extensions\shopee\Models\ShopeeBrand::query()->create(['category_id' => 106755, 'brand_id' => 5512, 'name' => 'Dunlop']);
+
+        $r = $this->actingAs($this->userWith(['view_shopee/product']))
+            ->get(route('ext.shopee.products.brandsForCategory', ['category_id' => 106755, 'q' => 'G7', 'limit' => 25]));
+
+        $r->assertOk();
+        $r->assertJson(['ok' => true]);
+        $brands = $r->json('brands');
+        $this->assertCount(1, $brands);
+        $this->assertSame('G7th', $brands[0]['name']);
+    }
+
     public function test_the_category_picker_endpoints_answer_to_the_products_key(): void
     {
         // The push form and listing page's combobox search under THEIR OWN
