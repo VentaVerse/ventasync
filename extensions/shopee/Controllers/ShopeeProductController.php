@@ -466,6 +466,18 @@ class ShopeeProductController extends Controller
             $groupCategoryId = (int) $qCategoryId ?: null;
         }
 
+        /* The category's attribute sheet (#98, form half): a FIRST push can
+         * answer what the category asks right here, instead of going up
+         * bare and filling attributes on the listing afterwards. Same
+         * template, same partial, same reload-on-category-change as the
+         * listing page and the group form. */
+        $formCategoryId = (int) ($groupCategoryId ?? 0);
+        $groupController = app(ShopeeProductGroupController::class);
+        if ($formCategoryId > 0) {
+            $groupController->ensureTemplate($formCategoryId, app(ShopeeClient::class));
+        }
+        $sheet = $groupController->normalizedAttributesFor($formCategoryId);
+
         return view('ext-shopee::products.push', [
             'product' => $product,
             'images' => $images,
@@ -474,6 +486,9 @@ class ShopeeProductController extends Controller
             'groupCategoryId' => $groupCategoryId,
             'groupName' => $listing ? 'this product\'s own listing' : null,
             'suggestedPrice' => $suggestedPrice,
+            'attrTemplate' => $sheet['template'],
+            'attrRows' => $sheet['attributes'],
+            'savedAttributes' => $listing->attribute_values ?? [],
         ]);
     }
 
@@ -494,6 +509,8 @@ class ShopeeProductController extends Controller
             'logistic_ids.*' => 'integer',
             'selected_images' => 'required|array|min:1',
             'selected_images.*' => 'string',
+            'attributes' => 'nullable|array',
+            'attributes.*' => 'nullable|string|max:500',
         ]);
 
         $setting = ShopeeSetting::query()->first()?->decrypted();
@@ -585,10 +602,17 @@ class ShopeeProductController extends Controller
             'brand' => ['brand_id' => 0, 'original_brand_name' => 'No Brand'],
         ];
 
-        // Answers already held on the listing ride a form push too (#98).
+        /* The answers the operator just gave on THIS form (#98, form
+         * half); anything already held on the listing fills the gaps, so
+         * a re-push after unlink does not forget old answers. */
+        $postedAttributes = array_filter(
+            array_map(fn ($v) => trim((string) $v), (array) $request->input('attributes', [])),
+            fn ($v) => $v !== ''
+        );
         $existingListing = ShopeeListing::query()->where('product_id', $productId)->first();
+        $mergedAttributes = $postedAttributes + ($existingListing?->attribute_values ?? []);
         $attributeList = app(ShopeeProductGroupController::class)
-            ->attributeListFromSaved($existingListing?->attribute_values ?? [], (int) $request->input('category_id'));
+            ->attributeListFromSaved($mergedAttributes, (int) $request->input('category_id'));
         if (!empty($attributeList)) {
             $payload['attribute_list'] = $attributeList;
         }
@@ -650,6 +674,7 @@ class ShopeeProductController extends Controller
                 'markup_fixed' => round($pushedPrice - $corePrice, 2),
                 'item_name' => (string) $request->input('item_name'),
                 'description' => (string) $request->input('description'),
+                'attribute_values' => $mergedAttributes ?: null,
                 'weight' => (float) $request->input('weight'),
                 'package_length' => (int) $request->input('package_length'),
                 'package_width' => (int) $request->input('package_width'),

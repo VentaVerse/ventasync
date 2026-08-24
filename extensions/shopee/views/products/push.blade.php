@@ -169,6 +169,31 @@
                 </div>
             </section>
 
+            {{-- ── The category's own attribute sheet (#98, form half) ──
+                 What Shopee's form would ask for the chosen category, so a
+                 FIRST push can answer it here instead of going up bare.
+                 Same partial and wire as the listing page and group form;
+                 picking a different category reloads it in place. --}}
+            <section class="fm-section"
+                     data-attributes-fetch
+                     data-attributes-url="{{ route('ext.shopee.products.fetchAttributes') }}"
+                     data-attributes-field="shopee_category_id"
+                     data-attributes-source="#ps-category-value"
+                     @if(empty($attrRows) && !$attrTemplate) hidden @endif>
+                <div class="fm-section__head">
+                    <h2 class="fm-section__title">Category attributes</h2>
+                </div>
+                <p class="fm-section__note">What Shopee asks for this category. Answers go with the push and are saved on the listing. Required ones block nothing here, but Shopee refuses a push without them.</p>
+                <div data-attributes-target>
+                    @include('ext-shopee::product-groups._attributes', [
+                        'attributes' => $attrRows,
+                        'saved' => $savedAttributes,
+                        'template' => $attrTemplate,
+                        'canManage' => $canManageShopee,
+                    ])
+                </div>
+            </section>
+
             {{-- ------------------------------------------------------------
                  Images. At least one is required, and every one starts ticked,
                  which is what the operator almost always wants. The tile is
@@ -280,7 +305,7 @@
                              data-combo-search-url="{{ route('ext.shopee.products.searchCategories') }}"
                              data-combo-lookup-url="{{ route('ext.shopee.products.categoryLookup') }}">
                             <div class="gf-combo__field">
-                                <input type="hidden" name="category_id" data-combo-value
+                                <input type="hidden" id="ps-category-value" name="category_id" data-combo-value
                                        value="{{ $selectedCategoryId > 0 ? $selectedCategoryId : '' }}">
                                 <x-ui.input id="ps-category" type="search" autocomplete="off"
                                             data-combo-input

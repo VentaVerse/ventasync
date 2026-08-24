@@ -185,6 +185,49 @@ class ShopeeListingAttributesTest extends TestCase
             ->assertDontSee('required attributes');
     }
 
+    public function test_the_push_form_renders_the_sheet_for_the_prefilled_category(): void
+    {
+        $productId = $this->seedProduct();
+        ShopeeListing::query()->create([
+            'product_id' => $productId,
+            'shopee_category_id' => 106755, 'logistic_ids' => [41003],
+        ]);
+
+        $r = $this->actingAs($this->manager())
+            ->get(route('ext.shopee.products.push', $productId));
+
+        $r->assertOk();
+        $r->assertSee('Category attributes');
+        $r->assertSee('Brand Origin');
+        $r->assertSee('Warranty Type');
+    }
+
+    public function test_a_form_push_sends_the_answers_and_births_them_onto_the_listing(): void
+    {
+        $productId = $this->seedProduct();
+
+        $this->actingAs($this->manager())->post(route('ext.shopee.products.push.post', $productId), [
+            'item_name' => 'Attribute test product',
+            'description' => 'Words enough for the form.',
+            'original_price' => 350, 'normal_stock' => 5, 'item_sku' => 'ATTR-SKU',
+            'weight' => 1, 'package_length' => 10, 'package_width' => 10, 'package_height' => 10,
+            'category_id' => 106755,
+            'logistic_ids' => [41003],
+            'selected_images' => ['catalog/__attr-test.png'],
+            'attributes' => ['1000' => 'Japan', '2000' => '1 year', '9999' => ''],
+        ]);
+
+        $add = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/add_item');
+        $this->assertNotNull($add, 'The form push must reach add_item.');
+        $list = collect($add['body']['attribute_list'] ?? []);
+        $this->assertCount(2, $list, 'The answers given on the form ride its own push.');
+        $this->assertSame(72, (int) $list->firstWhere('attribute_id', 1000)['attribute_value_list'][0]['value_id']);
+
+        $listing = ShopeeListing::query()->where('product_id', $productId)->firstOrFail();
+        $this->assertSame(['1000' => 'Japan', '2000' => '1 year'], $listing->attribute_values,
+            'The form is where the listing is born; its answers are part of the birth.');
+    }
+
     public function test_the_push_resolves_answers_into_shopees_attribute_list(): void
     {
         $productId = $this->seedProduct();
