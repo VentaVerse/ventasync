@@ -476,6 +476,63 @@
                     </div>
                 </div>
 
+                {{-- ── Discount (#146, quest 2) ────────────────────
+                     A time-bound percent off, stored as a RULE, never a
+                     price: the promo price Shopee receives is computed
+                     from the price rule at push time. Shopee wants a
+                     named promotion object with a server-side window;
+                     VentaSync keeps one object per window and listings
+                     join it. The fields ride Save; the push is its own
+                     confirmed act (its forms live after the main form -
+                     nested forms are illegal HTML). --}}
+                <div class="fm-card">
+                    <div class="fm-card__head"><h2 class="fm-card__title">Discount</h2></div>
+                    <div class="fm-card__body">
+                        @php
+                            $slSalePct = old('sale_percent', $listing->sale_percent ?? null);
+                            $slSaleFrom = old('sale_starts_at', $listing?->sale_starts_at?->format('Y-m-d\TH:i'));
+                            $slSaleTo = old('sale_ends_at', $listing?->sale_ends_at?->format('Y-m-d\TH:i'));
+                        @endphp
+                        <p class="fm-section__note">Percent off the listed price, for a window. Shopee needs the start at least an hour ahead. Leave the percent empty for no discount.</p>
+                        <div class="fm-fields fm-fields--2">
+                            <x-ui.field label="Percent off" for="sl-sale-percent" name="sale_percent">
+                                <x-ui.input id="sl-sale-percent" name="sale_percent" type="number" step="0.01" min="1" max="99"
+                                            :value="$slSalePct" placeholder="0" :disabled="!$canManage" />
+                            </x-ui.field>
+                        </div>
+                        <div class="fm-fields fm-fields--2">
+                            <x-ui.field label="From" for="sl-sale-from" name="sale_starts_at">
+                                <x-ui.input id="sl-sale-from" name="sale_starts_at" type="datetime-local" :value="$slSaleFrom" :disabled="!$canManage" />
+                            </x-ui.field>
+                            <x-ui.field label="To" for="sl-sale-to" name="sale_ends_at">
+                                <x-ui.input id="sl-sale-to" name="sale_ends_at" type="datetime-local" :value="$slSaleTo" :disabled="!$canManage" />
+                            </x-ui.field>
+                        </div>
+                        @if(($listing->sale_percent ?? null) !== null)
+                            <div class="fm-stats">
+                                <div class="fm-stat">
+                                    <span class="fm-stat__k">Sale price</span>
+                                    <span class="fm-stat__v"><x-money :php="max(0.01, round(($hasRule ? $nextPrice : $corePrice) * (1 - (float) $listing->sale_percent / 100), 2))" /></span>
+                                </div>
+                                @if($listing->shopee_discount_id)
+                                    <div class="fm-stat">
+                                        <span class="fm-stat__k">On Shopee as</span>
+                                        <span class="fm-stat__v">discount {{ $listing->shopee_discount_id }}</span>
+                                    </div>
+                                @endif
+                            </div>
+                        @endif
+                        @if($canManage && $link)
+                            <div class="cc-head-actions">
+                                <x-ui.button type="submit" form="sl-discount-push" variant="primary">Push discount to Shopee</x-ui.button>
+                                @if($listing->shopee_discount_id ?? null)
+                                    <x-ui.button type="submit" form="sl-discount-end">End discount now</x-ui.button>
+                                @endif
+                            </div>
+                        @endif
+                    </div>
+                </div>
+
                 <div class="fm-card">
                     <div class="fm-card__head"><h2 class="fm-card__title">Last push</h2></div>
                     <div class="fm-card__body">
@@ -526,6 +583,23 @@
             </div>
         </div>
     </form>
+
+    @if($canManage && $link)
+        {{-- The Discount card's actions (nested forms are illegal; its
+             buttons reach these by the HTML5 form attribute, and
+             data-confirm intercepts the form's submit as everywhere). --}}
+        <form id="sl-discount-push" method="POST" action="{{ route('ext.shopee.listings.push_discount', $product->product_id) }}"
+              data-confirm="Push this discount to Shopee? The promotion is created for the saved window and this item joins it at the computed sale price.">
+            @csrf
+            <input type="hidden" name="action" value="push">
+        </form>
+        <form id="sl-discount-end" method="POST" action="{{ route('ext.shopee.listings.push_discount', $product->product_id) }}"
+              data-confirm="End this discount on Shopee now? The item leaves the promotion and buyers pay the full price again.">
+            @csrf
+            <input type="hidden" name="action" value="end">
+        </form>
+    @endif
+
 
     <div class="fm-bar">
         <span class="fm-bar__meta">{{ !$canManage

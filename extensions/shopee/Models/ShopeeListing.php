@@ -17,6 +17,7 @@ class ShopeeListing extends Model
         'product_id',
         'shopee_category_id', 'shopee_brand_id', 'logistic_ids',
         'markup_percent', 'markup_fixed',
+        'sale_percent', 'sale_starts_at', 'sale_ends_at', 'shopee_discount_id',
         'item_name', 'description', 'attribute_values', 'weight',
         'package_length', 'package_width', 'package_height',
         'last_pushed_at', 'last_push_source', 'last_push_settings', 'last_checked_at',
@@ -30,6 +31,9 @@ class ShopeeListing extends Model
         'last_checked_at' => 'datetime',
         'markup_percent' => 'float',
         'markup_fixed' => 'float',
+        'sale_percent' => 'float',
+        'sale_starts_at' => 'datetime',
+        'sale_ends_at' => 'datetime',
     ];
 
     /** The price this listing sells at, from the core price it never stores. */

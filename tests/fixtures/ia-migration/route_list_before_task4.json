@@ -1341,6 +1341,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/shopee/listings/{productId}/push-discount",
+        "name": "ext.shopee.listings.push_discount"
+    },
+    {
+        "method": "POST",
         "uri": "channels/shopee/listings/{productId}/push-update",
         "name": "ext.shopee.listings.push_update"
     },

@@ -189,6 +189,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         Route::post('/shopee/listings/{productId}/toggle', [ShopeeProductController::class, 'toggleListing'])->whereNumber('productId')->name('ext.shopee.listings.toggle');
         Route::post('/shopee/listings/{productId}/push-update', [ShopeeProductController::class, 'pushListingUpdate'])->whereNumber('productId')->name('ext.shopee.listings.push_update');
         Route::post('/shopee/products/fetch-attributes', [ShopeeProductController::class, 'fetchAttributes'])->name('ext.shopee.products.fetchAttributes');
+        Route::post('/shopee/listings/{productId}/push-discount', [ShopeeProductController::class, 'pushListingDiscount'])->whereNumber('productId')->name('ext.shopee.listings.push_discount');
         Route::post('/shopee/products/{productId}/unlink', [ShopeeProductController::class, 'unlink'])->name('ext.shopee.products.unlink');
         Route::post('/shopee/products/{productId}/delete', [ShopeeProductController::class, 'deleteFromShopee'])->name('ext.shopee.products.delete');
     });
