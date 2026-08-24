@@ -2836,6 +2836,7 @@ class ShopeeProductController extends Controller
                 'p.product_id', 'pd.name', 'pd.description', 'p.image',
                 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status',
                 'p.weight', 'p.length', 'p.width', 'p.height',
+                'p.date_modified',
             ]);
 
         if (!$product) {

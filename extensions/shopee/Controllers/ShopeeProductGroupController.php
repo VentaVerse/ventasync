@@ -327,7 +327,7 @@ class ShopeeProductGroupController extends Controller
             ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
             ->select(
                 'p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.price',
-                'p.quantity', 'p.image', 'p.status',
+                'p.quantity', 'p.image', 'p.status', 'p.date_modified',
                 'm.name as manufacturer_name',
                 'gp.shopee_item_id', 'gp.sync_status', 'gp.last_pushed_at', 'gp.last_confirmed_at', 'gp.push_error'
             );

@@ -433,6 +433,16 @@
 
                 @if($provenanceAt)
                     <span class="cc-when">Pushed {{ $provenanceAt->diffForHumans() }}{{ $provenanceLabel !== '' ? ' ' . $provenanceLabel : '' }}</span>
+                    {{-- "Core has changed" (#100): the catalog moved after
+                         this went up, so the live listing is behind what a
+                         push would send now. --}}
+                    @php
+                        $coreMovedAt = ($p->date_modified ?? null)
+                            ? \Illuminate\Support\Carbon::parse($p->date_modified) : null;
+                    @endphp
+                    @if($coreMovedAt && $coreMovedAt->gt($provenanceAt))
+                        <span class="cc-checked cc-checked--never">Catalog changed since this push</span>
+                    @endif
                 @elseif(! $attemptFailed)
                     <span class="x-cell-muted">Never</span>
                 @endif

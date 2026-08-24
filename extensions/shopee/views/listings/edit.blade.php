@@ -44,6 +44,33 @@
 
     $coreDescription = trim(strip_tags(html_entity_decode((string) ($product->description ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
 
+    /* "Core has changed" (#100). Two different situations, told apart:
+       - fields WITHOUT their own wording follow the catalog automatically,
+         so a catalog edit after the last push only means the LIVE listing
+         is behind: the staleness note below points at Push update.
+       - fields WITH their own wording never move on their own. When the
+         catalog now differs under one, the field says so inline; clearing
+         it is the accept gesture, keeping it is a decision, and nothing
+         ever overwrites the operator's wording unasked. */
+    $coreChangedAt = ($product->date_modified ?? null)
+        ? \Illuminate\Support\Carbon::parse($product->date_modified)
+        : null;
+    $staleSincePush = $link && ($listing->last_pushed_at ?? null) && $coreChangedAt
+        && $coreChangedAt->gt($listing->last_pushed_at);
+
+    $catalogNow = function ($override, $core) {
+        $override = $override !== null ? trim((string) $override) : '';
+        $core = trim((string) $core);
+        if ($override === '' || $core === '' || $override === $core) {
+            return null;
+        }
+        return \Illuminate\Support\Str::limit($core, 120);
+    };
+    $nameDiverges = $catalogNow($listing->item_name ?? null, $product->name);
+    $descriptionDiverges = $catalogNow($listing->description ?? null, $coreDescription);
+    $weightDiverges = ($listing->weight ?? null) !== null && (float) $listing->weight !== (float) $product->weight
+        ? (string) (float) $product->weight : null;
+
     // Readiness: what the one-click push still needs before it can run.
     // Computed by the shared ShopeeListingReadiness, the same answer the
     // listings index and the bulk push read (#101).
@@ -126,6 +153,11 @@
                 </div>
             @elseif($live)
                 <p class="fm-section__note">Fetched from Shopee as this page loaded.</p>
+                @if($staleSincePush)
+                    <div class="fm-note fm-note--warn" role="status">
+                        <div class="fm-note__body">The catalog product changed {{ $coreChangedAt->diffForHumans() }} - after the last push {{ $listing->last_pushed_at->diffForHumans() }}. Fields without their own wording follow the catalog automatically; Push update to Shopee sends the current state to the live listing.</div>
+                    </div>
+                @endif
                 <div class="fm-stats">
                     <div class="fm-stat">
                         <span class="fm-stat__k">Status</span>
@@ -230,11 +262,17 @@
                                         :value="old('item_name', $listing->item_name ?? '')"
                                         placeholder="{{ $product->name }}"
                                         :disabled="!$canManage" />
+                            @if($nameDiverges)
+                                <div class="fm-hint">The catalog now says "{{ $nameDiverges }}". Clearing this field follows it again; keeping your wording is fine too.</div>
+                            @endif
                         </x-ui.field>
                         <x-ui.field label="Description" for="sl-description" name="description" wide>
                             <x-ui.textarea id="sl-description" name="description" rows="6" maxlength="5000"
                                            placeholder="{{ \Illuminate\Support\Str::limit($coreDescription, 400) }}"
                                            :disabled="!$canManage">{{ old('description', $listing->description ?? '') }}</x-ui.textarea>
+                            @if($descriptionDiverges)
+                                <div class="fm-hint">The catalog's description now differs from this listing's own. Clearing this field follows the catalog again; keeping your wording is fine too.</div>
+                            @endif
                         </x-ui.field>
                     </div>
                 </section>
@@ -250,6 +288,9 @@
                                         :value="old('weight', $listing->weight ?? '')"
                                         placeholder="{{ (float) $product->weight }}"
                                         :disabled="!$canManage" />
+                            @if($weightDiverges)
+                                <div class="fm-hint">The catalog now says {{ $weightDiverges }} kg. Clearing this field follows it again.</div>
+                            @endif
                         </x-ui.field>
                         <x-ui.field label="Length in cm" for="sl-length" name="package_length">
                             <x-ui.input id="sl-length" name="package_length" type="number" min="1"
