@@ -506,6 +506,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/lazada/listings/{id}/toggle",
+        "name": "ext.lazada.listings.toggle"
+    },
+    {
+        "method": "POST",
         "uri": "channels/lazada/order-status-map",
         "name": "ext.lazada.order_status_map"
     },

@@ -28,6 +28,9 @@ class LazadaListingLiveTest extends TestCase
     /** What the fake marketplace answers, keyed by api path. Closures get the params. */
     public array $getResponses = [];
 
+    /** @var array<int, array{path: string, params: array}> */
+    public array $sentPosts = [];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -48,6 +51,12 @@ class LazadaListingLiveTest extends TestCase
         $test = $this;
         $fake = new class($test) extends LazadaClient {
             public function __construct(private $test) {}
+            public function post(string $region, string $apiPath, array $params, string $mode = 'live'): array
+            {
+                $this->test->sentPosts[] = ['path' => $apiPath, 'params' => $params];
+
+                return ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => []]];
+            }
             public function get(string $region, string $apiPath, array $params, string $mode = 'live'): array
             {
                 $answer = $this->test->getResponses[$apiPath] ?? null;
@@ -244,6 +253,40 @@ class LazadaListingLiveTest extends TestCase
         $r2->assertSessionHas('error');
         $this->assertStringContainsString('Nothing was uploaded', session('error'));
         $this->assertStringContainsString("#{$productId} needs", session('error'));
+    }
+
+    public function test_the_toggle_speaks_lazadas_two_verbs(): void
+    {
+        $productId = $this->seedProduct('Toggle product', 'LZT-TOG');
+        $listing = LazadaProduct::query()->create(['product_id' => $productId, 'lazada_item_id' => '990077']);
+
+        // Deactivate: the documented endpoint, ItemId mandatory.
+        $r = $this->actingAs($this->manager())
+            ->post(route('ext.lazada.listings.toggle', $listing->id), ['action' => 'deactivate']);
+        $sent = collect($this->sentPosts)->firstWhere('path', '/product/deactivate');
+        $this->assertNotNull($sent, 'Deactivate must reach /product/deactivate.');
+        $payload = json_decode($sent['params']['payload'], true);
+        $this->assertSame(990077, (int) $payload['Request']['Product']['ItemId']);
+        $r->assertSessionHas('status');
+
+        // Activate without cached SKU ids: refused with the reason, nothing sent.
+        $this->sentPosts = [];
+        $r2 = $this->actingAs($this->manager())
+            ->post(route('ext.lazada.listings.toggle', $listing->id), ['action' => 'activate']);
+        $this->assertSame([], $this->sentPosts, 'Activate must not fire without SKU ids.');
+        $r2->assertSessionHas('error');
+
+        // Activate with a cached SKU id: /product/update, SKU-level Status active.
+        \Extensions\lazada\Models\LazadaProductVariant::query()->create([
+            'lazada_product_id' => $listing->id, 'seller_sku' => 'LZT-TOG', 'sku_id' => 555111,
+        ]);
+        $this->actingAs($this->manager())
+            ->post(route('ext.lazada.listings.toggle', $listing->id), ['action' => 'activate']);
+        $sent = collect($this->sentPosts)->firstWhere('path', '/product/update');
+        $this->assertNotNull($sent, 'Activate must reach /product/update.');
+        $payload = json_decode($sent['params']['payload'], true);
+        $this->assertSame(555111, (int) $payload['Request']['Product']['Skus']['Sku'][0]['SkuId']);
+        $this->assertSame('active', $payload['Request']['Product']['Skus']['Sku'][0]['Status']);
     }
 
     public function test_the_edit_page_opens_with_the_items_live_state(): void

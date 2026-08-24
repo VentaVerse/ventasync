@@ -164,6 +164,25 @@
         <section class="fm-section">
             <div class="fm-section__head">
                 <h2 class="fm-section__title">On Lazada right now</h2>
+                @if(($live ?? null) !== null)
+                    <div class="fm-section__aside">
+                        @if(($live['status'] ?? '') === 'active')
+                            <form method="POST" action="{{ route('ext.lazada.listings.toggle', $listing->id) }}"
+                                  data-confirm="Deactivate this item on Lazada? Buyers stop seeing it immediately. It stays here and can be activated again.">
+                                @csrf
+                                <input type="hidden" name="action" value="deactivate">
+                                <x-ui.button type="submit">Deactivate on Lazada</x-ui.button>
+                            </form>
+                        @elseif(($live['status'] ?? '') === 'inactive')
+                            <form method="POST" action="{{ route('ext.lazada.listings.toggle', $listing->id) }}"
+                                  data-confirm="Activate this item on Lazada? Buyers see it again once Lazada applies it.">
+                                @csrf
+                                <input type="hidden" name="action" value="activate">
+                                <x-ui.button type="submit" variant="primary">Activate on Lazada</x-ui.button>
+                            </form>
+                        @endif
+                    </div>
+                @endif
             </div>
             @if(($liveError ?? null) !== null)
                 <div class="fm-note fm-note--fail">

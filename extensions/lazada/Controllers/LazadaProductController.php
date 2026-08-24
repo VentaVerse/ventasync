@@ -2014,6 +2014,90 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             ->with('status', $this->formatLazadaResultMessage('Upload', $result));
     }
 
+    /**
+     * The seller center's Active switch (Lazada). Deactivate is the
+     * documented /product/deactivate (ItemId mandatory). Lazada publishes
+     * NO activate endpoint - reactivation goes through /product/update
+     * with SKU-level Status 'active', which is how its own payload schema
+     * expresses it; whatever the marketplace answers is reported verbatim.
+     */
+    public function toggleListing(Request $request, int $id, LazadaClient $client)
+    {
+        $request->validate(['action' => 'required|in:activate,deactivate']);
+        $deactivate = $request->input('action') === 'deactivate';
+
+        $listing = LazadaProduct::query()->findOrFail($id);
+        if (empty($listing->lazada_item_id)) {
+            return redirect()->back()->with('error', 'This listing is not on Lazada, so there is nothing to ' . ($deactivate ? 'deactivate' : 'activate') . '.');
+        }
+
+        $setting = LazadaSetting::query()->first()?->decrypted();
+        $creds = LazadaSetting::activeCredentials($setting);
+        if (!$setting || !$creds['complete']) {
+            return redirect()->back()->with('error', 'Missing Lazada settings.');
+        }
+
+        if ($deactivate) {
+            $apiPath = '/product/deactivate';
+            $productPayload = ['Request' => ['Product' => ['ItemId' => (int) $listing->lazada_item_id]]];
+        } else {
+            $skuIds = LazadaProductVariant::query()
+                ->where('lazada_product_id', $listing->id)
+                ->whereNotNull('sku_id')
+                ->pluck('sku_id')
+                ->map(fn ($v) => (int) $v)->filter()->values();
+            if ($skuIds->isEmpty()) {
+                return redirect()->back()->with('error', 'Activate needs the listing\'s Lazada SKU ids and none are cached. Open the listing to refresh its variants, then try again.');
+            }
+            $apiPath = '/product/update';
+            $productPayload = ['Request' => ['Product' => [
+                'ItemId' => (int) $listing->lazada_item_id,
+                'Skus' => ['Sku' => $skuIds->map(fn ($sid) => ['SkuId' => $sid, 'Status' => 'active'])->all()],
+            ]]];
+        }
+
+        $timestamp = (string) round(microtime(true) * 1000);
+        $params = [
+            'app_key' => (string) $creds['app_key'],
+            'sign_method' => 'sha256',
+            'timestamp' => $timestamp,
+            'access_token' => (string) $creds['access_token'],
+            'payload' => json_encode($productPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ];
+        $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
+
+        try {
+            $result = $client->post((string) $setting->region, $apiPath, $params);
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error', ($deactivate ? 'Deactivate' : 'Activate') . ' failed: Lazada did not answer (' . $e->getMessage() . ').');
+        }
+
+        LazadaApiLog::safeCreate([
+            'pack' => 'lazada.listings.toggle', 'method' => 'POST',
+            'api_path' => $apiPath, 'auth_required' => true,
+            'request_params' => $params,
+            'response_status' => (int) ($result['status'] ?? 0),
+            'ok' => (bool) ($result['ok'] ?? false),
+            'response_body' => $result['body'] ?? null, 'user_id' => auth()->id(),
+        ]);
+
+        $e = $this->extractLazadaError($result);
+        if (!($e['ok'] ?? false)) {
+            return redirect()->back()->with('error', ($deactivate ? 'Deactivate' : 'Activate') . ' failed: ' . ($e['message'] ?? 'Unknown error'));
+        }
+
+        ActivityLogger::log(
+            $deactivate ? 'deactivated' : 'activated',
+            'Lazada Product',
+            (int) $listing->id,
+            'Item ' . $listing->lazada_item_id . ($deactivate ? ' deactivated on' : ' activated on') . ' Lazada'
+        );
+
+        return redirect()->back()->with('status', $deactivate
+            ? 'Deactivated. Buyers no longer see this item on Lazada.'
+            : 'Activation sent. Lazada usually applies it within a minute; the live state above tells the truth on the next load.');
+    }
+
     public function bulkUploadToLazada(Request $request, LazadaClient $client)
     {
         $ids = $request->input('listing_ids', []);
@@ -4527,6 +4611,20 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
                     'price' => $finalPrice,
                     'quantity' => (int)($c->quantity ?? 0),
                 ];
+
+                /* The variation's OWN picture rides its SKU (#137, Lazada
+                 * half) - the image the product CRUD stores per
+                 * combination, as a public URL. ensureLazadaInlinkImages
+                 * already migrates SKU images to Lazada inlinks (or drops
+                 * what cannot be fetched), so this only has to hand it the
+                 * URL. */
+                $comboImg = trim((string)($c->image ?? ''));
+                if ($comboImg !== '') {
+                    $comboUrl = $this->normalizeImageUrl(asset('storage/' . ltrim($comboImg, '/')));
+                    if (is_string($comboUrl) && $comboUrl !== '') {
+                        $skuRow['Images'] = ['Image' => [$comboUrl]];
+                    }
+                }
 
                 foreach ($values->values() as $i => $v) {
                     if (!isset($variantKeys[$i])) {
