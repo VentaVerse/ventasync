@@ -3,6 +3,7 @@
 use Extensions\tiktok\Controllers\TiktokSettingsController;
 use Extensions\tiktok\Controllers\TiktokApiExplorerController;
 use Extensions\tiktok\Controllers\TikTokOrderController;
+use Extensions\tiktok\Controllers\TikTokListingController;
 use Extensions\tiktok\Controllers\TikTokProductGroupController;
 use Illuminate\Support\Facades\Route;
 
@@ -54,6 +55,13 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         Route::get('/tiktok/product-groups', [TikTokProductGroupController::class, 'index'])->name('ext.tiktok.product-groups.index');
         Route::get('/tiktok/product-groups/{id}/edit', [TikTokProductGroupController::class, 'edit'])->name('ext.tiktok.product-groups.edit');
         Route::get('/tiktok/product-groups/{id}/products', [TikTokProductGroupController::class, 'products'])->name('ext.tiktok.product-groups.products');
+
+        // The per-product page (#146): the product's derived listing
+        // truth plus its discount rule. An edit form, so a MANAGE
+        // surface despite being a GET, like the create form above.
+        Route::get('/tiktok/listings/{productId}', [TikTokListingController::class, 'edit'])
+            ->whereNumber('productId')->name('ext.tiktok.listings.edit')
+            ->defaults('permission_tier', 'manage');
     });
 
     // ── TikTok Settings + Catalog WRITES ────────────────────────
@@ -100,6 +108,10 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         Route::post('/tiktok/product-groups/{id}/update-product', [TikTokProductGroupController::class, 'updateProduct'])->name('ext.tiktok.product-groups.updateProduct');
         Route::post('/tiktok/product-groups/{id}/push-prices', [TikTokProductGroupController::class, 'pushPrices'])->name('ext.tiktok.product-groups.pushPrices');
         Route::post('/tiktok/product-groups/{id}/push-stock', [TikTokProductGroupController::class, 'pushStock'])->name('ext.tiktok.product-groups.pushStock');
+
+        // Per-product discount rule + its push (#146)
+        Route::put('/tiktok/listings/{productId}', [TikTokListingController::class, 'update'])->whereNumber('productId')->name('ext.tiktok.listings.update');
+        Route::post('/tiktok/listings/{productId}/push-discount', [TikTokListingController::class, 'pushDiscount'])->whereNumber('productId')->name('ext.tiktok.listings.push_discount');
     });
 
     // ── TikTok Orders — READ (browse, show, AWB/tracking download) ──

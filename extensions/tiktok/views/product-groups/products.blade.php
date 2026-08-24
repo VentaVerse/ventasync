@@ -405,6 +405,7 @@
                             <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
                             <button type="submit" class="x-menu__item">Push price</button>
                         </form>
+                        <a class="x-menu__item" href="{{ route('ext.tiktok.listings.edit', $p->product_id) }}">Discount</a>
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.tiktok.product-groups.unlinkProduct', [$group->id, $p->product_id]) }}" data-slow-action
                               data-confirm="Unlink {{ $pName ?: 'this product' }} from TikTok Shop? The product stays in the group but sync will stop.">

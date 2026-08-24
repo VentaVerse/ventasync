@@ -1830,6 +1830,21 @@
         "name": "ext.tiktok.explorer_run"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/listings/{productId}",
+        "name": "ext.tiktok.listings.edit"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/tiktok/listings/{productId}",
+        "name": "ext.tiktok.listings.update"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/listings/{productId}/push-discount",
+        "name": "ext.tiktok.listings.push_discount"
+    },
+    {
         "method": "POST",
         "uri": "channels/tiktok/order-status-map",
         "name": "ext.tiktok.order_status_map"
