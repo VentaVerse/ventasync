@@ -30,6 +30,9 @@ class ShopeeProductGroupController extends Controller
     /** Memoised shop-wide SKU index; see shopeeSkuIndex(). */
     private ?array $shopeeSkuIndex = null;
 
+    /** item_id -> 'yes'|'no', prefilled in batches by checkAgainstShopee. */
+    private array $shopeeItemExistence = [];
+
     private function productsRedirect(int $id)
     {
         $return = request()->input('_return');
@@ -1430,6 +1433,12 @@ class ShopeeProductGroupController extends Controller
      */
     private function shopeeItemStillExists(ShopeeClient $client, array $auth, int $itemId): string
     {
+        // Answered already by the batch prefill: fifty items a call instead
+        // of one. Only definitive answers are cached - 'unknown' is retried.
+        if (isset($this->shopeeItemExistence[$itemId])) {
+            return $this->shopeeItemExistence[$itemId];
+        }
+
         try {
             $res = $client->shopGet(
                 $auth['mode'], (int) $auth['partner_id'], (string) $auth['partner_key'],
@@ -1467,10 +1476,11 @@ class ShopeeProductGroupController extends Controller
             // DELETED is the only status that means gone. UNLIST and BANNED
             // items are still there - treating them as missing would delete a
             // good link and then create a duplicate beside the original.
-            return strtoupper((string) ($item['item_status'] ?? '')) === 'DELETED' ? 'no' : 'yes';
+            return $this->shopeeItemExistence[$itemId]
+                = strtoupper((string) ($item['item_status'] ?? '')) === 'DELETED' ? 'no' : 'yes';
         }
 
-        return 'no';
+        return $this->shopeeItemExistence[$itemId] = 'no';
     }
 
     /**
@@ -1744,6 +1754,65 @@ class ShopeeProductGroupController extends Controller
         $limit = 200;
         $skippedForSize = max(0, count($productIds) - $limit);
         $productIds = array_slice($productIds, 0, $limit);
+
+        /* THE BATCH PREFILL (2026-08-24). This used to ask Shopee about one
+         * item per call, sequentially - checking a full group meant up to
+         * two hundred API round-trips inside one web request, which
+         * php-fpm's execution limit kills long before the answer, leaving
+         * the operator's overlay spinning forever ("Check against Shopee
+         * hangs", the owner, QAS). get_item_base_info answers fifty at a time:
+         * ask once per fifty, remember, and the per-item check below
+         * becomes a memo read. Logged per chunk, so the check finally
+         * leaves a trace in the API logs. */
+        $knownItemIds = ShopeeProductLink::query()
+            ->whereIn('product_id', $productIds)
+            ->whereNotNull('shopee_item_id')
+            ->pluck('shopee_item_id')
+            ->map(fn ($v) => (int) $v)->filter()->unique()->values()->all();
+
+        foreach (array_chunk($knownItemIds, 50) as $chunk) {
+            try {
+                $res = $client->shopGet(
+                    $auth['mode'], (int) $auth['partner_id'], (string) $auth['partner_key'],
+                    (string) $auth['access_token'], (int) $auth['shop_id'],
+                    '/api/v2/product/get_item_base_info',
+                    ['item_id_list' => implode(',', $chunk)]
+                );
+            } catch (\Throwable $e) {
+                continue; // these ids fall back to the per-item check
+            }
+
+            ShopeeApiLog::safeCreate([
+                'pack' => 'shopee.groups.check', 'method' => 'GET',
+                'api_path' => '/api/v2/product/get_item_base_info', 'auth_required' => true,
+                'request_params' => ['item_id_list' => implode(',', $chunk)],
+                'response_status' => $res['status'] ?? null,
+                'ok' => (bool) ($res['ok'] ?? false),
+                'response_body' => $res['body'] ?? null, 'user_id' => auth()->id(),
+            ]);
+
+            $body = is_array($res['body'] ?? null) ? $res['body'] : [];
+            if (!($res['ok'] ?? false) || (string) ($body['error'] ?? '') !== '') {
+                continue;
+            }
+
+            $answered = [];
+            foreach (($body['response']['item_list'] ?? []) as $item) {
+                $iid = (int) ($item['item_id'] ?? 0);
+                if ($iid > 0) {
+                    $this->shopeeItemExistence[$iid]
+                        = strtoupper((string) ($item['item_status'] ?? '')) === 'DELETED' ? 'no' : 'yes';
+                    $answered[$iid] = true;
+                }
+            }
+            // Absent from a successful answer = the shop holds no such item,
+            // exactly as the single-item check reads it.
+            foreach ($chunk as $iid) {
+                if (!isset($answered[(int) $iid])) {
+                    $this->shopeeItemExistence[(int) $iid] = 'no';
+                }
+            }
+        }
 
         $pfx = (string) config('catalog.prefix');
         $verdicts = [];
@@ -2045,6 +2114,14 @@ class ShopeeProductGroupController extends Controller
      */
     private function createOnShopee(ShopeeProductGroup $group, array $productIds, ShopeeClient $client, array $auth, string $pfx, int $langId): array
     {
+        /* Derived HERE, not inherited from the caller. This body was
+         * extracted out of push(), whose guard defined $logisticIds in the
+         * shared scope - the extraction left the definition behind, so the
+         * payload loop iterated null and every group push since sent
+         * "logistic_info": [] (Shopee: "At least one shipping channel must
+         * be enabled"). Found by the owner on QAS, 2026-08-24. */
+        $logisticIds = array_map('intval', $group->logistic_ids ?? []);
+
         $okCount = 0;
         $skipCount = 0;
         $errCount = 0;

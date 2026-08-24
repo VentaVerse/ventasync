@@ -246,6 +246,20 @@ class ShopeeListingTest extends TestCase
         $this->actingAs($this->manager())
             ->post(route('ext.shopee.product-groups.push', $group->id), ['ids' => [$productId]]);
 
+        /* THE REGRESSION THIS PINS (found by the owner on QAS, 2026-08-24):
+         * createOnShopee was extracted out of push() and left the
+         * $logisticIds definition behind, so every group push sent
+         * "logistic_info": [] and Shopee refused with
+         * product.error_invalid_logistic_info. The group's couriers must
+         * ride the payload. */
+        $add = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/add_item');
+        $this->assertNotNull($add, 'The group push must reach add_item.');
+        $this->assertSame(
+            [['logistic_id' => 8003, 'enabled' => true]],
+            $add['body']['logistic_info'],
+            'The GROUP\'s couriers go with a group push.'
+        );
+
         $listing = ShopeeListing::query()->where('product_id', $productId)->first();
         $this->assertNotNull($listing, 'A group push must leave an auditable provenance row. ');
         $this->assertSame('group:multi effects', $listing->last_push_source);
