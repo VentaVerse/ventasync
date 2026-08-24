@@ -34,22 +34,27 @@ class ShopeePushStatusTest extends TestCase
         return file_get_contents(base_path($file));
     }
 
-    public function test_a_failed_push_is_reported_before_a_stale_item_id(): void
+    public function test_the_columns_read_the_product_not_the_pivots_copy(): void
     {
+        /* The original guard held a template ORDERING still: failure had to
+         * be tested before the pivot's (possibly stale) item id, or a
+         * failed push wearing an old id read as Pushed. Stage 1 of the
+         * one-truth repointing (2026-08-24) removed the disease's organ:
+         * the id and the Listed state come from shopee_product_links - the
+         * record every page shares - and the pivot's failure renders as
+         * this group's ATTEMPT, unconditionally, in its own words. What
+         * must now hold still is that the display never reaches back into
+         * the pivot's copies of product facts. */
         $view = $this->source(self::VIEW);
 
-        $failed = strpos($view, '@elseif($failed)');
-        $hasId = strpos($view, '@elseif($hasShopeeId)');
-
-        $this->assertNotFalse($failed, 'The push column no longer reports failure at all.');
-        $this->assertNotFalse($hasId, 'The push column no longer reports a pushed product.');
-
-        $this->assertLessThan(
-            $hasId,
-            $failed,
-            'The push column tests for an item id before it tests for failure, so a failed push '
-            .'that happens to hold an id will be badged as Pushed.'
-        );
+        $this->assertStringContainsString('$rowLink->shopee_item_id', $view,
+            'The Shopee ID column must read the product link, not the pivot copy.');
+        $this->assertStringNotContainsString('$pivot->shopee_item_id', $view,
+            'The pivot item id is a private copy that drifts; the page must not display it.');
+        $this->assertStringContainsString('@if($attemptFailed)', $view,
+            'The group\'s own failed attempt must still be told.');
+        $this->assertStringContainsString("This group's last push", $view,
+            'The failure must name itself as this group\'s attempt, not as the product\'s status.');
     }
 
     public function test_a_failed_push_records_why(): void
@@ -123,13 +128,18 @@ class ShopeePushStatusTest extends TestCase
      * filtering to Pushed returned rows the badge calls Failed, in one
      * screenful.
      */
-    public function test_the_pushed_filter_excludes_failures(): void
+    public function test_the_listed_filter_answers_the_links_table(): void
     {
-        $this->assertStringContainsString(
-            "->whereNotIn('gp.sync_status', ['unlinked', 'error'])",
-            $this->source(self::CONTROLLER),
-            'The Pushed filter still returns rows the badge renders as Failed.'
-        );
+        /* Was: the Pushed filter must exclude pivot failures. Under the
+         * one-truth model the filter and the badge answer the same record
+         * by construction: Listed = a row in shopee_product_links, on this
+         * page and on the Listings page alike. */
+        $controller = $this->source(self::CONTROLLER);
+
+        $this->assertStringContainsString("whereIn('p.product_id', \$linkedProductIds)", $controller,
+            'The Listed filter must answer the links table, the same record the badge reads.');
+        $this->assertStringContainsString("whereNotIn('p.product_id', \$linkedProductIds)", $controller,
+            'The Not listed filter must be the exact complement of Listed.');
     }
 
     /**
@@ -192,7 +202,7 @@ class ShopeePushStatusTest extends TestCase
     public function test_a_failure_without_a_saved_reason_still_says_it_failed(): void
     {
         $this->assertStringContainsString(
-            '@if($failed && ! $hasError)',
+            "'No reason was recorded.'",
             $this->source(self::VIEW),
             'A failed push with no recorded message shows an empty reason column.'
         );

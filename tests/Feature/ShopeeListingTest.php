@@ -235,6 +235,44 @@ class ShopeeListingTest extends TestCase
         $this->assertSame(370.0, (float) $update['body']['price_list'][0]['original_price']);
     }
 
+    public function test_a_group_page_tells_the_products_truth_not_its_own_memory(): void
+    {
+        /* the owner's GP-180 (QAS, 2026-08-24): this group's push failed on
+         * couriers, then the product went up through its listing - and the
+         * group page kept saying "Not pushed / Failed" while the Listings
+         * page said Live, because it read its own pivot copy. The page now
+         * reads the product's record: Listed, with the group's failed
+         * ATTEMPT named as exactly that. */
+        $productId = $this->seedProduct();
+        $group = $this->seedCatchAllGroup();
+        DB::table('shopee_product_group_products')->insert([
+            'shopee_product_group_id' => $group->id, 'product_id' => $productId,
+            'sync_status' => 'error',
+            'push_error' => 'At least one shipping channel must be enabled for the product.',
+            'last_pushed_at' => now()->subMinutes(37),
+        ]);
+        ShopeeProductLink::query()->create([
+            'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LST-SKU-1',
+        ]);
+        ShopeeListing::query()->create([
+            'product_id' => $productId,
+            'last_pushed_at' => now()->subMinutes(5), 'last_push_source' => 'listing',
+        ]);
+
+        $r = $this->actingAs($this->manager())
+            ->get(route('ext.shopee.product-groups.products', $group->id));
+
+        $r->assertOk();
+        $r->assertSee('990077');
+        $r->assertSee('Listed');
+        $r->assertDontSee('>Failed<', false);
+        $r->assertDontSee('Not pushed');
+        // The group's own attempt is still told, scoped in words.
+        $r->assertSee("This group's last push", false);
+        $r->assertSee('shipping channel');
+        $r->assertSee('from its listing');
+    }
+
     public function test_a_group_push_stamps_provenance_but_never_the_listings_own_settings(): void
     {
         $productId = $this->seedProduct(300.0);

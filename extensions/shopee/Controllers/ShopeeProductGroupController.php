@@ -346,19 +346,20 @@ class ShopeeProductGroupController extends Controller
             $query->where('p.status', 0);
         }
 
-        // These four must answer exactly what the badge shows, in the same
-        // order the badge tests. 'pushed' used to be "has an item id and is
-        // not unlinked", which INCLUDED failures - so filtering to Pushed
-        // returned rows the badge calls Failed, in one screenful. A filter
-        // that disagrees with the column it filters teaches the operator not
-        // to trust either.
+        /* The filter answers what the column shows. Listed/Not listed are
+         * PRODUCT facts now (stage 1 of the one-truth repointing,
+         * 2026-08-24): they read shopee_product_links, the same record the
+         * Listings page reads, so a product pushed through any door filters
+         * the same on every page. 'error' and 'unlinked' stay per-group -
+         * they describe this group's own last attempt, which genuinely is
+         * this page's private history. */
+        $linkedProductIds = DB::table('shopee_product_links')
+            ->whereNotNull('shopee_item_id')
+            ->select('product_id');
         if ($syncStatus === 'pushed') {
-            $query->whereNotNull('gp.shopee_item_id')->where('gp.shopee_item_id', '!=', '')
-                ->whereNotIn('gp.sync_status', ['unlinked', 'error']);
+            $query->whereIn('p.product_id', $linkedProductIds);
         } elseif ($syncStatus === 'pending') {
-            $query->where(function ($w) {
-                $w->whereNull('gp.shopee_item_id')->orWhere('gp.shopee_item_id', '');
-            })->whereNotIn('gp.sync_status', ['error', 'unlinked']);
+            $query->whereNotIn('p.product_id', $linkedProductIds);
         } elseif ($syncStatus === 'error') {
             $query->where('gp.sync_status', 'error');
         } elseif ($syncStatus === 'unlinked') {
@@ -470,12 +471,28 @@ class ShopeeProductGroupController extends Controller
             ->where('sync_status', 'error')
             ->count();
 
+        /* Product-level truth for the three columns that used to read the
+         * pivot's private copies: the links (is it on Shopee, which item)
+         * and the listing record (what the last push actually was, from
+         * where). Same rows every group page and the Listings page read. */
+        $displayIds = $products->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        $linksByProductId = ShopeeProductLink::query()
+            ->whereIn('product_id', $displayIds)
+            ->get()
+            ->groupBy(fn ($l) => (int) $l->product_id);
+        $listingsByProductId = ShopeeListing::query()
+            ->whereIn('product_id', $displayIds)
+            ->get()
+            ->keyBy('product_id');
+
         return view('ext-shopee::product-groups.products', [
             'group' => $group,
             'failedCount' => $failedCount,
             'products' => $products,
             'pivotMap' => $pivotMap,
             'optionRowsByProductId' => $optionRowsByProductId,
+            'linksByProductId' => $linksByProductId,
+            'listingsByProductId' => $listingsByProductId,
             'manualIds' => $manualIds,
             'q' => $q,
             'syncStatus' => $syncStatus,

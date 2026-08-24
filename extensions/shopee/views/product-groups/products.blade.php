@@ -94,10 +94,10 @@
 
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
         <select name="sync_status" class="x-input" data-autosubmit aria-label="Filter by push status">
-            <option value="all" @selected($syncStatus === 'all')>Pushed or not</option>
-            <option value="pushed" @selected($syncStatus === 'pushed')>Pushed</option>
-            <option value="pending" @selected($syncStatus === 'pending')>Not pushed yet</option>
-            <option value="error" @selected($syncStatus === 'error')>Last push failed</option>
+            <option value="all" @selected($syncStatus === 'all')>Listed or not</option>
+            <option value="pushed" @selected($syncStatus === 'pushed')>Listed on Shopee</option>
+            <option value="pending" @selected($syncStatus === 'pending')>Not listed</option>
+            <option value="error" @selected($syncStatus === 'error')>Last push from this group failed</option>
             <option value="unlinked" @selected($syncStatus === 'unlinked')>Unlinked</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
@@ -125,7 +125,7 @@
         <x-ui.icon name="alert-triangle" size="13" class="cc-failnote__icon" />
         <span><span class="x-num">{{ number_format($failedCount) }}</span>
             {{ \Illuminate\Support\Str::plural('product', $failedCount) }} in this group
-            {{ $failedCount === 1 ? 'failed its' : 'failed their' }} last push.</span>
+            {{ $failedCount === 1 ? 'failed its' : 'failed their' }} last push from this group.</span>
         <a class="cc-failnote__link" href="{{ request()->fullUrlWithQuery(['sync_status' => 'error', 'page' => null]) }}">Show them</a>
     </p>
 @endif
@@ -218,7 +218,7 @@
             <th scope="col" class="cc-col-price x-td-num">Price</th>
             <th scope="col" class="cc-col-chanid">Shopee ID</th>
             <th scope="col" class="cc-col-stat">Catalogue</th>
-            <th scope="col" class="cc-col-sync">Push</th>
+            <th scope="col" class="cc-col-sync">Listing</th>
             <th scope="col" class="cc-col-err">Last push</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
@@ -231,11 +231,34 @@
             $img = trim((string) ($p->image ?? ''));
             $thumbSrc = $img !== '' ? asset('storage/' . ltrim($img, '/')) : null;
 
+            /* PRODUCT truth vs GROUP memory (stage 1 of the one-truth
+               repointing, 2026-08-24). Whether this product is on Shopee,
+               under which item id, and what last went up are facts that
+               exist once per product - read from the links and the listing
+               record, the same rows the Listings page reads, so nine group
+               pages can no longer tell nine stories about one product. The
+               pivot keeps only what is genuinely this group's own: its
+               last push ATTEMPT and why it failed. */
+            $rowLink = ($linksByProductId->get((int) $p->product_id) ?? collect())->first();
+            $rowListing = $listingsByProductId->get((int) $p->product_id);
+            $listed = $rowLink !== null;
+
             $syncState = $pivot->sync_status ?? 'pending';
-            $isUnlinked = $syncState === 'unlinked';
-            $hasShopeeId = $pivot && $pivot->shopee_item_id && !$isUnlinked;
-            $failed = $syncState === 'error';
-            $hasError = $failed && ($pivot->push_error ?? null);
+            $isUnlinked = $syncState === 'unlinked' && ! $listed;
+            $attemptFailed = $syncState === 'error';
+            $attemptError = $attemptFailed ? ($pivot->push_error ?? null) : null;
+            $attemptAt = ($pivot->last_pushed_at ?? null)
+                ? \Illuminate\Support\Carbon::parse($pivot->last_pushed_at)
+                : null;
+
+            $provenanceAt = $rowListing?->last_pushed_at;
+            $provenanceSource = (string) ($rowListing->last_push_source ?? '');
+            $provenanceLabel = match (true) {
+                $provenanceSource === 'form' => 'from the push form',
+                $provenanceSource === 'listing' => 'from its listing',
+                str_starts_with($provenanceSource, 'group:') => 'from the ' . substr($provenanceSource, 6) . ' group',
+                default => '',
+            };
 
             // Parsed rather than cast: this comes off a query builder select,
             // not an Eloquent model, so it arrives as a string with no
@@ -325,10 +348,10 @@
             </td>
 
             <td class="cc-col-chanid" data-label="Shopee ID">
-                @if($hasShopeeId)
-                    <span class="x-num">{{ $pivot->shopee_item_id }}</span>
+                @if($listed)
+                    <span class="x-num">{{ $rowLink->shopee_item_id }}</span>
                 @else
-                    <span class="x-cell-muted">Not pushed</span>
+                    <span class="x-cell-muted">Not listed</span>
                 @endif
             </td>
 
@@ -340,71 +363,62 @@
                 @endif
             </td>
 
-            <td class="cc-col-sync" data-label="Push">
-                {{-- FAILED IS TESTED BEFORE PUSHED, and the order is the whole
-                     point. This used to ask "does it have a Shopee ID?" first,
-                     so a row carrying an ID read "Pushed" no matter what the
-                     status said - a product whose push had just been refused
-                     for an invalid category still showed a green Pushed badge,
-                     because it happened to be holding an ID from an older
-                     attempt. The Failed badge could never render for any
-                     product that had an ID, which is nearly every product that
-                     can fail. A row states its most recent outcome, not the
-                     best outcome it has ever had. --}}
-                @if($isUnlinked)
+            <td class="cc-col-sync" data-label="Listing">
+                {{-- The PRODUCT's state, the same words the Listings page
+                     uses for the same fact. A failed push from THIS group no
+                     longer masquerades as the product's status - the product
+                     the owner caught read "Failed" here while the Listings page
+                     said Live, because this column used to show this group's
+                     memory instead of the product's record. The attempt and
+                     its reason live in the Last push column, scoped to this
+                     group in words. --}}
+                @if($listed)
+                    <x-ui.badge tone="success">Listed</x-ui.badge>
+                @elseif($isUnlinked)
                     <span class="x-cell-muted">Unlinked</span>
-                @elseif($failed)
-                    <x-ui.badge tone="danger">Failed</x-ui.badge>
-                @elseif($hasShopeeId)
-                    <x-ui.badge tone="success">Pushed</x-ui.badge>
                 @else
-                    <span class="x-cell-muted">Not yet</span>
+                    <span class="x-cell-muted">Not listed</span>
                 @endif
 
-                {{-- The badge states what the ERP BELIEVES. This says how that
-                     belief was arrived at, and the gap between the two is why
-                     this page could mislead: a green Pushed badge was written
-                     at push time and never revisited, so an item deleted in
-                     Seller Centre kept it indefinitely.
-
-                     "Not checked" is not a warning and is not styled as one. It
-                     is the ordinary state of a product nobody has asked about
-                     since it was pushed, and it is accurate far more often than
-                     not. It is here so a fact can be told from a memory at a
-                     glance, and so Check has a visible effect. --}}
-                @if(! $isUnlinked)
+                {{-- "Not checked" is not a warning and is not styled as one.
+                     It is the ordinary state of a product nobody has asked
+                     about since it was pushed. It is here so a fact can be
+                     told from a memory at a glance, and so Check has a
+                     visible effect. (The stamp is still this group's own -
+                     the write moves product-level in stage 2.) --}}
+                @if($listed)
                     @if($confirmedAt)
                         <span class="cc-checked" title="Last asked {{ $confirmedAt->toDayDateTimeString() }}">Checked {{ $confirmedAt->diffForHumans() }}</span>
-                    @elseif($hasShopeeId)
+                    @else
                         <span class="cc-checked cc-checked--never">Not checked since the push</span>
                     @endif
                 @endif
             </td>
 
             <td class="cc-col-err" data-label="Last push">
-                {{-- A failure with no saved message still says so. Silence in
-                     this column used to be indistinguishable from success. --}}
-                @if($failed && ! $hasError)
-                    <span class="cc-err">Push failed. No reason was recorded.</span>
-                @elseif($hasError)
+                {{-- Two different facts share this column, each named:
+                     what actually went up (the listing record, shared with
+                     every page) and what THIS GROUP last tried (its own
+                     attempt history). The owner's GP-180 showed why both must
+                     speak: this group's push failed on couriers, then the
+                     product went up through its listing - the truthful row
+                     says both. --}}
+                @if($attemptFailed)
                     @php
-                        $reason = (string) $pivot->push_error;
-                        // 120 shown against a column stored at 480: the reason
-                        // was truncated with no title and no expansion, so up
-                        // to 360 characters of what Shopee actually said were
-                        // unreachable from the interface. A fulfilment
-                        // operator's escalation was a sentence ending in an
-                        // ellipsis.
+                        $reason = trim((string) ($attemptError ?? ''));
+                        $reason = $reason !== '' ? $reason : 'No reason was recorded.';
+                        // 120 shown against a column stored at 480: an
+                        // untitled truncation left up to 360 characters of
+                        // what Shopee actually said unreachable.
                         $clipped = \Illuminate\Support\Str::limit($reason, 120);
                     @endphp
-
+                    <span class="cc-err">This group's last push{{ $attemptAt ? ' ' . $attemptAt->diffForHumans() : '' }} failed:</span>
                     @if($clipped === $reason)
                         <span class="cc-err">{{ $reason }}</span>
                     @else
                         {{-- <details>, not a tooltip: a title attribute waits
                              a second, never appears on a phone, and cannot be
-                             reached from the keyboard. This opens on Enter and
-                             on tap. --}}
+                             reached from the keyboard. --}}
                         <details class="cc-reason">
                             <summary class="cc-reason__summary">
                                 <span class="cc-err cc-reason__clip">{{ $clipped }}</span>
@@ -416,13 +430,11 @@
                             <p class="cc-err cc-reason__full">{{ $reason }}</p>
                         </details>
                     @endif
+                @endif
 
-                    @if($pivot->last_pushed_at)
-                        <span class="cc-when">{{ \Carbon\Carbon::parse($pivot->last_pushed_at)->diffForHumans() }}</span>
-                    @endif
-                @elseif($hasShopeeId && ($pivot->last_pushed_at ?? null))
-                    <span class="cc-when">{{ \Carbon\Carbon::parse($pivot->last_pushed_at)->diffForHumans() }}</span>
-                @else
+                @if($provenanceAt)
+                    <span class="cc-when">Pushed {{ $provenanceAt->diffForHumans() }}{{ $provenanceLabel !== '' ? ' ' . $provenanceLabel : '' }}</span>
+                @elseif(! $attemptFailed)
                     <span class="x-cell-muted">Never</span>
                 @endif
             </td>
@@ -455,7 +467,7 @@
                         <button type="submit" class="x-menu__item">Send to Shopee</button>
                     </form>
 
-                    @if($hasShopeeId)
+                    @if($listed)
                         <form method="POST" action="{{ route('ext.shopee.product-groups.pushStock', $group->id) }}" data-slow-action>
                             @csrf
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
@@ -470,6 +482,7 @@
                         </form>
                     @endif
 
+                    <a class="x-menu__item" href="{{ route('ext.shopee.listings.edit', $p->product_id) }}">Open listing</a>
                     <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalogue</a>
 
                     @if($isManual)
@@ -483,7 +496,7 @@
                         </form>
                     @endif
 
-                    @if($hasShopeeId)
+                    @if($listed)
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.shopee.product-groups.unlinkProduct', [$group->id, $p->product_id]) }}" data-slow-action
                               data-confirm="Unlink {{ $pName ?: 'this product' }} from Shopee? The listing stays on Shopee; the ERP just stops tracking it. Send will re-find it.">
