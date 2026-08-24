@@ -105,7 +105,12 @@
                 @if($link)
                     <span class="fm-stamp">
                         <span class="fm-stamp__k">Item ID</span>
-                        <span class="fm-stamp__v">{{ $link->shopee_item_id }}</span>
+                        @php $liveUrl = \Extensions\shopee\Models\ShopeeSetting::publicListingUrl($link->shopee_item_id); @endphp
+                        @if($liveUrl)
+                            <a class="fm-stamp__v" href="{{ $liveUrl }}" target="_blank" rel="noopener">{{ $link->shopee_item_id }}</a>
+                        @else
+                            <span class="fm-stamp__v">{{ $link->shopee_item_id }}</span>
+                        @endif
                     </span>
                 @endif
             </div>

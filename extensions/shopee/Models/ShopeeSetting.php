@@ -81,6 +81,31 @@ class ShopeeSetting extends Model
      *
      * Expects the decrypted() result. Passing a raw model returns ciphertext.
      */
+    /**
+     * The buyer-facing URL of a listed item - the answer to "what does the
+     * buyer see right now?" after a push (critique P2, 2026-08-25). Region
+     * defaults to ph; a sandbox item's URL will not resolve publicly, which
+     * is the sandbox being a sandbox, not the link being wrong.
+     */
+    public static function publicListingUrl(int|string $itemId): ?string
+    {
+        // Request-scoped memo (50 ids per index page must not mean 50
+        // settings queries), never process-scoped: a static would leak a
+        // stale shop across tests and long-lived workers.
+        $base = request()->attributes->get('shopee.listing-url-base', false);
+        if ($base === false) {
+            $setting = static::query()->first()?->decrypted();
+            $auth = static::activeAuth($setting);
+            $region = strtolower(trim((string) ($setting->region ?? ''))) ?: 'ph';
+            $base = !empty($auth['shop_id'])
+                ? 'https://shopee.' . $region . '/product/' . (int) $auth['shop_id']
+                : null;
+            request()->attributes->set('shopee.listing-url-base', $base);
+        }
+
+        return $base !== null ? $base . '/' . $itemId : null;
+    }
+
     public static function activeAuth(?object $setting): array
     {
         if (!$setting) {

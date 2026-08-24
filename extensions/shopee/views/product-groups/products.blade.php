@@ -348,7 +348,12 @@
 
             <td class="cc-col-chanid" data-label="Shopee ID">
                 @if($listed)
-                    <span class="x-num">{{ $rowLink->shopee_item_id }}</span>
+                    @php $liveUrl = \Extensions\shopee\Models\ShopeeSetting::publicListingUrl($rowLink->shopee_item_id); @endphp
+                    @if($liveUrl)
+                        <a class="x-num" href="{{ $liveUrl }}" target="_blank" rel="noopener">{{ $rowLink->shopee_item_id }}</a>
+                    @else
+                        <span class="x-num">{{ $rowLink->shopee_item_id }}</span>
+                    @endif
                 @else
                     <span class="x-cell-muted">Not listed</span>
                 @endif

@@ -1010,13 +1010,26 @@ class ShopeeProductController extends Controller
 
         $okCount = 0;
         $skipCount = 0;
+        $updatedCount = 0;
         $errCount = 0;
         $errors = [];
 
         foreach ($productIds as $productId) {
-            // Skip already linked
+            /* SEND SEMANTICS (critique P1, 2026-08-25): already-listed
+             * selections get a content UPDATE instead of a silent skip.
+             * The skip-forever defect - a listing deleted in Seller Centre
+             * keeps its link row and is skipped on every push - was
+             * documented on the group page and fixed there; the index's
+             * bulk now speaks the same honest verb. */
             if (ShopeeProductLink::query()->where('product_id', $productId)->exists()) {
-                $skipCount++;
+                $u = $this->performListingUpdate((int) $productId, $client, $auth);
+                if ($u['ok']) {
+                    $updatedCount++;
+                } else {
+                    $errors[] = "#{$productId}: " . $u['message'];
+                    $errCount++;
+                }
+                usleep(300000);
                 continue;
             }
 
@@ -1183,7 +1196,8 @@ class ShopeeProductController extends Controller
         }
 
         $summary = "Bulk Push: {$okCount} pushed";
-        if ($skipCount > 0) $summary .= ", {$skipCount} skipped (already linked or disabled)";
+        if ($updatedCount > 0) $summary .= ", {$updatedCount} already listed and updated in place";
+        if ($skipCount > 0) $summary .= ", {$skipCount} skipped (disabled)";
         if ($errCount > 0) $summary .= ", {$errCount} failed";
         if (!empty($errors)) $summary .= '. Errors: ' . implode('; ', array_slice($errors, 0, 5));
 
@@ -2976,16 +2990,30 @@ class ShopeeProductController extends Controller
      */
     public function pushListingUpdate(int $productId, ShopeeClient $client)
     {
-        $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
-        if (!$link) {
-            return redirect()->back()->with('error', 'This product is not on Shopee yet, so there is nothing to update. Push it first.');
-        }
-
         $setting = ShopeeSetting::query()->first()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->back()->with('error', "Missing Shopee {$modeLabel} settings.");
+        }
+
+        $r = $this->performListingUpdate($productId, $client, $auth);
+
+        return redirect()->back()->with($r['ok'] ? 'status' : 'error', $r['message']);
+    }
+
+    /**
+     * The reusable core of a content update onto the live item, shared by
+     * the listing page's Push update and the bulk Send path (which updates
+     * already-listed selections instead of silently skipping them).
+     *
+     * @return array{ok: bool, message: string}
+     */
+    private function performListingUpdate(int $productId, ShopeeClient $client, array $auth): array
+    {
+        $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
+        if (!$link) {
+            return ['ok' => false, 'message' => 'This product is not on Shopee yet, so there is nothing to update. Push it first.'];
         }
 
         $pfx = (string) config('catalog.prefix');
@@ -2998,7 +3026,7 @@ class ShopeeProductController extends Controller
             ->where('p.product_id', $productId)
             ->first(['p.product_id', 'pd.name', 'pd.description', 'p.weight', 'p.length', 'p.width', 'p.height']);
         if (!$product) {
-            abort(404, 'Product not found.');
+            return ['ok' => false, 'message' => 'Product not found.'];
         }
 
         $listing = ShopeeListing::query()->where('product_id', $productId)->first();
@@ -3054,7 +3082,7 @@ class ShopeeProductController extends Controller
                 $path, [], $payload
             );
         } catch (\Throwable $e) {
-            return redirect()->back()->with('error', 'Update failed: Shopee did not answer (' . $e->getMessage() . ').');
+            return ['ok' => false, 'message' => 'Update failed: Shopee did not answer (' . $e->getMessage() . ').'];
         }
 
         ShopeeApiLog::safeCreate([
@@ -3071,7 +3099,7 @@ class ShopeeProductController extends Controller
             $msg = is_array($result['body'] ?? null)
                 ? (string) ($result['body']['message'] ?? ($result['body']['error'] ?? 'no response'))
                 : 'no response';
-            return redirect()->back()->with('error', 'Update failed: ' . $msg);
+            return ['ok' => false, 'message' => 'Update failed: ' . $msg];
         }
 
         // Provenance (#104): what went, from where, when.
@@ -3096,7 +3124,7 @@ class ShopeeProductController extends Controller
             'Pushed a content update onto Shopee item ' . $link->shopee_item_id
         );
 
-        return redirect()->back()->with('status', 'Update pushed. Shopee now shows this listing\'s content. Price and stock were not touched - they have their own syncs.');
+        return ['ok' => true, 'message' => 'Update pushed. Shopee now shows this listing\'s content. Price and stock were not touched - they have their own syncs.'];
     }
 
     public function toggleListing(Request $request, int $productId, ShopeeClient $client)

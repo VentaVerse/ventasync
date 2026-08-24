@@ -463,6 +463,65 @@ class ShopeeListingPageTest extends TestCase
             'The per-group copy of the checked fact must no longer be written.');
     }
 
+    public function test_bulk_send_updates_already_listed_selections_instead_of_skipping(): void
+    {
+        /* Critique P1 (2026-08-25): the index bulk used to skip anything
+         * with a link row forever - a listing deleted in Seller Centre was
+         * skipped on every push with no way to notice. Send semantics: an
+         * already-listed selection gets a content UPDATE. */
+        $productId = $this->seedProduct();
+        ShopeeProductLink::query()->create([
+            'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
+        ]);
+
+        $r = $this->actingAs($this->manager())->post(route('ext.shopee.products.bulk_push'), [
+            'product_ids' => [$productId],
+        ]);
+
+        $update = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/update_item');
+        $this->assertNotNull($update, 'An already-listed selection must be updated, not silently skipped.');
+        $this->assertSame(990077, (int) $update['body']['item_id']);
+        $this->assertStringContainsString('updated in place', session('status') ?? session('error') ?? '');
+    }
+
+    public function test_the_row_menu_push_asks_before_publishing(): void
+    {
+        // Critique P1: the index kebab's one-click push published a live
+        // listing with no confirmation while its neighbours asked.
+        $productId = $this->seedProduct();
+        // A catch-all group brings the unlinked product into the index's scope.
+        \Extensions\shopee\Models\ShopeeProductGroup::create([
+            'name' => 'Confirm scope', 'catalog_category_ids' => [], 'manufacturer_ids' => [],
+            'shopee_category_id' => 100013, 'logistic_ids' => [8003],
+        ]);
+        ShopeeListing::query()->create([
+            'product_id' => $productId,
+            'shopee_category_id' => 100013, 'logistic_ids' => [8003],
+        ]);
+        $this->fakeItemList(['NORMAL' => [], 'UNLIST' => [], 'BANNED' => [], 'REVIEWING' => []]);
+        $this->getResponses['/api/v2/product/get_item_base_info'] =
+            ['ok' => true, 'status' => 200, 'body' => ['response' => ['item_list' => []]]];
+
+        $this->actingAs($this->manager())
+            ->get(route('ext.shopee.products.index'))
+            ->assertSee('Push this product to Shopee now?');
+    }
+
+    public function test_the_item_id_links_to_the_live_listing(): void
+    {
+        // Critique P2: the operator's terminal goal is the live marketplace
+        // page; the id is now the door to it.
+        $productId = $this->seedProduct();
+        ShopeeProductLink::query()->create([
+            'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
+        ]);
+        $this->getResponses['/api/v2/product/get_item_base_info'] = $this->baseInfoAnswer();
+
+        $this->actingAs($this->manager())
+            ->get(route('ext.shopee.listings.edit', $productId))
+            ->assertSee('https://shopee.ph/product/2002/990077', false);
+    }
+
     public function test_the_page_is_a_manage_surface_even_as_a_get(): void
     {
         $productId = $this->seedProduct();

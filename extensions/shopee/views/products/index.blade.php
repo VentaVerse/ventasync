@@ -307,9 +307,9 @@
     <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected</span>
     <div class="cc-bulkbar__actions">
         <form method="POST" action="{{ route('ext.shopee.products.bulk_push') }}" data-bulk-form
-              data-bulk-confirm="Push the selected products to Shopee? Anything already listed is skipped.">
+              data-bulk-confirm="Send the selected products to Shopee? New products are created; anything already listed gets its content updated in place.">
             @csrf
-            <x-ui.button type="submit" size="sm">Push to Shopee</x-ui.button>
+            <x-ui.button type="submit" size="sm">Send to Shopee</x-ui.button>
         </form>
         <form method="POST" action="{{ route('ext.shopee.products.sync_ids') }}" data-bulk-form>
             @csrf
@@ -484,7 +484,14 @@
 
             <td class="cc-col-chanid" data-label="Shopee ID">
                 @if($link)
-                    <span class="x-num">{{ $link->shopee_item_id }}</span>
+                    @php $liveUrl = \Extensions\shopee\Models\ShopeeSetting::publicListingUrl($link->shopee_item_id); @endphp
+                    @if($liveUrl)
+                        {{-- The answer to "what does the buyer see right
+                             now?" - the id links to the live listing. --}}
+                        <a class="x-num" href="{{ $liveUrl }}" target="_blank" rel="noopener">{{ $link->shopee_item_id }}</a>
+                    @else
+                        <span class="x-num">{{ $link->shopee_item_id }}</span>
+                    @endif
                 @else
                     <span class="x-cell-muted">Not linked</span>
                 @endif
@@ -601,7 +608,8 @@
                     @if($canManageShopee)
                         @if(!$link)
                             <a class="x-menu__item" href="{{ route('ext.shopee.products.push', $p->product_id) }}">Review push settings</a>
-                            <form method="POST" action="{{ route('ext.shopee.products.push_direct', $p->product_id) }}" data-slow-action>
+                            <form method="POST" action="{{ route('ext.shopee.products.push_direct', $p->product_id) }}" data-slow-action
+                                  data-confirm="Push this product to Shopee now? It goes up with the settings and content saved on its listing.">
                                 @csrf
                                 <button type="submit" class="x-menu__item">Push to Shopee</button>
                             </form>
