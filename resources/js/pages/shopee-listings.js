@@ -1,5 +1,5 @@
 /*
- * Shopee Listings (/integrations/shopee/products).
+ * Shopee Listings (/channels/shopee/products).
  *
  * All of this behaviour used to be an inline <script> at the bottom of
  * extensions/shopee/views/products/index.blade.php. That view was rebuilt on

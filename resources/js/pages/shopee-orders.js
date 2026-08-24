@@ -335,7 +335,7 @@ document.addEventListener('DOMContentLoaded', function () {
             el.addEventListener('click', function () {
                 currentShipOrderSn = el.getAttribute('data-order-sn');
                 shipOrderSnEl.textContent = currentShipOrderSn;
-                shipForm.action = '/integrations/shopee/orders/' + encodeURIComponent(currentShipOrderSn) + '/ship';
+                shipForm.action = '/channels/shopee/orders/' + encodeURIComponent(currentShipOrderSn) + '/ship';
                 shipResetModal();
                 shipModal.style.display = 'flex';
             });
@@ -350,7 +350,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 show(shipStep2Loading);
                 hide(shipStep2Content);
 
-                fetch('/integrations/shopee/orders/' + encodeURIComponent(currentShipOrderSn) + '/shipping-addresses', {
+                fetch('/channels/shopee/orders/' + encodeURIComponent(currentShipOrderSn) + '/shipping-addresses', {
                     headers: { 'Accept': 'application/json' }
                 })
                 .then(function (r) { return r.json(); })
@@ -429,7 +429,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     document.getElementById('spLoadingTitle').textContent = 'Generating AWB…';
                 }
 
-                var awbUrl = '/integrations/shopee/orders/' + encodeURIComponent(currentShipOrderSn) + '/awb';
+                var awbUrl = '/channels/shopee/orders/' + encodeURIComponent(currentShipOrderSn) + '/awb';
                 var awbAttempts = 0;
                 var maxAttempts = 20;
 

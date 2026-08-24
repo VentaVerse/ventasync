@@ -1,5 +1,5 @@
 /*
- * Lazada Listings (/integrations/lazada/products).
+ * Lazada Listings (/channels/lazada/products).
  *
  * All of this behaviour used to be an inline <script> at the bottom of
  * extensions/lazada/views/products/index.blade.php: the select-all and bulk

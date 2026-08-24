@@ -1,5 +1,5 @@
 /*
- * Pedallion Listings (/integrations/pedallion/products).
+ * Pedallion Listings (/channels/pedallion/products).
  *
  * All of this behaviour used to be an inline <script> at the bottom of
  * extensions/pedallion/views/products/index.blade.php. Round F Task 2 rebuilt

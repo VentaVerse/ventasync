@@ -34,7 +34,7 @@ import { initCatalogPicker } from './channel-listings';
 
    The push URL is a template with a placeholder rather than a base path
    with the id concatenated on: the original hardcoded
-   url('/integrations/shopee/products') and would have broken silently on
+   url('/channels/shopee/products') and would have broken silently on
    any change to the URI plan. Blade fills the template from route(), so
    the address plan stays in one place.
    ------------------------------------------------------------------ */

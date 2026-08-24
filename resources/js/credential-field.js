@@ -198,7 +198,7 @@ export default function credentialField({ channel, store, field, mask }) {
         },
 
         url() {
-            return `/integrations/${encodeURIComponent(channel)}/settings/credential/reveal`;
+            return `/channels/${encodeURIComponent(channel)}/settings/credential/reveal`;
         },
     };
 }
