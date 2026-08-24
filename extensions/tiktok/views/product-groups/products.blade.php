@@ -78,10 +78,10 @@
 
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
         <select name="sync_status" class="x-input" data-autosubmit aria-label="Filter by push status">
-            <option value="all" @selected($syncStatus === 'all')>Pushed or not</option>
-            <option value="pushed" @selected($syncStatus === 'pushed')>Pushed</option>
-            <option value="pending" @selected($syncStatus === 'pending')>Not pushed yet</option>
-            <option value="error" @selected($syncStatus === 'error')>Last push failed</option>
+            <option value="all" @selected($syncStatus === 'all')>Listed or not</option>
+            <option value="pushed" @selected($syncStatus === 'pushed')>Listed on TikTok</option>
+            <option value="pending" @selected($syncStatus === 'pending')>Not listed</option>
+            <option value="error" @selected($syncStatus === 'error')>Last push from this group failed</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
@@ -170,7 +170,7 @@
             <th scope="col" class="cc-col-price x-td-num">Price</th>
             <th scope="col" class="cc-col-chanid">TikTok ID</th>
             <th scope="col" class="cc-col-stat">Catalog</th>
-            <th scope="col" class="cc-col-sync">Push</th>
+            <th scope="col" class="cc-col-sync">Listing</th>
             <th scope="col" class="cc-col-err">Last push</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
@@ -183,11 +183,27 @@
             $img = trim((string) ($p->image ?? ''));
             $thumbSrc = $img !== '' ? asset('storage/' . ltrim($img, '/')) : null;
 
+            /* PRODUCT truth vs GROUP memory (one-truth port, 2026-08-25).
+               TikTok has no listings table, so the product's fact is
+               DERIVED across every group's pivot rows - whichever holds
+               the id, latest push first - and the provenance names which
+               group's push made it true. This row's pivot keeps only this
+               group's own last ATTEMPT. */
+            $truth = $truthByProductId->get($p->product_id);
+            $listed = $truth !== null;
+
             $syncState = $pivot->sync_status ?? 'pending';
-            $isUnlinked = $syncState === 'unlinked';
-            $hasTikTokId = $pivot && $pivot->tiktok_product_id && !$isUnlinked;
-            $failed = $syncState === 'error';
-            $hasError = $failed && ($pivot->push_error ?? null);
+            $isUnlinked = $syncState === 'unlinked' && ! $listed;
+            $attemptFailed = $syncState === 'error';
+            $attemptError = $attemptFailed ? ($pivot->push_error ?? null) : null;
+            $attemptAt = ($pivot->last_pushed_at ?? null)
+                ? \Illuminate\Support\Carbon::parse($pivot->last_pushed_at)
+                : null;
+
+            $provenanceAt = ($truth->last_pushed_at ?? null)
+                ? \Illuminate\Support\Carbon::parse($truth->last_pushed_at)
+                : null;
+            $provenanceLabel = $truth ? 'from the ' . $truth->group_name . ' group' : '';
 
             $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($p->product_id) : null;
             $variationCount = $optRows ? count($optRows) : 0;
@@ -270,10 +286,10 @@
             </td>
 
             <td class="cc-col-chanid" data-label="TikTok ID">
-                @if($hasTikTokId)
-                    <span class="x-num">{{ $pivot->tiktok_product_id }}</span>
+                @if($listed)
+                    <span class="x-num">{{ $truth->tiktok_product_id }}</span>
                 @else
-                    <span class="x-cell-muted">Not pushed</span>
+                    <span class="x-cell-muted">Not listed</span>
                 @endif
             </td>
 
@@ -285,22 +301,18 @@
                 @endif
             </td>
 
-            <td class="cc-col-sync" data-label="Push">
-                {{-- FAILED IS TESTED BEFORE PUSHED, and the order is the whole
-                     point. This used to ask "does it have a TikTok id?" first,
-                     so a row carrying an id read "Pushed" no matter what the
-                     status said, and the Failed badge could never render for
-                     any product that had one - which is nearly every product
-                     that can fail. A row states its most recent outcome, not
-                     the best outcome it has ever had. --}}
-                @if($isUnlinked)
+            <td class="cc-col-sync" data-label="Listing">
+                {{-- The PRODUCT's state across every group, the same words
+                     the other channels use for the same fact. A failed push
+                     from THIS group is told in the Last push column, scoped
+                     in words - it no longer masquerades as the product's
+                     status. --}}
+                @if($listed)
+                    <x-ui.badge tone="success">Listed</x-ui.badge>
+                @elseif($isUnlinked)
                     <span class="x-cell-muted">Unlinked</span>
-                @elseif($failed)
-                    <x-ui.badge tone="danger">Failed</x-ui.badge>
-                @elseif($hasTikTokId)
-                    <x-ui.badge tone="success">Pushed</x-ui.badge>
                 @else
-                    <span class="x-cell-muted">Not yet</span>
+                    <span class="x-cell-muted">Not listed</span>
                 @endif
             </td>
 
@@ -309,16 +321,16 @@
                      column that only ever fills on failure reads as nothing
                      wrong, and rendered "Never" - the strongest possible
                      statement that nothing has ever gone wrong. --}}
-                @if($failed && ! $hasError)
-                    <span class="cc-err">Push failed. No reason was recorded.</span>
-                @elseif($hasError)
+                {{-- Two facts share this column, each named: what actually
+                     went up (derived across every group) and what THIS GROUP
+                     last tried (its own attempt history). --}}
+                @if($attemptFailed)
                     @php
-                        $reason = (string) $pivot->push_error;
-                        // 120 shown against a column stored at 480: the rest
-                        // was unreachable from the interface entirely.
+                        $reason = trim((string) ($attemptError ?? ''));
+                        $reason = $reason !== '' ? $reason : 'No reason was recorded.';
                         $clipped = \Illuminate\Support\Str::limit($reason, 120);
                     @endphp
-
+                    <span class="cc-err">This group's last push{{ $attemptAt ? ' ' . $attemptAt->diffForHumans() : '' }} failed:</span>
                     @if($clipped === $reason)
                         <span class="cc-err">{{ $reason }}</span>
                     @else
@@ -336,12 +348,18 @@
                             <p class="cc-err cc-reason__full">{{ $reason }}</p>
                         </details>
                     @endif
-                    @if($pivot->last_pushed_at)
-                        <span class="cc-when">{{ \Carbon\Carbon::parse($pivot->last_pushed_at)->diffForHumans() }}</span>
+                @endif
+
+                @if($provenanceAt)
+                    <span class="cc-when">Pushed {{ $provenanceAt->diffForHumans() }}{{ $provenanceLabel !== '' ? ' ' . $provenanceLabel : '' }}</span>
+                    @php
+                        $coreMovedAt = ($p->date_modified ?? null)
+                            ? \Illuminate\Support\Carbon::parse($p->date_modified) : null;
+                    @endphp
+                    @if($coreMovedAt && $coreMovedAt->gt($provenanceAt))
+                        <span class="cc-checked cc-checked--never">Catalog changed since this push</span>
                     @endif
-                @elseif($hasTikTokId && ($pivot->last_pushed_at ?? null))
-                    <span class="cc-when">{{ \Carbon\Carbon::parse($pivot->last_pushed_at)->diffForHumans() }}</span>
-                @else
+                @elseif(! $attemptFailed)
                     <span class="x-cell-muted">Never</span>
                 @endif
             </td>
@@ -354,7 +372,7 @@
                     {{-- && !$isUnlinked, matching Venta. Without it an unlinked
                          row offered Push and "Link again" side by side, which are
                          opposite answers to the same question. --}}
-                    @if(!$hasTikTokId && !$isUnlinked)
+                    @if(!$listed && !$isUnlinked)
                         <form method="POST" action="{{ route('ext.tiktok.product-groups.syncId', [$group->id, $p->product_id]) }}" data-slow-action>
                             @csrf
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
@@ -368,7 +386,7 @@
                         </form>
                     @endif
 
-                    @if($hasTikTokId)
+                    @if($listed)
                         <form method="POST" action="{{ route('ext.tiktok.product-groups.updateProduct', $group->id) }}" data-slow-action>
                             @csrf
                             <input type="hidden" name="_return" value="{{ $returnTo }}">

@@ -412,57 +412,11 @@ class TikTokProductGroupController extends Controller
 
         $productIds = $this->getMatchingProductIds($group);
 
-        // Auto-fill: detect products already synced to TikTok via other groups.
-        //
-        // A WRITE inside a GET. Gated on the manage tier, so an operator
-        // holding only view_tiktok reads the page without mutating rows. See
-        // the same guard in ShopeeProductGroupController::products().
-        $canWriteBackfill = auth()->user()?->hasPermission('manage_tiktok/product_group') ?? false;
-
-        if ($canWriteBackfill && !empty($productIds)) {
-            $missingPivots = TikTokProductGroupProduct::query()
-                ->where('tiktok_product_group_id', $group->id)
-                ->whereIn('product_id', $productIds)
-                ->whereNull('tiktok_product_id')
-                // 'error' is excluded, and that exclusion is the point.
-                //
-                // This runs on a GET. With only 'unlinked' excluded, loading
-                // the page took a row a failed push had just marked
-                // error-with-no-id, gave it an id from another group and set
-                // it to synced WITHOUT clearing push_error - so it rendered
-                // as a green Pushed badge beside the reason it had failed.
-                // Every refresh laundered a failure into a success.
-                //
-                // Adopting an id the operator created elsewhere is fine.
-                // Overwriting a recorded failure is not, and a read has no
-                // business deciding a push succeeded.
-                ->whereNotIn('sync_status', ['unlinked', 'error'])
-                ->get();
-
-            if ($missingPivots->isNotEmpty()) {
-                $missingProductIds = $missingPivots->pluck('product_id')->toArray();
-
-                $existingTikTokIds = DB::table('tiktok_product_group_products')
-                    ->where('tiktok_product_group_id', '!=', $group->id)
-                    ->whereIn('product_id', $missingProductIds)
-                    ->whereNotNull('tiktok_product_id')
-                    ->pluck('tiktok_product_id', 'product_id');
-
-                foreach ($missingPivots as $pivot) {
-                    $ttId = $existingTikTokIds->get($pivot->product_id);
-                    if ($ttId) {
-                        $pivot->update([
-                            'tiktok_product_id' => $ttId,
-                            // 'pushed', matching the word the push path
-                            // writes. Two words for one state stay
-                            // interchangeable only while nothing reads them.
-                            'sync_status' => 'pushed',
-                        ]);
-                    }
-                }
-            }
-        }
-
+        /* The GET-time back-fill that used to live here - copying TikTok
+         * ids between groups' pivot rows while rendering - is GONE
+         * (one-truth port, 2026-08-25). The page now derives the product's
+         * truth ACROSS groups directly, so a read once again writes
+         * nothing, for any tier. */
         $emptyPaginator = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 50);
 
         if (empty($productIds)) {
@@ -470,6 +424,7 @@ class TikTokProductGroupController extends Controller
                 'group'                => $group,
                 'products'             => $emptyPaginator,
                 'pivotMap'             => collect(),
+                'truthByProductId'     => collect(),
                 'manualIds'            => [],
                 'optionRowsByProductId' => collect(),
                 'q'                    => '',
@@ -488,11 +443,20 @@ class TikTokProductGroupController extends Controller
             ->get()
             ->keyBy('product_id');
 
-        // Filter by sync status
-        if ($syncStatus === 'pushed') {
-            $productIds = array_values(array_filter($productIds, fn($pid) => in_array($pivotMap->get($pid)->sync_status ?? '', ['pushed', 'synced'])));
-        } elseif ($syncStatus === 'pending') {
-            $productIds = array_values(array_filter($productIds, fn($pid) => !in_array($pivotMap->get($pid)->sync_status ?? 'pending', ['pushed', 'synced', 'unlinked'])));
+        /* The filter answers what the column shows (one-truth port):
+         * Listed/Not listed are the product's fact across ALL groups;
+         * 'error' stays per-group - this group's own last attempt. */
+        if ($syncStatus === 'pushed' || $syncStatus === 'pending') {
+            $listedIds = DB::table('tiktok_product_group_products')
+                ->whereIn('product_id', $productIds)
+                ->whereNotNull('tiktok_product_id')
+                ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->flip();
+            $productIds = array_values(array_filter(
+                $productIds,
+                fn ($pid) => $syncStatus === 'pushed'
+                    ? $listedIds->has((int) $pid)
+                    : !$listedIds->has((int) $pid)
+            ));
         } elseif ($syncStatus === 'error') {
             $productIds = array_values(array_filter($productIds, fn($pid) => ($pivotMap->get($pid)->sync_status ?? '') === 'error'));
         }
@@ -502,6 +466,7 @@ class TikTokProductGroupController extends Controller
                 'group'                => $group,
                 'products'             => $emptyPaginator,
                 'pivotMap'             => $pivotMap,
+                'truthByProductId'     => collect(),
                 'manualIds'            => $group->groupProducts()->pluck('product_id')->toArray(),
                 'optionRowsByProductId' => collect(),
                 'q'                    => $q,
@@ -517,7 +482,7 @@ class TikTokProductGroupController extends Controller
             })
             ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
             ->whereIn('p.product_id', $productIds)
-            ->select('p.product_id', 'pd.name', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'p.image', 'm.name as manufacturer_name');
+            ->select('p.product_id', 'pd.name', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'p.image', 'p.date_modified', 'm.name as manufacturer_name');
 
         if ($q !== '') {
             $query->where(function ($w) use ($q) {
@@ -535,6 +500,21 @@ class TikTokProductGroupController extends Controller
 
         $products = $query->orderBy('p.product_id', 'desc')->paginate(50)->withQueryString();
 
+        /* PRODUCT truth, derived ACROSS groups (the one-truth port,
+         * 2026-08-25). TikTok has no listings table - the pivot rows are
+         * the only record - so whether a product is ON TikTok is answered
+         * by ANY group's pivot holding its id, latest push first. Nine
+         * groups can no longer tell nine stories about one product, and
+         * the provenance names which group's push made it true. */
+        $truthByProductId = DB::table('tiktok_product_group_products as tp')
+            ->join('tiktok_product_groups as tg', 'tg.id', '=', 'tp.tiktok_product_group_id')
+            ->whereIn('tp.product_id', $products->pluck('product_id')->all() ?: [0])
+            ->whereNotNull('tp.tiktok_product_id')
+            ->orderByDesc('tp.last_pushed_at')
+            ->get(['tp.product_id', 'tp.tiktok_product_id', 'tp.last_pushed_at', 'tg.name as group_name'])
+            ->groupBy('product_id')
+            ->map(fn ($rows) => $rows->first());
+
         $manualIds = $group->groupProducts()->pluck('product_id')->toArray();
 
         // Variation rows: the shared combinations-first query the core
@@ -546,6 +526,7 @@ class TikTokProductGroupController extends Controller
             'group'                => $group,
             'products'             => $products,
             'pivotMap'             => $pivotMap,
+            'truthByProductId'     => $truthByProductId,
             'manualIds'            => $manualIds,
             'optionRowsByProductId' => $optionRowsByProductId,
             'q'                    => $q,
