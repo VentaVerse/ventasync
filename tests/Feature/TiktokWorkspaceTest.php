@@ -22,7 +22,7 @@ use Tests\TestCase;
  *
  * TikTok has no returns page, no listings page and no brands page, so its
  * workspace is four destinations rather than Lazada's seven: Orders (Sell),
- * Product Groups and Categories (Catalogue), Settings (Channel).
+ * Product Groups and Categories (Catalog), Settings (Channel).
  */
 class TiktokWorkspaceTest extends TestCase
 {
@@ -135,7 +135,7 @@ class TiktokWorkspaceTest extends TestCase
         foreach ($this->tiktokCard()->menu as $item) {
             $this->assertContains(
                 $item->group,
-                ['Sell', 'Catalogue', 'Channel'],
+                ['Sell', 'Catalog', 'Channel'],
                 "Menu item {$item->label} has group ".var_export($item->group, true)
             );
         }
@@ -147,7 +147,7 @@ class TiktokWorkspaceTest extends TestCase
         $groups = app(ChannelWorkspace::class)->groups($this->tiktokCard(), $user);
 
         $this->assertSame(
-            ['Sell', 'Catalogue', 'Channel'],
+            ['Sell', 'Catalog', 'Channel'],
             array_column($groups, 'label')
         );
         $this->assertSame(
@@ -209,7 +209,7 @@ class TiktokWorkspaceTest extends TestCase
 
     /**
      * The narrow user gets a correspondingly narrow sidebar: Sell survives
-     * (its one item declares view_tiktok_orders), Catalogue and Channel do
+     * (its one item declares view_tiktok_orders), Catalog and Channel do
      * not (every item in them declares view_tiktok, which this operator
      * does not hold).
      */
@@ -224,7 +224,7 @@ class TiktokWorkspaceTest extends TestCase
         $response->assertSee('<span class="x-cnav__group-label">Sell</span>', false);
         $response->assertSee('>Orders</a>', false);
 
-        $response->assertDontSee('<span class="x-cnav__group-label">Catalogue</span>', false);
+        $response->assertDontSee('<span class="x-cnav__group-label">Catalog</span>', false);
         $response->assertDontSee('<span class="x-cnav__group-label">Channel</span>', false);
         $response->assertDontSee('>Product Groups</a>', false);
         $response->assertDontSee('>Categories</a>', false);

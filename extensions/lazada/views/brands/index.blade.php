@@ -4,7 +4,7 @@
 @section('title', 'Lazada Brands')
 
 {{-- Leaves the .x-legacy content boundary, rebuilt on the token set and the
-     x-ui components, the same exit Shopee's four catalogue interiors took in
+     x-ui components, the same exit Shopee's four catalog interiors took in
      Round C Task 1. Brands is the surface Lazada carries where Shopee carries
      Logistics, so it lands on the same cc- grammar. --}}
 @section('content')

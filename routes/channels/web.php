@@ -17,7 +17,7 @@ use App\Http\Controllers\Integrations\CredentialRevealController;
 //
 // THE /{channel} WILDCARD IS GONE, DELIBERATELY, AND MUST NOT COME BACK.
 // One core route serving every channel's landing page meant the permission
-// catalogue filed those pages under core, and every channel dashboard
+// catalog filed those pages under core, and every channel dashboard
 // dropped off the permission editor. Each extension now declares its own
 // /channels/{id} dashboard route (name: ext.{id}.dashboard), so the page
 // derives that channel's own key. Core offers the menu; the extension owns

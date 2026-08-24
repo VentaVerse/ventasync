@@ -136,7 +136,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // The same global contract layouts.app used to publish for legacy pages
     // (window.confirmModal(message) -> Promise<boolean>), so a page script can
-    // ask for a confirmation without reaching for confirm(). The catalogue
+    // ask for a confirmation without reaching for confirm(). The catalog
     // form pages use it for the cost-override unlock and for deleting an image
     // off the server.
     window.confirmModal = confirmModal;

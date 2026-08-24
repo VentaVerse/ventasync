@@ -23,7 +23,7 @@
         <h1 class="x-page-title">Product Groups</h1>
         <p class="x-page-sub">
             {{ number_format($groups->count()) }} {{ $groups->count() === 1 ? 'group' : 'groups' }}.
-            <x-ui.hint label="What a product group is">A group maps a set of catalogue products to one TikTok Shop category and its price markup.</x-ui.hint>
+            <x-ui.hint label="What a product group is">A group maps a set of catalog products to one TikTok Shop category and its price markup.</x-ui.hint>
         </p>
     </div>
     @if($canManageTiktok)
@@ -33,7 +33,7 @@
 
 @if($groups->count() === 0)
     <x-ui.empty title="No product groups yet"
-                description="A group is how a batch of catalogue products gets its TikTok Shop category and price markup in one place, instead of setting them per listing.">
+                description="A group is how a batch of catalog products gets its TikTok Shop category and price markup in one place, instead of setting them per listing.">
         @if($canManageTiktok)
         <x-slot:action>
             <x-ui.button variant="primary" :href="route('ext.tiktok.product-groups.create')">New group</x-ui.button>
@@ -59,7 +59,7 @@
             $productsUrl = route('ext.tiktok.product-groups.products', $g->id);
 
             // The same two lists the old view joined into one "Cat: ... | Mfg: ..."
-            // string. They are what decides which catalogue products fall into
+            // string. They are what decides which catalog products fall into
             // the group, so they read as a sentence under the group's own name
             // rather than as a fourth column of comma-joined ids.
             $catNames = collect($g->catalog_category_ids ?? [])->map(fn ($id) => $categoryNames->get($id))->filter()->values();
@@ -124,7 +124,7 @@
                              nested inside a row that is itself a stretched
                              link. --}}
                         <button type="button" class="x-menu__item x-menu__item--danger"
-                                data-confirm="Delete the group {{ $g->name }}? Its listing rows are removed with it. Nothing changes in the catalogue, and nothing already live on TikTok Shop is touched."
+                                data-confirm="Delete the group {{ $g->name }}? Its listing rows are removed with it. Nothing changes in the catalog, and nothing already live on TikTok Shop is touched."
                                 data-confirm-submit="ttpg-del-{{ $g->id }}">Delete group</button>
                     @endif
                 </x-ui.menu>

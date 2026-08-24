@@ -252,7 +252,7 @@ class MultistoreWorkspaceTest extends TestCase
     {
         return [
             ['Sell', 'Orders', route('ext.'.$channel.'.orders.index', ['store' => $storeId])],
-            ['Catalogue', 'Product Groups', route('ext.'.$channel.'.product-groups.index', ['store' => $storeId])],
+            ['Catalog', 'Product Groups', route('ext.'.$channel.'.product-groups.index', ['store' => $storeId])],
             ['Channel', 'Settings', route('ext.'.$channel.'.settings.show', ['store' => $storeId])],
         ];
     }
@@ -329,7 +329,7 @@ class MultistoreWorkspaceTest extends TestCase
             $groups = $workspace->groups($card, $user, $channel.':'.$storeId);
 
             $this->assertSame(
-                ['Sell', 'Catalogue', 'Channel'],
+                ['Sell', 'Catalog', 'Channel'],
                 array_column($groups, 'label'),
                 'Wrong groups for store '.$storeId
             );
@@ -437,7 +437,7 @@ class MultistoreWorkspaceTest extends TestCase
             $response->assertOk();
             $response->assertSee($store->label);
             $response->assertSee('<span class="x-cnav__group-label">Sell</span>', false);
-            $response->assertSee('<span class="x-cnav__group-label">Catalogue</span>', false);
+            $response->assertSee('<span class="x-cnav__group-label">Catalog</span>', false);
             $response->assertSee('<span class="x-cnav__group-label">Channel</span>', false);
 
             foreach ($this->expectedGroups($channel, $storeId) as [, , $url]) {
@@ -486,7 +486,7 @@ class MultistoreWorkspaceTest extends TestCase
     /**
      * OpenCart's Reviews item lives on the top card, not on any store, and is
      * global to the app rather than to one shop. It stays in the main nav's
-     * Catalogue group and out of every store workspace.
+     * Catalog group and out of every store workspace.
      */
     public function test_the_global_reviews_item_stays_out_of_the_store_workspaces(): void
     {
@@ -688,7 +688,7 @@ class MultistoreWorkspaceTest extends TestCase
         $this->assertStringContainsString('<span class="x-cnav__group-label">Sell</span>', $chrome);
         $this->assertStringContainsString(route('ext.'.$channel.'.orders.index', ['store' => $first]), $chrome);
 
-        $this->assertStringNotContainsString('<span class="x-cnav__group-label">Catalogue</span>', $chrome);
+        $this->assertStringNotContainsString('<span class="x-cnav__group-label">Catalog</span>', $chrome);
         $this->assertStringNotContainsString('<span class="x-cnav__group-label">Channel</span>', $chrome);
         $this->assertStringNotContainsString(route('ext.'.$channel.'.product-groups.index', ['store' => $first]), $chrome);
         $this->assertStringNotContainsString(route('ext.'.$channel.'.settings.show', ['store' => $first]), $chrome);

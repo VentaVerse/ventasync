@@ -176,10 +176,10 @@ class PermissionEditorSafetyTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $catalogue = $this->app->make(PermissionCatalogue::class);
+        $catalog = $this->app->make(PermissionCatalogue::class);
         $areas = 0;
 
-        foreach ($catalogue->grouped() as $group) {
+        foreach ($catalog->grouped() as $group) {
             $areas += count($group['rows']);
         }
 
@@ -236,29 +236,29 @@ class PermissionEditorSafetyTest extends TestCase
      */
     public function test_the_consequential_rows_carry_a_plain_warning(): void
     {
-        $catalogue = $this->app->make(PermissionCatalogue::class);
+        $catalog = $this->app->make(PermissionCatalogue::class);
 
         foreach (['settings/user_group', 'settings/user', 'settings/api_client'] as $key) {
-            $this->assertNotSame('', $catalogue->warningFor($key),
+            $this->assertNotSame('', $catalog->warningFor($key),
                 $key . ' hands over more than its screen and must say so.');
         }
 
         // The explorer acts as the shop; the connection settings do not.
-        $this->assertNotSame('', $catalogue->warningFor('lazada/api_explorer'));
-        $this->assertSame('', $catalogue->warningFor('lazada/settings'));
-        $this->assertSame('', $catalogue->warningFor('pettycash/ledger'));
-        $this->assertSame('', $catalogue->warningFor('settings/currency'));
+        $this->assertNotSame('', $catalog->warningFor('lazada/api_explorer'));
+        $this->assertSame('', $catalog->warningFor('lazada/settings'));
+        $this->assertSame('', $catalog->warningFor('pettycash/ledger'));
+        $this->assertSame('', $catalog->warningFor('settings/currency'));
 
         $warned = 0;
 
-        foreach (array_keys($catalogue->all()) as $key) {
-            if ($catalogue->warningFor($key) !== '') {
+        foreach (array_keys($catalog->all()) as $key) {
+            if ($catalog->warningFor($key) !== '') {
                 $warned++;
             }
         }
 
         $this->assertLessThan(
-            count($catalogue->all()) / 4,
+            count($catalog->all()) / 4,
             $warned,
             'A warning on everything warns about nothing.'
         );
@@ -282,18 +282,18 @@ class PermissionEditorSafetyTest extends TestCase
     /**
      * Machine-facing areas stay grantable, and stay out of the way.
      *
-     * Bringing the mobile API back into the catalogue was a real fix - a
+     * Bringing the mobile API back into the catalog was a real fix - a
      * group created after the rebuild could not be granted mobile access at
      * all - but alphabetical order then put "Auth" and "Device Token" in the
      * first screen of a business permissions editor.
      */
     public function test_the_machine_facing_areas_sort_last_and_are_still_offered(): void
     {
-        $catalogue = $this->app->make(PermissionCatalogue::class);
-        $grouped = $catalogue->grouped();
+        $catalog = $this->app->make(PermissionCatalogue::class);
+        $grouped = $catalog->grouped();
 
         $machine = array_values(array_filter($grouped, fn ($g) => $g['machine']));
-        $this->assertNotEmpty($machine, 'The mobile API is missing from the catalogue again.');
+        $this->assertNotEmpty($machine, 'The mobile API is missing from the catalog again.');
 
         $firstMachineIndex = null;
 
@@ -322,10 +322,10 @@ class PermissionEditorSafetyTest extends TestCase
      */
     public function test_no_row_is_named_by_a_stuttering_machine(): void
     {
-        $catalogue = $this->app->make(PermissionCatalogue::class);
+        $catalog = $this->app->make(PermissionCatalogue::class);
         $seen = [];
 
-        foreach ($catalogue->grouped() as $group) {
+        foreach ($catalog->grouped() as $group) {
             foreach ($group['rows'] as $row) {
                 $label = $row['label'];
 

@@ -1,6 +1,6 @@
 /* Marketplace listing forms: the `cl-` grammar.
    -------------------------------------------------------------------
-   Round F Task 1. The three pages that put ONE catalogue product onto a
+   Round F Task 1. The three pages that put ONE catalog product onto a
    marketplace, as opposed to a whole product group:
 
      - Shopee, add a product        (pick the product, carry three
@@ -12,7 +12,7 @@
    (components/form-page.css): fm-page / fm-head / fm-body / fm-section /
    fm-fields / x-ui.field / fm-bar, plus fm-vars for Lazada's variant
    mapping table and the gf- attribute rows from pages/group-form.css.
-   The catalogue picker is the fm-ta / cc-ta typeahead the listings
+   The catalog picker is the fm-ta / cc-ta typeahead the listings
    pages already carry.
 
    This file is only the four things none of those has:
@@ -40,7 +40,7 @@
 /* ==================================================================
    1. The image chooser (Shopee push).
 
-   Every image the catalogue holds for this product, each one ticked or
+   Every image the catalog holds for this product, each one ticked or
    not. It is a grid because the images are the content: a list of file
    names with checkboxes would make the operator open each one to know
    what they were sending.
@@ -169,7 +169,7 @@
 /* ==================================================================
    4. The identity strip (Lazada edit).
 
-   Which catalogue product this listing is for. It sits above the form
+   Which catalog product this listing is for. It sits above the form
    rather than inside it because it is not a field: it is the answer to
    "what am I editing", and the fm- anatomy's own head is already
    carrying the page title and the save state.

@@ -304,7 +304,7 @@ class WorkspaceInteriorsTest extends TestCase
 
     /**
      * Channel-sourced strings reach these pages straight from the
-     * marketplace and from the catalogue. Blade escapes them; this proves
+     * marketplace and from the catalog. Blade escapes them; this proves
      * it, because the redesign moved every one of these values into new
      * markup and an @{!! !!} slip anywhere would be a stored XSS.
      */
@@ -330,7 +330,7 @@ class WorkspaceInteriorsTest extends TestCase
 
         // M-5: Listings and Settings (log-row) previously had no payload
         // seeded at all, so they proved nothing either way.
-        $this->seedCatalogueProduct('<svg onload=alert(4)>', 'CS-XSS-1');
+        $this->seedCatalogProduct('<svg onload=alert(4)>', 'CS-XSS-1');
         ShopeeApiLog::create([
             'method' => 'GET', 'api_path' => '/api/v2/<i>alert(5)</i>',
             'auth_required' => true, 'status_code' => 200, 'response_time_ms' => 10,
@@ -444,7 +444,7 @@ class WorkspaceInteriorsTest extends TestCase
     public function test_the_manage_tier_is_offered_those_same_controls(): void
     {
         $this->seedSetting();
-        // The catalogue typeahead only exists where there is something to
+        // The catalog typeahead only exists where there is something to
         // link, so the queue needs an entry for that assertion to mean
         // anything.
         ShopeeUnmatchedItem::create([
@@ -1113,7 +1113,7 @@ class WorkspaceInteriorsTest extends TestCase
             ->assertOk()
             ->assertSee('Pedals &amp; Effects', false);
 
-        // The listing's catalogue product does not exist, which is a real
+        // The listing's catalog product does not exist, which is a real
         // state on this page (a Lazada row whose ERP product was deleted) and
         // the branch the rebuilt cells fall through to. It DOES carry a Lazada
         // item id, so the row's overflow offers the uploaded-listing actions
@@ -1129,7 +1129,7 @@ class WorkspaceInteriorsTest extends TestCase
 
     /**
      * Channel-sourced strings reach these pages straight from the marketplace
-     * and from the catalogue. Blade escapes them; this proves it, because the
+     * and from the catalog. Blade escapes them; this proves it, because the
      * redesign moved every one of these values into new markup and an
      * unescaped slip anywhere would be a stored XSS.
      */
@@ -1272,7 +1272,7 @@ class WorkspaceInteriorsTest extends TestCase
     public function test_the_lazada_manage_tier_is_offered_those_same_controls(): void
     {
         $this->seedLazadaSetting();
-        // The catalogue typeahead only exists where there is something to
+        // The catalog typeahead only exists where there is something to
         // link, so the queue needs an entry for that assertion to mean
         // anything.
         LazadaUnmatchedItem::create([
@@ -1824,8 +1824,8 @@ class WorkspaceInteriorsTest extends TestCase
         return [$one->id, $two->id];
     }
 
-    /** One catalogue product, enough for a group's Products page to have a row. */
-    private function seedCatalogueProduct(string $name, string $sku): int
+    /** One catalog product, enough for a group's Products page to have a row. */
+    private function seedCatalogProduct(string $name, string $sku): int
     {
         $prefix = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
@@ -2758,7 +2758,7 @@ class WorkspaceInteriorsTest extends TestCase
     public function test_venta_interiors_render_their_seeded_records(): void
     {
         [$one] = $this->seedVentaStores();
-        $productId = $this->seedCatalogueProduct('Overdrive Pedal', 'OD-808');
+        $productId = $this->seedCatalogProduct('Overdrive Pedal', 'OD-808');
 
         $group = VentaProductGroup::create([
             'venta_setting_id' => $one, 'name' => 'Pedal Batch',
@@ -3217,7 +3217,7 @@ class WorkspaceInteriorsTest extends TestCase
     public function test_opencart_interiors_render_their_seeded_records(): void
     {
         [$one] = $this->seedOpencartStores();
-        $productId = $this->seedCatalogueProduct('Patch Cable', 'PC-15');
+        $productId = $this->seedCatalogProduct('Patch Cable', 'PC-15');
 
         $group = OpenCartProductGroup::create(['opencart_setting_id' => $one, 'name' => 'Cable Batch']);
         DB::table('opencart_product_group_products')->insert([

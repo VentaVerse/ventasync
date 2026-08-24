@@ -1,16 +1,16 @@
-/* Channel catalogue surfaces: the shared `cc-` grammar.
+/* Channel catalog surfaces: the shared `cc-` grammar.
    -------------------------------------------------------------------
    The four workspace pages every marketplace channel carries that are
    not orders and not settings: Listings, Product Groups, Categories,
    and Logistics (Brands on Lazada). Shopee is the first channel onto
    this file; Lazada and TikTok follow into the same pieces, which is
-   why the prefix names the surface (`cc-`, channel catalogue) rather
+   why the prefix names the surface (`cc-`, channel catalog) rather
    than the channel, the same call components/channel-orders.css made
    when Lazada became the second consumer of Shopee's `sp-` rules.
 
    Almost nothing here is new. These pages are lists, so they are built
    on the shared list anatomy already proven by the orders pages and the
-   catalogue index: x-list-head / x-filters / x-cmdbar / x-ui.table /
+   catalog index: x-list-head / x-filters / x-cmdbar / x-ui.table /
    x-pager / x-ui.empty / x-ui.menu. This file carries only the three
    things that anatomy genuinely does not cover:
 
@@ -33,7 +33,7 @@
       the command bar. No card stacks.
 
    3. Every numeral is mono with tabular figures. Marketplace item ids,
-      catalogue ids, prices, quantities, channel ids, weight limits.
+      catalog ids, prices, quantities, channel ids, weight limits.
       Applied per column by the caller (.x-num or a column class), never
       baked into the shared table, for the reason
       components/ui-table.css already states about .x-td-num.
@@ -49,7 +49,7 @@
    Deliberately NOT reusing .co-page (components/channel-orders.css) or
    .cat-page (pages/catalog.css) even though the declarations match.
    channel-orders.css documents .co-page as the hook for fulfilment
-   surfaces specifically, and .cat-page is the core catalogue's. A
+   surfaces specifically, and .cat-page is the core catalog's. A
    channel's Listings page is neither, and borrowing either name would
    couple three unrelated surfaces to one selector - the same reasoning
    pages/catalog.css itself gave for not reusing .co-page.
@@ -103,7 +103,7 @@
    ------------------------------------------------------------------ */
 
 .cc-col-check   { width: 36px; }
-.cc-col-id      { width: 72px; }   /* catalogue product_id, 6 digits + air */
+.cc-col-id      { width: 72px; }   /* catalog product_id, 6 digits + air */
 .cc-col-chanid  { width: 112px; }  /* a Shopee item id is 11 digits in mono */
 .cc-col-sku     { width: 148px; }
 .cc-col-qty     { width: 78px; }
@@ -164,7 +164,7 @@
 .tt-col-perms { width: 190px; }
 
 /* "Also listed on" stacks one short line per other marketplace the
-   catalogue product is linked to. Measured against
+   catalog product is linked to. Measured against
    "Another OpenCart store 12345", the longest real value. */
 .oc-col-elsewhere { width: 200px; }
 
@@ -530,7 +530,7 @@
    this system uses rather than a solid red fill.
 
    Same shape as pages/catalog.css's .cat-bulkbar, deliberately declared
-   here rather than borrowed: that class belongs to the core catalogue's
+   here rather than borrowed: that class belongs to the core catalog's
    own sheet, and a channel page reaching into it would tie two surfaces
    that have no other relationship to one selector.
    ------------------------------------------------------------------ */
@@ -557,7 +557,7 @@
 }
 
 /* ------------------------------------------------------------------
-   Unmatched items. Shopee listings that no catalogue SKU matched. This
+   Unmatched items. Shopee listings that no catalog SKU matched. This
    is a work queue, not part of the list, so it sits above the table as
    its own section under a hairline heading - the same .fm-section
    construction the form pages use, reused here because it is exactly

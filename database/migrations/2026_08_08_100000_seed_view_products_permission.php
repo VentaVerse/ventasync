@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\DB;
  * before this key existed) can silently skip the sync indefinitely. Same
  * live gap already tracked and fixed the same way for `view_orders`
  * (2026_08_07_190000_seed_view_orders_permission.php); confirmed missing on
- * the test schema by the catalogue redesign's final review round
+ * the test schema by the catalog redesign's final review round
  * (2026-08-08, final-review.md, requirement 10). This migration makes the
  * row deterministic instead of depending on that cache.
  *

@@ -83,7 +83,7 @@
 
 @if($canManageLazada)
 {{-- Unmatched items. Lazada listings whose SKU matched nothing in the
-     catalogue, which is a work queue and not part of the list below, so it
+     catalog, which is a work queue and not part of the list below, so it
      sits above the table as its own titled section. The old page showed this
      section only when it had rows and put a lone "Scan for Unmatched Lazada
      Items" button in its place when it did not, so the control moved on the
@@ -106,7 +106,7 @@
     </div>
 
     @if($hasUnmatched)
-        <p class="fm-section__note">These items exist on Lazada but no catalogue product has a matching SKU. Link each one to the catalogue product it really is, or dismiss it if it should not be tracked here.</p>
+        <p class="fm-section__note">These items exist on Lazada but no catalog product has a matching SKU. Link each one to the catalog product it really is, or dismiss it if it should not be tracked here.</p>
 
         <x-ui.table>
             <x-slot:head>
@@ -114,7 +114,7 @@
                     <th scope="col">Lazada item</th>
                     <th scope="col" class="cc-col-sku">SKU</th>
                     <th scope="col" class="cc-col-chanid">Item ID</th>
-                    <th scope="col" class="cc-col-link">Catalogue product</th>
+                    <th scope="col" class="cc-col-link">Catalog product</th>
                     <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
                 </tr>
             </x-slot:head>
@@ -144,7 +144,7 @@
                     <td class="cc-col-chanid" data-label="Item ID">
                         <span class="x-num">{{ $ui->lazada_item_id }}</span>
                     </td>
-                    <td class="cc-col-link" data-label="Catalogue product">
+                    <td class="cc-col-link" data-label="Catalog product">
                         {{-- The typeahead's wire is unchanged: type, GET
                              search-catalog?q=, pick a result, the picked id
                              lands in this form's product_id and the form POSTs
@@ -161,8 +161,8 @@
                             <div class="fm-ta">
                                 <input type="text" class="x-input" data-unmatched-search
                                        placeholder="Search name, model or SKU" autocomplete="off"
-                                       aria-label="Search the catalogue for the product this Lazada item is">
-                                <div class="fm-ta__list" data-unmatched-results role="listbox" aria-label="Catalogue matches"></div>
+                                       aria-label="Search the catalog for the product this Lazada item is">
+                                <div class="fm-ta__list" data-unmatched-results role="listbox" aria-label="Catalog matches"></div>
                             </div>
                             <input type="hidden" name="product_id" value="" data-unmatched-id>
                             <x-ui.button type="submit" size="sm" disabled data-unmatched-submit>Link</x-ui.button>
@@ -186,7 +186,7 @@
             @endforeach
         </x-ui.table>
     @else
-        <p class="fm-section__note">Nothing is waiting. <x-ui.hint label="What a scan does">A scan compares every item on your Lazada shop against catalogue SKUs and lists anything it could not place.</x-ui.hint></p>
+        <p class="fm-section__note">Nothing is waiting. <x-ui.hint label="What a scan does">A scan compares every item on your Lazada shop against catalog SKUs and lists anything it could not place.</x-ui.hint></p>
     @endif
 </section>
 @endif
@@ -265,8 +265,8 @@
     </div>
 
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by catalogue status">
-            <option value="all" @selected($erpStatus === 'all')>Any catalogue status</option>
+        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by catalog status">
+            <option value="all" @selected($erpStatus === 'all')>Any catalog status</option>
             <option value="enabled" @selected($erpStatus === 'enabled')>Enabled</option>
             <option value="disabled" @selected($erpStatus === 'disabled')>Disabled</option>
         </select>
@@ -368,7 +368,7 @@
     <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'No listings yet' }}"
                 :description="$hasFilters
                     ? 'Try clearing the search, or widening the group and status filters.'
-                    : 'A listing is a catalogue product mapped to a Lazada category, brand and attributes. Add one, or create a product group to map a batch at once.'">
+                    : 'A listing is a catalog product mapped to a Lazada category, brand and attributes. Add one, or create a product group to map a batch at once.'">
         {{-- An empty state that tells you to clear the search and offers no
              way to do it is a dead end: the only control that clears it was
              a 30x19px link back up in the filter bar, above the fold on a
@@ -423,7 +423,7 @@
             </th>
             <th scope="col" class="cc-col-stat">
                 <a class="x-th-sort" href="{{ $sortUrl('product_status') }}">
-                    Catalogue
+                    Catalog
                     @if($sort === 'product_status')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
@@ -584,7 +584,7 @@
                 @endif
             </td>
 
-            <td class="cc-col-stat" data-label="Catalogue">
+            <td class="cc-col-stat" data-label="Catalog">
                 @if($p === null)
                     <span class="x-cell-muted">No product</span>
                 @else

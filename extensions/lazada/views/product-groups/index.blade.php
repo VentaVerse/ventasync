@@ -18,7 +18,7 @@
         <h1 class="x-page-title">Product Groups</h1>
         <p class="x-page-sub">
             {{ number_format($groups->count()) }} {{ $groups->count() === 1 ? 'group' : 'groups' }}.
-            <x-ui.hint label="What a product group is">A group maps a set of catalogue products to one Lazada category, its brand and its required attributes.</x-ui.hint>
+            <x-ui.hint label="What a product group is">A group maps a set of catalog products to one Lazada category, its brand and its required attributes.</x-ui.hint>
         </p>
     </div>
     @if($canManageLazada)
@@ -28,7 +28,7 @@
 
 @if($groups->count() === 0)
     <x-ui.empty title="No product groups yet"
-                description="A group is how a batch of catalogue products gets its Lazada category, brand, attributes and price markup in one place, instead of setting them per listing.">
+                description="A group is how a batch of catalog products gets its Lazada category, brand, attributes and price markup in one place, instead of setting them per listing.">
         @if($canManageLazada)
         <x-slot:action>
             <x-ui.button variant="primary" :href="route('ext.lazada.product-groups.create')">New group</x-ui.button>
@@ -104,7 +104,7 @@
                              does: it deletes local listing rows that belong to
                              no other group and were never uploaded. --}}
                         <button type="button" class="x-menu__item x-menu__item--danger"
-                                data-confirm="Delete the group {{ $g->name }}? Listings in no other group that were never uploaded to Lazada are removed from this list with it. Nothing changes in the catalogue, and nothing already live on Lazada is touched."
+                                data-confirm="Delete the group {{ $g->name }}? Listings in no other group that were never uploaded to Lazada are removed from this list with it. Nothing changes in the catalog, and nothing already live on Lazada is touched."
                                 data-confirm-submit="lpg-del-{{ $g->id }}">Delete group</button>
                     @endif
                 </x-ui.menu>

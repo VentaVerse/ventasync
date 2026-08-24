@@ -538,7 +538,7 @@ public function store(Request $request)
              *             because Lazada and Shopee have one, and the channel
              *             mapping fills that in - so a blank model here is a
              *             normal state, not a half-finished record.
-             *   sku       plenty of catalogue lines never get one. UniqueSku
+             *   sku       plenty of catalog lines never get one. UniqueSku
              *             was already written to pass on an empty value, so
              *             the rule and the requirement have disagreed for as
              *             long as both existed.
@@ -986,7 +986,7 @@ public function store(Request $request)
             $statusByPovId = [];
             /* And the cost AMOUNT rides the same hop, for the same reason.
              * product_option_value has a cost_amount column that no code has
-             * ever written to - every row in this catalogue holds 0 - so
+             * ever written to - every row in this catalog holds 0 - so
              * reading it would blank the column on every edit. The
              * combination is where the number actually lives. */
             $costAmountByPovId = [];
@@ -1109,7 +1109,7 @@ public function store(Request $request)
              *             because Lazada and Shopee have one, and the channel
              *             mapping fills that in - so a blank model here is a
              *             normal state, not a half-finished record.
-             *   sku       plenty of catalogue lines never get one. UniqueSku
+             *   sku       plenty of catalog lines never get one. UniqueSku
              *             was already written to pass on an empty value, so
              *             the rule and the requirement have disagreed for as
              *             long as both existed.

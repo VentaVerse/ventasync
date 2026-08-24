@@ -125,7 +125,7 @@ class VentaOrdersPanel
 
         $orders = $query->paginate($perPage)->withQueryString();
 
-        // Product thumbnails, resolved from the local catalogue.
+        // Product thumbnails, resolved from the local catalog.
         //
         // The storefront's order payload carries no image: it ships an id, a
         // name, a sku and a price. The marketplaces do carry one, so their
@@ -133,7 +133,7 @@ class VentaOrdersPanel
         // point is that the four read the same way. A packer identifies what
         // to pull off the shelf by looking at it.
         //
-        // The catalogue is the right source anyway. These products were
+        // The catalog is the right source anyway. These products were
         // pushed to the storefront FROM here, so the ERP holds the image the
         // storefront is showing, and one lookup keyed by sku covers a page.
         $vtImages = $this->imagesForOrders($orders->getCollection());
@@ -191,13 +191,13 @@ class VentaOrdersPanel
      *
      *   1. product.sku      the same identifier the storefront was given
      *   2. product.model    OpenCart's own identifier, which some of this
-     *                       catalogue uses where sku is blank
+     *                       catalog uses where sku is blank
      *   3. venta_product_links  the explicit mapping, which is the most
      *                       correct of the three and also the sparsest
      *
      * Measured against the current data, sku reaches 78 of 113 distinct
      * skus, model another 21, and the link table 3 more that neither found.
-     * The rest have no catalogue image at all, and render the same "No
+     * The rest have no catalog image at all, and render the same "No
      * image" the marketplace panels render for the same absence.
      *
      * One query per source per page, never per row: this is a list that

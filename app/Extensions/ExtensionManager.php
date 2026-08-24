@@ -328,7 +328,7 @@ class ExtensionManager
     /**
      * Every permission key anything on disk still claims.
      *
-     * The route-derived catalogue plus config/permissions.php plus the
+     * The route-derived catalog plus config/permissions.php plus the
      * label file. Manifests no longer declare permissions - an extension
      * claims keys by having routes. A DISABLED extension's routes are
      * absent, so its exact keys cannot be derived here; every extension
@@ -341,7 +341,7 @@ class ExtensionManager
      */
     public function claimedPermissionKeys(): array
     {
-        /* ONE SOURCE: the route-derived catalogue. The config file, the
+        /* ONE SOURCE: the route-derived catalog. The config file, the
          * manifest blocks and the label-file merge that used to sit beside
          * it each carried a piece of the retired scheme, and each is gone
          * with it (Phase D). An extension claims keys by having routes;

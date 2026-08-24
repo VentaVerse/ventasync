@@ -5,7 +5,7 @@ namespace App\Integrations;
 class MenuItem
 {
     /**
-     * @param string|null $group Workspace sidebar group: 'Sell', 'Catalogue'
+     * @param string|null $group Workspace sidebar group: 'Sell', 'Catalog'
      *                           or 'Channel'. Null means the item predates
      *                           channel workspaces and falls under 'Channel'.
      *                           Added last with a default so no existing call

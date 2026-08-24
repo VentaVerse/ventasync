@@ -36,7 +36,7 @@
     <div class="fm-section__head">
         <h2 class="fm-section__title" id="sec-images">Images</h2>
         <x-ui.hint label="How image order works">Drag a tile to reorder. The first image is the one the
-            catalogue and the marketplaces show, and it is marked Main.</x-ui.hint>
+            catalog and the marketplaces show, and it is marked Main.</x-ui.hint>
         <div class="fm-section__aside">
             <x-ui.button type="button" size="sm" id="pimOpenManagerBtn">
                 <x-ui.icon name="image" size="14" /> Browse library
@@ -255,7 +255,7 @@
       div.appendChild(wrap);
 
       // Main is a badge ON the picture, not a caption under it. Which image
-      // the catalogue and every marketplace show is the one state that
+      // the catalog and every marketplace show is the one state that
       // matters in this grid, and a word in a footer is read, not seen.
       if (idx === 0) {
         const main = document.createElement('span');

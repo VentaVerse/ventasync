@@ -232,7 +232,7 @@ function initLoggingToggle(root) {
    API explorer. Same behaviour as the inline original: picking an
    endpoint fills method / auth / shop / path and seeds the parameter
    table, the table and the JSON box stay in step, and the search box
-   filters the catalogue.
+   filters the catalog.
    ------------------------------------------------------------------ */
 
 const SAMPLE_DATA = {

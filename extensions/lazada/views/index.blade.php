@@ -586,7 +586,7 @@
                     <div class="api-cat">Seller</div>
                     <button type="button" class="api-endpoint" data-ep='{"name":"Get Seller","method":"GET","auth":true,"path":"/seller/get","desc":"Fetch seller/account info.","params":[]}'><span class="api-badge get">GET</span><span class="api-code">/seller/get</span><div class="api-hint">Seller and account info</div></button>
 
-                    <div class="api-cat">Catalogue</div>
+                    <div class="api-cat">Catalog</div>
                     <button type="button" class="api-endpoint" data-ep='{"name":"Category Tree","method":"GET","auth":false,"path":"/category/tree/get","desc":"Fetch category tree.","params":[]}'><span class="api-badge get">GET</span><span class="api-code">/category/tree/get</span><div class="api-hint">Public, no token needed</div></button>
                     <button type="button" class="api-endpoint" data-ep='{"name":"Category Attributes","method":"GET","auth":false,"path":"/category/attributes/get","desc":"Get attributes for a primary category.","params":[{"k":"primary_category_id","req":true,"ph":"9257"}]}'><span class="api-badge get">GET</span><span class="api-code">/category/attributes/get</span><div class="api-hint">primary_category_id</div></button>
                     <button type="button" class="api-endpoint" data-ep='{"name":"Brands Query","method":"GET","auth":false,"path":"/category/brands/query","desc":"Brands list (uses startRow/pageSize internally).","params":[{"k":"page_no","req":false,"ph":"1"},{"k":"page_size","req":false,"ph":"50"},{"k":"brand_name","req":false,"ph":"Morley"}]}'><span class="api-badge get">GET</span><span class="api-code">/category/brands/query</span><div class="api-hint">Paging, optional brand_name</div></button>

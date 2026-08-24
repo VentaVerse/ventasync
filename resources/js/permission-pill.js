@@ -366,7 +366,7 @@
         { words: ['dashboard', 'home', 'search'],
           says: 'Everyone signed in gets this one. It has no permission to grant.' },
         { words: ['stock', 'inventory', 'price', 'quantity'],
-          says: 'These are fields rather than screens. Look under Catalogue for products '
+          says: 'These are fields rather than screens. Look under Catalog for products '
               + 'and Warehousing for stock on hand.' },
     ];
 

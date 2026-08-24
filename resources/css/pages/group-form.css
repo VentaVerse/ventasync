@@ -8,7 +8,7 @@
    anatomy has no equivalent for.
 
    OpenCart's picker needed nothing new at all: it is .fm-tags + .fm-tag
-   + .fm-ta, the same typeahead-into-chips control the catalogue's
+   + .fm-ta, the same typeahead-into-chips control the catalog's
    product form already uses, so it is not here.
 
    What IS here:
@@ -75,7 +75,7 @@
 .gf-dual { display: flex; flex-direction: column; gap: var(--bl-space-4); }
 
 /* ------------------------------------------------------------------
-   The search row above both panes. It searches the catalogue, not the
+   The search row above both panes. It searches the catalog, not the
    group, so it belongs above the pair rather than inside the left one.
    ------------------------------------------------------------------ */
 

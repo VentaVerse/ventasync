@@ -8,7 +8,7 @@
  *
  * Round C Task 2 brought Lazada's listings page onto the same anatomy, which
  * needs the same overlay, bulk-id injection, slow-action overlay and
- * catalogue typeahead. Rather than a second copy of ~250 lines, the shared
+ * catalog typeahead. Rather than a second copy of ~250 lines, the shared
  * work moved to ./channel-listings.js and this file is what remains: the
  * three values that are genuinely Shopee's. Shopee's DOM contract is
  * unchanged, so the view was not touched.

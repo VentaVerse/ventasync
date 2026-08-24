@@ -10,7 +10,7 @@ namespace Extensions\lazada\Controllers;
  * (lazada/settings) instead of sharing one with the API explorer. The old
  * single key (lazada/settings) bundled four jobs, one of which - sending
  * requests to Lazada as this shop - is a different grant decision from
- * "may edit the connection settings". The catalogue keys on the routed
+ * "may edit the connection settings". The catalog keys on the routed
  * class, so the split is a routing fact, not a code move.
  */
 class LazadaSettingsController extends LazadaController

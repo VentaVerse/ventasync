@@ -7,13 +7,13 @@
      <script> into resources/js/pages/channel-listing-form.js.
 
      This page submits nothing. It is the step before the push form: pick a
-     catalogue product, optionally pre-fill a category and a markup, and go.
+     catalog product, optionally pre-fill a category and a markup, and go.
      The Continue button is a navigation, and that is why it says so rather
      than sitting where a Save would.
 
-     One real defect fixed on the way past. The catalogue search built its
+     One real defect fixed on the way past. The catalog search built its
      result list with `resultsDiv.innerHTML = items.map(...).join('')` over a
-     product name taken straight off the endpoint's JSON. A catalogue product
+     product name taken straight off the endpoint's JSON. A catalog product
      named `<img src=x onerror=...>` executed here. The list is now the shared
      picker in resources/js/pages/channel-listings.js, which is createElement
      and textContent throughout, and pages/product-result.css (which existed
@@ -57,15 +57,15 @@
                     <h2 class="fm-section__title">Which product</h2>
                 </div>
 
-                <div class="fm-fields" data-catalogue-picker
+                <div class="fm-fields" data-catalog-picker
                      data-search-url="{{ route('ext.shopee.products.search_catalog') }}">
-                    <x-ui.field label="Catalogue product" for="add-search" :required="true" wide
+                    <x-ui.field label="Catalog product" for="add-search" :required="true" wide
                                 hint="Type at least two characters, then pick one from the list.">
                         <div class="fm-ta">
                             <x-ui.input id="add-search" type="search" autocomplete="off"
                                         data-unmatched-search
                                         placeholder="Search by name, model or SKU" />
-                            <div class="fm-ta__list" data-unmatched-results role="listbox" aria-label="Catalogue matches"></div>
+                            <div class="fm-ta__list" data-unmatched-results role="listbox" aria-label="Catalog matches"></div>
                         </div>
                         <input type="hidden" value="" data-unmatched-id>
                     </x-ui.field>
@@ -81,7 +81,7 @@
                 <div class="fm-section__head">
                     <h2 class="fm-section__title">Start the push form with</h2>
                 </div>
-                <p class="fm-section__note">All optional. Anything left empty is filled from the catalogue product on the next screen, and everything is still editable there.</p>
+                <p class="fm-section__note">All optional. Anything left empty is filled from the catalog product on the next screen, and everything is still editable there.</p>
 
                 <div class="fm-fields fm-fields--2">
                     <x-ui.field label="Shopee category" for="add-category"
@@ -108,7 +108,7 @@
                     </x-ui.field>
 
                     <x-ui.field label="Percentage of price" for="add-markup-percent"
-                                hint="5 means the pushed price is 5% above the catalogue price.">
+                                hint="5 means the pushed price is 5% above the catalog price.">
                         <div class="cs-inline">
                             <x-ui.input id="add-markup-percent" type="number" step="0.01" min="0"
                                         class="fm-input--num cs-days" data-carry="markup_percent" placeholder="0" />

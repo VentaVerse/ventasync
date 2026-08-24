@@ -119,7 +119,7 @@
                     <h2 class="fm-section__title">Products in this group</h2>
                 </div>
                 @if($canManageVenta)
-                <p class="fm-section__note">Search the catalogue on the left, move what belongs into the group on the right. Only what is on the right is saved.</p>
+                <p class="fm-section__note">Search the catalog on the left, move what belongs into the group on the right. Only what is on the right is saved.</p>
 
                 <div class="gf-dual"
                      data-group-product-picker
@@ -127,10 +127,10 @@
 
                     <div class="gf-filters">
                         <x-ui.input type="search" class="gf-filters__search" data-gf-q
-                                    placeholder="Name, SKU or model" aria-label="Search the catalogue by name, SKU or model" />
+                                    placeholder="Name, SKU or model" aria-label="Search the catalog by name, SKU or model" />
 
                         <div class="x-select-wrap gf-filters__select">
-                            <select class="x-input" data-gf-category aria-label="Filter by catalogue category">
+                            <select class="x-input" data-gf-category aria-label="Filter by catalog category">
                                 <option value="">All categories</option>
                                 @foreach($catalogCategories as $cat)
                                     <option value="{{ $cat->category_id }}">{{ $cat->name }}</option>
@@ -155,14 +155,14 @@
                     <div class="gf-panes">
                         <div class="gf-pane">
                             <div class="gf-pane__head">
-                                <span class="gf-pane__title">Catalogue</span>
+                                <span class="gf-pane__title">Catalog</span>
                                 <span class="gf-pane__count x-num" data-gf-left-count>0</span>
                             </div>
                             <div class="gf-pane__body">
                                 <table class="gf-list">
                                     <thead>
                                         <tr>
-                                            <th scope="col" class="gf-col-check"><input type="checkbox" class="cc-check" data-gf-left-all aria-label="Select every catalogue result"></th>
+                                            <th scope="col" class="gf-col-check"><input type="checkbox" class="cc-check" data-gf-left-all aria-label="Select every catalog result"></th>
                                             <th scope="col" class="gf-col-id">ID</th>
                                             <th scope="col">Product</th>
                                             <th scope="col" class="gf-col-qty">Stock</th>
@@ -174,7 +174,7 @@
                         </div>
 
                         <div class="gf-move">
-                            <x-ui.button type="button" size="sm" data-gf-add aria-label="Add the selected catalogue products to the group">
+                            <x-ui.button type="button" size="sm" data-gf-add aria-label="Add the selected catalog products to the group">
                                 Add <x-ui.icon name="chevron-right" size="14" />
                             </x-ui.button>
                             <x-ui.button type="button" size="sm" data-gf-remove aria-label="Take the selected products out of the group">
@@ -248,10 +248,10 @@
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Price markup</h2></div>
                 <div class="fm-card__body">
-                    <p class="fm-section__note">The percentage is taken off the catalogue price first, then the fixed amount is added on top. Leave both empty to push the catalogue price as it is.</p>
+                    <p class="fm-section__note">The percentage is taken off the catalog price first, then the fixed amount is added on top. Leave both empty to push the catalog price as it is.</p>
 
                     <x-ui.field label="Percentage of price" for="pg-markup-percent" name="markup_percent"
-                                hint="5 means the pushed price is 5% above the catalogue price.">
+                                hint="5 means the pushed price is 5% above the catalog price.">
                         <div class="cs-inline">
                             <x-ui.input id="pg-markup-percent" name="markup_percent" type="number" step="0.01" min="0"
                                         class="fm-input--num cs-days"

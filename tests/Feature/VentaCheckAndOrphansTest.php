@@ -13,7 +13,7 @@ use Tests\TestCase;
  * gone when Venta SAYS it is gone. The first draft tested nothing but
  * $result['ok'], which is false for a 404 and equally false for a dead socket,
  * a 500, or an expired token. A store that was merely unreachable therefore
- * read as a store that had deleted its entire catalogue, and the 'lost' branch
+ * read as a store that had deleted its entire catalog, and the 'lost' branch
  * deletes links. One outage would have wiped every link in the group and
  * reported it as tidy housekeeping. Only an explicit 404 counts.
  *
@@ -175,7 +175,7 @@ class VentaCheckAndOrphansTest extends TestCase
         foreach (['updateOrCreate(', '->delete()', 'linkProductTo(', 'writeProductStatus('] as $write) {
             $this->assertStringNotContainsString($write, $body,
                 "The orphan report calls {$write}. Adopting a Venta product by SKU without asking "
-                .'is how a catalogue product ends up pointed at a stranger.');
+                .'is how a catalog product ends up pointed at a stranger.');
         }
     }
 

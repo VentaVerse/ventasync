@@ -20,7 +20,7 @@
  *
  * SECURITY. Every result row is createElement + textContent. Both originals
  * already built these rows that way, and this keeps it: the search endpoint
- * returns catalogue product names, which are operator-entered strings.
+ * returns catalog product names, which are operator-entered strings.
  *
  * The wire is unchanged: the same `ids[]` field, the same search endpoint and
  * two-character minimum, the same add-products POST.
@@ -162,7 +162,7 @@ function initManualAdd(section) {
             .then(function (data) {
                 const items = Array.isArray(data.items) ? data.items : [];
                 if (!items.length) {
-                    message('No catalogue product matches that.');
+                    message('No catalog product matches that.');
                     return;
                 }
                 render(items);
@@ -196,7 +196,7 @@ function initManualAdd(section) {
    ------------------------------------------------------------------ */
 
 document.addEventListener('DOMContentLoaded', function () {
-    // Every channel posts `ids[]` and keys on the catalogue product id, so
+    // Every channel posts `ids[]` and keys on the catalog product id, so
     // the only per-channel values are the overlay element and the wording.
     // Round F Task 1 added the last three; each is inert unless its own
     // overlay is on the page, so this list costs nothing everywhere else.

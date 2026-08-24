@@ -89,7 +89,7 @@
                     <span x-text="selected.length"></span> selected
                     {{-- Selection is page-scoped and never said so: "50
                          selected" out of 2,081 across 42 pages reads as the
-                         whole catalogue. --}}
+                         whole catalog. --}}
                     <span class="text-ink-3 font-normal"
                           x-show="selected.length === ids.length && ids.length > 0">on this page</span>
                 </span>

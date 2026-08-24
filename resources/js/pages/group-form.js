@@ -15,7 +15,7 @@
  *                                per tag, named `catalog_category_ids[]` /
  *                                `manufacturer_ids[]`.
  *
- *   2. Venta's product picker    a two-pane set builder over a catalogue
+ *   2. Venta's product picker    a two-pane set builder over a catalog
  *                                search endpoint. What submits is one hidden
  *                                `product_ids[]` per row on the right.
  *
@@ -105,7 +105,7 @@ function initFilterPicker(field) {
         }
 
         // Fifty is what the pre-redesign picker showed, and it is what keeps a
-        // catalogue with thousands of categories from building thousands of
+        // catalog with thousands of categories from building thousands of
         // nodes on every keystroke.
         matches.slice(0, 50).forEach(function (option) {
             const button = document.createElement('button');
@@ -274,7 +274,7 @@ function initProductPicker(root) {
         leftBody.textContent = '';
         if (!visible.length) {
             leftBody.appendChild(emptyRow(
-                left.length ? 'Everything found is already in the group.' : 'Search the catalogue to see products here.'
+                left.length ? 'Everything found is already in the group.' : 'Search the catalog to see products here.'
             ));
             return;
         }

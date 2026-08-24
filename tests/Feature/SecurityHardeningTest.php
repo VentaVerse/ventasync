@@ -25,7 +25,7 @@ use ZipArchive;
  * deliberate behaviour change, so it carries its own tests rather than
  * riding the migration's behaviour-freeze coverage.
  *
- * Fix 4 (added 2026-08-08, catalogue redesign final review, finding I1) is a
+ * Fix 4 (added 2026-08-08, catalog redesign final review, finding I1) is a
  * separate pre-existing vulnerability found later by the same review
  * process: stored XSS through the Summernote description editor on both
  * product and category edit pages. See App\Support\HtmlSanitizer's docblock
@@ -314,7 +314,7 @@ class SecurityHardeningTest extends TestCase
     // -----------------------------------------------------------------
     // Fix 4: stored XSS through the Summernote description editor
     // (Catalog\ProductController + Catalog\CategoryController) -
-    // catalogue redesign final-review.md finding I1.
+    // catalog redesign final-review.md finding I1.
     // -----------------------------------------------------------------
 
     /**

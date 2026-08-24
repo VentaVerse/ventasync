@@ -254,7 +254,7 @@ export function initLazadaExplorer(root) {
 
     function select(ep, trigger) {
         if (methodSel) methodSel.value = (ep.method || 'GET').toUpperCase();
-        // Lazada defaults auth OFF: several of its catalogue endpoints are
+        // Lazada defaults auth OFF: several of its catalog endpoints are
         // public and signing them with a token fails.
         if (authBox) authBox.checked = !!ep.auth;
         if (pathInput) pathInput.value = ep.path || '';

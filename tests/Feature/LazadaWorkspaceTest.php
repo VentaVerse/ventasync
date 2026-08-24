@@ -134,7 +134,7 @@ class LazadaWorkspaceTest extends TestCase
         foreach ($this->lazadaCard()->menu as $item) {
             $this->assertContains(
                 $item->group,
-                ['Sell', 'Catalogue', 'Channel'],
+                ['Sell', 'Catalog', 'Channel'],
                 "Menu item {$item->label} has group ".var_export($item->group, true)
             );
         }
@@ -159,7 +159,7 @@ class LazadaWorkspaceTest extends TestCase
         $groups = app(ChannelWorkspace::class)->groups($this->lazadaCard(), $user);
 
         $this->assertSame(
-            ['Sell', 'Catalogue', 'Channel'],
+            ['Sell', 'Catalog', 'Channel'],
             array_column($groups, 'label')
         );
         $this->assertSame(
@@ -221,7 +221,7 @@ class LazadaWorkspaceTest extends TestCase
 
     /**
      * The narrow user gets a correspondingly narrow sidebar: Sell survives
-     * (both its items declare view_lazada_orders), Catalogue and Channel do
+     * (both its items declare view_lazada_orders), Catalog and Channel do
      * not (every item in them declares view_lazada, which this operator does
      * not hold).
      */
@@ -237,7 +237,7 @@ class LazadaWorkspaceTest extends TestCase
         $response->assertSee('>Orders</a>', false);
         $response->assertSee('>Returns</a>', false);
 
-        $response->assertDontSee('<span class="x-cnav__group-label">Catalogue</span>', false);
+        $response->assertDontSee('<span class="x-cnav__group-label">Catalog</span>', false);
         $response->assertDontSee('<span class="x-cnav__group-label">Channel</span>', false);
         $response->assertDontSee('>Listings</a>', false);
         $response->assertDontSee('>Product Groups</a>', false);

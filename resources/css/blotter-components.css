@@ -814,7 +814,7 @@
         transform: translateY(-1px);
     }
 
-    /* The first image is what the catalogue and every marketplace show. That
+    /* The first image is what the catalog and every marketplace show. That
        is the one piece of state in this grid worth seeing rather than
        reading, so it sits ON the picture as a badge rather than as a word in
        the footer. Ink on white, not a colour: it is an identity, not an
@@ -1356,7 +1356,7 @@
        line of grey text would have read as a caption nobody looks at.
 
        It is written by script and hidden outright when the parent charges
-       no percentage and no additional, which is most of this catalogue -
+       no percentage and no additional, which is most of this catalog -
        there the amount IS the unit cost and the note would say nothing. */
     .fm-vars__note {
         margin: 0;

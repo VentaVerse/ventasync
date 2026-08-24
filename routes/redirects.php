@@ -54,7 +54,7 @@ Route::get('/products/{id}/vendors', fn (string $id) => redirect($withQuery('/pu
 // task; only the product-search API endpoint was flat.
 Route::get('/api/warehousing/products', fn () => redirect($withQuery('/warehousing/api/products'), 301));
 
-// ── Catalogue: Reviews (OpenCart extension, nav-grouped under Catalogue) ──
+// ── Catalog: Reviews (OpenCart extension, nav-grouped under Catalog) ──
 Route::get('/reviews/{any?}', fn (?string $any = null) => redirect($withQuery('/catalog/reviews'.($any ? '/'.$any : '')), 301))
     ->where('any', '.*');
 

@@ -18,7 +18,7 @@ use Symfony\Component\HttpFoundation\Response;
  * that is gone.
  *
  * Ours does the same thing once, centrally: resolve the route's controller,
- * ask the catalogue what key it answers to, and require the tier the verb
+ * ask the catalog what key it answers to, and require the tier the verb
  * implies. The practical consequence is that a NEW CONTROLLER IS PROTECTED
  * THE MOMENT IT EXISTS. Under the per-route middleware this replaces, a route
  * added without `perm:` was simply open, and nothing said so - measured
@@ -37,7 +37,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class EnsureControllerPermission extends EnsurePermission
 {
-    public function __construct(private PermissionCatalogue $catalogue)
+    public function __construct(private PermissionCatalogue $catalog)
     {
     }
 
@@ -61,7 +61,7 @@ class EnsureControllerPermission extends EnsurePermission
 
         [$class] = explode('@', $action);
 
-        $key = $this->catalogue->keyForController($class);
+        $key = $this->catalog->keyForController($class);
 
         if ($key === null) {
             return $next($request); // sign-in, dashboard, search: never gated

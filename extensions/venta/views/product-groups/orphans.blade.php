@@ -25,7 +25,7 @@
                 Nothing was read from {{ $storeName }}.
             @else
                 {{ number_format($scanned) }} {{ $scanned === 1 ? 'product' : 'products' }} read from {{ $storeName }},
-                {{ number_format(count($orphans)) }} of which no catalogue product is linked to.
+                {{ number_format(count($orphans)) }} of which no catalog product is linked to.
             @endif
         </p>
     </div>
@@ -54,16 +54,16 @@
 
 @if(count($orphans) === 0)
     <x-ui.empty title="Nothing unaccounted for"
-                :description="'Every product read from ' . $storeName . ' is linked to a catalogue product. Products created directly in Venta\'s admin, or left behind when a link was removed, would appear here.'">
+                :description="'Every product read from ' . $storeName . ' is linked to a catalog product. Products created directly in Venta\'s admin, or left behind when a link was removed, would appear here.'">
         <x-slot:action>
             <x-ui.button :href="route('ext.venta.product-groups.products', [$setting->id, $group->id])">Back to {{ $groupName }}</x-ui.button>
         </x-slot:action>
     </x-ui.empty>
 @else
     <p class="x-page-sub cc-orphans__lede">
-        These exist on {{ $storeName }} and nothing in the catalogue points at them. That is not automatically wrong:
-        a product may have been created in Venta directly, or its catalogue twin removed. To bring one under ERP control,
-        give the catalogue product the same SKU and press Send on its row.
+        These exist on {{ $storeName }} and nothing in the catalog points at them. That is not automatically wrong:
+        a product may have been created in Venta directly, or its catalog twin removed. To bring one under ERP control,
+        give the catalog product the same SKU and press Send on its row.
     </p>
 
     <x-ui.table>

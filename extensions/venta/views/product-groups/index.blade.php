@@ -25,7 +25,7 @@
         <h1 class="x-page-title">Product Groups</h1>
         <p class="x-page-sub">
             {{ number_format($groups->count()) }} {{ $groups->count() === 1 ? 'group' : 'groups' }} on {{ $storeName }}.
-            <x-ui.hint label="What a product group is">A group is a set of catalogue products pushed to this Venta store together, with one price markup.</x-ui.hint>
+            <x-ui.hint label="What a product group is">A group is a set of catalog products pushed to this Venta store together, with one price markup.</x-ui.hint>
         </p>
     </div>
     @if($canManageVenta)
@@ -35,7 +35,7 @@
 
 @if($groups->count() === 0)
     <x-ui.empty title="No product groups yet"
-                :description="'Nothing has been grouped for ' . $storeName . ' yet. A group is how a batch of catalogue products gets its price markup and its push schedule in one place, instead of setting them per product.'">
+                :description="'Nothing has been grouped for ' . $storeName . ' yet. A group is how a batch of catalog products gets its price markup and its push schedule in one place, instead of setting them per product.'">
         @if($canManageVenta)
         <x-slot:action>
             <x-ui.button variant="primary" :href="route('ext.venta.product-groups.create', $setting->id)">New group</x-ui.button>
@@ -97,7 +97,7 @@
                              table, because a form cannot be nested inside a row
                              that is itself a stretched link. --}}
                         <button type="button" class="x-menu__item x-menu__item--danger"
-                                data-confirm="Delete the group {{ $g->name }} from {{ $storeName }}? Its product links go with it. Nothing changes in the catalogue, and nothing already live on the Venta store is touched."
+                                data-confirm="Delete the group {{ $g->name }} from {{ $storeName }}? Its product links go with it. Nothing changes in the catalog, and nothing already live on the Venta store is touched."
                                 data-confirm-submit="vpg-del-{{ $g->id }}">Delete group</button>
                     @endif
                 </x-ui.menu>

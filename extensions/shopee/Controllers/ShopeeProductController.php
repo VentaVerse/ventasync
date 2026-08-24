@@ -40,7 +40,7 @@ class ShopeeProductController extends Controller
          * Live by design (the owner): the whole point of the tab is whether
          * the marketplace shows the item right now, so there is no cache
          * to be stale. When Shopee does not answer, the tabs say so and
-         * the catalogue view continues without them. */
+         * the catalog view continues without them. */
         $tabMap = ['live' => 'NORMAL', 'unlisted' => 'UNLIST', 'violation' => 'BANNED', 'reviewing' => 'REVIEWING'];
         $shopeeTab = (string) $request->get('shopee_tab', 'all');
         if (!array_key_exists($shopeeTab, $tabMap)) {
@@ -59,7 +59,7 @@ class ShopeeProductController extends Controller
                 }
             } catch (\Throwable $e) {
                 $liveCounts = null;
-                $liveTabError = 'Shopee did not answer (' . $e->getMessage() . '), so the live tabs and statuses are unavailable right now. The catalogue below is unaffected.';
+                $liveTabError = 'Shopee did not answer (' . $e->getMessage() . '), so the live tabs and statuses are unavailable right now. The catalog below is unaffected.';
                 $shopeeTab = 'all';
             }
         } else {
@@ -218,7 +218,7 @@ class ShopeeProductController extends Controller
                     ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
                 $query->whereIn('p.product_id', $tabProductIds ?: [0]);
             } catch (\Throwable $e) {
-                $liveTabError = 'Shopee did not answer (' . $e->getMessage() . '), so the live tabs and statuses are unavailable right now. The catalogue below is unaffected.';
+                $liveTabError = 'Shopee did not answer (' . $e->getMessage() . '), so the live tabs and statuses are unavailable right now. The catalog below is unaffected.';
                 $shopeeTab = 'all';
             }
         }
@@ -470,7 +470,7 @@ class ShopeeProductController extends Controller
          * from a borrowed group. The borrow used to take the FIRST group
          * whose filter matched, and with every live group's filters empty
          * that meant primary-key order chose the markup. A product with no
-         * listing yet starts from the catalogue values, visibly. */
+         * listing yet starts from the catalog values, visibly. */
         $listing = ShopeeListing::query()->where('product_id', $productId)->first();
         $groupLogisticIds = $listing ? ($listing->logistic_ids ?? []) : [];
         $groupCategoryId = $listing ? ($listing->shopee_category_id ?? null) : null;
@@ -872,10 +872,10 @@ class ShopeeProductController extends Controller
         }
 
         /* The listing's own price rule; price itself is never stored, so
-         * this follows the catalogue price wherever it goes. Content the
-         * operator wrote on the listing overrides the catalogue's; null
-         * means never set, so the catalogue value goes. SKU is always the
-         * catalogue's - reconcile matches by it (card #97). */
+         * this follows the catalog price wherever it goes. Content the
+         * operator wrote on the listing overrides the catalog's; null
+         * means never set, so the catalog value goes. SKU is always the
+         * catalog's - reconcile matches by it (card #97). */
         $sellingPrice = $listing->priceFor((float) $product->price);
 
         $payload = [
@@ -2930,7 +2930,7 @@ class ShopeeProductController extends Controller
         ]);
 
         /* Content fields are OVERRIDES: an emptied field returns to null,
-         * which means "follows the catalogue". That is the whole model -
+         * which means "follows the catalog". That is the whole model -
          * saving here never writes the core product, and clearing a field
          * is how a divergence is deliberately ended. */
         $blank = fn ($v) => ($v === null || trim((string) $v) === '') ? null : $v;
@@ -3003,7 +3003,7 @@ class ShopeeProductController extends Controller
         $listing = ShopeeListing::query()->where('product_id', $productId)->first();
 
         // The same merge rule as every push: the listing's own value when
-        // set, the catalogue's otherwise.
+        // set, the catalog's otherwise.
         $coreName = html_entity_decode((string) ($product->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $coreDescription = trim(strip_tags(html_entity_decode((string) ($product->description ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
 

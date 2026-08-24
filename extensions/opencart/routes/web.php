@@ -82,7 +82,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
 // No write routes exist yet for OpenCart orders.
 
 // ── Reviews — READ ──────────────────────────────────────────────
-// IA migration (2026-08-08, Task 1): reviews sit in the Catalogue nav
+// IA migration (2026-08-08, Task 1): reviews sit in the Catalog nav
 // group, so their URI nests under /catalog/reviews (not /opencart) even
 // though the controller stays in this extension. Route names unchanged;
 // old /reviews/* URIs 301 via routes/redirects.php.

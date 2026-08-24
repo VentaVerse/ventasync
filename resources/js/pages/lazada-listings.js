@@ -4,7 +4,7 @@
  * All of this behaviour used to be an inline <script> at the bottom of
  * extensions/lazada/views/products/index.blade.php: the select-all and bulk
  * bar, the bulk-id injection, the loading overlay, a hand-rolled row-action
- * dropdown, and the unmatched-item catalogue typeahead. That view has been
+ * dropdown, and the unmatched-item catalog typeahead. That view has been
  * rebuilt on the design tokens and left the .x-legacy boundary, and this
  * project does not put behaviour in Blade.
  *
@@ -21,7 +21,7 @@
  *     bulk form was submitted.
  *
  * Lazada's bulk forms post `listing_ids[]`, keyed on the lazada_products row
- * id, not on the catalogue product id. That is the pre-redesign wire and the
+ * id, not on the catalog product id. That is the pre-redesign wire and the
  * reason this file exists separately from Shopee's.
  *
  * Everything else is unchanged at the wire: the same five bulk routes, the

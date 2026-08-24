@@ -16,7 +16,7 @@ use Illuminate\Http\Request;
  * This replaces core's /integrations/{channel} wildcard, which was the one
  * place the application broke its own rule that core never owns an
  * extension's page. The wildcard's controller was core, so the permission
- * catalogue - which derives a key from the controller that answers a route -
+ * catalog - which derives a key from the controller that answers a route -
  * filed the page under core, exempted it, and left every channel dashboard
  * gated by a legacy key (`view_lazada`) that the permission editor could not
  * grant. A group created after the permissions rebuild could hold every

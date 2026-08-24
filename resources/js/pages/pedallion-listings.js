@@ -13,7 +13,7 @@
  *
  * `bulkField` here is the DEFAULT, not the only answer. Pedallion is the one
  * channel whose bulk endpoints do not all speak the same id: two take
- * `product_ids[]` (any catalogue product) and four take `link_ids[]` (rows
+ * `product_ids[]` (any catalog product) and four take `link_ids[]` (rows
  * already linked to Pedallion). The four declare that on the form itself,
  * with data-bulk-field and data-bulk-attr; see the note at the top of the
  * Blade. The wire is identical to the inline original, which decided the same

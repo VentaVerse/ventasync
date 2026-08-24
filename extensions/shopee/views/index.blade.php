@@ -612,7 +612,7 @@
                     <div>
                         <span class="fm-label">Run a preset</span>
                         <div class="api-row-actions">
-                            @foreach(['shop_info' => 'Shop info', 'catalog' => 'Catalogue', 'orders' => 'Orders', 'logistics' => 'Logistics', 'full' => 'Everything'] as $pack => $packLabel)
+                            @foreach(['shop_info' => 'Shop info', 'catalog' => 'Catalog', 'orders' => 'Orders', 'logistics' => 'Logistics', 'full' => 'Everything'] as $pack => $packLabel)
                                 <form method="POST" action="{{ route('ext.shopee.packs_run') }}">
                                     @csrf
                                     <input type="hidden" name="pack" value="{{ $pack }}">

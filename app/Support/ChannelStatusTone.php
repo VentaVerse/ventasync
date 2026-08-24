@@ -488,7 +488,7 @@ class ChannelStatusTone
          * was Lazada-only despite both panels using the identical code path.
          *
          * Mapped from what the data actually contains, not from a guess at
-         * their catalogue. Anything unlisted still degrades to sentence case
+         * their catalog. Anything unlisted still degrades to sentence case
          * through labelFor()'s fallback rather than shouting. */
         'lazada.payment' => [
             'COD' => 'Cash on delivery',

@@ -5,12 +5,12 @@
 | Permission Display Strings
 |--------------------------------------------------------------------------
 |
-| Wording for the route-derived permission catalogue - see
+| Wording for the route-derived permission catalog - see
 | App\Services\PermissionCatalogue. Keys are {area}/{controller}; every
 | entry here OVERRIDES a derivation, never enables one: a key with no
 | wording still renders, humanised, so coverage never waits on prose.
 |
-|   areas    — the section headings ('catalog' => 'Catalogue')
+|   areas    — the section headings ('catalog' => 'Catalog')
 |   notes    — one line under an area heading, where the name is not enough
 |   rows     — row titles ('lazada/order' => ...)
 |   warnings — the plain sentence under a row that hands over more than
@@ -24,7 +24,7 @@
 return [
 
     'areas' => [
-        'catalog' => 'Catalogue',
+        'catalog' => 'Catalog',
         'sales' => 'Sales',
         'settings' => 'Settings',
         'general' => 'General',
@@ -42,7 +42,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | One line under an area heading, for the areas whose name is not enough
-    | on its own. Most need none - "Catalogue" explains itself.
+    | on its own. Most need none - "Catalog" explains itself.
     |
     */
 
@@ -74,7 +74,7 @@ return [
         'api/auth' => 'Sign in on the phone app',
         'api/device_token' => 'Push notifications',
         'api/dashboard' => 'Dashboard figures',
-        'api/catalog' => 'Browse the catalogue',
+        'api/catalog' => 'Browse the catalog',
         'api/product' => 'Products',
         'api/order' => 'Orders',
         'api/marketplace_order' => 'Marketplace orders',

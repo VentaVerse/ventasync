@@ -248,7 +248,7 @@
                     @endif
                     @if($review->product_id)
                         <div class="od-fact">
-                            <span class="od-fact__k">Catalogue product</span>
+                            <span class="od-fact__k">Catalog product</span>
                             <span class="od-fact__v od-fact__v--mono">{{ $review->product_id }}</span>
                         </div>
                     @endif

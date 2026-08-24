@@ -18,10 +18,10 @@
      resources/js/pages/channel-listing-form.js and
      resources/js/pages/group-form.js.
 
-     A real defect fixed on the way past. The catalogue search on the create
+     A real defect fixed on the way past. The catalog search on the create
      step built its results with `resultsDiv.innerHTML = items.map(...)` over a
      product name straight off the endpoint, and the chosen-product card did
-     the same. A catalogue product named `<img src=x onerror=...>` executed
+     the same. A catalog product named `<img src=x onerror=...>` executed
      here. Both are the shared picker now, createElement and textContent
      throughout.
 
@@ -67,7 +67,7 @@
         : '';
     $basePrice = isset($productRow->price) ? (float) $productRow->price : null;
 
-    // The values a mapped attribute can read off the catalogue product. Data
+    // The values a mapped attribute can read off the catalog product. Data
     // only, no behaviour: the preview lives in
     // resources/js/pages/group-form.js. JSON_HEX_TAG encodes < and >, so a
     // description containing "</script>" cannot close this element.
@@ -120,7 +120,7 @@
                 </span>
                 @if($mode === 'edit' && $listing->product_id)
                     <span class="fm-stamp">
-                        <span class="fm-stamp__k">Catalogue product</span>
+                        <span class="fm-stamp__k">Catalog product</span>
                         <a class="fm-stamp__v" href="{{ route('products.edit', $listing->product_id) }}">{{ $listing->product_id }}</a>
                     </span>
                 @endif
@@ -135,7 +135,7 @@
     </div>
 
     @if($mode === 'edit' && !empty($productRow))
-        {{-- Which catalogue product this listing is for. Not a field: the
+        {{-- Which catalog product this listing is for. Not a field: the
              answer to "what am I editing". --}}
         <div class="cl-summary">
             @if(!empty($productImageUrl))
@@ -255,15 +255,15 @@
                         <h2 class="fm-section__title">Which product</h2>
                     </div>
 
-                    <div class="fm-fields" data-catalogue-picker
+                    <div class="fm-fields" data-catalog-picker
                          data-search-url="{{ route('ext.lazada.products.search_catalog') }}">
-                        <x-ui.field label="Catalogue product" for="lz-search" name="product_id" :required="true" wide
+                        <x-ui.field label="Catalog product" for="lz-search" name="product_id" :required="true" wide
                                     hint="Type at least two characters, then pick one from the list. Every Lazada payload is built from this product.">
                             <div class="fm-ta">
                                 <x-ui.input id="lz-search" type="search" autocomplete="off"
                                             data-unmatched-search
                                             placeholder="Search by name, model or SKU" />
-                                <div class="fm-ta__list" data-unmatched-results role="listbox" aria-label="Catalogue matches"></div>
+                                <div class="fm-ta__list" data-unmatched-results role="listbox" aria-label="Catalog matches"></div>
                             </div>
                             <input type="hidden" name="product_id" data-unmatched-id value="{{ old('product_id', $listing->product_id) }}">
                         </x-ui.field>
@@ -347,10 +347,10 @@
                 <div class="fm-card">
                     <div class="fm-card__head"><h2 class="fm-card__title">Price markup</h2></div>
                     <div class="fm-card__body">
-                        <p class="fm-section__note">The percentage is taken off the catalogue price first, then the fixed amount is added on top.</p>
+                        <p class="fm-section__note">The percentage is taken off the catalog price first, then the fixed amount is added on top.</p>
 
                         <x-ui.field label="Percentage of price" for="lz-markup-percent" name="markup_percent"
-                                    hint="5 means the listed price is 5% above the catalogue price.">
+                                    hint="5 means the listed price is 5% above the catalog price.">
                             <div class="cs-inline">
                                 <x-ui.input id="lz-markup-percent" name="markup_percent" type="number" step="0.01" min="0"
                                             class="fm-input--num cs-days" data-markup-percent
@@ -376,7 +376,7 @@
                             <div class="cl-total" data-running-total data-base-price="{{ $basePrice }}">
                                 <span class="cl-total__k">Listed at</span>
                                 <span class="cl-total__v"><span data-total-value>{{ number_format($basePrice, 2) }}</span></span>
-                                <span class="cl-total__note">Catalogue price {{ number_format($basePrice, 2) }} in {{ \App\Support\Money::defaultCode() }}</span>
+                                <span class="cl-total__note">Catalog price {{ number_format($basePrice, 2) }} in {{ \App\Support\Money::defaultCode() }}</span>
                             </div>
                         @endif
 
@@ -428,7 +428,7 @@
             @elseif(!$template)
                 <p class="fm-section__note">The category template has not been read from Lazada yet. Read it below and the attributes will appear here.</p>
             @else
-                <p class="fm-section__note">Type a value, or point an attribute at a field on the catalogue product so every push reads the current one. Read from Lazada {{ $template->fetched_at ? $template->fetched_at->format('Y-m-d H:i') : 'at an unrecorded time' }}.</p>
+                <p class="fm-section__note">Type a value, or point an attribute at a field on the catalog product so every push reads the current one. Read from Lazada {{ $template->fetched_at ? $template->fetched_at->format('Y-m-d H:i') : 'at an unrecorded time' }}.</p>
 
                 <form id="lazada-attributes" method="POST" action="{{ route('ext.lazada.products.attributes_save', $listing->id) }}">
                     @csrf
@@ -540,7 +540,7 @@
                                     @endif
 
                                     @if(!$isSelect && !$isMapped && empty($saved[$key] ?? null) && empty(old('attributes.' . $key)) && !empty($suggestion))
-                                        <p class="gf-attr__note">The catalogue suggests {{ $suggestion }}.</p>
+                                        <p class="gf-attr__note">The catalog suggests {{ $suggestion }}.</p>
                                     @endif
 
                                     @if($errors->has('attributes.' . $key))
@@ -597,7 +597,7 @@
             @if(($variants ?? collect())->count() === 0)
                 <p class="fm-section__note">This product has no variations, so Lazada gets it as a single SKU. Nothing to map.</p>
             @else
-                <p class="fm-section__note">Lazada gets the catalogue's own values unless you override one here. Anything left empty stays as the catalogue has it.</p>
+                <p class="fm-section__note">Lazada gets the catalog's own values unless you override one here. Anything left empty stays as the catalog has it.</p>
 
                 <form id="lazada-variants" method="POST" action="{{ route('ext.lazada.products.variants_save', $listing->id) }}">
                     @csrf
@@ -606,9 +606,9 @@
                             <thead>
                                 <tr>
                                     <th scope="col" class="fm-vcol-name">Variation</th>
-                                    <th scope="col" class="fm-vcol-sku">Catalogue SKU</th>
-                                    <th scope="col" class="fm-vcol-price fm-vcol-num">Catalogue price</th>
-                                    <th scope="col" class="fm-vcol-qty fm-vcol-num">Catalogue stock</th>
+                                    <th scope="col" class="fm-vcol-sku">Catalog SKU</th>
+                                    <th scope="col" class="fm-vcol-price fm-vcol-num">Catalog price</th>
+                                    <th scope="col" class="fm-vcol-qty fm-vcol-num">Catalog stock</th>
                                     <th scope="col" class="fm-vcol-sku">Lazada SKU</th>
                                     <th scope="col" class="fm-vcol-price fm-vcol-num">Lazada price</th>
                                     <th scope="col" class="fm-vcol-qty fm-vcol-num">Lazada stock</th>
@@ -625,13 +625,13 @@
                                     @endphp
                                     <tr>
                                         <td class="fm-vcol-name" data-label="Variation">{{ $variantLabel }}</td>
-                                        <td class="fm-vcol-sku" data-label="Catalogue SKU"><span class="x-num">{{ $variant->sku ?: 'None' }}</span></td>
-                                        <td class="fm-vcol-price fm-num" data-label="Catalogue price">{{ number_format((float) ($variant->absolute_price ?? 0), 2) }}</td>
-                                        <td class="fm-vcol-qty fm-num" data-label="Catalogue stock">{{ $variant->quantity }}</td>
+                                        <td class="fm-vcol-sku" data-label="Catalog SKU"><span class="x-num">{{ $variant->sku ?: 'None' }}</span></td>
+                                        <td class="fm-vcol-price fm-num" data-label="Catalog price">{{ number_format((float) ($variant->absolute_price ?? 0), 2) }}</td>
+                                        <td class="fm-vcol-qty fm-num" data-label="Catalog stock">{{ $variant->quantity }}</td>
                                         <td class="fm-vcol-sku" data-label="Lazada SKU">
                                             <input class="x-input" name="variants[{{ $variantId }}][seller_sku]"
                                                    value="{{ old('variants.' . $variantId . '.seller_sku', $mapped?->seller_sku) }}"
-                                                   placeholder="Same as catalogue"
+                                                   placeholder="Same as catalog"
                                                    aria-label="Lazada SKU for {{ $variantLabel }}">
                                         </td>
                                         <td class="fm-vcol-price fm-vcol-num" data-label="Lazada price">
@@ -673,7 +673,7 @@
                     </form>
                 </div>
             </div>
-            <p class="fm-section__note">Building it changes nothing at Lazada. It assembles exactly what would be sent, from this listing's attributes, the variation mapping and the catalogue's weight and dimensions, so you can read it before anything leaves.</p>
+            <p class="fm-section__note">Building it changes nothing at Lazada. It assembles exactly what would be sent, from this listing's attributes, the variation mapping and the catalog's weight and dimensions, so you can read it before anything leaves.</p>
 
             @if(!empty($payloadPreview))
                 <details class="od-disclose" open>

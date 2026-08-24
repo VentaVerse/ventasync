@@ -19,7 +19,7 @@ use Tests\TestCase;
  * shown the way the seller center shows it. The live half is fetched from
  * the marketplace on every load and NEVER substituted with stale data; the
  * record half edits the listing's own settings and content, where an empty
- * content field means "follows the catalogue".
+ * content field means "follows the catalog".
  */
 class ShopeeListingPageTest extends TestCase
 {
@@ -110,7 +110,7 @@ class ShopeeListingPageTest extends TestCase
 
         DB::table($pfx . 'product_description')->insert([
             'product_id' => $productId, 'language_id' => $langId,
-            'name' => 'Listing page product', 'description' => 'The catalogue wording.',
+            'name' => 'Listing page product', 'description' => 'The catalog wording.',
             'meta_title' => 'Listing page product', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
 
@@ -144,7 +144,7 @@ class ShopeeListingPageTest extends TestCase
         $r->assertDontSee('On Shopee right now');
     }
 
-    public function test_saving_stores_settings_and_blank_content_follows_the_catalogue(): void
+    public function test_saving_stores_settings_and_blank_content_follows_the_catalog(): void
     {
         $productId = $this->seedProduct();
         $user = $this->manager();
@@ -163,7 +163,7 @@ class ShopeeListingPageTest extends TestCase
         $this->assertSame([8003], $listing->logistic_ids);
         $this->assertSame(10.0, (float) $listing->markup_percent);
         $this->assertSame('A Shopee-only title', $listing->item_name);
-        $this->assertNull($listing->description, 'Blank means: follows the catalogue.');
+        $this->assertNull($listing->description, 'Blank means: follows the catalog.');
         $this->assertNull($listing->weight);
 
         // Emptying a filled field ends the divergence.
@@ -173,7 +173,7 @@ class ShopeeListingPageTest extends TestCase
             'item_name' => '',
         ]);
 
-        $this->assertNull($listing->fresh()->item_name, 'Clearing the field must return it to the catalogue.');
+        $this->assertNull($listing->fresh()->item_name, 'Clearing the field must return it to the catalog.');
     }
 
     public function test_a_linked_product_shows_shopees_live_answer(): void
@@ -296,7 +296,7 @@ class ShopeeListingPageTest extends TestCase
     public function test_when_shopee_does_not_answer_the_tabs_step_aside_and_the_table_survives(): void
     {
         $productId = $this->seedProduct();
-        // Linked, so the catalogue view lists it even with the API down.
+        // Linked, so the catalog view lists it even with the API down.
         ShopeeProductLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 111, 'sku' => 'LSTP-SKU-1',
         ]);
@@ -341,7 +341,7 @@ class ShopeeListingPageTest extends TestCase
             'product_id' => $productId,
             'shopee_category_id' => 100013, 'logistic_ids' => [8003],
             'item_name' => 'A Shopee-only title',
-            // description left null: the catalogue's wording goes.
+            // description left null: the catalog's wording goes.
         ]);
 
         $r = $this->actingAs($this->manager())
@@ -351,7 +351,7 @@ class ShopeeListingPageTest extends TestCase
         $this->assertNotNull($sent, 'The update must reach update_item.');
         $this->assertSame(990077, (int) $sent['body']['item_id']);
         $this->assertSame('A Shopee-only title', $sent['body']['item_name'], 'The override goes.');
-        $this->assertSame('The catalogue wording.', $sent['body']['description'], 'Null means the catalogue goes.');
+        $this->assertSame('The catalog wording.', $sent['body']['description'], 'Null means the catalog goes.');
         $this->assertSame(100013, (int) $sent['body']['category_id']);
         $this->assertSame(8003, (int) $sent['body']['logistic_info'][0]['logistic_id']);
         $this->assertArrayNotHasKey('original_price', $sent['body'], 'Price never rides a content update.');

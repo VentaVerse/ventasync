@@ -129,7 +129,7 @@ class ShopeeReconcileTest extends TestCase
     }
 
     /**
-     * A found item already held by another catalogue product is reported, not
+     * A found item already held by another catalog product is reported, not
      * stolen. That link may be perfectly good, and taking it would leave the
      * other product silently pointing at nothing.
      */
@@ -146,7 +146,7 @@ class ShopeeReconcileTest extends TestCase
         $this->assertNotFalse($writeAt);
         $this->assertLessThan($writeAt, $takenAt,
             'The link is written before the contested check, so one Shopee item can end up claimed '
-            .'by two catalogue products.');
+            .'by two catalog products.');
     }
 
     /**
@@ -306,7 +306,7 @@ class ShopeeReconcileTest extends TestCase
         foreach (['updateOrCreate(', '->delete()', 'writeProductStatus(', 'unlinkProduct('] as $write) {
             $this->assertStringNotContainsString($write, $body,
                 "The orphan report calls {$write}. Adopting a Shopee item by SKU without asking is "
-                .'how a catalogue product ends up pointed at a stranger.');
+                .'how a catalog product ends up pointed at a stranger.');
         }
     }
 

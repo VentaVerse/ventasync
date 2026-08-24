@@ -18,7 +18,7 @@
         <h1 class="x-page-title">Product Groups</h1>
         <p class="x-page-sub">
             {{ number_format($groups->count()) }} {{ $groups->count() === 1 ? 'group' : 'groups' }}.
-            <x-ui.hint label="What a product group is">A group maps a set of catalogue products to one Shopee category, its attributes and its couriers.</x-ui.hint>
+            <x-ui.hint label="What a product group is">A group maps a set of catalog products to one Shopee category, its attributes and its couriers.</x-ui.hint>
         </p>
     </div>
     @if($canManageShopee)
@@ -28,7 +28,7 @@
 
 @if($groups->count() === 0)
     <x-ui.empty title="No product groups yet"
-                description="A group is how a batch of catalogue products gets its Shopee category, attributes, couriers and price markup in one place, instead of setting them per listing.">
+                description="A group is how a batch of catalog products gets its Shopee category, attributes, couriers and price markup in one place, instead of setting them per listing.">
         @if($canManageShopee)
         <x-slot:action>
             <x-ui.button variant="primary" :href="route('ext.shopee.product-groups.create')">New group</x-ui.button>
@@ -107,7 +107,7 @@
                              cannot be nested inside a row that is itself a
                              stretched link. --}}
                         <button type="button" class="x-menu__item x-menu__item--danger"
-                                data-confirm="Delete the group {{ $p->name }}? Its products stay in the catalogue and stay listed on Shopee. Only the grouping is removed."
+                                data-confirm="Delete the group {{ $p->name }}? Its products stay in the catalog and stay listed on Shopee. Only the grouping is removed."
                                 data-confirm-submit="spg-del-{{ $p->id }}">Delete group</button>
                     @endif
                 </x-ui.menu>

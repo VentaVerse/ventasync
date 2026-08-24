@@ -10,7 +10,7 @@
 
      What Lazada has and Shopee does not is the second way to fill a free-text
      attribute: instead of typing a value, point it at a field on the
-     catalogue product and let every push read it from there. That is the
+     catalog product and let every push read it from there. That is the
      `__map:<field>` prefix on the stored value, and it is the wire, unchanged.
 
      Attributes keyed `brand` are skipped, as before: the brand is its own

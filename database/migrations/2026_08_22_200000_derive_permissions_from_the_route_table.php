@@ -32,11 +32,11 @@ return new class extends Migration
             return;
         }
 
-        $catalogue = app(PermissionCatalogue::class);
+        $catalog = app(PermissionCatalogue::class);
 
         $ids = DB::table('permissions')->pluck('id', 'key')->all();
 
-        foreach ($catalogue->keys() as $key) {
+        foreach ($catalog->keys() as $key) {
             if (! isset($ids[$key])) {
                 $ids[$key] = DB::table('permissions')->insertGetId(['key' => $key]);
             }
@@ -61,7 +61,7 @@ return new class extends Migration
 
             $rows = [];
 
-            foreach ($catalogue->keys() as $key) {
+            foreach ($catalog->keys() as $key) {
                 if (isset($ids[$key]) && ! in_array($ids[$key], $held, true)) {
                     $rows[] = ['user_group_id' => $adminId, 'permission_id' => $ids[$key]];
                 }
@@ -72,7 +72,7 @@ return new class extends Migration
             }
         }
 
-        $map = $this->derivedMap($catalogue);
+        $map = $this->derivedMap($catalog);
 
         foreach (DB::table('user_groups')->pluck('id') as $groupId) {
             $held = DB::table('user_group_permissions as ugp')
@@ -122,7 +122,7 @@ return new class extends Migration
      *
      * @return array<string, array<int, string>>
      */
-    private function derivedMap(PermissionCatalogue $catalogue): array
+    private function derivedMap(PermissionCatalogue $catalog): array
     {
         $map = [];
 
@@ -134,7 +134,7 @@ return new class extends Migration
             }
 
             [$class] = explode('@', $action);
-            $new = $catalogue->keyForController($class);
+            $new = $catalog->keyForController($class);
 
             if (! $new) {
                 continue;
@@ -165,7 +165,7 @@ return new class extends Migration
             return;
         }
 
-        // Only the derived keys. Anything the catalogue does not name was
+        // Only the derived keys. Anything the catalog does not name was
         // here before this migration and stays.
         $keys = app(PermissionCatalogue::class)->keys();
         $ids = DB::table('permissions')->whereIn('key', $keys)->pluck('id')->all();

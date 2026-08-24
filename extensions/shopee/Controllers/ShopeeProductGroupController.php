@@ -1645,7 +1645,7 @@ class ShopeeProductGroupController extends Controller
             return [
                 'state' => 'taken',
                 'item_id' => $found,
-                'message' => "Shopee item {$found} is already linked to catalogue product #{$otherHolder}. "
+                'message' => "Shopee item {$found} is already linked to catalog product #{$otherHolder}. "
                     .'Unlink that product first, then send this one again.',
             ];
         }
@@ -1873,16 +1873,16 @@ class ShopeeProductGroupController extends Controller
     }
 
     /**
-     * List items on Shopee that no catalogue product claims.
+     * List items on Shopee that no catalog product claims.
      *
      * The check answers "is what we have still there". This answers the mirror
      * question, "is there something there we do not know about", and only the
      * two together show the whole picture. Orphans come from ordinary events:
-     * an item created in Seller Centre, a link removed, a catalogue product
+     * an item created in Seller Centre, a link removed, a catalog product
      * deleted while its Shopee listing stayed live.
      *
      * Read-only on purpose. It reports; it never adopts, never deletes and
-     * never writes a link. Adopting by SKU without asking is how a catalogue
+     * never writes a link. Adopting by SKU without asking is how a catalog
      * product ends up pointed at a stranger, and only the operator knows
      * whether a familiar-looking code is really the same product.
      */
@@ -1978,7 +1978,7 @@ class ShopeeProductGroupController extends Controller
             $verdict = $this->reconcileShopeeLink($client, $auth, (int) $productId, $pfx);
             $verdicts[$verdict['state']] = ($verdicts[$verdict['state']] ?? 0) + 1;
 
-            // Neither of these may be sent. 'taken' would tie two catalogue
+            // Neither of these may be sent. 'taken' would tie two catalog
             // products to one Shopee item; 'unreachable' means we do not know
             // what is on Shopee, and creating into that ignorance is how a
             // duplicate listing appears next to the original.

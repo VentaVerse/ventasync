@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Route;
 class ChannelWorkspace
 {
     /** Fixed across every channel. A channel with nothing in a group omits it. */
-    public const GROUPS = ['Sell', 'Catalogue', 'Channel'];
+    public const GROUPS = ['Sell', 'Catalog', 'Channel'];
 
     public function __construct(private IntegrationRegistry $registry)
     {
@@ -923,8 +923,8 @@ class ChannelWorkspace
         }
 
         [$class] = explode('@', $action);
-        $catalogue = app(\App\Services\PermissionCatalogue::class);
-        $key = $catalogue->keyForController($class);
+        $catalog = app(\App\Services\PermissionCatalogue::class);
+        $key = $catalog->keyForController($class);
 
         if ($key === null) {
             return true; // never gated: gates per item inside

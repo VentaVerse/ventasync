@@ -64,7 +64,7 @@ class ControllerPermissionTest extends TestCase
     /** THE WHOLE POINT: a controller that exists has a key. */
     public function test_every_gated_controller_has_a_key_derived_from_its_routes(): void
     {
-        $catalogue = $this->app->make(PermissionCatalogue::class);
+        $catalog = $this->app->make(PermissionCatalogue::class);
         $missing = [];
 
         foreach (Route::getRoutes() as $route) {
@@ -76,11 +76,11 @@ class ControllerPermissionTest extends TestCase
 
             [$class] = explode('@', $action);
 
-            if ($catalogue->neverGated($class)) {
+            if ($catalog->neverGated($class)) {
                 continue;
             }
 
-            if ($catalogue->keyForController($class) === null) {
+            if ($catalog->keyForController($class) === null) {
                 $missing[] = $class;
             }
         }
@@ -92,11 +92,11 @@ class ControllerPermissionTest extends TestCase
     /** And a key that exists is in the database, so the editor can show it. */
     public function test_every_derived_key_exists_as_a_permission_row(): void
     {
-        $catalogue = $this->app->make(PermissionCatalogue::class);
+        $catalog = $this->app->make(PermissionCatalogue::class);
         $rows = Permission::pluck('key')->flip();
 
         $missing = array_values(array_filter(
-            $catalogue->keys(),
+            $catalog->keys(),
             fn ($key) => ! isset($rows[$key])
         ));
 
@@ -110,8 +110,8 @@ class ControllerPermissionTest extends TestCase
      */
     public function test_an_area_with_no_write_route_offers_no_manage_tier(): void
     {
-        $catalogue = $this->app->make(PermissionCatalogue::class);
-        $readOnly = array_filter($catalogue->all(), fn ($e) => $e['writes'] === 0);
+        $catalog = $this->app->make(PermissionCatalogue::class);
+        $readOnly = array_filter($catalog->all(), fn ($e) => $e['writes'] === 0);
 
         $this->assertNotEmpty($readOnly, 'this test is only meaningful while a read-only area exists');
 
@@ -255,14 +255,14 @@ class ControllerPermissionTest extends TestCase
      */
     public function test_a_surface_that_gates_per_item_is_not_gated_at_the_door(): void
     {
-        $catalogue = $this->app->make(PermissionCatalogue::class);
+        $catalog = $this->app->make(PermissionCatalogue::class);
 
         foreach ([
             \App\Http\Controllers\Integrations\IntegrationController::class,
             \App\Http\Controllers\AutomationsController::class,
             \App\Http\Controllers\Fulfilment\OrderPrintController::class,
         ] as $class) {
-            $this->assertTrue($catalogue->neverGated($class),
+            $this->assertTrue($catalog->neverGated($class),
                 $class . ' decides per item and must not also be gated at the door');
         }
     }
@@ -278,14 +278,14 @@ class ControllerPermissionTest extends TestCase
      */
     public function test_each_channel_dashboard_derives_its_own_key(): void
     {
-        $catalogue = $this->app->make(PermissionCatalogue::class);
+        $catalog = $this->app->make(PermissionCatalogue::class);
 
         // Only lazada: it is the one extension this file's setUp installs,
-        // and the catalogue can only derive keys from routes that loaded.
+        // and the catalog can only derive keys from routes that loaded.
         // Every channel's own workspace test asserts its own dashboard key.
         $this->assertArrayHasKey(
             'lazada/dashboard',
-            $catalogue->all(),
+            $catalog->all(),
             "lazada's dashboard has fallen back off the permission editor"
         );
     }

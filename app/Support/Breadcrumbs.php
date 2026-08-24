@@ -124,7 +124,7 @@ class Breadcrumbs
      *
      * When no entry covers the path at all, the section segment can still
      * name a group on its own (/catalog/something-not-in-the-nav still stands
-     * inside Catalogue), which is better than a trail that vanishes entirely
+     * inside Catalog), which is better than a trail that vanishes entirely
      * on a page one level too deep.
      *
      * @return array<int, array{label: string, url: string|null}>

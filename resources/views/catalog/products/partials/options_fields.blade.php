@@ -96,7 +96,7 @@
              10,220.
 
              Hidden while the parent charges neither, which is most of this
-             catalogue - there the amount IS the unit cost and a note saying
+             catalog - there the amount IS the unit cost and a note saying
              so is noise. --}}
         <p id="vars-cost-note" class="fm-vars__note d-none"></p>
         <div class="fm-vars__scroll">
@@ -537,7 +537,7 @@ function buildHeaderRow(is2) {
     tr.appendChild(th('fm-vcol-cost', 'Cost'));
     /* PROFIT / MARGIN / MARKUP USED TO SIT HERE and they are gone on purpose.
        They were read-only, they restated the Pricing metrics strip further up
-       the same form, and with cost at 0 - which is most of this catalogue -
+       the same form, and with cost at 0 - which is most of this catalog -
        every row printed an identical "370.00 / 100.0% / 0.0%". Measured, they
        were 187px of the 780px this table gets, spent on three numbers that
        are the same on every line and that nobody can act on here.
@@ -637,7 +637,7 @@ function buildImageCell(imagePath, rowName, idx) {
 
     /* A path that does not resolve is not a picture, and the browser's own
        broken-image glyph is the worst possible way to say so: it reads as a
-       fault in the page rather than as a missing file. This catalogue was
+       fault in the page rather than as a missing file. This catalog was
        imported from a legacy store and carries plenty of references to files
        that are no longer on disk. Falling back to the empty state says the
        true thing - there is nothing to show here, pick something. */

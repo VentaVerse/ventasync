@@ -12,7 +12,7 @@
        - the per-row dropdown of up to seven controls was a hand-rolled popup
          built from inline styles with its own outside-click handler. It is
          <x-ui.menu> now, which Alpine drives, and the row itself is clickable
-         through to the catalogue product;
+         through to the catalog product;
        - the standing accent-tinted strip of five buttons is a bulk bar that
          does not exist until at least one row is ticked;
        - Delete from Shopee was a solid red button standing on the page. It is
@@ -84,8 +84,8 @@
                 value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search products in this group" />
 
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by catalogue status">
-            <option value="all" @selected($erpStatus === 'all')>Any catalogue status</option>
+        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by catalog status">
+            <option value="all" @selected($erpStatus === 'all')>Any catalog status</option>
             <option value="enabled" @selected($erpStatus === 'enabled')>Enabled</option>
             <option value="disabled" @selected($erpStatus === 'disabled')>Disabled</option>
         </select>
@@ -152,7 +152,7 @@
              checks each product against Shopee first and then creates or
              updates it. --}}
         <form method="POST" action="{{ route('ext.shopee.product-groups.send', $group->id) }}" data-bulk-form
-              data-bulk-confirm="Send the selected products to Shopee? Each one is checked against Shopee first, then created or updated to match the catalogue.">
+              data-bulk-confirm="Send the selected products to Shopee? Each one is checked against Shopee first, then created or updated to match the catalog.">
             @csrf
             <input type="hidden" name="_return" value="{{ $returnTo }}">
             <x-ui.button type="submit" size="sm">Send to Shopee</x-ui.button>
@@ -173,7 +173,7 @@
             <x-ui.button type="submit" size="sm">Check against Shopee</x-ui.button>
         </form>
         <form method="POST" action="{{ route('ext.shopee.product-groups.massRemove', $group->id) }}" data-bulk-form
-              data-bulk-confirm="Take the selected products out of this group? Nothing is deleted from the catalogue, and nothing already live on Shopee is touched.">
+              data-bulk-confirm="Take the selected products out of this group? Nothing is deleted from the catalog, and nothing already live on Shopee is touched.">
             @csrf
             <input type="hidden" name="_return" value="{{ $returnTo }}">
             <x-ui.button type="submit" size="sm">Remove from group</x-ui.button>
@@ -191,8 +191,8 @@
 @if($products->count() === 0)
     <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'No products in this group' }}"
                 :description="$hasFilters
-                    ? 'Try clearing the search, or widening the catalogue and push filters.'
-                    : 'Edit the group to pick products from the catalogue, or add them one at a time below.'">
+                    ? 'Try clearing the search, or widening the catalog and push filters.'
+                    : 'Edit the group to pick products from the catalog, or add them one at a time below.'">
         @if($canManageShopee && !$hasFilters)
         <x-slot:action>
             <x-ui.button variant="primary" :href="route('ext.shopee.product-groups.edit', $group->id)">Edit group</x-ui.button>
@@ -217,7 +217,7 @@
             <th scope="col" class="cc-col-qty x-td-num">Stock</th>
             <th scope="col" class="cc-col-price x-td-num">Price</th>
             <th scope="col" class="cc-col-chanid">Shopee ID</th>
-            <th scope="col" class="cc-col-stat">Catalogue</th>
+            <th scope="col" class="cc-col-stat">Catalog</th>
             <th scope="col" class="cc-col-sync">Listing</th>
             <th scope="col" class="cc-col-err">Last push</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
@@ -354,7 +354,7 @@
                 @endif
             </td>
 
-            <td class="cc-col-stat" data-label="Catalogue">
+            <td class="cc-col-stat" data-label="Catalog">
                 @if((int) $p->status === 1)
                     <span class="x-cell-strong">Enabled</span>
                 @else
@@ -482,12 +482,12 @@
                     @endif
 
                     <a class="x-menu__item" href="{{ route('ext.shopee.listings.edit', $p->product_id) }}">Open listing</a>
-                    <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalogue</a>
+                    <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalog</a>
 
                     @if($isManual)
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.shopee.product-groups.removeProduct', [$group->id, $p->product_id]) }}"
-                              data-confirm="Take {{ $pName ?: 'this product' }} out of the group? Nothing is deleted from the catalogue, and nothing already live on Shopee is touched.">
+                              data-confirm="Take {{ $pName ?: 'this product' }} out of the group? Nothing is deleted from the catalog, and nothing already live on Shopee is touched.">
                             @csrf
                             @method('DELETE')
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
@@ -540,7 +540,7 @@
     </form>
 
     <div class="cc-link">
-        <x-ui.input type="search" placeholder="Product name or SKU" aria-label="Search the catalogue to add a product"
+        <x-ui.input type="search" placeholder="Product name or SKU" aria-label="Search the catalog to add a product"
                     data-manual-search />
         <x-ui.button type="button" data-manual-search-go>Search</x-ui.button>
         <x-ui.button type="submit" variant="primary" form="shopee-add-products" data-manual-add disabled>Add selected</x-ui.button>

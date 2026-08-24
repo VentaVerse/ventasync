@@ -73,7 +73,7 @@
     <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected</span>
     <div class="cc-bulkbar__actions">
         <form method="POST" action="{{ route('ext.opencart.product-groups.push', [$setting->id, $group->id]) }}" data-bulk-form
-              data-bulk-confirm="Push the selected products to {{ $storeName }}? Anything already there is overwritten with the catalogue's version.">
+              data-bulk-confirm="Push the selected products to {{ $storeName }}? Anything already there is overwritten with the catalog's version.">
             @csrf
             <x-ui.button type="submit" size="sm">Push to {{ $storeName }}</x-ui.button>
         </form>
@@ -109,7 +109,7 @@
             <th scope="col">Product</th>
             <th scope="col" class="cc-col-qty x-td-num">Stock</th>
             <th scope="col" class="cc-col-price x-td-num">Price</th>
-            <th scope="col" class="cc-col-stat">Catalogue</th>
+            <th scope="col" class="cc-col-stat">Catalog</th>
             <th scope="col" class="cc-col-chanid">This store</th>
             <th scope="col" class="oc-col-elsewhere">Also listed on</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
@@ -184,7 +184,7 @@
                 <x-money :php="(float) $p->price" />
             </td>
 
-            <td class="cc-col-stat" data-label="Catalogue">
+            <td class="cc-col-stat" data-label="Catalog">
                 @if((int) $p->status === 1)
                     <span class="x-cell-strong">Enabled</span>
                 @else
@@ -216,16 +216,16 @@
                      rows, a solid red Remove beside it. Same routes, same
                      confirms, in the overflow. --}}
                 <x-ui.menu label="Product {{ $p->product_id }} actions">
-                    <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalogue</a>
+                    <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalog</a>
                     <form method="POST" action="{{ route('ext.opencart.products.push', [$setting->id, $p->product_id]) }}" data-slow-action
-                          data-confirm="Push {{ $pName ?: 'this product' }} to {{ $storeName }}? Anything already there is overwritten with the catalogue's version.">
+                          data-confirm="Push {{ $pName ?: 'this product' }} to {{ $storeName }}? Anything already there is overwritten with the catalog's version.">
                         @csrf
                         <button type="submit" class="x-menu__item">Push to {{ $storeName }}</button>
                     </form>
                     @if($isManual)
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.opencart.product-groups.removeProduct', [$setting->id, $group->id, $p->product_id]) }}"
-                              data-confirm="Take {{ $pName ?: 'this product' }} out of the group? Nothing is deleted from the catalogue, and nothing already on {{ $storeName }} is touched.">
+                              data-confirm="Take {{ $pName ?: 'this product' }} out of the group? Nothing is deleted from the catalog, and nothing already on {{ $storeName }} is touched.">
                             @csrf
                             @method('DELETE')
                             <button type="submit" class="x-menu__item x-menu__item--danger">Remove from group</button>
@@ -259,7 +259,7 @@
     </form>
 
     <div class="cc-link">
-        <x-ui.input type="search" placeholder="Product name or SKU" aria-label="Search the catalogue to add a product"
+        <x-ui.input type="search" placeholder="Product name or SKU" aria-label="Search the catalog to add a product"
                     data-manual-search />
         <x-ui.button type="button" data-manual-search-go>Search</x-ui.button>
         <x-ui.button type="submit" variant="primary" form="opencart-add-products" data-manual-add disabled>Add selected</x-ui.button>

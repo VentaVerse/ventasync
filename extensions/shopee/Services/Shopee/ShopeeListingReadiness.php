@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * Can this product's one-click push succeed? Answered from the ERP's own
  * records, before anything is pressed (#101): the listing's settings, the
- * catalogue's image, and the category's cached attribute sheet. One
+ * catalog's image, and the category's cached attribute sheet. One
  * computation shared by the listing page, the listings index and the bulk
  * push, so "Ready" means the same thing everywhere it appears.
  *
@@ -60,7 +60,7 @@ class ShopeeListingReadiness
                 $missing[] = 'at least one courier';
             }
             if (trim((string) ($images[$productId] ?? '')) === '') {
-                $missing[] = 'a product image on the catalogue product';
+                $missing[] = 'a product image on the catalog product';
             }
 
             if ($listing && $listing->shopee_category_id) {

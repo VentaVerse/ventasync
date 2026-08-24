@@ -1,5 +1,5 @@
 /**
- * Hide a catalogue thumbnail that fails to load, revealing the placeholder
+ * Hide a catalog thumbnail that fails to load, revealing the placeholder
  * underneath it.
  *
  * Product images are referenced by a path this installation may not hold:

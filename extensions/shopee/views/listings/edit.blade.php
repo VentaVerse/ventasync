@@ -2,7 +2,7 @@
 @section('title', 'Shopee Listing')
 @section('breadcrumb', $product->name !== '' ? $product->name : 'Listing')
 
-{{-- The individual listing page (quest 1, 2026-08-24). One catalogue
+{{-- The individual listing page (quest 1, 2026-08-24). One catalog
      product on Shopee, presented the way the seller center presents it:
 
        1. the LIVE state at the top, fetched from Shopee on this page load,
@@ -223,7 +223,7 @@
                     <div class="fm-section__head">
                         <h2 class="fm-section__title">Content on this channel</h2>
                     </div>
-                    <p class="fm-section__note">A filled field is this listing's own wording and follows nobody. An empty field follows the catalogue product, shown greyed as the placeholder. Clearing a field returns it to the catalogue. Nothing here ever edits the catalogue product itself.</p>
+                    <p class="fm-section__note">A filled field is this listing's own wording and follows nobody. An empty field follows the catalog product, shown greyed as the placeholder. Clearing a field returns it to the catalog. Nothing here ever edits the catalog product itself.</p>
                     <div class="fm-fields">
                         <x-ui.field label="Title" for="sl-name" name="item_name" wide>
                             <x-ui.input id="sl-name" name="item_name" maxlength="255"
@@ -243,7 +243,7 @@
                     <div class="fm-section__head">
                         <h2 class="fm-section__title">Parcel</h2>
                     </div>
-                    <p class="fm-section__note">What Shopee quotes shipping from. Empty fields follow the catalogue's figures.</p>
+                    <p class="fm-section__note">What Shopee quotes shipping from. Empty fields follow the catalog's figures.</p>
                     <div class="fm-fields">
                         <x-ui.field label="Weight in kg" for="sl-weight" name="weight">
                             <x-ui.input id="sl-weight" name="weight" type="number" step="0.01" min="0.01"
@@ -402,7 +402,7 @@
                 <div class="fm-card">
                     <div class="fm-card__head"><h2 class="fm-card__title">Price rule</h2></div>
                     <div class="fm-card__body">
-                        <p class="fm-section__note">The Shopee price is never stored: it is the catalogue price run through this rule at every push and price sync, so catalogue price changes carry through on their own.</p>
+                        <p class="fm-section__note">The Shopee price is never stored: it is the catalog price run through this rule at every push and price sync, so catalog price changes carry through on their own.</p>
                         <div class="fm-fields fm-fields--2">
                             <x-ui.field label="Markup percent" for="sl-markup-pct" name="markup_percent">
                                 <x-ui.input id="sl-markup-pct" name="markup_percent" type="number" step="0.01"
@@ -419,7 +419,7 @@
                         </div>
                         <div class="fm-stats">
                             <div class="fm-stat">
-                                <span class="fm-stat__k">Catalogue price</span>
+                                <span class="fm-stat__k">Catalog price</span>
                                 <span class="fm-stat__v"><x-money :php="$corePrice" /></span>
                             </div>
                             <div class="fm-stat">

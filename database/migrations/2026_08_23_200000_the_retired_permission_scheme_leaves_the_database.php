@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\DB;
  * years from now against code that has long forgotten the old scheme.
  *
  * Pruned: every permission row whose key has no slash. After this, the
- * permissions table holds catalogue-derived keys only, and the boot sync
+ * permissions table holds catalog-derived keys only, and the boot sync
  * keeps it converged.
  */
 return new class extends Migration

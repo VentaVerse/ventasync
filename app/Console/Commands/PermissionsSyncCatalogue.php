@@ -26,9 +26,9 @@ class PermissionsSyncCatalogue extends Command
 
     protected $description = 'Derive the permission list from the routes and write any missing rows';
 
-    public function handle(PermissionCatalogue $catalogue): int
+    public function handle(PermissionCatalogue $catalog): int
     {
-        $wanted = $catalogue->keys();
+        $wanted = $catalog->keys();
         sort($wanted);
 
         $existing = Permission::pluck('id', 'key')->all();
@@ -36,7 +36,7 @@ class PermissionsSyncCatalogue extends Command
         $toAdd = array_values(array_diff($wanted, array_keys($existing)));
         $stray = array_values(array_diff(array_keys($existing), $wanted));
 
-        $this->line('Catalogue: ' . count($catalogue->all()) . ' areas, ' . count($wanted) . ' keys');
+        $this->line('Catalog: ' . count($catalog->all()) . ' areas, ' . count($wanted) . ' keys');
         $this->line('  missing rows to add: ' . count($toAdd));
         $this->line('  rows no route derives: ' . count($stray) . ' (permissions:reconcile audits these)');
 

@@ -5,7 +5,7 @@
  * uses for its own element.
  *
  * Originally written as orders-filter.js, gated on a single hardcoded
- * #orders-filter form id. Catalogue Products (Round B, Task 1) needed the
+ * #orders-filter form id. Catalog Products (Round B, Task 1) needed the
  * identical behaviour on its own filter form and a second copy of this file
  * gated on a second hardcoded id would have been exactly the duplication the
  * reskin is meant to retire, so this generalises to any form: no id lookup,

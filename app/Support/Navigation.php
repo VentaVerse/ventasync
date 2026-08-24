@@ -46,7 +46,7 @@ class Navigation
 
             ['label' => 'Channels', 'icon' => 'plug', 'items' => self::channelEntries()],
 
-            ['label' => 'Catalogue', 'icon' => 'package', 'items' => [
+            ['label' => 'Catalog', 'icon' => 'package', 'items' => [
                 ['label' => 'Products', 'route' => 'products.index',
                  'keywords' => ['sku', 'variation', 'stock', 'price']],
                 ['label' => 'Categories', 'route' => 'categories.index',
@@ -125,7 +125,7 @@ class Navigation
      * A manifest with no "nav" key, no items, or only items pointing at
      * dead or disabled-extension routes contributes nothing: an empty
      * group is dropped by groups() the same way an empty Channels or
-     * Catalogue group would be.
+     * Catalog group would be.
      */
     protected static function extensionEntries(): array
     {
@@ -427,7 +427,7 @@ class Navigation
 
     /**
      * The group whose items all live under a first URL segment, e.g. 'catalog'
-     * -> the Catalogue group. Used for a page one level deeper than anything
+     * -> the Catalog group. Used for a page one level deeper than anything
      * the nav lists, so its trail still names the section it stands in.
      *
      * Returns null when the group's items disagree about their first segment,
@@ -540,7 +540,7 @@ class Navigation
          * gate before EnsureControllerPermission replaced it - so the moment
          * the perm: arguments came off the routes, every extension link
          * vanished for everyone. The authority now is the same one the door
-         * uses: the route's controller derives a key from the catalogue,
+         * uses: the route's controller derives a key from the catalog,
          * and a nav link is a GET so it needs the view tier. */
         $route = Route::getRoutes()->getByName($routeName);
         $action = (string) $route->getActionName();
@@ -550,8 +550,8 @@ class Navigation
         }
 
         [$class] = explode('@', $action);
-        $catalogue = app(\App\Services\PermissionCatalogue::class);
-        $key = $catalogue->keyForController($class);
+        $catalog = app(\App\Services\PermissionCatalogue::class);
+        $key = $catalog->keyForController($class);
 
         if ($key === null) {
             return true; // never gated: dashboard, hubs that gate per item

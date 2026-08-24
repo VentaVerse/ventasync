@@ -24,7 +24,7 @@
         <h1 class="x-page-title">Product Groups</h1>
         <p class="x-page-sub">
             {{ number_format($groups->count()) }} {{ $groups->count() === 1 ? 'group' : 'groups' }} on {{ $storeName }}.
-            <x-ui.hint label="What a product group is">A group picks catalogue products by category and manufacturer, then pushes them to this store together.</x-ui.hint>
+            <x-ui.hint label="What a product group is">A group picks catalog products by category and manufacturer, then pushes them to this store together.</x-ui.hint>
         </p>
     </div>
     @if($canManageOpencart)
@@ -34,7 +34,7 @@
 
 @if($groups->count() === 0)
     <x-ui.empty title="No product groups yet"
-                :description="'Nothing has been grouped for ' . $storeName . ' yet. A group picks catalogue products by category and manufacturer so a whole batch can be pushed at once, instead of one product at a time.'">
+                :description="'Nothing has been grouped for ' . $storeName . ' yet. A group picks catalog products by category and manufacturer so a whole batch can be pushed at once, instead of one product at a time.'">
         @if($canManageOpencart)
         <x-slot:action>
             <x-ui.button variant="primary" :href="route('ext.opencart.product-groups.create', $setting->id)">New group</x-ui.button>
@@ -59,7 +59,7 @@
 
             // The same two lists the old view joined into one
             // "Cat: ... | Mfg: ..." cell. They are what decides which
-            // catalogue products fall into the group, so they read as a
+            // catalog products fall into the group, so they read as a
             // sentence under the group's own name.
             $catNames = collect($g->catalog_category_ids ?? [])->map(fn ($id) => $categoryNames->get($id))->filter()->values();
             $mfgNames = collect($g->manufacturer_ids ?? [])->map(fn ($id) => $manufacturerNames->get($id))->filter()->values();
@@ -97,7 +97,7 @@
                              table, because a form cannot be nested inside a row
                              that is itself a stretched link. --}}
                         <button type="button" class="x-menu__item x-menu__item--danger"
-                                data-confirm="Delete the group {{ $g->name }} from {{ $storeName }}? Its product links go with it. Nothing changes in the catalogue, and nothing already on the OpenCart store is touched."
+                                data-confirm="Delete the group {{ $g->name }} from {{ $storeName }}? Its product links go with it. Nothing changes in the catalog, and nothing already on the OpenCart store is touched."
                                 data-confirm-submit="ocpg-del-{{ $g->id }}">Delete group</button>
                     @endif
                 </x-ui.menu>

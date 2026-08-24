@@ -529,13 +529,13 @@
 
     <section class="fm-section" data-import-push hidden>
         <div class="fm-section__head">
-            <h2 class="fm-section__title">Send the catalogue the other way</h2>
+            <h2 class="fm-section__title">Send the catalog the other way</h2>
         </div>
-        <p class="fm-section__note">Pushes every catalogue product to {{ $storeName }}, overwriting the store's own copy of each one. This is the opposite direction to the checklist above and is not part of it.</p>
+        <p class="fm-section__note">Pushes every catalog product to {{ $storeName }}, overwriting the store's own copy of each one. This is the opposite direction to the checklist above and is not part of it.</p>
 
         <div class="cs-actions">
             <x-ui.button type="button" variant="danger" data-push-all
-                         data-confirm-message="Push every catalogue product to {{ $storeName }}? Product data on the OpenCart store is overwritten.">Push all products</x-ui.button>
+                         data-confirm-message="Push every catalog product to {{ $storeName }}? Product data on the OpenCart store is overwritten.">Push all products</x-ui.button>
         </div>
     </section>
 </div>

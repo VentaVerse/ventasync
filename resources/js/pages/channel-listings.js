@@ -6,14 +6,14 @@
  * and Lazada's page needs the same four things: a work-in-progress overlay, a
  * bulk bar that injects the ticked ids into whichever bulk form was submitted,
  * a "talking to the marketplace" overlay on single-row actions, and a
- * catalogue typeahead for the unmatched-item queue.
+ * catalog typeahead for the unmatched-item queue.
  *
  * The two channels differ in exactly three values, so those are configuration
  * rather than a second copy of the module:
  *
  *   - the overlay element's id (each page has its own),
  *   - the name of the array field the bulk forms post (Shopee posts
- *     `product_ids[]` and keys on catalogue product ids; Lazada posts
+ *     `product_ids[]` and keys on catalog product ids; Lazada posts
  *     `listing_ids[]` and keys on its own listing rows),
  *   - the wording of the overlay and the empty-selection message.
  *
@@ -67,7 +67,7 @@ function makeProgress(overlaySelector) {
  * `attr` names a data attribute to read instead, for a page whose endpoints
  * do not all speak the same id. Pedallion is the one such page: four of its
  * six bulk endpoints take `link_ids[]` (rows that are actually linked to
- * Pedallion) and two take `product_ids[]` (any catalogue product). A row with
+ * Pedallion) and two take `product_ids[]` (any catalog product). A row with
  * no link contributes nothing to the first group, which is why blanks are
  * dropped here rather than posted as empty strings for the server to reject.
  */
@@ -211,7 +211,7 @@ function initSlowActions(config, showProgress) {
 }
 
 /* ------------------------------------------------------------------
-   Unmatched items: catalogue typeahead.
+   Unmatched items: catalog typeahead.
    ------------------------------------------------------------------ */
 
 function buildResultButton(item, onPick) {
@@ -227,7 +227,7 @@ function buildResultButton(item, onPick) {
         thumb.className = 'cc-thumb cc-thumb--sm';
         const img = document.createElement('img');
         // A src is an attribute, not markup: assigning it cannot introduce
-        // an element. The endpoint returns asset() URLs off the catalogue's
+        // an element. The endpoint returns asset() URLs off the catalog's
         // own image column.
         img.src = item.image;
         img.alt = '';
@@ -277,17 +277,17 @@ function buildResultButton(item, onPick) {
 }
 
 /**
- * Bind a single-select catalogue picker.
+ * Bind a single-select catalog picker.
  *
  * Round F Task 1 note: the root does not have to be a <form>. Shopee's
  * "add a product to Shopee" page and Lazada's "create a listing" page
- * carry the identical control (search the catalogue, pick one product,
+ * carry the identical control (search the catalog, pick one product,
  * write its id into a hidden input) and one of them has no form at all,
  * so this reads only getAttribute / querySelector / contains, all of
  * which any element answers. The unmatched-item linker on the two
  * listings pages is the same control on a <form>, unchanged.
  */
-export function initCataloguePicker(form) {
+export function initCatalogPicker(form) {
     const searchUrl = form.getAttribute('data-search-url');
     const input = form.querySelector('[data-unmatched-search]');
     const list = form.querySelector('[data-unmatched-results]');
@@ -353,7 +353,7 @@ export function initCataloguePicker(form) {
                 .then((response) => response.json())
                 .then((items) => {
                     if (!Array.isArray(items) || !items.length) {
-                        message('No catalogue product matches that.');
+                        message('No catalog product matches that.');
                         return;
                     }
                     list.textContent = '';
@@ -361,7 +361,7 @@ export function initCataloguePicker(form) {
                     show();
                 })
                 .catch(() => {
-                    message('Could not reach the catalogue. Try again.');
+                    message('Could not reach the catalog. Try again.');
                 });
         }, 300);
     });
@@ -397,5 +397,5 @@ export function initChannelListings(config) {
 
     initBulkForms(config, showProgress);
     initSlowActions(config, showProgress);
-    document.querySelectorAll('form[data-unmatched-link]').forEach(initCataloguePicker);
+    document.querySelectorAll('form[data-unmatched-link]').forEach(initCatalogPicker);
 }

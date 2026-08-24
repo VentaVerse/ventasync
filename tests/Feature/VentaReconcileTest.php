@@ -134,7 +134,7 @@ class VentaReconcileTest extends TestCase
      * and silent, which is worse than an unlisted one. Wording that framed it
      * as a breakage invited someone to route around it.
      *
-     * The operator also has to be told not to go looking in the catalogue: the
+     * The operator also has to be told not to go looking in the catalog: the
      * images are fine, the address they are served from is the problem.
      */
     public function test_the_image_wall_is_explained(): void
@@ -144,7 +144,7 @@ class VentaReconcileTest extends TestCase
         $this->assertStringContainsString('images_unavailable', $source);
         $this->assertStringContainsString('will not create a product it cannot fetch images for', $source,
             'Venta refusing to create a product without fetchable images is shown as a raw envelope.');
-        $this->assertStringContainsString('Nothing in the catalogue needs fixing', $source,
+        $this->assertStringContainsString('Nothing in the catalog needs fixing', $source,
             'The refusal does not tell the operator where the problem is not, so they will go hunting in the product.');
     }
 

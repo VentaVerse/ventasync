@@ -432,7 +432,7 @@
                          identifies what to pull off the shelf by looking at
                          it, and this was the one channel of four that showed
                          nothing. The storefront's payload has no image, so it
-                         is resolved from the catalogue these products were
+                         is resolved from the catalog these products were
                          pushed to the storefront from. --}}
                     @php
                         $vtImg = trim((string) ($vtImages[trim((string) ($vtItem?->sku ?? ''))] ?? ''));

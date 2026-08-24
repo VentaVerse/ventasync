@@ -13,7 +13,7 @@ use Tests\TestCase;
  * built table headers with no scope, and across both forms zero
  * aria-describedby, zero aria-invalid and zero aria-required against seven
  * fields showing a visible "Required" marker. An operator using a screen
- * reader could not maintain the catalogue at all.
+ * reader could not maintain the catalog at all.
  *
  * These are source-contract assertions. The behaviour was verified in a
  * browser; what is held here is that the mechanisms remain, because each is

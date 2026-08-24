@@ -70,7 +70,7 @@
             <h1 class="fm-title">{{ $productName !== '' ? $productName : 'Unnamed product' }}</h1>
             <div class="fm-stamps">
                 <span class="fm-stamp">
-                    <span class="fm-stamp__k">Catalogue product</span>
+                    <span class="fm-stamp__k">Catalog product</span>
                     <a class="fm-stamp__v" href="{{ route('products.edit', $product->product_id) }}">{{ $product->product_id }}</a>
                 </span>
                 @if(!empty($groupName))
@@ -99,7 +99,7 @@
                     </x-ui.field>
 
                     <x-ui.field label="Description" for="ps-description" name="description" :required="true" wide
-                                hint="Plain text. Shopee strips formatting, so the catalogue description arrives here with its markup already removed.">
+                                hint="Plain text. Shopee strips formatting, so the catalog description arrives here with its markup already removed.">
                         <x-ui.textarea id="ps-description" name="description" rows="6" maxlength="5000"
                                        :disabled="!$canManageShopee">{{ old('description', strip_tags($product->description ?? '')) }}</x-ui.textarea>
                     </x-ui.field>
@@ -108,7 +108,7 @@
                 <div class="fm-fields fm-fields--2">
                     <x-ui.field label="Price" for="ps-price" name="original_price" :required="true"
                                 :hint="$hasMarkup
-                                    ? 'The catalogue price plus this group\'s markup. Change it and the group is ignored for this push.'
+                                    ? 'The catalog price plus this group\'s markup. Change it and the group is ignored for this push.'
                                     : 'What Shopee lists it at before any of its own promotions.'">
                         <x-ui.input id="ps-price" name="original_price" type="number" step="0.01" min="0.01"
                                     class="fm-input--num"
@@ -117,7 +117,7 @@
                     </x-ui.field>
 
                     <x-ui.field label="Stock" for="ps-stock" name="normal_stock" :required="true"
-                                hint="What Shopee shows as available. It is the catalogue quantity unless you change it.">
+                                hint="What Shopee shows as available. It is the catalog quantity unless you change it.">
                         <x-ui.input id="ps-stock" name="normal_stock" type="number" min="0"
                                     class="fm-input--num"
                                     value="{{ old('normal_stock', (int) $product->quantity) }}"
@@ -136,7 +136,7 @@
                 <div class="fm-section__head">
                     <h2 class="fm-section__title">Parcel</h2>
                 </div>
-                <p class="fm-section__note">What Shopee quotes shipping from. Every field is required and every one starts from the catalogue's own figures.</p>
+                <p class="fm-section__note">What Shopee quotes shipping from. Every field is required and every one starts from the catalog's own figures.</p>
 
                 <div class="fm-fields fm-fields--2">
                     <x-ui.field label="Weight in kg" for="ps-weight" name="weight" :required="true">
@@ -227,9 +227,9 @@
                     </div>
                 @else
                     <x-ui.empty title="This product has no images"
-                                description="Shopee will not accept a listing without one. Add an image to the catalogue product first.">
+                                description="Shopee will not accept a listing without one. Add an image to the catalog product first.">
                         <x-slot:action>
-                            <x-ui.button :href="route('products.edit', $product->product_id)">Edit in catalogue</x-ui.button>
+                            <x-ui.button :href="route('products.edit', $product->product_id)">Edit in catalog</x-ui.button>
                         </x-slot:action>
                     </x-ui.empty>
                 @endif
@@ -335,7 +335,7 @@
                 <div class="fm-card__body">
                     <div class="fm-stats">
                         <div class="fm-stat">
-                            <span class="fm-stat__k">Catalogue price</span>
+                            <span class="fm-stat__k">Catalog price</span>
                             <span class="fm-stat__v"><x-money :php="(float) $product->price" /></span>
                         </div>
                         <div class="fm-stat">

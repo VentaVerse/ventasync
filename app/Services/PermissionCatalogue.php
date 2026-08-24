@@ -179,7 +179,7 @@ class PermissionCatalogue
 
 
     /**
-     * How an area group is titled: "Lazada", "Catalogue", "Settings".
+     * How an area group is titled: "Lazada", "Catalog", "Settings".
      *
      * An extension is asked for its own name, so core never holds a list of
      * marketplaces - the same bargain Permission::label already makes. Core
@@ -302,7 +302,7 @@ class PermissionCatalogue
         return $out;
     }
 
-    /** Every permission key this catalogue implies, both tiers. */
+    /** Every permission key this catalog implies, both tiers. */
     public function keys(): array
     {
         $keys = [];

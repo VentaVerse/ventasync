@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\Schema;
  * to the product image and will prefer this when it is set.
  *
  * A relative path under storage/app/public/catalog/..., the same convention
- * the rest of the catalogue uses (config/catalog.php), served through the
+ * the rest of the catalog uses (config/catalog.php), served through the
  * storage:link symlink and rendered with asset('storage/' . $path).
  */
 return new class extends Migration

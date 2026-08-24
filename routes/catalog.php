@@ -8,7 +8,7 @@ use App\Http\Controllers\Catalog\ManufacturerController;
 use App\Http\Controllers\Catalog\CategoryController;
 use App\Http\Controllers\Api\CatalogController as ApiCatalogController;
 
-// IA migration (2026-08-08, Task 4): Catalogue section. Required from
+// IA migration (2026-08-08, Task 4): Catalog section. Required from
 // routes/web.php inside the same ['auth'] group the rest of core used to
 // share as one file. URIs are unchanged from pre-split web.php: this file
 // only regroups the registrations and, where every route in a block already

@@ -79,7 +79,7 @@
 
 @if($canManageShopee)
 {{-- Unmatched items. Shopee listings whose SKU matched nothing in the
-     catalogue, which is a work queue and not part of the list below, so it
+     catalog, which is a work queue and not part of the list below, so it
      sits above the table as its own titled section. Rebuilding the cache
      and re-scanning are the two machine actions that feed it, so they live
      here beside it rather than in a row of page-header buttons. --}}
@@ -106,7 +106,7 @@
     </div>
 
     @if($hasUnmatched)
-        <p class="fm-section__note">These items exist on Shopee but no catalogue product has a matching SKU. Link each one to the catalogue product it really is, or dismiss it if it should not be tracked here.</p>
+        <p class="fm-section__note">These items exist on Shopee but no catalog product has a matching SKU. Link each one to the catalog product it really is, or dismiss it if it should not be tracked here.</p>
 
         <x-ui.table>
             <x-slot:head>
@@ -114,7 +114,7 @@
                     <th scope="col">Shopee item</th>
                     <th scope="col" class="cc-col-sku">SKU</th>
                     <th scope="col" class="cc-col-chanid">Item ID</th>
-                    <th scope="col" class="cc-col-link">Catalogue product</th>
+                    <th scope="col" class="cc-col-link">Catalog product</th>
                     <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
                 </tr>
             </x-slot:head>
@@ -147,7 +147,7 @@
                             <span class="cc-sub cc-sub--mono">Variation {{ $ui->shopee_model_id }}</span>
                         @endif
                     </td>
-                    <td class="cc-col-link" data-label="Catalogue product">
+                    <td class="cc-col-link" data-label="Catalog product">
                         {{-- The typeahead's wire is unchanged: type, GET
                              search-catalog?q=, pick a result, the picked id
                              lands in this form's product_id and the form
@@ -164,8 +164,8 @@
                             <div class="fm-ta">
                                 <input type="text" class="x-input" data-unmatched-search
                                        placeholder="Search name, model or SKU" autocomplete="off"
-                                       aria-label="Search the catalogue for the product this Shopee item is">
-                                <div class="fm-ta__list" data-unmatched-results role="listbox" aria-label="Catalogue matches"></div>
+                                       aria-label="Search the catalog for the product this Shopee item is">
+                                <div class="fm-ta__list" data-unmatched-results role="listbox" aria-label="Catalog matches"></div>
                             </div>
                             <input type="hidden" name="product_id" value="" data-unmatched-id>
                             <x-ui.button type="submit" size="sm" disabled data-unmatched-submit>Link</x-ui.button>
@@ -188,13 +188,13 @@
             @endforeach
         </x-ui.table>
     @else
-        <p class="fm-section__note">Nothing is waiting. <x-ui.hint label="What a scan does">A scan compares every item on your Shopee shop against catalogue SKUs and lists anything it could not place.</x-ui.hint></p>
+        <p class="fm-section__note">Nothing is waiting. <x-ui.hint label="What a scan does">A scan compares every item on your Shopee shop against catalog SKUs and lists anything it could not place.</x-ui.hint></p>
     @endif
 </section>
 @endif
 
 {{-- The seller center's tabs, answered by Shopee on this page load
-     (quest 1 slice 2). All is the whole catalogue view; the other four
+     (quest 1 slice 2). All is the whole catalog view; the other four
      narrow the table to the items Shopee holds in that status right now.
      Absent entirely when Shopee cannot be asked - a tab bar that cannot
      answer is worse than none, and the note below says why it is gone. --}}
@@ -263,8 +263,8 @@
     </div>
 
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by catalogue status">
-            <option value="all" @selected($erpStatus === 'all')>Any catalogue status</option>
+        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by catalog status">
+            <option value="all" @selected($erpStatus === 'all')>Any catalog status</option>
             <option value="enabled" @selected($erpStatus === 'enabled')>Enabled</option>
             <option value="disabled" @selected($erpStatus === 'disabled')>Disabled</option>
         </select>
@@ -336,7 +336,7 @@
     <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'No products in scope yet' }}"
                 :description="$hasFilters
                     ? 'Try clearing the search, or widening the group and status filters.'
-                    : 'This list shows catalogue products that belong to a Shopee product group, plus anything already linked to a Shopee listing. Create a product group to bring products into scope.'">
+                    : 'This list shows catalog products that belong to a Shopee product group, plus anything already linked to a Shopee listing. Create a product group to bring products into scope.'">
         {{-- An empty state that says "try clearing the search" and offers no
              way to do it is a dead end. The way out belongs where the reader
              already is. --}}
@@ -388,7 +388,7 @@
                 </a>
             </th>
             <th scope="col" class="cc-col-chanid">Shopee ID</th>
-            <th scope="col" class="cc-col-stat">Catalogue</th>
+            <th scope="col" class="cc-col-stat">Catalog</th>
             <th scope="col" class="cc-col-sync">Listing</th>
             <th scope="col" class="cc-col-err">Last sync</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
@@ -490,7 +490,7 @@
                 @endif
             </td>
 
-            <td class="cc-col-stat" data-label="Catalogue">
+            <td class="cc-col-stat" data-label="Catalog">
                 <x-ui.badge :tone="(int) $p->status === 1 ? 'success' : 'neutral'">{{ (int) $p->status === 1 ? 'Enabled' : 'Disabled' }}</x-ui.badge>
             </td>
 
@@ -596,7 +596,7 @@
                     @if($canManageShopee)
                         <a class="x-menu__item" href="{{ route('ext.shopee.listings.edit', $p->product_id) }}">Open listing</a>
                     @endif
-                    <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalogue</a>
+                    <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalog</a>
 
                     @if($canManageShopee)
                         @if(!$link)

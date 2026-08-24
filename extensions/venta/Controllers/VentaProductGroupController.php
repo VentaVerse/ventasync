@@ -60,7 +60,7 @@ class VentaProductGroupController extends Controller
          * private address that is permanent: its SafeUrlFetcher blocks private
          * and reserved ranges outright. Worth saying in words, because the raw
          * envelope reads as a validation error the operator might try to fix
-         * in the catalogue.
+         * in the catalog.
          */
         if (stripos($raw, 'images_unavailable') !== false) {
             // Stated as a RULE, not a malfunction, because that is what it is:
@@ -74,7 +74,7 @@ class VentaProductGroupController extends Controller
             // on a private address cannot supply them at all.
             return 'Venta will not create a product it cannot fetch images for, so nothing was listed. '
                 .'It reads images over the web from the address this ERP publishes, and that address is a '
-                .'private one, so the images never reach it. Nothing in the catalogue needs fixing.';
+                .'private one, so the images never reach it. Nothing in the catalog needs fixing.';
         }
 
         if (stripos($raw, 'sku has already been taken') === false) {
@@ -86,7 +86,7 @@ class VentaProductGroupController extends Controller
         // looking for a control that is no longer in the menu. Send now does
         // the matching itself - it reconciles before it decides - so pressing
         // it again is the whole instruction.
-        return "Venta already has a product with SKU {$sku} that this catalogue product is not linked to. "
+        return "Venta already has a product with SKU {$sku} that this catalog product is not linked to. "
             .'Press Send again and it will find that product and link to it.';
     }
 
@@ -216,7 +216,7 @@ class VentaProductGroupController extends Controller
      *   repointed    Venta had it under a different id than we recorded
      *   lost         Venta no longer has it; the stale link has been dropped
      *   new          neither side has it linked; nothing to reconcile
-     *   blocked      another catalogue product holds the id Venta gave us
+     *   blocked      another catalog product holds the id Venta gave us
      *   unreachable  Venta could not answer; nothing was concluded or changed
      *
      * The last one exists because the first draft did not have it, and that
@@ -331,7 +331,7 @@ class VentaProductGroupController extends Controller
             ->first();
 
         if ($conflict) {
-            return "Venta product {$ventaProductId} is already linked to catalogue product "
+            return "Venta product {$ventaProductId} is already linked to catalog product "
                 ."#{$conflict->product_id}. Unlink that product first, then try this one again.";
         }
 
@@ -789,13 +789,13 @@ class VentaProductGroupController extends Controller
      * Mass sync Venta IDs for selected products by SKU matching.
      */
     /**
-     * List products that exist on Venta but that no catalogue product claims.
+     * List products that exist on Venta but that no catalog product claims.
      *
      * The check above answers "is what we have still there". This answers the
      * mirror question, "is there something there we do not know about", and
      * the two together are the only way to see the whole picture. Orphans are
      * produced by ordinary events: a product created in Venta's admin, a link
-     * deleted, a catalogue product removed while its Venta twin stayed live.
+     * deleted, a catalog product removed while its Venta twin stayed live.
      *
      * Read-only on purpose. It reports; it never adopts, never deletes, and
      * never writes a link. An automatic adopt-by-SKU is exactly how a product

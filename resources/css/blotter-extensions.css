@@ -3,7 +3,7 @@
 
    The third and last adapter. blotter-components.css dresses the shared
    component layer, blotter-pages.css the core page families, and this
-   file the vocabularies each extension owns: catalogue satellites (cat-),
+   file the vocabularies each extension owns: catalog satellites (cat-),
    warehousing (wh-), purchasing (po-), petty cash (pc-), the audit log
    (au-), reports (rp- additions) and the integrations board (x-board).
 
@@ -14,7 +14,7 @@
 
 @layer components {
     /* ------------------------------------------------------------
-       Catalogue satellites: categories, manufacturers
+       Catalog satellites: categories, manufacturers
        ------------------------------------------------------------ */
     .cat-page {
         display: flex;

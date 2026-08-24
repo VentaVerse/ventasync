@@ -8,7 +8,7 @@ use DOMNode;
 use DOMText;
 
 /**
- * Allowlist HTML sanitiser for the catalogue description fields
+ * Allowlist HTML sanitiser for the catalog description fields
  * (product_description.description / category_description.description),
  * which are edited through Summernote (resources/views/catalog/products/
  * partials/wysiwyg.blade.php) and stored as raw HTML.

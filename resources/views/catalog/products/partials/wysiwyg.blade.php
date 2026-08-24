@@ -2,7 +2,7 @@
     Rich text for the product description.
 
     layouts.app loads jQuery + Summernote in its <head> for every legacy page
-    and initialises `textarea.wysiwyg` there. The catalogue forms are on
+    and initialises `textarea.wysiwyg` there. The catalog forms are on
     layouts.shell now, which loads neither, so moving them without this partial
     would have quietly turned the description editor into a plain textarea -
     a capability loss, not a presentation change, and the reskin protocol does

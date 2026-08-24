@@ -36,13 +36,13 @@ class UserGroupController extends Controller
      */
     private function getGroupedPermissions(array $selected = []): array
     {
-        $catalogue = app(PermissionCatalogue::class);
-        $rows = Permission::whereIn('key', $catalogue->keys())->get()->keyBy('key');
+        $catalog = app(PermissionCatalogue::class);
+        $rows = Permission::whereIn('key', $catalog->keys())->get()->keyBy('key');
         $held = array_flip($selected);
 
         $groups = [];
 
-        foreach ($catalogue->grouped() as $group) {
+        foreach ($catalog->grouped() as $group) {
             $out = [];
 
             foreach ($group['rows'] as $row) {

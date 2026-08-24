@@ -792,7 +792,7 @@ class ProductImageController extends Controller
 
 
     /**
-     * Create one folder inside the catalogue library.
+     * Create one folder inside the catalog library.
      *
      * The library has always HAD folders - 240 of them - and no way to make
      * one: a directory only came into being as a side effect of an upload

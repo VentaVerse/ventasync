@@ -6,9 +6,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Keep the administrators ahead of the catalogue as it grows.
+ * Keep the administrators ahead of the catalog as it grows.
  *
- * The catalogue is derived, so it changes whenever controllers do - and it
+ * The catalog is derived, so it changes whenever controllers do - and it
  * just did: the mobile and partner API was excluded on the reasoning that
  * those routes belong to a token's scope rather than a person's group, which
  * was wrong. They carry auth:sanctum, which resolves the token's OWNING USER,
@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\Schema;
  * groups kept theirs and nothing said a word.
  *
  * Idempotent and safe to re-run: it grants the group that is meant to reach
- * everything whatever the catalogue currently derives, which is the same rule
+ * everything whatever the catalog currently derives, which is the same rule
  * ExtensionManager::syncPermissions already applies to a new extension.
  */
 return new class extends Migration
@@ -31,10 +31,10 @@ return new class extends Migration
             return;
         }
 
-        $catalogue = app(PermissionCatalogue::class);
+        $catalog = app(PermissionCatalogue::class);
         $ids = DB::table('permissions')->pluck('id', 'key')->all();
 
-        foreach ($catalogue->keys() as $key) {
+        foreach ($catalog->keys() as $key) {
             if (! isset($ids[$key])) {
                 $ids[$key] = DB::table('permissions')->insertGetId(['key' => $key]);
             }
@@ -55,7 +55,7 @@ return new class extends Migration
 
         $rows = [];
 
-        foreach ($catalogue->keys() as $key) {
+        foreach ($catalog->keys() as $key) {
             if (isset($ids[$key]) && ! in_array($ids[$key], $held, true)) {
                 $rows[] = ['user_group_id' => $adminId, 'permission_id' => $ids[$key]];
             }
@@ -69,7 +69,7 @@ return new class extends Migration
     /**
      * Nothing. This only ever grants the administrators what they are meant
      * to have, and taking it back on a rollback would lock them out of
-     * whatever the catalogue had grown to cover.
+     * whatever the catalog had grown to cover.
      */
     public function down(): void
     {

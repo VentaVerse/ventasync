@@ -1,13 +1,13 @@
 /*
- * The two "put one catalogue product on a marketplace" forms.
+ * The two "put one catalog product on a marketplace" forms.
  *
  * Round F Task 1. Shopee's "add a product to Shopee" page and Lazada's
  * "create / edit a listing" page were the last two views carrying behaviour
- * inside a <script> in their Blade, and both of them built their catalogue
+ * inside a <script> in their Blade, and both of them built their catalog
  * search results with `resultsDiv.innerHTML = items.map(...).join('')` over a
- * product name taken straight off the search endpoint. A catalogue product
+ * product name taken straight off the search endpoint. A catalog product
  * named `<img src=x onerror=...>` executed on both pages. That whole control
- * is gone from here: it is the shared catalogue picker in
+ * is gone from here: it is the shared catalog picker in
  * ./channel-listings.js, which is createElement and textContent throughout.
  *
  * What is left in this file is the two things that picker cannot do, one per
@@ -27,7 +27,7 @@
  * data- attributes on the markup.
  */
 
-import { initCataloguePicker } from './channel-listings';
+import { initCatalogPicker } from './channel-listings';
 
 /* ------------------------------------------------------------------
    1. Shopee: Continue to the push form.
@@ -121,7 +121,7 @@ function initRunningTotal(root) {
    ------------------------------------------------------------------ */
 
 document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('[data-catalogue-picker]').forEach(initCataloguePicker);
+    document.querySelectorAll('[data-catalog-picker]').forEach(initCatalogPicker);
     document.querySelectorAll('[data-continue-to-push]').forEach(initContinue);
     document.querySelectorAll('[data-running-total]').forEach(initRunningTotal);
 });
