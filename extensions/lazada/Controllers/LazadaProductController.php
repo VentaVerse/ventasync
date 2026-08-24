@@ -838,7 +838,7 @@ private function resolveLazadaSkuIds(LazadaProduct $listing, object $setting, La
     return $map;
 }
 
-private function persistProductSyncStatus(LazadaProduct $listing, string $action, array $result): void
+private function persistProductSyncStatus(LazadaProduct $listing, string $action, array $result, ?string $pushSource = null): void
 {
     $e = $this->extractLazadaError($result);
 
@@ -847,6 +847,21 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
     $listing->last_sync_ok = (bool)($e['ok'] ?? false);
     $listing->last_sync_error_code = $e['code'] ?? null;
     $listing->last_sync_error_message = $e['message'] ?? null;
+
+    /* Provenance (#104, Lazada half): a SUCCESSFUL content push records
+     * what went and where its settings came from - 'listing' for pushes
+     * run on the listing's own record, 'group:{name}' for group pushes.
+     * Sync and failure calls pass no source and stamp nothing. */
+    if ($pushSource !== null && ($e['ok'] ?? false)) {
+        $listing->last_pushed_at = now();
+        $listing->last_push_source = $pushSource;
+        $listing->last_push_settings = [
+            'category_id' => (int) ($listing->primary_category_id ?? 0),
+            'brand_id' => (int) ($listing->brand_id ?? 0),
+            'markup_percent' => $listing->markup_percent,
+            'markup_fixed' => $listing->markup_fixed,
+        ];
+    }
 
     // Avoid throwing if DB schema isn't migrated yet.
     try {
@@ -1876,7 +1891,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         $result = $client->post((string) $setting->region, $apiPath, $params);
 
-        $this->persistProductSyncStatus($listing, 'upload_to_lazada', $result);
+        $this->persistProductSyncStatus($listing, 'upload_to_lazada', $result, 'listing');
 
         // If successful, store lazada_item_id (create) or refresh variants (update).
         $e = $this->extractLazadaError($result);
@@ -2056,7 +2071,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
             $result = $client->post((string) $setting->region, $apiPath, $params);
 
-            $this->persistProductSyncStatus($listing, 'bulk_upload_to_lazada', $result);
+            $this->persistProductSyncStatus($listing, 'bulk_upload_to_lazada', $result, 'listing');
 
             $e = $this->extractLazadaError($result);
             if (!empty($e['ok'])) {
@@ -2906,7 +2921,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ->where('p.product_id', (int)$listing->product_id)
             ->first([
                 'p.product_id','p.sku','p.model','p.image','p.price','p.quantity',
-                'p.weight','p.length','p.width','p.height',
+                'p.weight','p.length','p.width','p.height','p.date_modified',
                 'p.upc','p.ean','p.jan','p.isbn','p.mpn',
                 'pd.name','pd.description','pd.meta_title','pd.meta_description',
                 'm.name as manufacturer_name',
@@ -3344,7 +3359,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ->where('p.product_id', (int)$listing->product_id)
             ->first([
                 'p.product_id','p.sku','p.model','p.image','p.price','p.quantity',
-                'p.weight','p.length','p.width','p.height',
+                'p.weight','p.length','p.width','p.height','p.date_modified',
                 'p.upc','p.ean','p.jan','p.isbn','p.mpn',
                 'pd.name','pd.description','pd.meta_title','pd.meta_description',
                 'm.name as manufacturer_name',
@@ -3499,7 +3514,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ->where('p.product_id', (int)$listing->product_id)
             ->first([
                 'p.product_id','p.sku','p.model','p.image','p.price','p.quantity',
-                'p.weight','p.length','p.width','p.height',
+                'p.weight','p.length','p.width','p.height','p.date_modified',
                 'p.upc','p.ean','p.jan','p.isbn','p.mpn',
                 'pd.name','pd.description','pd.meta_title','pd.meta_description',
                 'm.name as manufacturer_name',
@@ -4247,7 +4262,7 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
             ->where('p.product_id', (int)$listing->product_id)
             ->first([
                 'p.product_id','p.sku','p.model','p.image','p.price','p.quantity',
-                'p.weight','p.length','p.width','p.height',
+                'p.weight','p.length','p.width','p.height','p.date_modified',
                 'p.upc','p.ean','p.jan','p.isbn','p.mpn',
                 'pd.name','pd.description','pd.meta_title','pd.meta_description',
                 'm.name as manufacturer_name',

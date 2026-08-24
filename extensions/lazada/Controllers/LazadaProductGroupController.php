@@ -325,7 +325,9 @@ class LazadaProductGroupController extends Controller
                 'p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.price',
                 'p.quantity', 'p.image', 'p.status',
                 'm.name as manufacturer_name',
-                'lp.lazada_item_id',
+                'lp.lazada_item_id', 'lp.lazada_deleted_at',
+                'lp.last_pushed_at as listing_last_pushed_at', 'lp.last_push_source',
+                'p.date_modified',
                 'gp.sync_status', 'gp.last_pushed_at', 'gp.push_error'
             );
 
@@ -343,16 +345,16 @@ class LazadaProductGroupController extends Controller
             $query->where('p.status', 0);
         }
 
-        // Must answer exactly what the badge shows. 'pushed' used to be "has an
-        // item id and is not unlinked", which INCLUDED failures - so filtering
-        // to Pushed returned rows the badge calls Failed, in one screenful.
+        /* The filter answers what the column shows (one-truth port from
+         * Shopee, 2026-08-25): Listed/Not listed are the LISTING record's
+         * facts - lazada_products, the same row the Listings page reads.
+         * 'error' stays per-group: this group's own last attempt. */
         if ($syncStatus === 'pushed') {
-            $query->whereNotNull('lp.lazada_item_id')->where('lp.lazada_item_id', '!=', '')
-                ->whereNotIn('gp.sync_status', ['unlinked', 'error']);
+            $query->whereNotNull('lp.lazada_item_id')->where('lp.lazada_item_id', '!=', '');
         } elseif ($syncStatus === 'pending') {
             $query->where(function ($w) {
                 $w->whereNull('lp.lazada_item_id')->orWhere('lp.lazada_item_id', '');
-            })->whereNotIn('gp.sync_status', ['error', 'unlinked']);
+            });
         } elseif ($syncStatus === 'error') {
             $query->where('gp.sync_status', 'error');
         }
@@ -875,6 +877,18 @@ class LazadaProductGroupController extends Controller
                 $this->refreshLazadaVariants($listing, $setting, $client);
 
                 $this->persistSyncStatus($listing, 'push', true);
+
+                /* Provenance (#104): the GROUP's settings made this push -
+                 * auditable on the listing, same vocabulary as Shopee. */
+                $listing->forceFill([
+                    'last_pushed_at' => now(),
+                    'last_push_source' => 'group:' . $group->name,
+                    'last_push_settings' => [
+                        'category_id' => (int) ($group->lazada_category_id ?? 0),
+                        'markup_percent' => $group->markup_percent,
+                        'markup_fixed' => $group->markup_fixed,
+                    ],
+                ])->save();
                 if ($pivot) $pivot->update(['sync_status' => 'pushed']);
 
                 ActivityLogger::log('created', 'Lazada Product', $listing->id,
@@ -1019,6 +1033,18 @@ class LazadaProductGroupController extends Controller
             if ($e['ok']) {
                 $this->refreshLazadaVariants($listing, $setting, $client);
                 $this->persistSyncStatus($listing, 'push', true);
+
+                /* Provenance (#104): the GROUP's settings made this push -
+                 * auditable on the listing, same vocabulary as Shopee. */
+                $listing->forceFill([
+                    'last_pushed_at' => now(),
+                    'last_push_source' => 'group:' . $group->name,
+                    'last_push_settings' => [
+                        'category_id' => (int) ($group->lazada_category_id ?? 0),
+                        'markup_percent' => $group->markup_percent,
+                        'markup_fixed' => $group->markup_fixed,
+                    ],
+                ])->save();
                 if ($pivot) $pivot->update(['sync_status' => 'pushed']);
 
                 ActivityLogger::log('updated', 'Lazada Product', $listing->id,

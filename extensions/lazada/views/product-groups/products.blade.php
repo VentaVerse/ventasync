@@ -78,10 +78,10 @@
 
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
         <select name="sync_status" class="x-input" data-autosubmit aria-label="Filter by push status">
-            <option value="all" @selected($syncStatus === 'all')>Pushed or not</option>
-            <option value="pushed" @selected($syncStatus === 'pushed')>Pushed</option>
-            <option value="pending" @selected($syncStatus === 'pending')>Not pushed yet</option>
-            <option value="error" @selected($syncStatus === 'error')>Last push failed</option>
+            <option value="all" @selected($syncStatus === 'all')>Listed or not</option>
+            <option value="pushed" @selected($syncStatus === 'pushed')>Listed on Lazada</option>
+            <option value="pending" @selected($syncStatus === 'pending')>Not listed</option>
+            <option value="error" @selected($syncStatus === 'error')>Last push from this group failed</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
@@ -170,7 +170,7 @@
             <th scope="col" class="cc-col-price x-td-num">Price</th>
             <th scope="col" class="cc-col-chanid">Lazada ID</th>
             <th scope="col" class="cc-col-stat">Catalog</th>
-            <th scope="col" class="cc-col-sync">Push</th>
+            <th scope="col" class="cc-col-sync">Listing</th>
             <th scope="col" class="cc-col-err">Last push</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
@@ -183,17 +183,30 @@
             $img = trim((string) ($p->image ?? ''));
             $thumbSrc = $img !== '' ? asset('storage/' . ltrim($img, '/')) : null;
 
+            /* PRODUCT truth vs GROUP memory (one-truth port from Shopee,
+               2026-08-25). Listed and the item id are the LISTING record's
+               facts - lazada_products, the same row the Listings page
+               reads. The pivot keeps only this group's own last push
+               ATTEMPT and why it failed. */
+            $listed = !empty($p->lazada_item_id) && empty($p->lazada_deleted_at);
+
             $syncState = $pivot->sync_status ?? 'pending';
-            $isUnlinked = $syncState === 'unlinked';
-            // Lazada's marketplace id is selected onto the PRODUCT row by
-            // LazadaProductGroupController::products(), not carried on the
-            // pivot the way Shopee's and TikTok's are. The pivot table has no
-            // lazada_item_id column at all, so reading it there is silently
-            // null and every row reports "not pushed". Same expression the
-            // pre-redesign view used.
-            $hasLazadaId = !empty($p->lazada_item_id) && !$isUnlinked;
-            $failed = $syncState === 'error';
-            $hasError = $failed && ($pivot->push_error ?? null);
+            $isUnlinked = $syncState === 'unlinked' && ! $listed;
+            $attemptFailed = $syncState === 'error';
+            $attemptError = $attemptFailed ? ($pivot->push_error ?? null) : null;
+            $attemptAt = ($pivot->last_pushed_at ?? null)
+                ? \Illuminate\Support\Carbon::parse($pivot->last_pushed_at)
+                : null;
+
+            $provenanceAt = ($p->listing_last_pushed_at ?? null)
+                ? \Illuminate\Support\Carbon::parse($p->listing_last_pushed_at)
+                : null;
+            $provenanceSource = (string) ($p->last_push_source ?? '');
+            $provenanceLabel = match (true) {
+                $provenanceSource === 'listing' => 'from its listing',
+                str_starts_with($provenanceSource, 'group:') => 'from the ' . substr($provenanceSource, 6) . ' group',
+                default => '',
+            };
 
             $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($p->product_id) : null;
             $variationCount = $optRows ? count($optRows) : 0;
@@ -276,10 +289,10 @@
             </td>
 
             <td class="cc-col-chanid" data-label="Lazada ID">
-                @if($hasLazadaId)
+                @if($listed)
                     <span class="x-num">{{ $p->lazada_item_id }}</span>
                 @else
-                    <span class="x-cell-muted">Not pushed</span>
+                    <span class="x-cell-muted">Not listed</span>
                 @endif
             </td>
 
@@ -291,22 +304,17 @@
                 @endif
             </td>
 
-            <td class="cc-col-sync" data-label="Push">
-                {{-- FAILED IS TESTED BEFORE PUSHED, and the order is the whole
-                     point. This used to ask "does it have a Lazada id?" first,
-                     so a row carrying an id read "Pushed" no matter what the
-                     status said, and the Failed badge could never render for
-                     any product that had one - which is nearly every product
-                     that can fail. A row states its most recent outcome, not
-                     the best outcome it has ever had. --}}
-                @if($isUnlinked)
+            <td class="cc-col-sync" data-label="Listing">
+                {{-- The PRODUCT's state, the same words the Listings page
+                     uses for the same fact. A failed push from THIS group is
+                     told in the Last push column, scoped in words - it no
+                     longer masquerades as the product's status. --}}
+                @if($listed)
+                    <x-ui.badge tone="success">Listed</x-ui.badge>
+                @elseif($isUnlinked)
                     <span class="x-cell-muted">Unlinked</span>
-                @elseif($failed)
-                    <x-ui.badge tone="danger">Failed</x-ui.badge>
-                @elseif($hasLazadaId)
-                    <x-ui.badge tone="success">Pushed</x-ui.badge>
                 @else
-                    <span class="x-cell-muted">Not yet</span>
+                    <span class="x-cell-muted">Not listed</span>
                 @endif
             </td>
 
@@ -315,16 +323,16 @@
                      column that only ever fills on failure reads as nothing
                      wrong, and rendered "Never" - the strongest possible
                      statement that nothing has ever gone wrong. --}}
-                @if($failed && ! $hasError)
-                    <span class="cc-err">Push failed. No reason was recorded.</span>
-                @elseif($hasError)
+                {{-- Two facts share this column, each named: what actually
+                     went up (the listing record, shared with every page) and
+                     what THIS GROUP last tried (its own attempt history). --}}
+                @if($attemptFailed)
                     @php
-                        $reason = (string) $pivot->push_error;
-                        // 120 shown against a column stored at 480: the rest
-                        // was unreachable from the interface entirely.
+                        $reason = trim((string) ($attemptError ?? ''));
+                        $reason = $reason !== '' ? $reason : 'No reason was recorded.';
                         $clipped = \Illuminate\Support\Str::limit($reason, 120);
                     @endphp
-
+                    <span class="cc-err">This group's last push{{ $attemptAt ? ' ' . $attemptAt->diffForHumans() : '' }} failed:</span>
                     @if($clipped === $reason)
                         <span class="cc-err">{{ $reason }}</span>
                     @else
@@ -342,12 +350,18 @@
                             <p class="cc-err cc-reason__full">{{ $reason }}</p>
                         </details>
                     @endif
-                    @if($pivot->last_pushed_at)
-                        <span class="cc-when">{{ \Carbon\Carbon::parse($pivot->last_pushed_at)->diffForHumans() }}</span>
+                @endif
+
+                @if($provenanceAt)
+                    <span class="cc-when">Pushed {{ $provenanceAt->diffForHumans() }}{{ $provenanceLabel !== '' ? ' ' . $provenanceLabel : '' }}</span>
+                    @php
+                        $coreMovedAt = ($p->date_modified ?? null)
+                            ? \Illuminate\Support\Carbon::parse($p->date_modified) : null;
+                    @endphp
+                    @if($coreMovedAt && $coreMovedAt->gt($provenanceAt))
+                        <span class="cc-checked cc-checked--never">Catalog changed since this push</span>
                     @endif
-                @elseif($hasLazadaId && $pivot && ($pivot->last_pushed_at ?? null))
-                    <span class="cc-when">{{ \Carbon\Carbon::parse($pivot->last_pushed_at)->diffForHumans() }}</span>
-                @else
+                @elseif(! $attemptFailed)
                     <span class="x-cell-muted">Never</span>
                 @endif
             </td>
@@ -360,7 +374,7 @@
                     {{-- && !$isUnlinked, matching Venta. Without it an unlinked
                          row offered Push and "Link again" side by side, which are
                          opposite answers to the same question. --}}
-                    @if(!$hasLazadaId && !$isUnlinked)
+                    @if(!$listed && !$isUnlinked)
                         <form method="POST" action="{{ route('ext.lazada.product-groups.syncId', [$group->id, $p->product_id]) }}" data-slow-action>
                             @csrf
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
@@ -374,7 +388,7 @@
                         </form>
                     @endif
 
-                    @if($hasLazadaId)
+                    @if($listed)
                         <form method="POST" action="{{ route('ext.lazada.product-groups.updateProduct', $group->id) }}" data-slow-action>
                             @csrf
                             <input type="hidden" name="_return" value="{{ $returnTo }}">

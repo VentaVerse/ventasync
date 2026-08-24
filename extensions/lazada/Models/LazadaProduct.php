@@ -12,10 +12,13 @@ class LazadaProduct extends Model
     protected $fillable = [
         'product_id', 'primary_category_id', 'brand_id', 'brand_name_override',
         'total_price', 'lazada_item_id', 'unlinked_at',
+        'last_pushed_at', 'last_push_source', 'last_push_settings',
     ];
 
     protected $casts = [
         'unlinked_at' => 'datetime',
+        'last_pushed_at' => 'datetime',
+        'last_push_settings' => 'array',
     ];
 
     public function attributes()

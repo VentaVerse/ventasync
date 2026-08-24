@@ -234,6 +234,58 @@
         </section>
     @endif
 
+    {{-- Provenance (#104, Lazada half): what the last push actually sent
+         and where its settings came from - the same card the Shopee
+         listing page carries. --}}
+    @if($mode === 'edit' && ($listing->last_pushed_at ?? null))
+        @php
+            $lzProvSource = (string) ($listing->last_push_source ?? '');
+            $lzProvLabel = match (true) {
+                $lzProvSource === 'listing' => 'this listing',
+                str_starts_with($lzProvSource, 'group:') => 'the ' . substr($lzProvSource, 6) . ' group',
+                default => $lzProvSource,
+            };
+            $lzSent = $listing->last_push_settings ?? [];
+        @endphp
+        <section class="fm-section">
+            <div class="fm-section__head">
+                <h2 class="fm-section__title">Last push</h2>
+            </div>
+            <div class="fm-stats">
+                <div class="fm-stat">
+                    <span class="fm-stat__k">When</span>
+                    <span class="fm-stat__v">{{ $listing->last_pushed_at->diffForHumans() }}</span>
+                </div>
+                <div class="fm-stat">
+                    <span class="fm-stat__k">Settings from</span>
+                    <span class="fm-stat__v">{{ $lzProvLabel !== '' ? $lzProvLabel : 'unknown' }}</span>
+                </div>
+                @if(!empty($lzSent['category_id']))
+                    <div class="fm-stat">
+                        <span class="fm-stat__k">Category sent</span>
+                        <span class="fm-stat__v">{{ (int) $lzSent['category_id'] }}</span>
+                    </div>
+                @endif
+                @if(isset($lzSent['markup_percent']) || isset($lzSent['markup_fixed']))
+                    <div class="fm-stat">
+                        <span class="fm-stat__k">Rule sent</span>
+                        <span class="fm-stat__v">{{ (float) ($lzSent['markup_percent'] ?? 0) }}% + {{ (float) ($lzSent['markup_fixed'] ?? 0) }}</span>
+                    </div>
+                @endif
+                @php
+                    $lzCoreMoved = ($productRow->date_modified ?? null)
+                        ? \Illuminate\Support\Carbon::parse($productRow->date_modified) : null;
+                @endphp
+                @if($lzCoreMoved && $lzCoreMoved->gt($listing->last_pushed_at))
+                    <div class="fm-stat">
+                        <span class="fm-stat__k">Since then</span>
+                        <span class="fm-stat__v">Catalog changed {{ $lzCoreMoved->diffForHumans() }} - push an update to send the current state</span>
+                    </div>
+                @endif
+            </div>
+        </section>
+    @endif
+
     {{-- ============================================================
          1. The listing itself.
          ============================================================ --}}

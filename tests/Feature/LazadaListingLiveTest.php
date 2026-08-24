@@ -72,7 +72,10 @@ class LazadaListingLiveTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'Lazada live group ' . (++$this->groupSeq)]);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['manage_lazada/product', 'view_lazada/product'])->pluck('id')->all()
+            Permission::whereIn('key', [
+                'manage_lazada/product', 'view_lazada/product',
+                'manage_lazada/product_group', 'view_lazada/product_group',
+            ])->pluck('id')->all()
         );
 
         return User::factory()->create(['user_group_id' => $group->id]);
@@ -187,6 +190,39 @@ class LazadaListingLiveTest extends TestCase
         $r->assertSee('Lazada did not answer');
         $r->assertSee('Still visible product');
         $r->assertDontSee('lazada_tab=active', false);
+    }
+
+    public function test_a_group_page_tells_the_products_truth_not_its_own_memory(): void
+    {
+        /* The one-truth port (2026-08-25), same disease the owner caught on
+         * Shopee's GP-180: this group's push failed, then the product went
+         * up elsewhere - the group page must read the LISTING record, with
+         * the group's failed attempt named as exactly that. */
+        $productId = $this->seedProduct('Truthful group product', 'LZT-TRUTH');
+        $listing = LazadaProduct::query()->create([
+            'product_id' => $productId, 'lazada_item_id' => '990077',
+            'last_pushed_at' => now()->subMinutes(5), 'last_push_source' => 'listing',
+        ]);
+        $group = \Extensions\lazada\Models\LazadaProductGroup::create([
+            'name' => 'Truth group', 'lazada_category_id' => 12345,
+        ]);
+        \Extensions\lazada\Models\LazadaProductGroupProduct::create([
+            'lazada_product_group_id' => $group->id, 'product_id' => $productId,
+            'lazada_product_id' => $listing->id,
+            'sync_status' => 'error', 'push_error' => 'Special characters are not allowed.',
+            'last_pushed_at' => now()->subMinutes(37),
+        ]);
+
+        $r = $this->actingAs($this->manager())
+            ->get(route('ext.lazada.product-groups.products', $group->id));
+
+        $r->assertOk();
+        $r->assertSee('990077');
+        $r->assertSee('Listed');
+        $r->assertDontSee('>Failed<', false);
+        $r->assertSee("This group's last push", false);
+        $r->assertSee('Special characters');
+        $r->assertSee('from its listing');
     }
 
     public function test_the_edit_page_opens_with_the_items_live_state(): void
