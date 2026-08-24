@@ -260,12 +260,11 @@
                 default => '',
             };
 
-            // Parsed rather than cast: this comes off a query builder select,
-            // not an Eloquent model, so it arrives as a string with no
-            // diffForHumans on it.
-            $confirmedAt = ($pivot->last_confirmed_at ?? null)
-                ? \Illuminate\Support\Carbon::parse($pivot->last_confirmed_at)
-                : null;
+            /* The checked-at stamp is the PRODUCT's (stage 2, 2026-08-25):
+               it reads the listing record, so a check run from any page
+               shows on all of them. The pivot's per-group copy stops being
+               written and awaits the prune. */
+            $confirmedAt = $rowListing?->last_checked_at;
 
             $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($p->product_id) : null;
             $variationCount = $optRows ? count($optRows) : 0;

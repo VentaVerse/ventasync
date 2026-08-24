@@ -104,16 +104,19 @@ class ShopeePushStatusTest extends TestCase
      * must never overwrite a recorded failure, and a GET has no business
      * concluding anything about a push.
      */
-    public function test_loading_the_page_cannot_erase_a_failure(): void
+    public function test_loading_the_page_writes_nothing(): void
     {
+        /* Was: the read-time back-fill must not overwrite an error row.
+         * Stage 2 (2026-08-25) removed the back-fill outright: the display
+         * reads shopee_product_links, so the page no longer needs a write
+         * to be right - and a GET on a view-tier route once again mutates
+         * nothing. This holds the removal still. */
         $controller = $this->source(self::CONTROLLER);
 
-        $this->assertStringContainsString(
-            "->whereNotIn('sync_status', ['unlinked', 'error'])",
-            $controller,
-            'The read-time back-fill can still overwrite an error row, so refreshing the page '
-            .'turns a failed push into a green Pushed badge.'
-        );
+        $this->assertStringNotContainsString('canWriteBackfill', $controller,
+            'The GET-time back-fill has regrown; a page load must not write pivot rows.');
+        $this->assertStringNotContainsString('on page load', $controller,
+            'Something is again mutating rows during a page load.');
 
         $this->assertStringNotContainsString(
             "'sync_status' => 'synced',",

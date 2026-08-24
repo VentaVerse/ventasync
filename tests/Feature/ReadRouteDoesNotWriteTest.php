@@ -21,11 +21,12 @@ use Tests\TestCase;
  * operator holding only view_shopee mutated the database by looking at a page,
  * with no banner and no audit entry.
  *
- * That back-fill is useful for someone who can already write, so it is kept
- * for the manage tier and gated away from the read tier, which is what these
- * two tests hold apart. The related defect - the same back-fill overwriting a
- * recorded failure and rendering it as a green Pushed badge - is pinned
- * separately in ShopeePushStatusTest.
+ * The back-fill was kept for the manage tier for a while, as a convenience.
+ * Stage 2 of the one-truth repointing (2026-08-25) removed it outright: the
+ * page displays the links table itself, so there is nothing left to adopt
+ * FOR, and the contract now holds for every tier - loading this page writes
+ * nothing, whoever loads it. ShopeePushStatusTest pins the removal at the
+ * source level; this proves it at the wire.
  */
 class ReadRouteDoesNotWriteTest extends TestCase
 {
@@ -136,37 +137,26 @@ class ReadRouteDoesNotWriteTest extends TestCase
             'A view-only operator changed a row status by loading a read route.');
     }
 
-    /** And the convenience is not lost for someone who can already write. */
-    public function test_the_manage_tier_still_adopts_an_existing_link(): void
+    /**
+     * And the manage tier writes nothing either. The adoption convenience
+     * is obsolete: the page displays the link's own item id (that is what
+     * the operator sees on this exact seeded state), so patching a pivot
+     * copy on load would be a write in service of nothing.
+     */
+    public function test_the_manage_tier_does_not_write_on_load_either(): void
     {
         $groupId = $this->seedAdoptableRow();
 
-        $this->actingAs($this->tierUser('Shopee Manager', ['view_shopee/dashboard', 'view_shopee/settings', 'view_shopee/category', 'view_shopee/category_attribute', 'view_shopee/logistics', 'view_shopee/product_group', 'view_shopee/product', 'manage_shopee/settings', 'manage_shopee/category', 'manage_shopee/category_attribute', 'manage_shopee/logistics', 'manage_shopee/product_group', 'manage_shopee/product', 'manage_shopee/dashboard']))
-            ->get(route('ext.shopee.product-groups.products', ['id' => $groupId]))
-            ->assertOk();
+        $r = $this->actingAs($this->tierUser('Shopee Manager', ['view_shopee/dashboard', 'view_shopee/settings', 'view_shopee/category', 'view_shopee/category_attribute', 'view_shopee/logistics', 'view_shopee/product_group', 'view_shopee/product', 'manage_shopee/settings', 'manage_shopee/category', 'manage_shopee/category_attribute', 'manage_shopee/logistics', 'manage_shopee/product_group', 'manage_shopee/product', 'manage_shopee/dashboard']))
+            ->get(route('ext.shopee.product-groups.products', ['id' => $groupId]));
+
+        $r->assertOk();
+        // The truth still shows: the page reads the link directly.
+        $r->assertSee(self::ITEM);
 
         $row = $this->pivot($groupId);
-
-        $this->assertSame(self::ITEM, (string) $row->shopee_item_id,
-            'The manage tier no longer adopts a link that already exists.');
-        $this->assertSame('pushed', $row->sync_status);
-    }
-
-    /**
-     * Rows changing state without anyone asking must leave a trace, or the
-     * only record of the change is the change itself.
-     */
-    public function test_an_adoption_is_recorded(): void
-    {
-        $groupId = $this->seedAdoptableRow();
-
-        $this->actingAs($this->tierUser('Shopee Manager', ['view_shopee/dashboard', 'view_shopee/settings', 'view_shopee/category', 'view_shopee/category_attribute', 'view_shopee/logistics', 'view_shopee/product_group', 'view_shopee/product', 'manage_shopee/settings', 'manage_shopee/category', 'manage_shopee/category_attribute', 'manage_shopee/logistics', 'manage_shopee/product_group', 'manage_shopee/product', 'manage_shopee/dashboard']))
-            ->get(route('ext.shopee.product-groups.products', ['id' => $groupId]))
-            ->assertOk();
-
-        $this->assertDatabaseHas('activity_logs', [
-            'subject_type' => 'Shopee Product Group',
-            'subject_id' => $groupId,
-        ]);
+        $this->assertNull($row->shopee_item_id,
+            'Loading the page wrote a pivot copy of a product fact the display no longer needs.');
+        $this->assertSame('pending', $row->sync_status);
     }
 }

@@ -370,82 +370,15 @@ class ShopeeProductGroupController extends Controller
 
         $products = $query->orderBy('p.product_id', 'desc')->paginate(50)->appends($request->except('page'));
 
-        // Auto-fill pivot shopee_item_id from shopee_product_links.
-        //
-        // This is a WRITE, and it runs inside a GET whose route is gated
-        // 'view_shopee|manage_shopee'. routes/web.php states the contract it
-        // breaks in its own words: "Read routes (display-only, no DB write)".
-        // So it is gated on the manage tier here: an operator holding only
-        // view_shopee now reads the page without mutating a single row, which
-        // is what their permission says they do.
-        //
-        // It still runs for a manager, because adopting a link created on
-        // another page is genuinely useful, and it is recorded below rather
-        // than happening in silence.
-        $canWriteBackfill = auth()->user()?->hasPermission('manage_shopee/product_group') ?? false;
-
+        /* The GET-time back-fill that used to live here - adopting link
+         * item ids into the pivot while rendering - is GONE (stage 2 of
+         * the one-truth repointing, 2026-08-25). It existed to patch the
+         * pivot's drifting copy of a product fact for display; stage 1
+         * repointed the display at shopee_product_links itself, so the
+         * page no longer needs a write to be right, and a read once again
+         * writes nothing. */
         $pivotProductIds = $products->pluck('product_id')->toArray();
-        if ($canWriteBackfill && !empty($pivotProductIds)) {
-            $existingLinks = DB::table('shopee_product_links')
-                ->whereIn('product_id', $pivotProductIds)
-                ->pluck('shopee_item_id', 'product_id');
 
-            if ($existingLinks->isNotEmpty()) {
-                $missingPivots = ShopeeProductGroupProduct::query()
-                    ->where('shopee_product_group_id', $group->id)
-                    ->whereIn('product_id', $existingLinks->keys()->toArray())
-                    ->where(function ($w) {
-                        $w->whereNull('shopee_item_id')->orWhere('shopee_item_id', '');
-                    })
-                    // 'error' is excluded, and that exclusion is the point.
-                    //
-                    // This back-fill runs on a GET. With only 'unlinked'
-                    // excluded, loading the page took a row a failed push had
-                    // just marked error-with-no-item-id, gave it an id from
-                    // the links table and set it to synced - WITHOUT clearing
-                    // push_error. The result rendered as a green Pushed badge
-                    // sitting next to the words "invalid category". A refresh
-                    // laundered a failure into a success, which is why a
-                    // failed push kept looking like it had worked.
-                    //
-                    // Adopting a link the operator made elsewhere is fine.
-                    // Overwriting a recorded failure is not, and a read has no
-                    // business deciding a push succeeded.
-                    ->whereNotIn('sync_status', ['unlinked', 'error'])
-                    ->get();
-
-                $adopted = 0;
-
-                foreach ($missingPivots as $pivot) {
-                    $linkId = $existingLinks->get($pivot->product_id);
-                    if ($linkId) {
-                        $adopted++;
-                        $pivot->update([
-                            'shopee_item_id' => (string) $linkId,
-                            // 'pushed', not 'synced'. Two words for one state
-                            // meant the vocabulary had five entries for four
-                            // states, and this was the only writer of the
-                            // fifth.
-                            'sync_status' => 'pushed',
-                        ]);
-                    }
-                }
-
-                // Rows changed state without anyone asking, so it leaves a
-                // trace. Only fires when something was actually adopted, so a
-                // normal page load writes nothing here either.
-                if ($adopted > 0) {
-                    ActivityLogger::log(
-                        'updated',
-                        'Shopee Product Group',
-                        $group->id,
-                        "Matched {$adopted} product(s) to existing Shopee listings on page load",
-                    );
-                }
-            }
-        }
-
-        // Pivot map for templates
         $pivotMap = ShopeeProductGroupProduct::query()
             ->where('shopee_product_group_id', $group->id)
             ->whereIn('product_id', $pivotProductIds)
@@ -1174,10 +1107,16 @@ class ShopeeProductGroupController extends Controller
 
         $erpHasOptions = !empty($optSkus);
 
-        // If already linked (has item_id and not unlinked), refresh models from API
-        $existingItemId = $pivot->shopee_item_id ?? null;
-        if ($existingItemId && ($pivot->sync_status ?? '') !== 'unlinked') {
-            return $this->refreshShopeeProductLinks($pivot, $productId, (int) $existingItemId, $skus, $erpHasOptions, $client, $mode, $pid, $pkey, $token, $shopId);
+        // If already linked, refresh models from the API. Linked-ness is the
+        // links table's answer (stage 2 of the one-truth repointing) - the
+        // pivot's item id is a drifting copy, and unlink deletes links now,
+        // so the old 'unlinked' pivot label decides nothing.
+        $existingLink = ShopeeProductLink::query()
+            ->where('product_id', $productId)
+            ->whereNotNull('shopee_item_id')
+            ->first();
+        if ($existingLink) {
+            return $this->refreshShopeeProductLinks($pivot, $productId, (int) $existingLink->shopee_item_id, $skus, $erpHasOptions, $client, $mode, $pid, $pkey, $token, $shopId);
         }
 
         // Step 1: Try cache for fast item_id lookup
@@ -1848,12 +1787,22 @@ class ShopeeProductGroupController extends Controller
                 continue;
             }
 
+            /* Shopee answered about this PRODUCT, so the checked-at stamp is
+             * the product's (stage 2 of the one-truth repointing,
+             * 2026-08-25): it lives on the listing record and shows on
+             * every page - a check run from one group used to stamp only
+             * that group's pivot, so the same product read "checked" here
+             * and "not checked since the push" one group over. */
+            ShopeeListing::query()->updateOrCreate(
+                ['product_id' => (int) $productId],
+                ['last_checked_at' => now()]
+            );
+
             if ($state === 'taken') {
                 $problems[] = "#{$productId}: {$verdict['message']}";
                 $this->writeProductStatus((int) $productId, [
                     'sync_status' => 'error',
                     'push_error' => Str::limit((string) $verdict['message'], 480),
-                    'last_confirmed_at' => now(),
                 ]);
                 continue;
             }
@@ -1864,7 +1813,6 @@ class ShopeeProductGroupController extends Controller
                 $this->writeProductStatus((int) $productId, [
                     'sync_status' => 'pending',
                     'push_error' => null,
-                    'last_confirmed_at' => now(),
                 ]);
                 continue;
             }
@@ -1873,7 +1821,6 @@ class ShopeeProductGroupController extends Controller
                 'sync_status' => 'pushed',
                 'shopee_item_id' => $verdict['item_id'] ? (string) $verdict['item_id'] : null,
                 'push_error' => null,
-                'last_confirmed_at' => now(),
             ]);
         }
 
@@ -2045,9 +1992,12 @@ class ShopeeProductGroupController extends Controller
                 continue;
             }
 
-            // Shopee answered about this product, so the row is now a checked
-            // fact rather than a belief.
-            $this->writeProductStatus((int) $productId, ['last_confirmed_at' => now()]);
+            // Shopee answered about this product, so the checked fact goes
+            // onto the product's own record, visible from every page.
+            ShopeeListing::query()->updateOrCreate(
+                ['product_id' => (int) $productId],
+                ['last_checked_at' => now()]
+            );
 
             if (in_array($verdict['state'], ['confirmed', 'adopted', 'repointed'], true)) {
                 $toUpdate[] = (int) $productId;

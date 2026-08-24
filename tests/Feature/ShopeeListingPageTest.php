@@ -427,6 +427,42 @@ class ShopeeListingPageTest extends TestCase
             ->assertJson(['ok' => true]);
     }
 
+    public function test_a_check_stamps_the_product_not_the_page_it_ran_from(): void
+    {
+        /* Stage 2 of the one-truth repointing: "checked 37 minutes ago" is
+         * a fact about the PRODUCT. It lands on the listing record - where
+         * every group page and the Listings page read it - and the pivot's
+         * per-group copy stops being written. */
+        $productId = $this->seedProduct();
+        ShopeeProductLink::query()->create([
+            'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
+        ]);
+        $group = \Extensions\shopee\Models\ShopeeProductGroup::create([
+            'name' => 'Check stampers', 'catalog_category_ids' => [], 'manufacturer_ids' => [],
+            'shopee_category_id' => 100013, 'logistic_ids' => [41003],
+        ]);
+        DB::table('shopee_product_group_products')->insert([
+            'shopee_product_group_id' => $group->id, 'product_id' => $productId,
+        ]);
+        // The batch prefill confirms the item alive.
+        $this->getResponses['/api/v2/product/get_item_base_info'] = $this->baseInfoAnswer();
+
+        $this->actingAs($this->userWith([
+            'manage_shopee/product', 'view_shopee/product',
+            'manage_shopee/product_group', 'view_shopee/product_group',
+        ]))->post(route('ext.shopee.product-groups.check', $group->id), ['ids' => [$productId]]);
+
+        $listing = ShopeeListing::query()->where('product_id', $productId)->first();
+        $this->assertNotNull($listing, 'The check must leave its stamp on the product record.');
+        $this->assertNotNull($listing->last_checked_at);
+
+        $pivot = DB::table('shopee_product_group_products')
+            ->where('shopee_product_group_id', $group->id)
+            ->where('product_id', $productId)->first();
+        $this->assertNull($pivot->last_confirmed_at,
+            'The per-group copy of the checked fact must no longer be written.');
+    }
+
     public function test_the_page_is_a_manage_surface_even_as_a_get(): void
     {
         $productId = $this->seedProduct();

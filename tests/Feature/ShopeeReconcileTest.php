@@ -242,13 +242,19 @@ class ShopeeReconcileTest extends TestCase
 
     public function test_the_check_records_when_it_asked(): void
     {
-        $this->assertStringContainsString("'last_confirmed_at' => now()", $this->methodBody('checkAgainstShopee'),
+        /* The stamp moved product-level (stage 2 of the one-truth
+         * repointing, 2026-08-25): it lands on the listing record, where
+         * every page reads it, instead of the pivot copy only the page the
+         * check ran from could see. */
+        $this->assertStringContainsString("'last_checked_at' => now()", $this->methodBody('checkAgainstShopee'),
             'Checking leaves no trace, so a fresh answer cannot be told from an old belief.');
+        $this->assertStringNotContainsString("'last_confirmed_at'", $this->methodBody('checkAgainstShopee'),
+            'The check is stamping the per-group copy again.');
     }
 
     public function test_a_send_also_counts_as_having_asked(): void
     {
-        $this->assertStringContainsString("'last_confirmed_at' => now()", $this->methodBody('send'),
+        $this->assertStringContainsString("'last_checked_at' => now()", $this->methodBody('send'),
             'Send reconciles but does not record that it did, so a row checked seconds ago still '
             .'reads as never checked.');
     }

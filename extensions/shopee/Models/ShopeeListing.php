@@ -19,7 +19,7 @@ class ShopeeListing extends Model
         'markup_percent', 'markup_fixed',
         'item_name', 'description', 'attribute_values', 'weight',
         'package_length', 'package_width', 'package_height',
-        'last_pushed_at', 'last_push_source', 'last_push_settings',
+        'last_pushed_at', 'last_push_source', 'last_push_settings', 'last_checked_at',
     ];
 
     protected $casts = [
@@ -27,6 +27,7 @@ class ShopeeListing extends Model
         'attribute_values' => 'array',
         'last_push_settings' => 'array',
         'last_pushed_at' => 'datetime',
+        'last_checked_at' => 'datetime',
         'markup_percent' => 'float',
         'markup_fixed' => 'float',
     ];
