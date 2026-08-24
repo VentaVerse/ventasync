@@ -544,3 +544,23 @@
     .gf-combo { flex-wrap: wrap; }
     .gf-combo__field { flex: 1 1 100%; }
 }
+
+/* ==================================================================
+   The category combobox inside a CARD (the Shopee listing page).
+
+   .fm-card clips its children (overflow: hidden, for the rounded
+   corners), which beheaded the results list at the card's edge - and
+   sibling cards paint in DOM order, so what survived the clip went
+   UNDER the next card. The group form never showed either failure
+   because its combo lives in a section, not a card. A card hosting
+   the combo keeps its corners but not the clip, and rises above its
+   siblings only while the list is open.
+   ================================================================== */
+.fm-card:has([data-category-combo]) {
+    overflow: visible;
+}
+
+.fm-card:has(.gf-combo__results:not([hidden])) {
+    position: relative;
+    z-index: 40;
+}

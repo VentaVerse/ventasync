@@ -840,7 +840,8 @@ class ShopeeProductController extends Controller
             'category_id' => (int) $listing->shopee_category_id,
             'image' => ['image_id_list' => $imageIds],
             'logistic_info' => $logisticInfo,
-            'brand' => ['brand_id' => 0, 'original_brand_name' => 'No Brand'],
+            'brand' => app(ShopeeProductGroupController::class)
+                ->buildBrandPayload((int) $listing->shopee_category_id, (int) ($listing->shopee_brand_id ?? 0)),
         ];
 
         // The listing's answers to the category's attribute sheet (#98).
@@ -1039,7 +1040,8 @@ class ShopeeProductController extends Controller
                 'category_id' => (int) $listing->shopee_category_id,
                 'image' => ['image_id_list' => $imageIds],
                 'logistic_info' => $logisticInfo,
-                'brand' => ['brand_id' => 0, 'original_brand_name' => 'No Brand'],
+                'brand' => app(ShopeeProductGroupController::class)
+                    ->buildBrandPayload((int) $listing->shopee_category_id, (int) ($listing->shopee_brand_id ?? 0)),
             ];
 
             // The listing's attribute answers ride the bulk push too (#98).
@@ -2728,6 +2730,11 @@ class ShopeeProductController extends Controller
         return app(ShopeeProductGroupController::class)->fetchAttributesAjax($request, $client);
     }
 
+    public function brandsForCategory(Request $request, ShopeeClient $client)
+    {
+        return app(ShopeeProductGroupController::class)->brandsForCategory($request, $client);
+    }
+
     // ── The individual listing page (quest 1, 2026-08-24) ──────────────
     //
     // One product on Shopee, presented the way the seller center presents
@@ -2804,9 +2811,17 @@ class ShopeeProductController extends Controller
             }
         }
 
+        $initialBrands = $categoryId > 0
+            ? \Extensions\shopee\Models\ShopeeBrand::query()
+                ->where('category_id', $categoryId)
+                ->orderBy('name')
+                ->get(['brand_id', 'name'])
+            : collect();
+
         return view('ext-shopee::listings.edit', [
             'product' => $product,
             'listing' => $listing,
+            'initialBrands' => $initialBrands,
             'link' => $link,
             'live' => $live,
             'liveError' => $liveError,
@@ -2828,6 +2843,7 @@ class ShopeeProductController extends Controller
 
         $data = $request->validate([
             'shopee_category_id' => 'nullable|integer|min:1',
+            'shopee_brand_id' => 'nullable|integer|min:0',
             'logistic_ids' => 'nullable|array',
             'logistic_ids.*' => 'integer|min:1',
             'markup_percent' => 'nullable|numeric|min:-100|max:1000',
@@ -2852,6 +2868,7 @@ class ShopeeProductController extends Controller
             ['product_id' => $productId],
             [
                 'shopee_category_id' => $data['shopee_category_id'] ?? null,
+                'shopee_brand_id' => ((int) ($data['shopee_brand_id'] ?? 0)) > 0 ? (int) $data['shopee_brand_id'] : null,
                 'logistic_ids' => array_map('intval', $data['logistic_ids'] ?? []),
                 'markup_percent' => $blank($data['markup_percent'] ?? null),
                 'markup_fixed' => $blank($data['markup_fixed'] ?? null),
@@ -2949,6 +2966,12 @@ class ShopeeProductController extends Controller
                 $payload['attribute_list'] = $attributeList;
             }
         }
+        /* Always sent. Shopee refuses an update without a brand block
+         * ("Update failed: Brand information required", found by the owner on
+         * QAS 2026-08-24) even though add_item treats it as optional-ish;
+         * the listing's own brand goes, No Brand when it has none. */
+        $payload['brand'] = app(ShopeeProductGroupController::class)
+            ->buildBrandPayload((int) ($listing?->shopee_category_id ?? 0), (int) ($listing?->shopee_brand_id ?? 0));
 
         $path = '/api/v2/product/update_item';
         try {

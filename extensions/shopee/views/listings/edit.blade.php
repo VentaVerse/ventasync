@@ -335,6 +335,30 @@
                 </div>
 
                 <div class="fm-card">
+                    <div class="fm-card__head"><h2 class="fm-card__title">Brand</h2></div>
+                    <div class="fm-card__body">
+                        <x-ui.field label="Brand" for="sl-brand" name="shopee_brand_id"
+                                    hint="Only brands Shopee registers for the chosen category are offered.">
+                            <div class="x-select-wrap">
+                                <select id="sl-brand" name="shopee_brand_id" class="x-input"
+                                        data-brand-select
+                                        data-brand-url="{{ route('ext.shopee.products.brandsForCategory') }}"
+                                        data-brand-source="#sl-category-value"
+                                        data-brand-selected="{{ (int) ($listing->shopee_brand_id ?? 0) }}"
+                                        @disabled(!$canManage)>
+                                    <option value="0" @selected((int) ($listing->shopee_brand_id ?? 0) === 0)>No brand</option>
+                                    @foreach($initialBrands as $brand)
+                                        <option value="{{ (int) $brand->brand_id }}" @selected((int) ($listing->shopee_brand_id ?? 0) === (int) $brand->brand_id)>{{ $brand->name }}</option>
+                                    @endforeach
+                                </select>
+                                <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                            </div>
+                            <div class="fm-hint" data-brand-hint>Brands load when you pick a category. It stays on No brand until you choose one.</div>
+                        </x-ui.field>
+                    </div>
+                </div>
+
+                <div class="fm-card">
                     <div class="fm-card__head"><h2 class="fm-card__title">Couriers</h2></div>
                     <div class="fm-card__body">
                         @if($errors->has('logistic_ids'))

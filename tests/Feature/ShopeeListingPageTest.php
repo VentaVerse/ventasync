@@ -355,6 +355,9 @@ class ShopeeListingPageTest extends TestCase
         $this->assertSame(100013, (int) $sent['body']['category_id']);
         $this->assertSame(8003, (int) $sent['body']['logistic_info'][0]['logistic_id']);
         $this->assertArrayNotHasKey('original_price', $sent['body'], 'Price never rides a content update.');
+        $this->assertSame(0, (int) $sent['body']['brand']['brand_id'],
+            'The brand block always rides an update - Shopee refuses one without it.');
+        $this->assertSame('No Brand', $sent['body']['brand']['original_brand_name']);
         $this->assertArrayNotHasKey('seller_stock', $sent['body'], 'Stock never rides a content update.');
         $r->assertSessionHas('status');
 
@@ -372,6 +375,29 @@ class ShopeeListingPageTest extends TestCase
 
         $this->assertNull(collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/update_item'));
         $r->assertSessionHas('error');
+    }
+
+    public function test_a_listing_with_a_brand_pushes_it_by_name(): void
+    {
+        $productId = $this->seedProduct();
+        ShopeeProductLink::query()->create([
+            'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
+        ]);
+        \Extensions\shopee\Models\ShopeeBrand::query()->create([
+            'category_id' => 106755, 'brand_id' => 5511, 'name' => 'G7th',
+        ]);
+        ShopeeListing::query()->create([
+            'product_id' => $productId,
+            'shopee_category_id' => 106755, 'logistic_ids' => [41003],
+            'shopee_brand_id' => 5511,
+        ]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.listings.push_update', $productId));
+
+        $sent = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/update_item');
+        $this->assertSame(5511, (int) $sent['body']['brand']['brand_id']);
+        $this->assertSame('G7th', $sent['body']['brand']['original_brand_name']);
     }
 
     public function test_the_category_picker_endpoints_answer_to_the_products_key(): void

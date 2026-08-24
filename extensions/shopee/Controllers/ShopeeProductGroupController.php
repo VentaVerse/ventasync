@@ -786,7 +786,7 @@ class ShopeeProductGroupController extends Controller
      * table so Shopee accepts the brand_id + name pair. brand_id=0 → "No Brand"
      * default that every category accepts.
      */
-    private function buildBrandPayload(int $categoryId, int $brandId): array
+    public function buildBrandPayload(int $categoryId, int $brandId): array
     {
         if ($brandId <= 0) {
             return ['brand_id' => 0, 'original_brand_name' => 'No Brand'];
