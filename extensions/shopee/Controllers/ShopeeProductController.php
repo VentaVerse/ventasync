@@ -188,6 +188,23 @@ class ShopeeProductController extends Controller
             } else {
                 $query->whereIn('p.product_id', $failedIds);
             }
+        } elseif ($syncStatus === 'ready' || $syncStatus === 'not_ready') {
+            /* The computed answer, filterable (#101): which unlisted
+             * products could be one-click pushed RIGHT NOW, and which
+             * still need something - by the same ShopeeListingReadiness
+             * the rows, the listing page and the bulk push read. */
+            $listedIds = ShopeeProductLink::query()->pluck('product_id')
+                ->map(fn ($v) => (int) $v)->unique()->all();
+            $candidateIds = DB::table($pfx . 'product')
+                ->when(!empty($listedIds), fn ($q) => $q->whereNotIn('product_id', $listedIds))
+                ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+            $readinessAll = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)
+                ->forProducts($candidateIds);
+            $matching = array_keys(array_filter(
+                $readinessAll,
+                fn ($r) => $syncStatus === 'ready' ? $r['ready'] : !$r['ready']
+            ));
+            $query->whereIn('p.product_id', $matching ?: [0]);
         }
 
         // A live tab narrows the table to the products whose Shopee items
@@ -281,6 +298,16 @@ class ShopeeProductController extends Controller
             }
         }
 
+        /* Readiness for the page's unlisted rows (#101): Ready to push,
+         * or what is still missing, computed from our own records - the
+         * same answer the listing page shows. */
+        $unlinkedPageIds = array_values(array_filter(
+            $pageIds,
+            fn ($id) => !$shopeeLinks->has($id)
+        ));
+        $readinessByProductId = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)
+            ->forProducts($unlinkedPageIds);
+
         // Load unmatched items
         $unmatchedItems = ShopeeUnmatchedItem::query()
             ->where('status', 'unmatched')
@@ -322,6 +349,7 @@ class ShopeeProductController extends Controller
             'liveCounts' => $liveCounts,
             'liveTabError' => $liveTabError,
             'liveStatuses' => $liveStatuses,
+            'readinessByProductId' => $readinessByProductId,
         ]);
     }
 
@@ -954,6 +982,30 @@ class ShopeeProductController extends Controller
         if (!$setting || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->back()->with('error', "Missing Shopee {$modeLabel} credentials. Configure Shopee settings first.");
+        }
+
+        /* REFUSE TO START rather than half-fail (#101): if any selected
+         * product is not ready, nothing is pushed and the unready ones are
+         * named with what they need. Already-listed selections are exempt
+         * - the loop below skips them anyway. */
+        $alreadyLinked = ShopeeProductLink::query()
+            ->whereIn('product_id', $productIds)
+            ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        $readiness = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)
+            ->forProducts(array_values(array_diff($productIds, $alreadyLinked)));
+        $unready = array_filter($readiness, fn ($r) => !$r['ready']);
+        if (!empty($unready)) {
+            $lines = [];
+            foreach (array_slice($unready, 0, 5, true) as $pid => $r) {
+                $lines[] = "#{$pid} needs " . implode(', ', $r['missing']);
+            }
+            $summary = 'Nothing was pushed. ' . count($unready) . ' of ' . count($productIds)
+                . ' selected ' . (count($unready) === 1 ? 'is' : 'are') . ' not ready: '
+                . implode('; ', $lines)
+                . (count($unready) > 5 ? '; and ' . (count($unready) - 5) . ' more' : '')
+                . '. Untick them, or finish their listings first.';
+
+            return redirect()->back()->with('error', $summary);
         }
 
         $okCount = 0;
@@ -2824,17 +2876,11 @@ class ShopeeProductController extends Controller
         $sheet = $groupController->normalizedAttributesFor($categoryId);
         $savedAttributes = $listing->attribute_values ?? [];
 
-        $missingRequiredAttributes = [];
-        foreach ($sheet['attributes'] as $attr) {
-            if (empty($attr['required'])) {
-                continue;
-            }
-            $key = (string) ($attr['key'] ?? '');
-            $value = trim((string) ($savedAttributes[$key] ?? $savedAttributes[$attr['name']] ?? ''));
-            if ($value === '') {
-                $missingRequiredAttributes[] = (string) $attr['name'];
-            }
-        }
+        /* Readiness through the ONE shared computation (#101), so "Ready"
+         * on this page, the listings index and the bulk push all mean the
+         * same thing. */
+        $readiness = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)
+            ->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => []];
 
         $initialBrands = $categoryId > 0
             ? \Extensions\shopee\Models\ShopeeBrand::query()
@@ -2853,7 +2899,7 @@ class ShopeeProductController extends Controller
             'attrTemplate' => $sheet['template'],
             'attrRows' => $sheet['attributes'],
             'savedAttributes' => $savedAttributes,
-            'missingRequiredAttributes' => $missingRequiredAttributes,
+            'readinessMissing' => $readiness['missing'],
             'logistics' => $this->fetchLogistics(),
         ]);
     }

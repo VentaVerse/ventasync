@@ -45,16 +45,9 @@
     $coreDescription = trim(strip_tags(html_entity_decode((string) ($product->description ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
 
     // Readiness: what the one-click push still needs before it can run.
-    $missing = [];
-    if (!$listing || !$listing->shopee_category_id) $missing[] = 'a Shopee category';
-    if (!$listing || empty($listing->logistic_ids)) $missing[] = 'at least one courier';
-    if (empty($product->image)) $missing[] = 'a product image on the catalogue product';
-    if (!empty($missingRequiredAttributes)) {
-        $missing[] = 'answers for ' . count($missingRequiredAttributes) . ' required '
-            . \Illuminate\Support\Str::plural('attribute', count($missingRequiredAttributes))
-            . ' (' . implode(', ', array_slice($missingRequiredAttributes, 0, 5))
-            . (count($missingRequiredAttributes) > 5 ? ' and more' : '') . ')';
-    }
+    // Computed by the shared ShopeeListingReadiness, the same answer the
+    // listings index and the bulk push read (#101).
+    $missing = $readinessMissing;
 @endphp
 
 <div class="fm-page">

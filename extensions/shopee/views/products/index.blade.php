@@ -279,6 +279,9 @@
             {{-- Where the two above say where a product IS, this says what
                  happened to it. It is the reason to open this page. --}}
             <option value="error" @selected($syncStatus === 'error')>Last sync failed</option>
+            {{-- The computed answer (#101): pushable right now, or not. --}}
+            <option value="ready" @selected($syncStatus === 'ready')>Ready to push</option>
+            <option value="not_ready" @selected($syncStatus === 'not_ready')>Not ready to push</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
@@ -513,6 +516,18 @@
                     <x-ui.badge tone="success">Listed</x-ui.badge>
                 @else
                     <x-ui.badge tone="neutral">Not listed</x-ui.badge>
+                    {{-- The computed readiness (#101): the answer BEFORE the
+                         push is pressed, by the same shared computation the
+                         listing page and the bulk push use. --}}
+                    @php $rowReady = $readinessByProductId[$p->product_id] ?? null; @endphp
+                    @if($rowReady !== null)
+                        @if($rowReady['ready'])
+                            <span class="cc-checked">Ready to push</span>
+                        @else
+                            <span class="cc-checked cc-checked--never"
+                                  title="Missing: {{ implode('; ', $rowReady['missing']) }}">Missing: {{ \Illuminate\Support\Str::limit(implode(', ', $rowReady['missing']), 80) }}</span>
+                        @endif
+                    @endif
                 @endif
             </td>
 
