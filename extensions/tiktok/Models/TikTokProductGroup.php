@@ -45,4 +45,10 @@ class TikTokProductGroup extends Model
 
         return $price;
     }
+
+    /** The group's attribute answers, keyed by TikTok attribute id. */
+    public function attributes()
+    {
+        return $this->hasMany(TikTokProductGroupAttribute::class, 'tiktok_product_group_id');
+    }
 }

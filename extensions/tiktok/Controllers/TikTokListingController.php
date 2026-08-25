@@ -175,6 +175,16 @@ class TikTokListingController extends Controller
      */
     private function derivedTruth(int $productId): ?object
     {
+        $listing = TikTokListing::query()->where('product_id', $productId)->first();
+        if ($listing && $listing->tiktok_product_id) {
+            return (object) [
+                'tiktok_product_id' => $listing->tiktok_product_id,
+                'last_pushed_at' => $listing->last_pushed_at,
+                'group_name' => str_starts_with((string) $listing->last_push_source, 'group:') ? substr((string) $listing->last_push_source, 6) : null,
+                'source' => $listing->last_push_source,
+            ];
+        }
+
         return DB::table('tiktok_product_group_products as tp')
             ->join('tiktok_product_groups as tg', 'tg.id', '=', 'tp.tiktok_product_group_id')
             ->where('tp.product_id', $productId)

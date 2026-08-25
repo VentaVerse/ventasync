@@ -1955,6 +1955,11 @@
         "name": "ext.tiktok.product-groups.create"
     },
     {
+        "method": "POST",
+        "uri": "channels/tiktok/product-groups/fetch-attributes",
+        "name": "ext.tiktok.product-groups.fetchAttributes"
+    },
+    {
         "method": "GET|HEAD",
         "uri": "channels/tiktok/product-groups/search-products",
         "name": "ext.tiktok.product-groups.searchProducts"

@@ -97,6 +97,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         // A form page is a MANAGE surface even though it is a GET: the old
         // perm: group said so, and removing the group must not demote it.
         ->defaults('permission_tier', 'manage');
+        Route::post('/tiktok/product-groups/fetch-attributes', [TikTokProductGroupController::class, 'fetchAttributesAjax'])->name('ext.tiktok.product-groups.fetchAttributes');
         Route::post('/tiktok/product-groups', [TikTokProductGroupController::class, 'store'])->name('ext.tiktok.product-groups.store');
         Route::put('/tiktok/product-groups/{id}', [TikTokProductGroupController::class, 'update'])->name('ext.tiktok.product-groups.update');
         Route::delete('/tiktok/product-groups/{id}', [TikTokProductGroupController::class, 'destroy'])->name('ext.tiktok.product-groups.destroy');

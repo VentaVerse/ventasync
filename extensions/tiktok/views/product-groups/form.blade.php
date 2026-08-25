@@ -152,6 +152,27 @@
                 </div>
             </section>
 
+            {{-- The category's attribute sheet (#156): what TikTok Shop asks
+                 for this category, answered once for the whole group. Reloaded
+                 when the category changes (data-attributes-fetch, same wire
+                 as Shopee's). --}}
+            <section class="fm-section"
+                     data-attributes-fetch
+                     data-attributes-url="{{ route('ext.tiktok.product-groups.fetchAttributes') }}"
+                     data-attributes-field="tiktok_category_id"
+                     data-attributes-source="[name=tiktok_category_id]"
+                     @if(empty($attributeRows) && !$template) hidden @endif>
+                <div class="fm-section__head">
+                    <h2 class="fm-section__title">Category attributes</h2>
+                </div>
+                <p class="fm-section__note">What TikTok Shop asks for this category. Answers go with every push from this group; a product's own listing page can override them.</p>
+                <div data-attributes-target>
+                    @include('ext-tiktok::product-groups._attributes', [
+                        'rows' => $attributeRows, 'saved' => $savedAttributes, 'template' => $template, 'canManage' => $canManageTiktok,
+                    ])
+                </div>
+            </section>
+
             <section class="fm-section">
                 <div class="fm-section__head">
                     <h2 class="fm-section__title">Products in this group</h2>
