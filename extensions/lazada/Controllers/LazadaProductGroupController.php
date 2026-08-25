@@ -383,6 +383,11 @@ class LazadaProductGroupController extends Controller
             'products' => $products,
             'pivotMap' => $pivotMap,
             'optionRowsByProductId' => $optionRowsByProductId,
+            // The row menu reaches the product's Lazada listing page, like
+            // the Shopee and TikTok group pages do (critique 2026-08-25).
+            'lazadaIdByProductId' => LazadaProduct::query()
+                ->whereIn('product_id', $products->pluck('product_id')->all() ?: [0])
+                ->pluck('id', 'product_id'),
             'manualIds' => $manualIds,
             'q' => $q,
             'syncStatus' => $syncStatus,

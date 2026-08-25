@@ -297,7 +297,7 @@
     grid-template-columns: 24px minmax(0, 1fr) auto auto auto;
     align-items: center;
     gap: var(--bl-space-1) var(--bl-space-3);
-    font-size: 11px;
+    font-size: 12px;
     color: var(--bl-ink-2);
 }
 
@@ -372,7 +372,7 @@
 .cc-checked {
     display: block;
     margin-top: 3px;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.4;
     color: var(--bl-ink-3);
 }
@@ -382,6 +382,15 @@
    almost every row. */
 .cc-checked--never {
     font-style: italic;
+}
+
+/* "Catalog changed since this push" is the one note in this family that
+   wants attention: something moved after the marketplace last heard from
+   us. It takes the attention ink, upright, so it never reads as the
+   muted "nothing to report" grammar of --never. */
+.cc-checked--stale {
+    font-style: normal;
+    color: var(--bl-attn);
 }
 
 /* ── The full reason, on request ──────────────────────────────────────
@@ -500,7 +509,7 @@
 .cc-when {
     display: block;
     margin-top: 2px;
-    font-size: 11px;
+    font-size: 12px;
     color: var(--bl-ink-3);
 }
 
@@ -706,7 +715,25 @@
        the last thing keeping this table scrolling sideways inside itself.
        Name and one figure per line; the tabular alignment the desktop grid
        exists for survives within each column. */
-    .cc-var { grid-template-columns: 24px minmax(0, 1fr) auto; }
+    /* Two lines per variation, placed by area so the DOM order (thumb,
+       name, sku, qty, price) is untouched: the name and the price share
+       the first line, the SKU and the stock the second, and the thumb
+       spans both. The 24px stock cell and the 50px price cell that the
+       old three-column rule produced put "14 in stock" and "₱21,990.00"
+       on top of each other on a 390px screen, which is the exact figure
+       a picker reads on the warehouse floor. */
+    .cc-var {
+        grid-template-columns: 24px minmax(0, 1fr) auto;
+        grid-template-areas:
+            "thumb name price"
+            "thumb sku qty";
+        row-gap: 2px;
+    }
+    .cc-var__thumb { grid-area: thumb; }
+    .cc-var__name { grid-area: name; min-width: 0; }
+    .cc-var__sku { grid-area: sku; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    .cc-var__qty { grid-area: qty; }
+    .cc-var__price { grid-area: price; }
 
     /* The single-action bar stacks: the sentence above, the button below
        it, both full width. */
@@ -729,4 +756,29 @@
        screen. */
     .cc-link { flex-wrap: wrap; }
     .cc-link .fm-ta { flex: 1 1 100%; }
+}
+
+
+/* ------------------------------------------------------------------
+   Row actions stay reachable when the table is wider than its wrap.
+   Lazada Listings measured 1256px inside an 1162px wrap at 1440, and
+   nothing signalled the horizontal scroll, so the Actions column (and
+   every verb in it) sat off-screen on the owner's own desk viewport.
+   The cell pins to the right edge on a sheet background with a hairline
+   on its left; the menu it opens is positioned relative to the cell and
+   comes along.
+   ------------------------------------------------------------------ */
+@media (min-width: 900px) {
+    .cc-page .x-table-wrap > .x-table > thead > tr > th.x-td-actions,
+    .cc-page .x-table-wrap > .x-table > tbody > tr > td.x-td-actions {
+        position: sticky;
+        right: 0;
+        z-index: 2;
+        background: var(--bl-sheet);
+        box-shadow: -1px 0 0 var(--bl-rule);
+    }
+    .cc-page .x-table-wrap > .x-table > tbody > tr > td.x-td-actions:has(.x-menu.is-open),
+    .cc-page .x-table-wrap > .x-table > tbody > tr > td.x-td-actions:has([aria-expanded="true"]) {
+        z-index: 5;
+    }
 }

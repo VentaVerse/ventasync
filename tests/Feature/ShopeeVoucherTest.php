@@ -156,6 +156,22 @@ class ShopeeVoucherTest extends TestCase
         $r->assertDontSee('SAVE5');
     }
 
+    public function test_a_transport_failure_never_prints_the_signed_url(): void
+    {
+        $this->callResponses['GET /api/v2/voucher/get_voucher_list'] = function () {
+            throw new \Illuminate\Http\Client\ConnectionException(
+                'cURL error 7: Failed to connect: Connection refused for https://partner.shopeemobile.com/api/v2/voucher/get_voucher_list?partner_id=1001&access_token=tSECRET&sign=abc'
+            );
+        };
+
+        $r = $this->actingAs($this->manager())->get(route('ext.shopee.vouchers.index'));
+
+        $r->assertOk();
+        $r->assertSee('Shopee could not be reached; the connection was refused.');
+        $r->assertDontSee('tSECRET');
+        $r->assertDontSee('access_token=');
+    }
+
     public function test_create_sends_the_fixed_amount_voucher_shopee_expects(): void
     {
         $this->callResponses['GET /api/v2/voucher/get_voucher_list'] = $this->listAnswer([]);

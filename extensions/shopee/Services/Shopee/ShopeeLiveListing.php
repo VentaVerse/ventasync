@@ -33,7 +33,7 @@ class ShopeeLiveListing
         } catch (\Throwable $e) {
             // A connection failure must degrade to the page's "did not
             // answer" note, never to a 500 on a page that otherwise works.
-            return ['live' => null, 'error' => 'Shopee did not answer: ' . $e->getMessage()];
+            return ['live' => null, 'error' => \App\Support\TransportError::plain($e, 'Shopee')];
         }
 
         ShopeeApiLog::safeCreate([

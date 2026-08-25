@@ -36,7 +36,8 @@ class LazadaLiveListing
                 (string) ($creds['mode'] ?? 'live')
             );
         } catch (\Throwable $e) {
-            throw new \RuntimeException($e->getMessage());
+            // Never the raw message: it carries the signed URL. See TransportError.
+            throw new \RuntimeException(\App\Support\TransportError::plain($e, 'Lazada'));
         }
 
         $body = $res['body'] ?? [];

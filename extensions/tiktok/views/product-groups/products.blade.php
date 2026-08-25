@@ -31,6 +31,7 @@
     // Read tier on this route is `view_tiktok|manage_tiktok`; every push,
     // sync, link, unlink and remove below is `manage_tiktok`.
     $canManageTiktok = auth()->user()?->hasPermission('manage_tiktok/product_group') ?? false;
+    $canEditCatalog = auth()->user()?->hasPermission('manage_catalog/product') ?? false;
 
     $returnTo = request()->getRequestUri();
 
@@ -294,11 +295,7 @@
             </td>
 
             <td class="cc-col-stat" data-label="Catalog">
-                @if((int) $p->status === 1)
-                    <span class="x-cell-strong">Enabled</span>
-                @else
-                    <span class="x-cell-muted">Disabled</span>
-                @endif
+                <x-ui.badge :tone="(int) $p->status === 1 ? 'success' : 'neutral'">{{ (int) $p->status === 1 ? 'Enabled' : 'Disabled' }}</x-ui.badge>
             </td>
 
             <td class="cc-col-sync" data-label="Listing">
@@ -357,7 +354,7 @@
                             ? \Illuminate\Support\Carbon::parse($p->date_modified) : null;
                     @endphp
                     @if($coreMovedAt && $coreMovedAt->gt($provenanceAt))
-                        <span class="cc-checked cc-checked--never">Catalog changed since this push</span>
+                        <span class="cc-checked cc-checked--stale">Catalog changed since this push</span>
                     @endif
                 @elseif(! $attemptFailed)
                     <span class="x-cell-muted">Never</span>
@@ -367,7 +364,7 @@
             <td class="x-td-actions">
                 @if($canManageTiktok)
                 <x-ui.menu label="Product {{ $p->product_id }} actions">
-                    <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalog</a>
+                    @if($canEditCatalog)<a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalog</a>@endif
 
                     {{-- && !$isUnlinked, matching Venta. Without it an unlinked
                          row offered Push and "Link again" side by side, which are
@@ -405,16 +402,16 @@
                             <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
                             <button type="submit" class="x-menu__item">Push price</button>
                         </form>
-                        <a class="x-menu__item" href="{{ route('ext.tiktok.listings.edit', $p->product_id) }}">Discount</a>
+                        <a class="x-menu__item" href="{{ route('ext.tiktok.listings.edit', $p->product_id) }}">Open listing</a>
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.tiktok.product-groups.unlinkProduct', [$group->id, $p->product_id]) }}" data-slow-action
-                              data-confirm="Unlink {{ $pName ?: 'this product' }} from TikTok Shop? The product stays in the group but sync will stop.">
+                              data-confirm="Unlink {{ $pName ?: 'this product' }} from TikTok Shop? The product stays in the group but sync will stop." data-confirm-verb="Unlink">
                             @csrf
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
                             <button type="submit" class="x-menu__item x-menu__item--danger">Unlink from TikTok Shop</button>
                         </form>
                         <form method="POST" action="{{ route('ext.tiktok.product-groups.deleteFromTikTok', $group->id) }}" data-slow-action
-                              data-confirm="Delete {{ $pName ?: 'this product' }} from TikTok Shop? It is removed at the marketplace and this cannot be undone.">
+                              data-confirm="Delete {{ $pName ?: 'this product' }} from TikTok Shop? It is removed at the marketplace and this cannot be undone." data-confirm-verb="Delete from TikTok Shop">
                             @csrf
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
                             <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
@@ -433,7 +430,7 @@
                     @if($isManual)
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.tiktok.product-groups.removeProduct', [$group->id, $p->product_id]) }}"
-                              data-confirm="Take {{ $pName ?: 'this product' }} out of the group? Nothing is deleted from the catalog, and nothing already live on TikTok Shop is touched.">
+                              data-confirm="Take {{ $pName ?: 'this product' }} out of the group? Nothing is deleted from the catalog, and nothing already live on TikTok Shop is touched." data-confirm-verb="Remove from group">
                             @csrf
                             @method('DELETE')
                             <input type="hidden" name="_return" value="{{ $returnTo }}">

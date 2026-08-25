@@ -15,6 +15,7 @@
     // `true` that showed a read-only operator five bulk buttons and eight
     // row actions, all of which the route middleware would 403.
     $canManageShopee = auth()->user()?->hasPermission('manage_shopee/product') ?? false;
+    $canEditCatalog = auth()->user()?->hasPermission('manage_catalog/product') ?? false;
 
     $q = (string) ($q ?? '');
     $syncStatus = (string) ($syncStatus ?? 'all');
@@ -98,7 +99,7 @@
                 <x-ui.button type="submit" size="sm">{{ $hasUnmatched ? 'Scan again' : 'Scan for unmatched items' }}</x-ui.button>
             </form>
             <form method="POST" action="{{ route('ext.shopee.products.rebuild_cache') }}"
-                  data-confirm="Rebuild the Shopee item cache? This reads every item on your Shopee shop and can take a minute.">
+                  data-confirm="Rebuild the Shopee item cache? This reads every item on your Shopee shop and can take a minute." data-confirm-tone="primary" data-confirm-verb="Rebuild cache">
                 @csrf
                 <x-ui.button type="submit" size="sm">Rebuild item cache</x-ui.button>
             </form>
@@ -493,7 +494,7 @@
                         <span class="x-num">{{ $link->shopee_item_id }}</span>
                     @endif
                 @else
-                    <span class="x-cell-muted">Not linked</span>
+                    <span class="x-cell-muted">None</span>
                 @endif
             </td>
 
@@ -603,13 +604,13 @@
                     @if($canManageShopee)
                         <a class="x-menu__item" href="{{ route('ext.shopee.listings.edit', $p->product_id) }}">Open listing</a>
                     @endif
-                    <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalog</a>
+                    @if($canEditCatalog)<a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalog</a>@endif
 
                     @if($canManageShopee)
                         @if(!$link)
                             <a class="x-menu__item" href="{{ route('ext.shopee.products.push', $p->product_id) }}">Review push settings</a>
                             <form method="POST" action="{{ route('ext.shopee.products.push_direct', $p->product_id) }}" data-slow-action
-                                  data-confirm="Push this product to Shopee now? It goes up with the settings and content saved on its listing.">
+                                  data-confirm="Push this product to Shopee now? It goes up with the settings and content saved on its listing." data-confirm-tone="primary" data-confirm-verb="Push to Shopee">
                                 @csrf
                                 <button type="submit" class="x-menu__item">Push to Shopee</button>
                             </form>
@@ -628,14 +629,14 @@
                             </form>
                             @if($rowLiveStatus === 'NORMAL')
                                 <form method="POST" action="{{ route('ext.shopee.listings.toggle', $p->product_id) }}" data-slow-action
-                                      data-confirm="Unlist this item from Shopee? Buyers stop seeing it immediately. It can be relisted at any time.">
+                                      data-confirm="Unlist this item from Shopee? Buyers stop seeing it immediately. It can be relisted at any time." data-confirm-verb="Unlist">
                                     @csrf
                                     <input type="hidden" name="action" value="unlist">
                                     <button type="submit" class="x-menu__item">Unlist from Shopee</button>
                                 </form>
                             @elseif($rowLiveStatus === 'UNLIST')
                                 <form method="POST" action="{{ route('ext.shopee.listings.toggle', $p->product_id) }}" data-slow-action
-                                      data-confirm="Relist this item on Shopee? Buyers see it again immediately.">
+                                      data-confirm="Relist this item on Shopee? Buyers see it again immediately." data-confirm-tone="primary" data-confirm-verb="Relist">
                                     @csrf
                                     <input type="hidden" name="action" value="list">
                                     <button type="submit" class="x-menu__item">Relist on Shopee</button>
@@ -643,12 +644,12 @@
                             @endif
                             <div class="x-menu__sep"></div>
                             <form method="POST" action="{{ route('ext.shopee.products.unlink', $p->product_id) }}" data-slow-action
-                                  data-confirm="Unlink this product from Shopee? Only the link is removed. The Shopee listing stays up and can be matched again later.">
+                                  data-confirm="Unlink this product from Shopee? Only the link is removed. The Shopee listing stays up and can be matched again later." data-confirm-verb="Unlink">
                                 @csrf
                                 <button type="submit" class="x-menu__item x-menu__item--danger">Unlink from Shopee</button>
                             </form>
                             <form method="POST" action="{{ route('ext.shopee.products.delete', $p->product_id) }}" data-slow-action
-                                  data-confirm="Delete this listing from Shopee? The listing is removed at the marketplace and this cannot be undone.">
+                                  data-confirm="Delete this listing from Shopee? The listing is removed at the marketplace and this cannot be undone." data-confirm-verb="Delete from Shopee">
                                 @csrf
                                 <button type="submit" class="x-menu__item x-menu__item--danger">Delete from Shopee</button>
                             </form>

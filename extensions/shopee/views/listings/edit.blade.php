@@ -18,6 +18,7 @@
 @section('content')
 @php
     $canManage = auth()->user()?->hasPermission('manage_shopee/product') ?? false;
+    $canEditCatalog = auth()->user()?->hasPermission('manage_catalog/product') ?? false;
 
     // Shopee's status vocabulary -> the seller center's words.
     $statusMap = [
@@ -126,23 +127,27 @@
                     <div class="fm-section__aside">
                         {{-- The other half of Save: the record drives the
                              NEXT push, and this sends it onto the LIVE item
-                             now. Offered even when the live fetch failed -
-                             the push reports its own outcome. --}}
+                             now. Offered only when Shopee answered and the
+                             record has what a push needs; the note beneath
+                             says which is missing otherwise, so the button
+                             never leads to a refusal it could have named. --}}
+                        @if(!$liveError && empty($missing))
                         <form method="POST" action="{{ route('ext.shopee.listings.push_update', $product->product_id) }}"
-                              data-confirm="Push this listing's content and settings onto the live Shopee item? Title, description, parcel, category and couriers are updated. Price and stock are not touched - they have their own syncs.">
+                              data-confirm="Push this listing's content and settings onto the live Shopee item? Title, description, parcel, category and couriers are updated. Price and stock are not touched - they have their own syncs." data-confirm-tone="primary" data-confirm-verb="Push update">
                             @csrf
                             <x-ui.button type="submit">Push update to Shopee</x-ui.button>
                         </form>
+                        @endif
                         @if($live && $live['item_status'] === 'NORMAL')
                             <form method="POST" action="{{ route('ext.shopee.listings.toggle', $product->product_id) }}"
-                                  data-confirm="Unlist this item from Shopee? Buyers stop seeing it immediately. It stays here and can be relisted at any time.">
+                                  data-confirm="Unlist this item from Shopee? Buyers stop seeing it immediately. It stays here and can be relisted at any time." data-confirm-verb="Unlist">
                                 @csrf
                                 <input type="hidden" name="action" value="unlist">
                                 <x-ui.button type="submit">Unlist from Shopee</x-ui.button>
                             </form>
                         @elseif($live && $live['item_status'] === 'UNLIST')
                             <form method="POST" action="{{ route('ext.shopee.listings.toggle', $product->product_id) }}"
-                                  data-confirm="Relist this item on Shopee? Buyers see it again immediately.">
+                                  data-confirm="Relist this item on Shopee? Buyers see it again immediately." data-confirm-tone="primary" data-confirm-verb="Relist">
                                 @csrf
                                 <input type="hidden" name="action" value="list">
                                 <x-ui.button type="submit" variant="primary">Relist on Shopee</x-ui.button>
@@ -154,9 +159,15 @@
 
             @if($liveError)
                 <div class="fm-note fm-note--fail">
-                    <div class="fm-note__body">{{ $liveError }} Nothing below is stale data standing in for it: the live state is simply unknown until Shopee answers.</div>
+                    <div class="fm-note__body">{{ $liveError }} Nothing below is stale data standing in for it: the live state is simply unknown until Shopee answers. <a href="{{ route('ext.shopee.index') }}">Open Shopee settings</a> if the sign-in has lapsed.</div>
                 </div>
-            @elseif($live)
+            @endif
+            @if($link && !empty($missing))
+                <div class="fm-note">
+                    <div class="fm-note__body">Push update needs {{ implode(', ', $missing) }} before it can run. Set what is missing below and save.</div>
+                </div>
+            @endif
+            @if($live)
                 <p class="fm-section__note">Fetched from Shopee as this page loaded.</p>
                 @if($staleSincePush)
                     <div class="fm-note fm-note--warn" role="status">
@@ -236,7 +247,7 @@
                 @if($canManage && empty($missing))
                     <div class="fm-section__aside">
                         <form method="POST" action="{{ route('ext.shopee.products.push_direct', $product->product_id) }}"
-                              data-confirm="Push this product to Shopee now? It goes up with the settings and content saved on this page.">
+                              data-confirm="Push this product to Shopee now? It goes up with the settings and content saved on this page." data-confirm-tone="primary" data-confirm-verb="Push to Shopee">
                             @csrf
                             <x-ui.button type="submit" variant="primary">Push to Shopee</x-ui.button>
                         </form>
@@ -318,6 +329,59 @@
                     </div>
                 </section>
 
+                {{-- The editable money of this page sits in the work column,
+                     not the context rail (critique 2026-08-25). --}}
+                <div class="fm-card">
+                    <div class="fm-card__head"><h2 class="fm-card__title">Price rule</h2></div>
+                    <div class="fm-card__body">
+                        <p class="fm-section__note">The Shopee price is never stored: it is the catalog price run through this rule at every push and price sync, so catalog price changes carry through on their own.</p>
+                        <div class="fm-fields fm-fields--2">
+                            <x-ui.field label="Markup percent" for="sl-markup-pct" name="markup_percent">
+                                <x-ui.input id="sl-markup-pct" name="markup_percent" type="number" step="0.01"
+                                            :value="old('markup_percent', $listing->markup_percent ?? '')"
+                                            placeholder="0"
+                                            :disabled="!$canManage" />
+                            </x-ui.field>
+                            <x-ui.field label="Markup fixed" for="sl-markup-fixed" name="markup_fixed">
+                                <x-ui.input id="sl-markup-fixed" name="markup_fixed" type="number" step="0.01"
+                                            :value="old('markup_fixed', $listing->markup_fixed ?? '')"
+                                            placeholder="0"
+                                            :disabled="!$canManage" />
+                            </x-ui.field>
+                        </div>
+                        <div class="fm-stats">
+                            <div class="fm-stat">
+                                <span class="fm-stat__k">Catalog price</span>
+                                <span class="fm-stat__v"><x-money :php="$corePrice" /></span>
+                            </div>
+                            <div class="fm-stat">
+                                <span class="fm-stat__k">Next push sends</span>
+                                <span class="fm-stat__v"><x-money :php="$hasRule ? $nextPrice : $corePrice" /></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                @php
+                    $discount = [
+                        'channel' => 'Shopee', 'prefix' => 'sl',
+                        'canManage' => $canManage, 'onMarketplace' => (bool) $link,
+                        'step' => '0.01', 'note' => 'Shopee needs the start at least an hour ahead.',
+                        'savedPct' => $listing?->sale_percent,
+                        'savedFrom' => $listing?->sale_starts_at, 'savedTo' => $listing?->sale_ends_at,
+                        'salePreview' => ($listing?->sale_percent ?? null) !== null
+                            ? max(0.01, round(($hasRule ? $nextPrice : $corePrice) * (1 - (float) $listing->sale_percent / 100), 2))
+                            : null,
+                        'remoteId' => $listing?->shopee_discount_id ? (string) $listing->shopee_discount_id : null,
+                        'tracked' => true, 'endClearsRule' => false,
+                        'action' => route('ext.shopee.listings.push_discount', $product->product_id),
+                    ];
+                @endphp
+                {{-- The shared Discount card (#146): the rule rides Save,
+                     the push is its own confirmed act. Partial in
+                     resources/views/partials/channel-discount-card. --}}
+                @include('partials.channel-discount-card', $discount)
+
                 {{-- ── The category's own attribute sheet (#98) ────────
                      What Shopee's form would ask for this category:
                      required-ness, option lists and free-text fields read
@@ -349,9 +413,9 @@
             <div class="fm-col fm-col--side">
 
                 <div class="fm-card">
-                    <div class="fm-card__head"><h2 class="fm-card__title">Shopee category</h2></div>
+                    <div class="fm-card__head"><h2 class="fm-card__title">Category and brand</h2></div>
                     <div class="fm-card__body">
-                        <x-ui.field label="Category" for="sl-category" name="shopee_category_id"
+                        <x-ui.field label="Shopee category" for="sl-category" name="shopee_category_id"
                                     hint="Only leaf categories are listed. Shopee accepts nothing else.">
                             <div class="gf-combo"
                                  data-category-combo
@@ -370,12 +434,6 @@
                                 </div>
                             </div>
                         </x-ui.field>
-                    </div>
-                </div>
-
-                <div class="fm-card">
-                    <div class="fm-card__head"><h2 class="fm-card__title">Brand</h2></div>
-                    <div class="fm-card__body">
                         @php
                             $slBrandId = (int) ($listing->shopee_brand_id ?? 0);
                             $slBrandName = $slBrandId > 0
@@ -446,94 +504,6 @@
                 </div>
 
                 <div class="fm-card">
-                    <div class="fm-card__head"><h2 class="fm-card__title">Price rule</h2></div>
-                    <div class="fm-card__body">
-                        <p class="fm-section__note">The Shopee price is never stored: it is the catalog price run through this rule at every push and price sync, so catalog price changes carry through on their own.</p>
-                        <div class="fm-fields fm-fields--2">
-                            <x-ui.field label="Markup percent" for="sl-markup-pct" name="markup_percent">
-                                <x-ui.input id="sl-markup-pct" name="markup_percent" type="number" step="0.01"
-                                            :value="old('markup_percent', $listing->markup_percent ?? '')"
-                                            placeholder="0"
-                                            :disabled="!$canManage" />
-                            </x-ui.field>
-                            <x-ui.field label="Markup fixed" for="sl-markup-fixed" name="markup_fixed">
-                                <x-ui.input id="sl-markup-fixed" name="markup_fixed" type="number" step="0.01"
-                                            :value="old('markup_fixed', $listing->markup_fixed ?? '')"
-                                            placeholder="0"
-                                            :disabled="!$canManage" />
-                            </x-ui.field>
-                        </div>
-                        <div class="fm-stats">
-                            <div class="fm-stat">
-                                <span class="fm-stat__k">Catalog price</span>
-                                <span class="fm-stat__v"><x-money :php="$corePrice" /></span>
-                            </div>
-                            <div class="fm-stat">
-                                <span class="fm-stat__k">Next push sends</span>
-                                <span class="fm-stat__v"><x-money :php="$hasRule ? $nextPrice : $corePrice" /></span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {{-- ── Discount (#146, quest 2) ────────────────────
-                     A time-bound percent off, stored as a RULE, never a
-                     price: the promo price Shopee receives is computed
-                     from the price rule at push time. Shopee wants a
-                     named promotion object with a server-side window;
-                     VentaSync keeps one object per window and listings
-                     join it. The fields ride Save; the push is its own
-                     confirmed act (its forms live after the main form -
-                     nested forms are illegal HTML). --}}
-                <div class="fm-card">
-                    <div class="fm-card__head"><h2 class="fm-card__title">Discount</h2></div>
-                    <div class="fm-card__body">
-                        @php
-                            $slSalePct = old('sale_percent', $listing->sale_percent ?? null);
-                            $slSaleFrom = old('sale_starts_at', $listing?->sale_starts_at?->format('Y-m-d\TH:i'));
-                            $slSaleTo = old('sale_ends_at', $listing?->sale_ends_at?->format('Y-m-d\TH:i'));
-                        @endphp
-                        <p class="fm-section__note">Percent off the listed price, for a window. Shopee needs the start at least an hour ahead. Leave the percent empty for no discount.</p>
-                        <div class="fm-fields fm-fields--2">
-                            <x-ui.field label="Percent off" for="sl-sale-percent" name="sale_percent">
-                                <x-ui.input id="sl-sale-percent" name="sale_percent" type="number" step="0.01" min="1" max="99"
-                                            :value="$slSalePct" placeholder="0" :disabled="!$canManage" />
-                            </x-ui.field>
-                        </div>
-                        <div class="fm-fields fm-fields--2">
-                            <x-ui.field label="From" for="sl-sale-from" name="sale_starts_at">
-                                <x-ui.input id="sl-sale-from" name="sale_starts_at" type="datetime-local" :value="$slSaleFrom" :disabled="!$canManage" />
-                            </x-ui.field>
-                            <x-ui.field label="To" for="sl-sale-to" name="sale_ends_at">
-                                <x-ui.input id="sl-sale-to" name="sale_ends_at" type="datetime-local" :value="$slSaleTo" :disabled="!$canManage" />
-                            </x-ui.field>
-                        </div>
-                        @if(($listing->sale_percent ?? null) !== null)
-                            <div class="fm-stats">
-                                <div class="fm-stat">
-                                    <span class="fm-stat__k">Sale price</span>
-                                    <span class="fm-stat__v"><x-money :php="max(0.01, round(($hasRule ? $nextPrice : $corePrice) * (1 - (float) $listing->sale_percent / 100), 2))" /></span>
-                                </div>
-                                @if($listing->shopee_discount_id)
-                                    <div class="fm-stat">
-                                        <span class="fm-stat__k">On Shopee as</span>
-                                        <span class="fm-stat__v">discount {{ $listing->shopee_discount_id }}</span>
-                                    </div>
-                                @endif
-                            </div>
-                        @endif
-                        @if($canManage && $link)
-                            <div class="cc-head-actions">
-                                <x-ui.button type="submit" form="sl-discount-push" variant="primary">Push discount to Shopee</x-ui.button>
-                                @if($listing->shopee_discount_id ?? null)
-                                    <x-ui.button type="submit" form="sl-discount-end">End discount now</x-ui.button>
-                                @endif
-                            </div>
-                        @endif
-                    </div>
-                </div>
-
-                <div class="fm-card">
                     <div class="fm-card__head"><h2 class="fm-card__title">Last push</h2></div>
                     <div class="fm-card__body">
                         @if($listing && $listing->last_pushed_at)
@@ -584,21 +554,7 @@
         </div>
     </form>
 
-    @if($canManage && $link)
-        {{-- The Discount card's actions (nested forms are illegal; its
-             buttons reach these by the HTML5 form attribute, and
-             data-confirm intercepts the form's submit as everywhere). --}}
-        <form id="sl-discount-push" method="POST" action="{{ route('ext.shopee.listings.push_discount', $product->product_id) }}"
-              data-confirm="Push this discount to Shopee? The promotion is created for the saved window and this item joins it at the computed sale price.">
-            @csrf
-            <input type="hidden" name="action" value="push">
-        </form>
-        <form id="sl-discount-end" method="POST" action="{{ route('ext.shopee.listings.push_discount', $product->product_id) }}"
-              data-confirm="End this discount on Shopee now? The item leaves the promotion and buyers pay the full price again.">
-            @csrf
-            <input type="hidden" name="action" value="end">
-        </form>
-    @endif
+    @include('partials.channel-discount-forms', $discount)
 
 
     <div class="fm-bar">

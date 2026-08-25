@@ -101,11 +101,12 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         Route::get('/shopee/vouchers', [\Extensions\shopee\Controllers\ShopeeVoucherController::class, 'index'])->name('ext.shopee.vouchers.index');
 
         // The individual listing page: live marketplace state + the
-        // listing record's own settings and content. An edit form, so a
-        // MANAGE surface despite being a GET, like the push form above.
+        // listing record's own settings and content. Readable by the view
+        // tier (the page renders read-only with every field disabled and
+        // no verbs, critique 2026-08-25); every write it offers is a
+        // separate manage route.
         Route::get('/shopee/listings/{productId}', [ShopeeProductController::class, 'listing'])
-            ->whereNumber('productId')->name('ext.shopee.listings.edit')
-            ->defaults('permission_tier', 'manage');
+            ->whereNumber('productId')->name('ext.shopee.listings.edit');
     });
 
     // ── Shopee Settings + Catalog WRITES ────────────────────────

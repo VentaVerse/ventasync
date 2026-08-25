@@ -522,12 +522,19 @@ class ShopeeListingPageTest extends TestCase
             ->assertSee('https://shopee.ph/product/2002/990077', false);
     }
 
-    public function test_the_page_is_a_manage_surface_even_as_a_get(): void
+    public function test_a_view_only_operator_reads_the_page_without_verbs(): void
     {
+        // Every screen serves two permission worlds: the view tier reads
+        // the same page with every field disabled and no verbs, instead
+        // of a 403 from a menu that offered the link (critique 2026-08-25).
         $productId = $this->seedProduct();
 
-        $this->actingAs($this->userWith(['view_shopee/product']))
-            ->get(route('ext.shopee.listings.edit', $productId))
-            ->assertForbidden();
+        $r = $this->actingAs($this->userWith(['view_shopee/product']))
+            ->get(route('ext.shopee.listings.edit', $productId));
+
+        $r->assertOk();
+        $r->assertSee('You can read this.');
+        $r->assertDontSee('Push to Shopee');
+        $r->assertDontSee('Save listing');
     }
 }

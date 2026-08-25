@@ -59,7 +59,7 @@ class ShopeeProductController extends Controller
                 }
             } catch (\Throwable $e) {
                 $liveCounts = null;
-                $liveTabError = 'Shopee did not answer (' . $e->getMessage() . '), so the live tabs and statuses are unavailable right now. The catalog below is unaffected.';
+                $liveTabError = \App\Support\TransportError::plain($e, 'Shopee') . ' The live tabs and statuses are unavailable right now; the catalog below is unaffected.';
                 $shopeeTab = 'all';
             }
         } else {
@@ -218,7 +218,7 @@ class ShopeeProductController extends Controller
                     ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
                 $query->whereIn('p.product_id', $tabProductIds ?: [0]);
             } catch (\Throwable $e) {
-                $liveTabError = 'Shopee did not answer (' . $e->getMessage() . '), so the live tabs and statuses are unavailable right now. The catalog below is unaffected.';
+                $liveTabError = \App\Support\TransportError::plain($e, 'Shopee') . ' The live tabs and statuses are unavailable right now; the catalog below is unaffected.';
                 $shopeeTab = 'all';
             }
         }
@@ -3091,7 +3091,7 @@ class ShopeeProductController extends Controller
                 $path, [], $payload
             );
         } catch (\Throwable $e) {
-            return ['ok' => false, 'message' => 'Update failed: Shopee did not answer (' . $e->getMessage() . ').'];
+            return ['ok' => false, 'message' => 'Update failed: ' . \App\Support\TransportError::plain($e, 'Shopee')];
         }
 
         ShopeeApiLog::safeCreate([
@@ -3279,7 +3279,7 @@ class ShopeeProductController extends Controller
                 $path, [], $body
             );
         } catch (\Throwable $e) {
-            $result = ['ok' => false, 'status' => 0, 'body' => ['error' => 'network', 'message' => $e->getMessage()]];
+            $result = ['ok' => false, 'status' => 0, 'body' => ['error' => 'network', 'message' => \App\Support\TransportError::plain($e, 'Shopee')]];
         }
 
         ShopeeApiLog::safeCreate([
@@ -3322,7 +3322,7 @@ class ShopeeProductController extends Controller
                 $path, [], $body
             );
         } catch (\Throwable $e) {
-            return redirect()->back()->with('error', ($unlist ? 'Unlist' : 'Relist') . ' failed: Shopee did not answer (' . $e->getMessage() . ').');
+            return redirect()->back()->with('error', ($unlist ? 'Unlist' : 'Relist') . ' failed: ' . \App\Support\TransportError::plain($e, 'Shopee'));
         }
 
         ShopeeApiLog::safeCreate([

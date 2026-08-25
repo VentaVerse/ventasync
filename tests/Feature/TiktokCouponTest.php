@@ -110,9 +110,9 @@ class TiktokCouponTest extends TestCase
     public function test_the_page_lists_live_coupons_with_the_verb_their_state_allows(): void
     {
         $this->callResponses['/promotion/202406/coupons/search'] = $this->listAnswer([
-            $this->sampleCoupon(),                                                    // ongoing: Deactivate
+            $this->sampleCoupon(),                                                    // ongoing: End now
             $this->sampleCoupon(['id' => '7700110002', 'title' => 'Next week', 'status' => 'NOT_START',
-                'discount' => ['type' => 'PERCENTAGE_OFF', 'percentage_off' => 10, 'max_discount' => '100.00']]), // upcoming: Deactivate
+                'discount' => ['type' => 'PERCENTAGE_OFF', 'percentage_off' => 10, 'max_discount' => '100.00']]), // upcoming: End now
             $this->sampleCoupon(['id' => '7700110003', 'title' => 'Old news', 'status' => 'EXPIRED']),   // expired: nothing
         ]);
 
@@ -127,7 +127,8 @@ class TiktokCouponTest extends TestCase
         $r->assertSee('Old news');
         $r->assertSee('Expired');
         // Two live rows, two Deactivate buttons; the expired row offers none.
-        $this->assertSame(2, substr_count($r->getContent(), '>Deactivate<'));
+        // One verb for one act across the three channels: End now.
+        $this->assertSame(2, substr_count($r->getContent(), '>End now<'));
     }
 
     public function test_the_status_filter_is_passed_to_tiktok_not_applied_after_the_fact(): void
@@ -254,7 +255,7 @@ class TiktokCouponTest extends TestCase
 
         $r->assertOk();
         $r->assertSee('Payday treat');
-        $r->assertDontSee('>Deactivate<', false);
+        $r->assertDontSee('>End now<', false);
         $r->assertDontSee('Create a coupon');
 
         // Writes are refused with a redirect and a flashed denial (the

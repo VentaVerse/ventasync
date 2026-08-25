@@ -31,6 +31,7 @@
     // Read tier on this route is `view_shopee|manage_shopee`; every push,
     // sync, link, unlink and remove below is `manage_shopee`.
     $canManageShopee = auth()->user()?->hasPermission('manage_shopee/product_group') ?? false;
+    $canEditCatalog = auth()->user()?->hasPermission('manage_catalog/product') ?? false;
 
     $returnTo = request()->getRequestUri();
 
@@ -64,7 +65,7 @@
         <div class="cc-head-actions">
             @if($canManageShopee)
                 <form method="POST" action="{{ route('ext.shopee.product-groups.check', $group->id) }}"
-                      data-confirm="Check every product in this group against Shopee? Nothing is sent or changed on Shopee; the ERP updates its own records to match what it finds.">
+                      data-confirm="Check every product in this group against Shopee? Nothing is sent or changed on Shopee; the ERP updates its own records to match what it finds." data-confirm-tone="primary" data-confirm-verb="Check against Shopee">
                     @csrf
                     <input type="hidden" name="_return" value="{{ $returnTo }}">
                     <x-ui.button type="submit" variant="secondary">Check against Shopee</x-ui.button>
@@ -446,7 +447,7 @@
                             ? \Illuminate\Support\Carbon::parse($p->date_modified) : null;
                     @endphp
                     @if($coreMovedAt && $coreMovedAt->gt($provenanceAt))
-                        <span class="cc-checked cc-checked--never">Catalog changed since this push</span>
+                        <span class="cc-checked cc-checked--stale">Catalog changed since this push</span>
                     @endif
                 @elseif(! $attemptFailed)
                     <span class="x-cell-muted">Never</span>
@@ -497,12 +498,12 @@
                     @endif
 
                     <a class="x-menu__item" href="{{ route('ext.shopee.listings.edit', $p->product_id) }}">Open listing</a>
-                    <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalog</a>
+                    @if($canEditCatalog)<a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalog</a>@endif
 
                     @if($isManual)
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.shopee.product-groups.removeProduct', [$group->id, $p->product_id]) }}"
-                              data-confirm="Take {{ $pName ?: 'this product' }} out of the group? Nothing is deleted from the catalog, and nothing already live on Shopee is touched.">
+                              data-confirm="Take {{ $pName ?: 'this product' }} out of the group? Nothing is deleted from the catalog, and nothing already live on Shopee is touched." data-confirm-verb="Remove from group">
                             @csrf
                             @method('DELETE')
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
@@ -513,13 +514,13 @@
                     @if($listed)
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.shopee.product-groups.unlinkProduct', [$group->id, $p->product_id]) }}" data-slow-action
-                              data-confirm="Unlink {{ $pName ?: 'this product' }} from Shopee? The listing stays on Shopee; the ERP just stops tracking it. Send will re-find it.">
+                              data-confirm="Unlink {{ $pName ?: 'this product' }} from Shopee? The listing stays on Shopee; the ERP just stops tracking it. Send will re-find it." data-confirm-verb="Unlink">
                             @csrf
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
                             <button type="submit" class="x-menu__item x-menu__item--danger">Unlink from Shopee</button>
                         </form>
                         <form method="POST" action="{{ route('ext.shopee.product-groups.deleteFromShopee', $group->id) }}" data-slow-action
-                              data-confirm="Delete {{ $pName ?: 'this product' }} from Shopee? It is removed at the marketplace and this cannot be undone.">
+                              data-confirm="Delete {{ $pName ?: 'this product' }} from Shopee? It is removed at the marketplace and this cannot be undone." data-confirm-verb="Delete from Shopee">
                             @csrf
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
                             <input type="hidden" name="ids[]" value="{{ $p->product_id }}">

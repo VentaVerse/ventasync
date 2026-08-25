@@ -61,11 +61,10 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         Route::get('/tiktok/coupons', [TikTokCouponController::class, 'index'])->name('ext.tiktok.coupons.index');
 
         // The per-product page (#146): the product's derived listing
-        // truth plus its discount rule. An edit form, so a MANAGE
-        // surface despite being a GET, like the create form above.
+        // truth plus its discount rule. Readable by the view tier (it
+        // renders read-only with no verbs); the writes are manage routes.
         Route::get('/tiktok/listings/{productId}', [TikTokListingController::class, 'edit'])
-            ->whereNumber('productId')->name('ext.tiktok.listings.edit')
-            ->defaults('permission_tier', 'manage');
+            ->whereNumber('productId')->name('ext.tiktok.listings.edit');
     });
 
     // ── TikTok Settings + Catalog WRITES ────────────────────────

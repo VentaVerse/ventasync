@@ -184,7 +184,7 @@ class LazadaListingLiveTest extends TestCase
 
         $r->assertOk();
         $r->assertSee('Not found on Lazada');
-        $r->assertDontSee('>Uploaded<', false);
+        $r->assertDontSee('>Listed<', false);
     }
 
     public function test_when_lazada_does_not_answer_the_tabs_step_aside_and_the_table_survives(): void

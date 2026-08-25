@@ -96,10 +96,24 @@ document.addEventListener('DOMContentLoaded', function () {
     // destructive. Default danger (almost every data-confirm is a delete);
     // data-confirm-tone="primary" is for the ones that are not, so a red
     // Confirm never appears on an action that removes nothing.
+    // The trigger may be a button that reaches its form by the HTML5 form
+    // attribute (the discount and voucher verbs), so a missing attribute on
+    // the button falls back to the form it submits.
+    function confirmAttr(trigger, name) {
+        if (!trigger || !trigger.getAttribute) return null;
+        return trigger.getAttribute(name)
+            || (trigger.form && trigger.form.getAttribute && trigger.form.getAttribute(name))
+            || null;
+    }
+
     function applyTone(trigger) {
-        var tone = (trigger && trigger.getAttribute && trigger.getAttribute('data-confirm-tone')) || 'danger';
+        var tone = confirmAttr(trigger, 'data-confirm-tone') || 'danger';
         okBtn.classList.remove('x-btn--danger', 'x-btn--primary');
         okBtn.classList.add(tone === 'primary' ? 'x-btn--primary' : 'x-btn--danger');
+        // A generic "Confirm" on a money moment reads the same as on a
+        // deletion. data-confirm-verb names the act on the button itself:
+        // "Push discount", "End voucher", "Delete from Shopee".
+        okBtn.textContent = confirmAttr(trigger, 'data-confirm-verb') || 'Confirm';
     }
 
     function confirmModal(message, trigger) {

@@ -168,14 +168,14 @@
                     <div class="fm-section__aside">
                         @if(($live['status'] ?? '') === 'active')
                             <form method="POST" action="{{ route('ext.lazada.listings.toggle', $listing->id) }}"
-                                  data-confirm="Deactivate this item on Lazada? Buyers stop seeing it immediately. It stays here and can be activated again.">
+                                  data-confirm="Deactivate this item on Lazada? Buyers stop seeing it immediately. It stays here and can be activated again." data-confirm-verb="Deactivate">
                                 @csrf
                                 <input type="hidden" name="action" value="deactivate">
                                 <x-ui.button type="submit">Deactivate on Lazada</x-ui.button>
                             </form>
                         @elseif(($live['status'] ?? '') === 'inactive')
                             <form method="POST" action="{{ route('ext.lazada.listings.toggle', $listing->id) }}"
-                                  data-confirm="Activate this item on Lazada? Buyers see it again once Lazada applies it.">
+                                  data-confirm="Activate this item on Lazada? Buyers see it again once Lazada applies it." data-confirm-tone="primary" data-confirm-verb="Activate">
                                 @csrf
                                 <input type="hidden" name="action" value="activate">
                                 <x-ui.button type="submit" variant="primary">Activate on Lazada</x-ui.button>
@@ -418,7 +418,7 @@
                 <div class="fm-card">
                     <div class="fm-card__head"><h2 class="fm-card__title">Price markup</h2></div>
                     <div class="fm-card__body">
-                        <p class="fm-section__note">The percentage is taken off the catalog price first, then the fixed amount is added on top.</p>
+                        <p class="fm-section__note">The percentage is added to the catalog price first, then the fixed amount is added on top.</p>
 
                         <x-ui.field label="Percentage of price" for="lz-markup-percent" name="markup_percent"
                                     hint="5 means the listed price is 5% above the catalog price.">
@@ -447,7 +447,7 @@
                             <div class="cl-total" data-running-total data-base-price="{{ $basePrice }}">
                                 <span class="cl-total__k">Listed at</span>
                                 <span class="cl-total__v"><span data-total-value>{{ number_format($basePrice, 2) }}</span></span>
-                                <span class="cl-total__note">Catalog price {{ number_format($basePrice, 2) }} in {{ \App\Support\Money::defaultCode() }}</span>
+                                <span class="cl-total__note">Catalog price <x-money :php="(float) $basePrice" /></span>
                             </div>
                         @endif
 
@@ -468,72 +468,37 @@
                     </div>
                 </div>
 
-                {{-- ── Discount (#146, quest 2) ────────────────────────
-                     A time-bound percent off, stored as a RULE and never
-                     as a price: the SalePrice Lazada receives is computed
-                     from the final price at push time, so a catalog price
-                     change moves the discount with it. The fields ride the
-                     main Save; the push is its own deliberate act. --}}
-                <div class="fm-card">
-                    <div class="fm-card__head"><h2 class="fm-card__title">Discount</h2></div>
-                    <div class="fm-card__body">
-                        @php
-                            $salePct = old('sale_percent', $listing->sale_percent);
-                            $saleFrom = old('sale_starts_at', $listing->sale_starts_at?->format('Y-m-d'));
-                            $saleTo = old('sale_ends_at', $listing->sale_ends_at?->format('Y-m-d'));
-                        @endphp
-                        <p class="fm-section__note">Percent off the listed price, for a window. Lazada shows the cut price with the original struck through. Leave the percent empty for no discount.</p>
-
-                        <x-ui.field label="Percent off" for="lz-sale-percent" name="sale_percent">
-                            <div class="cs-inline">
-                                <x-ui.input id="lz-sale-percent" name="sale_percent" type="number" step="0.01" min="1" max="99"
-                                            class="fm-input--num cs-days"
-                                            value="{{ $salePct }}" placeholder="0" />
-                                <span class="cs-inline__unit">%</span>
-                            </div>
-                        </x-ui.field>
-
-                        <x-ui.field label="From" for="lz-sale-from" name="sale_starts_at">
-                            <x-ui.input id="lz-sale-from" name="sale_starts_at" type="date" :value="$saleFrom" />
-                        </x-ui.field>
-
-                        <x-ui.field label="To" for="lz-sale-to" name="sale_ends_at">
-                            <x-ui.input id="lz-sale-to" name="sale_ends_at" type="date" :value="$saleTo" />
-                        </x-ui.field>
-
-                        @if($listing->sale_percent !== null && $basePrice !== null)
-                            @php
-                                $saleBase = \Extensions\lazada\Controllers\LazadaProductController::computeFinalPrice(
-                                    (float) $basePrice, $effectiveFixed, $effectivePercent
-                                );
-                                $salePreview = round($saleBase * (1 - (float) $listing->sale_percent / 100), 2);
-                            @endphp
-                            <div class="cl-total">
-                                <span class="cl-total__k">Sale price</span>
-                                <span class="cl-total__v">{{ number_format($salePreview, 2) }}</span>
-                                <span class="cl-total__note">From the saved rule; save first if you changed the fields.</span>
-                            </div>
-                        @endif
-                    </div>
-                </div>
-
-                @if($mode === 'edit' && !empty($listing->lazada_item_id))
-                    {{-- The buttons live in this card; their FORMS are
-                         declared after the main form closes (nested forms
-                         are illegal HTML) and are reached through the
-                         HTML5 form attribute - the same trick the sticky
-                         Save bar uses. --}}
-                    <div class="fm-card">
-                        <div class="fm-card__head"><h2 class="fm-card__title">Discount on Lazada</h2></div>
-                        <div class="fm-card__body">
-                            <div class="cc-head-actions">
-                                <x-ui.button type="submit" form="lz-discount-push" variant="primary">Push discount to Lazada</x-ui.button>
-                                <x-ui.button type="submit" form="lz-discount-end">End discount now</x-ui.button>
-                            </div>
-                            <p class="fm-section__note">Save the rule first, then push. Ending sends the full price back and clears the rule here.</p>
-                        </div>
-                    </div>
-                @endif
+                @php
+                    $lzSalePreview = null;
+                    if ($listing->sale_percent !== null && $basePrice !== null) {
+                        $lzSaleBase = \Extensions\lazada\Controllers\LazadaProductController::computeFinalPrice(
+                            (float) $basePrice, $effectiveFixed, $effectivePercent
+                        );
+                        $lzSalePreview = round($lzSaleBase * (1 - (float) $listing->sale_percent / 100), 2);
+                    }
+                    $discount = [
+                        'channel' => 'Lazada', 'prefix' => 'lz',
+                        'canManage' => true, 'onMarketplace' => $mode === 'edit' && !empty($listing->lazada_item_id),
+                        'step' => '0.01', 'note' => 'Lazada shows the cut price with the original struck through.',
+                        'savedPct' => $listing->sale_percent,
+                        'savedFrom' => $listing->sale_starts_at, 'savedTo' => $listing->sale_ends_at,
+                        'salePreview' => $lzSalePreview,
+                        'remoteId' => null,
+                        // Lazada holds the sale on each SKU and reports no
+                        // promotion id back, so this record cannot say
+                        // whether it is live; the live section above does.
+                        'tracked' => false,
+                        // Ending sends the full price back AND clears the
+                        // rule here (decided 2026-08-25): Lazada keeps no
+                        // object to rejoin, so a cleared rule is the truth.
+                        'endClearsRule' => true,
+                        'action' => $mode === 'edit' ? route('ext.lazada.listings.push_discount', $listing->id) : '',
+                    ];
+                @endphp
+                {{-- The shared Discount card (#146): the rule rides Save,
+                     the push is its own confirmed act. Partial in
+                     resources/views/partials/channel-discount-card. --}}
+                @include('partials.channel-discount-card', $discount)
 
                 @if($mode === 'create')
                 <div class="fm-card">
@@ -547,22 +512,7 @@
         </div>
     </form>
 
-    @if($mode === 'edit' && !empty($listing->lazada_item_id))
-        {{-- The Discount card's two actions (see the card for why they
-             live out here). data-confirm intercepts the form's submit, so
-             the confirmation still guards the buttons that reference
-             these by id. --}}
-        <form id="lz-discount-push" method="POST" action="{{ route('ext.lazada.listings.push_discount', $listing->id) }}"
-              data-confirm="Push this discount to Lazada? Every SKU gets its sale price and window; buyers see the cut price once Lazada applies it.">
-            @csrf
-            <input type="hidden" name="action" value="push">
-        </form>
-        <form id="lz-discount-end" method="POST" action="{{ route('ext.lazada.listings.push_discount', $listing->id) }}"
-              data-confirm="End this discount on Lazada now? Buyers pay the full price again, and the saved rule here is cleared.">
-            @csrf
-            <input type="hidden" name="action" value="end">
-        </form>
-    @endif
+    @include('partials.channel-discount-forms', $discount)
 
 
     @if($mode === 'edit')
@@ -633,7 +583,17 @@
                             <div class="gf-attr">
                                 <div class="gf-attr__label">
                                     <label class="gf-attr__name" for="{{ $controlId }}">
-                                        {{ $attribute['name'] }}
+                                        @php
+                                            /* Lazada's template names some attributes by their
+                                               raw key (__images__, wh_handling). A key is not a
+                                               label: it is spelled out in words for the operator,
+                                               and the raw key stays in the hidden input. */
+                                            $attrName = (string) $attribute['name'];
+                                            $attrWords = preg_match('/^[a-z0-9_]+$/i', $attrName) && str_contains($attrName, '_')
+                                                ? ucfirst(str_replace('_', ' ', trim($attrName, '_')))
+                                                : $attrName;
+                                        @endphp
+                                        {{ $attrWords }}
                                         @if(!empty($attribute['required']))<span class="gf-attr__req">Required</span>@endif
                                     </label>
                                     <span class="gf-attr__key">{{ $key }}</span>
@@ -823,7 +783,7 @@
                         <x-ui.button type="submit" size="sm">Build it</x-ui.button>
                     </form>
                     <form method="POST" action="{{ route('ext.lazada.products.push_sample', $listing->id) }}" data-slow-action
-                          data-confirm="Send this to Lazada now as a sample push? It reaches the marketplace and may come back with quality-check errors.">
+                          data-confirm="Send this to Lazada now as a sample push? It reaches the marketplace and may come back with quality-check errors." data-confirm-tone="primary" data-confirm-verb="Send sample push">
                         @csrf
                         <x-ui.button type="submit" size="sm">Send a sample push</x-ui.button>
                     </form>

@@ -122,9 +122,9 @@ class LazadaVoucherTest extends TestCase
     public function test_the_page_lists_live_vouchers_with_the_verb_their_state_allows(): void
     {
         $this->callResponses['GET /promotion/vouchers/get'] = $this->listAnswer([
-            $this->sampleVoucher(),                                                                    // ongoing: Deactivate
+            $this->sampleVoucher(),                                                                    // ongoing: End now
             $this->sampleVoucher(['id' => 880012, 'name' => 'Next week', 'status' => 'not_start',
-                'discount_type' => 'PERCENTAGE_OFF', 'discount_value' => '10', 'max_discount_offering_money_value' => '100.00']), // upcoming: Deactivate
+                'discount_type' => 'PERCENTAGE_OFF', 'discount_value' => '10', 'max_discount_offering_money_value' => '100.00']), // upcoming: End now
             $this->sampleVoucher(['id' => 880013, 'name' => 'Old news', 'status' => 'expired']),       // expired: nothing
         ]);
 
@@ -138,7 +138,8 @@ class LazadaVoucherTest extends TestCase
         $r->assertSee('Upcoming');
         $r->assertSee('Old news');
         $r->assertSee('Expired');
-        $this->assertSame(2, substr_count($r->getContent(), '>Deactivate<'));
+        // One verb for one act across the three channels: End now.
+        $this->assertSame(2, substr_count($r->getContent(), '>End now<'));
     }
 
     public function test_the_status_filter_rides_the_request_to_lazada(): void
@@ -165,6 +166,25 @@ class LazadaVoucherTest extends TestCase
         $r->assertSee('Lazada did not answer');
         $r->assertSee('App does not have permission to access this api');
         $r->assertDontSee('Payday treat');
+    }
+
+    public function test_a_transport_failure_never_prints_the_signed_url(): void
+    {
+        // Laravel's ConnectionException message carries the full request
+        // URL, credentials included. The page must say only the kind of
+        // failure; the raw message belongs to the API log.
+        $this->callResponses['GET /promotion/vouchers/get'] = function () {
+            throw new \Illuminate\Http\Client\ConnectionException(
+                'cURL error 28: Operation timed out after 10000 milliseconds for https://api.lazada.com.ph/rest/promotion/vouchers/get?app_key=114192&access_token=50000601137ySECRET&sign=abc'
+            );
+        };
+
+        $r = $this->actingAs($this->manager())->get(route('ext.lazada.vouchers.index'));
+
+        $r->assertOk();
+        $r->assertSee('Lazada could not be reached; the request timed out.');
+        $r->assertDontSee('50000601137ySECRET');
+        $r->assertDontSee('app_key=');
     }
 
     public function test_create_sends_the_money_off_voucher_as_mapped(): void
@@ -269,7 +289,7 @@ class LazadaVoucherTest extends TestCase
 
         $r->assertOk();
         $r->assertSee('Payday treat');
-        $r->assertDontSee('>Deactivate<', false);
+        $r->assertDontSee('>End now<', false);
         $r->assertDontSee('Create a voucher');
 
         $this->actingAs($viewer)

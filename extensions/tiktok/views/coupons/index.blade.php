@@ -22,27 +22,28 @@
     <div>
         <h1 class="x-page-title">Coupons</h1>
         <p class="x-page-sub">
-            {{ $coupons === null ? 'TikTok did not answer' : number_format($coupons->count()) . ' ' . ($coupons->count() === 1 ? 'coupon' : 'coupons') }}
-            &middot; live from TikTok Shop, fetched just now
+            {{ $coupons === null ? 'TikTok did not answer.' : number_format($coupons->count()) . ' ' . ($coupons->count() === 1 ? 'coupon' : 'coupons') . ' on TikTok Shop right now, fetched as this page loaded.' }}
         </p>
     </div>
 </div>
 
 <form method="GET" action="{{ route('ext.tiktok.coupons.index') }}" class="x-filters">
     <div class="x-select-wrap x-filters__select">
-        <select name="status" aria-label="Coupon status">
+        <select name="status" data-autosubmit aria-label="Coupon status">
             <option value="all" @selected($status === 'all')>All</option>
             @foreach($statusMap as $value => [$label, $tone])
                 <option value="{{ strtolower($value) }}" @selected($status === strtolower($value))>{{ $label }}</option>
             @endforeach
         </select>
     </div>
-    <x-ui.button type="submit" variant="secondary">View</x-ui.button>
+    <noscript><x-ui.button type="submit" variant="secondary">View</x-ui.button></noscript>
 </form>
 
 @if($coupons === null)
     <x-ui.empty title="TikTok did not answer"
-                :description="'The coupon list could not be fetched: ' . $liveError . ' Nothing shown here is guessed; reload to ask again.'" />
+                :description="'The coupon list could not be fetched: ' . $liveError . ' Nothing shown here is guessed; reload to ask again.'">
+        <x-slot:action><a class="x-btn x-btn--secondary x-btn--sm" href="{{ route('ext.tiktok.index') }}">Open TikTok Shop settings</a></x-slot:action>
+    </x-ui.empty>
 @elseif($coupons->isEmpty())
     <x-ui.empty title="No coupons here"
                 :description="$status === 'all'
@@ -55,7 +56,7 @@
             <th scope="col">Coupon</th>
             <th scope="col">Reward</th>
             <th scope="col" class="x-td-num">Min spend</th>
-            <th scope="col" class="x-td-num">Claims</th>
+            <th scope="col" class="x-td-num">Uses</th>
             <th scope="col">Window</th>
             <th scope="col">Status</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
@@ -94,13 +95,13 @@
                     <span class="x-cell-muted">None</span>
                 @endif
             </td>
-            <td class="x-td-num" data-label="Claims">
-                <span class="x-num">{{ (int) ($cp['claimed_count'] ?? ($limits['claimed_count'] ?? 0)) }}/{{ (int) ($limits['total_claim_count'] ?? 0) }}</span>
+            <td class="x-td-num" data-label="Uses">
+                <span class="x-num">{{ (int) ($cp['claimed_count'] ?? ($limits['claimed_count'] ?? 0)) }} of {{ (int) ($limits['total_claim_count'] ?? 0) }}</span>
             </td>
             <td data-label="Window">
                 @if(!empty($window['start_time']))
-                    {{ \Illuminate\Support\Carbon::createFromTimestamp((int) $window['start_time'])->format('M j, H:i') }}
-                    to {{ \Illuminate\Support\Carbon::createFromTimestamp((int) ($window['end_time'] ?? 0))->format('M j, H:i') }}
+                    {{ \Illuminate\Support\Carbon::createFromTimestamp((int) $window['start_time'])->format('M j, Y H:i') }}
+                    to {{ \Illuminate\Support\Carbon::createFromTimestamp((int) ($window['end_time'] ?? 0))->format('M j, Y H:i') }}
                 @else
                     <span class="x-cell-muted">Not set</span>
                 @endif
@@ -109,9 +110,9 @@
             <td class="x-td-actions">
                 @if($canStop)
                     <form method="POST" action="{{ route('ext.tiktok.coupons.deactivate', $cp['id']) }}"
-                          data-confirm="Deactivate coupon {{ $cp['title'] ?? '' }}? Buyers can no longer claim or use it, and a deactivated coupon cannot restart.">
+                          data-confirm="Deactivate coupon {{ $cp['title'] ?? '' }}? Buyers can no longer claim or use it, and a deactivated coupon cannot restart." data-confirm-verb="End coupon">
                         @csrf
-                        <x-ui.button type="submit">Deactivate</x-ui.button>
+                        <x-ui.button type="submit">End now</x-ui.button>
                     </form>
                 @endif
             </td>
@@ -123,15 +124,18 @@
 @if($canManage)
 <form method="POST" action="{{ route('ext.tiktok.coupons.store') }}" class="fm-page">
     @csrf
-    <div class="fm-card">
-        <div class="fm-card__head"><h2 class="fm-card__title">Create a coupon</h2></div>
+    {{-- Folded until asked for: creating is a deliberate act, and the
+         list is what this page is. It opens itself when a submit came
+         back with errors or old input, so nothing typed is hidden. --}}
+    <details class="fm-card fm-card--fold" @if($errors->any() || old('_token')) open @endif>
+        <summary class="fm-card__head fm-card__head--summary"><h2 class="fm-card__title">Create a coupon</h2><span class="fm-card__hint">Opens the form</span></summary>
         <div class="fm-card__body">
             <p class="fm-section__note">A shop coupon: buyers claim it and spend it on anything in the shop. Give an amount off or a percent off, not both. TikTok wants the start in the future.</p>
             <div class="fm-fields fm-fields--2">
-                <x-ui.field label="Title (buyers see this)" for="cp-title" name="title">
+                <x-ui.field label="Name (buyers see this)" for="cp-title" name="title">
                     <x-ui.input id="cp-title" name="title" maxlength="50" :value="old('title')" />
                 </x-ui.field>
-                <x-ui.field label="How many can be claimed" for="cp-claims" name="total_claim_count">
+                <x-ui.field label="How many buyers can use it" for="cp-claims" name="total_claim_count">
                     <x-ui.input id="cp-claims" name="total_claim_count" type="number" step="1" min="1" :value="old('total_claim_count')" placeholder="100" />
                 </x-ui.field>
             </div>
@@ -163,7 +167,7 @@
                 <x-ui.button type="submit" variant="primary">Create on TikTok Shop</x-ui.button>
             </div>
         </div>
-    </div>
+    </details>
 </form>
 @endif
 

@@ -381,9 +381,10 @@
 .gf-check input[disabled] { cursor: default; }
 
 .gf-check__name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    /* The name is the useful half; it wraps before the numeric id gets
+       to keep its full width beside a truncated "Instant Del...". */
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .gf-check__id {

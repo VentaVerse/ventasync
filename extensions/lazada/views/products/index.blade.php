@@ -16,6 +16,7 @@
     // hardcoded `true` that showed a read-only operator five bulk buttons and
     // seven row actions, all of which the route middleware would refuse.
     $canManageLazada = auth()->user()?->hasPermission('manage_lazada/product') ?? false;
+    $canEditCatalog = auth()->user()?->hasPermission('manage_catalog/product') ?? false;
 
     $q = (string) ($q ?? '');
     $syncStatus = (string) ($syncStatus ?? 'all');
@@ -275,13 +276,13 @@
 
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
         <select name="sync_status" class="x-input" data-autosubmit aria-label="Filter by Lazada listing status">
-            <option value="all" @selected($syncStatus === 'all')>Uploaded or not</option>
-            <option value="uploaded" @selected($syncStatus === 'uploaded')>Uploaded to Lazada</option>
-            <option value="not_uploaded" @selected($syncStatus === 'not_uploaded')>Not uploaded</option>
+            <option value="all" @selected($syncStatus === 'all')>Listed or not</option>
+            <option value="uploaded" @selected($syncStatus === 'uploaded')>Listed on Lazada</option>
+            <option value="not_uploaded" @selected($syncStatus === 'not_uploaded')>Not listed</option>
             <option value="deleted" @selected($syncStatus === 'deleted')>Deleted from Lazada</option>
             {{-- The computed answer (#101): uploadable right now, or not. --}}
-            <option value="ready" @selected($syncStatus === 'ready')>Ready to upload</option>
-            <option value="not_ready" @selected($syncStatus === 'not_ready')>Not ready to upload</option>
+            <option value="ready" @selected($syncStatus === 'ready')>Ready to push</option>
+            <option value="not_ready" @selected($syncStatus === 'not_ready')>Not ready to push</option>
             {{-- The reason to open this page. Separated from the three above
                  because they describe where a listing IS and this one
                  describes what happened to it. --}}
@@ -342,9 +343,9 @@
     <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected</span>
     <div class="cc-bulkbar__actions">
         <form method="POST" action="{{ $bulkUploadUrl }}" data-bulk-form
-              data-bulk-confirm="Upload the selected listings to Lazada? Anything already uploaded is skipped.">
+              data-bulk-confirm="Push the selected listings to Lazada? Anything already listed is skipped.">
             @csrf
-            <x-ui.button type="submit" size="sm">Upload to Lazada</x-ui.button>
+            <x-ui.button type="submit" size="sm">Push to Lazada</x-ui.button>
         </form>
         <form method="POST" action="{{ $bulkSyncLazadaIdUrl }}" data-bulk-form>
             @csrf
@@ -583,7 +584,7 @@
                 @if($hasItemId)
                     <span class="x-num">{{ $l->lazada_item_id }}</span>
                 @else
-                    <span class="x-cell-muted">Not linked</span>
+                    <span class="x-cell-muted">None</span>
                 @endif
             </td>
 
@@ -617,18 +618,18 @@
                 @if($rowLiveStatus !== null && isset($rowLiveMap[$rowLiveStatus]))
                     <x-ui.badge :tone="$rowLiveMap[$rowLiveStatus][1]">{{ $rowLiveMap[$rowLiveStatus][0] }}</x-ui.badge>
                 @elseif($hasItemId)
-                    <x-ui.badge tone="success">Uploaded</x-ui.badge>
+                    <x-ui.badge tone="success">Listed</x-ui.badge>
                 @elseif($isDeleted)
                     <x-ui.badge tone="neutral">Deleted</x-ui.badge>
                 @else
-                    <x-ui.badge tone="neutral">Not uploaded</x-ui.badge>
+                    <x-ui.badge tone="neutral">Not listed</x-ui.badge>
                     {{-- The computed readiness (#101): the answer BEFORE the
                          upload is pressed, by the same shared computation
                          the bulk upload refuses on. --}}
                     @php $rowReady = $readinessByListingId[(int) $l->id] ?? null; @endphp
                     @if($rowReady !== null)
                         @if($rowReady['ready'])
-                            <span class="cc-checked">Ready to upload</span>
+                            <span class="cc-checked">Ready to push</span>
                         @else
                             <span class="cc-checked cc-checked--never"
                                   title="Missing: {{ implode('; ', $rowReady['missing']) }}">Missing: {{ \Illuminate\Support\Str::limit(implode(', ', $rowReady['missing']), 80) }}</span>
@@ -717,7 +718,7 @@
 
                     @if(!$hasItemId)
                         <form method="POST" action="{{ route('ext.lazada.products.upload', $l->id) }}" data-slow-action
-                              data-confirm="Upload {{ $rowLabel }} to Lazada?">
+                              data-confirm="Upload {{ $rowLabel }} to Lazada?" data-confirm-tone="primary" data-confirm-verb="Push to Lazada">
                             @csrf
                             <button type="submit" class="x-menu__item">Upload to Lazada</button>
                         </form>
@@ -738,12 +739,12 @@
                         </form>
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.lazada.products.unlink', $l->id) }}" data-slow-action
-                              data-confirm="Unlink {{ $rowLabel }} from Lazada? Only the link is removed. The Lazada listing stays up and syncing stops.">
+                              data-confirm="Unlink {{ $rowLabel }} from Lazada? Only the link is removed. The Lazada listing stays up and syncing stops." data-confirm-verb="Unlink">
                             @csrf
                             <button type="submit" class="x-menu__item x-menu__item--danger">Unlink from Lazada</button>
                         </form>
                         <form method="POST" action="{{ route('ext.lazada.products.delete_lazada', $l->id) }}" data-slow-action
-                              data-confirm="Delete {{ $rowLabel }} from Lazada? The listing is removed at the marketplace and this cannot be undone.">
+                              data-confirm="Delete {{ $rowLabel }} from Lazada? The listing is removed at the marketplace and this cannot be undone." data-confirm-verb="Delete from Lazada">
                             @csrf
                             <button type="submit" class="x-menu__item x-menu__item--danger">Delete from Lazada</button>
                         </form>
@@ -752,7 +753,7 @@
                     @if($isUnlinked)
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.lazada.products.remove', $l->id) }}" data-slow-action
-                              data-confirm="Remove {{ $rowLabel }} from the local list? Nothing on Lazada is deleted.">
+                              data-confirm="Remove {{ $rowLabel }} from the local list? Nothing on Lazada is deleted." data-confirm-verb="Remove from list">
                             @csrf
                             <button type="submit" class="x-menu__item x-menu__item--danger">Remove from this list</button>
                         </form>

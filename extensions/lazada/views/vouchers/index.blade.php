@@ -13,7 +13,7 @@
     $canManage = auth()->user()?->hasPermission('manage_lazada/voucher') ?? false;
     $statusMap = \Extensions\lazada\Controllers\LazadaVoucherController::STATUS_MAP;
     $money = fn ($v) => is_numeric($v) ? number_format((float) $v, 2) : (string) $v;
-    $when = fn ($ms) => $ms ? \Illuminate\Support\Carbon::createFromTimestampMs((int) $ms)->format('M j, H:i') : null;
+    $when = fn ($ms) => $ms ? \Illuminate\Support\Carbon::createFromTimestampMs((int) $ms)->format('M j, Y H:i') : null;
 @endphp
 
 <div class="cc-page">
@@ -22,27 +22,28 @@
     <div>
         <h1 class="x-page-title">Vouchers</h1>
         <p class="x-page-sub">
-            {{ $vouchers === null ? 'Lazada did not answer' : number_format($vouchers->count()) . ' ' . ($vouchers->count() === 1 ? 'voucher' : 'vouchers') }}
-            &middot; live from Lazada, fetched just now
+            {{ $vouchers === null ? 'Lazada did not answer.' : number_format($vouchers->count()) . ' ' . ($vouchers->count() === 1 ? 'voucher' : 'vouchers') . ' on Lazada right now, fetched as this page loaded.' }}
         </p>
     </div>
 </div>
 
 <form method="GET" action="{{ route('ext.lazada.vouchers.index') }}" class="x-filters">
     <div class="x-select-wrap x-filters__select">
-        <select name="status" aria-label="Voucher status">
+        <select name="status" data-autosubmit aria-label="Voucher status">
             <option value="all" @selected($status === 'all')>All</option>
             @foreach(['not_start' => 'Upcoming', 'ongoing' => 'Ongoing', 'expired' => 'Expired'] as $value => $label)
                 <option value="{{ $value }}" @selected($status === $value)>{{ $label }}</option>
             @endforeach
         </select>
     </div>
-    <x-ui.button type="submit" variant="secondary">View</x-ui.button>
+    <noscript><x-ui.button type="submit" variant="secondary">View</x-ui.button></noscript>
 </form>
 
 @if($vouchers === null)
     <x-ui.empty title="Lazada did not answer"
-                :description="'The voucher list could not be fetched: ' . $liveError . ' Nothing shown here is guessed; reload to ask again.'" />
+                :description="'The voucher list could not be fetched: ' . $liveError . ' Nothing shown here is guessed; reload to ask again.'">
+        <x-slot:action><a class="x-btn x-btn--secondary x-btn--sm" href="{{ route('ext.lazada.index') }}">Open Lazada settings</a></x-slot:action>
+    </x-ui.empty>
 @elseif($vouchers->isEmpty())
     <x-ui.empty title="No vouchers here"
                 :description="$status === 'all'
@@ -55,7 +56,7 @@
             <th scope="col">Voucher</th>
             <th scope="col">Reward</th>
             <th scope="col" class="x-td-num">Min spend</th>
-            <th scope="col" class="x-td-num">Issued</th>
+            <th scope="col" class="x-td-num">Uses</th>
             <th scope="col">Window</th>
             <th scope="col">Status</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
@@ -90,7 +91,7 @@
                     <span class="x-cell-muted">None</span>
                 @endif
             </td>
-            <td class="x-td-num" data-label="Issued"><span class="x-num">{{ (int) ($v['issued'] ?? 0) }}</span></td>
+            <td class="x-td-num" data-label="Uses"><span class="x-num">up to {{ (int) ($v['issued'] ?? 0) }}</span></td>
             <td data-label="Window">
                 @if($when($v['period_start_time'] ?? null))
                     {{ $when($v['period_start_time']) }} to {{ $when($v['period_end_time'] ?? null) }}
@@ -102,9 +103,9 @@
             <td class="x-td-actions">
                 @if($canStop)
                     <form method="POST" action="{{ route('ext.lazada.vouchers.deactivate', $v['id'] ?? ($v['voucher_id'] ?? 0)) }}"
-                          data-confirm="Deactivate voucher {{ $v['name'] ?? '' }}? Buyers can no longer collect or use it, and a deactivated voucher cannot restart.">
+                          data-confirm="Deactivate voucher {{ $v['name'] ?? '' }}? Buyers can no longer collect or use it, and a deactivated voucher cannot restart." data-confirm-verb="End voucher">
                         @csrf
-                        <x-ui.button type="submit">Deactivate</x-ui.button>
+                        <x-ui.button type="submit">End now</x-ui.button>
                     </form>
                 @endif
             </td>
@@ -116,15 +117,18 @@
 @if($canManage)
 <form method="POST" action="{{ route('ext.lazada.vouchers.store') }}" class="fm-page">
     @csrf
-    <div class="fm-card">
-        <div class="fm-card__head"><h2 class="fm-card__title">Create a voucher</h2></div>
+    {{-- Folded until asked for: creating is a deliberate act, and the
+         list is what this page is. It opens itself when a submit came
+         back with errors or old input, so nothing typed is hidden. --}}
+    <details class="fm-card fm-card--fold" @if($errors->any() || old('_token')) open @endif>
+        <summary class="fm-card__head fm-card__head--summary"><h2 class="fm-card__title">Create a voucher</h2><span class="fm-card__hint">Opens the form</span></summary>
         <div class="fm-card__body">
             <p class="fm-section__note">A collectible shop voucher: buyers collect it and spend it on anything in the shop. Give an amount off or a percent off, not both. Lazada wants the start in the future.</p>
             <div class="fm-fields fm-fields--2">
                 <x-ui.field label="Name (buyers see this)" for="lv-name" name="name">
                     <x-ui.input id="lv-name" name="name" maxlength="50" :value="old('name')" />
                 </x-ui.field>
-                <x-ui.field label="How many to issue" for="lv-issued" name="issued">
+                <x-ui.field label="How many buyers can use it" for="lv-issued" name="issued">
                     <x-ui.input id="lv-issued" name="issued" type="number" step="1" min="1" :value="old('issued')" placeholder="100" />
                 </x-ui.field>
             </div>
@@ -156,7 +160,7 @@
                 <x-ui.button type="submit" variant="primary">Create on Lazada</x-ui.button>
             </div>
         </div>
-    </div>
+    </details>
 </form>
 @endif
 

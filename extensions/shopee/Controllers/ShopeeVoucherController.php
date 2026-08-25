@@ -163,7 +163,7 @@ class ShopeeVoucherController extends Controller
                     $auth['mode'], (int) $auth['partner_id'], (string) $auth['partner_key'],
                     (string) $auth['access_token'], (int) $auth['shop_id'], $path, [], $payload);
         } catch (\Throwable $e) {
-            $result = ['ok' => false, 'status' => 0, 'body' => ['error' => 'network', 'message' => $e->getMessage()]];
+            $result = ['ok' => false, 'status' => 0, 'body' => ['error' => 'network', 'message' => \App\Support\TransportError::plain($e, 'Shopee')]];
         }
 
         ShopeeApiLog::safeCreate([

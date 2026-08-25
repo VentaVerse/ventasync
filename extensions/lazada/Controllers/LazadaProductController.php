@@ -907,7 +907,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 }
             } catch (\Throwable $e) {
                 $liveCounts = null;
-                $liveTabError = 'Lazada did not answer (' . $e->getMessage() . '), so the live tabs and statuses are unavailable right now. The stored view below is unaffected.';
+                $liveTabError = \App\Support\TransportError::plain($e, 'Lazada') . ' The live tabs and statuses are unavailable right now; the stored view below is unaffected.';
                 $lazadaTab = 'all';
             }
         } else {
@@ -1014,7 +1014,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 $tabItemIds = $liveListing->itemIds($liveSetting, $liveCreds, $tabMap[$lazadaTab]);
                 $query->whereIn('lazada_item_id', $tabItemIds ?: ['-none-']);
             } catch (\Throwable $e) {
-                $liveTabError = 'Lazada did not answer (' . $e->getMessage() . '), so the live tabs and statuses are unavailable right now. The stored view below is unaffected.';
+                $liveTabError = \App\Support\TransportError::plain($e, 'Lazada') . ' The live tabs and statuses are unavailable right now; the stored view below is unaffected.';
                 $lazadaTab = 'all';
             }
         }
@@ -2130,7 +2130,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 $result = $client->post((string) $setting->region, $apiPath, $params);
             } catch (\Throwable $e) {
                 $err++;
-                $lastMessage = 'Lazada did not answer (' . $e->getMessage() . ')';
+                $lastMessage = \App\Support\TransportError::plain($e, 'Lazada');
                 continue;
             }
 
@@ -2216,7 +2216,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         try {
             $result = $client->post((string) $setting->region, $apiPath, $params);
         } catch (\Throwable $e) {
-            return redirect()->back()->with('error', ($deactivate ? 'Deactivate' : 'Activate') . ' failed: Lazada did not answer (' . $e->getMessage() . ').');
+            return redirect()->back()->with('error', ($deactivate ? 'Deactivate' : 'Activate') . ' failed: ' . \App\Support\TransportError::plain($e, 'Lazada'));
         }
 
         LazadaApiLog::safeCreate([

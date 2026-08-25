@@ -26,31 +26,32 @@
     <div>
         <h1 class="x-page-title">Vouchers</h1>
         <p class="x-page-sub">
-            {{ $vouchers === null ? 'Shopee did not answer' : number_format($vouchers->count()) . ' ' . ($vouchers->count() === 1 ? 'voucher' : 'vouchers') }}
-            &middot; live from Shopee, fetched just now
+            {{ $vouchers === null ? 'Shopee did not answer.' : number_format($vouchers->count()) . ' ' . ($vouchers->count() === 1 ? 'voucher' : 'vouchers') . ' on Shopee right now, fetched as this page loaded.' }}
         </p>
     </div>
 </div>
 
 <form method="GET" action="{{ route('ext.shopee.vouchers.index') }}" class="x-filters">
     <div class="x-select-wrap x-filters__select">
-        <select name="status" aria-label="Voucher status">
+        <select name="status" data-autosubmit aria-label="Voucher status">
             @foreach(['all' => 'All', 'upcoming' => 'Upcoming', 'ongoing' => 'Ongoing', 'expired' => 'Expired'] as $value => $label)
                 <option value="{{ $value }}" @selected($status === $value)>{{ $label }}</option>
             @endforeach
         </select>
     </div>
-    <x-ui.button type="submit" variant="secondary">View</x-ui.button>
+    <noscript><x-ui.button type="submit" variant="secondary">View</x-ui.button></noscript>
 </form>
 
 @if($vouchers === null)
     <x-ui.empty title="Shopee did not answer"
-                :description="'The voucher list could not be fetched: ' . $liveError . ' Nothing shown here is guessed; reload to ask again.'" />
+                :description="'The voucher list could not be fetched: ' . $liveError . ' Nothing shown here is guessed; reload to ask again.'">
+        <x-slot:action><a class="x-btn x-btn--secondary x-btn--sm" href="{{ route('ext.shopee.index') }}">Open Shopee settings</a></x-slot:action>
+    </x-ui.empty>
 @elseif($vouchers->isEmpty())
     <x-ui.empty title="No vouchers here"
                 :description="$status === 'all'
                     ? 'The shop has no vouchers yet.' . ($canManage ? ' Create the first one below.' : '')
-                    : 'No ' . $status . ' vouchers. Switch the filter to see the rest.'" />
+                    : 'No vouchers in that state. Switch the filter to see the rest.'" />
 @else
 <x-ui.table>
     <x-slot:head>
@@ -58,7 +59,7 @@
             <th scope="col">Voucher</th>
             <th scope="col">Reward</th>
             <th scope="col" class="x-td-num">Min spend</th>
-            <th scope="col" class="x-td-num">Used</th>
+            <th scope="col" class="x-td-num">Uses</th>
             <th scope="col">Window</th>
             <th scope="col">Status</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
@@ -92,24 +93,24 @@
                     <span class="x-cell-muted">None</span>
                 @endif
             </td>
-            <td class="x-td-num" data-label="Used">
-                <span class="x-num">{{ (int) ($v['current_usage'] ?? 0) }}/{{ (int) ($v['usage_quantity'] ?? 0) }}</span>
+            <td class="x-td-num" data-label="Uses">
+                <span class="x-num">{{ (int) ($v['current_usage'] ?? 0) }} of {{ (int) ($v['usage_quantity'] ?? 0) }}</span>
             </td>
             <td data-label="Window">
-                {{ \Illuminate\Support\Carbon::createFromTimestamp((int) ($v['start_time'] ?? 0))->format('M j, H:i') }}
-                to {{ \Illuminate\Support\Carbon::createFromTimestamp((int) ($v['end_time'] ?? 0))->format('M j, H:i') }}
+                {{ \Illuminate\Support\Carbon::createFromTimestamp((int) ($v['start_time'] ?? 0))->format('M j, Y H:i') }}
+                to {{ \Illuminate\Support\Carbon::createFromTimestamp((int) ($v['end_time'] ?? 0))->format('M j, Y H:i') }}
             </td>
             <td data-label="Status"><x-ui.badge :tone="$stateTone">{{ $stateLabel }}</x-ui.badge></td>
             <td class="x-td-actions">
                 @if($canManage && $v['state'] === 'upcoming')
                     <form method="POST" action="{{ route('ext.shopee.vouchers.delete', $v['voucher_id']) }}"
-                          data-confirm="Delete voucher {{ $v['voucher_code'] ?? '' }} before it starts? Buyers never see it and this cannot be undone.">
+                          data-confirm="Delete voucher {{ $v['voucher_code'] ?? '' }} before it starts? Buyers never see it and this cannot be undone." data-confirm-verb="Delete voucher">
                         @csrf
                         <x-ui.button type="submit" variant="danger">Delete</x-ui.button>
                     </form>
                 @elseif($canManage && $v['state'] === 'ongoing')
                     <form method="POST" action="{{ route('ext.shopee.vouchers.end', $v['voucher_id']) }}"
-                          data-confirm="End voucher {{ $v['voucher_code'] ?? '' }} now? Buyers can no longer claim or use it, and an ended voucher cannot restart.">
+                          data-confirm="End voucher {{ $v['voucher_code'] ?? '' }} now? Buyers can no longer claim or use it, and an ended voucher cannot restart." data-confirm-verb="End voucher">
                         @csrf
                         <x-ui.button type="submit">End now</x-ui.button>
                     </form>
@@ -123,8 +124,11 @@
 @if($canManage)
 <form method="POST" action="{{ route('ext.shopee.vouchers.store') }}" class="fm-page">
     @csrf
-    <div class="fm-card">
-        <div class="fm-card__head"><h2 class="fm-card__title">Create a voucher</h2></div>
+    {{-- Folded until asked for: creating is a deliberate act, and the
+         list is what this page is. It opens itself when a submit came
+         back with errors or old input, so nothing typed is hidden. --}}
+    <details class="fm-card fm-card--fold" @if($errors->any() || old('_token')) open @endif>
+        <summary class="fm-card__head fm-card__head--summary"><h2 class="fm-card__title">Create a voucher</h2><span class="fm-card__hint">Opens the form</span></summary>
         <div class="fm-card__body">
             <p class="fm-section__note">A shop voucher: buyers claim it and spend it on anything in the shop. Give an amount off or a percent off, not both. Shopee wants the start in the future.</p>
             <div class="fm-fields fm-fields--2">
@@ -152,7 +156,7 @@
                 </x-ui.field>
             </div>
             <div class="fm-fields fm-fields--2">
-                <x-ui.field label="How many can be used" for="vc-qty" name="usage_quantity">
+                <x-ui.field label="How many buyers can use it" for="vc-qty" name="usage_quantity">
                     <x-ui.input id="vc-qty" name="usage_quantity" type="number" step="1" min="1" :value="old('usage_quantity')" placeholder="100" />
                 </x-ui.field>
             </div>
@@ -168,7 +172,7 @@
                 <x-ui.button type="submit" variant="primary">Create on Shopee</x-ui.button>
             </div>
         </div>
-    </div>
+    </details>
 </form>
 @endif
 

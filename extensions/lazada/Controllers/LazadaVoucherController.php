@@ -193,7 +193,7 @@ class LazadaVoucherController extends Controller
                 ? $client->get((string) $setting->region, $apiPath, $params, $mode)
                 : $client->post((string) $setting->region, $apiPath, $params, $mode);
         } catch (\Throwable $e) {
-            $result = ['ok' => false, 'status' => 0, 'body' => ['message' => $e->getMessage()]];
+            $result = ['ok' => false, 'status' => 0, 'body' => ['message' => \App\Support\TransportError::plain($e, 'Lazada')]];
         }
 
         LazadaApiLog::safeCreate([

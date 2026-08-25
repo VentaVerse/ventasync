@@ -203,8 +203,24 @@
         color: var(--bl-ink-3);
     }
 
+    /* A card that folds (details/summary): the voucher create forms. The
+       summary IS the card head, so the fold costs no new anatomy; the hint
+       says what opening does and leaves once it has. */
+    .fm-card--fold > .fm-card__head--summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--bl-space-3);
+        cursor: pointer;
+        list-style: none;
+    }
+    .fm-card--fold > .fm-card__head--summary::-webkit-details-marker { display: none; }
+    .fm-card--fold > .fm-card__head--summary:focus-visible { outline: 2px solid var(--bl-brand-deep); outline-offset: 2px; }
+    .fm-card__hint { font-size: 12px; color: var(--bl-ink-3); }
+    .fm-card--fold[open] .fm-card__hint { display: none; }
+
     .fm-req {
-        font-size: 10px;
+        font-size: 11px;
         font-weight: 600;
         letter-spacing: 0.06em;
         color: var(--bl-attn);
@@ -1656,6 +1672,9 @@
         max-width: 46ch;
         font-size: 13px;
         color: var(--bl-ink-2);
+        /* A marketplace's own words can be one unbroken token (an id, a
+           code, a URL); they wrap instead of escaping the card. */
+        overflow-wrap: anywhere;
     }
 
     .x-empty__action {
@@ -2546,7 +2565,7 @@
     }
 
     .co-item__none {
-        font-size: 9px;
+        font-size: 11px;
         color: var(--bl-ink-3);
     }
 

@@ -157,7 +157,7 @@ class TikTokCouponController extends Controller
         try {
             $result = $client->post($c['app_key'], $c['app_secret'], $c['token'], $path, $query, $body, $c['shop_cipher']);
         } catch (\Throwable $e) {
-            $result = ['ok' => false, 'status' => 0, 'body' => ['message' => $e->getMessage()]];
+            $result = ['ok' => false, 'status' => 0, 'body' => ['message' => \App\Support\TransportError::plain($e, 'TikTok Shop')]];
         }
 
         TikTokApiLog::safeCreate([

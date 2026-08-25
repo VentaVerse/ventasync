@@ -31,6 +31,7 @@
     // Read tier on this route is `view_lazada|manage_lazada`; every push,
     // sync, link, unlink and remove below is `manage_lazada`.
     $canManageLazada = auth()->user()?->hasPermission('manage_lazada/product_group') ?? false;
+    $canEditCatalog = auth()->user()?->hasPermission('manage_catalog/product') ?? false;
 
     $returnTo = request()->getRequestUri();
 
@@ -297,11 +298,7 @@
             </td>
 
             <td class="cc-col-stat" data-label="Catalog">
-                @if((int) $p->status === 1)
-                    <span class="x-cell-strong">Enabled</span>
-                @else
-                    <span class="x-cell-muted">Disabled</span>
-                @endif
+                <x-ui.badge :tone="(int) $p->status === 1 ? 'success' : 'neutral'">{{ (int) $p->status === 1 ? 'Enabled' : 'Disabled' }}</x-ui.badge>
             </td>
 
             <td class="cc-col-sync" data-label="Listing">
@@ -359,7 +356,7 @@
                             ? \Illuminate\Support\Carbon::parse($p->date_modified) : null;
                     @endphp
                     @if($coreMovedAt && $coreMovedAt->gt($provenanceAt))
-                        <span class="cc-checked cc-checked--never">Catalog changed since this push</span>
+                        <span class="cc-checked cc-checked--stale">Catalog changed since this push</span>
                     @endif
                 @elseif(! $attemptFailed)
                     <span class="x-cell-muted">Never</span>
@@ -369,7 +366,10 @@
             <td class="x-td-actions">
                 @if($canManageLazada)
                 <x-ui.menu label="Product {{ $p->product_id }} actions">
-                    <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalog</a>
+                    @if(($lazadaIdByProductId ?? collect())->has($p->product_id))
+                        <a class="x-menu__item" href="{{ route('ext.lazada.products.edit', $lazadaIdByProductId[$p->product_id]) }}">Open listing</a>
+                    @endif
+                    @if($canEditCatalog)<a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalog</a>@endif
 
                     {{-- && !$isUnlinked, matching Venta. Without it an unlinked
                          row offered Push and "Link again" side by side, which are
@@ -409,13 +409,13 @@
                         </form>
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.lazada.product-groups.unlinkProduct', [$group->id, $p->product_id]) }}" data-slow-action
-                              data-confirm="Unlink {{ $pName ?: 'this product' }} from Lazada? The product stays in the group but sync will stop.">
+                              data-confirm="Unlink {{ $pName ?: 'this product' }} from Lazada? The product stays in the group but sync will stop." data-confirm-verb="Unlink">
                             @csrf
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
                             <button type="submit" class="x-menu__item x-menu__item--danger">Unlink from Lazada</button>
                         </form>
                         <form method="POST" action="{{ route('ext.lazada.product-groups.deleteFromLazada', $group->id) }}" data-slow-action
-                              data-confirm="Delete {{ $pName ?: 'this product' }} from Lazada? It is removed at the marketplace and this cannot be undone.">
+                              data-confirm="Delete {{ $pName ?: 'this product' }} from Lazada? It is removed at the marketplace and this cannot be undone." data-confirm-verb="Delete from Lazada">
                             @csrf
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
                             <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
@@ -434,7 +434,7 @@
                     @if($isManual)
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.lazada.product-groups.removeProduct', [$group->id, $p->product_id]) }}"
-                              data-confirm="Take {{ $pName ?: 'this product' }} out of the group? Nothing is deleted from the catalog, and nothing already live on Lazada is touched.">
+                              data-confirm="Take {{ $pName ?: 'this product' }} out of the group? Nothing is deleted from the catalog, and nothing already live on Lazada is touched." data-confirm-verb="Remove from group">
                             @csrf
                             @method('DELETE')
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
