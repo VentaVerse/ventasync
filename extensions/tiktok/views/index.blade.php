@@ -507,6 +507,50 @@
             @endif
         </form>
     </section>
+
+    <section class="fm-section">
+        <div class="fm-section__head">
+            <h2 class="fm-section__title">Return status mapping</h2>
+        </div>
+        <p class="fm-section__note">When a TikTok Shop return is synced, its status becomes the sales order status chosen here. Leave a row unmapped to make it change nothing.</p>
+
+        <form method="POST" action="{{ route('ext.tiktok.return_status_map') }}">
+            @csrf
+            <x-ui.table>
+                <x-slot:head>
+                    <tr>
+                        <th scope="col" class="cs-col-src">TikTok return status</th>
+                        <th scope="col">Sales order status</th>
+                    </tr>
+                </x-slot:head>
+                @foreach(($tikTokReturnStatuses ?? []) as $key => $label)
+                    <tr>
+                        <td class="cs-col-src" data-label="TikTok return status">
+                            <span class="cs-code">{{ $key }}</span>
+                            <span class="cs-map-label">{{ $label }}</span>
+                        </td>
+                        <td data-label="Sales order status">
+                            <div class="x-select-wrap cs-map-select">
+                                <select name="map[{{ $key }}]" class="x-input" aria-label="Sales order status for {{ $label }}" @disabled(!$canManageTiktok)>
+                                    <option value="">Not mapped</option>
+                                    @foreach($erpOrderStatuses as $os)
+                                        <option value="{{ $os->order_status_id }}" @selected((int) (($returnStatusMap ?? [])[$key] ?? 0) === (int) $os->order_status_id)>{{ $os->name }}</option>
+                                    @endforeach
+                                </select>
+                                <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                            </div>
+                        </td>
+                    </tr>
+                @endforeach
+            </x-ui.table>
+
+            @if($canManageTiktok)
+            <div class="cs-actions">
+                <x-ui.button type="submit" variant="primary">Save return mapping</x-ui.button>
+            </div>
+            @endif
+        </form>
+    </section>
 </div>
 
 {{-- ================================================================

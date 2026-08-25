@@ -10,6 +10,11 @@ use Extensions\tiktok\Models\TikTokSetting;
 use Extensions\tiktok\Services\TikTok\TikTokClient;
 use Extensions\tiktok\Services\TikTokCatalogOrderSync;
 use Extensions\tiktok\Services\TikTokOrdersPanel;
+use Extensions\tiktok\Models\TikTokReturn;
+use Extensions\tiktok\Models\TikTokOrderStatusMap;
+use Extensions\tiktok\Services\TikTokReturnsPanel;
+use App\Models\Catalog\Order;
+use App\Models\Catalog\OrderHistory;
 use Illuminate\Http\Request;
 
 class TikTokOrderController extends Controller
@@ -55,6 +60,141 @@ class TikTokOrderController extends Controller
      * there unchanged; nothing about the query or the wire format differs
      * from what this method did inline.
      */
+    public function returns(Request $request, TikTokReturnsPanel $panel)
+    {
+        return view('ext-tiktok::orders.returns', $panel->build($request));
+    }
+
+    /**
+     * Pull returns and refunds from TikTok Shop (#156): the return_refund
+     * search, fifty a page. Each return is stored whole; when its status
+     * is mapped on the settings page, the linked sales order takes that
+     * status with a history line, the same way an order sync does.
+     */
+    public function fetchReturns(Request $request, TikTokClient $client)
+    {
+        try { @set_time_limit(0); } catch (\Throwable $e) {}
+
+        $c = $this->creds();
+        if (!$c) {
+            return redirect()->route('ext.tiktok.orders.returns')->with('tiktok_returns_last_result', [
+                'ok' => false, 'message' => 'Missing TikTok credentials. Configure TikTok settings first.',
+            ]);
+        }
+
+        $body = [];
+        if ($request->input('date_from')) {
+            $body['create_time_ge'] = strtotime($request->input('date_from') . ' 00:00:00');
+        }
+        if ($request->input('date_to')) {
+            $body['create_time_lt'] = strtotime($request->input('date_to') . ' 23:59:59');
+        }
+
+        $all = [];
+        $token = null;
+        $failure = null;
+        for ($page = 0; $page < 20; $page++) {
+            try {
+                $res = $client->post($c['app_key'], $c['app_secret'], $c['token'], '/return_refund/202309/returns/search',
+                    array_filter(['page_size' => 50, 'page_token' => $token]), $body, $c['shop_cipher'] ?: null);
+            } catch (\Throwable $e) {
+                $res = ['ok' => false, 'status' => 0, 'body' => ['message' => \App\Support\TransportError::plain($e, 'TikTok Shop')]];
+            }
+            TikTokApiLog::safeCreate([
+                'pack' => 'tiktok.returns.fetch', 'method' => 'POST',
+                'api_path' => '/return_refund/202309/returns/search', 'auth_required' => true,
+                'request_params' => $body + ['page_token' => $token],
+                'response_status' => $res['status'] ?? 0, 'ok' => (bool) ($res['ok'] ?? false),
+                'response_body' => $res['body'] ?? [], 'user_id' => auth()->id(),
+            ]);
+            if (!($res['ok'] ?? false) || (int) ($res['body']['code'] ?? -1) !== 0) {
+                $failure = (string) ($res['body']['message'] ?? 'no response');
+                break;
+            }
+            foreach ((array) ($res['body']['data']['return_orders'] ?? []) as $ro) {
+                $all[] = $ro;
+            }
+            $token = $res['body']['data']['next_page_token'] ?? null;
+            if (!$token) {
+                break;
+            }
+        }
+
+        if ($failure !== null && empty($all)) {
+            return redirect()->route('ext.tiktok.orders.returns')->with('tiktok_returns_last_result', [
+                'ok' => false, 'message' => 'TikTok Shop did not answer: ' . $failure,
+            ]);
+        }
+
+        $returnMap = TikTokOrderStatusMap::where('context', 'return')->pluck('order_status_id', 'tiktok_status')->all();
+        $saved = 0;
+        $updated = 0;
+        $statused = 0;
+        foreach ($all as $ro) {
+            if (!is_array($ro) || empty($ro['return_id'])) {
+                continue;
+            }
+            $items = [];
+            foreach ((array) ($ro['return_line_items'] ?? []) as $li) {
+                $items[] = [
+                    'seller_sku' => (string) ($li['seller_sku'] ?? ''),
+                    'sku_id' => (string) ($li['sku_id'] ?? ''),
+                    'product_name' => (string) ($li['product_name'] ?? ''),
+                    'sku_name' => (string) ($li['sku_name'] ?? ''),
+                    'image' => (string) ($li['product_image']['url'] ?? ''),
+                    'refund_amount' => isset($li['refund_amount']['refund_total']) ? (float) $li['refund_amount']['refund_total'] : null,
+                    'quantity' => (int) ($li['return_quantity'] ?? 1),
+                ];
+            }
+            $payload = [
+                'order_id' => (string) ($ro['order_id'] ?? '') ?: null,
+                'return_type' => (string) ($ro['return_type'] ?? '') ?: null,
+                'return_status' => (string) ($ro['return_status'] ?? '') ?: null,
+                'reason' => \Illuminate\Support\Str::limit((string) ($ro['return_reason_text'] ?? $ro['return_reason'] ?? ''), 250) ?: null,
+                'refund_amount' => isset($ro['refund_amount']['refund_total']) ? (float) $ro['refund_amount']['refund_total'] : null,
+                'currency' => (string) ($ro['refund_amount']['currency'] ?? '') ?: null,
+                'return_created_at' => !empty($ro['create_time']) ? \Illuminate\Support\Carbon::createFromTimestamp((int) $ro['create_time']) : null,
+                'return_updated_at' => !empty($ro['update_time']) ? \Illuminate\Support\Carbon::createFromTimestamp((int) $ro['update_time']) : null,
+                'tracking_number' => (string) ($ro['return_tracking_number'] ?? '') ?: null,
+                'items' => $items,
+                'raw' => $ro,
+            ];
+            $existing = TikTokReturn::query()->where('return_id', (string) $ro['return_id'])->first();
+            if ($existing) {
+                $existing->fill($payload)->save();
+                $updated++;
+            } else {
+                TikTokReturn::query()->create(['return_id' => (string) $ro['return_id']] + $payload);
+                $saved++;
+            }
+
+            // The return status map: a mapped status moves the linked sales order.
+            $statusId = (int) ($returnMap[(string) ($ro['return_status'] ?? '')] ?? 0);
+            $catalogOrderId = $payload['order_id']
+                ? (int) (\DB::table('tiktok_orders')->where('order_id', $payload['order_id'])->value('catalog_order_id') ?? 0)
+                : 0;
+            if ($statusId > 0 && $catalogOrderId > 0) {
+                $catalogOrder = Order::find($catalogOrderId);
+                if ($catalogOrder && (int) $catalogOrder->order_status_id !== $statusId) {
+                    $catalogOrder->update(['order_status_id' => $statusId]);
+                    OrderHistory::create([
+                        'order_id' => $catalogOrderId, 'order_status_id' => $statusId, 'notify' => 0,
+                        'comment' => 'TikTok return ' . $ro['return_id'] . ' (' . (string) ($ro['return_status'] ?? '') . ')',
+                        'date_added' => now(), 'user_id' => null, 'user_name' => 'TikTok Sync',
+                    ]);
+                    $statused++;
+                }
+            }
+        }
+
+        $message = 'Returns synced. ' . $saved . ' new, ' . $updated . ' updated' . ($statused ? ', ' . $statused . ' sales order' . ($statused === 1 ? '' : 's') . ' moved by the return status map' : '') . '.';
+        if ($failure !== null) {
+            $message .= ' TikTok Shop stopped answering part way: ' . $failure;
+        }
+
+        return redirect()->route('ext.tiktok.orders.returns')->with('tiktok_returns_last_result', ['ok' => true, 'message' => $message]);
+    }
+
     public function index(Request $request, TikTokOrdersPanel $panel)
     {
         return view('ext-tiktok::orders.index', $panel->build($request));

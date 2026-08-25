@@ -87,6 +87,15 @@ class TikTokController extends Controller
             'CANCELLED'           => 'Cancelled',
         ];
 
+        // The return status map (#156): when a synced return holds one of
+        // these statuses, its sales order takes the status chosen here.
+        $tikTokReturnStatuses = [];
+        foreach (\Extensions\tiktok\Services\TikTokReturnsPanel::STATUS_MAP as $key => [$label, $tone]) {
+            $tikTokReturnStatuses[$key] = $label;
+        }
+        $returnStatusMap = TikTokOrderStatusMap::where('context', 'return')
+            ->pluck('order_status_id', 'tiktok_status')->all();
+
         return view('ext-tiktok::index', [
             'setting' => $setting?->decrypted(),
             'defaultRedirect' => $this->computedRedirectUri(),
@@ -95,6 +104,8 @@ class TikTokController extends Controller
             'orderStatusMap' => $orderStatusMap,
             'erpOrderStatuses' => $erpOrderStatuses,
             'tikTokStatuses' => $tikTokStatuses,
+            'tikTokReturnStatuses' => $tikTokReturnStatuses,
+            'returnStatusMap' => $returnStatusMap,
         ]);
     }
 

@@ -64,6 +64,7 @@ class IntegrationController extends Controller
     private const RETURNS_PANEL_SERVICES = [
         'shopee' => \Extensions\shopee\Services\ShopeeReturnsPanel::class,
         'lazada' => \Extensions\lazada\Services\LazadaReturnsPanel::class,
+        'tiktok' => \Extensions\tiktok\Services\TikTokReturnsPanel::class,
     ];
 
     /**

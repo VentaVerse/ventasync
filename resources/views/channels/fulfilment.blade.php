@@ -399,12 +399,21 @@
              the panel service's own last_result, so a ship performed from
              this page hands its waybill back here rather than only on the
              seller center. --}}
-        <div class="x-fh-panel co-page" data-desk-scope id="tiktok-orders-page"
+        <div class="x-fh-panel co-page" data-desk-scope id="{{ ($selectedView ?? 'orders') === 'returns' ? 'tiktok-returns-page' : 'tiktok-orders-page' }}"
              data-awb-url="{{ $last_result['awb_url'] ?? '' }}">
-            @include('ext-tiktok::orders._panel', [
-                'panelBaseUrl' => route('channels.fulfilment'),
-                'panelHiddenParams' => ['channel' => 'tiktok'],
-            ])
+            @if(($selectedView ?? 'orders') === 'returns')
+                @include('ext-tiktok::orders._returns_panel', [
+                    'panelBaseUrl' => route('channels.fulfilment'),
+                    'panelHiddenParams' => ['channel' => 'tiktok', 'view' => 'returns'],
+                    'panelOrdersUrl' => route('channels.fulfilment', ['channel' => 'tiktok']),
+                ])
+            @else
+                @include('ext-tiktok::orders._panel', [
+                    'panelBaseUrl' => route('channels.fulfilment'),
+                    'panelHiddenParams' => ['channel' => 'tiktok'],
+                    'panelReturnsUrl' => route('channels.fulfilment', ['channel' => 'tiktok', 'view' => 'returns']),
+                ])
+            @endif
         </div>
     @elseif($selectedChannelBase === 'venta')
         {{-- The id the store's own seller center carries, so

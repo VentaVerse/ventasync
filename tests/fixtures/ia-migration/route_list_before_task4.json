@@ -1930,6 +1930,16 @@
         "name": "ext.tiktok.orders.fetch"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/orders/returns",
+        "name": "ext.tiktok.orders.returns"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/orders/returns/fetch",
+        "name": "ext.tiktok.orders.fetch_returns"
+    },
+    {
         "method": "POST",
         "uri": "channels/tiktok/orders/update-statuses",
         "name": "ext.tiktok.orders.updateStatuses"
@@ -2128,6 +2138,11 @@
         "method": "POST",
         "uri": "channels/tiktok/purge-raw",
         "name": "ext.tiktok.purge_raw"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/return-status-map",
+        "name": "ext.tiktok.return_status_map"
     },
     {
         "method": "POST",

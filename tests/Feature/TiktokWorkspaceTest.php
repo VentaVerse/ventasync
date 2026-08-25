@@ -124,6 +124,7 @@ class TiktokWorkspaceTest extends TestCase
 
         $this->assertEqualsCanonicalizing([
             'ext.tiktok.orders.index',
+            'ext.tiktok.orders.returns',  // joined 2026-08-26 (#156, parity)
             'ext.tiktok.coupons.index',   // joined 2026-08-26 (#153, quest 4)
             'ext.tiktok.products.index',  // joined 2026-08-26 (#156, parity)
             'ext.tiktok.product-groups.index',
@@ -152,8 +153,9 @@ class TiktokWorkspaceTest extends TestCase
             ['Sell', 'Catalog', 'Channel'],
             array_column($groups, 'label')
         );
+        // Returns joined Sell with the parity work (#156, 2026-08-26).
         $this->assertSame(
-            ['Orders'],
+            ['Orders', 'Returns'],
             array_column($groups[0]['items'], 'label')
         );
         $this->assertSame(
@@ -183,9 +185,10 @@ class TiktokWorkspaceTest extends TestCase
         }
 
         // Without this the whole test passes vacuously when groups() returns
-        // nothing. Four is every TikTok destination, so this also proves the
-        // operator permissions above are sufficient to see all of them.
-        $this->assertCount(4, $urls);
+        // nothing. Five is every TikTok destination this operator holds
+        // (Returns joined 2026-08-26), so this also proves the operator
+        // permissions above are sufficient to see all of them.
+        $this->assertCount(5, $urls);
     }
 
     public function test_workspace_renders_for_a_permitted_user(): void

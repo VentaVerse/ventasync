@@ -99,6 +99,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
 
         // Status-map saves
         Route::post('/tiktok/order-status-map', [TiktokSettingsController::class, 'saveOrderStatusMap'])->name('ext.tiktok.order_status_map');
+        Route::post('/tiktok/return-status-map', [TiktokSettingsController::class, 'saveReturnStatusMap'])->name('ext.tiktok.return_status_map');
 
         // Categories — sync from TikTok and persist
         Route::post('/tiktok/categories/sync', [TikTokProductGroupController::class, 'syncCategories'])->name('ext.tiktok.categories.sync');
@@ -150,6 +151,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     // ── TikTok Orders — READ (browse, show, AWB/tracking download) ──
     Route::group([], function () {
         Route::get('/tiktok/orders', [TikTokOrderController::class, 'index'])->name('ext.tiktok.orders.index');
+        Route::get('/tiktok/orders/returns', [TikTokOrderController::class, 'returns'])->name('ext.tiktok.orders.returns');
         Route::get('/tiktok/orders/{id}/show', [TikTokOrderController::class, 'show'])->name('ext.tiktok.orders.show');
         Route::get('/tiktok/orders/{id}/awb', [TikTokOrderController::class, 'awbPdf'])->name('ext.tiktok.orders.awb');
         Route::get('/tiktok/orders/{id}/tracking', [TikTokOrderController::class, 'tracking'])->name('ext.tiktok.orders.tracking');
@@ -158,6 +160,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     // ── TikTok Orders — WRITE (sync, ship) ──────────────────────
     Route::group([], function () {
         Route::post('/tiktok/orders/fetch', [TikTokOrderController::class, 'fetch'])->name('ext.tiktok.orders.fetch');
+        Route::post('/tiktok/orders/returns/fetch', [TikTokOrderController::class, 'fetchReturns'])->name('ext.tiktok.orders.fetch_returns');
         Route::post('/tiktok/orders/update-statuses', [TikTokOrderController::class, 'updateStatuses'])->name('ext.tiktok.orders.updateStatuses');
         Route::post('/tiktok/orders/{id}/ship', [TikTokOrderController::class, 'shipOrder'])->name('ext.tiktok.orders.ship');
     });

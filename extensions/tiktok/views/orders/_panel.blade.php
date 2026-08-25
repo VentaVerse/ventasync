@@ -145,6 +145,10 @@
             </a>
         @endforeach
     </nav>
+    <a class="x-segment-bar__aside" href="{{ $panelReturnsUrl ?? route('ext.tiktok.orders.returns') }}">
+        Returns and refunds
+        <x-ui.icon name="chevron-right" size="12" />
+    </a>
 </div>
 
 @if($active_tab === 'TO_SHIP')
