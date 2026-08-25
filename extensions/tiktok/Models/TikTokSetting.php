@@ -24,6 +24,7 @@ class TikTokSetting extends Model
         'redirect_uri',
         'region',
         'sync_last_days',
+        'sync_last_days_returns',
         'order_tab_map',
         'api_logging',
         'last_order_sync_at',

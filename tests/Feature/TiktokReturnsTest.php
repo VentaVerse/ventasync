@@ -81,6 +81,33 @@ class TiktokReturnsTest extends TestCase
         ], $overrides);
     }
 
+    /** The "Sync Returns" automation: the same store as the button, on the cron. */
+    public function test_the_returns_job_stores_returns_over_its_own_window(): void
+    {
+        $this->callResponses['POST /return_refund/202309/returns/search'] = function (array $body) {
+            $this->assertArrayHasKey('create_time_ge', $body, 'the job asks over a window');
+            $this->assertArrayNotHasKey('create_time_lt', $body, 'up to now, never a cut-off before now');
+            $this->assertEqualsWithDelta(now()->subDays(5)->startOfDay()->timestamp, $body['create_time_ge'], 86400);
+
+            return ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
+                'data' => ['return_orders' => [$this->sampleReturn()]]]];
+        };
+        TikTokSetting::query()->update(['sync_last_days_returns' => 5]);
+
+        $this->artisan('tiktok:sync-orders --returns')->assertExitCode(0);
+
+        $this->assertSame(1, TikTokReturn::count());
+        $this->assertCount(1, $this->sentCalls, 'returns only: the orders search was not called');
+        $this->assertSame('/return_refund/202309/returns/search', $this->sentCalls[0]['path']);
+
+        // --no-returns leaves returns alone; there are no orders to fetch here,
+        // so the orders search answers empty and the command still exits 0.
+        $this->sentCalls = [];
+        $this->callResponses['POST /order/202309/orders/search'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'data' => ['orders' => []]]];
+        $this->artisan('tiktok:sync-orders --no-returns')->assertExitCode(0);
+        $this->assertSame(['/order/202309/orders/search'], array_column($this->sentCalls, 'path'));
+    }
+
     public function test_fetch_stores_returns_and_the_page_lists_them_by_state(): void
     {
         $this->callResponses['POST /return_refund/202309/returns/search'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',

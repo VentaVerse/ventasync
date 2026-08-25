@@ -7,6 +7,7 @@ use Extensions\tiktok\Models\TikTokOrder;
 use Extensions\tiktok\Models\TikTokOrderProduct;
 use Extensions\tiktok\Models\TikTokSetting;
 use Extensions\tiktok\Services\TikTok\TikTokClient;
+use Extensions\tiktok\Services\TikTok\TikTokReturnSync;
 use Extensions\tiktok\Services\TikTokCatalogOrderSync;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -14,10 +15,21 @@ use Illuminate\Support\Facades\Log;
 class TikTokSyncOrders extends Command
 {
     protected $signature = 'tiktok:sync-orders
-        {--days= : Override sync_last_days for this run (passed by the universal scheduler)}';
+        {--days= : Override sync_last_days for this run (passed by the universal scheduler)}
+        {--both : Sync orders and returns (default behavior)}
+        {--returns : Sync returns and refunds only}
+        {--no-returns : Skip the returns sync}
+        {--days-returns= : Override sync_last_days_returns for this run}';
 
-    protected $description = 'Sync orders from TikTok Shop (create new + update existing + catalog sync)';
+    protected $description = 'Sync orders from TikTok Shop (create new + update existing + returns)';
 
+    /**
+     * The same shape as shopee:sync-orders and lazada:sync-orders: one
+     * command, two jobs on the Automations tab ("Sync Orders" runs it
+     * with --no-returns, "Sync Returns" with --returns), each on its own
+     * cadence. Added for TikTok in the Automations sweep of 2026-08-26;
+     * before it, TikTok returns were only ever fetched by hand.
+     */
     public function handle(): int
     {
         $raw = TikTokSetting::query()->first();
@@ -25,6 +37,52 @@ class TikTokSyncOrders extends Command
             $this->error('TikTok settings not configured.');
             return 1;
         }
+
+        $returnsOnly = (bool) $this->option('returns');
+        $skipReturns = (bool) $this->option('no-returns');
+
+        if (!$returnsOnly) {
+            $ordersExit = $this->syncOrders($raw);
+            if ($ordersExit !== 0) {
+                return $ordersExit;
+            }
+        }
+
+        if (!$skipReturns) {
+            $this->info('--- Syncing TikTok returns ---');
+            $this->syncReturns($raw);
+        }
+
+        return 0;
+    }
+
+    /** Returns and refunds, over their own look-back window. */
+    private function syncReturns(TikTokSetting $raw): void
+    {
+        $creds = TikTokReturnSync::credsFrom($raw);
+        if (!$creds) {
+            $this->error('Missing TikTok credentials. Configure TikTok settings first.');
+            return;
+        }
+
+        $cliDays = $this->option('days-returns');
+        $syncDays = $cliDays !== null && $cliDays !== ''
+            ? max(1, (int) $cliDays)
+            : (((int) ($raw->sync_last_days_returns ?? 0)) > 0 ? (int) $raw->sync_last_days_returns : 14);
+        $tz = new \DateTimeZone('Asia/Manila');
+        $from = (new \DateTime('now', $tz))->modify("-{$syncDays} days")->setTime(0, 0, 0)->getTimestamp();
+        $this->info("  Returns window: last {$syncDays} days");
+
+        $result = app(TikTokReturnSync::class)->sync($creds, $from, null, null);
+        if ($result['ok']) {
+            $this->info('  ' . $result['message']);
+        } else {
+            $this->error('  ' . $result['message']);
+        }
+    }
+
+    private function syncOrders(TikTokSetting $raw): int
+    {
 
         $s = $raw->decrypted();
         $sandbox = $raw->mode === 'sandbox';
@@ -55,7 +113,7 @@ class TikTokSyncOrders extends Command
 
         $this->info("Syncing TikTok orders from last {$syncDays} days...");
 
-        $client = new TikTokClient();
+        $client = app(TikTokClient::class);
         $allOrders = [];
         $nextToken = '';
         $pageSize = 50;
