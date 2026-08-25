@@ -2535,7 +2535,13 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 try {
                     $listing->lazada_item_id = (string) $matchedItemId;
                     $listing->lazada_deleted_at = null;
-                    $listing->save();
+                    // Record the success so the row reads as linked: without this
+                    // the item id was saved but last_sync_ok / error_message kept
+                    // whatever a prior failed run left, so a freshly matched
+                    // listing still showed "No Lazada product found for SKU".
+                    // ['ok' => true] with no error body clears the stale code and
+                    // message and stamps last_synced_at + last_sync_action.
+                    $this->persistProductSyncStatus($listing, 'bulk_sync_lazada_id', ['ok' => true]);
                     $okCount++;
                 } catch (\Throwable $ex) {
                     $errCount++;
