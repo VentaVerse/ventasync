@@ -2576,10 +2576,14 @@
        link inside a sentence. The order page's sync-override toggle measured
        34x20 and its inline edit control 39x19: both are deliberate actions
        with consequences, and neither is exempt. Stated on the components so
-       every page inherits it rather than the order page alone. */
+       every page inherits it rather than the order page alone.
+
+       The badge label used to be in this list. A badge is not a control, and
+       a 24px-tall inline label beside an 8px dot centred on that height put
+       the dot a few pixels below the word (the Channels board's "Connected",
+       2026-08-26). */
     .od-switch,
-    .od-edit,
-    .x-badge__dot + * {
+    .od-edit {
         min-height: 24px;
     }
 
