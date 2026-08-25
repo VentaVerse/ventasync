@@ -5123,7 +5123,10 @@
     [data-theme='dark'] .fh-scope .x-btn--primary {
         background: var(--bl-brand);
         border-color: var(--bl-brand);
-        color: var(--bl-ink);
+        /* --bl-paper, not --bl-ink: the tokens invert in dark, so ink is
+           near-white there and read 1.7:1 on the cyan. Paper is the dark
+           page ground, and dark-on-cyan clears 9:1. */
+        color: var(--bl-paper);
     }
 }
 
