@@ -2535,6 +2535,12 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 try {
                     $listing->lazada_item_id = (string) $matchedItemId;
                     $listing->lazada_deleted_at = null;
+                    // Re-linking clears an earlier unlink: a row that still
+                    // carried unlinked_at read as both linked (has item id) and
+                    // unlinked, and the row menu — which shows the push actions
+                    // only when linked AND not unlinked — collapsed to just Edit
+                    // and Remove. Matching an id is the act of linking it.
+                    $listing->unlinked_at = null;
                     // Record the success so the row reads as linked: without this
                     // the item id was saved but last_sync_ok / error_message kept
                     // whatever a prior failed run left, so a freshly matched
