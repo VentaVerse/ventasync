@@ -93,6 +93,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                 menu: [
                     new MenuItem('Orders', 'ext.lazada.orders.index', 'view_lazada/order', null, ['tab' => 'TO_SHIP'], 'Sell'),
                     new MenuItem('Returns', 'ext.lazada.orders.returns', 'view_lazada/order', group: 'Sell'),
+                    new MenuItem('Vouchers', 'ext.lazada.vouchers.index', 'view_lazada/voucher', group: 'Sell'),
                     new MenuItem('Listings', 'ext.lazada.products.index', 'view_lazada/product', group: 'Catalog'),
                     new MenuItem('Product Groups', 'ext.lazada.product-groups.index', 'view_lazada/product_group', group: 'Catalog'),
                     new MenuItem('Categories', 'ext.lazada.categories.index', 'view_lazada/category', group: 'Catalog'),

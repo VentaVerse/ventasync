@@ -71,6 +71,9 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
 
         // Catalog browsing (lists, search)
         Route::get('/lazada/products', [LazadaProductController::class, 'index'])->name('ext.lazada.products.index');
+
+        // Vouchers (#153): a live read of the shop's vouchers.
+        Route::get('/lazada/vouchers', [\Extensions\lazada\Controllers\LazadaVoucherController::class, 'index'])->name('ext.lazada.vouchers.index');
         Route::get('/lazada/products/search-catalog', [LazadaProductController::class, 'searchCatalogProducts'])->name('ext.lazada.products.search_catalog');
         Route::get('/lazada/brands', [LazadaBrandController::class, 'index'])->name('ext.lazada.brands.index');
         Route::get('/lazada/brands/autocomplete', [LazadaBrandController::class, 'autocomplete'])->name('ext.lazada.brands.autocomplete');
@@ -187,6 +190,10 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         Route::post('/lazada/products/bulk/upload', [LazadaProductController::class, 'bulkUploadToLazada'])->name('ext.lazada.products.bulk_upload');
         Route::post('/lazada/listings/{id}/toggle', [LazadaProductController::class, 'toggleListing'])->whereNumber('id')->name('ext.lazada.listings.toggle');
         Route::post('/lazada/listings/{id}/push-discount', [LazadaProductController::class, 'pushDiscount'])->whereNumber('id')->name('ext.lazada.listings.push_discount');
+
+        // Voucher writes (#153): create, deactivate. Pass-throughs; Lazada owns the object.
+        Route::post('/lazada/vouchers', [\Extensions\lazada\Controllers\LazadaVoucherController::class, 'store'])->name('ext.lazada.vouchers.store');
+        Route::post('/lazada/vouchers/{voucherId}/deactivate', [\Extensions\lazada\Controllers\LazadaVoucherController::class, 'deactivate'])->where('voucherId', '[A-Za-z0-9_-]+')->name('ext.lazada.vouchers.deactivate');
         Route::post('/lazada/products/bulk/sync/quantity', [LazadaProductController::class, 'bulkSyncQuantity'])->name('ext.lazada.products.bulk_sync_quantity');
         Route::post('/lazada/products/bulk/sync/price', [LazadaProductController::class, 'bulkSyncPrice'])->name('ext.lazada.products.bulk_sync_price');
         Route::post('/lazada/products/bulk/sync/lazada-id', [LazadaProductController::class, 'bulkSyncLazadaId'])->name('ext.lazada.products.bulk_sync_lazada_id');

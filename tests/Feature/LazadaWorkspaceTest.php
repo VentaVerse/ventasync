@@ -121,6 +121,7 @@ class LazadaWorkspaceTest extends TestCase
         $this->assertEqualsCanonicalizing([
             'ext.lazada.orders.index',
             'ext.lazada.orders.returns',
+            'ext.lazada.vouchers.index',   // joined 2026-08-26 (#153, quest 4)
             'ext.lazada.products.index',
             'ext.lazada.product-groups.index',
             'ext.lazada.categories.index',

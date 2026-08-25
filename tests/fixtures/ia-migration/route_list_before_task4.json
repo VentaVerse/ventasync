@@ -951,6 +951,21 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "channels/lazada/vouchers",
+        "name": "ext.lazada.vouchers.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/vouchers",
+        "name": "ext.lazada.vouchers.store"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/vouchers/{voucherId}/deactivate",
+        "name": "ext.lazada.vouchers.deactivate"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "channels/lazada/{store?}",
         "name": "ext.lazada.dashboard"
     },
