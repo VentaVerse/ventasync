@@ -2441,10 +2441,22 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         // Count how many actually need syncing
         $needSync = $listings->filter(fn($l) => empty($l->lazada_item_id))->count();
 
-        // For large batches, fetch entire Lazada catalog once; for small batches, search per product
+        // For any multi-product batch, fetch the entire Lazada catalog ONCE and
+        // match every selected product against that single map. The per-product
+        // path (below) falls back to a full catalog scan whenever Lazada's
+        // `search` misses a SellerSku — which is common — so N products meant N
+        // scans and a request that could stall for minutes. One shared pass
+        // removes the multiply. A lone product keeps the per-product path (a
+        // hit via `search`/`sku_seller_list` is a single fast call).
         $skuToItemId = null;
-        if ($needSync > 5) {
-            $skuToItemId = $this->fetchLazadaSkuMap($setting, $client);
+        if ($needSync >= 2) {
+            $map = $this->fetchLazadaSkuMap($setting, $client);
+            // Index case-insensitively: Lazada SellerSku casing may differ from
+            // the ERP SKU, and the per-product matcher already uses strcasecmp.
+            $skuToItemId = [];
+            foreach ((array) $map as $sellerSku => $itemIds) {
+                $skuToItemId[strtolower((string) $sellerSku)] = $itemIds;
+            }
         }
 
         foreach ($listings as $listing) {
@@ -2489,7 +2501,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 // Bulk mode: look up from pre-fetched map
                 $matchedItemIds = [];
                 foreach ($allSkus as $s) {
-                    foreach ($skuToItemId[$s] ?? [] as $itemId) {
+                    foreach ($skuToItemId[strtolower((string) $s)] ?? [] as $itemId) {
                         $matchedItemIds[$itemId] = true;
                     }
                 }

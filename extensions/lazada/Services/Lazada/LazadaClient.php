@@ -61,7 +61,8 @@ class LazadaClient
          * not the handled error each call site already wrote. Connection
          * failures (no response at all) still throw; callers that must
          * stay up through those catch Throwable themselves. */
-        return Http::timeout(30)
+        return Http::connectTimeout(10)
+            ->timeout(20)
             ->retry(2, 300, throw: false);
     }
 
