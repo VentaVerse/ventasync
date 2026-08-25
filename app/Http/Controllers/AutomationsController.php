@@ -40,8 +40,12 @@ class AutomationsController extends Controller
         // the job's `integration` column and reject mismatched callers
         // here. Matches EnsurePermission's redirect-with-flash shape so
         // the UX is identical to other denied actions.
-        $required = "manage_{$job->integration}";
-        if (!auth()->user()?->hasPermission($required)) {
+        // The Automations tab lives on the integration's settings page, so
+        // the key that page is gated on is the one that may change its
+        // schedule. "manage_shopee" alone stopped matching anything once the
+        // keys became {tier}_{id}/{controller} (live fix 2026-08-26: the
+        // administrator was refused on every channel).
+        if (!self::mayManage((string) $job->integration)) {
             return back()->with('error', "You don't have permission to do this action.");
         }
         $job->cadence_value = (int) $data['cadence_value'];
@@ -97,7 +101,7 @@ class AutomationsController extends Controller
         $jobs = $ids ? ScheduledJob::whereIn('id', $ids)->get()->keyBy('id') : collect();
 
         foreach ($jobs as $job) {
-            if (!auth()->user()?->hasPermission("manage_{$job->integration}")) {
+            if (!self::mayManage((string) $job->integration)) {
                 return back()->with('error', "You don't have permission to do this action.");
             }
         }
@@ -105,7 +109,7 @@ class AutomationsController extends Controller
         $integration = $data['integration'] ?? null;
         $hasWindows  = !empty($data['windows']) && is_array($data['windows']);
         if ($hasWindows) {
-            if (!$integration || !auth()->user()?->hasPermission("manage_{$integration}")) {
+            if (!$integration || !self::mayManage((string) $integration)) {
                 return back()->with('error', "You don't have permission to do this action.");
             }
         }
@@ -179,4 +183,20 @@ class AutomationsController extends Controller
     // marketplace's Orders / Product Group pages with proper progress +
     // result detail. The Automations tab is scoped to cadence + window
     // config only; the scheduler is the only thing that fires jobs.
+
+    /** Whoever may manage the integration's settings page may set its schedule. */
+    private static function mayManage(string $integration): bool
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return false;
+        }
+        foreach (["manage_{$integration}/settings", "manage_{$integration}"] as $key) {
+            if ($user->hasPermission($key)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

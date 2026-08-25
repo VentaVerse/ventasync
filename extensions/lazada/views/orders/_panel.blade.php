@@ -691,8 +691,9 @@
             <td class="lz-col-products" data-label="Products">
                 <div class="co-item">
                     <div class="order-img-wrap">
-                        @if(!empty($it['image']))
-                            <img class="order-img" src="{{ $it['image'] }}" alt="">
+                        @php $itImg = !empty($it['image']) ? $it['image'] : \App\Support\CatalogImages::urlFor($it['sku'] ?? ($it['seller_sku'] ?? '')); @endphp
+                        @if($itImg)
+                            <img class="order-img" src="{{ $itImg }}" alt="">
                         @else
                             <span class="co-item__none">No image</span>
                         @endif

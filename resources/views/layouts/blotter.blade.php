@@ -67,6 +67,14 @@
                 <x-ui.icon name="menu" size="16" />
             </button>
 
+            {{-- The trail, derived from the URL (App\Support\Breadcrumbs), the
+                 same partial the channel workspace carries. The settings pages
+                 had no way back to Settings but the sidebar (live fix
+                 2026-08-26). --}}
+            <div class="hidden min-w-0 sm:block">
+                @include('partials.breadcrumb')
+            </div>
+
             {{-- Opens the command palette, which owns search for the whole
                  application. Cmd+K and Ctrl+K reach the same component; a
                  keyboard shortcut nobody can see is not discoverable, so the

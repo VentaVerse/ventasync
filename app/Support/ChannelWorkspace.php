@@ -551,7 +551,8 @@ class ChannelWorkspace
                 'note' => $syncTone === 'attn' ? 'Overdue' : null,
             ],
             [
-                'label' => 'Token expiry',
+                // The sign-in's expiry, not the access token's: see signInExpiry().
+                'label' => 'Sign-in expires',
                 'value' => $expiry?->diffForHumans(),
                 'tone' => $expiryTone,
                 // The date alone does not say what it means. "2 weeks ago"
@@ -642,6 +643,39 @@ class ChannelWorkspace
      *
      * @return array{hasToken: ?bool, tokenExpiresAt: ?Carbon, lastSyncAt: ?Carbon, errors24h: ?int}
      */
+    /**
+     * When the seller has to SIGN IN again, which is the only expiry that
+     * needs a person (live fix 2026-08-26).
+     *
+     * The access token renews itself on the cron: Shopee's lives four hours
+     * by Shopee's design, TikTok's a week, Lazada's about two days, and none
+     * of that is a seller's problem while the refresh token holds. Reading
+     * the access token's expiry here is why every healthy Shopee shop said
+     * "Sign-in expires soon" all day and the fulfilment page called it not
+     * syncing. So: the refresh token's expiry when the row records one;
+     * nothing at all (not tracked) when a refresh token exists but its
+     * expiry is unknown; the access token's expiry only when there is no
+     * refresh token to renew it with.
+     */
+    public static function signInExpiry(?object $row, bool $isSandbox): ?Carbon
+    {
+        if (! $row) {
+            return null;
+        }
+        $refreshToken = $isSandbox ? ($row->sandbox_refresh_token ?? null) : ($row->refresh_token ?? null);
+        $refreshExpires = $isSandbox ? ($row->sandbox_refresh_expires_at ?? null) : ($row->refresh_expires_at ?? null);
+        $accessExpires = $isSandbox ? ($row->sandbox_expires_at ?? null) : ($row->expires_at ?? null);
+
+        if ($refreshExpires) {
+            return Carbon::parse($refreshExpires);
+        }
+        if (! empty($refreshToken)) {
+            return null;
+        }
+
+        return $accessExpires ? Carbon::parse($accessExpires) : null;
+    }
+
     private function tokenFigures(string $channelId, ?int $storeId = null): array
     {
         $figures = $this->rawTokenFigures($channelId, $storeId);
@@ -687,13 +721,12 @@ class ChannelWorkspace
         $row = DB::table($channelId . '_settings')->first();
         $isSandbox = ($row?->mode ?? 'live') === 'sandbox';
 
-        $expiresRaw = $row ? ($isSandbox ? $row->sandbox_expires_at : $row->expires_at) : null;
         $lastSyncRaw = $row?->last_order_sync_at;
         $loggingOn = (bool) ($row?->api_logging ?? false);
 
         return [
             'hasToken' => $row ? ! empty($isSandbox ? $row->sandbox_access_token : $row->access_token) : false,
-            'tokenExpiresAt' => $expiresRaw ? Carbon::parse($expiresRaw) : null,
+            'tokenExpiresAt' => self::signInExpiry($row, $isSandbox),
             'lastSyncAt' => $lastSyncRaw ? Carbon::parse($lastSyncRaw) : null,
             // api_logging is off in this sandbox for every channel today, so
             // this reads null (not tracked), not a fabricated zero.

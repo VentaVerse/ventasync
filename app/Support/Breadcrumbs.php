@@ -57,6 +57,10 @@ class Breadcrumbs
 
         $trail = static::channelTrail($request) ?? static::navTrail($path);
 
+        foreach (static::settingsCardTrail($path) as $crumb) {
+            $trail[] = $crumb;
+        }
+
         $leaf = static::leaf();
 
         if ($leaf !== null) {
@@ -159,6 +163,44 @@ class Breadcrumbs
         }
 
         return [['label' => $group['label'], 'url' => Navigation::urlFor($group)]];
+    }
+
+    /**
+     * The Settings hub card a page sits under, linked, or nothing.
+     *
+     * The nav carries Settings as a single entry (the hub), so a page
+     * beneath a card (/settings/users/4/edit) resolved to "Settings / the owner"
+     * with no "Users" between: no way back to the list except the sidebar.
+     * The hub's card list is the section's only index, so it is what names
+     * the middle crumb here, by longest URL prefix like everything else.
+     * The card itself, when it is the page, is left to the leaf so it is
+     * not printed twice.
+     *
+     * @return array<int, array{label: string, url: string|null}>
+     */
+    protected static function settingsCardTrail(string $path): array
+    {
+        if (static::firstSegment($path) !== 'settings') {
+            return [];
+        }
+
+        $best = null;
+
+        foreach (\App\Http\Controllers\Settings\SettingsHubController::destinations() as $cards) {
+            foreach ($cards as $card) {
+                $cardPath = Navigation::pathFor(['route' => $card['route']]);
+
+                if ($cardPath === null || $cardPath === $path || ! str_starts_with($path, rtrim($cardPath, '/').'/')) {
+                    continue;
+                }
+
+                if ($best === null || strlen($cardPath) > strlen($best['path'])) {
+                    $best = ['path' => $cardPath, 'label' => $card['label'], 'url' => Navigation::urlFor(['route' => $card['route']])];
+                }
+            }
+        }
+
+        return $best === null ? [] : [['label' => $best['label'], 'url' => $best['url']]];
     }
 
     /** The first path segment, or null at the root. */

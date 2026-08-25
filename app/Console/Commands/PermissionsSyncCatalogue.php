@@ -47,8 +47,16 @@ class PermissionsSyncCatalogue extends Command
             return self::SUCCESS;
         }
 
+        // A key that did not exist a moment ago is granted to the
+        // Administrator group as it is created, the rule extension keys
+        // already follow: an administrator must never lose a screen because
+        // a route grew its own key (live fix 2026-08-26, order payments).
+        $adminGroupId = \Illuminate\Support\Facades\DB::table('user_groups')->where('name', 'Administrator')->value('id');
         foreach ($toAdd as $key) {
-            Permission::firstOrCreate(['key' => $key]);
+            $row = Permission::firstOrCreate(['key' => $key]);
+            if ($adminGroupId && !\Illuminate\Support\Facades\DB::table('user_group_permissions')->where('user_group_id', $adminGroupId)->where('permission_id', $row->id)->exists()) {
+                \Illuminate\Support\Facades\DB::table('user_group_permissions')->insert(['user_group_id' => $adminGroupId, 'permission_id' => $row->id]);
+            }
         }
 
         $this->newLine();

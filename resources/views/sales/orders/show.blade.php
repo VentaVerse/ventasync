@@ -12,6 +12,9 @@
     // every POST/PUT/DELETE below is perm:manage_orders - so the UI now
     // asks the same question the middleware asks.
     $canManageOrders = auth()->user()?->hasPermission('manage_sales/order') ?? false;
+    // Payments are their own key (OrderPaymentController): a manager of
+    // orders is not automatically a keeper of the books.
+    $canManagePayments = auth()->user()?->hasPermission('manage_sales/order_payment') ?? false;
 
     $registry = app(\App\Integrations\IntegrationRegistry::class);
 
@@ -479,7 +482,7 @@
                         @elseif($totalPaid > 0)
                             <x-ui.badge tone="warning">Partly paid</x-ui.badge>
                         @endif
-                        @if($canManageOrders)
+                        @if($canManagePayments)
                         <x-ui.menu label="Payment tracking options">
                             <button type="submit" form="od-toggle-payments" class="x-menu__item">Turn off payment tracking</button>
                         </x-ui.menu>
@@ -539,7 +542,7 @@
                                 <div class="od-pay">
                                     <span class="od-pay__when">{{ $pay->paid_at->format('M d, Y') }}</span>
                                     <span class="od-pay__amount">{{ \App\Support\Money::base((float) $pay->amount) }}</span>
-                                    @if($canManageOrders)
+                                    @if($canManagePayments)
                                     <span class="od-pay__act">
                                         <x-ui.menu label="Payment {{ $pay->id }} actions">
                                             <button type="button"
@@ -573,7 +576,7 @@
                             <p class="od-empty">No payments recorded.</p>
                         @endif
 
-                        @if($canManageOrders)
+                        @if($canManagePayments)
                         <details class="od-disclose">
                             <summary><x-ui.icon name="plus" size="12" /> Record a payment</summary>
                             <form method="POST" action="{{ route('orders.store_payment', $order->order_id) }}">

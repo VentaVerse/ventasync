@@ -269,7 +269,8 @@ class IntegrationController extends Controller
             // is no dot rather than a guess.
             $base = explode(':', $tab->id, 2)[0];
             $card = $cards[$base] ?? null;
-            $state = $card ? $workspace->state($card, $tab->id) : null;
+            $stateWithReason = $card ? $workspace->stateWithReason($card, $tab->id) : ['state' => null, 'reason' => null];
+            $state = $stateWithReason['state'];
 
             // Stale is a fact ABOUT the count, not a replacement for it.
             //
@@ -281,7 +282,12 @@ class IntegrationController extends Controller
             // real and the operator needs both - the order still has to be
             // packed. The count is always shown when it is tracked; the stale
             // marker rides alongside it.
-            $stalled = in_array($state, ['attention', 'setup'], true);
+            /* "Not syncing" means the sync is not happening: no usable
+             * sign-in, or an order sync older than a day. A sign-in that
+             * expires within the week is a warning to act on, not a channel
+             * that stopped syncing, so it does not count here (live fix
+             * 2026-08-26: healthy shops read "not syncing" over it). */
+            $stalled = $state === 'setup' || ($state === 'attention' && $stateWithReason['reason'] === 'stale');
             if ($stalled) {
                 $summary['stalled'][] = $tab->label;
             }
@@ -501,7 +507,9 @@ class IntegrationController extends Controller
                 $row = DB::table($baseId . '_settings')->first();
                 $isSandbox = ($row?->mode ?? 'live') === 'sandbox';
                 $hasToken = $row ? !empty($isSandbox ? $row->sandbox_access_token : $row->access_token) : false;
-                $expiresRaw = $row ? ($isSandbox ? $row->sandbox_expires_at : $row->expires_at) : null;
+                // The sign-in's expiry (refresh token), never the access
+                // token the cron renews: see ChannelWorkspace::signInExpiry().
+                $signInExpiresAt = \App\Support\ChannelWorkspace::signInExpiry($row, $isSandbox);
                 $lastSyncRaw = $row?->last_order_sync_at;
                 $loggingOn = (bool) ($row?->api_logging ?? false);
 
@@ -511,7 +519,7 @@ class IntegrationController extends Controller
                     'label' => $card->name,
                     'store' => null,
                     'hasToken' => $hasToken,
-                    'tokenExpiresAt' => $expiresRaw ? Carbon::parse($expiresRaw) : null,
+                    'tokenExpiresAt' => $signInExpiresAt,
                     'lastSyncAt' => $lastSyncRaw ? Carbon::parse($lastSyncRaw) : null,
                     // api_logging is off in this sandbox for every channel, so
                     // this is null (not tracked) today, not a fabricated zero.

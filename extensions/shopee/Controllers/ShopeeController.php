@@ -339,10 +339,16 @@ public function index(Request $request = null, ShopeeClient $client = null)
             if (is_numeric($expireIn)) {
                 $raw->sandbox_expires_at = now()->addSeconds((int)$expireIn);
             }
+            if ($refresh) {
+                $raw->sandbox_refresh_expires_at = now()->addDays(ShopeeSetting::REFRESH_TOKEN_DAYS);
+            }
         } else {
             $raw->access_token = encrypt($access);
             if ($refresh) {
                 $raw->refresh_token = encrypt($refresh);
+                // Shopee does not say when the refresh token dies: it is 30
+                // days from each grant, so the sign-in expiry is stamped here.
+                $raw->refresh_expires_at = now()->addDays(ShopeeSetting::REFRESH_TOKEN_DAYS);
             }
             if (is_numeric($expireIn)) {
                 $raw->expires_at = now()->addSeconds((int)$expireIn);

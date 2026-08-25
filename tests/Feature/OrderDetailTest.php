@@ -98,7 +98,7 @@ class OrderDetailTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'Order Managers']);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['manage_api/order', 'manage_sales/order'])->pluck('id')->all()
+            Permission::whereIn('key', ['manage_api/order', 'manage_sales/order', 'manage_sales/order_payment'])->pluck('id')->all()
         );
 
         return User::factory()->create(['user_group_id' => $group->id]);

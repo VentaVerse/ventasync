@@ -226,20 +226,15 @@ class VentaOrdersPanel
 
         $skus = array_keys($skus);
 
-        $bySku = DB::table('product')
-            ->whereIn('sku', $skus)
-            ->where('image', '!=', '')
-            ->whereNotNull('image')
-            ->pluck('image', 'sku')
-            ->all();
+        /* The shared resolver (live fix 2026-08-26): a variation SKU used to
+         * find nothing here, because only the product's own sku and model
+         * were looked up, so every variation row read "No image" on the
+         * one channel whose payload carries none. CatalogImages resolves a
+         * combination's own picture, then the parent product's. */
+        $resolved = \App\Support\CatalogImages::forSkus($skus);
 
-        $byModel = DB::table('product')
-            ->whereIn('model', $skus)
-            ->where('image', '!=', '')
-            ->whereNotNull('image')
-            ->pluck('image', 'model')
-            ->all();
-
+        // Storefront links name the product outright; they answer for any
+        // SKU the catalog lookup could not.
         $linked = [];
         $linkIds = DB::table('venta_product_links')
             ->whereIn('sku', $skus)
@@ -261,8 +256,6 @@ class VentaOrdersPanel
             }
         }
 
-        // Union in precedence order: + keeps the left operand's entry for a
-        // key present in both, which is what array_merge would reverse.
-        return $bySku + $byModel + $linked;
+        return $resolved + $linked;
     }
 }

@@ -6,6 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class ShopeeSetting extends Model
 {
+    /**
+     * How long a Shopee refresh token lives from the moment it is granted.
+     * Shopee's token endpoint reports only the ACCESS token's life (four
+     * hours, expire_in), so the refresh token's end is computed here at each
+     * grant; it is the date a person has to sign in again.
+     */
+    public const REFRESH_TOKEN_DAYS = 30;
+
     protected $table = 'shopee_settings';
 
     protected $fillable = [

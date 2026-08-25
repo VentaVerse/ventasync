@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Sales\OrderController;
+use App\Http\Controllers\Sales\OrderPaymentController;
 
 // IA migration (2026-08-08, Task 4): Sales section. Required from
 // routes/web.php inside the ['auth'] group. Order Statuses used to sit
@@ -25,7 +26,8 @@ Route::prefix('sales')->group(function () {
         Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
         Route::get('/orders/search-products', [OrderController::class, 'searchProducts'])->name('orders.search_products');
         Route::get('/orders/{id}', [OrderController::class, 'show'])->whereNumber('id')->name('orders.show');
-        Route::get('/order-payments', [OrderController::class, 'paymentsReport'])->name('orders.payments_report');
+        // Payments carry their own keys (view/manage_sales/order_payment): see OrderPaymentController.
+        Route::get('/order-payments', [OrderPaymentController::class, 'paymentsReport'])->name('orders.payments_report');
     });
 
     // ── Orders — WRITE ──
@@ -50,8 +52,8 @@ Route::prefix('sales')->group(function () {
         ->defaults('permission_tier', 'manage');
         Route::put('/orders/{id}', [OrderController::class, 'update'])->whereNumber('id')->name('orders.update');
         Route::delete('/orders/{id}', [OrderController::class, 'destroy'])->whereNumber('id')->name('orders.destroy');
-        Route::post('/orders/{id}/payments', [OrderController::class, 'storePayment'])->whereNumber('id')->name('orders.store_payment');
-        Route::delete('/orders/{id}/payments/{paymentId}', [OrderController::class, 'destroyPayment'])->whereNumber('id')->whereNumber('paymentId')->name('orders.destroy_payment');
-        Route::post('/orders/{id}/toggle-payments', [OrderController::class, 'togglePayments'])->whereNumber('id')->name('orders.toggle_payments');
+        Route::post('/orders/{id}/payments', [OrderPaymentController::class, 'storePayment'])->whereNumber('id')->name('orders.store_payment');
+        Route::delete('/orders/{id}/payments/{paymentId}', [OrderPaymentController::class, 'destroyPayment'])->whereNumber('id')->whereNumber('paymentId')->name('orders.destroy_payment');
+        Route::post('/orders/{id}/toggle-payments', [OrderPaymentController::class, 'togglePayments'])->whereNumber('id')->name('orders.toggle_payments');
     });
 });

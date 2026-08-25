@@ -27,7 +27,7 @@ class SettingsHubController extends Controller
                 $items,
                 fn (array $d) => Navigation::allows($d['route'])
             )),
-            $this->destinations()
+            self::destinations()
         ));
 
         return view('settings.hub', ['groups' => $groups]);
@@ -39,8 +39,12 @@ class SettingsHubController extends Controller
      * somebody wrote for a human to scan - and stay declared. Only the
      * route name is wiring, and everything else about a card (does it exist,
      * may this user open it) is derived from that one string.
+     *
+     * Public so the breadcrumb (App\Support\Breadcrumbs) can name the card a
+     * settings page sits under: the hub is the section's own index and this
+     * list is the only place its cards exist, so nothing is registered twice.
      */
-    private function destinations(): array
+    public static function destinations(): array
     {
         return [
             'Store' => [

@@ -65,6 +65,7 @@ class ShopeeRefreshToken extends Command
                         $raw->sandbox_access_token = encrypt($access);
                         if ($refresh) {
                             $raw->sandbox_refresh_token = encrypt($refresh);
+                            $raw->sandbox_refresh_expires_at = now()->addDays(ShopeeSetting::REFRESH_TOKEN_DAYS);
                         }
                         $expiresIn = $result['body']['expire_in'] ?? null;
                         if (is_numeric($expiresIn)) {
@@ -74,6 +75,9 @@ class ShopeeRefreshToken extends Command
                         $raw->access_token = encrypt($access);
                         if ($refresh) {
                             $raw->refresh_token = encrypt($refresh);
+                            // A fresh refresh token lives 30 days from now (Shopee's
+                            // design); that date is the sign-in expiry the card shows.
+                            $raw->refresh_expires_at = now()->addDays(ShopeeSetting::REFRESH_TOKEN_DAYS);
                         }
                         $expiresIn = $result['body']['expire_in'] ?? null;
                         if (is_numeric($expiresIn)) {
