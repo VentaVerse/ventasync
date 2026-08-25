@@ -56,9 +56,22 @@
             {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product' : 'products' }} in this group on Lazada
         </p>
     </div>
-    @if($canManageLazada)
-        <x-ui.button :href="route('ext.lazada.product-groups.edit', $group->id)">Edit group</x-ui.button>
-    @endif
+    {{-- Both ask about the whole group (parity #156, from Shopee's page):
+         Check posts because it writes; Unlinked is a GET because it reads. --}}
+    <div class="cc-head-actions">
+        @if($canManageLazada)
+            <form method="POST" action="{{ route('ext.lazada.product-groups.check', $group->id) }}"
+                  data-confirm="Check every product in this group against Lazada? Nothing is sent or changed on Lazada; the ERP updates its own records to match what it finds." data-confirm-tone="primary" data-confirm-verb="Check against Lazada">
+                @csrf
+                <input type="hidden" name="_return" value="{{ $returnTo ?? request()->getRequestUri() }}">
+                <x-ui.button type="submit" variant="secondary">Check against Lazada</x-ui.button>
+            </form>
+        @endif
+        <x-ui.button variant="secondary" :href="route('ext.lazada.product-groups.orphans', $group->id)">Unlinked on Lazada</x-ui.button>
+        @if($canManageLazada)
+            <x-ui.button :href="route('ext.lazada.product-groups.edit', $group->id)">Edit group</x-ui.button>
+        @endif
+    </div>
 </div>
 
 {{-- One filter row. The two selects submit on change (data-autosubmit,
@@ -83,6 +96,7 @@
             <option value="pushed" @selected($syncStatus === 'pushed')>Listed on Lazada</option>
             <option value="pending" @selected($syncStatus === 'pending')>Not listed</option>
             <option value="error" @selected($syncStatus === 'error')>Last push from this group failed</option>
+            <option value="unlinked" @selected($syncStatus === 'unlinked')>Unlinked</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>

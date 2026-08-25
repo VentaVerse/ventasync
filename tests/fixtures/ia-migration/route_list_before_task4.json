@@ -691,6 +691,11 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "channels/lazada/product-groups/{id}/orphans",
+        "name": "ext.lazada.product-groups.orphans"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "channels/lazada/product-groups/{id}/products",
         "name": "ext.lazada.product-groups.products"
     },
@@ -698,6 +703,11 @@
         "method": "POST",
         "uri": "channels/lazada/product-groups/{id}/products/add",
         "name": "ext.lazada.product-groups.addProducts"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/product-groups/{id}/products/check",
+        "name": "ext.lazada.product-groups.check"
     },
     {
         "method": "POST",
@@ -2006,8 +2016,18 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "channels/tiktok/product-groups/{id}/orphans",
+        "name": "ext.tiktok.product-groups.orphans"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "channels/tiktok/product-groups/{id}/products",
         "name": "ext.tiktok.product-groups.products"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/product-groups/{id}/products/check",
+        "name": "ext.tiktok.product-groups.check"
     },
     {
         "method": "DELETE",

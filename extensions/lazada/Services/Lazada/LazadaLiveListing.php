@@ -115,6 +115,86 @@ class LazadaLiveListing
     }
 
     /**
+     * Which items hold these seller SKUs, batched at 50 (#156, Check
+     * against Lazada): lowercased seller SKU => ['item_id', 'status'].
+     * A SKU absent from a successful answer is Lazada saying no item
+     * carries it.
+     *
+     * @param array<string> $skus
+     * @return array<string, array{item_id: string, status: string}>
+     * @throws \RuntimeException when Lazada does not answer
+     */
+    public function itemsBySkus(object $setting, array $creds, array $skus): array
+    {
+        $out = [];
+        foreach (array_chunk(array_values(array_unique(array_filter($skus))), 50) as $chunk) {
+            $data = $this->signedGet($setting, $creds, '/products/get', [
+                'filter' => 'all', 'limit' => '50', 'offset' => '0',
+                'sku_seller_list' => json_encode($chunk, JSON_UNESCAPED_UNICODE),
+            ]);
+            foreach (($data['products'] ?? []) as $prod) {
+                $itemId = (string) ($prod['item_id'] ?? '');
+                if ($itemId === '') {
+                    continue;
+                }
+                foreach ((array) ($prod['skus'] ?? []) as $sku) {
+                    $seller = strtolower(trim((string) ($sku['SellerSku'] ?? $sku['seller_sku'] ?? '')));
+                    if ($seller !== '') {
+                        $out[$seller] = ['item_id' => $itemId, 'status' => strtolower((string) ($prod['status'] ?? ''))];
+                    }
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Every item on the shop with its seller SKUs (#156, Unlinked on
+     * Lazada): item_id => [skus], paged at 50, twenty pages at most, with
+     * a flag saying whether the walk finished.
+     *
+     * @return array{items: array<string, array<int, string>>, complete: bool}
+     */
+    public function skuIndex(object $setting, array $creds): array
+    {
+        $items = [];
+        $complete = true;
+        for ($pageN = 0; $pageN < 20; $pageN++) {
+            try {
+                $data = $this->signedGet($setting, $creds, '/products/get', [
+                    'filter' => 'all', 'limit' => '50', 'offset' => (string) ($pageN * 50),
+                ]);
+            } catch (\Throwable) {
+                $complete = false;
+                break;
+            }
+            $products = $data['products'] ?? [];
+            foreach ($products as $prod) {
+                $itemId = (string) ($prod['item_id'] ?? '');
+                if ($itemId === '') {
+                    continue;
+                }
+                $items[$itemId] ??= [];
+                foreach ((array) ($prod['skus'] ?? []) as $sku) {
+                    $seller = trim((string) ($sku['SellerSku'] ?? $sku['seller_sku'] ?? ''));
+                    if ($seller !== '' && !in_array($seller, $items[$itemId], true)) {
+                        $items[$itemId][] = $seller;
+                    }
+                }
+            }
+            if (count($products) < 50) {
+                break;
+            }
+            if ($pageN === 19) {
+                $complete = false;
+            }
+        }
+
+        return ['items' => $items, 'complete' => $complete];
+    }
+
+    /**
      * One item's full live state for the edit page.
      *
      * @return array{live: ?array, error: ?string}

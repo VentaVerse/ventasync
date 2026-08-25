@@ -2294,6 +2294,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         }
 
         $okCount = 0;
+        $updatedCount = 0;
         $errCount = 0;
 
         $pfx = (string) config('catalog.prefix');
@@ -2334,7 +2335,23 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 continue;
             }
 
-            $apiPath = '/product/create';
+            /* SEND SEMANTICS (parity #156, item 4): a listing already on
+             * Lazada is updated in place - ItemId and each cached SkuId
+             * injected so Lazada edits rather than duplicates - instead of
+             * being created again. */
+            $isUpdate = !empty($listing->lazada_item_id) && empty($listing->lazada_deleted_at);
+            if ($isUpdate) {
+                $productPayload['Request']['Product']['ItemId'] = (int) $listing->lazada_item_id;
+                $variantMap = LazadaProductVariant::where('lazada_product_id', $listing->id)
+                    ->whereNotNull('sku_id')->pluck('sku_id', 'seller_sku')->toArray();
+                foreach ($productPayload['Request']['Product']['Skus']['Sku'] as $idx => $sku) {
+                    $sellerSku = $sku['SellerSku'] ?? '';
+                    if (isset($variantMap[$sellerSku])) {
+                        $productPayload['Request']['Product']['Skus']['Sku'][$idx]['SkuId'] = (int) $variantMap[$sellerSku];
+                    }
+                }
+            }
+            $apiPath = $isUpdate ? '/product/update' : '/product/create';
             $timestamp = (string) round(microtime(true) * 1000);
             $params = [
                 'app_key' => (string) $creds['app_key'],
@@ -2347,12 +2364,12 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
             $result = $client->post((string) $setting->region, $apiPath, $params);
 
-            $this->persistProductSyncStatus($listing, 'bulk_upload_to_lazada', $result, 'listing');
+            $this->persistProductSyncStatus($listing, $isUpdate ? 'bulk_update_on_lazada' : 'bulk_upload_to_lazada', $result, 'listing');
 
             $e = $this->extractLazadaError($result);
             if (!empty($e['ok'])) {
-                $okCount++;
-                $itemId = $this->extractCreatedItemId($result);
+                $isUpdate ? $updatedCount++ : $okCount++;
+                $itemId = $isUpdate ? null : $this->extractCreatedItemId($result);
                 try {
                     if ($itemId) {
                         $listing->lazada_item_id = $itemId;
@@ -2367,7 +2384,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             }
 
             LazadaApiLog::safeCreate([
-                'pack' => 'lazada.product.create.bulk',
+                'pack' => $isUpdate ? 'lazada.product.update.bulk' : 'lazada.product.create.bulk',
                 'method' => 'POST',
                 'api_path' => $apiPath,
                 'auth_required' => true,
@@ -2380,7 +2397,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         }
 
         return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-            ->with('status', "Bulk Upload: processed ".count($ids)." product(s). Success: {$okCount}, Error: {$errCount}.");
+            ->with($errCount > 0 && ($okCount + $updatedCount) === 0 ? 'error' : 'status',
+                "Send: {$okCount} created, {$updatedCount} already listed and updated in place" . ($errCount > 0 ? ", {$errCount} failed" : '') . '.');
     }
 
     public function bulkSyncLazadaId(Request $request, LazadaClient $client)

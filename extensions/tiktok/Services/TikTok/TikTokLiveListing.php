@@ -73,33 +73,47 @@ class TikTokLiveListing
     }
 
     /**
-     * Every product on the shop with its status, page by page (100 per
-     * page, ten pages at most), keyed by TikTok product id.
-     * @return array{statuses: ?array<string, string>, error: ?string}
+     * Every product on the shop, page by page (100 per page, ten pages
+     * at most), keyed by TikTok product id: status, title and the seller
+     * SKUs it carries. The index's tabs, the group's Check and the
+     * Unlinked view all read this one walk.
+     * @return array{products: ?array<string, array{status: string, title: string, skus: array<int, string>}>, error: ?string}
      */
-    public function statuses(array $c, ?string $status = null): array
+    public function shop(array $c, ?string $status = null): array
     {
         $out = [];
         $token = null;
         for ($page = 0; $page < 10; $page++) {
-            $body = ['page_size' => 100];
+            $body = [];
             if ($status) {
                 $body['status'] = $status;
             }
             try {
                 $r = $this->client->post($c['app_key'], $c['app_secret'], $c['token'], '/product/202309/products/search',
-                    array_filter(['page_size' => 100, 'page_token' => $token]), array_filter($body, fn ($v) => $v !== null), $c['shop_cipher'] ?: null);
+                    array_filter(['page_size' => 100, 'page_token' => $token]), $body, $c['shop_cipher'] ?: null);
             } catch (\Throwable $e) {
-                return ['statuses' => null, 'error' => \App\Support\TransportError::plain($e, 'TikTok Shop')];
+                return ['products' => null, 'error' => \App\Support\TransportError::plain($e, 'TikTok Shop')];
             }
             $this->log('POST', '/product/202309/products/search', $body + ['page_token' => $token], $r);
             if (!($r['ok'] ?? false) || (int) ($r['body']['code'] ?? -1) !== 0) {
-                return ['statuses' => null, 'error' => 'TikTok Shop did not answer: ' . (string) ($r['body']['message'] ?? 'no response')];
+                return ['products' => null, 'error' => 'TikTok Shop did not answer: ' . (string) ($r['body']['message'] ?? 'no response')];
             }
             foreach ((array) ($r['body']['data']['products'] ?? []) as $p) {
-                if (!empty($p['id'])) {
-                    $out[(string) $p['id']] = (string) ($p['status'] ?? '');
+                if (empty($p['id'])) {
+                    continue;
                 }
+                $skus = [];
+                foreach ((array) ($p['skus'] ?? []) as $sku) {
+                    $seller = trim((string) ($sku['seller_sku'] ?? ''));
+                    if ($seller !== '') {
+                        $skus[] = $seller;
+                    }
+                }
+                $out[(string) $p['id']] = [
+                    'status' => (string) ($p['status'] ?? ''),
+                    'title' => (string) ($p['title'] ?? ''),
+                    'skus' => $skus,
+                ];
             }
             $token = $r['body']['data']['next_page_token'] ?? null;
             if (!$token) {
@@ -107,7 +121,21 @@ class TikTokLiveListing
             }
         }
 
-        return ['statuses' => $out, 'error' => null];
+        return ['products' => $out, 'error' => null];
+    }
+
+    /**
+     * The shop's statuses alone, keyed by TikTok product id.
+     * @return array{statuses: ?array<string, string>, error: ?string}
+     */
+    public function statuses(array $c, ?string $status = null): array
+    {
+        $shop = $this->shop($c, $status);
+
+        return [
+            'statuses' => $shop['products'] === null ? null : array_map(fn ($p) => $p['status'], $shop['products']),
+            'error' => $shop['error'],
+        ];
     }
 
     private function log(string $method, string $path, array $params, array $result): void

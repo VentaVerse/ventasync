@@ -16,6 +16,7 @@ use Extensions\tiktok\Services\TikTok\TikTokStockPushService;
 use Extensions\tiktok\Services\TikTok\TikTokVariationPush;
 use Extensions\tiktok\Services\TikTok\TikTokAttributes;
 use Extensions\tiktok\Services\TikTok\TikTokProductPush;
+use Extensions\tiktok\Services\TikTok\TikTokLiveListing;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -441,6 +442,8 @@ class TikTokProductGroupController extends Controller
             ));
         } elseif ($syncStatus === 'error') {
             $productIds = array_values(array_filter($productIds, fn($pid) => ($pivotMap->get($pid)->sync_status ?? '') === 'error'));
+        } elseif ($syncStatus === 'unlinked') {
+            $productIds = array_values(array_filter($productIds, fn($pid) => ($pivotMap->get($pid)->sync_status ?? '') === 'unlinked'));
         }
 
         if (empty($productIds)) {
@@ -894,6 +897,132 @@ class TikTokProductGroupController extends Controller
             'priceFor' => fn (float $base) => $group->applyMarkup($base),
             'warehouse_id' => $c['warehouse_id'] ?: null,
         ];
+    }
+
+    /**
+     * Check every product in this group against TikTok Shop (parity #156):
+     * one walk of the shop, nothing sent. A listed product whose TikTok
+     * product is gone loses its link and says so; an unlisted product
+     * whose seller SKU already sits on the shop is linked to it.
+     */
+    public function checkAgainstTikTok(Request $request, int $id, TikTokLiveListing $live)
+    {
+        $group = TikTokProductGroup::findOrFail($id);
+        $c = $this->creds();
+        $productIds = array_filter(array_map('intval', (array) $request->input('ids', [])));
+        if (empty($productIds)) {
+            $productIds = $group->groupProducts()->pluck('product_id')->map('intval')->all();
+        }
+        if (empty($productIds)) {
+            return $this->productsRedirect($id)->with('error', 'This group has no products to check.');
+        }
+
+        $shop = $live->shop($c);
+        if ($shop['products'] === null) {
+            return $this->productsRedirect($id)->with('error', 'Check against TikTok Shop: ' . $shop['error']);
+        }
+        $bySku = [];
+        foreach ($shop['products'] as $ttId => $p) {
+            foreach ($p['skus'] as $sku) {
+                $bySku[strtolower($sku)] ??= (string) $ttId;
+            }
+        }
+
+        $pfx = (string) config('catalog.prefix');
+        $skusByProduct = [];
+        foreach (DB::table($pfx . 'product')->whereIn('product_id', $productIds)->get(['product_id', 'sku', 'model']) as $p) {
+            foreach ([$p->sku, $p->model] as $v) {
+                if (trim((string) $v) !== '') $skusByProduct[(int) $p->product_id][] = strtolower(trim((string) $v));
+            }
+        }
+        foreach (DB::table($pfx . 'product_option_value')->whereIn('product_id', $productIds)->whereNotNull('sku')->where('sku', '!=', '')->get(['product_id', 'sku']) as $r) {
+            $skusByProduct[(int) $r->product_id][] = strtolower(trim((string) $r->sku));
+        }
+        foreach (DB::table('product_option_combinations')->whereIn('product_id', $productIds)->whereNotNull('sku')->where('sku', '!=', '')->get(['product_id', 'sku']) as $r) {
+            $skusByProduct[(int) $r->product_id][] = strtolower(trim((string) $r->sku));
+        }
+
+        $verdicts = ['confirmed' => 0, 'linked' => 0, 'lost' => 0, 'not_on_tiktok' => 0];
+        $problems = [];
+        foreach ($productIds as $productId) {
+            $listing = TikTokListing::query()->where('product_id', $productId)->first();
+            $pivot = $group->groupProducts()->where('product_id', $productId)->first();
+            $known = $listing?->tiktok_product_id ?: ($pivot?->tiktok_product_id);
+            $hit = null;
+            foreach ($skusByProduct[$productId] ?? [] as $sku) {
+                if (isset($bySku[$sku])) {
+                    $hit = $bySku[$sku];
+                    break;
+                }
+            }
+
+            if ($known) {
+                if (isset($shop['products'][(string) $known])) {
+                    TikTokListing::query()->updateOrCreate(['product_id' => $productId], ['tiktok_product_id' => (string) $known, 'last_checked_at' => now()]);
+                    $this->writeProductStatus((int) $productId, ['tiktok_product_id' => (string) $known, 'sync_status' => 'pushed', 'push_error' => null]);
+                    $verdicts['confirmed']++;
+                } elseif ($hit !== null) {
+                    TikTokListing::query()->updateOrCreate(['product_id' => $productId], ['tiktok_product_id' => $hit, 'tiktok_sku_id' => null, 'last_checked_at' => now()]);
+                    $this->writeProductStatus((int) $productId, ['tiktok_product_id' => $hit, 'tiktok_sku_id' => null, 'sync_status' => 'pushed', 'push_error' => null]);
+                    $verdicts['linked']++;
+                } else {
+                    TikTokListing::query()->where('product_id', $productId)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'last_checked_at' => now()]);
+                    $this->writeProductStatus((int) $productId, ['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'sync_status' => 'error', 'push_error' => 'Not found on TikTok Shop; the link was dropped.']);
+                    $problems[] = "#{$productId}: not found on TikTok Shop; the link was dropped";
+                    $verdicts['lost']++;
+                }
+                continue;
+            }
+
+            if ($hit !== null) {
+                TikTokListing::query()->updateOrCreate(['product_id' => $productId], ['tiktok_product_id' => $hit, 'last_checked_at' => now(), 'last_push_source' => 'check']);
+                $this->writeProductStatus((int) $productId, ['tiktok_product_id' => $hit, 'sync_status' => 'pushed', 'push_error' => null]);
+                $verdicts['linked']++;
+            } else {
+                $verdicts['not_on_tiktok']++;
+            }
+        }
+
+        $parts = [];
+        if ($verdicts['confirmed']) $parts[] = "{$verdicts['confirmed']} confirmed on TikTok Shop";
+        if ($verdicts['linked']) $parts[] = "{$verdicts['linked']} linked to the product TikTok Shop holds";
+        if ($verdicts['lost']) $parts[] = "{$verdicts['lost']} no longer on TikTok Shop";
+        if ($verdicts['not_on_tiktok']) $parts[] = "{$verdicts['not_on_tiktok']} not on TikTok Shop";
+        $summary = 'Checked ' . count($productIds) . ' against TikTok Shop: ' . (implode(', ', $parts) ?: 'nothing to report') . '.';
+        if ($problems) $summary .= ' ' . implode('; ', array_slice($problems, 0, 5)) . '.';
+
+        return $this->productsRedirect($id)->with($verdicts['lost'] > 0 ? 'error' : 'status', $summary);
+    }
+
+    /** What TikTok Shop holds that no catalog product is linked to. Read-only. */
+    public function orphans(Request $request, int $id, TikTokLiveListing $live)
+    {
+        $group = TikTokProductGroup::findOrFail($id);
+        $c = $this->creds();
+        $shop = $live->shop($c);
+        if ($shop['products'] === null) {
+            return $this->productsRedirect($id)->with('error', 'Unlinked on TikTok Shop: ' . $shop['error']);
+        }
+        $known = TikTokListing::query()->whereNotNull('tiktok_product_id')->pluck('tiktok_product_id')->map(fn ($v) => (string) $v)
+            ->merge(TikTokProductGroupProduct::query()->whereNotNull('tiktok_product_id')->pluck('tiktok_product_id')->map(fn ($v) => (string) $v))
+            ->unique()->flip();
+
+        $orphans = [];
+        foreach ($shop['products'] as $ttId => $p) {
+            if ($known->has((string) $ttId)) {
+                continue;
+            }
+            $skus = $p['skus'];
+            sort($skus);
+            $orphans[] = ['id' => (string) $ttId, 'title' => $p['title'], 'status' => $p['status'], 'skus' => $skus];
+        }
+
+        return view('ext-tiktok::product-groups.orphans', [
+            'group' => $group,
+            'orphans' => $orphans,
+            'scanned' => count($shop['products']),
+            'complete' => count($shop['products']) < 1000,
+        ]);
     }
 
     public function push(Request $request, int $id)
