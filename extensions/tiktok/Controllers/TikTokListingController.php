@@ -6,7 +6,12 @@ use App\Http\Controllers\Controller;
 use Extensions\tiktok\Models\TikTokApiLog;
 use Extensions\tiktok\Models\TikTokListing;
 use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\tiktok\Models\TikTokCategory;
+use Extensions\tiktok\Services\TikTok\TikTokAttributes;
 use Extensions\tiktok\Services\TikTok\TikTokClient;
+use Extensions\tiktok\Services\TikTok\TikTokListingReadiness;
+use Extensions\tiktok\Services\TikTok\TikTokLiveListing;
+use Extensions\tiktok\Services\TikTok\TikTokProductPush;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -25,14 +30,48 @@ use Illuminate\Support\Facades\DB;
  */
 class TikTokListingController extends Controller
 {
-    public function edit(int $productId)
+    public function edit(int $productId, TikTokLiveListing $liveListing)
     {
         $product = $this->productOrFail($productId);
+        $listing = TikTokListing::query()->where('product_id', $productId)->first();
+        $truth = $this->derivedTruth($productId);
+
+        // The live half, fetched from TikTok on this load; only a listed
+        // product has one, an unpushed one shows readiness instead.
+        $live = null;
+        $liveError = null;
+        $c = $this->creds();
+        if ($truth) {
+            if (!$c) {
+                $liveError = 'TikTok settings are incomplete, so the live state could not be fetched.';
+            } else {
+                $answer = $liveListing->fetch((string) $truth->tiktok_product_id, $c);
+                $live = $answer['live'];
+                $liveError = $answer['error'];
+            }
+        }
+
+        // The category's attribute sheet, read once when never seen.
+        $attributes = app(TikTokAttributes::class);
+        $template = ($listing && $listing->tiktok_category_id && $c)
+            ? $attributes->ensureTemplate((string) $listing->tiktok_category_id, app(TikTokClient::class), $c)
+            : null;
+        $category = ($listing && $listing->tiktok_category_id)
+            ? TikTokCategory::query()->where('id', $listing->tiktok_category_id)->first(['id', 'name'])
+            : null;
+        $readiness = app(TikTokListingReadiness::class)->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => []];
 
         return view('ext-tiktok::listings.edit', [
             'product' => $product,
-            'listing' => TikTokListing::query()->where('product_id', $productId)->first(),
-            'truth' => $this->derivedTruth($productId),
+            'listing' => $listing,
+            'truth' => $truth,
+            'live' => $live,
+            'liveError' => $liveError,
+            'category' => $category,
+            'attrTemplate' => $template,
+            'attrRows' => $attributes->rows($template),
+            'savedAttributes' => $listing->attribute_values ?? [],
+            'readinessMissing' => $readiness['missing'],
         ]);
     }
 
@@ -41,16 +80,40 @@ class TikTokListingController extends Controller
         $this->productOrFail($productId);
 
         $data = $request->validate([
+            'tiktok_category_id' => 'nullable|string|max:64|exists:tiktok_categories,id',
+            'brand_id' => 'nullable|string|max:64',
+            'brand_name' => 'nullable|string|max:191',
+            'markup_percent' => 'nullable|numeric|min:-100|max:1000',
+            'markup_fixed' => 'nullable|numeric|min:-1000000|max:1000000',
+            'title' => 'nullable|string|max:255',
+            'description' => 'nullable|string|max:10000',
+            'attributes' => 'nullable|array',
+            'attributes.*' => 'nullable|string|max:500',
             // TikTok takes the percent itself and only whole percents.
             'sale_percent' => 'nullable|integer|min:1|max:99',
             'sale_starts_at' => 'nullable|date|required_with:sale_percent',
             'sale_ends_at' => 'nullable|date|required_with:sale_percent|after:sale_starts_at',
         ]);
 
+        /* Content fields are OVERRIDES: an emptied field returns to null,
+         * which means "follows the catalog". Saving here never writes the
+         * core product. */
+        $blank = fn ($v) => ($v === null || trim((string) $v) === '') ? null : $v;
         $hasRule = ($data['sale_percent'] ?? null) !== null;
         TikTokListing::query()->updateOrCreate(
             ['product_id' => $productId],
             [
+                'tiktok_category_id' => $blank($data['tiktok_category_id'] ?? null),
+                'brand_id' => $blank($data['brand_id'] ?? null),
+                'brand_name' => $blank($data['brand_id'] ?? null) ? $blank($data['brand_name'] ?? null) : null,
+                'markup_percent' => $blank($data['markup_percent'] ?? null),
+                'markup_fixed' => $blank($data['markup_fixed'] ?? null),
+                'title' => $blank($data['title'] ?? null),
+                'description' => $blank($data['description'] ?? null),
+                'attribute_values' => array_filter(
+                    array_map(fn ($v) => trim((string) $v), $data['attributes'] ?? []),
+                    fn ($v) => $v !== ''
+                ) ?: null,
                 'sale_percent' => $hasRule ? $data['sale_percent'] : null,
                 'sale_starts_at' => $hasRule ? ($data['sale_starts_at'] ?? null) : null,
                 'sale_ends_at' => $hasRule ? ($data['sale_ends_at'] ?? null) : null,
@@ -58,7 +121,71 @@ class TikTokListingController extends Controller
         );
 
         return redirect()->route('ext.tiktok.listings.edit', $productId)
-            ->with('status', $hasRule ? 'Discount saved. Push it to TikTok Shop when ready.' : 'Discount cleared on this record.');
+            ->with('status', 'Listing saved. These settings drive the next push and price sync.');
+    }
+
+    /**
+     * Push the listing's content and settings onto the LIVE TikTok
+     * product: the same builder as every push, with the ids injected so
+     * an update edits SKUs rather than duplicating them.
+     */
+    public function pushListingUpdate(int $productId, TikTokClient $client)
+    {
+        $truth = $this->derivedTruth($productId);
+        $c = $this->creds();
+        if (!$truth || !$c) {
+            return redirect()->back()->with('error', 'Update failed: ' . (!$c ? 'missing TikTok settings.' : 'this product is not on TikTok Shop.'));
+        }
+        $readiness = app(TikTokListingReadiness::class)->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => ['a TikTok category']];
+        if (!$readiness['ready']) {
+            return redirect()->back()->with('error', 'Update failed: this listing still needs ' . implode(', ', $readiness['missing']) . '.');
+        }
+        $listing = TikTokListing::query()->where('product_id', $productId)->first();
+        $attributes = app(TikTokAttributes::class);
+        $template = $attributes->ensureTemplate((string) $listing->tiktok_category_id, $client, $c);
+        $opts = [
+            'category_id' => (string) $listing->tiktok_category_id,
+            'brand_id' => $listing->brand_id,
+            'attributes' => $attributes->payload($attributes->rows($template), $listing->attribute_values ?? []),
+            'priceFor' => fn (float $base) => $listing->priceFor($base),
+            'warehouse_id' => $c['warehouse_id'] ?: null,
+            'title' => $listing->title, 'description' => $listing->description,
+        ];
+        $erp = DB::table((string) config('catalog.prefix') . 'product as p')
+            ->leftJoin((string) config('catalog.prefix') . 'product_description as pd', function ($j) {
+                $j->on('pd.product_id', '=', 'p.product_id')->where('pd.language_id', (int) config('catalog.default_language_id'));
+            })
+            ->where('p.product_id', $productId)
+            ->first(['p.product_id', 'pd.name', 'pd.description', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.image', 'p.weight', 'p.length', 'p.width', 'p.height']);
+
+        $outcome = app(TikTokProductPush::class)->edit($erp, (string) $truth->tiktok_product_id, $truth->tiktok_sku_id ?? null, $opts, $c, $client);
+        if (!$outcome['ok']) {
+            return redirect()->back()->with('error', 'Update failed: ' . $outcome['message']);
+        }
+        TikTokListing::recordPush($productId, (string) $truth->tiktok_product_id, $outcome['sku_ids'] ?? ($truth->tiktok_sku_id ?? null), 'listing');
+
+        return redirect()->back()->with('status', 'Update sent to TikTok Shop. Title, description, package, category, brand and attributes went; price and stock have their own pushes.');
+    }
+
+    /** The seller center's Activate / Deactivate, from here. */
+    public function toggleListing(Request $request, int $productId, TikTokClient $client)
+    {
+        $request->validate(['action' => 'required|in:activate,deactivate']);
+        $deactivate = $request->input('action') === 'deactivate';
+        $truth = $this->derivedTruth($productId);
+        $c = $this->creds();
+        if (!$truth || !$c) {
+            return redirect()->back()->with('error', ($deactivate ? 'Deactivate' : 'Activate') . ' failed: ' . (!$c ? 'missing TikTok settings.' : 'this product is not on TikTok Shop.'));
+        }
+        $path = '/product/202309/products/' . ($deactivate ? 'deactivate' : 'activate');
+        $result = $this->call($client, $c, 'POST', $path, ['product_ids' => [(string) $truth->tiktok_product_id]]);
+        if (!$this->callOk($result)) {
+            return redirect()->back()->with('error', ($deactivate ? 'Deactivate' : 'Activate') . ' failed: ' . $this->callMessage($result));
+        }
+
+        return redirect()->back()->with('status', $deactivate
+            ? 'Deactivated on TikTok Shop. Buyers stop seeing it; it can be activated again at any time.'
+            : 'Activated on TikTok Shop. Buyers see it again once TikTok applies it.');
     }
 
     public function pushDiscount(Request $request, int $productId, TikTokClient $client)

@@ -1896,6 +1896,16 @@
     },
     {
         "method": "POST",
+        "uri": "channels/tiktok/listings/{productId}/push-update",
+        "name": "ext.tiktok.listings.push_update"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/listings/{productId}/toggle",
+        "name": "ext.tiktok.listings.toggle"
+    },
+    {
+        "method": "POST",
         "uri": "channels/tiktok/order-status-map",
         "name": "ext.tiktok.order_status_map"
     },
@@ -2038,6 +2048,61 @@
         "method": "POST",
         "uri": "channels/tiktok/product-groups/{id}/update-product",
         "name": "ext.tiktok.product-groups.updateProduct"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/products",
+        "name": "ext.tiktok.products.index"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/products/brands",
+        "name": "ext.tiktok.products.brandsSearch"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/products/bulk/send",
+        "name": "ext.tiktok.products.bulk_send"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/products/categories/lookup",
+        "name": "ext.tiktok.products.categoryLookup"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/products/categories/search",
+        "name": "ext.tiktok.products.searchCategories"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/products/fetch-attributes",
+        "name": "ext.tiktok.products.fetchAttributes"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/products/{productId}/delete",
+        "name": "ext.tiktok.products.delete"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/products/{productId}/push",
+        "name": "ext.tiktok.products.push_direct"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/products/{productId}/push-price",
+        "name": "ext.tiktok.products.push_price"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/products/{productId}/push-stock",
+        "name": "ext.tiktok.products.push_stock"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/products/{productId}/unlink",
+        "name": "ext.tiktok.products.unlink"
     },
     {
         "method": "POST",

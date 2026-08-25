@@ -488,6 +488,11 @@ function initCategoryCombo(root) {
     function commit(id, label) {
         value.value = String(id);
         input.value = label;
+        // A remote list that is not cached locally (TikTok's brands) has
+        // nowhere to look the name up again on the next page load, so the
+        // picked words ride a sibling hidden input when the page asks.
+        const labelStore = root.querySelector('[data-combo-label-store]');
+        if (labelStore) labelStore.value = label;
         // Without this, focus was left on the option button, which the
         // hide() above turns into `display: none`; a hidden element cannot
         // hold focus, so the browser drops it to <body> and a keyboard

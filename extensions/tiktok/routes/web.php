@@ -5,6 +5,7 @@ use Extensions\tiktok\Controllers\TiktokApiExplorerController;
 use Extensions\tiktok\Controllers\TikTokOrderController;
 use Extensions\tiktok\Controllers\TikTokCouponController;
 use Extensions\tiktok\Controllers\TikTokListingController;
+use Extensions\tiktok\Controllers\TikTokProductController;
 use Extensions\tiktok\Controllers\TikTokProductGroupController;
 use Illuminate\Support\Facades\Route;
 
@@ -60,6 +61,14 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         // Coupons (#153): a live read of the shop's coupons.
         Route::get('/tiktok/coupons', [TikTokCouponController::class, 'index'])->name('ext.tiktok.coupons.index');
 
+        // Listings (#156): the index with TikTok's own status on load,
+        // readiness before a push, and the combobox endpoints the listing
+        // page reads (the door is keyed on this controller).
+        Route::get('/tiktok/products', [TikTokProductController::class, 'index'])->name('ext.tiktok.products.index');
+        Route::get('/tiktok/products/categories/search', [TikTokProductController::class, 'searchCategories'])->name('ext.tiktok.products.searchCategories');
+        Route::get('/tiktok/products/categories/lookup', [TikTokProductController::class, 'categoryLookup'])->name('ext.tiktok.products.categoryLookup');
+        Route::get('/tiktok/products/brands', [TikTokProductController::class, 'brandsSearch'])->name('ext.tiktok.products.brandsSearch');
+
         // The per-product page (#146): the product's derived listing
         // truth plus its discount rule. Readable by the view tier (it
         // renders read-only with no verbs); the writes are manage routes.
@@ -112,6 +121,19 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         Route::post('/tiktok/product-groups/{id}/update-product', [TikTokProductGroupController::class, 'updateProduct'])->name('ext.tiktok.product-groups.updateProduct');
         Route::post('/tiktok/product-groups/{id}/push-prices', [TikTokProductGroupController::class, 'pushPrices'])->name('ext.tiktok.product-groups.pushPrices');
         Route::post('/tiktok/product-groups/{id}/push-stock', [TikTokProductGroupController::class, 'pushStock'])->name('ext.tiktok.product-groups.pushStock');
+
+        // Listing writes (#156): the one-click push on the product's own
+        // settings, Send for a selection, stock and price for one product,
+        // unlink, delete, and the attribute sheet read for the listing page.
+        Route::post('/tiktok/products/fetch-attributes', [TikTokProductController::class, 'fetchAttributes'])->name('ext.tiktok.products.fetchAttributes');
+        Route::post('/tiktok/products/bulk/send', [TikTokProductController::class, 'bulkSend'])->name('ext.tiktok.products.bulk_send');
+        Route::post('/tiktok/products/{productId}/push', [TikTokProductController::class, 'pushDirect'])->whereNumber('productId')->name('ext.tiktok.products.push_direct');
+        Route::post('/tiktok/products/{productId}/push-stock', [TikTokProductController::class, 'pushStock'])->whereNumber('productId')->name('ext.tiktok.products.push_stock');
+        Route::post('/tiktok/products/{productId}/push-price', [TikTokProductController::class, 'pushPrice'])->whereNumber('productId')->name('ext.tiktok.products.push_price');
+        Route::post('/tiktok/products/{productId}/unlink', [TikTokProductController::class, 'unlink'])->whereNumber('productId')->name('ext.tiktok.products.unlink');
+        Route::post('/tiktok/products/{productId}/delete', [TikTokProductController::class, 'deleteFromTikTok'])->whereNumber('productId')->name('ext.tiktok.products.delete');
+        Route::post('/tiktok/listings/{productId}/push-update', [TikTokListingController::class, 'pushListingUpdate'])->whereNumber('productId')->name('ext.tiktok.listings.push_update');
+        Route::post('/tiktok/listings/{productId}/toggle', [TikTokListingController::class, 'toggleListing'])->whereNumber('productId')->name('ext.tiktok.listings.toggle');
 
         // Per-product discount rule + its push (#146)
         Route::put('/tiktok/listings/{productId}', [TikTokListingController::class, 'update'])->whereNumber('productId')->name('ext.tiktok.listings.update');

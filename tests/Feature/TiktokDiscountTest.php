@@ -153,7 +153,9 @@ class TiktokDiscountTest extends TestCase
             ->get(route('ext.tiktok.listings.edit', $productId));
 
         $r->assertOk();
-        $r->assertSee('Listed');
+        // The listing page grew its live section (#156): a listed product
+        // opens on what TikTok Shop says right now, with its product id.
+        $r->assertSee('On TikTok Shop right now');
         $r->assertSee('tt-990077');
         $r->assertSee('Percent off');
 

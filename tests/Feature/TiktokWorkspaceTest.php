@@ -125,6 +125,7 @@ class TiktokWorkspaceTest extends TestCase
         $this->assertEqualsCanonicalizing([
             'ext.tiktok.orders.index',
             'ext.tiktok.coupons.index',   // joined 2026-08-26 (#153, quest 4)
+            'ext.tiktok.products.index',  // joined 2026-08-26 (#156, parity)
             'ext.tiktok.product-groups.index',
             'ext.tiktok.categories.index',
             'ext.tiktok.index',
