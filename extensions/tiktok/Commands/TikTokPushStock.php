@@ -6,6 +6,7 @@ use Extensions\tiktok\Models\TikTokApiLog;
 use Extensions\tiktok\Models\TikTokProductGroupProduct;
 use Extensions\tiktok\Models\TikTokSetting;
 use Extensions\tiktok\Services\TikTok\TikTokClient;
+use Extensions\tiktok\Services\TikTok\TikTokStockPushService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -45,7 +46,7 @@ class TikTokPushStock extends Command
         }
 
         $pfx = (string) config('catalog.prefix');
-        $client = new TikTokClient();
+        $client = app(TikTokClient::class);
 
         // Get all pivot rows that have been pushed to TikTok
         $pivotRows = TikTokProductGroupProduct::query()
@@ -59,20 +60,23 @@ class TikTokPushStock extends Command
             return 0;
         }
 
-        // Preload ERP product data
-        $productIds = $pivotRows->pluck('product_id')->unique()->values()->all();
-        $erpProducts = DB::table($pfx . 'product')
-            ->whereIn('product_id', $productIds)
-            ->get(['product_id', 'quantity', 'status'])
-            ->keyBy('product_id');
+        // A bare product pushed before ids were stored: ask TikTok once.
+        foreach ($pivotRows as $pivot) {
+            if (!$pivot->tiktok_sku_id) {
+                $detail = $client->getProduct($appKey, $appSecret, $token, $pivot->tiktok_product_id, $shopCipher);
+                $found = $detail['body']['data']['skus'][0]['id'] ?? null;
+                if ($found) {
+                    $pivot->update(['tiktok_sku_id' => (string) $found]);
+                    $pivot->tiktok_sku_id = (string) $found;
+                }
+            }
+        }
 
-        // Preload option values for all products
-        $erpOptionsByProduct = DB::table($pfx . 'product_option_value')
-            ->whereIn('product_id', $productIds)
-            ->whereNotNull('sku')
-            ->where('sku', '!=', '')
-            ->get(['product_id', 'product_option_value_id', 'option_value_id', 'sku', 'quantity'])
-            ->groupBy('product_id');
+        // The ONE resolver, shared with the group page: combinations first,
+        // then option values, then the bare product. The old loop read
+        // product_option_value alone and pushed the wrong figure for every
+        // multi-axis product on every tick.
+        $resolved = app(TikTokStockPushService::class)->resolve($pivotRows, $pfx);
 
         $this->info("Pushing stock for {$pivotRows->count()} product(s)...");
 
@@ -80,51 +84,22 @@ class TikTokPushStock extends Command
         $totalErr = 0;
         $skipped = 0;
 
-        foreach ($pivotRows as $pivot) {
-            $product = $erpProducts->get((int) $pivot->product_id);
-            if (!$product || (int) $product->status === 0) {
+        foreach ($resolved as $row) {
+            $pivot = $row['pivot'];
+            if ($row['product_status'] === 0) {
                 $skipped++;
                 continue;
             }
 
-            $skuIdRaw = $pivot->tiktok_sku_id;
-            $skuMap = $this->parseSkuIds($skuIdRaw);
-
-            if ($skuMap === null) {
-                // Single-variant product
-                if (!$skuIdRaw) {
-                    // Try fetching SKU ID from TikTok API
-                    $detail = $client->getProduct($appKey, $appSecret, $token, $pivot->tiktok_product_id, $shopCipher);
-                    $skuIdRaw = $detail['body']['data']['skus'][0]['id'] ?? null;
-                    if ($skuIdRaw) {
-                        $pivot->update(['tiktok_sku_id' => $skuIdRaw]);
-                    }
-                }
-                if (!$skuIdRaw) {
-                    $totalErr++;
-                    continue;
-                }
-
-                $qty = max(0, (int) ($product->quantity ?? 0));
-                $inv = ['quantity' => $qty];
+            $skuPayload = [];
+            foreach ($row['skus'] as $sku) {
+                $inv = ['quantity' => $sku['quantity']];
                 if ($warehouseId) $inv['warehouse_id'] = $warehouseId;
-                $skuPayload = [['id' => $skuIdRaw, 'inventory' => [$inv]]];
-            } else {
-                // Multi-variant — build inventory for each option value
-                $optionValues = $erpOptionsByProduct->get((int) $pivot->product_id, collect())->keyBy('option_value_id');
-                $skuPayload = [];
-                foreach ($skuMap as $ovId => $ttSkuId) {
-                    if (!$ttSkuId) continue;
-                    $ov = $optionValues->get($ovId);
-                    $qty = $ov ? max(0, (int) $ov->quantity) : 0;
-                    $inv = ['quantity' => $qty];
-                    if ($warehouseId) $inv['warehouse_id'] = $warehouseId;
-                    $skuPayload[] = ['id' => $ttSkuId, 'inventory' => [$inv]];
-                }
-                if (empty($skuPayload)) {
-                    $totalErr++;
-                    continue;
-                }
+                $skuPayload[] = ['id' => $sku['id'], 'inventory' => [$inv]];
+            }
+            if (empty($skuPayload)) {
+                $totalErr++;
+                continue;
             }
 
             $result = $client->updateInventory($appKey, $appSecret, $token, $pivot->tiktok_product_id, $skuPayload, $shopCipher);
@@ -159,16 +134,4 @@ class TikTokPushStock extends Command
         return $totalErr > 0 ? 1 : 0;
     }
 
-    /**
-     * Parse tiktok_sku_id value. Returns assoc array (option_value_id => sku_id)
-     * for multi-variant products, or null for single-variant.
-     */
-    private function parseSkuIds(?string $skuIdRaw): ?array
-    {
-        if (!$skuIdRaw || $skuIdRaw[0] !== '{') {
-            return null;
-        }
-        $decoded = json_decode($skuIdRaw, true);
-        return is_array($decoded) ? $decoded : null;
-    }
 }
