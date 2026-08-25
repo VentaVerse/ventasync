@@ -545,6 +545,13 @@
    ------------------------------------------------------------------ */
 
 .cc-bulkbar {
+    /* Sticky: a tick on row 30 of a 6,800px table used to change nothing
+       on screen, the bar sat static above the header. It rides under the
+       top bar on wide screens and along the bottom edge on a phone, where
+       the thumb is. */
+    position: sticky;
+    top: var(--bl-space-2);
+    z-index: 6;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -747,7 +754,7 @@
     .cc-page .x-table td.cc-col-count,
     .cc-page .x-table td.cc-col-lvl { text-align: left; }
 
-    .cc-bulkbar { flex-wrap: wrap; }
+    .cc-bulkbar { flex-wrap: wrap; top: auto; bottom: var(--bl-space-2); }
     .cc-bulkbar__actions { width: 100%; }
     .cc-bulkbar__actions .x-btn { flex: 1 1 auto; }
 
@@ -782,3 +789,16 @@
         z-index: 5;
     }
 }
+
+
+/* The sync error is the actionable fact on a listings row; it wraps
+   inside its column instead of clipping to "VALIDATION_ER". */
+.cc-page .x-table td.cc-col-err {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+}
+
+/* A page-level note (the marketplace did not answer) keeps its own gap
+   above the filter row; it sat flush against the search input. */
+.cc-page > .fm-note { margin-bottom: var(--bl-space-3); }

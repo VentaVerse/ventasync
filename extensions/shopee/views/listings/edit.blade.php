@@ -388,6 +388,7 @@
                             : null,
                         'remoteId' => $listing?->shopee_discount_id ? (string) $listing->shopee_discount_id : null,
                         'tracked' => true, 'endClearsRule' => false,
+                        'liveError' => $link ? ($liveError ?? null) : null,
                         'action' => route('ext.shopee.listings.push_discount', $product->product_id),
                     ];
                 @endphp

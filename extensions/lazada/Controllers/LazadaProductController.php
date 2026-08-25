@@ -2154,7 +2154,11 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         }
 
         if ($ending && $err === 0) {
-            $listing->forceFill(['sale_percent' => null, 'sale_starts_at' => null, 'sale_ends_at' => null])->save();
+            $listing->forceFill(['sale_percent' => null, 'sale_starts_at' => null, 'sale_ends_at' => null, 'sale_pushed_at' => null])->save();
+        } elseif (!$ending && $err === 0) {
+            // Lazada reports no promotion id back; the stamp is how the
+            // record knows its rule reached the marketplace at all.
+            $listing->forceFill(['sale_pushed_at' => now()])->save();
         }
 
         if ($err > 0) {

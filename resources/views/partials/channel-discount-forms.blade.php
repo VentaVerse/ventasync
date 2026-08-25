@@ -19,7 +19,7 @@
     $endWords = 'End this discount on ' . $channel . ' now? Buyers pay the full price again'
         . ($endClearsRule ? ', and the saved rule here is cleared.' : '.');
 @endphp
-@if($canManage && $onMarketplace)
+@if($canManage && $onMarketplace && ($liveError ?? null) === null)
     <form id="{{ $prefix }}-discount-push" method="POST" action="{{ $action }}" data-confirm="{{ $pushWords }}">
         @csrf
         <input type="hidden" name="action" value="push">

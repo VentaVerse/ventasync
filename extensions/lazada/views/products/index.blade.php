@@ -627,8 +627,13 @@
                         @if($rowReady['ready'])
                             <span class="cc-checked">Ready to push</span>
                         @else
-                            <span class="cc-checked cc-checked--never"
-                                  title="Missing: {{ implode('; ', $rowReady['missing']) }}">Missing: {{ \Illuminate\Support\Str::limit(implode(', ', $rowReady['missing']), 80) }}</span>
+                            {{-- A badge, with the list behind the hint: the same
+                                 sentence four lines tall on every row of the page
+                                 doubled the row height for words identical down
+                                 the column. The listing page keeps the full
+                                 sentence beside the fields that fill it. --}}
+                            <span class="cc-checked"><x-ui.badge tone="warning">Not ready</x-ui.badge>
+                                <x-ui.hint label="What is missing before a push">Missing: {{ implode(', ', $rowReady['missing']) }}</x-ui.hint></span>
                         @endif
                     @endif
                 @endif

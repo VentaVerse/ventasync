@@ -439,6 +439,8 @@
                         // rule here (decided 2026-08-25): Lazada keeps no
                         // object to rejoin, so a cleared rule is the truth.
                         'endClearsRule' => true,
+                        'pushedAt' => $listing->sale_pushed_at ?? null,
+                        'liveError' => $mode === 'edit' && !empty($listing->lazada_item_id) ? ($liveError ?? null) : null,
                         'action' => $mode === 'edit' ? route('ext.lazada.listings.push_discount', $listing->id) : '',
                     ];
                 @endphp

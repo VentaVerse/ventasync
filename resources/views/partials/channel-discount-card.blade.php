@@ -25,6 +25,8 @@
       remoteId       ?string the channel's promotion id once pushed
       tracked        bool, whether the channel gives us a promotion id at all
       endClearsRule  bool, whether End also clears the saved rule here
+      pushedAt       ?Carbon when an untracked channel last took the push (Lazada)
+      liveError      ?string set when the channel did not answer on this load
 --}}
 @php
     $hasRule = $savedPct !== null && $savedFrom && $savedTo;
@@ -32,18 +34,23 @@
     $inputFrom = old('sale_starts_at', $savedFrom?->format('Y-m-d\TH:i'));
     $inputTo = old('sale_ends_at', $savedTo?->format('Y-m-d\TH:i'));
 
+    $pushedAt = $pushedAt ?? null;
+    $liveError = $liveError ?? null;
+
     if (!$hasRule) {
         $stateWords = 'No discount set.';
     } elseif ($remoteId) {
         $stateWords = 'On ' . $channel . ' as promotion ' . $remoteId . '. Buyers see the cut price inside the window.';
-    } elseif ($tracked) {
-        $stateWords = 'Saved here, not pushed to ' . $channel . ' yet.';
+    } elseif ($pushedAt) {
+        $stateWords = 'Pushed to ' . $channel . ' ' . $pushedAt->diffForHumans() . '. Buyers see the cut price inside the window.';
     } else {
-        $stateWords = 'Saved here. Push sends it to ' . $channel . '.';
+        $stateWords = 'Saved here, not pushed to ' . $channel . ' yet.';
     }
 
-    $canPush = $canManage && $onMarketplace && $hasRule;
-    $canEnd = $canManage && $onMarketplace && ($remoteId || (!$tracked && $hasRule));
+    // Nothing goes out while the channel is not answering: a push into
+    // silence would report its own failure a moment later.
+    $canPush = $canManage && $onMarketplace && $hasRule && $liveError === null;
+    $canEnd = $canManage && $onMarketplace && ($remoteId || $pushedAt) && $liveError === null;
 @endphp
 {{-- The Alpine scope answers while the operator types: the Status line
      turns into "Unsaved: 15% off, Aug 26 10:00 to Sep 2 23:59. Save,
@@ -56,7 +63,7 @@
         to: @js((string) ($inputTo ?? '')),
         saved: { pct: @js((string) ($inputPct ?? '')), from: @js((string) ($inputFrom ?? '')), to: @js((string) ($inputTo ?? '')) },
         get dirty() { return this.pct !== this.saved.pct || this.from !== this.saved.from || this.to !== this.saved.to; },
-        when(v) { if (!v) return ''; var d = new Date(v); return isNaN(d) ? v : d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); },
+        when(v) { if (!v) return ''; var d = new Date(v); return isNaN(d) ? v : d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }); },
         get words() {
             if (!this.pct) return 'Unsaved: the discount is being cleared. Save to confirm.';
             if (!this.from || !this.to) return 'Unsaved: ' + this.pct + '% off; set the start and the end, then Save.';
@@ -69,7 +76,7 @@
         <div class="fm-fields fm-fields--3">
             <x-ui.field label="Percent off" for="{{ $prefix }}-sale-percent" name="sale_percent">
                 <x-ui.input id="{{ $prefix }}-sale-percent" name="sale_percent" type="number" :step="$step" min="1" max="99"
-                            :value="$inputPct" placeholder="10" x-model="pct" :disabled="!$canManage" />
+                            :value="$inputPct" x-model="pct" :disabled="!$canManage" />
             </x-ui.field>
             <x-ui.field label="From" for="{{ $prefix }}-sale-from" name="sale_starts_at">
                 <x-ui.input id="{{ $prefix }}-sale-from" name="sale_starts_at" type="datetime-local" :value="$inputFrom" x-model="from" :disabled="!$canManage" />
@@ -99,9 +106,11 @@
                     <x-ui.button type="submit" form="{{ $prefix }}-discount-end" data-confirm-verb="End discount">End discount now</x-ui.button>
                 @endif
             </div>
-            @unless($hasRule)
+            @if($liveError !== null)
+                <p class="fm-section__note">Push waits until {{ $channel }} answers; see the live section above.</p>
+            @elseif(!$hasRule)
                 <p class="fm-section__note">Set a percent, a start and an end, then Save. Push turns on once the rule is saved.</p>
-            @endunless
+            @endif
         @elseif(!$onMarketplace)
             <p class="fm-section__note">The discount joins the live listing; push the product to {{ $channel }} first.</p>
         @endif

@@ -21,7 +21,7 @@ final class MarketplaceWords
             || str_contains($m, 'x-tts-access-token') || str_contains($m, 'illegalaccesstoken')
             || str_contains($m, 'token expired') || str_contains($m, 'token is expired')
             || str_contains($m, 'invalid token') || str_contains($m, 'unauthorized')) {
-            return $channel . "'s sign-in has lapsed. Reconnect it in Settings.";
+            return $channel . "'s sign-in has lapsed.";
         }
         if (str_contains($m, 'insufficientpermission') || str_contains($m, 'does not have permission')) {
             return $channel . ' has not granted this app that part of its API. It needs enabling in the ' . $channel . ' developer console.';
