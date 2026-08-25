@@ -1845,6 +1845,21 @@
         "name": "ext.tiktok.categories.sync"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/coupons",
+        "name": "ext.tiktok.coupons.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/coupons",
+        "name": "ext.tiktok.coupons.store"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/coupons/{couponId}/deactivate",
+        "name": "ext.tiktok.coupons.deactivate"
+    },
+    {
         "method": "POST",
         "uri": "channels/tiktok/explorer/run",
         "name": "ext.tiktok.explorer_run"
