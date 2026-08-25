@@ -361,11 +361,7 @@
             </td>
 
             <td class="cc-col-stat" data-label="Catalog">
-                @if((int) $p->status === 1)
-                    <span class="x-cell-strong">Enabled</span>
-                @else
-                    <span class="x-cell-muted">Disabled</span>
-                @endif
+                <x-ui.badge :tone="(int) $p->status === 1 ? 'success' : 'neutral'">{{ (int) $p->status === 1 ? 'Enabled' : 'Disabled' }}</x-ui.badge>
             </td>
 
             <td class="cc-col-sync" data-label="Listing">

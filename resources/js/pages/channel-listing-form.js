@@ -105,10 +105,17 @@ function initRunningTotal(root) {
         // Rounded once, here, at the display boundary. The number input
         // posts two decimals, so a total computed from the unrounded
         // figure would disagree with what the server stores by a cent.
-        out.textContent = total.toLocaleString(undefined, {
+        // The figure was rendered through <x-money>, symbol and all. Only
+        // its digits are replaced; whatever the server put before or after
+        // them (the currency symbol) is kept as it was, so nothing about
+        // currency is ever composed here.
+        const node = out.querySelector('.money-primary') || out;
+        const parts = node.textContent.trim().match(/^(\D*)([\d.,]+)(\D*)$/);
+        const digits = total.toLocaleString(undefined, {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
         });
+        node.textContent = (parts ? parts[1] : '') + digits + (parts ? parts[3] : '');
     }
 
     if (percentInput) percentInput.addEventListener('input', recalc);

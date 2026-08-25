@@ -127,8 +127,10 @@ class TiktokCouponTest extends TestCase
         $r->assertSee('Old news');
         $r->assertSee('Expired');
         // Two live rows, two Deactivate buttons; the expired row offers none.
-        // One verb for one act across the three channels: End now.
-        $this->assertSame(2, substr_count($r->getContent(), '>End now<'));
+        // One verb per state across the three channels: End now for a
+        // running one, Cancel before it starts for one nobody has seen.
+        $this->assertSame(1, substr_count($r->getContent(), '>End now<'));
+        $this->assertSame(1, substr_count($r->getContent(), '>Cancel before it starts<'));
     }
 
     public function test_the_status_filter_is_passed_to_tiktok_not_applied_after_the_fact(): void

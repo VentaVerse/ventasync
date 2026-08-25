@@ -205,7 +205,7 @@
      be asked - the note below says why. --}}
 @if(($liveTabError ?? null) !== null)
     <div class="fm-note fm-note--warn" role="status">
-        <div class="fm-note__body">{{ $liveTabError }}</div>
+        <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'Lazada', 'raw' => $liveTabError, 'settingsRoute' => 'ext.lazada.index'])</div>
     </div>
 @elseif(($liveCounts ?? null) !== null)
     @php
@@ -425,12 +425,6 @@
                     @if($sort === 'lazada_item_id')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
-            <th scope="col" class="cc-col-stat">
-                <a class="x-th-sort" href="{{ $sortUrl('product_status') }}">
-                    Catalog
-                    @if($sort === 'product_status')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
-                </a>
-            </th>
             <th scope="col" class="cc-col-sync">
                 <a class="x-th-sort" href="{{ $sortUrl('lazada_status') }}">
                     Listing
@@ -515,7 +509,16 @@
                              and pushed the row's overflow menu off the
                              table. This is the same fold Shopee's rebuilt
                              listings table already makes. --}}
+                        {{-- Catalog status rides the meta line (critique
+                             2026-08-25): as its own column the table ran
+                             119px past its wrap at 1440 and hid Last sync,
+                             the column this page exists for. --}}
                         <div class="co-item__meta">
+                            @if($p !== null)
+                                <x-ui.badge :tone="$pStatus ? 'success' : 'neutral'">{{ $pStatus ? 'Enabled' : 'Disabled' }}</x-ui.badge>
+                            @else
+                                <span class="x-cell-muted">No product</span>
+                            @endif
                             <span class="co-item__sku">{{ $pSku ?: 'No SKU' }}</span>
                             @if($pMfg !== '')
                                 <span>{{ $pMfg }}</span>
@@ -588,13 +591,6 @@
                 @endif
             </td>
 
-            <td class="cc-col-stat" data-label="Catalog">
-                @if($p === null)
-                    <span class="x-cell-muted">No product</span>
-                @else
-                    <x-ui.badge :tone="$pStatus ? 'success' : 'neutral'">{{ $pStatus ? 'Enabled' : 'Disabled' }}</x-ui.badge>
-                @endif
-            </td>
 
             <td class="cc-col-sync" data-label="Listing">
                 @php

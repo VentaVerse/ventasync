@@ -29,7 +29,7 @@
 
 <form method="GET" action="{{ route('ext.lazada.vouchers.index') }}" class="x-filters">
     <div class="x-select-wrap x-filters__select">
-        <select name="status" data-autosubmit aria-label="Voucher status">
+        <select name="status" class="x-input" data-autosubmit aria-label="Voucher status">
             <option value="all" @selected($status === 'all')>All</option>
             @foreach(['not_start' => 'Upcoming', 'ongoing' => 'Ongoing', 'expired' => 'Expired'] as $value => $label)
                 <option value="{{ $value }}" @selected($status === $value)>{{ $label }}</option>
@@ -41,8 +41,10 @@
 
 @if($vouchers === null)
     <x-ui.empty title="Lazada did not answer"
-                :description="'The voucher list could not be fetched: ' . $liveError . ' Nothing shown here is guessed; reload to ask again.'">
-        <x-slot:action><a class="x-btn x-btn--secondary x-btn--sm" href="{{ route('ext.lazada.index') }}">Open Lazada settings</a></x-slot:action>
+                :description="'The voucher list could not be fetched. Nothing shown here is guessed; reload to ask again.'">
+        <x-slot:action>
+            <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'Lazada', 'raw' => $liveError, 'settingsRoute' => 'ext.lazada.index'])</div>
+        </x-slot:action>
     </x-ui.empty>
 @elseif($vouchers->isEmpty())
     <x-ui.empty title="No vouchers here"
@@ -68,6 +70,9 @@
             [$stateLabel, $stateTone] = $statusMap[$v['state']] ?? [$v['state'] !== '' ? ucfirst($v['state']) : 'Unknown', 'neutral'];
             $isPercent = str_contains(strtoupper((string) ($v['discount_type'] ?? '')), 'PERCENT');
             $canStop = $canManage && in_array($v['state'], ['not_start', 'upcoming', 'ongoing'], true);
+            // The same API call, but a voucher nobody has seen yet is
+            // cancelled, not ended: the verb tells the truth about the act.
+            $notStarted = in_array($v['state'], ['not_start', 'upcoming'], true);
         @endphp
         <tr>
             <td data-label="Voucher">
@@ -103,9 +108,12 @@
             <td class="x-td-actions">
                 @if($canStop)
                     <form method="POST" action="{{ route('ext.lazada.vouchers.deactivate', $v['id'] ?? ($v['voucher_id'] ?? 0)) }}"
-                          data-confirm="Deactivate voucher {{ $v['name'] ?? '' }}? Buyers can no longer collect or use it, and a deactivated voucher cannot restart." data-confirm-verb="End voucher">
+                          data-confirm="{{ $notStarted
+                              ? 'Cancel voucher ' . ($v['name'] ?? '') . ' before it starts? Buyers never see it, and it cannot be brought back.'
+                              : 'End voucher ' . ($v['name'] ?? '') . ' now? Buyers can no longer collect or use it, and an ended voucher cannot restart.' }}"
+                          data-confirm-verb="{{ $notStarted ? 'Cancel voucher' : 'End voucher' }}">
                         @csrf
-                        <x-ui.button type="submit">End now</x-ui.button>
+                        <x-ui.button type="submit">{{ $notStarted ? 'Cancel before it starts' : 'End now' }}</x-ui.button>
                     </form>
                 @endif
             </td>

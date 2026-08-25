@@ -186,7 +186,7 @@
             </div>
             @if(($liveError ?? null) !== null)
                 <div class="fm-note fm-note--fail">
-                    <div class="fm-note__body">{{ $liveError }} Nothing below is stale data standing in for it: the live state is simply unknown until Lazada answers.</div>
+                    <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'Lazada', 'raw' => $liveError, 'settingsRoute' => 'ext.lazada.index']) Nothing below is stale data standing in for it: the live state is simply unknown until Lazada answers.</div>
                 </div>
             @elseif(($live ?? null) !== null)
                 @php
@@ -412,62 +412,9 @@
                         </p>
                     @endif
                 </section>
-            </div>
 
-            <div class="fm-col fm-col--side">
-                <div class="fm-card">
-                    <div class="fm-card__head"><h2 class="fm-card__title">Price markup</h2></div>
-                    <div class="fm-card__body">
-                        <p class="fm-section__note">The percentage is added to the catalog price first, then the fixed amount is added on top.</p>
-
-                        <x-ui.field label="Percentage of price" for="lz-markup-percent" name="markup_percent"
-                                    hint="5 means the listed price is 5% above the catalog price.">
-                            <div class="cs-inline">
-                                <x-ui.input id="lz-markup-percent" name="markup_percent" type="number" step="0.01" min="0"
-                                            class="fm-input--num cs-days" data-markup-percent
-                                            value="{{ $effectivePercent }}" placeholder="0" />
-                                <span class="cs-inline__unit">%</span>
-                            </div>
-                        </x-ui.field>
-
-                        <x-ui.field label="Fixed amount" for="lz-markup-fixed" name="markup_fixed"
-                                    hint="Added after the percentage.">
-                            <x-ui.input id="lz-markup-fixed" name="markup_fixed" type="number" step="0.01" min="0"
-                                        class="fm-input--num" data-markup-fixed
-                                        value="{{ $effectiveFixed }}" placeholder="0.00" />
-                        </x-ui.field>
-
-                        @if($basePrice !== null)
-                            {{-- The one figure the two fields above raise a
-                                 question about. The currency is resolved by
-                                 App\Support\Money here in Blade; the script
-                                 only replaces the number, because nothing in
-                                 JavaScript can read the default currency off
-                                 the currencies table. --}}
-                            <div class="cl-total" data-running-total data-base-price="{{ $basePrice }}">
-                                <span class="cl-total__k">Listed at</span>
-                                <span class="cl-total__v"><span data-total-value>{{ number_format($basePrice, 2) }}</span></span>
-                                <span class="cl-total__note">Catalog price <x-money :php="(float) $basePrice" /></span>
-                            </div>
-                        @endif
-
-                        @if($groupMarkup)
-                            @php
-                                $inherited = [];
-                                if (!empty($groupMarkup->markup_percent)) {
-                                    $inherited[] = rtrim(rtrim(number_format((float) $groupMarkup->markup_percent, 2), '0'), '.') . '%';
-                                }
-                                if (!empty($groupMarkup->markup_fixed)) {
-                                    $inherited[] = number_format((float) $groupMarkup->markup_fixed, 2);
-                                }
-                            @endphp
-                            @if(!empty($inherited))
-                                <p class="fm-section__note">These started from the {{ $groupMarkup->name }} group ({{ implode(' then ', $inherited) }}). Changing them here overrides the group for this listing only.</p>
-                            @endif
-                        @endif
-                    </div>
-                </div>
-
+                {{-- The Discount card sits in the work column on every channel
+                     (critique 2026-08-25). --}}
                 @php
                     $lzSalePreview = null;
                     if ($listing->sale_percent !== null && $basePrice !== null) {
@@ -499,6 +446,62 @@
                      the push is its own confirmed act. Partial in
                      resources/views/partials/channel-discount-card. --}}
                 @include('partials.channel-discount-card', $discount)
+            </div>
+
+            <div class="fm-col fm-col--side">
+                <div class="fm-card">
+                    <div class="fm-card__head"><h2 class="fm-card__title">Price rule</h2></div>
+                    <div class="fm-card__body">
+                        <p class="fm-section__note">The percentage is added to the catalog price first, then the fixed amount is added on top.</p>
+
+                        <x-ui.field label="Percent added" for="lz-markup-percent" name="markup_percent"
+                                    hint="5 means the listed price is 5% above the catalog price.">
+                            <div class="cs-inline">
+                                <x-ui.input id="lz-markup-percent" name="markup_percent" type="number" step="0.01" min="0"
+                                            class="fm-input--num cs-days" data-markup-percent
+                                            value="{{ $effectivePercent }}" placeholder="0" />
+                                <span class="cs-inline__unit">%</span>
+                            </div>
+                        </x-ui.field>
+
+                        <x-ui.field label="Fixed amount added" for="lz-markup-fixed" name="markup_fixed"
+                                    hint="Added after the percentage.">
+                            <x-ui.input id="lz-markup-fixed" name="markup_fixed" type="number" step="0.01" min="0"
+                                        class="fm-input--num" data-markup-fixed
+                                        value="{{ $effectiveFixed }}" placeholder="0.00" />
+                        </x-ui.field>
+
+                        @if($basePrice !== null)
+                            {{-- The one figure the two fields above raise a
+                                 question about. The currency is resolved by
+                                 App\Support\Money here in Blade; the script
+                                 only replaces the number, because nothing in
+                                 JavaScript can read the default currency off
+                                 the currencies table. --}}
+                            <div class="cl-total" data-running-total data-base-price="{{ $basePrice }}">
+                                <span class="cl-total__k">Price on Lazada after push</span>
+                                <span class="cl-total__v" data-total-value><x-money :php="(float) $basePrice" /></span>
+                                <span class="cl-total__note">Catalog price <x-money :php="(float) $basePrice" /></span>
+                            </div>
+                        @endif
+
+                        @if($groupMarkup)
+                            @php
+                                $inherited = [];
+                                if (!empty($groupMarkup->markup_percent)) {
+                                    $inherited[] = rtrim(rtrim(number_format((float) $groupMarkup->markup_percent, 2), '0'), '.') . '%';
+                                }
+                                if (!empty($groupMarkup->markup_fixed)) {
+                                    $inherited[] = number_format((float) $groupMarkup->markup_fixed, 2);
+                                }
+                            @endphp
+                            @if(!empty($inherited))
+                                <p class="fm-section__note">These started from the {{ $groupMarkup->name }} group ({{ implode(' then ', $inherited) }}). Changing them here overrides the group for this listing only.</p>
+                            @endif
+                        @endif
+                    </div>
+                </div>
+
 
                 @if($mode === 'create')
                 <div class="fm-card">
@@ -819,7 +822,7 @@
 
         {{-- Sending a sample to Lazada is a multi-second round trip, so the
              page says so rather than letting the operator click again. --}}
-        <div id="lazada-group-progress" class="modal-backdrop">
+        <div id="lazada-group-progress" class="modal-backdrop" role="dialog" aria-modal="true" aria-live="polite">
             <div class="modal co-modal co-modal--sm">
                 <div class="cc-progress">
                     <span class="co-spinner co-spinner--lg" aria-hidden="true"></span>

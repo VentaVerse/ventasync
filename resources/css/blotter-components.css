@@ -180,6 +180,15 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
+    /* Three short fields that belong to one sentence (a percent and its
+       window); one line wide, stacked on a phone. */
+    .fm-fields--3 {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    @media (max-width: 640px) {
+        .fm-fields--3 { grid-template-columns: minmax(0, 1fr); }
+    }
+
     .fm-field {
         display: flex;
         flex-direction: column;
@@ -203,6 +212,17 @@
         color: var(--bl-ink-3);
     }
 
+    /* The marketplace's own sentence behind a plain headline
+       (partials.channel-answer): a summary that reads as a link, the
+       words beneath it in the note's own ink, wrapping anywhere because a
+       marketplace may answer with one unbroken token. */
+    .fm-note__more { margin-top: 6px; font-size: 12.5px; }
+    .fm-note__more > summary { cursor: pointer; color: var(--bl-alert-link); list-style: none; }
+    .fm-note__more > summary::-webkit-details-marker { display: none; }
+    .fm-note__more > summary::before { content: '+ '; }
+    .fm-note__more[open] > summary::before { content: '\2212  '; }
+    .fm-note__more > span { display: block; margin-top: 4px; overflow-wrap: anywhere; color: var(--bl-ink-2); }
+
     /* A card that folds (details/summary): the voucher create forms. The
        summary IS the card head, so the fold costs no new anatomy; the hint
        says what opening does and leaves once it has. */
@@ -218,6 +238,23 @@
     .fm-card--fold > .fm-card__head--summary:focus-visible { outline: 2px solid var(--bl-brand-deep); outline-offset: 2px; }
     .fm-card__hint { font-size: 12px; color: var(--bl-ink-3); }
     .fm-card--fold[open] .fm-card__hint { display: none; }
+    /* The fold is a control: a chevron says so, and the title keeps the
+       weight of a button rather than the muted weight of a card head. */
+    .fm-card--fold > .fm-card__head--summary .fm-card__title { color: var(--bl-ink); }
+    .fm-card--fold > .fm-card__head--summary::after {
+        content: '';
+        flex: none;
+        width: 8px;
+        height: 8px;
+        margin-left: auto;
+        border-right: 2px solid var(--bl-ink-2);
+        border-bottom: 2px solid var(--bl-ink-2);
+        transform: rotate(-45deg);
+        transition: transform 120ms ease;
+    }
+    .fm-card--fold[open] > .fm-card__head--summary::after { transform: rotate(45deg); }
+    .fm-card--fold > .fm-card__head--summary .fm-card__hint { margin-left: auto; }
+    .fm-card--fold[open] > .fm-card__head--summary .fm-card__hint { display: none; }
 
     .fm-req {
         font-size: 11px;
@@ -5073,11 +5110,20 @@
     [data-theme='dark'] .fh-scope .co-ref:hover,
     [data-theme='dark'] .fh-scope .x-row-link:hover { color: var(--ch-lift, var(--bl-brand)); }
 
+    /* THE PRIMARY BUTTON IS THE OPERATOR'S, NOT THE MARKETPLACE'S.
+     *
+     * It used to take --ch-lift here, the channel colour walked toward
+     * white. For a black brand (TikTok) that walk lands on #818181, and
+     * "Save discount" rendered grey on ink: the one action the sticky bar
+     * exists for read as disabled. Lazada's came out a tepid lavender.
+     * DESIGN.md's rule is that brand cyan means "you can act here" and the
+     * channel colours only the chip, the ring and the header rule, so the
+     * dark primary is the brand on every channel (decided 2026-08-25). */
     [data-theme='dark'] .x-app--channel .x-btn--primary,
     [data-theme='dark'] .fh-scope .x-btn--primary {
-        background: var(--ch-lift, var(--bl-ink));
-        border-color: var(--ch-lift, var(--bl-ink));
-        color: var(--bl-paper);
+        background: var(--bl-brand);
+        border-color: var(--bl-brand);
+        color: var(--bl-ink);
     }
 }
 

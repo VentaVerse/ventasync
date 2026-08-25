@@ -159,12 +159,26 @@
 
             @if($liveError)
                 <div class="fm-note fm-note--fail">
-                    <div class="fm-note__body">{{ $liveError }} Nothing below is stale data standing in for it: the live state is simply unknown until Shopee answers. <a href="{{ route('ext.shopee.index') }}">Open Shopee settings</a> if the sign-in has lapsed.</div>
+                    <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'Shopee', 'raw' => $liveError, 'settingsRoute' => 'ext.shopee.index']) Nothing below is stale data standing in for it: the live state is simply unknown until Shopee answers.</div>
                 </div>
             @endif
             @if($link && !empty($missing))
                 <div class="fm-note">
-                    <div class="fm-note__body">Push update needs {{ implode(', ', $missing) }} before it can run. Set what is missing below and save.</div>
+                    @php
+                        /* Each gap links to the exact field that fills it;
+                           "below" is 2,400px away on a phone. */
+                        $gapLinks = collect($missing)->map(function ($gap) use ($product) {
+                            $href = str_contains($gap, 'category') ? '#sl-category'
+                                : (str_contains($gap, 'courier') ? '#sl-couriers'
+                                : (str_contains($gap, 'image') ? route('products.edit', $product->product_id)
+                                : (str_contains($gap, 'attribute') ? '#sl-attributes' : null)));
+                            return $href ? '<a href="' . e($href) . '">' . e($gap) . '</a>' : e($gap);
+                        })->all();
+                        $gapWords = count($gapLinks) > 1
+                            ? implode(', ', array_slice($gapLinks, 0, -1)) . ' and ' . end($gapLinks)
+                            : ($gapLinks[0] ?? '');
+                    @endphp
+                    <div class="fm-note__body">Push update needs {!! $gapWords !!} before it can run. Set what is missing and save.</div>
                 </div>
             @endif
             @if($live)
@@ -336,13 +350,13 @@
                     <div class="fm-card__body">
                         <p class="fm-section__note">The Shopee price is never stored: it is the catalog price run through this rule at every push and price sync, so catalog price changes carry through on their own.</p>
                         <div class="fm-fields fm-fields--2">
-                            <x-ui.field label="Markup percent" for="sl-markup-pct" name="markup_percent">
+                            <x-ui.field label="Percent added" for="sl-markup-pct" name="markup_percent">
                                 <x-ui.input id="sl-markup-pct" name="markup_percent" type="number" step="0.01"
                                             :value="old('markup_percent', $listing->markup_percent ?? '')"
                                             placeholder="0"
                                             :disabled="!$canManage" />
                             </x-ui.field>
-                            <x-ui.field label="Markup fixed" for="sl-markup-fixed" name="markup_fixed">
+                            <x-ui.field label="Fixed amount added" for="sl-markup-fixed" name="markup_fixed">
                                 <x-ui.input id="sl-markup-fixed" name="markup_fixed" type="number" step="0.01"
                                             :value="old('markup_fixed', $listing->markup_fixed ?? '')"
                                             placeholder="0"
@@ -355,7 +369,7 @@
                                 <span class="fm-stat__v"><x-money :php="$corePrice" /></span>
                             </div>
                             <div class="fm-stat">
-                                <span class="fm-stat__k">Next push sends</span>
+                                <span class="fm-stat__k">Price on Shopee after push</span>
                                 <span class="fm-stat__v"><x-money :php="$hasRule ? $nextPrice : $corePrice" /></span>
                             </div>
                         </div>
@@ -392,6 +406,7 @@
                          data-attributes-fetch
                          data-attributes-url="{{ route('ext.shopee.products.fetchAttributes') }}"
                          data-attributes-field="shopee_category_id"
+                         id="sl-attributes"
                          data-attributes-source="#sl-category-value"
                          @if(empty($attrRows) && !$attrTemplate) hidden @endif>
                     <div class="fm-section__head">
@@ -415,7 +430,7 @@
                 <div class="fm-card">
                     <div class="fm-card__head"><h2 class="fm-card__title">Category and brand</h2></div>
                     <div class="fm-card__body">
-                        <x-ui.field label="Shopee category" for="sl-category" name="shopee_category_id"
+                        <x-ui.field label="Shopee category" for="sl-category" name="shopee_category_id" :required="true"
                                     hint="Only leaf categories are listed. Shopee accepts nothing else.">
                             <div class="gf-combo"
                                  data-category-combo
@@ -470,7 +485,7 @@
                 </div>
 
                 <div class="fm-card">
-                    <div class="fm-card__head"><h2 class="fm-card__title">Couriers</h2></div>
+                    <div class="fm-card__head" id="sl-couriers"><h2 class="fm-card__title">Couriers <span class="fm-req">Required</span></h2></div>
                     <div class="fm-card__body">
                         @if($errors->has('logistic_ids'))
                             <div class="fm-error">{{ $errors->first('logistic_ids') }}</div>

@@ -201,7 +201,7 @@
      answer is worse than none, and the note below says why it is gone. --}}
 @if(($liveTabError ?? null) !== null)
     <div class="fm-note fm-note--warn" role="status">
-        <div class="fm-note__body">{{ $liveTabError }}</div>
+        <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'Shopee', 'raw' => $liveTabError, 'settingsRoute' => 'ext.shopee.index'])</div>
     </div>
 @elseif(($liveCounts ?? null) !== null)
     @php
@@ -600,10 +600,9 @@
                      data-confirm, as before. The menu panel is z-index 20
                      (components/ui-table.css), above the row's stretched-link
                      overlay, so its controls stay clickable. --}}
+                @if($canManageShopee || $canEditCatalog)
                 <x-ui.menu label="Product {{ $p->product_id }} actions">
-                    @if($canManageShopee)
-                        <a class="x-menu__item" href="{{ route('ext.shopee.listings.edit', $p->product_id) }}">Open listing</a>
-                    @endif
+                    <a class="x-menu__item" href="{{ route('ext.shopee.listings.edit', $p->product_id) }}">Open listing</a>
                     @if($canEditCatalog)<a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalog</a>@endif
 
                     @if($canManageShopee)
@@ -656,6 +655,7 @@
                         @endif
                     @endif
                 </x-ui.menu>
+                @endif
             </td>
         </tr>
     @endforeach

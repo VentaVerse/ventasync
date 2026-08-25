@@ -29,7 +29,7 @@
 
 <form method="GET" action="{{ route('ext.tiktok.coupons.index') }}" class="x-filters">
     <div class="x-select-wrap x-filters__select">
-        <select name="status" data-autosubmit aria-label="Coupon status">
+        <select name="status" class="x-input" data-autosubmit aria-label="Coupon status">
             <option value="all" @selected($status === 'all')>All</option>
             @foreach($statusMap as $value => [$label, $tone])
                 <option value="{{ strtolower($value) }}" @selected($status === strtolower($value))>{{ $label }}</option>
@@ -41,8 +41,10 @@
 
 @if($coupons === null)
     <x-ui.empty title="TikTok did not answer"
-                :description="'The coupon list could not be fetched: ' . $liveError . ' Nothing shown here is guessed; reload to ask again.'">
-        <x-slot:action><a class="x-btn x-btn--secondary x-btn--sm" href="{{ route('ext.tiktok.index') }}">Open TikTok Shop settings</a></x-slot:action>
+                :description="'The coupon list could not be fetched. Nothing shown here is guessed; reload to ask again.'">
+        <x-slot:action>
+            <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'TikTok Shop', 'raw' => $liveError, 'settingsRoute' => 'ext.tiktok.index'])</div>
+        </x-slot:action>
     </x-ui.empty>
 @elseif($coupons->isEmpty())
     <x-ui.empty title="No coupons here"
@@ -72,6 +74,7 @@
             $limits = $cp['usage_limits'] ?? [];
             $window = $cp['redemption_duration'] ?? ($cp['claim_duration'] ?? []);
             $canStop = $canManage && in_array($state, ['NOT_START', 'ONGOING'], true);
+            $notStarted = $state === 'NOT_START';
         @endphp
         <tr>
             <td data-label="Coupon">
@@ -110,9 +113,12 @@
             <td class="x-td-actions">
                 @if($canStop)
                     <form method="POST" action="{{ route('ext.tiktok.coupons.deactivate', $cp['id']) }}"
-                          data-confirm="Deactivate coupon {{ $cp['title'] ?? '' }}? Buyers can no longer claim or use it, and a deactivated coupon cannot restart." data-confirm-verb="End coupon">
+                          data-confirm="{{ $notStarted
+                              ? 'Cancel coupon ' . ($cp['title'] ?? '') . ' before it starts? Buyers never see it, and it cannot be brought back.'
+                              : 'End coupon ' . ($cp['title'] ?? '') . ' now? Buyers can no longer claim or use it, and an ended coupon cannot restart.' }}"
+                          data-confirm-verb="{{ $notStarted ? 'Cancel coupon' : 'End coupon' }}">
                         @csrf
-                        <x-ui.button type="submit">End now</x-ui.button>
+                        <x-ui.button type="submit">{{ $notStarted ? 'Cancel before it starts' : 'End now' }}</x-ui.button>
                     </form>
                 @endif
             </td>

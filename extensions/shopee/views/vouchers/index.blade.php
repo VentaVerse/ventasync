@@ -33,7 +33,7 @@
 
 <form method="GET" action="{{ route('ext.shopee.vouchers.index') }}" class="x-filters">
     <div class="x-select-wrap x-filters__select">
-        <select name="status" data-autosubmit aria-label="Voucher status">
+        <select name="status" class="x-input" data-autosubmit aria-label="Voucher status">
             @foreach(['all' => 'All', 'upcoming' => 'Upcoming', 'ongoing' => 'Ongoing', 'expired' => 'Expired'] as $value => $label)
                 <option value="{{ $value }}" @selected($status === $value)>{{ $label }}</option>
             @endforeach
@@ -44,8 +44,10 @@
 
 @if($vouchers === null)
     <x-ui.empty title="Shopee did not answer"
-                :description="'The voucher list could not be fetched: ' . $liveError . ' Nothing shown here is guessed; reload to ask again.'">
-        <x-slot:action><a class="x-btn x-btn--secondary x-btn--sm" href="{{ route('ext.shopee.index') }}">Open Shopee settings</a></x-slot:action>
+                :description="'The voucher list could not be fetched. Nothing shown here is guessed; reload to ask again.'">
+        <x-slot:action>
+            <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'Shopee', 'raw' => $liveError, 'settingsRoute' => 'ext.shopee.index'])</div>
+        </x-slot:action>
     </x-ui.empty>
 @elseif($vouchers->isEmpty())
     <x-ui.empty title="No vouchers here"

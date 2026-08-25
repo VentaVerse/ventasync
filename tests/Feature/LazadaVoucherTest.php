@@ -138,8 +138,10 @@ class LazadaVoucherTest extends TestCase
         $r->assertSee('Upcoming');
         $r->assertSee('Old news');
         $r->assertSee('Expired');
-        // One verb for one act across the three channels: End now.
-        $this->assertSame(2, substr_count($r->getContent(), '>End now<'));
+        // One verb per state across the three channels: End now for a
+        // running one, Cancel before it starts for one nobody has seen.
+        $this->assertSame(1, substr_count($r->getContent(), '>End now<'));
+        $this->assertSame(1, substr_count($r->getContent(), '>Cancel before it starts<'));
     }
 
     public function test_the_status_filter_rides_the_request_to_lazada(): void

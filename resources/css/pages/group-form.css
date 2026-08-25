@@ -365,6 +365,9 @@
 
 @media (min-width: 641px) {
     .gf-checks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    /* Inside a side rail two columns break courier names mid-word
+       ("Sandbox SPX Express(Do / n't modify)"); one column reads. */
+    .fm-col--side .gf-checks { grid-template-columns: minmax(0, 1fr); }
 }
 
 .gf-check {
