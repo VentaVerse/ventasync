@@ -175,9 +175,14 @@ function initBulkForms(config, showProgress) {
                 showProgress(config.bulkTitle(ids.length));
                 const button = form.querySelector('button[type="submit"]');
                 if (button) button.disabled = true;
-                form.dataset.bulkSubmitting = '1';
-                if (form.requestSubmit) form.requestSubmit();
-                else form.submit();
+                // Native submit(), NOT requestSubmit(). For the no-confirm
+                // actions this runs synchronously inside the form's own submit
+                // dispatch, and a re-entrant requestSubmit() during an in-flight
+                // submit is silently dropped by the browser — no event, no
+                // error, the overlay just span forever and nothing posted.
+                // submit() navigates unconditionally and fires no submit event,
+                // so the re-entrancy guard above is no longer needed.
+                form.submit();
             };
 
             const message = form.getAttribute('data-bulk-confirm');
