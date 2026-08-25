@@ -1746,6 +1746,26 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "channels/shopee/vouchers",
+        "name": "ext.shopee.vouchers.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/vouchers",
+        "name": "ext.shopee.vouchers.store"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/vouchers/{voucherId}/delete",
+        "name": "ext.shopee.vouchers.delete"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/vouchers/{voucherId}/end",
+        "name": "ext.shopee.vouchers.end"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "channels/shopee/{store?}",
         "name": "ext.shopee.dashboard"
     },

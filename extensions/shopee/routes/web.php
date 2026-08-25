@@ -97,6 +97,9 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         Route::get('/shopee/products/brands', [ShopeeProductController::class, 'brandsForCategory'])->name('ext.shopee.products.brandsForCategory');
         Route::get('/shopee/products/{productId}/push', [ShopeeProductController::class, 'pushForm'])->name('ext.shopee.products.push');
 
+        // Vouchers (#153): a live read of the shop's vouchers.
+        Route::get('/shopee/vouchers', [\Extensions\shopee\Controllers\ShopeeVoucherController::class, 'index'])->name('ext.shopee.vouchers.index');
+
         // The individual listing page: live marketplace state + the
         // listing record's own settings and content. An edit form, so a
         // MANAGE surface despite being a GET, like the push form above.
@@ -190,6 +193,12 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         Route::post('/shopee/listings/{productId}/push-update', [ShopeeProductController::class, 'pushListingUpdate'])->whereNumber('productId')->name('ext.shopee.listings.push_update');
         Route::post('/shopee/products/fetch-attributes', [ShopeeProductController::class, 'fetchAttributes'])->name('ext.shopee.products.fetchAttributes');
         Route::post('/shopee/listings/{productId}/push-discount', [ShopeeProductController::class, 'pushListingDiscount'])->whereNumber('productId')->name('ext.shopee.listings.push_discount');
+
+        // Voucher writes (#153): create, end an ongoing one, delete an
+        // upcoming one. All pass-throughs; Shopee owns the object.
+        Route::post('/shopee/vouchers', [\Extensions\shopee\Controllers\ShopeeVoucherController::class, 'store'])->name('ext.shopee.vouchers.store');
+        Route::post('/shopee/vouchers/{voucherId}/end', [\Extensions\shopee\Controllers\ShopeeVoucherController::class, 'end'])->whereNumber('voucherId')->name('ext.shopee.vouchers.end');
+        Route::post('/shopee/vouchers/{voucherId}/delete', [\Extensions\shopee\Controllers\ShopeeVoucherController::class, 'destroy'])->whereNumber('voucherId')->name('ext.shopee.vouchers.delete');
         Route::post('/shopee/products/{productId}/unlink', [ShopeeProductController::class, 'unlink'])->name('ext.shopee.products.unlink');
         Route::post('/shopee/products/{productId}/delete', [ShopeeProductController::class, 'deleteFromShopee'])->name('ext.shopee.products.delete');
     });
