@@ -1182,6 +1182,13 @@ class LazadaProductGroupController extends Controller
      */
     public function checkAgainstLazada(Request $request, int $id, LazadaLiveListing $live)
     {
+        // One Lazada call per fifty SKUs: a whole group of two hundred
+        // products is eight or more calls of a few seconds each, past the
+        // default execution limit, and the request died with the page still
+        // waiting (2026-08-26). The same allowance every other long action
+        // on this controller takes.
+        try { @set_time_limit(0); } catch (\Throwable $e) {}
+
         $group = LazadaProductGroup::findOrFail($id);
         $setting = LazadaSetting::query()->first()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);

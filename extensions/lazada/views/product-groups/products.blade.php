@@ -139,6 +139,14 @@
             <input type="hidden" name="_return" value="{{ $returnTo }}">
             <x-ui.button type="submit" size="sm">Push stock</x-ui.button>
         </form>
+        {{-- The check scoped to the selection, as Shopee's bar has it. The
+             head's button checks the whole group, which on a big group is
+             many Lazada calls; a few chosen products is one. --}}
+        <form method="POST" action="{{ route('ext.lazada.product-groups.check', $group->id) }}" data-bulk-form>
+            @csrf
+            <input type="hidden" name="_return" value="{{ $returnTo }}">
+            <x-ui.button type="submit" size="sm">Check against Lazada</x-ui.button>
+        </form>
         <form method="POST" action="{{ route('ext.lazada.product-groups.massRemove', $group->id) }}" data-bulk-form
               data-bulk-confirm="Take the selected products out of this group? Nothing is deleted from the catalog, and nothing already live on Lazada is touched.">
             @csrf

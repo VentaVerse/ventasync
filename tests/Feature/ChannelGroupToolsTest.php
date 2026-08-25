@@ -143,6 +143,43 @@ class ChannelGroupToolsTest extends TestCase
         $this->assertSame('error', LazadaProductGroupProduct::where('product_id', $lost)->value('sync_status'));
     }
 
+    /**
+     * The bulk bar's check is scoped to the selection (2026-08-26): a
+     * whole-group check on a big group is one Lazada call per fifty SKUs
+     * and used to die past the execution limit with the page still
+     * waiting. A few chosen products is one call about those alone.
+     */
+    public function test_lazada_check_scoped_to_a_selection_asks_only_about_those_products(): void
+    {
+        $chosen = $this->seedProduct('GT-PICK');
+        $other = $this->seedProduct('GT-REST');
+        $group = LazadaProductGroup::create(['name' => 'Lazada scoped group', 'lazada_category_id' => 10001]);
+        foreach ([$chosen, $other] as $pid) {
+            $listing = LazadaProduct::create(['product_id' => $pid, 'primary_category_id' => 10001, 'lazada_item_id' => '777' . $pid]);
+            LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $pid, 'lazada_product_id' => $listing->id, 'sync_status' => 'pushed']);
+        }
+
+        $asked = [];
+        $this->lazadaAnswers['GET /products/get'] = function (array $params) use (&$asked, $chosen) {
+            $asked = array_merge($asked, json_decode((string) ($params['sku_seller_list'] ?? '[]'), true) ?: []);
+
+            return ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => ['products' => [
+                ['item_id' => (int) ('777' . $chosen), 'status' => 'active', 'skus' => [['SellerSku' => 'GT-PICK']]],
+            ]]]];
+        };
+
+        $manager = $this->manager(['manage_lazada/product_group', 'view_lazada/product_group']);
+        $this->actingAs($manager)->post(route('ext.lazada.product-groups.check', $group->id), ['ids' => [$chosen]]);
+
+        $this->assertContains('GT-PICK', $asked);
+        $this->assertNotContains('GT-REST', $asked, 'the unselected product is not asked about');
+        $this->assertNull(LazadaProduct::where('product_id', $other)->value('lazada_deleted_at'), 'and is not judged either');
+
+        // The bar offers it, the way Shopee's does.
+        $html = $this->actingAs($manager)->get(route('ext.lazada.product-groups.products', $group->id))->assertOk()->getContent();
+        $this->assertSame(2, substr_count($html, route('ext.lazada.product-groups.check', $group->id)), 'the head checks the group, the bar checks the selection');
+    }
+
     public function test_lazada_unlinked_view_lists_what_the_shop_holds_that_nothing_points_at(): void
     {
         $known = $this->seedProduct('GT-KNOWN');
