@@ -169,6 +169,43 @@ class LazadaListingLiveTest extends TestCase
         $r->assertDontSee('Inactive elsewhere product');
     }
 
+    /**
+     * A product with variations is on Lazada under its VARIATION SKUs; the
+     * parent SKU is not there. The lookup asks with every SKU the product
+     * has, so the row reads Lazada's live status rather than "Not found".
+     */
+    public function test_a_product_uploaded_as_variations_is_found_by_its_variation_skus(): void
+    {
+        $productId = $this->seedProduct('Quadra TS', 'QUADRA-TS');
+        DB::table('product_option_combinations')->insert([
+            'product_id' => $productId, 'sku' => 'QUADRA-TS-RED', 'quantity' => 2, 'absolute_price' => 100,
+            'image' => null, 'status' => 1, 'sort_order' => 1, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        LazadaProduct::query()->create(['product_id' => $productId, 'lazada_item_id' => '515151']);
+
+        $asked = [];
+        $this->getResponses['/products/get'] = function (array $params) use (&$asked) {
+            if (!empty($params['sku_seller_list'])) {
+                $skus = json_decode($params['sku_seller_list'], true) ?: [];
+                $asked = array_merge($asked, $skus);
+                // Lazada knows the variation SKU only; the parent SKU matches nothing.
+                $products = in_array('QUADRA-TS-RED', $skus, true) ? [['item_id' => 515151, 'status' => 'active']] : [];
+
+                return ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => ['total_products' => count($products), 'products' => $products]]];
+            }
+
+            return ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => ['total_products' => 0, 'products' => []]]];
+        };
+
+        $r = $this->actingAs($this->manager())->get(route('ext.lazada.products.index'));
+
+        $r->assertOk();
+        $this->assertContains('QUADRA-TS', $asked, 'the parent SKU is still asked');
+        $this->assertContains('QUADRA-TS-RED', $asked, 'and so is the variation SKU');
+        $r->assertSee('>Active<', false);
+        $r->assertDontSee('Not found on Lazada');
+    }
+
     public function test_an_uploaded_row_lazada_does_not_recognise_reads_not_found(): void
     {
         $productId = $this->seedProduct('Refresh residue product', 'LZT-GHOST');

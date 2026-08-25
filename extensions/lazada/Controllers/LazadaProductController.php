@@ -1192,11 +1192,23 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             $pageItemIds = [];
             foreach ($paged as $l) {
                 $rowItemId = (string) ($l->lazada_item_id ?? '');
-                $rowSku = (string) ($productsById->get((int) $l->product_id)?->sku ?? '');
-                if ($rowItemId === '' || $rowSku === '') {
+                /* The product's SKU AND its variations' SKUs. A product with
+                 * variations is uploaded as its variation SKUs (the push names
+                 * each Lazada SKU after the variation's own), so the parent
+                 * SKU is not on Lazada at all: asked about it alone, Lazada
+                 * answered nothing and every such row read "Not found on
+                 * Lazada" while the item sat live (Quadra-TS, 2026-08-26).
+                 * Any one of the item's SKUs is enough, since the answer is
+                 * keyed by item id. Shopee and TikTok ask by id and never
+                 * had this problem. */
+                $rowSkus = array_filter(array_map('trim', array_merge(
+                    [(string) ($productsById->get((int) $l->product_id)?->sku ?? '')],
+                    ($optionRowsByProductId->get((int) $l->product_id) ?? collect())->pluck('sku')->map(fn ($v) => (string) $v)->all()
+                )), fn ($v) => $v !== '');
+                if ($rowItemId === '' || $rowSkus === []) {
                     continue;
                 }
-                $pageSkus[] = $rowSku;
+                array_push($pageSkus, ...array_values($rowSkus));
                 $pageItemIds[] = $rowItemId;
             }
             if (!empty($pageSkus)) {
