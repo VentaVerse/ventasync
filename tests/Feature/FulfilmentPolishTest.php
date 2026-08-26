@@ -103,7 +103,7 @@ class FulfilmentPolishTest extends TestCase
         $rows = [
             // Same count, different money: the dearer one ranks first.
             ['sku' => 'TIE-CHEAP', 'name' => 'Tie cheap', 'quantity' => 3, 'price' => 100],
-            ['sku' => 'TIE-DEAR', 'name' => 'Tie dear', 'quantity' => 3, 'price' => 900],
+            ['sku' => 'TIE-DEAR', 'name' => 'Tie dear', 'quantity' => 3, 'price' => 900, 'variation' => 'Red'],
             // Same count and money: alphabetical.
             ['sku' => 'SAME-B', 'name' => 'Same b', 'quantity' => 2, 'price' => 50],
             ['sku' => 'SAME-A', 'name' => 'Same a', 'quantity' => 2, 'price' => 50],
@@ -125,6 +125,8 @@ class FulfilmentPolishTest extends TestCase
         $this->assertCount(10, $m[1], 'ten rows, never a blank slot');
         $this->assertSame(['TIE-DEAR', 'TIE-CHEAP', 'SAME-A', 'SAME-B'], array_slice($m[1], 0, 4));
         $this->assertStringContainsString('more products sold today', $html);
+        // The variation rides on the row, in the same chip the order rows carry.
+        $this->assertMatchesRegularExpression('/fh-top__meta">\s*<span class="co-var">\s*<span class="co-var__value">Red<\/span>/', $html);
         $this->assertMatchesRegularExpression('/and <span class="x-num">2<\/span> more products sold today/', $html);
 
         // The same page a second time ranks the same way: nothing is left to the scan order.

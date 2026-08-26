@@ -178,6 +178,7 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                             DB::raw('MAX(p.name) as name'),
                             DB::raw('MAX(p.image) as image'),
                             DB::raw('SUM(p.quantity) as qty_sold'),
+                            DB::raw('MAX(p.variation) as variation'),
                             DB::raw('SUM(p.quantity * COALESCE(p.sale_price, p.item_price)) as revenue'),
                         )
                         ->get()
@@ -187,6 +188,7 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                             imageUrl: $r->image ?: null,
                             qtySold: (int) $r->qty_sold,
                             revenue: (float) $r->revenue,
+                            variation: trim((string) ($r->variation ?? '')) ?: null,
                         ))->all();
                 },
                 recentOrdersCallback: function (int $limit) {

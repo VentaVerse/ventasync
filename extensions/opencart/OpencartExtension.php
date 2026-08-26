@@ -208,13 +208,21 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                     ->where('o.date_added', '>=', now()->startOfDay())
                     ->whereNotNull('p.model')
                     ->where('p.model', '!=', '')
-                    ->groupBy('p.model')
+                    /* The chosen options, as the storefront wrote them, make the
+                     * variation: "Cable Length: 10 Ft". Grouped WITH the model so a
+                     * product sold in two variations is two rows, the way the
+                     * marketplaces (whose lines carry the variation's own SKU)
+                     * already rank. The Venta and Shopify lines carry the
+                     * variant SKU in model too; OpenCart's carry the parent's. */
+                    ->leftJoin(DB::raw('(SELECT order_product_id, GROUP_CONCAT(CONCAT(name, \': \', value) ORDER BY order_option_id SEPARATOR \', \') AS variation FROM `' . str_replace('order_product', 'order_option', $productTable) . '` GROUP BY order_product_id) AS oo'), 'oo.order_product_id', '=', 'p.order_product_id')
+                    ->groupBy('p.model', 'oo.variation')
                     ->orderByDesc('qty_sold')->orderByDesc('revenue')->orderBy('name')
                     ->limit($limit)
                     ->select(
                         'p.model as sku',
                         DB::raw('MAX(p.name) as name'),
                         DB::raw('MAX(cp.image) as image'),
+                        DB::raw('oo.variation as variation'),
                         DB::raw('SUM(p.quantity) as qty_sold'),
                         DB::raw('SUM(p.total) as revenue'),
                     )
@@ -225,6 +233,7 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                         imageUrl: $r->image ? asset('storage/' . ltrim($r->image, '/')) : null,
                         qtySold: (int) $r->qty_sold,
                         revenue: (float) $r->revenue,
+                        variation: trim((string) ($r->variation ?? '')) ?: null,
                     ))->all();
             },
             recentOrdersCallback: function (int $limit) use ($marketplaceSource, $orderTable) {

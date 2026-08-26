@@ -612,7 +612,10 @@
                                 <span class="fh-top__rank x-num" aria-hidden="true">{{ $fhIndex + 1 }}</span>
                                 <span class="fh-top__name">
                                     {{ $fhProduct['name'] }}
-                                    <span class="fh-top__sku">{{ $fhProduct['sku'] }}</span>
+                                    <span class="fh-top__meta">
+                                        <x-fulfilment.variation :sku="$fhProduct['sku']" :fallback="$fhProduct['variation'] ?? null" />
+                                        <span class="fh-top__sku">{{ $fhProduct['sku'] }}</span>
+                                    </span>
                                 </span>
                                 <span class="fh-top__qty x-num">{{ number_format($fhProduct['qtySold']) }}</span>
                                 <span class="fh-top__rev x-num">{{ \App\Support\Money::base((float) $fhProduct['revenue']) }}</span>

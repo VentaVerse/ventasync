@@ -389,16 +389,26 @@ class IntegrationController extends Controller
 
         foreach ($tabs as $tab) {
             foreach ($tab->topProductsToday(self::TOP_PRODUCTS_PER_CHANNEL) as $product) {
-                $key = $product->sku;
+                /* One row per VARIATION. The key is the SKU plus the variation's
+                 * values as the catalog names them (so Shopee's "Red" and a
+                 * storefront's "Color: Red" on the same SKU are one row), and
+                 * OpenCart's parent-model lines, which carry the variation only
+                 * in their options, split by it. */
+                $pairs = \App\Support\CatalogVariations::pairsFor($product->sku, $product->variation);
+                $key = $product->sku . '|' . mb_strtolower(implode('/', array_map(fn ($pr) => trim($pr['value']), $pairs)));
 
                 $merged[$key] ??= [
                     'sku' => $product->sku,
                     'name' => $product->name,
+                    'variation' => $product->variation,
                     'imageUrl' => $product->imageUrl,
                     'qtySold' => 0,
                     'revenue' => 0.0,
                     'contributors' => [],
                 ];
+                if (empty($merged[$key]['variation']) && $product->variation) {
+                    $merged[$key]['variation'] = $product->variation;
+                }
 
                 $merged[$key]['qtySold'] += $product->qtySold;
                 $merged[$key]['revenue'] += $product->revenue;
