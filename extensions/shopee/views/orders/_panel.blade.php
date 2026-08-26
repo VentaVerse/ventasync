@@ -395,7 +395,7 @@
      data-order-selection scopes the module to this list; the two forms both
      take the ticked boxes because a checkbox names its form by id. --}}
 <div data-order-selection>
-    <x-ui.selectbar>
+    <x-ui.selectbar :step="$active_tab !== 'ALL' ? ($tabs[$active_tab] ?? null) : null">
         <form method="POST" action="{{ route('fulfilment.print.pick', ['channel' => 'shopee']) }}"
               id="shopee-print-pick" class="x-selectbar__actions" target="_blank" data-selection-actions hidden>
             @csrf

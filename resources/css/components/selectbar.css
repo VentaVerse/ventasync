@@ -30,6 +30,54 @@
     background: var(--bl-chrome);
     border: 1px solid var(--bl-rule);
     border-radius: var(--bl-r-ctrl);
+    /* Survives scrolling (#142, fulfilment critique P0). The Shopee orders
+       page stood 2,317px at ten a page; the bulk selection is the best
+       thing on the surface and was only operable from the top of it. The
+       window is what scrolls here, so top: 0 is the viewport's edge; the
+       bar's own chrome fill keeps rows from showing through it. */
+    position: sticky;
+    top: 0;
+    /* Above the row menus (z-index 20 in ui-table.css) and the row's
+       stretched-link overlays, or a scrolled row's menu opens over the bar. */
+    z-index: 22;
+    box-shadow: 0 1px 0 var(--bl-paper), 0 6px 14px -10px rgb(0 0 0 / .35);
+}
+
+/* The active step's name, riding the bar: "To Ship" beside the select-all
+   box, in the column-label voice, so the queue is named wherever the
+   operator is in it. */
+.x-selectbar__step {
+    font-size: var(--bl-lab-size);
+    font-weight: 650;
+    letter-spacing: var(--bl-lab-track);
+    text-transform: var(--bl-lab-case);
+    color: var(--bl-ink);
+    white-space: nowrap;
+    padding-right: var(--bl-space-3);
+    border-right: 1px solid var(--bl-rule-2);
+}
+
+/* THE TABLE HEAD STICKS UNDER THE BAR, at desktop width, where the table
+   fits its wrap (measured 1002px of 1002px at 1280) and the wrap can stop
+   being a scroll container: sticky reaches the viewport only through
+   ancestors that do not scroll. Narrower than that the wrap still scrolls
+   sideways for wide tables and the head scrolls away with it, which is
+   the lesser loss there. The offset is the bar's height and its margin,
+   both tokens; a table with no bar above it sticks at the top edge. */
+@media (min-width: 1024px) {
+    .co-page .x-table-wrap { overflow: visible; }
+    .co-page .x-table-wrap > .x-table > thead > tr > th {
+        position: sticky;
+        top: 0;
+        /* Above the rows' positioned overlays and images (a product photo
+           painted over the head at z-index 5), below a row menu (20). */
+        z-index: 12;
+        background: var(--bl-sheet);
+        box-shadow: 0 1px 0 var(--bl-rule-2);
+    }
+    .co-page .x-selectbar + .x-table-wrap > .x-table > thead > tr > th {
+        top: calc(var(--bl-control-h) + var(--bl-space-3));
+    }
 }
 
 .x-selectbar__pick {

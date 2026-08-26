@@ -284,7 +284,7 @@
      act on, and the count sits beside it so the number about to go is never
      off screen from the control that removes them. --}}
 <div data-order-selection>
-    <x-ui.selectbar>
+    <x-ui.selectbar :step="$vtStatus !== '' ? $vtStatusLabel($vtStatus) : null">
         <form method="POST" action="{{ route('fulfilment.print.pick', ['channel' => 'venta']) }}"
               id="venta-bulk-form" class="x-selectbar__actions" data-selection-actions hidden>
             @csrf
