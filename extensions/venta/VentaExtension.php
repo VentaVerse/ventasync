@@ -221,7 +221,7 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
                     ->whereNotNull('p.model')
                     ->where('p.model', '!=', '')
                     ->groupBy('p.model')
-                    ->orderByDesc('qty_sold')
+                    ->orderByDesc('qty_sold')->orderByDesc('revenue')->orderBy('name')
                     ->limit($limit)
                     ->select(
                         'p.model as sku',

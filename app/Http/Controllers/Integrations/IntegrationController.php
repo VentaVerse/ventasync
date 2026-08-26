@@ -203,6 +203,7 @@ class IntegrationController extends Controller
             'feed' => [],
             'lastOrderAt' => null,
             'topProducts' => [],
+            'topProductsMore' => 0,
         ];
     }
 
@@ -354,23 +355,40 @@ class IntegrationController extends Controller
         // "the sync is broken".
         $summary['lastOrderAt'] = $summary['feed'] === [] ? $newest : null;
 
-        $summary['topProducts'] = $withBody ? $this->mergeTopProducts($tabs) : [];
+        [$summary['topProducts'], $summary['topProductsMore']] = $withBody ? $this->mergeTopProducts($tabs) : [[], 0];
 
         return $summary;
     }
 
+    /** How many best sellers the hub shows. */
+    public const TOP_PRODUCTS = 10;
+
     /**
-     * Today's best sellers, every channel combined and merged by SKU.
+     * Each channel's share of the merge. Well past the ten shown: a SKU
+     * that is eleventh on one channel and also sold on another would be
+     * undercounted, or missed, if each channel cut at ten. At a hundred
+     * the tail count under the list is exact for any day this shop has.
+     */
+    private const TOP_PRODUCTS_PER_CHANNEL = 100;
+
+    /**
+     * Today's best sellers, every channel combined and merged by SKU:
+     * the ten to show, and how many more SKUs sold today beyond them.
+     *
+     * Ranked by quantity, the packing question ("what moved"); a tie is
+     * broken by revenue, then by name, so every position is decided. Two
+     * products on the same count used to have no rule between them and
+     * swapped places on every refresh (the owner, 2026-08-26).
      *
      * @param  array<int, \App\Integrations\OrderTab>  $tabs
-     * @return array<int, array<string, mixed>>
+     * @return array{0: array<int, array<string, mixed>>, 1: int}
      */
     private function mergeTopProducts(array $tabs): array
     {
         $merged = [];
 
         foreach ($tabs as $tab) {
-            foreach ($tab->topProductsToday(10) as $product) {
+            foreach ($tab->topProductsToday(self::TOP_PRODUCTS_PER_CHANNEL) as $product) {
                 $key = $product->sku;
 
                 $merged[$key] ??= [
@@ -397,9 +415,12 @@ class IntegrationController extends Controller
             }
         }
 
-        usort($merged, fn ($a, $b) => $b['qtySold'] <=> $a['qtySold']);
+        usort($merged, fn ($a, $b) => [$b['qtySold'], $b['revenue'], $a['name']] <=> [$a['qtySold'], $a['revenue'], $b['name']]);
 
-        return array_slice(array_values($merged), 0, 5);
+        return [
+            array_slice(array_values($merged), 0, self::TOP_PRODUCTS),
+            max(0, count($merged) - self::TOP_PRODUCTS),
+        ];
     }
 
     /**

@@ -619,6 +619,11 @@
                             </li>
                         @endforeach
                     </ol>
+                    {{-- The list is the ten best; the tail is named so ten
+                         never reads as "only ten sold". --}}
+                    @if(($fh['topProductsMore'] ?? 0) > 0)
+                        <p class="fh-top__more">and <span class="x-num">{{ number_format($fh['topProductsMore']) }}</span> more {{ $fh['topProductsMore'] === 1 ? 'product' : 'products' }} sold today</p>
+                    @endif
                 @endif
             </section>
         </div>

@@ -95,6 +95,60 @@ class FulfilmentPolishTest extends TestCase
         $this->assertSame('', trim(Blade::render('<x-fulfilment.variation sku="" fallback="" />')), 'nothing to say prints nothing');
     }
 
+    // ── Top products today: ten, decided, with the tail named ──
+
+    public function test_top_products_rank_by_quantity_then_revenue_then_name_and_show_ten_with_the_tail(): void
+    {
+        $order = ShopeeOrder::create(['region' => 'ph', 'order_sn' => 'TOP-TODAY', 'status' => 'READY_TO_SHIP', 'order_created_at' => now(), 'raw' => []]);
+        $rows = [
+            // Same count, different money: the dearer one ranks first.
+            ['sku' => 'TIE-CHEAP', 'name' => 'Tie cheap', 'quantity' => 3, 'price' => 100],
+            ['sku' => 'TIE-DEAR', 'name' => 'Tie dear', 'quantity' => 3, 'price' => 900],
+            // Same count and money: alphabetical.
+            ['sku' => 'SAME-B', 'name' => 'Same b', 'quantity' => 2, 'price' => 50],
+            ['sku' => 'SAME-A', 'name' => 'Same a', 'quantity' => 2, 'price' => 50],
+        ];
+        for ($i = 1; $i <= 8; $i++) {
+            $rows[] = ['sku' => 'ONE-' . $i, 'name' => 'One ' . $i, 'quantity' => 1, 'price' => 10];
+        }
+        foreach ($rows as $r) {
+            DB::table('shopee_order_products')->insert($r + ['shopee_order_id' => $order->id, 'created_at' => now(), 'updated_at' => now()]);
+        }
+
+        $group = UserGroup::create(['name' => 'Polish operators 3']);
+        $group->permissions()->attach(Permission::whereIn('key', ['view_shopee/dashboard', 'view_shopee/order'])->pluck('id')->all());
+        $user = User::factory()->create(['user_group_id' => $group->id]);
+
+        $html = $this->actingAs($user)->get('/channels/fulfilment')->assertOk()->getContent();
+
+        preg_match_all('/<span class="fh-top__sku">([^<]+)<\/span>/', $html, $m);
+        $this->assertCount(10, $m[1], 'ten rows, never a blank slot');
+        $this->assertSame(['TIE-DEAR', 'TIE-CHEAP', 'SAME-A', 'SAME-B'], array_slice($m[1], 0, 4));
+        $this->assertStringContainsString('more products sold today', $html);
+        $this->assertMatchesRegularExpression('/and <span class="x-num">2<\/span> more products sold today/', $html);
+
+        // The same page a second time ranks the same way: nothing is left to the scan order.
+        $again = $this->actingAs($user)->get('/channels/fulfilment')->getContent();
+        preg_match_all('/<span class="fh-top__sku">([^<]+)<\/span>/', $again, $m2);
+        $this->assertSame($m[1], $m2[1]);
+    }
+
+    public function test_fewer_than_ten_products_list_only_what_sold(): void
+    {
+        $order = ShopeeOrder::create(['region' => 'ph', 'order_sn' => 'TOP-THREE', 'status' => 'READY_TO_SHIP', 'order_created_at' => now(), 'raw' => []]);
+        foreach (['A', 'B', 'C'] as $k) {
+            DB::table('shopee_order_products')->insert(['shopee_order_id' => $order->id, 'sku' => 'FEW-' . $k, 'name' => 'Few ' . $k, 'quantity' => 1, 'price' => 10, 'created_at' => now(), 'updated_at' => now()]);
+        }
+        $group = UserGroup::create(['name' => 'Polish operators 4']);
+        $group->permissions()->attach(Permission::whereIn('key', ['view_shopee/dashboard', 'view_shopee/order'])->pluck('id')->all());
+        $user = User::factory()->create(['user_group_id' => $group->id]);
+
+        $html = $this->actingAs($user)->get('/channels/fulfilment')->assertOk()->getContent();
+
+        $this->assertSame(3, substr_count($html, '<li class="fh-top__row">'), 'three sold, three rows, no empty ranks');
+        $this->assertStringNotContainsString('more products sold today', $html);
+    }
+
     // ── The cards lead with To Pack and print To Handover beside it ──
 
     public function test_the_shopee_card_counts_to_pack_and_to_handover_separately(): void

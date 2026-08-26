@@ -190,7 +190,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                         ->whereNotNull('p.sku')
                         ->where('p.sku', '!=', '')
                         ->groupBy('p.sku')
-                        ->orderByDesc('qty_sold')
+                        ->orderByDesc('qty_sold')->orderByDesc('revenue')->orderBy('name')
                         ->limit($limit)
                         ->select(
                             'p.sku',
