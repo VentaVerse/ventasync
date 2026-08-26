@@ -72,6 +72,8 @@
     $ttSortLabels = $ttSortLabels ?? [
         'created_desc' => 'Order date, newest first',
         'created_asc'  => 'Order date, oldest first',
+        'ship_by_asc'  => 'Ship-by time, soonest first',
+        'ship_by_desc' => 'Ship-by time, latest first',
     ];
 @endphp
 @if($canManageTiktokOrders)

@@ -65,6 +65,8 @@
         'confirmed_update_asc'  => 'Last update, oldest first',
         'confirmed_create_desc' => 'Shopee create time, newest first',
         'confirmed_create_asc'  => 'Shopee create time, oldest first',
+        'ship_by_asc'           => 'Ship-by time, soonest first',
+        'ship_by_desc'          => 'Ship-by time, latest first',
     ];
 @endphp
 @if($canManageShopeeOrders)

@@ -82,10 +82,11 @@ class TikTokOrdersPanel
         } else {
             $sortKey = strtolower((string) session('marketplace_sort.tiktok', ''));
         }
-        if (!in_array($sortKey, ['created_asc', 'created_desc'], true)) {
+        if (!in_array($sortKey, ['created_asc', 'created_desc', 'ship_by_asc', 'ship_by_desc'], true)) {
             $sortKey = 'created_' . $defaultDir;
         }
         $sortDir = str_ends_with($sortKey, '_asc') ? 'asc' : 'desc';
+        $sortBy = str_starts_with($sortKey, 'ship_by') ? 'ship_by' : 'created';
 
         $query = TikTokOrder::query()->with('products');
         $baseCountQuery = TikTokOrder::query();
@@ -157,6 +158,13 @@ class TikTokOrdersPanel
             }
         }
 
+        if ($sortBy === 'ship_by') {
+            // tts_sla_time, TikTok's ship-by deadline, the figure the SLA chip
+            // reads. An option, never the default: the queue stays first in,
+            // first out (the owner, 2026-08-26); this exists so the three
+            // marketplace dropdowns offer the same choices.
+            $query->orderByRaw("CAST(JSON_UNQUOTE(JSON_EXTRACT(raw, '$.tts_sla_time')) AS UNSIGNED) {$sortDir}");
+        }
         $orders = $query
             ->orderBy('order_created_at', $sortDir)
             ->orderBy('created_at', $sortDir)

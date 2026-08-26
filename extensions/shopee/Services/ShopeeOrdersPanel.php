@@ -100,6 +100,8 @@ class ShopeeOrdersPanel
             'confirmed_update_desc',
             'confirmed_create_asc',
             'confirmed_create_desc',
+            'ship_by_asc',
+            'ship_by_desc',
         ];
         if (!in_array($sortKey, $allowedSort, true)) {
             $sortKey = 'created_' . $defaultDir;
@@ -221,6 +223,12 @@ class ShopeeOrdersPanel
             $query->orderByRaw("CAST(JSON_UNQUOTE(JSON_EXTRACT(raw, '$.update_time')) AS UNSIGNED) {$sortDir}");
         } elseif ($sortBy === 'confirmed_create') {
             $query->orderByRaw("CAST(JSON_UNQUOTE(JSON_EXTRACT(raw, '$.create_time')) AS UNSIGNED) {$sortDir}");
+        } elseif ($sortBy === 'ship_by') {
+            // Shopee's ship-by deadline, the figure the SLA chip reads. An
+            // option, never the default: the queue stays first in, first
+            // out (the owner, 2026-08-26); this exists so the three marketplace
+            // dropdowns offer the same choices, as Lazada's already did.
+            $query->orderByRaw("CAST(JSON_UNQUOTE(JSON_EXTRACT(raw, '$.ship_by_date')) AS UNSIGNED) {$sortDir}");
         }
         $orders = $query
             ->orderBy('order_created_at', $sortDir)

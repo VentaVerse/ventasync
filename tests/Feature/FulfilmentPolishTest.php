@@ -151,6 +151,27 @@ class FulfilmentPolishTest extends TestCase
         $this->assertStringNotContainsString('more products sold today', $html);
     }
 
+    // ── Ship-by sort: the option Lazada had, on every marketplace ──
+
+    public function test_shopee_offers_the_ship_by_sort_as_an_option_and_keeps_its_default(): void
+    {
+        foreach ([['SB-LATE', 3, 200], ['SB-SOON', 1, 100]] as [$sn, $daysLeft, $qty]) {
+            ShopeeOrder::create(['region' => 'ph', 'order_sn' => $sn, 'status' => 'READY_TO_SHIP',
+                'order_created_at' => now()->subHours($qty), 'raw' => ['ship_by_date' => now()->addDays($daysLeft)->timestamp]]);
+        }
+        $group = UserGroup::create(['name' => 'Polish operators 5']);
+        $group->permissions()->attach(Permission::whereIn('key', ['view_shopee/dashboard', 'view_shopee/order'])->pluck('id')->all());
+        $user = User::factory()->create(['user_group_id' => $group->id]);
+
+        $html = $this->actingAs($user)->get('/channels/fulfilment?channel=shopee&tab=PENDING')->assertOk()->getContent();
+        $this->assertStringContainsString('Ship-by time, soonest first', $html);
+        // Default order is still arrival, oldest first on To Ship: SB-LATE arrived first.
+        $this->assertLessThan(strpos($html, 'SB-SOON'), strpos($html, 'SB-LATE'));
+
+        $sorted = $this->actingAs($user)->get('/channels/fulfilment?channel=shopee&tab=PENDING&sort=ship_by_asc')->assertOk()->getContent();
+        $this->assertLessThan(strpos($sorted, 'SB-LATE'), strpos($sorted, 'SB-SOON'), 'soonest deadline first when asked');
+    }
+
     // ── The cards lead with To Pack and print To Handover beside it ──
 
     public function test_the_shopee_card_counts_to_pack_and_to_handover_separately(): void
