@@ -233,24 +233,24 @@
                                     @endif
                                 </td>
                                 <td>
-                                    <div class="relative" x-data="{ open: false }" @keydown.escape="open = false">
-                                        <button type="button" @click="open = !open"
-                                                :aria-expanded="open ? 'true' : 'false'"
-                                                class="bl-btn bl-btn-sm"
-                                                aria-label="Product {{ $p->product_id }} actions">
-                                            <x-ui.icon name="chevron-down" size="12" />
-                                        </button>
-                                        <div x-show="open" x-cloak @click.outside="open = false" class="bl-menu">
-                                            <a href="{{ route('products.sales', $p->product_id) }}?back={{ $backUrl }}">Sales history</a>
-                                            <a href="{{ route('products.stock_history', $p->product_id) }}?back={{ $backUrl }}">Stock history</a>
-                                            @if($canManageProducts)
-                                                <a href="{{ route('products.edit', $p->product_id) }}">Edit</a>
-                                                <button type="button" class="is-danger"
-                                                        data-confirm="Delete {{ $p->name }}? This cannot be undone."
-                                                        data-confirm-submit="prod-del-{{ $p->product_id }}">Delete</button>
-                                            @endif
-                                        </div>
-                                    </div>
+                                    {{-- The shared row menu, whose panel is
+                                         fixed-positioned and placed by script,
+                                         so the scroll box around this table
+                                         cannot clip it. This was the last list
+                                         on an absolutely positioned dropdown:
+                                         on a one-row result (a search) the
+                                         menu opened below the box's edge and
+                                         was cut off (the owner, 2026-08-27). --}}
+                                    <x-ui.menu label="Product {{ $p->product_id }} actions">
+                                        <a class="x-menu__item" href="{{ route('products.sales', $p->product_id) }}?back={{ $backUrl }}">Sales history</a>
+                                        <a class="x-menu__item" href="{{ route('products.stock_history', $p->product_id) }}?back={{ $backUrl }}">Stock history</a>
+                                        @if($canManageProducts)
+                                            <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit</a>
+                                            <button type="button" class="x-menu__item x-menu__item--danger"
+                                                    data-confirm="Delete {{ $p->name }}? This cannot be undone."
+                                                    data-confirm-submit="prod-del-{{ $p->product_id }}">Delete</button>
+                                        @endif
+                                    </x-ui.menu>
                                     @if($canManageProducts)
                                         <form id="prod-del-{{ $p->product_id }}" method="POST"
                                               action="{{ route('products.destroy', $p->product_id) }}" class="sr-only">

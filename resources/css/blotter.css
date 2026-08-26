@@ -823,42 +823,6 @@
         object-fit: cover;
     }
 
-    .bl-menu {
-        position: absolute;
-        right: 0;
-        z-index: 30;
-        min-width: 176px;
-        margin-top: 4px;
-        border: 1px solid var(--bl-rule-2);
-        background: var(--bl-sheet);
-        padding: 4px 0;
-    }
-
-    .bl-menu a,
-    .bl-menu button {
-        display: block;
-        width: 100%;
-        padding: 6px 14px;
-        border: 0;
-        background: none;
-        color: var(--bl-ink-2);
-        font: inherit;
-        font-size: 13px;
-        text-align: left;
-        text-decoration: none;
-        cursor: pointer;
-    }
-
-    .bl-menu a:hover,
-    .bl-menu button:hover {
-        background: var(--bl-chrome-2);
-        color: var(--bl-ink);
-    }
-
-    .bl-menu button.is-danger:hover {
-        color: var(--bl-bad);
-    }
-
     .bl-mono {
         font-family: var(--font-mono);
         font-size: 11.5px;
@@ -1141,7 +1105,6 @@
     .od-note,
     .fm-img__empty,
     .fm-pick__drop,
-    .bl-menu,
     .x-menu__panel,
     .fm-ta__list,
     .modal {
@@ -1149,7 +1112,6 @@
     }
 
     /* Off the page, so lifted. */
-    .bl-menu,
     .x-menu__panel,
     .fm-ta__list,
     .modal {
@@ -1883,7 +1845,6 @@
 
     /* Menus and dialogs already floated; they now float on the same two
        materials as everything else rather than on their own. */
-    .bl-menu,
     .x-menu__panel,
     .x-palette__panel,
     .fm-pick__drop,
