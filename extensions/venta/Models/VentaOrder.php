@@ -18,6 +18,7 @@ class VentaOrder extends Model
         'status_id',
         'customer_name',
         'customer_email',
+        'customer_group',
         'total',
         'payment_method',
         'shipping_method',

@@ -228,6 +228,9 @@ class VentaOrderSync
                 'status_id'          => $ventaStatusId,
                 'customer_name'      => trim(($raw['contact']['name'] ?? '') ?: ($raw['customer']['name'] ?? '')),
                 'customer_email'     => $raw['contact']['email'] ?? ($raw['customer']['email'] ?? ''),
+                // The group the order was placed under, by name, as Venta
+                // sends it (#129). Null on orders Venta never captured it for.
+                'customer_group'     => self::customerGroupFrom($raw),
                 'total'              => (float) ($raw['totals']['total'] ?? 0),
                 'payment_method'     => $raw['payment_method'] ?? '',
                 'shipping_method'    => $raw['shipping_method'] ?? '',
@@ -323,6 +326,11 @@ class VentaOrderSync
                 'store_url'              => $this->setting->base_url,
                 'customer_id'            => 0,
                 'customer_group_id'      => 0,
+                // The group's NAME, on the core order row, which is where the
+                // margin report reads it for every storefront (#129). The id
+                // above stays 0: there is no customer table here to point at
+                // (#132), and the name is what the report needs.
+                'customer_group'         => self::customerGroupFrom($raw),
                 'firstname'              => $firstname,
                 'lastname'               => $lastname,
                 'email'                  => $email,
@@ -620,5 +628,21 @@ class VentaOrderSync
                 }
             }
         }
+    }
+
+    /**
+     * The customer group name from Venta's order payload: a plain string
+     * on the order, or null when Venta never captured one (the migrated
+     * orders). Trimmed and capped to the column.
+     */
+    public static function customerGroupFrom(array $raw): ?string
+    {
+        $group = $raw['customer_group'] ?? null;
+        if (is_array($group)) {
+            $group = $group['name'] ?? null;
+        }
+        $group = trim((string) $group);
+
+        return $group === '' ? null : mb_substr($group, 0, 64);
     }
 }

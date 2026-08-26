@@ -463,6 +463,12 @@
                 <div class="od-card__body od-card__body--tight">
                     <div class="od-lines">
                         <span class="od-lines__name">{{ trim($order->firstname . ' ' . $order->lastname) ?: 'Guest' }}</span>
+                        {{-- The group the order was placed under, by name, as
+                             the storefront sent it (#129): a reseller's order
+                             says so where its lower margin is read. --}}
+                        @if(trim((string) ($order->customer_group ?? '')) !== '')
+                            <span><x-ui.badge tone="info" :dot="false">{{ $order->customer_group }}</x-ui.badge></span>
+                        @endif
                         @if($order->email)<span><a href="mailto:{{ $order->email }}">{{ $order->email }}</a></span>@endif
                         @if($order->telephone)<span>{{ $order->telephone }}</span>@endif
                     </div>
