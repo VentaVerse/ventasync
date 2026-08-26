@@ -718,6 +718,37 @@
    ------------------------------------------------------------------ */
 
 @media (max-width: 640px) {
+    /* THE PHONE ROW (#155). The generic restack gave every cell its own
+       line, labels and all, so a listings row stood ~736px tall and a page
+       of fifty measured 36,542px: "Shopee ID: None", "Last sync: Never",
+       "Catalog: Enabled", each on its own line, for a picker who only
+       wants to know whether the product is listed and how many are in
+       stock. On a phone the row is: the product (name, SKU, thumbnail)
+       with the row's actions in the corner, then Stock and Listing side by
+       side. The id, the price, the channel id, the catalog status and the
+       last sync stay in the DOM for a reader and are a tap away on the
+       listing page; on this screen they were the noise. */
+    .cc-page .x-table > tbody > tr > td.cc-col-id,
+    .cc-page .x-table > tbody > tr > td.cc-col-price,
+    .cc-page .x-table > tbody > tr > td.cc-col-chanid,
+    .cc-page .x-table > tbody > tr > td.cc-col-stat,
+    .cc-page .x-table > tbody > tr > td.cc-col-err { display: none; }
+
+    /* The tick box shares the first line with the actions rather than
+       taking a line of its own above the name. */
+    .cc-page .x-table > tbody > tr > td.cc-col-check { grid-column: 1; grid-row: 1; align-self: center; }
+    .cc-page .x-table > tbody > tr > td.cc-col-check::before { display: none; }
+
+    /* Stock and Listing, side by side on one line, each under its label. */
+    .cc-page .x-table > tbody > tr > td.cc-col-qty { grid-column: 1; }
+    .cc-page .x-table > tbody > tr > td.cc-col-sync { grid-column: 2; }
+
+    /* The product cell needs no "Product" label above a product name, and
+       its thumbnail comes down from the desktop 96px: on a 328px card the
+       picture is a cue, not the subject. */
+    .cc-page .x-table > tbody > tr > td[data-label="Product"]::before { display: none; }
+    .cc-page .x-table > tbody > tr > td[data-label="Product"] .order-img-wrap { width: 64px; }
+
     /* Four columns of nowrap figures do not fit a 328px card, and they were
        the last thing keeping this table scrolling sideways inside itself.
        Name and one figure per line; the tabular alignment the desktop grid
