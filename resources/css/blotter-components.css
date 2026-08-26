@@ -2145,29 +2145,83 @@
 
     .fh-card__label { font-size: 11.5px; color: var(--bl-ink-3); }
 
-    /* The stages after packing (to handover; on Lazada, to arrange first).
-       A channel that names its stages leads with To Pack, the unprocessed
-       count, and prints the rest here at one step under: the staff count
-       the To Handover parcels against the shelf, so the figure is the
-       page's ink and the word beside it stays grey (polish, 2026-08-26). */
-    .fh-card__stages {
+    /* The two figures the staff act on, across the whole card at one size:
+       To Pack on the left, To Handover on the right, the way a parcel moves.
+       Each carries its label ABOVE the number so the two labels read as one
+       line and the two numbers share a baseline; the number is what the eye
+       lands on. The first cut led with To Pack and printed To Handover as a
+       small tally under it, which made the shelf count a footnote to the
+       packing count when the staff need both (the owner, 2026-08-26, chose this
+       from three drafts). A middle step (Lazada's To Arrange, parcels packed
+       but not yet booked) is one small line under the pair: it is neither
+       untouched nor on the shelf. */
+    .fh-card__figures {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0 12px;
+        align-items: end;
+        margin-top: 6px;
+        min-width: 0;
+    }
+
+    .fh-card__fig {
         display: flex;
-        flex-wrap: wrap;
-        gap: 2px 10px;
-        margin-top: 4px;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    .fh-card__fig--end { text-align: right; }
+
+    /* The left label may wrap ("nothing / to pack" at the narrow end): the
+       numbers sit on the grid's end line, so a two-line label above one of
+       them moves nothing. The right label is short and stays on one line. */
+    .fh-card__fig-l {
+        font-size: 11.5px;
+        line-height: 1.25;
+        color: var(--bl-ink-3);
+        min-width: 0;
+    }
+
+    .fh-card__fig--end .fh-card__fig-l { white-space: nowrap; }
+
+    .fh-card__fig-n {
+        font-size: 26px;
+        font-weight: 650;
+        line-height: 1.05;
+        letter-spacing: -0.02em;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .fh-card__fig-n.is-clear { color: var(--bl-ink-3); }
+
+    /* The same dotted underline .fh-card__lead.is-stale carries: a figure
+       no fetch can move. */
+    .fh-card__fig-n.is-stale {
+        text-decoration: underline dotted var(--bl-ink-3);
+        text-underline-offset: 4px;
+        text-decoration-thickness: 1.5px;
+    }
+
+    .fh-card__fig-mid {
+        display: flex;
+        align-items: baseline;
+        gap: 5px;
+        margin-top: 6px;
+        padding-top: 6px;
+        border-top: 1px solid var(--bl-rule);
         font-size: 11.5px;
         color: var(--bl-ink-3);
         white-space: nowrap;
     }
 
-    .fh-card__stage-count {
+    .fh-card__fig-mid-n {
         font-size: 13px;
         font-weight: 650;
-        letter-spacing: -0.01em;
         color: var(--bl-ink);
     }
 
-    .fh-card__stage-count.is-clear { color: var(--bl-ink-3); font-weight: 550; }
+    .fh-card__fig-mid-n.is-clear { color: var(--bl-ink-3); font-weight: 550; }
 
     /* The caveat under the count. It was inheriting plain ink-3, which made
        "not syncing" read exactly like "clear" - the one comparison this card

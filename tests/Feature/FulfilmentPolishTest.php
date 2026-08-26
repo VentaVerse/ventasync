@@ -109,10 +109,11 @@ class FulfilmentPolishTest extends TestCase
 
         $html = $this->actingAs($user)->get('/channels/fulfilment')->assertOk()->getContent();
 
-        // The lead is To Pack (2), not the whole waiting count (3).
-        $this->assertMatchesRegularExpression('/fh-card__lead x-num[^>]*>2</', $html);
-        $this->assertStringContainsString('<span class="fh-card__label">to pack</span>', $html);
-        $this->assertMatchesRegularExpression('/fh-card__stage-count x-num[^>]*>1<\/span> to handover/', $html);
+        // Two figures across the card: To Pack (2) on the left, To Handover
+        // (1) on the right; never the whole waiting count (3) as one number.
+        $this->assertMatchesRegularExpression('/fh-card__fig-l">to pack<\/span>\s*<span class="fh-card__fig-n x-num[^>]*>2</', $html);
+        $this->assertMatchesRegularExpression('/fh-card__fig-l">to handover<\/span>\s*<span class="fh-card__fig-n x-num[^>]*>1</', $html);
+        $this->assertStringNotContainsString('fh-card__lead x-num', $html, 'the one-number lead is gone from a channel with stages');
         // The head sentence still counts everything the seller holds.
         $this->assertStringContainsString('3 orders waiting', $html);
     }
@@ -126,7 +127,7 @@ class FulfilmentPolishTest extends TestCase
 
         $html = $this->actingAs($user)->get('/channels/fulfilment')->assertOk()->getContent();
 
-        $this->assertStringContainsString('<span class="fh-card__label">nothing to pack</span>', $html);
-        $this->assertMatchesRegularExpression('/fh-card__stage-count x-num[^>]*>1<\/span> to handover/', $html);
+        $this->assertMatchesRegularExpression('/fh-card__fig-l">nothing to pack<\/span>\s*<span class="fh-card__fig-n x-num is-clear[^>]*>0</', $html);
+        $this->assertMatchesRegularExpression('/fh-card__fig-l">to handover<\/span>\s*<span class="fh-card__fig-n x-num[^>]*>1</', $html);
     }
 }

@@ -273,10 +273,33 @@
                 @elseif($fhCard['waiting'] === null)
                     <span class="fh-card__lead is-untracked">Not tracked</span>
                 @elseif($fhStages)
-                    {{-- A channel that tells its steps apart leads with To
-                         Pack, the unprocessed count: the parcels nobody has
-                         touched. The later steps print under it. --}}
-                    <span class="fh-card__lead x-num {{ $fhStages[0]['count'] === 0 ? 'is-clear' : '' }}{{ $fhOrphanCount ? ' is-stale' : '' }}">{{ number_format($fhStages[0]['count']) }}</span>
+                    {{-- A channel that tells its steps apart shows the two
+                         figures the staff act on at one size, across the
+                         card: To Pack on the left, the parcels nobody has
+                         touched, and To Handover on the right, the parcels
+                         on the shelf waiting for the courier, the way a
+                         parcel moves. A middle step (Lazada's To Arrange)
+                         is a line under them; it is neither. --}}
+                    @php
+                        $fhFirst = $fhStages[0];
+                        $fhLast = count($fhStages) > 1 ? $fhStages[count($fhStages) - 1] : null;
+                        $fhMiddle = count($fhStages) > 2 ? array_slice($fhStages, 1, -1) : [];
+                    @endphp
+                    <span class="fh-card__figures">
+                        <span class="fh-card__fig">
+                            <span class="fh-card__fig-l">{{ $fhFirst['count'] === 0 ? 'nothing to pack' : $fhFirst['label'] }}</span>
+                            <span class="fh-card__fig-n x-num {{ $fhFirst['count'] === 0 ? 'is-clear' : '' }}{{ $fhOrphanCount ? ' is-stale' : '' }}">{{ number_format($fhFirst['count']) }}</span>
+                        </span>
+                        @if($fhLast)
+                            <span class="fh-card__fig fh-card__fig--end">
+                                <span class="fh-card__fig-l">{{ $fhLast['label'] }}</span>
+                                <span class="fh-card__fig-n x-num {{ $fhLast['count'] === 0 ? 'is-clear' : '' }}">{{ number_format($fhLast['count']) }}</span>
+                            </span>
+                        @endif
+                    </span>
+                    @foreach($fhMiddle as $fhStage)
+                        <span class="fh-card__fig-mid"><span class="fh-card__fig-mid-n x-num {{ $fhStage['count'] === 0 ? 'is-clear' : '' }}">{{ number_format($fhStage['count']) }}</span> {{ $fhStage['label'] }}</span>
+                    @endforeach
                 @else
                     <span class="fh-card__lead x-num {{ $fhCard['waiting'] === 0 ? 'is-clear' : '' }}{{ $fhOrphanCount ? ' is-stale' : '' }}">{{ number_format($fhCard['waiting']) }}</span>
                 @endif
@@ -299,19 +322,9 @@
                 @elseif($fhCard['waiting'] === null)
                     <span class="fh-card__label">orders waiting</span>
                 @elseif($fhStages)
-                    <span class="fh-card__label">{{ $fhStages[0]['count'] === 0 ? 'nothing to pack' : $fhStages[0]['label'] }}</span>
+                    {{-- The figures above carry their own labels. --}}
                 @else
                     <span class="fh-card__label">{{ $fhCard['waiting'] === 0 ? 'clear' : 'waiting' }}</span>
-                @endif
-
-                {{-- The later steps, whatever the caveat above said: a stalled
-                     channel's To Handover parcels are still on the shelf. --}}
-                @if($fhStages && count($fhStages) > 1)
-                    <span class="fh-card__stages">
-                        @foreach(array_slice($fhStages, 1) as $fhStage)
-                            <span class="fh-card__stage"><span class="fh-card__stage-count x-num {{ $fhStage['count'] === 0 ? 'is-clear' : '' }}">{{ number_format($fhStage['count']) }}</span> {{ $fhStage['label'] }}</span>
-                        @endforeach
-                    </span>
                 @endif
 
                 {{-- Today's contribution, hidden by the grid at the narrow end
