@@ -992,12 +992,88 @@ class ShopeeProductController extends Controller
 
     // ── Bulk Push to Shopee ───────────────────────────────────────
 
+    /**
+     * The combined review form for a multi-select push from the index
+     * (#151): one page for the whole selection, reviewing only what the
+     * products can share, couriers, category and the price rule. Content
+     * (title, description, images, attributes) stays each listing's own.
+     * Blank means "each listing's own"; a value given here rides the whole
+     * batch the way a group's settings ride a group push, and is recorded
+     * as what was sent, never written onto the listings.
+     */
+    public function bulkPushForm(Request $request)
+    {
+        $productIds = array_values(array_unique(array_map('intval', array_filter((array) $request->query('product_ids', [])))));
+        if (empty($productIds)) {
+            return redirect()->route('ext.shopee.products.index')->with('error', 'Select at least one product first.');
+        }
+        $productIds = array_slice($productIds, 0, 200);
+
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+        $products = DB::table($pfx . 'product as p')
+            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+                $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
+            })
+            ->whereIn('p.product_id', $productIds)
+            ->get(['p.product_id', 'pd.name', 'p.sku', 'p.price', 'p.image'])
+            ->keyBy('product_id');
+        $listings = ShopeeListing::query()->whereIn('product_id', $productIds)->get()->keyBy('product_id');
+        $linked = ShopeeProductLink::query()->whereIn('product_id', $productIds)->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        $readiness = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)
+            ->forProducts(array_values(array_diff($productIds, $linked)));
+
+        $rows = [];
+        foreach ($productIds as $pid) {
+            $product = $products->get($pid);
+            if (!$product) {
+                continue;
+            }
+            $listing = $listings->get($pid);
+            $rows[] = [
+                'product_id' => $pid,
+                'name' => (string) ($product->name ?? ''),
+                'sku' => (string) ($product->sku ?? ''),
+                'price' => (float) $product->price,
+                'image' => trim((string) $product->image) !== '' ? asset('storage/' . ltrim((string) $product->image, '/')) : null,
+                'listed' => in_array($pid, $linked, true),
+                'ready' => in_array($pid, $linked, true) ? true : (bool) ($readiness[$pid]['ready'] ?? false),
+                'missing' => $readiness[$pid]['missing'] ?? [],
+                'category_id' => $listing?->shopee_category_id,
+                'logistic_ids' => $listing?->logistic_ids ?? [],
+                'markup_percent' => $listing?->markup_percent,
+                'markup_fixed' => $listing?->markup_fixed,
+            ];
+        }
+
+        return view('ext-shopee::products.bulk-push', [
+            'rows' => $rows,
+            'logistics' => $this->fetchLogistics(),
+        ]);
+    }
+
     public function bulkPushToShopee(Request $request, ShopeeClient $client)
     {
         $productIds = array_map('intval', array_filter($request->input('product_ids', [])));
         if (empty($productIds)) {
             return redirect()->back()->with('error', 'No products selected.');
         }
+
+        /* The batch's shared settings from the combined review form (#151).
+         * Each is optional; blank keeps every listing's own. */
+        $request->validate([
+            'shared_category_id' => 'nullable|integer|min:1',
+            'shared_logistic_ids' => 'nullable|array',
+            'shared_logistic_ids.*' => 'integer',
+            'shared_markup_percent' => 'nullable|numeric|min:-100|max:1000',
+            'shared_markup_fixed' => 'nullable|numeric|min:-1000000|max:1000000',
+        ]);
+        $sharedCategory = (int) $request->input('shared_category_id', 0) ?: null;
+        $sharedLogistics = $request->filled('shared_logistic_ids') ? array_map('intval', (array) $request->input('shared_logistic_ids')) : null;
+        $sharedRule = $request->filled('shared_markup_percent') || $request->filled('shared_markup_fixed');
+        $sharedPercent = $sharedRule ? (float) $request->input('shared_markup_percent', 0) : null;
+        $sharedFixed = $sharedRule ? (float) $request->input('shared_markup_fixed', 0) : null;
+        $hasShared = $sharedCategory || $sharedLogistics || $sharedRule;
 
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
@@ -1017,7 +1093,7 @@ class ShopeeProductController extends Controller
             ->whereIn('product_id', $productIds)
             ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
         $readiness = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)
-            ->forProducts(array_values(array_diff($productIds, $alreadyLinked)));
+            ->forProducts(array_values(array_diff($productIds, $alreadyLinked)), ['category_id' => $sharedCategory, 'logistic_ids' => $sharedLogistics]);
         $unready = array_filter($readiness, fn ($r) => !$r['ready']);
         if (!empty($unready)) {
             $lines = [];
@@ -1080,7 +1156,23 @@ class ShopeeProductController extends Controller
              * bulk push must not borrow a group's either. A product without
              * them is named in the error line, not silently priced. */
             $listing = ShopeeListing::query()->where('product_id', $productId)->first();
-            if (!$listing || !$listing->pushable()) {
+            /* The record the push READS is the listing with the batch's
+             * shared settings laid over it, in memory only; the record that
+             * is SAVED below is the listing itself, so a shared setting is
+             * sent and recorded as sent, never written onto the listing. */
+            $saved = $listing ?: new ShopeeListing(['product_id' => $productId]);
+            $listing = clone $saved;
+            if ($sharedCategory) {
+                $listing->shopee_category_id = $sharedCategory;
+            }
+            if ($sharedLogistics) {
+                $listing->logistic_ids = $sharedLogistics;
+            }
+            if ($sharedRule) {
+                $listing->markup_percent = $sharedPercent;
+                $listing->markup_fixed = $sharedFixed;
+            }
+            if (!$listing->pushable()) {
                 $errors[] = "#{$productId}: no listing settings - push it once from the push form, or from a product group";
                 $errCount++;
                 continue;
@@ -1191,14 +1283,16 @@ class ShopeeProductController extends Controller
                     'shopee_model_id' => null,
                     'sku' => $product->sku ?? '',
                 ]);
-                // Provenance (#104)
-                $listing->forceFill([
+                // Provenance (#104): what was sent, and where it came from.
+                $saved->forceFill([
                     'last_pushed_at' => now(),
-                    'last_push_source' => 'listing',
+                    'last_push_source' => $hasShared ? 'bulk' : 'listing',
                     'last_push_settings' => [
                         'category_id' => (int) $listing->shopee_category_id,
                         'logistic_ids' => $listing->logistic_ids ?? [],
                         'price' => $sellingPrice,
+                        'markup_percent' => (float) ($listing->markup_percent ?? 0),
+                        'markup_fixed' => (float) ($listing->markup_fixed ?? 0),
                     ],
                 ])->save();
                 // Variations ride the push, priced by the listing's rule.

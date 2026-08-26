@@ -158,6 +158,10 @@ class TiktokListingsTest extends TestCase
         $r->assertSee('Not found on TikTok Shop');    // tt-gone: TikTok answered and it was not there
         $r->assertSee('Ready to push');               // category set, sheet read, image present
         $r->assertSee('Missing: a TikTok category');  // the bare product
+        // #149 (2026-08-26): the row menu's push opens the listing page,
+        // where the push button sits under what goes up; no one-click here.
+        $r->assertSee('Push to TikTok Shop');
+        $r->assertDontSee('Push this product to TikTok Shop now?');
         $r->assertSee('Under review');                // the tab bar exists
         $this->assertCount(1, $this->callsFor('POST', '/product/202309/products/search'));
     }

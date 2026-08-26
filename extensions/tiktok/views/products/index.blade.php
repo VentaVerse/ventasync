@@ -268,11 +268,11 @@
                     @if($canEditCatalog)<a class="x-menu__item" href="{{ route('products.edit', $pid) }}">Edit in catalog</a>@endif
                     @if($canManage)
                         @if(!$listed)
-                            <form method="POST" action="{{ route('ext.tiktok.products.push_direct', $pid) }}" data-slow-action
-                                  data-confirm="Push this product to TikTok Shop now? It goes up with the settings and content saved on its listing." data-confirm-tone="primary" data-confirm-verb="Push to TikTok Shop">
-                                @csrf
-                                <button type="submit" class="x-menu__item">Push to TikTok Shop</button>
-                            </form>
+                            {{-- One push, and it opens the listing page first
+                                 (#149), where "Push to TikTok Shop" sits under
+                                 what is about to go up. The one-click is gone
+                                 from the menu; the route stays for the page. --}}
+                            <a class="x-menu__item" href="{{ route('ext.tiktok.listings.edit', $pid) }}">Push to TikTok Shop</a>
                         @else
                             <form method="POST" action="{{ route('ext.tiktok.listings.push_update', $pid) }}" data-slow-action
                                   data-confirm="Push this listing's content and settings onto the live TikTok Shop product? Title, description, package, category, brand and attributes are updated. Price and stock are not touched." data-confirm-tone="primary" data-confirm-verb="Push update">

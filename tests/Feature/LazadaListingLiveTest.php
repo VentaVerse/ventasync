@@ -135,6 +135,21 @@ class LazadaListingLiveTest extends TestCase
         };
     }
 
+    /** #149 (2026-08-26): the row menu opens the listing page, where the push button now lives; no one-click upload from the index. */
+    public function test_the_row_menu_push_opens_the_listing_page_and_the_page_carries_the_push(): void
+    {
+        $productId = $this->seedProduct('One push product', 'LZT-ONEPUSH');
+        $listing = LazadaProduct::query()->create(['product_id' => $productId]);
+        $this->fakeProductsGet(['live' => [], 'inactive' => [], 'pending' => [], 'rejected' => [], 'sold-out' => [], 'deleted' => []]);
+
+        $index = $this->actingAs($this->manager())->get(route('ext.lazada.products.index'))->assertOk();
+        $index->assertSee('Push to Lazada');
+        $index->assertDontSee('Upload to Lazada');
+
+        $page = $this->actingAs($this->manager())->get(route('ext.lazada.products.edit', $listing->id))->assertOk();
+        $page->assertSee(route('ext.lazada.products.upload', $listing->id), false);
+    }
+
     public function test_the_index_tabs_speak_lazadas_live_counts(): void
     {
         $this->fakeProductsGet([

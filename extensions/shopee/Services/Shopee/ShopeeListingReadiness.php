@@ -24,11 +24,20 @@ class ShopeeListingReadiness
      * @param array<int> $productIds
      * @return array<int, array{ready: bool, missing: array<string>}>
      */
-    public function forProducts(array $productIds): array
+    /**
+     * @param array{category_id?: int|null, logistic_ids?: array<int>|null} $shared
+     *        Settings a combined push states for the whole batch (#151):
+     *        a category or couriers given here stand in for each
+     *        listing's own, so readiness is judged on what will actually
+     *        be sent.
+     */
+    public function forProducts(array $productIds, array $shared = []): array
     {
         if (empty($productIds)) {
             return [];
         }
+        $sharedCategory = (int) ($shared['category_id'] ?? 0) ?: null;
+        $sharedLogistics = !empty($shared['logistic_ids']) ? array_map('intval', (array) $shared['logistic_ids']) : null;
 
         $pfx = (string) config('catalog.prefix');
 
@@ -43,6 +52,9 @@ class ShopeeListingReadiness
 
         $categoryIds = $listings->pluck('shopee_category_id')
             ->filter()->map(fn ($v) => (int) $v)->unique()->values()->all();
+        if ($sharedCategory) {
+            $categoryIds = array_values(array_unique(array_merge($categoryIds, [$sharedCategory])));
+        }
         $templates = !empty($categoryIds)
             ? ShopeeCategoryTemplate::query()->whereIn('category_id', $categoryIds)->get()->keyBy('category_id')
             : collect();
@@ -53,22 +65,25 @@ class ShopeeListingReadiness
             $listing = $listings->get($productId);
             $missing = [];
 
-            if (!$listing || !$listing->shopee_category_id) {
+            $categoryId = $sharedCategory ?: (int) ($listing->shopee_category_id ?? 0);
+            $logisticIds = $sharedLogistics ?? ($listing->logistic_ids ?? []);
+
+            if (!$categoryId) {
                 $missing[] = 'a Shopee category';
             }
-            if (!$listing || empty($listing->logistic_ids)) {
+            if (empty($logisticIds)) {
                 $missing[] = 'at least one courier';
             }
             if (trim((string) ($images[$productId] ?? '')) === '') {
                 $missing[] = 'a product image on the catalog product';
             }
 
-            if ($listing && $listing->shopee_category_id) {
-                $template = $templates->get((int) $listing->shopee_category_id);
+            if ($categoryId) {
+                $template = $templates->get($categoryId);
                 if (!$template) {
                     $missing[] = "its category's attribute sheet (open the listing page once to read it)";
                 } else {
-                    $unanswered = $this->missingRequiredAttributes($template, $listing->attribute_values ?? []);
+                    $unanswered = $this->missingRequiredAttributes($template, $listing?->attribute_values ?? []);
                     if (!empty($unanswered)) {
                         $missing[] = 'answers for ' . count($unanswered) . ' required '
                             . \Illuminate\Support\Str::plural('attribute', count($unanswered))

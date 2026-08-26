@@ -307,10 +307,10 @@
 <div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar role="status">
     <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected</span>
     <div class="cc-bulkbar__actions">
-        <form method="POST" action="{{ route('ext.shopee.products.bulk_push') }}" data-bulk-form
-              data-bulk-confirm="Send the selected products to Shopee? New products are created; anything already listed gets its content updated in place.">
-            @csrf
-            <x-ui.button type="submit" size="sm">Send to Shopee</x-ui.button>
+        {{-- Opens the combined review form for the selection (#151); the
+             form is the confirmation, so this carries none. --}}
+        <form method="GET" action="{{ route('ext.shopee.products.bulk_push_form') }}" data-bulk-form>
+            <x-ui.button type="submit" size="sm">Push to Shopee</x-ui.button>
         </form>
         <form method="POST" action="{{ route('ext.shopee.products.sync_ids') }}" data-bulk-form>
             @csrf

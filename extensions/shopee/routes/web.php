@@ -96,6 +96,10 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         Route::get('/shopee/products/categories/lookup', [ShopeeProductController::class, 'categoryLookup'])->name('ext.shopee.products.categoryLookup');
         Route::get('/shopee/products/brands', [ShopeeProductController::class, 'brandsForCategory'])->name('ext.shopee.products.brandsForCategory');
         Route::get('/shopee/products/{productId}/push', [ShopeeProductController::class, 'pushForm'])->name('ext.shopee.products.push');
+        // The combined review form for a multi-select push (#151). Before
+        // the {productId} route in the file for the reader; the router
+        // never confuses them because bulk is not a number.
+        Route::get('/shopee/products/bulk/push', [ShopeeProductController::class, 'bulkPushForm'])->name('ext.shopee.products.bulk_push_form');
 
         // Vouchers (#153): a live read of the shop's vouchers.
         Route::get('/shopee/vouchers', [\Extensions\shopee\Controllers\ShopeeVoucherController::class, 'index'])->name('ext.shopee.vouchers.index');

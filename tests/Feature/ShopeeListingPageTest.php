@@ -484,6 +484,58 @@ class ShopeeListingPageTest extends TestCase
         $this->assertStringContainsString('updated in place', session('status') ?? session('error') ?? '');
     }
 
+    /**
+     * #151 (2026-08-26): a multi-select push opens one combined review form
+     * for the selection, and what it states rides the whole batch without
+     * being written onto any listing.
+     */
+    public function test_a_multi_select_push_reviews_as_one_form_and_the_shared_rule_rides_the_batch(): void
+    {
+        $productId = $this->seedProduct();
+        ShopeeListing::query()->create([
+            'product_id' => $productId, 'shopee_category_id' => 100013, 'logistic_ids' => [8003],
+            'markup_percent' => 0, 'markup_fixed' => 0,
+        ]);
+        \Extensions\shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 100013], ['attributes' => []]);
+        \Extensions\shopee\Models\ShopeeLogistic::create([
+            'logistics_channel_id' => 8003, 'logistics_channel_name' => 'J&T Express', 'enabled' => true,
+            'cod_enabled' => true, 'force_enable' => false, 'mask_channel_id' => 0,
+        ]);
+        // A real image for the push to upload, and the upload answered.
+        @mkdir(public_path('image/catalog'), 0777, true);
+        file_put_contents(public_path('image/catalog/__bulk-review-test.png'), 'png');
+        DB::table(config('catalog.prefix') . 'product')->where('product_id', $productId)->update(['image' => 'catalog/__bulk-review-test.png']);
+        \Illuminate\Support\Facades\Http::fake(['*' => \Illuminate\Support\Facades\Http::response(['response' => ['image_info' => ['image_id' => 'img-bulk']]], 200)]);
+        $core = (float) DB::table(config('catalog.prefix') . 'product')->where('product_id', $productId)->value('price');
+
+        // The bar opens the form for the ticked products, and the form names them.
+        $form = $this->actingAs($this->manager())
+            ->get(route('ext.shopee.products.bulk_push_form', ['product_ids' => [$productId]]))
+            ->assertOk()
+            ->getContent();
+        $this->assertStringContainsString('Push 1 product to Shopee', $form);
+        $this->assertStringContainsString('name="shared_markup_percent"', $form);
+        $this->assertStringContainsString('name="shared_logistic_ids[]"', $form);
+        $this->assertStringContainsString('New listing', $form);
+
+        $this->getResponses['/api/v2/product/get_item_base_info'] = ['ok' => true, 'status' => 200, 'body' => ['response' => ['item_list' => []]]];
+        $this->actingAs($this->manager())->post(route('ext.shopee.products.bulk_push'), [
+            'product_ids' => [$productId],
+            'shared_markup_percent' => 10,
+            'shared_markup_fixed' => 5,
+        ]);
+
+        $add = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/add_item');
+        $this->assertNotNull($add, 'the batch pushed');
+        $this->assertSame(round($core * 1.10 + 5, 2), (float) $add['body']['original_price'], 'priced by the shared rule, not the listing\'s own');
+
+        $listing = ShopeeListing::query()->where('product_id', $productId)->first();
+        $this->assertSame(0.0, (float) $listing->markup_percent, 'the shared rule was sent, never written onto the listing');
+        $this->assertSame('bulk', $listing->last_push_source);
+        $this->assertSame(10.0, (float) $listing->last_push_settings['markup_percent'], 'and recorded as what was sent');
+        @unlink(public_path('image/catalog/__bulk-review-test.png'));
+    }
+
     public function test_the_row_menu_push_asks_before_publishing(): void
     {
         // Critique P1: the index kebab's one-click push published a live

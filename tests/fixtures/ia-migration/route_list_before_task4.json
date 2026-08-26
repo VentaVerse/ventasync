@@ -1635,6 +1635,11 @@
         "name": "ext.shopee.products.bulk_delete"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/products/bulk/push",
+        "name": "ext.shopee.products.bulk_push_form"
+    },
+    {
         "method": "POST",
         "uri": "channels/shopee/products/bulk/push",
         "name": "ext.shopee.products.bulk_push"

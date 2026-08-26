@@ -848,6 +848,18 @@
         <div class="fm-bar__actions">
             <a class="fm-cancel" href="{{ route('ext.lazada.products.index') }}">Cancel</a>
             <x-ui.button type="submit" form="lazada-listing" variant="primary">{{ $mode === 'create' ? 'Create listing' : 'Save listing' }}</x-ui.button>
+            {{-- The push, from the page that shows what goes up (#149): the
+                 index's row menu opens this page rather than uploading on a
+                 one-click. Offered once the listing exists and is not yet on
+                 Lazada; the upload itself refuses with the reason when the
+                 listing is not ready. --}}
+            @if($mode === 'edit' && empty($listing->lazada_item_id))
+                <form method="POST" action="{{ route('ext.lazada.products.upload', $listing->id) }}" data-slow-action
+                      data-confirm="Push this listing to Lazada now? It goes up with the content and settings saved on this page." data-confirm-tone="primary" data-confirm-verb="Push to Lazada">
+                    @csrf
+                    <x-ui.button type="submit">Push to Lazada</x-ui.button>
+                </form>
+            @endif
         </div>
     </div>
 </div>

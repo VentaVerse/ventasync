@@ -718,11 +718,11 @@
                     <a class="x-menu__item x-menu__item--primary" href="{{ $editUrl }}">Edit listing</a>
 
                     @if(!$hasItemId)
-                        <form method="POST" action="{{ route('ext.lazada.products.upload', $l->id) }}" data-slow-action
-                              data-confirm="Upload {{ $rowLabel }} to Lazada?" data-confirm-tone="primary" data-confirm-verb="Push to Lazada">
-                            @csrf
-                            <button type="submit" class="x-menu__item">Upload to Lazada</button>
-                        </form>
+                        {{-- One push, and it opens the listing page first
+                             (#149), where the push button sits under what
+                             is about to go up. The one-click upload is gone
+                             from the menu; the route stays for the page. --}}
+                        <a class="x-menu__item" href="{{ $editUrl }}">Push to Lazada</a>
                         <form method="POST" action="{{ route('ext.lazada.products.sync_lazada_id', $l->id) }}" data-slow-action>
                             @csrf
                             <button type="submit" class="x-menu__item">Match Lazada ID</button>
