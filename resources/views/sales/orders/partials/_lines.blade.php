@@ -26,8 +26,6 @@
         <x-slot:head>
             <tr>
                 <th scope="col">Product</th>
-                <th scope="col" class="of-col-var">Variation</th>
-                <th scope="col" class="of-col-sku">SKU</th>
                 <th scope="col" class="of-col-price">Unit price</th>
                 <th scope="col" class="of-col-qty">Qty</th>
                 <th scope="col" class="of-col-total x-td-num">Line total</th>
@@ -36,7 +34,7 @@
         </x-slot:head>
 
         <tr id="of-empty">
-            <td colspan="7" class="of-lines__empty">No products on this order yet. Add product opens the catalog.</td>
+            <td colspan="5" class="of-lines__empty">No products on this order yet. Add product opens the catalog.</td>
         </tr>
     </x-ui.table>
 

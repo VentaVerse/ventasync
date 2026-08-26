@@ -35,14 +35,24 @@
 
     /* Channel identity on a badge, same grammar as the swatch: a square
        carrying the marketplace's own colour, beside its written name. */
-    .x-badge--shopee { color: var(--bl-ink); }
+    /* The word is tinted with the channel's own deep colour, which is what
+       the Channel cell's comment always promised and what plain ink never
+       delivered: without the dot (deliberately dropped, dot means state)
+       and without the tint, Channel read exactly like Customer beside it.
+       Deep, not brand: Shopee's orange holds 12px text at 3.7:1, its deep
+       red at 4.9:1. The dark theme lifts each to a tint that clears the
+       dark sheet. */
+    .x-badge--shopee { color: #c0392b; }
     .x-badge--shopee .x-badge__dot { background: #ee4d2d; }
-    .x-badge--lazada { color: var(--bl-ink); }
+    .x-badge--lazada { color: #1c2496; }
     .x-badge--lazada .x-badge__dot { background: #0f146d; }
     .x-badge--tiktok { color: var(--bl-ink); }
     .x-badge--tiktok .x-badge__dot { background: #111111; box-shadow: 0 0 0 1px var(--bl-rule-2); }
-    .x-badge--venta { color: var(--bl-ink); }
+    .x-badge--venta { color: #2b4b7a; }
     .x-badge--venta .x-badge__dot { background: #2b4b7a; }
+    [data-theme='dark'] .x-badge--shopee { color: #ff8a70; }
+    [data-theme='dark'] .x-badge--lazada { color: #a3a9ff; }
+    [data-theme='dark'] .x-badge--venta { color: #8fb6e6; }
 
     .x-menu__trigger {
         display: inline-flex;
@@ -128,6 +138,48 @@
         gap: 7px;
     }
 
+    /* THE STATUS BADGE IS THE CONTROL (critique, 2026-08-27). Update status
+       sat at y=964 on a desktop and 1,892 of 2,565 on a phone, past two
+       cost editors, while the badge everyone looks at did nothing. The
+       badge opens a panel holding the same two forms that section held:
+       who sets the status, and the change itself. The history stays at
+       the foot, where a record belongs. */
+    .od-status { position: relative; display: inline-flex; }
+    .od-status > summary {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        list-style: none;
+        padding: 3px 8px 3px 4px;
+        border: 1px solid transparent;
+        border-radius: var(--bl-r-ctrl);
+        cursor: pointer;
+    }
+    .od-status > summary::-webkit-details-marker { display: none; }
+    .od-status > summary:hover,
+    .od-status[open] > summary { border-color: var(--bl-rule-2); background: var(--bl-chrome); }
+    .od-status__caret { color: var(--bl-ink-3); transition: transform var(--bl-motion-fast); }
+    .od-status[open] .od-status__caret { transform: rotate(180deg); }
+    .od-status__panel {
+        position: absolute;
+        top: calc(100% + 8px);
+        left: 0;
+        z-index: 30;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        width: min(560px, calc(100vw - 32px));
+        padding: 14px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-panel);
+        background: var(--bl-sheet);
+        box-shadow: var(--bl-lift-2);
+    }
+    .od-status__note { font-size: 12px; color: var(--bl-ink-3); }
+    @media (max-width: 720px) {
+        .od-status__panel { position: fixed; left: 16px; right: 16px; top: auto; bottom: 16px; width: auto; max-height: 80vh; overflow-y: auto; }
+    }
+
     .od-stamps {
         display: flex;
         flex-wrap: wrap;
@@ -149,6 +201,9 @@
         font-family: var(--font-mono);
         font-variant-numeric: tabular-nums;
         color: var(--bl-ink-2);
+        /* The external-link icon after a marketplace reference is part of
+           the value; it wrapped to a line of its own. */
+        white-space: nowrap;
     }
 
     .od-flash {
@@ -601,7 +656,18 @@
         .od-items__head { display: none; }
         .od-items__head,
         .od-item { grid-template-columns: 72px minmax(0, 1fr); }
-        .od-fig__k { display: inline; color: var(--bl-ink-3); }
+        /* The figures stop being grid items. With display: contents they
+           flowed into the two remaining columns in turn, so Total landed
+           under the thumbnail and "Qty1" had no space; on a phone the
+           packer reads Qty, Unit and Total on one line under the name. */
+        .od-item__figs {
+            display: flex;
+            flex-wrap: wrap;
+            grid-column: 2;
+            gap: 4px 16px;
+        }
+        .od-fig { text-align: left; }
+        .od-fig__k { display: inline; margin-right: 4px; color: var(--bl-ink-3); }
         .od-fee-label,
         .od-fee-amount { flex: 1 1 auto; width: auto; }
     }
@@ -621,11 +687,7 @@
 
     .fm-col--main { min-width: 0; }
 
-    .of-col-var { width: 152px; }
-    .of-col-sku { width: 124px; }
-    .of-col-price { width: 116px; }
-    .of-col-qty { width: 84px; }
-    .of-col-total { width: 148px; }
+    /* The column widths live in pages/order-form.css, once. */
 
     .of-lines { width: 100%; }
     .of-lines__empty { padding: 22px 0; text-align: center; font-size: 13px; color: var(--bl-ink-3); }

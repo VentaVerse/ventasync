@@ -150,27 +150,9 @@
         </div>
 
         <div class="fm-col fm-col--side">
-            @include('sales.orders.partials._currency', [
-                'currencies'  => $currencies,
-                'currentCode' => $currentCode,
-                'currentRate' => $currentRate,
-                'currentId'   => $currentId,
-            ])
-
-            @if($isForeign)
-            <div class="fm-card">
-                <div class="fm-card__head"><h2 class="fm-card__title">As transacted</h2></div>
-                <div class="fm-card__body">
-                    <p class="fm-hint">
-                        This order was placed in {{ $order->currency_code }} at a rate of
-                        {{ rtrim(rtrim(number_format((float) $order->currency_value, 8, '.', ''), '0'), '.') }}.
-                        Changing the rate here re-converts every line and rewrites what is stored,
-                        so change it only if the recorded rate was wrong.
-                    </p>
-                </div>
-            </div>
-            @endif
-
+            {{-- The order's own facts first: status is what the
+                 operator came to set. Currency, which almost nobody
+                 touches, moved under it (critique, 2026-08-27). --}}
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Order</h2></div>
                 <div class="fm-card__body">
@@ -194,11 +176,33 @@
                     </x-ui.field>
                 </div>
             </div>
+
+            @include('sales.orders.partials._currency', [
+                'currencies'  => $currencies,
+                'currentCode' => $currentCode,
+                'currentRate' => $currentRate,
+                'currentId'   => $currentId,
+            ])
+
+            @if($isForeign)
+            <div class="fm-card">
+                <div class="fm-card__head"><h2 class="fm-card__title">As transacted</h2></div>
+                <div class="fm-card__body">
+                    <p class="fm-hint">
+                        This order was placed in {{ $order->currency_code }} at a rate of
+                        {{ rtrim(rtrim(number_format((float) $order->currency_value, 8, '.', ''), '0'), '.') }}.
+                        Changing the rate here re-converts every line and rewrites what is stored,
+                        so change it only if the recorded rate was wrong.
+                    </p>
+                </div>
+            </div>
+            @endif
+
         </div>
     </div>
 
     <div class="fm-bar">
-        <span class="fm-bar__meta">Order #{{ $order->order_id }}</span>
+        <span class="fm-bar__meta">Saves the lines, status and comment. A status that takes stock moves it on save.</span>
         <div class="fm-bar__actions">
             <a class="fm-cancel" href="{{ route('orders.index') }}">Cancel</a>
             <x-ui.button type="submit" variant="primary">Save order</x-ui.button>

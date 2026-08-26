@@ -78,13 +78,9 @@
         </div>
 
         <div class="fm-col fm-col--side">
-            @include('sales.orders.partials._currency', [
-                'currencies'  => $currencies,
-                'currentCode' => $currentCode,
-                'currentRate' => $currentRate,
-                'currentId'   => $currentId,
-            ])
-
+            {{-- The order's own facts first: status is what the
+                 operator came to set. Currency, which almost nobody
+                 touches, moved under it (critique, 2026-08-27). --}}
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Order</h2></div>
                 <div class="fm-card__body">
@@ -103,11 +99,19 @@
                     </x-ui.field>
                 </div>
             </div>
+
+            @include('sales.orders.partials._currency', [
+                'currencies'  => $currencies,
+                'currentCode' => $currentCode,
+                'currentRate' => $currentRate,
+                'currentId'   => $currentId,
+            ])
+
         </div>
     </div>
 
     <div class="fm-bar">
-        <span class="fm-bar__meta">New order</span>
+        <span class="fm-bar__meta">Creates the order with its lines. A status that takes stock deducts it on save.</span>
         <div class="fm-bar__actions">
             <a class="fm-cancel" href="{{ route('orders.index') }}">Cancel</a>
             <x-ui.button type="submit" variant="primary">Save order</x-ui.button>

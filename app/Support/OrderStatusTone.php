@@ -32,9 +32,17 @@ class OrderStatusTone
      * in (READY_TO_SHIP becomes "ready to ship").
      */
     private const WARNING = [
-        'pending', 'processing', 'unpaid', 'for verification',
-        'to confirm receive', 'return in progress',
+        'pending', 'unpaid', 'for verification',
         'ready to ship', 'to handover',
+    ];
+    /**
+     * In flight: somebody else's move. It used to share amber with the
+     * list above, so 39 of 50 rows on the orders list wore one colour and
+     * the scan the badge exists for found nothing (critique, 2026-08-27).
+     * Amber now means "needs you"; cool means "moving, wait".
+     */
+    private const INFO = [
+        'processing', 'to confirm receive', 'return in progress',
     ];
 
     /** Failed, reversed, or otherwise did not go through. */
@@ -62,6 +70,9 @@ class OrderStatusTone
 
         if (in_array($key, self::WARNING, true)) {
             return 'warning';
+        }
+        if (in_array($key, self::INFO, true)) {
+            return 'info';
         }
 
         if (in_array($key, self::DANGER, true)) {

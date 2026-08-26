@@ -120,7 +120,79 @@
     <header class="od-head">
         <div class="od-head__id">
             <h1 class="x-page-title od-title">#{{ $order->order_id }}</h1>
-            <x-ui.badge :tone="\App\Support\OrderStatusTone::for($order->status->name ?? null)">{{ $order->status->name ?? '-' }}</x-ui.badge>
+            @if($canManageOrders)
+                {{-- The badge is the control (critique, 2026-08-27): it opens
+                     the two forms that used to sit two screens down, who sets
+                     the status and the change itself. --}}
+                <details class="od-status">
+                    <summary class="od-status__summary" aria-label="Change the order status">
+                        <x-ui.badge :tone="\App\Support\OrderStatusTone::for($order->status->name ?? null)">{{ $order->status->name ?? '-' }}</x-ui.badge>
+                        <x-ui.icon name="chevron-down" size="12" class="od-status__caret" />
+                    </summary>
+                    <div class="od-status__panel">
+        <form method="POST" action="{{ route('orders.toggle_override', $order->order_id) }}">
+                @csrf
+                <div class="od-override">
+                    <button type="submit"
+                            class="od-switch"
+                            role="switch"
+                            aria-checked="{{ $order->sync_override ? 'true' : 'false' }}"
+                            aria-label="{{ $order->sync_override
+                                ? 'Hand status back to the marketplace'
+                                : 'Take over this order\'s status' }}">
+                    </button>
+                    <div class="od-override__body">
+                        {{-- The label names the CONSEQUENCE, not the switch's own
+                             state. "Sync override off" is true and tells an
+                             operator nothing: they have to infer that off means
+                             the marketplace decides. Say which of the two is in
+                             charge, and the sentence below explains the rest. --}}
+                        <div class="od-override__title">
+                            {{ $order->sync_override
+                                ? 'You set this order\'s status'
+                                : 'The marketplace sets this order\'s status' }}
+                        </div>
+                        <div class="od-override__note">
+                            @if($order->sync_override)
+                                Manually controlled. Marketplace syncs will not change this order's status or stock.
+                            @else
+                                The marketplace sync manages this order's status. Turn on before finalizing a return, then set the status.
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            <form method="POST" action="{{ route('orders.update_status', $order->order_id) }}">
+                @csrf
+                <div class="od-fields">
+                    <div class="od-field">
+                        <label class="od-field__k" for="od-status">Order status</label>
+                        <div class="x-select-wrap">
+                            <select id="od-status" class="x-input" name="order_status_id">
+                                @foreach($statuses as $s)
+                                    <option value="{{ $s->order_status_id }}" @selected($order->order_status_id == $s->order_status_id)>{{ $s->name }}</option>
+                                @endforeach
+                            </select>
+                            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                        </div>
+                    </div>
+                    <div class="od-field">
+                        <label class="od-field__k" for="od-status-comment">Comment</label>
+                        <input class="x-input" id="od-status-comment" name="comment" value="" placeholder="Optional note">
+                    </div>
+                    <div class="od-field">
+                        <x-ui.button variant="primary" type="submit">Update status</x-ui.button>
+                    </div>
+                </div>
+            </form>
+
+                        <p class="od-status__note">Moving to or from a status that takes stock adjusts inventory the moment you update.</p>
+                    </div>
+                </details>
+            @else
+                <x-ui.badge :tone="\App\Support\OrderStatusTone::for($order->status->name ?? null)">{{ $order->status->name ?? '-' }}</x-ui.badge>
+            @endif
             <x-ui.badge :tone="$chanTone" :dot="false">{{ $chanLabel }}</x-ui.badge>
         </div>
         @if($canManageOrders)
@@ -427,14 +499,20 @@
                         @endif
                     @endforeach
 
-                    <form method="POST" action="{{ route('orders.store_fee', $order->order_id) }}" class="od-ledger__form">
-                        @csrf
-                        <label class="x-sr" for="od-fee-label">Fee label</label>
-                        <input type="text" id="od-fee-label" name="label" class="x-input od-fee-label" placeholder="Fee label" required>
-                        <label class="x-sr" for="od-fee-amount">Fee amount</label>
-                        <input type="number" id="od-fee-amount" name="amount" class="x-input od-fee-amount" placeholder="0.00" step="0.01" min="0.01" required>
-                        <x-ui.button size="sm" type="submit"><x-ui.icon name="plus" size="12" /> Add fee</x-ui.button>
-                    </form>
+                    {{-- Folded, like Record a payment: a form that stood open
+                         inside a reading ledger on every order, whether or not
+                         a fee was ever due. --}}
+                    <details class="od-disclose">
+                        <summary><x-ui.icon name="plus" size="12" /> Add fee</summary>
+                        <form method="POST" action="{{ route('orders.store_fee', $order->order_id) }}" class="od-ledger__form">
+                            @csrf
+                            <label class="x-sr" for="od-fee-label">Fee label</label>
+                            <input type="text" id="od-fee-label" name="label" class="x-input od-fee-label" placeholder="Fee label" required>
+                            <label class="x-sr" for="od-fee-amount">Fee amount</label>
+                            <input type="number" id="od-fee-amount" name="amount" class="x-input od-fee-amount" placeholder="0.00" step="0.01" min="0.01" required>
+                            <x-ui.button size="sm" type="submit">Add fee</x-ui.button>
+                        </form>
+                    </details>
                     @endif
 
                     <div class="od-ledger__row od-ledger__row--profit">
@@ -467,7 +545,10 @@
                              the storefront sent it (#129): a reseller's order
                              says so where its lower margin is read. --}}
                         @if(trim((string) ($order->customer_group ?? '')) !== '')
-                            <span><x-ui.badge tone="info" :dot="false">{{ $order->customer_group }}</x-ui.badge></span>
+                            <span class="od-fact">
+                                <span class="od-fact__k">Customer group</span>
+                                <span class="od-fact__v">{{ $order->customer_group }}</span>
+                            </span>
                         @endif
                         @if($order->email)<span><a href="mailto:{{ $order->email }}">{{ $order->email }}</a></span>@endif
                         @if($order->telephone)<span>{{ $order->telephone }}</span>@endif
@@ -702,72 +783,6 @@
             @endif
         </div>
     </div>
-
-    {{-- ============ STATUS ============ --}}
-    @if($canManageOrders)
-    <section class="od-section">
-        <div class="od-section__head">
-            <h2 class="od-section__title">Update status</h2>
-        </div>
-
-        <form method="POST" action="{{ route('orders.toggle_override', $order->order_id) }}">
-            @csrf
-            <div class="od-override">
-                <button type="submit"
-                        class="od-switch"
-                        role="switch"
-                        aria-checked="{{ $order->sync_override ? 'true' : 'false' }}"
-                        aria-label="{{ $order->sync_override
-                            ? 'Hand status back to the marketplace'
-                            : 'Take over this order\'s status' }}">
-                </button>
-                <div class="od-override__body">
-                    {{-- The label names the CONSEQUENCE, not the switch's own
-                         state. "Sync override off" is true and tells an
-                         operator nothing: they have to infer that off means
-                         the marketplace decides. Say which of the two is in
-                         charge, and the sentence below explains the rest. --}}
-                    <div class="od-override__title">
-                        {{ $order->sync_override
-                            ? 'You set this order\'s status'
-                            : 'The marketplace sets this order\'s status' }}
-                    </div>
-                    <div class="od-override__note">
-                        @if($order->sync_override)
-                            Manually controlled. Marketplace syncs will not change this order's status or stock.
-                        @else
-                            The marketplace sync manages this order's status. Turn on before finalizing a return, then set the status.
-                        @endif
-                    </div>
-                </div>
-            </div>
-        </form>
-
-        <form method="POST" action="{{ route('orders.update_status', $order->order_id) }}">
-            @csrf
-            <div class="od-fields">
-                <div class="od-field">
-                    <label class="od-field__k" for="od-status">Order status</label>
-                    <div class="x-select-wrap">
-                        <select id="od-status" class="x-input" name="order_status_id">
-                            @foreach($statuses as $s)
-                                <option value="{{ $s->order_status_id }}" @selected($order->order_status_id == $s->order_status_id)>{{ $s->name }}</option>
-                            @endforeach
-                        </select>
-                        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-                    </div>
-                </div>
-                <div class="od-field">
-                    <label class="od-field__k" for="od-status-comment">Comment</label>
-                    <input class="x-input" id="od-status-comment" name="comment" value="" placeholder="Optional note">
-                </div>
-                <div class="od-field">
-                    <x-ui.button variant="primary" type="submit">Update status</x-ui.button>
-                </div>
-            </div>
-        </form>
-    </section>
-    @endif
 
     {{-- ============ HISTORY ============ --}}
     <section class="od-section">

@@ -38,11 +38,26 @@
 /* ------------------------------------------------------------------
    1. LINE ITEMS
    ------------------------------------------------------------------ */
-.of-col-var   { width: 152px; }
-.of-col-sku   { width: 124px; }
+/* Five columns: the product, three figures, the remove. Variation and
+   SKU used to be columns of their own (152 + 124), and with the figures
+   (116 + 84 + 148) and the 48px actions cell the row asked 672px of a
+   618px table at 1280; the product name was what gave, 66px, one word
+   per line, a two-line order 500px tall (critique, 2026-08-27). They now
+   sit under the name, as the order view's item rows already carry them. */
 .of-col-price { width: 116px; }
 .of-col-qty   { width: 84px; }
 .of-col-total { width: 148px; }
+.of-lines th:first-child,
+.of-line__name { min-width: 200px; }
+.of-line__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 10px;
+    margin-top: 2px;
+    font-size: 11.5px;
+    color: var(--bl-ink-3);
+}
+.of-line__sku { font-family: var(--font-mono); }
 
 /* The rows carry inputs, so they need more room than a read-only
    table row and must not be clipped to one line. */

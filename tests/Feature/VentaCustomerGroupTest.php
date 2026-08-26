@@ -81,6 +81,6 @@ class VentaCustomerGroupTest extends TestCase
         $user = User::factory()->create(['user_group_id' => $group->id]);
 
         $html = $this->actingAs($user)->get(route('orders.show', $order->order_id))->assertOk()->getContent();
-        $this->assertMatchesRegularExpression('/x-badge__label">Reseller</', $html);
+        $this->assertMatchesRegularExpression('/od-fact__k">Customer group<\/span>\s*<span class="od-fact__v">Reseller</', $html);
     }
 }

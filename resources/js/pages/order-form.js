@@ -61,7 +61,9 @@
     }
 
     function money(symbol, amount) {
-        return symbol + ' ' + Number(amount || 0).toFixed(2);
+        // The same shape the server prints: symbol, no space, thousands
+        // separated. It printed "₱ 5288.00" beside a "₱5,288.00" for years.
+        return symbol + Number(amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
     /**
@@ -287,16 +289,18 @@
                 tdName.appendChild(hidden(idx, 'option_name', item.option_name || ''));
                 tdName.appendChild(hidden(idx, 'option_value', item.option_value || ''));
             }
+            // Variation and SKU under the name, the way the order view's item
+            // rows carry them, rather than two columns of their own: seven
+            // columns with three inputs could not fit the 618px work column
+            // at 1280 and the product name was what gave, one word per line
+            // (critique, 2026-08-27).
+            const meta = el('span', 'of-line__meta');
+            if (item.option_value) {
+                meta.appendChild(el('span', 'of-line__var', item.option_name + ': ' + item.option_value));
+            }
+            meta.appendChild(el('span', 'of-line__sku x-num', item.sku || item.model || 'No SKU'));
+            tdName.appendChild(meta);
             tr.appendChild(tdName);
-
-            const tdVar = el('td', 'of-col-var x-cell-muted',
-                item.option_value ? item.option_name + ': ' + item.option_value : 'None');
-            tdVar.dataset.label = 'Variation';
-            tr.appendChild(tdVar);
-
-            const tdSku = el('td', 'of-col-sku x-num x-cell-muted', item.sku || item.model || 'None');
-            tdSku.dataset.label = 'SKU';
-            tr.appendChild(tdSku);
 
             const tdPrice = el('td', 'of-col-price');
             tdPrice.dataset.label = 'Unit price';
@@ -312,7 +316,7 @@
             tr.appendChild(tdPrice);
 
             const tdQty = el('td', 'of-col-qty');
-            tdQty.dataset.label = 'Quantity';
+            tdQty.dataset.label = 'Qty';
             const qtyInput = document.createElement('input');
             qtyInput.type = 'number';
             qtyInput.className = 'x-input fm-input--num of-line__qty';

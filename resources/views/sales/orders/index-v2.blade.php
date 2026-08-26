@@ -12,7 +12,7 @@
 <div class="x-list-head">
     <div>
         <h1 class="x-page-title">Orders</h1>
-        <p class="x-page-sub">{{ number_format($orders->total()) }} across all channels</p>
+        <p class="x-page-sub">{{ number_format($orders->total()) }} {{ $orders->total() === 1 ? 'order' : 'orders' }}{{ request()->hasAny(['status', 'source', 'q', 'search']) ? ' match' : '' }}</p>
     </div>
     @if($canManageOrders)
     <x-ui.button variant="primary" :href="route('orders.create')">New order</x-ui.button>
