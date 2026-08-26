@@ -502,9 +502,14 @@ class ShopeeListingPageTest extends TestCase
         $this->getResponses['/api/v2/product/get_item_base_info'] =
             ['ok' => true, 'status' => 200, 'body' => ['response' => ['item_list' => []]]];
 
+        // #149 (2026-08-26): the row menu no longer publishes anything
+        // itself. Its one push opens the review form, so nothing there
+        // needs a confirmation, and the one-click confirm is gone with it.
         $this->actingAs($this->manager())
             ->get(route('ext.shopee.products.index'))
-            ->assertSee('Push this product to Shopee now?');
+            ->assertSee(route('ext.shopee.products.push', $productId), false)
+            ->assertDontSee('Push this product to Shopee now?')
+            ->assertDontSee('Review push settings');
     }
 
     public function test_the_item_id_links_to_the_live_listing(): void

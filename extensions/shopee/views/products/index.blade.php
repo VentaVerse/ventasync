@@ -612,12 +612,12 @@
 
                     @if($canManageShopee)
                         @if(!$link)
-                            <a class="x-menu__item" href="{{ route('ext.shopee.products.push', $p->product_id) }}">Review push settings</a>
-                            <form method="POST" action="{{ route('ext.shopee.products.push_direct', $p->product_id) }}" data-slow-action
-                                  data-confirm="Push this product to Shopee now? It goes up with the settings and content saved on its listing." data-confirm-tone="primary" data-confirm-verb="Push to Shopee">
-                                @csrf
-                                <button type="submit" class="x-menu__item">Push to Shopee</button>
-                            </form>
+                            {{-- One push, and it always opens the review form
+                                 first (#149): the operator sees what goes up
+                                 before it goes. The one-click push that sat
+                                 beside it is gone from the menu; the route
+                                 stays for the bulk bar and the group page. --}}
+                            <a class="x-menu__item" href="{{ route('ext.shopee.products.push', $p->product_id) }}">Push to Shopee</a>
                             <form method="POST" action="{{ route('ext.shopee.products.sync_shopee_id', $p->product_id) }}" data-slow-action>
                                 @csrf
                                 <button type="submit" class="x-menu__item">Match Shopee ID</button>

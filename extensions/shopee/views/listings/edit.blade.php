@@ -260,11 +260,9 @@
                 <h2 class="fm-section__title">Not on Shopee yet</h2>
                 @if($canManage && empty($missing))
                     <div class="fm-section__aside">
-                        <form method="POST" action="{{ route('ext.shopee.products.push_direct', $product->product_id) }}"
-                              data-confirm="Push this product to Shopee now? It goes up with the settings and content saved on this page." data-confirm-tone="primary" data-confirm-verb="Push to Shopee">
-                            @csrf
-                            <x-ui.button type="submit" variant="primary">Push to Shopee</x-ui.button>
-                        </form>
+                        {{-- Opens the review form, prefilled from this page
+                             (#149): every push shows what is about to go. --}}
+                        <x-ui.button variant="primary" :href="route('ext.shopee.products.push', $product->product_id)">Push to Shopee</x-ui.button>
                     </div>
                 @endif
             </div>

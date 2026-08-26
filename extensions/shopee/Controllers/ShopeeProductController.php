@@ -514,6 +514,8 @@ class ShopeeProductController extends Controller
             'groupCategoryId' => $groupCategoryId,
             'groupName' => $listing ? 'this product\'s own listing' : null,
             'suggestedPrice' => $suggestedPrice,
+            'markupPercent' => $markupPct != 0 ? $markupPct : null,
+            'markupFixed' => $markupFixed != 0 ? $markupFixed : null,
             'attrTemplate' => $sheet['template'],
             'attrRows' => $sheet['attributes'],
             'savedAttributes' => $listing->attribute_values ?? [],
@@ -525,7 +527,11 @@ class ShopeeProductController extends Controller
         $request->validate([
             'item_name' => 'required|string|max:255',
             'description' => 'required|string|max:5000',
-            'original_price' => 'required|numeric|min:0.01',
+            // The rule (#150). original_price stays accepted for a caller
+            // that states a final figure; the form no longer sends it.
+            'markup_percent' => 'nullable|numeric|min:-100|max:1000',
+            'markup_fixed' => 'nullable|numeric|min:-1000000|max:1000000',
+            'original_price' => 'nullable|numeric|min:0.01',
             'normal_stock' => 'required|integer|min:0', // mapped to seller_stock in payload
             'item_sku' => 'nullable|string|max:100',
             'weight' => 'required|numeric|min:0.01',
@@ -540,6 +546,25 @@ class ShopeeProductController extends Controller
             'attributes' => 'nullable|array',
             'attributes.*' => 'nullable|string|max:500',
         ]);
+
+        /* The price is computed HERE, from the rule, over the catalog price
+         * at this moment (#150). A final figure is accepted only when no
+         * rule was given, for the callers that still speak that way. */
+        $pfxForPrice = (string) config('catalog.prefix');
+        $corePrice = (float) DB::table($pfxForPrice . 'product')->where('product_id', $productId)->value('price');
+        $ruleGiven = $request->filled('markup_percent') || $request->filled('markup_fixed');
+        $markupPercent = $ruleGiven ? (float) $request->input('markup_percent', 0) : null;
+        $markupFixed = $ruleGiven ? (float) $request->input('markup_fixed', 0) : null;
+        if ($ruleGiven) {
+            $pushedPrice = round($corePrice + ($corePrice * $markupPercent / 100) + $markupFixed, 2);
+        } elseif ($request->filled('original_price')) {
+            $pushedPrice = (float) $request->input('original_price');
+        } else {
+            $pushedPrice = round($corePrice, 2);
+        }
+        if ($pushedPrice <= 0) {
+            return back()->withInput()->withErrors(['markup_fixed' => 'That rule prices the product at ' . \App\Support\Money::base($pushedPrice) . '. Shopee needs a price above zero.']);
+        }
 
         $setting = ShopeeSetting::query()->first()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
@@ -613,7 +638,7 @@ class ShopeeProductController extends Controller
         }
 
         $payload = [
-            'original_price' => (float) $request->input('original_price'),
+            'original_price' => $pushedPrice,
             'description' => (string) $request->input('description'),
             'item_name' => (string) $request->input('item_name'),
             'seller_stock' => [['stock' => (int) $request->input('normal_stock')]],
@@ -690,16 +715,14 @@ class ShopeeProductController extends Controller
          * operator expressed is "this listing sells at core plus the
          * difference". Stored as a fixed markup; price is NEVER stored
          * (card #97), so a core price change moves this listing with it. */
-        $corePrice = (float) DB::table($pfx . 'product')->where('product_id', $productId)->value('price');
-        $pushedPrice = (float) $request->input('original_price');
-
         ShopeeListing::query()->updateOrCreate(
             ['product_id' => $productId],
             [
                 'shopee_category_id' => (int) $request->input('category_id'),
                 'logistic_ids' => array_map('intval', (array) $request->input('logistic_ids', [])),
-                'markup_percent' => 0,
-                'markup_fixed' => round($pushedPrice - $corePrice, 2),
+                // The rule as stated; a final figure becomes a fixed markup.
+                'markup_percent' => $ruleGiven ? $markupPercent : 0,
+                'markup_fixed' => $ruleGiven ? $markupFixed : round($pushedPrice - $corePrice, 2),
                 'item_name' => (string) $request->input('item_name'),
                 'description' => (string) $request->input('description'),
                 'attribute_values' => $mergedAttributes ?: null,
@@ -713,6 +736,8 @@ class ShopeeProductController extends Controller
                     'category_id' => (int) $request->input('category_id'),
                     'logistic_ids' => array_map('intval', (array) $request->input('logistic_ids', [])),
                     'price' => $pushedPrice,
+                    'markup_percent' => $ruleGiven ? $markupPercent : 0,
+                    'markup_fixed' => $ruleGiven ? $markupFixed : round($pushedPrice - $corePrice, 2),
                 ],
             ]
         );

@@ -12,7 +12,9 @@
      (components/form-page.css), with the image chooser and the delivery-option
      list in pages/channel-listing.css and pages/group-form.css.
 
-     This page is one form and it has no script at all, before or after.
+     This page is one form. Its only script is the running total under the
+     price rule (pages/channel-listing-form.js, the same one the Lazada
+     form runs), which replaces the digits of a figure the server rendered.
 
      The wire is unchanged, checked field by field against
      ShopeeProductController::push():
@@ -48,7 +50,8 @@
 
     $productName = (string) ($product->name ?? '');
     $suggested = $suggestedPrice ?? (float) $product->price;
-    $hasMarkup = isset($suggestedPrice) && (float) $suggestedPrice !== (float) $product->price;
+    $markupPercent = old('markup_percent', $markupPercent ?? null);
+    $markupFixed = old('markup_fixed', $markupFixed ?? null);
 @endphp
 
 <form method="POST" class="fm-page" action="{{ route('ext.shopee.products.push.post', $product->product_id) }}">
@@ -105,17 +108,40 @@
                     </x-ui.field>
                 </div>
 
+                {{-- The price as a RULE over the catalog price, the same
+                     grammar the listing page and the group form speak
+                     (#150). The form used to take a final price and derive
+                     a fixed markup from it; now the operator states the
+                     rule, the figure below previews what Shopee will list
+                     at, and the rule is what the listing stores, so a
+                     catalog price change carries through on its own. --}}
                 <div class="fm-fields fm-fields--2">
-                    <x-ui.field label="Price" for="ps-price" name="original_price" :required="true"
-                                :hint="$hasMarkup
-                                    ? 'The catalog price plus this group\'s markup. Change it and the group is ignored for this push.'
-                                    : 'What Shopee lists it at before any of its own promotions.'">
-                        <x-ui.input id="ps-price" name="original_price" type="number" step="0.01" min="0.01"
-                                    class="fm-input--num"
-                                    value="{{ old('original_price', number_format((float) $suggested, 2, '.', '')) }}"
+                    <x-ui.field label="Percent added" for="ps-markup-pct" name="markup_percent"
+                                hint="On top of the catalog price. Leave both blank to list at the catalog price.">
+                        <x-ui.input id="ps-markup-pct" name="markup_percent" type="number" step="0.01" min="-100" max="1000"
+                                    class="fm-input--num" placeholder="0" data-markup-percent
+                                    :value="$markupPercent !== null && $markupPercent !== '' ? $markupPercent : ''"
                                     :disabled="!$canManageShopee" />
                     </x-ui.field>
+                    <x-ui.field label="Fixed amount added" for="ps-markup-fixed" name="markup_fixed">
+                        <x-ui.input id="ps-markup-fixed" name="markup_fixed" type="number" step="0.01"
+                                    class="fm-input--num" placeholder="0" data-markup-fixed
+                                    :value="$markupFixed !== null && $markupFixed !== '' ? $markupFixed : ''"
+                                    :disabled="!$canManageShopee" />
+                    </x-ui.field>
+                </div>
+                <div class="fm-stats" data-running-total data-base-price="{{ number_format((float) $product->price, 2, '.', '') }}">
+                    <div class="fm-stat">
+                        <span class="fm-stat__k">Catalog price</span>
+                        <span class="fm-stat__v"><x-money :php="(float) $product->price" /></span>
+                    </div>
+                    <div class="fm-stat">
+                        <span class="fm-stat__k">Price on Shopee</span>
+                        <span class="fm-stat__v" data-total-value><x-money :php="(float) $suggested" /></span>
+                    </div>
+                </div>
 
+                <div class="fm-fields fm-fields--2">
                     <x-ui.field label="Stock" for="ps-stock" name="normal_stock" :required="true"
                                 hint="What Shopee shows as available. It is the catalog quantity unless you change it.">
                         <x-ui.input id="ps-stock" name="normal_stock" type="number" min="0"
@@ -329,23 +355,6 @@
                 </div>
             </div>
 
-            @if($hasMarkup)
-            <div class="fm-card">
-                <div class="fm-card__head"><h2 class="fm-card__title">Where the price came from</h2></div>
-                <div class="fm-card__body">
-                    <div class="fm-stats">
-                        <div class="fm-stat">
-                            <span class="fm-stat__k">Catalog price</span>
-                            <span class="fm-stat__v"><x-money :php="(float) $product->price" /></span>
-                        </div>
-                        <div class="fm-stat">
-                            <span class="fm-stat__k">With the group markup</span>
-                            <span class="fm-stat__v"><x-money :php="(float) $suggested" /></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            @endif
         </div>
     </div>
 
