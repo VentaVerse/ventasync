@@ -347,6 +347,21 @@
 .rp-grp__count { color: var(--bl-ink-3); font-weight: 400; }
 .rp-child > td:first-child { padding-left: var(--bl-space-6); }
 
+/* The group mix under a product row (#130): one step quieter than the
+   product, indented under its name, on the sunken surface so the block
+   reads as belonging to the row above it. */
+.rp-mix > td {
+    padding-top: 4px;
+    padding-bottom: 4px;
+    background: var(--bl-chrome);
+    font-size: 12px;
+    color: var(--bl-ink-2);
+    border-top: 0;
+}
+.rp-mix__label { padding-left: var(--bl-space-3); color: var(--bl-ink); font-weight: 550; }
+.rp-mix__avg { margin-left: var(--bl-space-2); font-weight: 400; color: var(--bl-ink-3); }
+.rp-mix + tr:not(.rp-mix) > td { border-top: 1px solid var(--bl-rule-2); }
+
 /* Totals. Distinct without being loud: a heavier rule above it, the
    sunken surface, and it stays put at the bottom of the scroll box so a
    long table never hides the number it adds up to. */
