@@ -182,6 +182,14 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
                     ->whereIn('status', ['Start Pickup', 'Pending', 'Processing', 'For Verification'])
                     ->count();
             },
+            /* The steps while the seller holds the parcel, each counted alone:
+             * the fulfilment card leads with To Pack and prints To Handover beside
+             * it, which the staff count against the shelf. The statuses are the
+             * orders panel's own sub-tab map, so the card and the tab agree. */
+            stages: [
+                ['key' => 'to_pack', 'label' => 'to pack', 'counter' => fn () => Schema::hasTable('venta_orders') ? VentaOrder::query()->where('venta_setting_id', $storeId)->whereIn('status', ['Pending', 'For Verification', 'Processing'])->count() : 0],
+                ['key' => 'to_handover', 'label' => 'to handover', 'counter' => fn () => Schema::hasTable('venta_orders') ? VentaOrder::query()->where('venta_setting_id', $storeId)->whereIn('status', ['Start Pickup'])->count() : 0],
+            ],
             dailyOrdersCounter: function () use ($marketplaceSource, $orderTable) {
                 if (!Schema::hasTable($orderTable)) {
                     return 0;

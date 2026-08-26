@@ -450,9 +450,7 @@
                             @if(trim((string) ($vtItem?->sku ?? '')) !== '')
                                 <span class="co-item__sku">{{ $vtItem->sku }}</span>
                             @endif
-                            @if(trim((string) ($vtItem?->variant_label ?? '')) !== '')
-                                <span class="co-item__var">{{ $vtItem->variant_label }}</span>
-                            @endif
+                            <x-fulfilment.variation :sku="$vtItem?->sku" :fallback="$vtItem?->variant_label" />
                         </div>
                     </div>
                 </div>

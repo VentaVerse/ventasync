@@ -550,9 +550,7 @@
                             @if(trim((string) ($it['sku'] ?? '')) !== '')
                                 <span class="co-item__sku">{{ $it['sku'] }}</span>
                             @endif
-                            @if(trim((string) ($it['variation'] ?? '')) !== '')
-                                <span class="co-item__var">{{ $it['variation'] }}</span>
-                            @endif
+                            <x-fulfilment.variation :sku="$it['sku'] ?? null" :fallback="$it['variation'] ?? null" />
                         </div>
                     </div>
                 </div>

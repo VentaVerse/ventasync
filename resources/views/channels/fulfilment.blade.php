@@ -258,6 +258,11 @@
                     $fhCardReturns = $fhIsReturnsView
                         ? ($fhReturnsCounts[$fhCard['id']] ?? null)
                         : null;
+                    /* The steps behind the count, when the channel tells
+                     * them apart: To Pack leads, To Handover (and on
+                     * Lazada, To Arrange) print beside it. The staff count
+                     * the To Handover parcels against the shelf. */
+                    $fhStages = !$fhIsReturnsView && !empty($fhCard['stages']) ? $fhCard['stages'] : null;
                 @endphp
                 @if($fhIsReturnsView)
                     @if($fhCardReturns === null)
@@ -267,6 +272,11 @@
                     @endif
                 @elseif($fhCard['waiting'] === null)
                     <span class="fh-card__lead is-untracked">Not tracked</span>
+                @elseif($fhStages)
+                    {{-- A channel that tells its steps apart leads with To
+                         Pack, the unprocessed count: the parcels nobody has
+                         touched. The later steps print under it. --}}
+                    <span class="fh-card__lead x-num {{ $fhStages[0]['count'] === 0 ? 'is-clear' : '' }}{{ $fhOrphanCount ? ' is-stale' : '' }}">{{ number_format($fhStages[0]['count']) }}</span>
                 @else
                     <span class="fh-card__lead x-num {{ $fhCard['waiting'] === 0 ? 'is-clear' : '' }}{{ $fhOrphanCount ? ' is-stale' : '' }}">{{ number_format($fhCard['waiting']) }}</span>
                 @endif
@@ -288,8 +298,20 @@
                     <span class="fh-card__label">{{ $fhCardReturns === null ? 'not offered here' : ($fhCardReturns === 1 ? 'return' : 'returns') }}</span>
                 @elseif($fhCard['waiting'] === null)
                     <span class="fh-card__label">orders waiting</span>
+                @elseif($fhStages)
+                    <span class="fh-card__label">{{ $fhStages[0]['count'] === 0 ? 'nothing to pack' : $fhStages[0]['label'] }}</span>
                 @else
                     <span class="fh-card__label">{{ $fhCard['waiting'] === 0 ? 'clear' : 'waiting' }}</span>
+                @endif
+
+                {{-- The later steps, whatever the caveat above said: a stalled
+                     channel's To Handover parcels are still on the shelf. --}}
+                @if($fhStages && count($fhStages) > 1)
+                    <span class="fh-card__stages">
+                        @foreach(array_slice($fhStages, 1) as $fhStage)
+                            <span class="fh-card__stage"><span class="fh-card__stage-count x-num {{ $fhStage['count'] === 0 ? 'is-clear' : '' }}">{{ number_format($fhStage['count']) }}</span> {{ $fhStage['label'] }}</span>
+                        @endforeach
+                    </span>
                 @endif
 
                 {{-- Today's contribution, hidden by the grid at the narrow end

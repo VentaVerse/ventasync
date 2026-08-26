@@ -23,6 +23,15 @@ class OrderTab
      * @param Closure():float|null $dailyRevenueCounter
      * @param Closure(int):array|null $topProductsCallback Returns Dto\TopProduct[]
      * @param Closure(int):array|null $recentOrdersCallback Returns Dto\RecentOrder[]
+     * @param array<int, array{key: string, label: string, counter: Closure():int}>|null $stages
+     *        The steps a parcel goes through while the seller still holds
+     *        it, in order, each with its own count: to pack first, then to
+     *        handover (Lazada has to arrange shipment between). Together they
+     *        partition $unprocessedCounter. The fulfilment cards lead with
+     *        the first and print the rest beside it, so the staff can count
+     *        the parcels waiting for the courier against the shelf. Null on a
+     *        channel that does not tell its steps apart; the card then shows
+     *        the one waiting figure.
      */
     public function __construct(
         public string $id,
@@ -37,6 +46,7 @@ class OrderTab
         public ?Closure $dailyRevenueCounter = null,
         public ?Closure $topProductsCallback = null,
         public ?Closure $recentOrdersCallback = null,
+        public ?array $stages = null,
     ) {
     }
 
@@ -93,5 +103,24 @@ class OrderTab
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    /**
+     * The stage counts, resolved: [['key' => 'to_pack', 'label' => 'to pack', 'count' => 3], ...],
+     * or null when the channel does not tell its steps apart.
+     *
+     * @return array<int, array{key: string, label: string, count: int}>|null
+     */
+    public function stageCounts(): ?array
+    {
+        if ($this->stages === null) {
+            return null;
+        }
+        $out = [];
+        foreach ($this->stages as $stage) {
+            $out[] = ['key' => (string) $stage['key'], 'label' => (string) $stage['label'], 'count' => (int) ($stage['counter'])()];
+        }
+
+        return $out;
     }
 }

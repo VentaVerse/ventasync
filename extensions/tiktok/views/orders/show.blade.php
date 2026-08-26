@@ -203,9 +203,7 @@
                                     @if(trim($ci['sku']) !== '')
                                         <span class="co-item__sku">{{ $ci['sku'] }}</span>
                                     @endif
-                                    @if(trim($ci['variation']) !== '')
-                                        <span class="co-item__var">{{ $ci['variation'] }}</span>
-                                    @endif
+                                    <x-fulfilment.variation :sku="$ci['sku']" :fallback="$ci['variation']" />
                                 </div>
                             </div>
 

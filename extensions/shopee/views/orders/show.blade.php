@@ -180,9 +180,7 @@
                                     @if(trim($sku) !== '')
                                         <span class="co-item__sku">{{ $sku }}</span>
                                     @endif
-                                    @if(trim($variation) !== '')
-                                        <span class="co-item__var">{{ $variation }}</span>
-                                    @endif
+                                    <x-fulfilment.variation :sku="$sku" :fallback="$variation" />
                                 </div>
                             </div>
 

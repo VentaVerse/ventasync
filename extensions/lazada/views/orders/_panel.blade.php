@@ -704,9 +704,7 @@
                             @if(trim((string) ($it['sku'] ?? '')) !== '')
                                 <span class="co-item__sku">{{ $it['sku'] }}</span>
                             @endif
-                            @if(trim((string) ($it['variation'] ?? '')) !== '')
-                                <span class="co-item__var">{{ $it['variation'] }}</span>
-                            @endif
+                            <x-fulfilment.variation :sku="$it['sku'] ?? null" :fallback="$it['variation'] ?? null" />
                         </div>
                     </div>
                 </div>
@@ -929,9 +927,7 @@
                                     @if(trim((string) ($lzItem['sku'] ?? '')) !== '')
                                         <span class="co-item__sku">{{ $lzItem['sku'] }}</span>
                                     @endif
-                                    @if(trim((string) ($lzItem['variation'] ?? '')) !== '')
-                                        <span class="co-item__var">{{ $lzItem['variation'] }}</span>
-                                    @endif
+                                    <x-fulfilment.variation :sku="$lzItem['sku'] ?? null" :fallback="$lzItem['variation'] ?? null" />
                                 </div>
                             </div>
                             {{-- The count is the error a packer makes, so it

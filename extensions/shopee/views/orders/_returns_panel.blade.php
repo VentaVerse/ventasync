@@ -377,7 +377,7 @@
                                 <span class="co-item__name">{{ $name !== '' ? $name : 'Unnamed product' }}</span>
                                 <div class="co-item__meta">
                                     @if($sku !== '')<span class="co-item__sku">{{ $sku }}</span>@endif
-                                    @if($variation !== '')<span class="co-item__var">{{ $variation }}</span>@endif
+                                    <x-fulfilment.variation :sku="$sku" :fallback="$variation" />
                                     @if($ordered !== null)<span>{{ $retQty }} of {{ $ordered }} ordered</span>@endif
                                 </div>
                             </div>

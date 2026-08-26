@@ -259,6 +259,9 @@ class IntegrationController extends Controller
             // zero for it would claim nothing is waiting when the truth is
             // that nobody counted.
             $waiting = $tab->unprocessedCounter === null ? null : $tab->unprocessedCount();
+            // The steps behind the waiting figure (to pack, to handover),
+            // when the channel tells them apart. See OrderTab::$stages.
+            $stages = $tab->stageCounts();
             $todayOrders = $tab->dailyOrdersCounter === null ? null : $tab->dailyOrdersCount();
             $todayRevenue = $tab->dailyRevenueCounter === null ? null : $tab->dailyRevenue();
 
@@ -315,6 +318,7 @@ class IntegrationController extends Controller
                     ]))
                     : route($tab->routeName, $tab->routeParams),
                 'waiting' => $waiting,
+                'stages' => $stages,
                 'todayOrders' => $todayOrders,
                 'todayRevenue' => $todayRevenue,
                 'state' => $state,

@@ -106,6 +106,15 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
 
     public function orderTabs(): array
     {
+        $shopeeStatusCount = function (array $statuses): int {
+            if (!Schema::hasTable('shopee_orders')) {
+                return 0;
+            }
+            $region = Schema::hasTable('shopee_settings') ? (ShopeeSetting::query()->value('region') ?? 'ph') : 'ph';
+
+            return ShopeeOrder::query()->where('region', $region)->whereIn('status', $statuses)->count();
+        };
+
         return [
             new OrderTab(
                 id: $this->id,
@@ -144,6 +153,14 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
                         ->whereIn('status', ['READY_TO_SHIP', 'PROCESSED'])
                         ->count();
                 },
+                /* The steps while the seller holds the parcel, each counted alone:
+                 * the fulfilment card leads with To Pack and prints To Handover beside
+                 * it, which the staff count against the shelf. The statuses are the
+                 * orders panel's own sub-tab map, so the card and the tab agree. */
+                stages: [
+                    ['key' => 'to_pack', 'label' => 'to pack', 'counter' => fn () => $shopeeStatusCount(['READY_TO_SHIP'])],
+                    ['key' => 'to_handover', 'label' => 'to handover', 'counter' => fn () => $shopeeStatusCount(['PROCESSED'])],
+                ],
                 dailyOrdersCounter: function () {
                     if (!Schema::hasTable('shopee_orders')) {
                         return 0;

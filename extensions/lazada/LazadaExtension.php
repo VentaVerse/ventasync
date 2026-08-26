@@ -106,6 +106,15 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
 
     public function orderTabs(): array
     {
+        $lazadaStatusCount = function (array $statuses): int {
+            if (!Schema::hasTable('lazada_orders')) {
+                return 0;
+            }
+            $region = Schema::hasTable('lazada_settings') ? (LazadaSetting::query()->value('region') ?? 'ph') : 'ph';
+
+            return LazadaOrder::query()->where('region', $region)->whereIn('status', $statuses)->count();
+        };
+
         return [
             new OrderTab(
                 id: $this->id,
@@ -145,6 +154,15 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                         ->whereIn('status', ['pending', 'repacked', 'packed', 'ready_to_ship'])
                         ->count();
                 },
+                /* The steps while the seller holds the parcel, each counted alone:
+                 * the fulfilment card leads with To Pack and prints To Handover beside
+                 * it, which the staff count against the shelf. The statuses are the
+                 * orders panel's own sub-tab map, so the card and the tab agree. */
+                stages: [
+                    ['key' => 'to_pack', 'label' => 'to pack', 'counter' => fn () => $lazadaStatusCount(['pending', 'repacked'])],
+                    ['key' => 'to_arrange', 'label' => 'to arrange', 'counter' => fn () => $lazadaStatusCount(['packed'])],
+                    ['key' => 'to_handover', 'label' => 'to handover', 'counter' => fn () => $lazadaStatusCount(['ready_to_ship'])],
+                ],
                 dailyOrdersCounter: function () {
                     if (!Schema::hasTable('lazada_orders')) {
                         return 0;
