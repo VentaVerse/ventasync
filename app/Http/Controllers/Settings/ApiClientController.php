@@ -62,7 +62,7 @@ class ApiClientController extends Controller
             'scopes'        => ['required', 'array', 'min:1'],
             'no_expiry'     => ['nullable', 'boolean'],
             'expires_at'    => ['nullable', 'date', 'after:today', 'required_without:no_expiry'],
-        ]);
+        ] + $this->mcpRules());
 
         $abilities = $this->resolveScopes($request);
         if (empty($abilities)) {
@@ -75,7 +75,7 @@ class ApiClientController extends Controller
             'name'       => $data['name'],
             'active'     => true,
             'created_by' => $request->user()->id,
-        ]);
+        ] + $this->mcpFields($request));
 
         $plain = $client->createToken($client->name, $abilities, $expiresAt)->plainTextToken;
 
@@ -109,7 +109,7 @@ class ApiClientController extends Controller
             'scopes'     => ['required', 'array', 'min:1'],
             'no_expiry'  => ['nullable', 'boolean'],
             'expires_at' => ['nullable', 'date', 'after:today', 'required_without:no_expiry'],
-        ]);
+        ] + $this->mcpRules());
 
         $abilities = $this->resolveScopes($request);
         if (empty($abilities)) {
@@ -118,7 +118,7 @@ class ApiClientController extends Controller
 
         $expiresAt = $this->resolveExpiry($request);
 
-        $apiClient->update(['name' => $data['name']]);
+        $apiClient->update(['name' => $data['name']] + $this->mcpFields($request));
 
         // Update the existing token's scopes + expiry in place (token value
         // unchanged). If somehow there is no token, issue one and reveal it.
@@ -199,6 +199,62 @@ class ApiClientController extends Controller
         }
 
         return array_values(array_unique($abilities));
+    }
+
+    /**
+     * The AI assistant fields (#131). Allowed IPs arrive one per line and
+     * may be single addresses or CIDR ranges; the per-minute cap is blank
+     * for none, which keeps the API's no-rate-limit decision.
+     *
+     * @return array<string, array<int, mixed>>
+     */
+    private function mcpRules(): array
+    {
+        return [
+            'mcp_enabled'      => ['nullable', 'boolean'],
+            'allowed_ips'      => ['nullable', 'string', 'max:2000', function (string $attribute, mixed $value, \Closure $fail) {
+                foreach ($this->splitIps((string) $value) as $ip) {
+                    if (! self::looksLikeIpOrRange($ip)) {
+                        $fail("\"{$ip}\" is not an IP address or a CIDR range.");
+                    }
+                }
+            }],
+            'calls_per_minute' => ['nullable', 'integer', 'min:1', 'max:600'],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function mcpFields(Request $request): array
+    {
+        $ips = $this->splitIps((string) $request->input('allowed_ips', ''));
+
+        return [
+            'mcp_enabled'      => $request->boolean('mcp_enabled'),
+            'allowed_ips'      => $ips === [] ? null : $ips,
+            'calls_per_minute' => $request->filled('calls_per_minute') ? (int) $request->integer('calls_per_minute') : null,
+        ];
+    }
+
+    /** @return list<string> */
+    private function splitIps(string $raw): array
+    {
+        $parts = preg_split('/[\s,]+/', $raw) ?: [];
+
+        return array_values(array_unique(array_filter(array_map('trim', $parts), fn ($p) => $p !== '')));
+    }
+
+    private static function looksLikeIpOrRange(string $ip): bool
+    {
+        [$addr, $bits] = array_pad(explode('/', $ip, 2), 2, null);
+        if (filter_var($addr, FILTER_VALIDATE_IP) === false) {
+            return false;
+        }
+        if ($bits === null) {
+            return true;
+        }
+        $max = str_contains($addr, ':') ? 128 : 32;
+
+        return ctype_digit($bits) && (int) $bits >= 0 && (int) $bits <= $max;
     }
 
     private function resolveExpiry(Request $request): ?Carbon

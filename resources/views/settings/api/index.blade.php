@@ -84,6 +84,9 @@
                 @else
                     {{ $row->model->name }}
                 @endif
+                @if($row->model->mcp_enabled)
+                    <x-ui.badge tone="info" title="An AI assistant may use this application over MCP">AI</x-ui.badge>
+                @endif
             </td>
             <td class="st-col-tiers x-td-num" data-label="Permissions">
                 <span class="x-num">{{ $scopeCount }}</span>

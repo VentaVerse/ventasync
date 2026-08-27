@@ -81,6 +81,8 @@
                     </x-ui.field>
                 </div>
             </div>
+
+            @include('settings.api.partials.mcp', ['mcpEnabled' => (bool) old('mcp_enabled', false), 'allowedIps' => '', 'callsPerMinute' => ''])
         </div>
     </div>
 
