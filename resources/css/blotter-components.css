@@ -2195,6 +2195,14 @@
 
     .fh-card__fig-n.is-clear { color: var(--bl-ink-3); }
 
+    /* THE TO PACK COUNT IS RED when there is anything to pack (the owner,
+       2026-08-27): it is the one figure on the page the floor must never
+       miss, so it takes the loudest ink the system has. Zero stays the
+       quiet grey above, so red always means "there is work waiting" and
+       never decorates an empty queue. To Handover stays in the page's
+       ink: it is a shelf count, not an alarm. */
+    .fh-card__fig:first-child .fh-card__fig-n:not(.is-clear) { color: var(--bl-bad); }
+
     /* The same dotted underline .fh-card__lead.is-stale carries: a figure
        no fetch can move. */
     .fh-card__fig-n.is-stale {
