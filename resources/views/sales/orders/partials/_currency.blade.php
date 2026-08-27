@@ -19,7 +19,7 @@
     <div class="fm-card__head"><h2 class="fm-card__title">Currency</h2></div>
     <div class="fm-card__body">
 
-        <x-ui.field label="Currency" for="of-currency" name="currency_code" :required="true">
+        <x-ui.field label="Currency" for="of-currency" name="currency_code">
             {{-- The select itself carries no name. It drives the two hidden
                  fields below, which are what the controller reads. --}}
             <x-ui.select id="of-currency">
@@ -36,7 +36,7 @@
             <input type="hidden" name="currency_id" id="of-currency-id" value="{{ $currentId }}">
         </x-ui.field>
 
-        <x-ui.field label="Exchange rate" for="of-rate" name="currency_rate" :required="true">
+        <x-ui.field label="Exchange rate" for="of-rate" name="currency_rate">
             <x-ui.input type="number" id="of-rate" name="currency_rate"
                         step="0.00000001" min="0.00000001" class="fm-input--num"
                         value="{{ $currentRate }}" />

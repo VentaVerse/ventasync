@@ -14,7 +14,16 @@
     // preserve) and off on an existing one, because an order that already
     // carries a different payment address must not have it silently
     // overwritten on the next save.
+    /* On edit the switch starts ON when the billing address is empty or is
+       the shipping address again, which is nearly every order: it used to
+       start off whenever an order existed, opening nine empty Bill-to inputs
+       on a page whose visitor came to set a status (critique, 2026-08-27). */
     $sameDefault = $o === null;
+    if ($o !== null) {
+        $billing = array_map(fn ($k) => trim((string) ($o->{'payment_' . $k} ?? '')), ['firstname', 'lastname', 'address_1', 'city', 'postcode']);
+        $shipping = array_map(fn ($k) => trim((string) ($o->{'shipping_' . $k} ?? '')), ['firstname', 'lastname', 'address_1', 'city', 'postcode']);
+        $sameDefault = implode('|', $billing) === '||||' || $billing === $shipping;
+    }
 
     $addressFields = [
         ['firstname', 'First name', 32],

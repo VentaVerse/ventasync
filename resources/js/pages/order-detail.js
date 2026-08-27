@@ -292,3 +292,59 @@ document.addEventListener('DOMContentLoaded', function () {
         img.hidden = true;
     }, true);
 });
+
+
+/* ------------------------------------------------------------------
+   The status control (critique, 2026-08-27).
+
+   1. The note under the select says what THIS move does, in units, the
+      moment a status is picked: "Moving to Shipped deducts 3 units",
+      "Moving to Canceled restores 3 units", or the generic sentence when
+      stock does not move. Each option carries data-subtract; the select
+      carries the current status's flag and the order's unit count.
+   2. A move across the stock boundary asks first: the form gets its
+      data-confirm only then, so an ordinary move (Pending to Processing)
+      goes straight through and a stock-moving one is confirmed with the
+      same sentence.
+   3. The panel's Close button and the phone sheet's scrim close the
+      <details>, which had no way out on a phone but the badge that
+      opened it, scrolled away.
+   ------------------------------------------------------------------ */
+(function () {
+    const select = document.querySelector('.od-status [data-status-select]');
+    const form = document.querySelector('.od-status [data-status-form]');
+    const note = document.querySelector('.od-status [data-status-note]');
+    if (!select || !form || !note) return;
+
+    const currentSubtract = select.getAttribute('data-current-subtract') === '1';
+    const units = parseInt(select.getAttribute('data-units') || '0', 10);
+    const fallback = note.getAttribute('data-note-default') || note.textContent;
+
+    function describe() {
+        const opt = select.options[select.selectedIndex];
+        const target = opt ? opt.textContent.trim() : '';
+        const willSubtract = opt && opt.getAttribute('data-subtract') === '1';
+        const unchanged = opt && opt.value === select.getAttribute('data-current');
+        if (unchanged || willSubtract === currentSubtract) {
+            note.textContent = fallback;
+            note.classList.remove('is-move');
+            form.removeAttribute('data-confirm');
+            return;
+        }
+        const verb = willSubtract ? 'deducts' : 'restores';
+        const sentence = 'Moving to ' + target + ' ' + verb + ' ' + units + (units === 1 ? ' unit' : ' units') + ' of stock the moment you update.';
+        note.textContent = sentence;
+        note.classList.add('is-move');
+        form.setAttribute('data-confirm', 'Move this order to ' + target + '? It ' + verb + ' ' + units + (units === 1 ? ' unit' : ' units') + ' of stock.');
+    }
+
+    select.addEventListener('change', describe);
+    describe();
+
+    const details = select.closest('details.od-status');
+    if (details) {
+        details.querySelectorAll('[data-status-close]').forEach(function (el) {
+            el.addEventListener('click', function () { details.open = false; details.querySelector('summary').focus(); });
+        });
+    }
+})();

@@ -456,6 +456,10 @@
         picker.classList.remove('active');
         picked = null;
         if (timer) window.clearTimeout(timer);
+        // Focus goes back to the button that opened the picker; it used to
+        // land on the picker's own hidden search box, so the next Tab
+        // started the page over from "Skip to content".
+        openBtn.focus();
     }
 
     openBtn.addEventListener('click', openPicker);
@@ -659,3 +663,50 @@
 
     render();
 })();
+
+
+/* ------------------------------------------------------------------
+   The status field says what the chosen status does to stock, in units
+   of the lines on the page, the moment it is picked (critique,
+   2026-08-27). Same sentence the order view's panel prints.
+   ------------------------------------------------------------------ */
+document.addEventListener('DOMContentLoaded', function () {
+    // Scoped to the form page: the order view carries the same attributes
+    // for its own script, and this one ran there too and overwrote its note.
+    const select = document.querySelector('.of-page [data-status-select]');
+    const note = document.querySelector('.of-page [data-status-note]');
+    if (!select || !note) return;
+    const currentSubtract = select.getAttribute('data-current-subtract') === '1';
+
+    function unitsOnPage() {
+        let n = 0;
+        document.querySelectorAll('.of-line__qty').forEach(function (i) { n += parseInt(i.value, 10) || 0; });
+        return n;
+    }
+
+    function describe() {
+        const opt = select.options[select.selectedIndex];
+        const willSubtract = opt && opt.getAttribute('data-subtract') === '1';
+        if (!opt || willSubtract === currentSubtract) {
+            note.hidden = true;
+            note.textContent = '';
+            return;
+        }
+        const units = unitsOnPage();
+        // Nothing on the order yet: nothing to say about stock.
+        if (units === 0) { note.hidden = true; note.textContent = ''; return; }
+        note.hidden = false;
+        note.textContent = 'Saving with ' + opt.textContent.trim() + (willSubtract ? ' deducts ' : ' restores ') + units + (units === 1 ? ' unit' : ' units') + ' of stock.';
+    }
+
+    select.addEventListener('change', describe);
+    document.addEventListener('input', function (e) { if (e.target && e.target.classList.contains('of-line__qty')) describe(); });
+    describe();
+
+    // A new order with nothing on it yet: the first thing to do is add a
+    // product, so the button that does it holds focus and Enter opens the
+    // picker.
+    const addBtn = document.getElementById('of-add');
+    const hasLines = document.querySelector('.of-line__qty');
+    if (addBtn && !hasLines && !document.querySelector('.fm-note--fail')) addBtn.focus();
+});

@@ -156,13 +156,12 @@
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Order</h2></div>
                 <div class="fm-card__body">
-                    <x-ui.field label="Status" for="of-status" name="order_status_id" :required="true"
+                    <x-ui.field label="Status" for="of-status" name="order_status_id"
                                 hint="Moving to or from a status that takes stock adjusts inventory on save.">
-                        <x-ui.select id="of-status" name="order_status_id">
-                            @foreach($statuses as $s)
-                                <option value="{{ $s->order_status_id }}" @selected((int) old('order_status_id', $order->order_status_id) === $s->order_status_id)>{{ $s->name }}</option>
-                            @endforeach
+                        <x-ui.select id="of-status" name="order_status_id" data-status-select data-current-subtract="{{ (int) ($order->status->subtract_stock ?? 0) }}">
+                            @include('sales.orders.partials._status_options', ['statuses' => $statuses, 'selected' => (int) old('order_status_id', $order->order_status_id)])
                         </x-ui.select>
+                        <p class="fm-hint" data-status-note hidden></p>
                     </x-ui.field>
 
                     <x-ui.field label="Tracking number" for="of-tracking" name="tracking_number">

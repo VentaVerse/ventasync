@@ -64,7 +64,7 @@
         ['sort' => $col, 'dir' => ($sort === $col && $dir === 'asc') ? 'desc' : 'asc']
     ));
 @endphp
-<x-ui.table>
+<x-ui.table class="so-table">
     <x-slot:head>
         <tr>
             <th scope="col" class="x-col-id">

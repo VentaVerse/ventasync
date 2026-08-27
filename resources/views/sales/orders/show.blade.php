@@ -163,16 +163,18 @@
                 </div>
             </form>
 
-            <form method="POST" action="{{ route('orders.update_status', $order->order_id) }}">
+            <form method="POST" action="{{ route('orders.update_status', $order->order_id) }}" data-status-form
+                  data-confirm-tone="primary" data-confirm-verb="Update status">
                 @csrf
                 <div class="od-fields">
                     <div class="od-field">
                         <label class="od-field__k" for="od-status">Order status</label>
                         <div class="x-select-wrap">
-                            <select id="od-status" class="x-input" name="order_status_id">
-                                @foreach($statuses as $s)
-                                    <option value="{{ $s->order_status_id }}" @selected($order->order_status_id == $s->order_status_id)>{{ $s->name }}</option>
-                                @endforeach
+                            <select id="od-status" class="x-input" name="order_status_id" data-status-select
+                                    data-current="{{ (int) $order->order_status_id }}"
+                                    data-current-subtract="{{ (int) ($order->status->subtract_stock ?? 0) }}"
+                                    data-units="{{ (int) $products->sum('quantity') }}">
+                                @include('sales.orders.partials._status_options', ['statuses' => $statuses, 'selected' => $order->order_status_id])
                             </select>
                             <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
                         </div>
@@ -187,8 +189,15 @@
                 </div>
             </form>
 
-                        <p class="od-status__note">Moving to or from a status that takes stock adjusts inventory the moment you update.</p>
+                        {{-- Says what THIS move does, in units, once a status is
+                             picked; the generic sentence until then. --}}
+                        <p class="od-status__note" data-status-note data-note-default="Moving to or from a status that takes stock adjusts inventory the moment you update.">Moving to or from a status that takes stock adjusts inventory the moment you update.</p>
+                        <div class="od-status__foot">
+                            <button type="button" class="x-btn x-btn--ghost x-btn--sm" data-status-close>Close</button>
+                        </div>
                     </div>
+                    {{-- The scrim under the phone's bottom sheet; a tap on it closes. --}}
+                    <div class="od-status__scrim" data-status-close aria-hidden="true"></div>
                 </details>
             @else
                 <x-ui.badge :tone="\App\Support\OrderStatusTone::for($order->status->name ?? null)">{{ $order->status->name ?? '-' }}</x-ui.badge>
@@ -523,7 +532,7 @@
                                 <span class="od-ledger__margin {{ $marginTone($displayMarkup) }}">{{ number_format($displayMarkup, 1) }}% markup</span>
                             </span>
                         </span>
-                        <span class="od-ledger__v {{ $displayProfit >= 0 ? 'od-pos' : 'od-neg' }}">{{ \App\Support\Money::base($displayProfit) }}</span>
+                        <span class="od-ledger__v {{ $displayProfit >= 0 ? '' : 'od-neg' }}">{{ \App\Support\Money::base($displayProfit) }}</span>
                     </div>
                     @endif
                 </div>

@@ -175,9 +175,15 @@
         background: var(--bl-sheet);
         box-shadow: var(--bl-lift-2);
     }
-    .od-status__note { font-size: 12px; color: var(--bl-ink-3); }
+    .od-status__note { font-size: 12.5px; color: var(--bl-ink-2); }
+    .od-status__note.is-move { color: var(--bl-ink); font-weight: 550; }
+    .od-status__foot { display: flex; justify-content: flex-end; }
+    .od-status__scrim { display: none; }
     @media (max-width: 720px) {
-        .od-status__panel { position: fixed; left: 16px; right: 16px; top: auto; bottom: 16px; width: auto; max-height: 80vh; overflow-y: auto; }
+        .od-status__panel { position: fixed; left: 16px; right: 16px; top: auto; bottom: 16px; width: auto; max-height: 80vh; overflow-y: auto; z-index: 31; }
+        /* The sheet's ground: a tap anywhere outside it closes it, and the
+           page cannot be mistaken for the surface in focus. */
+        .od-status[open] .od-status__scrim { display: block; position: fixed; inset: 0; z-index: 30; background: var(--bl-scrim); }
     }
 
     .od-stamps {
@@ -198,6 +204,9 @@
     .od-stamp__k { color: var(--bl-ink-3); }
 
     .od-stamp__v {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
         font-family: var(--font-mono);
         font-variant-numeric: tabular-nums;
         color: var(--bl-ink-2);
@@ -288,7 +297,9 @@
     .od-items__head,
     .od-item {
         display: grid;
-        grid-template-columns: 96px minmax(0, 1fr) 3.5rem 7.5rem 8rem;
+        /* 56px of picture, not 96: the widest fixed column carried the least
+           decision value and the name truncated at 172px beside it. */
+        grid-template-columns: 56px minmax(0, 2fr) 3rem 7rem 7.5rem;
         align-items: start;
         gap: 12px;
         padding: 10px 0;
@@ -308,7 +319,7 @@
 
     .od-items__head span:nth-child(n + 3) { text-align: right; }
 
-    .od-item__media { min-width: 0; }
+    .od-item__media { min-width: 0; width: 56px; }
     .od-item__body { min-width: 0; }
 
     .od-item__name {
@@ -329,10 +340,13 @@
     .od-fig__k { display: none; }
 
     /* What the line actually earned, under the line it belongs to. */
+    /* Five figures in five columns, so the second item's Markup sits under
+       the first item's Markup instead of wrapping to a line of its own. */
     .od-econ {
         grid-column: 2 / -1;
-        display: flex;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, auto));
+        justify-content: start;
         gap: 4px 16px;
         font-size: 11.5px;
     }
@@ -668,6 +682,7 @@
         }
         .od-fig { text-align: left; }
         .od-fig__k { display: inline; margin-right: 4px; color: var(--bl-ink-3); }
+        .od-econ { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .od-fee-label,
         .od-fee-amount { flex: 1 1 auto; width: auto; }
     }
@@ -1448,11 +1463,13 @@
         text-decoration-thickness: 1px;
     }
 
+    .od-edit { cursor: pointer; }
     .od-edit:hover,
     .od-edit:focus-visible {
         text-decoration-color: currentColor;
-        background: var(--bl-chrome);
+        background: var(--bl-chrome-2);
         border-radius: var(--bl-r-dot);
+        outline: 1px solid var(--bl-rule-2);
     }
 
 /* ============================================================
@@ -1519,4 +1536,51 @@
        bridge and is UNLAYERED, so it beats anything in @layer components no
        matter how specific the selector - which is why the first version of
        this rule measured as though it had never been written. */
+}
+
+@layer components {
+    /* THE PHONE ORDERS LIST (critique, 2026-08-27). The generic restack made
+       each order a six-line card of label and value, 256px tall, 13,106px
+       for one page, and only the 53x14px order number could be tapped. Two
+       lines: the number, the status and the total; the customer, the
+       channel and the time. The whole row opens the order; the actions
+       menu keeps its corner above that. */
+    @media (max-width: 640px) {
+        .so-table > tbody > tr {
+            position: relative;
+            grid-template-columns: minmax(0, 1fr) auto auto;
+            grid-template-areas:
+                "id status total"
+                "cust chan date";
+            column-gap: 10px;
+            row-gap: 3px;
+            align-items: center;
+        }
+        .so-table > tbody > tr > td { grid-column: auto; }
+        /* Outranks the generic restack's own label rule, which carries the
+           attribute selector: without this the labels came back and the row
+           stood 102px. */
+        .so-table.x-table > tbody > tr > td[data-label]::before { display: none; }
+        .so-table > tbody > tr > td.x-col-id { grid-area: id; }
+        .so-table > tbody > tr > td[data-label="Status"] { grid-area: status; }
+        .so-table > tbody > tr > td.x-col-total { grid-area: total; text-align: right; }
+        .so-table > tbody > tr > td[data-label="Customer"] { grid-area: cust; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .so-table > tbody > tr > td[data-label="Channel"] { grid-area: chan; }
+        .so-table > tbody > tr > td[data-label="Date"] { grid-area: date; font-size: 11.5px; }
+        .so-table > tbody > tr > td.x-td-actions {
+            grid-area: 1 / 3 / 2 / 4;
+            position: relative;
+            z-index: 2;
+            justify-self: end;
+            padding-left: 8px;
+        }
+        .so-table > tbody > tr > td.x-col-total { padding-right: 34px; }
+        /* The whole row is the link: the order number's anchor reaches the
+           row's four edges, under the actions cell. */
+        .so-table > tbody > tr > td.x-col-id > .x-row-link::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+        }
+    }
 }
