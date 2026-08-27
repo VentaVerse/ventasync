@@ -98,6 +98,16 @@
              Hidden while the parent charges neither, which is most of this
              catalog - there the amount IS the unit cost and a note saying
              so is noise. --}}
+        @if(isset($product))
+            {{-- Cost and Additional are locked on the edit form for the same
+                 reason the parent's are: they arrive from a received purchase
+                 order, and a typed figure should be asked for. One button
+                 for the grid, mirroring the pricing section's. --}}
+            <div class="fm-vars__lock">
+                <p class="fm-vars__lock-note" id="vars-cost-lock-note">Cost and Additional are set when a purchase order is received.</p>
+                <x-ui.button type="button" size="sm" id="vars-cost-override-btn">Edit by hand</x-ui.button>
+            </div>
+        @endif
         <p id="vars-cost-note" class="fm-vars__note d-none"></p>
         <div class="fm-vars__scroll">
             <table class="fm-vars__table" id="data-table">
@@ -128,6 +138,8 @@ const EXISTING_OPTION2 = @json($existingOptions->count() > 1 ? $existingOptions-
 const EXISTING_VALUES  = @json($existingOptions->first() ? ($existingOptions->first()->values ?? []) : []);
 const EXISTING_VALUES2 = @json($existingOptions->count() > 1 ? ($existingOptions->get(1)->values ?? []) : []);
 const EXISTING_COMBOS  = @json($existingCombinations ?? []);
+/* Edit form: cost fields start locked (see the lock row in the markup). */
+let variationCostLocked = @json(isset($product));
 
 // State
 let opt1Values = []; // [{name, option_value_id?, sku, status, image, quantity, absolute_price, cost_amount, cost_additional}]
@@ -516,12 +528,52 @@ function calcRowMetrics(row) {
    amount, then what is added to it, then the unit cost under the amount. */
 function buildAdditionalCell(add, rowName, idx) {
     const td = document.createElement('td');
-    td.appendChild(createInput('js-addl', 'number', add || 0, {
+    const input = createInput('js-addl', 'number', add || 0, {
         step: '0.01',
         'aria-label': labelFor('Additional cost', rowName, idx),
-    }));
+    });
+    applyCostLock(input);
+    td.appendChild(input);
     return td;
 }
+
+/* Locked or not, per the grid's own Edit by hand. Applied when a cell is
+   built, so a value added or a table re-rendered after unlocking comes out
+   in the state the operator chose. */
+function applyCostLock(input) {
+    if (variationCostLocked) {
+        input.setAttribute('readonly', 'readonly');
+        input.setAttribute('tabindex', '-1');
+    } else {
+        input.removeAttribute('readonly');
+        input.removeAttribute('tabindex');
+    }
+}
+
+(function bindVariationCostLock() {
+    const btn = document.getElementById('vars-cost-override-btn');
+    const note = document.getElementById('vars-cost-lock-note');
+    if (!btn) return;
+
+    const applyAll = () => $tbody.querySelectorAll('.js-cost, .js-addl').forEach(applyCostLock);
+
+    btn.addEventListener('click', () => {
+        if (variationCostLocked) {
+            window.confirmModal('Variation cost is normally set when a purchase order is received. Edit it by hand anyway?').then((ok) => {
+                if (!ok) return;
+                variationCostLocked = false;
+                applyAll();
+                if (note) note.textContent = 'Editing by hand. Saving will overwrite the purchase-order figures.';
+                btn.textContent = 'Lock';
+            });
+        } else {
+            variationCostLocked = true;
+            applyAll();
+            if (note) note.textContent = 'Cost and Additional are set when a purchase order is received.';
+            btn.textContent = 'Edit by hand';
+        }
+    });
+})();
 
 /* One builder for both row shapes, because the cell now has two parts and
    the single-axis and combination tables were already drifting apart on the
@@ -538,6 +590,7 @@ function buildCostCell(amount, rowName, idx) {
            the field is entered rather than only drawn beside it. */
         'aria-describedby': unitId,
     });
+    applyCostLock(input);
     td.appendChild(input);
 
     const unit = createEl('span', { className: 'fm-vars__unit js-unitcost d-none', id: unitId });

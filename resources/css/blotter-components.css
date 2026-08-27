@@ -1425,6 +1425,22 @@
        It is written by script and hidden outright when the parent charges
        no percentage and no additional, which is most of this catalog -
        there the amount IS the unit cost and the note would say nothing. */
+    /* The grid's cost lock: the sentence and its Edit by hand, one row
+       above the table, the same pair the pricing section has. */
+    .fm-vars__lock {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--bl-rule);
+    }
+    .fm-vars__lock-note {
+        margin: 0;
+        font-size: 12.5px;
+        color: var(--bl-ink-2);
+    }
+
     .fm-vars__note {
         margin: 0;
         padding: 9px 14px;
