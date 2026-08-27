@@ -404,7 +404,14 @@
                 </div>
 
                 @if($products->count())
-                @php $totalRevenue = 0; $totalCogs = 0; @endphp
+                @php
+                    $totalRevenue = 0; $totalCogs = 0;
+                    /* The VARIATION's own picture, by the line's SKU, before the
+                       product's picture by id (#138 on this page too, the owner
+                       2026-08-27): the list resolved it that way, this page
+                       did not, so a red pedal's order showed the black one. */
+                    $lineImages = \App\Support\CatalogImages::forSkus($products->pluck('model')->map(fn ($m) => trim((string) $m))->filter()->all());
+                @endphp
                 <div class="od-items">
                     <div class="od-items__head" aria-hidden="true">
                         <span></span>
@@ -417,7 +424,7 @@
                     @foreach($products as $p)
                         @php
                             $catalogProduct = $catalogProducts[$p->order_product_id] ?? null;
-                            $img = $catalogProduct ? trim((string) ($catalogProduct->image ?? '')) : '';
+                            $img = $lineImages[trim((string) $p->model)] ?? ($catalogProduct ? trim((string) ($catalogProduct->image ?? '')) : '');
                             $imgSrc = $img !== '' ? asset('storage/' . ltrim($img, '/')) : '';
                             if ($imgSrc === '') {
                                 $lzImg = trim($lazadaImages[$p->order_product_id] ?? '');

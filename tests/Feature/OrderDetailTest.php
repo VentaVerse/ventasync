@@ -407,6 +407,30 @@ class OrderDetailTest extends TestCase
         $response->assertSee('No history records.');
     }
 
+    /** #138 on the order view: a line whose SKU is a variation shows that variation's picture, not the product's. */
+    public function test_a_variation_line_shows_the_variations_picture(): void
+    {
+        $order = $this->seedPhpOrder();
+        $pfx = (string) config('catalog.prefix');
+        $line = DB::table($pfx . 'order_product')->where('order_id', $order->order_id)->first();
+        // A real catalog product with a picture, and one variation with its own.
+        $productId = DB::table($pfx . 'product')->insertGetId([
+            'model' => 'VAR-PARENT', 'sku' => 'VAR-PARENT', 'quantity' => 5, 'price' => 100, 'status' => 1, 'image' => 'catalog/parent.png',
+            'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'manufacturer_id' => 0,
+            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+        ]);
+        DB::table('product_option_combinations')->insert([
+            'product_id' => $productId, 'sku' => 'VAR-RED-1', 'quantity' => 1, 'absolute_price' => 100, 'image' => 'catalog/red.png',
+            'status' => 1, 'sort_order' => 1, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table($pfx . 'order_product')->where('order_product_id', $line->order_product_id)->update(['product_id' => $productId, 'model' => 'VAR-RED-1']);
+
+        $html = $this->actingAs($this->viewer())->get(route('orders.show', $order->order_id))->assertOk()->getContent();
+
+        $this->assertStringContainsString('storage/catalog/red.png', $html, 'the variation\'s own picture');
+        $this->assertStringNotContainsString('storage/catalog/parent.png', $html);
+    }
+
     // ── Gating, both directions, against the real middleware ────
 
     public function test_mutating_controls_render_for_the_manage_tier(): void
