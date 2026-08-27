@@ -80,6 +80,11 @@ class SettingsHubController extends Controller
                 ['label' => 'User Groups', 'description' => 'Roles and what each one may do',
                  'route' => 'user_groups.index', 'icon' => 'shield',
                  'keywords' => ['role', 'permission', 'access', 'group']],
+                // Built on the API branch and never listed here, so the page
+                // existed with no way to click to it (the owner, 2026-08-28).
+                ['label' => 'API Applications', 'description' => 'Tokens for the mobile app and AI assistants',
+                 'route' => 'api_clients.index', 'icon' => 'plug',
+                 'keywords' => ['api', 'token', 'mcp', 'assistant', 'claude', 'integration', 'scope']],
             ],
             'System' => [
                 ['label' => 'Extensions', 'description' => 'Install and configure add-on modules',
