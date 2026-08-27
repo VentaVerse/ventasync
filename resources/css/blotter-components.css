@@ -1458,6 +1458,14 @@
         color: var(--bl-ink-3);
     }
 
+    /* Why the figure is not the amount: a variation with no cost of its own
+       is costed at the product's. Its own line, under the number. */
+    .fm-vars__unit-why {
+        display: block;
+        font-size: 11px;
+        letter-spacing: 0.01em;
+    }
+
     .fm-vars__errors {
         padding: 9px 14px;
         border-top: 1px solid var(--bl-rule);
@@ -4695,7 +4703,8 @@
     .fm-vcol-sku { width: 128px; }
     .fm-vcol-qty,
     .fm-vcol-price,
-    .fm-vcol-cost { width: 104px; text-align: right; }
+    .fm-vcol-cost,
+    .fm-vcol-addl { width: 104px; text-align: right; }
     .fm-col-who { width: 148px; }
     .fm-neg { color: var(--bl-bad); font-weight: 650; }
 

@@ -7,10 +7,10 @@
 
   Wire, unchanged: a hidden `_options_format=absolute` marks the format, and
   beforeSubmit() generates the hidden inputs the controller reads -
-  `option_name` + `values[i][name|sku|quantity|absolute_price|cost_amount|
+  `option_name` + `values[i][name|sku|quantity|absolute_price|cost_amount|cost_additional|
   option_value_id]` for one axis, `option1_name` + `option2_name` +
   `option1_values[i]` + `option2_values[i]` + `combinations[i][opt1|opt2|sku|
-  quantity|absolute_price|cost_amount]` for two. Every id the script binds
+  quantity|absolute_price|cost_amount|cost_additional]` for two. Every id the script binds
   to is unchanged; only classes moved to the `fm-` set. See
   ProductController::saveAbsoluteOptions.
 
@@ -130,9 +130,9 @@ const EXISTING_VALUES2 = @json($existingOptions->count() > 1 ? ($existingOptions
 const EXISTING_COMBOS  = @json($existingCombinations ?? []);
 
 // State
-let opt1Values = []; // [{name, option_value_id?, sku, status, image, quantity, absolute_price, cost_amount}]
+let opt1Values = []; // [{name, option_value_id?, sku, status, image, quantity, absolute_price, cost_amount, cost_additional}]
 let opt2Values = []; // [{name, option_value_id?}]
-let comboData  = {}; // key "v1|v2" → {sku, image, quantity, absolute_price, cost_amount} (2-option)
+let comboData  = {}; // key "v1|v2" → {sku, image, quantity, absolute_price, cost_amount, cost_additional} (2-option)
 let mode       = 'none'; // 'none' | 'one' | 'two'
 
 /* THE SHAPE THE TABLE IS CURRENTLY DRAWN IN, which is not always `mode`.
@@ -171,7 +171,7 @@ const $optionsRoot    = document.getElementById('options-root');
 
 // ---- Event delegation on tbody (catches all dynamic rows) ----
 $tbody.addEventListener('input', function(e) {
-    if (e.target.classList.contains('js-price') || e.target.classList.contains('js-cost')) {
+    if (e.target.classList.contains('js-price') || e.target.classList.contains('js-cost') || e.target.classList.contains('js-addl')) {
         calcRowMetrics(e.target.closest('tr'));
     }
     if (e.target.classList.contains('js-qty')) {
@@ -301,7 +301,7 @@ function renderOpt2List() {
 
 function addOpt1Value(name) {
     name = (name || '').trim();
-    opt1Values.push({ name, sku: '', image: '', status: 1, quantity: 0, absolute_price: 0, cost_amount: 0 });
+    opt1Values.push({ name, sku: '', image: '', status: 1, quantity: 0, absolute_price: 0, cost_amount: 0, cost_additional: parentCostFormula().add });
     renderOpt1List();
     renderTable();
     recalcProductQty();
@@ -341,6 +341,7 @@ function seedFirstColumnFromOneAxis() {
             quantity: v1.quantity || 0,
             absolute_price: v1.absolute_price || 0,
             cost_amount: v1.cost_amount || 0,
+            cost_additional: rowAdditional(v1),
         };
     });
 }
@@ -389,6 +390,8 @@ function saveTableToState() {
             if (priceInput) opt1Values[i].absolute_price = parseFloat(priceInput.value || '0');
             const costInput = row.querySelector('.js-cost');
             if (costInput) opt1Values[i].cost_amount = parseFloat(costInput.value || '0');
+            const addlInput = row.querySelector('.js-addl');
+            if (addlInput) opt1Values[i].cost_additional = parseFloat(addlInput.value || '0');
         });
     } else if (renderedMode === 'two') {
         $tbody.querySelectorAll('tr').forEach(row => {
@@ -403,6 +406,7 @@ function saveTableToState() {
                 quantity: parseInt(row.querySelector('.js-qty').value || '0', 10),
                 absolute_price: parseFloat(row.querySelector('.js-price').value || '0'),
                 cost_amount: parseFloat(row.querySelector('.js-cost').value || '0'),
+                cost_additional: parseFloat((row.querySelector('.js-addl') || {}).value || '0'),
             };
         });
     }
@@ -426,23 +430,48 @@ function costFormulaApplies() {
     return f.pct !== 0 || f.add !== 0;
 }
 
+/* The additional a stored row carries. A row from before the column has
+   none, and reads the parent's, which is what it was costed at. */
+function rowAdditional(v) {
+    const raw = v ? v.cost_additional : undefined;
+    return (raw === undefined || raw === null || raw === '') ? parentCostFormula().add : (parseFloat(raw) || 0);
+}
+
 /* What the variation actually costs. Against its OWN price - that is the
-   whole reason the percentage is worth applying per row instead of once. */
-function variationUnitCost(amount, price) {
+   whole reason the percentage is worth applying per row instead of once -
+   and with its OWN additional (the owner, 2026-08-27: freight is not the same
+   per variation). The percentage stays the product's. */
+function variationUnitCost(amount, price, add) {
     const f = parentCostFormula();
-    return amount + (f.pct / 100 * price) + f.add;
+    return amount + (f.pct / 100 * price) + (add || 0);
+}
+
+/* What the product itself costs per unit, from the pricing section. A
+   variation with no amount of its own is costed at THIS on every order
+   line (App\Support\LineCost), so that is the figure the grid shows for it
+   rather than a unit cost made of overhead on nothing. */
+function parentUnitCost() {
+    const num = (id) => {
+        const el = document.getElementById(id);
+        return el ? (parseFloat(el.value) || 0) : 0;
+    };
+    const f = parentCostFormula();
+    return num('cost_amount') + (f.pct / 100 * num('price')) + f.add;
 }
 
 function calcRowMetrics(row) {
     const priceInput = row.querySelector('.js-price');
     const costInput  = row.querySelector('.js-cost');
+    const addlInput  = row.querySelector('.js-addl');
     const price  = parseFloat(priceInput ? priceInput.value : 0) || 0;
     const amount = parseFloat(costInput ? costInput.value : 0) || 0;
+    const add    = parseFloat(addlInput ? addlInput.value : 0) || 0;
     /* Profit, margin and markup are worked against the UNIT cost, not the
        amount. A row that cost 10,000 to buy and carries 220 of freight does
        not make the extra 220 of profit, and this table is where somebody
        decides what to charge. */
-    const cost   = variationUnitCost(amount, price);
+    const own    = amount > 0;
+    const cost   = own ? variationUnitCost(amount, price, add) : parentUnitCost();
     const profit = price - cost;
     const margin = price > 0 ? (profit / price * 100) : 0;
     const markup = cost > 0 ? (profit / cost * 100) : 0;
@@ -469,10 +498,29 @@ function calcRowMetrics(row) {
        field above it. */
     const unitEl = row.querySelector('.js-unitcost');
     if (unitEl) {
-        const applies = costFormulaApplies();
+        /* Per row now: a row with its own additional has a unit cost that
+           differs from its amount even when the product charges nothing. */
+        const applies = own ? (parentCostFormula().pct !== 0 || add !== 0) : cost > 0;
         unitEl.classList.toggle('d-none', !applies);
-        unitEl.textContent = applies ? ('= ' + cost.toFixed(2)) : '';
+        clearChildren(unitEl);
+        if (applies) {
+            unitEl.appendChild(document.createTextNode('= ' + cost.toFixed(2)));
+            /* On its own line so the figure keeps the column's width; only
+               the rows costed at the product's figure grow by it. */
+            if (!own) unitEl.appendChild(createEl('span', { className: 'fm-vars__unit-why' }, 'the product\u2019s'));
+        }
     }
+}
+
+/* The row's own additional. Sits beside Cost so the equation reads across:
+   amount, then what is added to it, then the unit cost under the amount. */
+function buildAdditionalCell(add, rowName, idx) {
+    const td = document.createElement('td');
+    td.appendChild(createInput('js-addl', 'number', add || 0, {
+        step: '0.01',
+        'aria-label': labelFor('Additional cost', rowName, idx),
+    }));
+    return td;
 }
 
 /* One builder for both row shapes, because the cell now has two parts and
@@ -501,11 +549,13 @@ function buildCostCell(amount, rowName, idx) {
 function bindRowEvents(tr) {
     const priceEl = tr.querySelector('.js-price');
     const costEl  = tr.querySelector('.js-cost');
+    const addlEl  = tr.querySelector('.js-addl');
     const qtyEl   = tr.querySelector('.js-qty');
     const recalcPrice = () => calcRowMetrics(tr);
     const recalcQty = () => recalcProductQty();
     if (priceEl) { priceEl.addEventListener('input', recalcPrice); priceEl.addEventListener('change', recalcPrice); }
     if (costEl)  { costEl.addEventListener('input', recalcPrice); costEl.addEventListener('change', recalcPrice); }
+    if (addlEl)  { addlEl.addEventListener('input', recalcPrice); addlEl.addEventListener('change', recalcPrice); }
     if (qtyEl)   { qtyEl.addEventListener('input', recalcQty); qtyEl.addEventListener('change', recalcQty); }
 }
 
@@ -535,6 +585,8 @@ function buildHeaderRow(is2) {
        parent's TOTAL, which is called Unit cost. Same word, same meaning, so
        the equation reads across the two. */
     tr.appendChild(th('fm-vcol-cost', 'Cost'));
+    /* The row's own additional, the parent's field of the same name. */
+    tr.appendChild(th('fm-vcol-addl', 'Additional'));
     /* PROFIT / MARGIN / MARKUP USED TO SIT HERE and they are gone on purpose.
        They were read-only, they restated the Pricing metrics strip further up
        the same form, and with cost at 0 - which is most of this catalog -
@@ -734,6 +786,7 @@ function buildComboRow(i1, i2, v1Name, v2Name, data) {
     tr.appendChild(tdPrice);
 
     tr.appendChild(buildCostCell(data.cost_amount, rowName, i1));
+    tr.appendChild(buildAdditionalCell(rowAdditional(data), rowName, i1));
 
     tr.appendChild(buildImageCell(data.image, rowName, i1));
     tr.appendChild(buildStatusCell(data.status, rowName, i1));
@@ -778,6 +831,7 @@ function buildOneOptRow(v, idx) {
     tr.appendChild(tdPrice);
 
     tr.appendChild(buildCostCell(v.cost_amount, v.name, idx));
+    tr.appendChild(buildAdditionalCell(rowAdditional(v), v.name, idx));
 
     tr.appendChild(buildImageCell(v.image, v.name, idx));
     tr.appendChild(buildStatusCell(v.status, v.name, idx));
@@ -904,6 +958,7 @@ function beforeSubmit() {
             addHidden('combinations[' + ci + '][quantity]', (row.querySelector('.js-qty') || {}).value || 0);
             addHidden('combinations[' + ci + '][absolute_price]', (row.querySelector('.js-price') || {}).value || 0);
             addHidden('combinations[' + ci + '][cost_amount]', (row.querySelector('.js-cost') || {}).value || 0);
+            addHidden('combinations[' + ci + '][cost_additional]', (row.querySelector('.js-addl') || {}).value || 0);
             ci++;
         });
     } else {
@@ -923,6 +978,7 @@ function beforeSubmit() {
             addHidden('values[' + idx + '][quantity]', (row.querySelector('.js-qty') || {}).value || 0);
             addHidden('values[' + idx + '][absolute_price]', (row.querySelector('.js-price') || {}).value || 0);
             addHidden('values[' + idx + '][cost_amount]', (row.querySelector('.js-cost') || {}).value || 0);
+            addHidden('values[' + idx + '][cost_additional]', (row.querySelector('.js-addl') || {}).value || 0);
 
             // Preserve option_value_id for existing values
             if (idx < opt1Values.length && opt1Values[idx].option_value_id) {
@@ -1440,11 +1496,11 @@ function refreshCostFormula() {
             /* Named the way the pricing section names them, so the two
                read as one equation rather than two vocabularies. */
             const parts = [];
-            if (pct !== 0) parts.push(pct + '% cost share');
-            if (add !== 0) parts.push(add + ' additional cost');
-            note.textContent = 'Cost is what you pay per unit. Every variation also carries this product\u2019s '
+            if (pct !== 0) parts.push('this product\u2019s ' + pct + '% cost share');
+            if (add !== 0) parts.push('its own additional cost, which starts at the product\u2019s ' + add);
+            note.textContent = 'Cost is what you pay per unit. Every variation also carries '
                 + parts.join(' and ')
-                + ', so the figure under each amount is what the unit really costs.';
+                + ', so the figure under each amount is what the unit really costs. A variation with no cost of its own costs what the product costs.';
         } else {
             note.textContent = '';
         }

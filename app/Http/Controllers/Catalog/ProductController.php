@@ -949,6 +949,7 @@ public function store(Request $request)
                         'pov.price',
                         'pov.absolute_price',
                         'pov.absolute_cost',
+                        'pov.cost_additional',
                         'pov.weight_prefix',
                         'pov.weight',
                         'pov.cost',
@@ -968,6 +969,7 @@ public function store(Request $request)
                         'price' => (string)$r->price,
                         'absolute_price' => (float)($r->absolute_price ?? 0),
                         'absolute_cost' => (float)($r->absolute_cost ?? 0),
+                        'cost_additional' => (float)($r->cost_additional ?? 0),
                         'weight_prefix' => (string)($r->weight_prefix ?? '+'),
                         'weight' => (string)($r->weight ?? 0),
                         'sku' => (string)($r->sku ?? ''),
@@ -990,14 +992,16 @@ public function store(Request $request)
              * reading it would blank the column on every edit. The
              * combination is where the number actually lives. */
             $costAmountByPovId = [];
+            $costAddByPovId = [];
             $comboImages = DB::table('product_option_combinations as c')
                 ->join('product_option_combination_values as cv', 'cv.combination_id', '=', 'c.id')
                 ->where('c.product_id', (int) $id)
-                ->get(['cv.product_option_value_id', 'c.image', 'c.status', 'c.cost_amount']);
+                ->get(['cv.product_option_value_id', 'c.image', 'c.status', 'c.cost_amount', 'c.cost_additional']);
 
             foreach ($comboImages as $row) {
                 $statusByPovId[(int) $row->product_option_value_id] ??= (int) ($row->status ?? 1);
                 $costAmountByPovId[(int) $row->product_option_value_id] ??= (float) ($row->cost_amount ?? 0);
+                $costAddByPovId[(int) $row->product_option_value_id] ??= (float) ($row->cost_additional ?? 0);
 
                 if (trim((string) ($row->image ?? '')) === '') {
                     continue;
@@ -1019,6 +1023,11 @@ public function store(Request $request)
                     $existingValuesByPoId[$poId][$i]['status'] = $statusByPovId[$povId] ?? 1;
                     $existingValuesByPoId[$poId][$i]['cost_amount'] = $costAmountByPovId[$povId]
                         ?? (float) $value['absolute_cost'];
+                    // The row's own additional, since 2026-08-27. The
+                    // combination is written from the form; the value row
+                    // holds the same figure and stands in when there is none.
+                    $existingValuesByPoId[$poId][$i]['cost_additional'] = $costAddByPovId[$povId]
+                        ?? (float) ($value['cost_additional'] ?? 0);
                 }
             }
 
@@ -1062,6 +1071,7 @@ public function store(Request $request)
                         'absolute_price' => (float) $combo->absolute_price,
                         'absolute_cost' => (float) $combo->absolute_cost,
                         'cost_amount' => (float) ($combo->cost_amount ?? 0),
+                        'cost_additional' => (float) ($combo->cost_additional ?? 0),
                     ];
                 }
             }
@@ -1657,6 +1667,22 @@ public function store(Request $request)
         return round($amount + ($pct / 100 * $price) + $add, 4);
     }
 
+    /**
+     * The additional cost a form row carries: its own when the payload
+     * names one, the parent's when it does not. An empty string is "not
+     * named", not zero: a row whose field was left blank should cost what
+     * the product says, while a typed 0 is a real 0.
+     */
+    private function rowCostAdditional(array $row, float $parentAdd): float
+    {
+        $raw = $row['cost_additional'] ?? null;
+        if ($raw === null || $raw === '') {
+            return $parentAdd;
+        }
+
+        return (float) $raw;
+    }
+
     private function saveAbsoluteOneOption(int $productId, Request $request, array &$skuChanges = []): void
     {
         $pfx = config('catalog.prefix');
@@ -1710,6 +1736,7 @@ public function store(Request $request)
         $imageByOptionValueId = [];
         $statusByOptionValueId = [];
         $costAmountByOptionValueId = [];
+        $costAddByOptionValueId = [];
 
         [$parentPct, $parentAdd] = $this->parentCostFormula($productId, $request);
 
@@ -1737,6 +1764,11 @@ public function store(Request $request)
              * amount. */
             $costAmount = (float) ($v['cost_amount'] ?? $v['absolute_cost'] ?? 0);
             $costAmountByOptionValueId[$optionValueId] = $costAmount;
+            /* The row's own additional (the owner, 2026-08-27). Absent, a payload
+             * from before the column, means the parent's, which is what every
+             * row carried until then. */
+            $costAdd = $this->rowCostAdditional($v, $parentAdd);
+            $costAddByOptionValueId[$optionValueId] = $costAdd;
 
             $data = [
                 'sku' => trim((string) ($v['sku'] ?? '')),
@@ -1751,12 +1783,12 @@ public function store(Request $request)
                 'cost_prefix' => '+',
                 'cost_amount' => $costAmount,
                 'cost_percentage' => $parentPct,
-                'cost_additional' => $parentAdd,
+                'cost_additional' => $costAdd,
                 'absolute_cost' => $this->variationUnitCost(
                     $costAmount,
                     (float) ($v['absolute_price'] ?? 0),
                     $parentPct,
-                    $parentAdd
+                    $costAdd
                 ),
             ];
 
@@ -1832,6 +1864,8 @@ public function store(Request $request)
             $status = $statusByOptionValueId[(int) $pov->option_value_id] ?? 1;
             $costAmount = $costAmountByOptionValueId[(int) $pov->option_value_id]
                 ?? (float) ($pov->cost_amount ?? 0);
+            $costAdd = $costAddByOptionValueId[(int) $pov->option_value_id]
+                ?? (float) ($pov->cost_additional ?? 0);
 
             $comboId = DB::table('product_option_combinations')->insertGetId([
                 'product_id' => $productId,
@@ -1841,6 +1875,7 @@ public function store(Request $request)
                 'quantity' => (int) $pov->quantity,
                 'absolute_price' => (float) ($pov->absolute_price ?? 0),
                 'cost_amount' => $costAmount,
+                'cost_additional' => $costAdd,
                 'absolute_cost' => (float) ($pov->absolute_cost ?? 0),
                 'subtract' => 1,
                 'sort_order' => $sort++,
@@ -1930,6 +1965,7 @@ public function store(Request $request)
 
             $comboPrice = (float) ($combo['absolute_price'] ?? 0);
             $comboCostAmount = (float) ($combo['cost_amount'] ?? $combo['absolute_cost'] ?? 0);
+            $comboCostAdd = $this->rowCostAdditional($combo, $parentAdd);
 
             $comboId = DB::table('product_option_combinations')->insertGetId([
                 'product_id' => $productId,
@@ -1939,11 +1975,12 @@ public function store(Request $request)
                 'quantity' => (int) ($combo['quantity'] ?? 0),
                 'absolute_price' => $comboPrice,
                 'cost_amount' => $comboCostAmount,
+                'cost_additional' => $comboCostAdd,
                 'absolute_cost' => $this->variationUnitCost(
                     $comboCostAmount,
                     $comboPrice,
                     $parentPct,
-                    $parentAdd
+                    $comboCostAdd
                 ),
                 'subtract' => 1,
                 'sort_order' => $sort++,

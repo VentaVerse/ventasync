@@ -66,8 +66,16 @@ final class LineCost
             return $own;
         }
 
+        // OpenCart's +/- delta, honoured only on a row that is purely that:
+        // no amount, no absolute, no formula parts. A received purchase
+        // order used to write the unit TOTAL into this column, and read as a
+        // delta that doubled the cost (10,220 + 10,220 on the GP200).
         $delta = (float) ($row->cost ?? 0);
-        if ($delta > 0) {
+        $pureLegacy = (float) ($row->cost_amount ?? 0) <= 0
+            && (float) ($row->absolute_cost ?? 0) <= 0
+            && (float) ($row->cost_percentage ?? 0) == 0.0
+            && (float) ($row->cost_additional ?? 0) == 0.0;
+        if ($delta > 0 && $pureLegacy) {
             return ($row->cost_prefix ?? '+') === '-' ? $parent - $delta : $parent + $delta;
         }
 
@@ -82,12 +90,21 @@ final class LineCost
     public static function ownCost(object $row): ?float
     {
         $absolute = (float) ($row->absolute_cost ?? 0);
-        if ($absolute <= 0) {
-            return null;
+        $amount = (float) ($row->cost_amount ?? 0);
+
+        if ($amount > 0) {
+            // An amount with no absolute beside it is a row a purchase order
+            // updated before absolute_cost was written on receipt. Compose
+            // the unit cost the way the form would.
+            return $absolute > 0
+                ? $absolute
+                : round($amount
+                    + ((float) ($row->cost_percentage ?? 0) / 100 * (float) ($row->absolute_price ?? 0))
+                    + (float) ($row->cost_additional ?? 0), 4);
         }
 
-        if ((float) ($row->cost_amount ?? 0) > 0) {
-            return $absolute;
+        if ($absolute <= 0) {
+            return null;
         }
 
         // No amount. Own only if the absolute cost holds more than the
