@@ -585,6 +585,12 @@ class OrderDetailTest extends TestCase
         $response->assertSee('money-primary', false);
         $response->assertSee('money-secondary', false);
         $response->assertDontSee('money-pending', false);
+
+        // Unit cost and COGS too (the owner, 2026-08-27): pesos first, then the
+        // order's currency at the rate recorded on the order.
+        $response->assertSee(Money::base(100000.00));
+        $response->assertSee(Money::foreign(\App\Services\OrderCurrencyService::toForeign(100000.00, 61.61429452), 'USD'));
+        $response->assertSee(Money::foreign(\App\Services\OrderCurrencyService::toForeign(200000.00, 61.61429452), 'USD'));
     }
 
     public function test_a_default_currency_order_shows_no_second_figure(): void

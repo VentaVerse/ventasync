@@ -492,10 +492,21 @@
                                     @else
                                         <span class="od-econ__v">{{ $unitCost > 0 ? \App\Support\Money::base($unitCost) : '-' }}</span>
                                     @endif
+                                    {{-- Cost is kept in pesos (PO figure at the PO's rate);
+                                         on a foreign order it is also read in the order's
+                                         currency at the rate recorded on the order, the
+                                         exchange at the time of sale, as price and total
+                                         are. The owner, 2026-08-27. --}}
+                                    @if($dual && $unitCost > 0)
+                                        <span class="money-secondary">{{ \App\Support\Money::foreign(\App\Services\OrderCurrencyService::toForeign($unitCost, $orderRate), $order->currency_code) }}</span>
+                                    @endif
                                 </span>
                                 <span class="od-econ__cell">
                                     <span class="od-econ__k">COGS</span>
                                     <span class="od-econ__v">{{ $unitCost > 0 ? \App\Support\Money::base($cogs) : '-' }}</span>
+                                    @if($dual && $unitCost > 0)
+                                        <span class="money-secondary">{{ \App\Support\Money::foreign(\App\Services\OrderCurrencyService::toForeign($cogs, $orderRate), $order->currency_code) }}</span>
+                                    @endif
                                 </span>
                                 <span class="od-econ__cell">
                                     <span class="od-econ__k">Profit</span>
