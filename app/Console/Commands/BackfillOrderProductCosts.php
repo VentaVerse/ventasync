@@ -2,104 +2,133 @@
 
 namespace App\Console\Commands;
 
+use App\Support\LineCost;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Re-read order line costs from the catalogue, by the same rule the syncs
+ * use when they write a line (App\Support\LineCost): the variation's own
+ * cost when it has an amount, else the parent's.
+ *
+ * Two jobs. Lines that never got a cost (product matched later, cost typed
+ * later) get one; that is the default run. And after a rule change every
+ * line since a date can be re-read, which is --force with --from: the
+ * 2026-08-22 variation formula rewrote resynced lines with an overhead-only
+ * figure, and --force --from=2026-08-22 puts them right.
+ *
+ * Dry by default so the per-product table can be read before anything is
+ * written. Nothing here touches a line whose resolved cost is zero when it
+ * already has one: the catalogue not knowing is no reason to forget.
+ */
 class BackfillOrderProductCosts extends Command
 {
     protected $signature = 'orders:backfill-costs
-                            {--dry-run : Show what would be updated without saving}
-                            {--force : Re-evaluate ALL order products, not just cost=0}';
+                            {--apply : Write the changes. Without it the run only reports}
+                            {--force : Re-read every line, not just the ones at cost 0}
+                            {--from= : Only orders placed on or after this date (YYYY-MM-DD)}';
 
-    protected $description = 'Backfill order_product.cost from option value cost (preferred) or product cost';
+    protected $description = 'Re-read order line costs from the catalogue: the variation\'s own cost when it has one, else the parent\'s';
 
     public function handle(): int
     {
         $pfx = (string) config('catalog.prefix');
-        $dryRun = $this->option('dry-run');
-        $force = $this->option('force');
+        $apply = (bool) $this->option('apply');
+        $force = (bool) $this->option('force');
+        $from = $this->option('from');
 
-        if ($dryRun) {
-            $this->warn('DRY RUN — no changes will be saved.');
+        if ($from !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $from)) {
+            $this->error('--from must be a date, YYYY-MM-DD.');
+            return self::INVALID;
         }
 
-        // Step 1: Backfill from option value cost (base product cost + option cost delta)
-        $this->info('Step 1: Resolving option-level costs (base + prefix delta)...');
+        if (!$apply) {
+            $this->warn('Reporting only. Add --apply to write.');
+        }
 
-        $optionQuery = DB::table($pfx . 'order_product as op')
-            ->join($pfx . 'order_option as oo', function ($j) {
-                $j->on('oo.order_id', '=', 'op.order_id')
-                  ->on('oo.order_product_id', '=', 'op.order_product_id');
-            })
-            ->join($pfx . 'product_option_value as pov', 'pov.product_option_value_id', '=', 'oo.product_option_value_id')
-            ->join($pfx . 'product as p', 'p.product_id', '=', 'op.product_id');
+        $query = DB::table($pfx . 'order_product as op')
+            ->join($pfx . 'order as o', 'o.order_id', '=', 'op.order_id')
+            ->where('op.product_id', '>', 0)
+            ->orderBy('op.order_product_id');
 
         if (!$force) {
-            $optionQuery->where('op.cost', 0);
+            $query->where('op.cost', 0);
+        }
+        if ($from !== null) {
+            $query->where('o.date_added', '>=', $from . ' 00:00:00');
         }
 
-        $optionRows = $optionQuery
-            ->select('op.order_product_id', 'p.cost as base_cost', 'pov.cost as option_cost_delta', 'pov.cost_prefix')
-            ->get();
+        // The variation sold, when one was. A line has at most one option
+        // value that maps to a product_option_value; the first is it.
+        $variationByLine = DB::table($pfx . 'order_option as oo')
+            ->join($pfx . 'order_product as op', 'op.order_product_id', '=', 'oo.order_product_id')
+            ->where('oo.product_option_value_id', '>', 0)
+            ->orderBy('oo.order_option_id')
+            ->pluck('oo.product_option_value_id', 'oo.order_product_id')
+            ->all();
 
-        // Deduplicate: one order_product may have multiple options, pick the first
-        $optionCosts = [];
-        foreach ($optionRows as $row) {
-            if (!isset($optionCosts[$row->order_product_id])) {
-                $baseCost = (float) $row->base_cost;
-                $delta = (float) $row->option_cost_delta;
-                $fullCost = ($row->cost_prefix === '-')
-                    ? $baseCost - $delta
-                    : $baseCost + $delta;
-                $optionCosts[$row->order_product_id] = $fullCost;
+        $names = DB::table($pfx . 'product_description')
+            ->where('language_id', (int) config('catalog.default_language_id', 1))
+            ->pluck('name', 'product_id')
+            ->all();
+
+        $changes = [];   // product_id => ['lines' => n, 'from' => sum, 'to' => sum]
+        $examined = 0;
+        $changed = 0;
+        $unresolved = 0;
+
+        foreach ($query->select('op.order_product_id', 'op.product_id', 'op.cost')->cursor() as $line) {
+            $examined++;
+            $optionValueId = (int) ($variationByLine[$line->order_product_id] ?? 0);
+            $new = LineCost::resolve((int) $line->product_id, $optionValueId);
+            $old = (float) $line->cost;
+
+            if ($new <= 0) {
+                // The catalogue has nothing for this line. Leave whatever it
+                // carries; zero over a number is never an improvement.
+                if ($old <= 0) {
+                    $unresolved++;
+                }
+                continue;
             }
-        }
+            if (abs($new - $old) < 0.00005) {
+                continue;
+            }
 
-        $this->info('  Found ' . count($optionCosts) . ' order products with option-level costs.');
+            $changed++;
+            $pid = (int) $line->product_id;
+            $changes[$pid] ??= ['lines' => 0, 'from' => 0.0, 'to' => 0.0];
+            $changes[$pid]['lines']++;
+            $changes[$pid]['from'] += $old;
+            $changes[$pid]['to'] += $new;
 
-        $optionUpdated = 0;
-        if (!$dryRun && count($optionCosts) > 0) {
-            foreach ($optionCosts as $opId => $cost) {
+            if ($apply) {
                 DB::table($pfx . 'order_product')
-                    ->where('order_product_id', $opId)
-                    ->update(['cost' => $cost]);
-                $optionUpdated++;
+                    ->where('order_product_id', $line->order_product_id)
+                    ->update(['cost' => round($new, 4)]);
             }
         }
 
-        // Step 2: Backfill remaining from base product cost
-        $this->info('Step 2: Resolving base product costs...');
-
-        $baseQuery = DB::table($pfx . 'order_product as op')
-            ->join($pfx . 'product as p', 'p.product_id', '=', 'op.product_id')
-            ->where('op.cost', 0)
-            ->where('p.cost', '>', 0);
-
-        $baseCount = (clone $baseQuery)->count();
-        $this->info("  Found {$baseCount} order products to update from base product cost.");
-
-        if (!$dryRun && $baseCount > 0) {
-            DB::statement("
-                UPDATE `{$pfx}order_product` AS op
-                INNER JOIN `{$pfx}product` AS p ON p.product_id = op.product_id
-                SET op.cost = p.cost
-                WHERE op.cost = 0
-                  AND p.cost > 0
-            ");
+        if ($changes !== []) {
+            uasort($changes, fn ($a, $b) => $b['lines'] <=> $a['lines']);
+            $this->table(
+                ['Product', 'Lines', 'Cost before (sum)', 'Cost after (sum)'],
+                array_map(fn ($pid, $c) => [
+                    ($names[$pid] ?? '#' . $pid),
+                    $c['lines'],
+                    number_format($c['from'], 2),
+                    number_format($c['to'], 2),
+                ], array_keys($changes), $changes)
+            );
         }
-
-        $remaining = DB::table($pfx . 'order_product')->where('cost', 0)->count();
 
         $this->newLine();
-        $this->info('Results:');
-        $this->info("  Option-level cost updates: " . ($dryRun ? count($optionCosts) . ' (would update)' : $optionUpdated));
-        $this->info("  Base product cost updates: " . ($dryRun ? $baseCount . ' (would update)' : $baseCount));
-        $this->info("  Remaining with cost=0: {$remaining}");
+        $this->info("Examined {$examined} line(s); {$changed} " . ($apply ? 'updated' : 'would change') . "; {$unresolved} still without a cost in the catalogue.");
 
-        if ($dryRun) {
-            $this->warn('DRY RUN — no changes were saved. Remove --dry-run to apply.');
+        if (!$apply && $changed > 0) {
+            $this->warn('Nothing was written. Re-run with --apply.');
         }
 
-        return 0;
+        return self::SUCCESS;
     }
 }

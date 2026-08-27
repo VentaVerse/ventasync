@@ -15,6 +15,7 @@ use App\Services\OrderCurrencyService;
 use App\Services\OrderStockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Support\LineCost;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
@@ -338,7 +339,7 @@ class OrderController extends Controller
             // Check for combinations first (these have the real prices/quantities)
             $combos = DB::table('product_option_combinations as poc')
                 ->whereIn('poc.product_id', $productIds)
-                ->select('poc.id', 'poc.product_id', 'poc.sku', 'poc.quantity', 'poc.absolute_price', 'poc.absolute_cost')
+                ->select('poc.id', 'poc.product_id', 'poc.sku', 'poc.quantity', 'poc.absolute_price', 'poc.absolute_cost', 'poc.cost_amount')
                 ->orderBy('poc.sort_order')
                 ->get();
 
@@ -371,7 +372,9 @@ class OrderController extends Controller
                         'option_sku'              => $c->sku,
                         'option_qty'              => (int) $c->quantity,
                         'absolute_price'          => (float) $c->absolute_price,
-                        'absolute_cost'           => (float) $c->absolute_cost,
+                        // Only a cost of the variation's own reaches the form; with
+                        // none the picker falls back to the parent's (LineCost).
+                        'absolute_cost'           => LineCost::ownCombinationCost($c) ?? 0.0,
                         'option_price'            => 0,
                         'price_prefix'            => '+',
                         'option_cost'             => 0,
@@ -400,6 +403,7 @@ class OrderController extends Controller
                     'pov.price as option_price', 'pov.price_prefix',
                     'pov.cost as option_cost', 'pov.cost_prefix',
                     'pov.absolute_price', 'pov.absolute_cost',
+                    'pov.cost_amount', 'pov.cost_percentage', 'pov.cost_additional',
                     'ovd.name as value_name', 'od.name as option_name'
                 )
                 ->orderBy('pov.product_option_value_id')
@@ -407,6 +411,8 @@ class OrderController extends Controller
 
             foreach ($optRows as $o) {
                 $o->is_combination = false;
+                $o->absolute_cost = LineCost::ownCost($o) ?? 0.0;
+                unset($o->cost_amount, $o->cost_percentage, $o->cost_additional);
                 $optionsByProduct[$o->product_id][] = $o;
             }
         }
@@ -876,53 +882,14 @@ class OrderController extends Controller
         $updated = 0;
 
         foreach ($products as $op) {
-            $catalogCost = null;
-
-            if ((int) $op->product_id > 0) {
-                // Try option value cost first (via order_option)
-                $orderOption = DB::table($pfx . 'order_option')
-                    ->where('order_product_id', $op->order_product_id)
-                    ->first();
-
-                if ($orderOption && (int) $orderOption->product_option_value_id > 0) {
-                    // Check combinations first
-                    $combo = DB::table('product_option_combinations as poc')
-                        ->join('product_option_combination_values as pocv', 'poc.id', '=', 'pocv.combination_id')
-                        ->where('poc.product_id', $op->product_id)
-                        ->where('pocv.product_option_value_id', $orderOption->product_option_value_id)
-                        ->first(['poc.absolute_cost']);
-
-                    if ($combo && (float) $combo->absolute_cost > 0) {
-                        $catalogCost = (float) $combo->absolute_cost;
-                    } else {
-                        // Fallback to option value cost
-                        $optVal = DB::table($pfx . 'product_option_value')
-                            ->where('product_option_value_id', $orderOption->product_option_value_id)
-                            ->first(['cost', 'cost_prefix', 'absolute_cost']);
-
-                        if ($optVal) {
-                            if ((float) ($optVal->absolute_cost ?? 0) > 0) {
-                                $catalogCost = (float) $optVal->absolute_cost;
-                            } else {
-                                $baseCost = (float) DB::table($pfx . 'product')
-                                    ->where('product_id', $op->product_id)
-                                    ->value('cost');
-                                $delta = (float) ($optVal->cost ?? 0);
-                                $catalogCost = ($optVal->cost_prefix === '-')
-                                    ? $baseCost - $delta
-                                    : $baseCost + $delta;
-                            }
-                        }
-                    }
-                }
-
-                // Fallback to main product cost
-                if ($catalogCost === null || $catalogCost <= 0) {
-                    $catalogCost = (float) DB::table($pfx . 'product')
-                        ->where('product_id', $op->product_id)
-                        ->value('cost');
-                }
-            }
+            // The variation sold, when one was; then the one rule every
+            // channel sync writes lines by (App\Support\LineCost).
+            $optionValueId = (int) (DB::table($pfx . 'order_option')
+                ->where('order_product_id', $op->order_product_id)
+                ->where('product_option_value_id', '>', 0)
+                ->orderBy('order_option_id')
+                ->value('product_option_value_id') ?? 0);
+            $catalogCost = LineCost::resolve((int) $op->product_id, $optionValueId);
 
             if ($catalogCost && $catalogCost > 0) {
                 DB::table($pfx . 'order_product')

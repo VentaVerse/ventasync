@@ -423,32 +423,9 @@ class OpenCartOrderSync
                         }
                     }
 
-                    $productCost = 0;
-                    if ($coreProductId > 0) {
-                        $baseCost = (float) DB::table($pfx . 'product')
-                            ->where('product_id', $coreProductId)
-                            ->value('cost');
-
-                        if ($firstMatchedPovId > 0) {
-                            $optRow = DB::table($pfx . 'product_option_value')
-                                ->where('product_option_value_id', $firstMatchedPovId)
-                                ->first(['cost', 'cost_prefix', 'absolute_cost']);
-                            if ($optRow) {
-                                if ((float) ($optRow->absolute_cost ?? 0) > 0) {
-                                    $productCost = (float) $optRow->absolute_cost;
-                                } else {
-                                    $delta = (float) $optRow->cost;
-                                    $productCost = ($optRow->cost_prefix === '-')
-                                        ? $baseCost - $delta
-                                        : $baseCost + $delta;
-                                }
-                            } else {
-                                $productCost = $baseCost;
-                            }
-                        } else {
-                            $productCost = $baseCost;
-                        }
-                    }
+                    // One rule for every channel: the variation's own cost when it has
+                    // an amount, else the parent's (App\Support\LineCost).
+                    $productCost = \App\Support\LineCost::resolve((int) $coreProductId, (int) ($firstMatchedPovId ?? 0));
 
                     $opId = DB::table($pfx . 'order_product')->insertGetId([
                         'order_id'   => $coreOrderId,
