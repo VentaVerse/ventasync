@@ -15,6 +15,8 @@
     // Payments are their own key (OrderPaymentController): a manager of
     // orders is not automatically a keeper of the books.
     $canManagePayments = auth()->user()?->hasPermission('manage_sales/order_payment') ?? false;
+    // A marketplace collects and pays out; the payouts report is that record.
+    $isMarketplaceOrder = in_array(strtok((string) ($order->marketplace_source ?? ''), ':'), ['shopee', 'lazada', 'tiktok'], true);
 
     $registry = app(\App\Integrations\IntegrationRegistry::class);
 
@@ -245,8 +247,139 @@
         </div>
     @endif
 
+    {{-- ============ THE FACTS ============ --}}
+    {{-- Who, where to, how paid: one band under the header, read before the
+         money the way the floor reads an order. These were a rail beside the
+         money; a one-line order left the money column empty under it while
+         the rail ran long (the owner, 2026-08-27, reshaped from three drafts). --}}
+    <div class="od-facts">
+            {{-- Customer --}}
+            <section class="od-card">
+                <div class="od-card__head">
+                    <h2 class="od-card__title">Customer</h2>
+                </div>
+                <div class="od-card__body od-card__body--tight">
+                    <div class="od-lines">
+                        <span class="od-lines__name">{{ trim($order->firstname . ' ' . $order->lastname) ?: 'Guest' }}</span>
+                        {{-- The group the order was placed under, by name, as
+                             the storefront sent it (#129): a reseller's order
+                             says so where its lower margin is read. --}}
+                        @if(trim((string) ($order->customer_group ?? '')) !== '')
+                            <span class="od-fact">
+                                <span class="od-fact__k">Customer group</span>
+                                <span class="od-fact__v">{{ $order->customer_group }}</span>
+                            </span>
+                        @endif
+                        @if($order->email)<span><a href="mailto:{{ $order->email }}">{{ $order->email }}</a></span>@endif
+                        @if($order->telephone)<span>{{ $order->telephone }}</span>@endif
+                    </div>
+                </div>
+            </section>
+
+            {{-- Shipping --}}
+            @php
+                $hasShipping = $order->shipping_firstname || $order->shipping_lastname || $order->shipping_company
+                    || $order->shipping_address_1 || $order->shipping_address_2 || $order->shipping_city
+                    || $order->shipping_postcode || $order->shipping_zone || $order->shipping_country
+                    || $order->shipping_method || $order->tracking_number;
+            @endphp
+            @if($hasShipping)
+            <section class="od-card">
+                <div class="od-card__head">
+                    <h2 class="od-card__title">Shipping</h2>
+                </div>
+                <div class="od-card__body">
+                    @if($order->shipping_method)
+                    <div class="od-fact">
+                        <span class="od-fact__k">Method</span>
+                        <span class="od-fact__v">{{ $order->shipping_method }}</span>
+                    </div>
+                    @endif
+                    @if($order->tracking_number)
+                    <div class="od-fact">
+                        <span class="od-fact__k">Tracking number</span>
+                        <span class="od-fact__v od-fact__v--mono">
+                            <a href="https://parcelsapp.com/en/tracking/{{ $order->tracking_number }}" target="_blank" rel="noopener">
+                                {{ $order->tracking_number }}<x-ui.icon name="external-link" size="11" class="od-stamp__out" />
+                            </a>
+                        </span>
+                    </div>
+                    @endif
+                    @if($order->shipping_firstname || $order->shipping_lastname || $order->shipping_address_1 || $order->shipping_city || $order->shipping_country)
+                    <div class="od-fact">
+                        <span class="od-fact__k">Delivery address</span>
+                        <div class="od-lines">
+                            @if($order->shipping_firstname || $order->shipping_lastname)
+                                <span class="od-lines__name">{{ trim($order->shipping_firstname . ' ' . $order->shipping_lastname) }}</span>
+                            @endif
+                            @if($order->shipping_company)<span>{{ $order->shipping_company }}</span>@endif
+                            @if($order->shipping_address_1)<span>{{ $order->shipping_address_1 }}</span>@endif
+                            @if($order->shipping_address_2)<span>{{ $order->shipping_address_2 }}</span>@endif
+                            @if($order->shipping_city || $order->shipping_postcode)
+                                <span>{{ trim($order->shipping_city . ' ' . $order->shipping_postcode) }}</span>
+                            @endif
+                            @if($order->shipping_zone)<span>{{ $order->shipping_zone }}</span>@endif
+                            @if($order->shipping_country)<span>{{ $order->shipping_country }}</span>@endif
+                        </div>
+                    </div>
+                    @endif
+                </div>
+            </section>
+            @endif
+
+            {{-- Payment --}}
+            <section class="od-card">
+                <div class="od-card__head">
+                    <h2 class="od-card__title">Billing</h2>
+                </div>
+<div class="od-card__body">
+                    @if($order->payment_method)
+                    <div class="od-fact">
+                        <span class="od-fact__k">Method</span>
+                        <span class="od-fact__v">{{ $order->payment_method }}</span>
+                    </div>
+                    @endif
+
+                    @php
+                        $hasBilling = $order->payment_firstname || $order->payment_lastname || $order->payment_company
+                            || $order->payment_address_1 || $order->payment_address_2 || $order->payment_city
+                            || $order->payment_postcode || $order->payment_zone || $order->payment_country;
+                    @endphp
+                    @if($hasBilling)
+                    <div class="od-fact">
+                        <span class="od-fact__k">Billing address</span>
+                        <div class="od-lines">
+                            @if($order->payment_firstname || $order->payment_lastname)
+                                <span class="od-lines__name">{{ trim($order->payment_firstname . ' ' . $order->payment_lastname) }}</span>
+                            @endif
+                            @if($order->payment_company)<span>{{ $order->payment_company }}</span>@endif
+                            @if($order->payment_address_1)<span>{{ $order->payment_address_1 }}</span>@endif
+                            @if($order->payment_address_2)<span>{{ $order->payment_address_2 }}</span>@endif
+                            @if($order->payment_city || $order->payment_postcode)
+                                <span>{{ trim($order->payment_city . ' ' . $order->payment_postcode) }}</span>
+                            @endif
+                            @if($order->payment_zone)<span>{{ $order->payment_zone }}</span>@endif
+                            @if($order->payment_country)<span>{{ $order->payment_country }}</span>@endif
+                        </div>
+                    </div>
+                    @endif
+
+                </div>
+            </section>
+            {{-- Order comment --}}
+            @if($order->comment)
+            <section class="od-card">
+                <div class="od-card__head">
+                    <h2 class="od-card__title">Order comment</h2>
+                </div>
+                <div class="od-card__body">
+                    <p class="od-fact__v">{{ $order->comment }}</p>
+                </div>
+            </section>
+            @endif
+    </div>
+
     <div class="od-body">
-        {{-- ============ MAIN COLUMN ============ --}}
         <div class="od-col od-col--main">
 
             {{-- Items --}}
@@ -396,6 +529,7 @@
                 $displayMargin = $hasDeductions ? $netMargin : $grossMargin;
                 $displayMarkup = $hasDeductions ? $netMarkup : $grossMarkup;
             @endphp
+            <div class="od-money">
             <section class="od-section">
                 <div class="od-section__head">
                     <h2 class="od-section__title">Totals</h2>
@@ -537,38 +671,17 @@
                     @endif
                 </div>
             </section>
-        </div>
 
-        {{-- ============ SIDE COLUMN ============ --}}
-        <div class="od-col od-col--side">
-
-            {{-- Customer --}}
-            <section class="od-card">
-                <div class="od-card__head">
-                    <h2 class="od-card__title">Customer</h2>
-                </div>
-                <div class="od-card__body od-card__body--tight">
-                    <div class="od-lines">
-                        <span class="od-lines__name">{{ trim($order->firstname . ' ' . $order->lastname) ?: 'Guest' }}</span>
-                        {{-- The group the order was placed under, by name, as
-                             the storefront sent it (#129): a reseller's order
-                             says so where its lower margin is read. --}}
-                        @if(trim((string) ($order->customer_group ?? '')) !== '')
-                            <span class="od-fact">
-                                <span class="od-fact__k">Customer group</span>
-                                <span class="od-fact__v">{{ $order->customer_group }}</span>
-                            </span>
-                        @endif
-                        @if($order->email)<span><a href="mailto:{{ $order->email }}">{{ $order->email }}</a></span>@endif
-                        @if($order->telephone)<span>{{ $order->telephone }}</span>@endif
-                    </div>
-                </div>
-            </section>
-
-            {{-- Payment --}}
-            <section class="od-card">
-                <div class="od-card__head">
-                    <h2 class="od-card__title">Payment</h2>
+            {{-- ============ PAYMENTS ============ --}}
+            {{-- What has been paid against the total, as a section of its own
+                 beside the money it settles (the owner, 2026-08-27: "it looks like
+                 it's lost" as a footer inside the billing address). Manual and
+                 storefront orders only: a marketplace collects and pays out,
+                 and the payouts report is that record. --}}
+            @unless($isMarketplaceOrder)
+            <section class="od-section od-payments">
+                <div class="od-section__head">
+                    <h2 class="od-section__title">Payments</h2>
                     @if($order->track_payments)
                         {{-- The badge states the payment state; the amounts
                              live in the card's own two figure lines below,
@@ -592,44 +705,16 @@
                         @endif
                     @endif
                 </div>
-                <div class="od-card__body">
-                    @if($order->payment_method)
-                    <div class="od-fact">
-                        <span class="od-fact__k">Method</span>
-                        <span class="od-fact__v">{{ $order->payment_method }}</span>
-                    </div>
-                    @endif
-
-                    @php
-                        $hasBilling = $order->payment_firstname || $order->payment_lastname || $order->payment_company
-                            || $order->payment_address_1 || $order->payment_address_2 || $order->payment_city
-                            || $order->payment_postcode || $order->payment_zone || $order->payment_country;
-                    @endphp
-                    @if($hasBilling)
-                    <div class="od-fact">
-                        <span class="od-fact__k">Billing address</span>
-                        <div class="od-lines">
-                            @if($order->payment_firstname || $order->payment_lastname)
-                                <span class="od-lines__name">{{ trim($order->payment_firstname . ' ' . $order->payment_lastname) }}</span>
-                            @endif
-                            @if($order->payment_company)<span>{{ $order->payment_company }}</span>@endif
-                            @if($order->payment_address_1)<span>{{ $order->payment_address_1 }}</span>@endif
-                            @if($order->payment_address_2)<span>{{ $order->payment_address_2 }}</span>@endif
-                            @if($order->payment_city || $order->payment_postcode)
-                                <span>{{ trim($order->payment_city . ' ' . $order->payment_postcode) }}</span>
-                            @endif
-                            @if($order->payment_zone)<span>{{ $order->payment_zone }}</span>@endif
-                            @if($order->payment_country)<span>{{ $order->payment_country }}</span>@endif
-                        </div>
-                    </div>
-                    @endif
-
+                <div class="od-payments__body">
                     @if($order->track_payments)
-                        <hr class="od-divider">
 
                         <div class="od-paid">
                             <span class="od-paid__k">Total paid</span>
                             <span class="od-paid__v">{{ \App\Support\Money::base($totalPaid) }}</span>
+                        </div>
+                        <div class="od-paid od-paid--balance">
+                            <span class="od-paid__k">Balance</span>
+                            <span class="od-paid__v {{ $balance > 0 ? 'od-warn' : '' }}">{{ \App\Support\Money::base(max(0, $balance)) }}</span>
                         </div>
 
                         @if($payments->count())
@@ -662,12 +747,6 @@
                                 @endforeach
                             </div>
 
-                            @if($balance > 0)
-                            <div class="od-paid">
-                                <span class="od-paid__k">Remaining balance</span>
-                                <span class="od-paid__v od-warn">{{ \App\Support\Money::base($balance) }}</span>
-                            </div>
-                            @endif
                         @elseif($orderTotal > 0)
                             <p class="od-empty">No payments recorded.</p>
                         @endif
@@ -716,80 +795,17 @@
                         </details>
                         @endif
                     @elseif($canManageOrders)
-                        <hr class="od-divider">
-                        <div class="od-fact">
-                            <span class="od-fact__v">Track partial payments for this order</span>
-                        </div>
+                        <p class="od-empty">Payments are not tracked on this order. Turn tracking on to record what has been paid and see the balance.</p>
                         <form method="POST" action="{{ route('orders.toggle_payments', $order->order_id) }}">
                             @csrf
                             <x-ui.button size="sm" type="submit">Enable payment tracking</x-ui.button>
                         </form>
                     @endif
-                </div>
-            </section>
 
-            {{-- Shipping --}}
-            @php
-                $hasShipping = $order->shipping_firstname || $order->shipping_lastname || $order->shipping_company
-                    || $order->shipping_address_1 || $order->shipping_address_2 || $order->shipping_city
-                    || $order->shipping_postcode || $order->shipping_zone || $order->shipping_country
-                    || $order->shipping_method || $order->tracking_number;
-            @endphp
-            @if($hasShipping)
-            <section class="od-card">
-                <div class="od-card__head">
-                    <h2 class="od-card__title">Shipping</h2>
-                </div>
-                <div class="od-card__body">
-                    @if($order->shipping_method)
-                    <div class="od-fact">
-                        <span class="od-fact__k">Method</span>
-                        <span class="od-fact__v">{{ $order->shipping_method }}</span>
-                    </div>
-                    @endif
-                    @if($order->tracking_number)
-                    <div class="od-fact">
-                        <span class="od-fact__k">Tracking number</span>
-                        <span class="od-fact__v od-fact__v--mono">
-                            <a href="https://parcelsapp.com/en/tracking/{{ $order->tracking_number }}" target="_blank" rel="noopener">
-                                {{ $order->tracking_number }}<x-ui.icon name="external-link" size="11" class="od-stamp__out" />
-                            </a>
-                        </span>
-                    </div>
-                    @endif
-                    @if($order->shipping_firstname || $order->shipping_lastname || $order->shipping_address_1 || $order->shipping_city || $order->shipping_country)
-                    <div class="od-fact">
-                        <span class="od-fact__k">Delivery address</span>
-                        <div class="od-lines">
-                            @if($order->shipping_firstname || $order->shipping_lastname)
-                                <span class="od-lines__name">{{ trim($order->shipping_firstname . ' ' . $order->shipping_lastname) }}</span>
-                            @endif
-                            @if($order->shipping_company)<span>{{ $order->shipping_company }}</span>@endif
-                            @if($order->shipping_address_1)<span>{{ $order->shipping_address_1 }}</span>@endif
-                            @if($order->shipping_address_2)<span>{{ $order->shipping_address_2 }}</span>@endif
-                            @if($order->shipping_city || $order->shipping_postcode)
-                                <span>{{ trim($order->shipping_city . ' ' . $order->shipping_postcode) }}</span>
-                            @endif
-                            @if($order->shipping_zone)<span>{{ $order->shipping_zone }}</span>@endif
-                            @if($order->shipping_country)<span>{{ $order->shipping_country }}</span>@endif
-                        </div>
-                    </div>
-                    @endif
                 </div>
             </section>
-            @endif
-
-            {{-- Order comment --}}
-            @if($order->comment)
-            <section class="od-card">
-                <div class="od-card__head">
-                    <h2 class="od-card__title">Order comment</h2>
-                </div>
-                <div class="od-card__body">
-                    <p class="od-fact__v">{{ $order->comment }}</p>
-                </div>
-            </section>
-            @endif
+            @endunless
+            </div>
         </div>
     </div>
 

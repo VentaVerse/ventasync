@@ -1046,10 +1046,23 @@ class OrderController extends Controller
             ? Product::whereIn('product_id', $productIds)->pluck('image', 'product_id')->toArray()
             : [];
 
+        /* The VARIATION's own picture first (#138, on the order page too,
+         * 2026-08-27): the line's model is the variation's SKU, and
+         * CatalogImages resolves it through the combinations, falling back
+         * to the parent. This read the product's picture by id alone, so a
+         * red pedal's order showed the black one. */
+        $bySku = \App\Support\CatalogImages::forSkus($allProducts->pluck('model')->map(fn ($m) => trim((string) $m))->filter()->all());
+
         // Re-key by order_product_id so views can look up directly
         $result = [];
+        foreach ($allProducts as $op) {
+            $sku = trim((string) $op->model);
+            if ($sku !== '' && isset($bySku[$sku])) {
+                $result[$op->order_product_id] = $bySku[$sku];
+            }
+        }
         foreach ($idMap as $opId => $pid) {
-            if (isset($images[$pid]) && trim($images[$pid]) !== '') {
+            if (!isset($result[$opId]) && isset($images[$pid]) && trim($images[$pid]) !== '') {
                 $result[$opId] = $images[$pid];
             }
         }

@@ -245,9 +245,32 @@
         align-items: start;
     }
 
-    @media (min-width: 1001px) {
-        .od-body { grid-template-columns: minmax(0, 1fr) 320px; }
+    /* One column. The rail is gone: the facts run as a band above (see
+       .od-facts) and the money takes the whole width below. */
+
+    .od-facts {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 14px;
+        align-items: start;
     }
+
+    /* Totals and Payments side by side once there is room: the money and
+       what has been paid against it, read together. */
+    .od-money {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 22px;
+        align-items: start;
+    }
+    @media (min-width: 900px) {
+        .od-money { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
+    }
+    .od-money > .od-section { margin: 0; }
+    /* A marketplace order has no Payments section; Totals takes the row. */
+    .od-money > .od-section:only-child { grid-column: 1 / -1; }
+    .od-payments__body { display: flex; flex-direction: column; gap: 10px; }
+    .od-paid--balance { font-size: 14px; font-weight: 650; padding-bottom: 8px; border-bottom: 1px solid var(--bl-rule-2); }
 
     .od-col {
         display: flex;
@@ -319,7 +342,11 @@
 
     .od-items__head span:nth-child(n + 3) { text-align: right; }
 
-    .od-item__media { min-width: 0; width: 56px; }
+    /* The picture box is the column's width, whatever the component rule
+       says (96px), and shows the whole picture: a portrait product photo
+       was cropped, and the 96px box overlapped the product name beside it
+       (the owner, 2026-08-27). */
+    .od-item .od-item__media .order-img { object-fit: contain; }
     .od-item__body { min-width: 0; }
 
     .od-item__name {
@@ -1512,12 +1539,7 @@
    track plus its gap (320px rail + 22px), so the two agree by
    construction rather than by a number chosen to look right.
    ============================================================ */
-@layer components {
-    @media (min-width: 1001px) {
-        .od-body ~ .od-section,
-        .od-page > .od-section { max-width: calc(100% - 342px); }
-    }
-}
+/* (The rail is gone; the history runs the full width like everything else.) */
 
 /* ============================================================
    Which environment you are in is worth a colour.
@@ -1583,4 +1605,12 @@
             inset: 0;
         }
     }
+}
+
+/* The picture box on an order line. In the vocabulary layer, because that
+   layer's own .order-img-wrap (86px) outranks anything in components by
+   layer order, whatever the selector: the 96px component box overlapped
+   the product name and cropped a portrait photo (the owner, 2026-08-27). */
+@layer vocabulary {
+    .od-item .od-item__media.order-img-wrap { width: 56px; height: 56px; min-width: 0; }
 }
