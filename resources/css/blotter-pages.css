@@ -158,6 +158,15 @@
     .od-status > summary::-webkit-details-marker { display: none; }
     .od-status > summary:hover,
     .od-status[open] > summary { border-color: var(--bl-rule-2); background: var(--bl-chrome); }
+    .od-status__hint {
+        font-size: 12px;
+        font-weight: 550;
+        color: var(--bl-ink-2);
+        text-decoration: underline;
+        text-decoration-color: var(--bl-rule-2);
+        text-underline-offset: 3px;
+    }
+    .od-status > summary:hover .od-status__hint { color: var(--bl-ink); text-decoration-color: currentColor; }
     .od-status__caret { color: var(--bl-ink-3); transition: transform var(--bl-motion-fast); }
     .od-status[open] .od-status__caret { transform: rotate(180deg); }
     .od-status__panel {

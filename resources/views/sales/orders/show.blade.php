@@ -129,6 +129,10 @@
                 <details class="od-status">
                     <summary class="od-status__summary" aria-label="Change the order status">
                         <x-ui.badge :tone="\App\Support\OrderStatusTone::for($order->status->name ?? null)">{{ $order->status->name ?? '-' }}</x-ui.badge>
+                        {{-- Says what the badge does. A 12px chevron was the
+                             only sign, and the owner could not find the
+                             control (the owner, 2026-08-27). --}}
+                        <span class="od-status__hint">Change status</span>
                         <x-ui.icon name="chevron-down" size="12" class="od-status__caret" />
                     </summary>
                     <div class="od-status__panel">
