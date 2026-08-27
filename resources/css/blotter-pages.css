@@ -257,11 +257,31 @@
     /* One column. The rail is gone: the facts run as a band above (see
        .od-facts) and the money takes the whole width below. */
 
+    /* ONE frame, three cells. Three separate cards of different heights
+       (a four-line customer beside two seven-line addresses) read as
+       unbalanced the moment an order had little to say (the owner,
+       2026-08-27); one card divided by hairlines reads as one band
+       whatever each cell holds. */
     .od-facts {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 14px;
-        align-items: start;
+        gap: 0;
+        align-items: stretch;
+        background: var(--bl-sheet);
+        border: 1px solid var(--bl-rule);
+        border-radius: var(--bl-r-panel);
+        box-shadow: var(--bl-lift);
+        overflow: hidden;
+    }
+    .od-facts > .od-card {
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        background: transparent;
+    }
+    .od-facts > .od-card + .od-card { border-left: 1px solid var(--bl-rule); }
+    @media (max-width: 767px) {
+        .od-facts > .od-card + .od-card { border-left: 0; border-top: 1px solid var(--bl-rule); }
     }
 
     /* Totals and Payments side by side once there is room: the money and
@@ -270,7 +290,9 @@
         display: grid;
         grid-template-columns: minmax(0, 1fr);
         gap: 22px;
-        align-items: start;
+        /* Both sections stand the same height, so a Payments section with
+           one sentence in it does not float short beside the ledger. */
+        align-items: stretch;
     }
     @media (min-width: 900px) {
         .od-money { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
@@ -279,6 +301,9 @@
     /* A marketplace order has no Payments section; Totals takes the row. */
     .od-money > .od-section:only-child { grid-column: 1 / -1; }
     .od-payments__body { display: flex; flex-direction: column; gap: 10px; }
+    /* An empty Payments section centres what little it has to say. */
+    .od-payments__body:has(> .od-empty:first-child) { flex: 1; justify-content: center; align-items: center; text-align: center; }
+    .od-payments { display: flex; flex-direction: column; }
     .od-paid--balance { font-size: 14px; font-weight: 650; padding-bottom: 8px; border-bottom: 1px solid var(--bl-rule-2); }
 
     .od-col {
