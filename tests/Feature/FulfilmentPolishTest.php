@@ -195,6 +195,20 @@ class FulfilmentPolishTest extends TestCase
         $this->assertStringContainsString('3 orders waiting', $html);
     }
 
+    /** The sidebar badge counts To Pack only (the owner, 2026-08-27): a packed parcel waiting for the courier is not untouched work. */
+    public function test_the_sidebar_badge_counts_to_pack_only(): void
+    {
+        foreach (['READY_TO_SHIP', 'READY_TO_SHIP', 'PROCESSED', 'PROCESSED', 'PROCESSED'] as $i => $status) {
+            ShopeeOrder::create(['region' => 'ph', 'order_sn' => 'BADGE0' . $i, 'status' => $status, 'raw' => ['order_status' => $status]]);
+        }
+        $group = UserGroup::create(['name' => 'Badge readers']);
+        $group->permissions()->attach(Permission::whereIn('key', ['view_shopee/dashboard', 'view_shopee/order'])->pluck('id')->all());
+        $user = User::factory()->create(['user_group_id' => $group->id]);
+
+        \App\Support\FulfilmentBadge::forget($user);
+        $this->assertSame(2, \App\Support\FulfilmentBadge::pending($user), 'two to pack; the three awaiting collection are not counted');
+    }
+
     public function test_a_card_with_nothing_to_pack_says_so(): void
     {
         ShopeeOrder::create(['region' => 'ph', 'order_sn' => 'STAGE-HANDOVER', 'status' => 'PROCESSED', 'raw' => ['order_status' => 'PROCESSED']]);

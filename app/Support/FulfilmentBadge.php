@@ -8,8 +8,9 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Cache;
 
 /**
- * How many orders are waiting to be processed across every channel this user
- * can actually see, for the count beside Fulfilment in the sidebar.
+ * How many orders are waiting TO BE PACKED across every channel this user
+ * can actually see, for the count beside Fulfilment in the sidebar. To pack
+ * only: parcels already packed and waiting for the courier are not in it.
  *
  * The figure comes from the same place the Fulfilment page's own tab strip
  * gets it, IntegrationRegistry::visibleOrderTabs() and OrderTab's
@@ -60,10 +61,16 @@ class FulfilmentBadge
             $total = 0;
 
             foreach (app(IntegrationRegistry::class)->visibleOrderTabs($user) as $tab) {
-                // null means the marketplace never implemented the counter,
-                // which is not the same as zero waiting but shows the same
-                // way. Negatives cannot happen but would poison the sum.
-                $total += max(0, (int) ($tab->unprocessedCount() ?? 0));
+                /* TO PACK ONLY (the owner, 2026-08-27): the badge is the floor's
+                 * "how much is untouched", so a parcel already packed and
+                 * waiting for the courier does not count against it. A
+                 * channel that names its stages gives its first, To Pack;
+                 * one that does not keeps the whole waiting figure, which
+                 * is all it knows. null means the counter was never
+                 * implemented, which shows the same as zero. */
+                $stages = $tab->stageCounts();
+                $count = $stages ? ($stages[0]['count'] ?? 0) : ($tab->unprocessedCount() ?? 0);
+                $total += max(0, (int) $count);
             }
 
             return $total;
