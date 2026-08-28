@@ -276,18 +276,23 @@ class VentaFulfilmentTest extends TestCase
             ->assertOk();
     }
 
-    public function test_an_unbooked_order_has_no_waybill(): void
+    public function test_an_order_the_erp_has_no_booking_for_is_still_asked_about_at_the_store(): void
     {
+        // Booked from the storefront admin, or not at all: the store knows,
+        // the ERP does not until #169, so the store is asked and answers.
         $store = $this->store();
         $order = $this->order($store, 'Order Processed');
-        Http::fake();
+
+        Http::fake([
+            self::BASE . '/api/v1/orders/700001/label*' => Http::response(['error' => 'No courier booking to print'], 422),
+        ]);
 
         $this->actingAs($this->packer())
             ->getJson(route('ext.venta.orders.awb', [$store->id, $order->id]))
             ->assertStatus(422)
-            ->assertJson(['ok' => false, 'ready' => false]);
+            ->assertJson(['ok' => false, 'ready' => false, 'message' => 'No courier booking to print']);
 
-        Http::assertNothingSent();
+        Http::assertSentCount(1);
     }
 
     public function test_serviceability_and_tracking_pass_the_storefronts_answer_through(): void

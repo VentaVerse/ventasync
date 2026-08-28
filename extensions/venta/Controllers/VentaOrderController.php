@@ -102,14 +102,11 @@ class VentaOrderController extends Controller
         [$setting, $ventaOrder] = $this->storeAndOrder($store, $order);
         $fulfilment = VentaFulfilment::for($setting);
 
-        if (! $ventaOrder->isBooked() && ! $fulfilment->hasLabel($ventaOrder)) {
-            if ($request->expectsJson()) {
-                return response()->json(['ok' => false, 'ready' => false, 'message' => 'No courier booking to print.'], 422);
-            }
-
-            return back()->with('error', 'No courier booking to print for Venta #' . $ventaOrder->venta_order_id . '.');
-        }
-
+        // The store is asked even when the ERP has no booking on record: a
+        // parcel booked from the storefront admin has a waybill the ERP
+        // knows nothing about until the order payload carries the booking
+        // (#169), and the store answers "no booking" itself when there is
+        // none. Refusing here would have hidden a printable label.
         $result = $fulfilment->label($ventaOrder, $request->boolean('refresh'));
 
         if ($request->expectsJson()) {
