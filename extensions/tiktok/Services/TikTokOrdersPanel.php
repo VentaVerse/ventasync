@@ -147,13 +147,16 @@ class TikTokOrdersPanel
         $tab_counts['to_pack'] = (clone $baseCountQuery)->whereIn('status', ['AWAITING_SHIPMENT'])->count();
         $tab_counts['to_handover'] = (clone $baseCountQuery)->whereIn('status', ['AWAITING_COLLECTION'])->count();
 
-        // Every parcel waiting for handover, filed under its courier, with
-        // the order ids kept so the list can be narrowed to one courier's.
-        // Walked only on the step that shows it.
+        // Every order on the open To Ship step, filed under its courier,
+        // with the order ids kept so the list can be narrowed to one
+        // courier's. The courier is on the order from the moment it
+        // arrives, and the bench packs by courier before it hands over by
+        // courier (the owner, 2026-08-28). Walked only for the step shown.
+        $subStepStatuses = ['to_pack' => 'AWAITING_SHIPMENT', 'to_handover' => 'AWAITING_COLLECTION'];
         $courierTally = new CourierTally();
-        if ($tab === 'TO_SHIP' && $pendingSubtab === 'to_handover') {
+        if ($tab === 'TO_SHIP' && isset($subStepStatuses[$pendingSubtab])) {
             TikTokOrder::query()
-                ->where('status', 'AWAITING_COLLECTION')
+                ->where('status', $subStepStatuses[$pendingSubtab])
                 ->select(['id', 'raw'])
                 ->orderBy('id')
                 ->chunk(300, function ($orders) use ($courierTally) {

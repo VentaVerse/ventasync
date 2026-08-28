@@ -149,10 +149,14 @@ class ShopeeOrdersPanel
             'FAILED_DELIVERY'     => 'failed',
         ]);
 
-        // Walked only on the step that shows it. It reads every handover
-        // order's raw payload, and the other steps have no use for it.
-        $courierTally = ($tab === 'PENDING' && $pendingSubtab === 'to_handover')
-            ? $this->buildToShipCourierTally($auth['region'] ?? 'ph')
+        // The courier split of whichever To Ship step is open. The courier
+        // is on the order from the moment it arrives, and the bench packs
+        // by courier before it hands over by courier: whose rider comes
+        // first is decided at To Pack (the owner, 2026-08-28). Walked only for
+        // the step shown, since it reads every order's raw payload.
+        $subStepStatuses = ['to_pack' => ['READY_TO_SHIP'], 'to_handover' => ['PROCESSED']];
+        $courierTally = ($tab === 'PENDING' && isset($subStepStatuses[$pendingSubtab]))
+            ? $this->buildToShipCourierTally($auth['region'] ?? 'ph', $subStepStatuses[$pendingSubtab])
             : new CourierTally();
 
         $query = ShopeeOrder::query()
@@ -181,8 +185,8 @@ class ShopeeOrdersPanel
 
         // One courier's parcels, oldest first. The ids come from the same
         // walk that produced the count on the pill, so the two cannot
-        // disagree. Only To Handover has a courier to narrow by.
-        if ($tab === 'PENDING' && $pendingSubtab === 'to_handover' && $courierKey !== '') {
+        // disagree.
+        if ($tab === 'PENDING' && isset($subStepStatuses[$pendingSubtab]) && $courierKey !== '') {
             $courierIds = $courierTally->idsFor($courierKey);
             if ($courierIds !== null) {
                 $query->whereIn('id', $courierIds);
@@ -292,16 +296,18 @@ class ShopeeOrdersPanel
     }
 
     /**
-     * Every parcel waiting for handover, filed under its courier, with the
-     * order ids kept so the list can be narrowed to one courier's parcels.
+     * Every order on one To Ship step, filed under its courier, with the
+     * order ids kept so the list can be narrowed to one courier's orders.
+     *
+     * @param  list<string>  $statuses  the step's Shopee statuses
      */
-    private function buildToShipCourierTally(string $region): CourierTally
+    private function buildToShipCourierTally(string $region, array $statuses): CourierTally
     {
         $tally = new CourierTally();
 
         ShopeeOrder::query()
             ->where('region', $region)
-            ->whereIn('status', ['PROCESSED'])
+            ->whereIn('status', $statuses)
             ->select(['id', 'raw'])
             ->orderBy('id')
             ->chunk(300, function ($orders) use ($tally) {

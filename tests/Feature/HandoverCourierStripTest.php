@@ -24,6 +24,8 @@ class HandoverCourierStripTest extends TestCase
 {
     use RefreshDatabase;
 
+    private int $groupSeq = 0;
+
     /**
      * Same idempotent-install rationale as FulfilmentHubTest::setUp().
      */
@@ -45,7 +47,7 @@ class HandoverCourierStripTest extends TestCase
 
     private function userWith(array $permissionKeys): User
     {
-        $group = UserGroup::create(['name' => 'Handover '.implode('-', $permissionKeys)]);
+        $group = UserGroup::create(['name' => 'Handover '.implode('-', $permissionKeys).' '.(++$this->groupSeq)]);
 
         $group->permissions()->attach(
             Permission::whereIn('key', $permissionKeys)->pluck('id')->all()
@@ -92,7 +94,7 @@ class HandoverCourierStripTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('aria-label="Hand over to"', $html);
+        $this->assertStringContainsString('aria-label="Courier"', $html);
         $this->assertStringContainsString('All couriers', $html);
         $this->assertStringContainsString('>J&amp;T Express<', $html);
         $this->assertStringContainsString('>Flash Express<', $html);
@@ -136,24 +138,42 @@ class HandoverCourierStripTest extends TestCase
         $this->assertStringContainsString('JT-1', $html);
     }
 
-    public function test_the_courier_filter_does_not_leak_onto_other_steps(): void
+    public function test_every_to_ship_step_has_its_own_courier_strip_and_the_filter_stays_within_the_step(): void
     {
+        // Whose rider comes first is decided at To Pack as much as at To
+        // Handover (the owner, 2026-08-28), so the strip is on every step and
+        // counts only that step's orders.
         $this->lazadaHandoverOrder('JT-1', 'Pickup: J&T Express PH, Delivery: J&T Express PH', '2026-08-01 09:00:00');
-        LazadaOrder::create([
+        $pack = LazadaOrder::create([
             'region' => 'ph',
             'order_id' => 'PK-1',
             'status' => 'pending',
             'order_created_at' => '2026-08-01 09:00:00',
             'raw' => ['order_number' => 'PK-1', 'price' => '100.00', 'currency' => 'PHP'],
         ]);
+        LazadaOrderProduct::create([
+            'lazada_order_id' => $pack->id, 'order_item_id' => 'ITEM-PK-1', 'name' => 'Fixture item PK-1', 'sku' => 'SKU-PK-1',
+            'quantity' => 1, 'raw' => ['shipment_provider' => 'Flash Express PH'],
+        ]);
 
         $html = $this->actingAs($this->userWith(['view_lazada/order']))
-            ->get('/channels/lazada/orders?tab=TO_SHIP&pending_sub=to_pack&courier=flash+express')
+            ->get('/channels/lazada/orders?tab=TO_SHIP&pending_sub=to_pack')
+            ->assertOk()
+            ->getContent();
+
+        // To Pack's strip counts To Pack's one order, under its courier; the
+        // handover order's courier is not offered here.
+        $this->assertStringContainsString('aria-label="Courier"', $html);
+        $this->assertStringContainsString('>Flash Express<', $html);
+        $this->assertStringNotContainsString('>J&amp;T Express<', $html);
+
+        // A key from another step's tally narrows nothing on this one.
+        $html = $this->actingAs($this->userWith(['view_lazada/order']))
+            ->get('/channels/lazada/orders?tab=TO_SHIP&pending_sub=to_pack&courier=' . urlencode('j&t express'))
             ->assertOk()
             ->getContent();
 
         $this->assertStringContainsString('PK-1', $html);
-        $this->assertStringNotContainsString('aria-label="Hand over to"', $html);
     }
 
     public function test_lazadas_marketplace_writes_name_their_wait(): void

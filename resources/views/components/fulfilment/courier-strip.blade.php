@@ -15,16 +15,17 @@
      This was a row of 12px chips under a caption, a footnote to the step
      above it, and the packing bench could not use it for anything but
      reading. Riders arrive one courier at a time and in no fixed order, so
-     when the J&T rider is at the door the packer wants J&T's parcels and
-     nothing else, oldest first. That is a filter, so it is drawn as one: the
-     same strip the steps use, one pill per courier, the count in the same
-     place, and the list under it narrows to what was picked.
+     the bench packs J&T's orders first when J&T's rider comes first, and
+     hands J&T's parcels over when that rider is at the door, oldest first
+     within each. That is a filter, so it is drawn as one on every To Ship
+     step: the same strip the steps use, one pill per courier, the count in
+     the same place, and the list under it narrows to what was picked.
 
      "All couriers" is a pill and not just the absence of one, because the
      way back has to be as visible as the way in. Zero is impossible here (a
      courier with no parcels is not in the tally), so nothing goes inert. --}}
-<nav class="x-segment x-segment--sub x-segment--courier" aria-label="Hand over to">
-    <span class="x-segment__lead">Hand over to</span>
+<nav class="x-segment x-segment--sub x-segment--courier" aria-label="Courier">
+    <span class="x-segment__lead">Courier</span>
     <a href="{{ $selfUrl([], ['page', 'courier']) }}"
        class="x-segment__item {{ $active === '' ? 'is-active' : '' }}"
        @if($active === '') aria-current="true" @endif>

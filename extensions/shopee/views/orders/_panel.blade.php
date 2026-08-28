@@ -179,10 +179,10 @@
         @endforeach
     </div>
 
-    {{-- The courier split of the handover queue, and the filter it drives.
-         Only on the step it describes: a packer standing on To Pack is not
-         holding these parcels. See components/fulfilment/courier-strip. --}}
-    @if($pendingSub === 'to_handover')
+    {{-- The courier split of the open To Ship step, and the filter it drives:
+         whose rider comes first is decided at To Pack as much as at To
+         Handover. See components/fulfilment/courier-strip. --}}
+    @if($pendingSub !== '')
         <x-fulfilment.courier-strip :tally="$courier_tally ?? []" :self-url="$panelSelfUrl" />
     @endif
 @endif

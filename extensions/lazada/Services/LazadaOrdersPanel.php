@@ -141,10 +141,18 @@ class LazadaOrdersPanel
             'FAILED_DELIVERY' => 'failed',
         ]);
 
-        // Walked only on the step that shows it. It reads every handover
-        // order's first line's raw payload, and no other step needs it.
-        $courierTally = ($tab === 'TO_SHIP' && $pendingSubtab === 'to_handover')
-            ? $this->buildToShipCourierTally($setting->region ?? 'ph')
+        // The courier split of whichever To Ship step is open. The courier
+        // is on the order from the moment it arrives, and the bench packs
+        // by courier before it hands over by courier: whose rider comes
+        // first is decided at To Pack (the owner, 2026-08-28). Walked only for
+        // the step shown, since it reads every order's first line's raw.
+        $subStepStatuses = [
+            'to_pack' => ['pending', 'repacked'],
+            'to_arrange' => ['packed'],
+            'to_handover' => ['ready_to_ship'],
+        ];
+        $courierTally = ($tab === 'TO_SHIP' && isset($subStepStatuses[$pendingSubtab]))
+            ? $this->buildToShipCourierTally($setting->region ?? 'ph', $subStepStatuses[$pendingSubtab])
             : new CourierTally();
 
         $query = LazadaOrder::query()
@@ -186,8 +194,8 @@ class LazadaOrdersPanel
         // Counts for TO_SHIP sub-tabs (DB only)
         // One courier's parcels, oldest first. The ids come from the same
         // walk that produced the count on the pill, so the two cannot
-        // disagree. Only To Handover has a courier to narrow by.
-        if ($tab === 'TO_SHIP' && $pendingSubtab === 'to_handover' && $courierKey !== '') {
+        // disagree.
+        if ($tab === 'TO_SHIP' && isset($subStepStatuses[$pendingSubtab]) && $courierKey !== '') {
             $courierIds = $courierTally->idsFor($courierKey);
             if ($courierIds !== null) {
                 $query->whereIn('id', $courierIds);
@@ -338,16 +346,18 @@ class LazadaOrdersPanel
     }
 
     /**
-     * Every parcel waiting for handover, filed under its courier, with the
-     * order ids kept so the list can be narrowed to one courier's parcels.
+     * Every order on one To Ship step, filed under its courier, with the
+     * order ids kept so the list can be narrowed to one courier's orders.
+     *
+     * @param  list<string>  $statuses  the step's Lazada statuses
      */
-    private function buildToShipCourierTally(string $region): CourierTally
+    private function buildToShipCourierTally(string $region, array $statuses): CourierTally
     {
         $tally = new CourierTally();
 
         LazadaOrder::query()
             ->where('region', $region)
-            ->whereIn('status', ['ready_to_ship'])
+            ->whereIn('status', $statuses)
             ->with(['products' => function ($q) {
                 $q->select('id', 'lazada_order_id', 'raw');
             }])
