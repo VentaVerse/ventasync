@@ -17,6 +17,9 @@ class VentaScheduledJobs
         ['venta:sync orders', 'Sync Orders', 5, 'minute'],
         ['venta:push-stock', 'Push Stock & Price', 15, 'minute'],
         ['venta:push-reviews', 'Push Reviews', 1, 'day'],
+        // The listing status mirror (#166 on Venta, #171): the same
+        // cadence the three marketplaces refresh theirs on.
+        ['venta:refresh-listing-status', 'Refresh Listing Status', 30, 'minute'],
     ];
 
     public static function ensureFor(int $storeId): int

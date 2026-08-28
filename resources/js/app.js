@@ -26,6 +26,7 @@ import './pages/product-form';
 import './pages/shopee-listings';
 import './pages/lazada-listings';
 import './pages/tiktok-listings';
+import './pages/venta-listings';
 import './pages/channel-settings';
 import './pages/store-settings';
 import './pages/group-form';

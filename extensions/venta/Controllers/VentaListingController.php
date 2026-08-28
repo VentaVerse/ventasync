@@ -5,11 +5,14 @@ namespace Extensions\venta\Controllers;
 use App\Http\Controllers\Controller;
 use App\Services\ActivityLogger;
 use Extensions\venta\Models\VentaListing;
+use Extensions\venta\Models\VentaProductGroup;
 use Extensions\venta\Models\VentaProductGroupProduct;
 use Extensions\venta\Models\VentaProductLink;
 use Extensions\venta\Models\VentaSetting;
+use Extensions\venta\Services\Venta\VentaListingMirror;
 use Extensions\venta\Services\Venta\VentaProductPush;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -24,6 +27,220 @@ use Illuminate\Support\Str;
  */
 class VentaListingController extends Controller
 {
+    /**
+     * The store's listings index: one row per catalogue product in scope
+     * (any group on this store, plus anything already linked), the
+     * store's own status from the mirror, and the row's verbs in its menu.
+     * Same anatomy as Shopee's, Lazada's and TikTok's.
+     */
+    public function index(Request $request, int $store)
+    {
+        $setting = VentaSetting::findOrFail($store);
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $q = trim((string) $request->get('q', ''));
+        $groupFilter = (string) $request->get('group', 'all');
+        $erpStatus = (string) $request->get('erp_status', 'all');
+        $syncStatus = (string) $request->get('sync_status', 'all');
+        $tab = (string) $request->get('venta_tab', 'all');
+        if (! array_key_exists($tab, VentaListingMirror::TABS)) {
+            $tab = 'all';
+        }
+
+        $sortColumns = ['id' => 'p.product_id', 'product' => 'pd.name', 'quantity' => 'p.quantity', 'price' => 'p.price'];
+        $sort = array_key_exists((string) $request->get('sort', 'id'), $sortColumns) ? (string) $request->get('sort', 'id') : 'id';
+        $dir = strtolower((string) $request->get('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+
+        $mirror = VentaListingMirror::for($setting);
+        $liveCounts = $mirror->counts();
+        $liveCheckedAt = $mirror->checkedAt();
+
+        // Scope: every product a group on this store holds, plus anything
+        // already linked to this store.
+        $groupIds = VentaProductGroup::where('venta_setting_id', $store)->pluck('id')->all();
+        $pivotProductIds = VentaProductGroupProduct::query()->whereIn('venta_product_group_id', $groupIds ?: [0])
+            ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->all();
+        $linkedProductIds = VentaProductLink::where('venta_setting_id', $store)->whereNotNull('venta_product_id')
+            ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        $scopeIds = array_values(array_unique(array_merge($pivotProductIds, $linkedProductIds)));
+
+        $groupsByProductId = DB::table('venta_product_group_products as gp')
+            ->join('venta_product_groups as g', 'g.id', '=', 'gp.venta_product_group_id')
+            ->where('g.venta_setting_id', $store)
+            ->get(['gp.product_id', 'g.name'])
+            ->groupBy('product_id')
+            ->map(fn ($rows) => $rows->pluck('name')->all());
+
+        $query = DB::table($pfx . 'product as p')
+            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+                $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
+            })
+            ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
+            ->whereIn('p.product_id', $scopeIds ?: [0])
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as manufacturer_name');
+
+        if ($groupFilter !== 'all') {
+            $inGroup = VentaProductGroupProduct::query()->where('venta_product_group_id', (int) $groupFilter)->pluck('product_id')->all();
+            $query->whereIn('p.product_id', $inGroup ?: [0]);
+        }
+        if ($erpStatus === 'enabled') {
+            $query->where('p.status', 1);
+        } elseif ($erpStatus === 'disabled') {
+            $query->where('p.status', 0);
+        }
+        if ($q !== '') {
+            $query->where(function ($w) use ($q) {
+                $w->where('pd.name', 'like', '%' . $q . '%')
+                    ->orWhere('p.model', 'like', '%' . $q . '%')
+                    ->orWhere('p.sku', 'like', '%' . $q . '%');
+            });
+        }
+        if ($syncStatus === 'listed') {
+            $query->whereIn('p.product_id', $linkedProductIds ?: [0]);
+        } elseif ($syncStatus === 'not_listed') {
+            $query->whereNotIn('p.product_id', $linkedProductIds ?: [0]);
+        } elseif ($syncStatus === 'error') {
+            $errored = VentaProductGroupProduct::query()->whereIn('venta_product_group_id', $groupIds ?: [0])
+                ->whereIn('sync_status', ['error', 'failed'])->pluck('product_id')->all();
+            $query->whereIn('p.product_id', $errored ?: [0]);
+        }
+
+        // The catalogue's own total, before a store tab narrows the table.
+        $catalogueTotal = (clone $query)->count();
+
+        if ($tab !== 'all') {
+            $wanted = VentaListingMirror::TABS[$tab][1];
+            $tabIds = VentaListing::query()->where('venta_setting_id', $store)
+                ->whereIn('product_id', $linkedProductIds ?: [0])
+                ->where('live_status', $wanted)->pluck('product_id')->all();
+            $query->whereIn('p.product_id', $tabIds ?: [0]);
+        }
+
+        $query->orderBy($sortColumns[$sort], $dir);
+        if ($sortColumns[$sort] !== 'p.product_id') {
+            $query->orderBy('p.product_id', 'asc');
+        }
+        $products = $query->paginate(50)->withQueryString();
+        foreach ($products as $row) {
+            $row->name = html_entity_decode((string) ($row->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        }
+
+        $pageIds = $products->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        $linksByProductId = VentaProductLink::where('venta_setting_id', $store)->whereIn('product_id', $pageIds ?: [0])
+            ->whereNotNull('venta_product_id')->get()->keyBy(fn ($l) => (int) $l->product_id);
+
+        // The mirror fills its own blanks (#166): linked rows never
+        // checked are asked about once, up to ten a view.
+        if ($setting->enabled && $linksByProductId->isNotEmpty() && $mirror->fillBlanks($linksByProductId) > 0) {
+            $liveCounts = $mirror->counts();
+            $liveCheckedAt = $mirror->checkedAt();
+        }
+
+        $listingsByProductId = VentaListing::query()->where('venta_setting_id', $store)
+            ->whereIn('product_id', $pageIds ?: [0])->get()->keyBy(fn ($l) => (int) $l->product_id);
+        $lastAttempts = VentaProductGroupProduct::query()
+            ->whereIn('venta_product_group_id', $groupIds ?: [0])
+            ->whereIn('product_id', $pageIds ?: [0])
+            ->orderByDesc('last_pushed_at')->get()
+            ->groupBy(fn ($p) => (int) $p->product_id)->map(fn ($rows) => $rows->first());
+
+        return view('ext-venta::listings.index', [
+            'setting' => $setting,
+            'products' => $products,
+            'q' => $q, 'sort' => $sort, 'dir' => $dir,
+            'groupFilter' => $groupFilter, 'erpStatus' => $erpStatus, 'syncStatus' => $syncStatus,
+            'allGroups' => VentaProductGroup::where('venta_setting_id', $store)->orderBy('name')->pluck('name', 'id'),
+            'groupsByProductId' => $groupsByProductId,
+            'optionRowsByProductId' => \App\Support\VariationRows::forProducts($pageIds),
+            'linksByProductId' => $linksByProductId,
+            'listingsByProductId' => $listingsByProductId,
+            'lastAttempts' => $lastAttempts,
+            'ventaTab' => $tab,
+            'liveCounts' => $liveCounts,
+            'liveCheckedAt' => $liveCheckedAt,
+            'catalogueTotal' => $catalogueTotal,
+        ]);
+    }
+
+    /** The Refresh button: one walk of the store's product list onto the mirror. */
+    public function refreshStatus(int $store)
+    {
+        $setting = VentaSetting::where('id', $store)->where('enabled', true)->first();
+        if (! $setting) {
+            return redirect()->back()->with('error', 'That Venta store is turned off, so it was not asked.');
+        }
+
+        $result = VentaListingMirror::for($setting)->refresh();
+        if ($result['error'] !== null) {
+            return redirect()->back()->with('error', $result['error'] . ' The statuses shown are from the last refresh.');
+        }
+
+        $parts = [];
+        foreach ($result['counts'] as $status => $n) {
+            $parts[] = number_format($n) . ' ' . strtolower(VentaListingMirror::STATUS_MAP[$status][0] ?? $status);
+        }
+
+        return redirect()->back()->with('status', 'Refreshed from ' . $setting->store_name . ': ' . ($parts ? implode(', ', $parts) : 'no linked products') . '.');
+    }
+
+    /**
+     * The selection bar's Unlist / Relist: the row's call, for many rows.
+     * The storefront has no bulk status endpoint, so this is one PUT per
+     * product, written through to the mirror as each one succeeds.
+     */
+    public function bulkToggle(Request $request, int $store)
+    {
+        $request->validate([
+            'action' => 'required|in:unlist,relist',
+            'product_ids' => 'required|array|min:1',
+            'product_ids.*' => 'integer',
+        ]);
+        $active = $request->input('action') === 'relist';
+        $verb = $active ? 'Relisted' : 'Unlisted';
+
+        $setting = VentaSetting::where('id', $store)->where('enabled', true)->first();
+        if (! $setting) {
+            return redirect()->back()->with('error', 'That Venta store is turned off, so nothing was changed on it.');
+        }
+
+        $ids = array_values(array_unique(array_map('intval', (array) $request->input('product_ids'))));
+        $linked = VentaProductLink::where('venta_setting_id', $store)->whereIn('product_id', $ids)
+            ->whereNotNull('venta_product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        $notOnStore = count($ids) - count($linked);
+
+        if ($linked === []) {
+            return redirect()->back()->with('error', 'None of the selected products is on ' . $setting->store_name . ', so there is nothing to ' . ($active ? 'relist' : 'unlist') . '.');
+        }
+
+        $push = VentaProductPush::for($setting);
+        $done = 0;
+        $refused = [];
+        foreach ($linked as $productId) {
+            $result = $push->setActive($productId, $active);
+            if (! $result['ok']) {
+                $refused[] = $result['message'];
+                continue;
+            }
+            $listing = VentaListing::query()->firstOrNew(['venta_setting_id' => $store, 'product_id' => $productId]);
+            $listing->mirror($active ? VentaListing::STATUS_ACTIVE : VentaListing::STATUS_INACTIVE, $listing->live_price, $listing->live_quantity);
+            $done++;
+        }
+
+        $parts = [];
+        if ($done > 0) {
+            $parts[] = $verb . ' ' . $done . ' ' . ($done === 1 ? 'item' : 'items') . ' on ' . $setting->store_name . '.';
+        }
+        if ($refused !== []) {
+            $parts[] = count($refused) . ' refused: ' . Str::limit($refused[0], 160) . '.';
+        }
+        if ($notOnStore > 0) {
+            $parts[] = $notOnStore . ' skipped, not on ' . $setting->store_name . '.';
+        }
+
+        return redirect()->back()->with($done === 0 ? 'error' : 'status', implode(' ', $parts));
+    }
+
     public function edit(int $store, int $productId)
     {
         $setting = VentaSetting::findOrFail($store);

@@ -56,6 +56,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     // tier (it renders read-only with no verbs); the writes are manage
     // routes below. Derives its own venta/listing permission pair, as
     // TikTok's does, so a listings-only operator can be given exactly this.
+    Route::get('/venta/{store}/listings', [VentaListingController::class, 'index'])->name('ext.venta.listings.index');
     Route::get('/venta/{store}/listings/{productId}', [VentaListingController::class, 'edit'])
         ->whereNumber('productId')->name('ext.venta.listings.edit');
 });
@@ -110,6 +111,9 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::post('/venta/{store}/product-groups/{group}/products/{product}/link', [VentaProductGroupController::class, 'linkProduct'])->name('ext.venta.product-groups.link');
 
     // Listing page writes (#171): the record, the push from it, unlist and relist.
+    // Static segments first, so 'refresh-status' and 'bulk-toggle' can never be read as a product id.
+    Route::post('/venta/{store}/listings/refresh-status', [VentaListingController::class, 'refreshStatus'])->name('ext.venta.listings.refresh_status');
+    Route::post('/venta/{store}/listings/bulk-toggle', [VentaListingController::class, 'bulkToggle'])->name('ext.venta.listings.bulk_toggle');
     Route::put('/venta/{store}/listings/{productId}', [VentaListingController::class, 'update'])->whereNumber('productId')->name('ext.venta.listings.update');
     Route::post('/venta/{store}/listings/{productId}/push', [VentaListingController::class, 'push'])->whereNumber('productId')->name('ext.venta.listings.push');
     Route::post('/venta/{store}/listings/{productId}/toggle', [VentaListingController::class, 'toggle'])->whereNumber('productId')->name('ext.venta.listings.toggle');

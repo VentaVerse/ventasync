@@ -47,6 +47,7 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
                 \Extensions\venta\Commands\VentaSync::class,
                 \Extensions\venta\Commands\VentaPushStock::class,
                 \Extensions\venta\Commands\VentaPushReviews::class,
+                \Extensions\venta\Commands\VentaRefreshListingStatus::class,
             ]);
         }
 
@@ -75,6 +76,7 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
                     // this menu, with these ['store' => id] params carried
                     // through unchanged.
                     new MenuItem('Settings', 'ext.venta.settings.show', 'view_venta/settings', null, ['store' => $store->id], 'Channel'),
+                    new MenuItem('Listings', 'ext.venta.listings.index', 'view_venta/listing', null, ['store' => $store->id], 'Catalog'),
                     new MenuItem('Product Groups', 'ext.venta.product-groups.index', 'view_venta/product_group', null, ['store' => $store->id], 'Catalog'),
                     new MenuItem('Orders', 'ext.venta.orders.index', 'view_venta/order', null, ['store' => $store->id], 'Sell'),
                 ],
