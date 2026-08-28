@@ -85,3 +85,85 @@
 @media (max-width: 640px) {
     #venta-orders-page .x-table tbody td.x-td-num { text-align: left; }
 }
+
+/* ------------------------------------------------------------------
+   Book a courier (#168)
+
+   The modal is Shopee's ship modal in shape; these are only the parts it
+   has that Shopee's does not: a courier button that carries a fee or a
+   refusal under its name, a small grid of optional measurements, and the
+   estimate line. Colour is spent once, on a refusal.
+   ------------------------------------------------------------------ */
+.vt-hidden { display: none; }
+
+.vt-courier {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-height: 52px;
+    text-align: left;
+}
+
+.vt-courier__name { font-weight: 600; }
+
+.vt-courier__note {
+    font-size: 11.5px;
+    font-weight: 400;
+    color: var(--bl-ink-3);
+}
+
+.vt-courier--refused { opacity: 0.55; cursor: not-allowed; }
+.vt-courier--refused .vt-courier__note { color: var(--bl-bad); }
+
+.vt-book__courier { margin-bottom: var(--bl-space-3); }
+
+.vt-book__field { display: flex; flex-direction: column; gap: 4px; }
+
+.vt-book__label {
+    font-size: 11.5px;
+    color: var(--bl-ink-2);
+}
+
+.vt-book__grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--bl-space-3);
+    margin-top: var(--bl-space-3);
+}
+
+.vt-book__check {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: var(--bl-space-3);
+    font-size: 13px;
+}
+
+.vt-book__check input { accent-color: var(--bl-brand-deep); }
+
+.vt-book__estimate {
+    display: flex;
+    align-items: center;
+    gap: var(--bl-space-3);
+    margin-top: var(--bl-space-3);
+}
+
+.vt-book__estimate-text {
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    color: var(--bl-ink-2);
+}
+
+.vt-book__error {
+    margin-top: var(--bl-space-3);
+    font-size: 13px;
+    color: var(--bl-bad);
+}
+
+.vt-track__links { margin-top: var(--bl-space-3); font-size: 13px; }
+
+@media (max-width: 640px) {
+    .vt-book__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    #vtBookCouriers { flex-direction: column; }
+}

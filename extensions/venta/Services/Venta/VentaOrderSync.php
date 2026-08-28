@@ -202,6 +202,56 @@ class VentaOrderSync
      *
      * @return bool True if created, false if updated.
      */
+    /**
+     * Re-read ONE order from the storefront and write it through the same
+     * upsert a pull uses. This is what moves a row the moment the ERP books
+     * or cancels a courier: the storefront changes the order's status as a
+     * side effect of the booking, and the ERP's row would otherwise sit in
+     * To Pack until the next scheduled pull. No sync log row, because a
+     * single re-read is part of the action that caused it, not a sync.
+     */
+    public function pullOne(int $ventaOrderId): ?VentaOrder
+    {
+        $res = $this->client->getOrder($ventaOrderId);
+        $raw = $res['body'] ?? [];
+
+        if (! ($res['ok'] ?? false) || ! is_array($raw) || (int) ($raw['id'] ?? 0) !== $ventaOrderId) {
+            return null;
+        }
+
+        $this->upsertOrder($raw, $this->buildStatusMap());
+
+        return VentaOrder::where('venta_setting_id', $this->setting->id)
+            ->where('venta_order_id', $ventaOrderId)
+            ->first();
+    }
+
+    /**
+     * The courier booking as the storefront reports it (#169), or nothing.
+     *
+     * Only when the payload carries the object: a storefront that does not
+     * yet send it must not blank what the ERP recorded from its own booking
+     * response. When it is there, it is the truth, blanks included, because
+     * a cancelled booking clears the columns on the storefront and the ERP
+     * has to follow.
+     *
+     * @return array<string, mixed>
+     */
+    public static function courierFieldsFrom(array $raw): array
+    {
+        $courier = $raw['courier'] ?? null;
+        if (! is_array($courier)) {
+            return [];
+        }
+
+        return [
+            'courier_provider'        => $courier['provider'] ?? null,
+            'courier_tracking_number' => $courier['tracking_number'] ?? null,
+            'courier_status'          => $courier['status'] ?? null,
+            'courier_booked_at'       => $courier['booked_at'] ?? null,
+        ];
+    }
+
     private function upsertOrder(array $raw, array $statusMap): bool
     {
         $pfx = (string) config('catalog.prefix');
@@ -239,7 +289,7 @@ class VentaOrderSync
                 'raw'                => $raw,
                 'order_created_at'   => $raw['created_at'] ?? null,
                 'order_updated_at'   => $raw['updated_at'] ?? null,
-            ]
+            ] + self::courierFieldsFrom($raw)
         );
 
         $wasCreated = $ventaOrder->wasRecentlyCreated;

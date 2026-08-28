@@ -4,7 +4,9 @@ namespace Extensions\venta\Services\Venta;
 
 use Extensions\venta\Models\VentaApiLog;
 use Extensions\venta\Models\VentaSetting;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -19,8 +21,17 @@ class VentaClient
 
     private function http(): PendingRequest
     {
+        // Retry only what a retry can fix: a dropped connection or the
+        // storefront falling over. A 4xx is an answer ("courier unavailable",
+        // "not serviceable", "no booking to print") and is handed back as
+        // the response it is, body intact, rather than thrown away as an
+        // exception whose message is a status code. The refusal's own
+        // sentence is what the packer needs to read.
         return Http::timeout(30)
-            ->retry(2, 300)
+            ->retry(2, 300, function ($exception) {
+                return $exception instanceof ConnectionException
+                    || ($exception instanceof RequestException && $exception->response->status() >= 500);
+            }, throw: false)
             ->withToken($this->setting->api_token)
             ->acceptJson();
     }
@@ -248,6 +259,92 @@ class VentaClient
     public function getOrder(int $orderId): array
     {
         return $this->get("orders/{$orderId}");
+    }
+
+    // ── Courier fulfilment (#168) ───────────────────────────────────────
+    //
+    // The storefront owns the courier integration and runs the booking
+    // through the same code its own queue uses; these are the ERP-facing
+    // endpoints its courier-fulfillment extension publishes. The order id
+    // throughout is the STOREFRONT's order id (venta_orders.venta_order_id),
+    // never the ERP row id.
+
+    /** Every configured courier's answer to "can you carry this parcel". */
+    public function serviceability(int $orderId): array
+    {
+        return $this->get("orders/{$orderId}/serviceability");
+    }
+
+    /** Pickup slots a courier offers for this order; empty for couriers without slot booking. */
+    public function pickupSlots(int $orderId, ?string $courier = null): array
+    {
+        return $this->get("orders/{$orderId}/pickup-slots", array_filter(['courier' => $courier]));
+    }
+
+    /** A fee quote for a booking about to be made. Creates nothing. */
+    public function estimate(int $orderId, array $opts): array
+    {
+        return $this->post("orders/{$orderId}/estimate", $opts);
+    }
+
+    /** Book the parcel with a courier. Idempotent while a booking is active. */
+    public function bookCourier(int $orderId, array $opts): array
+    {
+        return $this->post("orders/{$orderId}/book-courier", $opts);
+    }
+
+    public function cancelBooking(int $orderId): array
+    {
+        return $this->post("orders/{$orderId}/cancel-booking");
+    }
+
+    /** Live tracking; the storefront refreshes its own record on the way through. */
+    public function tracking(int $orderId): array
+    {
+        return $this->get("orders/{$orderId}/tracking");
+    }
+
+    /**
+     * The shipping label. The storefront answers one of two ways: the PDF
+     * itself when it has cached the courier's perishable link, or JSON
+     * carrying the courier's own URL. Both are returned as they are, with
+     * the PDF bytes under 'pdf' so a caller can tell which it got, and the
+     * bytes are never written to the API log.
+     *
+     * @return array{ok: bool, status: int, body: array, pdf: ?string}
+     */
+    public function label(int $orderId, string $format = 'zebra'): array
+    {
+        $path = "orders/{$orderId}/label";
+        $start = microtime(true);
+
+        try {
+            $resp = $this->http()
+                ->withHeaders(['Accept' => 'application/pdf, application/json'])
+                ->get($this->url($path), ['format' => $format]);
+
+            $isPdf = str_contains((string) $resp->header('Content-Type'), 'pdf');
+
+            $result = [
+                'status' => $resp->status(),
+                'ok'     => $resp->successful(),
+                'body'   => $isPdf ? ['pdf' => true, 'bytes' => strlen($resp->body())] : ($resp->json() ?? []),
+                'pdf'    => $isPdf && $resp->successful() ? $resp->body() : null,
+            ];
+        } catch (\Throwable $e) {
+            Log::error('Venta API label failed', [
+                'path'  => $path,
+                'store' => $this->setting->store_name,
+                'error' => $e->getMessage(),
+            ]);
+
+            $result = ['status' => 0, 'ok' => false, 'body' => ['error' => $e->getMessage()], 'pdf' => null];
+        }
+
+        $durationMs = (int) ((microtime(true) - $start) * 1000);
+        $this->logCall('GET', $path . '?format=' . $format, null, $result, $durationMs);
+
+        return $result;
     }
 
     public function updateOrderStatus(int $orderId, int $statusId, ?string $comment = null): array

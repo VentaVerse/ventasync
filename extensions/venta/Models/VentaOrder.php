@@ -23,6 +23,10 @@ class VentaOrder extends Model
         'payment_method',
         'shipping_method',
         'tracking_number',
+        'courier_provider',
+        'courier_tracking_number',
+        'courier_status',
+        'courier_booked_at',
         'shipping_address',
         'raw',
         'catalog_order_id',
@@ -36,7 +40,19 @@ class VentaOrder extends Model
         'total'            => 'decimal:2',
         'order_created_at' => 'datetime',
         'order_updated_at' => 'datetime',
+        'courier_booked_at' => 'datetime',
     ];
+
+    /**
+     * Whether a courier holds this parcel under a booking the ERP knows
+     * about. The storefront's own To Handover membership is by status;
+     * this is the narrower question "do we have a tracking number", which
+     * is what decides whether a waybill can be printed from here.
+     */
+    public function isBooked(): bool
+    {
+        return trim((string) $this->courier_tracking_number) !== '';
+    }
 
     public function setting(): BelongsTo
     {

@@ -260,6 +260,7 @@
         <div class="x-cmdbar x-cmdbar--folded">
             <form method="POST" action="{{ route('ext.venta.orders.fetch', $storeId) }}" id="formFetchVentaOrders" class="x-cmdbar__row"
               data-confirm="Fetch orders from this Venta store for the chosen dates? Any order that has not been seen before will adjust stock."
+              data-busy="Fetching orders"
               data-confirm-tone="primary">
             @csrf
             <div class="x-cmdbar__field">
@@ -455,6 +456,18 @@
                Manila", so the two statuses that most need a colour rendered
                neutral grey. */
             $vtTone = \App\Support\ChannelStatusTone::toneFor('venta.orders', $vtStatusRaw);
+
+            // Which step the row is on decides which fulfilment controls it
+            // offers, the same rule the three marketplace rows follow: book
+            // on To Pack only, waybill and tracking once a courier holds it.
+            // The step is the storefront's placement of the status, through
+            // the same map the strip above is built from.
+            $vtStep = \App\Support\FulfilmentSteps::stepFor('venta.orders', $vtStatusRaw);
+            $vtIsToPack = $vtStep === 'to_pack';
+            $vtIsToHandover = $vtStep === 'to_handover';
+            $vtBooked = $o->isBooked();
+            $vtCourierNo = trim((string) ($o->courier_tracking_number ?? ''));
+            $vtCourierName = \Extensions\venta\Services\Venta\VentaCouriers::name((string) ($o->courier_provider ?? ''));
         @endphp
         <tr class="co-band">
             <td colspan="9">
@@ -549,7 +562,15 @@
             </td>
 
             <td class="vt-col-track" rowspan="{{ $vtLineCount }}" data-label="Tracking">
-                @if($vtTracking !== '')
+                {{-- The courier booking first, when the ERP knows one: the
+                     courier's name over its tracking number, the way the
+                     marketplace rows print a carrier over a waybill number.
+                     The storefront's own tracking field is the fallback,
+                     and the same value when the storefront copied it. --}}
+                @if($vtCourierNo !== '')
+                    <span class="co-ship__note">{{ $vtCourierName }}</span>
+                    <span class="co-ship__no">{{ $vtCourierNo }}</span>
+                @elseif($vtTracking !== '')
                     <span class="co-ship__no">{{ $vtTracking }}</span>
                 @else
                     <span class="co-empty-mark">-</span>
@@ -573,12 +594,50 @@
             <td class="vt-col-act" rowspan="{{ $vtLineCount }}">
                 @if(!$canManageVentaOrders)
                     {{-- A read-only operator opens the sales order from the
-                         reference in the band above and has nothing else to
-                         do to the row, so the column prints a dash rather
-                         than an empty control. --}}
-                    <span class="co-empty-mark">-</span>
+                         reference in the band above. The one thing they may
+                         still do to a booked row is print its waybill: a
+                         stored PDF is read-only, and the person at the
+                         handover shelf is often not the person who books. --}}
+                    @if($vtBooked)
+                        <x-ui.button size="sm" :href="route('ext.venta.orders.awb', [$storeId, $o->id])"
+                                     target="_blank" rel="noopener">Print waybill</x-ui.button>
+                    @else
+                        <span class="co-empty-mark">-</span>
+                    @endif
                 @else
-                <div class="co-actions">
+                <div class="co-actions co-actions--wrap">
+                    {{-- The step's own verb first, in the slot the three
+                         marketplaces use for theirs (#168). Book on To Pack;
+                         once a courier holds the parcel, its waybill, its
+                         tracking, and the way to give it back. Every one a
+                         secondary button, so a screen of rows has no wall of
+                         colour; the accent is spent on the status badge. --}}
+                    @if($vtIsToPack)
+                        <x-ui.button type="button" variant="secondary" size="sm" class="btnVentaBook"
+                                     data-order-id="{{ $o->id }}"
+                                     data-order-no="{{ $vtNumber }}"
+                                     data-serviceability-url="{{ route('ext.venta.orders.serviceability', [$storeId, $o->id]) }}"
+                                     data-slots-url="{{ route('ext.venta.orders.pickup_slots', [$storeId, $o->id]) }}"
+                                     data-estimate-url="{{ route('ext.venta.orders.estimate', [$storeId, $o->id]) }}"
+                                     data-book-url="{{ route('ext.venta.orders.book', [$storeId, $o->id]) }}">Book courier</x-ui.button>
+                    @endif
+
+                    @if($vtIsToHandover || $vtBooked)
+                        <x-ui.button size="sm" :href="route('ext.venta.orders.awb', [$storeId, $o->id])"
+                                     target="_blank" rel="noopener">Print waybill</x-ui.button>
+                        <x-ui.button type="button" variant="secondary" size="sm" class="btnVentaTracking"
+                                     data-url="{{ route('ext.venta.orders.tracking', [$storeId, $o->id]) }}">Tracking</x-ui.button>
+                    @endif
+
+                    @if($vtIsToHandover)
+                        <form method="POST" action="{{ route('ext.venta.orders.cancel_booking', [$storeId, $o->id]) }}"
+                              data-confirm="Cancel the courier booking for order {{ $vtNumber }}? The courier is told not to collect it and the order goes back to To Pack."
+                              data-busy="Cancelling the booking">
+                            @csrf
+                            <x-ui.button type="submit" variant="secondary" size="sm">Cancel booking</x-ui.button>
+                        </form>
+                    @endif
+
                     {{-- The productive control, in the slot the other three
                          channels use for one. A row that ended in Delete
                          where Shopee, Lazada and TikTok end in Print taught
@@ -633,3 +692,8 @@
 
 <x-ui.pager :paginator="$orders" />
 @endif
+
+{{-- The book, tracking and loading modals the row buttons above open.
+     One copy of the markup, in orders/_modals.blade.php, so the seller
+     centre and the hub cannot drift apart. --}}
+@include('ext-venta::orders._modals')

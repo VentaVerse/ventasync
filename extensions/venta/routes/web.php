@@ -104,11 +104,28 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
 // ── Venta Orders — READ ─────────────────────────────────────────
 Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::get('/venta/{store}/orders', [VentaOrderController::class, 'index'])->name('ext.venta.orders.index');
+
+    // Courier fulfilment reads (#168). The waybill sits in the read tier for
+    // the same reason Shopee's does: opening a stored PDF is read-only, and
+    // the person at the handover shelf reprinting a label is often not the
+    // person allowed to book. Serviceability, slots and tracking only ask
+    // the storefront questions and change nothing.
+    Route::get('/venta/{store}/orders/{order}/awb', [VentaOrderController::class, 'awb'])->whereNumber('order')->name('ext.venta.orders.awb');
+    Route::get('/venta/{store}/orders/{order}/tracking', [VentaOrderController::class, 'tracking'])->whereNumber('order')->name('ext.venta.orders.tracking');
+    Route::get('/venta/{store}/orders/{order}/serviceability', [VentaOrderController::class, 'serviceability'])->whereNumber('order')->name('ext.venta.orders.serviceability');
+    Route::get('/venta/{store}/orders/{order}/pickup-slots', [VentaOrderController::class, 'pickupSlots'])->whereNumber('order')->name('ext.venta.orders.pickup_slots');
 });
 
 // ── Venta Orders — WRITES ───────────────────────────────────────
 Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::post('/venta/{store}/orders/fetch', [VentaOrderController::class, 'fetch'])->name('ext.venta.orders.fetch');
+
+    // Courier fulfilment writes (#168). Estimate creates nothing but is a
+    // POST carrying the booking options, and quoting a fee is the packer's
+    // job, so it rides with the writes rather than the reads.
+    Route::post('/venta/{store}/orders/{order}/estimate', [VentaOrderController::class, 'estimate'])->whereNumber('order')->name('ext.venta.orders.estimate');
+    Route::post('/venta/{store}/orders/{order}/book', [VentaOrderController::class, 'book'])->whereNumber('order')->name('ext.venta.orders.book');
+    Route::post('/venta/{store}/orders/{order}/cancel-booking', [VentaOrderController::class, 'cancelBooking'])->whereNumber('order')->name('ext.venta.orders.cancel_booking');
     Route::delete('/venta/{store}/orders/{order}', [VentaOrderController::class, 'destroy'])->name('ext.venta.orders.destroy');
     Route::post('/venta/{store}/orders/bulk-delete', [VentaOrderController::class, 'bulkDelete'])->name('ext.venta.orders.bulk_delete');
 });
