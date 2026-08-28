@@ -626,6 +626,7 @@
                                      data-estimate-url="{{ route('ext.venta.orders.estimate', [$storeId, $o->id]) }}"
                                      data-book-url="{{ route('ext.venta.orders.book', [$storeId, $o->id]) }}"
                                      data-couriers-url="{{ route('ext.venta.orders.shipping_couriers', $storeId) }}"
+                                     data-addresses-url="{{ route('ext.venta.orders.pickup_addresses', $storeId) }}"
                                      data-book-manual-url="{{ route('ext.venta.orders.book_manual', [$storeId, $o->id]) }}">Book courier</x-ui.button>
                     @endif
 

@@ -94,7 +94,9 @@
    refusal under its name, a small grid of optional measurements, and the
    estimate line. Colour is spent once, on a refusal.
    ------------------------------------------------------------------ */
-.vt-hidden { display: none; }
+/* A state class: it must win over any display a component sets on the
+   same element, or a hidden field flexes back into view. */
+.vt-hidden { display: none !important; }
 
 .vt-courier {
     display: flex;
@@ -232,3 +234,46 @@
 }
 
 .vt-book__grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* The courier's quote, as a small ledger: shipping, insurance when it
+   applies, and the total the rider will be paid. Figures right-aligned
+   and tabular so a change of parcel reads as a change of number. */
+.vt-quote {
+    margin: var(--bl-space-4) 0 0;
+    padding: var(--bl-space-3) 0 0;
+    border-top: 1px solid var(--bl-rule);
+    font-size: 13px;
+}
+
+.vt-quote__row {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--bl-space-3);
+    padding: 3px 0;
+}
+
+.vt-quote__row dt { color: var(--bl-ink-2); }
+
+.vt-quote__row dd {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+.vt-quote__row--total {
+    margin-top: 4px;
+    padding-top: 6px;
+    border-top: 1px solid var(--bl-rule-2);
+    font-weight: 600;
+}
+
+.vt-quote__row--total dt { color: var(--bl-ink); }
+
+.vt-book__quote-note {
+    display: flex;
+    align-items: center;
+    gap: var(--bl-space-3);
+    margin-top: var(--bl-space-2);
+    font-size: 12.5px;
+    color: var(--bl-ink-2);
+}

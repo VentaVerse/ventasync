@@ -1,24 +1,30 @@
 /**
- * Venta orders page: book a courier, tracking (#168).
+ * Venta orders page: book a courier, record a shipment by hand, tracking
+ * (#168).
  *
  * The storefront owns the courier integration; the ERP asks it who can
- * carry a parcel, books, and prints the waybill it hands back. The flow
- * is Shopee's ship modal in shape, so a packer who knows one knows the
- * other:
+ * carry a parcel, what that courier lets a booking choose, what the
+ * booking will cost, and then books. Every courier answer comes through
+ * the storefront, the way a Shopee booking comes through Shopee: the ERP
+ * never speaks to QuadX or SPX itself. The flow is Shopee's ship modal in
+ * shape, so a packer who knows one knows the other:
  *
- *   1. Book courier -> the modal opens and asks the storefront which
- *      couriers will take this address. One button per courier, with the
- *      cheapest fee where the courier quoted one; a refusal shows its
- *      reason and cannot be pressed.
- *   2. Choose one -> the options: pickup slot when the courier offers
- *      slots, weight and dimensions (left blank, the courier's defaults
- *      apply), insurance, and an estimate on demand.
- *   3. Book -> the modal closes, the overlay says "Booking with SPX
- *      Express", then "Getting the waybill" while the label is polled, the
- *      waybill opens in a new tab and the page reloads into To Handover.
- *      A refusal lowers the overlay and reopens the options with the
- *      storefront's own sentence, so the packer can change something and
- *      try again.
+ *   1. Book courier -> the modal asks the storefront which couriers will
+ *      take this address. One button per courier, with the cheapest fee
+ *      where the courier quoted one; a refusal shows its reason and cannot
+ *      be pressed. Under the list, "another courier, by hand".
+ *   2. Choose one -> the storefront's own second step, in its own order:
+ *      Ships from (the store's saved pickup addresses), Service, Parcel
+ *      (a size off the courier's list; the courier prices it, so no
+ *      dimensions), Pickup slot when the courier offers slots, Insure,
+ *      You pay shipping. The quote for exactly those choices is fetched
+ *      at once and again on every change, and shown as a small ledger:
+ *      shipping, insurance, total.
+ *   3. Book -> the modal closes, the overlay says "Booking with QuadX",
+ *      then "Getting the waybill" while the label is polled, the waybill
+ *      opens in a new tab and the page reloads into To Handover. A
+ *      refusal lowers the overlay and reopens the options with the
+ *      storefront's own sentence.
  *
  * Every URL comes off the button that opened the modal, not from a path
  * assembled here, so the routes file can move without this file knowing.
@@ -91,14 +97,16 @@ document.addEventListener('DOMContentLoaded', function () {
         if (amount === null || amount === undefined) return '';
         var n = Number(amount);
         if (isNaN(n)) return String(amount);
-        return (currency || 'PHP') + ' ' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        var sym = (!currency || currency === 'PHP') ? '₱' : currency + ' ';
+        return sym + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
     // The names a packer reads for the storefront's courier keys. Mirrors
     // Extensions\venta\Services\Venta\VentaCouriers; an unknown key reads as
     // itself in capitals rather than blank.
     var COURIER_NAMES = { spx: 'SPX Express', quadx: 'QuadX', lbc: 'LBC' };
-    function courierName(key) {
+    function courierName(key, given) {
+        if (given) return given;
         key = String(key || '').toLowerCase();
         return COURIER_NAMES[key] || key.toUpperCase();
     }
@@ -116,6 +124,18 @@ document.addEventListener('DOMContentLoaded', function () {
         unreachable: 'Could not be reached'
     };
 
+    // Fill a select from a [{value, label}] list, choosing a default.
+    // Returns whether there was anything to offer.
+    function fillSelect(select, options, chosen) {
+        clear(select);
+        (options || []).forEach(function (o) {
+            var opt = new Option(o.label, String(o.value));
+            if (chosen !== null && chosen !== undefined && String(o.value) === String(chosen)) opt.selected = true;
+            select.appendChild(opt);
+        });
+        return (options || []).length > 0;
+    }
+
     /* ------------------------------------------------------------------
        Book a courier.
        ------------------------------------------------------------------ */
@@ -131,15 +151,27 @@ document.addEventListener('DOMContentLoaded', function () {
         var couriersLoading = document.getElementById('vtBookCouriersLoading');
         var couriersEl = document.getElementById('vtBookCouriers');
         var courierNameEl = document.getElementById('vtBookCourierName');
+
+        var addressWrap = document.getElementById('vtBookAddressWrap');
+        var addressEl = document.getElementById('vtBookAddress');
+        var serviceWrap = document.getElementById('vtBookServiceWrap');
+        var serviceEl = document.getElementById('vtBookService');
+        var parcelWrap = document.getElementById('vtBookParcelWrap');
+        var parcelEl = document.getElementById('vtBookParcel');
         var slotWrap = document.getElementById('vtBookSlotWrap');
         var slotEl = document.getElementById('vtBookSlot');
-        var weightEl = document.getElementById('vtBookWeight');
-        var lengthEl = document.getElementById('vtBookLength');
-        var widthEl = document.getElementById('vtBookWidth');
-        var heightEl = document.getElementById('vtBookHeight');
         var insureEl = document.getElementById('vtBookInsure');
+        var paymentWrap = document.getElementById('vtBookPaymentWrap');
+        var paymentEl = document.getElementById('vtBookPayment');
+
+        var quoteShipping = document.getElementById('vtQuoteShipping');
+        var quoteInsuranceRow = document.getElementById('vtQuoteInsuranceRow');
+        var quoteInsurance = document.getElementById('vtQuoteInsurance');
+        var quoteTotal = document.getElementById('vtQuoteTotal');
+        var quoteNote = document.getElementById('vtBookQuoteNote');
+        var quoteNoteText = document.getElementById('vtBookQuoteNoteText');
         var estimateBtn = document.getElementById('btnVtEstimate');
-        var estimateEl = document.getElementById('vtBookEstimate');
+
         var errorEl = document.getElementById('vtBookError');
         var backBtn = document.getElementById('btnVtBookBack');
         var confirmBtn = document.getElementById('btnVtBookConfirm');
@@ -154,12 +186,17 @@ document.addEventListener('DOMContentLoaded', function () {
         var manualErrorEl = document.getElementById('vtManualError');
         var manualBackBtn = document.getElementById('btnVtManualBack');
         var manualConfirmBtn = document.getElementById('btnVtManualConfirm');
-        var couriersLoaded = false;
 
         bindModalDismiss(modal, [document.getElementById('btnCloseVtBook')]);
 
         var urls = {};
         var courier = '';
+        var courierLabel = '';
+        var couriersInfo = {};
+        var addresses = null;      // null until read once per page
+        var manualCouriers = null; // null until read once per page
+        var quoteSeq = 0;
+        var quoteTimer = null;
 
         function setOverlay(title) {
             if (overlayTitle) overlayTitle.textContent = title;
@@ -175,27 +212,25 @@ document.addEventListener('DOMContentLoaded', function () {
             show(step1);
             hide(step2);
             hide(manualPane);
+            show(couriersLoading);
+            hide(couriersEl);
+            clear(couriersEl);
+            hide(addressWrap); hide(serviceWrap); hide(parcelWrap); hide(slotWrap); hide(paymentWrap);
+            clear(slotEl);
+            slotEl.appendChild(new Option('Drop off myself', ''));
+            insureEl.checked = false;
+            hide(errorEl);
+            errorEl.textContent = '';
             hide(manualErrorEl);
             manualErrorEl.textContent = '';
             manualTrackingEl.value = '';
             manualCommentEl.value = '';
-            manualConfirmBtn.disabled = false;
-            show(couriersLoading);
-            hide(couriersEl);
-            clear(couriersEl);
-            hide(slotWrap);
-            clear(slotEl);
-            slotEl.appendChild(new Option('Drop off myself', ''));
-            weightEl.value = '';
-            lengthEl.value = '';
-            widthEl.value = '';
-            heightEl.value = '';
-            insureEl.checked = false;
-            estimateEl.textContent = '';
-            hide(errorEl);
-            errorEl.textContent = '';
             confirmBtn.disabled = false;
+            manualConfirmBtn.disabled = false;
             courier = '';
+            courierLabel = '';
+            couriersInfo = {};
+            setQuote(null, 'Asking');
         }
 
         // One button per courier. A courier that refused is drawn but inert,
@@ -218,7 +253,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 btn.className = 'x-btn x-btn--secondary vt-courier';
                 btn.setAttribute('data-courier', key);
 
-                btn.appendChild(textNode('span', 'vt-courier__name', courierName(key)));
+                btn.appendChild(textNode('span', 'vt-courier__name', courierName(key, v.name)));
 
                 if (v.status === 'serviceable') {
                     btn.appendChild(textNode('span', 'vt-courier__note',
@@ -237,18 +272,52 @@ document.addEventListener('DOMContentLoaded', function () {
             });
 
             if (allRefused) {
-                couriersEl.appendChild(textNode('p', 'vt-book__error', 'Every courier refused this address. Check the shipping address on the storefront, or hand it to a courier by hand there.'));
+                couriersEl.appendChild(textNode('p', 'vt-book__error', 'Every courier refused this address. Check the shipping address on the storefront, or hand it to another courier by hand below.'));
             }
         }
 
+        // The storefront's second step for this courier: its lists, its
+        // defaults, the store's addresses, its slots, then the quote.
         function chooseCourier(key) {
+            var info = couriersInfo[key] || {};
             courier = key;
-            courierNameEl.textContent = courierName(key);
+            courierLabel = courierName(key, info.name);
+            courierNameEl.textContent = courierLabel;
             hide(step1);
             show(step2);
-            estimateEl.textContent = '';
             hide(errorEl);
+
+            var d = info.defaults || {};
+            if (fillSelect(serviceEl, info.service_types, d.service)) show(serviceWrap); else hide(serviceWrap);
+            if (fillSelect(parcelEl, info.parcel_options, d.parcel)) show(parcelWrap); else hide(parcelWrap);
+            if (fillSelect(paymentEl, info.shipping_payment_options, d.shipping_payment)) show(paymentWrap); else hide(paymentWrap);
+
+            loadAddresses();
             loadSlots();
+            quote();
+        }
+
+        // Where the parcel leaves from, read once per page. The default
+        // address is chosen; a store with one address, or none the API
+        // lists, shows no choice and the store's default applies.
+        function loadAddresses() {
+            if (addresses !== null) { applyAddresses(); return; }
+            getJson(urls.addresses)
+                .then(function (data) {
+                    addresses = (data && data.ok && Array.isArray(data.addresses)) ? data.addresses : [];
+                    applyAddresses();
+                })
+                .catch(function () { addresses = []; applyAddresses(); });
+        }
+
+        function applyAddresses() {
+            if (!addresses || addresses.length === 0) { hide(addressWrap); return; }
+            var def = null;
+            addresses.forEach(function (a) { if (a.is_default) def = a.id; });
+            fillSelect(addressEl, addresses.map(function (a) {
+                return { value: a.id, label: a.summary ? a.label + ' · ' + a.summary : a.label };
+            }), def !== null ? def : addresses[0].id);
+            show(addressWrap);
         }
 
         // Slots only for couriers that offer them (SPX). An empty answer is
@@ -270,118 +339,75 @@ document.addEventListener('DOMContentLoaded', function () {
 
         function options() {
             var opts = { courier: courier };
+            if (!addressWrap.classList.contains('vt-hidden') && addressEl.value) opts.pickup_address_id = addressEl.value;
+            if (!serviceWrap.classList.contains('vt-hidden') && serviceEl.value) opts.service = serviceEl.value;
+            if (!parcelWrap.classList.contains('vt-hidden') && parcelEl.value) opts.parcel = parcelEl.value;
+            if (!paymentWrap.classList.contains('vt-hidden') && paymentEl.value) opts.shipping_payment = paymentEl.value;
             if (slotEl.value) opts.pickup_slot = slotEl.value;
-            if (weightEl.value) opts.weight_kg = weightEl.value;
-            if (lengthEl.value) opts.length_cm = lengthEl.value;
-            if (widthEl.value) opts.width_cm = widthEl.value;
-            if (heightEl.value) opts.height_cm = heightEl.value;
             if (insureEl.checked) opts.insure = true;
             return opts;
         }
 
-        estimateBtn.addEventListener('click', function () {
-            estimateBtn.disabled = true;
-            estimateEl.textContent = 'Asking ' + courierName(courier);
-            hide(errorEl);
+        // The ledger. A null quote with a message is the waiting or failed
+        // state; a quote is the courier's own figures.
+        function setQuote(q, message) {
+            hide(quoteNote);
+            if (!q) {
+                quoteShipping.textContent = message || '';
+                quoteTotal.textContent = '';
+                hide(quoteInsuranceRow);
+                return;
+            }
+            quoteShipping.textContent = money(q.amount, q.currency);
+            if (q.insurance !== null && q.insurance !== undefined && Number(q.insurance) > 0 && insureEl.checked) {
+                quoteInsurance.textContent = money(q.insurance, q.currency);
+                show(quoteInsuranceRow);
+                quoteTotal.textContent = money(q.total, q.currency);
+            } else {
+                hide(quoteInsuranceRow);
+                quoteTotal.textContent = money(q.amount, q.currency);
+            }
+        }
 
-            postJson(urls.estimate, options())
-                .then(function (res) {
-                    estimateBtn.disabled = false;
-                    var d = res.data || {};
-                    if (!d.ok) {
-                        estimateEl.textContent = '';
-                        showError(d.message || 'An estimate is not available.');
-                        return;
-                    }
-                    var text = d.label || money(d.amount, d.currency);
-                    if (d.insurance && d.total !== null && d.total !== undefined && d.total !== d.amount) {
-                        text += ', ' + money(d.total, d.currency) + ' with insurance';
-                    }
-                    estimateEl.textContent = text;
-                })
-                .catch(function () {
-                    estimateBtn.disabled = false;
-                    estimateEl.textContent = '';
-                    showError('The estimate did not come back.');
-                });
+        // Asked through the storefront, which asks the courier, for exactly
+        // the choices on screen. Debounced, and answers that arrive out of
+        // order are dropped, so the ledger always describes what is shown.
+        function quote() {
+            if (quoteTimer) clearTimeout(quoteTimer);
+            quoteTimer = setTimeout(function () {
+                var seq = ++quoteSeq;
+                setQuote(null, 'Asking ' + courierLabel);
+
+                postJson(urls.estimate, options())
+                    .then(function (res) {
+                        if (seq !== quoteSeq) return;
+                        var d = res.data || {};
+                        if (!d.ok) {
+                            setQuote(null, '');
+                            quoteNoteText.textContent = d.message || 'No quote yet.';
+                            show(quoteNote);
+                            return;
+                        }
+                        setQuote(d);
+                    })
+                    .catch(function () {
+                        if (seq !== quoteSeq) return;
+                        setQuote(null, '');
+                        quoteNoteText.textContent = 'The quote did not come back.';
+                        show(quoteNote);
+                    });
+            }, 250);
+        }
+
+        [addressEl, serviceEl, parcelEl, slotEl, paymentEl].forEach(function (el) {
+            el.addEventListener('change', quote);
         });
+        insureEl.addEventListener('change', quote);
+        estimateBtn.addEventListener('click', quote);
 
         backBtn.addEventListener('click', function () {
             show(step1);
             hide(step2);
-        });
-
-        // The store's own courier list, read once per page: it changes
-        // when someone edits Settings, not between two bookings.
-        function loadCouriers() {
-            if (couriersLoaded) return;
-            getJson(urls.couriers)
-                .then(function (data) {
-                    clear(manualCourierEl);
-                    var list = (data && data.ok && Array.isArray(data.couriers)) ? data.couriers : [];
-                    manualCourierEl.appendChild(new Option(list.length ? 'Choose a courier' : 'No couriers set up on the store', ''));
-                    list.forEach(function (c) {
-                        var opt = new Option(c.name, String(c.id));
-                        opt.setAttribute('data-name', c.name);
-                        manualCourierEl.appendChild(opt);
-                    });
-                    couriersLoaded = true;
-                })
-                .catch(function () {
-                    clear(manualCourierEl);
-                    manualCourierEl.appendChild(new Option('The store’s courier list could not be read', ''));
-                });
-        }
-
-        manualOfferBtn.addEventListener('click', function () {
-            hide(step1);
-            hide(step2);
-            show(manualPane);
-            hide(manualErrorEl);
-            loadCouriers();
-        });
-
-        manualBackBtn.addEventListener('click', function () {
-            hide(manualPane);
-            show(step1);
-        });
-
-        manualConfirmBtn.addEventListener('click', function () {
-            var selected = manualCourierEl.options[manualCourierEl.selectedIndex];
-            var body = {};
-            if (manualCourierEl.value) {
-                body.shipping_courier_id = manualCourierEl.value;
-                body.courier_name = selected ? selected.getAttribute('data-name') : '';
-            }
-            if (manualTrackingEl.value.trim()) body.tracking_number = manualTrackingEl.value.trim();
-            if (manualCommentEl.value.trim()) body.comment = manualCommentEl.value.trim();
-
-            manualConfirmBtn.disabled = true;
-            hide(manualErrorEl);
-            hideModal(modal);
-            setOverlay('Recording the shipment');
-
-            postJson(urls.bookManual, body)
-                .then(function (res) {
-                    var d = res.data || {};
-                    if (!d.ok) {
-                        hideModal(overlay);
-                        manualConfirmBtn.disabled = false;
-                        manualErrorEl.textContent = d.message || 'The store could not record this shipment.';
-                        show(manualErrorEl);
-                        showModal(modal);
-                        return;
-                    }
-                    // Nothing to print: the row moves to To Handover on reload.
-                    location.reload();
-                })
-                .catch(function () {
-                    hideModal(overlay);
-                    manualConfirmBtn.disabled = false;
-                    manualErrorEl.textContent = 'The request failed before the store answered.';
-                    show(manualErrorEl);
-                    showModal(modal);
-                });
         });
 
         // Poll for the waybill after a booking. The storefront's own
@@ -428,7 +454,7 @@ document.addEventListener('DOMContentLoaded', function () {
             confirmBtn.disabled = true;
             hide(errorEl);
             hideModal(modal);
-            setOverlay('Booking with ' + courierName(courier));
+            setOverlay('Booking with ' + courierLabel);
 
             postJson(urls.book, options())
                 .then(function (res) {
@@ -455,6 +481,83 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
         });
 
+        /* --- By hand ---------------------------------------------------- */
+
+        // The store's own courier list, read once per page: it changes
+        // when someone edits Settings, not between two bookings.
+        function loadManualCouriers() {
+            if (manualCouriers !== null) return;
+            getJson(urls.couriers)
+                .then(function (data) {
+                    clear(manualCourierEl);
+                    var list = (data && data.ok && Array.isArray(data.couriers)) ? data.couriers : [];
+                    manualCourierEl.appendChild(new Option(list.length ? 'Choose a courier' : 'No couriers set up on the store', ''));
+                    list.forEach(function (c) {
+                        var opt = new Option(c.name, String(c.id));
+                        opt.setAttribute('data-name', c.name);
+                        manualCourierEl.appendChild(opt);
+                    });
+                    manualCouriers = list;
+                })
+                .catch(function () {
+                    clear(manualCourierEl);
+                    manualCourierEl.appendChild(new Option('The store’s courier list could not be read', ''));
+                });
+        }
+
+        manualOfferBtn.addEventListener('click', function () {
+            hide(step1);
+            hide(step2);
+            show(manualPane);
+            hide(manualErrorEl);
+            loadManualCouriers();
+        });
+
+        manualBackBtn.addEventListener('click', function () {
+            hide(manualPane);
+            show(step1);
+        });
+
+        manualConfirmBtn.addEventListener('click', function () {
+            var selected = manualCourierEl.options[manualCourierEl.selectedIndex];
+            var body = {};
+            if (manualCourierEl.value) {
+                body.shipping_courier_id = manualCourierEl.value;
+                body.courier_name = selected ? selected.getAttribute('data-name') : '';
+            }
+            if (manualTrackingEl.value.trim()) body.tracking_number = manualTrackingEl.value.trim();
+            if (manualCommentEl.value.trim()) body.comment = manualCommentEl.value.trim();
+
+            manualConfirmBtn.disabled = true;
+            hide(manualErrorEl);
+            hideModal(modal);
+            setOverlay('Recording the shipment');
+
+            postJson(urls.bookManual, body)
+                .then(function (res) {
+                    var d = res.data || {};
+                    if (!d.ok) {
+                        hideModal(overlay);
+                        manualConfirmBtn.disabled = false;
+                        manualErrorEl.textContent = d.message || 'The store could not record this shipment.';
+                        show(manualErrorEl);
+                        showModal(modal);
+                        return;
+                    }
+                    // Nothing to print: the row moves to To Handover on reload.
+                    location.reload();
+                })
+                .catch(function () {
+                    hideModal(overlay);
+                    manualConfirmBtn.disabled = false;
+                    manualErrorEl.textContent = 'The request failed before the store answered.';
+                    show(manualErrorEl);
+                    showModal(modal);
+                });
+        });
+
+        /* --- Open ------------------------------------------------------- */
+
         // Delegated, so it keeps working for rows added by anything later.
         document.addEventListener('click', function (e) {
             var btn = e.target.closest ? e.target.closest('.btnVentaBook') : null;
@@ -467,6 +570,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 estimate: btn.getAttribute('data-estimate-url'),
                 book: btn.getAttribute('data-book-url'),
                 couriers: btn.getAttribute('data-couriers-url'),
+                addresses: btn.getAttribute('data-addresses-url'),
                 bookManual: btn.getAttribute('data-book-manual-url')
             };
             orderNoEl.textContent = btn.getAttribute('data-order-no') || '';
@@ -483,7 +587,8 @@ document.addEventListener('DOMContentLoaded', function () {
                         couriersEl.appendChild(textNode('div', 'vt-book__error', (data && data.message) || 'The storefront could not be reached.'));
                         return;
                     }
-                    renderCouriers(data.couriers || {}, !!data.all_refused);
+                    couriersInfo = data.couriers || {};
+                    renderCouriers(couriersInfo, !!data.all_refused);
                 })
                 .catch(function () {
                     hide(couriersLoading);

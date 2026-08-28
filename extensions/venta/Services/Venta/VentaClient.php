@@ -298,6 +298,12 @@ class VentaClient
         return $this->post("orders/{$orderId}/cancel-booking");
     }
 
+    /** Where a parcel can leave from: the store's saved pickup addresses. */
+    public function pickupAddresses(): array
+    {
+        return $this->get('pickup-addresses');
+    }
+
     /** The store's own list of couriers a parcel can be handed to by hand. */
     public function shippingCouriers(): array
     {

@@ -474,6 +474,129 @@ class VentaFulfilmentTest extends TestCase
         $this->assertSame('JRS-1', $row->courier_tracking_number);
     }
 
+    public function test_serviceability_carries_each_couriers_choices_and_defaults_cash_on_pickup_for_quadx(): void
+    {
+        $store = $this->store();
+        $order = $this->order($store, 'Order Processed');
+
+        Http::fake([
+            self::BASE . '/api/v1/orders/700001/serviceability' => Http::response([
+                'success' => true, 'order_id' => 700001, 'all_refused' => false,
+                'couriers' => ['quadx' => ['status' => 'serviceable', 'kind' => null, 'reason' => null, 'fees' => ['box' => 85.0], 'currency' => 'PHP', 'from' => 85.0]],
+            ]),
+        ]);
+
+        $json = $this->actingAs($this->packer())
+            ->getJson(route('ext.venta.orders.serviceability', [$store->id, $order->id]))
+            ->assertOk()
+            ->assertJsonPath('couriers.quadx.name', 'QuadX')
+            ->assertJsonPath('couriers.quadx.defaults.shipping_payment', 'cash')
+            ->assertJsonPath('couriers.quadx.defaults.service', 'next_day')
+            ->json();
+
+        $this->assertSame(['next_day', 'same_day_pickup'], array_column($json['couriers']['quadx']['service_types'], 'value'));
+        $this->assertContains('box', array_column($json['couriers']['quadx']['parcel_options'], 'value'));
+        $this->assertSame('cash', $json['couriers']['quadx']['shipping_payment_options'][0]['value']);
+    }
+
+    public function test_the_storefronts_own_lists_win_over_the_erps_copy(): void
+    {
+        $store = $this->store();
+        $order = $this->order($store, 'Order Processed');
+
+        Http::fake([
+            self::BASE . '/api/v1/orders/700001/serviceability' => Http::response([
+                'success' => true, 'all_refused' => false,
+                'couriers' => ['spx' => [
+                    'status' => 'serviceable', 'fees' => [], 'currency' => 'PHP', 'from' => null,
+                    'name' => 'SPX', 'parcel_options' => [['value' => 'preset-a', 'label' => 'Small box preset']],
+                    'defaults' => ['parcel' => 'preset-a'],
+                ]],
+            ]),
+        ]);
+
+        $this->actingAs($this->packer())
+            ->getJson(route('ext.venta.orders.serviceability', [$store->id, $order->id]))
+            ->assertOk()
+            ->assertJsonPath('couriers.spx.name', 'SPX')
+            ->assertJsonPath('couriers.spx.parcel_options.0.value', 'preset-a')
+            ->assertJsonPath('couriers.spx.defaults.parcel', 'preset-a')
+            ->assertJsonPath('couriers.spx.defaults.service', 'standard');
+    }
+
+    public function test_pickup_addresses_come_default_first_and_an_absent_endpoint_is_an_empty_list(): void
+    {
+        $store = $this->store();
+
+        Http::fake([
+            self::BASE . '/api/v1/pickup-addresses' => Http::response(['data' => [
+                ['id' => 2, 'label' => 'Warehouse B', 'address_1' => '12 Depot Rd', 'city' => 'Pasig', 'is_default' => false],
+                ['id' => 1, 'label' => 'Main store', 'address_1' => '1 Shop St', 'city' => 'Makati', 'is_default' => true],
+            ]]),
+        ]);
+
+        $this->actingAs($this->packer())
+            ->getJson(route('ext.venta.orders.pickup_addresses', $store->id))
+            ->assertOk()
+            ->assertJsonPath('addresses.0.id', 1)
+            ->assertJsonPath('addresses.0.is_default', true)
+            ->assertJsonPath('addresses.1.summary', '12 Depot Rd, Pasig');
+
+    }
+
+    public function test_a_store_without_the_addresses_endpoint_offers_no_choice(): void
+    {
+        $store = $this->store();
+        Http::fake([self::BASE . '/api/v1/pickup-addresses' => Http::response(['error' => 'Not found'], 404)]);
+
+        $json = $this->actingAs($this->packer())
+            ->getJson(route('ext.venta.orders.pickup_addresses', $store->id))
+            ->assertOk()
+            ->json();
+
+        $this->assertFalse($json['ok']);
+        $this->assertSame([], $json['addresses']);
+    }
+
+    public function test_a_booking_carries_the_choices_the_storefronts_own_form_takes(): void
+    {
+        $store = $this->store();
+        $order = $this->order($store, 'Order Processed');
+
+        Http::fake([
+            self::BASE . '/api/v1/orders/700001/estimate' => Http::response([
+                'success' => true, 'courier' => 'quadx', 'amount' => 85.0, 'currency' => 'PHP', 'label' => '₱85.00', 'insurance' => 12.0, 'total' => 97.0,
+            ]),
+            self::BASE . '/api/v1/orders/700001/book-courier' => Http::response([
+                'success' => true, 'order_id' => 700001, 'courier' => 'quadx', 'tracking_number' => 'QX1', 'status' => 'for_pickup',
+            ]),
+            self::BASE . '/api/v1/orders/700001' => Http::response($this->orderPayload('Order Being Shipped')),
+        ]);
+
+        $choices = ['courier' => 'quadx', 'pickup_address_id' => 1, 'service' => 'same_day_pickup', 'parcel' => 'medium-pouch', 'shipping_payment' => 'cash', 'insure' => true];
+
+        $this->actingAs($this->packer())
+            ->postJson(route('ext.venta.orders.estimate', [$store->id, $order->id]), $choices)
+            ->assertOk()
+            ->assertJson(['ok' => true, 'amount' => 85.0, 'insurance' => 12.0, 'total' => 97.0]);
+
+        $this->actingAs($this->packer())
+            ->postJson(route('ext.venta.orders.book', [$store->id, $order->id]), $choices)
+            ->assertOk();
+
+        foreach (['estimate', 'book-courier'] as $path) {
+            Http::assertSent(function ($request) use ($path) {
+                if (! str_ends_with($request->url(), '/' . $path)) {
+                    return false;
+                }
+                $body = $request->data();
+
+                return $body['pickup_address_id'] === 1 && $body['service'] === 'same_day_pickup'
+                    && $body['parcel'] === 'medium-pouch' && $body['shipping_payment'] === 'cash' && $body['insure'] === true;
+            });
+        }
+    }
+
     public function test_a_pull_takes_the_booking_from_the_payload_once_the_storefront_sends_it(): void
     {
         $store = $this->store();

@@ -75,6 +75,14 @@ class VentaOrderController extends Controller
         ]);
     }
 
+    /** Where a parcel can leave from: the modal's "Ships from" list. */
+    public function pickupAddresses(int $store)
+    {
+        $setting = VentaSetting::where('id', $store)->where('enabled', true)->firstOrFail();
+
+        return response()->json(VentaFulfilment::for($setting)->pickupAddresses());
+    }
+
     /** The store's couriers a parcel can be handed to by hand: the modal's "another courier" list. */
     public function shippingCouriers(int $store)
     {

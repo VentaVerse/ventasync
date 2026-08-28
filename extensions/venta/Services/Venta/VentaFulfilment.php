@@ -49,12 +49,60 @@ class VentaFulfilment
 
         $couriers = is_array($body['couriers'] ?? null) ? $body['couriers'] : [];
 
+        // Each courier's answer carries what a booking with it can choose
+        // and what it chooses by default, so the modal's second step is the
+        // storefront's own: the storefront's lists when it sends them, the
+        // ERP's copy of them until it does.
+        foreach ($couriers as $key => $verdict) {
+            // Options first in the union: they already prefer what the
+            // store sent, field by field, and fill the rest; the verdict's
+            // own keys (status, kind, reason, fees, from) pass through.
+            $verdict = is_array($verdict) ? $verdict : [];
+            $couriers[$key] = VentaCourierOptions::for((string) $key, $verdict) + $verdict;
+        }
+
         return [
             'ok' => true,
             'message' => '',
             'couriers' => $couriers,
             'all_refused' => (bool) ($body['all_refused'] ?? false),
         ];
+    }
+
+    /**
+     * Where a parcel can leave from: the store's saved pickup addresses,
+     * default first. An empty list means the store's default address
+     * applies and the modal offers no choice.
+     *
+     * @return array{ok: bool, message: string, addresses: list<array{id: int, label: string, summary: string, is_default: bool}>}
+     */
+    public function pickupAddresses(): array
+    {
+        $res = $this->client->pickupAddresses();
+        $body = $res['body'] ?? [];
+
+        if (! ($res['ok'] ?? false)) {
+            return ['ok' => false, 'message' => self::errorFrom($body, 'The store\'s pickup addresses are not available right now.'), 'addresses' => []];
+        }
+
+        $rows = is_array($body['data'] ?? null) ? $body['data'] : (is_array($body) && array_is_list($body) ? $body : []);
+        $addresses = [];
+        foreach ($rows as $row) {
+            if (! is_array($row) || empty($row['id'])) {
+                continue;
+            }
+            $addresses[] = [
+                'id' => (int) $row['id'],
+                'label' => (string) ($row['label'] ?? ('Address ' . $row['id'])),
+                'summary' => (string) ($row['summary'] ?? implode(', ', array_filter([
+                    $row['address_1'] ?? null, $row['barangay'] ?? null, $row['city'] ?? null, $row['state'] ?? null,
+                ]))),
+                'is_default' => (bool) ($row['is_default'] ?? false),
+            ];
+        }
+        usort($addresses, fn ($a, $b) => $b['is_default'] <=> $a['is_default']);
+
+        return ['ok' => true, 'message' => '', 'addresses' => $addresses];
     }
 
     /** @return array{ok: bool, message: string, slots: array<int, array{value: string, label: string}>} */
@@ -86,8 +134,8 @@ class VentaFulfilment
             'label' => (string) ($body['label'] ?? ''),
             'amount' => isset($body['amount']) ? (float) $body['amount'] : null,
             'currency' => $body['currency'] ?? null,
-            'insurance' => $body['insurance'] ?? null,
-            'total' => isset($body['total']) ? (float) $body['total'] : null,
+            'insurance' => is_numeric($body['insurance'] ?? null) ? (float) $body['insurance'] : null,
+            'total' => isset($body['total']) ? (float) $body['total'] : (isset($body['amount']) ? (float) $body['amount'] : null),
         ];
     }
 

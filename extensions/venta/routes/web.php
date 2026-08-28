@@ -136,6 +136,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     // so it reads; static segment ahead of the {order} routes above by
     // being a different depth.
     Route::get('/venta/{store}/orders/shipping-couriers', [VentaOrderController::class, 'shippingCouriers'])->name('ext.venta.orders.shipping_couriers');
+    Route::get('/venta/{store}/orders/pickup-addresses', [VentaOrderController::class, 'pickupAddresses'])->name('ext.venta.orders.pickup_addresses');
 });
 
 // ── Venta Orders — WRITES ───────────────────────────────────────

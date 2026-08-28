@@ -67,10 +67,41 @@
             </div>
         </div>
 
-        {{-- Step 2: the booking's options. --}}
+        {{-- Step 2: the booking's options, in the storefront's own order
+             (its queue's modal): where it leaves from, then what carries
+             it and in what, then insurance, then who pays. No dimensions:
+             the parcel size is a choice off the courier's list and the
+             courier prices it. The quote is fetched the moment the courier
+             is chosen and again on every change, through the storefront,
+             which asks the courier; it is never typed in here. --}}
         <div id="vtBookStep2" class="vt-hidden">
             <div class="co-modal__meta vt-book__courier">Courier <strong id="vtBookCourierName"></strong></div>
             <div class="co-modal__body">
+                <div id="vtBookAddressWrap" class="vt-book__field vt-hidden">
+                    <label for="vtBookAddress" class="vt-book__label">Ships from</label>
+                    <div class="x-select-wrap">
+                        <select id="vtBookAddress" class="x-input"></select>
+                        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                    </div>
+                </div>
+
+                <div class="vt-book__grid vt-book__grid--2">
+                    <div id="vtBookServiceWrap" class="vt-book__field vt-hidden">
+                        <label for="vtBookService" class="vt-book__label">Service</label>
+                        <div class="x-select-wrap">
+                            <select id="vtBookService" class="x-input"></select>
+                            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                        </div>
+                    </div>
+                    <div id="vtBookParcelWrap" class="vt-book__field vt-hidden">
+                        <label for="vtBookParcel" class="vt-book__label">Parcel</label>
+                        <div class="x-select-wrap">
+                            <select id="vtBookParcel" class="x-input"></select>
+                            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                        </div>
+                    </div>
+                </div>
+
                 <div id="vtBookSlotWrap" class="vt-book__field vt-hidden">
                     <label for="vtBookSlot" class="vt-book__label">Pickup</label>
                     <div class="x-select-wrap">
@@ -81,36 +112,30 @@
                     </div>
                 </div>
 
-                <div class="vt-book__grid">
-                    <div class="vt-book__field">
-                        <label for="vtBookWeight" class="vt-book__label">Weight, kg</label>
-                        <input type="number" id="vtBookWeight" class="x-input" min="0.01" step="0.01" placeholder="Default">
-                    </div>
-                    <div class="vt-book__field">
-                        <label for="vtBookLength" class="vt-book__label">Length, cm</label>
-                        <input type="number" id="vtBookLength" class="x-input" min="0.01" step="0.1" placeholder="Default">
-                    </div>
-                    <div class="vt-book__field">
-                        <label for="vtBookWidth" class="vt-book__label">Width, cm</label>
-                        <input type="number" id="vtBookWidth" class="x-input" min="0.01" step="0.1" placeholder="Default">
-                    </div>
-                    <div class="vt-book__field">
-                        <label for="vtBookHeight" class="vt-book__label">Height, cm</label>
-                        <input type="number" id="vtBookHeight" class="x-input" min="0.01" step="0.1" placeholder="Default">
-                    </div>
-                </div>
-
                 <label class="vt-book__check">
                     <input type="checkbox" id="vtBookInsure" value="1">
                     <span>Insure this parcel</span>
                 </label>
 
-                {{-- The fee, asked for on demand rather than on every
-                     keystroke: an estimate is a courier call. --}}
-                <div class="vt-book__estimate">
-                    <button type="button" id="btnVtEstimate" class="x-btn x-btn--ghost x-btn--sm">Estimate the fee</button>
-                    <span id="vtBookEstimate" class="vt-book__estimate-text"></span>
+                <div id="vtBookPaymentWrap" class="vt-book__field vt-hidden">
+                    <label for="vtBookPayment" class="vt-book__label">You pay shipping</label>
+                    <div class="x-select-wrap">
+                        <select id="vtBookPayment" class="x-input"></select>
+                        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                    </div>
                 </div>
+
+                {{-- The courier's quote for exactly what is chosen above,
+                     as the storefront's own modal shows it. --}}
+                <dl id="vtBookQuote" class="vt-quote" aria-live="polite">
+                    <div class="vt-quote__row"><dt>Shipping</dt><dd id="vtQuoteShipping">Asking</dd></div>
+                    <div class="vt-quote__row vt-hidden" id="vtQuoteInsuranceRow"><dt>Insurance</dt><dd id="vtQuoteInsurance"></dd></div>
+                    <div class="vt-quote__row vt-quote__row--total"><dt>Total</dt><dd id="vtQuoteTotal"></dd></div>
+                </dl>
+                <p id="vtBookQuoteNote" class="vt-book__quote-note vt-hidden">
+                    <span id="vtBookQuoteNoteText"></span>
+                    <button type="button" id="btnVtEstimate" class="x-btn x-btn--ghost x-btn--sm">Ask again</button>
+                </p>
 
                 <p id="vtBookError" class="vt-book__error vt-hidden" role="alert"></p>
             </div>
