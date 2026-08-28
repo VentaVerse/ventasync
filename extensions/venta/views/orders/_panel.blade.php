@@ -467,7 +467,12 @@
             $vtIsToHandover = $vtStep === 'to_handover';
             $vtBooked = $o->isBooked();
             $vtCourierNo = trim((string) ($o->courier_tracking_number ?? ''));
-            $vtCourierName = \Extensions\venta\Services\Venta\VentaCouriers::name((string) ($o->courier_provider ?? ''));
+            // A hand-recorded shipment names its courier itself; an
+            // integrated one is named by its provider key.
+            $vtIsManual = $o->isManualShipment();
+            $vtCourierName = $vtIsManual && trim((string) $o->courier_name) !== ''
+                ? trim((string) $o->courier_name)
+                : \Extensions\venta\Services\Venta\VentaCouriers::name((string) ($o->courier_provider ?? ''));
         @endphp
         <tr class="co-band">
             <td colspan="9">
@@ -619,17 +624,30 @@
                                      data-serviceability-url="{{ route('ext.venta.orders.serviceability', [$storeId, $o->id]) }}"
                                      data-slots-url="{{ route('ext.venta.orders.pickup_slots', [$storeId, $o->id]) }}"
                                      data-estimate-url="{{ route('ext.venta.orders.estimate', [$storeId, $o->id]) }}"
-                                     data-book-url="{{ route('ext.venta.orders.book', [$storeId, $o->id]) }}">Book courier</x-ui.button>
+                                     data-book-url="{{ route('ext.venta.orders.book', [$storeId, $o->id]) }}"
+                                     data-couriers-url="{{ route('ext.venta.orders.shipping_couriers', $storeId) }}"
+                                     data-book-manual-url="{{ route('ext.venta.orders.book_manual', [$storeId, $o->id]) }}">Book courier</x-ui.button>
                     @endif
 
-                    @if($vtIsToHandover || $vtBooked)
+                    {{-- A shipment recorded by hand has no waybill to print
+                         and no timeline to track: the courier's name and
+                         the number are on the row, and that is all there
+                         is. Its way back is Clear shipment. --}}
+                    @if(($vtIsToHandover || $vtBooked) && !$vtIsManual)
                         <x-ui.button size="sm" :href="route('ext.venta.orders.awb', [$storeId, $o->id])"
                                      target="_blank" rel="noopener">Print waybill</x-ui.button>
                         <x-ui.button type="button" variant="secondary" size="sm" class="btnVentaTracking"
                                      data-url="{{ route('ext.venta.orders.tracking', [$storeId, $o->id]) }}">Tracking</x-ui.button>
                     @endif
 
-                    @if($vtIsToHandover)
+                    @if($vtIsToHandover && $vtIsManual)
+                        <form method="POST" action="{{ route('ext.venta.orders.clear_manual', [$storeId, $o->id]) }}"
+                              data-confirm="Clear the shipment recorded for order {{ $vtNumber }}? The courier and tracking number are removed and the order goes back to To Pack."
+                              data-busy="Clearing the shipment">
+                            @csrf
+                            <x-ui.button type="submit" variant="secondary" size="sm">Clear shipment</x-ui.button>
+                        </form>
+                    @elseif($vtIsToHandover)
                         <form method="POST" action="{{ route('ext.venta.orders.cancel_booking', [$storeId, $o->id]) }}"
                               data-confirm="Cancel the courier booking for order {{ $vtNumber }}? The courier is told not to collect it and the order goes back to To Pack."
                               data-busy="Cancelling the booking">

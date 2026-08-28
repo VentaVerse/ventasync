@@ -75,6 +75,52 @@ class VentaOrderController extends Controller
         ]);
     }
 
+    /** The store's couriers a parcel can be handed to by hand: the modal's "another courier" list. */
+    public function shippingCouriers(int $store)
+    {
+        $setting = VentaSetting::where('id', $store)->where('enabled', true)->firstOrFail();
+
+        return response()->json(VentaFulfilment::for($setting)->shippingCouriers());
+    }
+
+    /**
+     * Record a shipment by hand. Answers JSON for the modal: there is no
+     * waybill to open, so success just reloads into To Handover.
+     */
+    public function bookManual(Request $request, int $store, int $order)
+    {
+        [$setting, $ventaOrder] = $this->storeAndOrder($store, $order);
+
+        $data = $request->validate([
+            'shipping_courier_id' => ['nullable', 'integer'],
+            'courier_name'        => ['nullable', 'string', 'max:120'],
+            'tracking_number'     => ['nullable', 'string', 'max:190'],
+            'comment'             => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $result = VentaFulfilment::for($setting)->bookManual($ventaOrder, $data);
+
+        if (! $result['ok']) {
+            return response()->json(['ok' => false, 'message' => $result['message']], 422);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'message' => $result['message'],
+            'courier_name' => $result['courier_name'],
+            'tracking_number' => $result['tracking_number'],
+        ]);
+    }
+
+    public function clearManual(int $store, int $order)
+    {
+        [$setting, $ventaOrder] = $this->storeAndOrder($store, $order);
+
+        $result = VentaFulfilment::for($setting)->clearManual($ventaOrder);
+
+        return back()->with($result['ok'] ? 'status' : 'error', $result['message']);
+    }
+
     public function cancelBooking(int $store, int $order)
     {
         [$setting, $ventaOrder] = $this->storeAndOrder($store, $order);

@@ -373,6 +373,107 @@ class VentaFulfilmentTest extends TestCase
         $this->assertStringNotContainsString('vtBookModal', $viewer);
     }
 
+    public function test_a_shipment_by_hand_is_recorded_with_its_couriers_name_and_moves_the_row(): void
+    {
+        $store = $this->store();
+        $order = $this->order($store, 'Order Processed');
+
+        Http::fake([
+            self::BASE . '/api/v1/shipping-couriers*' => Http::response(['data' => [
+                ['id' => 3, 'name' => 'LBC Branch', 'tracking_url' => null, 'is_active' => true],
+                ['id' => 4, 'name' => 'Retired courier', 'tracking_url' => null, 'is_active' => false],
+            ]]),
+            self::BASE . '/api/v1/orders/700001/book-manual' => Http::response([
+                'success' => true, 'order_id' => 700001,
+                'courier' => ['manual' => true, 'manual_courier' => 'LBC Branch', 'tracking_number' => 'LBC-77'],
+            ]),
+            self::BASE . '/api/v1/orders/700001' => Http::response($this->orderPayload('Order Being Shipped')),
+        ]);
+
+        $this->actingAs($this->packer())
+            ->getJson(route('ext.venta.orders.shipping_couriers', $store->id))
+            ->assertOk()
+            ->assertJsonCount(1, 'couriers')
+            ->assertJsonPath('couriers.0.name', 'LBC Branch');
+
+        $this->actingAs($this->packer())
+            ->postJson(route('ext.venta.orders.book_manual', [$store->id, $order->id]), [
+                'shipping_courier_id' => 3, 'courier_name' => 'LBC Branch', 'tracking_number' => 'LBC-77', 'comment' => 'Rider took it at 3pm',
+            ])
+            ->assertOk()
+            ->assertJson(['ok' => true, 'courier_name' => 'LBC Branch', 'tracking_number' => 'LBC-77']);
+
+        $order->refresh();
+        $this->assertTrue($order->isManualShipment());
+        $this->assertSame('LBC Branch', $order->courier_name);
+        $this->assertSame('LBC-77', $order->courier_tracking_number);
+        $this->assertSame('Order Being Shipped', $order->status);
+
+        Http::assertSent(function ($request) {
+            if (! str_ends_with($request->url(), '/book-manual')) {
+                return false;
+            }
+            $body = $request->data();
+
+            return $body['shipping_courier_id'] === 3 && $body['tracking_number'] === 'LBC-77'
+                && $body['comment'] === 'Rider took it at 3pm' && ! array_key_exists('courier_name', $body);
+        });
+
+        // The row: the courier's name and number, Clear shipment, and no
+        // waybill or tracking, because a hand-recorded shipment has neither.
+        $html = $this->actingAs($this->packer())
+            ->get(route('ext.venta.orders.index', [$store->id, 'tab' => 'TO_SHIP', 'pending_sub' => 'to_handover']))
+            ->assertOk()->getContent();
+
+        $this->assertStringContainsString('LBC Branch', $html);
+        $this->assertStringContainsString('LBC-77', $html);
+        $this->assertStringContainsString('Clear shipment', $html);
+        $this->assertStringNotContainsString('Print waybill', $html);
+        $this->assertStringNotContainsString('btnVentaTracking', $html);
+        $this->assertStringNotContainsString('Cancel booking', $html);
+    }
+
+    public function test_clearing_a_shipment_by_hand_returns_the_row_to_pack(): void
+    {
+        $store = $this->store();
+        $order = $this->order($store, 'Order Being Shipped', [
+            'courier_provider' => 'manual', 'courier_name' => 'LBC Branch', 'courier_tracking_number' => 'LBC-77', 'courier_status' => 'manual', 'courier_booked_at' => now(),
+        ]);
+
+        Http::fake([
+            self::BASE . '/api/v1/orders/700001/clear-manual' => Http::response(['success' => true, 'message' => 'Shipment cleared.']),
+            self::BASE . '/api/v1/orders/700001' => Http::response($this->orderPayload('Order Processed')),
+        ]);
+
+        $this->actingAs($this->packer())
+            ->post(route('ext.venta.orders.clear_manual', [$store->id, $order->id]))
+            ->assertRedirect()
+            ->assertSessionHas('status', 'Shipment cleared.');
+
+        $order->refresh();
+        $this->assertNull($order->courier_provider);
+        $this->assertNull($order->courier_name);
+        $this->assertSame('Order Processed', $order->status);
+    }
+
+    public function test_a_pull_files_the_storefronts_own_manual_shipment_under_its_couriers_name(): void
+    {
+        $store = $this->store();
+        $this->order($store, 'Order Processed');
+
+        Http::fake([
+            self::BASE . '/api/v1/orders/700001' => Http::response($this->orderPayload('Order Being Shipped', [
+                'provider' => null, 'tracking_number' => 'JRS-1', 'status' => null, 'booked_at' => null, 'manual' => true, 'manual_courier' => 'JRS Express',
+            ])),
+        ]);
+
+        $row = (new VentaOrderSync(new VentaClient($store), $store))->pullOne(700001);
+
+        $this->assertTrue($row->isManualShipment());
+        $this->assertSame('JRS Express', $row->courier_name);
+        $this->assertSame('JRS-1', $row->courier_tracking_number);
+    }
+
     public function test_a_pull_takes_the_booking_from_the_payload_once_the_storefront_sends_it(): void
     {
         $store = $this->store();

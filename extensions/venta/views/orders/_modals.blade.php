@@ -27,6 +27,44 @@
                 <span>Asking the couriers</span>
             </div>
             <div id="vtBookCouriers" class="co-modal__choices vt-hidden"></div>
+            {{-- The third way a parcel leaves: a courier the store does not
+                 integrate with, recorded by hand. Always offered, under the
+                 list, because it is the answer when every integrated
+                 courier refused or when a rider is simply at the door. --}}
+            <div class="vt-book__manual-offer">
+                <button type="button" id="btnVtManual" class="x-btn x-btn--ghost x-btn--sm">Another courier, by hand</button>
+            </div>
+        </div>
+
+        {{-- Step 2, by hand: a name off the store's list and a number. --}}
+        <div id="vtBookManual" class="vt-hidden">
+            <div class="co-modal__meta vt-book__courier">Recorded by hand, no waybill</div>
+            <div class="co-modal__body">
+                <div class="vt-book__field">
+                    <label for="vtManualCourier" class="vt-book__label">Courier</label>
+                    <div class="x-select-wrap">
+                        <select id="vtManualCourier" class="x-input">
+                            <option value="">Loading the store's couriers</option>
+                        </select>
+                        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                    </div>
+                </div>
+                <div class="vt-book__grid vt-book__grid--2">
+                    <div class="vt-book__field">
+                        <label for="vtManualTracking" class="vt-book__label">Tracking number</label>
+                        <input type="text" id="vtManualTracking" class="x-input" maxlength="190" placeholder="Optional">
+                    </div>
+                    <div class="vt-book__field">
+                        <label for="vtManualComment" class="vt-book__label">Note</label>
+                        <input type="text" id="vtManualComment" class="x-input" maxlength="500" placeholder="Optional, kept on the order">
+                    </div>
+                </div>
+                <p id="vtManualError" class="vt-book__error vt-hidden" role="alert"></p>
+            </div>
+            <div class="co-modal__foot">
+                <button type="button" id="btnVtManualBack" class="x-btn x-btn--ghost">Back</button>
+                <button type="button" id="btnVtManualConfirm" class="x-btn x-btn--primary">Record the shipment</button>
+            </div>
         </div>
 
         {{-- Step 2: the booking's options. --}}

@@ -14,9 +14,12 @@ namespace Extensions\venta\Services\Venta;
 final class VentaCouriers
 {
     private const NAMES = [
-        'spx'   => 'SPX Express',
-        'quadx' => 'QuadX',
-        'lbc'   => 'LBC',
+        'spx'    => 'SPX Express',
+        'quadx'  => 'QuadX',
+        'lbc'    => 'LBC',
+        // A shipment recorded by hand names its own courier on the row;
+        // this is only what reads when that name was never captured.
+        'manual' => 'Another courier',
     ];
 
     public static function name(?string $key): string

@@ -24,6 +24,7 @@ class VentaOrder extends Model
         'shipping_method',
         'tracking_number',
         'courier_provider',
+        'courier_name',
         'courier_tracking_number',
         'courier_status',
         'courier_booked_at',
@@ -53,6 +54,19 @@ class VentaOrder extends Model
     {
         return trim((string) $this->courier_tracking_number) !== '';
     }
+
+    /**
+     * Whether the parcel left with a courier the store does not integrate
+     * with, recorded by hand. Such a shipment has no waybill to print and
+     * no timeline to track; what it has is a name and a number.
+     */
+    public function isManualShipment(): bool
+    {
+        return $this->courier_provider === self::MANUAL_PROVIDER;
+    }
+
+    /** The provider key a hand-recorded shipment carries. */
+    public const MANUAL_PROVIDER = 'manual';
 
     public function setting(): BelongsTo
     {

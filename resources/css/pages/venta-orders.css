@@ -222,3 +222,13 @@
     color: var(--bl-ink-3);
     white-space: nowrap;
 }
+
+/* The way out of the courier list when none of them will do: a quiet
+   offer under it, not a fourth pill competing with the couriers. */
+.vt-book__manual-offer {
+    margin-top: var(--bl-space-3);
+    padding-top: var(--bl-space-3);
+    border-top: 1px solid var(--bl-rule);
+}
+
+.vt-book__grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }

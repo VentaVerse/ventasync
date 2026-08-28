@@ -132,6 +132,10 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::get('/venta/{store}/orders/{order}/tracking', [VentaOrderController::class, 'tracking'])->whereNumber('order')->name('ext.venta.orders.tracking');
     Route::get('/venta/{store}/orders/{order}/serviceability', [VentaOrderController::class, 'serviceability'])->whereNumber('order')->name('ext.venta.orders.serviceability');
     Route::get('/venta/{store}/orders/{order}/pickup-slots', [VentaOrderController::class, 'pickupSlots'])->whereNumber('order')->name('ext.venta.orders.pickup_slots');
+    // The store's manual couriers, for "another courier, by hand". A list,
+    // so it reads; static segment ahead of the {order} routes above by
+    // being a different depth.
+    Route::get('/venta/{store}/orders/shipping-couriers', [VentaOrderController::class, 'shippingCouriers'])->name('ext.venta.orders.shipping_couriers');
 });
 
 // ── Venta Orders — WRITES ───────────────────────────────────────
@@ -144,6 +148,8 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::post('/venta/{store}/orders/{order}/estimate', [VentaOrderController::class, 'estimate'])->whereNumber('order')->name('ext.venta.orders.estimate');
     Route::post('/venta/{store}/orders/{order}/book', [VentaOrderController::class, 'book'])->whereNumber('order')->name('ext.venta.orders.book');
     Route::post('/venta/{store}/orders/{order}/cancel-booking', [VentaOrderController::class, 'cancelBooking'])->whereNumber('order')->name('ext.venta.orders.cancel_booking');
+    Route::post('/venta/{store}/orders/{order}/book-manual', [VentaOrderController::class, 'bookManual'])->whereNumber('order')->name('ext.venta.orders.book_manual');
+    Route::post('/venta/{store}/orders/{order}/clear-manual', [VentaOrderController::class, 'clearManual'])->whereNumber('order')->name('ext.venta.orders.clear_manual');
     Route::delete('/venta/{store}/orders/{order}', [VentaOrderController::class, 'destroy'])->name('ext.venta.orders.destroy');
     Route::post('/venta/{store}/orders/bulk-delete', [VentaOrderController::class, 'bulkDelete'])->name('ext.venta.orders.bulk_delete');
 });

@@ -141,6 +141,122 @@ class VentaFulfilment
         ];
     }
 
+    /**
+     * The store's couriers a parcel can be handed to by hand.
+     *
+     * @return array{ok: bool, message: string, couriers: list<array{id: int, name: string, tracking_url: ?string}>}
+     */
+    public function shippingCouriers(): array
+    {
+        $res = $this->client->shippingCouriers();
+        $body = $res['body'] ?? [];
+
+        if (! ($res['ok'] ?? false)) {
+            return ['ok' => false, 'message' => self::errorFrom($body, 'The store\'s courier list is not available right now.'), 'couriers' => []];
+        }
+
+        $rows = is_array($body['data'] ?? null) ? $body['data'] : (is_array($body) && array_is_list($body) ? $body : []);
+        $couriers = [];
+        foreach ($rows as $row) {
+            if (! is_array($row) || empty($row['name'])) {
+                continue;
+            }
+            if (array_key_exists('is_active', $row) && ! $row['is_active']) {
+                continue;
+            }
+            $couriers[] = [
+                'id' => (int) ($row['id'] ?? 0),
+                'name' => (string) $row['name'],
+                'tracking_url' => $row['tracking_url'] ?? null,
+            ];
+        }
+
+        return ['ok' => true, 'message' => '', 'couriers' => $couriers];
+    }
+
+    /**
+     * Record a shipment by hand: a courier off the store's list and a
+     * tracking number. The ERP row carries it at once under the 'manual'
+     * provider with the courier's name, and is re-read so its step is
+     * whatever the store moved it to.
+     *
+     * @param  array{shipping_courier_id?: int, courier_name?: string, tracking_number?: string, comment?: string}  $opts
+     * @return array{ok: bool, message: string, courier_name: ?string, tracking_number: ?string}
+     */
+    public function bookManual(VentaOrder $order, array $opts): array
+    {
+        $res = $this->client->bookManual((int) $order->venta_order_id, array_filter([
+            'shipping_courier_id' => $opts['shipping_courier_id'] ?? null,
+            'tracking_number' => $opts['tracking_number'] ?? null,
+            'comment' => $opts['comment'] ?? null,
+        ], fn ($v) => $v !== null && $v !== ''));
+        $body = $res['body'] ?? [];
+
+        if (! ($res['ok'] ?? false) || ! ($body['success'] ?? false)) {
+            return [
+                'ok' => false,
+                'message' => self::errorFrom($body, 'The store could not record this shipment.'),
+                'courier_name' => null,
+                'tracking_number' => null,
+            ];
+        }
+
+        $courierName = (string) ($body['courier']['manual_courier'] ?? $opts['courier_name'] ?? '');
+        $tracking = (string) ($body['courier']['tracking_number'] ?? $opts['tracking_number'] ?? '');
+
+        $order->forceFill([
+            'courier_provider'        => VentaOrder::MANUAL_PROVIDER,
+            'courier_name'            => $courierName !== '' ? $courierName : null,
+            'courier_tracking_number' => $tracking !== '' ? $tracking : null,
+            'courier_status'          => 'manual',
+            'courier_booked_at'       => now(),
+        ])->save();
+
+        ActivityLogger::log(
+            'booked',
+            'VentaOrder',
+            (int) $order->id,
+            'Recorded a shipment by hand' . ($courierName !== '' ? ' with ' . $courierName : '') . ' for Venta #' . $order->venta_order_id
+                . ($tracking !== '' ? ' (' . $tracking . ')' : ''),
+            ['store' => $this->setting->store_name, 'opts' => $opts]
+        );
+
+        $this->refresh($order);
+
+        return [
+            'ok' => true,
+            'message' => 'Recorded.' . ($courierName !== '' ? ' ' . $courierName . ' carries it.' : ''),
+            'courier_name' => $courierName !== '' ? $courierName : null,
+            'tracking_number' => $tracking !== '' ? $tracking : null,
+        ];
+    }
+
+    /** Undo a shipment recorded by hand. @return array{ok: bool, message: string} */
+    public function clearManual(VentaOrder $order): array
+    {
+        $res = $this->client->clearManual((int) $order->venta_order_id);
+        $body = $res['body'] ?? [];
+
+        if (! ($res['ok'] ?? false) || ! ($body['success'] ?? false)) {
+            return ['ok' => false, 'message' => self::errorFrom($body, 'The store could not clear this shipment.')];
+        }
+
+        $order->forceFill([
+            'courier_provider'        => null,
+            'courier_name'            => null,
+            'courier_tracking_number' => null,
+            'courier_status'          => null,
+            'courier_booked_at'       => null,
+        ])->save();
+
+        ActivityLogger::log('unbooked', 'VentaOrder', (int) $order->id,
+            'Cleared the hand-recorded shipment for Venta #' . $order->venta_order_id, ['store' => $this->setting->store_name]);
+
+        $this->refresh($order);
+
+        return ['ok' => true, 'message' => (string) ($body['message'] ?? 'Shipment cleared. The order is back in To Pack.')];
+    }
+
     /** @return array{ok: bool, message: string} */
     public function cancel(VentaOrder $order): array
     {
@@ -153,6 +269,7 @@ class VentaFulfilment
 
         $order->forceFill([
             'courier_provider'        => null,
+            'courier_name'            => null,
             'courier_tracking_number' => null,
             'courier_status'          => null,
             'courier_booked_at'       => null,

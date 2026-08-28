@@ -244,10 +244,16 @@ class VentaOrderSync
             return [];
         }
 
+        // A shipment recorded by hand on the storefront has no provider
+        // key; it has a courier name. It is filed under 'manual' so the row
+        // knows it has no waybill or timeline, and the name is what reads.
+        $manual = (bool) ($courier['manual'] ?? false);
+
         return [
-            'courier_provider'        => $courier['provider'] ?? null,
+            'courier_provider'        => $manual ? VentaOrder::MANUAL_PROVIDER : ($courier['provider'] ?? null),
+            'courier_name'            => $manual ? ($courier['manual_courier'] ?? null) : null,
             'courier_tracking_number' => $courier['tracking_number'] ?? null,
-            'courier_status'          => $courier['status'] ?? null,
+            'courier_status'          => $manual ? 'manual' : ($courier['status'] ?? null),
             'courier_booked_at'       => $courier['booked_at'] ?? null,
         ];
     }

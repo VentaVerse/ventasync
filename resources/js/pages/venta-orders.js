@@ -144,6 +144,18 @@ document.addEventListener('DOMContentLoaded', function () {
         var backBtn = document.getElementById('btnVtBookBack');
         var confirmBtn = document.getElementById('btnVtBookConfirm');
 
+        // The third way out: a courier the store does not integrate with,
+        // recorded by hand. Its own pane, its own confirm, no waybill.
+        var manualOfferBtn = document.getElementById('btnVtManual');
+        var manualPane = document.getElementById('vtBookManual');
+        var manualCourierEl = document.getElementById('vtManualCourier');
+        var manualTrackingEl = document.getElementById('vtManualTracking');
+        var manualCommentEl = document.getElementById('vtManualComment');
+        var manualErrorEl = document.getElementById('vtManualError');
+        var manualBackBtn = document.getElementById('btnVtManualBack');
+        var manualConfirmBtn = document.getElementById('btnVtManualConfirm');
+        var couriersLoaded = false;
+
         bindModalDismiss(modal, [document.getElementById('btnCloseVtBook')]);
 
         var urls = {};
@@ -162,6 +174,12 @@ document.addEventListener('DOMContentLoaded', function () {
         function reset() {
             show(step1);
             hide(step2);
+            hide(manualPane);
+            hide(manualErrorEl);
+            manualErrorEl.textContent = '';
+            manualTrackingEl.value = '';
+            manualCommentEl.value = '';
+            manualConfirmBtn.disabled = false;
             show(couriersLoading);
             hide(couriersEl);
             clear(couriersEl);
@@ -293,6 +311,79 @@ document.addEventListener('DOMContentLoaded', function () {
             hide(step2);
         });
 
+        // The store's own courier list, read once per page: it changes
+        // when someone edits Settings, not between two bookings.
+        function loadCouriers() {
+            if (couriersLoaded) return;
+            getJson(urls.couriers)
+                .then(function (data) {
+                    clear(manualCourierEl);
+                    var list = (data && data.ok && Array.isArray(data.couriers)) ? data.couriers : [];
+                    manualCourierEl.appendChild(new Option(list.length ? 'Choose a courier' : 'No couriers set up on the store', ''));
+                    list.forEach(function (c) {
+                        var opt = new Option(c.name, String(c.id));
+                        opt.setAttribute('data-name', c.name);
+                        manualCourierEl.appendChild(opt);
+                    });
+                    couriersLoaded = true;
+                })
+                .catch(function () {
+                    clear(manualCourierEl);
+                    manualCourierEl.appendChild(new Option('The store’s courier list could not be read', ''));
+                });
+        }
+
+        manualOfferBtn.addEventListener('click', function () {
+            hide(step1);
+            hide(step2);
+            show(manualPane);
+            hide(manualErrorEl);
+            loadCouriers();
+        });
+
+        manualBackBtn.addEventListener('click', function () {
+            hide(manualPane);
+            show(step1);
+        });
+
+        manualConfirmBtn.addEventListener('click', function () {
+            var selected = manualCourierEl.options[manualCourierEl.selectedIndex];
+            var body = {};
+            if (manualCourierEl.value) {
+                body.shipping_courier_id = manualCourierEl.value;
+                body.courier_name = selected ? selected.getAttribute('data-name') : '';
+            }
+            if (manualTrackingEl.value.trim()) body.tracking_number = manualTrackingEl.value.trim();
+            if (manualCommentEl.value.trim()) body.comment = manualCommentEl.value.trim();
+
+            manualConfirmBtn.disabled = true;
+            hide(manualErrorEl);
+            hideModal(modal);
+            setOverlay('Recording the shipment');
+
+            postJson(urls.bookManual, body)
+                .then(function (res) {
+                    var d = res.data || {};
+                    if (!d.ok) {
+                        hideModal(overlay);
+                        manualConfirmBtn.disabled = false;
+                        manualErrorEl.textContent = d.message || 'The store could not record this shipment.';
+                        show(manualErrorEl);
+                        showModal(modal);
+                        return;
+                    }
+                    // Nothing to print: the row moves to To Handover on reload.
+                    location.reload();
+                })
+                .catch(function () {
+                    hideModal(overlay);
+                    manualConfirmBtn.disabled = false;
+                    manualErrorEl.textContent = 'The request failed before the store answered.';
+                    show(manualErrorEl);
+                    showModal(modal);
+                });
+        });
+
         // Poll for the waybill after a booking. The storefront's own
         // create-then-poll couriers (SPX) can take a few seconds to hand
         // back a printable label; twenty tries three seconds apart is the
@@ -374,7 +465,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 serviceability: btn.getAttribute('data-serviceability-url'),
                 slots: btn.getAttribute('data-slots-url'),
                 estimate: btn.getAttribute('data-estimate-url'),
-                book: btn.getAttribute('data-book-url')
+                book: btn.getAttribute('data-book-url'),
+                couriers: btn.getAttribute('data-couriers-url'),
+                bookManual: btn.getAttribute('data-book-manual-url')
             };
             orderNoEl.textContent = btn.getAttribute('data-order-no') || '';
 

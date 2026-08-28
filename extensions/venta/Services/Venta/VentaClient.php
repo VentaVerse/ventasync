@@ -298,6 +298,28 @@ class VentaClient
         return $this->post("orders/{$orderId}/cancel-booking");
     }
 
+    /** The store's own list of couriers a parcel can be handed to by hand. */
+    public function shippingCouriers(): array
+    {
+        return $this->get('shipping-couriers', ['active_only' => 1]);
+    }
+
+    /**
+     * Record a shipment with a courier the store does not integrate with:
+     * a name off the store's list and a tracking number, no API call to
+     * any courier, no waybill. The store moves the order the way its own
+     * "Record shipment" form does.
+     */
+    public function bookManual(int $orderId, array $opts): array
+    {
+        return $this->post("orders/{$orderId}/book-manual", $opts);
+    }
+
+    public function clearManual(int $orderId): array
+    {
+        return $this->post("orders/{$orderId}/clear-manual");
+    }
+
     /** Live tracking; the storefront refreshes its own record on the way through. */
     public function tracking(int $orderId): array
     {
