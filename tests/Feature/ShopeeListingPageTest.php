@@ -284,10 +284,33 @@ class ShopeeListingPageTest extends TestCase
         $this->assertEmpty($this->sentPayloads);
     }
 
-    public function test_a_link_never_refreshed_reads_not_checked_yet(): void
+    /** A link a push just created has no status; the page asks Shopee once for those rows only, then reads the mirror. */
+    public function test_a_link_never_checked_is_filled_on_first_view_and_only_once(): void
+    {
+        $productId = $this->seedProduct();
+        ShopeeProductLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1']);
+        $calls = 0;
+        $this->getResponses['/api/v2/product/get_item_base_info'] = function () use (&$calls) {
+            $calls++;
+            return $this->baseInfoAnswer(['item_status' => 'REVIEWING']);
+        };
+
+        $r = $this->actingAs($this->manager())->get(route('ext.shopee.products.index'));
+        $r->assertOk();
+        $r->assertSee('Under review');
+        $r->assertDontSee('Not checked yet');
+        $this->assertSame(1, $calls);
+        $this->assertSame('REVIEWING', ShopeeProductLink::where('shopee_item_id', 990077)->value('live_status'));
+
+        $this->actingAs($this->manager())->get(route('ext.shopee.products.index'))->assertOk();
+        $this->assertSame(1, $calls, 'the second view reads the mirror and asks nothing');
+    }
+
+    public function test_a_link_shopee_will_not_answer_for_reads_not_checked_yet(): void
     {
         $productId = $this->seedProduct();
         ShopeeProductLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 111, 'sku' => 'LSTP-SKU-1']);
+        // No get_item_base_info registered: the fake refuses; the row stays blank rather than guessed.
 
         $r = $this->actingAs($this->manager())->get(route('ext.shopee.products.index'));
 

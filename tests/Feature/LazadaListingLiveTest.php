@@ -178,10 +178,36 @@ class LazadaListingLiveTest extends TestCase
         $this->assertSame([], $this->sentPosts);
     }
 
-    public function test_an_uploaded_row_never_refreshed_reads_not_checked_yet(): void
+    /** A row a push just gave an item id has no status; the page asks Lazada once for it, then reads the mirror. */
+    public function test_an_uploaded_row_never_checked_is_filled_on_first_view_and_only_once(): void
     {
         $productId = $this->seedProduct('Unchecked product', 'LZT-UNC');
         LazadaProduct::query()->create(['product_id' => $productId, 'lazada_item_id' => '111']);
+        $calls = 0;
+        $this->getResponses['/product/item/get'] = function () use (&$calls) {
+            $calls++;
+            return ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => [
+                'item_id' => 111, 'status' => 'pending', 'attributes' => ['name' => 'Unchecked product'],
+                'skus' => [['SellerSku' => 'LZT-UNC', 'Status' => 'pending']],
+            ]]];
+        };
+
+        $r = $this->actingAs($this->manager())->get(route('ext.lazada.products.index'));
+        $r->assertOk();
+        $r->assertSee('Pending QC');
+        $r->assertDontSee('Not checked yet');
+        $this->assertSame(1, $calls);
+        $this->assertSame('pending', LazadaProduct::query()->where('lazada_item_id', '111')->value('live_status'));
+
+        $this->actingAs($this->manager())->get(route('ext.lazada.products.index'))->assertOk();
+        $this->assertSame(1, $calls, 'the second view reads the mirror and asks nothing');
+    }
+
+    public function test_an_uploaded_row_lazada_will_not_answer_for_reads_not_checked_yet(): void
+    {
+        $productId = $this->seedProduct('Unchecked product', 'LZT-UNC');
+        LazadaProduct::query()->create(['product_id' => $productId, 'lazada_item_id' => '111']);
+        // No /product/item/get registered: the fake refuses; the row stays blank rather than guessed.
 
         $r = $this->actingAs($this->manager())->get(route('ext.lazada.products.index'));
 

@@ -178,6 +178,27 @@ class TiktokListingsTest extends TestCase
         $this->assertCount(0, $this->callsFor('POST', '/product/202309/products/search'));
     }
 
+    /** A listing a push just gave a product id has no status; the page asks TikTok once for it, then reads the mirror. */
+    public function test_a_listing_never_checked_is_filled_on_first_view_and_only_once(): void
+    {
+        $fresh = $this->seedProduct('F');
+        TikTokListing::create(['product_id' => $fresh, 'tiktok_product_id' => 'tt-new', 'tiktok_category_id' => 'cat-9']);
+        $calls = 0;
+        $this->callResponses['GET /product/202309/products/tt-new'] = function () use (&$calls) {
+            $calls++;
+            return ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success', 'data' => ['id' => 'tt-new', 'status' => 'IN_REVIEW', 'title' => 'F', 'skus' => []]]];
+        };
+
+        $r = $this->actingAs($this->manager())->get(route('ext.tiktok.products.index'));
+        $r->assertOk();
+        $r->assertDontSee('Not checked yet');
+        $this->assertSame(1, $calls);
+        $this->assertSame('IN_REVIEW', TikTokListing::query()->where('tiktok_product_id', 'tt-new')->value('live_status'));
+
+        $this->actingAs($this->manager())->get(route('ext.tiktok.products.index'))->assertOk();
+        $this->assertSame(1, $calls, 'the second view reads the mirror and asks nothing');
+    }
+
     public function test_refresh_walks_the_shop_and_writes_every_listings_status(): void
     {
         $live = $this->seedProduct('L');

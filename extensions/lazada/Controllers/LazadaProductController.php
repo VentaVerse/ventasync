@@ -1200,9 +1200,42 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
          * copied in by a database refresh). Failure leaves the map empty
          * and the rows fall back to the stored badge - absent, never
          * stale. */
+        /* The mirror fills its own blanks (the owner, 2026-08-28: a product
+         * pushed a minute ago should not read "Not checked yet"). A row
+         * that got its item id from a push or a match has no status until
+         * someone asks; the page asks Lazada once for those rows, up to
+         * ten a view, then reads the mirror like every other row. */
+        if ($liveCounts !== null) {
+            $blank = collect($paged)->filter(fn ($l) => !empty($l->lazada_item_id) && $l->live_status === null)->take(10);
+            if ($blank->isNotEmpty()) {
+                $live = app(\Extensions\lazada\Services\Lazada\LazadaLiveListing::class);
+                $filled = false;
+                foreach ($blank as $l) {
+                    $answer = $live->fetch($liveSetting, $liveCreds, (string) $l->lazada_item_id);
+                    $status = null;
+                    if ($answer['live'] !== null && ($answer['live']['status'] ?? '') !== '') {
+                        $status = (string) $answer['live']['status'];
+                    } elseif ($answer['live'] === null && str_contains((string) $answer['error'], 'holds no record')) {
+                        $status = 'missing';
+                    }
+                    if ($status === null) {
+                        break; // Lazada is not answering; leave the rest blank rather than guessed
+                    }
+                    LazadaProduct::query()->where('id', $l->id)
+                        ->update(['live_status' => $status, 'live_checked_at' => now()]);
+                    $l->live_status = $status;
+                    $filled = true;
+                }
+                if ($filled) {
+                    $liveCounts = LazadaProduct::mirrorCounts($statusMap);
+                    $liveCheckedAt = $liveCheckedAt ?? now();
+                }
+            }
+        }
+
         /* The status chip per uploaded row on this page, from the mirror.
-         * Null (never refreshed) renders as "Not checked yet", never as a
-         * guess. */
+         * Null (Lazada did not answer for it) renders as "Not checked
+         * yet", never as a guess. */
         $liveStatuses = [];
         foreach ($paged as $l) {
             if (!empty($l->lazada_item_id) && $l->live_status !== null) {

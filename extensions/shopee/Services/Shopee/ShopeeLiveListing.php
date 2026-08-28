@@ -128,6 +128,81 @@ class ShopeeLiveListing
         ];
     }
 
+    /**
+     * The status of specific items, one get_item_base_info per 50, and
+     * MISSING for an item Shopee does not return. Used to fill the
+     * mirror's blanks: a link created by a push or a match has no status
+     * until someone asks, and the listings page asks once, for those rows
+     * only, the first time it shows them.
+     *
+     * @return array<int, string>  item_id => item_status
+     */
+    public function statusesFor(array $auth, array $itemIds): array
+    {
+        $out = [];
+        foreach (array_chunk(array_values(array_unique(array_map('intval', $itemIds))), 50) as $chunk) {
+            $r = $this->client->shopGet(
+                $auth['mode'],
+                (int) $auth['partner_id'], (string) $auth['partner_key'],
+                (string) $auth['access_token'], (int) $auth['shop_id'],
+                '/api/v2/product/get_item_base_info',
+                ['item_id_list' => implode(',', $chunk)]
+            );
+            if (!($r['ok'] ?? false)) {
+                throw new \RuntimeException(is_array($r['body'] ?? null)
+                    ? (string) ($r['body']['message'] ?? ($r['body']['error'] ?? 'no response'))
+                    : 'no response');
+            }
+            $answered = [];
+            foreach ((($r['body'] ?? [])['response']['item_list'] ?? []) as $it) {
+                $itemId = (int) ($it['item_id'] ?? 0);
+                $out[$itemId] = (string) ($it['item_status'] ?? '');
+                $answered[$itemId] = true;
+            }
+            foreach ($chunk as $askedId) {
+                if (!isset($answered[$askedId])) {
+                    $out[$askedId] = 'MISSING';
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Fill the mirror for links that were never checked. One call per 50,
+     * only for the given links, and only once: after this they carry a
+     * status and a timestamp like every other row.
+     *
+     * @param  \Illuminate\Support\Collection<int, \Extensions\shopee\Models\ShopeeProductLink>  $links
+     * @return bool  whether anything was written
+     */
+    public function fillBlanks(array $auth, $links): bool
+    {
+        $blank = $links->filter(fn ($l) => $l->live_status === null && (int) $l->shopee_item_id > 0);
+        if ($blank->isEmpty()) {
+            return false;
+        }
+        try {
+            $statuses = $this->statusesFor($auth, $blank->pluck('shopee_item_id')->all());
+        } catch (\Throwable) {
+            return false;
+        }
+        $now = now();
+        foreach ($blank as $l) {
+            $status = $statuses[(int) $l->shopee_item_id] ?? null;
+            if ($status === null || $status === '') {
+                continue;
+            }
+            \Extensions\shopee\Models\ShopeeProductLink::query()->whereKey($l->id)
+                ->update(['live_status' => $status, 'live_checked_at' => $now]);
+            $l->live_status = $status;
+            $l->live_checked_at = $now;
+        }
+
+        return true;
+    }
+
     /** Every item id in one status, 100 a page, up to 5,000 items. Throws when Shopee refuses. */
     public function itemIds(array $auth, string $itemStatus): array
     {

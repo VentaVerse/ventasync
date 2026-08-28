@@ -158,6 +158,33 @@ class TikTokProductController extends Controller
         }));
         $readinessByProductId = app(TikTokListingReadiness::class)->forProducts($unlistedPageIds);
 
+        /* The mirror fills its own blanks (the owner, 2026-08-28: a product
+         * pushed a minute ago should not read "Not checked yet"). A listing
+         * that got its product id from a push has no status until someone
+         * asks; the page asks TikTok once for those rows, up to ten a
+         * view, then reads the mirror like every other row. */
+        if ($liveCounts !== null && $c) {
+            $blank = $listingsByProductId->filter(fn ($l) => $l->tiktok_product_id && $l->live_status === null)->take(10);
+            if ($blank->isNotEmpty()) {
+                $live = app(TikTokLiveListing::class);
+                $filled = false;
+                foreach ($blank as $l) {
+                    $answer = $live->fetch((string) $l->tiktok_product_id, $c);
+                    $status = $answer['live']['status'] ?? null;
+                    if ($status === null || $status === '') {
+                        break; // TikTok is not answering; leave the rest blank rather than guessed
+                    }
+                    TikTokListing::query()->whereKey($l->id)->update(['live_status' => $status, 'live_checked_at' => now()]);
+                    $l->live_status = $status;
+                    $filled = true;
+                }
+                if ($filled) {
+                    $liveCounts = TikTokListing::mirrorCounts(TikTokLiveListing::TABS);
+                    $liveCheckedAt = $liveCheckedAt ?? now();
+                }
+            }
+        }
+
         // Per-row statuses, from the mirror: tiktok_product_id => status.
         $liveStatuses = [];
         foreach ($listingsByProductId as $l) {

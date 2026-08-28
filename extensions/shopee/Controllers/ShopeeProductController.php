@@ -252,9 +252,24 @@ class ShopeeProductController extends Controller
         // query (App\Support\VariationRows).
         $optionRowsByProductId = \App\Support\VariationRows::forProducts($pageIds);
 
+        /* The mirror fills its own blanks (the owner, 2026-08-28: a product
+         * pushed a minute ago should not read "Not checked yet"). A link
+         * created by a push or a match has no status until someone asks;
+         * the page asks once, for those rows only, then reads the mirror
+         * like every other row. A shop whose links are all checked pays
+         * nothing here. */
+        if ($liveCounts !== null && $shopeeLinks->isNotEmpty()) {
+            $filled = app(\Extensions\shopee\Services\Shopee\ShopeeLiveListing::class)
+                ->fillBlanks($auth, $shopeeLinks->flatten());
+            if ($filled) {
+                $liveCounts = ShopeeProductLink::mirrorCounts($tabMap);
+                $liveCheckedAt = $liveCheckedAt ?? now();
+            }
+        }
+
         /* The status chip per linked row on this page, from the mirror on
-         * the link rows. Null (never refreshed) renders as "Not checked
-         * yet", never as a guess. */
+         * the link rows. Null (Shopee did not answer for it) renders as
+         * "Not checked yet", never as a guess. */
         $liveStatuses = [];
         foreach ($shopeeLinks->flatten() as $l) {
             if ($l->live_status !== null) {
