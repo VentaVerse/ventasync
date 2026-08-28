@@ -68,7 +68,10 @@
 .rp-basis__caveat {
     display: block;
     margin-top: 2px;
-    color: var(--bl-attn-fill);
+    /* Prose, in prose ink. This was amber, the same amber .rp-warn spends
+       on a thin margin in the table, so one colour said "mixed currency"
+       at the top and "look at this margin" further down. */
+    color: var(--bl-ink-2);
 }
 
 /* ------------------------------------------------------------------
@@ -100,7 +103,7 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 30px;
-    line-height: 36px;
+    line-height: var(--bl-control-h, 32px);
     font-weight: 500;
     color: var(--bl-brand-deep);
     letter-spacing: -.01em;
@@ -119,10 +122,15 @@
 
 /* The supporting figures. No card chrome, no boxes: one vertical hairline
    between each, which is all the separation a row of small figures needs. */
+/* 136px is what a seven-digit peso figure at 15px mono needs. At 112px
+   the Products band rendered "₱7,084,718…" with a literal ellipsis, which
+   on a money page reads as a bug. Six facts now wrap to two rows of three
+   on a 1366 screen rather than squeezing into one; the figures are the
+   point of the band, the row count is not. */
 .rp-facts {
     flex: 1 1 340px;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
     gap: var(--bl-space-3) 0;
     align-content: center;
 }
@@ -148,8 +156,9 @@
     line-height: 22px;
     color: var(--bl-ink);
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    /* Never ellipsised: a money figure that cannot fit overflows its cell
+       and is still readable, which is better than a figure cut short. */
+    overflow: visible;
 }
 .rp-fact__note { display: block; font-size: 11px; color: var(--bl-ink-3); }
 
@@ -240,7 +249,10 @@
    quiet text links beside it, rather than a solid fill flanked by two
    outlined buttons of equal size all saying different kinds of thing. */
 .rp-more-toggle {
-    align-self: center;
+    /* The same bottom edge as the Clear link beside it; centred, the two
+       sat 7px apart and read as a collision. */
+    align-self: flex-end;
+    line-height: var(--bl-control-h, 32px);
     margin-left: var(--bl-space-2);
     padding: 0;
     background: none;
@@ -292,6 +304,22 @@
     min-width: 100%;
 }
 .rp-scroll .x-table thead th { background: var(--bl-paper); }
+
+/* THE COLUMNS THE REPORT IS NAMED FOR STAY ON SCREEN.
+   Under table-layout: auto the Product column took 584px and the Customer
+   column 200px, and pushed Net profit and Margin 443px past the right edge
+   of a 1366 screen, on the page called Product profitability. Sticky
+   columns were tried and rejected: a pinned pair over an overflowing table
+   always hides whatever sits under it at the scroll's start. The wide
+   text columns are capped instead (the full text is on the cell's title),
+   so eleven columns fit a 1366 screen and nothing has to be pinned. */
+.rp-col-name,
+.rp-scroll .x-table td[data-label="Customer"] {
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 
 /* Toggling a group open/shut sets the `hidden` attribute on its rows.
    The mobile restack further down turns every row into a grid, and
@@ -451,18 +479,23 @@
 .rp-trend {
     display: flex;
     align-items: stretch;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 3px;
     height: 168px;
     border-bottom: 1px solid var(--bl-rule);
 }
 .rp-trend__col {
     display: block;
-    flex: 1 1 0;
+    flex: 0 0 64px;
+    box-sizing: border-box;
+    padding-inline: 10px;
     min-width: 4px;
-    max-width: 44px;
     height: 100%;
 }
+/* Dense daily ranges: more than about 16 columns cannot each take 64px, so
+   bars and ticks both shrink together and the ticks thin themselves out. */
+.rp-trend--dense .rp-trend__col { flex: 1 1 0; padding-inline: 1px; }
+.rp-trend--dense .rp-trend__tick { flex: 1 1 0; }
 /* Fix round, Important 3: resting fill was --bl-rule-2, a border
    token doing a fill's job at 1.54:1 light / 1.50:1 dark against
    --bl-sheet, under the 3:1 WCAG 1.4.11 floor for an information-bearing
@@ -479,9 +512,17 @@
 .rp-trend__loss   { fill: var(--bl-bad); }
 .rp-trend__col:hover .rp-trend__cost { fill: var(--bl-ink-2); }
 
+/* A tick is as wide as its bar's slot. The bar draws 44px inside a 64px
+   slot, which is what "May 2026" at 11px mono needs, so the label under
+   each column is whole and its centre is the column's centre. */
+.rp-trend__tick { flex: 0 0 64px; min-width: 0; text-align: center; white-space: nowrap; }
+.rp-trend__tick[aria-hidden="true"] { visibility: hidden; }
 .rp-trend__ticks {
+    /* The same flex row as the bars above, one tick per column, so each
+       label sits under its own bar without either row knowing the count. */
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
+    gap: 3px;
     margin-top: var(--bl-space-2);
     font-family: var(--font-mono);
     font-size: 11px;
@@ -497,9 +538,10 @@
     grid-column: 1;
     font-size: 12px;
     color: var(--bl-ink);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    /* The label sits above its own bar with the row's width to itself,
+       so it wraps rather than cuts: the partial's own comment promised a
+       name is never cut short, and it was cut at 24 characters. */
+    overflow-wrap: anywhere;
 }
 .rp-rank__v {
     grid-column: 2;
@@ -621,10 +663,36 @@
     .rp-scroll { overflow: visible; max-height: none; border-bottom: 0; }
     .rp-scroll .x-table { width: 100%; table-layout: fixed; }
 
-    .rp-scroll .x-table tbody tr { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .rp-scroll .x-table tbody td { white-space: normal; overflow-wrap: anywhere; }
-    .rp-scroll .x-table tbody td:first-child { grid-column: 1 / -1; }
-    .rp-scroll .x-table td.x-td-num { text-align: left; }
+    /* A REPORT ROW ON A PHONE IS A SUMMARY, NOT A TRANSPOSED TABLE.
+       Every field one per line made one order 478px tall and one opened
+       month 37,000px. The row now reads as a card: its label cells on
+       one line, then Net profit and Margin as the one figure that
+       matters, then the money columns two to a row underneath. The base
+       restack in blotter-components.css forces every cell to span the
+       row; the rules below are specific enough to win there. */
+    .rp-scroll .x-table tbody tr { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--bl-space-3); row-gap: 2px; padding: var(--bl-space-3) var(--bl-space-3); }
+    .rp-scroll .x-table tbody td { white-space: normal; overflow-wrap: anywhere; padding: 0; }
+    .rp-page .x-table tbody tr > td { grid-column: auto; }
+    /* The identifying cells read as one line each: who, then what it was
+       for. Their data-labels are dropped; "Order 1000082" needs no label. */
+    .rp-page .x-table tbody tr > td:first-child,
+    .rp-page .x-table tbody tr > td[data-label="Customer"],
+    .rp-page .x-table tbody tr > td[data-label="Product"],
+    .rp-page .x-table tbody tr > td[data-label="Category"] { grid-column: 1 / -1; }
+    .rp-page .x-table tbody tr > td:first-child::before,
+    .rp-page .x-table tbody tr > td[data-label="Date"]::before,
+    .rp-page .x-table tbody tr > td[data-label="Channel"]::before,
+    .rp-page .x-table tbody tr > td[data-label="Status"]::before,
+    .rp-page .x-table tbody tr > td[data-label="Customer"]::before,
+    .rp-page .x-table tbody tr > td[data-label="Product"]::before { display: none; }
+    /* Money cells: label and figure on one line, two cells to a row. */
+    .rp-page .x-table tbody tr > td.x-td-num { display: flex; justify-content: space-between; gap: var(--bl-space-2); align-items: baseline; }
+    .rp-page .x-table tbody tr > td.x-td-num::before { margin: 0; }
+    .rp-page .x-table tbody tr > td[data-label="Net profit"],
+    .rp-page .x-table tbody tr > td[data-label="Gross profit"] { grid-column: 1 / -1; font-size: 15px; margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--bl-rule); }
+    .rp-scroll .x-table td.x-td-num { text-align: right; }
+    .rp-col-name,
+    .rp-scroll .x-table td[data-label="Customer"] { max-width: none; white-space: normal; }
 
     /* Only the group's own label cell spans the row. Its figures keep the
        two-column grid and their data-labels, so a restacked group header
@@ -663,7 +731,7 @@
     background: var(--bl-chrome);
 }
 .rp-thumb--none { background: var(--bl-chrome); }
-.rp-col-sku    { width: 132px; }
+.rp-col-sku    { width: 112px; }
 .rp-col-mkt    { width: 148px; }
 .rp-col-mstat  { width: 146px; }
 .rp-col-period { width: 210px; }
