@@ -46,6 +46,12 @@ final class FulfilmentSteps
         'all' => 'All',
         'unpaid' => 'Unpaid',
         'to_ship' => 'To Ship',
+        // The two halves of To Ship. Every channel splits the work the same
+        // way: the parcel is either still on the bench (To Pack) or on the
+        // shelf waiting for the courier (To Handover). They rank inside
+        // To Ship so a status placed in either sorts with the work.
+        'to_pack' => 'To Pack',
+        'to_handover' => 'To Handover',
         'ready' => 'Ready for pickup',
         'shipping' => 'Shipping',
         'in_transit' => 'In transit',
@@ -71,23 +77,125 @@ final class FulfilmentSteps
      * Keyed the same way ChannelStatusTone keys its maps - uppercased, with
      * spaces folded to underscores - so "Start Pickup" and "START_PICKUP"
      * are one entry.
+     *
+     * The storefront's rows mirror the storefront's OWN queue placement
+     * (dumped from its courier-fulfillment status placement table on
+     * 2026-08-28). The storefront tells its statuses apart the same way the
+     * marketplaces do, so a storefront status lands in the same To Pack or
+     * To Handover step a Shopee status would. Board task #167 replaces this
+     * list with the placement the storefront reports itself, once its API
+     * carries one (#169); until then a status the storefront adds falls
+     * into Other, which is visible, rather than being guessed at.
      */
     private const STATUS_STEPS = [
         'venta.orders' => [
+            'UNPAID' => 'unpaid',
+            'QUOTE_READY_FOR_PAYMENT' => 'unpaid',
             'PENDING' => 'unpaid',
             'FOR_VERIFICATION' => 'unpaid',
-            'PROCESSING' => 'to_ship',
-            'START_PICKUP' => 'ready',
+
+            'PROCESSED' => 'to_pack',
+            'PAYMENT_RECEIVED' => 'to_pack',
+            'ITEM_RESERVED' => 'to_pack',
+            'ORDER_PROCESSED' => 'to_pack',
+            'ARRIVED_AT_NGD' => 'to_pack',
+            'ASSIGNED' => 'to_pack',
+            'ACCEPTED' => 'to_pack',
+            'ASSIGNING_RIDER' => 'to_pack',
+            'PROCESSING' => 'to_pack',
+
+            'ORDER_BEING_SHIPPED' => 'to_handover',
+            'START_PICKUP' => 'to_handover',
+            'DONE_PICKUP' => 'to_handover',
+            'PICKUP_FAILED' => 'to_handover',
+
+            'IN_TRANSIT_TO_MANILA' => 'shipping',
+            'DELIVERY_FAILED' => 'shipping',
             'SHIPPED' => 'shipping',
-            'IN_TRANSIT_TO_MANILA' => 'in_transit',
+            'IN_TRANSIT' => 'shipping',
+
             'DELIVERED' => 'delivered',
-            'COMPLETE' => 'completed',
-            'COMPLETED' => 'completed',
+            'COMPLETE' => 'delivered',
+            'COMPLETED' => 'delivered',
+
+            'DENIED' => 'cancelled',
+            'CANCELED_REVERSAL' => 'cancelled',
+            'FAILED' => 'cancelled',
+            'REFUNDED' => 'cancelled',
+            'REVERSED' => 'cancelled',
+            'CHARGEBACK' => 'cancelled',
+            'EXPIRED' => 'cancelled',
+            'VOIDED' => 'cancelled',
             'CANCELED' => 'cancelled',
             'CANCELLED' => 'cancelled',
-            'FAILED' => 'failed',
+
+            'RETURNING' => 'failed',
+            'RETURNED' => 'failed',
+            'LOST' => 'failed',
+            'DAMAGED' => 'failed',
         ],
     ];
+
+    /**
+     * The steps a surface's statuses can be placed in, in lifecycle order,
+     * plus "other" for whatever the surface has no opinion about. This is
+     * the row of buckets bucket() fills, and the strip a channel without a
+     * fixed status vocabulary renders.
+     *
+     * @return list<string>
+     */
+    public static function placements(): array
+    {
+        return ['unpaid', 'to_pack', 'to_handover', 'shipping', 'delivered', 'cancelled', 'failed', 'other'];
+    }
+
+    /**
+     * Sort a surface's raw statuses, with their counts, into the steps they
+     * belong to.
+     *
+     *   FulfilmentSteps::bucket('venta.orders', ['Processing' => 3, 'Start Pickup' => 1, 'Odd' => 2])
+     *   -> ['unpaid' => ['count' => 0, 'statuses' => []],
+     *       'to_pack' => ['count' => 3, 'statuses' => ['Processing']],
+     *       'to_handover' => ['count' => 1, 'statuses' => ['Start Pickup']],
+     *       ...
+     *       'other' => ['count' => 2, 'statuses' => ['Odd']]]
+     *
+     * Every placement is present, at zero when nothing sits in it, so a
+     * caller can render a fixed strip off this without a second lookup. The
+     * statuses are returned exactly as the caller spelled them, because
+     * they are what the caller will put back into a WHERE IN: the storefront
+     * stores its status NAME, and a normalised key would match nothing.
+     *
+     * One GROUP BY feeds this, so a card counter and the panel strip that
+     * both call it over the same rows cannot disagree.
+     *
+     * @param  iterable<string, int|string>  $statusCounts  raw status => count
+     * @return array<string, array{count: int, statuses: list<string>}>
+     */
+    public static function bucket(string $surface, iterable $statusCounts): array
+    {
+        $out = [];
+        foreach (self::placements() as $step) {
+            $out[$step] = ['count' => 0, 'statuses' => []];
+        }
+
+        foreach ($statusCounts as $status => $count) {
+            $status = (string) $status;
+            $step = self::stepFor($surface, $status) ?? 'other';
+
+            // A status placed in a step this row does not have (none today,
+            // but the map is the only thing stopping it) is worse lost than
+            // visible: file it under Other rather than dropping it.
+            if (! isset($out[$step])) {
+                $step = 'other';
+            }
+
+            $out[$step]['count'] += (int) $count;
+            $out[$step]['statuses'][] = $status;
+        }
+
+        return $out;
+    }
 
     /**
      * The step a raw status belongs to on a surface, or null when the

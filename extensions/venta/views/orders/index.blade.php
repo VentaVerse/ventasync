@@ -25,9 +25,15 @@
     $canManageVentaOrders = auth()->user()?->hasPermission('manage_venta/order') ?? false;
 
     // The count in the deck names what is actually listed, so standing on a
-    // status filter it says that status rather than the whole store.
+    // tab it says that tab (or the To Ship sub step) rather than the whole
+    // store, and a status alias names the status.
     $vtStatus = (string) ($filters['status'] ?? '');
-    $vtScopeLabel = $vtStatus !== '' ? ucwords(str_replace('_', ' ', $vtStatus)) : null;
+    $vtTab = strtoupper((string) ($active_tab ?? 'TO_SHIP'));
+    $vtScopeLabel = $vtStatus !== ''
+        ? \App\Support\ChannelStatusTone::labelFor('venta.orders', $vtStatus)
+        : ($vtTab === 'TO_SHIP'
+            ? (['to_pack' => 'To Pack', 'to_handover' => 'To Handover'][$pending_subtab ?? 'to_pack'] ?? 'To Ship')
+            : ($vtTab === 'ALL' ? null : ($tabs[$vtTab] ?? null)));
 @endphp
 
 <div id="venta-orders-page" class="co-page" data-desk-scope>

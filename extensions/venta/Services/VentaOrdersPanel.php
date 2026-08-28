@@ -60,8 +60,81 @@ class VentaOrdersPanel
          * queue being worked. */
         $status = $request->filled('status') ? (string) $request->input('status') : '';
 
-        $vtWorkStatuses = ['Pending', 'For Verification', 'Processing', 'Start Pickup'];
-        $defaultDir = in_array($status, $vtWorkStatuses, true) ? 'asc' : 'desc';
+        /* THE STRIP IS FIXED, LIKE EVERY MARKETPLACE'S (the owner, 2026-08-28).
+         *
+         * This used to render whatever statuses the store had sent, in the
+         * order the lifecycle map put them, so a step with nothing in it
+         * simply did not exist on the strip and the strip changed shape
+         * from store to store. The three marketplace panels show the same
+         * fixed row (All, Unpaid, To Ship, Shipping, Delivered, Cancelled,
+         * Failed Delivery), keep a tab at zero clickable, and land on To
+         * Ship with To Pack open. A packer crossing from Shopee to the
+         * storefront now finds the queue where their hands expect it.
+         *
+         * Counts for the whole store come from one GROUP BY over status,
+         * and every placement below is read off that one result, so the
+         * strip, the sub strip and the list filter cannot disagree about
+         * where a status sits. */
+        $statusCounts = VentaOrder::where('venta_setting_id', $storeId)
+            ->selectRaw('status, COUNT(*) as cnt')
+            ->groupBy('status')
+            ->pluck('cnt', 'status');
+
+        $buckets = FulfilmentSteps::bucket('venta.orders', $statusCounts);
+
+        $tabToStep = [
+            'ALL'             => 'all',
+            'UNPAID'          => 'unpaid',
+            'TO_SHIP'         => 'to_ship',
+            'SHIPPING'        => 'shipping',
+            'DELIVERED'       => 'delivered',
+            'CANCELLED'       => 'cancelled',
+            'FAILED_DELIVERY' => 'failed',
+        ];
+
+        $tabs = FulfilmentSteps::tabs($tabToStep);
+
+        $tab = strtoupper((string) $request->query('tab', ''));
+
+        /* status= STILL WORKS, AS AN ALIAS.
+         *
+         * Every link that existed before this strip (the hub's card links,
+         * bookmarks, the seller center's own old URLs) named a raw status.
+         * Rather than 404 them or silently land them on To Ship, the status
+         * picks the tab it belongs to and narrows that tab's list to itself,
+         * which is exactly what the old link showed. */
+        $statusStep = $status !== '' ? (FulfilmentSteps::stepFor('venta.orders', $status) ?? 'other') : null;
+
+        if ($tab === '') {
+            $tab = match ($statusStep) {
+                null => 'TO_SHIP',
+                'to_pack', 'to_handover' => 'TO_SHIP',
+                default => (string) (array_search($statusStep, $tabToStep, true) ?: 'OTHER'),
+            };
+        }
+
+        if (! isset($tabToStep[$tab]) && $tab !== 'OTHER') {
+            $tab = 'TO_SHIP';
+        }
+
+        // The sub step only means anything inside To Ship. A status alias
+        // that names a To Handover status opens To Handover, so the old
+        // "?status=Start Pickup" link lands on the parcels it always showed.
+        $pendingSubtab = '';
+        if ($tab === 'TO_SHIP') {
+            $pendingSubtab = (string) $request->query(
+                'pending_sub',
+                $statusStep === 'to_handover' ? 'to_handover' : 'to_pack'
+            );
+            if (! in_array($pendingSubtab, ['to_pack', 'to_handover'], true)) {
+                $pendingSubtab = 'to_pack';
+            }
+        }
+
+        // First in, first out on the work queue, newest first everywhere
+        // else. Same rule as the marketplace panels, keyed on the tab now
+        // rather than on a hand-kept list of status names.
+        $defaultDir = $tab === 'TO_SHIP' ? 'asc' : 'desc';
 
         $dir = in_array($request->input('dir'), ['asc', 'desc'], true)
             ? (string) $request->input('dir')
@@ -74,12 +147,45 @@ class VentaOrdersPanel
             ->with('products')
             ->orderBy($sort, $dir);
 
+        // The tab's statuses, spelled the way the store spelled them, which
+        // is what the rows hold. An empty list is a tab with nothing in it,
+        // and whereIn on an empty list matches nothing, which is right.
+        if ($tab === 'TO_SHIP') {
+            $query->whereIn('status', $buckets[$pendingSubtab]['statuses']);
+        } elseif ($tab === 'OTHER') {
+            $query->whereIn('status', $buckets['other']['statuses']);
+        } elseif ($tab !== 'ALL') {
+            $query->whereIn('status', $buckets[$tabToStep[$tab]]['statuses']);
+        }
+
         // filled() is false for both a missing param and an empty one, so
-        // neither narrows the list. Same guard the page has always used;
-        // $status itself is resolved above, because the default sort
-        // direction depends on it.
+        // neither narrows the list. Same guard the page has always used.
         if ($status !== '') {
             $query->where('status', $status);
+        }
+
+        $pending_sub_counts = [
+            'to_pack'     => $buckets['to_pack']['count'],
+            'to_handover' => $buckets['to_handover']['count'],
+        ];
+
+        $tab_counts = ['ALL' => (int) $statusCounts->sum()];
+        foreach ($tabToStep as $key => $step) {
+            if ($step === 'all') {
+                continue;
+            }
+            // To Ship counts both of its steps, so the tab can never read
+            // zero above a sub tab that has work in it.
+            $tab_counts[$key] = $step === 'to_ship'
+                ? $pending_sub_counts['to_pack'] + $pending_sub_counts['to_handover']
+                : $buckets[$step]['count'];
+        }
+
+        // Other is defined by exclusion, so it only appears when the store
+        // has sent something the map does not place. Same rule as Shopee's.
+        if ($buckets['other']['count'] > 0 || $tab === 'OTHER') {
+            $tabs['OTHER'] = FulfilmentSteps::label('other');
+            $tab_counts['OTHER'] = $buckets['other']['count'];
         }
 
         $q = $request->filled('q') ? (string) $request->input('q') : '';
@@ -138,27 +244,6 @@ class VentaOrdersPanel
         // storefront is showing, and one lookup keyed by sku covers a page.
         $vtImages = $this->imagesForOrders($orders->getCollection());
 
-        // Counts for the segment bar, over the whole store rather than the
-        // filtered list: a count that moved when you clicked it would be
-        // telling you about the filter, not about the store.
-        $statusCounts = VentaOrder::where('venta_setting_id', $storeId)
-            ->selectRaw('status, COUNT(*) as cnt')
-            ->groupBy('status')
-            ->pluck('cnt', 'status');
-
-        // In lifecycle order, not in the order a GROUP BY handed them back.
-        //
-        // The strip came out sorted by nothing in particular, which put
-        // "Ready for pickup" - the one step on this list that is somebody's
-        // move - fourth, behind Delivered and Cancelled. Every other channel
-        // puts the work third, and a supervisor crossing between them reads
-        // position before they read words. A store can add statuses this map
-        // has never heard of; those keep their place at the end rather than
-        // being guessed at.
-        $statusCounts = collect(
-            FulfilmentSteps::order($statusCounts, 'venta.orders')
-        );
-
         // Read for the one store this panel is about. On the hub the tab
         // already knows the label, but the panel is also rendered by the
         // seller center, so it resolves its own rather than depending on a
@@ -167,15 +252,19 @@ class VentaOrdersPanel
             ?: ('Venta #' . $storeId));
 
         return [
-            'orders'       => $orders,
-            'statusCounts' => $statusCounts,
-            'sort'         => $sort,
-            'dir'          => $dir,
-            'storeId'      => $storeId,
-            'storeLabel'   => $storeLabel,
-            'per_page'     => $perPage,
-            'vtImages'     => $vtImages,
-            'filters'      => [
+            'orders'             => $orders,
+            'tabs'               => $tabs,
+            'active_tab'         => $tab,
+            'pending_subtab'     => $pendingSubtab,
+            'tab_counts'         => $tab_counts,
+            'pending_sub_counts' => $pending_sub_counts,
+            'sort'               => $sort,
+            'dir'                => $dir,
+            'storeId'            => $storeId,
+            'storeLabel'         => $storeLabel,
+            'per_page'           => $perPage,
+            'vtImages'           => $vtImages,
+            'filters'            => [
                 'q' => $q,
                 'status' => $status,
                 'placed_from' => $placedFrom,

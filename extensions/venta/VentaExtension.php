@@ -15,6 +15,7 @@ use App\Integrations\MenuItem;
 use App\Integrations\OrderTab;
 use App\Integrations\StoreLink;
 use App\Models\Catalog\OrderStatus;
+use App\Support\FulfilmentSteps;
 use Extensions\venta\Models\VentaOrder;
 use Extensions\venta\Models\VentaProductLink;
 use Extensions\venta\Models\VentaSetting;
@@ -140,6 +141,36 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
         return VentaSetting::orderBy('id')->get();
     }
 
+    /**
+     * How many of a store's orders sit in each fulfilment step, keyed by
+     * step (to_pack, to_handover, ...), every step present at zero.
+     *
+     * One GROUP BY over venta_orders.status, bucketed through the same map
+     * the orders panel builds its strip from. Public and static because the
+     * card counters above and any later reader (the dashboard, a report)
+     * must count the same way the panel does, or the numbers on the card
+     * and on the strip drift apart again.
+     *
+     * @return array<string, int>
+     */
+    public static function stepCounts(int $storeId): array
+    {
+        if (!Schema::hasTable('venta_orders')) {
+            return array_fill_keys(FulfilmentSteps::placements(), 0);
+        }
+
+        $statusCounts = VentaOrder::query()
+            ->where('venta_setting_id', $storeId)
+            ->selectRaw('status, COUNT(*) as cnt')
+            ->groupBy('status')
+            ->pluck('cnt', 'status');
+
+        return array_map(
+            fn (array $bucket) => $bucket['count'],
+            FulfilmentSteps::bucket('venta.orders', $statusCounts)
+        );
+    }
+
     protected function buildOrderTab(int $storeId, string $storeName): OrderTab
     {
         $marketplaceSource = 'venta:' . $storeId;
@@ -166,29 +197,25 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
              * neither number was wrong; they were answers to different
              * questions.
              *
-             * Waiting means the seller still has the parcel. Start Pickup is
-             * the storefront asking them to hand it over, so it counts;
-             * Shipped, In Transit and Delivered have left and do not. Kept as
-             * an explicit list rather than "everything except the finished
-             * ones", so a new status the storefront invents is not silently
-             * counted as work nobody has to do. */
+             * Waiting means the seller still has the parcel: the To Pack and
+             * To Handover steps, and nothing else. The statuses behind each
+             * step are the ONE map the orders panel's strip reads
+             * (FulfilmentSteps, surface venta.orders), through the same
+             * bucketing over the same GROUP BY, so the card and the tabs
+             * cannot disagree. An unplaced status the storefront invents
+             * lands in Other, visible on the strip, and is not counted as
+             * work nobody has to do. */
             unprocessedCounter: function () use ($storeId) {
-                if (!Schema::hasTable('venta_orders')) {
-                    return 0;
-                }
+                $steps = self::stepCounts($storeId);
 
-                return VentaOrder::query()
-                    ->where('venta_setting_id', $storeId)
-                    ->whereIn('status', ['Start Pickup', 'Pending', 'Processing', 'For Verification'])
-                    ->count();
+                return $steps['to_pack'] + $steps['to_handover'];
             },
             /* The steps while the seller holds the parcel, each counted alone:
              * the fulfilment card leads with To Pack and prints To Handover beside
-             * it, which the staff count against the shelf. The statuses are the
-             * orders panel's own sub-tab map, so the card and the tab agree. */
+             * it, which the staff count against the shelf. */
             stages: [
-                ['key' => 'to_pack', 'label' => 'to pack', 'counter' => fn () => Schema::hasTable('venta_orders') ? VentaOrder::query()->where('venta_setting_id', $storeId)->whereIn('status', ['Pending', 'For Verification', 'Processing'])->count() : 0],
-                ['key' => 'to_handover', 'label' => 'to handover', 'counter' => fn () => Schema::hasTable('venta_orders') ? VentaOrder::query()->where('venta_setting_id', $storeId)->whereIn('status', ['Start Pickup'])->count() : 0],
+                ['key' => 'to_pack', 'label' => 'to pack', 'counter' => fn () => self::stepCounts($storeId)['to_pack']],
+                ['key' => 'to_handover', 'label' => 'to handover', 'counter' => fn () => self::stepCounts($storeId)['to_handover']],
             ],
             dailyOrdersCounter: function () use ($marketplaceSource, $orderTable) {
                 if (!Schema::hasTable($orderTable)) {

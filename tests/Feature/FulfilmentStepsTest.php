@@ -85,10 +85,53 @@ class FulfilmentStepsTest extends TestCase
 
     public function test_a_status_is_matched_however_the_store_spelled_it(): void
     {
-        $this->assertSame('ready', FulfilmentSteps::stepFor('venta.orders', 'Start Pickup'));
-        $this->assertSame('ready', FulfilmentSteps::stepFor('venta.orders', 'START_PICKUP'));
-        $this->assertSame('ready', FulfilmentSteps::stepFor('venta.orders', '  start pickup '));
+        $this->assertSame('to_handover', FulfilmentSteps::stepFor('venta.orders', 'Start Pickup'));
+        $this->assertSame('to_handover', FulfilmentSteps::stepFor('venta.orders', 'START_PICKUP'));
+        $this->assertSame('to_handover', FulfilmentSteps::stepFor('venta.orders', '  start pickup '));
         $this->assertNull(FulfilmentSteps::stepFor('venta.orders', 'Nothing Knows This'));
+    }
+
+    /**
+     * The storefront's strip is fixed now (the owner, 2026-08-28), so its
+     * statuses are sorted INTO steps rather than ordered along them. Every
+     * step is present at zero, the raw spelling survives so it can go back
+     * into a WHERE IN, and a status the map has never heard of is filed
+     * under Other rather than dropped.
+     */
+    public function test_bucket_sorts_raw_statuses_into_every_step_with_zeros_kept(): void
+    {
+        $buckets = FulfilmentSteps::bucket('venta.orders', [
+            'Processing' => 3,
+            'Order Processed' => 2,
+            'Start Pickup' => 1,
+            'Delivered' => 40,
+            'Some Store Invented This' => 5,
+        ]);
+
+        $this->assertSame(FulfilmentSteps::placements(), array_keys($buckets));
+
+        $this->assertSame(5, $buckets['to_pack']['count']);
+        $this->assertSame(['Processing', 'Order Processed'], $buckets['to_pack']['statuses']);
+        $this->assertSame(1, $buckets['to_handover']['count']);
+        $this->assertSame(['Start Pickup'], $buckets['to_handover']['statuses']);
+        $this->assertSame(40, $buckets['delivered']['count']);
+
+        $this->assertSame(0, $buckets['unpaid']['count'], 'a step with nothing in it is still a step');
+        $this->assertSame([], $buckets['unpaid']['statuses']);
+
+        $this->assertSame(5, $buckets['other']['count']);
+        $this->assertSame(['Some Store Invented This'], $buckets['other']['statuses']);
+    }
+
+    /** Unpaid is before the work, and Pending is unpaid, not To Pack. */
+    public function test_the_storefront_places_pending_under_unpaid_and_shipped_under_shipping(): void
+    {
+        $this->assertSame('unpaid', FulfilmentSteps::stepFor('venta.orders', 'Pending'));
+        $this->assertSame('to_pack', FulfilmentSteps::stepFor('venta.orders', 'Order Processed'));
+        $this->assertSame('to_handover', FulfilmentSteps::stepFor('venta.orders', 'Order Being Shipped'));
+        $this->assertSame('shipping', FulfilmentSteps::stepFor('venta.orders', 'In Transit to Manila'));
+        $this->assertSame('cancelled', FulfilmentSteps::stepFor('venta.orders', 'Canceled'));
+        $this->assertSame('failed', FulfilmentSteps::stepFor('venta.orders', 'Returned'));
     }
 
     /**

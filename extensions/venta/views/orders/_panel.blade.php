@@ -57,6 +57,16 @@
     $vtStatus = (string) ($filters['status'] ?? '');
     $vtHasFilters = $vtQ !== '' || $vtStatus !== '' || $vtPlacedFrom !== '' || $vtPlacedTo !== '';
 
+    // The fixed strip, the same contract the three marketplace panels
+    // read: $tabs (key => label), $active_tab, $tab_counts, and the To Ship
+    // sub step. Defaults match Shopee's so the hub can render this panel
+    // with no query string at all and land on To Ship, To Pack.
+    $tabs = $tabs ?? [];
+    $active_tab = strtoupper((string) ($active_tab ?? 'TO_SHIP'));
+    $tab_counts = $tab_counts ?? [];
+    $pending_sub_counts = $pending_sub_counts ?? [];
+    $pendingSub = $pending_subtab ?? request()->query('pending_sub', 'to_pack');
+
     // A status name is a word, not a constant, on this channel: see the
     // OrderStatusTone note in the table below.
     /* Through the shared label class, like every other channel. This ran
@@ -67,6 +77,15 @@
     $vtStatusLabel = fn (string $s) => $s !== ''
         ? \App\Support\ChannelStatusTone::labelFor('venta.orders', $s)
         : 'No status';
+
+    // What the list is scoped to, in the words the strip uses: the sub
+    // step on To Ship, the tab elsewhere, nothing on All. A status alias
+    // narrows further and names itself.
+    $vtScopeStep = $vtStatus !== ''
+        ? $vtStatusLabel($vtStatus)
+        : ($active_tab === 'TO_SHIP'
+            ? (['to_pack' => 'To Pack', 'to_handover' => 'To Handover'][$pendingSub] ?? 'To Ship')
+            : ($active_tab === 'ALL' ? null : ($tabs[$active_tab] ?? null)));
 
     // Sort links flip the direction of the column already sorted and start
     // ascending on any other, which is what the legacy header links did.
@@ -84,12 +103,14 @@
      baseline and a top edge. --}}
 @endif
 
-{{-- Status filters as a segmented control. The statuses are whatever this
-     store has actually sent, counted by the query behind the page, so the
-     bar never offers a filter that would return nothing. Counts ride along
-     as muted mono numbers on every item rather than only on some: a count
-     that appears on some tabs and not others reads as an alert rather than
-     a figure. --}}
+{{-- The same fixed strip the three marketplace panels carry (the owner,
+     2026-08-28): every step is always there, at zero when nothing sits in
+     it, in the shared lifecycle order, with To Ship split into To Pack and
+     To Handover underneath. The strip used to be whatever statuses the
+     store had sent, so it changed shape from store to store and a step
+     with nothing in it did not exist. Counts ride along as muted mono
+     numbers on every item rather than only on some: a count that appears
+     on some tabs and not others reads as an alert rather than a figure. --}}
 {{-- Phone only. The fetch bar and the filter row are a desk's tools, not
      a bench's - measured at 443px of the 887px a packer scrolled past before
      the first order - so below the table's restack width they start folded
@@ -108,23 +129,58 @@
      fulfilment worker uses most. A nav landmark with aria-current is
      what a set of filter links actually is. --}}
     <nav class="x-segment" aria-label="Order status">
-        <a href="{{ $panelSelfUrl([], ['page', 'status']) }}"
-           class="x-segment__item {{ $vtStatus === '' ? 'is-active' : '' }}"
-           @if($vtStatus === '') aria-current="true" @endif>
-            <span>All</span>
-            <span class="x-segment__count">{{ number_format($statusCounts->sum()) }}</span>
-        </a>
-        @foreach($statusCounts as $vtKey => $vtCount)
-            @php $vtKey = (string) $vtKey; @endphp
-            <a href="{{ $panelSelfUrl(['status' => $vtKey], ['page']) }}"
-               class="x-segment__item {{ $vtStatus === $vtKey ? 'is-active' : '' }}"
-               @if($vtStatus === $vtKey) aria-current="true" @endif>
-                <span>{{ $vtStatusLabel($vtKey) }}</span>
-                <span class="x-segment__count">{{ number_format($vtCount) }}</span>
+        @foreach($tabs as $vtKey => $vtLabel)
+            @php
+                $vtKey = strtoupper((string) $vtKey);
+                $vtIsActive = $active_tab === $vtKey;
+                $vtCount = $tab_counts[$vtKey] ?? null;
+            @endphp
+            {{-- A tab with nothing in it stays clickable, as on Shopee: a
+                 count is a number the last sync produced, and going to the
+                 tab is how an operator checks whether that is still true.
+                 The status alias is dropped on a tab change, since it named
+                 a status inside the tab the reader is leaving. --}}
+            <a href="{{ $panelSelfUrl(['tab' => $vtKey], ['page', 'pending_sub', 'status']) }}"
+               class="x-segment__item {{ $vtIsActive ? 'is-active' : '' }}"
+               @if($vtIsActive) aria-current="true" @endif>
+                <span>{{ $vtLabel }}</span>
+                @if($vtCount !== null)
+                    <span class="x-segment__count">{{ number_format($vtCount) }}</span>
+                @endif
             </a>
         @endforeach
     </nav>
 </div>
+
+@if($active_tab === 'TO_SHIP')
+    @php
+        $vtPendingNav = ['to_pack' => 'To Pack', 'to_handover' => 'To Handover'];
+    @endphp
+    {{-- The one tab with two working steps, the same sub row Shopee, Lazada
+         and TikTok carry. It drops the trough so it cannot be mistaken for
+         a peer of the row above it. --}}
+    <div class="x-segment x-segment--sub" aria-label="To Ship step">
+        @foreach($vtPendingNav as $vtSubKey => $vtSubLabel)
+            @php
+                $vtSubActive = ($pendingSub === $vtSubKey) || ($pendingSub === '' && $vtSubKey === 'to_pack');
+                $vtSubCount = $pending_sub_counts[$vtSubKey] ?? null;
+            @endphp
+            {{-- A sub step keeps its href at zero: To Pack drains into To
+                 Handover over a morning, and a zero here is a moment in
+                 that loop rather than a settled state. --}}
+            <a href="{{ $panelSelfUrl(['tab' => 'TO_SHIP', 'pending_sub' => $vtSubKey], ['page', 'status']) }}"
+               class="x-segment__item {{ $vtSubActive ? 'is-active' : '' }}"
+               {{-- "step", not "page": both strips describe the same URL,
+                     and the sub level is a step inside the tab above it. --}}
+               @if($vtSubActive) aria-current="step" @endif>
+                <span>{{ $vtSubLabel }}</span>
+                @if($vtSubCount !== null)
+                    <span class="x-segment__count">{{ number_format($vtSubCount) }}</span>
+                @endif
+            </a>
+        @endforeach
+    </div>
+@endif
 
 {{-- One filter row. Search was its own card form on the legacy page, sitting
      under a second card holding the status badges; both are one job. --}}
@@ -147,7 +203,11 @@
      line, which is a rendered difference this page's extraction proof does
      not allow. --}}
 @foreach($panelHiddenParams as $panelHiddenKey => $panelHiddenValue)    <input type="hidden" name="{{ $panelHiddenKey }}" value="{{ $panelHiddenValue }}">
-@endforeach    @if($vtStatus !== '')
+@endforeach    <input type="hidden" name="tab" value="{{ $active_tab }}">
+    @if($active_tab === 'TO_SHIP')
+        <input type="hidden" name="pending_sub" value="{{ $pendingSub }}">
+    @endif
+    @if($vtStatus !== '')
         <input type="hidden" name="status" value="{{ $vtStatus }}">
     @endif
     <input type="hidden" name="sort" value="{{ $sort }}">
@@ -227,6 +287,13 @@
     @php
         if ($vtHasFilters) {
             $vtEmptyDesc = 'Nothing matches those filters. Clear them to see the full list.';
+        } elseif ($active_tab !== 'ALL' && $vtScopeStep) {
+            // An empty step on a store that has orders is not "nothing has
+            // been synced": with the strip fixed, To Pack is empty most of
+            // the day on a quiet store, and telling the packer to fetch
+            // orders would have them re-pulling a store that is up to date.
+            // Same wording as Shopee's, naming the step being looked at.
+            $vtEmptyDesc = 'No orders in ' . $vtScopeStep . ' right now.';
         } else {
             // The empty state names the way forward the reader actually has.
             // Telling a read-only operator to use a command bar their
@@ -284,7 +351,7 @@
      act on, and the count sits beside it so the number about to go is never
      off screen from the control that removes them. --}}
 <div data-order-selection>
-    <x-ui.selectbar :step="$vtStatus !== '' ? $vtStatusLabel($vtStatus) : null">
+    <x-ui.selectbar :step="$vtScopeStep">
         <form method="POST" action="{{ route('fulfilment.print.pick', ['channel' => 'venta']) }}"
               id="venta-bulk-form" class="x-selectbar__actions" data-selection-actions hidden>
             @csrf
@@ -304,7 +371,7 @@
         </form>
     </x-ui.selectbar>
 @endif
-<x-ui.table caption="Storefront orders" class="x-table--stack">
+<x-ui.table caption="{{ 'Storefront orders' . ($vtScopeStep ? ' in ' . $vtScopeStep : '') }}" class="x-table--stack">
     <x-slot:head>
         {{-- The legacy column format the other three channels settled on: one
              row per item so Qty and Price align in their own columns, and the
