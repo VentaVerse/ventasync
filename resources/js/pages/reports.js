@@ -108,33 +108,47 @@ function presetRange(key) {
 const PRESETS = ['week', 'month', 'quarter', 'year', 'last_week', 'last_month', 'last_quarter', 'last_year', 'all'];
 
 function initRange() {
-    const select = document.querySelector('[data-range-preset]');
+    const pills = Array.from(document.querySelectorAll('[data-range-preset-btn]'));
     const from = document.querySelector('[data-range-from]');
     const to = document.querySelector('[data-range-to]');
-    if (!select || !from || !to) return;
+    if (!pills.length || !from || !to) return;
 
-    // If the dates already on the page are exactly one of the presets, say
-    // so rather than leaving the select reading "Custom range" over a range
-    // that is anything but.
+    function press(key) {
+        pills.forEach(function (pill) {
+            pill.setAttribute('aria-pressed', pill.getAttribute('data-range-preset-btn') === key ? 'true' : 'false');
+        });
+    }
+
+    // Whichever preset the dates on the page already match is pressed on
+    // load, so a page opened on "last month" says so; anything else is
+    // Custom, which is what it is.
+    let pressed = 'custom';
     for (let i = 0; i < PRESETS.length; i += 1) {
         const range = presetRange(PRESETS[i]);
         if (range && range.from === from.value && range.to === to.value) {
-            select.value = PRESETS[i];
+            pressed = PRESETS[i];
             break;
         }
     }
+    press(pressed);
 
-    select.addEventListener('change', function () {
-        const range = presetRange(select.value);
-        if (range) {
-            from.value = range.from;
-            to.value = range.to;
-        }
+    pills.forEach(function (pill) {
+        pill.addEventListener('click', function () {
+            const key = pill.getAttribute('data-range-preset-btn');
+            const range = presetRange(key);
+            if (range) {
+                from.value = range.from;
+                to.value = range.to;
+            } else if (key === 'custom') {
+                from.focus();
+            }
+            press(key);
+        });
     });
 
     // Typing a date by hand is a custom range by definition.
-    from.addEventListener('change', function () { select.value = 'custom'; });
-    to.addEventListener('change', function () { select.value = 'custom'; });
+    from.addEventListener('change', function () { press('custom'); });
+    to.addEventListener('change', function () { press('custom'); });
 }
 
 /* ------------------------------------------------------------------

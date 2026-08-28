@@ -188,18 +188,80 @@
    queries scan the whole order book, so nothing runs until the operator
    asks for it.
    ------------------------------------------------------------------ */
+/* The older strip, still used by the payouts, fees and inventory pages.
+   The period block sits inside it as a full-width row. */
 .rp-filters { align-items: flex-end; }
+.rp-filters .rp-when { flex-basis: 100%; }
 
-/* One bordered control holding both ends of the range and the word
-   between them. Two bare date inputs side by side both read "mm/dd/yyyy"
-   and neither says which end it is. */
+/* ONE COMPOSED CONTROL, NOT A STRIP.
+   The filter row was six things of equal weight in a line: a search box,
+   a ten-option select, two date inputs, a solid button and two text
+   links, with nothing saying which of them the report turns on. It
+   turns on the period, so the period comes first and largest, as a row
+   of preset pills with the dates beside them; the search and the
+   narrowing fields sit under it; Run report is the one solid thing in
+   the block and the only thing that queries. The block is a sheet
+   panel, the same surface the chart and the band sit on, so the three
+   read as one family of cards rather than a form dropped on a page. */
+.rp-ask {
+    display: flex;
+    flex-direction: column;
+    gap: var(--bl-space-3);
+    margin: 0 0 var(--bl-space-5);
+    padding: var(--bl-space-4) var(--bl-space-5);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-panel);
+}
+
+/* The period: a label, the pills, the dates, on one line while it fits. */
+.rp-when {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--bl-space-2) var(--bl-space-3);
+}
+.rp-when__k {
+    flex: 0 0 auto;
+    min-width: 52px;
+    font-size: 11px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--bl-ink-3);
+}
+.rp-when__presets { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.rp-when__preset {
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid transparent;
+    border-radius: var(--bl-r-pill);
+    background: transparent;
+    color: var(--bl-ink-2);
+    font: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+    transition: background-color .12s ease-out, color .12s ease-out;
+}
+.rp-when__preset:hover { background: var(--bl-chrome); color: var(--bl-ink); }
+.rp-when__preset:focus-visible { outline: 2px solid var(--bl-brand-deep); outline-offset: 1px; }
+.rp-when__preset[aria-pressed="true"] {
+    background: var(--bl-brand-wash);
+    border-color: color-mix(in srgb, var(--bl-brand-deep) 35%, transparent);
+    color: var(--bl-ink);
+    font-weight: 500;
+}
+
+/* The dates: one bordered field holding both ends and the word between
+   them. Two bare date inputs side by side both read "mm/dd/yyyy" and
+   neither says which end it is. */
 .rp-range {
     display: inline-flex;
     align-items: center;
     gap: var(--bl-space-1);
     height: var(--bl-control-h);
+    margin-left: auto;
     padding: 0 var(--bl-space-2);
-    background: var(--bl-sheet);
+    background: var(--bl-chrome);
     border: 1px solid var(--bl-rule);
     border-radius: var(--bl-r-ctrl);
 }
@@ -215,17 +277,57 @@
     font-size: 12px;
 }
 .rp-range input[type="date"]:focus { outline: none; }
-.rp-range:focus-within { border-color: var(--bl-rule-2); }
+.rp-range:focus-within { border-color: var(--bl-brand-deep); }
 /* The native calendar glyph is near-black and vanishes on the dark
    theme; invert it there and tone it down in both. */
-.rp-range input[type="date"]::-webkit-calendar-picker-indicator {
-    opacity: .45;
+.rp-range input[type="date"]::-webkit-calendar-picker-indicator { opacity: .45; cursor: pointer; }
+:root[data-theme="dark"] .rp-range input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: .55; }
+
+/* The second line: search, the fold, and the actions pushed right. */
+.rp-ask__row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--bl-space-2) var(--bl-space-3);
+}
+.rp-ask__search { flex: 1 1 260px; max-width: 420px; }
+.rp-ask__select { flex: 0 1 220px; }
+.rp-ask__actions { display: inline-flex; align-items: center; gap: var(--bl-space-3); margin-left: auto; }
+.rp-ask__clear { font-size: 12.5px; color: var(--bl-ink-3); }
+.rp-ask__clear:hover { color: var(--bl-ink); }
+
+/* The fold. A text control with a mark that turns when open, not a
+   third button competing with Run report. */
+.rp-more-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    background: none;
+    border: 0;
+    color: var(--bl-ink-2);
+    font: inherit;
+    font-size: 12.5px;
     cursor: pointer;
 }
-:root[data-theme="dark"] .rp-range input[type="date"]::-webkit-calendar-picker-indicator {
-    filter: invert(1);
-    opacity: .55;
+.rp-more-toggle:hover { color: var(--bl-ink); }
+.rp-more-toggle__mark { transition: transform .15s ease-out; }
+.rp-more-toggle[aria-expanded="true"] { color: var(--bl-ink); }
+.rp-more-toggle[aria-expanded="true"] .rp-more-toggle__mark { transform: rotate(180deg); }
+
+.rp-more {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--bl-space-3);
+    width: 100%;
+    padding-top: var(--bl-space-3);
+    border-top: 1px solid var(--bl-rule);
 }
+.rp-more[hidden] { display: none; }
+.rp-more__field { display: flex; flex-direction: column; gap: var(--bl-space-1); min-width: 0; }
+.rp-more__label { font-size: 11px; color: var(--bl-ink-3); }
+.rp-more__field .x-input,
+.rp-more__field .x-select-wrap { width: 100%; }
 
 /* Checkbox groups inside the disclosure. A native <select multiple> is
    what these replaced: it needs a ctrl-click nobody discovers, it renders
@@ -244,41 +346,6 @@
 }
 .rp-choice:hover { color: var(--bl-ink); }
 .rp-choice input { width: 13px; height: 13px; accent-color: var(--bl-brand-deep); cursor: pointer; }
-
-/* A text control, not a button. One solid fill (Run report) and two
-   quiet text links beside it, rather than a solid fill flanked by two
-   outlined buttons of equal size all saying different kinds of thing. */
-.rp-more-toggle {
-    /* The same bottom edge as the Clear link beside it; centred, the two
-       sat 7px apart and read as a collision. */
-    align-self: flex-end;
-    line-height: var(--bl-control-h, 32px);
-    margin-left: var(--bl-space-2);
-    padding: 0;
-    background: none;
-    border: 0;
-    color: var(--bl-ink-3);
-    font: inherit;
-    font-size: 12px;
-    cursor: pointer;
-}
-.rp-more-toggle:hover { color: var(--bl-ink); text-decoration: underline; }
-.rp-more-toggle[aria-expanded="true"] { color: var(--bl-ink); }
-
-.rp-more {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: var(--bl-space-3);
-    width: 100%;
-    margin-top: var(--bl-space-1);
-    padding-top: var(--bl-space-3);
-    border-top: 1px solid var(--bl-rule);
-}
-.rp-more[hidden] { display: none; }
-.rp-more__field { display: flex; flex-direction: column; gap: var(--bl-space-1); min-width: 0; }
-.rp-more__label { font-size: 11px; color: var(--bl-ink-3); }
-.rp-more__field .x-input,
-.rp-more__field .x-select-wrap { width: 100%; }
 
 /* ------------------------------------------------------------------
    The table.
@@ -466,68 +533,133 @@
 .rp-key__swatch--profit { background: var(--bl-brand-deep); }
 .rp-key__swatch--loss   { background: var(--bl-bad); }
 
-/* One <svg> per period rather than one for the whole series. That is what
-   lets CSS cap how wide a single column may draw (max-width below): a
-   single stretched SVG scales its bars to whatever the container is, so a
-   three month range drew three 350px slabs. Each column now carries its
-   own 0-100 viewBox, stretched vertically only, so the data still lives
-   in geometry attributes and the layout still belongs to CSS.
-
-   space-between rather than a fixed gap so a sparse series spreads to the
-   same width the tick labels underneath it use, and a dense one (a daily
-   range is sixty columns) still packs tight. */
+/* THE SERIES OWNS THE CARD.
+   One SVG for the whole series, stretched to the card's width, with an
+   axis of three round figures to its left and the period labels under
+   it on the same grid. A column used to be its own SVG pinned to a 44px
+   slot, which kept three months from drawing three slabs and then
+   starved every other range: four months sat in a 176px huddle inside a
+   1048px card, and a whole year was twelve slivers (the owner, 2026-08-29).
+   The bar widths are geometry inside the SVG (a share of a 100-unit
+   viewBox, decided by the count in the partial), so the CSS only has to
+   give the plot its room. */
 .rp-trend {
+    --rp-plot-h: 220px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: var(--rp-plot-h);
+    column-gap: var(--bl-space-3);
+    height: var(--rp-plot-h);
+}
+.rp-trend__axis {
+    grid-column: 1;
+    grid-row: 1;
     display: flex;
-    align-items: stretch;
-    justify-content: flex-start;
-    gap: 3px;
-    height: 168px;
-    border-bottom: 1px solid var(--bl-rule);
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-end;
+    /* The figures sit ON their gridlines: the first at the top edge and
+       the last at the baseline, so half a line hangs above and below. */
+    margin: -6px 0;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    line-height: 12px;
+    color: var(--bl-ink-3);
+    white-space: nowrap;
 }
-.rp-trend__col {
+.rp-trend__plot {
+    grid-column: 2;
+    grid-row: 1;
     display: block;
-    flex: 0 0 64px;
-    box-sizing: border-box;
-    padding-inline: 10px;
-    min-width: 4px;
-    height: 100%;
+    width: 100%;
+    /* The row's height, never the viewBox's aspect: a square viewBox in
+       an auto-sized row made the SVG 1010px tall and drew the bars 800px
+       below the card. */
+    height: var(--rp-plot-h);
+    overflow: visible;
 }
-/* Dense daily ranges: more than about 16 columns cannot each take 64px, so
-   bars and ticks both shrink together and the ticks thin themselves out. */
-.rp-trend--dense .rp-trend__col { flex: 1 1 0; padding-inline: 1px; }
-.rp-trend--dense .rp-trend__tick { flex: 1 1 0; }
-/* Fix round, Important 3: resting fill was --bl-rule-2, a border
-   token doing a fill's job at 1.54:1 light / 1.50:1 dark against
-   --bl-sheet, under the 3:1 WCAG 1.4.11 floor for an information-bearing
-   graphic (this segment IS the cost half of the revenue/cost split the
-   chart exists to show; the figures live in the table below too, but the
-   resting bar itself has to clear the bar on its own). --bl-ink-3
-   clears it at 5.13:1 light / 4.87:1 dark against --bl-sheet
-   (base/tokens.css's own audited matrix). Hover moves one step further,
-   to --bl-ink-2 (5.55 light / 6.64 dark against --bl-sheet), so the
-   segment still visibly darkens on hover rather than going flat now that
-   the resting state already passes on its own. */
+.rp-trend__grid { stroke: var(--bl-rule); stroke-width: 1; }
+.rp-trend__grid--base { stroke: var(--bl-rule-2); }
+.rp-trend__hit { fill: transparent; }
+/* The cost fill sits at --bl-ink-3 (5.13:1 light, 4.87:1 dark against
+   --bl-sheet) so the information-bearing segment clears the 3:1 floor on
+   its own; hover moves one step further so the column still answers. */
 .rp-trend__cost   { fill: var(--bl-ink-3); }
 .rp-trend__profit { fill: var(--bl-brand-deep); }
 .rp-trend__loss   { fill: var(--bl-bad); }
-.rp-trend__col:hover .rp-trend__cost { fill: var(--bl-ink-2); }
+.rp-trend__col:hover .rp-trend__cost   { fill: var(--bl-ink-2); }
+.rp-trend__col:hover .rp-trend__profit { fill: var(--bl-brand); }
 
-/* A tick is as wide as its bar's slot. The bar draws 44px inside a 64px
-   slot, which is what "May 2026" at 11px mono needs, so the label under
-   each column is whole and its centre is the column's centre. */
-.rp-trend__tick { flex: 0 0 64px; min-width: 0; text-align: center; white-space: nowrap; }
-.rp-trend__tick[aria-hidden="true"] { visibility: hidden; }
-.rp-trend__ticks {
-    /* The same flex row as the bars above, one tick per column, so each
-       label sits under its own bar without either row knowing the count. */
+/* The figures are an HTML overlay on the plot, one flex cell per column
+   so each figure sits over its own column. Inside a cell a spacer as
+   tall as the empty space ABOVE the column pushes the figure down to the
+   column's top, and the figure hangs just above that line. The spacer's
+   height comes from two classes the view writes (tens and units of the
+   share, rp-sp-t3 rp-sp-u7 = 37%), which is how a per-column height is
+   set with no style attribute and twenty rules instead of a hundred. A
+   column at the very top of the scale would push its figure off the
+   plot, so it carries rp-trend__figure--in and prints inside the bar. */
+.rp-trend__figures {
+    grid-column: 2;
+    grid-row: 1;
     display: flex;
-    justify-content: flex-start;
-    gap: 3px;
+    align-items: stretch;
+    height: 100%;
+    pointer-events: none;
+}
+.rp-trend__figure {
+    --rp-sp-t: 0%;
+    --rp-sp-u: 0%;
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+}
+.rp-trend__figure-space {
+    display: block;
+    flex: 0 0 auto;
+    width: 1px;
+    height: calc(var(--rp-sp-t) + var(--rp-sp-u));
+}
+.rp-sp-t1 { --rp-sp-t: 10%; } .rp-sp-t2 { --rp-sp-t: 20%; } .rp-sp-t3 { --rp-sp-t: 30%; }
+.rp-sp-t4 { --rp-sp-t: 40%; } .rp-sp-t5 { --rp-sp-t: 50%; } .rp-sp-t6 { --rp-sp-t: 60%; }
+.rp-sp-t7 { --rp-sp-t: 70%; } .rp-sp-t8 { --rp-sp-t: 80%; } .rp-sp-t9 { --rp-sp-t: 90%; }
+.rp-sp-u1 { --rp-sp-u: 1%; } .rp-sp-u2 { --rp-sp-u: 2%; } .rp-sp-u3 { --rp-sp-u: 3%; }
+.rp-sp-u4 { --rp-sp-u: 4%; } .rp-sp-u5 { --rp-sp-u: 5%; } .rp-sp-u6 { --rp-sp-u: 6%; }
+.rp-sp-u7 { --rp-sp-u: 7%; } .rp-sp-u8 { --rp-sp-u: 8%; } .rp-sp-u9 { --rp-sp-u: 9%; }
+.rp-trend__figure-v {
+    flex: 0 0 auto;
+    transform: translateY(calc(-100% - 3px));
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    line-height: 12px;
+    color: var(--bl-ink-2);
+    white-space: nowrap;
+}
+.rp-trend__figure--in .rp-trend__figure-v { transform: translateY(4px); color: var(--bl-paper); }
+.rp-trend__figure.rp-neg .rp-trend__figure-v { color: var(--bl-bad); }
+
+/* The ticks share the plot's grid: the same two-column grid as the
+   chart, with the axis column carrying the axis's widest figure
+   invisibly, so the flex row of ticks is exactly as wide as the plot and
+   slot n sits under column n. */
+.rp-trend__ticks {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: var(--bl-space-3);
     margin-top: var(--bl-space-2);
     font-family: var(--font-mono);
     font-size: 11px;
     color: var(--bl-ink-3);
 }
+.rp-trend__ticks-axis { grid-column: 1; visibility: hidden; white-space: nowrap; font-size: 11px; }
+.rp-trend__ticks-row { grid-column: 2; display: flex; }
+.rp-trend__tick { flex: 1 1 0; min-width: 0; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rp-trend__tick[aria-hidden="true"] { visibility: hidden; }
 
 /* A ranked horizontal bar list. Used for the products report's two top-10
    panels. The label sits above its own bar rather than in a fixed-width
@@ -706,9 +838,12 @@
     .rp-drill { padding: var(--bl-space-3); }
     .rp-sub { display: block; overflow-x: auto; white-space: nowrap; }
 
-    .rp-more-toggle { margin-left: 0; }
-    .rp-range { width: 100%; justify-content: space-between; }
-    .rp-trend { height: 132px; }
+    .rp-ask { padding: var(--bl-space-3); }
+    .rp-when__k { flex-basis: 100%; min-width: 0; }
+    .rp-range { width: 100%; margin-left: 0; justify-content: space-between; }
+    .rp-ask__actions { width: 100%; margin-left: 0; justify-content: space-between; }
+    .rp-trend { --rp-plot-h: 160px; }
+    .rp-trend__figures { display: none; }
 }
 
 /* Column widths. Sized to the widest real value each column holds, for
