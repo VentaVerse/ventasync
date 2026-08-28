@@ -463,14 +463,20 @@ document.addEventListener('DOMContentLoaded', function () {
                 body.appendChild(wrap);
             }
 
+            // The links come from the courier by way of the storefront: two
+            // parties this page does not control. Only a web URL becomes a
+            // link; anything else (a javascript: scheme, a bare string) is
+            // dropped rather than rendered.
             var links = res.links || {};
-            var linkKeys = Object.keys(links).filter(function (k) { return links[k]; });
+            var linkKeys = Object.keys(links).filter(function (k) {
+                return /^https?:\/\//i.test(String(links[k] || ''));
+            });
             if (linkKeys.length > 0) {
                 var p = document.createElement('p');
                 p.className = 'vt-track__links';
                 linkKeys.forEach(function (k) {
                     var a = document.createElement('a');
-                    a.href = links[k];
+                    a.href = String(links[k]);
                     a.target = '_blank';
                     a.rel = 'noopener';
                     a.textContent = 'Open ' + humanise(k).toLowerCase() + ' tracking on the courier’s site';
