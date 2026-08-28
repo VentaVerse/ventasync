@@ -188,6 +188,24 @@
     color: var(--bl-ink-3);
 }
 
+/* The courier strip under To Handover: the third level of the same control.
+   It is a sub strip in every respect (same pills, same active tint, same
+   44px touch height) with one difference, a leading word that says what the
+   pills are, because "J&T Express 12" on its own could be read as a step.
+   It sits closer to the step above it than that step sits to its parent,
+   so the three rows read as one control tapering, not three peers. */
+.x-segment--courier {
+    margin-top: calc(-1 * var(--bl-space-4) + 6px);
+}
+
+.x-segment__lead {
+    flex: none;
+    padding-inline: 2px 6px;
+    font-size: 12px;
+    color: var(--bl-ink-3);
+    white-space: nowrap;
+}
+
 /* FULL OPACITY, AND THE STEP BACK COMES FROM WEIGHT.
  *
  * This was --bl-paper at 72%, on the reasoning that transparency steps the

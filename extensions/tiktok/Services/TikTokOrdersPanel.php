@@ -2,6 +2,7 @@
 
 namespace Extensions\tiktok\Services;
 
+use App\Support\Fulfilment\CourierTally;
 use App\Support\FulfilmentSteps;
 use Extensions\tiktok\Models\TikTokOrder;
 use Illuminate\Http\Request;
@@ -36,7 +37,13 @@ class TikTokOrdersPanel
             'q' => ['nullable', 'string', 'max:120'],
             'placed_from' => ['nullable', 'date'],
             'placed_to' => ['nullable', 'date', 'after_or_equal:placed_from'],
+            'courier' => ['nullable', 'string', 'max:80'],
         ]);
+
+        // The courier pill on To Handover. A key from CourierTally, so a
+        // stale one (that courier's last parcel already left) matches
+        // nothing and the list simply stays whole.
+        $courierKey = trim((string) ($filters['courier'] ?? ''));
 
         /* One field matching order number, buyer and product, plus a range
          * over when the order was placed - the same pair every other
@@ -140,21 +147,34 @@ class TikTokOrdersPanel
         $tab_counts['to_pack'] = (clone $baseCountQuery)->whereIn('status', ['AWAITING_SHIPMENT'])->count();
         $tab_counts['to_handover'] = (clone $baseCountQuery)->whereIn('status', ['AWAITING_COLLECTION'])->count();
 
-        // Courier tally for To Handover
-        $courierCounts = [];
-        if ($tab === 'TO_SHIP') {
-            $handoverOrders = TikTokOrder::query()
+        // Every parcel waiting for handover, filed under its courier, with
+        // the order ids kept so the list can be narrowed to one courier's.
+        // Walked only on the step that shows it.
+        $courierTally = new CourierTally();
+        if ($tab === 'TO_SHIP' && $pendingSubtab === 'to_handover') {
+            TikTokOrder::query()
                 ->where('status', 'AWAITING_COLLECTION')
-                ->get(['id', 'raw']);
-            foreach ($handoverOrders as $ho) {
-                $hoRaw = is_array($ho->raw) ? $ho->raw : [];
-                $courier = (string)($hoRaw['shipping_provider'] ?? $hoRaw['shipping_provider_name'] ?? '');
-                if ($courier === '' && !empty($hoRaw['line_items'])) {
-                    $courier = (string)(($hoRaw['line_items'][0] ?? [])['shipping_provider_name'] ?? '');
+                ->select(['id', 'raw'])
+                ->orderBy('id')
+                ->chunk(300, function ($orders) use ($courierTally) {
+                    foreach ($orders as $ho) {
+                        $hoRaw = is_array($ho->raw) ? $ho->raw : [];
+                        $courier = (string) ($hoRaw['shipping_provider'] ?? $hoRaw['shipping_provider_name'] ?? '');
+                        if ($courier === '' && !empty($hoRaw['line_items'])) {
+                            $courier = (string) (($hoRaw['line_items'][0] ?? [])['shipping_provider_name'] ?? '');
+                        }
+                        $courierTally->add((int) $ho->id, $courier);
+                    }
+                });
+
+            // One courier's parcels, oldest first. The ids come from the
+            // same walk that produced the count on the pill, so the two
+            // cannot disagree.
+            if ($courierKey !== '') {
+                $courierIds = $courierTally->idsFor($courierKey);
+                if ($courierIds !== null) {
+                    $query->whereIn('id', $courierIds);
                 }
-                $label = $courier !== '' ? $courier : 'Unknown';
-                $key = mb_strtolower($label);
-                $courierCounts[$key] = ['label' => $label, 'count' => ($courierCounts[$key]['count'] ?? 0) + 1];
             }
         }
 
@@ -180,9 +200,10 @@ class TikTokOrdersPanel
             'tab_counts'    => $tab_counts,
             'sort'          => $sortKey,
             'last_result'   => session('tiktok_orders_last_result'),
-            'courier_counts' => $courierCounts,
+            'courier_tally' => $courierTally->forStrip($courierKey),
             'filters'       => [
                 'q' => $find,
+                'courier' => $courierKey,
                 'placed_from' => $placedFrom,
                 'placed_to' => $placedTo,
             ],

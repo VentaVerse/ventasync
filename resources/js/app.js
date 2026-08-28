@@ -4,6 +4,7 @@ import './invoice-copy';
 import './permission-pill';
 import './credential-mask';
 import './confirm-modal';
+import './busy-overlay';
 import './thumb-fallback';
 import './plot-readout';
 import './list-filters';

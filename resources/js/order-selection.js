@@ -52,14 +52,19 @@ function initOrderSelection(scope) {
         // longer see. [data-confirm-count] carries the wording with an :n
         // placeholder, and the live count is written into [data-confirm]
         // here, where the count is already known.
+        // The question and the wait both name the count: "Pack 12 selected
+        // orders?" and then "Packing 12 orders on Lazada". Same :n, same
+        // moment, one rewrite for both attributes.
         actions.forEach(function (container) {
-            var counted = container.querySelectorAll('[data-confirm-count]');
+            [['data-confirm-count', 'data-confirm'], ['data-busy-count', 'data-busy']].forEach(function (pair) {
+                var counted = container.querySelectorAll('[' + pair[0] + ']');
 
-            Array.prototype.forEach.call(counted, function (el) {
-                el.setAttribute(
-                    'data-confirm',
-                    el.getAttribute('data-confirm-count').replace(':n', picked.length)
-                );
+                Array.prototype.forEach.call(counted, function (el) {
+                    el.setAttribute(
+                        pair[1],
+                        el.getAttribute(pair[0]).replace(':n', picked.length)
+                    );
+                });
             });
         });
 

@@ -42,7 +42,7 @@
     $tabs = $tabs ?? [];
     $active_tab = strtoupper((string) ($active_tab ?? 'ALL'));
     $tab_counts = $tab_counts ?? [];
-    $courier_counts = $courier_counts ?? [];
+    $courier_tally = $courier_tally ?? [];
     $perPage = (int) ($per_page ?? request()->query('per_page', 10));
     $findFilter = (string) ($filters['q'] ?? '');
     $placedFromFilter = (string) ($filters['placed_from'] ?? '');
@@ -137,7 +137,7 @@
                  and going to the tab is how an operator checks whether that is
                  still true. A control that refuses the check is arguing with
                  the person using it. --}}
-            <a href="{{ $panelSelfUrl(['tab' => $key], ['page', 'pending_sub']) }}"
+            <a href="{{ $panelSelfUrl(['tab' => $key], ['page', 'pending_sub', 'courier']) }}"
                class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
                @if($isActive) aria-current="true" @endif>
                 <span>{{ $label }}</span>
@@ -172,7 +172,7 @@
                  moment in that loop rather than a settled state, so making the
                  control inert would have it flicker in and out of being
                  clickable while someone is working through it. --}}
-            <a href="{{ $panelSelfUrl(['tab' => 'TO_SHIP', 'pending_sub' => $k], ['page']) }}"
+            <a href="{{ $panelSelfUrl(['tab' => 'TO_SHIP', 'pending_sub' => $k], ['page', 'courier']) }}"
                class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
                {{-- "step", not "page": both strips describe the same URL, and two
                      aria-current="page" in one document leaves assistive tech
@@ -188,22 +188,11 @@
         @endforeach
     </div>
 
-    {{-- THE TALLY BELONGS TO THE QUEUE IT COUNTS.
-         This rendered on every To Ship sub-step while the count behind it is
-         scoped to the handover statuses alone, so a packer standing on To
-         Pack read "Parcels waiting for handover" for parcels they are not
-         holding - a courier split for somebody else's queue, under a heading
-         naming a queue they are not in. It shows on the step it describes. --}}
-    @if($pendingSub === 'to_handover' && !empty($courier_counts))
-        <div class="co-couriers">
-            <span class="co-couriers__label">Parcels waiting for handover</span>
-            @foreach($courier_counts as $cc)
-                <span class="co-courier">
-                    <span class="co-courier__count">{{ number_format($cc['count']) }}</span>
-                    {{ $cc['label'] }}
-                </span>
-            @endforeach
-        </div>
+    {{-- The courier split of the handover queue, and the filter it drives.
+         Only on the step it describes: a packer standing on To Pack is not
+         holding these parcels. See components/fulfilment/courier-strip. --}}
+    @if($pendingSub === 'to_handover')
+        <x-fulfilment.courier-strip :tally="$courier_tally ?? []" :self-url="$panelSelfUrl" />
     @endif
 @endif
 
@@ -233,6 +222,9 @@
 @endforeach    <input type="hidden" name="tab" value="{{ $active_tab }}">
     @if($active_tab === 'TO_SHIP')
         <input type="hidden" name="pending_sub" value="{{ $pendingSub }}">
+        @if(($filters['courier'] ?? '') !== '')
+            <input type="hidden" name="courier" value="{{ $filters['courier'] }}">
+        @endif
     @endif
 
     {{-- One box, matching whatever the caller just said. See the note in
@@ -635,7 +627,9 @@
                          wall of colour in it; the accent that says "your
                          move" is spent once per row, on the status badge. --}}
                     @if($isToPack && $canManageTiktokOrders)
-                        <form method="POST" action="{{ route('ext.tiktok.orders.ship', $o->id) }}" data-confirm="Mark this order shipped on TikTok Shop? TikTok is told the parcel has left, and that cannot be undone from here.">
+                        <form method="POST" action="{{ route('ext.tiktok.orders.ship', $o->id) }}"
+                              data-confirm="Mark this order shipped on TikTok Shop? TikTok is told the parcel has left, and that cannot be undone from here."
+                              data-busy="Marking shipped on TikTok Shop">
                             @csrf
                             <x-ui.button type="submit" variant="secondary" size="sm">Ship order</x-ui.button>
                         </form>
@@ -675,13 +669,15 @@
 @endif
 
 {{-- Loading overlay. Every id below is queried by
-     resources/js/pages/tiktok-orders.js and must not change. --}}
-<div id="ttLoadingOverlay" class="modal-backdrop">
+     resources/js/pages/tiktok-orders.js and must not change. The data-busy
+     hooks are how a confirmed form submit (Ship order) raises the same
+     overlay through resources/js/busy-overlay.js. --}}
+<div id="ttLoadingOverlay" class="modal-backdrop" data-busy-overlay>
     <div class="modal co-modal co-modal--sm">
         <div class="co-progress">
             <span class="co-spinner co-spinner--lg" aria-hidden="true"></span>
             <div>
-                <div id="ttLoadingTitle" class="co-progress__title">Fetching orders</div>
+                <div id="ttLoadingTitle" class="co-progress__title" data-busy-title>Fetching orders</div>
                 <div class="co-progress__note">Please keep this tab open.</div>
             </div>
         </div>

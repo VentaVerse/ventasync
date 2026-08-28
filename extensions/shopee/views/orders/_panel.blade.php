@@ -123,7 +123,7 @@
                  and going to the tab is how an operator checks whether that is
                  still true. A control that refuses the check is arguing with
                  the person using it. --}}
-            <a href="{{ $panelSelfUrl(['tab' => $key], ['page', 'pending_sub']) }}"
+            <a href="{{ $panelSelfUrl(['tab' => $key], ['page', 'pending_sub', 'courier']) }}"
                class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
                @if($isActive) aria-current="true" @endif>
                 <span>{{ $label }}</span>
@@ -163,7 +163,7 @@
                  moment in that loop rather than a settled state, so making the
                  control inert would have it flicker in and out of being
                  clickable while someone is working through it. --}}
-            <a href="{{ $panelSelfUrl(['tab' => 'PENDING', 'pending_sub' => $k], ['page']) }}"
+            <a href="{{ $panelSelfUrl(['tab' => 'PENDING', 'pending_sub' => $k], ['page', 'courier']) }}"
                class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
                {{-- "step", not "page": both strips describe the same URL, and two
                      aria-current="page" in one document leaves assistive tech
@@ -179,22 +179,11 @@
         @endforeach
     </div>
 
-    {{-- THE TALLY BELONGS TO THE QUEUE IT COUNTS.
-         This rendered on every To Ship sub-step while the count behind it is
-         scoped to the handover statuses alone, so a packer standing on To
-         Pack read "Parcels waiting for handover" for parcels they are not
-         holding - a courier split for somebody else's queue, under a heading
-         naming a queue they are not in. It shows on the step it describes. --}}
-    @if($pendingSub === 'to_handover' && !empty($pending_courier_counts))
-        <div class="co-couriers">
-            <span class="co-couriers__label">Parcels waiting for handover</span>
-            @foreach($pending_courier_counts as $courier => $count)
-                <span class="co-courier">
-                    <span class="co-courier__count">{{ number_format($count) }}</span>
-                    {{ $courier }}
-                </span>
-            @endforeach
-        </div>
+    {{-- The courier split of the handover queue, and the filter it drives.
+         Only on the step it describes: a packer standing on To Pack is not
+         holding these parcels. See components/fulfilment/courier-strip. --}}
+    @if($pendingSub === 'to_handover')
+        <x-fulfilment.courier-strip :tally="$courier_tally ?? []" :self-url="$panelSelfUrl" />
     @endif
 @endif
 
@@ -221,6 +210,9 @@
     <input type="hidden" name="tab" value="{{ $active_tab }}">
     @if($active_tab === 'PENDING')
         <input type="hidden" name="pending_sub" value="{{ $pendingSub }}">
+        @if(($filters['courier'] ?? '') !== '')
+            <input type="hidden" name="courier" value="{{ $filters['courier'] }}">
+        @endif
     @endif
 
     {{-- One box, matching whatever the caller just said. See the note in

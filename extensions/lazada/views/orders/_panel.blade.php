@@ -145,7 +145,7 @@
                  and going to the tab is how an operator checks whether that is
                  still true. A control that refuses the check is arguing with
                  the person using it. --}}
-            <a href="{{ $panelSelfUrl(['tab' => $key], ['page', 'pending_sub', 'fd_sub']) }}"
+            <a href="{{ $panelSelfUrl(['tab' => $key], ['page', 'pending_sub', 'fd_sub', 'courier']) }}"
                class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
                @if($isActive) aria-current="true" @endif>
                 <span>{{ $label }}</span>
@@ -182,7 +182,7 @@
                  moment in that loop rather than a settled state, so making the
                  control inert would have it flicker in and out of being
                  clickable while someone is working through it. --}}
-            <a href="{{ $panelSelfUrl(['tab' => 'TO_SHIP', 'pending_sub' => $k], ['page']) }}"
+            <a href="{{ $panelSelfUrl(['tab' => 'TO_SHIP', 'pending_sub' => $k], ['page', 'courier']) }}"
                class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
                {{-- "step", not "page": both strips describe the same URL, and two
                      aria-current="page" in one document leaves assistive tech
@@ -198,22 +198,11 @@
         @endforeach
     </div>
 
-    {{-- THE TALLY BELONGS TO THE QUEUE IT COUNTS.
-         This rendered on every To Ship sub-step while the count behind it is
-         scoped to the handover statuses alone, so a packer standing on To
-         Pack read "Parcels waiting for handover" for parcels they are not
-         holding - a courier split for somebody else's queue, under a heading
-         naming a queue they are not in. It shows on the step it describes. --}}
-    @if($pendingSub === 'to_handover' && !empty($to_ship_courier_counts))
-        <div class="co-couriers">
-            <span class="co-couriers__label">Parcels waiting for handover</span>
-            @foreach($to_ship_courier_counts as $courier => $count)
-                <span class="co-courier">
-                    <span class="co-courier__count">{{ number_format($count) }}</span>
-                    {{ $courier }}
-                </span>
-            @endforeach
-        </div>
+    {{-- The courier split of the handover queue, and the filter it drives.
+         Only on the step it describes: a packer standing on To Pack is not
+         holding these parcels. See components/fulfilment/courier-strip. --}}
+    @if($pendingSub === 'to_handover')
+        <x-fulfilment.courier-strip :tally="$courier_tally ?? []" :self-url="$panelSelfUrl" />
     @endif
 @endif
 
@@ -279,6 +268,9 @@
     <input type="hidden" name="tab" value="{{ $active_tab }}">
     @if($active_tab === 'TO_SHIP')
         <input type="hidden" name="pending_sub" value="{{ $pendingSub }}">
+        @if(($filters['courier'] ?? '') !== '')
+            <input type="hidden" name="courier" value="{{ $filters['courier'] }}">
+        @endif
     @endif
     @if($active_tab === 'FAILED_DELIVERY')
         <input type="hidden" name="fd_sub" value="{{ $fdSub }}">
@@ -497,7 +489,9 @@
                              formaction="{{ route('ext.lazada.orders.bulk_pack_print') }}"
                              formtarget="_self"
                              data-confirm="Pack the selected orders on Lazada? This creates a package for each one and cannot be undone from here."
-                         data-confirm-count="Pack :n selected orders on Lazada? This creates a package for each one and cannot be undone from here.">Pack and print selected</x-ui.button>
+                             data-confirm-count="Pack :n selected orders on Lazada? This creates a package for each one and cannot be undone from here."
+                             data-busy="Packing the selected orders on Lazada"
+                             data-busy-count="Packing :n orders on Lazada">Pack and print selected</x-ui.button>
             @endif
         </form>
     </x-ui.selectbar>
@@ -793,7 +787,8 @@
                     @if($canManageLazadaOrders)
                         @if($isToPack)
                             <form method="POST" action="{{ route('ext.lazada.orders.pack_print', ['orderId' => $orderId]) }}"
-                                  data-confirm="Pack this order now? This creates the packages and makes the waybill available.">
+                                  data-confirm="Pack this order now? This creates the packages and makes the waybill available."
+                                  data-busy="Packing this order on Lazada">
                                 @csrf
                                 <x-ui.button type="submit" variant="secondary" size="sm">Pack and print</x-ui.button>
                             </form>
@@ -805,13 +800,15 @@
                                          target="_blank" rel="noopener">Print waybill</x-ui.button>
 
                             <form method="POST" action="{{ route('ext.lazada.orders.rts', ['orderId' => $orderId]) }}"
-                                  data-confirm="Arrange shipment for this order? Lazada will mark it ready to ship.">
+                                  data-confirm="Arrange shipment for this order? Lazada will mark it ready to ship."
+                                  data-busy="Arranging shipment on Lazada">
                                 @csrf
                                 <x-ui.button type="submit" variant="secondary" size="sm">Arrange shipment</x-ui.button>
                             </form>
 
                             <form method="POST" action="{{ route('ext.lazada.orders.recreate_package', ['orderId' => $orderId]) }}"
-                                  data-confirm="Recreate the package locally? Lazada may still keep the original package. Continue?">
+                                  data-confirm="Recreate the package locally? Lazada may still keep the original package. Continue?"
+                                  data-busy="Recreating the package">
                                 @csrf
                                 <x-ui.button type="submit" variant="secondary" size="sm">Recreate package</x-ui.button>
                             </form>
@@ -877,13 +874,15 @@
 @endif
 
 {{-- Loading overlay. Every id below is queried by
-     resources/js/pages/lazada-orders.js and must not change. --}}
-<div id="lzLoadingOverlay" class="modal-backdrop">
+     resources/js/pages/lazada-orders.js and must not change. The data-busy
+     hooks are how a confirmed form submit (pack, arrange, recreate) raises
+     the same overlay through resources/js/busy-overlay.js. --}}
+<div id="lzLoadingOverlay" class="modal-backdrop" data-busy-overlay>
     <div class="modal co-modal co-modal--sm">
         <div class="co-progress">
             <span class="co-spinner co-spinner--lg" aria-hidden="true"></span>
             <div>
-                <div id="lzLoadingTitle" class="co-progress__title">Fetching orders</div>
+                <div id="lzLoadingTitle" class="co-progress__title" data-busy-title>Fetching orders</div>
                 <div class="co-progress__note">Please keep this tab open.</div>
             </div>
         </div>
@@ -964,12 +963,12 @@
 
         <p class="co-modal__prompt">Close this and the order waits in To Arrange Shipment.</p>
         <div class="co-modal__foot co-modal__foot--end">
-            <form method="POST" id="formRecreatePackage" action="#">
+            <form method="POST" id="formRecreatePackage" action="#" data-busy="Recreating the package">
                 @csrf
                 <x-ui.button type="submit" variant="secondary">Recreate package</x-ui.button>
             </form>
             <a href="#" id="linkPrintOnly" class="x-btn x-btn--secondary" target="_blank" rel="noopener">Print only</a>
-            <form method="POST" id="formShipPrint" action="#">
+            <form method="POST" id="formShipPrint" action="#" data-busy="Arranging shipment on Lazada">
                 @csrf
                 <x-ui.button type="submit" variant="primary">Ship and print</x-ui.button>
             </form>

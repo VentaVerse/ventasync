@@ -2,6 +2,7 @@
 
 namespace Extensions\lazada\Services;
 
+use App\Support\Fulfilment\CourierTally;
 use App\Support\FulfilmentSteps;
 use Extensions\lazada\Models\LazadaOrder;
 use Extensions\lazada\Models\LazadaSetting;
@@ -26,7 +27,13 @@ class LazadaOrdersPanel
             'q' => ['nullable', 'string', 'max:120'],
             'placed_from' => ['nullable', 'date'],
             'placed_to' => ['nullable', 'date', 'after_or_equal:placed_from'],
+            'courier' => ['nullable', 'string', 'max:80'],
         ]);
+
+        // The courier pill on To Handover. A key from CourierTally, so a
+        // stale one (that courier's last parcel already left) matches
+        // nothing and the list simply stays whole.
+        $courierKey = trim((string) ($filters['courier'] ?? ''));
 
         /* ONE FIELD, THE SAME ONE THE RETURNS LISTS CARRY.
          *
@@ -134,6 +141,12 @@ class LazadaOrdersPanel
             'FAILED_DELIVERY' => 'failed',
         ]);
 
+        // Walked only on the step that shows it. It reads every handover
+        // order's first line's raw payload, and no other step needs it.
+        $courierTally = ($tab === 'TO_SHIP' && $pendingSubtab === 'to_handover')
+            ? $this->buildToShipCourierTally($setting->region ?? 'ph')
+            : new CourierTally();
+
         $query = LazadaOrder::query()
             ->where('region', $setting->region ?? 'ph')
             ->with('products');
@@ -171,6 +184,16 @@ class LazadaOrdersPanel
 
 
         // Counts for TO_SHIP sub-tabs (DB only)
+        // One courier's parcels, oldest first. The ids come from the same
+        // walk that produced the count on the pill, so the two cannot
+        // disagree. Only To Handover has a courier to narrow by.
+        if ($tab === 'TO_SHIP' && $pendingSubtab === 'to_handover' && $courierKey !== '') {
+            $courierIds = $courierTally->idsFor($courierKey);
+            if ($courierIds !== null) {
+                $query->whereIn('id', $courierIds);
+            }
+        }
+
         $pending_sub_counts = [
             'to_pack' => (clone $baseCountQuery)->whereIn('status', ['pending', 'repacked'])->count(),
             'to_arrange' => (clone $baseCountQuery)->whereIn('status', ['packed'])->count(),
@@ -274,7 +297,7 @@ class LazadaOrdersPanel
             'tab_counts' => $tab_counts,
             'pending_sub_counts' => $pending_sub_counts,
             'fd_sub_counts' => $fd_sub_counts,
-            'to_ship_courier_counts' => $this->buildToShipCourierCounts($setting->region ?? 'ph'),
+            'courier_tally' => $courierTally->forStrip($courierKey),
             'live_statuses' => $live_statuses,
             'savedAwbs' => $savedAwbs,
             'pack_print_parcel' => $this->resolvePackedParcel($setting),
@@ -282,6 +305,7 @@ class LazadaOrdersPanel
             'sort' => $sortKey,
             'filters' => [
                 'q' => $find,
+                'courier' => $courierKey,
                 'placed_from' => $placedFrom,
                 'placed_to' => $placedTo,
             ],
@@ -313,38 +337,28 @@ class LazadaOrdersPanel
         return \App\Support\Fulfilment\PackedParcel::fromOrder($order, $orderId);
     }
 
-    private function buildToShipCourierCounts(string $region): array
+    /**
+     * Every parcel waiting for handover, filed under its courier, with the
+     * order ids kept so the list can be narrowed to one courier's parcels.
+     */
+    private function buildToShipCourierTally(string $region): CourierTally
     {
-        $counts = [];
-        $display = [];
-        $statuses = ['ready_to_ship'];
+        $tally = new CourierTally();
 
         LazadaOrder::query()
             ->where('region', $region)
-            ->whereIn('status', $statuses)
+            ->whereIn('status', ['ready_to_ship'])
             ->with(['products' => function ($q) {
                 $q->select('id', 'lazada_order_id', 'raw');
             }])
             ->orderBy('id')
-            ->chunk(200, function ($orders) use (&$counts, &$display) {
+            ->chunk(200, function ($orders) use ($tally) {
                 foreach ($orders as $o) {
-                    $courier = $this->extractLazadaCourier($o);
-                    $label = $courier !== '' ? $courier : 'Unknown';
-                    $key = mb_strtolower($label);
-                    if (!isset($display[$key])) {
-                        $display[$key] = $label;
-                    }
-                    $counts[$key] = ($counts[$key] ?? 0) + 1;
+                    $tally->add((int) $o->id, $this->extractLazadaCourier($o));
                 }
             });
 
-        arsort($counts);
-        $out = [];
-        foreach ($counts as $key => $count) {
-            $out[$display[$key] ?? $key] = $count;
-        }
-
-        return $out;
+        return $tally;
     }
 
     private function extractLazadaCourier(LazadaOrder $order): string

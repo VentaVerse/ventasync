@@ -2,6 +2,7 @@
 
 namespace Extensions\shopee\Services;
 
+use App\Support\Fulfilment\CourierTally;
 use App\Support\FulfilmentSteps;
 use Extensions\shopee\Models\ShopeeOrder;
 use Extensions\shopee\Models\ShopeeSetting;
@@ -27,7 +28,13 @@ class ShopeeOrdersPanel
             'q' => ['nullable', 'string', 'max:120'],
             'placed_from' => ['nullable', 'date'],
             'placed_to' => ['nullable', 'date', 'after_or_equal:placed_from'],
+            'courier' => ['nullable', 'string', 'max:80'],
         ]);
+
+        // The courier pill on To Handover. A key from CourierTally, so a
+        // stale one (that courier's last parcel already left) matches
+        // nothing and the list simply stays whole.
+        $courierKey = trim((string) ($filters['courier'] ?? ''));
 
         /* ONE FIELD, THE SAME ONE THE RETURNS LISTS CARRY.
          *
@@ -142,6 +149,12 @@ class ShopeeOrdersPanel
             'FAILED_DELIVERY'     => 'failed',
         ]);
 
+        // Walked only on the step that shows it. It reads every handover
+        // order's raw payload, and the other steps have no use for it.
+        $courierTally = ($tab === 'PENDING' && $pendingSubtab === 'to_handover')
+            ? $this->buildToShipCourierTally($auth['region'] ?? 'ph')
+            : new CourierTally();
+
         $query = ShopeeOrder::query()
             ->where('region', $auth['region'] ?? 'ph')
             ->with('products');
@@ -163,6 +176,16 @@ class ShopeeOrdersPanel
                 if (!empty($statuses)) {
                     $query->whereIn('status', $statuses);
                 }
+            }
+        }
+
+        // One courier's parcels, oldest first. The ids come from the same
+        // walk that produced the count on the pill, so the two cannot
+        // disagree. Only To Handover has a courier to narrow by.
+        if ($tab === 'PENDING' && $pendingSubtab === 'to_handover' && $courierKey !== '') {
+            $courierIds = $courierTally->idsFor($courierKey);
+            if ($courierIds !== null) {
+                $query->whereIn('id', $courierIds);
             }
         }
 
@@ -256,47 +279,38 @@ class ShopeeOrdersPanel
             'pending_subtab' => $pendingSubtab,
             'tab_counts' => $tab_counts,
             'pending_sub_counts' => $pending_sub_counts,
-            'pending_courier_counts' => $this->buildToShipCourierCounts($auth['region'] ?? 'ph'),
+            'courier_tally' => $courierTally->forStrip($courierKey),
             'savedAwbs' => $savedAwbs,
             'sort' => $sortKey,
             'filters' => [
                 'q' => $find,
+                'courier' => $courierKey,
                 'placed_from' => $placedFrom,
                 'placed_to' => $placedTo,
             ],
         ];
     }
 
-    private function buildToShipCourierCounts(string $region): array
+    /**
+     * Every parcel waiting for handover, filed under its courier, with the
+     * order ids kept so the list can be narrowed to one courier's parcels.
+     */
+    private function buildToShipCourierTally(string $region): CourierTally
     {
-        $counts = [];
-        $display = [];
-        $statuses = ['PROCESSED'];
+        $tally = new CourierTally();
 
         ShopeeOrder::query()
             ->where('region', $region)
-            ->whereIn('status', $statuses)
+            ->whereIn('status', ['PROCESSED'])
             ->select(['id', 'raw'])
             ->orderBy('id')
-            ->chunk(300, function ($orders) use (&$counts, &$display) {
+            ->chunk(300, function ($orders) use ($tally) {
                 foreach ($orders as $o) {
-                    $courier = $this->extractShopeeCourier($o);
-                    $label = $courier !== '' ? $courier : 'Unknown';
-                    $key = mb_strtolower($label);
-                    if (!isset($display[$key])) {
-                        $display[$key] = $label;
-                    }
-                    $counts[$key] = ($counts[$key] ?? 0) + 1;
+                    $tally->add((int) $o->id, $this->extractShopeeCourier($o));
                 }
             });
 
-        arsort($counts);
-        $out = [];
-        foreach ($counts as $key => $count) {
-            $out[$display[$key] ?? $key] = $count;
-        }
-
-        return $out;
+        return $tally;
     }
 
     private function extractShopeeCourier(ShopeeOrder $order): string
