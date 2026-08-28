@@ -54,6 +54,12 @@ class VentaOrderSync
         ]);
 
         try {
+            // Where the store places each status, refreshed beside the
+            // orders so a placement is never older than the status it is
+            // applied to (#167). A store that does not answer keeps the
+            // placements it last reported.
+            $this->refreshPlacements();
+
             $sinceDate = $full ? null : ($since ?? $this->resolveSinceDate());
             $page = 1;
             $perPage = 100;
@@ -212,6 +218,8 @@ class VentaOrderSync
      */
     public function pullOne(int $ventaOrderId): ?VentaOrder
     {
+        $this->refreshPlacements();
+
         $res = $this->client->getOrder($ventaOrderId);
         $raw = $res['body'] ?? [];
 
@@ -224,6 +232,18 @@ class VentaOrderSync
         return VentaOrder::where('venta_setting_id', $this->setting->id)
             ->where('venta_order_id', $ventaOrderId)
             ->first();
+    }
+
+    private function refreshPlacements(): void
+    {
+        try {
+            VentaStatusPlacements::refresh($this->setting, $this->client);
+        } catch (\Throwable $e) {
+            Log::warning('Venta status placements could not be refreshed', [
+                'store' => $this->setting->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

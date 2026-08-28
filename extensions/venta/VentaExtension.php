@@ -21,6 +21,7 @@ use Extensions\venta\Models\VentaOrder;
 use Extensions\venta\Models\VentaProductLink;
 use Extensions\venta\Models\VentaSetting;
 use Extensions\venta\Services\Venta\VentaClient;
+use Extensions\venta\Services\Venta\VentaStatusPlacements;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -170,7 +171,7 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
 
         return array_map(
             fn (array $bucket) => $bucket['count'],
-            FulfilmentSteps::bucket('venta.orders', $statusCounts)
+            FulfilmentSteps::bucket('venta.orders', $statusCounts, VentaStatusPlacements::resolver($storeId))
         );
     }
 

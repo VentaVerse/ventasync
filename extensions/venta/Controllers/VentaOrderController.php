@@ -65,6 +65,10 @@ class VentaOrderController extends Controller
             return response()->json(['ok' => false, 'message' => $result['message']], 422);
         }
 
+        // The page reloads after the waybill opens; this is what it says
+        // on arrival, so "booked" and "in To Handover" are both stated.
+        session()->flash(($result['landing']['step'] ?? '') === 'to_handover' ? 'status' : 'warning', $result['message']);
+
         return response()->json([
             'ok' => true,
             'message' => $result['message'],
@@ -111,6 +115,8 @@ class VentaOrderController extends Controller
         if (! $result['ok']) {
             return response()->json(['ok' => false, 'message' => $result['message']], 422);
         }
+
+        session()->flash(($result['landing']['step'] ?? '') === 'to_handover' ? 'status' : 'warning', $result['message']);
 
         return response()->json([
             'ok' => true,

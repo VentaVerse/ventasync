@@ -462,7 +462,7 @@
             // on To Pack only, waybill and tracking once a courier holds it.
             // The step is the storefront's placement of the status, through
             // the same map the strip above is built from.
-            $vtStep = \App\Support\FulfilmentSteps::stepFor('venta.orders', $vtStatusRaw);
+            $vtStep = \Extensions\venta\Services\Venta\VentaStatusPlacements::stepFor((int) $storeId, $vtStatusRaw);
             $vtIsToPack = $vtStep === 'to_pack';
             $vtIsToHandover = $vtStep === 'to_handover';
             $vtBooked = $o->isBooked();

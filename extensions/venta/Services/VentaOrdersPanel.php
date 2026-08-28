@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use App\Support\FulfilmentSteps;
 use Extensions\venta\Models\VentaOrder;
 use Extensions\venta\Models\VentaSetting;
+use Extensions\venta\Services\Venta\VentaStatusPlacements;
 use Illuminate\Http\Request;
 
 /**
@@ -80,7 +81,10 @@ class VentaOrdersPanel
             ->groupBy('status')
             ->pluck('cnt', 'status');
 
-        $buckets = FulfilmentSteps::bucket('venta.orders', $statusCounts);
+        // The store's own placement of each status decides the step (#167);
+        // the shared name list answers only for a status the store has not
+        // placed, or a store that has not been asked yet.
+        $buckets = FulfilmentSteps::bucket('venta.orders', $statusCounts, VentaStatusPlacements::resolver($storeId));
 
         $tabToStep = [
             'ALL'             => 'all',
@@ -103,7 +107,7 @@ class VentaOrdersPanel
          * Rather than 404 them or silently land them on To Ship, the status
          * picks the tab it belongs to and narrows that tab's list to itself,
          * which is exactly what the old link showed. */
-        $statusStep = $status !== '' ? (FulfilmentSteps::stepFor('venta.orders', $status) ?? 'other') : null;
+        $statusStep = $status !== '' ? (VentaStatusPlacements::stepFor($storeId, $status) ?? 'other') : null;
 
         if ($tab === '') {
             $tab = match ($statusStep) {

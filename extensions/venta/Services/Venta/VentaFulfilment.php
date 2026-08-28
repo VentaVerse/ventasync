@@ -3,6 +3,7 @@
 namespace Extensions\venta\Services\Venta;
 
 use App\Services\ActivityLogger;
+use App\Support\FulfilmentSteps;
 use Extensions\venta\Models\VentaOrder;
 use Extensions\venta\Models\VentaSetting;
 use Illuminate\Support\Facades\Http;
@@ -179,13 +180,15 @@ class VentaFulfilment
         );
 
         $this->refresh($order);
+        $landing = $this->landing($order);
 
         return [
             'ok' => true,
-            'message' => ($body['already_booked'] ?? false) ? 'This order was already booked; nothing new was created.' : 'Booked.',
+            'message' => (($body['already_booked'] ?? false) ? 'This order was already booked; nothing new was created. ' : 'Booked. ') . $landing['sentence'],
             'already_booked' => (bool) ($body['already_booked'] ?? false),
             'courier' => $body['courier'] ?? null,
             'tracking_number' => $body['tracking_number'] ?? null,
+            'landing' => $landing,
         ];
     }
 
@@ -270,12 +273,14 @@ class VentaFulfilment
         );
 
         $this->refresh($order);
+        $landing = $this->landing($order);
 
         return [
             'ok' => true,
-            'message' => 'Recorded.' . ($courierName !== '' ? ' ' . $courierName . ' carries it.' : ''),
+            'message' => 'Recorded.' . ($courierName !== '' ? ' ' . $courierName . ' carries it. ' : ' ') . $landing['sentence'],
             'courier_name' => $courierName !== '' ? $courierName : null,
             'tracking_number' => $tracking !== '' ? $tracking : null,
+            'landing' => $landing,
         ];
     }
 
@@ -447,13 +452,42 @@ class VentaFulfilment
     private function refresh(VentaOrder $order): void
     {
         try {
-            (new VentaOrderSync($this->client, $this->setting))->pullOne((int) $order->venta_order_id);
+            $fresh = (new VentaOrderSync($this->client, $this->setting))->pullOne((int) $order->venta_order_id);
+            if ($fresh) {
+                $order->setRawAttributes($fresh->getAttributes(), true);
+            }
         } catch (\Throwable $e) {
             Log::warning('Venta order re-read after booking failed', [
                 'order' => $order->venta_order_id,
                 'error' => $e->getMessage(),
             ]);
         }
+    }
+
+    /**
+     * Where the store put the order after a write, in the queue's own
+     * words: which status, and which step that status sits in here. The
+     * packer reads this on the row's reload, because "booked" and "moved
+     * to To Handover" are two different facts and only the second one is
+     * what they are watching for. A status the store placed somewhere
+     * else is named, with where to fix it.
+     */
+    public function landing(VentaOrder $order): array
+    {
+        $status = trim((string) $order->status);
+        $step = VentaStatusPlacements::stepFor((int) $this->setting->id, $status) ?? 'other';
+        $label = FulfilmentSteps::label($step);
+        $known = VentaStatusPlacements::known((int) $this->setting->id);
+
+        if ($step === 'to_handover') {
+            $sentence = 'The store moved it to "' . $status . '", so it is in To Handover.';
+        } elseif (! $known) {
+            $sentence = 'The store moved it to "' . $status . '". This store has not reported where it places its statuses yet, so the step is a guess from the name: ' . $label . '. Pull orders once so the store can say.';
+        } else {
+            $sentence = 'The store moved it to "' . $status . '", which it places under ' . $label . ', not To Handover. Change that status\'s placement in the store\'s fulfilment settings if it belongs at handover.';
+        }
+
+        return ['status' => $status, 'step' => $step, 'label' => $label, 'sentence' => $sentence];
     }
 
     private static function errorFrom(mixed $body, string $fallback): string

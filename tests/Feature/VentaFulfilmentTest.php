@@ -43,7 +43,15 @@ class VentaFulfilmentTest extends TestCase
         // A stray real call would hit a host that does not exist; better a
         // loud failure at the boundary than a slow timeout.
         Http::preventStrayRequests();
+
+        // Every single-order re-read first asks the store where it places
+        // its statuses (#167); a test that cares stubs this itself, the rest
+        // get a store with nothing placed.
+        Http::fake([self::BASE . '/api/v1/order-statuses' => fn () => Http::response(['data' => $this->statusRows])]);
     }
+
+    /** What the store says about its statuses; a test that cares sets it. */
+    private array $statusRows = [];
 
     protected function tearDown(): void
     {
@@ -595,6 +603,61 @@ class VentaFulfilmentTest extends TestCase
                     && $body['parcel'] === 'medium-pouch' && $body['shipping_payment'] === 'cash' && $body['insure'] === true;
             });
         }
+    }
+
+    public function test_the_stores_own_placement_decides_the_step_and_the_booking_says_where_it_landed(): void
+    {
+        $store = $this->store();
+        $order = $this->order($store, 'Order Processed');
+
+        // The store calls its handover status something the ERP's name list
+        // has never heard of, and says where it sits.
+        $this->statusRows = [
+            ['id' => 35, 'name' => 'Order Processed', 'placement' => 'to_pack'],
+            ['id' => 77, 'name' => 'Rider Booked', 'placement' => 'to_handover'],
+        ];
+        Http::fake([
+            self::BASE . '/api/v1/orders/700001/book-courier' => Http::response([
+                'success' => true, 'order_id' => 700001, 'courier' => 'quadx', 'tracking_number' => 'QX1', 'status' => 'for_pickup',
+            ]),
+            self::BASE . '/api/v1/orders/700001' => Http::response($this->orderPayload('Rider Booked')),
+        ]);
+
+        $this->actingAs($this->packer())
+            ->postJson(route('ext.venta.orders.book', [$store->id, $order->id]), ['courier' => 'quadx'])
+            ->assertOk()
+            ->assertJsonPath('message', 'Booked. The store moved it to "Rider Booked", so it is in To Handover.');
+
+        $this->assertStringContainsString('so it is in To Handover', (string) session('status'));
+
+        // The row is in To Handover on the strip, by the store's placement,
+        // not by any name the ERP knows.
+        $html = $this->actingAs($this->packer())
+            ->get(route('ext.venta.orders.index', [$store->id, 'tab' => 'TO_SHIP', 'pending_sub' => 'to_handover']))
+            ->assertOk()->getContent();
+        $this->assertStringContainsString('700001', $html);
+        $this->assertMatchesRegularExpression('/<span>To Handover<\/span>\s*<span class="x-segment__count">1<\/span>/', $html);
+    }
+
+    public function test_a_status_the_store_places_elsewhere_is_named_as_such_after_booking(): void
+    {
+        $store = $this->store();
+        $order = $this->order($store, 'Order Processed');
+
+        $this->statusRows = [['id' => 40, 'name' => 'Assigning Rider', 'placement' => 'to_pack']];
+        Http::fake([
+            self::BASE . '/api/v1/orders/700001/book-courier' => Http::response([
+                'success' => true, 'order_id' => 700001, 'courier' => 'quadx', 'tracking_number' => 'QX1', 'status' => 'for_pickup',
+            ]),
+            self::BASE . '/api/v1/orders/700001' => Http::response($this->orderPayload('Assigning Rider')),
+        ]);
+
+        $this->actingAs($this->packer())
+            ->postJson(route('ext.venta.orders.book', [$store->id, $order->id]), ['courier' => 'quadx'])
+            ->assertOk();
+
+        $this->assertStringContainsString('which it places under To Pack, not To Handover', (string) session('warning'));
+        $this->assertNull(session('status'));
     }
 
     public function test_a_pull_takes_the_booking_from_the_payload_once_the_storefront_sends_it(): void

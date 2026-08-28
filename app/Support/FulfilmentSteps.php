@@ -172,7 +172,7 @@ final class FulfilmentSteps
      * @param  iterable<string, int|string>  $statusCounts  raw status => count
      * @return array<string, array{count: int, statuses: list<string>}>
      */
-    public static function bucket(string $surface, iterable $statusCounts): array
+    public static function bucket(string $surface, iterable $statusCounts, ?callable $resolver = null): array
     {
         $out = [];
         foreach (self::placements() as $step) {
@@ -181,7 +181,11 @@ final class FulfilmentSteps
 
         foreach ($statusCounts as $status => $count) {
             $status = (string) $status;
-            $step = self::stepFor($surface, $status) ?? 'other';
+            // A caller with a better source than the name list (the
+            // storefront's own placement of its statuses, #167) answers
+            // first; the name list stays the fallback for what it does
+            // not know.
+            $step = ($resolver ? $resolver($status) : null) ?? self::stepFor($surface, $status) ?? 'other';
 
             // A status placed in a step this row does not have (none today,
             // but the map is the only thing stopping it) is worse lost than
