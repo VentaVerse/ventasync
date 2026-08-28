@@ -48,6 +48,12 @@ class TikTokListingController extends Controller
                 $answer = $liveListing->fetch((string) $truth->tiktok_product_id, $c);
                 $live = $answer['live'];
                 $liveError = $answer['error'];
+                // The freshest answer there is: write it to the mirror so the
+                // lists agree with this page at once (the owner, 2026-08-28).
+                if ($live !== null && (string) ($live['status'] ?? '') !== '') {
+                    TikTokListing::query()->where('tiktok_product_id', (string) $truth->tiktok_product_id)
+                        ->update(['live_status' => (string) $live['status'], 'live_checked_at' => now()]);
+                }
             }
         }
 

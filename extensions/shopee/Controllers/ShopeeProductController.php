@@ -3064,6 +3064,15 @@ class ShopeeProductController extends Controller
                 $result = $liveListing->fetch($auth, (int) $link->shopee_item_id);
                 $live = $result['live'];
                 $liveError = $result['error'];
+                // What this page just read is the freshest answer there is:
+                // write it to the mirror, so the lists agree with it at once
+                // (the owner, 2026-08-28: show the status once fetched after pushing).
+                $mirror = $live !== null ? (string) ($live['item_status'] ?? '')
+                    : (str_contains((string) $liveError, 'holds no record') ? 'MISSING' : '');
+                if ($mirror !== '') {
+                    ShopeeProductLink::query()->whereKey($link->id)
+                        ->update(['live_status' => $mirror, 'live_checked_at' => now()]);
+                }
             }
         }
 

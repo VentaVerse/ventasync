@@ -488,6 +488,8 @@ class LazadaListingLiveTest extends TestCase
         $r->assertOk();
         $r->assertSee('On Lazada right now');
         $r->assertSee('LZT-LIVE');
+        // And what it read is written to the mirror, so the lists agree at once.
+        $this->assertSame('active', LazadaProduct::query()->where('lazada_item_id', '990077')->value('live_status'));
     }
 
     public function test_the_edit_page_says_so_when_lazada_does_not_answer(): void

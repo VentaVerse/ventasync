@@ -3256,6 +3256,14 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 $result = $liveListing->fetch($liveSetting, $liveCreds, (string) $listing->lazada_item_id);
                 $live = $result['live'];
                 $liveError = $result['error'];
+                // The freshest answer there is: write it to the mirror so the
+                // lists agree with this page at once (the owner, 2026-08-28).
+                $mirror = $live !== null ? (string) ($live['status'] ?? '')
+                    : (str_contains((string) $liveError, 'holds no record') ? 'missing' : '');
+                if ($mirror !== '') {
+                    LazadaProduct::query()->whereKey($listing->id)
+                        ->update(['live_status' => $mirror, 'live_checked_at' => now()]);
+                }
             }
         }
 

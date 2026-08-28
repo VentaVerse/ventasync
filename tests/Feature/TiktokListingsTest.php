@@ -260,6 +260,8 @@ class TiktokListingsTest extends TestCase
         $r->assertSee('Live on TikTok');
         $r->assertSee('LIVE-SKU');
         $r->assertSee('Deactivate on TikTok Shop');
+        // And what it read is written to the mirror, so the lists agree at once.
+        $this->assertSame('ACTIVATE', TikTokListing::query()->where('tiktok_product_id', 'tt-live')->value('live_status'));
 
         $this->actingAs($this->manager())->put(route('ext.tiktok.listings.update', $productId), [
             'tiktok_category_id' => 'cat-9', 'brand_id' => 'b-1', 'brand_name' => 'Valeton',

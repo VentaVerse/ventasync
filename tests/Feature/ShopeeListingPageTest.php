@@ -191,6 +191,8 @@ class ShopeeListingPageTest extends TestCase
         $r->assertSee('On Shopee right now');
         $r->assertSee('Live');
         $r->assertSee('Unlist from Shopee');
+        // And what it read is written to the mirror, so the lists agree at once.
+        $this->assertSame('NORMAL', ShopeeProductLink::query()->where('shopee_item_id', 990077)->value('live_status'));
     }
 
     public function test_when_shopee_does_not_answer_the_page_says_so_instead_of_substituting(): void
