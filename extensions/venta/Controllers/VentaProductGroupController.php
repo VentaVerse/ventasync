@@ -11,6 +11,7 @@ use Extensions\venta\Models\VentaProductGroupProduct;
 use Extensions\venta\Models\VentaProductLink;
 use Extensions\venta\Models\VentaSetting;
 use Extensions\venta\Services\Venta\VentaClient;
+use Extensions\venta\Services\Venta\VentaProductPush;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
@@ -51,43 +52,7 @@ class VentaProductGroupController extends Controller
      */
     private function pushFailureText(array $result, string $sku): string
     {
-        $raw = json_encode($result['body'] ?? []);
-
-        /*
-         * Venta refuses to create a product at all when it cannot fetch the
-         * images, so the whole push is rejected rather than the product
-         * landing without pictures. On any installation reachable only at a
-         * private address that is permanent: its SafeUrlFetcher blocks private
-         * and reserved ranges outright. Worth saying in words, because the raw
-         * envelope reads as a validation error the operator might try to fix
-         * in the catalog.
-         */
-        if (stripos($raw, 'images_unavailable') !== false) {
-            // Stated as a RULE, not a malfunction, because that is what it is:
-            // Venta refuses to create a product whose images it cannot fetch,
-            // deliberately, so that nothing lands on the storefront without
-            // pictures. A half-listed product is worse than an unlisted one -
-            // it is live, it is wrong, and nobody is told.
-            //
-            // The second sentence is the part the operator can act on. Venta
-            // reads images over HTTP from the address it is given, so an ERP
-            // on a private address cannot supply them at all.
-            return 'Venta will not create a product it cannot fetch images for, so nothing was listed. '
-                .'It reads images over the web from the address this ERP publishes, and that address is a '
-                .'private one, so the images never reach it. Nothing in the catalog needs fixing.';
-        }
-
-        if (stripos($raw, 'sku has already been taken') === false) {
-            return $raw;
-        }
-
-        // Named the button that was deleted in the same change that made this
-        // message reachable: "Use Match Venta ID on this row" sent the operator
-        // looking for a control that is no longer in the menu. Send now does
-        // the matching itself - it reconciles before it decides - so pressing
-        // it again is the whole instruction.
-        return "Venta already has a product with SKU {$sku} that this catalog product is not linked to. "
-            .'Press Send again and it will find that product and link to it.';
+        return VentaProductPush::failureText($result, $sku);
     }
 
     /**
@@ -115,37 +80,11 @@ class VentaProductGroupController extends Controller
      */
     private function collectImageVerdict(array $result, int $pid, int &$sent, int &$stored, array &$reasons): void
     {
-        $body = $result['body'] ?? [];
-        $body = is_array($body) ? ($body['data'] ?? $body) : [];
-
-        $kept = $body['images'] ?? null;
-        $failed = $body['images_failed'] ?? null;
-
-        // A response with neither key is from an older Venta that does not
-        // report on images at all. Silence there is not evidence of failure,
-        // so nothing is claimed.
-        if ($kept === null && $failed === null) {
-            return;
-        }
-
-        $keptCount = is_array($kept) ? count($kept) : (int) $kept;
-        $failedList = is_array($failed) ? $failed : [];
-
-        $stored += $keptCount;
-        $sent += $keptCount + count($failedList);
-
-        foreach ($failedList as $entry) {
-            $reason = is_array($entry)
-                ? trim((string) ($entry['reason'] ?? 'no reason given'))
-                : trim((string) $entry);
-
-            if ($reason === '') {
-                $reason = 'no reason given';
-            }
-
-            // Grouped by reason, not listed per url. Six images refused for
-            // one reason is one thing an operator needs to know, not six.
-            $reasons[$reason] = ($reasons[$reason] ?? 0) + 1;
+        $verdict = VentaProductPush::imageVerdict($result);
+        $sent += $verdict['sent'];
+        $stored += $verdict['stored'];
+        foreach ($verdict['reasons'] as $reason => $count) {
+            $reasons[$reason] = ($reasons[$reason] ?? 0) + $count;
         }
     }
 
@@ -182,21 +121,7 @@ class VentaProductGroupController extends Controller
      */
     private function candidateSkus(string $pfx, int $productId): array
     {
-        $prod = DB::table($pfx.'product')->where('product_id', $productId)->first(['sku', 'model']);
-
-        if (! $prod) {
-            return [];
-        }
-
-        $skus = [];
-        foreach ([$prod->sku ?? '', $prod->model ?? ''] as $candidate) {
-            $candidate = trim((string) $candidate);
-            if ($candidate !== '' && ! in_array($candidate, $skus, true)) {
-                $skus[] = $candidate;
-            }
-        }
-
-        return $skus;
+        return VentaProductPush::for(new VentaSetting())->candidateSkus($productId);
     }
 
     /**
@@ -230,76 +155,7 @@ class VentaProductGroupController extends Controller
      */
     private function reconcileLink(VentaClient $client, int $store, int $productId, string $pfx): array
     {
-        $link = VentaProductLink::where('venta_setting_id', $store)
-            ->where('product_id', $productId)
-            ->first();
-
-        $found = null;
-        $foundSku = null;
-        $denied = null;
-
-        foreach ($this->candidateSkus($pfx, $productId) as $sku) {
-            $result = $client->get("products/{$sku}");
-            $status = (int) ($result['status'] ?? 0);
-
-            if ($result['ok'] ?? false) {
-                $body = $result['body']['data'] ?? $result['body'] ?? [];
-                $id = (int) ($body['id'] ?? 0);
-
-                if ($id > 0) {
-                    $found = $id;
-                    $foundSku = $sku;
-                    break;
-                }
-
-                continue;
-            }
-
-            // 404 is Venta answering. Anything else is Venta not answering:
-            // status 0 is a transport failure, 5xx is the store falling over,
-            // 401/403 mean the credentials stopped working. None of those are
-            // evidence that the product is gone, so none may delete a link.
-            if ($status !== 404) {
-                $denied = $status === 0
-                    ? 'Venta could not be reached, so nothing was checked or changed.'
-                    : "Venta answered {$status} instead of saying whether the product exists, so nothing was changed.";
-            }
-        }
-
-        if ($found === null && $denied !== null) {
-            return ['state' => 'unreachable', 'venta_id' => null, 'sku' => null, 'message' => $denied];
-        }
-
-        // Venta does not have it under any of our SKUs.
-        if ($found === null) {
-            if ($link) {
-                // The link is a memory of something that is no longer there.
-                // Dropping it is what lets the push below create rather than
-                // send an update Venta can only answer 404 to.
-                $link->delete();
-
-                return ['state' => 'lost', 'venta_id' => null, 'sku' => null, 'message' => null];
-            }
-
-            return ['state' => 'new', 'venta_id' => null, 'sku' => null, 'message' => null];
-        }
-
-        if ($link && (int) $link->venta_product_id === $found) {
-            return ['state' => 'confirmed', 'venta_id' => $found, 'sku' => $foundSku, 'message' => null];
-        }
-
-        $wasPointingElsewhere = $link !== null;
-
-        if ($clash = $this->linkProductTo($store, $productId, $found, $foundSku)) {
-            return ['state' => 'blocked', 'venta_id' => $found, 'sku' => $foundSku, 'message' => $clash];
-        }
-
-        return [
-            'state' => $wasPointingElsewhere ? 'repointed' : 'adopted',
-            'venta_id' => $found,
-            'sku' => $foundSku,
-            'message' => null,
-        ];
+        return (new VentaProductPush($this->store_($store), $client))->reconcileLink($productId);
     }
 
     /**
@@ -325,22 +181,7 @@ class VentaProductGroupController extends Controller
      */
     private function linkProductTo(int $store, int $productId, $ventaProductId, ?string $sku): ?string
     {
-        $conflict = VentaProductLink::where('venta_setting_id', $store)
-            ->where('venta_product_id', $ventaProductId)
-            ->where('product_id', '!=', $productId)
-            ->first();
-
-        if ($conflict) {
-            return "Venta product {$ventaProductId} is already linked to catalog product "
-                ."#{$conflict->product_id}. Unlink that product first, then try this one again.";
-        }
-
-        VentaProductLink::updateOrCreate(
-            ['venta_setting_id' => $store, 'product_id' => $productId],
-            ['venta_product_id' => $ventaProductId, 'sku' => $sku]
-        );
-
-        return null;
+        return VentaProductPush::for($this->store_($store))->linkProductTo($productId, $ventaProductId, $sku);
     }
 
     private function store_(int $storeId): VentaSetting
@@ -1994,31 +1835,7 @@ class VentaProductGroupController extends Controller
 
     private function getProductImages(string $pfx, int $productId): array
     {
-        $images = [];
-
-        // Main image
-        $mainImage = DB::table($pfx . 'product')
-            ->where('product_id', $productId)
-            ->value('image');
-
-        if ($mainImage && trim($mainImage) !== '') {
-            $images[] = $this->imageUrl($mainImage);
-        }
-
-        // Additional images
-        $additionalImages = DB::table($pfx . 'product_image')
-            ->where('product_id', $productId)
-            ->orderBy('sort_order')
-            ->pluck('image')
-            ->toArray();
-
-        foreach ($additionalImages as $img) {
-            if ($img && trim($img) !== '') {
-                $images[] = $this->imageUrl($img);
-            }
-        }
-
-        return $images;
+        return VentaProductPush::for(new VentaSetting())->images($productId);
     }
 
     /**
@@ -2026,8 +1843,6 @@ class VentaProductGroupController extends Controller
      */
     private function imageUrl(string $path): string
     {
-        $segments = explode('/', ltrim($path, '/'));
-        $encoded = implode('/', array_map('rawurlencode', $segments));
-        return asset('storage/' . $encoded);
+        return VentaProductPush::imageUrl($path);
     }
 }

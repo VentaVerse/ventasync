@@ -1,5 +1,6 @@
 <?php
 
+use Extensions\venta\Controllers\VentaListingController;
 use Extensions\venta\Controllers\VentaSettingsController;
 use Extensions\venta\Controllers\VentaProductGroupController;
 use Extensions\venta\Controllers\VentaOrderController;
@@ -49,6 +50,14 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
 
     // Product search (JSON API) — read-only lookup
     Route::get('/venta/{store}/product-groups/search-products', [VentaProductGroupController::class, 'searchProducts'])->name('ext.venta.product-groups.searchProducts');
+
+    // The per-product page (#171): one product on one store, the same
+    // anatomy as Shopee's and TikTok's listing pages. Readable by the view
+    // tier (it renders read-only with no verbs); the writes are manage
+    // routes below. Derives its own venta/listing permission pair, as
+    // TikTok's does, so a listings-only operator can be given exactly this.
+    Route::get('/venta/{store}/listings/{productId}', [VentaListingController::class, 'edit'])
+        ->whereNumber('productId')->name('ext.venta.listings.edit');
 });
 
 // ── Venta Settings + Catalog — WRITES ───────────────────────────
@@ -99,6 +108,11 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     // the only channel of the four that could not do this.
     Route::post('/venta/{store}/product-groups/{group}/delete-from-venta', [VentaProductGroupController::class, 'deleteFromVenta'])->name('ext.venta.product-groups.bulk-delete-from-venta');
     Route::post('/venta/{store}/product-groups/{group}/products/{product}/link', [VentaProductGroupController::class, 'linkProduct'])->name('ext.venta.product-groups.link');
+
+    // Listing page writes (#171): the record, the push from it, unlist and relist.
+    Route::put('/venta/{store}/listings/{productId}', [VentaListingController::class, 'update'])->whereNumber('productId')->name('ext.venta.listings.update');
+    Route::post('/venta/{store}/listings/{productId}/push', [VentaListingController::class, 'push'])->whereNumber('productId')->name('ext.venta.listings.push');
+    Route::post('/venta/{store}/listings/{productId}/toggle', [VentaListingController::class, 'toggle'])->whereNumber('productId')->name('ext.venta.listings.toggle');
 });
 
 // ── Venta Orders — READ ─────────────────────────────────────────

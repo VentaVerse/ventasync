@@ -167,3 +167,58 @@
     .vt-book__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     #vtBookCouriers { flex-direction: column; }
 }
+
+/* ------------------------------------------------------------------
+   The listing page (#171)
+
+   Two small lists the shared fm-* vocabulary has no shape for: the images
+   that go up, and the groups that hold the product on this store.
+   ------------------------------------------------------------------ */
+.vl-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: var(--bl-space-3) 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.vl-images__item {
+    width: 64px;
+    height: 64px;
+    border: 1px solid var(--bl-rule-2);
+    border-radius: var(--bl-r-ctrl);
+    overflow: hidden;
+    background: var(--bl-chrome);
+}
+
+.vl-images__item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.vl-groups {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.vl-groups__item {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--bl-space-3);
+    padding: 6px 0;
+    border-bottom: 1px solid var(--bl-rule);
+    font-size: 13px;
+}
+
+.vl-groups__item:last-child { border-bottom: 0; }
+
+.vl-groups__meta {
+    font-size: 11.5px;
+    color: var(--bl-ink-3);
+    white-space: nowrap;
+}

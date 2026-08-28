@@ -449,6 +449,9 @@
                         <div class="x-menu__sep" role="separator"></div>
                     @endif
 
+                    {{-- The product's own page on this store (#171): its price
+                         rule, its content here, what the store holds right now. --}}
+                    <a class="x-menu__item" href="{{ route('ext.venta.listings.edit', [$setting->id, $p->product_id]) }}">Open listing</a>
                     <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalog</a>
 
                     @if($isManual)

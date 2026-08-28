@@ -5,6 +5,7 @@ namespace Extensions\venta;
 use App\Extensions\ExtensionProvider;
 use App\Integrations\Contracts\DashboardContributor;
 use App\Integrations\Contracts\MarketplaceSourceOptionsProvider;
+use App\Integrations\Contracts\ProductActionContributor;
 use App\Integrations\Contracts\SkuSyncContributor;
 use App\Integrations\Dto\RecentOrder;
 use App\Integrations\Dto\TopProduct;
@@ -33,7 +34,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class VentaExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, MarketplaceSourceOptionsProvider, CredentialRevealer
+class VentaExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ProductActionContributor
 {
     protected string $id = 'venta';
 
@@ -361,6 +362,30 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
      * Venta widgets for the core dashboard: store-name lookup table for
      * the "Recent orders" and platform breakdown labels.
      */
+    /**
+     * The product page's way into this product's listing on each store
+     * (#171). One action per enabled store, because each store is a
+     * separate live shop with its own record of the product.
+     */
+    public function productActions(int $productId): array
+    {
+        if (! Schema::hasTable('venta_settings')) {
+            return [];
+        }
+
+        return VentaSetting::query()
+            ->where('enabled', true)
+            ->orderBy('store_name')
+            ->get(['id', 'store_name'])
+            ->map(fn (VentaSetting $s) => [
+                'label' => 'Listing on ' . $s->store_name,
+                'url' => route('ext.venta.listings.edit', [$s->id, $productId]),
+                'icon' => 'store',
+                'permission' => 'view_venta/listing',
+            ])
+            ->all();
+    }
+
     public function dashboardData(): array
     {
         return [
