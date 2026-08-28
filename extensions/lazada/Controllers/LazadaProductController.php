@@ -871,7 +871,17 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
     }
 }
 
-    public function index(Request $request, \Extensions\lazada\Services\Lazada\LazadaLiveListing $liveListing)
+    /** Listings-strip tab key => the status word Lazada returns on an item (and the mirror stores). */
+    public const TAB_STATUS = [
+        'active' => 'active',
+        'inactive' => 'inactive',
+        'pending' => 'pending',
+        'violation' => 'rejected',
+        'soldout' => 'sold-out',
+        'deleted' => 'deleted',
+    ];
+
+    public function index(Request $request)
     {
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
@@ -895,21 +905,26 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             $lazadaTab = 'all';
         }
 
+        /* Since 2026-08-28 the counts and the per-row statuses come from
+         * the MIRROR on the listing rows (live_status, live_checked_at),
+         * refreshed every 30 minutes by the automation, on demand by the
+         * Refresh button, and written through by every activate and
+         * deactivate the ERP makes. A page view asks Lazada for nothing
+         * (the owner: six calls per click had become the cost of the page).
+         * The strip says when the mirror was last refreshed. */
         $liveSetting = LazadaSetting::query()->first()?->decrypted();
         $liveCreds = LazadaSetting::activeCredentials($liveSetting);
         $liveCounts = null;
         $liveTabError = null;
+        $liveCheckedAt = null;
         if ($liveSetting && $liveCreds['complete']) {
-            try {
-                $liveCounts = [];
-                foreach ($tabMap as $tabKey => $filter) {
-                    $liveCounts[$tabKey] = $liveListing->count($liveSetting, $liveCreds, $filter);
-                }
-            } catch (\Throwable $e) {
-                $liveCounts = null;
-                $liveTabError = \App\Support\TransportError::plain($e, 'Lazada') . ' The live tabs and statuses are unavailable right now; the stored view below is unaffected.';
-                $lazadaTab = 'all';
-            }
+            // The /products/get FILTER words in $tabMap are not the STATUS
+            // words Lazada returns on an item (filter "live" is status
+            // "active"); the mirror stores the status word.
+            $statusMap = self::TAB_STATUS;
+            $liveCounts = LazadaProduct::mirrorCounts($statusMap);
+            $liveCheckedAt = LazadaProduct::query()->max('live_checked_at');
+            $liveCheckedAt = $liveCheckedAt ? \Illuminate\Support\Carbon::parse($liveCheckedAt) : null;
         } else {
             $lazadaTab = 'all';
         }
@@ -1009,14 +1024,13 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         // A live tab narrows the table to the items Lazada holds in that
         // status right now. Only uploaded rows can match: the tab is a
         // view of the shop, and an unpushed product is not in it.
+        // The catalogue's own total, before a Lazada tab narrows the table:
+        // the "All products" tab wears it so it reads as a total, not a status.
+        $catalogueTotal = (clone $query)->count();
+
         if ($lazadaTab !== 'all' && $liveCounts !== null) {
-            try {
-                $tabItemIds = $liveListing->itemIds($liveSetting, $liveCreds, $tabMap[$lazadaTab]);
-                $query->whereIn('lazada_item_id', $tabItemIds ?: ['-none-']);
-            } catch (\Throwable $e) {
-                $liveTabError = \App\Support\TransportError::plain($e, 'Lazada') . ' The live tabs and statuses are unavailable right now; the stored view below is unaffected.';
-                $lazadaTab = 'all';
-            }
+            $query->where('live_status', self::TAB_STATUS[$lazadaTab])
+                ->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '');
         }
 
         // Load Lazada products (sorting by ERP-derived fields is done in-memory below).
@@ -1186,46 +1200,16 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
          * copied in by a database refresh). Failure leaves the map empty
          * and the rows fall back to the stored badge - absent, never
          * stale. */
+        /* The status chip per uploaded row on this page, from the mirror.
+         * Null (never refreshed) renders as "Not checked yet", never as a
+         * guess. */
         $liveStatuses = [];
-        if ($liveCounts !== null) {
-            $pageSkus = [];
-            $pageItemIds = [];
-            foreach ($paged as $l) {
-                $rowItemId = (string) ($l->lazada_item_id ?? '');
-                /* The product's SKU AND its variations' SKUs. A product with
-                 * variations is uploaded as its variation SKUs (the push names
-                 * each Lazada SKU after the variation's own), so the parent
-                 * SKU is not on Lazada at all: asked about it alone, Lazada
-                 * answered nothing and every such row read "Not found on
-                 * Lazada" while the item sat live (Quadra-TS, 2026-08-26).
-                 * Any one of the item's SKUs is enough, since the answer is
-                 * keyed by item id. Shopee and TikTok ask by id and never
-                 * had this problem. */
-                $rowSkus = array_filter(array_map('trim', array_merge(
-                    [(string) ($productsById->get((int) $l->product_id)?->sku ?? '')],
-                    ($optionRowsByProductId->get((int) $l->product_id) ?? collect())->pluck('sku')->map(fn ($v) => (string) $v)->all()
-                )), fn ($v) => $v !== '');
-                if ($rowItemId === '' || $rowSkus === []) {
-                    continue;
-                }
-                array_push($pageSkus, ...array_values($rowSkus));
-                $pageItemIds[] = $rowItemId;
-            }
-            if (!empty($pageSkus)) {
-                try {
-                    $liveStatuses = $liveListing->statusesBySku($liveSetting, $liveCreds, $pageSkus);
-                    foreach ($pageItemIds as $askedId) {
-                        if (!isset($liveStatuses[$askedId])) {
-                            $liveStatuses[$askedId] = 'missing';
-                        }
-                    }
-                } catch (\Throwable) {
-                    $liveStatuses = [];
-                }
+        foreach ($paged as $l) {
+            if (!empty($l->lazada_item_id) && $l->live_status !== null) {
+                $liveStatuses[(string) $l->lazada_item_id] = (string) $l->live_status;
             }
         }
 
-        // Load unmatched items
         $unmatchedItems = \Extensions\lazada\Models\LazadaUnmatchedItem::query()
             ->where('status', 'unmatched')
             ->orderBy('item_name')
@@ -1259,8 +1243,34 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'liveCounts' => $liveCounts,
             'liveTabError' => $liveTabError,
             'liveStatuses' => $liveStatuses,
+            'liveCheckedAt' => $liveCheckedAt,
+            'catalogueTotal' => $catalogueTotal,
             'readinessByListingId' => $readinessByListingId,
         ]);
+    }
+
+    /** The Refresh button on the listings strip: the same walk the 30-minute automation runs. */
+    public function refreshStatus(Request $request, \Extensions\lazada\Services\Lazada\LazadaLiveListing $live)
+    {
+        $setting = LazadaSetting::query()->first()?->decrypted();
+        $creds = LazadaSetting::activeCredentials($setting);
+        if (!$setting || !$creds['complete']) {
+            return redirect()->back()->with('error', 'Missing Lazada settings.');
+        }
+
+        $result = $live->refreshMirror($setting, $creds);
+        if ($result['error'] !== null) {
+            return redirect()->back()->with('error', 'Lazada did not answer: ' . $result['error'] . ' The statuses shown are from the last refresh.');
+        }
+
+        $labels = ['active' => 'active', 'inactive' => 'inactive', 'pending' => 'pending QC', 'rejected' => 'in violation',
+            'sold-out' => 'sold out', 'soldout' => 'sold out', 'deleted' => 'deleted', 'missing' => 'not found on Lazada'];
+        $parts = [];
+        foreach ($result['counts'] as $status => $n) {
+            $parts[] = number_format($n) . ' ' . ($labels[$status] ?? $status);
+        }
+
+        return redirect()->back()->with('status', 'Refreshed from Lazada: ' . ($parts ? implode(', ', $parts) : 'no uploaded listings') . '.');
     }
 
     /**
@@ -2188,18 +2198,37 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
     {
         $request->validate(['action' => 'required|in:activate,deactivate']);
         $deactivate = $request->input('action') === 'deactivate';
-
         $listing = LazadaProduct::query()->findOrFail($id);
         if (empty($listing->lazada_item_id)) {
             return redirect()->back()->with('error', 'This listing is not on Lazada, so there is nothing to ' . ($deactivate ? 'deactivate' : 'activate') . '.');
         }
-
         $setting = LazadaSetting::query()->first()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$creds['complete']) {
             return redirect()->back()->with('error', 'Missing Lazada settings.');
         }
 
+        $r = $this->toggleOne($listing, $deactivate, $setting, $creds, $client);
+        if (!$r['ok']) {
+            return redirect()->back()->with('error', ($deactivate ? 'Deactivate' : 'Activate') . ' failed: ' . $r['message']);
+        }
+
+        return redirect()->back()->with('status', $deactivate
+            ? 'Deactivated. Buyers no longer see this item on Lazada.'
+            : 'Activation sent. Lazada usually applies it within a minute; Refresh from Lazada reads the truth back.');
+    }
+
+    /**
+     * One activate or deactivate, the same call for the row menu, the
+     * listing page and the selection bar. Lazada deactivates by ItemId;
+     * activating goes through /product/update with the SKU ids the ERP has
+     * cached, SKU-level Status active. On success the mirror is written
+     * through so the next page view reads it without a refresh.
+     *
+     * @return array{ok: bool, message: string}
+     */
+    private function toggleOne(LazadaProduct $listing, bool $deactivate, object $setting, array $creds, LazadaClient $client): array
+    {
         if ($deactivate) {
             $apiPath = '/product/deactivate';
             $productPayload = ['Request' => ['Product' => ['ItemId' => (int) $listing->lazada_item_id]]];
@@ -2210,7 +2239,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 ->pluck('sku_id')
                 ->map(fn ($v) => (int) $v)->filter()->values();
             if ($skuIds->isEmpty()) {
-                return redirect()->back()->with('error', 'Activate needs the listing\'s Lazada SKU ids and none are cached. Open the listing to refresh its variants, then try again.');
+                return ['ok' => false, 'message' => 'Activate needs the listing\'s Lazada SKU ids and none are cached. Open the listing to refresh its variants, then try again.'];
             }
             $apiPath = '/product/update';
             $productPayload = ['Request' => ['Product' => [
@@ -2218,7 +2247,6 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 'Skus' => ['Sku' => $skuIds->map(fn ($sid) => ['SkuId' => $sid, 'Status' => 'active'])->all()],
             ]]];
         }
-
         $timestamp = (string) round(microtime(true) * 1000);
         $params = [
             'app_key' => (string) $creds['app_key'],
@@ -2228,13 +2256,11 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'payload' => json_encode($productPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ];
         $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
-
         try {
             $result = $client->post((string) $setting->region, $apiPath, $params);
         } catch (\Throwable $e) {
-            return redirect()->back()->with('error', ($deactivate ? 'Deactivate' : 'Activate') . ' failed: ' . \App\Support\TransportError::plain($e, 'Lazada'));
+            return ['ok' => false, 'message' => \App\Support\TransportError::plain($e, 'Lazada')];
         }
-
         LazadaApiLog::safeCreate([
             'pack' => 'lazada.listings.toggle', 'method' => 'POST',
             'api_path' => $apiPath, 'auth_required' => true,
@@ -2243,12 +2269,12 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'ok' => (bool) ($result['ok'] ?? false),
             'response_body' => $result['body'] ?? null, 'user_id' => auth()->id(),
         ]);
-
         $e = $this->extractLazadaError($result);
         if (!($e['ok'] ?? false)) {
-            return redirect()->back()->with('error', ($deactivate ? 'Deactivate' : 'Activate') . ' failed: ' . ($e['message'] ?? 'Unknown error'));
+            return ['ok' => false, 'message' => (string) ($e['message'] ?? 'Unknown error')];
         }
 
+        $listing->forceFill(['live_status' => $deactivate ? 'inactive' : 'active', 'live_checked_at' => now()])->save();
         ActivityLogger::log(
             $deactivate ? 'deactivated' : 'activated',
             'Lazada Product',
@@ -2256,9 +2282,57 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'Item ' . $listing->lazada_item_id . ($deactivate ? ' deactivated on' : ' activated on') . ' Lazada'
         );
 
-        return redirect()->back()->with('status', $deactivate
-            ? 'Deactivated. Buyers no longer see this item on Lazada.'
-            : 'Activation sent. Lazada usually applies it within a minute; the live state above tells the truth on the next load.');
+        return ['ok' => true, 'message' => ''];
+    }
+
+    /** The selection bar's Deactivate / Activate (the owner, 2026-08-28): the same call as the row's, for many rows. */
+    public function bulkToggle(Request $request, LazadaClient $client)
+    {
+        $request->validate([
+            'action' => 'required|in:activate,deactivate',
+            'listing_ids' => 'required|array|min:1',
+            'listing_ids.*' => 'integer',
+        ]);
+        $deactivate = $request->input('action') === 'deactivate';
+        $verb = $deactivate ? 'Deactivated' : 'Activated';
+
+        $setting = LazadaSetting::query()->first()?->decrypted();
+        $creds = LazadaSetting::activeCredentials($setting);
+        if (!$setting || !$creds['complete']) {
+            return redirect()->back()->with('error', 'Missing Lazada settings.');
+        }
+
+        $ids = array_values(array_unique(array_map('intval', (array) $request->input('listing_ids'))));
+        $listings = LazadaProduct::query()->whereIn('id', $ids)->get();
+        $onLazada = $listings->filter(fn ($l) => !empty($l->lazada_item_id));
+        $notOnLazada = count($ids) - $onLazada->count();
+        if ($onLazada->isEmpty()) {
+            return redirect()->back()->with('error', 'None of the selected listings is on Lazada, so there is nothing to ' . ($deactivate ? 'deactivate' : 'activate') . '.');
+        }
+
+        $done = 0;
+        $refused = [];
+        foreach ($onLazada as $listing) {
+            $r = $this->toggleOne($listing, $deactivate, $setting, $creds, $client);
+            if ($r['ok']) {
+                $done++;
+            } else {
+                $refused[] = $r['message'];
+            }
+        }
+
+        $parts = [];
+        if ($done > 0) {
+            $parts[] = $verb . ' ' . $done . ' ' . ($done === 1 ? 'item' : 'items') . ' on Lazada.';
+        }
+        if ($refused !== []) {
+            $parts[] = count($refused) . ' refused: ' . implode('; ', array_slice(array_unique($refused), 0, 3)) . '.';
+        }
+        if ($notOnLazada > 0) {
+            $parts[] = $notOnLazada . ' skipped, not on Lazada.';
+        }
+
+        return redirect()->back()->with($done === 0 ? 'error' : 'status', implode(' ', $parts));
     }
 
     public function bulkUploadToLazada(Request $request, LazadaClient $client)

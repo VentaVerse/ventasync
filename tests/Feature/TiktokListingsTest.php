@@ -141,12 +141,20 @@ class TiktokListingsTest extends TestCase
         return $productId;
     }
 
-    public function test_the_index_wears_tiktoks_live_status_and_readiness(): void
+    /**
+     * Since 2026-08-28 the strip and the chips read the MIRROR on the
+     * listing rows. A page view asks TikTok for nothing; the Refresh button
+     * and the 30-minute automation walk the shop and write the mirror.
+     */
+    public function test_the_index_reads_the_mirror_and_asks_tiktok_for_nothing(): void
     {
         $live = $this->seedProduct('L');
-        TikTokListing::create(['product_id' => $live, 'tiktok_product_id' => 'tt-live', 'tiktok_sku_id' => 's1', 'tiktok_category_id' => 'cat-9', 'last_pushed_at' => now(), 'last_push_source' => 'listing']);
+        TikTokListing::create(['product_id' => $live, 'tiktok_product_id' => 'tt-live', 'tiktok_sku_id' => 's1', 'tiktok_category_id' => 'cat-9',
+            'last_pushed_at' => now(), 'last_push_source' => 'listing', 'live_status' => 'ACTIVATE', 'live_checked_at' => '2026-08-28 08:30:00']);
         $gone = $this->seedProduct('G');
-        TikTokListing::create(['product_id' => $gone, 'tiktok_product_id' => 'tt-gone', 'tiktok_category_id' => 'cat-9']);
+        TikTokListing::create(['product_id' => $gone, 'tiktok_product_id' => 'tt-gone', 'tiktok_category_id' => 'cat-9', 'live_status' => 'MISSING', 'live_checked_at' => '2026-08-28 08:30:00']);
+        $fresh = $this->seedProduct('F');
+        TikTokListing::create(['product_id' => $fresh, 'tiktok_product_id' => 'tt-new', 'tiktok_category_id' => 'cat-9']);
         $ready = $this->seedProduct('R');
         TikTokListing::create(['product_id' => $ready, 'tiktok_category_id' => 'cat-9']);
         $bare = $this->seedProduct('B');
@@ -154,16 +162,70 @@ class TiktokListingsTest extends TestCase
         $r = $this->actingAs($this->manager())->get(route('ext.tiktok.products.index'));
 
         $r->assertOk();
-        $r->assertSee('Live');                        // tt-live's status, from TikTok on this load
-        $r->assertSee('Not found on TikTok Shop');    // tt-gone: TikTok answered and it was not there
-        $r->assertSee('Ready to push');               // category set, sheet read, image present
-        $r->assertSee('Missing: a TikTok category');  // the bare product
-        // #149 (2026-08-26): the row menu's push opens the listing page,
-        // where the push button sits under what goes up; no one-click here.
+        $r->assertSee('Your catalogue');
+        $r->assertSee('On TikTok Shop');
+        $r->assertSee('All products');
+        $r->assertSee('as of 08:30, Aug 28');
+        $r->assertSee('Refresh from TikTok Shop');
+        $r->assertSee('Live');                        // tt-live, from the mirror
+        $r->assertSee('Not found on TikTok Shop');    // tt-gone, from the mirror
+        $r->assertSee('Not checked yet');             // tt-new, never refreshed
+        $r->assertSee('Ready to push');
+        $r->assertSee('Missing: a TikTok category');
         $r->assertSee('Push to TikTok Shop');
-        $r->assertDontSee('Push this product to TikTok Shop now?');
         $r->assertSee('Under review');                // the tab bar exists
+        $r->assertSee('Deactivate on TikTok Shop');   // the row verb for a live row
+        $this->assertCount(0, $this->callsFor('POST', '/product/202309/products/search'));
+    }
+
+    public function test_refresh_walks_the_shop_and_writes_every_listings_status(): void
+    {
+        $live = $this->seedProduct('L');
+        TikTokListing::create(['product_id' => $live, 'tiktok_product_id' => 'tt-live', 'tiktok_category_id' => 'cat-9']);
+        $gone = $this->seedProduct('G');
+        TikTokListing::create(['product_id' => $gone, 'tiktok_product_id' => 'tt-gone', 'tiktok_category_id' => 'cat-9']);
+        // On TikTok through a group pivot only: the refresh gives it a listing row.
+        $pivotOnly = $this->seedProduct('P');
+        TikTokProductGroupProduct::query()->where('product_id', $pivotOnly)->update(['tiktok_product_id' => 'tt-off', 'sync_status' => 'synced']);
+
+        $r = $this->actingAs($this->manager())->post(route('ext.tiktok.products.refresh_status'));
+
+        $r->assertSessionHas('status');
+        $this->assertStringContainsString('1 live', (string) session('status'));
+        $this->assertStringContainsString('1 deactivated', (string) session('status'));
         $this->assertCount(1, $this->callsFor('POST', '/product/202309/products/search'));
+        $this->assertSame('ACTIVATE', TikTokListing::where('tiktok_product_id', 'tt-live')->value('live_status'));
+        $this->assertSame('MISSING', TikTokListing::where('tiktok_product_id', 'tt-gone')->value('live_status'));
+        $this->assertSame('SELLER_DEACTIVATED', TikTokListing::where('product_id', $pivotOnly)->value('live_status'), 'the pivot-only product got a listing row and its status');
+        $this->assertNotNull(TikTokListing::where('tiktok_product_id', 'tt-live')->value('live_checked_at'));
+    }
+
+    public function test_refresh_leaves_the_mirror_alone_when_tiktok_does_not_answer(): void
+    {
+        $live = $this->seedProduct('L');
+        TikTokListing::create(['product_id' => $live, 'tiktok_product_id' => 'tt-live', 'live_status' => 'ACTIVATE']);
+        $this->callResponses['POST /product/202309/products/search'] = ['ok' => false, 'status' => 500, 'body' => ['code' => 1, 'message' => 'boom']];
+
+        $r = $this->actingAs($this->manager())->post(route('ext.tiktok.products.refresh_status'));
+
+        $r->assertSessionHas('error');
+        $this->assertStringContainsString('TikTok Shop did not answer', (string) session('error'));
+        $this->assertSame('ACTIVATE', TikTokListing::where('tiktok_product_id', 'tt-live')->value('live_status'));
+    }
+
+    public function test_a_tiktok_tab_narrows_the_table_by_the_mirror(): void
+    {
+        $live = $this->seedProduct('L');
+        TikTokListing::create(['product_id' => $live, 'tiktok_product_id' => 'tt-live', 'live_status' => 'ACTIVATE']);
+        $off = $this->seedProduct('O');
+        TikTokListing::create(['product_id' => $off, 'tiktok_product_id' => 'tt-off', 'live_status' => 'SELLER_DEACTIVATED']);
+
+        $r = $this->actingAs($this->manager())->get(route('ext.tiktok.products.index', ['tiktok_tab' => 'deactivated']));
+
+        $r->assertOk();
+        $r->assertSee('TikTok listing product O');
+        $r->assertDontSee('TikTok listing product L');
+        $this->assertCount(0, $this->callsFor('POST', '/product/202309/products/search'));
     }
 
     public function test_the_listing_page_reads_live_state_and_saves_its_settings(): void
@@ -255,6 +317,40 @@ class TiktokListingsTest extends TestCase
             ->assertSessionHas('status');
 
         $this->assertSame(['product_ids' => ['tt-live']], $this->callsFor('POST', '/product/202309/products/deactivate')[0]['body']);
+        // Written through to the mirror.
+        $this->assertSame('SELLER_DEACTIVATED', TikTokListing::where('tiktok_product_id', 'tt-live')->value('live_status'));
+    }
+
+    /** The selection bar's Deactivate / Activate (the owner, 2026-08-28): one call for the whole selection. */
+    public function test_bulk_toggle_deactivates_the_selection_in_one_call_and_names_what_it_skipped(): void
+    {
+        $a = $this->seedProduct('A');
+        TikTokListing::create(['product_id' => $a, 'tiktok_product_id' => 'tt-a', 'live_status' => 'ACTIVATE']);
+        $b = $this->seedProduct('B');
+        TikTokListing::create(['product_id' => $b, 'tiktok_product_id' => 'tt-b', 'live_status' => 'ACTIVATE']);
+        $bare = $this->seedProduct('C');
+        $this->callResponses['POST /product/202309/products/deactivate'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success', 'data' => []]];
+
+        $r = $this->actingAs($this->manager())
+            ->post(route('ext.tiktok.products.bulk_toggle'), ['action' => 'deactivate', 'product_ids' => [$a, $b, $bare]]);
+
+        $calls = $this->callsFor('POST', '/product/202309/products/deactivate');
+        $this->assertCount(1, $calls, 'one call for the whole selection');
+        $this->assertEqualsCanonicalizing(['tt-a', 'tt-b'], $calls[0]['body']['product_ids']);
+        $r->assertSessionHas('status');
+        $flash = (string) session('status');
+        $this->assertStringContainsString('Deactivated 2 items on TikTok Shop', $flash);
+        $this->assertStringContainsString('1 skipped, not on TikTok Shop', $flash);
+        $this->assertSame('SELLER_DEACTIVATED', TikTokListing::where('tiktok_product_id', 'tt-a')->value('live_status'));
+    }
+
+    public function test_bulk_toggle_with_nothing_on_tiktok_refuses_plainly(): void
+    {
+        $bare = $this->seedProduct('Z');
+        $this->actingAs($this->manager())
+            ->post(route('ext.tiktok.products.bulk_toggle'), ['action' => 'activate', 'product_ids' => [$bare]])
+            ->assertSessionHas('error');
+        $this->assertCount(0, $this->callsFor('POST', '/product/202309/products/activate'));
     }
 
     public function test_a_view_only_operator_reads_the_index_without_verbs(): void

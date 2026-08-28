@@ -243,27 +243,95 @@ class ShopeeListingPageTest extends TestCase
         };
     }
 
-    public function test_the_index_tabs_speak_shopees_live_counts(): void
+    public function test_the_index_tabs_count_the_mirror(): void
     {
-        $this->seedProduct();
-        $this->fakeItemList(['NORMAL' => [111, 222], 'UNLIST' => [333], 'BANNED' => [], 'REVIEWING' => []]);
-        $this->getResponses['/api/v2/product/get_item_base_info'] =
-            ['ok' => true, 'status' => 200, 'body' => ['response' => ['item_list' => []]]];
+        $productId = $this->seedProduct();
+        ShopeeProductLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 111, 'sku' => 'A', 'live_status' => 'NORMAL']);
 
         $r = $this->actingAs($this->manager())->get(route('ext.shopee.products.index'));
 
         $r->assertOk();
         $r->assertSee('Under review');
         $r->assertSee('shopee_tab=live', false);
+        $this->assertEmpty($this->sentPayloads);
     }
 
-    public function test_a_live_tab_narrows_the_table_to_items_shopee_holds_in_that_status(): void
+    /**
+     * Since 2026-08-28 the strip and the chips read the MIRROR on the link
+     * rows. A page view asks Shopee for nothing; the Refresh button and the
+     * 30-minute automation walk the shop and write the mirror.
+     */
+    public function test_the_page_reads_the_mirror_and_asks_shopee_for_nothing(): void
+    {
+        $productId = $this->seedProduct();
+        ShopeeProductLink::query()->create([
+            'product_id' => $productId, 'shopee_item_id' => 111, 'sku' => 'LSTP-SKU-1',
+            'live_status' => 'UNLIST', 'live_checked_at' => '2026-08-28 08:30:00',
+        ]);
+        // No get_item_list or get_item_base_info registered: the page must not need them.
+
+        $r = $this->actingAs($this->manager())->get(route('ext.shopee.products.index'));
+
+        $r->assertOk();
+        $r->assertSee('Your catalogue');
+        $r->assertSee('On Shopee');
+        $r->assertSee('All products');
+        $r->assertSee('as of 08:30, Aug 28');
+        $r->assertSee('Refresh from Shopee');
+        $r->assertSee('shopee_tab=unlisted', false);
+        $r->assertSee('Unlisted');
+        $r->assertSee('Relist on Shopee');
+        $this->assertEmpty($this->sentPayloads);
+    }
+
+    public function test_a_link_never_refreshed_reads_not_checked_yet(): void
+    {
+        $productId = $this->seedProduct();
+        ShopeeProductLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 111, 'sku' => 'LSTP-SKU-1']);
+
+        $r = $this->actingAs($this->manager())->get(route('ext.shopee.products.index'));
+
+        $r->assertOk();
+        $r->assertSee('Not checked yet');
+        $r->assertSee('not refreshed yet');
+    }
+
+    public function test_refresh_walks_the_shop_and_writes_every_links_status(): void
+    {
+        $productId = $this->seedProduct();
+        ShopeeProductLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 111, 'sku' => 'LSTP-SKU-1']);
+        ShopeeProductLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 424242, 'sku' => 'GONE']);
+        $this->fakeItemList(['NORMAL' => [111, 222], 'UNLIST' => [333], 'BANNED' => [], 'REVIEWING' => [], 'SELLER_DELETE' => [], 'SHOPEE_DELETE' => []]);
+
+        $r = $this->actingAs($this->manager())->post(route('ext.shopee.products.refresh_status'));
+
+        $r->assertSessionHas('status');
+        $this->assertStringContainsString('1 live', (string) session('status'));
+        $this->assertSame('NORMAL', ShopeeProductLink::where('shopee_item_id', 111)->value('live_status'));
+        $this->assertSame('MISSING', ShopeeProductLink::where('shopee_item_id', 424242)->value('live_status'), 'an item the shop no longer returns');
+        $this->assertNotNull(ShopeeProductLink::where('shopee_item_id', 111)->value('live_checked_at'));
+    }
+
+    public function test_refresh_leaves_the_mirror_alone_when_shopee_does_not_answer(): void
+    {
+        $productId = $this->seedProduct();
+        ShopeeProductLink::query()->create([
+            'product_id' => $productId, 'shopee_item_id' => 111, 'sku' => 'LSTP-SKU-1', 'live_status' => 'NORMAL',
+        ]);
+        // No get_item_list response registered: the fake answers ok=false.
+
+        $r = $this->actingAs($this->manager())->post(route('ext.shopee.products.refresh_status'));
+
+        $r->assertSessionHas('error');
+        $this->assertStringContainsString('Shopee did not answer', (string) session('error'));
+        $this->assertSame('NORMAL', ShopeeProductLink::where('shopee_item_id', 111)->value('live_status'));
+    }
+
+    public function test_a_shopee_tab_narrows_the_table_by_the_mirror(): void
     {
         $inTab = $this->seedProduct();
         $pfx = (string) config('catalog.prefix');
-        DB::table($pfx . 'product')->where('product_id', $inTab)->update(['sku' => 'TAB-IN']);
-        ShopeeProductLink::query()->create(['product_id' => $inTab, 'shopee_item_id' => 111, 'sku' => 'TAB-IN']);
-
+        ShopeeProductLink::query()->create(['product_id' => $inTab, 'shopee_item_id' => 111, 'sku' => 'TAB-IN', 'live_status' => 'NORMAL']);
         $outOfTab = DB::table($pfx . 'product')->insertGetId([
             'model' => 'LSTP-2', 'sku' => 'TAB-OUT', 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => '', 'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5,
@@ -275,60 +343,63 @@ class ShopeeListingPageTest extends TestCase
             'name' => 'Unlisted elsewhere product', 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
-        ShopeeProductLink::query()->create(['product_id' => $outOfTab, 'shopee_item_id' => 333, 'sku' => 'TAB-OUT']);
+        ShopeeProductLink::query()->create(['product_id' => $outOfTab, 'shopee_item_id' => 333, 'sku' => 'TAB-OUT', 'live_status' => 'UNLIST']);
 
-        $this->fakeItemList(['NORMAL' => [111], 'UNLIST' => [333], 'BANNED' => [], 'REVIEWING' => []]);
-        $this->getResponses['/api/v2/product/get_item_base_info'] =
-            ['ok' => true, 'status' => 200, 'body' => ['response' => ['item_list' => [
-                ['item_id' => 111, 'item_status' => 'NORMAL'],
-            ]]]];
-
-        $r = $this->actingAs($this->manager())
-            ->get(route('ext.shopee.products.index', ['shopee_tab' => 'live']));
+        $r = $this->actingAs($this->manager())->get(route('ext.shopee.products.index', ['shopee_tab' => 'live']));
 
         $r->assertOk();
         $r->assertSee('Listing page product');
         $r->assertDontSee('Unlisted elsewhere product');
-        // The page-load fetch also answers the row's chip and its toggle.
-        $r->assertSee('Unlist from Shopee');
+        $this->assertEmpty($this->sentPayloads);
     }
 
-    public function test_when_shopee_does_not_answer_the_tabs_step_aside_and_the_table_survives(): void
+    public function test_a_toggle_writes_through_to_the_mirror(): void
     {
         $productId = $this->seedProduct();
-        // Linked, so the catalog view lists it even with the API down.
         ShopeeProductLink::query()->create([
-            'product_id' => $productId, 'shopee_item_id' => 111, 'sku' => 'LSTP-SKU-1',
+            'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1', 'live_status' => 'NORMAL',
         ]);
-        // No get_item_list response registered: the fake answers ok=false.
 
-        $r = $this->actingAs($this->manager())->get(route('ext.shopee.products.index'));
+        $this->actingAs($this->manager())->post(route('ext.shopee.listings.toggle', $productId), ['action' => 'unlist']);
 
-        $r->assertOk();
-        $r->assertSee('Shopee did not answer');
-        $r->assertSee('Listing page product');
-        $r->assertDontSee('shopee_tab=live', false);
+        $this->assertSame('UNLIST', ShopeeProductLink::where('shopee_item_id', 990077)->value('live_status'));
     }
 
-    public function test_a_link_shopee_does_not_recognise_reads_not_found_instead_of_listed(): void
+    /** The selection bar's Unlist / Relist (the owner, 2026-08-28): one unlist_item call for the whole selection. */
+    public function test_bulk_toggle_unlists_the_selection_in_one_call_and_names_what_it_skipped(): void
     {
-        $productId = $this->seedProduct();
-        // A link row whose item the shop has never heard of - an item
-        // deleted in the seller center, or a row copied in from another
-        // environment's database refresh.
-        ShopeeProductLink::query()->create([
-            'product_id' => $productId, 'shopee_item_id' => 424242, 'sku' => 'LSTP-SKU-1',
+        $a = $this->seedProduct();
+        $pfx = (string) config('catalog.prefix');
+        $b = DB::table($pfx . 'product')->insertGetId([
+            'model' => 'LSTP-2', 'sku' => 'LSTP-SKU-2', 'quantity' => 5, 'price' => 100,
+            'status' => 1, 'image' => '', 'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5,
+            'manufacturer_id' => 0,
+            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        $this->fakeItemList(['NORMAL' => [], 'UNLIST' => [], 'BANNED' => [], 'REVIEWING' => []]);
-        // base_info succeeds but answers with no items at all.
-        $this->getResponses['/api/v2/product/get_item_base_info'] =
-            ['ok' => true, 'status' => 200, 'body' => ['response' => ['item_list' => []]]];
+        ShopeeProductLink::query()->create(['product_id' => $a, 'shopee_item_id' => 111, 'sku' => 'LSTP-SKU-1']);
+        ShopeeProductLink::query()->create(['product_id' => $b, 'shopee_item_id' => 222, 'sku' => 'LSTP-SKU-2']);
 
-        $r = $this->actingAs($this->manager())->get(route('ext.shopee.products.index'));
+        $r = $this->actingAs($this->manager())
+            ->post(route('ext.shopee.products.bulk_toggle'), ['action' => 'unlist', 'product_ids' => [$a, $b, 4040]]);
 
-        $r->assertOk();
-        $r->assertSee('Not found on Shopee');
-        $r->assertDontSee('Unlist from Shopee');
+        $sent = collect($this->sentPayloads)->where('path', '/api/v2/product/unlist_item');
+        $this->assertCount(1, $sent, 'one call for the whole selection');
+        $items = collect($sent->first()['body']['item_list']);
+        $this->assertEqualsCanonicalizing([111, 222], $items->pluck('item_id')->map('intval')->all());
+        $this->assertTrue($items->every(fn ($i) => $i['unlist'] === true));
+
+        $r->assertSessionHas('status');
+        $flash = (string) session('status');
+        $this->assertStringContainsString('Unlisted 2 items from Shopee', $flash);
+        $this->assertStringContainsString('1 skipped, not on Shopee', $flash);
+    }
+
+    public function test_bulk_toggle_with_nothing_on_shopee_refuses_plainly(): void
+    {
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.products.bulk_toggle'), ['action' => 'list', 'product_ids' => [4040]])
+            ->assertSessionHas('error');
+        $this->assertEmpty(collect($this->sentPayloads)->where('path', '/api/v2/product/unlist_item'));
     }
 
     public function test_push_update_sends_the_merged_listing_onto_the_live_item(): void

@@ -155,7 +155,17 @@ function initBulkForms(config, showProgress) {
             const field = form.getAttribute('data-bulk-field') || config.bulkField;
             const attr = form.getAttribute('data-bulk-attr') || '';
 
-            const ids = tickedIds(attr);
+            let ids = tickedIds(attr);
+            // A verb form acts only on the rows its verb applies to; the
+            // rest of the selection is named as skipped on the bar.
+            const verbCodes = form.getAttribute('data-verb-codes');
+            if (verbCodes) {
+                const codes = verbCodes.split(',');
+                const allowed = Array.from(document.querySelectorAll('[data-row-check]'))
+                    .filter((box) => box.checked && codes.includes(box.getAttribute('data-live') || ''))
+                    .map((box) => (attr ? (box.getAttribute(attr) || '') : box.value));
+                ids = ids.filter((id) => allowed.includes(id));
+            }
             if (!ids.length) {
                 // With no attribute this is unreachable in normal use (the bar
                 // is x-show'd on a non-empty selection) and stays as the guard
@@ -392,6 +402,41 @@ export function initCatalogPicker(form) {
  * @param {function(number):string} config.bulkTitle  Overlay title for a bulk run.
  * @param {string} config.emptyMessage     Shown when a bulk form has no selection.
  */
+/* The selection bar offers only the verbs the ticked rows can take, and
+   says what it will skip. A verb form carries data-bulk-verb, the codes
+   it applies to in data-verb-codes, and its label with :n in
+   data-verb-label. */
+function updateBulkVerbs() {
+    const forms = Array.from(document.querySelectorAll('form[data-bulk-verb]'));
+    if (!forms.length) return;
+    const picked = Array.from(document.querySelectorAll('[data-row-check]')).filter((b) => b.checked);
+    let covered = 0;
+    forms.forEach((form) => {
+        const codes = (form.getAttribute('data-verb-codes') || '').split(',');
+        const n = picked.filter((b) => codes.includes(b.getAttribute('data-live') || '')).length;
+        covered += n;
+        const button = form.querySelector('button[type="submit"]');
+        if (button) button.textContent = (form.getAttribute('data-verb-label') || ':n').replace(':n', n);
+        form.hidden = n === 0;
+    });
+    const note = document.querySelector('[data-bulk-skipped]');
+    if (note) {
+        const skipped = picked.length - covered;
+        note.textContent = picked.length > 0 && skipped > 0 ? skipped + ' cannot be changed here' : '';
+    }
+}
+
+function initBulkVerbs() {
+    if (!document.querySelector('form[data-bulk-verb]')) return;
+    document.addEventListener('change', function (e) {
+        if (e.target && e.target.matches && e.target.matches('input[type="checkbox"]')) {
+            // Alpine writes the row boxes after select-all; wait a tick.
+            setTimeout(updateBulkVerbs, 0);
+        }
+    });
+    updateBulkVerbs();
+}
+
 export function initChannelListings(config) {
     // One presence check for the whole module: the overlay only exists on
     // this channel's listings page. Everything below is scoped to it or to
@@ -403,4 +448,5 @@ export function initChannelListings(config) {
     initBulkForms(config, showProgress);
     initSlowActions(config, showProgress);
     document.querySelectorAll('form[data-unmatched-link]').forEach(initCatalogPicker);
+    initBulkVerbs();
 }

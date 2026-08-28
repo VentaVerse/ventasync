@@ -131,6 +131,9 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         // unlink, delete, and the attribute sheet read for the listing page.
         Route::post('/tiktok/products/fetch-attributes', [TikTokProductController::class, 'fetchAttributes'])->name('ext.tiktok.products.fetchAttributes');
         Route::post('/tiktok/products/bulk/send', [TikTokProductController::class, 'bulkSend'])->name('ext.tiktok.products.bulk_send');
+        // Activate / deactivate the selection in one call, and refresh the listing status mirror on demand (the owner, 2026-08-28).
+        Route::post('/tiktok/products/bulk/toggle', [TikTokListingController::class, 'bulkToggle'])->name('ext.tiktok.products.bulk_toggle');
+        Route::post('/tiktok/products/refresh-status', [TikTokProductController::class, 'refreshStatus'])->name('ext.tiktok.products.refresh_status');
         Route::post('/tiktok/products/{productId}/push', [TikTokProductController::class, 'pushDirect'])->whereNumber('productId')->name('ext.tiktok.products.push_direct');
         Route::post('/tiktok/products/{productId}/push-stock', [TikTokProductController::class, 'pushStock'])->whereNumber('productId')->name('ext.tiktok.products.push_stock');
         Route::post('/tiktok/products/{productId}/push-price', [TikTokProductController::class, 'pushPrice'])->whereNumber('productId')->name('ext.tiktok.products.push_price');

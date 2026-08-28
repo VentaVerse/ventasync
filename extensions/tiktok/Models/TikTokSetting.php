@@ -54,6 +54,30 @@ class TikTokSetting extends Model
         'last_stock_push_at' => 'datetime',
     ];
 
+    /**
+     * Credentials for whichever mode the shop runs in, or null when any
+     * part is missing. The same four keys the controllers' creds() build.
+     *
+     * @return array{app_key: string, app_secret: string, token: string, shop_cipher: string}|null
+     */
+    public static function credentials(): ?array
+    {
+        $s = static::query()->first();
+        if (!$s) {
+            return null;
+        }
+        $d = $s->decrypted();
+        $sandbox = $s->mode === 'sandbox';
+        $c = [
+            'app_key' => (string) ($sandbox ? ($d->sandbox_app_key ?? '') : ($d->app_key ?? '')),
+            'app_secret' => (string) ($sandbox ? ($d->sandbox_app_secret ?? '') : ($d->app_secret ?? '')),
+            'token' => (string) ($sandbox ? ($d->sandbox_access_token ?? '') : ($d->access_token ?? '')),
+            'shop_cipher' => (string) ($sandbox ? ($s->sandbox_shop_cipher ?? '') : ($s->shop_cipher ?? '')),
+        ];
+
+        return ($c['app_key'] === '' || $c['app_secret'] === '' || $c['token'] === '') ? null : $c;
+    }
+
     public function decrypted(): object
     {
         $s = (object) $this->toArray();

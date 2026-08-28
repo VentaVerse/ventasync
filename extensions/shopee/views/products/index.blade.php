@@ -206,7 +206,6 @@
 @elseif(($liveCounts ?? null) !== null)
     @php
         $liveTabDefs = [
-            'all' => 'All',
             'live' => 'Live',
             'unlisted' => 'Unlisted',
             'violation' => 'Violation',
@@ -214,20 +213,52 @@
         ];
         $tabQuery = request()->except('page', 'shopee_tab');
     @endphp
+    {{-- Two questions on one strip, each named (the owner, 2026-08-28): the
+         catalogue's own total, whether pushed or not, and Shopee's buckets.
+         The bucket counts and every row's chip come from the mirror on
+         the link rows, refreshed every 30 minutes, on demand here, and by
+         every push, unlist and relist. The strip says when. --}}
     <div class="x-segment-bar">
-        <nav class="x-segment" aria-label="Shopee listing status">
-            @foreach($liveTabDefs as $tabKey => $tabLabel)
-                @php $isActive = ($shopeeTab ?? 'all') === $tabKey; @endphp
-                <a href="{{ route('ext.shopee.products.index', $tabKey === 'all' ? $tabQuery : array_merge($tabQuery, ['shopee_tab' => $tabKey])) }}"
-                   class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
-                   @if($isActive) aria-current="true" @endif>
-                    <span>{{ $tabLabel }}</span>
-                    @if($tabKey !== 'all' && isset($liveCounts[$tabKey]))
-                        <span class="x-segment__count">{{ number_format($liveCounts[$tabKey]) }}</span>
+        <div class="x-segment-groups">
+            <div class="x-segment-group">
+                <span class="x-segment-group__k">Your catalogue</span>
+                <nav class="x-segment" aria-label="Catalogue">
+                    <a href="{{ route('ext.shopee.products.index', $tabQuery) }}"
+                       class="x-segment__item {{ ($shopeeTab ?? 'all') === 'all' ? 'is-active' : '' }}"
+                       @if(($shopeeTab ?? 'all') === 'all') aria-current="true" @endif>
+                        <span>All products</span>
+                        <span class="x-segment__count">{{ number_format((int) ($catalogueTotal ?? $products->total())) }}</span>
+                    </a>
+                </nav>
+            </div>
+            <div class="x-segment-group">
+                <span class="x-segment-group__k">On Shopee</span>
+                <nav class="x-segment" aria-label="Shopee listing status">
+                    @foreach($liveTabDefs as $tabKey => $tabLabel)
+                        @php $isActive = ($shopeeTab ?? 'all') === $tabKey; @endphp
+                        <a href="{{ route('ext.shopee.products.index', array_merge($tabQuery, ['shopee_tab' => $tabKey])) }}"
+                           class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
+                           @if($isActive) aria-current="true" @endif>
+                            <span>{{ $tabLabel }}</span>
+                            <span class="x-segment__count">{{ number_format((int) ($liveCounts[$tabKey] ?? 0)) }}</span>
+                        </a>
+                    @endforeach
+                </nav>
+                <span class="x-segment-group__meta">
+                    @if($liveCheckedAt ?? null)
+                        as of {{ $liveCheckedAt->format('H:i, M j') }}
+                    @else
+                        not refreshed yet
                     @endif
-                </a>
-            @endforeach
-        </nav>
+                </span>
+                @if($canManageShopee)
+                    <form method="POST" action="{{ route('ext.shopee.products.refresh_status') }}" class="x-segment-group__refresh" data-slow-action>
+                        @csrf
+                        <x-ui.button type="submit" size="sm">Refresh from Shopee</x-ui.button>
+                    </form>
+                @endif
+            </div>
+        </div>
     </div>
 @endif
 
@@ -305,7 +336,7 @@
      on the COUNT rather than the whole bar: the buttons do not change, and
      re-reading five labels on every tick would be worse than silence. --}}
 <div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar role="status">
-    <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected</span>
+    <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected <span class="cc-bulkbar__note" data-bulk-skipped></span></span>
     <div class="cc-bulkbar__actions">
         {{-- Opens the combined review form for the selection (#151); the
              form is the confirmation, so this carries none. --}}
@@ -323,6 +354,24 @@
         <form method="POST" action="{{ route('ext.shopee.products.bulk_sync_price') }}" data-bulk-form>
             @csrf
             <x-ui.button type="submit" size="sm">Push prices</x-ui.button>
+        </form>
+        {{-- Unlist / Relist for the selection (the owner, 2026-08-28). Each
+             form acts only on the ticked rows its verb applies to, per the
+             live status Shopee answered; the count is in the label and the
+             rest of the selection is named as skipped beside the count. --}}
+        <form method="POST" action="{{ route('ext.shopee.products.bulk_toggle') }}" data-bulk-form
+              data-bulk-verb="unlist" data-verb-codes="NORMAL" data-verb-label="Unlist :n from Shopee"
+              data-bulk-confirm="Unlist the selected items from Shopee? Buyers stop seeing them immediately. They stay here and can be relisted at any time." hidden>
+            @csrf
+            <input type="hidden" name="action" value="unlist">
+            <x-ui.button type="submit" size="sm">Unlist from Shopee</x-ui.button>
+        </form>
+        <form method="POST" action="{{ route('ext.shopee.products.bulk_toggle') }}" data-bulk-form
+              data-bulk-verb="list" data-verb-codes="UNLIST" data-verb-label="Relist :n on Shopee"
+              data-bulk-confirm="Relist the selected items on Shopee? Buyers see them again immediately." hidden>
+            @csrf
+            <input type="hidden" name="action" value="list">
+            <x-ui.button type="submit" size="sm">Relist on Shopee</x-ui.button>
         </form>
         <form method="POST" action="{{ route('ext.shopee.products.bulk_delete') }}" data-bulk-form
               data-bulk-confirm="Delete the selected products from Shopee? The listings are removed at the marketplace and this cannot be undone.">
@@ -418,6 +467,7 @@
                      pre-redesign wire unchanged. x-model keeps Alpine's
                      count in step with the DOM the module reads. --}}
                 <input type="checkbox" class="cc-check" data-row-check value="{{ (string) $p->product_id }}"
+                       data-live="{{ $link ? ($liveStatuses[(int) $link->shopee_item_id] ?? '') : 'NOT_LISTED' }}"
                        x-model="selected" aria-label="Select product {{ $p->product_id }}">
             </td>
             @endif
@@ -504,9 +554,9 @@
 
             <td class="cc-col-sync" data-label="Listing">
                 @php
-                    /* Shopee's live answer for this row when the page-load
-                       fetch got one; the plain Listed badge otherwise.
-                       Absent beats stale, as everywhere on this surface. */
+                    /* The mirrored status for this row; the strip says when
+                       it was refreshed. Never refreshed reads as exactly
+                       that, not as a guess. */
                     $rowLiveStatus = $link ? ($liveStatuses[(int) $link->shopee_item_id] ?? null) : null;
                     $rowLiveMap = [
                         'NORMAL' => ['Live', 'success'],
@@ -520,6 +570,8 @@
                 @endphp
                 @if($rowLiveStatus !== null && isset($rowLiveMap[$rowLiveStatus]))
                     <x-ui.badge :tone="$rowLiveMap[$rowLiveStatus][1]">{{ $rowLiveMap[$rowLiveStatus][0] }}</x-ui.badge>
+                @elseif($link && ($liveCounts ?? null) !== null)
+                    <x-ui.badge tone="neutral" title="Press Refresh from Shopee to read its status">Not checked yet</x-ui.badge>
                 @elseif($link)
                     <x-ui.badge tone="success">Listed</x-ui.badge>
                 @else
@@ -631,15 +683,16 @@
                                 @csrf
                                 <button type="submit" class="x-menu__item">Push price</button>
                             </form>
-                            @if($rowLiveStatus === 'NORMAL')
+                            @if($link)
                                 <form method="POST" action="{{ route('ext.shopee.listings.toggle', $p->product_id) }}" data-slow-action
+                                      @if($rowLiveStatus !== 'NORMAL') hidden @endif
                                       data-confirm="Unlist this item from Shopee? Buyers stop seeing it immediately. It can be relisted at any time." data-confirm-verb="Unlist">
                                     @csrf
                                     <input type="hidden" name="action" value="unlist">
                                     <button type="submit" class="x-menu__item">Unlist from Shopee</button>
                                 </form>
-                            @elseif($rowLiveStatus === 'UNLIST')
                                 <form method="POST" action="{{ route('ext.shopee.listings.toggle', $p->product_id) }}" data-slow-action
+                                      @if($rowLiveStatus !== 'UNLIST') hidden @endif
                                       data-confirm="Relist this item on Shopee? Buyers see it again immediately." data-confirm-tone="primary" data-confirm-verb="Relist">
                                     @csrf
                                     <input type="hidden" name="action" value="list">

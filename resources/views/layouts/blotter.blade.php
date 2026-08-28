@@ -12,6 +12,8 @@
 {{-- bl-app marks a page as converted to the v2.2 shell, the same way x-app
      marked the shell before it. The suite asserts on it. --}}
 <body class="bl-app min-h-screen">
+{{-- The navigation progress line (components/nav-progress.css, js/nav-progress.js). --}}
+<div class="x-progress" id="x-progress" aria-hidden="true"></div>
 {{-- The bypass block (WCAG 2.4.1). A keyboard user passed 15 to 17 stops
      through the shell before reaching the first control inside the content
      on every page of this application, on every page load. Visible only on

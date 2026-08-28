@@ -182,6 +182,10 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         Route::post('/shopee/products/sync-ids', [ShopeeProductController::class, 'syncProductIds'])->name('ext.shopee.products.sync_ids');
         Route::post('/shopee/products/bulk/push', [ShopeeProductController::class, 'bulkPushToShopee'])->name('ext.shopee.products.bulk_push');
         Route::post('/shopee/products/bulk/sync/quantity', [ShopeeProductController::class, 'bulkSyncQuantity'])->name('ext.shopee.products.bulk_sync_quantity');
+        // Unlist / relist the selection in one call (the owner, 2026-08-28).
+        Route::post('/shopee/products/bulk/toggle', [ShopeeProductController::class, 'bulkToggle'])->name('ext.shopee.products.bulk_toggle');
+        // Refresh the listing status mirror on demand (the automation does the same every 30 minutes).
+        Route::post('/shopee/products/refresh-status', [ShopeeProductController::class, 'refreshStatus'])->name('ext.shopee.products.refresh_status');
         Route::post('/shopee/products/bulk/sync/price', [ShopeeProductController::class, 'bulkSyncPrice'])->name('ext.shopee.products.bulk_sync_price');
         Route::post('/shopee/products/bulk/delete', [ShopeeProductController::class, 'bulkDeleteFromShopee'])->name('ext.shopee.products.bulk_delete');
         Route::post('/shopee/products/unmatched/sync', [ShopeeProductController::class, 'syncUnmatchedItems'])->name('ext.shopee.products.sync_unmatched');

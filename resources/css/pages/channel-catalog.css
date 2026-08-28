@@ -564,6 +564,8 @@
 }
 
 .cc-bulkbar__count { font-size: 13px; color: var(--bl-ink-2); }
+.cc-bulkbar__note { color: var(--bl-ink-3); }
+.cc-bulkbar__note:not(:empty)::before { content: "\00b7 "; }
 
 .cc-bulkbar__actions {
     display: flex;

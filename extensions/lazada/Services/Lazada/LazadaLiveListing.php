@@ -124,6 +124,79 @@ class LazadaLiveListing
      * @return array<string, array{item_id: string, status: string}>
      * @throws \RuntimeException when Lazada does not answer
      */
+    /**
+     * Refresh the status mirror: one walk of the shop (filter all, 50 a
+     * page) plus one of the deleted bucket, and every uploaded listing
+     * row gets Lazada's own status word. A listing the shop no longer
+     * returns becomes missing. One walk serves every listings and group
+     * page until the next; a page view costs Lazada nothing (the owner,
+     * 2026-08-28).
+     *
+     * @return array{error: ?string, counts: array<string, int>, links: int}
+     */
+    public function refreshMirror(object $setting, array $creds): array
+    {
+        try {
+            $statusById = $this->statusIndex($setting, $creds, 'all');
+            foreach ($this->statusIndex($setting, $creds, 'deleted') as $id => $status) {
+                $statusById[$id] ??= $status ?: 'deleted';
+            }
+        } catch (\Throwable $e) {
+            return ['error' => $e->getMessage(), 'counts' => [], 'links' => 0];
+        }
+
+        $now = now();
+        $counts = [];
+        $byStatus = [];
+        foreach ($statusById as $id => $status) {
+            $byStatus[$status][] = (string) $id;
+        }
+        foreach ($byStatus as $status => $ids) {
+            $counts[$status] = 0;
+            foreach (array_chunk($ids, 500) as $chunk) {
+                $counts[$status] += \Extensions\lazada\Models\LazadaProduct::query()
+                    ->whereIn('lazada_item_id', $chunk)
+                    ->update(['live_status' => $status, 'live_checked_at' => $now]);
+            }
+        }
+        $missing = \Extensions\lazada\Models\LazadaProduct::query()
+            ->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '')
+            ->whereNotIn('lazada_item_id', array_map('strval', array_keys($statusById)) ?: ['-none-'])
+            ->update(['live_status' => 'missing', 'live_checked_at' => $now]);
+        if ($missing > 0) {
+            $counts['missing'] = $missing;
+        }
+
+        return [
+            'error' => null,
+            'counts' => array_filter($counts),
+            'links' => (int) \Extensions\lazada\Models\LazadaProduct::query()
+                ->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '')->count(),
+        ];
+    }
+
+    /** item_id => lowercased status for every item under one filter, 50 a page, up to 2,000 items. Throws when Lazada refuses. */
+    public function statusIndex(object $setting, array $creds, string $filter): array
+    {
+        $out = [];
+        for ($pageN = 0; $pageN < 40; $pageN++) {
+            $data = $this->signedGet($setting, $creds, '/products/get', [
+                'filter' => $filter, 'limit' => '50', 'offset' => (string) ($pageN * 50),
+            ]);
+            $products = $data['products'] ?? [];
+            foreach ($products as $prod) {
+                $id = (string) ($prod['item_id'] ?? '');
+                if ($id !== '') {
+                    $out[$id] = strtolower((string) ($prod['status'] ?? ''));
+                }
+            }
+            if (count($products) < 50) {
+                break;
+            }
+        }
+        return $out;
+    }
+
     public function itemsBySkus(object $setting, array $creds, array $skus): array
     {
         $out = [];

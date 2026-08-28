@@ -58,6 +58,7 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
         if ($this->app->runningInConsole()) {
             $this->commands([
                 \Extensions\shopee\Commands\ShopeePushStock::class,
+                \Extensions\shopee\Commands\ShopeeRefreshListingStatus::class,
                 \Extensions\shopee\Commands\ShopeeRefreshToken::class,
                 \Extensions\shopee\Commands\ShopeeSyncOrders::class,
             ]);

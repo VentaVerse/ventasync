@@ -150,31 +150,52 @@ class LazadaListingLiveTest extends TestCase
         $page->assertSee(route('ext.lazada.products.upload', $listing->id), false);
     }
 
-    public function test_the_index_tabs_speak_lazadas_live_counts(): void
+    /**
+     * Since 2026-08-28 the strip and the chips read the MIRROR on the
+     * listing rows. A page view asks Lazada for nothing; the Refresh button
+     * and the 30-minute automation walk the shop and write the mirror.
+     */
+    public function test_the_page_reads_the_mirror_and_asks_lazada_for_nothing(): void
     {
-        $this->fakeProductsGet([
-            'live' => [111, 222], 'inactive' => [333], 'pending' => [],
-            'rejected' => [], 'sold-out' => [], 'deleted' => [],
+        $productId = $this->seedProduct('Mirrored product', 'LZT-MIR');
+        LazadaProduct::query()->create([
+            'product_id' => $productId, 'lazada_item_id' => '111',
+            'live_status' => 'inactive', 'live_checked_at' => '2026-08-28 08:30:00',
         ]);
+        // No /products/get response registered: the page must not need one.
 
         $r = $this->actingAs($this->manager())->get(route('ext.lazada.products.index'));
 
         $r->assertOk();
+        $r->assertSee('Your catalogue');
+        $r->assertSee('On Lazada');
+        $r->assertSee('All products');
         $r->assertSee('Pending QC');
+        $r->assertSee('as of 08:30, Aug 28');
+        $r->assertSee('Refresh from Lazada');
         $r->assertSee('lazada_tab=active', false);
+        $r->assertSee('Activate on Lazada');
+        $this->assertSame([], $this->sentPosts);
     }
 
-    public function test_a_live_tab_narrows_the_table_to_items_lazada_holds_in_that_status(): void
+    public function test_an_uploaded_row_never_refreshed_reads_not_checked_yet(): void
+    {
+        $productId = $this->seedProduct('Unchecked product', 'LZT-UNC');
+        LazadaProduct::query()->create(['product_id' => $productId, 'lazada_item_id' => '111']);
+
+        $r = $this->actingAs($this->manager())->get(route('ext.lazada.products.index'));
+
+        $r->assertOk();
+        $r->assertSee('Not checked yet');
+        $r->assertSee('not refreshed yet');
+    }
+
+    public function test_a_tab_narrows_the_table_by_the_mirror(): void
     {
         $inTab = $this->seedProduct('Active on Lazada product', 'LZT-IN');
-        LazadaProduct::query()->create(['product_id' => $inTab, 'lazada_item_id' => '111']);
+        LazadaProduct::query()->create(['product_id' => $inTab, 'lazada_item_id' => '111', 'live_status' => 'active']);
         $outOfTab = $this->seedProduct('Inactive elsewhere product', 'LZT-OUT');
-        LazadaProduct::query()->create(['product_id' => $outOfTab, 'lazada_item_id' => '333']);
-
-        $this->fakeProductsGet(
-            ['live' => [111], 'inactive' => [333], 'pending' => [], 'rejected' => [], 'sold-out' => [], 'deleted' => []],
-            [111 => 'active']
-        );
+        LazadaProduct::query()->create(['product_id' => $outOfTab, 'lazada_item_id' => '333', 'live_status' => 'inactive']);
 
         $r = $this->actingAs($this->manager())
             ->get(route('ext.lazada.products.index', ['lazada_tab' => 'active']));
@@ -182,75 +203,100 @@ class LazadaListingLiveTest extends TestCase
         $r->assertOk();
         $r->assertSee('Active on Lazada product');
         $r->assertDontSee('Inactive elsewhere product');
+        $r->assertSee('Deactivate on Lazada');
     }
 
-    /**
-     * A product with variations is on Lazada under its VARIATION SKUs; the
-     * parent SKU is not there. The lookup asks with every SKU the product
-     * has, so the row reads Lazada's live status rather than "Not found".
-     */
-    public function test_a_product_uploaded_as_variations_is_found_by_its_variation_skus(): void
+    public function test_refresh_walks_the_shop_and_writes_every_rows_status(): void
     {
-        $productId = $this->seedProduct('Quadra TS', 'QUADRA-TS');
-        DB::table('product_option_combinations')->insert([
-            'product_id' => $productId, 'sku' => 'QUADRA-TS-RED', 'quantity' => 2, 'absolute_price' => 100,
-            'image' => null, 'status' => 1, 'sort_order' => 1, 'created_at' => now(), 'updated_at' => now(),
-        ]);
-        LazadaProduct::query()->create(['product_id' => $productId, 'lazada_item_id' => '515151']);
-
-        $asked = [];
-        $this->getResponses['/products/get'] = function (array $params) use (&$asked) {
-            if (!empty($params['sku_seller_list'])) {
-                $skus = json_decode($params['sku_seller_list'], true) ?: [];
-                $asked = array_merge($asked, $skus);
-                // Lazada knows the variation SKU only; the parent SKU matches nothing.
-                $products = in_array('QUADRA-TS-RED', $skus, true) ? [['item_id' => 515151, 'status' => 'active']] : [];
-
-                return ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => ['total_products' => count($products), 'products' => $products]]];
-            }
-
-            return ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => ['total_products' => 0, 'products' => []]]];
+        $a = $this->seedProduct('Refreshed product', 'LZT-A');
+        LazadaProduct::query()->create(['product_id' => $a, 'lazada_item_id' => '111']);
+        $ghost = $this->seedProduct('Refresh residue product', 'LZT-GHOST');
+        LazadaProduct::query()->create(['product_id' => $ghost, 'lazada_item_id' => '424242']);
+        $this->getResponses['/products/get'] = function (array $params) {
+            $products = ($params['filter'] ?? '') === 'all'
+                ? [['item_id' => 111, 'status' => 'active'], ['item_id' => 222, 'status' => 'inactive']]
+                : [];
+            return ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => ['total_products' => count($products), 'products' => $products]]];
         };
 
-        $r = $this->actingAs($this->manager())->get(route('ext.lazada.products.index'));
+        $r = $this->actingAs($this->manager())->post(route('ext.lazada.products.refresh_status'));
 
-        $r->assertOk();
-        $this->assertContains('QUADRA-TS', $asked, 'the parent SKU is still asked');
-        $this->assertContains('QUADRA-TS-RED', $asked, 'and so is the variation SKU');
-        $r->assertSee('>Active<', false);
-        $r->assertDontSee('Not found on Lazada');
+        $r->assertSessionHas('status');
+        $this->assertStringContainsString('1 active', (string) session('status'));
+        $this->assertStringContainsString('1 not found on Lazada', (string) session('status'));
+        $this->assertSame('active', LazadaProduct::where('lazada_item_id', '111')->value('live_status'));
+        $this->assertSame('missing', LazadaProduct::where('lazada_item_id', '424242')->value('live_status'));
+        $this->assertNotNull(LazadaProduct::where('lazada_item_id', '111')->value('live_checked_at'));
+
+        $page = $this->actingAs($this->manager())->get(route('ext.lazada.products.index'));
+        $page->assertSee('Not found on Lazada');
+        $page->assertDontSee('>Listed<', false);
     }
 
-    public function test_an_uploaded_row_lazada_does_not_recognise_reads_not_found(): void
-    {
-        $productId = $this->seedProduct('Refresh residue product', 'LZT-GHOST');
-        LazadaProduct::query()->create(['product_id' => $productId, 'lazada_item_id' => '424242']);
-
-        // Counts succeed; the SKU lookup succeeds and names OTHER items only.
-        $this->fakeProductsGet(
-            ['live' => [111], 'inactive' => [], 'pending' => [], 'rejected' => [], 'sold-out' => [], 'deleted' => []],
-            [111 => 'active']
-        );
-
-        $r = $this->actingAs($this->manager())->get(route('ext.lazada.products.index'));
-
-        $r->assertOk();
-        $r->assertSee('Not found on Lazada');
-        $r->assertDontSee('>Listed<', false);
-    }
-
-    public function test_when_lazada_does_not_answer_the_tabs_step_aside_and_the_table_survives(): void
+    public function test_refresh_leaves_the_mirror_alone_when_lazada_does_not_answer(): void
     {
         $productId = $this->seedProduct('Still visible product', 'LZT-KEEP');
-        LazadaProduct::query()->create(['product_id' => $productId, 'lazada_item_id' => '111']);
+        LazadaProduct::query()->create(['product_id' => $productId, 'lazada_item_id' => '111', 'live_status' => 'active']);
         // No /products/get response registered: the fake answers ok=false.
 
-        $r = $this->actingAs($this->manager())->get(route('ext.lazada.products.index'));
+        $r = $this->actingAs($this->manager())->post(route('ext.lazada.products.refresh_status'));
 
-        $r->assertOk();
-        $r->assertSee('Lazada did not answer');
-        $r->assertSee('Still visible product');
-        $r->assertDontSee('lazada_tab=active', false);
+        $r->assertSessionHas('error');
+        $this->assertStringContainsString('Lazada did not answer', (string) session('error'));
+        $this->assertSame('active', LazadaProduct::where('lazada_item_id', '111')->value('live_status'));
+
+        // And the page still paints from what it has.
+        $page = $this->actingAs($this->manager())->get(route('ext.lazada.products.index'));
+        $page->assertOk();
+        $page->assertSee('Still visible product');
+    }
+
+    public function test_a_toggle_writes_through_to_the_mirror(): void
+    {
+        $productId = $this->seedProduct('Write-through product', 'LZT-WT');
+        $listing = LazadaProduct::query()->create(['product_id' => $productId, 'lazada_item_id' => '990077', 'live_status' => 'active']);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.lazada.listings.toggle', $listing->id), ['action' => 'deactivate']);
+
+        $this->assertSame('inactive', $listing->fresh()->live_status);
+    }
+
+    /** The selection bar's Deactivate / Activate (the owner, 2026-08-28): one call per listing, one summary. */
+    public function test_bulk_toggle_deactivates_the_selection_and_names_what_it_skipped(): void
+    {
+        $a = $this->seedProduct('Bulk A', 'LZT-BA');
+        $la = LazadaProduct::query()->create(['product_id' => $a, 'lazada_item_id' => '111', 'live_status' => 'active']);
+        $b = $this->seedProduct('Bulk B', 'LZT-BB');
+        $lb = LazadaProduct::query()->create(['product_id' => $b, 'lazada_item_id' => '222', 'live_status' => 'active']);
+        $c = $this->seedProduct('Bulk C, not on Lazada', 'LZT-BC');
+        $lc = LazadaProduct::query()->create(['product_id' => $c]);
+
+        $r = $this->actingAs($this->manager())
+            ->post(route('ext.lazada.products.bulk_toggle'), ['action' => 'deactivate', 'listing_ids' => [$la->id, $lb->id, $lc->id]]);
+
+        $sent = collect($this->sentPosts)->where('path', '/product/deactivate');
+        $this->assertCount(2, $sent, 'Lazada deactivates one ItemId per call');
+        $ids = $sent->map(fn ($s) => (int) json_decode($s['params']['payload'], true)['Request']['Product']['ItemId'])->all();
+        $this->assertEqualsCanonicalizing([111, 222], $ids);
+
+        $r->assertSessionHas('status');
+        $flash = (string) session('status');
+        $this->assertStringContainsString('Deactivated 2 items on Lazada', $flash);
+        $this->assertStringContainsString('1 skipped, not on Lazada', $flash);
+        $this->assertSame('inactive', $la->fresh()->live_status);
+        $this->assertSame('inactive', $lb->fresh()->live_status);
+    }
+
+    public function test_bulk_toggle_with_nothing_on_lazada_refuses_plainly(): void
+    {
+        $c = $this->seedProduct('Bulk C, not on Lazada', 'LZT-BC');
+        $lc = LazadaProduct::query()->create(['product_id' => $c]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.lazada.products.bulk_toggle'), ['action' => 'activate', 'listing_ids' => [$lc->id]])
+            ->assertSessionHas('error');
+        $this->assertSame([], $this->sentPosts);
     }
 
     public function test_a_group_page_tells_the_products_truth_not_its_own_memory(): void

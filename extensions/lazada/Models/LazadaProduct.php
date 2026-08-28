@@ -11,13 +11,14 @@ class LazadaProduct extends Model
 
     protected $fillable = [
         'product_id', 'primary_category_id', 'brand_id', 'brand_name_override',
-        'total_price', 'lazada_item_id', 'unlinked_at',
+        'total_price', 'lazada_item_id', 'unlinked_at', 'live_status', 'live_checked_at',
         'last_pushed_at', 'last_push_source', 'last_push_settings',
         'sale_percent', 'sale_starts_at', 'sale_ends_at', 'sale_pushed_at',
     ];
 
     protected $casts = [
         'unlinked_at' => 'datetime',
+        'live_checked_at' => 'datetime',
         'last_pushed_at' => 'datetime',
         'last_push_settings' => 'array',
         'sale_percent' => 'float',
@@ -25,6 +26,31 @@ class LazadaProduct extends Model
         'sale_ends_at' => 'datetime',
         'sale_pushed_at' => 'datetime',
     ];
+
+    /**
+     * The mirrored bucket counts, keyed the way the listings strip names
+     * them. Uploaded listings only: the tab table shows nothing else, so
+     * the count must not promise more rows than the tab has.
+     *
+     * @param  array<string, string>  $tabMap  tab key => Lazada status word
+     * @return array<string, int>
+     */
+    public static function mirrorCounts(array $tabMap): array
+    {
+        $byStatus = static::query()
+            ->whereNotNull('live_status')
+            ->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '')
+            ->selectRaw('live_status, COUNT(DISTINCT product_id) as n')
+            ->groupBy('live_status')
+            ->pluck('n', 'live_status');
+
+        $out = [];
+        foreach ($tabMap as $tabKey => $status) {
+            $out[$tabKey] = (int) ($byStatus[$status] ?? 0);
+        }
+
+        return $out;
+    }
 
     public function attributes()
     {

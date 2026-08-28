@@ -4,8 +4,9 @@
 
 {{-- TikTok listings (#156), on the same cc- anatomy as Shopee's and
      Lazada's: one row per catalog product in scope, the marketplace's own
-     status fetched on this load (never cached; absent when TikTok did not
-     answer), readiness before a push, and the row's verbs in its menu. --}}
+     status from the mirror on the listing row (refreshed every 30
+     minutes, on demand, and by every activate and deactivate), readiness
+     before a push, and the row's verbs in its menu. --}}
 @section('content')
 @php
     $canManage = auth()->user()?->hasPermission('manage_tiktok/product') ?? false;
@@ -49,19 +50,50 @@
         <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'TikTok Shop', 'raw' => $liveTabError, 'settingsRoute' => 'ext.tiktok.index']) The live tabs and statuses are unavailable right now; the catalog below is unaffected.</div>
     </div>
 @elseif(($liveCounts ?? null) !== null)
+    {{-- Two questions on one strip, each named (the owner, 2026-08-28): the
+         catalogue's own total, whether pushed or not, and TikTok's buckets
+         from the mirror. The strip says when the mirror was refreshed. --}}
     <div class="x-segment-bar">
-        <nav class="x-segment" aria-label="TikTok Shop listing status">
-            @foreach($tabDefs as $tabKey => [$tabLabel, $tabStatus])
-                @php $isActive = $tiktokTab === $tabKey; @endphp
-                <a href="{{ route('ext.tiktok.products.index', $tabKey === 'all' ? $tabQuery : array_merge($tabQuery, ['tiktok_tab' => $tabKey])) }}"
-                   class="x-segment__item {{ $isActive ? 'is-active' : '' }}" @if($isActive) aria-current="true" @endif>
-                    <span>{{ $tabLabel }}</span>
-                    @if($tabKey !== 'all' && isset($liveCounts[$tabKey]))
-                        <span class="x-segment__count">{{ number_format($liveCounts[$tabKey]) }}</span>
+        <div class="x-segment-groups">
+            <div class="x-segment-group">
+                <span class="x-segment-group__k">Your catalogue</span>
+                <nav class="x-segment" aria-label="Catalogue">
+                    <a href="{{ route('ext.tiktok.products.index', $tabQuery) }}"
+                       class="x-segment__item {{ $tiktokTab === 'all' ? 'is-active' : '' }}"
+                       @if($tiktokTab === 'all') aria-current="true" @endif>
+                        <span>All products</span>
+                        <span class="x-segment__count">{{ number_format((int) ($catalogueTotal ?? $products->total())) }}</span>
+                    </a>
+                </nav>
+            </div>
+            <div class="x-segment-group">
+                <span class="x-segment-group__k">On TikTok Shop</span>
+                <nav class="x-segment" aria-label="TikTok Shop listing status">
+                    @foreach($tabDefs as $tabKey => [$tabLabel, $tabStatus])
+                        @continue($tabKey === 'all')
+                        @php $isActive = $tiktokTab === $tabKey; @endphp
+                        <a href="{{ route('ext.tiktok.products.index', array_merge($tabQuery, ['tiktok_tab' => $tabKey])) }}"
+                           class="x-segment__item {{ $isActive ? 'is-active' : '' }}" @if($isActive) aria-current="true" @endif>
+                            <span>{{ $tabLabel }}</span>
+                            <span class="x-segment__count">{{ number_format((int) ($liveCounts[$tabKey] ?? 0)) }}</span>
+                        </a>
+                    @endforeach
+                </nav>
+                <span class="x-segment-group__meta">
+                    @if($liveCheckedAt ?? null)
+                        as of {{ $liveCheckedAt->format('H:i, M j') }}
+                    @else
+                        not refreshed yet
                     @endif
-                </a>
-            @endforeach
-        </nav>
+                </span>
+                @if($canManage)
+                    <form method="POST" action="{{ route('ext.tiktok.products.refresh_status') }}" class="x-segment-group__refresh" data-slow-action>
+                        @csrf
+                        <x-ui.button type="submit" size="sm">Refresh from TikTok Shop</x-ui.button>
+                    </form>
+                @endif
+            </div>
+        </div>
     </div>
 @endif
 
@@ -115,12 +147,30 @@
 
 @if($canManage)
 <div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar role="status">
-    <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected</span>
+    <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected <span class="cc-bulkbar__note" data-bulk-skipped></span></span>
     <div class="cc-bulkbar__actions">
         <form method="POST" action="{{ route('ext.tiktok.products.bulk_send') }}" data-bulk-form
               data-bulk-confirm="Send the selected products to TikTok Shop? New products are created; anything already listed gets its content updated in place.">
             @csrf
             <x-ui.button type="submit" size="sm">Send to TikTok Shop</x-ui.button>
+        </form>
+        {{-- Deactivate / Activate for the selection (the owner, 2026-08-28). Each
+             form acts only on the ticked rows its verb applies to, per the
+             mirrored status; the count is in the label and the rest of the
+             selection is named as skipped beside the count. --}}
+        <form method="POST" action="{{ route('ext.tiktok.products.bulk_toggle') }}" data-bulk-form
+              data-bulk-verb="deactivate" data-verb-codes="ACTIVATE" data-verb-label="Deactivate :n on TikTok Shop"
+              data-bulk-confirm="Deactivate the selected products on TikTok Shop? Buyers stop seeing them. They can be activated again at any time." hidden>
+            @csrf
+            <input type="hidden" name="action" value="deactivate">
+            <x-ui.button type="submit" size="sm">Deactivate on TikTok Shop</x-ui.button>
+        </form>
+        <form method="POST" action="{{ route('ext.tiktok.products.bulk_toggle') }}" data-bulk-form
+              data-bulk-verb="activate" data-verb-codes="SELLER_DEACTIVATED" data-verb-label="Activate :n on TikTok Shop"
+              data-bulk-confirm="Activate the selected products on TikTok Shop? Buyers see them again once TikTok applies it." hidden>
+            @csrf
+            <input type="hidden" name="action" value="activate">
+            <x-ui.button type="submit" size="sm">Activate on TikTok Shop</x-ui.button>
         </form>
     </div>
 </div>
@@ -174,9 +224,11 @@
             $optRows = $optionRowsByProductId->get($pid);
             $img = trim((string) ($p->image ?? ''));
             $thumbSrc = $img !== '' ? asset('storage/' . ltrim($img, '/')) : '';
+            /* The mirrored status for this row; the strip says when it was
+               refreshed. Never refreshed reads as exactly that, not as a guess. */
             $rowLiveStatus = null;
             if ($listed && $liveCounts !== null) {
-                $rowLiveStatus = $liveStatuses[(string) $ttId] ?? 'MISSING';
+                $rowLiveStatus = $liveStatuses[(string) $ttId] ?? null;
             }
             $rowLiveMap = $statusMap + ['MISSING' => ['Not found on TikTok Shop', 'danger']];
             $attemptFailed = $attempt && $attempt->sync_status === 'error';
@@ -184,7 +236,8 @@
         <tr>
             @if($canManage)
             <td class="cc-col-check">
-                <input type="checkbox" class="cc-check" data-row-check value="{{ (string) $pid }}" x-model="selected" aria-label="Select product {{ $pid }}">
+                <input type="checkbox" class="cc-check" data-row-check value="{{ (string) $pid }}" x-model="selected" aria-label="Select product {{ $pid }}"
+                       data-live="{{ $listed ? ($rowLiveStatus ?? '') : 'NOT_LISTED' }}">
             </td>
             @endif
             <td class="cc-col-id" data-label="ID"><span class="x-num">{{ $pid }}</span></td>
@@ -232,6 +285,8 @@
             <td class="cc-col-sync" data-label="Listing">
                 @if($rowLiveStatus !== null && isset($rowLiveMap[$rowLiveStatus]))
                     <x-ui.badge :tone="$rowLiveMap[$rowLiveStatus][1]">{{ $rowLiveMap[$rowLiveStatus][0] }}</x-ui.badge>
+                @elseif($listed && $liveCounts !== null)
+                    <x-ui.badge tone="neutral" title="Press Refresh from TikTok Shop to read its status">Not checked yet</x-ui.badge>
                 @elseif($listed)
                     <x-ui.badge tone="success">Listed</x-ui.badge>
                 @else

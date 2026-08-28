@@ -192,6 +192,9 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         // Lazada Products — bulk writes
         Route::post('/lazada/products/bulk/upload', [LazadaProductController::class, 'bulkUploadToLazada'])->name('ext.lazada.products.bulk_upload');
         Route::post('/lazada/listings/{id}/toggle', [LazadaProductController::class, 'toggleListing'])->whereNumber('id')->name('ext.lazada.listings.toggle');
+        // Activate / deactivate the selection (the owner, 2026-08-28), and refresh the status mirror on demand.
+        Route::post('/lazada/products/bulk/toggle', [LazadaProductController::class, 'bulkToggle'])->name('ext.lazada.products.bulk_toggle');
+        Route::post('/lazada/products/refresh-status', [LazadaProductController::class, 'refreshStatus'])->name('ext.lazada.products.refresh_status');
         Route::post('/lazada/listings/{id}/push-discount', [LazadaProductController::class, 'pushDiscount'])->whereNumber('id')->name('ext.lazada.listings.push_discount');
 
         // Voucher writes (#153): create, deactivate. Pass-throughs; Lazada owns the object.

@@ -210,7 +210,6 @@
 @elseif(($liveCounts ?? null) !== null)
     @php
         $liveTabDefs = [
-            'all' => 'All',
             'active' => 'Active',
             'inactive' => 'Inactive',
             'pending' => 'Pending QC',
@@ -220,20 +219,52 @@
         ];
         $tabQuery = request()->except('page', 'lazada_tab');
     @endphp
+    {{-- Two questions on one strip, each named (the owner, 2026-08-28): the
+         catalogue's own total, whether pushed or not, and Lazada's buckets.
+         The bucket counts and every row's chip come from the mirror on
+         the listing rows, refreshed every 30 minutes, on demand here, and
+         by every activate and deactivate. The strip says when. --}}
     <div class="x-segment-bar">
-        <nav class="x-segment" aria-label="Lazada listing status">
-            @foreach($liveTabDefs as $tabKey => $tabLabel)
-                @php $isActive = ($lazadaTab ?? 'all') === $tabKey; @endphp
-                <a href="{{ route('ext.lazada.products.index', $tabKey === 'all' ? $tabQuery : array_merge($tabQuery, ['lazada_tab' => $tabKey])) }}"
-                   class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
-                   @if($isActive) aria-current="true" @endif>
-                    <span>{{ $tabLabel }}</span>
-                    @if($tabKey !== 'all' && isset($liveCounts[$tabKey]))
-                        <span class="x-segment__count">{{ number_format($liveCounts[$tabKey]) }}</span>
+        <div class="x-segment-groups">
+            <div class="x-segment-group">
+                <span class="x-segment-group__k">Your catalogue</span>
+                <nav class="x-segment" aria-label="Catalogue">
+                    <a href="{{ route('ext.lazada.products.index', $tabQuery) }}"
+                       class="x-segment__item {{ ($lazadaTab ?? 'all') === 'all' ? 'is-active' : '' }}"
+                       @if(($lazadaTab ?? 'all') === 'all') aria-current="true" @endif>
+                        <span>All products</span>
+                        <span class="x-segment__count">{{ number_format((int) ($catalogueTotal ?? $paginator->total())) }}</span>
+                    </a>
+                </nav>
+            </div>
+            <div class="x-segment-group">
+                <span class="x-segment-group__k">On Lazada</span>
+                <nav class="x-segment" aria-label="Lazada listing status">
+                    @foreach($liveTabDefs as $tabKey => $tabLabel)
+                        @php $isActive = ($lazadaTab ?? 'all') === $tabKey; @endphp
+                        <a href="{{ route('ext.lazada.products.index', array_merge($tabQuery, ['lazada_tab' => $tabKey])) }}"
+                           class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
+                           @if($isActive) aria-current="true" @endif>
+                            <span>{{ $tabLabel }}</span>
+                            <span class="x-segment__count">{{ number_format((int) ($liveCounts[$tabKey] ?? 0)) }}</span>
+                        </a>
+                    @endforeach
+                </nav>
+                <span class="x-segment-group__meta">
+                    @if($liveCheckedAt ?? null)
+                        as of {{ $liveCheckedAt->format('H:i, M j') }}
+                    @else
+                        not refreshed yet
                     @endif
-                </a>
-            @endforeach
-        </nav>
+                </span>
+                @if($canManageLazada)
+                    <form method="POST" action="{{ route('ext.lazada.products.refresh_status') }}" class="x-segment-group__refresh" data-slow-action>
+                        @csrf
+                        <x-ui.button type="submit" size="sm">Refresh from Lazada</x-ui.button>
+                    </form>
+                @endif
+            </div>
+        </div>
     </div>
 @endif
 
@@ -340,8 +371,26 @@
      whole bar: the buttons do not change, and re-reading five labels on
      every tick would be worse than silence. --}}
 <div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar role="status">
-    <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected</span>
+    <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected <span class="cc-bulkbar__note" data-bulk-skipped></span></span>
     <div class="cc-bulkbar__actions">
+        {{-- Deactivate / Activate for the selection (the owner, 2026-08-28). Each
+             form acts only on the ticked rows its verb applies to, per the
+             mirrored status; the count is in the label and the rest of the
+             selection is named as skipped beside the count. --}}
+        <form method="POST" action="{{ route('ext.lazada.products.bulk_toggle') }}" data-bulk-form
+              data-bulk-verb="deactivate" data-verb-codes="active" data-verb-label="Deactivate :n on Lazada"
+              data-bulk-confirm="Deactivate the selected items on Lazada? Buyers stop seeing them. They stay here and can be activated again at any time." hidden>
+            @csrf
+            <input type="hidden" name="action" value="deactivate">
+            <x-ui.button type="submit" size="sm">Deactivate on Lazada</x-ui.button>
+        </form>
+        <form method="POST" action="{{ route('ext.lazada.products.bulk_toggle') }}" data-bulk-form
+              data-bulk-verb="activate" data-verb-codes="inactive" data-verb-label="Activate :n on Lazada"
+              data-bulk-confirm="Activate the selected items on Lazada? Buyers see them again once Lazada applies it." hidden>
+            @csrf
+            <input type="hidden" name="action" value="activate">
+            <x-ui.button type="submit" size="sm">Activate on Lazada</x-ui.button>
+        </form>
         <form method="POST" action="{{ $bulkUploadUrl }}" data-bulk-form
               data-bulk-confirm="Push the selected listings to Lazada? Anything already listed is skipped.">
             @csrf
@@ -472,6 +521,7 @@
                      pre-redesign wire unchanged. x-model keeps Alpine's count
                      in step with the DOM the module reads. --}}
                 <input type="checkbox" class="cc-check" data-row-check value="{{ (string) $l->id }}"
+                       data-live="{{ !empty($l->lazada_item_id) ? (string) ($l->live_status ?? '') : 'NOT_LISTED' }}"
                        x-model="selected" aria-label="Select listing {{ $l->id }}">
             </td>
             @endif
@@ -594,11 +644,10 @@
 
             <td class="cc-col-sync" data-label="Listing">
                 @php
-                    /* Lazada's live answer for this row when the page-load
-                       lookup got one; the stored badge otherwise. An
-                       uploaded row Lazada does not recognise reads as
-                       missing rather than borrowing the stored Uploaded -
-                       the ERP's memory never overrules the marketplace. */
+                    /* The mirrored status for this row; the strip says when
+                       it was refreshed. Never refreshed reads as exactly
+                       that, not as a guess. A row Lazada no longer returns
+                       reads as missing rather than borrowing Uploaded. */
                     $rowLiveStatus = $hasItemId ? ($liveStatuses[(string) $l->lazada_item_id] ?? null) : null;
                     $rowLiveMap = [
                         'active' => ['Active', 'success'],
@@ -613,6 +662,8 @@
                 @endphp
                 @if($rowLiveStatus !== null && isset($rowLiveMap[$rowLiveStatus]))
                     <x-ui.badge :tone="$rowLiveMap[$rowLiveStatus][1]">{{ $rowLiveMap[$rowLiveStatus][0] }}</x-ui.badge>
+                @elseif($hasItemId && ($liveCounts ?? null) !== null)
+                    <x-ui.badge tone="neutral" title="Press Refresh from Lazada to read its status">Not checked yet</x-ui.badge>
                 @elseif($hasItemId)
                     <x-ui.badge tone="success">Listed</x-ui.badge>
                 @elseif($isDeleted)
@@ -737,6 +788,21 @@
                         <form method="POST" action="{{ route('ext.lazada.products.sync_price', $l->id) }}" data-slow-action>
                             @csrf
                             <button type="submit" class="x-menu__item">Push price</button>
+                        </form>
+                        {{-- The marketplace's own on/off, by the mirrored status. --}}
+                        <form method="POST" action="{{ route('ext.lazada.listings.toggle', $l->id) }}" data-slow-action
+                              @if($rowLiveStatus !== 'active') hidden @endif
+                              data-confirm="Deactivate {{ $rowLabel }} on Lazada? Buyers stop seeing it. It can be activated again at any time." data-confirm-verb="Deactivate">
+                            @csrf
+                            <input type="hidden" name="action" value="deactivate">
+                            <button type="submit" class="x-menu__item">Deactivate on Lazada</button>
+                        </form>
+                        <form method="POST" action="{{ route('ext.lazada.listings.toggle', $l->id) }}" data-slow-action
+                              @if($rowLiveStatus !== 'inactive') hidden @endif
+                              data-confirm="Activate {{ $rowLabel }} on Lazada? Buyers see it again once Lazada applies it." data-confirm-tone="primary" data-confirm-verb="Activate">
+                            @csrf
+                            <input type="hidden" name="action" value="activate">
+                            <button type="submit" class="x-menu__item">Activate on Lazada</button>
                         </form>
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.lazada.products.unlink', $l->id) }}" data-slow-action

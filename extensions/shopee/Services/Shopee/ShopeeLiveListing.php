@@ -77,6 +77,90 @@ class ShopeeLiveListing
         return ['live' => $live, 'error' => null];
     }
 
+    /** Every item_status get_item_list can be asked for. */
+    public const STATUSES = ['NORMAL', 'UNLIST', 'BANNED', 'REVIEWING', 'SELLER_DELETE', 'SHOPEE_DELETE'];
+
+    /**
+     * Refresh the status mirror: walk the shop's items per status (100 a
+     * page) and write each link row's live_status. A link the shop no
+     * longer returns under any status becomes MISSING. One walk serves
+     * every listings and group page until the next; a page view costs
+     * Shopee nothing (the owner, 2026-08-28).
+     *
+     * @return array{error: ?string, counts: array<string, int>, links: int}
+     */
+    public function refreshMirror(array $auth): array
+    {
+        $idsByStatus = [];
+        foreach (self::STATUSES as $status) {
+            try {
+                $idsByStatus[$status] = $this->itemIds($auth, $status);
+            } catch (\Throwable $e) {
+                return ['error' => \App\Support\TransportError::plain($e, 'Shopee'), 'counts' => [], 'links' => 0];
+            }
+        }
+
+        $now = now();
+        $seen = [];
+        $counts = [];
+        foreach ($idsByStatus as $status => $ids) {
+            $counts[$status] = 0;
+            foreach (array_chunk($ids, 500) as $chunk) {
+                $counts[$status] += \Extensions\shopee\Models\ShopeeProductLink::query()
+                    ->whereIn('shopee_item_id', $chunk)
+                    ->update(['live_status' => $status, 'live_checked_at' => $now]);
+                foreach ($chunk as $id) {
+                    $seen[$id] = true;
+                }
+            }
+        }
+        $missing = \Extensions\shopee\Models\ShopeeProductLink::query()
+            ->whereNotIn('shopee_item_id', array_keys($seen) ?: [0])
+            ->update(['live_status' => 'MISSING', 'live_checked_at' => $now]);
+        if ($missing > 0) {
+            $counts['MISSING'] = $missing;
+        }
+
+        return [
+            'error' => null,
+            'counts' => array_filter($counts),
+            'links' => (int) \Extensions\shopee\Models\ShopeeProductLink::query()->count(),
+        ];
+    }
+
+    /** Every item id in one status, 100 a page, up to 5,000 items. Throws when Shopee refuses. */
+    public function itemIds(array $auth, string $itemStatus): array
+    {
+        $itemIds = [];
+        $offset = 0;
+        for ($pageN = 0; $pageN < 50; $pageN++) {
+            $r = $this->client->shopGet(
+                $auth['mode'],
+                (int) $auth['partner_id'], (string) $auth['partner_key'],
+                (string) $auth['access_token'], (int) $auth['shop_id'],
+                '/api/v2/product/get_item_list',
+                ['offset' => $offset, 'page_size' => 100, 'item_status' => $itemStatus]
+            );
+            if (!($r['ok'] ?? false)) {
+                throw new \RuntimeException(is_array($r['body'] ?? null)
+                    ? (string) ($r['body']['message'] ?? ($r['body']['error'] ?? 'no response'))
+                    : 'no response');
+            }
+            $resp = ($r['body'] ?? [])['response'] ?? [];
+            foreach (($resp['item'] ?? []) as $it) {
+                if ($id = $it['item_id'] ?? null) {
+                    $itemIds[] = (int) $id;
+                }
+            }
+            if (!($resp['has_next_page'] ?? false) || empty($resp['item'] ?? [])) {
+                break;
+            }
+            $offset = (int) ($resp['next_offset'] ?? $offset + 100);
+        }
+
+        return array_values(array_unique($itemIds));
+    }
+
     private function fetchModels(array $auth, int $itemId): array
     {
         try {

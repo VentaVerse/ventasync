@@ -138,6 +138,63 @@ class TikTokLiveListing
         ];
     }
 
+    /**
+     * Refresh the status mirror (the owner, 2026-08-28): one walk of the shop,
+     * written onto every listing row that is on TikTok. A product the
+     * shop no longer returns becomes MISSING. A product on TikTok only
+     * through a group pivot (pushed before the listing record carried the
+     * truth) gets a listing row so the mirror has one home; the page and
+     * the tabs read that row. A page view asks TikTok for nothing.
+     *
+     * @return array{error: ?string, counts: array<string, int>, links: int}
+     */
+    public function refreshMirror(array $c): array
+    {
+        $answer = $this->statuses($c);
+        if ($answer['statuses'] === null) {
+            return ['error' => (string) $answer['error'], 'counts' => [], 'links' => 0];
+        }
+        $statuses = $answer['statuses'];
+        $now = now();
+
+        // Pivot truths with no listing row: give them one, so one table
+        // carries the mirror.
+        $withRow = \Extensions\tiktok\Models\TikTokListing::query()->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        $pivots = \Extensions\tiktok\Models\TikTokProductGroupProduct::query()
+            ->whereNotNull('tiktok_product_id')
+            ->whereNotIn('product_id', $withRow ?: [0])
+            ->orderByDesc('last_pushed_at')
+            ->get()
+            ->unique('product_id');
+        foreach ($pivots as $pv) {
+            \Extensions\tiktok\Models\TikTokListing::query()->firstOrCreate(
+                ['product_id' => (int) $pv->product_id],
+                ['tiktok_product_id' => (string) $pv->tiktok_product_id, 'tiktok_sku_id' => $pv->tiktok_sku_id, 'last_pushed_at' => $pv->last_pushed_at, 'last_push_source' => 'group']
+            );
+        }
+        // A listing row with no product id of its own inherits the pivot's.
+        $blank = \Extensions\tiktok\Models\TikTokListing::query()->whereNull('tiktok_product_id')->get();
+        foreach ($blank as $row) {
+            $pv = \Extensions\tiktok\Models\TikTokProductGroupProduct::query()
+                ->where('product_id', $row->product_id)->whereNotNull('tiktok_product_id')
+                ->orderByDesc('last_pushed_at')->first();
+            if ($pv) {
+                $row->forceFill(['tiktok_product_id' => (string) $pv->tiktok_product_id])->save();
+            }
+        }
+
+        $counts = [];
+        $rows = \Extensions\tiktok\Models\TikTokListing::query()->whereNotNull('tiktok_product_id')->get(['id', 'tiktok_product_id']);
+        foreach ($rows as $row) {
+            $status = $statuses[(string) $row->tiktok_product_id] ?? 'MISSING';
+            \Extensions\tiktok\Models\TikTokListing::query()->whereKey($row->id)
+                ->update(['live_status' => $status, 'live_checked_at' => $now]);
+            $counts[$status] = ($counts[$status] ?? 0) + 1;
+        }
+
+        return ['error' => null, 'counts' => $counts, 'links' => $rows->count()];
+    }
+
     private function log(string $method, string $path, array $params, array $result): void
     {
         TikTokApiLog::safeCreate([

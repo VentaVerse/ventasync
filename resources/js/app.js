@@ -7,6 +7,7 @@ import './confirm-modal';
 import './thumb-fallback';
 import './plot-readout';
 import './list-filters';
+import './nav-progress';
 import './order-selection';
 import './order-thumb-preview';
 import './field-a11y';

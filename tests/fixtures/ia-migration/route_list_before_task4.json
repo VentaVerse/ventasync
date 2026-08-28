@@ -806,6 +806,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/lazada/products/bulk/toggle",
+        "name": "ext.lazada.products.bulk_toggle"
+    },
+    {
+        "method": "POST",
         "uri": "channels/lazada/products/bulk/upload",
         "name": "ext.lazada.products.bulk_upload"
     },
@@ -818,6 +823,11 @@
         "method": "POST",
         "uri": "channels/lazada/products/get",
         "name": "ext.lazada.products_get"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/products/refresh-status",
+        "name": "ext.lazada.products.refresh_status"
     },
     {
         "method": "GET|HEAD",
@@ -1655,6 +1665,11 @@
         "name": "ext.shopee.products.bulk_sync_quantity"
     },
     {
+        "method": "POST",
+        "uri": "channels/shopee/products/bulk/toggle",
+        "name": "ext.shopee.products.bulk_toggle"
+    },
+    {
         "method": "GET|HEAD",
         "uri": "channels/shopee/products/categories/lookup",
         "name": "ext.shopee.products.categoryLookup"
@@ -1673,6 +1688,11 @@
         "method": "POST",
         "uri": "channels/shopee/products/rebuild-cache",
         "name": "ext.shopee.products.rebuild_cache"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/products/refresh-status",
+        "name": "ext.shopee.products.refresh_status"
     },
     {
         "method": "GET|HEAD",
@@ -2100,6 +2120,11 @@
         "name": "ext.tiktok.products.bulk_send"
     },
     {
+        "method": "POST",
+        "uri": "channels/tiktok/products/bulk/toggle",
+        "name": "ext.tiktok.products.bulk_toggle"
+    },
+    {
         "method": "GET|HEAD",
         "uri": "channels/tiktok/products/categories/lookup",
         "name": "ext.tiktok.products.categoryLookup"
@@ -2113,6 +2138,11 @@
         "method": "POST",
         "uri": "channels/tiktok/products/fetch-attributes",
         "name": "ext.tiktok.products.fetchAttributes"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/products/refresh-status",
+        "name": "ext.tiktok.products.refresh_status"
     },
     {
         "method": "POST",

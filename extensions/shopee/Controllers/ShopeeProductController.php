@@ -35,12 +35,12 @@ class ShopeeProductController extends Controller
 
         /* ── The seller center's own tabs (quest 1 slice 2, 2026-08-24) ──
          *
-         * All / Live / Unlisted / Violation / Under review, each one a
-         * get_item_list status filter answered by Shopee ON THIS LOAD.
-         * Live by design (the owner): the whole point of the tab is whether
-         * the marketplace shows the item right now, so there is no cache
-         * to be stale. When Shopee does not answer, the tabs say so and
-         * the catalog view continues without them. */
+         * Live / Unlisted / Violation / Under review, Shopee's own
+         * item_status buckets. They were answered by Shopee on every page
+         * load until 2026-08-28, when the owner reversed that: the calls had
+         * become the cost of the page. They now read the MIRROR on the
+         * link rows (see below); "All products" is the catalogue's own
+         * view, whether pushed or not, and the strip names both. */
         $tabMap = ['live' => 'NORMAL', 'unlisted' => 'UNLIST', 'violation' => 'BANNED', 'reviewing' => 'REVIEWING'];
         $shopeeTab = (string) $request->get('shopee_tab', 'all');
         if (!array_key_exists($shopeeTab, $tabMap)) {
@@ -51,17 +51,18 @@ class ShopeeProductController extends Controller
         $auth = ShopeeSetting::activeAuth($setting);
         $liveCounts = null;
         $liveTabError = null;
+        /* Since 2026-08-28 the counts and the per-row statuses come from
+         * the MIRROR on the link rows (live_status, live_checked_at),
+         * refreshed every 30 minutes by the automation, on demand by the
+         * Refresh button, and written through by every push, unlist and
+         * relist the ERP makes. A page view asks Shopee for nothing
+         * (the owner: five calls per click had become the cost of the page).
+         * The strip says when the mirror was last refreshed. */
+        $liveCheckedAt = null;
         if ($setting && $auth['complete']) {
-            try {
-                $liveCounts = [];
-                foreach ($tabMap as $tabKey => $itemStatus) {
-                    $liveCounts[$tabKey] = $this->liveItemCount($client, $auth, $itemStatus);
-                }
-            } catch (\Throwable $e) {
-                $liveCounts = null;
-                $liveTabError = \App\Support\TransportError::plain($e, 'Shopee') . ' The live tabs and statuses are unavailable right now; the catalog below is unaffected.';
-                $shopeeTab = 'all';
-            }
+            $liveCounts = ShopeeProductLink::mirrorCounts($tabMap);
+            $liveCheckedAt = ShopeeProductLink::query()->max('live_checked_at');
+            $liveCheckedAt = $liveCheckedAt ? \Illuminate\Support\Carbon::parse($liveCheckedAt) : null;
         } else {
             $shopeeTab = 'all';
         }
@@ -210,17 +211,15 @@ class ShopeeProductController extends Controller
         // A live tab narrows the table to the products whose Shopee items
         // hold that status right now. Only linked products can match: the
         // tab is a view of the shop, and an unpushed product is not in it.
+        // The catalogue's own total, before a Shopee tab narrows the table:
+        // the "All products" tab wears it so it reads as a total, not a status.
+        $catalogueTotal = (clone $query)->count();
+
         if ($shopeeTab !== 'all' && $liveCounts !== null) {
-            try {
-                $itemIds = $this->liveItemIds($client, $auth, $tabMap[$shopeeTab]);
-                $tabProductIds = ShopeeProductLink::query()
-                    ->whereIn('shopee_item_id', $itemIds ?: [0])
-                    ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
-                $query->whereIn('p.product_id', $tabProductIds ?: [0]);
-            } catch (\Throwable $e) {
-                $liveTabError = \App\Support\TransportError::plain($e, 'Shopee') . ' The live tabs and statuses are unavailable right now; the catalog below is unaffected.';
-                $shopeeTab = 'all';
-            }
+            $tabProductIds = ShopeeProductLink::query()
+                ->where('live_status', $tabMap[$shopeeTab])
+                ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+            $query->whereIn('p.product_id', $tabProductIds ?: [0]);
         }
 
         $query->orderBy($sortColumns[$sort], $dir);
@@ -253,48 +252,13 @@ class ShopeeProductController extends Controller
         // query (App\Support\VariationRows).
         $optionRowsByProductId = \App\Support\VariationRows::forProducts($pageIds);
 
-        /* The live status chip per linked row on this page: one
-         * get_item_base_info call for the page's item ids (chunked at
-         * Shopee's 50 cap). Failure leaves the map empty and the rows fall
-         * back to the plain Listed badge - absent, never stale. */
+        /* The status chip per linked row on this page, from the mirror on
+         * the link rows. Null (never refreshed) renders as "Not checked
+         * yet", never as a guess. */
         $liveStatuses = [];
-        if ($liveCounts !== null && $shopeeLinks->isNotEmpty()) {
-            $pageItemIds = $shopeeLinks->flatten()
-                ->pluck('shopee_item_id')->map(fn ($v) => (int) $v)
-                ->filter()->unique()->values()->all();
-            try {
-                foreach (array_chunk($pageItemIds, 50) as $chunk) {
-                    $r = $client->shopGet(
-                        $auth['mode'],
-                        (int) $auth['partner_id'], (string) $auth['partner_key'],
-                        (string) $auth['access_token'], (int) $auth['shop_id'],
-                        '/api/v2/product/get_item_base_info',
-                        ['item_id_list' => implode(',', $chunk)]
-                    );
-                    if (!($r['ok'] ?? false)) {
-                        continue;
-                    }
-                    $answered = [];
-                    foreach ((($r['body'] ?? [])['response']['item_list'] ?? []) as $it) {
-                        $itemId = (int) ($it['item_id'] ?? 0);
-                        $liveStatuses[$itemId] = (string) ($it['item_status'] ?? '');
-                        $answered[$itemId] = true;
-                    }
-                    /* Shopee ANSWERED and this item was not in the answer:
-                     * that absence is itself a live fact - the shop holds no
-                     * such item (deleted there, or a link copied from
-                     * another environment). Saying "Listed" from our own
-                     * link row would be the ERP's memory overruling the
-                     * marketplace, which is the one thing this page must
-                     * never do. */
-                    foreach ($chunk as $askedId) {
-                        if (!isset($answered[(int) $askedId])) {
-                            $liveStatuses[(int) $askedId] = 'MISSING';
-                        }
-                    }
-                }
-            } catch (\Throwable) {
-                $liveStatuses = [];
+        foreach ($shopeeLinks->flatten() as $l) {
+            if ($l->live_status !== null) {
+                $liveStatuses[(int) $l->shopee_item_id] = (string) $l->live_status;
             }
         }
 
@@ -349,62 +313,154 @@ class ShopeeProductController extends Controller
             'liveCounts' => $liveCounts,
             'liveTabError' => $liveTabError,
             'liveStatuses' => $liveStatuses,
+            'catalogueTotal' => $catalogueTotal,
+            'liveCheckedAt' => $liveCheckedAt,
             'readinessByProductId' => $readinessByProductId,
         ]);
     }
 
-    /** total_count for one item_status, one cheap page_size=1 call. */
-    private function liveItemCount(ShopeeClient $client, array $auth, string $itemStatus): int
+    /** The Refresh button on the listings strip: the same walk the 30-minute automation runs. */
+    public function refreshStatus(Request $request, \Extensions\shopee\Services\Shopee\ShopeeLiveListing $live)
     {
-        $r = $client->shopGet(
-            $auth['mode'],
-            (int) $auth['partner_id'], (string) $auth['partner_key'],
-            (string) $auth['access_token'], (int) $auth['shop_id'],
-            '/api/v2/product/get_item_list',
-            ['offset' => 0, 'page_size' => 1, 'item_status' => $itemStatus]
-        );
-
-        if (!($r['ok'] ?? false)) {
-            throw new \RuntimeException(is_array($r['body'] ?? null)
-                ? (string) ($r['body']['message'] ?? ($r['body']['error'] ?? 'no response'))
-                : 'no response');
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            return redirect()->back()->with('error', 'Missing Shopee settings.');
         }
 
-        return (int) ((($r['body'] ?? [])['response']['total_count']) ?? 0);
+        $result = $live->refreshMirror($auth);
+        if ($result['error'] !== null) {
+            return redirect()->back()->with('error', 'Shopee did not answer: ' . $result['error'] . ' The statuses shown are from the last refresh.');
+        }
+
+        $labels = ['NORMAL' => 'live', 'UNLIST' => 'unlisted', 'BANNED' => 'in violation', 'REVIEWING' => 'under review',
+            'SELLER_DELETE' => 'deleted', 'SHOPEE_DELETE' => 'deleted by Shopee', 'MISSING' => 'not found on Shopee'];
+        $parts = [];
+        foreach ($result['counts'] as $status => $n) {
+            $parts[] = number_format($n) . ' ' . ($labels[$status] ?? strtolower($status));
+        }
+
+        return redirect()->back()->with('status', 'Refreshed from Shopee: ' . ($parts ? implode(', ', $parts) : 'no linked items') . '.');
     }
 
-    /** Every item id in one status, paged at 100, capped at 1000 items. */
-    private function liveItemIds(ShopeeClient $client, array $auth, string $itemStatus): array
+    /**
+     * Unlist or relist several items in one call. Shopee's unlist_item
+     * takes a list, so a selection of fifty is one request, and its
+     * failure_list names each item it refused.
+     *
+     * @return array{ok: list<int>, failed: array<int, string>, error: ?string}
+     */
+    private function unlistItems(ShopeeClient $client, array $auth, array $itemIds, bool $unlist): array
     {
-        $itemIds = [];
-        $offset = 0;
-        for ($pageN = 0; $pageN < 10; $pageN++) {
-            $r = $client->shopGet(
-                $auth['mode'],
-                (int) $auth['partner_id'], (string) $auth['partner_key'],
-                (string) $auth['access_token'], (int) $auth['shop_id'],
-                '/api/v2/product/get_item_list',
-                ['offset' => $offset, 'page_size' => 100, 'item_status' => $itemStatus]
-            );
-            if (!($r['ok'] ?? false)) {
-                throw new \RuntimeException(is_array($r['body'] ?? null)
-                    ? (string) ($r['body']['message'] ?? ($r['body']['error'] ?? 'no response'))
-                    : 'no response');
+        $ok = [];
+        $failed = [];
+        foreach (array_chunk(array_values(array_unique(array_map('intval', $itemIds))), 50) as $chunk) {
+            $path = '/api/v2/product/unlist_item';
+            $body = ['item_list' => array_map(fn ($id) => ['item_id' => $id, 'unlist' => $unlist], $chunk)];
+            try {
+                $result = $client->shopPost(
+                    $auth['mode'],
+                    (int) $auth['partner_id'], (string) $auth['partner_key'],
+                    (string) $auth['access_token'], (int) $auth['shop_id'],
+                    $path, [], $body
+                );
+            } catch (\Throwable $e) {
+                return ['ok' => $ok, 'failed' => $failed, 'error' => \App\Support\TransportError::plain($e, 'Shopee')];
             }
-            $resp = ($r['body'] ?? [])['response'] ?? [];
-            foreach (($resp['item'] ?? []) as $it) {
-                if ($id = $it['item_id'] ?? null) {
-                    $itemIds[] = (int) $id;
+            ShopeeApiLog::safeCreate([
+                'pack' => 'shopee.listings.toggle', 'method' => 'POST',
+                'api_path' => $path, 'auth_required' => true,
+                'request_params' => $body,
+                'response_status' => $result['status'] ?? null,
+                'ok' => (bool) ($result['ok'] ?? false),
+                'response_body' => $result['body'] ?? null, 'user_id' => auth()->id(),
+            ]);
+            if (!($result['ok'] ?? false)) {
+                $msg = is_array($result['body'] ?? null)
+                    ? (string) ($result['body']['message'] ?? ($result['body']['error'] ?? 'no response'))
+                    : 'no response';
+                return ['ok' => $ok, 'failed' => $failed, 'error' => $msg];
+            }
+            $refused = [];
+            foreach ((($result['body'] ?? [])['response']['failure_list'] ?? []) as $f) {
+                $refused[(int) ($f['item_id'] ?? 0)] = (string) ($f['failed_reason'] ?? 'refused');
+            }
+            $done = [];
+            foreach ($chunk as $id) {
+                if (isset($refused[$id])) {
+                    $failed[$id] = $refused[$id];
+                } else {
+                    $ok[] = $id;
+                    $done[] = $id;
                 }
             }
-            if (!($resp['has_next_page'] ?? false) || empty($resp['item'] ?? [])) {
-                break;
+            // Write through to the mirror: the ERP just changed the status,
+            // so the next page view reads it without waiting for a refresh.
+            if ($done !== []) {
+                ShopeeProductLink::query()->whereIn('shopee_item_id', $done)
+                    ->update(['live_status' => $unlist ? 'UNLIST' : 'NORMAL', 'live_checked_at' => now()]);
             }
-            $offset = (int) ($resp['next_offset'] ?? $offset + 100);
+        }
+        return ['ok' => $ok, 'failed' => $failed, 'error' => null];
+    }
+
+    /** The selection bar's Unlist / Relist (the owner, 2026-08-28): the same call as the row's, for many rows. */
+    public function bulkToggle(Request $request, ShopeeClient $client)
+    {
+        $request->validate([
+            'action' => 'required|in:list,unlist',
+            'product_ids' => 'required|array|min:1',
+            'product_ids.*' => 'integer',
+        ]);
+        $unlist = $request->input('action') === 'unlist';
+        $verb = $unlist ? 'Unlisted' : 'Relisted';
+
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            return redirect()->back()->with('error', 'Missing Shopee settings.');
         }
 
-        return array_values(array_unique($itemIds));
+        $ids = array_values(array_unique(array_map('intval', (array) $request->input('product_ids'))));
+        $links = ShopeeProductLink::query()->whereIn('product_id', $ids)->get();
+        $notOnShopee = count($ids) - $links->count();
+        if ($links->isEmpty()) {
+            return redirect()->back()->with('error', 'None of the selected products is on Shopee, so there is nothing to ' . ($unlist ? 'unlist' : 'relist') . '.');
+        }
+
+        $result = $this->unlistItems($client, $auth, $links->pluck('shopee_item_id')->all(), $unlist);
+        $okItems = array_flip($result['ok']);
+        foreach ($links as $l) {
+            if (isset($okItems[(int) $l->shopee_item_id])) {
+                ActivityLogger::log(
+                    $unlist ? 'unlisted' : 'relisted',
+                    'Shopee Product',
+                    (int) $l->product_id,
+                    'Item ' . $l->shopee_item_id . ($unlist ? ' unlisted from' : ' relisted on') . ' Shopee (selection)'
+                );
+            }
+        }
+
+        $parts = [];
+        if ($result['ok'] !== []) {
+            $parts[] = $verb . ' ' . count($result['ok']) . ' ' . (count($result['ok']) === 1 ? 'item' : 'items') . ($unlist ? ' from' : ' on') . ' Shopee.';
+        }
+        if ($result['failed'] !== []) {
+            $reasons = array_unique(array_values($result['failed']));
+            $parts[] = count($result['failed']) . ' refused: ' . implode('; ', array_slice($reasons, 0, 3)) . '.';
+        }
+        if ($notOnShopee > 0) {
+            $parts[] = $notOnShopee . ' skipped, not on Shopee.';
+        }
+        if ($result['error'] !== null) {
+            $parts[] = 'Shopee did not answer: ' . $result['error'];
+        }
+        $message = implode(' ', $parts);
+        $tone = ($result['ok'] === [] || $result['error'] !== null) ? 'error' : 'status';
+
+        return redirect()->back()->with($tone, $message);
     }
+
 
     public function addProduct(Request $request)
     {
@@ -3430,35 +3486,9 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', "Missing Shopee {$modeLabel} settings.");
         }
 
-        $path = '/api/v2/product/unlist_item';
-        $body = ['item_list' => [['item_id' => (int) $link->shopee_item_id, 'unlist' => $unlist]]];
-
-        try {
-            $result = $client->shopPost(
-                $auth['mode'],
-                (int) $auth['partner_id'], (string) $auth['partner_key'],
-                (string) $auth['access_token'], (int) $auth['shop_id'],
-                $path, [], $body
-            );
-        } catch (\Throwable $e) {
-            return redirect()->back()->with('error', ($unlist ? 'Unlist' : 'Relist') . ' failed: ' . \App\Support\TransportError::plain($e, 'Shopee'));
-        }
-
-        ShopeeApiLog::safeCreate([
-            'pack' => 'shopee.listings.toggle', 'method' => 'POST',
-            'api_path' => $path, 'auth_required' => true,
-            'request_params' => $body,
-            'response_status' => $result['status'] ?? null,
-            'ok' => (bool) ($result['ok'] ?? false),
-            'response_body' => $result['body'] ?? null, 'user_id' => auth()->id(),
-        ]);
-
-        $failure = (($result['body'] ?? [])['response']['failure_list'] ?? [])[0] ?? null;
-        if (!($result['ok'] ?? false) || $failure) {
-            $msg = $failure['failed_reason']
-                ?? (is_array($result['body'] ?? null)
-                    ? (string) ($result['body']['message'] ?? ($result['body']['error'] ?? 'no response'))
-                    : 'no response');
+        $result = $this->unlistItems($client, $auth, [(int) $link->shopee_item_id], $unlist);
+        if ($result['error'] !== null || $result['failed'] !== []) {
+            $msg = $result['error'] ?? (string) reset($result['failed']);
             return redirect()->back()->with('error', ($unlist ? 'Unlist' : 'Relist') . ' failed: ' . $msg);
         }
 

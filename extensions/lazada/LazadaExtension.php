@@ -58,6 +58,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         if ($this->app->runningInConsole()) {
             $this->commands([
                 \Extensions\lazada\Commands\LazadaPushStock::class,
+                \Extensions\lazada\Commands\LazadaRefreshListingStatus::class,
                 \Extensions\lazada\Commands\LazadaRefreshToken::class,
                 \Extensions\lazada\Commands\LazadaSyncOrders::class,
             ]);

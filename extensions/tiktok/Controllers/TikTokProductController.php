@@ -29,7 +29,7 @@ use Illuminate\Support\Facades\DB;
  */
 class TikTokProductController extends Controller
 {
-    public function index(Request $request, TikTokLiveListing $liveListing)
+    public function index(Request $request)
     {
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
@@ -43,21 +43,23 @@ class TikTokProductController extends Controller
             $tiktokTab = 'all';
         }
 
-        /* The seller center's tabs, answered by TikTok on this load: one
-         * walk of the shop's products (100 a page, ten pages at most)
-         * gives every product's status, so the tabs count and the rows
-         * wear the live chip from the same answer. Absent, never stale. */
+        /* The seller center's tabs, from the MIRROR on the listing rows
+         * (live_status, live_checked_at), refreshed every 30 minutes by
+         * the automation, on demand by the Refresh button, and written
+         * through by every activate and deactivate the ERP makes. A page
+         * view asks TikTok for nothing (the owner, 2026-08-28: the walk on
+         * every click had become the cost of the page). The strip says
+         * when the mirror was last refreshed. */
         $c = $this->creds();
-        $liveStatuses = null;   // tiktok_product_id => status
         $liveTabError = null;
+        $liveCounts = null;
+        $liveCheckedAt = null;
         if ($c) {
-            $answer = $liveListing->statuses($c);
-            $liveStatuses = $answer['statuses'];
-            $liveTabError = $answer['error'];
+            $liveCounts = TikTokListing::mirrorCounts(TikTokLiveListing::TABS);
+            $checked = TikTokListing::query()->whereNotNull('tiktok_product_id')->max('live_checked_at');
+            $liveCheckedAt = $checked ? \Illuminate\Support\Carbon::parse($checked) : null;
         } else {
             $liveTabError = 'Missing TikTok settings.';
-        }
-        if ($liveStatuses === null) {
             $tiktokTab = 'all';
         }
 
@@ -120,11 +122,15 @@ class TikTokProductController extends Controller
             $query->whereIn('p.product_id', $matching ?: [0]);
         }
 
-        // A live tab narrows to the products TikTok holds in that status now.
-        if ($tiktokTab !== 'all' && $liveStatuses !== null) {
+        // The catalogue's own total, before a TikTok tab narrows the table:
+        // the "All products" tab wears it so it reads as a total, not a status.
+        $catalogueTotal = (clone $query)->count();
+
+        // A TikTok tab narrows to the products the mirror holds in that status.
+        if ($tiktokTab !== 'all' && $liveCounts !== null) {
             $wanted = TikTokLiveListing::TABS[$tiktokTab][1];
-            $ttIds = array_keys(array_filter($liveStatuses, fn ($s) => $s === $wanted));
-            $tabProductIds = TikTokListing::query()->whereIn('tiktok_product_id', $ttIds ?: ['none'])->pluck('product_id')->all();
+            $tabProductIds = TikTokListing::query()->whereNotNull('tiktok_product_id')
+                ->where('live_status', $wanted)->pluck('product_id')->all();
             $query->whereIn('p.product_id', $tabProductIds ?: [0]);
         }
 
@@ -152,13 +158,11 @@ class TikTokProductController extends Controller
         }));
         $readinessByProductId = app(TikTokListingReadiness::class)->forProducts($unlistedPageIds);
 
-        $liveCounts = null;
-        if ($liveStatuses !== null) {
-            $liveCounts = [];
-            foreach (TikTokLiveListing::TABS as $key => [$label, $status]) {
-                if ($status !== null) {
-                    $liveCounts[$key] = count(array_filter($liveStatuses, fn ($s) => $s === $status));
-                }
+        // Per-row statuses, from the mirror: tiktok_product_id => status.
+        $liveStatuses = [];
+        foreach ($listingsByProductId as $l) {
+            if ($l->tiktok_product_id && $l->live_status !== null) {
+                $liveStatuses[(string) $l->tiktok_product_id] = (string) $l->live_status;
             }
         }
 
@@ -177,9 +181,35 @@ class TikTokProductController extends Controller
             'tiktokTab' => $tiktokTab,
             'liveCounts' => $liveCounts,
             'liveTabError' => $liveTabError,
-            'liveStatuses' => $liveStatuses ?? [],
+            'liveStatuses' => $liveStatuses,
+            'liveCheckedAt' => $liveCheckedAt,
+            'catalogueTotal' => $catalogueTotal,
             'readinessByProductId' => $readinessByProductId,
         ]);
+    }
+
+    /** The Refresh button on the listings strip: the same walk the 30-minute automation runs. */
+    public function refreshStatus(Request $request, TikTokLiveListing $live)
+    {
+        $c = $this->creds();
+        if (!$c) {
+            return redirect()->back()->with('error', 'Missing TikTok settings.');
+        }
+
+        $result = $live->refreshMirror($c);
+        if ($result['error'] !== null) {
+            return redirect()->back()->with('error', $result['error'] . ' The statuses shown are from the last refresh.');
+        }
+
+        $labels = ['ACTIVATE' => 'live', 'SELLER_DEACTIVATED' => 'deactivated', 'PLATFORM_DEACTIVATED' => 'deactivated by TikTok',
+            'IN_REVIEW' => 'under review', 'PENDING' => 'under review', 'FAILED' => 'failed review', 'FREEZE' => 'frozen',
+            'DRAFT' => 'draft', 'DELETED' => 'deleted', 'MISSING' => 'not found on TikTok Shop'];
+        $parts = [];
+        foreach ($result['counts'] as $status => $n) {
+            $parts[] = number_format($n) . ' ' . ($labels[$status] ?? strtolower((string) $status));
+        }
+
+        return redirect()->back()->with('status', 'Refreshed from TikTok Shop: ' . ($parts ? implode(', ', $parts) : 'no linked products') . '.');
     }
 
     /** The one-click push on the product's OWN listing settings (#96). */

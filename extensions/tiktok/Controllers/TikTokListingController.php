@@ -177,15 +177,87 @@ class TikTokListingController extends Controller
         if (!$truth || !$c) {
             return redirect()->back()->with('error', ($deactivate ? 'Deactivate' : 'Activate') . ' failed: ' . (!$c ? 'missing TikTok settings.' : 'this product is not on TikTok Shop.'));
         }
-        $path = '/product/202309/products/' . ($deactivate ? 'deactivate' : 'activate');
-        $result = $this->call($client, $c, 'POST', $path, ['product_ids' => [(string) $truth->tiktok_product_id]]);
-        if (!$this->callOk($result)) {
-            return redirect()->back()->with('error', ($deactivate ? 'Deactivate' : 'Activate') . ' failed: ' . $this->callMessage($result));
+        $result = $this->toggleProducts($client, $c, [(string) $truth->tiktok_product_id], $deactivate);
+        if ($result['error'] !== null) {
+            return redirect()->back()->with('error', ($deactivate ? 'Deactivate' : 'Activate') . ' failed: ' . $result['error']);
         }
 
         return redirect()->back()->with('status', $deactivate
             ? 'Deactivated on TikTok Shop. Buyers stop seeing it; it can be activated again at any time.'
             : 'Activated on TikTok Shop. Buyers see it again once TikTok applies it.');
+    }
+
+    /**
+     * Activate or deactivate several products. TikTok's endpoints take a
+     * product_ids list, so a selection of fifty is one call. On success
+     * the mirror is written through, so the next page view reads the new
+     * status without waiting for a refresh.
+     *
+     * @param  list<string>  $tiktokProductIds
+     * @return array{ok: list<string>, error: ?string}
+     */
+    private function toggleProducts(TikTokClient $client, array $c, array $tiktokProductIds, bool $deactivate): array
+    {
+        $path = '/product/202309/products/' . ($deactivate ? 'deactivate' : 'activate');
+        $ok = [];
+        foreach (array_chunk(array_values(array_unique($tiktokProductIds)), 50) as $chunk) {
+            $result = $this->call($client, $c, 'POST', $path, ['product_ids' => $chunk]);
+            if (!$this->callOk($result)) {
+                return ['ok' => $ok, 'error' => $this->callMessage($result)];
+            }
+            TikTokListing::query()->whereIn('tiktok_product_id', $chunk)
+                ->update(['live_status' => $deactivate ? 'SELLER_DEACTIVATED' : 'ACTIVATE', 'live_checked_at' => now()]);
+            array_push($ok, ...$chunk);
+        }
+
+        return ['ok' => $ok, 'error' => null];
+    }
+
+    /** The selection bar's Deactivate / Activate (the owner, 2026-08-28): the same call as the row's, for many rows. */
+    public function bulkToggle(Request $request, TikTokClient $client)
+    {
+        $request->validate([
+            'action' => 'required|in:activate,deactivate',
+            'product_ids' => 'required|array|min:1',
+            'product_ids.*' => 'integer',
+        ]);
+        $deactivate = $request->input('action') === 'deactivate';
+        $verb = $deactivate ? 'Deactivated' : 'Activated';
+
+        $c = $this->creds();
+        if (!$c) {
+            return redirect()->back()->with('error', 'Missing TikTok settings.');
+        }
+
+        $ids = array_values(array_unique(array_map('intval', (array) $request->input('product_ids'))));
+        $ttIds = [];
+        foreach ($ids as $id) {
+            $truth = $this->derivedTruth($id);
+            if ($truth && $truth->tiktok_product_id) {
+                $ttIds[] = (string) $truth->tiktok_product_id;
+            }
+        }
+        $notOnTikTok = count($ids) - count($ttIds);
+        if ($ttIds === []) {
+            return redirect()->back()->with('error', 'None of the selected products is on TikTok Shop, so there is nothing to ' . ($deactivate ? 'deactivate' : 'activate') . '.');
+        }
+
+        $result = $this->toggleProducts($client, $c, $ttIds, $deactivate);
+
+        $parts = [];
+        if ($result['ok'] !== []) {
+            $parts[] = $verb . ' ' . count($result['ok']) . ' ' . (count($result['ok']) === 1 ? 'item' : 'items') . ' on TikTok Shop.';
+        }
+        $refused = count($ttIds) - count($result['ok']);
+        if ($refused > 0) {
+            $parts[] = $refused . ' refused: ' . ($result['error'] ?? 'no response') . '.';
+        }
+        if ($notOnTikTok > 0) {
+            $parts[] = $notOnTikTok . ' skipped, not on TikTok Shop.';
+        }
+        $tone = $result['ok'] === [] ? 'error' : 'status';
+
+        return redirect()->back()->with($tone, implode(' ', $parts));
     }
 
     public function pushDiscount(Request $request, int $productId, TikTokClient $client)

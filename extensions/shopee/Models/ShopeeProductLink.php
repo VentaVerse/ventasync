@@ -13,6 +13,8 @@ class ShopeeProductLink extends Model
         'shopee_item_id',
         'shopee_model_id',
         'sku',
+        'live_status',
+        'live_checked_at',
         'last_synced_at',
         'last_sync_action',
         'last_sync_ok',
@@ -22,8 +24,33 @@ class ShopeeProductLink extends Model
 
     protected $casts = [
         'last_synced_at' => 'datetime',
+        'live_checked_at' => 'datetime',
         'last_sync_ok' => 'boolean',
     ];
+
+    /**
+     * The mirrored bucket counts, keyed the way the listings strip names
+     * them. Linked products only: the tab table shows nothing else, so
+     * the count must not promise more rows than the tab has.
+     *
+     * @param  array<string, string>  $tabMap  tab key => Shopee item_status
+     * @return array<string, int>
+     */
+    public static function mirrorCounts(array $tabMap): array
+    {
+        $byStatus = static::query()
+            ->whereNotNull('live_status')
+            ->selectRaw('live_status, COUNT(DISTINCT product_id) as n')
+            ->groupBy('live_status')
+            ->pluck('n', 'live_status');
+
+        $out = [];
+        foreach ($tabMap as $tabKey => $status) {
+            $out[$tabKey] = (int) ($byStatus[$status] ?? 0);
+        }
+
+        return $out;
+    }
 
     /**
      * Break a product's link to Shopee, everywhere it is recorded.

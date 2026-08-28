@@ -24,6 +24,7 @@ class TikTokListing extends Model
         'title', 'description', 'markup_percent', 'markup_fixed',
         'sale_percent', 'sale_starts_at', 'sale_ends_at', 'tiktok_activity_id',
         'last_pushed_at', 'last_push_source', 'last_checked_at',
+        'live_status', 'live_checked_at',
     ];
 
     protected $casts = [
@@ -35,7 +36,35 @@ class TikTokListing extends Model
         'sale_ends_at' => 'datetime',
         'last_pushed_at' => 'datetime',
         'last_checked_at' => 'datetime',
+        'live_checked_at' => 'datetime',
     ];
+
+    /**
+     * The mirrored bucket counts, keyed the way the listings strip names
+     * them (TikTokLiveListing::TABS, minus all). Products on TikTok only:
+     * the tab table shows nothing else.
+     *
+     * @param  array<string, array{0: string, 1: ?string}>  $tabs
+     * @return array<string, int>
+     */
+    public static function mirrorCounts(array $tabs): array
+    {
+        $byStatus = static::query()
+            ->whereNotNull('tiktok_product_id')
+            ->whereNotNull('live_status')
+            ->selectRaw('live_status, COUNT(DISTINCT product_id) as n')
+            ->groupBy('live_status')
+            ->pluck('n', 'live_status');
+
+        $out = [];
+        foreach ($tabs as $key => [$label, $status]) {
+            if ($status !== null) {
+                $out[$key] = (int) ($byStatus[$status] ?? 0);
+            }
+        }
+
+        return $out;
+    }
 
     /** The listing's own price rule over the catalog price. */
     public function priceFor(float $corePrice): float
