@@ -405,6 +405,8 @@
     font-size: 12px;
 }
 .rp-dash { color: var(--bl-ink-3); }
+/* A cost: money taken away (partials/cost.blade.php prints the minus). */
+.rp-cost { color: var(--bl-bad); }
 
 /* "not yet settled": a state, not a figure, so it is not set in figures. */
 .rp-unsettled { font-size: 11.5px; font-style: italic; color: var(--bl-ink-3); white-space: nowrap; }
