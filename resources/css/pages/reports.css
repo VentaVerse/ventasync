@@ -405,6 +405,16 @@
     font-size: 12px;
 }
 .rp-dash { color: var(--bl-ink-3); }
+/* The variation under the product name: one row is one variation. */
+.rp-var {
+    display: block;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--bl-ink-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 /* A cost: money taken away (partials/cost.blade.php prints the minus). */
 .rp-cost { color: var(--bl-bad); }
 
