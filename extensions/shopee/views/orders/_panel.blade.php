@@ -492,6 +492,21 @@
             if (is_array($courier)) $courier = implode(', ', $courier);
             $trackingNo = $raw['tracking_no'] ?? $raw['tracking_number'] ?? null;
 
+            // The parcel the ship dialog shows for this row (see the
+            // template beside the Arrange shipment button): the grouped
+            // items above, the courier, and enough of the address to tell
+            // two orders apart, and no more. Images the same way the row
+            // resolves them, so the dialog and the row cannot differ.
+            $spAddr = is_array($raw['recipient_address'] ?? null) ? $raw['recipient_address'] : (is_array($raw['shipping_address'] ?? null) ? $raw['shipping_address'] : []);
+            $spCity = null;
+            foreach (['city', 'district', 'town', 'state'] as $k) {
+                if (is_string($spAddr[$k] ?? null) && trim($spAddr[$k]) !== '') { $spCity = trim($spAddr[$k]); break; }
+            }
+            $spParcel = \App\Support\Fulfilment\PackedParcel::fromItems(array_map(function ($it) {
+                $it['image'] = !empty($it['image']) ? $it['image'] : \App\Support\CatalogImages::urlFor($it['sku'] ?? '');
+                return $it;
+            }, $groupedItems), is_string($courier) ? $courier : null, $spCity);
+
             $tone = \App\Support\ChannelStatusTone::toneFor('shopee.orders', $statusStr);
             $statusLabel = \App\Support\ChannelStatusTone::labelFor('shopee.orders', $statusStr);
         @endphp
@@ -623,6 +638,12 @@
                     @if($isToPack && $canManageShopeeOrders)
                         <button type="button" class="btnArrangeShipment x-btn x-btn--secondary x-btn--sm"
                                 data-order-sn="{{ $orderSn }}">Arrange shipment</button>
+                        {{-- The row's parcel, inert until the dialog opens:
+                             resources/js/pages/shopee-orders.js clones this
+                             into #spShipParcel by order number. Rendered
+                             here, not fetched, so the dialog shows the box
+                             the instant it opens. --}}
+                        <template data-parcel-for="{{ $orderSn }}"><x-fulfilment.parcel :parcel="$spParcel" /></template>
                     @endif
 
                     @if(!$isToPack && !$isUnpaid)

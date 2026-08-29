@@ -473,6 +473,22 @@
             $vtCourierName = $vtIsManual && trim((string) $o->courier_name) !== ''
                 ? trim((string) $o->courier_name)
                 : \Extensions\venta\Services\Venta\VentaCouriers::name((string) ($o->courier_provider ?? ''));
+
+            // The parcel the booking dialog shows for this row (see the
+            // template beside the Book courier button). No courier yet on
+            // To Pack, which is what the dialog is for; the city is enough
+            // of the address to tell two orders apart.
+            $vtAddr = is_array($o->shipping_address) ? $o->shipping_address : [];
+            $vtParcel = \App\Support\Fulfilment\PackedParcel::fromItems(array_map(function ($it) use ($vtImages) {
+                $img = trim((string) ($vtImages[trim((string) ($it->sku ?? ''))] ?? ''));
+                return [
+                    'name' => (string) ($it->name ?? ''),
+                    'sku' => (string) ($it->sku ?? ''),
+                    'variation' => (string) ($it->variant_label ?? ''),
+                    'quantity' => max(1, (int) ($it->quantity ?? 1)),
+                    'image' => $img !== '' ? asset('storage/' . ltrim($img, '/')) : '',
+                ];
+            }, $vtItems), $vtBooked ? $vtCourierName : null, trim((string) ($vtAddr['city'] ?? '')) ?: null);
         @endphp
         <tr class="co-band">
             <td colspan="9">
@@ -628,6 +644,7 @@
                                      data-couriers-url="{{ route('ext.venta.orders.shipping_couriers', $storeId) }}"
                                      data-addresses-url="{{ route('ext.venta.orders.pickup_addresses', $storeId) }}"
                                      data-book-manual-url="{{ route('ext.venta.orders.book_manual', [$storeId, $o->id]) }}">Book courier</x-ui.button>
+                        <template data-parcel-for="{{ $o->id }}"><x-fulfilment.parcel :parcel="$vtParcel" /></template>
                     @endif
 
                     {{-- A shipment recorded by hand has no waybill to print

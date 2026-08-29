@@ -93,15 +93,35 @@ class PackedParcel
             }
         }
 
-        return [
+        return self::fromItems($grouped, $pick(['shipment_provider', 'shipping_provider', 'shipping_provider_name']), $city) + [
             'order_id' => $orderId,
-            'items' => $grouped,
-            'unit_count' => OrderItemGrouper::unitCount($grouped),
-            'line_count' => count($grouped),
-            'courier' => $pick(['shipment_provider', 'shipping_provider', 'shipping_provider_name']),
             'tracking' => $pick(['tracking_code', 'tracking_number', 'tracking_code_pre']),
             'buyer' => $pick(['customer_first_name', 'buyer_username', 'customer_name']),
-            'destination' => $city,
+        ];
+    }
+
+    /**
+     * The same parcel from items a panel has already grouped, for the ship
+     * dialogs that open from a row (Shopee, TikTok, Venta), where the row's
+     * own items are on the page and the courier and destination are
+     * whatever that channel's row already resolved. One shape for the
+     * four channels, rendered by components/fulfilment/parcel.
+     *
+     * @param array<int, array{name?: string, sku?: string, variation?: string, quantity?: int, image?: string}> $items
+     * @return array{items: array, unit_count: int, line_count: int, courier: ?string, destination: ?string}
+     */
+    public static function fromItems(array $items, ?string $courier, ?string $destination): array
+    {
+        $items = array_values(array_filter($items, fn ($i) => is_array($i) && $i !== []));
+        $courier = trim((string) $courier);
+        $destination = trim((string) $destination);
+
+        return [
+            'items' => $items,
+            'unit_count' => OrderItemGrouper::unitCount($items),
+            'line_count' => count($items),
+            'courier' => $courier !== '' ? $courier : null,
+            'destination' => $destination !== '' ? $destination : null,
         ];
     }
 }

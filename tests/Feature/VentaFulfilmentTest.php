@@ -355,6 +355,9 @@ class VentaFulfilmentTest extends TestCase
             ->assertOk()->getContent();
 
         $this->assertStringContainsString('btnVentaBook', $pack);
+        // The row carries its parcel for the booking dialog (2026-08-29).
+        $this->assertStringContainsString('data-parcel-for=', $pack);
+        $this->assertStringContainsString('id="vtBookParcel"', $pack);
         $this->assertStringContainsString(route('ext.venta.orders.book', [$store->id, $toPack->id]), $pack);
         $this->assertStringNotContainsString('Cancel booking', $pack);
         $this->assertStringContainsString('id="vtLoadingOverlay" class="modal-backdrop" data-busy-overlay', $pack);

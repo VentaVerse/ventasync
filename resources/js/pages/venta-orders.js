@@ -139,6 +139,23 @@ document.addEventListener('DOMContentLoaded', function () {
     /* ------------------------------------------------------------------
        Book a courier.
        ------------------------------------------------------------------ */
+    /* The parcel the dialog shows: the row renders it in a <template
+       data-parcel-for="..."> beside its button (one copy of the markup,
+       components/fulfilment/parcel), and the dialog clones that node in.
+       No fetch and no HTML strings: the content is DOM the server already
+       escaped. Opened where no row carries a template, the slot stays hidden. */
+    function fillParcel(container, key, hiddenClass) {
+        if (!container) return;
+        while (container.firstChild) container.removeChild(container.firstChild);
+        var tpl = key ? document.querySelector('template[data-parcel-for="' + CSS.escape(String(key)) + '"]') : null;
+        if (!tpl || !tpl.content || !tpl.content.firstElementChild) {
+            container.classList.add(hiddenClass);
+            return;
+        }
+        container.appendChild(tpl.content.cloneNode(true));
+        container.classList.remove(hiddenClass);
+    }
+
     function initBookModal() {
         var modal = document.getElementById('vtBookModal');
         if (!modal) return;
@@ -576,6 +593,7 @@ document.addEventListener('DOMContentLoaded', function () {
             orderNoEl.textContent = btn.getAttribute('data-order-no') || '';
 
             reset();
+            fillParcel(document.getElementById('vtBookParcel'), btn.getAttribute('data-order-id'), 'vt-hidden');
             showModal(modal);
 
             getJson(urls.serviceability)

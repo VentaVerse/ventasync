@@ -168,6 +168,24 @@ document.addEventListener('DOMContentLoaded', function () {
     /* ------------------------------------------------------------------
        Ship method modal: choice -> address/branch fetch -> confirm.
        ------------------------------------------------------------------ */
+    /* The parcel the dialog shows: the row renders it in a <template
+       data-parcel-for="..."> beside its button (one copy of the markup,
+       components/fulfilment/parcel), and the dialog clones that node in.
+       No fetch and no HTML strings: the content is DOM the server already
+       escaped. A dialog opened where no row carries a template (the order
+       detail page) keeps the slot hidden. */
+    function fillParcel(container, key, hiddenClass) {
+        if (!container) return;
+        while (container.firstChild) container.removeChild(container.firstChild);
+        var tpl = key ? document.querySelector('template[data-parcel-for="' + CSS.escape(String(key)) + '"]') : null;
+        if (!tpl || !tpl.content || !tpl.content.firstElementChild) {
+            container.classList.add(hiddenClass);
+            return;
+        }
+        container.appendChild(tpl.content.cloneNode(true));
+        container.classList.remove(hiddenClass);
+    }
+
     function initShipModal() {
         var overlay = document.getElementById('spLoadingOverlay');
         var shipModal = document.getElementById('spShipModal');
@@ -337,6 +355,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 shipOrderSnEl.textContent = currentShipOrderSn;
                 shipForm.action = '/channels/shopee/orders/' + encodeURIComponent(currentShipOrderSn) + '/ship';
                 shipResetModal();
+                fillParcel(document.getElementById('spShipParcel'), currentShipOrderSn, 'sp-hidden');
                 shipModal.style.display = 'flex';
             });
         });

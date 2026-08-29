@@ -470,6 +470,28 @@
                 }
             }
 
+            // The parcel the ship dialog shows for this row (see the
+            // template beside the Ship order button). TikTok's address is a
+            // list of levels; the city-like one names the destination, and
+            // enough of the address to tell two orders apart is all it is.
+            $ttAddr = is_array($raw['recipient_address'] ?? null) ? $raw['recipient_address'] : [];
+            $ttCity = null;
+            foreach ((array) ($ttAddr['district_info'] ?? []) as $lvl) {
+                if (is_array($lvl) && preg_match('/city|municipal/i', (string) ($lvl['address_level_name'] ?? '')) && trim((string) ($lvl['address_name'] ?? '')) !== '') {
+                    $ttCity = trim((string) $lvl['address_name']);
+                    break;
+                }
+            }
+            if ($ttCity === null) {
+                foreach (['city', 'district', 'state'] as $k) {
+                    if (is_string($ttAddr[$k] ?? null) && trim($ttAddr[$k]) !== '') { $ttCity = trim($ttAddr[$k]); break; }
+                }
+            }
+            $ttParcel = \App\Support\Fulfilment\PackedParcel::fromItems(array_map(function ($it) {
+                $it['image'] = !empty($it['image']) ? $it['image'] : \App\Support\CatalogImages::urlFor($it['sku'] ?? '');
+                return $it;
+            }, $groupedItems), $courier, $ttCity);
+
             // The action matrix, one flag per branch. Ship is the only
             // marketplace write on this page, so it is the only branch gated
             // on the manage tier; the waybill and the tracking lookup sit in
@@ -627,12 +649,21 @@
                          wall of colour in it; the accent that says "your
                          move" is spent once per row, on the status badge. --}}
                     @if($isToPack && $canManageTiktokOrders)
+                        {{-- The form stays on the row (its action is this
+                             order's), but the button opens #ttShipModal
+                             rather than submitting: the dialog shows the
+                             parcel and states what TikTok is told, and its
+                             own Ship order submits this form. The busy
+                             overlay is raised by that submit through
+                             data-busy as before. --}}
                         <form method="POST" action="{{ route('ext.tiktok.orders.ship', $o->id) }}"
-                              data-confirm="Mark this order shipped on TikTok Shop? TikTok is told the parcel has left, and that cannot be undone from here."
                               data-busy="Marking shipped on TikTok Shop">
                             @csrf
-                            <x-ui.button type="submit" variant="secondary" size="sm">Ship order</x-ui.button>
+                            <x-ui.button type="button" variant="secondary" size="sm" class="btnTtShip"
+                                         data-order-id="{{ $o->id }}"
+                                         data-order-no="{{ $o->order_id ?? $o->id }}">Ship order</x-ui.button>
                         </form>
+                        <template data-parcel-for="{{ $o->id }}"><x-fulfilment.parcel :parcel="$ttParcel" /></template>
                     @endif
 
                     @if($showsWaybill)

@@ -17,6 +17,11 @@
         </div>
         <div class="co-modal__meta">Order <strong id="spShipOrderSn"></strong></div>
 
+        {{-- The parcel: filled by the module from the row's own template
+             (components/fulfilment/parcel) when the dialog opens from a
+             list; stays hidden on the order detail page, which has no row. --}}
+        <div id="spShipParcel" class="sp-hidden"></div>
+
         {{-- Step 1: Choose shipping type --}}
         <div id="shipStep1">
             <p class="co-modal__prompt">How will this order be shipped?</p>

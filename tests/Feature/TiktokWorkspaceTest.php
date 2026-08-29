@@ -455,17 +455,18 @@ class TiktokWorkspaceTest extends TestCase
         $response->assertSee('id="btnUpdateOrders"', false);
 
         // Ship posts to the write route for the one order that is awaiting
-        // shipment, and keeps the confirmation prompt the legacy page used.
+        // shipment. Since 2026-08-29 the button opens the ship dialog
+        // rather than a bare confirm: the dialog shows the parcel from the
+        // row's own template and states the consequence (a push TikTok
+        // cannot take back), and its own Ship order submits the row's form.
         $response->assertSee(
             'action="' . e(route('ext.tiktok.orders.ship', $ids['AWAITING_SHIPMENT'])) . '"',
             false
         );
-        /* The confirm names what it does to the marketplace. "Ship this
-           order?" asked nothing checkable - every sibling confirm on this
-           surface states the consequence, and this one is a push TikTok
-           cannot take back. */
-        $response->assertSee('data-confirm="Mark this order shipped on TikTok Shop?', false);
-        $response->assertSee('cannot be undone from here', false);
+        $response->assertSee('btnTtShip', false);
+        $response->assertSee('data-parcel-for="' . $ids['AWAITING_SHIPMENT'] . '"', false);
+        $response->assertSee('id="ttShipModal"', false);
+        $response->assertSee('TikTok is told the parcel has left, and that cannot be undone from here.', false);
         $response->assertDontSee('data-confirm="Ship this order?"', false);
     }
 
@@ -492,7 +493,10 @@ class TiktokWorkspaceTest extends TestCase
             'action="' . e(route('ext.tiktok.orders.ship', $ids['AWAITING_SHIPMENT'])) . '"',
             false
         );
-        $response->assertDontSee('data-confirm="Ship this order?"', false);
+        // The row's button and its parcel template, not the dialog's own
+        // ids (btnCloseTtShip, btnTtShipConfirm), which every reader gets.
+        $response->assertDontSee('data-order-no=', false);
+        $response->assertDontSee('data-parcel-for=', false);
     }
 
     /**

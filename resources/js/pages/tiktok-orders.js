@@ -52,6 +52,7 @@ document.addEventListener('DOMContentLoaded', function () {
         openPendingAwb(page);
         initFetchUpdateOverlay();
         initTrackingModal();
+        initShipModal();
     }
 
     // The order detail page (extensions/tiktok/views/orders/show.blade.php)
@@ -180,6 +181,64 @@ document.addEventListener('DOMContentLoaded', function () {
        and the event list sits under one of three keys depending on which of
        its endpoints served the request.
        ------------------------------------------------------------------ */
+    /* ------------------------------------------------------------------
+       Ship. The row's Ship order button opens #ttShipModal instead of
+       submitting: the dialog shows the parcel (cloned from the row's own
+       <template data-parcel-for>, one copy of the markup in
+       components/fulfilment/parcel, no fetch and no HTML strings) and
+       states what TikTok is told; its Ship order submits the row's form,
+       whose data-busy raises the overlay exactly as the bare confirm did.
+       ------------------------------------------------------------------ */
+    function fillParcel(container, key, hiddenClass) {
+        if (!container) return;
+        while (container.firstChild) container.removeChild(container.firstChild);
+        var tpl = key ? document.querySelector('template[data-parcel-for="' + CSS.escape(String(key)) + '"]') : null;
+        if (!tpl || !tpl.content || !tpl.content.firstElementChild) {
+            container.classList.add(hiddenClass);
+            return;
+        }
+        container.appendChild(tpl.content.cloneNode(true));
+        container.classList.remove(hiddenClass);
+    }
+
+    function initShipModal() {
+        var modal = document.getElementById('ttShipModal');
+        var confirmBtn = document.getElementById('btnTtShipConfirm');
+        var orderNoEl = document.getElementById('ttShipOrderNo');
+        var parcelEl = document.getElementById('ttShipParcel');
+        if (!modal || !confirmBtn) return;
+
+        var currentForm = null;
+
+        bindModalDismiss(modal, [
+            document.getElementById('btnCloseTtShip'),
+            document.getElementById('btnCloseTtShip2')
+        ]);
+
+        // Delegated, so it keeps working for rows added by anything later.
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest ? e.target.closest('.btnTtShip') : null;
+            if (!btn) return;
+            e.preventDefault();
+            currentForm = btn.closest('form');
+            if (orderNoEl) orderNoEl.textContent = btn.getAttribute('data-order-no') || '';
+            fillParcel(parcelEl, btn.getAttribute('data-order-id'), 'tt-hidden');
+            confirmBtn.disabled = false;
+            showModal(modal);
+        });
+
+        confirmBtn.addEventListener('click', function () {
+            if (!currentForm) return;
+            confirmBtn.disabled = true;
+            hideModal(modal);
+            if (typeof currentForm.requestSubmit === 'function') {
+                currentForm.requestSubmit();
+            } else {
+                currentForm.submit();
+            }
+        });
+    }
+
     function initTrackingModal() {
         var modal = document.getElementById('ttTrackingModal');
         var body = document.getElementById('ttTrackingBody');

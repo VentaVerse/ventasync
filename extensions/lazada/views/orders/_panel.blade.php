@@ -906,60 +906,10 @@
              their hand - so clicking the row above yours produced the same
              screen as clicking yours. The parcel is resolved on the server
              because packing moves the order out of the To Pack tab, and the
-             row is often no longer on the page by the time this opens. --}}
-        @if(!empty($pack_print_parcel))
-            @php $lzParcel = $pack_print_parcel; @endphp
-            <div class="co-parcel">
-                <ul class="co-parcel__items">
-                    @foreach($lzParcel['items'] as $lzItem)
-                        <li class="co-parcel__item">
-                            <div class="order-img-wrap">
-                                @if(!empty($lzItem['image']))
-                                    <img class="order-img" src="{{ $lzItem['image'] }}" alt="">
-                                @else
-                                    <span class="co-item__none">No image</span>
-                                @endif
-                            </div>
-                            <div class="co-parcel__body">
-                                <span class="co-parcel__name">{{ ($lzItem['name'] ?? '') !== '' ? $lzItem['name'] : 'Unnamed product' }}</span>
-                                <div class="co-item__meta">
-                                    @if(trim((string) ($lzItem['sku'] ?? '')) !== '')
-                                        <span class="co-item__sku">{{ $lzItem['sku'] }}</span>
-                                    @endif
-                                    <x-fulfilment.variation :sku="$lzItem['sku'] ?? null" :fallback="$lzItem['variation'] ?? null" />
-                                </div>
-                            </div>
-                            {{-- The count is the error a packer makes, so it
-                                 is the loudest figure here, not the quietest. --}}
-                            <span class="co-parcel__qty">&times;{{ (int) ($lzItem['quantity'] ?? 1) }}</span>
-                        </li>
-                    @endforeach
-                </ul>
-
-                <dl class="co-parcel__facts">
-                    <div class="co-parcel__fact">
-                        <dt>Units</dt>
-                        <dd>{{ $lzParcel['unit_count'] }} in {{ $lzParcel['line_count'] }} {{ $lzParcel['line_count'] === 1 ? 'line' : 'lines' }}</dd>
-                    </div>
-                    <div class="co-parcel__fact">
-                        <dt>Courier</dt>
-                        <dd>
-                            @if($lzParcel['courier'])
-                                {{ $lzParcel['courier'] }}
-                            @else
-                                <span class="co-empty-mark">Not assigned yet</span>
-                            @endif
-                        </dd>
-                    </div>
-                    @if($lzParcel['destination'])
-                        <div class="co-parcel__fact">
-                            <dt>To</dt>
-                            <dd>{{ $lzParcel['destination'] }}</dd>
-                        </div>
-                    @endif
-                </dl>
-            </div>
-        @endif
+             row is often no longer on the page by the time this opens. The
+             block is components/fulfilment/parcel, the same one the other
+             three channels' ship dialogs show since 2026-08-29. --}}
+        <x-fulfilment.parcel :parcel="$pack_print_parcel ?? null" />
 
         <p class="co-modal__prompt">Close this and the order waits in To Arrange Shipment.</p>
         <div class="co-modal__foot co-modal__foot--end">

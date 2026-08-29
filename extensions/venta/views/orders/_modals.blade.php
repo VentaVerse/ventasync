@@ -18,6 +18,10 @@
         </div>
         <div class="co-modal__meta">Order <strong id="vtBookOrderNo"></strong></div>
 
+        {{-- The parcel: filled by the module from the row's own template
+             (components/fulfilment/parcel) when the dialog opens. --}}
+        <div id="vtBookParcel" class="vt-hidden"></div>
+
         {{-- Step 1: who can carry it. Filled by the module from the
              storefront's serviceability answer, one button per courier. --}}
         <div id="vtBookStep1">

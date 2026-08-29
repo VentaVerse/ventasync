@@ -127,3 +127,8 @@
 @media (max-width: 640px) {
     #tiktok-orders-page .x-table tbody td.x-td-num { text-align: left; }
 }
+
+/* The page module's one visibility toggle, as .sp-hidden is Shopee's and
+   .vt-hidden is Venta's: the ship dialog's parcel slot starts hidden and
+   the module shows it when a row's template fills it. */
+.tt-hidden { display: none !important; }
