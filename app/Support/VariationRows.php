@@ -24,7 +24,8 @@ class VariationRows
      * @param array<int> $productIds
      * @return Collection<int, Collection<int, object>> keyed by product_id;
      *         each row carries option_value_name, option_name, sku,
-     *         quantity, absolute_price, option_image, status.
+     *         quantity, absolute_price, option_image, status, and
+     *         option_value_ids (one product_option_value_id per axis).
      */
     public static function forProducts(array $productIds): Collection
     {
@@ -58,12 +59,13 @@ class VariationRows
                 ->join($p . 'product_option as po', 'pov.product_option_id', '=', 'po.product_option_id')
                 ->whereIn('cv.combination_id', $comboIds)
                 ->orderBy('po.product_option_id')
-                ->get(['cv.combination_id', 'ovd.name as value_name', 'od.name as option_name']);
+                ->get(['cv.combination_id', 'cv.product_option_value_id', 'ovd.name as value_name', 'od.name as option_name']);
 
             foreach ($pivots as $pv) {
                 $pivotData[(int) $pv->combination_id][] = [
                     'value_name' => html_entity_decode((string) $pv->value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                     'option_name' => html_entity_decode((string) $pv->option_name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                    'option_value_id' => (int) $pv->product_option_value_id,
                 ];
             }
         }
@@ -72,6 +74,10 @@ class VariationRows
             $entries = $pivotData[(int) $c->id] ?? [];
             $c->option_value_name = implode(' + ', array_map(fn ($e) => $e['value_name'], $entries));
             $c->option_name = implode(' / ', array_unique(array_map(fn ($e) => $e['option_name'], $entries)));
+            /* The option value ids behind the combination, one per axis,
+             * for a caller that needs to cost it (LineCost) or match an
+             * order line to it. */
+            $c->option_value_ids = array_map(fn ($e) => $e['option_value_id'], $entries);
             /* The variation's OWN picture, or nothing. Not the parent's as
              * a fallback: the parent sits directly above in every list that
              * renders these, and repeating its photograph down the
@@ -102,13 +108,14 @@ class VariationRows
                 ->orderBy('pov.product_id')
                 ->orderBy('pov.product_option_value_id')
                 ->get([
-                    'pov.product_id', 'pov.sku', 'pov.quantity', 'pov.absolute_price',
+                    'pov.product_id', 'pov.product_option_value_id', 'pov.sku', 'pov.quantity', 'pov.absolute_price',
                     'od.name as raw_option_name', 'ovd.name as raw_value_name',
                 ]);
 
             foreach ($povRows as $r) {
                 $r->option_value_name = html_entity_decode((string) $r->raw_value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
                 $r->option_name = html_entity_decode((string) $r->raw_option_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $r->option_value_ids = [(int) $r->product_option_value_id];
                 $r->option_image = null;
                 $r->status = 1;
             }

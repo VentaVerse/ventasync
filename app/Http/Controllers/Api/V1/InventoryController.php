@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Catalog\Product;
+use App\Support\VariationRows;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -55,12 +56,19 @@ class InventoryController extends Controller
             ($lowStock || $threshold !== null) ? 'asc' : 'asc');
 
         $items = $query->paginate($perPage);
-        $items->getCollection()->transform(fn (Product $p) => $this->present($p));
+
+        // Stock is asked about per variation ("how many Blue are left"),
+        // and quantity here is the total across them, so every row carries
+        // its variations' own quantities. One query for the page, not one
+        // per row.
+        $variations = VariationRows::forProducts($items->getCollection()->pluck('product_id')->map('intval')->all());
+        $items->getCollection()->transform(fn (Product $p) => $this->present($p, $variations->get((int) $p->product_id, collect())));
 
         return response()->json($items);
     }
 
-    private function present(Product $product): array
+    /** @param \Illuminate\Support\Collection<int, object> $variations */
+    private function present(Product $product, $variations): array
     {
         $reorder = (int) $product->reorder_level;
         $qty = (int) $product->quantity;
@@ -77,6 +85,12 @@ class InventoryController extends Controller
             'cost'          => (float) $product->cost,
             'price'         => (float) $product->price,
             'status'        => (bool) $product->status,
+            'variations'    => $variations->map(fn (object $v) => [
+                'variation' => (string) $v->option_value_name,
+                'sku'       => (string) ($v->sku ?? ''),
+                'quantity'  => (int) $v->quantity,
+                'status'    => (bool) ($v->status ?? 1),
+            ])->values()->all(),
         ];
     }
 }
