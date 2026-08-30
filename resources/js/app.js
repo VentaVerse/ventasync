@@ -38,6 +38,7 @@ import './pages/warehousing';
 import './pages/reports';
 import './pages/reviews';
 import './pages/settings';
+import './pages/ai-tools';
 import './pages/order-form';
 
 import { initNavGroups } from './nav-groups';

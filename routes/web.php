@@ -30,6 +30,14 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth'])->group(base_path('routes/channels/web.php'));
 
 Route::middleware(['auth'])->group(function () {
+    // AI Tools: connect an assistant (an mcp-enabled API application with a
+    // read-only key). Permissions derive from the controller:
+    // view_ai_tools/assistant to see, manage_ai_tools/assistant to change.
+    Route::get('/ai-tools', [\App\Http\Controllers\AiTools\AssistantController::class, 'index'])->name('ai_tools.index');
+    Route::post('/ai-tools', [\App\Http\Controllers\AiTools\AssistantController::class, 'store'])->name('ai_tools.store');
+    Route::put('/ai-tools/{apiClient}', [\App\Http\Controllers\AiTools\AssistantController::class, 'update'])->whereNumber('apiClient')->name('ai_tools.update');
+    Route::delete('/ai-tools/{apiClient}', [\App\Http\Controllers\AiTools\AssistantController::class, 'destroy'])->whereNumber('apiClient')->name('ai_tools.destroy');
+
     // Universal admin scheduler, Automations tab on each integration
     // settings page POSTs here. The route is shared across integrations
     // because the underlying table is uniform; permission gating happens

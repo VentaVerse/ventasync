@@ -19,7 +19,7 @@ class ApiClient extends Model implements HasApiTokensContract
 {
     use HasApiTokens;
 
-    protected $fillable = ['name', 'description', 'active', 'created_by', 'mcp_enabled', 'allowed_ips', 'calls_per_minute'];
+    protected $fillable = ['name', 'description', 'active', 'created_by', 'mcp_enabled', 'assistant', 'allowed_ips', 'calls_per_minute'];
 
     protected $casts = [
         'active'           => 'boolean',

@@ -99,6 +99,12 @@ class Navigation
             // hub card instead (SettingsHubController), never here.
             ...self::extensionEntries(),
 
+            // AI Tools sits with the operations, not under Settings: it is
+            // the operator's door to an assistant, and the developer's door
+            // (Settings, API) is a different audience (the owner, 2026-08-31).
+            ['label' => 'AI Tools', 'icon' => 'sparkles', 'route' => 'ai_tools.index',
+             'keywords' => ['ai', 'assistant', 'mcp', 'claude', 'cursor', 'chatgpt']],
+
             ['label' => 'Settings', 'icon' => 'shield', 'route' => 'settings.hub',
              'keywords' => ['config', 'currency', 'user', 'permission', 'extension', 'order status']],
         ];

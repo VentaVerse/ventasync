@@ -103,6 +103,7 @@
 @import './pages/pedallion-orders.css' layer(vocabulary);
 @import './pages/marketplace-common.css' layer(vocabulary);
 @import './pages/licenses.css' layer(vocabulary);
+@import './pages/ai-tools.css' layer(vocabulary);
 @import './pages/order-form.css' layer(vocabulary);
 @import './components/invoice-request.css' layer(vocabulary);
 @import './components/inline-input.css' layer(vocabulary);
