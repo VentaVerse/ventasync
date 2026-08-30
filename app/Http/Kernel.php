@@ -14,6 +14,9 @@ class Kernel extends HttpKernel
      * @var array<int, class-string|string>
      */
     protected $middleware = [
+        // /mcp only: promotes ?key= into the bearer header before auth
+        // runs, for the one connector box that cannot send headers.
+        \App\Http\Middleware\McpKeyInUrl::class,
         // \App\Http\Middleware\TrustHosts::class,
         \App\Http\Middleware\TrustProxies::class,
         \Illuminate\Http\Middleware\HandleCors::class,

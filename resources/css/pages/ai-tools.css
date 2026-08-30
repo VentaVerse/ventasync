@@ -92,7 +92,7 @@
     font-size: 11px;
     font-weight: 700;
 }
-.ai-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--bl-space-2); }
+.ai-tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--bl-space-2); }
 .ai-tile {
     display: flex;
     flex-direction: column;
