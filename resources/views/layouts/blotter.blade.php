@@ -51,9 +51,10 @@
             @include('partials.nav-blotter', ['navGroups' => \App\Support\Navigation::groups()])
         </div>
 
+        {{-- No version here for now (the owner, 2026-08-31): the VERSION file
+             the footer read still said 0.1.9 on a v2 shell. --}}
         <div class="flex items-center justify-between gap-2 border-t border-side-rule px-4 py-2.5 text-[12px] text-side-ink">
             <span class="min-w-0 truncate" title="{{ $blCompany }}">{{ $blCompany }}</span>
-            <span class="shrink-0">v{{ trim(@file_get_contents(base_path('VERSION'))) ?: '2.2' }}</span>
         </div>
     </aside>
 
