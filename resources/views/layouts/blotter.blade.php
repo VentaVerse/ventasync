@@ -35,12 +35,22 @@
            :class="nav && '!flex'"
            class="fixed inset-y-0 left-0 z-40 hidden w-[216px] flex-col border-r border-side-rule bg-side
                   lg:static lg:flex">
-        <div class="flex items-center gap-2.5 border-b border-side-rule px-4 py-3.5">
-            {{-- The mark is the only place lime appears. It never carries meaning. --}}
-            <span class="grid h-[22px] w-[22px] place-items-center rounded-[--radius-ctrl] bg-lime text-[12px] font-bold tracking-tight text-side">V</span>
+        <div class="flex items-center gap-2.5 border-b border-side-rule px-4 py-3">
+            {{-- The store's own logo, the one uploaded under Settings,
+                 Website, and nothing else: no company name beside it
+                 (the owner, 2026-08-31; the logo IS the name). The name stays
+                 in the markup as the alt, so a screen reader and a broken
+                 image both still say whose sidebar this is. Without an
+                 upload, the lime V mark stands in; the mark is the only
+                 place lime appears and never carries meaning. --}}
             @php $blCompany = $appSetting->company_name ?? config('app.name', 'VentaSync'); @endphp
-            <span class="min-w-0 truncate text-[14.5px] font-semibold tracking-tight text-white"
-                  title="{{ $blCompany }}">{{ $blCompany }}</span>
+            @if(!empty($appSetting->logo_path ?? null))
+                <img class="h-8 w-auto max-w-[150px] object-contain object-left"
+                     src="{{ asset('storage/' . $appSetting->logo_path) }}" alt="{{ $blCompany }}">
+            @else
+                <span class="grid h-[22px] w-[22px] place-items-center rounded-[--radius-ctrl] bg-lime text-[12px] font-bold tracking-tight text-side"
+                      role="img" aria-label="{{ $blCompany }}">V</span>
+            @endif
             <button type="button" @click="nav = false"
                     class="ml-auto text-side-ink hover:text-white lg:hidden" aria-label="Close navigation">
                 <x-ui.icon name="x" size="16" />
@@ -51,11 +61,8 @@
             @include('partials.nav-blotter', ['navGroups' => \App\Support\Navigation::groups()])
         </div>
 
-        {{-- No version here for now (the owner, 2026-08-31): the VERSION file
-             the footer read still said 0.1.9 on a v2 shell. --}}
-        <div class="flex items-center justify-between gap-2 border-t border-side-rule px-4 py-2.5 text-[12px] text-side-ink">
-            <span class="min-w-0 truncate" title="{{ $blCompany }}">{{ $blCompany }}</span>
-        </div>
+        {{-- No footer: it held the company name and the version, and both
+             have left the nav (the owner, 2026-08-31). --}}
     </aside>
 
     {{-- Scrim, mobile only. --}}
