@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class OpenCartSyncLog extends Model
 {
+    use \App\Models\Concerns\PrunedByLogLevel;
+
     protected $table = 'opencart_sync_log';
 
     protected $fillable = [

@@ -62,6 +62,60 @@
             </div>
         </section>
 
+        {{-- Sync and API logs (2026-09-01). They had no retention and no way
+             to stop them: venta_sync_logs alone reached 310,120 rows on the
+             box this was found on, the largest table in the database. The
+             level is the switch that matters most: a cron that pulled
+             nothing is not worth a row the next day. --}}
+        <section class="fm-section">
+            <div class="fm-section__head">
+                <h2 class="fm-section__title">Sync and API logs</h2>
+            </div>
+            <p class="fm-section__note">
+                Sync logs record each sync run this system starts. API logs record the individual
+                calls, both the ones made to a marketplace and the ones other software makes to
+                VentaSync. Both are diagnostics: orders, stock history and the activity log are
+                never touched by this. The nightly cleanup applies these, and Purge now applies
+                them at once.
+            </p>
+
+            <div class="fm-fields fm-fields--2">
+                <x-ui.field label="Record sync runs" for="st-sync-level" name="sync_log_level" :required="true"
+                            hint="A run that found nothing is rarely worth keeping.">
+                    <x-ui.select id="st-sync-level" name="sync_log_level" :disabled="$ro">
+                        @foreach(\App\Support\LogRetention::LEVELS as $value => $label)
+                            <option value="{{ $value }}" @selected(old('sync_log_level', $setting->sync_log_level ?? 'all') === $value)>{{ $label }}</option>
+                        @endforeach
+                    </x-ui.select>
+                </x-ui.field>
+
+                <x-ui.field label="Keep sync logs for" for="st-sync-days" name="sync_log_retention_days" :required="true"
+                            hint="Days.">
+                    <x-ui.input type="number" id="st-sync-days" name="sync_log_retention_days"
+                                min="1" max="3650" class="fm-input--num st-days" :readonly="$ro"
+                                value="{{ old('sync_log_retention_days', $setting->sync_log_retention_days ?? 30) }}" />
+                </x-ui.field>
+
+                <x-ui.field label="Keep API logs for" for="st-api-days" name="api_log_retention_days" :required="true"
+                            hint="Days.">
+                    <x-ui.input type="number" id="st-api-days" name="api_log_retention_days"
+                                min="1" max="3650" class="fm-input--num st-days" :readonly="$ro"
+                                value="{{ old('api_log_retention_days', $setting->api_log_retention_days ?? 30) }}" />
+                </x-ui.field>
+            </div>
+
+            @unless($ro)
+                {{-- form= points at the purge form in settings/edit.blade.php,
+                     which sits OUTSIDE the settings form: a form inside a form
+                     is not valid HTML and the browser drops the inner one. --}}
+                <div class="fm-inline-action">
+                    <x-ui.button type="submit" form="stPurgeLogs" variant="secondary"
+                                 data-confirm="Remove every sync and API log row older than the retention above? The counts and errors in them are gone for good; nothing else is touched.">Purge now</x-ui.button>
+                    <span class="fm-hint">Applies the retention above immediately.</span>
+                </div>
+            @endunless
+        </section>
+
         <section class="fm-section">
             <div class="fm-section__head">
                 <h2 class="fm-section__title">Branding</h2>

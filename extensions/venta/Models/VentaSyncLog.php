@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class VentaSyncLog extends Model
 {
+    use \App\Models\Concerns\PrunedByLogLevel;
+
     protected $table = 'venta_sync_logs';
 
     protected $fillable = [

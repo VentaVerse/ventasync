@@ -290,6 +290,17 @@
         color: var(--bl-bad);
     }
 
+    /* An action that belongs to one section rather than to the page's save
+       bar: Purge now under the log retentions. Wraps on a phone so the
+       button and its sentence never sit shoulder to shoulder at 390px. */
+    .fm-inline-action {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--bl-space-2) var(--bl-space-3);
+        margin-top: var(--bl-space-3);
+    }
+
     /* ------------------------------------------------------------
        Page chrome
        ------------------------------------------------------------ */

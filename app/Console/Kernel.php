@@ -13,6 +13,11 @@ class Kernel extends ConsoleKernel
     {
         // Core / framework jobs that are never operator-editable.
         $schedule->command('activity-log:purge')->daily();
+        // Sync-run and API-call logs. Without this they grow forever: this
+        // box reached 310,120 venta_sync_logs rows before anything trimmed
+        // them. See App\Support\LogRetention for what is swept and what is
+        // deliberately left alone.
+        $schedule->command('logs:purge')->daily();
 
         // Universal admin scheduler: every enabled row in scheduled_jobs
         // is registered with Laravel's scheduler using its stored cron

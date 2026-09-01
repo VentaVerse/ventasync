@@ -10,6 +10,9 @@
      *   from_email                   (Website Settings)
      *   timezone                     (Website Settings)
      *   activity_log_retention_days  (Website Settings)
+     *   sync_log_retention_days      (Website Settings)
+     *   sync_log_level               (Website Settings)
+     *   api_log_retention_days       (Website Settings)
      *   mail_mailer                  (Mail)
      *
      * Before this round every tab lived inside one <form>, so a save from
@@ -19,13 +22,14 @@
      * required field the current tab does not render, which reproduces the
      * old payload exactly.
      *
-     * Only these five. Nothing optional is carried: an optional field left
+     * Only the required ones. Nothing optional is carried: an optional field left
      * out of a post is simply not updated, which is the behaviour a
      * per-tab save should have.
      */
     $owned = [
         'general' => ['company_name'],
-        'website' => ['from_email', 'timezone', 'activity_log_retention_days'],
+        'website' => ['from_email', 'timezone', 'activity_log_retention_days',
+                      'sync_log_retention_days', 'sync_log_level', 'api_log_retention_days'],
         'mail'    => ['mail_mailer'],
     ];
 
@@ -34,6 +38,9 @@
         'from_email'                  => $setting->from_email,
         'timezone'                    => $setting->timezone ?: 'Asia/Manila',
         'activity_log_retention_days' => $setting->activity_log_retention_days ?: 90,
+        'sync_log_retention_days'     => $setting->sync_log_retention_days ?: 30,
+        'sync_log_level'              => $setting->sync_log_level ?: 'all',
+        'api_log_retention_days'      => $setting->api_log_retention_days ?: 30,
         'mail_mailer'                 => $setting->mail_mailer ?: 'sendmail',
     ];
 

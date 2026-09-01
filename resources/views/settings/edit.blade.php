@@ -143,6 +143,15 @@
             </div>
             @endif
         </form>
+
+        {{-- Outside the settings form on purpose: the Purge now button on the
+             Website tab targets it with form="stPurgeLogs". Nesting one form
+             in another is invalid HTML and the browser silently drops it. --}}
+        @if($canManage && $activeTab === 'website')
+            <form id="stPurgeLogs" method="POST" action="{{ route('settings.logs.purge') }}" data-busy="Removing old log rows">
+                @csrf
+            </form>
+        @endif
     @else
         @include('settings.partials.tab-maintenance')
     @endif
