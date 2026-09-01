@@ -16,6 +16,7 @@ class VentaSetting extends Model
         'api_token',
         'enabled',
         'api_logging',
+        'sync_log_level',
         'warehouse_id',
         'sync_last_days',
         'sync_orders_from',

@@ -1033,3 +1033,15 @@
    its width, so it shipped as a rule that did nothing. Not chased, because
    it was only there for redundancy and the words Production and Sandbox
    already provide it - colour is not the sole signal either way. */
+
+/* A select and its Save sitting together on a section's aside, the way the
+   sync log's Recording control does. The API log's aside holds a single
+   button; this one holds a choice, so the two need to line up rather than
+   stack. */
+.cs-inline-form {
+    display: flex;
+    align-items: center;
+    gap: var(--bl-space-2);
+    flex-wrap: wrap;
+}
+.cs-inline-form .x-select-wrap { min-width: 190px; }

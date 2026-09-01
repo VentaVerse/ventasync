@@ -25,6 +25,15 @@ class LogRetentionTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Venta is registered because its Sync log tab is where the controls
+        // live now; its routes and permissions do not exist otherwise.
+        $manager = $this->app->make(\App\Extensions\ExtensionManager::class);
+        $manager->install('venta');
+        $manager->enable('venta');
+        $this->app->register(\Extensions\venta\VentaExtension::class);
+        $this->app['router']->getRoutes()->refreshNameLookups();
+
         $this->artisan('permissions:sync-catalogue');
     }
 
@@ -108,6 +117,68 @@ class LogRetentionTest extends TestCase
         $kept = VentaSyncLog::create(['entity_type' => 'order', 'direction' => 'in', 'status' => 'started']);
         $kept->update(['status' => 'completed', 'completed_at' => now()]);
         $this->assertNotNull(VentaSyncLog::find($kept->id));
+    }
+
+    /**
+     * The controls belong on the tab that shows the log, and a store's own
+     * level beats the global default: one busy channel should not have to
+     * make every other channel quiet (the owner, 2026-09-01).
+     */
+    public function test_a_store_sets_its_own_level_and_it_beats_the_default(): void
+    {
+        Setting::singleton()->update(['sync_log_level' => 'all']);
+        $store = \Extensions\venta\Models\VentaSetting::create([
+            'store_name' => 'Loud store', 'base_url' => 'https://loud.test', 'api_token' => 't', 'enabled' => true,
+        ]);
+        $quiet = \Extensions\venta\Models\VentaSetting::create([
+            'store_name' => 'Quiet store', 'base_url' => 'https://quiet.test', 'api_token' => 't', 'enabled' => true,
+            'sync_log_level' => 'off',
+        ]);
+
+        // The default says keep everything, so the store with no opinion does.
+        $follows = VentaSyncLog::create(['venta_setting_id' => $store->id, 'entity_type' => 'order', 'direction' => 'in', 'status' => 'started']);
+        $follows->update(['status' => 'completed', 'completed_at' => now()]);
+        $this->assertNotNull(VentaSyncLog::find($follows->id), 'no opinion, so it follows the default');
+
+        // The store that chose 'off' keeps nothing, default or not.
+        $own = VentaSyncLog::create(['venta_setting_id' => $quiet->id, 'entity_type' => 'order', 'direction' => 'in', 'status' => 'started']);
+        $own->update(['status' => 'completed', 'completed_at' => now()]);
+        $this->assertNull(VentaSyncLog::find($own->id), "the store's own level wins");
+    }
+
+    public function test_the_sync_tab_carries_the_same_controls_as_the_api_log_tab(): void
+    {
+        $store = \Extensions\venta\Models\VentaSetting::create([
+            'store_name' => 'Depot', 'base_url' => 'https://depot.test', 'api_token' => 't', 'enabled' => true,
+        ]);
+        DB::table('venta_sync_logs')->insert([
+            'venta_setting_id' => $store->id, 'entity_type' => 'order', 'direction' => 'in', 'status' => 'completed',
+            'records_processed' => 0, 'records_created' => 0, 'records_updated' => 0, 'records_skipped' => 0, 'records_failed' => 0,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $group = UserGroup::create(['name' => 'Venta managers']);
+        $group->permissions()->attach(Permission::whereIn('key', ['view_venta/settings', 'manage_venta/settings'])->pluck('id')->all());
+        $manager = User::factory()->create(['user_group_id' => $group->id]);
+
+        $page = $this->actingAs($manager)->get(route('ext.venta.settings.show', [$store->id, 'tab' => 'sync']))->assertOk();
+        $page->assertSee('Recording');
+        $page->assertSee('name="sync_log_level"', false);
+        $page->assertSee('Follow the default');
+        $page->assertSee('Delete all');
+        $page->assertSee(route('ext.venta.clear_sync_logs', $store->id), false);
+
+        // Setting a level, then clearing the log, both from that tab.
+        $this->actingAs($manager)->post(route('ext.venta.set_sync_log_level', $store->id), ['sync_log_level' => 'failures'])
+            ->assertRedirect(route('ext.venta.settings.show', [$store->id, 'tab' => 'sync']));
+        $this->assertSame('failures', $store->fresh()->sync_log_level);
+
+        $this->actingAs($manager)->delete(route('ext.venta.clear_sync_logs', $store->id))->assertRedirect();
+        $this->assertSame(0, DB::table('venta_sync_logs')->where('venta_setting_id', $store->id)->count());
+
+        // Blank means follow the default again.
+        $this->actingAs($manager)->post(route('ext.venta.set_sync_log_level', $store->id), ['sync_log_level' => ''])->assertRedirect();
+        $this->assertNull($store->fresh()->sync_log_level);
     }
 
     public function test_the_settings_page_offers_the_controls_and_purge_now_runs_them(): void

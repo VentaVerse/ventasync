@@ -51,12 +51,35 @@ final class LogRetention
         'off'      => 'Nothing',
     ];
 
-    /** What a sync run is worth keeping: all, failures, off. */
+    /** The default for every channel that has no opinion of its own. */
     public static function level(): string
     {
-        $level = (string) (self::setting()->sync_log_level ?? 'all');
+        return self::normalise(self::setting()->sync_log_level ?? 'all');
+    }
 
-        return array_key_exists($level, self::LEVELS) ? $level : 'all';
+    /**
+     * The level that governs THIS run's log. A store may set its own on its
+     * Sync log tab, because one busy channel should not have to make every
+     * other channel quiet; a store that has not chosen follows the default.
+     *
+     * The row is asked, not told: any sync log model may answer
+     * syncLogLevel(), and one that cannot simply follows the default.
+     */
+    public static function levelFor(Model $log): string
+    {
+        if (method_exists($log, 'syncLogLevel')) {
+            $own = $log->syncLogLevel();
+            if (is_string($own) && $own !== '' && array_key_exists($own, self::LEVELS)) {
+                return $own;
+            }
+        }
+
+        return self::level();
+    }
+
+    private static function normalise(?string $level): string
+    {
+        return array_key_exists((string) $level, self::LEVELS) ? (string) $level : 'all';
     }
 
     public static function syncDays(): int
@@ -77,7 +100,7 @@ final class LogRetention
      */
     public static function shouldForget(Model $log): bool
     {
-        $level = self::level();
+        $level = self::levelFor($log);
         if ($level === 'all') {
             return false;
         }

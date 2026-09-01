@@ -34,10 +34,19 @@ class VentaController extends Controller
         // Keep the existing view's data shape — pass a single-element collection.
         $stores = collect([$active]);
 
-        $recentLogs = VentaSyncLog::query()
+        // Paginated and scoped to this store. It used to take the newest 30
+        // across every store and filter them in the view, which meant a busy
+        // store could push a quiet one's runs off a list that was not even
+        // its own. `syncPage` is its own page name so it cannot collide with
+        // another paginator on this page, and withQueryString keeps ?tab=sync
+        // on every link so a page turn does not throw you back to Connection.
+        $syncLogs = VentaSyncLog::query()
+            ->where('venta_setting_id', $active->id)
             ->orderByDesc('created_at')
-            ->limit(30)
-            ->get();
+            ->paginate(15, ['*'], 'syncPage')
+            ->withQueryString();
+
+        $syncLogCount = VentaSyncLog::where('venta_setting_id', $active->id)->count();
 
         $apiLogs = VentaApiLog::query()
             ->where('venta_setting_id', $active->id)
@@ -60,7 +69,7 @@ class VentaController extends Controller
 
         $singleStore = true;
 
-        return view('ext-venta::settings.index', compact('stores', 'recentLogs', 'apiLogs', 'orderStatusMaps', 'erpOrderStatuses', 'singleStore'));
+        return view('ext-venta::settings.index', compact('stores', 'syncLogs', 'syncLogCount', 'apiLogs', 'orderStatusMaps', 'erpOrderStatuses', 'singleStore'));
     }
 
     /**
@@ -392,6 +401,41 @@ class VentaController extends Controller
 
         return redirect()->route('ext.venta.index')
             ->with('status', 'API logging ' . ($store->api_logging ? 'enabled' : 'disabled') . ' for ' . $store->store_name . '.');
+    }
+
+    /**
+     * How much of this store's syncing is written down. Its own setting
+     * rather than the global one, because a store that syncs every two
+     * minutes should not force a quieter store to go silent with it. Blank
+     * follows the default in Settings, Website.
+     */
+    public function setSyncLogLevel(Request $request, $id)
+    {
+        $store = VentaSetting::findOrFail($id);
+
+        $data = $request->validate([
+            'sync_log_level' => ['nullable', 'string', 'in:' . implode(',', array_keys(\App\Support\LogRetention::LEVELS))],
+        ]);
+
+        $level = $data['sync_log_level'] ?? null;
+        $store->update(['sync_log_level' => $level ?: null]);
+
+        $said = $level ? \App\Support\LogRetention::LEVELS[$level] : 'the default in Settings';
+
+        return redirect()->route('ext.venta.settings.show', [$store->id, 'tab' => 'sync'])
+            ->with('status', 'Sync log for ' . $store->store_name . ' now records: ' . lcfirst($said) . '.');
+    }
+
+    public function clearSyncLogs($id)
+    {
+        $store = VentaSetting::findOrFail($id);
+        $count = VentaSyncLog::where('venta_setting_id', $store->id)->count();
+        VentaSyncLog::where('venta_setting_id', $store->id)->delete();
+
+        \App\Services\ActivityLogger::log('purged', 'VentaSetting', $store->id, 'Sync log (' . number_format($count) . ' rows)');
+
+        return redirect()->route('ext.venta.settings.show', [$store->id, 'tab' => 'sync'])
+            ->with('status', number_format($count) . ' sync log ' . \Illuminate\Support\Str::plural('row', $count) . ' deleted for ' . $store->store_name . '.');
     }
 
     public function clearApiLogs($id)

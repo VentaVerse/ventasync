@@ -40,7 +40,12 @@
 
     $statusMap = $orderStatusMaps->get($store->id, collect());
     $storeApiLogs = ($apiLogs ?? collect())->where('venta_setting_id', $store->id);
-    $storeSyncLogs = $recentLogs->where('venta_setting_id', $store->id);
+    // Paginated by the controller and already scoped to this store.
+    $storeSyncLogs = $syncLogs;
+    $syncLevel = $store->sync_log_level;
+    $syncLevelLabel = $syncLevel
+        ? \App\Support\LogRetention::LEVELS[$syncLevel]
+        : \App\Support\LogRetention::LEVELS[\App\Support\LogRetention::level()] . ' (default)';
 
     $apiLogCount = $storeApiLogs->count();
     $apiLogging = (bool) $store->api_logging;
@@ -474,13 +479,57 @@
      SYNC LOG
      ================================================================ --}}
 <div id="vt-tab-sync" class="cs-panel" role="tabpanel" aria-labelledby="vt-tab-sync-tab" hidden>
+
+    {{-- The same pair the API log tab carries: what gets written, and a way
+         to clear what already is. Per store, because one busy channel should
+         not have to silence the others (the owner, 2026-09-01). --}}
+    <section class="fm-section">
+        <div class="fm-section__head">
+            <h2 class="fm-section__title">Recording</h2>
+            <div class="fm-section__aside">
+                @if($canManageVenta)
+                    <form method="POST" action="{{ route('ext.venta.set_sync_log_level', $store->id) }}" class="cs-inline-form">
+                        @csrf
+                        <label class="x-sr" for="vt-sync-level-{{ $store->id }}">What to record</label>
+                        <x-ui.select id="vt-sync-level-{{ $store->id }}" name="sync_log_level">
+                            <option value="" @selected($syncLevel === null)>Follow the default</option>
+                            @foreach(\App\Support\LogRetention::LEVELS as $value => $label)
+                                <option value="{{ $value }}" @selected($syncLevel === $value)>{{ $label }}</option>
+                            @endforeach
+                        </x-ui.select>
+                        <x-ui.button type="submit" size="sm">Save</x-ui.button>
+                    </form>
+                @endif
+                <x-ui.badge :tone="$syncLevel === 'off' ? 'neutral' : 'success'">{{ $syncLevelLabel }}</x-ui.badge>
+            </div>
+        </div>
+        <p class="fm-section__note">
+            A run that pulled nothing is rarely worth keeping, and on a store syncing every few
+            minutes those rows are almost all of them. Only runs that had a problem turns this
+            into an exception list. How long the kept rows survive is set once for every channel
+            in Settings, Website.
+        </p>
+    </section>
+
     <section class="fm-section">
         <div class="fm-section__head">
             <h2 class="fm-section__title">Recent runs</h2>
+            @if($syncLogCount > 0 && $canManageVenta)
+            <div class="fm-section__aside">
+                <span class="x-cell-muted">{{ number_format($syncLogCount) }} {{ Str::plural('run', $syncLogCount) }} recorded</span>
+                <form method="POST" action="{{ route('ext.venta.clear_sync_logs', $store->id) }}"
+                      data-confirm="Delete every recorded sync run for {{ $storeName }}? This cannot be undone."
+                      data-busy="Deleting the sync log">
+                    @csrf
+                    @method('DELETE')
+                    <x-ui.button type="submit" variant="danger" size="sm">Delete all</x-ui.button>
+                </form>
+            </div>
+            @endif
         </div>
         <p class="fm-section__note">One line per scheduled or manual run against {{ $storeName }}. The counts are what the run itself reported.</p>
 
-        @if($storeSyncLogs->count() === 0)
+        @if($storeSyncLogs->total() === 0)
             <x-ui.empty title="Nothing has run yet"
                         description="Runs appear here once the scheduled commands on the Scheduling tab have fired at least once." />
         @else
@@ -499,7 +548,7 @@
                     </tr>
                 </x-slot:head>
 
-                @foreach($storeSyncLogs->take(15) as $log)
+                @foreach($storeSyncLogs as $log)
                     <tr>
                         <td class="cs-col-when" data-label="When">{{ ($log->started_at ?? $log->created_at)->format('M d, H:i') }}</td>
                         <td class="cs-col-entity" data-label="What">{{ ucfirst((string) $log->entity_type) }}</td>
@@ -533,6 +582,11 @@
                     </tr>
                 @endforeach
             </x-ui.table>
+
+            {{-- Its own page name (syncPage) and the tab kept on every link,
+                 so turning a page lands back on this tab and not on
+                 Connection. --}}
+            <x-ui.pager :paginator="$storeSyncLogs" />
         @endif
     </section>
 </div>

@@ -76,12 +76,13 @@
                 calls, both the ones made to a marketplace and the ones other software makes to
                 VentaSync. Both are diagnostics: orders, stock history and the activity log are
                 never touched by this. The nightly cleanup applies these, and Purge now applies
-                them at once.
+                them at once. Each channel can set its own recording level on its Sync log tab;
+                what is set here is what a channel follows until it does.
             </p>
 
             <div class="fm-fields fm-fields--2">
-                <x-ui.field label="Record sync runs" for="st-sync-level" name="sync_log_level" :required="true"
-                            hint="A run that found nothing is rarely worth keeping.">
+                <x-ui.field label="Record sync runs by default" for="st-sync-level" name="sync_log_level" :required="true"
+                            hint="A run that found nothing is rarely worth keeping. A channel can override this on its own Sync log tab.">
                     <x-ui.select id="st-sync-level" name="sync_log_level" :disabled="$ro">
                         @foreach(\App\Support\LogRetention::LEVELS as $value => $label)
                             <option value="{{ $value }}" @selected(old('sync_log_level', $setting->sync_log_level ?? 'all') === $value)>{{ $label }}</option>

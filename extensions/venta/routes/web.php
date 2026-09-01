@@ -73,6 +73,10 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::post('/venta/save-status-map', [VentaSettingsController::class, 'saveOrderStatusMap'])->name('ext.venta.save_status_map');
     Route::post('/venta/{id}/toggle-api-logging', [VentaSettingsController::class, 'toggleApiLogging'])->name('ext.venta.toggle_api_logging');
     Route::delete('/venta/{id}/api-logs', [VentaSettingsController::class, 'clearApiLogs'])->name('ext.venta.clear_api_logs');
+    // The sync log's own pair, beside the API log's: the controls belong on
+    // the tab that shows the log, not in a global setting (the owner, 2026-09-01).
+    Route::post('/venta/{id}/sync-log-level', [VentaSettingsController::class, 'setSyncLogLevel'])->name('ext.venta.set_sync_log_level');
+    Route::delete('/venta/{id}/sync-logs', [VentaSettingsController::class, 'clearSyncLogs'])->name('ext.venta.clear_sync_logs');
     Route::post('/venta/fetch-statuses', [VentaSettingsController::class, 'fetchVentaStatuses'])->name('ext.venta.fetch_statuses');
 
     // Fetch categories/brands from Venta API (AJAX) — calls the marketplace API
