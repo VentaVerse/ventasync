@@ -30,14 +30,13 @@
                 <span class="co-spinner" aria-hidden="true"></span>
                 <span>Asking the couriers</span>
             </div>
+            {{-- Every way the parcel can leave, in one list: the storefront's
+                 couriers and, last, the one the store does not integrate with,
+                 recorded by hand. That last one used to sit under the list as
+                 a quiet ghost button and was missed (the owner, 2026-09-01); it is
+                 a card in the same line now, rendered by
+                 resources/js/pages/venta-orders.js with the others. --}}
             <div id="vtBookCouriers" class="co-modal__choices vt-hidden"></div>
-            {{-- The third way a parcel leaves: a courier the store does not
-                 integrate with, recorded by hand. Always offered, under the
-                 list, because it is the answer when every integrated
-                 courier refused or when a rider is simply at the door. --}}
-            <div class="vt-book__manual-offer">
-                <button type="button" id="btnVtManual" class="x-btn x-btn--ghost x-btn--sm">Another courier, by hand</button>
-            </div>
         </div>
 
         {{-- Step 2, by hand: a name off the store's list and a number. --}}

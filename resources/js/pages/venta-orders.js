@@ -195,7 +195,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // The third way out: a courier the store does not integrate with,
         // recorded by hand. Its own pane, its own confirm, no waybill.
-        var manualOfferBtn = document.getElementById('btnVtManual');
         var manualPane = document.getElementById('vtBookManual');
         var manualCourierEl = document.getElementById('vtManualCourier');
         var manualTrackingEl = document.getElementById('vtManualTracking');
@@ -254,12 +253,28 @@ document.addEventListener('DOMContentLoaded', function () {
         // with the refusal under its name, because "SPX will not go there"
         // is an answer and hiding it would leave the packer guessing why the
         // list is short.
+        /* The by-hand card: the same shape as a courier's, last in the list.
+           It is the answer when every courier refused, when none is set up,
+           and when a rider is simply at the door, so it is offered in all
+           three cases rather than only under a list that has entries. */
+        function appendManualCard() {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.id = 'btnVtManual';
+            btn.className = 'x-btn x-btn--secondary vt-courier vt-courier--manual';
+            btn.appendChild(textNode('span', 'vt-courier__name', 'Another courier'));
+            btn.appendChild(textNode('span', 'vt-courier__note', 'Record it by hand'));
+            btn.addEventListener('click', openManual);
+            couriersEl.appendChild(btn);
+        }
+
         function renderCouriers(couriers, allRefused) {
             clear(couriersEl);
             var keys = Object.keys(couriers || {});
 
             if (keys.length === 0) {
                 couriersEl.appendChild(textNode('div', 'text-secondary', 'No courier is set up on the storefront, or this order cannot be booked in its current status.'));
+                appendManualCard();
                 return;
             }
 
@@ -288,8 +303,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 couriersEl.appendChild(btn);
             });
 
+            appendManualCard();
+
             if (allRefused) {
-                couriersEl.appendChild(textNode('p', 'vt-book__error', 'Every courier refused this address. Check the shipping address on the storefront, or hand it to another courier by hand below.'));
+                couriersEl.appendChild(textNode('p', 'vt-book__error', 'Every courier refused this address. Check the shipping address on the storefront, or record another courier by hand.'));
             }
         }
 
@@ -522,13 +539,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
         }
 
-        manualOfferBtn.addEventListener('click', function () {
+        function openManual() {
             hide(step1);
             hide(step2);
             show(manualPane);
             hide(manualErrorEl);
             loadManualCouriers();
-        });
+        }
 
         manualBackBtn.addEventListener('click', function () {
             hide(manualPane);
