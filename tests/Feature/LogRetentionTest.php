@@ -59,7 +59,7 @@ class LogRetentionTest extends TestCase
 
     public function test_purging_removes_old_diagnostics_and_never_touches_business_records(): void
     {
-        Setting::singleton()->update(['sync_log_retention_days' => 30, 'api_log_retention_days' => 30, 'sync_log_level' => 'all']);
+        config(['logs.sync_level' => 'all']);
 
         $old = $this->syncRow('completed', 45);
         $recent = $this->syncRow('completed', 3);
@@ -89,7 +89,7 @@ class LogRetentionTest extends TestCase
     public function test_the_level_decides_whether_a_finished_run_is_written_down_at_all(): void
     {
         // "Only runs that had a problem": a clean finish leaves nothing.
-        Setting::singleton()->update(['sync_log_level' => 'failures']);
+        config(['logs.sync_level' => 'failures']);
 
         $clean = VentaSyncLog::create(['entity_type' => 'order', 'direction' => 'in', 'status' => 'started', 'started_at' => now()]);
         $this->assertNotNull(VentaSyncLog::find($clean->id), 'a run in flight is always kept: that row is the evidence');
@@ -107,13 +107,13 @@ class LogRetentionTest extends TestCase
 
         // "Nothing": even a failure is not written, for a store that is noisy
         // by nature and watched another way.
-        Setting::singleton()->update(['sync_log_level' => 'off']);
+        config(['logs.sync_level' => 'off']);
         $off = VentaSyncLog::create(['entity_type' => 'order', 'direction' => 'in', 'status' => 'started']);
         $off->update(['status' => 'failed', 'completed_at' => now()]);
         $this->assertNull(VentaSyncLog::find($off->id));
 
         // "Every run" is today's behaviour and stays the default.
-        Setting::singleton()->update(['sync_log_level' => 'all']);
+        config(['logs.sync_level' => 'all']);
         $kept = VentaSyncLog::create(['entity_type' => 'order', 'direction' => 'in', 'status' => 'started']);
         $kept->update(['status' => 'completed', 'completed_at' => now()]);
         $this->assertNotNull(VentaSyncLog::find($kept->id));
@@ -126,7 +126,7 @@ class LogRetentionTest extends TestCase
      */
     public function test_a_store_sets_its_own_level_and_it_beats_the_default(): void
     {
-        Setting::singleton()->update(['sync_log_level' => 'all']);
+        config(['logs.sync_level' => 'all']);
         $store = \Extensions\venta\Models\VentaSetting::create([
             'store_name' => 'Loud store', 'base_url' => 'https://loud.test', 'api_token' => 't', 'enabled' => true,
         ]);
@@ -181,39 +181,49 @@ class LogRetentionTest extends TestCase
         $this->assertNull($store->fresh()->sync_log_level);
     }
 
-    public function test_the_settings_page_offers_the_controls_and_purge_now_runs_them(): void
+    /**
+     * Core owns api_request_logs and nothing else here. Syncing is not a
+     * core feature, so the Website tab does not carry a sync retention and
+     * there is no core button that deletes from an extension's tables
+     * (the owner, 2026-09-01).
+     */
+    public function test_core_settings_hold_no_control_over_an_extensions_logs(): void
     {
-        Setting::singleton()->update(['sync_log_retention_days' => 30, 'api_log_retention_days' => 30]);
-        $this->syncRow('completed', 90);
         $manager = $this->manager();
 
         $page = $this->actingAs($manager)->get(route('settings.website'))->assertOk();
-        $page->assertSee('Sync and API logs');
-        $page->assertSee('name="sync_log_level"', false);
-        $page->assertSee('name="sync_log_retention_days"', false);
-        $page->assertSee('name="api_log_retention_days"', false);
-        $page->assertSee('Purge now');
+        $page->assertDontSee('Sync and API logs');
+        $page->assertDontSee('name="sync_log_level"', false);
+        $page->assertDontSee('Purge now');
+        // The activity log is core's own and keeps its retention.
+        $page->assertSee('name="activity_log_retention_days"', false);
 
-        $this->actingAs($manager)->post(route('settings.logs.purge'))
-            ->assertRedirect()
-            ->assertSessionHas('success');
-        $this->assertSame(0, DB::table('venta_sync_logs')->count());
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('settings.logs.purge'), 'core purges no extension table');
+    }
 
-        // Saving from another tab still works: the new required fields are
-        // carried, the way every other required field on a tab is.
-        $this->actingAs($manager)->get(route('settings.mail'))->assertOk()
-            ->assertSee('name="sync_log_level"', false);
+    public function test_every_swept_table_is_declared_by_the_extension_that_owns_it(): void
+    {
+        $tables = LogRetention::tables();
+
+        $this->assertSame('core', $tables['api_request_logs']['owner'] ?? null, 'calls into this ERP are core\'s own record');
+        $this->assertSame('venta', $tables['venta_sync_logs']['owner'] ?? null, 'declared in extensions/venta/extension.json');
+        $this->assertSame('venta', $tables['venta_api_logs']['owner'] ?? null);
+
+        // Nothing that is a business record can be reached by the sweep.
+        foreach (['order_history', 'stock_history', 'purchase_order_logs', 'activity_logs'] as $safe) {
+            $this->assertArrayNotHasKey($safe, $tables, $safe . ' is a business record, not a diagnostic');
+        }
     }
 
     public function test_the_command_honours_an_override_and_reports_what_it_removed(): void
     {
-        Setting::singleton()->update(['sync_log_retention_days' => 365]);
+        config(['logs.default_keep_days' => 365]);
         $this->syncRow('completed', 10);
 
         $this->artisan('logs:purge')->assertSuccessful();
         $this->assertSame(1, DB::table('venta_sync_logs')->count(), 'inside a 365 day retention');
 
-        $this->artisan('logs:purge', ['--sync-days' => 5])->assertSuccessful();
+        $this->artisan('logs:purge', ['--days' => 5])->assertSuccessful();
         $this->assertSame(0, DB::table('venta_sync_logs')->count());
     }
 }

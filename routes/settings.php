@@ -53,7 +53,6 @@ Route::prefix('settings')->group(function () {
     // Settings + Currencies + Extensions, WRITE
     Route::group([], function () {
         Route::post('/', [SettingController::class, 'update'])->name('settings.update');
-        Route::post('/logs/purge', [SettingController::class, 'purgeLogs'])->name('settings.logs.purge');
         Route::post('/mail/test', [SettingController::class, 'sendTestMail'])->name('settings.mail.test');
 
         // Currencies, writes (rate updates, CRUD)

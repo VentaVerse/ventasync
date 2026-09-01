@@ -80,9 +80,6 @@ class SettingController extends Controller
             'from_email'                  => ['required', 'email', 'max:255'],
             'timezone'                    => ['required', 'string', 'timezone'],
             'activity_log_retention_days' => ['required', 'integer', 'min:7', 'max:3650'],
-            'sync_log_retention_days'     => ['required', 'integer', 'min:1', 'max:3650'],
-            'sync_log_level'              => ['required', 'string', 'in:' . implode(',', array_keys(\App\Support\LogRetention::LEVELS))],
-            'api_log_retention_days'      => ['required', 'integer', 'min:1', 'max:3650'],
             'logo'                        => ['nullable', 'image', 'max:2048'],
             'favicon'                     => ['nullable', 'image', 'mimes:png,jpg,jpeg,gif,svg,webp,ico,x-icon,vnd.microsoft.icon', 'max:512'],
             'mail_mailer'         => ['required', 'in:smtp,sendmail'],
@@ -128,32 +125,11 @@ class SettingController extends Controller
         $changes = ActivityLogger::diff($original, $setting->getAttributes(), [
             'company_name', 'company_email', 'phone', 'address_line1', 'address_line2', 'city', 'state', 'postal_code', 'country',
             'from_email', 'timezone', 'activity_log_retention_days',
-            'sync_log_retention_days', 'sync_log_level', 'api_log_retention_days',
             'mail_mailer', 'mail_host', 'mail_port', 'mail_username', 'mail_encryption', 'mail_from_address', 'mail_from_name',
         ]);
         ActivityLogger::log('updated', 'Setting', $setting->id, 'Website Settings', $changes);
 
         return back()->with('success', 'Settings updated.');
-    }
-
-    /**
-     * Purge now: trims the sync and API logs to the retention on this page,
-     * without waiting for the nightly run. The button exists because the
-     * first time an operator finds this page, the backlog is already there
-     * and a night is a long time to wait for a disk.
-     */
-    public function purgeLogs(Request $request)
-    {
-        $removed = \App\Support\LogRetention::purge();
-        $total = array_sum($removed);
-
-        if ($total === 0) {
-            return back()->with('status', 'Nothing to remove: no sync or API log is older than the retention.');
-        }
-
-        ActivityLogger::log('purged', 'Setting', null, 'Sync and API logs (' . number_format($total) . ' rows)');
-
-        return back()->with('success', number_format($total) . ' log ' . \Illuminate\Support\Str::plural('row', $total) . ' removed.');
     }
 
     public function sendTestMail(Request $request)

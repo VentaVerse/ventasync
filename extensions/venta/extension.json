@@ -3,6 +3,15 @@
     "name": "Venta Store",
     "version": "1.0.0",
     "description": "Venta ecommerce integration: multi-store order sync, inventory push, product groups, categories",
+    "logs": {
+        "venta_sync_logs": {
+            "label": "Sync runs",
+            "kind": "sync"
+        },
+        "venta_api_logs": {
+            "label": "API calls"
+        }
+    },
     "author": "VentaSync",
     "tier": "community",
     "license_required": false,

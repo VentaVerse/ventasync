@@ -13,15 +13,14 @@ use Illuminate\Console\Command;
  */
 class PurgeLogs extends Command
 {
-    protected $signature = 'logs:purge {--sync-days= : Override the sync retention} {--api-days= : Override the API retention}';
+    protected $signature = 'logs:purge {--days= : Trim everything to this many days instead of each table\'s own}';
 
     protected $description = 'Delete sync and API log rows older than the configured retention';
 
     public function handle(): int
     {
         $removed = LogRetention::purge(
-            $this->option('sync-days') !== null ? (int) $this->option('sync-days') : null,
-            $this->option('api-days') !== null ? (int) $this->option('api-days') : null,
+            $this->option('days') !== null ? (int) $this->option('days') : null,
         );
 
         $total = array_sum($removed);

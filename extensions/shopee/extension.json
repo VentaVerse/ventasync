@@ -3,6 +3,11 @@
     "name": "Shopee",
     "version": "1.0.0",
     "description": "Shopee marketplace integration: OAuth, products, product groups, orders, returns, logistics, reviews",
+    "logs": {
+        "shopee_api_logs": {
+            "label": "API calls"
+        }
+    },
     "author": "VentaSync",
     "tier": "community",
     "license_required": false,

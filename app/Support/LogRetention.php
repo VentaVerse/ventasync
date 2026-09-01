@@ -2,65 +2,83 @@
 
 namespace App\Support;
 
-use App\Models\Setting;
+use App\Extensions\ExtensionManager;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Which log tables may be trimmed, how far back, and how much a sync run is
- * worth keeping at all.
+ * Which diagnostic log tables may be trimmed, and how far back.
  *
- * AN EXPLICIT LIST, NOT A PATTERN. Half the tables with "log" or "history" in
- * the name are business records that must never be swept: order_history,
- * stock_history and purchase_order_logs are what the reports and the audit
- * trail are made of. Only these two families are diagnostics:
+ * NOTHING HERE NAMES AN EXTENSION'S TABLE. Core owns api_request_logs, the
+ * record of calls made INTO this ERP; every sync log and per-marketplace API
+ * log belongs to the extension that writes it and is declared in that
+ * extension's own manifest:
  *
- *   SYNC  one row per sync RUN this ERP starts (did the 2am order pull work,
- *         what did it bring). Written by our own crons about our own work.
- *   API   one row per individual HTTP call: outbound, the calls we make to a
- *         marketplace, and inbound, api_request_logs, the calls other
- *         software (the mobile app, an assistant over MCP) makes to us.
+ *     "logs": {
+ *         "venta_sync_logs": { "label": "Sync runs", "kind": "sync" },
+ *         "venta_api_logs":  { "label": "API calls", "keep_days": 14 }
+ *     }
  *
- * activity_logs is a third family and already has its own retention and its
- * own command (activity-log:purge); it is deliberately not repeated here.
+ * collected here the same way ApiScopeRegistry collects api_scopes, so a
+ * channel that is not installed contributes nothing and a channel added
+ * tomorrow is swept without core being edited. Syncing is not a core
+ * feature and core does not carry a list of who does it (the owner, 2026-09-01).
+ *
+ * AN EXPLICIT DECLARATION, NEVER A PATTERN. order_history, stock_history and
+ * purchase_order_logs all have log-ish names and are business records that
+ * must never be swept; activity_logs is a third family with its own
+ * retention and its own command (activity-log:purge).
  */
 final class LogRetention
 {
-    /** Sync-run tables, governed by sync_log_retention_days and the level. */
-    public const SYNC_TABLES = [
-        'venta_sync_logs',
-        'opencart_sync_log',
-        'shopify_sync_logs',
-    ];
-
-    /** Per-call tables, governed by api_log_retention_days. */
-    public const API_TABLES = [
-        'api_request_logs',
-        'venta_api_logs',
-        'shopee_api_logs',
-        'lazada_api_logs',
-        'tiktok_api_logs',
-        'shopify_api_logs',
-        'pedallion_api_logs',
-    ];
-
     public const LEVELS = [
         'all'      => 'Every run',
         'failures' => 'Only runs that had a problem',
         'off'      => 'Nothing',
     ];
 
-    /** The default for every channel that has no opinion of its own. */
+    /**
+     * Every table that may be trimmed, core's and every enabled extension's.
+     *
+     * @return array<string, array{label: string, keep_days: int, owner: string}>
+     */
+    public static function tables(): array
+    {
+        $default = (int) config('logs.default_keep_days', 30);
+        $out = [];
+
+        foreach ((array) config('logs.core', []) as $table => $days) {
+            $out[$table] = ['label' => $table, 'keep_days' => (int) $days, 'owner' => 'core'];
+        }
+
+        $extensions = app(ExtensionManager::class);
+        foreach ($extensions->getEnabledIds() as $id) {
+            $manifest = $extensions->getManifest($id);
+            foreach ((array) ($manifest['logs'] ?? []) as $table => $meta) {
+                $meta = is_array($meta) ? $meta : [];
+                $out[$table] = [
+                    'label' => (string) ($meta['label'] ?? $table),
+                    'keep_days' => (int) ($meta['keep_days'] ?? $default),
+                    'owner' => $id,
+                ];
+            }
+        }
+
+        return $out;
+    }
+
+    /** The default for a store that has not chosen: all, failures, off. */
     public static function level(): string
     {
-        return self::normalise(self::setting()->sync_log_level ?? 'all');
+        return self::normalise(config('logs.sync_level', 'all'));
     }
 
     /**
      * The level that governs THIS run's log. A store may set its own on its
-     * Sync log tab, because one busy channel should not have to make every
-     * other channel quiet; a store that has not chosen follows the default.
+     * own settings page, because one busy channel should not have to make
+     * every other channel quiet; a store that has not chosen follows the
+     * configured default.
      *
      * The row is asked, not told: any sync log model may answer
      * syncLogLevel(), and one that cannot simply follows the default.
@@ -69,27 +87,12 @@ final class LogRetention
     {
         if (method_exists($log, 'syncLogLevel')) {
             $own = $log->syncLogLevel();
-            if (is_string($own) && $own !== '' && array_key_exists($own, self::LEVELS)) {
+            if (is_string($own) && array_key_exists($own, self::LEVELS)) {
                 return $own;
             }
         }
 
         return self::level();
-    }
-
-    private static function normalise(?string $level): string
-    {
-        return array_key_exists((string) $level, self::LEVELS) ? (string) $level : 'all';
-    }
-
-    public static function syncDays(): int
-    {
-        return max(1, (int) (self::setting()->sync_log_retention_days ?? 30));
-    }
-
-    public static function apiDays(): int
-    {
-        return max(1, (int) (self::setting()->api_log_retention_days ?? 30));
     }
 
     /**
@@ -119,7 +122,7 @@ final class LogRetention
     }
 
     /**
-     * Trim every registered table to its retention.
+     * Trim every declared table to its retention.
      *
      * Deleted in batches because the first run on a live box is deleting
      * hundreds of thousands of rows, and one unbounded DELETE holds a lock
@@ -127,38 +130,33 @@ final class LogRetention
      *
      * @return array<string, int> table => rows removed (only non-zero)
      */
-    public static function purge(?int $syncDays = null, ?int $apiDays = null): array
+    public static function purge(?int $overrideDays = null): array
     {
         $removed = [];
 
-        foreach ([
-            [self::SYNC_TABLES, $syncDays ?? self::syncDays()],
-            [self::API_TABLES, $apiDays ?? self::apiDays()],
-        ] as [$tables, $days]) {
-            $cutoff = now()->subDays($days);
+        foreach (self::tables() as $table => $meta) {
+            if (! Schema::hasTable($table)) {
+                continue;   // declared by a manifest, not migrated here
+            }
 
-            foreach ($tables as $table) {
-                if (! Schema::hasTable($table)) {
-                    continue;   // that extension is not installed here
-                }
+            $cutoff = now()->subDays($overrideDays ?? $meta['keep_days']);
 
-                $count = 0;
-                do {
-                    $batch = DB::table($table)->where('created_at', '<', $cutoff)->limit(5000)->delete();
-                    $count += $batch;
-                } while ($batch > 0);
+            $count = 0;
+            do {
+                $batch = DB::table($table)->where('created_at', '<', $cutoff)->limit(5000)->delete();
+                $count += $batch;
+            } while ($batch > 0);
 
-                if ($count > 0) {
-                    $removed[$table] = $count;
-                }
+            if ($count > 0) {
+                $removed[$table] = $count;
             }
         }
 
         return $removed;
     }
 
-    private static function setting(): Setting
+    private static function normalise(?string $level): string
     {
-        return Setting::singleton();
+        return array_key_exists((string) $level, self::LEVELS) ? (string) $level : 'all';
     }
 }
