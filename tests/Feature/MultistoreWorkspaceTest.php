@@ -247,14 +247,20 @@ class MultistoreWorkspaceTest extends TestCase
         return $sidebar[1].$content[1];
     }
 
-    /** The three destinations a store workspace offers, in sidebar order. */
+    /** The destinations a store workspace offers, in sidebar order.
+     *  Venta grew a Listings page (196f9a95, 2026-08-28); OpenCart has not. */
     private function expectedGroups(string $channel, int $storeId): array
     {
-        return [
+        $rows = [
             ['Sell', 'Orders', route('ext.'.$channel.'.orders.index', ['store' => $storeId])],
-            ['Catalog', 'Product Groups', route('ext.'.$channel.'.product-groups.index', ['store' => $storeId])],
-            ['Channel', 'Settings', route('ext.'.$channel.'.settings.show', ['store' => $storeId])],
         ];
+        if ($channel === 'venta') {
+            $rows[] = ['Catalog', 'Listings', route('ext.venta.listings.index', ['store' => $storeId])];
+        }
+        $rows[] = ['Catalog', 'Product Groups', route('ext.'.$channel.'.product-groups.index', ['store' => $storeId])];
+        $rows[] = ['Channel', 'Settings', route('ext.'.$channel.'.settings.show', ['store' => $storeId])];
+
+        return $rows;
     }
 
     // ------------------------------------------------------------------
@@ -371,8 +377,8 @@ class MultistoreWorkspaceTest extends TestCase
         $firstUrls = $urlsFor($first);
         $secondUrls = $urlsFor($second);
 
-        $this->assertCount(3, $firstUrls);
-        $this->assertCount(3, $secondUrls);
+        $this->assertCount(count($this->expectedGroups($channel, $first)), $firstUrls);
+        $this->assertCount(count($this->expectedGroups($channel, $second)), $secondUrls);
         $this->assertSame([], array_intersect($firstUrls, $secondUrls));
     }
 
@@ -945,8 +951,11 @@ class MultistoreWorkspaceTest extends TestCase
     {
         [$first, $second] = $this->storeIds('venta');
 
-        $mine = $this->ventaOrder($first, 'Depot Buyer', 'Pending');
-        $theirs = $this->ventaOrder($second, 'Bazaar Buyer', 'Pending');
+        // 'Processing' lands in the To Pack step the page opens on since
+        // the fixed-strip rework (0ea37a15); 'Pending' files under Unpaid
+        // now and the default landing would be empty.
+        $mine = $this->ventaOrder($first, 'Depot Buyer', 'Processing');
+        $theirs = $this->ventaOrder($second, 'Bazaar Buyer', 'Processing');
 
         $response = $this->actingAs($this->ordersManager('venta'))
             ->get('/channels/venta/'.$first.'/orders');
@@ -1005,7 +1014,7 @@ class MultistoreWorkspaceTest extends TestCase
     public function test_only_the_manage_tier_gets_the_venta_write_controls(): void
     {
         [$first] = $this->storeIds('venta');
-        $this->ventaOrder($first, 'Depot Buyer', 'Pending');
+        $this->ventaOrder($first, 'Depot Buyer', 'Processing');
 
         $manager = $this->ordersManager('venta');
         $viewer = $this->operator('venta');
@@ -1061,7 +1070,7 @@ class MultistoreWorkspaceTest extends TestCase
     public function test_the_venta_panels_own_links_stay_on_this_store(): void
     {
         [$first, $second] = $this->storeIds('venta');
-        $this->ventaOrder($first, 'Depot Buyer', 'Pending');
+        $this->ventaOrder($first, 'Depot Buyer', 'Processing');
 
         $response = $this->actingAs($this->ordersManager('venta'))
             ->get('/channels/venta/'.$first.'/orders');
@@ -1072,11 +1081,12 @@ class MultistoreWorkspaceTest extends TestCase
         $own = route('ext.venta.orders.index', ['store' => $first]);
         $sibling = route('ext.venta.orders.index', ['store' => $second]);
 
-        // A status segment link: status= only ever appears there.
+        // A tab segment link: the fixed strip emits tab= and strips
+        // status= from its own links (0ea37a15).
         $this->assertMatchesRegularExpression(
-            '/href="'.preg_quote(e($own), '/').'\?[^"]*status=/',
+            '/href="'.preg_quote(e($own), '/').'\?[^"]*tab=/',
             $chrome,
-            'A status segment link did not stay on this store.'
+            'A tab segment link did not stay on this store.'
         );
         // A column sort link.
         $this->assertMatchesRegularExpression(

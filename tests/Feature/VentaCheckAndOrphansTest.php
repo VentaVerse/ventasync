@@ -30,6 +30,7 @@ use Tests\TestCase;
 class VentaCheckAndOrphansTest extends TestCase
 {
     private const CONTROLLER = 'extensions/venta/Controllers/VentaProductGroupController.php';
+    private const SERVICE = 'extensions/venta/Services/Venta/VentaProductPush.php';
     private const PRODUCTS_VIEW = 'extensions/venta/views/product-groups/products.blade.php';
     private const ORPHANS_VIEW = 'extensions/venta/views/product-groups/orphans.blade.php';
 
@@ -38,9 +39,11 @@ class VentaCheckAndOrphansTest extends TestCase
         return file_get_contents(base_path($file));
     }
 
-    private function methodBody(string $method): string
+    private function methodBody(string $method, ?string $file = null): string
     {
-        $source = $this->source(self::CONTROLLER);
+        /* reconcileLink moved into VentaProductPush (30675106); its callers
+         * pass the service file. pushProducts is still the controller's. */
+        $source = $this->source($file ?? self::CONTROLLER);
 
         if (! preg_match('/\n    (?:public|private) function '.$method.'\(/', $source, $m, PREG_OFFSET_CAPTURE)) {
             return '';
@@ -58,7 +61,7 @@ class VentaCheckAndOrphansTest extends TestCase
 
     public function test_only_a_404_may_mean_the_product_is_gone(): void
     {
-        $body = $this->methodBody('reconcileLink');
+        $body = $this->methodBody('reconcileLink', self::SERVICE);
 
         $this->assertStringContainsString('$status !== 404', $body,
             'reconcileLink no longer separates "Venta said no" from "Venta said nothing", '
@@ -67,7 +70,7 @@ class VentaCheckAndOrphansTest extends TestCase
 
     public function test_an_unanswered_check_is_its_own_verdict(): void
     {
-        $body = $this->methodBody('reconcileLink');
+        $body = $this->methodBody('reconcileLink', self::SERVICE);
 
         $this->assertStringContainsString("'state' => 'unreachable'", $body,
             'The unreachable verdict is gone, so a failed lookup falls through to lost or new '

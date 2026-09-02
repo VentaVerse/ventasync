@@ -28,6 +28,8 @@ class VentaReconcileTest extends TestCase
     private const CONTROLLER = 'extensions/venta/Controllers/VentaProductGroupController.php';
     private const VIEW = 'extensions/venta/views/product-groups/products.blade.php';
 
+    private const SERVICE = 'extensions/venta/Services/Venta/VentaProductPush.php';
+
     private function source(string $file): string
     {
         return file_get_contents(base_path($file));
@@ -139,7 +141,8 @@ class VentaReconcileTest extends TestCase
      */
     public function test_the_image_wall_is_explained(): void
     {
-        $source = $this->source(self::CONTROLLER);
+        // failureText moved into VentaProductPush with the push (30675106).
+        $source = $this->source(self::SERVICE);
 
         $this->assertStringContainsString('images_unavailable', $source);
         $this->assertStringContainsString('will not create a product it cannot fetch images for', $source,
@@ -150,8 +153,15 @@ class VentaReconcileTest extends TestCase
 
     private function methodBody(string $method): string
     {
-        $ref = new ReflectionMethod(VentaProductGroupController::class, $method);
-        $lines = file(base_path(self::CONTROLLER));
+        /* reconcileLink moved into VentaProductPush (30675106) - the
+         * controller keeps a two-line delegate. The invariants these tests
+         * pin live wherever the method lives, so the helper follows it. */
+        $map = [
+            'reconcileLink' => [\Extensions\venta\Services\Venta\VentaProductPush::class, self::SERVICE],
+        ];
+        [$class, $file] = $map[$method] ?? [VentaProductGroupController::class, self::CONTROLLER];
+        $ref = new ReflectionMethod($class, $method);
+        $lines = file(base_path($file));
 
         return implode('', array_slice($lines, $ref->getStartLine() - 1, $ref->getEndLine() - $ref->getStartLine() + 1));
     }

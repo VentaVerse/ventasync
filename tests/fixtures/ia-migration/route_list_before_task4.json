@@ -1011,6 +1011,11 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "channels/listings",
+        "name": "channels.listings"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "channels/module/{module}",
         "name": "channels.module"
     },
