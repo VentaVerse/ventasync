@@ -254,3 +254,10 @@
 /* The preset bar above the bulk-push review (Phase F, #184). */
 .bp-preset-bar { align-items: center; }
 .bp-preset-save { max-width: 340px; margin-top: var(--bl-space-2); }
+
+/* "Save as preset…" name field in the sticky bar (#195): wide enough for a
+   real name, never wide enough to shove Save off the bar on a phone. */
+.fm-bar__preset-name {
+    width: 180px;
+    max-width: 38vw;
+}

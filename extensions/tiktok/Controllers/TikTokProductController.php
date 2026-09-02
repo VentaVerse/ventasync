@@ -319,6 +319,41 @@ class TikTokProductController extends Controller
         return redirect()->back()->with($r['tone'], $r['summary']);
     }
 
+    /**
+     * Dress the selected products' listing records in a preset's shared
+     * settings (#195): category and price rule, created where no record
+     * exists yet. Then Send to TikTok Shop works, without one visit to
+     * the Presets page.
+     */
+    public function bulkApplyPreset(Request $request)
+    {
+        $data = $request->validate([
+            'preset_group_id' => 'required|integer|exists:tiktok_product_groups,id',
+            'product_ids' => 'required|array|min:1',
+        ]);
+        $productIds = array_values(array_unique(array_filter(array_map('intval', (array) $data['product_ids']))));
+
+        $preset = \Extensions\tiktok\Models\TikTokProductGroup::findOrFail((int) $data['preset_group_id']);
+
+        foreach ($productIds as $pid) {
+            $listing = TikTokListing::query()->firstOrNew(['product_id' => $pid]);
+            $listing->forceFill(array_filter([
+                'tiktok_category_id' => $preset->tiktok_category_id,
+                'markup_percent' => $preset->markup_percent,
+                'markup_fixed' => $preset->markup_fixed,
+            ], fn ($v) => $v !== null))->save();
+        }
+
+        $applied = [];
+        if ($preset->tiktok_category_id) $applied[] = 'category';
+        if ($preset->markup_percent !== null || $preset->markup_fixed !== null) $applied[] = 'price rule';
+
+        return redirect()->back()
+            ->with('status', "Preset '{$preset->name}' applied to " . count($productIds) . ' product' . (count($productIds) === 1 ? '' : 's')
+                . ($applied ? ' (' . implode(', ', $applied) . ')' : '')
+                . '. Send or Push update carries these settings.');
+    }
+
     public function bulkSend(Request $request, TikTokClient $client)
     {
         $productIds = array_map('intval', array_filter((array) $request->input('product_ids', [])));

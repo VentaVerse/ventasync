@@ -500,6 +500,26 @@
             @csrf
             <x-ui.button type="submit" size="sm">Check against Lazada</x-ui.button>
         </form>
+        {{-- Apply a preset to the selection (#195): dresses the ticked
+             listings in the preset's category, brand, price rule and
+             attribute defaults, so the next Push carries them - without
+             one visit to the Presets page. --}}
+        @if(($allGroups ?? collect())->isNotEmpty())
+        <form method="POST" action="{{ route('ext.lazada.products.bulk_apply_preset') }}" data-bulk-form
+              data-bulk-confirm="Apply this preset to the selected listings? Their category, brand, price rule and attribute defaults are overwritten with the preset's; the change reaches Lazada on their next Update or Push.">
+            @csrf
+            <div class="x-select-wrap">
+                <select name="preset_group_id" class="x-input" aria-label="Preset to apply" required>
+                    <option value="">Apply preset…</option>
+                    @foreach($allGroups as $gId => $gName)
+                        <option value="{{ $gId }}">{{ $gName }}</option>
+                    @endforeach
+                </select>
+                <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+            </div>
+            <x-ui.button type="submit" size="sm">Apply</x-ui.button>
+        </form>
+        @endif
         <form method="POST" action="{{ $bulkSyncLazadaIdUrl }}" data-bulk-form>
             @csrf
             <x-ui.button type="submit" size="sm">Match Lazada IDs</x-ui.button>

@@ -169,6 +169,28 @@
         </section>
     @endif
 
+    {{-- Start from a preset (#195): a GET reload with the preset's
+         category and price rule shown in the fields; nothing changes
+         until saved. --}}
+    @if(($presets ?? collect())->isNotEmpty() && $canManage)
+        <form method="GET" action="{{ route('ext.tiktok.listings.edit', $product->product_id) }}" class="x-filters bp-preset-bar">
+            <label for="tt-preset" class="vt-book__label">Start from a preset</label>
+            <div class="x-select-wrap x-filters__select">
+                <select id="tt-preset" name="preset" class="x-input">
+                    <option value="">None - each field by hand</option>
+                    @foreach($presets as $p)
+                        <option value="{{ $p->id }}" @selected(($preset?->id ?? null) === $p->id)>{{ $p->name }}</option>
+                    @endforeach
+                </select>
+                <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+            </div>
+            <x-ui.button type="submit" variant="secondary" size="sm">Load</x-ui.button>
+            @if($preset ?? null)
+                <span class="x-cell-muted">Loaded "{{ $preset->name }}" - its category and price rule now fill the fields below. Save to keep them.</span>
+            @endif
+        </form>
+    @endif
+
     <form id="listing-form" method="POST" action="{{ route('ext.tiktok.listings.update', $product->product_id) }}">
         @csrf
         @method('PUT')
@@ -306,6 +328,9 @@
         <div class="fm-bar__actions">
             <a class="fm-cancel" href="{{ route('ext.tiktok.products.index') }}">{{ $canManage ? 'Cancel' : 'Back' }}</a>
             @if($canManage)
+                {{-- Save these shared settings as a preset (#195). --}}
+                <input type="text" name="preset_save_name" form="listing-form" class="x-input fm-bar__preset-name"
+                       placeholder="Save as preset…" maxlength="100" aria-label="Save these shared settings as a preset named">
                 <x-ui.button type="submit" form="listing-form" variant="primary">Save listing</x-ui.button>
             @endif
         </div>
