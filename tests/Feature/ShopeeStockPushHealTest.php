@@ -217,6 +217,43 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertStringContainsString('Invalid access token', (string) session('error'));
     }
 
+    /** The listing page says how much of the catalogue stands on Shopee, and offers the repair. */
+    public function test_the_listing_page_carries_coverage_and_the_reread_verb(): void
+    {
+        $pid = $this->productWithVariations(['E-1' => 5, 'E-2' => 6, 'E-3' => 7]);
+        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 905, 'shopee_model_id' => 95, 'sku' => 'E-1']);
+        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 905, 'shopee_model_id' => 96, 'sku' => 'E-2']);
+
+        $this->getResponses['/api/v2/product/get_item_base_info'] = ['ok' => true, 'status' => 200, 'body' => [
+            'response' => ['item_list' => [[
+                'item_status' => 'NORMAL', 'item_name' => 'Pushable product', 'item_sku' => 'PAR',
+                'has_model' => true, 'update_time' => time(),
+            ]]],
+        ]];
+        $this->getResponses['/api/v2/product/get_model_list'] = ['ok' => true, 'status' => 200, 'body' => [
+            'response' => ['model' => [
+                ['model_id' => 95, 'model_sku' => 'E-1'],
+                ['model_id' => 96, 'model_sku' => 'E-2'],
+                ['model_id' => 97, 'model_sku' => 'STRANGER'],
+            ]],
+        ]];
+
+        $page = $this->actingAs($this->manager())
+            ->get(route('ext.shopee.listings.edit', $pid))->assertOk();
+
+        $page->assertSee('2 of 3 variations');
+        $page->assertSee('E-3');                       // the missing side, named
+        $page->assertSee('Not linked');                // Shopee's STRANGER model, flagged
+        $page->assertSee('Re-read variations from Shopee');
+
+        // The verb runs the same repair the pushes self-heal with.
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.listings.reread_variations', $pid))
+            ->assertRedirect();
+        $this->assertStringContainsString('2 variation(s) linked', (string) session('status'));
+        $this->assertStringContainsString('STRANGER', (string) session('status'));
+    }
+
     /** Price keeps the listing's own rule and the same ledger. */
     public function test_price_push_keeps_the_listing_rule_and_names_skips(): void
     {

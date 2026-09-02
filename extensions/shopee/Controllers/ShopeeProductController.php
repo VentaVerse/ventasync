@@ -2910,7 +2910,8 @@ class ShopeeProductController extends Controller
         $product->name = html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
         $listing = ShopeeListing::query()->where('product_id', $productId)->first();
-        $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
+        $links = ShopeeProductLink::query()->where('product_id', $productId)->get();
+        $link = $links->first();
 
         // The live half. Only a linked product HAS a live half; an unpushed
         // one shows readiness instead.
@@ -2963,6 +2964,34 @@ class ShopeeProductController extends Controller
         $listingState = app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)
             ->forProducts([$productId])[$productId] ?? null;
 
+        /* Variation coverage (Phase E, #184, #190): the catalogue's
+         * variations, the link rows and Shopee's models compared once, so
+         * this page can say "On Shopee: 2 of 3 variations" and name what
+         * is missing on which side - the fact the deleted-1pc incident
+         * had no surface for. */
+        // Counted from the same SKU sources the pushes act on (combos
+        // first, then option values), so this line and the push ledger can
+        // never disagree about what "3 variations" means.
+        $variationSkus = DB::table('product_option_combinations')
+            ->where('product_id', $productId)->whereNotNull('sku')->where('sku', '!=', '')
+            ->pluck('sku')
+            ->merge(DB::table($pfx . 'product_option_value')
+                ->where('product_id', $productId)->whereNotNull('sku')->where('sku', '!=', '')
+                ->pluck('sku'))
+            ->map(fn ($v) => trim((string) $v))->filter()->unique()->values();
+        $linkedSkus = $links->pluck('sku')->map(fn ($v) => strtolower(trim((string) $v)))->filter()->flip();
+        $coverageRows = $variationSkus->map(fn ($sku) => [
+            'name' => '',
+            'sku' => $sku,
+            'linked' => $linkedSkus->has(strtolower($sku)),
+        ])->values();
+        $coverage = [
+            'total' => $coverageRows->count(),
+            'linked' => $coverageRows->where('linked', true)->count(),
+            'missing' => $coverageRows->where('linked', false)->values(),
+        ];
+        $linkedModelIds = $links->pluck('shopee_model_id')->filter()->map(fn ($v) => (int) $v)->flip();
+
         $initialBrands = $categoryId > 0
             ? \Extensions\shopee\Models\ShopeeBrand::query()
                 ->where('category_id', $categoryId)
@@ -2976,6 +3005,9 @@ class ShopeeProductController extends Controller
             'listing' => $listing,
             'initialBrands' => $initialBrands,
             'link' => $link,
+            'links' => $links,
+            'coverage' => $coverage,
+            'linkedModelIds' => $linkedModelIds,
             'live' => $live,
             'liveError' => $liveError,
             'attrTemplate' => $sheet['template'],
@@ -2984,6 +3016,53 @@ class ShopeeProductController extends Controller
             'readinessMissing' => $readiness['missing'],
             'logistics' => $this->fetchLogistics(),
         ]);
+    }
+
+    /**
+     * Re-read this item's variations from Shopee and make the link rows
+     * match (Phase E, #184, #190): the same repair Sync ID and the push
+     * self-heal run, offered as a verb - before this, a LINKED product had
+     * no button that could re-read models, and the only way out of a stale
+     * link was Unlink and start over.
+     */
+    public function rereadVariations(int $productId)
+    {
+        $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
+        if (!$link) {
+            return redirect()->back()->with('error', 'Product not linked to Shopee. Match a Shopee ID first.');
+        }
+
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            return redirect()->back()->with('error', 'Missing Shopee settings.');
+        }
+
+        $pfx = (string) config('catalog.prefix');
+        $skus = DB::table($pfx . 'product_option_value')
+            ->where('product_id', $productId)->whereNotNull('sku')->where('sku', '!=', '')
+            ->pluck('sku')->map(fn ($v) => strtolower(trim((string) $v)))->all();
+        $comboSkus = DB::table('product_option_combinations')
+            ->where('product_id', $productId)->whereNotNull('sku')->where('sku', '!=', '')
+            ->pluck('sku')->map(fn ($v) => strtolower(trim((string) $v)))->all();
+        $main = strtolower(trim((string) DB::table($pfx . 'product')->where('product_id', $productId)->value('sku')));
+        $allSkus = array_values(array_unique(array_filter(array_merge($skus, $comboSkus, [$main]))));
+
+        $r = app(\Extensions\shopee\Services\Shopee\ShopeeModelLinkRepair::class)
+            ->forItem($auth, $productId, (int) $link->shopee_item_id, $allSkus);
+
+        if (isset($r['error'])) {
+            return redirect()->back()->with('error', 'Shopee did not answer: ' . $r['error'] . ' Nothing was changed.');
+        }
+
+        $msg = $r['mode'] === 'models'
+            ? "Re-read from Shopee: {$r['linked']} variation(s) linked" . ($r['removed'] > 0 ? ", {$r['removed']} stale link(s) removed" : '') . '.'
+            : 'Re-read from Shopee: the item has no variations; one item-level link kept.';
+        if (!empty($r['unmatched'])) {
+            $msg .= ' On Shopee but matching nothing in the catalogue: ' . implode(', ', array_slice($r['unmatched'], 0, 5)) . '.';
+        }
+
+        return redirect()->back()->with('status', $msg);
     }
 
     public function saveListing(Request $request, int $productId)

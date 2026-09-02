@@ -225,6 +225,31 @@
                     @endif
                 </div>
 
+                {{-- Variation coverage (Phase E, #184, #190): the fact the
+                     deleted-1pc incident had no surface for. One line says
+                     how much of the catalogue actually stands on Shopee,
+                     the missing side is named, and the repair the pushes
+                     run mid-flight is offered as a button - before this, a
+                     linked product had no verb that could re-read models,
+                     and the way out of a stale link was Unlink. --}}
+                @if(($coverage['total'] ?? 0) > 0)
+                    <div class="fm-stat">
+                        <span class="fm-stat__k">On Shopee</span>
+                        <span class="fm-stat__v">
+                            {{ $coverage['linked'] }} of {{ $coverage['total'] }} variations
+                            @if($coverage['missing']->isNotEmpty())
+                                <x-ui.hint label="What is not on Shopee">In the catalogue but not on Shopee: {{ $coverage['missing']->map(fn ($v) => $v['sku'] !== '' ? $v['sku'] : $v['name'])->implode(', ') }}. Stock and price pushes skip these and say so. To add a variation to a live listing, add it in Seller Centre, then press Re-read variations here.</x-ui.hint>
+                            @endif
+                        </span>
+                    </div>
+                @endif
+                @if($canManage)
+                    <form method="POST" action="{{ route('ext.shopee.listings.reread_variations', $product->product_id) }}" data-slow-action>
+                        @csrf
+                        <x-ui.button type="submit" size="sm">Re-read variations from Shopee</x-ui.button>
+                    </form>
+                @endif
+
                 @if(!empty($live['models']))
                     <x-ui.table caption="This item's variations as Shopee holds them right now">
                         <thead>
@@ -233,6 +258,7 @@
                                 <th>SKU</th>
                                 <th class="x-num">Price</th>
                                 <th class="x-num">Stock</th>
+                                <th>In the catalog</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -248,6 +274,18 @@
                                         @endif
                                     </td>
                                     <td class="x-num">{{ $m['stock'] !== null ? $m['stock'] : 'unknown' }}</td>
+                                    <td>
+                                        {{-- Linked = a link row carries this model, so
+                                             pushes reach it. Anything else is a model
+                                             Shopee holds that the ERP is not tracking. --}}
+                                        @if(($linkedModelIds ?? collect())->has((int) $m['model_id']))
+                                            <x-ui.badge tone="success">Linked</x-ui.badge>
+                                        @else
+                                            <span @if($canManage) title="Press Re-read variations to link it by SKU" @endif>
+                                                <x-ui.badge tone="warning">Not linked</x-ui.badge>
+                                            </span>
+                                        @endif
+                                    </td>
                                 </tr>
                             @endforeach
                         </tbody>

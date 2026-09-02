@@ -1411,6 +1411,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/shopee/listings/{productId}/reread-variations",
+        "name": "ext.shopee.listings.reread_variations"
+    },
+    {
+        "method": "POST",
         "uri": "channels/shopee/listings/{productId}/toggle",
         "name": "ext.shopee.listings.toggle"
     },
