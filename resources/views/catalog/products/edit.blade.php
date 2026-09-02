@@ -7,7 +7,7 @@
     /* A failed save round-trips through old() (#189): without it, the
      * validation redirect made url()->previous() the edit page itself and
      * the search was lost exactly when the operator retries. */
-    $backUrl = old('_return', $returnUrl ?? route('products.index'));
+    $backUrl = \App\Support\BackTo::safe(old('_return', $returnUrl ?? null), route('products.index'));
 
     // Decimal columns come back at full scale (weight 0.25000000, price
     // 499.0000). That is storage precision, not a figure a person reads, and

@@ -15,6 +15,22 @@ final class BackTo
         return (string) preg_replace('#^https?://[^/]+#', '', url()->previous());
     }
 
+    /**
+     * The render-boundary half of follow(): old('_return') is USER INPUT
+     * flashed back on a failed save, and unchecked it lands in an href -
+     * a javascript: URI would execute. Only a local path survives.
+     */
+    public static function safe(?string $candidate, string $fallbackUrl): string
+    {
+        return is_string($candidate)
+            && $candidate !== ''
+            && $candidate[0] === '/'
+            && ! str_starts_with($candidate, '//')
+            && ! str_starts_with($candidate, '/\\')
+                ? $candidate
+                : $fallbackUrl;
+    }
+
     public static function follow(?string $candidate, string $fallbackRoute)
     {
         return is_string($candidate)

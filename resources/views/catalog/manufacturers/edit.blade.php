@@ -10,7 +10,7 @@
 @section('breadcrumb', $manufacturer->name ?: ('Manufacturer ' . $manufacturer->manufacturer_id))
 
 @section('content')
-@php $backUrl = old('_return', $returnUrl ?? null) ?: route('manufacturers.index'); @endphp
+@php $backUrl = \App\Support\BackTo::safe(old('_return', $returnUrl ?? null), route('manufacturers.index')); @endphp
 <form method="POST" action="{{ route('manufacturers.update', $manufacturer->manufacturer_id) }}" class="fm-page">
     <input type="hidden" name="_return" value="{{ $backUrl }}">
     @csrf

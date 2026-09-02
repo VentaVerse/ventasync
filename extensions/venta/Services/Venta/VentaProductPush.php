@@ -176,6 +176,14 @@ class VentaProductPush
         $langId = (int) config('catalog.default_language_id');
         $pid = (int) $prod->product_id;
 
+        /* The variation's own image rides the push (#193) - Venta's sync
+         * endpoint has accepted variants.*.image all along; the payload
+         * simply never carried it, so every variation wore the product
+         * photo. A variation without one falls back to the product image
+         * rather than pushing blank, exactly the storefront's own rule. */
+        $fallbackImage = trim((string) ($prod->image ?? '')) !== '' ? self::imageUrl((string) $prod->image) : null;
+        $variantImage = fn (?string $path) => trim((string) $path) !== '' ? self::imageUrl((string) $path) : $fallbackImage;
+
         $combos = DB::table('product_option_combinations as poc')
             ->where('poc.product_id', $pid)
             ->orderBy('poc.sort_order')
@@ -203,6 +211,7 @@ class VentaProductPush
                     'cost'        => (float) $c->absolute_cost,
                     'quantity'    => (int) $c->quantity,
                     'weight'      => (float) ($prod->weight ?? 0),
+                    'image'       => $variantImage($c->image ?? null),
                 ];
             }
 
@@ -257,6 +266,9 @@ class VentaProductPush
                 'cost'        => $variantCost,
                 'quantity'    => (int) $ov->variant_qty,
                 'weight'      => (float) ($prod->weight ?? 0),
+                // Legacy single-axis rows (no combination rows) keep no
+                // per-variation image; the product image stands in.
+                'image'       => $variantImage(null),
             ];
         }
 

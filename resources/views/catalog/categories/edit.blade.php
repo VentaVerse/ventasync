@@ -15,7 +15,7 @@
 @section('breadcrumb', html_entity_decode($category->name ?: ('Category ' . $category->category_id), ENT_QUOTES | ENT_HTML5, 'UTF-8'))
 
 @section('content')
-@php $backUrl = old('_return', $returnUrl ?? null) ?: route('categories.index'); @endphp
+@php $backUrl = \App\Support\BackTo::safe(old('_return', $returnUrl ?? null), route('categories.index')); @endphp
 <form method="POST" action="{{ route('categories.update', $category->category_id) }}" class="fm-page">
     <input type="hidden" name="_return" value="{{ $backUrl }}">
     @csrf

@@ -79,6 +79,25 @@ class BackToTheSearchTest extends TestCase
         $r->assertRedirect('/catalog/products?q=Search+me+too&page=2');
     }
 
+    public function test_a_hostile_return_never_reaches_the_href(): void
+    {
+        /* old('_return') is user input flashed back on a failed save; a
+         * javascript: URI in an href executes on click. Only a local path
+         * survives the render boundary. */
+        $pid = $this->seedProduct('BTS-XSS', 'Hostile return');
+        $user = $this->catalogManager();
+        $editUrl = route('products.edit', $pid);
+
+        $this->actingAs($user)->from($editUrl)->put(route('products.update', $pid), [
+            'name' => '', // fails validation, flashing _return back
+            '_return' => 'javascript:alert(1)',
+        ]);
+
+        $page = $this->actingAs($user)->get($editUrl)->assertOk()->getContent();
+        $this->assertStringNotContainsString('href="javascript:', $page);
+        $this->assertStringNotContainsString('value="javascript:', $page);
+    }
+
     public function test_an_outside_url_is_never_followed(): void
     {
         $pid = $this->seedProduct('BTS-3', 'Do not follow');
