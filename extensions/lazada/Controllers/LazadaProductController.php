@@ -17,7 +17,10 @@ use Extensions\lazada\Models\LazadaSetting;
 use App\Services\ActivityLogger;
 use Extensions\lazada\Services\Lazada\LazadaAttributes;
 use Extensions\lazada\Services\Lazada\LazadaClient;
+use Extensions\lazada\Services\Lazada\LazadaImages;
 use Extensions\lazada\Services\Lazada\LazadaItemCache;
+use Extensions\lazada\Services\Lazada\LazadaItemMatcher;
+use Extensions\lazada\Services\Lazada\LazadaPushPayload;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -38,321 +41,34 @@ class LazadaProductController extends Controller
         return app(LazadaItemCache::class);
     }
 
-
-    public static function computeFinalPrice(float $basePrice, ?float $fixedMarkup, ?float $percentMarkup): float
+    /** Image URL shapes and the inlink migration (Phase C, #184). */
+    private function images(): LazadaImages
     {
-        // Formula: (Price * %) + Fixed
-        $price = $basePrice;
-        if ($percentMarkup !== null && $percentMarkup > 0) {
-            $price += $basePrice * $percentMarkup / 100;
-        }
-        if ($fixedMarkup !== null && $fixedMarkup > 0) {
-            $price += $fixedMarkup;
-        }
-        return round($price, 2);
+        return app(LazadaImages::class);
     }
 
-
-    /**
-     * Convert an ERP product image path into an absolute URL that Lazada can fetch.
-     *
-     * - If value is already an absolute URL, keep it.
-     * - Otherwise, assume the stored path is already relative to the public web root
-     *   (e.g. "catalog/...").
-     */
-    /**
-     * A product image URL for the OPERATOR'S BROWSER, not for Lazada.
-     *
-     * toPublicImageUrl() below builds an ABSOLUTE url, deliberately: Lazada's
-     * servers fetch these over the internet, so they need a host, and that
-     * host comes from catalog.public_url. That is correct for the payload and
-     * wrong for this admin page, which is what emptied the listing grid.
-     *
-     * catalog.public_url was pointing at 192.168.122.8:8000, an address from
-     * an earlier network. Every thumbnail on the page was requested from a
-     * host the operator's browser cannot reach, so 2,074 products with images
-     * on disk rendered as empty frames. Correcting that value would have fixed
-     * it today and broken it again on the next address change, because the
-     * page was asking a config setting a question it already knew the answer
-     * to: the browser is already on the right host.
-     *
-     * So this returns a ROOT-RELATIVE path. It resolves against whatever
-     * address the operator actually used - LAN ip, hostname, localhost, or a
-     * tunnel - and cannot drift from it. An absolute url that is genuinely
-     * somebody else's (a CDN, a marketplace cdn) is kept as it is; only
-     * loopback is rewritten, because no browser but the server's own can
-     * follow it.
-     */
-    private function toDisplayImageUrl(?string $imagePath): ?string
+    /** SKU-to-item matching against the shop (Phase C, #184). */
+    private function matcher(): LazadaItemMatcher
     {
-        $imagePath = trim((string) ($imagePath ?? ''));
-
-        if ($imagePath === '' || str_contains($imagePath, '..')) {
-            return null;
-        }
-
-        if (Str::startsWith($imagePath, ['http://', 'https://'])) {
-            $host = strtolower((string) parse_url($imagePath, PHP_URL_HOST));
-
-            if (! in_array($host, ['localhost', '127.0.0.1', '0.0.0.0'], true)) {
-                return $imagePath;
-            }
-
-            $path = ltrim((string) parse_url($imagePath, PHP_URL_PATH), '/');
-
-            return ($path === '' || str_contains($path, '..'))
-                ? null
-                : '/' . $this->encodeUrlPath($path);
-        }
-
-        $path = ltrim($imagePath, '/');
-
-        // Already carries a public prefix.
-        if (Str::startsWith($path, ['storage/', 'image/'])) {
-            return '/' . $this->encodeUrlPath($path);
-        }
-
-        // The Laravel public disk is where this install actually keeps them.
-        try {
-            if (file_exists(public_path('storage/' . $path))) {
-                return '/' . $this->encodeUrlPath('storage/' . $path);
-            }
-        } catch (\Throwable $e) {
-            // Fall through to the configured prefix.
-        }
-
-        $prefix = trim((string) config('catalog.image_prefix', 'image'), '/');
-
-        return '/' . $this->encodeUrlPath(($prefix === '' ? 'image' : $prefix) . '/' . $path);
+        return app(LazadaItemMatcher::class);
     }
 
-    private function toPublicImageUrl(?string $imagePath): ?string
+    /** The wire payloads and the reading of Lazada's answers (Phase C, #184). */
+    private function payload(): LazadaPushPayload
     {
-        $imagePath = trim((string)($imagePath ?? ''));
-        if ($imagePath === '') {
-            return null;
-        }
-
-        // Basic safety: never generate URLs that include path traversal.
-        if (str_contains($imagePath, '..')) {
-            return null;
-        }
-
-        // If the DB already stores a full URL, keep it — except for localhost/loopback URLs.
-        // Some imports (or older code) may have saved http://localhost/... which will break Lazada.
-        // In that case, rewrite the host to the configured APP_URL host (or request host) while preserving the path.
-        if (Str::startsWith($imagePath, ['http://', 'https://'])) {
-            $host = strtolower((string) parse_url($imagePath, PHP_URL_HOST));
-            if (in_array($host, ['localhost', '127.0.0.1', '0.0.0.0'], true)) {
-                $base = $this->imageBaseUrl();
-                $path = (string) parse_url($imagePath, PHP_URL_PATH);
-                $path = ltrim($path, '/');
-
-                if ($path === '' || str_contains($path, '..')) {
-                    return null;
-                }
-
-                return $base . '/' . $path;
-            }
-
-            return $imagePath;
-        }
-
-        $base = $this->imageBaseUrl();
-        $path = ltrim($imagePath, '/');
-
-        // Many ERP installs store uploaded product images on the Laravel "public" disk
-        // (public/storage -> storage/app/public). In that case, the publicly reachable URL
-        // is typically "/storage/{path}" (e.g. /storage/catalog/Brand/file.jpg).
-        //
-        // Historically, some code assumed OpenCart-style "/image/{path}". Lazada requires
-        // these URLs to return HTTP 200, so we must generate the correct public prefix.
-
-        // If the stored path already includes a known public prefix, keep it.
-        if (Str::startsWith($path, ['storage/', 'image/'])) {
-            return $base . '/' . $this->encodeUrlPath($path);
-        }
-
-        // Prefer Laravel public disk if the file exists there: public/storage/{path}
-        $storageCandidate = 'storage/' . $path;
-        try {
-            if (file_exists(public_path($storageCandidate))) {
-                return $base . '/' . $this->encodeUrlPath($storageCandidate);
-            }
-        } catch (\Throwable $e) {
-            // Ignore filesystem errors; fall back below.
-        }
-
-        // Fall back to configured prefix (default: "image").
-        $prefix = trim((string) config('catalog.image_prefix', 'image'), '/');
-        if ($prefix === '') {
-            $prefix = 'image';
-        }
-        $prefixed = $prefix . '/' . $path;
-
-        return $base . '/' . $this->encodeUrlPath($prefixed);
+        return app(LazadaPushPayload::class);
     }
 
-    /**
-     * Encode a relative URL path safely (encode each segment, preserve slashes).
-     */
-    private function encodeUrlPath(string $path): string
-    {
-        $path = ltrim($path, '/');
-        $parts = array_map('rawurlencode', array_filter(explode('/', $path), fn($p) => $p !== ''));
-        return implode('/', $parts);
-    }
-
-    /**
-     * Returns the base URL used for building publicly reachable image URLs.
-     *
-     * We prefer config('app.url') (APP_URL), but if that is missing or somehow set to localhost,
-     * we fall back to the current HTTP host.
-     */
-    private function imageBaseUrl(): string
-    {
-        // Prefer the storefront/public catalog URL. The ERP may run on a different subdomain.
-        $base = rtrim((string) config('catalog.public_url', config('app.url')), '/');
-        $host = strtolower((string) (parse_url($base, PHP_URL_HOST) ?? ''));
-
-        if ($base === '' || $host === '' || in_array($host, ['localhost', '127.0.0.1', '0.0.0.0'], true)) {
-            try {
-                $base = rtrim(request()->getSchemeAndHttpHost(), '/');
-            } catch (\Throwable $e) {
-                // Ignore and keep whatever we have.
-            }
-        }
-
-        return $base;
-    }
 
     /**
      * Build a unique ordered list of product images (main + additional) as public URLs.
      */
     
-    /**
-     * Normalize an image URL/path into a publicly reachable URL based on APP_URL.
-     * This is a last-resort guard to prevent localhost/loopback URLs from leaking into payloads.
-     */
-    private function normalizeImageUrl(string $urlOrPath): ?string
-    {
-        $urlOrPath = trim($urlOrPath);
-        if ($urlOrPath === '') return null;
-
-        // If it's a full URL, rewrite localhost/loopback hosts to APP_URL host.
-        if (Str::startsWith($urlOrPath, ['http://', 'https://'])) {
-            $host = strtolower((string) parse_url($urlOrPath, PHP_URL_HOST));
-            if (in_array($host, ['localhost', '127.0.0.1', '0.0.0.0'], true)) {
-                $base = $this->imageBaseUrl();
-                $path = (string) parse_url($urlOrPath, PHP_URL_PATH);
-                $path = ltrim($path, '/');
-                if ($path === '' || str_contains($path, '..')) return null;
-                return $base . '/' . $path;
-            }
-            return $urlOrPath;
-        }
-
-        // Relative path
-        return $this->toPublicImageUrl($urlOrPath);
-    }
-
-private function getProductImageUrls(int $productId, ?object $productRow): array
-    {
-        $pfx = (string) config('catalog.prefix');
-
-        $images = [];
-        $main = $this->normalizeImageUrl((string)($productRow?->image ?? ''));
-        if ($main) {
-            $images[] = $main;
-        }
-
-        $additional = DB::table($pfx.'product_image')
-            ->where('product_id', $productId)
-            ->orderBy('sort_order')
-            ->pluck('image')
-            ->toArray();
-
-        foreach ($additional as $img) {
-            $url = $this->normalizeImageUrl((string) $img);
-            if ($url && !in_array($url, $images, true)) {
-                $images[] = $url;
-            }
-        }
-
-        return $images;
-    }
-
-
-private function extractLazadaError(array $result): array
-{
-    $body = $result['body'] ?? null;
-    $code = null;
-    $message = null;
-
-    if (is_array($body)) {
-        // Common Lazada error format: {"type":"ISV","code":"...","message":"..."}
-        $code = $body['code'] ?? ($body['error_code'] ?? null);
-        $message = $body['message'] ?? ($body['error_message'] ?? null);
-    }
-
-    if ($code === null && is_string($body)) {
-        $message = trim($body);
-    }
-
-    $codeStr = $code !== null ? trim((string)$code) : null;
-    $msgStr = $message !== null ? trim((string)$message) : null;
-
-    // Determine success. Lazada often returns code "0" for success.
-    $okHttp = (bool)($result['ok'] ?? false);
-    $okCode = ($codeStr === null) || ($codeStr === '0');
-    $ok = $okHttp && $okCode;
-
-    return [
-        'ok' => $ok,
-        'code' => $ok ? null : ($codeStr ?: 'UNKNOWN'),
-        'message' => $ok ? null : ($msgStr ?: 'Unknown error'),
-    ];
-}
-
-/**
- * Best-effort extractor for Lazada created item_id from /product/create response.
- * Lazada responses vary by region/version; we try a few common shapes.
- */
-private function extractCreatedItemId(array $result): ?string
-{
-    $body = $result['body'] ?? null;
-    if (!is_array($body)) {
-        return null;
-    }
-
-    // Common shapes:
-    // {"data": {"item_id": "123"}}
-    // {"data": {"item_id": 123}}
-    // {"item_id": "123"}
-    $candidates = [
-        data_get($body, 'data.item_id'),
-        data_get($body, 'data.itemId'),
-        data_get($body, 'item_id'),
-        data_get($body, 'itemId'),
-        data_get($body, 'ItemId'),
-    ];
-
-    foreach ($candidates as $v) {
-        if (is_numeric($v)) {
-            return (string) $v;
-        }
-        if (is_string($v) && trim($v) !== '') {
-            return trim($v);
-        }
-    }
-
-    return null;
-}
 
 
 private function persistProductSyncStatus(LazadaProduct $listing, string $action, array $result, ?string $pushSource = null): void
 {
-    $e = $this->extractLazadaError($result);
+    $e = $this->payload()->extractLazadaError($result);
 
     $listing->last_synced_at = now();
     $listing->last_sync_action = $action;
@@ -620,7 +336,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $optionRowsByProductId = collect();
         if (!empty($pageIds)) {
             $productThumbsById = $products->mapWithKeys(function ($r) {
-                return [(int) $r->product_id => $this->toDisplayImageUrl($r->image ?? null)];
+                return [(int) $r->product_id => $this->images()->toDisplayImageUrl($r->image ?? null)];
             });
             $optionRowsByProductId = \App\Support\VariationRows::forProducts($pageIds);
         }
@@ -798,7 +514,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         }
 
         // Build ERP variant SKUs + quantities
-        $variantSkus = $this->getErpVariantStockByProductId($productId);
+        $variantSkus = $this->payload()->getErpVariantStockByProductId($productId);
         if (empty($variantSkus)) {
             $sku = trim((string) ($product->sku ?? ''));
             if ($sku === '') {
@@ -827,7 +543,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 continue;
             }
             $qty = max(0, (int)($v['quantity'] ?? 0));
-            $payloadXml = $this->buildQuantityUpdateXml($skuId, $qty);
+            $payloadXml = $this->payload()->buildQuantityUpdateXml($skuId, $qty);
 
             $timestamp = (string) round(microtime(true) * 1000);
             $params = [
@@ -854,7 +570,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 'user_id' => auth()->id(),
             ]);
 
-            $e = $this->extractLazadaError($result);
+            $e = $this->payload()->extractLazadaError($result);
             if ($e['ok']) {
                 $ok++;
             } else {
@@ -935,7 +651,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         // If product has option SKUs, sync all variant prices (base +/- option adjustment).
         // Otherwise, sync main product SKU.
-        $variantPrices = $this->getErpVariantPricesByProductId($productId, $basePrice);
+        $variantPrices = $this->payload()->getErpVariantPricesByProductId($productId, $basePrice);
         if (empty($variantPrices)) {
             $sku = trim((string) ($product->sku ?? ''));
             if ($sku === '') {
@@ -950,7 +666,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         // Apply markup to all variant prices
         foreach ($variantPrices as &$vp) {
-            $vp['price'] = self::computeFinalPrice((float) $vp['price'], $fixedMarkup, $percentMarkup);
+            $vp['price'] = LazadaPushPayload::computeFinalPrice((float) $vp['price'], $fixedMarkup, $percentMarkup);
         }
         unset($vp);
 
@@ -972,7 +688,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             $price = (float)($v['price'] ?? 0);
             if ($price < 0) $price = 0;
             $priceStr = number_format($price, 2, '.', '');
-            $payloadXml = $this->buildPriceUpdateXml($skuId, $priceStr);
+            $payloadXml = $this->payload()->buildPriceUpdateXml($skuId, $priceStr);
 
             $timestamp = (string) round(microtime(true) * 1000);
             $params = [
@@ -999,7 +715,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 'user_id' => auth()->id(),
             ]);
 
-            $e = $this->extractLazadaError($result);
+            $e = $this->payload()->extractLazadaError($result);
             if ($e['ok']) {
                 $ok++;
             } else {
@@ -1054,7 +770,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $mainSku = trim((string) ($product->sku ?? ''));
 
         // For products with options, remove all variant SKUs (SellerSku list) when possible.
-        $variantSkus = $this->getErpVariantStockByProductId($productId);
+        $variantSkus = $this->payload()->getErpVariantStockByProductId($productId);
         $sellerSkuList = [];
         foreach ($variantSkus as $v) {
             $s = trim((string)($v['seller_sku'] ?? ''));
@@ -1127,7 +843,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $result = $client->post((string) $setting->region, $apiPath, $params);
         $attempts[] = ['method' => 'POST', 'params' => $params, 'result' => $result];
 
-        $err = $this->extractLazadaError($result);
+        $err = $this->payload()->extractLazadaError($result);
         if (!empty($err['code']) && (string) $err['code'] === '6') {
             $paramsRetry = $params;
             $paramsRetry['timestamp'] = (string) round(microtime(true) * 1000);
@@ -1139,7 +855,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $this->persistProductSyncStatus($listing, 'delete_from_lazada', $result);
 
         // If delete is successful, mark as deleted locally and clear lazada_item_id.
-        $e = $this->extractLazadaError($result);
+        $e = $this->payload()->extractLazadaError($result);
         if (!empty($e['ok'])) {
             try {
                 $listing->lazada_item_id = null;
@@ -1173,7 +889,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         ActivityLogger::log('deleted', 'Lazada Product', $listing->id, 'ERP #' . (int)$listing->product_id);
 
         return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-            ->with('status', $this->formatLazadaResultMessage('Delete (Lazada)', $result));
+            ->with('status', $this->payload()->formatLazadaResultMessage('Delete (Lazada)', $result));
     }
 
     // ── Unlink Product from Lazada ──────────────────────────────────
@@ -1295,7 +1011,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $matchedItemId = null;
         $matchCount = 0;
         foreach ($allSkus as $s) {
-            [$found, $count] = $this->findLazadaItemBySku($setting, $client, $s);
+            [$found, $count] = $this->matcher()->findLazadaItemBySku($setting, $client, $s);
             if ($found) {
                 $matchedItemId = $found;
                 $matchCount = $count;
@@ -1382,8 +1098,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         // Build payload from listing mapping. If mapping is incomplete, we do not send an invalid payload.
         try {
-            [$productPayload, $preview] = $this->buildLazadaProductCreatePayload($listing, $setting, $client);
-            $productPayload = $this->ensureLazadaInlinkImages($productPayload, $setting, $client);
+            [$productPayload, $preview] = $this->payload()->buildLazadaProductCreatePayload($listing, $setting, $client);
+            $productPayload = $this->images()->ensureLazadaInlinkImages($productPayload, $setting, $client);
         } catch (\Illuminate\Validation\ValidationException $e) {
             $msg = collect($e->errors())->flatten()->first() ?: 'Listing mapping is incomplete.';
             $this->persistProductSyncStatus($listing, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'VALIDATION_ERROR', 'message' => (string)$msg]]);
@@ -1424,7 +1140,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $this->persistProductSyncStatus($listing, 'upload_to_lazada', $result, 'listing');
 
         // If successful, store lazada_item_id (create) or refresh variants (update).
-        $e = $this->extractLazadaError($result);
+        $e = $this->payload()->extractLazadaError($result);
         if (!empty($e['ok'])) {
             if ($isUpdate) {
                 // Refresh variant cache after update
@@ -1433,7 +1149,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                     ->with('status', 'Product updated on Lazada successfully.');
             }
 
-            $itemId = $this->extractCreatedItemId($result);
+            $itemId = $this->payload()->extractCreatedItemId($result);
             try {
                 if ($itemId) {
                     $listing->lazada_item_id = $itemId;
@@ -1532,7 +1248,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         ]);
 
         return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-            ->with('status', $this->formatLazadaResultMessage('Upload', $result));
+            ->with('status', $this->payload()->formatLazadaResultMessage('Upload', $result));
     }
 
     /**
@@ -1597,7 +1313,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             return redirect()->back()->with('error', 'Could not resolve this listing\'s Lazada SKU ids. Open the listing to refresh its variants, then try again.');
         }
 
-        $variantPrices = $this->getErpVariantPricesByProductId((int) $listing->product_id, $basePrice);
+        $variantPrices = $this->payload()->getErpVariantPricesByProductId((int) $listing->product_id, $basePrice);
         if (empty($variantPrices)) {
             $sku = trim((string) ($product->sku ?? ''));
             if ($sku === '') {
@@ -1623,13 +1339,13 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 continue;
             }
 
-            $price = self::computeFinalPrice((float) ($v['price'] ?? 0), $fixedMarkup, $percentMarkup);
+            $price = LazadaPushPayload::computeFinalPrice((float) ($v['price'] ?? 0), $fixedMarkup, $percentMarkup);
             $priceStr = number_format(max(0, $price), 2, '.', '');
             $saleStr = $ending
                 ? '0'
                 : number_format(max(0.01, round($price * (1 - $pct / 100), 2)), 2, '.', '');
 
-            $payloadXml = $this->buildPriceUpdateXml(
+            $payloadXml = $this->payload()->buildPriceUpdateXml(
                 (int) $skuId,
                 $priceStr,
                 $saleStr,
@@ -1665,7 +1381,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 'user_id' => auth()->id(),
             ]);
 
-            $e = $this->extractLazadaError($result);
+            $e = $this->payload()->extractLazadaError($result);
             if ($e['ok']) {
                 $ok++;
             } else {
@@ -1761,7 +1477,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'response_body' => $res['body'] ?? null, 'user_id' => auth()->id(),
         ]);
 
-        $e = $this->extractLazadaError($res);
+        $e = $this->payload()->extractLazadaError($res);
         if (! ($e['ok'] ?? false)) {
             return ['ok' => false, 'message' => (string) ($e['message'] ?? 'Lazada refused the read.')];
         }
@@ -1881,7 +1597,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'ok' => (bool) ($result['ok'] ?? false),
             'response_body' => $result['body'] ?? null, 'user_id' => auth()->id(),
         ]);
-        $e = $this->extractLazadaError($result);
+        $e = $this->payload()->extractLazadaError($result);
         if (!($e['ok'] ?? false)) {
             return ['ok' => false, 'message' => (string) ($e['message'] ?? 'Unknown error')];
         }
@@ -2024,8 +1740,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             }
 
             try {
-                [$productPayload, $preview] = $this->buildLazadaProductCreatePayload($listing, $setting, $client);
-                $productPayload = $this->ensureLazadaInlinkImages($productPayload, $setting, $client);
+                [$productPayload, $preview] = $this->payload()->buildLazadaProductCreatePayload($listing, $setting, $client);
+                $productPayload = $this->images()->ensureLazadaInlinkImages($productPayload, $setting, $client);
             } catch (\Illuminate\Validation\ValidationException $e) {
                 $msg = collect($e->errors())->flatten()->first() ?: 'Listing mapping is incomplete.';
                 $this->persistProductSyncStatus($listing, 'bulk_upload_to_lazada', ['ok' => false, 'body' => ['code' => 'VALIDATION_ERROR', 'message' => (string)$msg]]);
@@ -2064,10 +1780,10 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
             $this->persistProductSyncStatus($listing, $isUpdate ? 'bulk_update_on_lazada' : 'bulk_upload_to_lazada', $result, 'listing');
 
-            $e = $this->extractLazadaError($result);
+            $e = $this->payload()->extractLazadaError($result);
             if (!empty($e['ok'])) {
                 $isUpdate ? $updatedCount++ : $okCount++;
-                $itemId = $isUpdate ? null : $this->extractCreatedItemId($result);
+                $itemId = $isUpdate ? null : $this->payload()->extractCreatedItemId($result);
                 try {
                     if ($itemId) {
                         $listing->lazada_item_id = $itemId;
@@ -2143,7 +1859,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         // hit via `search`/`sku_seller_list` is a single fast call).
         $skuToItemId = null;
         if ($needSync >= 2) {
-            $map = $this->fetchLazadaSkuMap($setting, $client);
+            $map = $this->matcher()->fetchLazadaSkuMap($setting, $client);
             // Index case-insensitively: Lazada SellerSku casing may differ from
             // the ERP SKU, and the per-product matcher already uses strcasecmp.
             $skuToItemId = [];
@@ -2205,7 +1921,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             } else {
                 // Small batch: search per product, stops on first match
                 foreach ($allSkus as $s) {
-                    [$found, $count] = $this->findLazadaItemBySku($setting, $client, $s);
+                    [$found, $count] = $this->matcher()->findLazadaItemBySku($setting, $client, $s);
                     if ($found) {
                         $matchedItemId = $found;
                         $matchCount = $count;
@@ -2380,7 +2096,7 @@ public function bulkSyncQuantity(Request $request, LazadaClient $client)
                 continue;
             }
             $qty = max(0, (int)($v['quantity'] ?? 0));
-            $payloadXml = $this->buildQuantityUpdateXml($skuId, $qty);
+            $payloadXml = $this->payload()->buildQuantityUpdateXml($skuId, $qty);
 
             $timestamp = (string) round(microtime(true) * 1000);
             $params = [
@@ -2407,7 +2123,7 @@ public function bulkSyncQuantity(Request $request, LazadaClient $client)
                 'user_id' => auth()->id(),
             ]);
 
-            $e = $this->extractLazadaError($result);
+            $e = $this->payload()->extractLazadaError($result);
             if ($e['ok']) {
                 $ok++;
             } else {
@@ -2551,7 +2267,7 @@ public function bulkSyncPrice(Request $request, LazadaClient $client)
             }
         }
         foreach ($variantSkus as &$vs) {
-            $vs['price'] = self::computeFinalPrice((float) $vs['price'], $fixedMarkup, $percentMarkup);
+            $vs['price'] = LazadaPushPayload::computeFinalPrice((float) $vs['price'], $fixedMarkup, $percentMarkup);
         }
         unset($vs);
 
@@ -2569,7 +2285,7 @@ public function bulkSyncPrice(Request $request, LazadaClient $client)
             $price = (float)($v['price'] ?? 0);
             if ($price < 0) $price = 0;
             $priceStr = number_format($price, 2, '.', '');
-            $payloadXml = $this->buildPriceUpdateXml($skuId, $priceStr);
+            $payloadXml = $this->payload()->buildPriceUpdateXml($skuId, $priceStr);
 
             $timestamp = (string) round(microtime(true) * 1000);
             $params = [
@@ -2596,7 +2312,7 @@ public function bulkSyncPrice(Request $request, LazadaClient $client)
                 'user_id' => auth()->id(),
             ]);
 
-            $e = $this->extractLazadaError($result);
+            $e = $this->payload()->extractLazadaError($result);
             if ($e['ok']) {
                 $ok++;
             } else {
@@ -2665,7 +2381,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $productId = (int) ($product->product_id ?? 0);
         $mainSku = trim((string) ($product->sku ?? ''));
 
-        $variantSkus = $this->getErpVariantStockByProductId($productId);
+        $variantSkus = $this->payload()->getErpVariantStockByProductId($productId);
         $sellerSkuList = [];
         foreach ($variantSkus as $v) {
             $s = trim((string)($v['seller_sku'] ?? ''));
@@ -2724,7 +2440,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
         $result = $client->post((string) $setting->region, $apiPath, $params);
 
-        $err = $this->extractLazadaError($result);
+        $err = $this->payload()->extractLazadaError($result);
         if (!empty($err['code']) && (string) $err['code'] === '6') {
             $paramsRetry = $params;
             $paramsRetry['timestamp'] = (string) round(microtime(true) * 1000);
@@ -2734,7 +2450,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
         $this->persistProductSyncStatus($listing, 'bulk_delete_from_lazada', $result);
 
-        $e = $this->extractLazadaError($result);
+        $e = $this->payload()->extractLazadaError($result);
         if (!empty($e['ok'])) {
             $okCount++;
             try {
@@ -2974,7 +2690,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $suggested = $this->attrs()->suggestForAttributes($attributes, $productRow, $saved);
 
         // For display, so browser facing rather than Lazada facing.
-        $productImageUrl = $this->toDisplayImageUrl($productRow->image ?? null);
+        $productImageUrl = $this->images()->toDisplayImageUrl($productRow->image ?? null);
 
         // Brand suggestions
         $brandSuggestion = $this->attrs()->suggestBrandFromManufacturer($productRow->manufacturer_name ?? null);
@@ -3058,7 +2774,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             }
         }
 
-        $listing->total_price = self::computeFinalPrice($erpPrice, $fixedMarkup, $percentMarkup);
+        $listing->total_price = LazadaPushPayload::computeFinalPrice($erpPrice, $fixedMarkup, $percentMarkup);
         $listing->save();
 
         ActivityLogger::log('updated', 'Lazada Product', $listing->id, 'ERP #' . (int)$listing->product_id);
@@ -3419,8 +3135,8 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ]);
 
         // Images are mandatory for Lazada product creation.
-        $imageUrls = $this->getProductImageUrls((int)$listing->product_id, $productRow);
-        $imageUrls = array_values(array_filter(array_map(fn($u) => $this->normalizeImageUrl((string)$u), $imageUrls)));
+        $imageUrls = $this->images()->getProductImageUrls((int)$listing->product_id, $productRow);
+        $imageUrls = array_values(array_filter(array_map(fn($u) => $this->images()->normalizeImageUrl((string)$u), $imageUrls)));
         if (empty($imageUrls)) {
             throw \Illuminate\Validation\ValidationException::withMessages([
                 'images' => 'At least 1 product image is required. Please upload a main image (and optional additional images) in the core ERP Product page first.'
@@ -3579,8 +3295,8 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ]);
 
         // Images are mandatory for Lazada product creation.
-        $imageUrls = $this->getProductImageUrls((int)$listing->product_id, $product);
-        $imageUrls = array_values(array_filter(array_map(fn($u) => $this->normalizeImageUrl((string)$u), $imageUrls)));
+        $imageUrls = $this->images()->getProductImageUrls((int)$listing->product_id, $product);
+        $imageUrls = array_values(array_filter(array_map(fn($u) => $this->images()->normalizeImageUrl((string)$u), $imageUrls)));
         if (empty($imageUrls)) {
             throw \Illuminate\Validation\ValidationException::withMessages([
                 'images' => 'At least 1 product image is required. Please upload a main image (and optional additional images) in the core ERP Product page first.'
@@ -3613,7 +3329,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         }
 
         // Remove present-but-null values for cleaner preview.
-        $attrs = (array) $this->compactPayloadValue($attrs);
+        $attrs = (array) $this->payload()->compactPayloadValue($attrs);
 
         // Resolve __map: attribute values to actual product field values for payload.
         $attrs = $this->attrs()->resolveMapAttributes($attrs, $product);
@@ -3720,7 +3436,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
                 $erpPrice = (float)($r->absolute_price ?? $basePrice);
                 $finalPrice = $m && $m->price !== null ? (float)$m->price : $erpPrice;
-                $finalPrice = self::computeFinalPrice($finalPrice, $effectiveFixed, $effectivePercent);
+                $finalPrice = LazadaPushPayload::computeFinalPrice($finalPrice, $effectiveFixed, $effectivePercent);
                 $skus[] = [
                     'product_option_value_id' => (int)$r->product_option_value_id,
                     'seller_sku' => $candidate,
@@ -3833,7 +3549,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
         // Build a Lazada-ready product payload (best-effort). We'll learn from QC errors and iterate.
         try {
-            [$productPayload, $preview] = $this->buildLazadaProductCreatePayload($listing, $setting, $client);
+            [$productPayload, $preview] = $this->payload()->buildLazadaProductCreatePayload($listing, $setting, $client);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return redirect()->route('ext.lazada.products.edit', $listing->id)
                 ->withErrors($e->errors())
@@ -3843,7 +3559,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         // Lazada QC rejects non-Lazada image URLs (outer links).
         // Convert ERP/public image URLs to Lazada inlinks before pushing.
         try {
-            $productPayload = $this->ensureLazadaInlinkImages($productPayload, $setting, $client);
+            $productPayload = $this->images()->ensureLazadaInlinkImages($productPayload, $setting, $client);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return redirect()->route('ext.lazada.products.edit', $listing->id)
                 ->withErrors($e->errors())
@@ -3886,939 +3602,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ->with('push_response_json', json_encode($result['body'] ?? $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 
-    /**
-     * Lazada requires "inlink" images for product create/update.
-     * If we send non-Lazada URLs, QC returns BIZ_CHECK_EXIST_OUTER_MAIN_IMAGE.
-     */
-    public function ensureLazadaInlinkImages(array $productPayload, $setting, LazadaClient $client): array
-    {
-        $creds = LazadaSetting::activeCredentials($setting);
-
-        $images = data_get($productPayload, 'Request.Product.Images.Image', []);
-        if (!is_array($images) || empty($images)) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'images' => 'At least 1 product image is required. (Product.Images.Image is empty.)'
-            ]);
-        }
-
-        $images = array_values(array_filter($images, fn($v) => is_string($v) && trim($v) !== ''));
-        if (empty($images)) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'images' => 'At least 1 product image is required. (No valid image URL found.)'
-            ]);
-        }
-
-        // Lazada migration APIs support up to 8 images per call; keep it predictable.
-        $images = array_slice($images, 0, 8);
-
-        // Reject localhost/private URLs: Lazada cannot fetch them.
-        foreach ($images as $u) {
-            $host = strtolower((string) parse_url($u, PHP_URL_HOST));
-            if ($host === '' || in_array($host, ['localhost', '127.0.0.1', '0.0.0.0'], true)) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'images' => 'Your image URLs are using a local host (e.g., localhost). Lazada cannot access these. Please set APP_URL to your public domain and ensure the images are publicly reachable.'
-                ]);
-            }
-        }
-
-        $region = (string) $setting->region;
-        $inlinks = $this->migrateImagesToLazadaInlinks(
-            $region,
-            $images,
-            (string) $creds['app_key'],
-            (string) $creds['app_secret'],
-            (string) $creds['access_token'],
-            $client
-        );
-
-        // Build an original->inlink map so we can sanitize SKU-level images reliably.
-        $imageMap = [];
-        foreach ($images as $i => $orig) {
-            $orig = is_string($orig) ? trim($orig) : '';
-            $in = $inlinks[$i] ?? null;
-            if ($orig !== '' && is_string($in) && trim($in) !== '') {
-                $imageMap[$orig] = $in;
-            }
-        }
-
-        data_set($productPayload, 'Request.Product.Images.Image', $inlinks);
-
-        // Sanitize SKU-level images:
-        // Lazada rejects *any* non-Lazada URLs at SKU Images. Option images are optional,
-        // so if we can't safely migrate them, we drop them.
-        $skuRows = data_get($productPayload, 'Request.Product.Skus.Sku', []);
-        if (is_array($skuRows)) {
-            foreach ($skuRows as $idx => $row) {
-                if (!is_array($row)) {
-                    continue;
-                }
-
-                $skuImgs = data_get($row, 'Images.Image');
-                if (!is_array($skuImgs)) {
-                    $skuImgs = [];
-                }
-
-                $skuImgs = array_values(array_filter(array_map(fn($u) => is_string($u) ? trim($u) : '', $skuImgs), fn($u) => $u !== ''));
-
-                if (!empty($skuImgs)) {
-                    $clean = [];
-                    foreach ($skuImgs as $u) {
-                        // Already a Lazada inlink -> keep
-                        if ($this->isLazadaInlinkUrl($u)) {
-                            $clean[] = $u;
-                            continue;
-                        }
-
-                        // If it matches a product image we already migrated, reuse its inlink.
-                        if (isset($imageMap[$u]) && $this->isLazadaInlinkUrl($imageMap[$u])) {
-                            $clean[] = $imageMap[$u];
-                            continue;
-                        }
-
-                        // Best-effort: migrate this SKU image. If migration fails, drop it.
-                        $newUrl = $this->migrateSingleImageXml(
-                            $region,
-                            $u,
-                            (string) $creds['app_key'],
-                            (string) $creds['app_secret'],
-                            (string) $creds['access_token'],
-                            $client
-                        );
-                        if (is_string($newUrl) && $newUrl !== '' && $this->isLazadaInlinkUrl($newUrl)) {
-                            $clean[] = $newUrl;
-                        }
-                    }
-
-                    $clean = array_values(array_unique($clean));
-                    if (!empty($clean)) {
-                        $row['Images'] = ['Image' => array_slice($clean, 0, 8)];
-                    } else {
-                        unset($row['Images']);
-                    }
-                } else {
-                    // If empty/invalid, remove Images key to avoid sending blanks.
-                    if (isset($row['Images'])) {
-                        unset($row['Images']);
-                    }
-                }
-
-                $skuRows[$idx] = $row;
-            }
-
-            data_set($productPayload, 'Request.Product.Skus.Sku', $skuRows);
-        }
-
-        // SKU-level main image: force first SKU image to the first inlink.
-        $first = $inlinks[0] ?? null;
-        if ($first && $this->isLazadaInlinkUrl((string)$first)) {
-            $sku0 = data_get($productPayload, 'Request.Product.Skus.Sku.0');
-            if (is_array($sku0)) {
-                $sku0['Images'] = ['Image' => [(string)$first]];
-                data_set($productPayload, 'Request.Product.Skus.Sku.0', $sku0);
-            }
-        }
-
-        return $productPayload;
-    }
-
-    /**
-     * Determine whether a URL is a Lazada inlink (i.e., Lazada-hosted image URL).
-     *
-     * Lazada rejects non-Lazada URLs in SKU Images (BIZ_CHECK_EXIST_OUTER_SKU_IMAGE).
-     */
-    private function isLazadaInlinkUrl(string $url): bool
-    {
-        $url = trim($url);
-        if ($url === '') return false;
-        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
-        if ($host === '') return false;
-
-        // Common Lazada/CDN hosts across regions and sandbox.
-        if (str_ends_with($host, 'slatic.net')) return true;
-        if (str_ends_with($host, 'lazcdn.com')) return true;
-        if (str_contains($host, 'lazada')) return true; // defensive
-
-        return false;
-    }
-
-    /**
-     * Convert external/public image URLs to Lazada inlinks.
-     *
-     * IMPORTANT: We use /image/migrate (single-image) only.
-     * Lazada's product APIs do not allow non-Lazada URLs in Images, and /image/migrate
-     * returns the inlink immediately (data.image.url). This avoids the batch polling
-     * complexity (/images/migrate + /image/response/get) that caused repeated format/
-     * method errors during testing.
-     */
-    private function migrateImagesToLazadaInlinks(string $region, array $imageUrls, string $appKey, string $appSecret, string $accessToken, LazadaClient $client): array
-    {
-    $imageUrls = array_values(array_filter(array_map(fn($u) => trim((string)$u), $imageUrls), fn($u) => $u !== ''));
-    $imageUrls = array_slice($imageUrls, 0, 8);
-
-    // Keep Lazada inlinks as-is (no need to re-migrate).
-    // This also prevents us from accidentally sending an outer URL to /image/migrate.
-    $already = [];
-    $needsInput = [];
-    foreach ($imageUrls as $u) {
-        if ($this->isLazadaInlinkUrl($u)) {
-            $already[$u] = $u;
-        } else {
-            $needsInput[] = $u;
-        }
-    }
-
-    // Serve from cache first.
-    $out = [];
-    $needs = [];
-    foreach ($needsInput as $url) {
-        $hash = hash('sha256', $url);
-        $cached = LazadaImageLink::query()
-            ->where('region', $region)
-            ->where('original_hash', $hash)
-            ->value('lazada_url');
-        if ($cached) {
-            $out[$url] = $cached;
-        } else {
-            $needs[] = $url;
-        }
-    }
-
-    if (!empty($needs)) {
-        // Prefer batch migration first (faster for multiple images). If it fails or partially succeeds,
-        // fall back to the proven single-image migrate call.
-        $batchMap = $this->tryMigrateBatchImagesXml($region, $needs, $appKey, $appSecret, $accessToken, $client);
-
-        foreach ($needs as $originalUrl) {
-            $newUrl = $batchMap[$originalUrl] ?? null;
-            if (!is_string($newUrl) || trim($newUrl) === '') {
-                $newUrl = $this->migrateSingleImageXml($region, $originalUrl, $appKey, $appSecret, $accessToken, $client);
-            }
-
-            if (!$newUrl) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'images' => 'Failed to migrate image to Lazada inlink. Please ensure the image URL is public and reachable.'
-                ]);
-            }
-
-            $hash = hash('sha256', $originalUrl);
-            LazadaImageLink::query()->updateOrCreate(
-                ['region' => $region, 'original_hash' => $hash],
-                ['original_url' => $originalUrl, 'lazada_url' => $newUrl]
-            );
-            $out[$originalUrl] = $newUrl;
-        }
-    }
-
-    // Return in the same order as input.
-    $ordered = [];
-    foreach ($imageUrls as $u) {
-        if (isset($already[$u])) {
-            $ordered[] = $already[$u];
-            continue;
-        }
-        if (isset($out[$u])) $ordered[] = $out[$u];
-    }
-
-    if (empty($ordered)) {
-        throw \Illuminate\Validation\ValidationException::withMessages([
-            'images' => 'Unable to prepare Lazada image links. No images were migrated.'
-        ]);
-    }
-
-    return $ordered;
-    }
-
-    /**
-     * Migrate a single image using /image/migrate with the proven XML payload.
-     * Returns Lazada inlink (data.image.url) or null on failure.
-     */
-    private function migrateSingleImageXml(string $region, string $url, string $appKey, string $appSecret, string $accessToken, LazadaClient $client): ?string
-    {
-        $apiPath = '/image/migrate';
-
-        // Lazada API Explorer + SDK example format
-        $xml = '<?xml version="1.0" encoding="UTF-8" ?>'
-            . '<Request>'
-            . '<Image><Url>' . htmlspecialchars($url, ENT_XML1) . '</Url></Image>'
-            . '</Request>';
-
-        $timestamp = (string) round(microtime(true) * 1000);
-        $params = [
-            'app_key' => $appKey,
-            'sign_method' => 'sha256',
-            'timestamp' => $timestamp,
-            'access_token' => $accessToken,
-            'payload' => $xml,
-        ];
-
-        $params['sign'] = $client->sign($apiPath, $params, $appSecret);
-        $resp = $client->post($region, $apiPath, $params);
-        $body = $resp['body'] ?? [];
-
-        $inlink = data_get($body, 'data.image.url') ?? data_get($body, 'data.image.Url');
-        $ok = is_string($inlink) && $inlink !== '';
-
-        LazadaApiLog::safeCreate([
-            'pack'            => 'lazada.image.migrate.single',
-            'method'          => 'POST',
-            'api_path'        => $apiPath,
-            'auth_required'   => true,
-            'request_params'  => $params,
-            'response_status' => (int) ($resp['status'] ?? 0),
-            'ok'              => $ok,
-            'response_body'   => $body,
-            'user_id'         => auth()->id(),
-        ]);
-
-        return $ok ? $inlink : null;
-    }
-
-private function tryMigrateBatchImagesXml(string $region, array $urls, string $appKey, string $appSecret, string $accessToken, LazadaClient $client): array
-{
-    $urls = array_values(array_slice(array_filter(array_map(fn($u) => trim((string)$u), $urls), fn($u) => $u !== ''), 0, 8));
-    if (empty($urls)) return [];
-
-    $apiPath = '/images/migrate';
-
-    // Prepare candidate request formats.
-    $candidates = [];
-
-    // A) XML payload under "payload"
-    $xml = '<?xml version="1.0" encoding="UTF-8" ?>'
-        . '<Request><Images>'
-        . implode('', array_map(fn($u) => '<Url>' . htmlspecialchars($u, ENT_XML1) . '</Url>', $urls))
-        . '</Images></Request>';
-    $candidates[] = ['payload' => $xml];
-
-    // B) JSON payload under "payload"
-    $json = json_encode(['Request' => ['Images' => ['Url' => $urls]]], JSON_UNESCAPED_SLASHES);
-    if (is_string($json)) {
-        $candidates[] = ['payload' => $json];
-    }
-
-    // C) Direct param list (some gateways)
-    $candidates[] = ['urls' => json_encode($urls, JSON_UNESCAPED_SLASHES)];
-
-    foreach ($candidates as $extra) {
-        $timestamp = (string) round(microtime(true) * 1000);
-        $params = array_merge([
-            'app_key' => $appKey,
-            'sign_method' => 'sha256',
-            'timestamp' => $timestamp,
-            'access_token' => $accessToken,
-        ], $extra);
-        $params['sign'] = $client->sign($apiPath, $params, $appSecret);
-
-        $resp = $client->post($region, $apiPath, $params);
-        $body = $resp['body'] ?? [];
-
-        $batchId = data_get($body, 'batch_id')
-            ?? data_get($body, 'data.batch_id')
-            ?? data_get($body, 'data.batchId')
-            ?? data_get($body, 'request_id')
-            ?? data_get($body, 'data.request_id')
-            ?? data_get($body, 'data.requestId');
-
-        LazadaApiLog::safeCreate([
-            'pack'            => 'lazada.images.migrate.batch',
-            'method'          => 'POST',
-            'api_path'        => $apiPath,
-            'auth_required'   => true,
-            'request_params'  => $params,
-            'response_status' => (int) ($resp['status'] ?? 0),
-            'ok'              => (bool) $batchId,
-            'response_body'   => $body,
-            'user_id'         => auth()->id(),
-        ]);
-
-        if (!$batchId) {
-            continue;
-        }
-
-        usleep(650000);
-
-        $apiPath2 = '/image/response/get';
-
-        // Lazada docs often show GET, but in production some gateways are strict.
-        // Try POST (form) first, then GET as fallback.
-        foreach (['batch_id', 'request_id'] as $idKey) {
-            $timestamp2 = (string) round(microtime(true) * 1000);
-            $params2 = [
-                'app_key' => $appKey,
-                'sign_method' => 'sha256',
-                'timestamp' => $timestamp2,
-                'access_token' => $accessToken,
-                $idKey => (string) $batchId,
-            ];
-            $params2['sign'] = $client->sign($apiPath2, $params2, $appSecret);
-
-            $resp2 = $client->post($region, $apiPath2, $params2);
-            $body2 = $resp2['body'] ?? [];
-
-            $code2 = is_array($body2) ? (string)($body2['code'] ?? '') : '';
-            if (!($resp2['ok'] ?? false) || ($code2 !== '' && $code2 !== '0')) {
-                $params2['sign'] = $client->sign($apiPath2, $params2, $appSecret);
-                $resp2 = $client->get($region, $apiPath2, $params2);
-                $body2 = $resp2['body'] ?? [];
-            }
-
-            $items = data_get($body2, 'data.images')
-                ?? data_get($body2, 'data.image')
-                ?? data_get($body2, 'data')
-                ?? data_get($body2, 'result')
-                ?? [];
-
-            if (isset($items['images']) && is_array($items['images'])) $items = $items['images'];
-            if (isset($items['Images']) && is_array($items['Images'])) $items = $items['Images'];
-            if (isset($items['image']) && is_array($items['image'])) $items = $items['image'];
-            if (isset($items['Image']) && is_array($items['Image'])) $items = $items['Image'];
-
-            $migrated = [];
-            if (is_array($items)) {
-                foreach ($items as $it) {
-                    if (is_string($it)) {
-                        $migrated[] = $it;
-                        continue;
-                    }
-                    if (!is_array($it)) continue;
-
-                    $migrated[] = $it['url']
-                        ?? $it['Url']
-                        ?? ($it['image']['url'] ?? null)
-                        ?? ($it['image']['Url'] ?? null)
-                        ?? $it['image']
-                        ?? $it['image_url']
-                        ?? null;
-                }
-            }
-
-            $migrated = array_values(array_filter($migrated, fn($v) => is_string($v) && $v !== ''));
-
-            if (count($migrated) === count($urls)) {
-                $map = [];
-                foreach ($urls as $i => $orig) {
-                    $map[$orig] = $migrated[$i] ?? null;
-                }
-                return $map;
-            }
-        }
-    }
-
-    return array_fill_keys($urls, null);
-}
-
-    public function buildLazadaProductCreatePayload(LazadaProduct $listing, ?object $setting = null, ?LazadaClient $client = null): array
-    {
-        $pfx = (string) config('catalog.prefix');
-        $langId = (int) config('catalog.default_language_id');
-
-        $product = DB::table($pfx.'product as p')
-            ->leftJoin($pfx.'product_description as pd', function ($j) use ($langId) {
-                $j->on('p.product_id', '=', 'pd.product_id')
-                    ->where('pd.language_id', '=', $langId);
-            })
-            ->leftJoin($pfx.'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
-            ->where('p.product_id', (int)$listing->product_id)
-            ->first([
-                'p.product_id','p.sku','p.model','p.image','p.price','p.quantity',
-                'p.weight','p.length','p.width','p.height','p.date_modified',
-                'p.upc','p.ean','p.jan','p.isbn','p.mpn',
-                'pd.name','pd.description','pd.meta_title','pd.meta_description',
-                'm.name as manufacturer_name',
-            ]);
-
-        // Images are mandatory for Lazada product creation.
-        // Lazada checks Product.Images.Image (and sometimes Sku.Images.Image) for main image.
-        $imageUrls = $this->getProductImageUrls((int)$listing->product_id, $product);
-        $imageUrls = array_values(array_filter(array_map(fn($u) => $this->normalizeImageUrl((string)$u), $imageUrls)));
-        if (empty($imageUrls)) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'images' => 'At least 1 product image is required. Please upload a main image (and optional additional images) in the core ERP Product page first.'
-            ]);
-        }
-
-        $attrs = LazadaProductAttribute::query()
-            ->where('lazada_product_id', $listing->id)
-            ->pluck('value', 'attribute_key')
-            ->toArray();
-
-        // Internal/legacy key - do not send to Lazada as it does not satisfy QC.
-        unset($attrs['__images__']);
-
-        // Remove present-but-null values early; Lazada treats them as blank (C004).
-        $attrs = (array) $this->compactPayloadValue($attrs);
-
-        // Ensure Brand attributes are present.
-        // Lazada examples show using brand name ("No Brand") and/or brand_id for registered brands.
-        // We keep this logic defensive for sandbox testing where brand libraries may be incomplete.
-        $brandOverride = trim((string)($listing->brand_name_override ?? ''));
-        $brandId = (int)($listing->brand_id ?? 0);
-
-        $isNoBrand = $brandOverride !== '' && strtolower($brandOverride) === 'no brand';
-
-        if ($isNoBrand) {
-            $attrs['brand'] = 'No Brand';
-            unset($attrs['brand_id']);
-        } elseif ($brandId > 0) {
-            $brandName = LazadaBrand::query()
-                ->where('region', $this->region())
-                ->where('brand_id', $brandId)
-                ->value('name');
-
-            // Provide both brand (name) + brand_id to satisfy "brand is mandatory" checks while remaining compatible.
-            $attrs['brand'] = $brandName ? (string)$brandName : (string)$brandId;
-            $attrs['brand_id'] = $brandId;
-        } else {
-            // For payload preview and smoother sandbox testing, default to Lazada's "No Brand"
-            // when no brand_id is selected and the No-Brand marker isn't set.
-            // Lazada commonly treats "No Brand" as a valid brand value in Seller Center.
-            $attrs['brand'] = 'No Brand';
-            unset($attrs['brand_id']);
-        }
-
-        // Base SKU row (no variants) OR per-option-value rows.
-        // We also pull option/value names so we can map them to Lazada variation attributes.
-        $povRows = DB::table($pfx.'product_option_value as pov')
-            ->leftJoin($pfx.'option_description as od', function ($j) use ($langId) {
-                $j->on('pov.option_id', '=', 'od.option_id')
-                    ->where('od.language_id', '=', $langId);
-            })
-            ->leftJoin($pfx.'option_value_description as ovd', function ($j) use ($langId) {
-                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
-                    ->where('ovd.language_id', '=', $langId);
-            })
-            ->where('pov.product_id', (int)$listing->product_id)
-            ->orderBy('pov.product_option_value_id')
-            ->get([
-                'pov.product_option_value_id',
-                'pov.option_id',
-                'pov.option_value_id',
-                'pov.sku',
-                'pov.quantity',
-                'pov.absolute_price',
-                'od.name as option_name',
-                'ovd.name as option_value_name',
-            ]);
-
-        $map = LazadaProductVariant::query()
-            ->where('lazada_product_id', $listing->id)
-            ->get()
-            ->keyBy(function ($v) {
-                return $v->product_option_value_id === null ? 'base' : (string)$v->product_option_value_id;
-            });
-
-        // Resolve __map: attribute values to actual product field values.
-        $attrs = $this->attrs()->resolveMapAttributes($attrs, $product);
-
-        // SellerSku fallback: sku then model.
-        $fallbackBaseSku = null;
-        if ($product) {
-            $fallbackBaseSku = trim((string)($product->sku ?? ''));
-            if ($fallbackBaseSku === '') {
-                $fallbackBaseSku = trim((string)($product->model ?? ''));
-            }
-            if ($fallbackBaseSku === '') {
-                $fallbackBaseSku = null;
-            }
-        }
-
-        $skus = [];
-        $basePrice = (float)($product->price ?? 0);
-        $usedSellerSkus = [];
-
-        // Effective markup for variant price computation
-        $effectiveFixed = $listing->markup_fixed;
-        $effectivePercent = $listing->markup_percent;
-        if ($effectiveFixed === null && $effectivePercent === null) {
-            $mkGroup = $listing->groups()->first();
-            if ($mkGroup) {
-                $effectiveFixed = $mkGroup->markup_fixed;
-                $effectivePercent = $mkGroup->markup_percent;
-            }
-        }
-
-        // If we have ERP option rows, Lazada requires *variation attributes* (aka sale props) per SKU.
-        // Otherwise, Lazada will reject multi-SKU products with CHK_SKU_PROPS_DUPLICATE.
-        // Multi-option products are stored in product_option_combinations (each combo = one SKU).
-        // Single-option products store variant data directly on product_option_value rows.
-        // We map ERP option value(s) onto Lazada sale-prop keys for the category.
-        $variantKeys = [];
-        $combos = collect();
-        $comboValuesByCombo = collect();
-        if ($povRows->count() > 0) {
-            $optionIds = $povRows->pluck('option_id')->filter()->unique()->values();
-
-            $combos = DB::table('product_option_combinations as poc')
-                ->where('poc.product_id', (int)$listing->product_id)
-                ->orderBy('poc.sort_order')
-                ->get();
-
-            if ($combos->isNotEmpty()) {
-                $comboIds = $combos->pluck('id')->toArray();
-                $comboValuesByCombo = DB::table('product_option_combination_values as pocv')
-                    ->join($pfx . 'product_option_value as pov2', 'pocv.product_option_value_id', '=', 'pov2.product_option_value_id')
-                    ->join($pfx . 'option_description as od', function ($j) use ($langId) {
-                        $j->on('pov2.option_id', '=', 'od.option_id')
-                            ->where('od.language_id', '=', $langId);
-                    })
-                    ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                        $j->on('pov2.option_value_id', '=', 'ovd.option_value_id')
-                            ->where('ovd.language_id', '=', $langId);
-                    })
-                    ->whereIn('pocv.combination_id', $comboIds)
-                    ->select(
-                        'pocv.combination_id',
-                        'pov2.option_id',
-                        'od.name as option_name',
-                        'ovd.name as value_name'
-                    )
-                    ->orderBy('pocv.combination_id')
-                    ->orderBy('pov2.option_id')
-                    ->get()
-                    ->groupBy('combination_id');
-            } elseif ($optionIds->count() > 1) {
-                // Multi-option product without a combinations row — the saver should have populated them.
-                // Bail rather than uploading wrong data.
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'variants' => 'This ERP product has multiple option groups but no combinations stored. Re-save the product to populate combinations, then retry.'
-                ]);
-            }
-
-            $optionNamesOrdered = $combos->isNotEmpty()
-                ? ($comboValuesByCombo->first() ?? collect())->pluck('option_name')->filter()->values()
-                : $povRows->pluck('option_name')->filter()->unique()->values();
-
-            // Resolve sale-prop keys, in priority order:
-            //   1. Live API (/category/attributes/get) — most accurate
-            //   2. Cached category template (lazada_category_templates) — survives rate limits
-            //   3. Name-based guess for single-option products only
-            //
-            // We never invent extra keys beyond what the category actually exposes — Lazada
-            // silently ignores unknown sale-prop keys, which collapses multi-SKU payloads
-            // into duplicates and triggers CHK_SKU_PROPS_DUPLICATE.
-            if ($setting && $client && !empty($listing->primary_category_id)) {
-                $variantKeys = $this->attrs()->getLazadaSalePropKeys((int)$listing->primary_category_id, $setting, $client);
-            }
-            if (empty($variantKeys) && !empty($listing->primary_category_id)) {
-                $variantKeys = $this->attrs()->cachedSalePropKeys((int)$listing->primary_category_id);
-            }
-            if (empty($variantKeys) && !$combos->isNotEmpty()) {
-                $variantKeys = $this->attrs()->guessLazadaVariantKeysFromOptionName((string)($povRows->first()->option_name ?? ''));
-            }
-            $variantKeys = array_values(array_filter(array_unique($variantKeys), fn ($k) => trim((string)$k) !== ''));
-
-            if ($combos->isNotEmpty() && count($variantKeys) < $optionNamesOrdered->count()) {
-                $allowed = count($variantKeys);
-                $have = $optionNamesOrdered->count();
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'variants' => "Lazada won't accept this product. The selected Lazada category only allows {$allowed} variation per product, but your product has {$have}. Either remove a variation, or move this listing to a Lazada category that supports {$have}."
-                ]);
-            }
-        }
-        if ($combos->isNotEmpty()) {
-            // Multi-option: each combination row is one Lazada SKU.
-            // Map ERP options to Lazada sale-prop slots POSITIONALLY (first ERP option
-            // → first Lazada key, etc.) so the ERP variation order is preserved in
-            // Lazada's UI. Semantic matching ("Color" → color_family) would put values
-            // in correctly-labeled slots but flip the display order whenever Lazada's
-            // sale-prop order differs from the ERP option order.
-            foreach ($combos as $c) {
-                $values = $comboValuesByCombo->get($c->id) ?? collect();
-
-                $candidate = trim((string)($c->sku ?? ''));
-                if ($candidate === '') {
-                    $valLabel = $values->pluck('value_name')->filter()->implode(' / ');
-                    $human = $valLabel !== '' ? ('Variant: ' . $valLabel) : 'Variant';
-                    throw \Illuminate\Validation\ValidationException::withMessages([
-                        'variants.sku' => $human . ' SKU is required before uploading to Lazada.'
-                    ]);
-                }
-                if (isset($usedSellerSkus[$candidate])) {
-                    $candidate = $candidate . '-' . (int)$c->id;
-                }
-                $usedSellerSkus[$candidate] = true;
-
-                $erpPrice = (float)($c->absolute_price ?? $basePrice);
-                $finalPrice = self::computeFinalPrice($erpPrice, $effectiveFixed, $effectivePercent);
-                $skuRow = [
-                    'SellerSku' => $candidate,
-                    'price' => $finalPrice,
-                    'quantity' => (int)($c->quantity ?? 0),
-                ];
-
-                /* The variation's OWN picture rides its SKU (#137, Lazada
-                 * half) - the image the product CRUD stores per
-                 * combination, as a public URL. ensureLazadaInlinkImages
-                 * already migrates SKU images to Lazada inlinks (or drops
-                 * what cannot be fetched), so this only has to hand it the
-                 * URL. */
-                $comboImg = trim((string)($c->image ?? ''));
-                if ($comboImg !== '') {
-                    $comboUrl = $this->normalizeImageUrl(asset('storage/' . ltrim($comboImg, '/')));
-                    if (is_string($comboUrl) && $comboUrl !== '') {
-                        $skuRow['Images'] = ['Image' => [$comboUrl]];
-                    }
-                }
-
-                foreach ($values->values() as $i => $v) {
-                    if (!isset($variantKeys[$i])) {
-                        continue;
-                    }
-                    $valName = trim((string)($v->value_name ?? ''));
-                    if ($valName !== '') {
-                        $skuRow[$variantKeys[$i]] = $valName;
-                    }
-                }
-
-                $skus[] = $skuRow;
-            }
-        } elseif ($povRows->count() > 0) {
-            foreach ($povRows as $r) {
-                $key = (string)$r->product_option_value_id;
-                $m = $map->get($key);
-                // SellerSku mapping rule (Option A: all variants must have SKU):
-                // 1) Listing variant override
-                // 2) ERP option SKU (pov.sku) - required
-                // 3) (last resort) ERP base SKU/model
-                $candidate = trim((string)($m && $m->seller_sku ? $m->seller_sku : ''));
-                if ($candidate === '') {
-                    $candidate = trim((string)($r->sku ?? ''));
-                }
-                if ($candidate === '') {
-                    $label = trim((string)($r->option_name ?? ''));
-                    $valLabel = trim((string)($r->option_value_name ?? ''));
-                    $human = $label !== '' ? ($label . ($valLabel !== '' ? (': '.$valLabel) : '')) : 'Variant';
-                    throw \Illuminate\Validation\ValidationException::withMessages([
-                        'variants.sku' => $human . ' SKU is required before uploading to Lazada.'
-                    ]);
-                }
-                if ($candidate === '') {
-                    $candidate = $fallbackBaseSku;
-                }
-                // Ensure uniqueness across variant rows
-                if ($candidate !== null && $candidate !== '') {
-                    if (isset($usedSellerSkus[$candidate])) {
-                        $candidate = $candidate . '-' . (int)$r->product_option_value_id;
-                    }
-                    $usedSellerSkus[$candidate] = true;
-                }
-
-                $erpPrice = (float)($r->absolute_price ?? $basePrice);
-                $finalPrice = $m && $m->price !== null ? (float)$m->price : (float)$erpPrice;
-                // Apply markup to variant price
-                $finalPrice = self::computeFinalPrice($finalPrice, $effectiveFixed, $effectivePercent);
-                $skuRow = [
-                    'SellerSku' => $candidate,
-                    'price' => $finalPrice,
-                    'quantity' => $m && $m->quantity !== null ? (int)$m->quantity : (int)$r->quantity,
-                ];
-
-                // Variation attribute mapping (1 or 2 keys) so each SKU is distinguishable.
-                // Lazada expects the *attribute key* as the XML/JSON key at SKU level (e.g., color_family, size, etc.).
-                $optVal = trim((string)($r->option_value_name ?? ''));
-                if ($optVal !== '' && !empty($variantKeys)) {
-                    // Single option group -> we only need the first key.
-                    $skuRow[$variantKeys[0]] = $optVal;
-                }
-
-                $skus[] = $skuRow;
-            }
-        } else {
-            // No variants in ERP; create a single base SKU.
-            // Use stored total_price (base + markup) if available.
-            $singlePrice = $listing->total_price ?? (float)($product->price ?? 0);
-            $skus[] = [
-                'SellerSku' => $fallbackBaseSku,
-                'price' => (float)$singlePrice,
-                'quantity' => (int)($product->quantity ?? 0),
-            ];
-        }
-
-        // Move SKU-level keys out of Attributes into each SKU row.
-        // Lazada QC expects these at SKU level; sending them under Attributes can be treated as "blank".
-        $skuDefaults = [];
-        foreach (array_keys($attrs) as $k) {
-            if ($this->attrs()->isSkuLevelRequiredKey($k)) {
-                $val = $attrs[$k];
-                // Keep only meaningful values.
-                if ($val !== null && trim((string)$val) !== '') {
-                    $skuDefaults[$k] = $val;
-                }
-                unset($attrs[$k]);
-            }
-        }
-
-        // If packaging defaults are still missing, try ERP core fields.
-        if (!array_key_exists('package_weight', $skuDefaults) && $product && $product->weight !== null) {
-            $w = (string)$product->weight;
-            if (trim($w) !== '') $skuDefaults['package_weight'] = $w;
-        }
-        if (!array_key_exists('package_length', $skuDefaults) && $product && $product->length !== null) {
-            $v = (string)$product->length;
-            if (trim($v) !== '') $skuDefaults['package_length'] = $v;
-        }
-        if (!array_key_exists('package_width', $skuDefaults) && $product && $product->width !== null) {
-            $v = (string)$product->width;
-            if (trim($v) !== '') $skuDefaults['package_width'] = $v;
-        }
-        if (!array_key_exists('package_height', $skuDefaults) && $product && $product->height !== null) {
-            $v = (string)$product->height;
-            if (trim($v) !== '') $skuDefaults['package_height'] = $v;
-        }
-
-        if (!empty($skuDefaults)) {
-            foreach ($skus as $i => $row) {
-                foreach ($skuDefaults as $k => $v) {
-                    if (!array_key_exists($k, $row) || $row[$k] === null || trim((string)$row[$k]) === '') {
-                        $row[$k] = $v;
-                    }
-                }
-                $skus[$i] = $row;
-            }
-        }
-
-        // What the catalogue can answer, it answers, BEFORE the gate below:
-        // this fallback used to sit after it, where it could never fire.
-        $attrs = $this->attrs()->autoFillBasics($attrs, $product);
-
-        // Local mandatory checks (attribute + sku level) before calling Lazada.
-        $requiredKeys = [];
-        $requiredNames = [];
-        $template = LazadaCategoryTemplate::query()
-            ->where('region', $this->region())
-            ->where('primary_category_id', (int)$listing->primary_category_id)
-            ->first();
-        if ($template && $template->template_body) {
-            $templateAttrs = $this->attrs()->extractAttributes($template->template_body);
-
-            foreach ($templateAttrs as $a) {
-                if (!empty($a['required'])) {
-                    $k = (string)($a['key'] ?? '');
-                    if ($k !== '') {
-                        $requiredKeys[] = $k;
-                        $requiredNames[$k] = (string)($a['name'] ?? $k);
-                    }
-                }
-            }
-        }
-
-        $errs = [];
-        foreach ($requiredKeys as $k) {
-            if ($this->attrs()->isSkuLevelRequiredKey($k)) {
-                continue;
-            }
-            $val = $attrs[$k] ?? null;
-            if ($val === null || trim((string)$val) === '') {
-                $label = $requiredNames[$k] ?? $k;
-                $errs['attributes.'.$k] = $label . ' is mandatory.';
-            }
-        }
-        if (!empty($errs)) {
-            throw \Illuminate\Validation\ValidationException::withMessages($errs);
-        }
-
-        // SKU-level mandatory
-        $needsSellerSku = false;
-        $needsPrice = false;
-        foreach ($requiredKeys as $k) {
-            $lk = strtolower((string)$k);
-            if ($lk === 'sellersku' || $lk === 'seller_sku') $needsSellerSku = true;
-            if ($lk === 'price') $needsPrice = true;
-        }
-        if ($needsSellerSku) {
-            foreach ($skus as $s) {
-                if (empty($s['SellerSku'])) {
-                    throw \Illuminate\Validation\ValidationException::withMessages([
-                        'variants' => 'SellerSku is mandatory. Please set SKU in ERP or in Variant Mapping overrides.'
-                    ]);
-                }
-            }
-        }
-        if ($needsPrice) {
-            foreach ($skus as $s) {
-                if (!isset($s['price']) || (float)$s['price'] <= 0) {
-                    throw \Illuminate\Validation\ValidationException::withMessages([
-                        'variants' => 'Price is mandatory. Please set product price in ERP (base price) and/or option price adjustments, or fill Variant Mapping overrides.'
-                    ]);
-                }
-            }
-        }
-
-        // Lazada payload (best-effort). We'll adjust based on QC responses.
-        // IMPORTANT: Do NOT send present-but-null attributes; Lazada treats them as "blank" (C004).
-        // (name/description used to be re-filled here, after the gate; that
-        // now happens once in autoFillBasics(), before it.)
-        $attrFinal = is_array($attrs) ? $attrs : [];
-
-        // Clean null/blank values before sending to Lazada.
-        $attrFinal = (array) $this->compactPayloadValue($attrFinal);
-
-        $payload = [
-            'Request' => [
-                'Product' => [
-                    'PrimaryCategory' => (int)$listing->primary_category_id,
-                    'Images' => [
-                        'Image' => $imageUrls,
-                    ],
-                    'Attributes' => $attrFinal,
-                    'Skus' => [
-                        'Sku' => $skus,
-                    ],
-                ],
-            ],
-        ];
-
-        // Some categories validate the main image at SKU level. Apply the first image as the main SKU image.
-        if (!empty($imageUrls)) {
-            foreach ($payload['Request']['Product']['Skus']['Sku'] as $idx => $row) {
-                if (!isset($payload['Request']['Product']['Skus']['Sku'][$idx]['Images'])) {
-                    $payload['Request']['Product']['Skus']['Sku'][$idx]['Images'] = ['Image' => [$imageUrls[0]]];
-                }
-            }
-        }
-
-        $preview = [
-            'listing_id' => $listing->id,
-            'primary_category_id' => $listing->primary_category_id,
-            'attributes' => $attrs,
-            'skus' => $skus,
-            'images' => $imageUrls,
-            'payload' => $payload,
-        ];
-
-        return [$payload, $preview];
-    }
-
-    /**
-     * Remove null/blank values recursively from an array.
-     *
-     * Lazada treats present-but-null fields as "blank" and may fail QC (C004).
-     * We only remove: null, empty strings, and empty arrays. We keep numeric 0 and string "0".
-     *
-     *  mixed $value
-     *  mixed
-     */
-    private function compactPayloadValue($value)
-    {
-        if (is_array($value)) {
-            $out = [];
-            foreach ($value as $k => $v) {
-                $v2 = $this->compactPayloadValue($v);
-                if (is_array($v2) && empty($v2)) {
-                    continue;
-                }
-                if ($v2 === null) {
-                    continue;
-                }
-                if (is_string($v2) && trim($v2) === '') {
-                    continue;
-                }
-                $out[$k] = $v2;
-            }
-            return $out;
-        }
-        return $value;
-    }
 
     private function region(): string
     {
@@ -4838,7 +3621,7 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
         }
 
         // Fetch all Lazada products
-        $skuMap = $this->fetchLazadaSkuMap($setting, $client);
+        $skuMap = $this->matcher()->fetchLazadaSkuMap($setting, $client);
 
         // Build a reverse map: item_id => [[sku, ...]]
         $itemSkus = [];
@@ -5111,438 +3894,5 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
         }));
     }
 
-    /**
-     * Build XML payload for /product/stock/sellable/update.
-     * Lazada expects an XML string under the 'payload' param.
-     */
-    private function buildStockSellableUpdateXml(string $sellerSku, int $sellableQty): string
-    {
-        $sellerSku = htmlspecialchars($sellerSku, ENT_XML1 | ENT_QUOTES, 'UTF-8');
-        $sellableQty = max(0, $sellableQty);
-
-        return '<Request>'
-            . '<Product><Skus><Sku>'
-            . '<SellerSku>' . $sellerSku . '</SellerSku>'
-            . '<SellableQuantity>' . $sellableQty . '</SellableQuantity>'
-            . '</Sku></Skus></Product>'
-            . '</Request>';
-    }
-
-    /**
-     * Build XML payload for /product/price_quantity/update (quantity only, using SkuId).
-     */
-    private function buildQuantityUpdateXml(int $skuId, int $quantity): string
-    {
-        $quantity = max(0, $quantity);
-
-        return '<Request>'
-            . '<Product><Skus><Sku>'
-            . '<SkuId>' . $skuId . '</SkuId>'
-            . '<Quantity>' . $quantity . '</Quantity>'
-            . '</Sku></Skus></Product>'
-            . '</Request>';
-    }
-
-    /**
-     * Build XML payload for /product/price_quantity/update (price only, using SkuId).
-     */
-    private function buildPriceUpdateXml(int $skuId, string $price, ?string $salePrice = null, ?string $saleStart = null, ?string $saleEnd = null): string
-    {
-        $price = htmlspecialchars($price, ENT_XML1 | ENT_QUOTES, 'UTF-8');
-
-        $sale = '';
-        if ($salePrice !== null) {
-            // SalePrice 0 clears a special price; with dates it schedules
-            // one - Lazada's own "Edit Special Price" wire.
-            $sale = '<SalePrice>' . htmlspecialchars($salePrice, ENT_XML1 | ENT_QUOTES, 'UTF-8') . '</SalePrice>';
-            if ($saleStart !== null) {
-                $sale .= '<SaleStartDate>' . htmlspecialchars($saleStart, ENT_XML1 | ENT_QUOTES, 'UTF-8') . '</SaleStartDate>';
-            }
-            if ($saleEnd !== null) {
-                $sale .= '<SaleEndDate>' . htmlspecialchars($saleEnd, ENT_XML1 | ENT_QUOTES, 'UTF-8') . '</SaleEndDate>';
-            }
-        }
-
-        return '<Request>'
-            . '<Product><Skus><Sku>'
-            . '<SkuId>' . $skuId . '</SkuId>'
-            . '<Price>' . $price . '</Price>'
-            . $sale
-            . '</Sku></Skus></Product>'
-            . '</Request>';
-    }
-
-    /**
-     * Build XML payload for /product/remove.
-     * Accepts up to 50 seller skus.
-     */
-    private function buildRemoveProductXml(array $sellerSkus): string
-    {
-        $sellerSkus = array_values(array_filter(array_map(function ($s) {
-            $s = trim((string)$s);
-            return $s === '' ? null : $s;
-        }, $sellerSkus)));
-
-        $sellerSkus = array_slice($sellerSkus, 0, 50);
-
-        $xml = '<Request><Product><Skus><Sku>';
-        foreach ($sellerSkus as $sku) {
-            $skuEsc = htmlspecialchars($sku, ENT_XML1 | ENT_QUOTES, 'UTF-8');
-            $xml .= '<SellerSku>' . $skuEsc . '</SellerSku>';
-        }
-        $xml .= '</Sku></Skus></Product></Request>';
-
-        return $xml;
-    }
-
-    /**
-     * Provide a short status line for the UI.
-     */
-    private function formatLazadaResultMessage(string $actionLabel, array $result): string
-    {
-        $body = $result['body'] ?? null;
-        $code = '';
-        $msg = '';
-
-        if (is_array($body)) {
-            $code = (string)($body['code'] ?? $body['Code'] ?? $body['error_code'] ?? '');
-            $msg = (string)($body['message'] ?? $body['Message'] ?? $body['error_message'] ?? '');
-        } elseif (is_string($body)) {
-            $msg = $body;
-        }
-
-        $status = (int)($result['status'] ?? 0);
-        $ok = (bool)($result['ok'] ?? false);
-
-        $suffix = trim(($code !== '' ? $code . ' - ' : '') . $msg);
-        if ($suffix === '') {
-            $suffix = 'No response body.';
-        }
-
-        return $actionLabel . ' request sent. HTTP ' . $status . ' • ' . ($ok ? 'OK' : 'ERROR') . ' • ' . $suffix;
-    }
-
-
-    /**
-     * Extract Lazada item_id from /products/get result by verifying exact SKU match.
-     *
-     * Returns array [$itemIdOrNull, $matchCount].
-     * If multiple items match the same SKU, returns [null, >1] to prevent wrong linking.
-     */
-    private function extractItemIdFromProductsGetResult(array $result, string $sku): array
-    {
-        $sku = trim($sku);
-        if ($sku === '') {
-            return [null, 0];
-        }
-
-        $body = $result['body'] ?? null;
-        if (!is_array($body)) {
-            return [null, 0];
-        }
-
-        $data = $body['data'] ?? null;
-        if (!is_array($data)) {
-            return [null, 0];
-        }
-
-        $products = $data['products'] ?? null;
-        if (!is_array($products) || count($products) === 0) {
-            return [null, 0];
-        }
-
-        $matchedItemIds = [];
-
-        foreach ($products as $p) {
-            if (!is_array($p)) {
-                continue;
-            }
-
-            $itemId = $p['item_id'] ?? ($p['itemId'] ?? null);
-            if ($itemId === null || $itemId === '') {
-                continue;
-            }
-
-            $skus = $p['skus'] ?? null;
-            if (!is_array($skus)) {
-                continue;
-            }
-
-            foreach ($skus as $s) {
-                if (!is_array($s)) {
-                    continue;
-                }
-
-                $sellerSku = $s['SellerSku'] ?? ($s['seller_sku'] ?? ($s['SellerSKU'] ?? null));
-                if ($sellerSku === null) {
-                    continue;
-                }
-
-                if (trim((string) $sellerSku) === $sku) {
-                    $matchedItemIds[(string) $itemId] = true;
-                    break; // no need to scan other SKUs for this product
-                }
-            }
-        }
-
-        $ids = array_keys($matchedItemIds);
-        $count = count($ids);
-
-        if ($count === 1) {
-            return [$ids[0], 1];
-        }
-
-        return [null, $count];
-    }
-
-    /**
-     * Search Lazada for a specific SKU.
-     * First tries the 'search' param (fast, 1 API call). If no match, falls back to
-     * paginated scan (needed for variant SellerSKUs that 'search' doesn't cover).
-     * Returns [$itemId, $matchCount].
-     */
-    private function findLazadaItemBySku(object $setting, LazadaClient $client, string $sku): array
-    {
-        $sku = trim($sku);
-        if ($sku === '') return [null, 0];
-
-        // Attempt 1: Use 'search' parameter (fast — searches product name + SellerSku)
-        $result = $this->lazadaProductsGet($setting, $client, ['search' => $sku, 'limit' => '100', 'offset' => '0']);
-        if (!empty($result)) {
-            $matched = $this->matchSkuInProducts($result, $sku);
-            if ($matched[1] > 0) return $matched;
-        }
-
-        // Attempt 2: Use 'sku_seller_list' parameter (may work on some API versions)
-        $result = $this->lazadaProductsGet($setting, $client, ['sku_seller_list' => json_encode([$sku], JSON_UNESCAPED_SLASHES), 'limit' => '100', 'offset' => '0']);
-        if (!empty($result)) {
-            $matched = $this->matchSkuInProducts($result, $sku);
-            if ($matched[1] > 0) return $matched;
-        }
-
-        // Attempt 3: Paginated full scan (fallback for variant SKUs not covered by search)
-        $offset = 0;
-        $limit = 50;
-        $maxPages = 20;
-        $page = 0;
-
-        do {
-            $products = $this->lazadaProductsGet($setting, $client, ['limit' => (string) $limit, 'offset' => (string) $offset]);
-            if (empty($products)) break;
-
-            $totalProducts = $products['_total'] ?? 0;
-
-            $matched = $this->matchSkuInProducts($products, $sku);
-            if ($matched[1] > 0) return $matched;
-
-            $offset += $limit;
-            $page++;
-        } while ($offset < $totalProducts && $page < $maxPages);
-
-        return [null, 0];
-    }
-
-    /**
-     * Call /products/get with given extra params. Returns ['products' => [...], '_total' => N] or empty array.
-     */
-    private function lazadaProductsGet(object $setting, LazadaClient $client, array $extra = []): array
-    {
-        $creds = LazadaSetting::activeCredentials($setting);
-
-        $apiPath = '/products/get';
-        $timestamp = (string) round(microtime(true) * 1000);
-        $params = array_merge([
-            'app_key' => (string) $creds['app_key'],
-            'sign_method' => 'sha256',
-            'timestamp' => $timestamp,
-            'access_token' => (string) $creds['access_token'],
-            'filter' => 'all',
-        ], $extra);
-        $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
-
-        $result = $client->get((string) $setting->region, $apiPath, $params);
-        if (empty($result['ok'])) return [];
-
-        $body = $result['body'] ?? [];
-        $data = $body['data'] ?? [];
-        return [
-            'products' => $data['products'] ?? [],
-            '_total' => (int) ($data['total_products'] ?? 0),
-        ];
-    }
-
-    /**
-     * Scan products array for exact SellerSku match. Returns [$itemId, $matchCount].
-     */
-    private function matchSkuInProducts(array $data, string $sku): array
-    {
-        $matchedItemIds = [];
-        foreach ($data['products'] ?? [] as $p) {
-            $itemId = $p['item_id'] ?? ($p['itemId'] ?? null);
-            if ($itemId === null || $itemId === '') continue;
-
-            foreach ($p['skus'] ?? [] as $s) {
-                $sellerSku = $s['SellerSku'] ?? ($s['seller_sku'] ?? ($s['SellerSKU'] ?? null));
-                if ($sellerSku !== null && strcasecmp(trim((string) $sellerSku), $sku) === 0) {
-                    $matchedItemIds[(string) $itemId] = true;
-                }
-            }
-        }
-
-        $ids = array_keys($matchedItemIds);
-        if (count($ids) === 1) return [$ids[0], 1];
-        if (count($ids) > 1) return [null, count($ids)];
-        return [null, 0];
-    }
-
-    /**
-     * Fetch ALL Lazada products (paginated) and build a SellerSku → [item_id, ...] map.
-     * Used by bulk sync to avoid per-product API calls and work around unreliable seller_sku filter.
-     */
-    private function fetchLazadaSkuMap(object $setting, LazadaClient $client): array
-    {
-        $creds = LazadaSetting::activeCredentials($setting);
-
-        $skuMap = []; // SellerSku => [item_id, ...]
-        $offset = 0;
-        $limit = 50;
-        $maxPages = 60; // safety: 60 pages × 50 = 3,000 products max
-        $page = 0;
-
-        do {
-            $apiPath = '/products/get';
-            $timestamp = (string) round(microtime(true) * 1000);
-            $params = [
-                'app_key' => (string) $creds['app_key'],
-                'sign_method' => 'sha256',
-                'timestamp' => $timestamp,
-                'access_token' => (string) $creds['access_token'],
-                'filter' => 'all',
-                'offset' => (string) $offset,
-                'limit' => (string) $limit,
-            ];
-            $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
-
-            // Retry up to 3 times with increasing delay for rate limiting
-            $result = null;
-            for ($attempt = 1; $attempt <= 3; $attempt++) {
-                if ($page > 0 || $attempt > 1) {
-                    usleep(500000); // 0.5s delay between pages / retries
-                }
-                $timestamp = (string) round(microtime(true) * 1000);
-                $params['timestamp'] = $timestamp;
-                $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
-                $result = $client->get((string) $setting->region, $apiPath, $params);
-                if (!empty($result['ok'])) break;
-                Log::warning('Lazada fetchLazadaSkuMap API error', ['offset' => $offset, 'attempt' => $attempt, 'result' => $result['body'] ?? '']);
-                if ($attempt < 3) usleep($attempt * 1000000); // 1s, 2s backoff
-            }
-
-            if (empty($result['ok'])) {
-                break;
-            }
-
-            $body = $result['body'] ?? [];
-            $data = $body['data'] ?? [];
-            $products = $data['products'] ?? [];
-            $totalProducts = (int) ($data['total_products'] ?? 0);
-
-            foreach ($products as $p) {
-                $itemId = $p['item_id'] ?? ($p['itemId'] ?? null);
-                if ($itemId === null || $itemId === '') continue;
-
-                $skus = $p['skus'] ?? [];
-                foreach ($skus as $s) {
-                    $sellerSku = $s['SellerSku'] ?? ($s['seller_sku'] ?? ($s['SellerSKU'] ?? null));
-                    if ($sellerSku === null) continue;
-                    $sellerSku = trim((string) $sellerSku);
-                    if ($sellerSku === '') continue;
-
-                    $skuMap[$sellerSku][] = (string) $itemId;
-                }
-            }
-
-            $offset += $limit;
-            $page++;
-        } while ($offset < $totalProducts && $page < $maxPages);
-
-        // Deduplicate item IDs per SKU
-        foreach ($skuMap as $sku => $itemIds) {
-            $skuMap[$sku] = array_values(array_unique($itemIds));
-        }
-
-        LazadaApiLog::safeCreate([
-            'pack' => 'lazada.products.get.sku_map',
-            'method' => 'GET',
-            'api_path' => '/products/get',
-            'auth_required' => true,
-            'request_params' => ['pages_fetched' => $page, 'total_products' => $totalProducts ?? 0],
-            'response_status' => 200,
-            'ok' => true,
-            'response_body' => ['skus_mapped' => count($skuMap)],
-            'user_id' => auth()->id(),
-        ]);
-
-        return $skuMap;
-    }
-
-    /**
-     * For ERP products with options, return variant SellerSku + quantity from product_option_value.
-     * If a row has empty sku, it is ignored (can't sync to Lazada without SellerSku).
-     */
-    public function getErpVariantStockByProductId(int $productId): array
-    {
-        $pfx = (string) config('catalog.prefix');
-
-        $rows = DB::table($pfx.'product_option_value as pov')
-            ->where('pov.product_id', $productId)
-            ->whereNotNull('pov.sku')
-            ->where('pov.sku', '!=', '')
-            ->orderBy('pov.product_option_value_id')
-            ->get(['pov.sku', 'pov.quantity']);
-
-        $out = [];
-        foreach ($rows as $r) {
-            $sku = trim((string) ($r->sku ?? ''));
-            if ($sku === '') {
-                continue;
-            }
-            $out[] = [
-                'seller_sku' => $sku,
-                'quantity' => max(0, (int) ($r->quantity ?? 0)),
-            ];
-        }
-        return $out;
-    }
-
-    /**
-     * For ERP products with options, get variant prices from absolute_price column.
-     */
-    private function getErpVariantPricesByProductId(int $productId, float $basePrice): array
-    {
-        $pfx = (string) config('catalog.prefix');
-
-        $rows = DB::table($pfx.'product_option_value as pov')
-            ->where('pov.product_id', $productId)
-            ->whereNotNull('pov.sku')
-            ->where('pov.sku', '!=', '')
-            ->orderBy('pov.product_option_value_id')
-            ->get(['pov.sku', 'pov.absolute_price']);
-
-        $out = [];
-        foreach ($rows as $r) {
-            $sku = trim((string) ($r->sku ?? ''));
-            if ($sku === '') {
-                continue;
-            }
-
-            $out[] = [
-                'seller_sku' => $sku,
-                'price' => max(0, (float) ($r->absolute_price ?? $basePrice)),
-            ];
-        }
-
-        return $out;
-    }
 
 }

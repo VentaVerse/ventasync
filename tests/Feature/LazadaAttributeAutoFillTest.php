@@ -197,7 +197,7 @@ class LazadaAttributeAutoFillTest extends TestCase
             'lazada_product_id' => $listing->id, 'attribute_key' => 'warranty_type', 'value' => 'No Warranty',
         ]);
 
-        [$payload] = app(\Extensions\lazada\Controllers\LazadaProductController::class)
+        [$payload] = app(\Extensions\lazada\Services\Lazada\LazadaPushPayload::class)
             ->buildLazadaProductCreatePayload($listing->fresh());
 
         $attrs = $payload['Request']['Product']['Attributes'];

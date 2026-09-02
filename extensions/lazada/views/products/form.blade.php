@@ -418,7 +418,7 @@
                 @php
                     $lzSalePreview = null;
                     if ($listing->sale_percent !== null && $basePrice !== null) {
-                        $lzSaleBase = \Extensions\lazada\Controllers\LazadaProductController::computeFinalPrice(
+                        $lzSaleBase = \Extensions\lazada\Services\Lazada\LazadaPushPayload::computeFinalPrice(
                             (float) $basePrice, $effectiveFixed, $effectivePercent
                         );
                         $lzSalePreview = round($lzSaleBase * (1 - (float) $listing->sale_percent / 100), 2);

@@ -2,8 +2,7 @@
 
 namespace Tests\Feature;
 
-use Extensions\lazada\Controllers\LazadaProductController;
-use ReflectionMethod;
+use Extensions\lazada\Services\Lazada\LazadaImages;
 use Tests\TestCase;
 
 /**
@@ -28,16 +27,12 @@ class LazadaImageUrlTest extends TestCase
 {
     private function display(?string $path): ?string
     {
-        $ref = new ReflectionMethod(LazadaProductController::class, 'toDisplayImageUrl');
-
-        return $ref->invoke(app(LazadaProductController::class), $path);
+        return app(LazadaImages::class)->toDisplayImageUrl($path);
     }
 
     private function payload(?string $path): ?string
     {
-        $ref = new ReflectionMethod(LazadaProductController::class, 'toPublicImageUrl');
-
-        return $ref->invoke(app(LazadaProductController::class), $path);
+        return app(LazadaImages::class)->toPublicImageUrl($path);
     }
 
     /** The defect itself: a host the operator's browser may not be able to reach. */

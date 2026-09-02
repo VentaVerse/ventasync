@@ -1,0 +1,752 @@
+<?php
+
+namespace Extensions\lazada\Services\Lazada;
+
+use Extensions\lazada\Models\LazadaBrand;
+use Extensions\lazada\Models\LazadaProduct;
+use Extensions\lazada\Models\LazadaCategoryTemplate;
+use Extensions\lazada\Models\LazadaProductAttribute;
+use Extensions\lazada\Models\LazadaProductVariant;
+use Extensions\lazada\Models\LazadaSetting;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * What actually goes over the wire, out of the god controller (Phase C,
+ * #184): the create/update payload built from the catalogue + the saved
+ * sheet, the stock and price XML, the price formula, and the reading of
+ * Lazada's answers. The seed of the one-pipeline-per-channel work in
+ * Phase F - when PushPlan arrives, it grows here, not in a controller.
+ *
+ * Two dead XML builders (buildStockSellableUpdateXml, buildRemoveProductXml)
+ * had no caller anywhere and did not make the move.
+ */
+class LazadaPushPayload
+{
+    public static function computeFinalPrice(float $basePrice, ?float $fixedMarkup, ?float $percentMarkup): float
+    {
+        // Formula: (Price * %) + Fixed
+        $price = $basePrice;
+        if ($percentMarkup !== null && $percentMarkup > 0) {
+            $price += $basePrice * $percentMarkup / 100;
+        }
+        if ($fixedMarkup !== null && $fixedMarkup > 0) {
+            $price += $fixedMarkup;
+        }
+        return round($price, 2);
+    }
+
+    public function buildLazadaProductCreatePayload(LazadaProduct $listing, ?object $setting = null, ?LazadaClient $client = null): array
+    {
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $product = DB::table($pfx.'product as p')
+            ->leftJoin($pfx.'product_description as pd', function ($j) use ($langId) {
+                $j->on('p.product_id', '=', 'pd.product_id')
+                    ->where('pd.language_id', '=', $langId);
+            })
+            ->leftJoin($pfx.'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
+            ->where('p.product_id', (int)$listing->product_id)
+            ->first([
+                'p.product_id','p.sku','p.model','p.image','p.price','p.quantity',
+                'p.weight','p.length','p.width','p.height','p.date_modified',
+                'p.upc','p.ean','p.jan','p.isbn','p.mpn',
+                'pd.name','pd.description','pd.meta_title','pd.meta_description',
+                'm.name as manufacturer_name',
+            ]);
+
+        // Images are mandatory for Lazada product creation.
+        // Lazada checks Product.Images.Image (and sometimes Sku.Images.Image) for main image.
+        $imageUrls = app(LazadaImages::class)->getProductImageUrls((int)$listing->product_id, $product);
+        $imageUrls = array_values(array_filter(array_map(fn($u) => app(LazadaImages::class)->normalizeImageUrl((string)$u), $imageUrls)));
+        if (empty($imageUrls)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'images' => 'At least 1 product image is required. Please upload a main image (and optional additional images) in the core ERP Product page first.'
+            ]);
+        }
+
+        $attrs = LazadaProductAttribute::query()
+            ->where('lazada_product_id', $listing->id)
+            ->pluck('value', 'attribute_key')
+            ->toArray();
+
+        // Internal/legacy key - do not send to Lazada as it does not satisfy QC.
+        unset($attrs['__images__']);
+
+        // Remove present-but-null values early; Lazada treats them as blank (C004).
+        $attrs = (array) $this->compactPayloadValue($attrs);
+
+        // Ensure Brand attributes are present.
+        // Lazada examples show using brand name ("No Brand") and/or brand_id for registered brands.
+        // We keep this logic defensive for sandbox testing where brand libraries may be incomplete.
+        $brandOverride = trim((string)($listing->brand_name_override ?? ''));
+        $brandId = (int)($listing->brand_id ?? 0);
+
+        $isNoBrand = $brandOverride !== '' && strtolower($brandOverride) === 'no brand';
+
+        if ($isNoBrand) {
+            $attrs['brand'] = 'No Brand';
+            unset($attrs['brand_id']);
+        } elseif ($brandId > 0) {
+            $brandName = LazadaBrand::query()
+                ->where('region', $this->region())
+                ->where('brand_id', $brandId)
+                ->value('name');
+
+            // Provide both brand (name) + brand_id to satisfy "brand is mandatory" checks while remaining compatible.
+            $attrs['brand'] = $brandName ? (string)$brandName : (string)$brandId;
+            $attrs['brand_id'] = $brandId;
+        } else {
+            // For payload preview and smoother sandbox testing, default to Lazada's "No Brand"
+            // when no brand_id is selected and the No-Brand marker isn't set.
+            // Lazada commonly treats "No Brand" as a valid brand value in Seller Center.
+            $attrs['brand'] = 'No Brand';
+            unset($attrs['brand_id']);
+        }
+
+        // Base SKU row (no variants) OR per-option-value rows.
+        // We also pull option/value names so we can map them to Lazada variation attributes.
+        $povRows = DB::table($pfx.'product_option_value as pov')
+            ->leftJoin($pfx.'option_description as od', function ($j) use ($langId) {
+                $j->on('pov.option_id', '=', 'od.option_id')
+                    ->where('od.language_id', '=', $langId);
+            })
+            ->leftJoin($pfx.'option_value_description as ovd', function ($j) use ($langId) {
+                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                    ->where('ovd.language_id', '=', $langId);
+            })
+            ->where('pov.product_id', (int)$listing->product_id)
+            ->orderBy('pov.product_option_value_id')
+            ->get([
+                'pov.product_option_value_id',
+                'pov.option_id',
+                'pov.option_value_id',
+                'pov.sku',
+                'pov.quantity',
+                'pov.absolute_price',
+                'od.name as option_name',
+                'ovd.name as option_value_name',
+            ]);
+
+        $map = LazadaProductVariant::query()
+            ->where('lazada_product_id', $listing->id)
+            ->get()
+            ->keyBy(function ($v) {
+                return $v->product_option_value_id === null ? 'base' : (string)$v->product_option_value_id;
+            });
+
+        // Resolve __map: attribute values to actual product field values.
+        $attrs = app(LazadaAttributes::class)->resolveMapAttributes($attrs, $product);
+
+        // SellerSku fallback: sku then model.
+        $fallbackBaseSku = null;
+        if ($product) {
+            $fallbackBaseSku = trim((string)($product->sku ?? ''));
+            if ($fallbackBaseSku === '') {
+                $fallbackBaseSku = trim((string)($product->model ?? ''));
+            }
+            if ($fallbackBaseSku === '') {
+                $fallbackBaseSku = null;
+            }
+        }
+
+        $skus = [];
+        $basePrice = (float)($product->price ?? 0);
+        $usedSellerSkus = [];
+
+        // Effective markup for variant price computation
+        $effectiveFixed = $listing->markup_fixed;
+        $effectivePercent = $listing->markup_percent;
+        if ($effectiveFixed === null && $effectivePercent === null) {
+            $mkGroup = $listing->groups()->first();
+            if ($mkGroup) {
+                $effectiveFixed = $mkGroup->markup_fixed;
+                $effectivePercent = $mkGroup->markup_percent;
+            }
+        }
+
+        // If we have ERP option rows, Lazada requires *variation attributes* (aka sale props) per SKU.
+        // Otherwise, Lazada will reject multi-SKU products with CHK_SKU_PROPS_DUPLICATE.
+        // Multi-option products are stored in product_option_combinations (each combo = one SKU).
+        // Single-option products store variant data directly on product_option_value rows.
+        // We map ERP option value(s) onto Lazada sale-prop keys for the category.
+        $variantKeys = [];
+        $combos = collect();
+        $comboValuesByCombo = collect();
+        if ($povRows->count() > 0) {
+            $optionIds = $povRows->pluck('option_id')->filter()->unique()->values();
+
+            $combos = DB::table('product_option_combinations as poc')
+                ->where('poc.product_id', (int)$listing->product_id)
+                ->orderBy('poc.sort_order')
+                ->get();
+
+            if ($combos->isNotEmpty()) {
+                $comboIds = $combos->pluck('id')->toArray();
+                $comboValuesByCombo = DB::table('product_option_combination_values as pocv')
+                    ->join($pfx . 'product_option_value as pov2', 'pocv.product_option_value_id', '=', 'pov2.product_option_value_id')
+                    ->join($pfx . 'option_description as od', function ($j) use ($langId) {
+                        $j->on('pov2.option_id', '=', 'od.option_id')
+                            ->where('od.language_id', '=', $langId);
+                    })
+                    ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+                        $j->on('pov2.option_value_id', '=', 'ovd.option_value_id')
+                            ->where('ovd.language_id', '=', $langId);
+                    })
+                    ->whereIn('pocv.combination_id', $comboIds)
+                    ->select(
+                        'pocv.combination_id',
+                        'pov2.option_id',
+                        'od.name as option_name',
+                        'ovd.name as value_name'
+                    )
+                    ->orderBy('pocv.combination_id')
+                    ->orderBy('pov2.option_id')
+                    ->get()
+                    ->groupBy('combination_id');
+            } elseif ($optionIds->count() > 1) {
+                // Multi-option product without a combinations row — the saver should have populated them.
+                // Bail rather than uploading wrong data.
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'variants' => 'This ERP product has multiple option groups but no combinations stored. Re-save the product to populate combinations, then retry.'
+                ]);
+            }
+
+            $optionNamesOrdered = $combos->isNotEmpty()
+                ? ($comboValuesByCombo->first() ?? collect())->pluck('option_name')->filter()->values()
+                : $povRows->pluck('option_name')->filter()->unique()->values();
+
+            // Resolve sale-prop keys, in priority order:
+            //   1. Live API (/category/attributes/get) — most accurate
+            //   2. Cached category template (lazada_category_templates) — survives rate limits
+            //   3. Name-based guess for single-option products only
+            //
+            // We never invent extra keys beyond what the category actually exposes — Lazada
+            // silently ignores unknown sale-prop keys, which collapses multi-SKU payloads
+            // into duplicates and triggers CHK_SKU_PROPS_DUPLICATE.
+            if ($setting && $client && !empty($listing->primary_category_id)) {
+                $variantKeys = app(LazadaAttributes::class)->getLazadaSalePropKeys((int)$listing->primary_category_id, $setting, $client);
+            }
+            if (empty($variantKeys) && !empty($listing->primary_category_id)) {
+                $variantKeys = app(LazadaAttributes::class)->cachedSalePropKeys((int)$listing->primary_category_id);
+            }
+            if (empty($variantKeys) && !$combos->isNotEmpty()) {
+                $variantKeys = app(LazadaAttributes::class)->guessLazadaVariantKeysFromOptionName((string)($povRows->first()->option_name ?? ''));
+            }
+            $variantKeys = array_values(array_filter(array_unique($variantKeys), fn ($k) => trim((string)$k) !== ''));
+
+            if ($combos->isNotEmpty() && count($variantKeys) < $optionNamesOrdered->count()) {
+                $allowed = count($variantKeys);
+                $have = $optionNamesOrdered->count();
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'variants' => "Lazada won't accept this product. The selected Lazada category only allows {$allowed} variation per product, but your product has {$have}. Either remove a variation, or move this listing to a Lazada category that supports {$have}."
+                ]);
+            }
+        }
+        if ($combos->isNotEmpty()) {
+            // Multi-option: each combination row is one Lazada SKU.
+            // Map ERP options to Lazada sale-prop slots POSITIONALLY (first ERP option
+            // → first Lazada key, etc.) so the ERP variation order is preserved in
+            // Lazada's UI. Semantic matching ("Color" → color_family) would put values
+            // in correctly-labeled slots but flip the display order whenever Lazada's
+            // sale-prop order differs from the ERP option order.
+            foreach ($combos as $c) {
+                $values = $comboValuesByCombo->get($c->id) ?? collect();
+
+                $candidate = trim((string)($c->sku ?? ''));
+                if ($candidate === '') {
+                    $valLabel = $values->pluck('value_name')->filter()->implode(' / ');
+                    $human = $valLabel !== '' ? ('Variant: ' . $valLabel) : 'Variant';
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'variants.sku' => $human . ' SKU is required before uploading to Lazada.'
+                    ]);
+                }
+                if (isset($usedSellerSkus[$candidate])) {
+                    $candidate = $candidate . '-' . (int)$c->id;
+                }
+                $usedSellerSkus[$candidate] = true;
+
+                $erpPrice = (float)($c->absolute_price ?? $basePrice);
+                $finalPrice = self::computeFinalPrice($erpPrice, $effectiveFixed, $effectivePercent);
+                $skuRow = [
+                    'SellerSku' => $candidate,
+                    'price' => $finalPrice,
+                    'quantity' => (int)($c->quantity ?? 0),
+                ];
+
+                /* The variation's OWN picture rides its SKU (#137, Lazada
+                 * half) - the image the product CRUD stores per
+                 * combination, as a public URL. ensureLazadaInlinkImages
+                 * already migrates SKU images to Lazada inlinks (or drops
+                 * what cannot be fetched), so this only has to hand it the
+                 * URL. */
+                $comboImg = trim((string)($c->image ?? ''));
+                if ($comboImg !== '') {
+                    $comboUrl = app(LazadaImages::class)->normalizeImageUrl(asset('storage/' . ltrim($comboImg, '/')));
+                    if (is_string($comboUrl) && $comboUrl !== '') {
+                        $skuRow['Images'] = ['Image' => [$comboUrl]];
+                    }
+                }
+
+                foreach ($values->values() as $i => $v) {
+                    if (!isset($variantKeys[$i])) {
+                        continue;
+                    }
+                    $valName = trim((string)($v->value_name ?? ''));
+                    if ($valName !== '') {
+                        $skuRow[$variantKeys[$i]] = $valName;
+                    }
+                }
+
+                $skus[] = $skuRow;
+            }
+        } elseif ($povRows->count() > 0) {
+            foreach ($povRows as $r) {
+                $key = (string)$r->product_option_value_id;
+                $m = $map->get($key);
+                // SellerSku mapping rule (Option A: all variants must have SKU):
+                // 1) Listing variant override
+                // 2) ERP option SKU (pov.sku) - required
+                // 3) (last resort) ERP base SKU/model
+                $candidate = trim((string)($m && $m->seller_sku ? $m->seller_sku : ''));
+                if ($candidate === '') {
+                    $candidate = trim((string)($r->sku ?? ''));
+                }
+                if ($candidate === '') {
+                    $label = trim((string)($r->option_name ?? ''));
+                    $valLabel = trim((string)($r->option_value_name ?? ''));
+                    $human = $label !== '' ? ($label . ($valLabel !== '' ? (': '.$valLabel) : '')) : 'Variant';
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'variants.sku' => $human . ' SKU is required before uploading to Lazada.'
+                    ]);
+                }
+                if ($candidate === '') {
+                    $candidate = $fallbackBaseSku;
+                }
+                // Ensure uniqueness across variant rows
+                if ($candidate !== null && $candidate !== '') {
+                    if (isset($usedSellerSkus[$candidate])) {
+                        $candidate = $candidate . '-' . (int)$r->product_option_value_id;
+                    }
+                    $usedSellerSkus[$candidate] = true;
+                }
+
+                $erpPrice = (float)($r->absolute_price ?? $basePrice);
+                $finalPrice = $m && $m->price !== null ? (float)$m->price : (float)$erpPrice;
+                // Apply markup to variant price
+                $finalPrice = self::computeFinalPrice($finalPrice, $effectiveFixed, $effectivePercent);
+                $skuRow = [
+                    'SellerSku' => $candidate,
+                    'price' => $finalPrice,
+                    'quantity' => $m && $m->quantity !== null ? (int)$m->quantity : (int)$r->quantity,
+                ];
+
+                // Variation attribute mapping (1 or 2 keys) so each SKU is distinguishable.
+                // Lazada expects the *attribute key* as the XML/JSON key at SKU level (e.g., color_family, size, etc.).
+                $optVal = trim((string)($r->option_value_name ?? ''));
+                if ($optVal !== '' && !empty($variantKeys)) {
+                    // Single option group -> we only need the first key.
+                    $skuRow[$variantKeys[0]] = $optVal;
+                }
+
+                $skus[] = $skuRow;
+            }
+        } else {
+            // No variants in ERP; create a single base SKU.
+            // Use stored total_price (base + markup) if available.
+            $singlePrice = $listing->total_price ?? (float)($product->price ?? 0);
+            $skus[] = [
+                'SellerSku' => $fallbackBaseSku,
+                'price' => (float)$singlePrice,
+                'quantity' => (int)($product->quantity ?? 0),
+            ];
+        }
+
+        // Move SKU-level keys out of Attributes into each SKU row.
+        // Lazada QC expects these at SKU level; sending them under Attributes can be treated as "blank".
+        $skuDefaults = [];
+        foreach (array_keys($attrs) as $k) {
+            if (app(LazadaAttributes::class)->isSkuLevelRequiredKey($k)) {
+                $val = $attrs[$k];
+                // Keep only meaningful values.
+                if ($val !== null && trim((string)$val) !== '') {
+                    $skuDefaults[$k] = $val;
+                }
+                unset($attrs[$k]);
+            }
+        }
+
+        // If packaging defaults are still missing, try ERP core fields.
+        if (!array_key_exists('package_weight', $skuDefaults) && $product && $product->weight !== null) {
+            $w = (string)$product->weight;
+            if (trim($w) !== '') $skuDefaults['package_weight'] = $w;
+        }
+        if (!array_key_exists('package_length', $skuDefaults) && $product && $product->length !== null) {
+            $v = (string)$product->length;
+            if (trim($v) !== '') $skuDefaults['package_length'] = $v;
+        }
+        if (!array_key_exists('package_width', $skuDefaults) && $product && $product->width !== null) {
+            $v = (string)$product->width;
+            if (trim($v) !== '') $skuDefaults['package_width'] = $v;
+        }
+        if (!array_key_exists('package_height', $skuDefaults) && $product && $product->height !== null) {
+            $v = (string)$product->height;
+            if (trim($v) !== '') $skuDefaults['package_height'] = $v;
+        }
+
+        if (!empty($skuDefaults)) {
+            foreach ($skus as $i => $row) {
+                foreach ($skuDefaults as $k => $v) {
+                    if (!array_key_exists($k, $row) || $row[$k] === null || trim((string)$row[$k]) === '') {
+                        $row[$k] = $v;
+                    }
+                }
+                $skus[$i] = $row;
+            }
+        }
+
+        // What the catalogue can answer, it answers, BEFORE the gate below:
+        // this fallback used to sit after it, where it could never fire.
+        $attrs = app(LazadaAttributes::class)->autoFillBasics($attrs, $product);
+
+        // Local mandatory checks (attribute + sku level) before calling Lazada.
+        $requiredKeys = [];
+        $requiredNames = [];
+        $template = LazadaCategoryTemplate::query()
+            ->where('region', $this->region())
+            ->where('primary_category_id', (int)$listing->primary_category_id)
+            ->first();
+        if ($template && $template->template_body) {
+            $templateAttrs = app(LazadaAttributes::class)->extractAttributes($template->template_body);
+
+            foreach ($templateAttrs as $a) {
+                if (!empty($a['required'])) {
+                    $k = (string)($a['key'] ?? '');
+                    if ($k !== '') {
+                        $requiredKeys[] = $k;
+                        $requiredNames[$k] = (string)($a['name'] ?? $k);
+                    }
+                }
+            }
+        }
+
+        $errs = [];
+        foreach ($requiredKeys as $k) {
+            if (app(LazadaAttributes::class)->isSkuLevelRequiredKey($k)) {
+                continue;
+            }
+            $val = $attrs[$k] ?? null;
+            if ($val === null || trim((string)$val) === '') {
+                $label = $requiredNames[$k] ?? $k;
+                $errs['attributes.'.$k] = $label . ' is mandatory.';
+            }
+        }
+        if (!empty($errs)) {
+            throw \Illuminate\Validation\ValidationException::withMessages($errs);
+        }
+
+        // SKU-level mandatory
+        $needsSellerSku = false;
+        $needsPrice = false;
+        foreach ($requiredKeys as $k) {
+            $lk = strtolower((string)$k);
+            if ($lk === 'sellersku' || $lk === 'seller_sku') $needsSellerSku = true;
+            if ($lk === 'price') $needsPrice = true;
+        }
+        if ($needsSellerSku) {
+            foreach ($skus as $s) {
+                if (empty($s['SellerSku'])) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'variants' => 'SellerSku is mandatory. Please set SKU in ERP or in Variant Mapping overrides.'
+                    ]);
+                }
+            }
+        }
+        if ($needsPrice) {
+            foreach ($skus as $s) {
+                if (!isset($s['price']) || (float)$s['price'] <= 0) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'variants' => 'Price is mandatory. Please set product price in ERP (base price) and/or option price adjustments, or fill Variant Mapping overrides.'
+                    ]);
+                }
+            }
+        }
+
+        // Lazada payload (best-effort). We'll adjust based on QC responses.
+        // IMPORTANT: Do NOT send present-but-null attributes; Lazada treats them as "blank" (C004).
+        // (name/description used to be re-filled here, after the gate; that
+        // now happens once in autoFillBasics(), before it.)
+        $attrFinal = is_array($attrs) ? $attrs : [];
+
+        // Clean null/blank values before sending to Lazada.
+        $attrFinal = (array) $this->compactPayloadValue($attrFinal);
+
+        $payload = [
+            'Request' => [
+                'Product' => [
+                    'PrimaryCategory' => (int)$listing->primary_category_id,
+                    'Images' => [
+                        'Image' => $imageUrls,
+                    ],
+                    'Attributes' => $attrFinal,
+                    'Skus' => [
+                        'Sku' => $skus,
+                    ],
+                ],
+            ],
+        ];
+
+        // Some categories validate the main image at SKU level. Apply the first image as the main SKU image.
+        if (!empty($imageUrls)) {
+            foreach ($payload['Request']['Product']['Skus']['Sku'] as $idx => $row) {
+                if (!isset($payload['Request']['Product']['Skus']['Sku'][$idx]['Images'])) {
+                    $payload['Request']['Product']['Skus']['Sku'][$idx]['Images'] = ['Image' => [$imageUrls[0]]];
+                }
+            }
+        }
+
+        $preview = [
+            'listing_id' => $listing->id,
+            'primary_category_id' => $listing->primary_category_id,
+            'attributes' => $attrs,
+            'skus' => $skus,
+            'images' => $imageUrls,
+            'payload' => $payload,
+        ];
+
+        return [$payload, $preview];
+    }
+
+    /**
+     * Remove null/blank values recursively from an array.
+     *
+     * Lazada treats present-but-null fields as "blank" and may fail QC (C004).
+     * We only remove: null, empty strings, and empty arrays. We keep numeric 0 and string "0".
+     *
+     *  mixed $value
+     *  mixed
+     */
+    public function compactPayloadValue($value)
+    {
+        if (is_array($value)) {
+            $out = [];
+            foreach ($value as $k => $v) {
+                $v2 = $this->compactPayloadValue($v);
+                if (is_array($v2) && empty($v2)) {
+                    continue;
+                }
+                if ($v2 === null) {
+                    continue;
+                }
+                if (is_string($v2) && trim($v2) === '') {
+                    continue;
+                }
+                $out[$k] = $v2;
+            }
+            return $out;
+        }
+        return $value;
+    }
+
+    /**
+     * Build XML payload for /product/price_quantity/update (quantity only, using SkuId).
+     */
+    public function buildQuantityUpdateXml(int $skuId, int $quantity): string
+    {
+        $quantity = max(0, $quantity);
+
+        return '<Request>'
+            . '<Product><Skus><Sku>'
+            . '<SkuId>' . $skuId . '</SkuId>'
+            . '<Quantity>' . $quantity . '</Quantity>'
+            . '</Sku></Skus></Product>'
+            . '</Request>';
+    }
+
+    /**
+     * Build XML payload for /product/price_quantity/update (price only, using SkuId).
+     */
+    public function buildPriceUpdateXml(int $skuId, string $price, ?string $salePrice = null, ?string $saleStart = null, ?string $saleEnd = null): string
+    {
+        $price = htmlspecialchars($price, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+
+        $sale = '';
+        if ($salePrice !== null) {
+            // SalePrice 0 clears a special price; with dates it schedules
+            // one - Lazada's own "Edit Special Price" wire.
+            $sale = '<SalePrice>' . htmlspecialchars($salePrice, ENT_XML1 | ENT_QUOTES, 'UTF-8') . '</SalePrice>';
+            if ($saleStart !== null) {
+                $sale .= '<SaleStartDate>' . htmlspecialchars($saleStart, ENT_XML1 | ENT_QUOTES, 'UTF-8') . '</SaleStartDate>';
+            }
+            if ($saleEnd !== null) {
+                $sale .= '<SaleEndDate>' . htmlspecialchars($saleEnd, ENT_XML1 | ENT_QUOTES, 'UTF-8') . '</SaleEndDate>';
+            }
+        }
+
+        return '<Request>'
+            . '<Product><Skus><Sku>'
+            . '<SkuId>' . $skuId . '</SkuId>'
+            . '<Price>' . $price . '</Price>'
+            . $sale
+            . '</Sku></Skus></Product>'
+            . '</Request>';
+    }
+
+public function extractLazadaError(array $result): array
+{
+    $body = $result['body'] ?? null;
+    $code = null;
+    $message = null;
+
+    if (is_array($body)) {
+        // Common Lazada error format: {"type":"ISV","code":"...","message":"..."}
+        $code = $body['code'] ?? ($body['error_code'] ?? null);
+        $message = $body['message'] ?? ($body['error_message'] ?? null);
+    }
+
+    if ($code === null && is_string($body)) {
+        $message = trim($body);
+    }
+
+    $codeStr = $code !== null ? trim((string)$code) : null;
+    $msgStr = $message !== null ? trim((string)$message) : null;
+
+    // Determine success. Lazada often returns code "0" for success.
+    $okHttp = (bool)($result['ok'] ?? false);
+    $okCode = ($codeStr === null) || ($codeStr === '0');
+    $ok = $okHttp && $okCode;
+
+    return [
+        'ok' => $ok,
+        'code' => $ok ? null : ($codeStr ?: 'UNKNOWN'),
+        'message' => $ok ? null : ($msgStr ?: 'Unknown error'),
+    ];
+}
+
+/**
+ * Best-effort extractor for Lazada created item_id from /product/create response.
+ * Lazada responses vary by region/version; we try a few common shapes.
+ */
+public function extractCreatedItemId(array $result): ?string
+{
+    $body = $result['body'] ?? null;
+    if (!is_array($body)) {
+        return null;
+    }
+
+    // Common shapes:
+    // {"data": {"item_id": "123"}}
+    // {"data": {"item_id": 123}}
+    // {"item_id": "123"}
+    $candidates = [
+        data_get($body, 'data.item_id'),
+        data_get($body, 'data.itemId'),
+        data_get($body, 'item_id'),
+        data_get($body, 'itemId'),
+        data_get($body, 'ItemId'),
+    ];
+
+    foreach ($candidates as $v) {
+        if (is_numeric($v)) {
+            return (string) $v;
+        }
+        if (is_string($v) && trim($v) !== '') {
+            return trim($v);
+        }
+    }
+
+    return null;
+}
+
+    /**
+     * Provide a short status line for the UI.
+     */
+    public function formatLazadaResultMessage(string $actionLabel, array $result): string
+    {
+        $body = $result['body'] ?? null;
+        $code = '';
+        $msg = '';
+
+        if (is_array($body)) {
+            $code = (string)($body['code'] ?? $body['Code'] ?? $body['error_code'] ?? '');
+            $msg = (string)($body['message'] ?? $body['Message'] ?? $body['error_message'] ?? '');
+        } elseif (is_string($body)) {
+            $msg = $body;
+        }
+
+        $status = (int)($result['status'] ?? 0);
+        $ok = (bool)($result['ok'] ?? false);
+
+        $suffix = trim(($code !== '' ? $code . ' - ' : '') . $msg);
+        if ($suffix === '') {
+            $suffix = 'No response body.';
+        }
+
+        return $actionLabel . ' request sent. HTTP ' . $status . ' • ' . ($ok ? 'OK' : 'ERROR') . ' • ' . $suffix;
+    }
+
+    /**
+     * For ERP products with options, return variant SellerSku + quantity from product_option_value.
+     * If a row has empty sku, it is ignored (can't sync to Lazada without SellerSku).
+     */
+    public function getErpVariantStockByProductId(int $productId): array
+    {
+        $pfx = (string) config('catalog.prefix');
+
+        $rows = DB::table($pfx.'product_option_value as pov')
+            ->where('pov.product_id', $productId)
+            ->whereNotNull('pov.sku')
+            ->where('pov.sku', '!=', '')
+            ->orderBy('pov.product_option_value_id')
+            ->get(['pov.sku', 'pov.quantity']);
+
+        $out = [];
+        foreach ($rows as $r) {
+            $sku = trim((string) ($r->sku ?? ''));
+            if ($sku === '') {
+                continue;
+            }
+            $out[] = [
+                'seller_sku' => $sku,
+                'quantity' => max(0, (int) ($r->quantity ?? 0)),
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * For ERP products with options, get variant prices from absolute_price column.
+     */
+    public function getErpVariantPricesByProductId(int $productId, float $basePrice): array
+    {
+        $pfx = (string) config('catalog.prefix');
+
+        $rows = DB::table($pfx.'product_option_value as pov')
+            ->where('pov.product_id', $productId)
+            ->whereNotNull('pov.sku')
+            ->where('pov.sku', '!=', '')
+            ->orderBy('pov.product_option_value_id')
+            ->get(['pov.sku', 'pov.absolute_price']);
+
+        $out = [];
+        foreach ($rows as $r) {
+            $sku = trim((string) ($r->sku ?? ''));
+            if ($sku === '') {
+                continue;
+            }
+
+            $out[] = [
+                'seller_sku' => $sku,
+                'price' => max(0, (float) ($r->absolute_price ?? $basePrice)),
+            ];
+        }
+
+        return $out;
+    }
+
+    private function region(): string
+    {
+        $setting = LazadaSetting::query()->first();
+        return (string)($setting->region ?? '');
+    }
+}

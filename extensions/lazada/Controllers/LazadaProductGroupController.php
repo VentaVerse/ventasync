@@ -18,6 +18,7 @@ use App\Services\ActivityLogger;
 use Extensions\lazada\Services\Lazada\LazadaAttributes;
 use Extensions\lazada\Services\Lazada\LazadaClient;
 use Extensions\lazada\Services\Lazada\LazadaItemCache;
+use Extensions\lazada\Services\Lazada\LazadaPushPayload;
 use Extensions\lazada\Services\LazadaStockPushService;
 use Extensions\lazada\Services\Lazada\LazadaLiveListing;
 use Illuminate\Http\Request;
@@ -33,6 +34,12 @@ class LazadaProductGroupController extends Controller
     private function attrs(): LazadaAttributes
     {
         return app(LazadaAttributes::class);
+    }
+
+    /** The wire payloads and the reading of Lazada's answers (Phase C, #184). */
+    private function payload(): LazadaPushPayload
+    {
+        return app(LazadaPushPayload::class);
     }
     /**
      * Write a product's status to EVERY group that holds it.
@@ -670,7 +677,6 @@ class LazadaProductGroupController extends Controller
             return $this->productsRedirect($id)->with('error', 'Missing Lazada settings.');
         }
 
-        $lazCtrl = app(LazadaProductController::class);
         $pfx = (string) config('catalog.prefix');
 
         $okCount = 0;
@@ -696,7 +702,7 @@ class LazadaProductGroupController extends Controller
              * Shopee's group page already speaks. */
             $isAlreadyLinked = $listing && $listing->lazada_item_id && !$listing->lazada_deleted_at;
             if ($isAlreadyLinked) {
-                $outcome = $this->updateLinked($group, $pivot, $listing, (int) $productId, $setting, $creds, $client, $lazCtrl);
+                $outcome = $this->updateLinked($group, $pivot, $listing, (int) $productId, $setting, $creds, $client);
                 if ($outcome['ok']) {
                     $updatedCount++;
                 } else {
@@ -795,8 +801,8 @@ class LazadaProductGroupController extends Controller
 
             // Build payload
             try {
-                [$productPayload, $preview] = $lazCtrl->buildLazadaProductCreatePayload($listing, $setting, $client);
-                $productPayload = $lazCtrl->ensureLazadaInlinkImages($productPayload, $setting, $client);
+                [$productPayload, $preview] = $this->payload()->buildLazadaProductCreatePayload($listing, $setting, $client);
+                $productPayload = app(\Extensions\lazada\Services\Lazada\LazadaImages::class)->ensureLazadaInlinkImages($productPayload, $setting, $client);
             } catch (\Illuminate\Validation\ValidationException $e) {
                 if ($restoreOwnSettings) $restoreOwnSettings();
                 $msg = implode('; ', array_map(fn($m) => implode(', ', $m), $e->errors()));
@@ -838,7 +844,7 @@ class LazadaProductGroupController extends Controller
                 'user_id' => auth()->id(),
             ]);
 
-            $e = $this->extractLazadaError($result);
+            $e = $this->payload()->extractLazadaError($result);
             if ($e['ok']) {
                 // Extract item_id from create response
                 $body = $result['body'] ?? [];
@@ -913,7 +919,6 @@ class LazadaProductGroupController extends Controller
             return $this->productsRedirect($id)->with('error', 'Missing Lazada settings.');
         }
 
-        $lazCtrl = app(LazadaProductController::class);
 
         $okCount = 0;
         $skipCount = 0;
@@ -937,7 +942,7 @@ class LazadaProductGroupController extends Controller
                 continue;
             }
 
-            $outcome = $this->updateLinked($group, $pivot, $listing, (int) $productId, $setting, $creds, $client, $lazCtrl);
+            $outcome = $this->updateLinked($group, $pivot, $listing, (int) $productId, $setting, $creds, $client);
             if ($outcome['ok']) {
                 $okCount++;
             } else {
@@ -962,7 +967,7 @@ class LazadaProductGroupController extends Controller
      * build, restored right after. Shared by Update and by Send, where an
      * already-listed selection is updated in place instead of skipped.
      */
-    private function updateLinked(LazadaProductGroup $group, ?LazadaProductGroupProduct $pivot, LazadaProduct $listing, int $productId, object $setting, array $creds, LazadaClient $client, LazadaProductController $lazCtrl): array
+    private function updateLinked(LazadaProductGroup $group, ?LazadaProductGroupProduct $pivot, LazadaProduct $listing, int $productId, object $setting, array $creds, LazadaClient $client): array
     {
             /* The GROUP's settings make this update - without becoming the
              * listing's own (#104's rule). Applied for the build, restored
@@ -1010,8 +1015,8 @@ class LazadaProductGroupController extends Controller
 
             // Build payload
             try {
-                [$productPayload, $preview] = $lazCtrl->buildLazadaProductCreatePayload($listing, $setting, $client);
-                $productPayload = $lazCtrl->ensureLazadaInlinkImages($productPayload, $setting, $client);
+                [$productPayload, $preview] = $this->payload()->buildLazadaProductCreatePayload($listing, $setting, $client);
+                $productPayload = app(\Extensions\lazada\Services\Lazada\LazadaImages::class)->ensureLazadaInlinkImages($productPayload, $setting, $client);
             } catch (\Illuminate\Validation\ValidationException $e) {
                 if ($restoreOwnSettings) $restoreOwnSettings();
                 $msg = implode('; ', array_map(fn($m) => implode(', ', $m), $e->errors()));
@@ -1064,7 +1069,7 @@ class LazadaProductGroupController extends Controller
                 'user_id' => auth()->id(),
             ]);
 
-            $e = $this->extractLazadaError($result);
+            $e = $this->payload()->extractLazadaError($result);
             if ($e['ok']) {
                 app(LazadaItemCache::class)->refreshListing($listing, $setting, $client, 'lazada.product.item.get.cache.group');
                 $this->persistSyncStatus($listing, 'push', true);
@@ -1374,9 +1379,9 @@ class LazadaProductGroupController extends Controller
                 $skuId = $item['sku_id'];
                 if (!$skuId) { $err++; continue; }
                 $rawPrice = $item['price'] ?? $basePrice;
-                $finalPrice = LazadaProductController::computeFinalPrice(max(0, (float) $rawPrice), $fixedMarkup, $percentMarkup);
+                $finalPrice = LazadaPushPayload::computeFinalPrice(max(0, (float) $rawPrice), $fixedMarkup, $percentMarkup);
                 $priceStr = number_format(max(0, $finalPrice), 2, '.', '');
-                $payloadXml = $this->buildPriceUpdateXml($skuId, $priceStr);
+                $payloadXml = $this->payload()->buildPriceUpdateXml($skuId, $priceStr);
 
                 $timestamp = (string) round(microtime(true) * 1000);
                 $params = [
@@ -1399,7 +1404,7 @@ class LazadaProductGroupController extends Controller
                     'user_id' => auth()->id(),
                 ]);
 
-                $e = $this->extractLazadaError($result);
+                $e = $this->payload()->extractLazadaError($result);
                 if ($e['ok']) { $ok++; } else { $err++; }
             }
 
@@ -1505,7 +1510,7 @@ class LazadaProductGroupController extends Controller
                 $skuId = $item['sku_id'];
                 if (!$skuId) { $err++; continue; }
                 $qty = $item['quantity'];
-                $payloadXml = $this->buildQuantityUpdateXml($skuId, $qty);
+                $payloadXml = $this->payload()->buildQuantityUpdateXml($skuId, $qty);
 
                 $timestamp = (string) round(microtime(true) * 1000);
                 $params = [
@@ -1528,7 +1533,7 @@ class LazadaProductGroupController extends Controller
                     'user_id' => auth()->id(),
                 ]);
 
-                $e = $this->extractLazadaError($result);
+                $e = $this->payload()->extractLazadaError($result);
                 if ($e['ok']) { $ok++; } else { $err++; }
             }
 
@@ -1557,7 +1562,6 @@ class LazadaProductGroupController extends Controller
         }
 
         $pfx = (string) config('catalog.prefix');
-        $lazCtrl = app(LazadaProductController::class);
 
         // Get lazada_product_ids from pivot
         $pivotRows = LazadaProductGroupProduct::query()
@@ -1587,7 +1591,7 @@ class LazadaProductGroupController extends Controller
             $mainSku = trim((string) ($product->sku ?? ''));
 
             // Get variant SKUs
-            $variantSkus = $lazCtrl->getErpVariantStockByProductId((int) $listing->product_id);
+            $variantSkus = $this->payload()->getErpVariantStockByProductId((int) $listing->product_id);
             $sellerSkuList = [];
             foreach ($variantSkus as $v) {
                 $s = trim((string) ($v['seller_sku'] ?? ''));
@@ -1637,12 +1641,12 @@ class LazadaProductGroupController extends Controller
             $result = $client->post((string) $setting->region, $apiPath, $params);
 
             // Retry on E006 (internal error)
-            $e = $this->extractLazadaError($result);
+            $e = $this->payload()->extractLazadaError($result);
             if (!empty($e['code']) && (string) $e['code'] === '6') {
                 $params['timestamp'] = (string) round(microtime(true) * 1000);
                 $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
                 $result = $client->post((string) $setting->region, $apiPath, $params);
-                $e = $this->extractLazadaError($result);
+                $e = $this->payload()->extractLazadaError($result);
             }
 
             LazadaApiLog::safeCreate([
@@ -1687,34 +1691,6 @@ class LazadaProductGroupController extends Controller
         return array_values(array_unique(array_filter(array_map(fn($v) => (int) $v, $ids), fn($v) => $v > 0)));
     }
 
-    private function extractLazadaError(array $result): array
-    {
-        $body = $result['body'] ?? null;
-        $code = null;
-        $message = null;
-
-        if (is_array($body)) {
-            $code = $body['code'] ?? ($body['error_code'] ?? null);
-            $message = $body['message'] ?? ($body['error_message'] ?? null);
-        }
-
-        if ($code === null && is_string($body)) {
-            $message = trim($body);
-        }
-
-        $codeStr = $code !== null ? trim((string) $code) : null;
-        $msgStr = $message !== null ? trim((string) $message) : null;
-
-        $okHttp = (bool) ($result['ok'] ?? false);
-        $okCode = ($codeStr === null) || ($codeStr === '0');
-        $ok = $okHttp && $okCode;
-
-        return [
-            'ok' => $ok,
-            'code' => $ok ? null : ($codeStr ?: 'UNKNOWN'),
-            'message' => $ok ? null : ($msgStr ?: 'Unknown error'),
-        ];
-    }
 
     private function persistSyncStatus(LazadaProduct $listing, string $action, bool $ok, ?string $errorCode = null, ?string $errorMessage = null): void
     {
@@ -1726,28 +1702,6 @@ class LazadaProductGroupController extends Controller
         try { $listing->save(); } catch (\Throwable $ex) {}
     }
 
-
-    private function buildQuantityUpdateXml(int $skuId, int $quantity): string
-    {
-        $quantity = max(0, $quantity);
-        return '<Request>'
-            . '<Product><Skus><Sku>'
-            . '<SkuId>' . $skuId . '</SkuId>'
-            . '<Quantity>' . $quantity . '</Quantity>'
-            . '</Sku></Skus></Product>'
-            . '</Request>';
-    }
-
-    private function buildPriceUpdateXml(int $skuId, string $price): string
-    {
-        $price = htmlspecialchars($price, ENT_XML1 | ENT_QUOTES, 'UTF-8');
-        return '<Request>'
-            . '<Product><Skus><Sku>'
-            . '<SkuId>' . $skuId . '</SkuId>'
-            . '<Price>' . $price . '</Price>'
-            . '</Sku></Skus></Product>'
-            . '</Request>';
-    }
 
     public function syncTemplate(Request $request, int $id, LazadaClient $client)
     {
@@ -1822,7 +1776,7 @@ class LazadaProductGroupController extends Controller
             if (!$lpId) {
                 // Create LazadaProduct record
                 $basePrice = (float)($erpPrices[$pid] ?? 0);
-                $finalPrice = LazadaProductController::computeFinalPrice(
+                $finalPrice = LazadaPushPayload::computeFinalPrice(
                     $basePrice, $group->markup_fixed, $group->markup_percent
                 );
 
