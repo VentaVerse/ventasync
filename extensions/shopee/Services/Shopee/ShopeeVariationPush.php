@@ -20,6 +20,85 @@ use Illuminate\Support\Facades\DB;
  */
 class ShopeeVariationPush
 {
+    /* Shopee refuses an item whose dearest variation costs more than five
+     * times its cheapest, promotion prices included - the #2062 refusal:
+     * "The price ratio of the most expensive to cheapest variation
+     * exceeds 5. Please adjust the prices." Knowable from our own prices
+     * before the item exists, so it is checked there (#192). */
+    private const PRICE_RATIO_LIMIT = 5.0;
+
+    /**
+     * What Shopee will knowably refuse about this product's variations,
+     * checked BEFORE the parent item is created (#192): a parent that
+     * goes up and then loses its variations is a half-listed item
+     * selling the wrong thing. Null means nothing knowable stands in the
+     * way (including "no variations at all").
+     */
+    public function refusalFor(int $productId, \Closure $priceFor): ?string
+    {
+        $pfx = (string) config('catalog.prefix');
+        $combos = DB::table('product_option_combinations')
+            ->where('product_id', $productId)
+            ->get(['sku', 'absolute_price']);
+        if ($combos->isEmpty()) {
+            return null;
+        }
+        if ($combos->count() > 50) {
+            return 'Shopee accepts at most 50 variations per item; this product has ' . $combos->count() . '.';
+        }
+
+        $base = (float) (DB::table($pfx . 'product')->where('product_id', $productId)->value('price') ?? 0);
+        $prices = $combos->map(function ($c) use ($base, $priceFor) {
+            $core = $c->absolute_price !== null ? (float) $c->absolute_price : $base;
+
+            return (float) $priceFor($core);
+        })->filter(fn ($p) => $p > 0);
+        if ($prices->count() < 2) {
+            return null;
+        }
+
+        $min = (float) $prices->min();
+        $max = (float) $prices->max();
+        if ($min > 0 && $max / $min > self::PRICE_RATIO_LIMIT) {
+            return 'the dearest variation costs more than 5 times the cheapest ('
+                . \App\Support\Money::base($min) . ' to ' . \App\Support\Money::base($max)
+                . ' after the price rule), and Shopee refuses that spread. Adjust the variation prices, then push.';
+        }
+
+        return null;
+    }
+
+    /**
+     * Remove a just-created item whose variations were refused (#192):
+     * delete it at Shopee and take this push's link and cache rows with
+     * it, so nothing half-listed stays up and nothing here claims it is.
+     * Returns false when Shopee would not delete - the caller must then
+     * say the half-listed item is still standing.
+     */
+    public function undoCreate(ShopeeClient $client, array $auth, int $productId, int $itemId): bool
+    {
+        $path = '/api/v2/product/delete_item';
+        $result = $client->shopPost(
+            $auth['mode'], (int) $auth['partner_id'], (string) $auth['partner_key'],
+            (string) $auth['access_token'], (int) $auth['shop_id'],
+            $path, [], ['item_id' => $itemId]
+        );
+        ShopeeApiLog::safeCreate([
+            'pack' => 'shopee.products.delete_item.undo_half_create', 'method' => 'POST', 'api_path' => $path,
+            'auth_required' => true, 'request_params' => ['item_id' => $itemId],
+            'response_status' => $result['status'] ?? null, 'ok' => (bool) ($result['ok'] ?? false),
+            'response_body' => $result['body'] ?? null, 'user_id' => auth()->id(),
+        ]);
+
+        $ok = ($result['ok'] ?? false) && (($result['body']['error'] ?? '') === '' || ($result['body']['error'] ?? null) === null);
+        if ($ok) {
+            ShopeeProductLink::query()->where('product_id', $productId)->where('shopee_item_id', $itemId)->delete();
+            ShopeeItemCache::query()->where('shopee_item_id', $itemId)->delete();
+        }
+
+        return $ok;
+    }
+
     /**
      * @param \Closure(float): float $priceFor the push's price rule
      * @param null|\Closure(string): ?string $uploadImageId local image path -> Shopee image_id

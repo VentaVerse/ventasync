@@ -31,6 +31,9 @@ class ShopeeVariationPushTest extends TestCase
     /** @var array<int, array{path: string, body: array}> */
     private array $sentPayloads = [];
 
+    /** When set, the fake answers init_tier_variation with this instead. */
+    public ?array $initRefusal = null;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -55,6 +58,9 @@ class ShopeeVariationPushTest extends TestCase
                 $this->test->recordPayload($path, $body);
 
                 if ($path === '/api/v2/product/init_tier_variation') {
+                    if ($this->test->initRefusal !== null) {
+                        return $this->test->initRefusal;
+                    }
                     // Shopee answers with the model ids it assigned.
                     $models = array_map(fn ($m, $i) => [
                         'model_id' => 700001 + $i,
@@ -237,5 +243,65 @@ class ShopeeVariationPushTest extends TestCase
         $this->assertNull(collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/init_tier_variation'));
         // The parent-level link stays for a plain item.
         $this->assertSame(1, ShopeeProductLink::query()->where('product_id', $productId)->whereNull('shopee_model_id')->count());
+    }
+
+    /**
+     * #192, the #2062 incident's first half: a refusal the ERP can compute
+     * from its own prices stops the push BEFORE the item exists. No
+     * half-listed parent, no API call to regret.
+     */
+    public function test_a_knowable_price_ratio_stops_the_push_at_the_door(): void
+    {
+        $productId = $this->seedVariationProduct();
+        DB::table('product_option_combinations')
+            ->where('product_id', $productId)->where('sku', 'VP-RED')
+            ->update(['absolute_price' => 21990 * 6]);
+        ShopeeListing::query()->create([
+            'product_id' => $productId,
+            'shopee_category_id' => 106755, 'logistic_ids' => [41003],
+            'markup_percent' => 0, 'markup_fixed' => 10,
+        ]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.products.push_direct', $productId))
+            ->assertRedirect();
+
+        $this->assertStringContainsString('more than 5 times', (string) session('error'));
+        $this->assertNull(collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/add_item'),
+            'the refusal is known in advance, so the item is never created');
+    }
+
+    /**
+     * #192, the second half: when Shopee refuses the variations AFTER the
+     * item was created, the item is taken down again - half-listed is
+     * worse than unlisted, and "listed, but its variations could not be
+     * created" was a success wearing an error.
+     */
+    public function test_a_refused_variation_push_takes_the_half_created_item_down(): void
+    {
+        $productId = $this->seedVariationProduct();
+        ShopeeListing::query()->create([
+            'product_id' => $productId,
+            'shopee_category_id' => 106755, 'logistic_ids' => [41003],
+            'markup_percent' => 0, 'markup_fixed' => 10,
+        ]);
+        $this->initRefusal = ['ok' => true, 'status' => 200, 'body' => [
+            'error' => 'error_param',
+            'message' => 'The price ratio of the most expensive to cheapest variation exceeds 5 (including promotion price). Please adjust the prices.',
+        ]];
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.products.push_direct', $productId))
+            ->assertRedirect();
+
+        $flash = (string) session('error');
+        $this->assertStringContainsString('variations were refused', $flash);
+        $this->assertStringContainsString('removed from Shopee again', $flash);
+
+        $delete = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/delete_item');
+        $this->assertNotNull($delete, 'the half-created item is deleted at Shopee');
+        $this->assertSame(990077, (int) $delete['body']['item_id']);
+        $this->assertSame(0, ShopeeProductLink::query()->where('product_id', $productId)->count(),
+            'no link row survives a rolled-back create');
     }
 }

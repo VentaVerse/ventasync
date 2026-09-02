@@ -701,6 +701,21 @@ class ShopeeProductController extends Controller
                 ->withInput();
         }
 
+        /* #192: what Shopee will knowably refuse about the variations is
+         * checked BEFORE the item exists. A parent that goes up and then
+         * loses its variations is a half-listed item selling the wrong
+         * thing - the owner's #2062 - so a knowable refusal (the 5x price
+         * ratio, the 50-variation cap) stops the push at the door. */
+        $vPct = $ruleGiven ? (float) $markupPercent : 0.0;
+        $vFixed = $ruleGiven ? (float) $markupFixed : round($pushedPrice - $corePrice, 2);
+        $refusal = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)
+            ->refusalFor($productId, fn (float $core) => round($core + ($core * $vPct / 100) + $vFixed, 2));
+        if ($refusal !== null) {
+            return redirect()->route('ext.shopee.products.push', $productId)
+                ->with('error', 'Not pushed: ' . $refusal)
+                ->withInput();
+        }
+
         // Step 2: Build add_item payload
         $logisticInfo = [];
         foreach ($request->input('logistic_ids', []) as $lid) {
@@ -826,15 +841,27 @@ class ShopeeProductController extends Controller
             $this->tierImageUploader($client, $auth)
         );
 
-        $flash = 'Product pushed to Shopee. Item ID: ' . $itemId . '. Its settings are saved on the listing for one-click pushes and price sync.';
-        if ($variations !== null) {
-            $flash .= $variations['ok']
-                ? ' ' . $variations['models'] . ' variations went with it.'
-                : ' The item is live, but its variations could not be created: ' . $variations['message'];
+        if ($variations !== null && !$variations['ok']) {
+            /* #192: half-listed is worse than unlisted. The item was just
+             * created and its variations were refused, so it stands with
+             * only the parent SKU - selling the wrong thing. Take it down
+             * again and report ONE honest failure. */
+            $undone = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)
+                ->undoCreate($client, $auth, $productId, (int) $itemId);
+
+            return redirect()->route('ext.shopee.products.index')->with('error', $undone
+                ? 'Not pushed: the variations were refused - ' . $variations['message']
+                    . ' The item was removed from Shopee again, so nothing half-listed stays up.'
+                : 'The variations were refused - ' . $variations['message']
+                    . ' Shopee also refused to remove the half-created item (ID ' . $itemId . '). Delete it in Seller Centre, then push again.');
         }
 
-        return redirect()->route('ext.shopee.products.index')
-            ->with($variations === null || $variations['ok'] ? 'status' : 'error', $flash);
+        $flash = 'Product pushed to Shopee. Item ID: ' . $itemId . '. Its settings are saved on the listing for one-click pushes and price sync.';
+        if ($variations !== null) {
+            $flash .= ' ' . $variations['models'] . ' variations went with it.';
+        }
+
+        return redirect()->route('ext.shopee.products.index')->with('status', $flash);
     }
 
     // ── Push Direct (auto-populate from product + product group) ─────────
@@ -976,6 +1003,17 @@ class ShopeeProductController extends Controller
          * operator wrote on the listing overrides the catalog's; null
          * means never set, so the catalog value goes. SKU is always the
          * catalog's - reconcile matches by it (card #97). */
+        /* #192: what Shopee will knowably refuse about the variations is
+         * checked BEFORE the item exists. A parent that goes up and then
+         * loses its variations is a half-listed item selling the wrong
+         * thing - the owner's #2062 - so a knowable refusal (the 5x price
+         * ratio, the 50-variation cap) stops the push at the door. */
+        $refusal = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)
+            ->refusalFor($productId, fn (float $core) => $listing->priceFor($core));
+        if ($refusal !== null) {
+            return redirect()->back()->with('error', 'Not pushed: ' . $refusal);
+        }
+
         $sellingPrice = $listing->priceFor((float) $product->price);
 
         $payload = [
@@ -1058,14 +1096,24 @@ class ShopeeProductController extends Controller
             $this->tierImageUploader($client, $auth)
         );
 
-        $flash = 'Product pushed to Shopee. Item ID: ' . $itemId;
-        if ($variations !== null) {
-            $flash .= $variations['ok']
-                ? '. ' . $variations['models'] . ' variations went with it.'
-                : '. The item is live, but its variations could not be created: ' . $variations['message'];
+        if ($variations !== null && !$variations['ok']) {
+            // #192: see push() - never leave a half-listed item standing.
+            $undone = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)
+                ->undoCreate($client, $auth, $productId, (int) $itemId);
+
+            return redirect()->back()->with('error', $undone
+                ? 'Not pushed: the variations were refused - ' . $variations['message']
+                    . ' The item was removed from Shopee again, so nothing half-listed stays up.'
+                : 'The variations were refused - ' . $variations['message']
+                    . ' Shopee also refused to remove the half-created item (ID ' . $itemId . '). Delete it in Seller Centre, then push again.');
         }
 
-        return redirect()->back()->with($variations === null || $variations['ok'] ? 'status' : 'error', $flash);
+        $flash = 'Product pushed to Shopee. Item ID: ' . $itemId;
+        if ($variations !== null) {
+            $flash .= '. ' . $variations['models'] . ' variations went with it.';
+        }
+
+        return redirect()->back()->with('status', $flash);
     }
 
     // ── Bulk Push to Shopee ───────────────────────────────────────
@@ -1308,6 +1356,16 @@ class ShopeeProductController extends Controller
                 $logisticInfo[] = ['logistic_id' => (int) $lid, 'enabled' => true];
             }
 
+            /* #192: knowable variation refusals stop this product before
+             * its item exists; the batch moves on and the reason is named. */
+            $refusal = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)
+                ->refusalFor($productId, fn (float $core) => $listing->priceFor($core));
+            if ($refusal !== null) {
+                $errors[] = "#{$productId}: not pushed - {$refusal}";
+                $errCount++;
+                continue;
+            }
+
             $sellingPrice = $listing->priceFor((float) $product->price);
 
             $payload = [
@@ -1381,7 +1439,15 @@ class ShopeeProductController extends Controller
                     $this->tierImageUploader($client, $auth)
                 );
                 if ($variations !== null && !$variations['ok']) {
-                    $errors[] = "#{$productId}: listed, but its variations could not be created - " . $variations['message'];
+                    // #192: never leave a half-listed item standing.
+                    $undone = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)
+                        ->undoCreate($client, $auth, $productId, (int) $itemId);
+                    $errors[] = $undone
+                        ? "#{$productId}: not pushed - its variations were refused (" . $variations['message'] . '); the item was removed from Shopee again'
+                        : "#{$productId}: its variations were refused (" . $variations['message'] . ') and Shopee also refused to remove the half-created item ' . $itemId . ' - delete it in Seller Centre';
+                    $errCount++;
+                    usleep(300000);
+                    continue;
                 }
                 $okCount++;
             } else {

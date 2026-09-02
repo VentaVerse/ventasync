@@ -2174,6 +2174,21 @@ class ShopeeProductGroupController extends Controller
                 $payload['attribute_list'] = $attributeList;
             }
 
+            /* #192: knowable variation refusals (the 5x price ratio, the
+             * 50-variation cap) stop this product BEFORE its item exists -
+             * a parent that goes up and then loses its variations is a
+             * half-listed item selling the wrong thing (#2062). */
+            $gPct = (float) ($group->markup_percent ?? 0);
+            $gFixed = (float) ($group->markup_fixed ?? 0);
+            $refusal = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)
+                ->refusalFor($productId, fn (float $core) => round($core + ($core * $gPct / 100) + $gFixed, 2));
+            if ($refusal !== null) {
+                $errors[] = "#{$productId}: not pushed - {$refusal}";
+                $this->writeProductStatus($productId, ['sync_status' => 'error', 'push_error' => 'Not pushed - ' . $refusal]);
+                $errCount++;
+                continue;
+            }
+
             $path = '/api/v2/product/add_item';
             $result = $client->shopPost(
                 $auth['mode'],
@@ -2270,7 +2285,18 @@ class ShopeeProductGroupController extends Controller
                     null
                 );
                 if ($variations !== null && !$variations['ok']) {
-                    $errors[] = "#{$productId}: listed, but its variations could not be created - " . $variations['message'];
+                    /* #192: half-listed is worse than unlisted - take the
+                     * just-created item down again and record ONE honest
+                     * failure instead of a success wearing an error. */
+                    $undone = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)
+                        ->undoCreate($client, $auth, $productId, (int) $itemId);
+                    $reason = $undone
+                        ? 'not pushed - its variations were refused (' . $variations['message'] . '); the item was removed from Shopee again'
+                        : 'its variations were refused (' . $variations['message'] . ') and Shopee also refused to remove the half-created item ' . $itemId . ' - delete it in Seller Centre';
+                    $errors[] = "#{$productId}: {$reason}";
+                    $this->writeProductStatus($productId, ['shopee_item_id' => null, 'sync_status' => 'error', 'push_error' => $reason]);
+                    $errCount++;
+                    continue;
                 }
 
                 // Update pivot sync_status
