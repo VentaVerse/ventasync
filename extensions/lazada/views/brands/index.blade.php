@@ -42,7 +42,7 @@
         @csrf
         <div class="x-cmdbar__actions">
             <x-ui.button type="submit" variant="primary">Fetch brands</x-ui.button>
-            <x-ui.hint>Reads every brand Lazada offers for the region set on the Settings page and caches it here. Product Groups and listings pick their brand from this list, so refresh it when a brand you need is missing.</x-ui.hint>
+            <x-ui.hint>Reads every brand Lazada offers for the region set on the Settings page and caches it here. Presets and listings pick their brand from this list, so refresh it when a brand you need is missing.</x-ui.hint>
         </div>
     </form>
 </div>

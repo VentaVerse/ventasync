@@ -34,6 +34,10 @@ use Tests\TestCase;
 class ShopeeReconcileTest extends TestCase
 {
     private const CONTROLLER = 'extensions/shopee/Controllers/ShopeeProductGroupController.php';
+
+    /* The reconcile, the SKU index and the check sweep moved here whole
+     * (Phase F, #184) so the workbench shares them; methodBody() follows. */
+    private const CHECK = 'extensions/shopee/Services/Shopee/ShopeeLinkCheck.php';
     private const VIEW = 'extensions/shopee/views/product-groups/products.blade.php';
 
     private function source(string $file): string
@@ -44,6 +48,10 @@ class ShopeeReconcileTest extends TestCase
     private function methodBody(string $method): string
     {
         $source = $this->source(self::CONTROLLER);
+
+        if (! preg_match('/\n    (?:public|private) function '.$method.'\(/', $source, $m, PREG_OFFSET_CAPTURE)) {
+            $source = $this->source(self::CHECK);
+        }
 
         if (! preg_match('/\n    (?:public|private) function '.$method.'\(/', $source, $m, PREG_OFFSET_CAPTURE)) {
             return '';
@@ -91,7 +99,7 @@ class ShopeeReconcileTest extends TestCase
 
     public function test_a_hidden_item_is_not_a_deleted_one(): void
     {
-        $body = $this->methodBody('shopeeSkuIndex');
+        $body = $this->methodBody('skuIndex');
 
         foreach (['NORMAL', 'UNLIST', 'BANNED'] as $status) {
             $this->assertStringContainsString($status, $body,
@@ -108,7 +116,7 @@ class ShopeeReconcileTest extends TestCase
 
     public function test_an_incomplete_scan_never_concludes_absence(): void
     {
-        $body = $this->methodBody('reconcileShopeeLink');
+        $body = $this->methodBody('reconcile');
 
         $this->assertStringContainsString("\$index['complete']", $body,
             'A shop that could only be read halfway still yields a "not on Shopee" verdict, which '
@@ -119,7 +127,7 @@ class ShopeeReconcileTest extends TestCase
 
     public function test_every_divergence_has_a_verdict(): void
     {
-        $body = $this->methodBody('reconcileShopeeLink');
+        $body = $this->methodBody('reconcile');
 
         foreach (['confirmed', 'adopted', 'repointed', 'lost', 'new', 'taken', 'unreachable'] as $state) {
             $this->assertStringContainsString("'{$state}'", $body,
@@ -135,7 +143,7 @@ class ShopeeReconcileTest extends TestCase
      */
     public function test_a_contested_item_is_not_taken_over(): void
     {
-        $body = $this->methodBody('reconcileShopeeLink');
+        $body = $this->methodBody('reconcile');
 
         $this->assertStringContainsString("'state' => 'taken'", $body);
 
@@ -155,7 +163,7 @@ class ShopeeReconcileTest extends TestCase
      */
     public function test_a_lost_item_reads_as_not_pushed_not_as_unlinked(): void
     {
-        $body = $this->methodBody('reconcileShopeeLink');
+        $body = $this->methodBody('reconcile');
 
         $this->assertMatchesRegularExpression(
             "/unlinkProduct\(\\\$productId\);(?:(?!return).)*'sync_status' => 'pending'/s",
@@ -171,7 +179,7 @@ class ShopeeReconcileTest extends TestCase
     {
         $body = $this->methodBody('send');
 
-        $reconcileAt = strpos($body, 'reconcileShopeeLink(');
+        $reconcileAt = strpos($body, 'linkCheck->reconcile(');
         $createAt = strpos($body, 'createOnShopee(');
         $updateAt = strpos($body, 'updateOnShopee(');
 
@@ -246,9 +254,9 @@ class ShopeeReconcileTest extends TestCase
          * repointing, 2026-08-25): it lands on the listing record, where
          * every page reads it, instead of the pivot copy only the page the
          * check ran from could see. */
-        $this->assertStringContainsString("'last_checked_at' => now()", $this->methodBody('checkAgainstShopee'),
+        $this->assertStringContainsString("'last_checked_at' => now()", $this->methodBody('run'),
             'Checking leaves no trace, so a fresh answer cannot be told from an old belief.');
-        $this->assertStringNotContainsString("'last_confirmed_at'", $this->methodBody('checkAgainstShopee'),
+        $this->assertStringNotContainsString("'last_confirmed_at'", $this->methodBody('run'),
             'The check is stamping the per-group copy again.');
     }
 
@@ -280,7 +288,7 @@ class ShopeeReconcileTest extends TestCase
 
     public function test_checking_never_writes_to_shopee(): void
     {
-        $body = $this->methodBody('checkAgainstShopee');
+        $body = $this->methodBody('run');
 
         foreach (['createOnShopee(', 'updateOnShopee(', '->postJson(', 'add_item', 'update_item'] as $write) {
             $this->assertStringNotContainsString($write, $body,
@@ -291,7 +299,7 @@ class ShopeeReconcileTest extends TestCase
 
     public function test_the_check_does_not_silently_cap_its_own_work(): void
     {
-        $body = $this->methodBody('checkAgainstShopee');
+        $body = $this->methodBody('run');
 
         $this->assertStringContainsString('$skippedForSize', $body,
             'The check has no ceiling, so a large group runs until the request times out.');
@@ -343,7 +351,7 @@ class ShopeeReconcileTest extends TestCase
      */
     public function test_the_shop_is_scanned_once_per_request(): void
     {
-        $body = $this->methodBody('shopeeSkuIndex');
+        $body = $this->methodBody('skuIndex');
 
         $this->assertStringContainsString('if ($this->shopeeSkuIndex !== null)', $body,
             'The shop-wide scan is no longer memoised, so a group of 137 products would page the '
@@ -357,10 +365,10 @@ class ShopeeReconcileTest extends TestCase
      */
     public function test_the_cheap_question_is_asked_first(): void
     {
-        $body = $this->methodBody('reconcileShopeeLink');
+        $body = $this->methodBody('reconcile');
 
         $existsAt = strpos($body, 'shopeeItemStillExists(');
-        $indexAt = strpos($body, 'shopeeSkuIndex(');
+        $indexAt = strpos($body, 'skuIndex(');
 
         $this->assertNotFalse($existsAt);
         $this->assertNotFalse($indexAt);

@@ -291,6 +291,34 @@ class TikTokProductController extends Controller
      * already listed gets its content updated in place. Refuses to start
      * when an unlisted selection is not ready, naming what it needs.
      */
+    /**
+     * Ask TikTok Shop whether the links this page believes in are still
+     * true (Phase F, #184): the group page's check, on the workbench,
+     * via the shared TikTokLinkCheck. With rows ticked it checks those;
+     * with none it checks every linked product.
+     */
+    public function checkAgainstTikTok(Request $request, \Extensions\tiktok\Services\TikTok\TikTokLinkCheck $check)
+    {
+        $c = $this->creds();
+        if (!$c) {
+            return redirect()->back()->with('error', 'Missing TikTok settings.');
+        }
+
+        $productIds = array_map('intval', array_filter((array) $request->input('product_ids', [])));
+        if (empty($productIds)) {
+            $productIds = TikTokListing::query()->whereNotNull('tiktok_product_id')->pluck('product_id')
+                ->merge(\Extensions\tiktok\Models\TikTokProductGroupProduct::query()->whereNotNull('tiktok_product_id')->pluck('product_id'))
+                ->map(fn ($v) => (int) $v)->unique()->sort()->values()->all();
+        }
+        if (empty($productIds)) {
+            return redirect()->back()->with('error', 'Nothing is linked to TikTok Shop yet, so there is nothing to check.');
+        }
+
+        $r = $check->run($c, $productIds);
+
+        return redirect()->back()->with($r['tone'], $r['summary']);
+    }
+
     public function bulkSend(Request $request, TikTokClient $client)
     {
         $productIds = array_map('intval', array_filter((array) $request->input('product_ids', [])));

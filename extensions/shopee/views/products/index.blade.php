@@ -74,7 +74,16 @@
         </p>
     </div>
     @if($canManageShopee)
-        <x-ui.button variant="primary" :href="route('ext.shopee.products.add')">New listing</x-ui.button>
+        <div class="cc-head-actions">
+            {{-- The group page's check, page-wide (Phase F, #184): with no
+                 rows ticked it walks every linked product, 200 at a time. --}}
+            <form method="POST" action="{{ route('ext.shopee.products.check') }}"
+                  data-confirm="Check every linked product against Shopee? Nothing is sent or changed on Shopee; the ERP updates its own records to match what it finds, 200 products at a time." data-confirm-tone="primary" data-confirm-verb="Check against Shopee">
+                @csrf
+                <x-ui.button type="submit" variant="secondary">Check against Shopee</x-ui.button>
+            </form>
+            <x-ui.button variant="primary" :href="route('ext.shopee.products.add')">New listing</x-ui.button>
+        </div>
     @endif
 </div>
 
@@ -347,9 +356,9 @@
     </div>
 
     <div class="x-select-wrap x-filters__select">
-        <select name="group" class="x-input" data-autosubmit aria-label="Filter by product group">
-            <option value="all" @selected($groupFilter === 'all')>All groups</option>
-            <option value="none" @selected($groupFilter === 'none')>No group</option>
+        <select name="group" class="x-input" data-autosubmit aria-label="Filter by preset">
+            <option value="all" @selected($groupFilter === 'all')>All presets</option>
+            <option value="none" @selected($groupFilter === 'none')>Not in a preset</option>
             @foreach(($allGroups ?? collect()) as $pId => $pName)
                 <option value="{{ $pId }}" @selected($groupFilter === (string) $pId)>{{ $pName }}</option>
             @endforeach
@@ -406,9 +415,11 @@
         <form method="GET" action="{{ route('ext.shopee.products.bulk_push_form') }}" data-bulk-form>
             <x-ui.button type="submit" size="sm">Push to Shopee</x-ui.button>
         </form>
-        <form method="POST" action="{{ route('ext.shopee.products.sync_ids') }}" data-bulk-form>
+        {{-- Replaces Match Shopee IDs, which could only fill in blanks; the
+             check also verifies the ids the rows already have (Phase F, #184). --}}
+        <form method="POST" action="{{ route('ext.shopee.products.check') }}" data-bulk-form>
             @csrf
-            <x-ui.button type="submit" size="sm">Match Shopee IDs</x-ui.button>
+            <x-ui.button type="submit" size="sm">Check against Shopee</x-ui.button>
         </form>
         <form method="POST" action="{{ route('ext.shopee.products.bulk_sync_quantity') }}" data-bulk-form>
             @csrf
@@ -446,10 +457,10 @@
 @endif
 
 @if($products->count() === 0)
-    <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'No products in scope yet' }}"
+    <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'No products yet' }}"
                 :description="$hasFilters
-                    ? 'Try clearing the search, or widening the group and status filters.'
-                    : 'This list shows catalog products that belong to a Shopee product group, plus anything already linked to a Shopee listing. Create a product group to bring products into scope.'">
+                    ? 'Try clearing the search, or widening the preset and status filters.'
+                    : 'Every catalog product appears here, ready to list on Shopee. Add your first product and it will be waiting.'">
         {{-- An empty state that says "try clearing the search" and offers no
              way to do it is a dead end. The way out belongs where the reader
              already is. --}}
@@ -459,7 +470,7 @@
         </x-slot:action>
         @else
         <x-slot:action>
-            <x-ui.button :href="route('ext.shopee.product-groups.index')">Go to Product Groups</x-ui.button>
+            <x-ui.button :href="route('products.create')">Add a product</x-ui.button>
         </x-slot:action>
         @endif
     </x-ui.empty>
@@ -560,7 +571,7 @@
                                      every order page). The label now says
                                      what it is, and the full list rides on
                                      the title for the "and N more" case. --}}
-                                <span class="co-item__var" @if(count($pGroups) > 1) title="Groups: {{ implode(', ', $pGroups) }}" @endif>Group{{ count($pGroups) > 1 ? 's' : '' }}: {{ $pGroups[0] }}@if(count($pGroups) > 1) and {{ count($pGroups) - 1 }} more @endif</span>
+                                <span class="co-item__var" @if(count($pGroups) > 1) title="Presets: {{ implode(', ', $pGroups) }}" @endif>Preset{{ count($pGroups) > 1 ? 's' : '' }}: {{ $pGroups[0] }}@if(count($pGroups) > 1) and {{ count($pGroups) - 1 }} more @endif</span>
                             @endif
                         </div>
 

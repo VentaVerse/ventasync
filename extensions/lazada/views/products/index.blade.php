@@ -76,7 +76,16 @@
         </p>
     </div>
     @if($canManageLazada)
-        <x-ui.button variant="primary" :href="route('ext.lazada.products.create')">New listing</x-ui.button>
+        <div class="cc-head-actions">
+            {{-- The group page's check, page-wide (Phase F, #184): with no
+                 rows ticked it walks every linked listing, 200 at a time. --}}
+            <form method="POST" action="{{ route('ext.lazada.products.check') }}"
+                  data-confirm="Check every linked listing against Lazada? Nothing is sent or changed on Lazada; the ERP updates its own records to match what it finds, 200 listings at a time." data-confirm-tone="primary" data-confirm-verb="Check against Lazada">
+                @csrf
+                <x-ui.button type="submit" variant="secondary">Check against Lazada</x-ui.button>
+            </form>
+            <x-ui.button variant="primary" :href="route('ext.lazada.products.create')">New listing</x-ui.button>
+        </div>
     @endif
 </div>
 
@@ -377,9 +386,9 @@
     </div>
 
     <div class="x-select-wrap x-filters__select">
-        <select name="group" class="x-input" data-autosubmit aria-label="Filter by product group">
-            <option value="all" @selected($groupFilter === 'all')>All groups</option>
-            <option value="none" @selected($groupFilter === 'none')>No group</option>
+        <select name="group" class="x-input" data-autosubmit aria-label="Filter by preset">
+            <option value="all" @selected($groupFilter === 'all')>All presets</option>
+            <option value="none" @selected($groupFilter === 'none')>Not in a preset</option>
             @foreach(($allGroups ?? collect()) as $gId => $gName)
                 <option value="{{ $gId }}" @selected($groupFilter === (string) $gId)>{{ $gName }}</option>
             @endforeach
@@ -487,6 +496,10 @@
             @csrf
             <x-ui.button type="submit" size="sm">Push to Lazada</x-ui.button>
         </form>
+        <form method="POST" action="{{ route('ext.lazada.products.check') }}" data-bulk-form>
+            @csrf
+            <x-ui.button type="submit" size="sm">Check against Lazada</x-ui.button>
+        </form>
         <form method="POST" action="{{ $bulkSyncLazadaIdUrl }}" data-bulk-form>
             @csrf
             <x-ui.button type="submit" size="sm">Match Lazada IDs</x-ui.button>
@@ -511,7 +524,7 @@
 @if($products->count() === 0)
     <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : (($lazadaTab ?? 'all') !== 'all' ? 'Nothing holds this status' : 'No products yet') }}"
                 :description="$hasFilters
-                    ? 'Try clearing the search, or widening the group and status filters.'
+                    ? 'Try clearing the search, or widening the preset and status filters.'
                     : ((($lazadaTab ?? 'all') !== 'all')
                         ? 'No listing on Lazada holds this status right now.'
                         : 'Every catalog product appears here, ready to list on Lazada. Add your first product and it will be waiting.')">
@@ -669,7 +682,7 @@
                             @endif
                             @if($listing && $listing->groups->count() > 0)
                                 @php $firstGroup = $listing->groups->first(); @endphp
-                                <span class="co-item__var" @if($listing->groups->count() > 1) title="Groups: {{ $listing->groups->pluck('name')->implode(', ') }}" @endif>Group{{ $listing->groups->count() > 1 ? 's' : '' }}: {{ $firstGroup->name }}@if($listing->groups->count() > 1) and {{ $listing->groups->count() - 1 }} more @endif</span>
+                                <span class="co-item__var" @if($listing->groups->count() > 1) title="Presets: {{ $listing->groups->pluck('name')->implode(', ') }}" @endif>Preset{{ $listing->groups->count() > 1 ? 's' : '' }}: {{ $firstGroup->name }}@if($listing->groups->count() > 1) and {{ $listing->groups->count() - 1 }} more @endif</span>
                             @endif
                             @if($isUnlinked)
                                 <span>Unlinked</span>

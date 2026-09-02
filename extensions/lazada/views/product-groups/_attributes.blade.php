@@ -1,7 +1,7 @@
 {{-- Lazada category attributes: one row per attribute Lazada defines for the
      chosen category.
 
-     Rendered twice over, exactly like Shopee's: inline by the group form, and
+     Rendered twice over, exactly like Shopee's: inline by the preset form, and
      as the body of LazadaProductGroupController::fetchAttributesAjax()'s JSON
      response when the operator changes the category. Its markup is part of
      that endpoint's contract, so the row grammar lives in

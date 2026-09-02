@@ -1,7 +1,7 @@
 @extends('layouts.channel')
-@section('breadcrumb', 'Product Groups')
+@section('breadcrumb', 'Presets')
 
-@section('title', 'Lazada Product Groups')
+@section('title', 'Lazada Presets')
 
 {{-- Leaves the .x-legacy content boundary, rebuilt on the token set. --}}
 @section('content')
@@ -15,23 +15,23 @@
 
 <div class="x-list-head">
     <div>
-        <h1 class="x-page-title">Product Groups</h1>
+        <h1 class="x-page-title">Presets</h1>
         <p class="x-page-sub">
-            {{ number_format($groups->count()) }} {{ $groups->count() === 1 ? 'group' : 'groups' }}.
-            <x-ui.hint label="What a product group is">A group maps a set of catalog products to one Lazada category, its brand and its required attributes.</x-ui.hint>
+            {{ number_format($groups->count()) }} {{ $groups->count() === 1 ? 'preset' : 'presets' }}.
+            <x-ui.hint label="What a preset is">A preset holds the shared Lazada settings a push starts from - category, brand, attributes, markup. Keep products under it and push them from here, or work per listing on the Listings page.</x-ui.hint>
         </p>
     </div>
     @if($canManageLazada)
-        <x-ui.button variant="primary" :href="route('ext.lazada.product-groups.create')">New group</x-ui.button>
+        <x-ui.button variant="primary" :href="route('ext.lazada.product-groups.create')">New preset</x-ui.button>
     @endif
 </div>
 
 @if($groups->count() === 0)
-    <x-ui.empty title="No product groups yet"
-                description="A group is how a batch of catalog products gets its Lazada category, brand, attributes and price markup in one place, instead of setting them per listing.">
+    <x-ui.empty title="No presets yet"
+                description="A preset holds the Lazada category, brand, attributes and price markup a batch of products shares, so a push sets them once instead of per listing.">
         @if($canManageLazada)
         <x-slot:action>
-            <x-ui.button variant="primary" :href="route('ext.lazada.product-groups.create')">New group</x-ui.button>
+            <x-ui.button variant="primary" :href="route('ext.lazada.product-groups.create')">New preset</x-ui.button>
         </x-slot:action>
         @endif
     </x-ui.empty>
@@ -40,7 +40,7 @@
     <x-slot:head>
         <tr>
             <th scope="col" class="cc-col-id">ID</th>
-            <th scope="col">Group</th>
+            <th scope="col">Preset</th>
             <th scope="col" class="cc-col-count x-td-num">Products</th>
             <th scope="col">Lazada category</th>
             <th scope="col" class="cc-col-markup">Markup</th>
@@ -62,7 +62,7 @@
         @endphp
         <tr>
             <td class="cc-col-id" data-label="ID"><span class="x-num">{{ $g->id }}</span></td>
-            <td data-label="Group">
+            <td data-label="Preset">
                 <a class="x-row-link" href="{{ $productsUrl }}">{{ $g->name }}</a>
             </td>
             <td class="cc-col-count x-td-num" data-label="Products"><span class="x-num">{{ number_format($pCount) }}</span></td>
@@ -91,10 +91,10 @@
                      solid red Delete, on every line. The row itself is the
                      link to its products now, and the two remaining actions
                      sit in the overflow. --}}
-                <x-ui.menu label="Group {{ $g->name }} actions">
-                    <a class="x-menu__item" href="{{ $productsUrl }}">Products in this group</a>
+                <x-ui.menu label="Preset {{ $g->name }} actions">
+                    <a class="x-menu__item" href="{{ $productsUrl }}">Products in this preset</a>
                     @if($canManageLazada)
-                        <a class="x-menu__item" href="{{ route('ext.lazada.product-groups.edit', $g->id) }}">Edit group</a>
+                        <a class="x-menu__item" href="{{ route('ext.lazada.product-groups.edit', $g->id) }}">Edit preset</a>
                         <div class="x-menu__sep"></div>
                         {{-- Destroy is never a standing control: it sits in the
                              overflow behind the shared confirm dialog and drives
@@ -102,10 +102,10 @@
                              nested inside a row that is itself a stretched
                              link. The wording states what the controller really
                              does: it deletes local listing rows that belong to
-                             no other group and were never uploaded. --}}
+                             no other preset and were never uploaded. --}}
                         <button type="button" class="x-menu__item x-menu__item--danger"
-                                data-confirm="Delete the group {{ $g->name }}? Listings in no other group that were never uploaded to Lazada are removed from this list with it. Nothing changes in the catalog, and nothing already live on Lazada is touched."
-                                data-confirm-submit="lpg-del-{{ $g->id }}">Delete group</button>
+                                data-confirm="Delete the preset {{ $g->name }}? Listings in no other preset that were never uploaded to Lazada are removed from this list with it. Nothing changes in the catalog, and nothing already live on Lazada is touched."
+                                data-confirm-submit="lpg-del-{{ $g->id }}">Delete preset</button>
                     @endif
                 </x-ui.menu>
             </td>

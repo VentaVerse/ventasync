@@ -126,7 +126,7 @@
                 @endif
                 @if($linkedGroups->count() > 0)
                     <span class="fm-stamp">
-                        <span class="fm-stamp__k">Product group</span>
+                        <span class="fm-stamp__k">Preset</span>
                         <span class="fm-stamp__v">{{ $linkedGroups->first()->name }}@if($linkedGroups->count() > 1) and {{ $linkedGroups->count() - 1 }} more @endif</span>
                     </span>
                 @endif
@@ -682,7 +682,7 @@
                                     @endif
 
                                     @if($fromGroup)
-                                        <p class="gf-attr__note">Inherited from the product group. Saving here overrides it for this listing.</p>
+                                        <p class="gf-attr__note">Inherited from the preset. Saving here overrides it for this listing.</p>
                                     @endif
 
                                     @if(!$isSelect && !$isMapped && empty($saved[$key] ?? null) && empty(old('attributes.' . $key)) && !empty($suggestion))

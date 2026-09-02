@@ -559,6 +559,38 @@ class ShopeeListingPageTest extends TestCase
             'The per-group copy of the checked fact must no longer be written.');
     }
 
+    /**
+     * The workbench check (Phase F, #184): the group page's sweep with no
+     * group anywhere in sight, on the shared ShopeeLinkCheck. It also
+     * replaced Match Shopee IDs, which could only fill in blanks.
+     */
+    public function test_the_workbench_check_needs_no_group(): void
+    {
+        $productId = $this->seedProduct();
+        ShopeeProductLink::query()->create([
+            'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
+        ]);
+        $this->getResponses['/api/v2/product/get_item_base_info'] = $this->baseInfoAnswer();
+
+        $r = $this->actingAs($this->manager())
+            ->post(route('ext.shopee.products.check'), ['product_ids' => [$productId]]);
+
+        $r->assertSessionHas('status');
+        $this->assertStringContainsString('1 still on Shopee', session('status'));
+        $this->assertNotNull(ShopeeListing::query()->where('product_id', $productId)->value('last_checked_at'));
+    }
+
+    public function test_the_workbench_offers_the_check_and_match_ids_is_gone(): void
+    {
+        $this->seedProduct();
+        $html = $this->actingAs($this->manager())
+            ->get(route('ext.shopee.products.index'))->assertOk()->getContent();
+        $this->assertSame(2, substr_count($html, route('ext.shopee.products.check')),
+            'the head checks every linked product, the bar checks the selection');
+        $this->assertStringNotContainsString('Match Shopee IDs', $html,
+            'Match Shopee IDs is back; the check replaced it because it could only fill in blanks, never question an id a row already had');
+    }
+
     public function test_bulk_send_updates_already_listed_selections_instead_of_skipping(): void
     {
         /* Critique P1 (2026-08-25): the index bulk used to skip anything

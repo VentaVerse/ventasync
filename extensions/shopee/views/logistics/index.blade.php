@@ -35,7 +35,7 @@
         @csrf
         <div class="x-cmdbar__actions">
             <x-ui.button type="submit" variant="primary">Fetch couriers</x-ui.button>
-            <x-ui.hint>Reads the courier list Shopee has switched on for your shop. Product Groups pick their couriers from this list, so refresh it after changing anything in Seller Centre.</x-ui.hint>
+            <x-ui.hint>Reads the courier list Shopee has switched on for your shop. Presets pick their couriers from this list, so refresh it after changing anything in Seller Centre.</x-ui.hint>
         </div>
     </form>
 </div>

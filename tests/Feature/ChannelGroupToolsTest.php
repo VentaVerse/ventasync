@@ -226,6 +226,70 @@ class ChannelGroupToolsTest extends TestCase
         $this->assertSame('error', TikTokProductGroupProduct::where('product_id', $lost)->value('sync_status'));
     }
 
+    /**
+     * The workbench check (Phase F, #184): the same sweep with no group
+     * anywhere in sight. Adoption still works - the listing is dressed
+     * from nothing and left for the workbench - and a lost link drops.
+     */
+    public function test_the_lazada_workbench_check_needs_no_group(): void
+    {
+        $unlisted = $this->seedProduct('WB-NEW');
+        $lost = $this->seedProduct('WB-LOST');
+        $newListing = LazadaProduct::create(['product_id' => $unlisted, 'primary_category_id' => 10001]);
+        $lostListing = LazadaProduct::create(['product_id' => $lost, 'primary_category_id' => 10001, 'lazada_item_id' => '9990001']);
+
+        $this->lazadaAnswers['GET /products/get'] = ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => ['products' => [
+            ['item_id' => 5550009, 'status' => 'active', 'skus' => [['SellerSku' => 'WB-NEW']]],
+        ]]]];
+
+        $r = $this->actingAs($this->manager(['manage_lazada/product', 'view_lazada/product']))
+            ->post(route('ext.lazada.products.check'), ['listing_ids' => [$newListing->id, $lostListing->id]]);
+
+        $r->assertSessionHas('error');
+        $this->assertStringContainsString('1 linked to the item Lazada holds', session('error'));
+        $this->assertStringContainsString('1 no longer on Lazada', session('error'));
+        $this->assertSame('5550009', (string) LazadaProduct::where('product_id', $unlisted)->value('lazada_item_id'));
+        $this->assertNotNull(LazadaProduct::where('product_id', $lost)->value('lazada_deleted_at'));
+    }
+
+    public function test_the_lazada_workbench_offers_the_check_in_head_and_bulk_bar(): void
+    {
+        $this->seedProduct('WB-BTN');
+        $html = $this->actingAs($this->manager(['manage_lazada/product', 'view_lazada/product']))
+            ->get(route('ext.lazada.products.index'))->assertOk()->getContent();
+        $this->assertSame(2, substr_count($html, route('ext.lazada.products.check')),
+            'the head checks every linked listing, the bar checks the selection');
+    }
+
+    public function test_the_tiktok_workbench_check_needs_no_group(): void
+    {
+        $unlisted = $this->seedProduct('WBT-NEW');
+        $lost = $this->seedProduct('WBT-LOST');
+        TikTokListing::create(['product_id' => $lost, 'tiktok_product_id' => 'tt-gone']);
+
+        $this->tiktokAnswers['POST /product/202309/products/search'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success', 'data' => ['products' => [
+            ['id' => 'tt-held', 'status' => 'ACTIVATE', 'title' => 'Held on TikTok', 'skus' => [['seller_sku' => 'WBT-NEW']]],
+        ]]]];
+
+        $r = $this->actingAs($this->manager(['manage_tiktok/product', 'view_tiktok/product']))
+            ->post(route('ext.tiktok.products.check'), ['product_ids' => [$unlisted, $lost]]);
+
+        $r->assertSessionHas('error');
+        $this->assertStringContainsString('1 linked to the product TikTok Shop holds', session('error'));
+        $this->assertStringContainsString('1 no longer on TikTok Shop', session('error'));
+        $this->assertSame('tt-held', TikTokListing::where('product_id', $unlisted)->value('tiktok_product_id'));
+        $this->assertNull(TikTokListing::where('product_id', $lost)->value('tiktok_product_id'));
+    }
+
+    public function test_the_tiktok_workbench_offers_the_check_in_head_and_bulk_bar(): void
+    {
+        $this->seedProduct('WBT-BTN');
+        $html = $this->actingAs($this->manager(['manage_tiktok/product', 'view_tiktok/product']))
+            ->get(route('ext.tiktok.products.index'))->assertOk()->getContent();
+        $this->assertSame(2, substr_count($html, route('ext.tiktok.products.check')),
+            'the head checks every linked product, the bar checks the selection');
+    }
+
     public function test_tiktok_unlinked_view_lists_the_shops_unknown_products(): void
     {
         $known = $this->seedProduct('TT-KNOWN');

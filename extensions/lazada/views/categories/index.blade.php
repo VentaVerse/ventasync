@@ -38,7 +38,7 @@
         @csrf
         <div class="x-cmdbar__actions">
             <x-ui.button type="submit" variant="primary">Fetch categories</x-ui.button>
-            <x-ui.hint>Pulls Lazada's whole category tree and replaces the cached copy. Product Groups and listings map to categories from this list, so refresh it when Lazada adds one.</x-ui.hint>
+            <x-ui.hint>Pulls Lazada's whole category tree and replaces the cached copy. Presets and listings map to categories from this list, so refresh it when Lazada adds one.</x-ui.hint>
         </div>
     </form>
 </div>

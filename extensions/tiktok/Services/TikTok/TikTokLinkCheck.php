@@ -1,0 +1,122 @@
+<?php
+
+namespace Extensions\tiktok\Services\TikTok;
+
+use Extensions\tiktok\Models\TikTokListing;
+use Extensions\tiktok\Models\TikTokProductGroupProduct;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * Ask TikTok Shop about these products and make the ERP agree (Phase F,
+ * #184). Extracted from the group page so the workbench can run the
+ * same check: the sweep was never group-shaped - it reads the whole
+ * shop either way - only its entry point was.
+ *
+ * Reads only. A check is not a push: it confirms, adopts, repoints or
+ * drops LINKS, and writes nothing to TikTok Shop.
+ */
+class TikTokLinkCheck
+{
+    public function __construct(private readonly TikTokLiveListing $live)
+    {
+    }
+
+    /** @return array{tone: 'status'|'error', summary: string} */
+    public function run(array $c, array $productIds): array
+    {
+        $shop = $this->live->shop($c);
+        if ($shop['products'] === null) {
+            return ['tone' => 'error', 'summary' => 'Check against TikTok Shop: ' . $shop['error']];
+        }
+        $bySku = [];
+        foreach ($shop['products'] as $ttId => $p) {
+            foreach ($p['skus'] as $sku) {
+                $bySku[strtolower($sku)] ??= (string) $ttId;
+            }
+        }
+
+        $pfx = (string) config('catalog.prefix');
+        $skusByProduct = [];
+        foreach (DB::table($pfx . 'product')->whereIn('product_id', $productIds)->get(['product_id', 'sku', 'model']) as $p) {
+            foreach ([$p->sku, $p->model] as $v) {
+                if (trim((string) $v) !== '') $skusByProduct[(int) $p->product_id][] = strtolower(trim((string) $v));
+            }
+        }
+        foreach (DB::table($pfx . 'product_option_value')->whereIn('product_id', $productIds)->whereNotNull('sku')->where('sku', '!=', '')->get(['product_id', 'sku']) as $r) {
+            $skusByProduct[(int) $r->product_id][] = strtolower(trim((string) $r->sku));
+        }
+        foreach (DB::table('product_option_combinations')->whereIn('product_id', $productIds)->whereNotNull('sku')->where('sku', '!=', '')->get(['product_id', 'sku']) as $r) {
+            $skusByProduct[(int) $r->product_id][] = strtolower(trim((string) $r->sku));
+        }
+
+        $verdicts = ['confirmed' => 0, 'linked' => 0, 'lost' => 0, 'not_on_tiktok' => 0];
+        $problems = [];
+        foreach ($productIds as $productId) {
+            $listing = TikTokListing::query()->where('product_id', $productId)->first();
+            // Any pivot will do for a remembered id: the group the check
+            // used to run from was just one of them.
+            $pivot = TikTokProductGroupProduct::query()->where('product_id', $productId)
+                ->whereNotNull('tiktok_product_id')->orderByDesc('last_pushed_at')->first();
+            $known = $listing?->tiktok_product_id ?: ($pivot?->tiktok_product_id);
+            $hit = null;
+            foreach ($skusByProduct[$productId] ?? [] as $sku) {
+                if (isset($bySku[$sku])) {
+                    $hit = $bySku[$sku];
+                    break;
+                }
+            }
+
+            if ($known) {
+                if (isset($shop['products'][(string) $known])) {
+                    TikTokListing::query()->updateOrCreate(['product_id' => $productId], ['tiktok_product_id' => (string) $known, 'last_checked_at' => now()]);
+                    $this->writeProductStatus((int) $productId, ['tiktok_product_id' => (string) $known, 'sync_status' => 'pushed', 'push_error' => null]);
+                    $verdicts['confirmed']++;
+                } elseif ($hit !== null) {
+                    // A fresh link voids the mirror: whatever status the row
+                    // wore belonged to the previous link (#184 D).
+                    TikTokListing::query()->updateOrCreate(['product_id' => $productId], ['tiktok_product_id' => $hit, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null, 'last_checked_at' => now()]);
+                    $this->writeProductStatus((int) $productId, ['tiktok_product_id' => $hit, 'tiktok_sku_id' => null, 'sync_status' => 'pushed', 'push_error' => null]);
+                    $verdicts['linked']++;
+                } else {
+                    TikTokListing::query()->where('product_id', $productId)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null, 'last_checked_at' => now()]);
+                    $this->writeProductStatus((int) $productId, ['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'sync_status' => 'error', 'push_error' => 'Not found on TikTok Shop; the link was dropped.']);
+                    $problems[] = "#{$productId}: not found on TikTok Shop; the link was dropped";
+                    $verdicts['lost']++;
+                }
+                continue;
+            }
+
+            if ($hit !== null) {
+                // No last_push_source here: a check is not a push, and a
+                // source with no timestamp read as provenance from nowhere.
+                // Never pushed from the ERP means drift honestly unknowable.
+                TikTokListing::query()->updateOrCreate(['product_id' => $productId], ['tiktok_product_id' => $hit, 'live_status' => null, 'live_checked_at' => null, 'last_checked_at' => now()]);
+                $this->writeProductStatus((int) $productId, ['tiktok_product_id' => $hit, 'sync_status' => 'pushed', 'push_error' => null]);
+                $verdicts['linked']++;
+            } else {
+                $verdicts['not_on_tiktok']++;
+            }
+        }
+
+        $parts = [];
+        if ($verdicts['confirmed']) $parts[] = "{$verdicts['confirmed']} confirmed on TikTok Shop";
+        if ($verdicts['linked']) $parts[] = "{$verdicts['linked']} linked to the product TikTok Shop holds";
+        if ($verdicts['lost']) $parts[] = "{$verdicts['lost']} no longer on TikTok Shop";
+        if ($verdicts['not_on_tiktok']) $parts[] = "{$verdicts['not_on_tiktok']} not on TikTok Shop";
+        $summary = 'Checked ' . count($productIds) . ' against TikTok Shop: ' . (implode(', ', $parts) ?: 'nothing to report') . '.';
+        if ($problems) $summary .= ' ' . implode('; ', array_slice($problems, 0, 5)) . '.';
+
+        return ['tone' => $verdicts['lost'] > 0 ? 'error' : 'status', 'summary' => $summary];
+    }
+
+    private function writeProductStatus(int $productId, array $attributes): void
+    {
+        \App\Support\ChannelProductStatus::write(
+            'tiktok_product_group_products',
+            'tiktok_product_group_id',
+            null,
+            $productId,
+            $attributes
+        );
+    }
+}

@@ -144,7 +144,7 @@
                 @endif
             @endif
             @if($truth->last_pushed_at ?? null)
-                <p class="fm-section__note">Pushed {{ \Illuminate\Support\Carbon::parse($truth->last_pushed_at)->diffForHumans() }}{{ ($truth->group_name ?? null) ? ' from the ' . $truth->group_name . ' group' : ' from this listing' }}.</p>
+                <p class="fm-section__note">Pushed {{ \Illuminate\Support\Carbon::parse($truth->last_pushed_at)->diffForHumans() }}{{ ($truth->group_name ?? null) ? ' from the ' . $truth->group_name . ' preset' : ' from this listing' }}.</p>
             @endif
         </section>
     @else
@@ -164,7 +164,7 @@
             @if(empty($missing))
                 <p class="fm-section__note">Everything the push needs is set. The one-click push uses the settings and content below.</p>
             @else
-                <p class="fm-section__note">Before the one-click push can run, this listing still needs {{ implode(', ', $missing) }}. Set what is missing below and save, or push it from one of its product groups.</p>
+                <p class="fm-section__note">Before the one-click push can run, this listing still needs {{ implode(', ', $missing) }}. Set what is missing below and save, or push it from one of its presets.</p>
             @endif
         </section>
     @endif
@@ -284,7 +284,7 @@
                         @if($listing?->last_pushed_at)
                             <div class="fm-stats">
                                 <div class="fm-stat"><span class="fm-stat__k">When</span><span class="fm-stat__v">{{ $listing->last_pushed_at->diffForHumans() }}</span></div>
-                                <div class="fm-stat"><span class="fm-stat__k">From</span><span class="fm-stat__v">{{ str_starts_with((string) $listing->last_push_source, 'group:') ? 'the ' . substr($listing->last_push_source, 6) . ' group' : 'this listing' }}</span></div>
+                                <div class="fm-stat"><span class="fm-stat__k">From</span><span class="fm-stat__v">{{ str_starts_with((string) $listing->last_push_source, 'group:') ? 'the ' . substr($listing->last_push_source, 6) . ' preset' : 'this listing' }}</span></div>
                             </div>
                         @else
                             <p class="fm-section__note">Never pushed from VentaSync.</p>

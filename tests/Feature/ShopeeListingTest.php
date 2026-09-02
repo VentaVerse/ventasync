@@ -268,7 +268,7 @@ class ShopeeListingTest extends TestCase
         $r->assertDontSee('>Failed<', false);
         $r->assertDontSee('Not pushed');
         // The group's own attempt is still told, scoped in words.
-        $r->assertSee("This group's last push", false);
+        $r->assertSee("This preset's last push", false);
         $r->assertSee('shipping channel');
         $r->assertSee('from its listing');
     }

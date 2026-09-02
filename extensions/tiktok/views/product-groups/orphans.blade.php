@@ -9,7 +9,7 @@
      the operator decides. --}}
 @section('content')
 @php
-    $groupName = $group->name ?: 'this group';
+    $groupName = $group->name ?: 'this preset';
 @endphp
 <div class="cc-page">
 
@@ -46,7 +46,7 @@
     <p class="x-page-sub cc-orphans__lede">
         These exist on TikTok Shop and nothing in the catalog points at them. That is not automatically wrong:
         an item may have been created in the seller center, or its catalog twin removed. To bring one under ERP control,
-        give the catalog product the same SKU and run Check against TikTok Shop on its group.
+        give the catalog product the same SKU and run Check against TikTok Shop on its preset.
     </p>
     <x-ui.table>
         <x-slot:head>

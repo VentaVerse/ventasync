@@ -179,7 +179,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         // A form page is a MANAGE surface even though it is a GET: the old
         // perm: group said so, and removing the group must not demote it.
         ->defaults('permission_tier', 'manage');
-        Route::post('/shopee/products/sync-ids', [ShopeeProductController::class, 'syncProductIds'])->name('ext.shopee.products.sync_ids');
+        Route::post('/shopee/products/check', [ShopeeProductController::class, 'checkAgainstShopee'])->name('ext.shopee.products.check');
         Route::post('/shopee/products/bulk/push', [ShopeeProductController::class, 'bulkPushToShopee'])->name('ext.shopee.products.bulk_push');
         Route::post('/shopee/products/bulk/sync/quantity', [ShopeeProductController::class, 'bulkSyncQuantity'])->name('ext.shopee.products.bulk_sync_quantity');
         // Unlist / relist the selection in one call (the owner, 2026-08-28).

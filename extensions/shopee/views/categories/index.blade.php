@@ -43,7 +43,7 @@
         @csrf
         <div class="x-cmdbar__actions">
             <x-ui.button type="submit" variant="primary">Fetch categories</x-ui.button>
-            <x-ui.hint>Pulls Shopee's whole category tree and replaces the cached copy. Product Groups map to categories from this list, so refresh it when Shopee adds one.</x-ui.hint>
+            <x-ui.hint>Pulls Shopee's whole category tree and replaces the cached copy. Presets map to categories from this list, so refresh it when Shopee adds one.</x-ui.hint>
         </div>
     </form>
 </div>

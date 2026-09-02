@@ -159,7 +159,7 @@ class TiktokWorkspaceTest extends TestCase
             array_column($groups[0]['items'], 'label')
         );
         $this->assertSame(
-            ['Product Groups', 'Categories'],
+            ['Presets', 'Categories'],
             array_column($groups[1]['items'], 'label')
         );
         $this->assertSame(
@@ -231,7 +231,7 @@ class TiktokWorkspaceTest extends TestCase
 
         $response->assertDontSee('<span class="x-cnav__group-label">Catalog</span>', false);
         $response->assertDontSee('<span class="x-cnav__group-label">Channel</span>', false);
-        $response->assertDontSee('>Product Groups</a>', false);
+        $response->assertDontSee('>Presets</a>', false);
         $response->assertDontSee('>Categories</a>', false);
         $response->assertDontSee('>Settings</a>', false);
     }

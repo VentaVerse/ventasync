@@ -935,7 +935,7 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error',
                 'Push failed: this product has no Shopee listing settings yet. '
                 . 'Push it once from the push form (its category, couriers and price rule are saved there), '
-                . 'or push it from a product group whose settings you mean.');
+                . 'or push it from a preset whose settings you mean.');
         }
 
         $logisticIds = $listing->logistic_ids ?? [];
@@ -1354,7 +1354,7 @@ class ShopeeProductController extends Controller
                 $listing->markup_fixed = $sharedFixed;
             }
             if (!$listing->pushable()) {
-                $errors[] = "#{$productId}: no listing settings - push it once from the push form, or from a product group";
+                $errors[] = "#{$productId}: no listing settings - push it once from the push form, or from a preset";
                 $errCount++;
                 continue;
             }
@@ -1546,275 +1546,10 @@ class ShopeeProductController extends Controller
         return redirect()->back()->with($okCount > 0 ? 'status' : 'error', $summary);
     }
 
-    // ── Sync Product IDs (with model support + local cache) ────────
+    /* syncProductIds ("Match Shopee IDs") lived here until Phase F (#184):
+     * it could only fill in blank links by SKU, never question an id a row
+     * already had. Check against Shopee (ShopeeLinkCheck) does both. */
 
-    public function syncProductIds(Request $request, ShopeeClient $client)
-    {
-        $setting = ShopeeSetting::query()->first()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
-            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
-            return redirect()->back()->with('error', "Missing Shopee {$modeLabel} settings.");
-        }
-
-        $selectedIds = array_map('intval', array_filter($request->input('product_ids', [])));
-        if (empty($selectedIds)) {
-            return redirect()->back()->with('error', 'No products selected.');
-        }
-
-        $pfx = (string) config('catalog.prefix');
-
-        // Build SKU map from selected products (lowercase ERP SKU → product_id)
-        // All keys are lowercased for case-insensitive matching
-        $targetSkus = [];
-        $originalSkuCase = []; // lowercase → original case (for display)
-        foreach ($selectedIds as $pid) {
-            $row = DB::table($pfx . 'product')->where('product_id', $pid)->first(['model', 'sku']);
-            if ($row) {
-                if ($row->model && trim($row->model) !== '') {
-                    $key = strtolower(trim($row->model));
-                    $targetSkus[$key] = $pid;
-                    $originalSkuCase[$key] = trim($row->model);
-                }
-                if ($row->sku && trim($row->sku) !== '') {
-                    $key = strtolower(trim($row->sku));
-                    $targetSkus[$key] = $pid;
-                    $originalSkuCase[$key] = trim($row->sku);
-                }
-            }
-            $optSkus = DB::table($pfx . 'product_option_value')
-                ->where('product_id', $pid)->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku');
-            foreach ($optSkus as $os) {
-                $key = strtolower(trim($os));
-                $targetSkus[$key] = $pid;
-                $originalSkuCase[$key] = trim($os);
-            }
-        }
-
-        if (empty($targetSkus)) {
-            return redirect()->back()->with('error', 'Selected products have no SKUs to match.');
-        }
-
-        $linked = 0;
-        $skipped = 0;
-        $remaining = $targetSkus; // lowercase SKUs still not linked
-
-        // ── Step 1: Check cache for quick matches ──────────────────────
-        $cacheHits = ShopeeItemCache::query()
-            ->whereIn(DB::raw('LOWER(sku)'), array_keys($remaining))
-            ->get();
-
-        foreach ($cacheHits as $hit) {
-            $lcSku = strtolower($hit->sku);
-            $productId = $remaining[$lcSku] ?? 0;
-            if ($productId === 0) continue;
-
-            $isParent = ($hit->shopee_model_id === null);
-
-            if ($isParent) {
-                $erpHasOptions = DB::table($pfx . 'product_option_value')
-                    ->where('product_id', $productId)
-                    ->whereNotNull('sku')->where('sku', '!=', '')
-                    ->exists();
-
-                if ($erpHasOptions) {
-                    // Product has options — skip parent-level link entirely.
-                    // If model cache entries exist, they'll match option SKUs above.
-                    // If not, leave SKUs in $remaining so Steps 3-4 fetch models from API.
-                    continue;
-                }
-            }
-
-            $targetModelId = $isParent ? null : (int) $hit->shopee_model_id;
-
-            $alreadyLinked = ShopeeProductLink::query()
-                ->where('shopee_item_id', $hit->shopee_item_id)
-                ->where('product_id', $productId)
-                ->where('shopee_model_id', $targetModelId)
-                ->exists();
-
-            if ($alreadyLinked) {
-                $skipped++;
-            } else {
-                ShopeeProductLink::create([
-                    'product_id' => $productId,
-                    'shopee_item_id' => (int) $hit->shopee_item_id,
-                    'shopee_model_id' => $targetModelId,
-                    'sku' => $hit->sku,
-                ]);
-                $linked++;
-            }
-            unset($remaining[$lcSku]);
-        }
-
-        if (empty($remaining)) {
-            $selectedCount = count($selectedIds);
-            $msg = "Sync complete for {$selectedCount} product(s). Linked: {$linked}. Already linked: {$skipped}. [from cache]";
-            return redirect()->back()->with($linked > 0 || $skipped > 0 ? 'status' : 'error', $msg);
-        }
-
-        // ── Step 2: Cache miss — fetch remaining from Shopee API ──────
-        $allItemIds = $this->fetchAllShopeeItemIds($client, $auth, 730, 'shopee.products.sync_ids');
-
-        if (empty($allItemIds)) {
-            return redirect()->back()->with('error', 'No items found on Shopee.');
-        }
-
-        // ── Step 3: Fetch base info, cache simple items, collect model items ──
-        $needModelFetch = [];
-
-        foreach (array_chunk($allItemIds, 50) as $chunk) {
-            if (empty($remaining)) break; // Early exit
-
-            $infoResult = $client->shopGet(
-                $auth['mode'],
-                (int) $auth['partner_id'], (string) $auth['partner_key'],
-                (string) $auth['access_token'], (int) $auth['shop_id'],
-                '/api/v2/product/get_item_base_info',
-                ['item_id_list' => implode(',', $chunk)]
-            );
-
-            ShopeeApiLog::safeCreate([
-                'pack' => 'shopee.products.sync_ids', 'method' => 'GET',
-                'api_path' => '/api/v2/product/get_item_base_info', 'auth_required' => true,
-                'request_params' => ['item_id_list' => implode(',', $chunk)],
-                'response_status' => $infoResult['status'] ?? null,
-                'ok' => (bool) ($infoResult['ok'] ?? false),
-                'response_body' => $infoResult['body'] ?? null, 'user_id' => auth()->id(),
-            ]);
-
-            if (!($infoResult['ok'] ?? false)) continue;
-
-            $itemList = (($infoResult['body'] ?? [])['response'] ?? ($infoResult['body'] ?? []))['item_list'] ?? [];
-
-            foreach ($itemList as $item) {
-                $itemId = (int) ($item['item_id'] ?? 0);
-                $itemSku = trim((string) ($item['item_sku'] ?? ''));
-                $hasModel = (bool) ($item['has_model'] ?? false);
-                $itemName = trim((string) ($item['item_name'] ?? ''));
-                $imageUrl = $item['image']['image_url_list'][0] ?? null;
-
-                if (!$itemId) continue;
-
-                // Always try item_sku first, regardless of has_model
-                if ($itemSku !== '') {
-                    ShopeeItemCache::query()->updateOrCreate(
-                        ['shopee_item_id' => $itemId, 'shopee_model_id' => null],
-                        ['sku' => $itemSku, 'item_name' => $itemName, 'image_url' => $imageUrl]
-                    );
-
-                    $productId = $remaining[strtolower($itemSku)] ?? 0;
-                    if ($productId > 0) {
-                        // If the Shopee item has models AND the ERP product has option SKUs,
-                        // skip parent-level link — let Step 4 create model-level links instead.
-                        $erpHasOptions = $hasModel && DB::table($pfx . 'product_option_value')
-                            ->where('product_id', $productId)
-                            ->whereNotNull('sku')->where('sku', '!=', '')
-                            ->exists();
-
-                        if ($erpHasOptions) {
-                            // Don't create parent link; don't remove from $remaining.
-                            // Step 4 will match model SKUs to option SKUs.
-                        } else {
-                            $alreadyLinked = ShopeeProductLink::query()
-                                ->where('shopee_item_id', $itemId)->where('product_id', $productId)->exists();
-                            if ($alreadyLinked) {
-                                $skipped++;
-                            } else {
-                                ShopeeProductLink::create([
-                                    'product_id' => $productId, 'shopee_item_id' => $itemId,
-                                    'shopee_model_id' => null, 'sku' => $itemSku,
-                                ]);
-                                $linked++;
-                            }
-                            $remaining = array_filter($remaining, fn($pid) => $pid !== $productId);
-                        }
-                    }
-                }
-
-                // Additionally queue model fetch if has_model (models may have different SKUs)
-                if ($hasModel) {
-                    $needModelFetch[$itemId] = [
-                        'item_name' => $itemName, 'item_sku' => $itemSku, 'image_url' => $imageUrl,
-                    ];
-                }
-            }
-        }
-
-        // ── Step 4: Fetch models one-by-one (avoids batch failure from deleted items) ──
-        if (!empty($needModelFetch) && !empty($remaining)) {
-            foreach ($needModelFetch as $itemId => $info) {
-                if (empty($remaining)) break; // Early exit
-
-                $modelResult = $client->shopGet(
-                    $auth['mode'],
-                    (int) $auth['partner_id'], (string) $auth['partner_key'],
-                    (string) $auth['access_token'], (int) $auth['shop_id'],
-                    '/api/v2/product/get_model_list',
-                    ['item_id' => (int) $itemId]
-                );
-
-                if (!($modelResult['ok'] ?? false)) continue; // Skip invalid/deleted items
-
-                $sr = ($modelResult['body'] ?? [])['response'] ?? ($modelResult['body'] ?? []);
-                $models = $sr['model'] ?? [];
-
-                if (empty($models)) continue; // item_sku already checked in Step 3
-
-                // Cache and match each model
-                foreach ($models as $model) {
-                    $modelId = (int) ($model['model_id'] ?? 0);
-                    $modelSku = trim((string) ($model['model_sku'] ?? ''));
-                    if ($modelSku === '') continue;
-
-                    ShopeeItemCache::query()->updateOrCreate(
-                        ['shopee_item_id' => $itemId, 'shopee_model_id' => $modelId],
-                        ['sku' => $modelSku, 'item_name' => $info['item_name'], 'image_url' => $info['image_url']]
-                    );
-
-                    $productId = $remaining[strtolower($modelSku)] ?? 0;
-                    if ($productId === 0) continue;
-
-                    $exists = ShopeeProductLink::query()
-                        ->where('shopee_item_id', $itemId)->where('shopee_model_id', $modelId)->exists();
-                    if ($exists) {
-                        $skipped++;
-                    } else {
-                        ShopeeProductLink::create([
-                            'product_id' => $productId, 'shopee_item_id' => $itemId,
-                            'shopee_model_id' => $modelId, 'sku' => $modelSku,
-                        ]);
-                        $linked++;
-                    }
-                    $remaining = array_filter($remaining, fn($pid) => $pid !== $productId);
-                }
-            }
-        }
-
-        $selectedCount = count($selectedIds);
-        // Collect unique unmatched product IDs and their original-case SKUs
-        $unmatchedPids = array_unique(array_values($remaining));
-        $notFound = count($unmatchedPids);
-        $msg = "Sync complete for {$selectedCount} product(s). Linked: {$linked}. Already linked: {$skipped}.";
-        if ($notFound > 0) {
-            $unmatchedSkuNames = [];
-            foreach ($remaining as $lcSku => $pid) {
-                $unmatchedSkuNames[] = $originalSkuCase[$lcSku] ?? $lcSku;
-            }
-            $skuList = implode(', ', array_unique($unmatchedSkuNames));
-            $msg .= " No matching Shopee product found for SKUs: {$skuList}";
-        }
-        return redirect()->back()->with($linked > 0 || $skipped > 0 ? 'status' : 'error', $msg);
-    }
-
-    // ── Sync Qty (single, model-aware) ──────────────────────────────
-
-    /**
-     * The LISTING's price rule, never a borrowed group's (#96), as the
-     * closure the shared sender consumes: null means "skip this product
-     * BY NAME" - an item without a rule is never silently pushed at an
-     * unmarked price.
-     */
     private function listingPriceFor(): callable
     {
         $cache = [];
@@ -2300,6 +2035,35 @@ class ShopeeProductController extends Controller
     }
 
     // ── Bulk Sync Qty (model-aware) ─────────────────────────────────
+
+    /**
+     * Ask Shopee whether the links this page believes in are still true
+     * (Phase F, #184): the group page's check, on the workbench, via the
+     * shared ShopeeLinkCheck. With rows ticked it checks those; with
+     * none it checks every linked product, 200 at a time.
+     */
+    public function checkAgainstShopee(Request $request, ShopeeClient $client, \Extensions\shopee\Services\Shopee\ShopeeLinkCheck $check)
+    {
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+            return redirect()->back()->with('error', "Missing Shopee {$modeLabel} settings.");
+        }
+
+        $productIds = $this->parseProductIds($request);
+        if (empty($productIds)) {
+            $productIds = ShopeeProductLink::query()->whereNotNull('shopee_item_id')
+                ->distinct()->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        }
+        if (empty($productIds)) {
+            return redirect()->back()->with('error', 'Nothing is linked to Shopee yet, so there is nothing to check.');
+        }
+
+        $r = $check->run($client, $auth, $productIds);
+
+        return redirect()->back()->with($r['tone'], $r['summary']);
+    }
 
     public function bulkSyncQuantity(Request $request, ShopeeClient $client)
     {

@@ -78,7 +78,7 @@
                 </span>
                 @if(!empty($groupName))
                     <span class="fm-stamp">
-                        <span class="fm-stamp__k">Product group</span>
+                        <span class="fm-stamp__k">Preset</span>
                         <span class="fm-stamp__v">{{ $groupName }}</span>
                     </span>
                 @endif
@@ -269,7 +269,7 @@
                 <div class="fm-section__head">
                     <h2 class="fm-section__title">Delivery options</h2>
                 </div>
-                <p class="fm-section__note">Which of Shopee's couriers this product is offered on. Pick at least one.@if(!empty($groupName) && !empty($groupLogisticIds)) The ticked ones come from the {{ $groupName }} group.@endif</p>
+                <p class="fm-section__note">Which of Shopee's couriers this product is offered on. Pick at least one.@if(!empty($groupName) && !empty($groupLogisticIds)) The ticked ones come from the {{ $groupName }} preset.@endif</p>
 
                 @if($errors->has('logistic_ids'))
                     <div class="fm-error">{{ $errors->first('logistic_ids') }}</div>
@@ -351,7 +351,7 @@
                     {{-- Not a control. The brand is fixed at No brand server
                          side on this route, so it is stated rather than drawn
                          as a disabled field pretending to be one. --}}
-                    <p class="fm-section__note">Shopee lists this as <strong>No brand</strong>. Change it in Shopee's own back office after the push, or set a brand on the product group and push from there instead.</p>
+                    <p class="fm-section__note">Shopee lists this as <strong>No brand</strong>. Change it in Shopee's own back office after the push, or set a brand on the preset and push from there instead.</p>
                 </div>
             </div>
 

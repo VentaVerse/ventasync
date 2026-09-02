@@ -56,11 +56,11 @@
     <div>
         <h1 class="x-page-title">{{ $group->name }}</h1>
         <p class="x-page-sub">
-            {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product' : 'products' }} in this group on Shopee
+            {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product' : 'products' }} in this preset on Shopee
         </p>
     </div>
     @if($canManageShopee)
-        {{-- Both ask about the whole group, which is why they sit here and not
+        {{-- Both ask about the whole preset, which is why they sit here and not
              in the bulk bar: the bulk bar only appears once rows are ticked,
              and "is anything out of step?" is what you ask before you know
              which rows to tick. Check posts because it writes; Unlinked is a
@@ -68,14 +68,14 @@
         <div class="cc-head-actions">
             @if($canManageShopee)
                 <form method="POST" action="{{ route('ext.shopee.product-groups.check', $group->id) }}"
-                      data-confirm="Check every product in this group against Shopee? Nothing is sent or changed on Shopee; the ERP updates its own records to match what it finds." data-confirm-tone="primary" data-confirm-verb="Check against Shopee">
+                      data-confirm="Check every product in this preset against Shopee? Nothing is sent or changed on Shopee; the ERP updates its own records to match what it finds." data-confirm-tone="primary" data-confirm-verb="Check against Shopee">
                     @csrf
                     <input type="hidden" name="_return" value="{{ $returnTo }}">
                     <x-ui.button type="submit" variant="secondary">Check against Shopee</x-ui.button>
                 </form>
             @endif
             <x-ui.button variant="secondary" :href="route('ext.shopee.product-groups.orphans', $group->id)">Unlinked on Shopee</x-ui.button>
-            <x-ui.button :href="route('ext.shopee.product-groups.edit', $group->id)">Edit group</x-ui.button>
+            <x-ui.button :href="route('ext.shopee.product-groups.edit', $group->id)">Edit preset</x-ui.button>
         </div>
     @endif
 </div>
@@ -85,7 +85,7 @@
      navigation and not an action. Every parameter name is unchanged. --}}
 <form method="GET" action="{{ $listUrl }}" class="x-filters">
     <x-ui.input type="search" name="q" class="x-filters__search"
-                value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search products in this group" />
+                value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search products in this preset" />
 
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
         <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by catalog status">
@@ -101,7 +101,7 @@
             <option value="all" @selected($syncStatus === 'all')>Listed or not</option>
             <option value="pushed" @selected($syncStatus === 'pushed')>Listed on Shopee</option>
             <option value="pending" @selected($syncStatus === 'pending')>Not listed</option>
-            <option value="error" @selected($syncStatus === 'error')>Last push from this group failed</option>
+            <option value="error" @selected($syncStatus === 'error')>Last push from this preset failed</option>
             <option value="unlinked" @selected($syncStatus === 'unlinked')>Unlinked</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
@@ -118,7 +118,7 @@
 
      A push summary named up to five failures and then vanished on the next
      click, so an operator who navigated away had to remember which of twelve
-     had failed. The count is taken across the whole group rather than the
+     had failed. The count is taken across the whole preset rather than the
      current page or filter, so it does not quietly shrink as you narrow the
      list, and it is a link to exactly the rows it counts.
 
@@ -128,8 +128,8 @@
     <p class="cc-failnote">
         <x-ui.icon name="alert-triangle" size="13" class="cc-failnote__icon" />
         <span><span class="x-num">{{ number_format($failedCount) }}</span>
-            {{ \Illuminate\Support\Str::plural('product', $failedCount) }} in this group
-            {{ $failedCount === 1 ? 'failed its' : 'failed their' }} last push from this group.</span>
+            {{ \Illuminate\Support\Str::plural('product', $failedCount) }} in this preset
+            {{ $failedCount === 1 ? 'failed its' : 'failed their' }} last push from this preset.</span>
         <a class="cc-failnote__link" href="{{ request()->fullUrlWithQuery(['sync_status' => 'error', 'page' => null]) }}">Show them</a>
     </p>
 @endif
@@ -177,10 +177,10 @@
             <x-ui.button type="submit" size="sm">Check against Shopee</x-ui.button>
         </form>
         <form method="POST" action="{{ route('ext.shopee.product-groups.massRemove', $group->id) }}" data-bulk-form
-              data-bulk-confirm="Take the selected products out of this group? Nothing is deleted from the catalog, and nothing already live on Shopee is touched.">
+              data-bulk-confirm="Take the selected products out of this preset? Nothing is deleted from the catalog, and nothing already live on Shopee is touched.">
             @csrf
             <input type="hidden" name="_return" value="{{ $returnTo }}">
-            <x-ui.button type="submit" size="sm">Remove from group</x-ui.button>
+            <x-ui.button type="submit" size="sm">Remove from preset</x-ui.button>
         </form>
         <form method="POST" action="{{ route('ext.shopee.product-groups.deleteFromShopee', $group->id) }}" data-bulk-form
               data-bulk-confirm="Delete the selected products from Shopee? They are removed at the marketplace and this cannot be undone.">
@@ -193,13 +193,13 @@
 @endif
 
 @if($products->count() === 0)
-    <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'No products in this group' }}"
+    <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'No products in this preset' }}"
                 :description="$hasFilters
                     ? 'Try clearing the search, or widening the catalog and push filters.'
-                    : 'Edit the group to pick products from the catalog, or add them one at a time below.'">
+                    : 'Edit the preset to pick products from the catalog, or add them one at a time below.'">
         @if($canManageShopee && !$hasFilters)
         <x-slot:action>
-            <x-ui.button variant="primary" :href="route('ext.shopee.product-groups.edit', $group->id)">Edit group</x-ui.button>
+            <x-ui.button variant="primary" :href="route('ext.shopee.product-groups.edit', $group->id)">Edit preset</x-ui.button>
         </x-slot:action>
         @endif
     </x-ui.empty>
@@ -239,9 +239,9 @@
                repointing, 2026-08-24). Whether this product is on Shopee,
                under which item id, and what last went up are facts that
                exist once per product - read from the links and the listing
-               record, the same rows the Listings page reads, so nine group
+               record, the same rows the Listings page reads, so nine preset
                pages can no longer tell nine stories about one product. The
-               pivot keeps only what is genuinely this group's own: its
+               pivot keeps only what is genuinely this preset's own: its
                last push ATTEMPT and why it failed. */
             $rowLink = ($linksByProductId->get((int) $p->product_id) ?? collect())->first();
             $rowListing = $listingsByProductId->get((int) $p->product_id);
@@ -260,7 +260,7 @@
             $provenanceLabel = match (true) {
                 $provenanceSource === 'form' => 'from the push form',
                 $provenanceSource === 'listing' => 'from its listing',
-                str_starts_with($provenanceSource, 'group:') => 'from the ' . substr($provenanceSource, 6) . ' group',
+                str_starts_with($provenanceSource, 'group:') => 'from the ' . substr($provenanceSource, 6) . ' preset',
                 default => '',
             };
 
@@ -285,7 +285,7 @@
             if (!empty($p->manufacturer_name)) {
                 $metaParts[] = (string) $p->manufacturer_name;
             }
-            $metaParts[] = $isManual ? 'added by hand' : 'matched by the group filter';
+            $metaParts[] = $isManual ? 'added by hand' : 'matched by the preset filter';
             $meta = implode(' / ', $metaParts);
         @endphp
         <tr>
@@ -369,13 +369,13 @@
 
             <td class="cc-col-sync" data-label="Listing">
                 {{-- The PRODUCT's state, the same words the Listings page
-                     uses for the same fact. A failed push from THIS group no
+                     uses for the same fact. A failed push from THIS preset no
                      longer masquerades as the product's status - the product
                      the owner caught read "Failed" here while the Listings page
-                     said Live, because this column used to show this group's
+                     said Live, because this column used to show this preset's
                      memory instead of the product's record. The attempt and
                      its reason live in the Last push column, scoped to this
-                     group in words. --}}
+                     preset in words. --}}
                 @if($listed)
                     {{-- The engine's word, not "Listed" (Phase B, #184): a
                          banned product used to read Listed here and
@@ -396,7 +396,7 @@
                      It is the ordinary state of a product nobody has asked
                      about since it was pushed. It is here so a fact can be
                      told from a memory at a glance, and so Check has a
-                     visible effect. (The stamp is still this group's own -
+                     visible effect. (The stamp is still this preset's own -
                      the write moves product-level in stage 2.) --}}
                 @if($listed)
                     @if($confirmedAt)
@@ -412,7 +412,7 @@
                      what actually went up (the listing record, shared with
                      every page) and what THIS GROUP last tried (its own
                      attempt history). The owner's GP-180 showed why both must
-                     speak: this group's push failed on couriers, then the
+                     speak: this preset's push failed on couriers, then the
                      product went up through its listing - the truthful row
                      says both. --}}
                 @if($attemptFailed)
@@ -424,7 +424,7 @@
                         // what Shopee actually said unreachable.
                         $clipped = \Illuminate\Support\Str::limit($reason, 120);
                     @endphp
-                    <span class="cc-err">This group's last push{{ $attemptAt ? ' ' . $attemptAt->diffForHumans() : '' }} failed:</span>
+                    <span class="cc-err">This preset's last push{{ $attemptAt ? ' ' . $attemptAt->diffForHumans() : '' }} failed:</span>
                     @if($clipped === $reason)
                         <span class="cc-err">{{ $reason }}</span>
                     @else
@@ -529,11 +529,11 @@
                     @if($isManual)
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.shopee.product-groups.removeProduct', [$group->id, $p->product_id]) }}"
-                              data-confirm="Take {{ $pName ?: 'this product' }} out of the group? Nothing is deleted from the catalog, and nothing already live on Shopee is touched." data-confirm-verb="Remove from group">
+                              data-confirm="Take {{ $pName ?: 'this product' }} out of the preset? Nothing is deleted from the catalog, and nothing already live on Shopee is touched." data-confirm-verb="Remove from preset">
                             @csrf
                             @method('DELETE')
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <button type="submit" class="x-menu__item x-menu__item--danger">Remove from group</button>
+                            <button type="submit" class="x-menu__item x-menu__item--danger">Remove from preset</button>
                         </form>
                     @endif
 
@@ -574,7 +574,7 @@
     <div class="fm-section__head">
         <h2 class="fm-section__title">Add a product by name</h2>
     </div>
-    <p class="fm-section__note">For a product the group's filter does not pick up. Type at least two characters.</p>
+    <p class="fm-section__note">For a product the preset's filter does not pick up. Type at least two characters.</p>
 
     <form id="shopee-add-products" method="POST" action="{{ route('ext.shopee.product-groups.addProducts', $group->id) }}">
         @csrf

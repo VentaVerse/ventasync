@@ -37,7 +37,7 @@
         @csrf
         <div class="x-cmdbar__actions">
             <x-ui.button type="submit" variant="primary">Fetch categories</x-ui.button>
-            <x-ui.hint>Pulls TikTok Shop's category tree into the local cache. Product Groups pick their TikTok category from this list, so refresh it when TikTok adds one.</x-ui.hint>
+            <x-ui.hint>Pulls TikTok Shop's category tree into the local cache. Presets pick their TikTok category from this list, so refresh it when TikTok adds one.</x-ui.hint>
         </div>
     </form>
 </div>

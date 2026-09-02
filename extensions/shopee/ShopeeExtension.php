@@ -97,7 +97,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                     new MenuItem('Returns', 'ext.shopee.orders.returns', 'view_shopee/order', group: 'Sell'),
                     new MenuItem('Vouchers', 'ext.shopee.vouchers.index', 'view_shopee/voucher', group: 'Sell'),
                     new MenuItem('Listings', 'ext.shopee.products.index', 'view_shopee/product', group: 'Catalog'),
-                    new MenuItem('Product Groups', 'ext.shopee.product-groups.index', 'view_shopee/product_group', group: 'Catalog'),
+                    new MenuItem('Presets', 'ext.shopee.product-groups.index', 'view_shopee/product_group', group: 'Catalog'),
                     new MenuItem('Categories', 'ext.shopee.categories.index', 'view_shopee/category', group: 'Catalog'),
                     new MenuItem('Logistics', 'ext.shopee.logistics.index', 'view_shopee/logistics', group: 'Channel'),
                     new MenuItem('Settings', 'ext.shopee.index', 'view_shopee/settings', group: 'Channel'),

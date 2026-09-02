@@ -1,6 +1,6 @@
 @extends('layouts.channel')
-@section('title', ($mode === 'create' ? 'Add' : 'Edit') . ' Lazada Product Group')
-@section('breadcrumb', $mode === 'create' ? 'New Product Group' : $group->name)
+@section('title', ($mode === 'create' ? 'Add' : 'Edit') . ' Lazada Preset')
+@section('breadcrumb', $mode === 'create' ? 'New Preset' : $group->name)
 
 {{-- This page shows its own validation summary (the fm-note below) and marks
      the offending fields inline, so partials/legacy-page-contract skips its
@@ -29,16 +29,16 @@
      explicit "No brand" flag posted alongside. --}}
 @section('content')
 @php
-    // The CREATE render is manage-tier, the EDIT render is in the read group
+    // The CREATE render is manage-tier, the EDIT render is in the read preset
     // (extensions/lazada/routes/web.php), so a view_lazada operator can open
-    // this page on an existing group and every write behind it would 403.
+    // this page on an existing preset and every write behind it would 403.
     // The previous version hardcoded the manage tier on.
     $canManageLazada = auth()->user()?->hasPermission('manage_lazada/product_group') ?? false;
 
     $selectedCategoryId = (string) old('lazada_category_id', $group->lazada_category_id ?? '');
 
     // The No-brand flag survives a validation round trip through old(), and
-    // otherwise reads whatever the group was last saved with.
+    // otherwise reads whatever the preset was last saved with.
     $noBrand = old('no_brand');
     if ($noBrand === null) {
         $noBrand = (!empty($group->brand_name_override)
@@ -83,9 +83,9 @@
     <div class="fm-head">
         <div class="fm-head__main">
             <a class="fm-back" href="{{ route('ext.lazada.product-groups.index') }}">
-                <x-ui.icon name="chevron-left" size="14" /> Product Groups
+                <x-ui.icon name="chevron-left" size="14" /> Presets
             </a>
-            <h1 class="fm-title">{{ $mode === 'create' ? 'New product group' : $group->name }}</h1>
+            <h1 class="fm-title">{{ $mode === 'create' ? 'New preset' : $group->name }}</h1>
             <div class="fm-stamps">
                 <span class="fm-stamp">
                     <span class="fm-stamp__k">Channel</span>
@@ -93,7 +93,7 @@
                 </span>
                 @if($mode === 'edit')
                     <span class="fm-stamp">
-                        <span class="fm-stamp__k">Group</span>
+                        <span class="fm-stamp__k">Preset</span>
                         <span class="fm-stamp__v">{{ $group->id }}</span>
                     </span>
                 @endif
@@ -114,7 +114,7 @@
                     <h2 class="fm-section__title">Name</h2>
                 </div>
                 <div class="fm-fields">
-                    <x-ui.field label="Product group name" for="pg-name" name="name" :required="true" wide
+                    <x-ui.field label="Product preset name" for="pg-name" name="name" :required="true" wide
                                 hint="What this batch of products is, in the words your team uses. It is never sent to Lazada.">
                         <x-ui.input id="pg-name" name="name" value="{{ old('name', $group->name) }}"
                                     placeholder="Guitar pedals" :disabled="!$canManageLazada" />
@@ -144,7 +144,7 @@
                     <x-ui.field label="Lazada category" for="pg-category-input" name="lazada_category_id" wide
                                 hint="Pick it before filling the attributes below. Changing it reloads them.">
                         {{-- The shared searchable combobox (local mode), the
-                             same control the Shopee and TikTok group forms
+                             same control the Shopee and TikTok preset forms
                              carry. #pg-category stays the HIDDEN value
                              input: the attributes panel listens for change
                              on that id and reads its value, exactly as it
@@ -202,7 +202,7 @@
             </section>
 
             {{-- ------------------------------------------------------------
-                 Category attributes. Rendered inline when the group already
+                 Category attributes. Rendered inline when the preset already
                  has a category, replaced wholesale when it changes: the
                  endpoint answers with this same partial.
                  ------------------------------------------------------------ --}}
@@ -231,16 +231,16 @@
 
             {{-- ------------------------------------------------------------
                  Products. The same two-panel set builder and the same module
-                 the other channels' group forms use. Only the right-hand side
+                 the other channels' preset forms use. Only the right-hand side
                  submits, as `product_ids[]`.
                  ------------------------------------------------------------ --}}
             <section class="fm-section">
                 <div class="fm-section__head">
-                    <h2 class="fm-section__title">Products in this group</h2>
+                    <h2 class="fm-section__title">Products in this preset</h2>
                 </div>
 
                 @if($canManageLazada)
-                <p class="fm-section__note">Search the catalog on the left, move what belongs into the group on the right. Only what is on the right is saved.</p>
+                <p class="fm-section__note">Search the catalog on the left, move what belongs into the preset on the right. Only what is on the right is saved.</p>
 
                 <div class="gf-dual"
                      data-group-product-picker
@@ -295,24 +295,24 @@
                         </div>
 
                         <div class="gf-move">
-                            <x-ui.button type="button" size="sm" data-gf-add aria-label="Add the selected catalog products to the group">
+                            <x-ui.button type="button" size="sm" data-gf-add aria-label="Add the selected catalog products to the preset">
                                 Add <x-ui.icon name="chevron-right" size="14" />
                             </x-ui.button>
-                            <x-ui.button type="button" size="sm" data-gf-remove aria-label="Take the selected products out of the group">
+                            <x-ui.button type="button" size="sm" data-gf-remove aria-label="Take the selected products out of the preset">
                                 <x-ui.icon name="chevron-left" size="14" /> Remove
                             </x-ui.button>
                         </div>
 
                         <div class="gf-pane">
                             <div class="gf-pane__head">
-                                <span class="gf-pane__title">In this group</span>
+                                <span class="gf-pane__title">In this preset</span>
                                 <span class="gf-pane__count x-num" data-gf-right-count>{{ $rightItems->count() }}</span>
                             </div>
                             <div class="gf-pane__body">
                                 <table class="gf-list">
                                     <thead>
                                         <tr>
-                                            <th scope="col" class="gf-col-check"><input type="checkbox" class="cc-check" data-gf-right-all aria-label="Select every product in the group"></th>
+                                            <th scope="col" class="gf-col-check"><input type="checkbox" class="cc-check" data-gf-right-all aria-label="Select every product in the preset"></th>
                                             <th scope="col" class="gf-col-id">ID</th>
                                             <th scope="col">Product</th>
                                             <th scope="col" class="gf-col-qty">Stock</th>
@@ -329,10 +329,10 @@
                     <script type="application/json" data-gf-initial>{!! json_encode($rightItems, $jsonFlags) !!}</script>
                 </div>
                 @else
-                <p class="fm-section__note">{{ $rightItems->count() }} {{ $rightItems->count() === 1 ? 'product is' : 'products are' }} in this group.</p>
+                <p class="fm-section__note">{{ $rightItems->count() }} {{ $rightItems->count() === 1 ? 'product is' : 'products are' }} in this preset.</p>
 
                 @if($rightItems->isEmpty())
-                    <x-ui.empty title="No products in this group"
+                    <x-ui.empty title="No products in this preset"
                                 description="Someone with the manage tier needs to add them." />
                 @else
                     <x-ui.table>
@@ -390,12 +390,12 @@
 
     <div class="fm-bar">
         <span class="fm-bar__meta">{{ $canManageLazada
-            ? ($mode === 'create' ? 'Nothing is saved until you create the group.' : 'Changes are saved to this group, not pushed to Lazada.')
-            : 'You can read this group. Changing it needs the Lazada manage permission.' }}</span>
+            ? ($mode === 'create' ? 'Nothing is saved until you create the preset.' : 'Changes are saved to this preset, not pushed to Lazada.')
+            : 'You can read this preset. Changing it needs the Lazada manage permission.' }}</span>
         <div class="fm-bar__actions">
             <a class="fm-cancel" href="{{ route('ext.lazada.product-groups.index') }}">{{ $canManageLazada ? 'Cancel' : 'Back' }}</a>
             @if($canManageLazada)
-                <x-ui.button type="submit" variant="primary">{{ $mode === 'create' ? 'Create product group' : 'Save product group' }}</x-ui.button>
+                <x-ui.button type="submit" variant="primary">{{ $mode === 'create' ? 'Create preset' : 'Save preset' }}</x-ui.button>
             @endif
         </div>
     </div>

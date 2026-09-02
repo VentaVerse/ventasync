@@ -43,6 +43,17 @@
             @endif
         </p>
     </div>
+    @if($canManage)
+        <div class="cc-head-actions">
+            {{-- The group page's check, page-wide (Phase F, #184): with no
+                 rows ticked it walks every linked product. --}}
+            <form method="POST" action="{{ route('ext.tiktok.products.check') }}"
+                  data-confirm="Check every linked product against TikTok Shop? Nothing is sent or changed on TikTok Shop; the ERP updates its own records to match what it finds." data-confirm-tone="primary" data-confirm-verb="Check against TikTok Shop">
+                @csrf
+                <x-ui.button type="submit" variant="secondary">Check against TikTok Shop</x-ui.button>
+            </form>
+        </div>
+    @endif
 </div>
 
 @if(($liveTabError ?? null) !== null)
@@ -112,8 +123,8 @@
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
     <div class="x-select-wrap x-filters__select">
-        <select name="group" class="x-input" data-autosubmit aria-label="Filter by product group">
-            <option value="all" @selected($groupFilter === 'all')>All groups</option>
+        <select name="group" class="x-input" data-autosubmit aria-label="Filter by preset">
+            <option value="all" @selected($groupFilter === 'all')>All presets</option>
             @foreach($allGroups as $gId => $gName)
                 <option value="{{ $gId }}" @selected($groupFilter === (string) $gId)>{{ $gName }}</option>
             @endforeach
@@ -154,6 +165,10 @@
             @csrf
             <x-ui.button type="submit" size="sm">Send to TikTok Shop</x-ui.button>
         </form>
+        <form method="POST" action="{{ route('ext.tiktok.products.check') }}" data-bulk-form>
+            @csrf
+            <x-ui.button type="submit" size="sm">Check against TikTok Shop</x-ui.button>
+        </form>
         {{-- Deactivate / Activate for the selection (the owner, 2026-08-28). Each
              form acts only on the ticked rows its verb applies to, per the
              mirrored status; the count is in the label and the rest of the
@@ -179,13 +194,13 @@
 @if($products->count() === 0)
     <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'No products yet' }}"
                 :description="$hasFilters
-                    ? 'Try clearing the search, or widening the group and status filters.'
-                    : 'This list shows catalog products that belong to a TikTok product group, plus anything already on TikTok Shop. Create a product group to bring products into scope.'">
+                    ? 'Try clearing the search, or widening the preset and status filters.'
+                    : 'Every catalog product appears here, ready to list on TikTok Shop. Add your first product and it will be waiting.'">
         <x-slot:action>
             @if($hasFilters)
                 <x-ui.button :href="route('ext.tiktok.products.index')">Clear filters</x-ui.button>
             @else
-                <x-ui.button :href="route('ext.tiktok.product-groups.index')">Go to Product Groups</x-ui.button>
+                <x-ui.button :href="route('products.create')">Add a product</x-ui.button>
             @endif
         </x-slot:action>
     </x-ui.empty>
@@ -259,7 +274,7 @@
                             <span class="co-item__sku">{{ $p->sku ?: 'No SKU' }}</span>
                             @if($p->manufacturer_name)<span>{{ $p->manufacturer_name }}</span>@endif
                             @if(count($pGroups) > 0)
-                                <span class="co-item__var" @if(count($pGroups) > 1) title="Groups: {{ implode(', ', $pGroups) }}" @endif>Group{{ count($pGroups) > 1 ? 's' : '' }}: {{ $pGroups[0] }}@if(count($pGroups) > 1) and {{ count($pGroups) - 1 }} more @endif</span>
+                                <span class="co-item__var" @if(count($pGroups) > 1) title="Presets: {{ implode(', ', $pGroups) }}" @endif>Preset{{ count($pGroups) > 1 ? 's' : '' }}: {{ $pGroups[0] }}@if(count($pGroups) > 1) and {{ count($pGroups) - 1 }} more @endif</span>
                             @endif
                         </div>
                         @if($optRows && count($optRows) > 0)
@@ -329,7 +344,7 @@
                     @if($attempt->last_pushed_at)<span class="cc-when">{{ $attempt->last_pushed_at->diffForHumans() }}</span>@endif
                 @elseif($listing?->last_pushed_at)
                     <span class="x-cell-muted">Pushed</span>
-                    <span class="cc-when">{{ $listing->last_pushed_at->diffForHumans() }}{{ $listing->last_push_source ? ' from ' . (str_starts_with($listing->last_push_source, 'group:') ? 'the ' . substr($listing->last_push_source, 6) . ' group' : 'its listing') : '' }}</span>
+                    <span class="cc-when">{{ $listing->last_pushed_at->diffForHumans() }}{{ $listing->last_push_source ? ' from ' . (str_starts_with($listing->last_push_source, 'group:') ? 'the ' . substr($listing->last_push_source, 6) . ' preset' : 'its listing') : '' }}</span>
                 @elseif($attempt?->last_pushed_at)
                     <span class="x-cell-muted">Pushed</span>
                     <span class="cc-when">{{ $attempt->last_pushed_at->diffForHumans() }}</span>

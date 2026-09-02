@@ -95,10 +95,10 @@ class TiktokOneTruthTest extends TestCase
         // Group B shows the PRODUCT's truth: listed, with A's id and provenance.
         $r->assertSee('tt-990077');
         $r->assertSee('Listed');
-        $r->assertSee('from the Truth group A group');
+        $r->assertSee('from the Truth group A preset');
         $r->assertDontSee('>Failed<', false);
         // And its own attempt, scoped in words.
-        $r->assertSee("This group's last push", false);
+        $r->assertSee("This preset's last push", false);
         $r->assertSee('Category attribute missing');
     }
 }

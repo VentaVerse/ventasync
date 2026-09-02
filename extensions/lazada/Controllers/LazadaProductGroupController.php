@@ -216,14 +216,14 @@ class LazadaProductGroupController extends Controller
 
         $this->saveGroupAttributes($group, (array) $request->input('attributes', []));
 
-        ActivityLogger::log('created', 'Lazada Product Group', $group->id, $group->name);
+        ActivityLogger::log('created', 'Lazada Preset', $group->id, $group->name);
 
         // Add products from dual-listbox
         $productIds = array_map('intval', array_filter($data['product_ids'] ?? []));
         $this->addProductsToGroup($group, $productIds);
 
         return redirect()->route('ext.lazada.product-groups.edit', $group->id)
-            ->with('status', 'Product group created. ' . count($productIds) . ' product(s) assigned.');
+            ->with('status', 'Preset created. ' . count($productIds) . ' product(s) assigned.');
     }
 
     public function update(Request $request, int $id)
@@ -254,7 +254,7 @@ class LazadaProductGroupController extends Controller
 
         $this->saveGroupAttributes($group, (array) $request->input('attributes', []));
 
-        ActivityLogger::log('updated', 'Lazada Product Group', $group->id, $group->name);
+        ActivityLogger::log('updated', 'Lazada Preset', $group->id, $group->name);
 
         // Sync product assignments
         $newProductIds = array_map('intval', array_filter($data['product_ids'] ?? []));
@@ -272,7 +272,7 @@ class LazadaProductGroupController extends Controller
         }
 
         return redirect()->route('ext.lazada.product-groups.edit', $group->id)
-            ->with('status', 'Product group saved.');
+            ->with('status', 'Preset saved.');
     }
 
     public function destroy(int $id)
@@ -284,7 +284,7 @@ class LazadaProductGroupController extends Controller
 
         $group->delete();
 
-        ActivityLogger::log('deleted', 'Lazada Product Group', (int) $id, $group->name);
+        ActivityLogger::log('deleted', 'Lazada Preset', (int) $id, $group->name);
 
         // Check which lazada products no longer have any group links
         $removed = 0;
@@ -307,7 +307,7 @@ class LazadaProductGroupController extends Controller
             $kept = count($stillLinked);
         }
 
-        $parts = ['Product group "' . e($group->name) . '" deleted.'];
+        $parts = ['Preset "' . e($group->name) . '" deleted.'];
         if ($removed > 0) $parts[] = "{$removed} product(s) removed.";
         if ($kept > 0) $parts[] = "{$kept} product(s) still linked to other groups.";
 
@@ -482,7 +482,7 @@ class LazadaProductGroupController extends Controller
         $added = $this->addProductsToGroup($group, $ids);
 
         return $this->productsRedirect($group->id)
-            ->with('status', "{$added} product(s) added to group.");
+            ->with('status', "{$added} product(s) added to the preset.");
     }
 
     /**
@@ -511,7 +511,7 @@ class LazadaProductGroupController extends Controller
         $group = LazadaProductGroup::query()->findOrFail($groupId);
         $pivot = $group->groupProducts()->where('product_id', $productId)->first();
         if (!$pivot) {
-            return redirect()->back()->with('error', 'Product not in this group.');
+            return redirect()->back()->with('error', 'Product not in this preset.');
         }
 
         $setting = LazadaSetting::query()->first()?->decrypted();
@@ -640,7 +640,7 @@ class LazadaProductGroupController extends Controller
         $group->groupProducts()->where('product_id', $productId)->delete();
 
         return $this->productsRedirect($group->id)
-            ->with('status', 'Product removed from group.');
+            ->with('status', 'Product removed from the preset.');
     }
 
     /**
@@ -656,7 +656,7 @@ class LazadaProductGroupController extends Controller
         }
 
         return $this->productsRedirect($group->id)
-            ->with('status', count($ids) . ' product(s) removed from group.');
+            ->with('status', count($ids) . ' product(s) removed from the preset.');
     }
 
     public function push(Request $request, int $id, LazadaClient $client)
@@ -668,7 +668,7 @@ class LazadaProductGroupController extends Controller
         }
 
         if (!$group->lazada_category_id) {
-            return $this->productsRedirect($id)->with('error', 'Product Group has no Lazada category configured. Set a category first.');
+            return $this->productsRedirect($id)->with('error', 'This preset has no Lazada category configured. Set a category first.');
         }
 
         $setting = LazadaSetting::query()->first()?->decrypted();
@@ -839,7 +839,7 @@ class LazadaProductGroupController extends Controller
                 if ($pivot) $pivot->update(['sync_status' => 'pushed']);
 
                 ActivityLogger::log('created', 'Lazada Product', $listing->id,
-                    'Pushed ERP #' . $productId . ' to Lazada via product group');
+                    'Pushed ERP #' . $productId . ' to Lazada via preset');
 
                 $okCount++;
             } else {
@@ -873,7 +873,7 @@ class LazadaProductGroupController extends Controller
         }
 
         if (!$group->lazada_category_id) {
-            return $this->productsRedirect($id)->with('error', 'Product Group has no Lazada category configured.');
+            return $this->productsRedirect($id)->with('error', 'This preset has no Lazada category configured.');
         }
 
         $setting = LazadaSetting::query()->first()?->decrypted();
@@ -1017,7 +1017,7 @@ class LazadaProductGroupController extends Controller
                 if ($pivot) $pivot->update(['sync_status' => 'pushed']);
 
                 ActivityLogger::log('updated', 'Lazada Product', $listing->id,
-                    'Updated ERP #' . $productId . ' on Lazada via product group');
+                    'Updated ERP #' . $productId . ' on Lazada via preset');
 
                 return ['ok' => true, 'message' => 'updated'];
             }
@@ -1035,7 +1035,13 @@ class LazadaProductGroupController extends Controller
      * is marked so, an unlisted product whose SKU already sits on the
      * shop is linked. One batched lookup by seller SKU, fifty a call.
      */
-    public function checkAgainstLazada(Request $request, int $id, LazadaLiveListing $live)
+    /**
+     * Ask Lazada about this group's products and make the ERP agree.
+     * The SKU walk lives in LazadaLinkCheck, shared with the workbench
+     * (Phase F, #184); this entry point supplies the group's members as
+     * the default scope and the group itself for adoption defaults.
+     */
+    public function checkAgainstLazada(Request $request, int $id, \Extensions\lazada\Services\Lazada\LazadaLinkCheck $check)
     {
         // One Lazada call per fifty SKUs: a whole group of two hundred
         // products is eight or more calls of a few seconds each, past the
@@ -1056,99 +1062,12 @@ class LazadaProductGroupController extends Controller
             $productIds = $group->groupProducts()->pluck('product_id')->map('intval')->all();
         }
         if (empty($productIds)) {
-            return $this->productsRedirect($id)->with('error', 'This group has no products to check.');
-        }
-        $limit = 200;
-        $skippedForSize = max(0, count($productIds) - $limit);
-        $productIds = array_slice($productIds, 0, $limit);
-
-        $pfx = (string) config('catalog.prefix');
-        $skusByProduct = $this->erpSkusByProduct($pfx, $productIds);
-        $allSkus = array_values(array_unique(array_merge(...array_values($skusByProduct ?: [[]]))));
-        try {
-            $found = $live->itemsBySkus($setting, $creds, $allSkus);
-        } catch (\RuntimeException $e) {
-            return $this->productsRedirect($id)->with('error', 'Check against Lazada: ' . $e->getMessage());
+            return $this->productsRedirect($id)->with('error', 'This preset has no products to check.');
         }
 
-        $pivots = LazadaProductGroupProduct::query()->where('lazada_product_group_id', $group->id)
-            ->whereIn('product_id', $productIds)->get()->keyBy('product_id');
-        $verdicts = ['confirmed' => 0, 'linked' => 0, 'lost' => 0, 'not_on_lazada' => 0];
-        $problems = [];
+        $r = $check->run($setting, $creds, $productIds, $group);
 
-        foreach ($productIds as $productId) {
-            $pivot = $pivots->get($productId);
-            $listing = $pivot && $pivot->lazada_product_id ? LazadaProduct::find($pivot->lazada_product_id) : null;
-            $listing ??= LazadaProduct::query()->where('product_id', $productId)->first();
-            $hits = [];
-            $hitStatuses = [];
-            foreach ($skusByProduct[$productId] ?? [] as $sku) {
-                if (isset($found[strtolower($sku)])) {
-                    $hits[] = $found[strtolower($sku)]['item_id'];
-                    $hitStatuses[(string) $found[strtolower($sku)]['item_id']] =
-                        strtolower(trim((string) ($found[strtolower($sku)]['status'] ?? '')));
-                }
-            }
-            $hitItemId = $hits ? (string) $hits[0] : null;
-            /* The walk answered with the item's status; writing it to the
-             * mirror here means a check leaves every row it touched fresh
-             * instead of throwing the answer away (#184 C). */
-            $hitMirror = $hitItemId !== null && ($hitStatuses[$hitItemId] ?? '') !== ''
-                ? ['live_status' => $hitStatuses[$hitItemId], 'live_checked_at' => now()]
-                : [];
-
-            if ($listing && $listing->lazada_item_id && !$listing->lazada_deleted_at) {
-                if ($hitItemId !== null && in_array((string) $listing->lazada_item_id, $hits, true)) {
-                    $listing->forceFill($hitMirror + ['last_synced_at' => now(), 'last_sync_action' => 'check', 'last_sync_ok' => true, 'last_sync_error_message' => null])->save();
-                    if ($pivot) $pivot->update(['sync_status' => 'pushed']);
-                    $verdicts['confirmed']++;
-                } elseif ($hitItemId !== null) {
-                    // The SKU sits on a different item now; the record follows the shop.
-                    $listing->forceFill($hitMirror + ['lazada_item_id' => $hitItemId, 'lazada_deleted_at' => null, 'last_synced_at' => now(), 'last_sync_action' => 'check', 'last_sync_ok' => true])->save();
-                    if ($pivot) $pivot->update(['sync_status' => 'pushed']);
-                    $verdicts['linked']++;
-                } else {
-                    $listing->forceFill(['lazada_deleted_at' => now(), 'live_status' => 'missing', 'live_checked_at' => now(), 'last_synced_at' => now(), 'last_sync_action' => 'check', 'last_sync_ok' => false, 'last_sync_error_message' => 'Not found on Lazada'])->save();
-                    if ($pivot) $pivot->update(['sync_status' => 'error']);
-                    $problems[] = "#{$productId}: not found on Lazada; the link was dropped";
-                    $verdicts['lost']++;
-                }
-                continue;
-            }
-
-            if ($hitItemId !== null) {
-                // Unlisted here, already on the shop: adopt it.
-                if (!$listing) {
-                    $listing = LazadaProduct::create([
-                        'product_id' => $productId,
-                        'primary_category_id' => $group->lazada_category_id,
-                        'brand_name_override' => 'No Brand',
-                        'markup_fixed' => $group->markup_fixed,
-                        'markup_percent' => $group->markup_percent,
-                    ]);
-                }
-                $listing->forceFill($hitMirror + ['lazada_item_id' => $hitItemId, 'lazada_deleted_at' => null, 'unlinked_at' => null, 'last_synced_at' => now(), 'last_sync_action' => 'check', 'last_sync_ok' => true])->save();
-                if ($pivot) {
-                    $pivot->update(['lazada_product_id' => $listing->id, 'sync_status' => 'pushed']);
-                } else {
-                    LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $productId, 'lazada_product_id' => $listing->id, 'sync_status' => 'pushed']);
-                }
-                $verdicts['linked']++;
-            } else {
-                $verdicts['not_on_lazada']++;
-            }
-        }
-
-        $parts = [];
-        if ($verdicts['confirmed']) $parts[] = "{$verdicts['confirmed']} confirmed on Lazada";
-        if ($verdicts['linked']) $parts[] = "{$verdicts['linked']} linked to the item Lazada holds";
-        if ($verdicts['lost']) $parts[] = "{$verdicts['lost']} no longer on Lazada";
-        if ($verdicts['not_on_lazada']) $parts[] = "{$verdicts['not_on_lazada']} not on Lazada";
-        $summary = 'Checked ' . count($productIds) . ' against Lazada: ' . (implode(', ', $parts) ?: 'nothing to report') . '.';
-        if ($skippedForSize > 0) $summary .= " {$skippedForSize} more were not checked (200 at a time).";
-        if ($problems) $summary .= ' ' . implode('; ', array_slice($problems, 0, 5)) . '.';
-
-        return $this->productsRedirect($id)->with($verdicts['lost'] > 0 ? 'error' : 'status', $summary);
+        return $this->productsRedirect($id)->with($r['tone'], $r['summary']);
     }
 
     /**
@@ -1187,28 +1106,6 @@ class LazadaProductGroupController extends Controller
     }
 
     /** Every SKU a product carries: its own, its model, its option and combination SKUs. */
-    private function erpSkusByProduct(string $pfx, array $productIds): array
-    {
-        $out = [];
-        foreach (DB::table($pfx . 'product')->whereIn('product_id', $productIds)->get(['product_id', 'sku', 'model']) as $p) {
-            foreach ([$p->sku, $p->model] as $v) {
-                if (trim((string) $v) !== '') {
-                    $out[(int) $p->product_id][] = trim((string) $v);
-                }
-            }
-        }
-        foreach (DB::table($pfx . 'product_option_value')->whereIn('product_id', $productIds)->whereNotNull('sku')->where('sku', '!=', '')->get(['product_id', 'sku']) as $r) {
-            $out[(int) $r->product_id][] = trim((string) $r->sku);
-        }
-        foreach (DB::table('product_option_combinations')->whereIn('product_id', $productIds)->whereNotNull('sku')->where('sku', '!=', '')->get(['product_id', 'sku']) as $r) {
-            $out[(int) $r->product_id][] = trim((string) $r->sku);
-        }
-        foreach ($out as $pid => $skus) {
-            $out[$pid] = array_values(array_unique($skus));
-        }
-
-        return $out;
-    }
 
     public function pushPrices(Request $request, int $id, LazadaClient $client)
     {
@@ -1413,7 +1310,7 @@ class LazadaProductGroupController extends Controller
                 $this->writeProductStatus($pivotRow->product_id, ['sync_status' => 'pending']);
 
                 ActivityLogger::log('deleted', 'Lazada Product', $listing->id,
-                    'Deleted from Lazada via product group, ERP #' . (int) $listing->product_id);
+                    'Deleted from Lazada via preset, ERP #' . (int) $listing->product_id);
 
                 $okCount++;
             } else {

@@ -1821,6 +1821,39 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('status', $msg);
     }
 
+    /**
+     * Ask Lazada whether the links this page believes in are still true
+     * (Phase F, #184): the group page's check, on the workbench, via the
+     * shared LazadaLinkCheck. The bulk bar posts listing_ids[]; with
+     * none it checks every linked listing, 200 at a time. No group here
+     * means adoption creates a bare listing for the workbench to dress.
+     */
+    public function checkAgainstLazada(Request $request, \Extensions\lazada\Services\Lazada\LazadaLinkCheck $check)
+    {
+        try { @set_time_limit(0); } catch (\Throwable $e) {}
+
+        $setting = LazadaSetting::query()->first()?->decrypted();
+        $creds = LazadaSetting::activeCredentials($setting);
+        if (!$setting || !$setting->region || !$creds['complete']) {
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
+                ->with('error', 'Missing Lazada settings (region/app key/app secret/access token).');
+        }
+
+        $listingIds = array_values(array_unique(array_filter(array_map(fn ($v) => (int) $v, (array) $request->input('listing_ids', [])), fn ($v) => $v > 0)));
+        $productIds = $listingIds !== []
+            ? LazadaProduct::query()->whereIn('id', $listingIds)->pluck('product_id')->map(fn ($v) => (int) $v)->all()
+            : LazadaProduct::query()->whereNotNull('lazada_item_id')->whereNull('lazada_deleted_at')
+                ->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+        if (empty($productIds)) {
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
+                ->with('error', 'Nothing is linked to Lazada yet, so there is nothing to check.');
+        }
+
+        $r = $check->run($setting, $creds, $productIds);
+
+        return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with($r['tone'], $r['summary']);
+    }
+
 public function bulkSyncQuantity(Request $request, LazadaClient $client)
 {
     $ids = $request->input('listing_ids', []);
