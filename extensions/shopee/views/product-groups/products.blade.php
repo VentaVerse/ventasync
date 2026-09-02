@@ -374,7 +374,15 @@
                      its reason live in the Last push column, scoped to this
                      group in words. --}}
                 @if($listed)
-                    <x-ui.badge tone="success">Listed</x-ui.badge>
+                    {{-- The engine's word, not "Listed" (Phase B, #184): a
+                         banned product used to read Listed here and
+                         Violation on the index. One vocabulary now. --}}
+                    @php $rowState = ($listingStates ?? [])[(int) $p->product_id] ?? null; @endphp
+                    @if($rowState && $rowState->state !== \App\Integrations\Listings\ListingState::UNKNOWN)
+                        <x-ui.badge :tone="$rowState->tone()">{{ $rowState->label() }}</x-ui.badge>
+                    @else
+                        <x-ui.badge tone="success">Listed</x-ui.badge>
+                    @endif
                 @elseif($isUnlinked)
                     <span class="x-cell-muted">Unlinked</span>
                 @else

@@ -210,6 +210,48 @@ class ShopeeListingStateTest extends TestCase
         $this->assertNull(ShopeeProductLink::query()->where('shopee_item_id', 990088)->value('live_status'), 'stays honestly blank');
     }
 
+    public function test_the_summary_counts_trouble_without_walking_every_product(): void
+    {
+        // Two attention (banned + missing), one drifted live, one clean live.
+        foreach ([
+            ['BANNED', 1101], ['MISSING', 1102],
+        ] as [$status, $item]) {
+            $pid = $this->product('SUM' . $item);
+            ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => $item, 'sku' => 'SUM' . $item,
+                'live_status' => $status, 'live_checked_at' => now()]);
+        }
+
+        $drift = $this->product('SUMDRIFT', 'catalog/x.png', now()->format('Y-m-d H:i:s'));
+        $this->readyListing($drift, ['last_pushed_at' => now()->subDay()]);
+        ShopeeProductLink::create(['product_id' => $drift, 'shopee_item_id' => 1103, 'sku' => 'SUMDRIFT',
+            'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+
+        $clean = $this->product('SUMCLEAN', 'catalog/x.png', now()->subDays(9)->format('Y-m-d H:i:s'));
+        $this->readyListing($clean, ['last_pushed_at' => now()->subDay()]);
+        ShopeeProductLink::create(['product_id' => $clean, 'shopee_item_id' => 1104, 'sku' => 'SUMCLEAN',
+            'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+
+        $sum = app(ShopeeListingStates::class)->summary();
+        $this->assertSame(2, $sum['attention']);
+        $this->assertSame(1, $sum['drift']);
+    }
+
+    public function test_the_dashboard_chip_carries_the_listing_troubles_in_words(): void
+    {
+        $pid = $this->product('DASH');
+        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 1201, 'sku' => 'DASH',
+            'live_status' => 'BANNED', 'live_checked_at' => now()]);
+
+        $data = (new \Extensions\shopee\ShopeeExtension(app()))->dashboardData();
+        $this->assertSame('1 listing needs attention', $data['shopeeSyncStatus']->listing_flags);
+        $this->assertSame(1, $data['shopeeSyncStatus']->listing_attention);
+
+        // No troubles, no line: absence is the ordinary state.
+        ShopeeProductLink::query()->update(['live_status' => 'NORMAL']);
+        $data = (new \Extensions\shopee\ShopeeExtension(app()))->dashboardData();
+        $this->assertNull($data['shopeeSyncStatus']->listing_flags);
+    }
+
     public function test_shopee_answers_the_core_contract_every_channel_will_share(): void
     {
         $pid = $this->product('VIACORE');

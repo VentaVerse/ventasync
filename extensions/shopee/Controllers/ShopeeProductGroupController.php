@@ -418,7 +418,14 @@ class ShopeeProductGroupController extends Controller
             ->get()
             ->keyBy('product_id');
 
+        /* ONE state per row (Phase B, #184): this page used to show
+         * "Listed" for a product Shopee had banned, because its column
+         * only asked whether a link row existed. */
+        $listingStates = app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)
+            ->forProducts($displayIds);
+
         return view('ext-shopee::product-groups.products', [
+            'listingStates' => $listingStates,
             'group' => $group,
             'failedCount' => $failedCount,
             'products' => $products,

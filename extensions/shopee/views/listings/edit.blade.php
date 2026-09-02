@@ -20,17 +20,12 @@
     $canManage = auth()->user()?->hasPermission('manage_shopee/product') ?? false;
     $canEditCatalog = auth()->user()?->hasPermission('manage_catalog/product') ?? false;
 
-    // Shopee's status vocabulary -> the seller center's words.
-    $statusMap = [
-        'NORMAL' => ['Live', 'success'],
-        'UNLIST' => ['Unlisted', 'neutral'],
-        'BANNED' => ['Violation', 'danger'],
-        'REVIEWING' => ['Under Shopee review', 'warning'],
-        'SELLER_DELETE' => ['Deleted by seller', 'neutral'],
-        'SHOPEE_DELETE' => ['Deleted by Shopee', 'danger'],
-    ];
-    [$statusLabel, $statusTone] = $live
-        ? ($statusMap[$live['item_status']] ?? [$live['item_status'], 'neutral'])
+    /* The status words come from the engine (Phase B, #184): this page
+       carried its own map, one of three copies that had already drifted
+       apart. The engine ran after this page's live fetch wrote the
+       mirror, so its answer IS the fetch's answer, in the one vocabulary. */
+    [$statusLabel, $statusTone] = ($live && ($listingState ?? null))
+        ? [$listingState->label(), $listingState->tone()]
         : [null, null];
 
     $corePrice = (float) $product->price;
@@ -166,13 +161,20 @@
                 <div class="fm-note">
                     @php
                         /* Each gap links to the exact field that fills it;
-                           "below" is 2,400px away on a phone. */
-                        $gapLinks = collect($missing)->map(function ($gap) use ($product) {
-                            $href = str_contains($gap, 'category') ? '#sl-category'
-                                : (str_contains($gap, 'courier') ? '#sl-couriers'
-                                : (str_contains($gap, 'image') ? route('products.edit', $product->product_id)
-                                : (str_contains($gap, 'attribute') ? '#sl-attributes' : null)));
-                            return $href ? '<a href="' . e($href) . '">' . e($gap) . '</a>' : e($gap);
+                           "below" is 2,400px away on a phone. Keyed on the
+                           gap's CODE (Phase B, #184) - this used to
+                           substring-match the English sentence, which is
+                           how a reworded label silently breaks a link. */
+                        $gapHrefs = [
+                            \App\Integrations\Listings\ListingState::GAP_CATEGORY => '#sl-category',
+                            \App\Integrations\Listings\ListingState::GAP_COURIERS => '#sl-couriers',
+                            \App\Integrations\Listings\ListingState::GAP_IMAGE => route('products.edit', $product->product_id),
+                            \App\Integrations\Listings\ListingState::GAP_SHEET => '#sl-attributes',
+                            \App\Integrations\Listings\ListingState::GAP_ATTRIBUTES => '#sl-attributes',
+                        ];
+                        $gapLinks = collect($readiness['gaps'] ?? [])->map(function ($gap) use ($gapHrefs) {
+                            $href = $gapHrefs[$gap['code']] ?? null;
+                            return $href ? '<a href="' . e($href) . '">' . e($gap['label']) . '</a>' : e($gap['label']);
                         })->all();
                         $gapWords = count($gapLinks) > 1
                             ? implode(', ', array_slice($gapLinks, 0, -1)) . ' and ' . end($gapLinks)

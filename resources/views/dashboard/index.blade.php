@@ -145,6 +145,12 @@
                 'name' => $tab->label,
                 'colour' => $tab->accent ?: $channelColour($tab->id),
                 'state' => $state,
+                /* The channel's listing troubles, when it reports them
+                   (Phase B, #184): "2 listings need attention · 5 behind
+                   the catalogue". A channel that reports none prints
+                   nothing. */
+                'flags' => $sync->listing_flags ?? null,
+                'flags_bad' => (int) ($sync->listing_attention ?? 0) > 0,
                 'pending' => $pendingFor[$tab->id] ?? $tab->unprocessedCount(),
                 'link' => RouteFacade::has($tab->routeName)
                     ? route($tab->routeName, $tab->routeParams)
@@ -309,6 +315,11 @@
                         <span class="bl-chan__s {{ $chBad ? 'bl-chan__s--bad' : '' }} block truncate">
                             {{ $channel['state']['text'] }}
                         </span>
+                        @if($channel['flags'] ?? null)
+                            <span class="bl-chan__s {{ ($channel['flags_bad'] ?? false) ? 'bl-chan__s--bad' : '' }} block truncate">
+                                {{ $channel['flags'] }}
+                            </span>
+                        @endif
                     </span>
                     @if($channel['pending'] !== null)
                         <span class="bl-chan__q">

@@ -35,6 +35,33 @@ class ShopeeListingStates
     {
     }
 
+    /**
+     * The shop's listing troubles in two numbers, for the dashboard chip:
+     * how many products need a human (violation, deleted, vanished) and
+     * how many are live but behind the catalogue. Aggregate SQL, not the
+     * per-product path: the dashboard must not walk two thousand rows.
+     *
+     * @return array{attention: int, drift: int}
+     */
+    public function summary(): array
+    {
+        $pfx = (string) config('catalog.prefix');
+
+        $attention = ShopeeProductLink::query()
+            ->whereIn('live_status', ['BANNED', 'SELLER_DELETE', 'SHOPEE_DELETE', 'MISSING'])
+            ->distinct()->count('product_id');
+
+        $drift = ShopeeProductLink::query()
+            ->whereIn('live_status', ['NORMAL', 'UNLIST'])
+            ->join('shopee_listings as sl', 'sl.product_id', '=', 'shopee_product_links.product_id')
+            ->join($pfx . 'product as p', 'p.product_id', '=', 'shopee_product_links.product_id')
+            ->whereNotNull('sl.last_pushed_at')
+            ->whereColumn('p.date_modified', '>', 'sl.last_pushed_at')
+            ->distinct()->count('shopee_product_links.product_id');
+
+        return ['attention' => $attention, 'drift' => $drift];
+    }
+
     /** Worst first; the fold keeps the first status this list names. */
     private const SEVERITY = ['BANNED', 'SHOPEE_DELETE', 'SELLER_DELETE', 'MISSING', 'REVIEWING', 'UNLIST', 'NORMAL'];
 

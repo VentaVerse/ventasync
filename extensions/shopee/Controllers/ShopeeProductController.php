@@ -3105,7 +3105,13 @@ class ShopeeProductController extends Controller
          * on this page, the listings index and the bulk push all mean the
          * same thing. */
         $readiness = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)
-            ->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => []];
+            ->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => [], 'gaps' => []];
+
+        /* The engine's answer (Phase B, #184), computed AFTER the live
+         * fetch wrote the mirror, so this page and every list agree the
+         * moment this page has looked. */
+        $listingState = app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)
+            ->forProducts([$productId])[$productId] ?? null;
 
         $initialBrands = $categoryId > 0
             ? \Extensions\shopee\Models\ShopeeBrand::query()
@@ -3115,6 +3121,7 @@ class ShopeeProductController extends Controller
             : collect();
 
         return view('ext-shopee::listings.edit', [
+            'listingState' => $listingState,
             'product' => $product,
             'listing' => $listing,
             'initialBrands' => $initialBrands,

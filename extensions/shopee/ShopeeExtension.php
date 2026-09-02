@@ -373,11 +373,34 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         if (Schema::hasTable('shopee_settings')) {
             $spSetting = ShopeeSetting::query()->first();
             if ($spSetting) {
+                /* The listing troubles ride the chip (Phase B, #184): a
+                 * violation or a vanished listing used to live only on a
+                 * page nobody opens daily. Counted by aggregate, and a
+                 * failure here must not take the dashboard down. */
+                $flags = null;
+                $attention = 0;
+                try {
+                    $sum = app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->summary();
+                    $attention = (int) $sum['attention'];
+                    $parts = [];
+                    if ($sum['attention'] > 0) {
+                        $parts[] = $sum['attention'] . ' listing' . ($sum['attention'] === 1 ? ' needs' : 's need') . ' attention';
+                    }
+                    if ($sum['drift'] > 0) {
+                        $parts[] = $sum['drift'] . ' behind the catalogue';
+                    }
+                    $flags = $parts ? implode(' · ', $parts) : null;
+                } catch (\Throwable) {
+                    // the chip simply carries no flags line
+                }
+
                 $data['shopeeSyncStatus'] = (object) [
                     'order_sync_at' => $spSetting->last_order_sync_at,
                     'push_stock_at' => $spSetting->last_stock_push_at,
                     'return_sync_at' => $spSetting->last_return_sync_at,
                     'expires_at'    => $spSetting->expires_at,
+                    'listing_flags' => $flags,
+                    'listing_attention' => $attention,
                 ];
             }
         }
