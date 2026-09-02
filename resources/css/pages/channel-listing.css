@@ -250,3 +250,7 @@
     gap: var(--bl-space-3);
     align-items: center;
 }
+
+/* The preset bar above the bulk-push review (Phase F, #184). */
+.bp-preset-bar { align-items: center; }
+.bp-preset-save { max-width: 340px; margin-top: var(--bl-space-2); }
