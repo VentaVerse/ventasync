@@ -47,6 +47,11 @@ class ShopeeOrderDetailTest extends TestCase
 
         $this->app->register(ShopeeExtension::class);
 
+        /* Multi-store S2 (#194): an order row belongs to a store, so the
+         * "no credentials" scenarios seed a bare, credential-less store -
+         * activeAuth() still answers incomplete, which is what they test. */
+        ShopeeSetting::create(['mode' => 'production', 'store_name' => 'Main store']);
+
         // Routes registered after the RouteCollection last built its name
         // lookup table are invisible to Route::has(), which ChannelWorkspace
         // calls for every sidebar destination. See ChannelWorkspaceTest.
@@ -378,14 +383,19 @@ class ShopeeOrderDetailTest extends TestCase
 
     private function configureShopeeCredentials(): ShopeeSetting
     {
-        return ShopeeSetting::create([
+        // Dresses the store setUp seeded; a second row would fight it for
+        // defaultStore() and win nothing.
+        $s = ShopeeSetting::query()->orderBy('id')->firstOrNew();
+        $s->fill([
             'mode' => 'production',
             'partner_id' => 100001,
             'partner_key' => 'test-partner-key',
             'shop_id' => 200002,
             'access_token' => 'test-access-token',
             'region' => 'ph',
-        ]);
+        ])->save();
+
+        return $s;
     }
 
     public function test_view_tier_get_with_refresh_param_pulls_nothing_and_writes_nothing(): void

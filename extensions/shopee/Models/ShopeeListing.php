@@ -11,9 +11,12 @@ use Illuminate\Database\Eloquent\Model;
  */
 class ShopeeListing extends Model
 {
+    use \Extensions\shopee\Models\Concerns\BelongsToShopeeStore;
+
     protected $table = 'shopee_listings';
 
     protected $fillable = [
+        'shopee_setting_id',
         'product_id',
         'shopee_category_id', 'shopee_brand_id', 'logistic_ids',
         'markup_percent', 'markup_fixed',

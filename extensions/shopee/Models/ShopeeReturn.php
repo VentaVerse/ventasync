@@ -7,9 +7,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ShopeeReturn extends Model
 {
+    use \Extensions\shopee\Models\Concerns\BelongsToShopeeStore;
+
     protected $table = 'shopee_returns';
 
     protected $fillable = [
+        'shopee_setting_id',
         'region',
         'return_sn',
         'order_sn',

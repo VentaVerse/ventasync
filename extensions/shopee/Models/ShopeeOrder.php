@@ -9,9 +9,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ShopeeOrder extends Model
 {
+    use \Extensions\shopee\Models\Concerns\BelongsToShopeeStore;
+
     protected $table = 'shopee_orders';
 
     protected $fillable = [
+        'shopee_setting_id',
         'region',
         'order_sn',
         'status',

@@ -32,6 +32,9 @@ class OrderPrintListsTest extends TestCase
     {
         parent::setUp();
 
+        // Multi-store S2 (#194): an order row belongs to a store.
+        \Extensions\shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+
         $manager = $this->app->make(\App\Extensions\ExtensionManager::class);
 
         foreach (['shopee', 'lazada'] as $extension) {

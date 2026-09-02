@@ -6,9 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class ShopeeProductLink extends Model
 {
+    use \Extensions\shopee\Models\Concerns\BelongsToShopeeStore;
+
     protected $table = 'shopee_product_links';
 
     protected $fillable = [
+        'shopee_setting_id',
         'product_id',
         'shopee_item_id',
         'shopee_model_id',

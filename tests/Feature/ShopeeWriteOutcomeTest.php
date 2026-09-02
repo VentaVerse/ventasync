@@ -33,6 +33,14 @@ class ShopeeWriteOutcomeTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Multi-store S2 (#194): rows the tests create belong to a store.
+        \Extensions\shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+    }
+
     private const CONTROLLER = 'extensions/shopee/Controllers/ShopeeProductGroupController.php';
 
     private function invokePrivate(string $method, array $args)
@@ -266,6 +274,8 @@ class ShopeeWriteOutcomeTest extends TestCase
     private function group(): int
     {
         return DB::table('shopee_product_groups')->insertGetId([
+            'shopee_setting_id' => \Extensions\shopee\Models\ShopeeSetting::query()->orderBy('id')->value('id')
+                ?? \Extensions\shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store'])->id,
             'name' => 'Mosky',
             'created_at' => now(),
             'updated_at' => now(),

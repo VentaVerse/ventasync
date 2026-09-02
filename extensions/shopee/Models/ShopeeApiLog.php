@@ -9,9 +9,12 @@ use Illuminate\Support\Facades\Schema;
 
 class ShopeeApiLog extends Model
 {
+    use \Extensions\shopee\Models\Concerns\BelongsToShopeeStore;
+
     protected $table = 'shopee_api_logs';
 
     protected $fillable = [
+        'shopee_setting_id',
         'pack',
         'method',
         'api_path',

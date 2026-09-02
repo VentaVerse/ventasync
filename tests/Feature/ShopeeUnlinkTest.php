@@ -30,6 +30,14 @@ class ShopeeUnlinkTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Multi-store S2 (#194): rows the tests create belong to a store.
+        \Extensions\shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+    }
+
     private const PRODUCT = 2708;
     private const ITEM = 46008714785;
     private const SKU = 'demon-mt500';
@@ -52,6 +60,8 @@ class ShopeeUnlinkTest extends TestCase
     private function pivot(array $attrs = []): void
     {
         $group = \DB::table('shopee_product_groups')->insertGetId([
+            'shopee_setting_id' => \Extensions\shopee\Models\ShopeeSetting::query()->orderBy('id')->value('id')
+                ?? \Extensions\shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store'])->id,
             'name' => 'Group 8',
             'created_at' => now(),
             'updated_at' => now(),

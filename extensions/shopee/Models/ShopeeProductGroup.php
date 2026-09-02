@@ -6,9 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class ShopeeProductGroup extends Model
 {
+    use \Extensions\shopee\Models\Concerns\BelongsToShopeeStore;
+
     protected $table = 'shopee_product_groups';
 
     protected $fillable = [
+        'shopee_setting_id',
         'name', 'catalog_category_ids', 'manufacturer_ids',
         'shopee_category_id', 'shopee_brand_id', 'logistic_ids',
         'markup_fixed', 'markup_percent',
