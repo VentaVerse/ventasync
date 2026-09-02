@@ -205,6 +205,10 @@ class Navigation
         $items = [
             ['label' => 'All channels', 'route' => 'channels.index',
              'keywords' => ['integrations', 'status', 'connection', 'sync', 'marketplace', 'board']],
+            // Phase D (#184): the cross-channel grid. allows() applies the
+            // page's own derived permission like every other entry.
+            ['label' => 'All listings', 'route' => 'channels.listings',
+             'keywords' => ['listings', 'grid', 'status', 'live', 'not listed', 'everywhere']],
         ];
 
         try {

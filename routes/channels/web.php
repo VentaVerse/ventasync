@@ -31,6 +31,10 @@ Route::prefix('channels')->group(function () {
     // Channels hub (cards view).
     Route::get('/', [IntegrationController::class, 'index'])->name('channels.index');
 
+    // All Listings (Phase D, #184): every product's standing on every
+    // channel that can answer, one grid above the per-channel workbenches.
+    Route::get('/listings', [\App\Http\Controllers\Integrations\AllListingsController::class, 'index'])->name('channels.listings');
+
     // The fulfilment hub: every channel's open orders, one working surface.
     // Redirects to the first marketplace tab the user may see; otherwise
     // shows the empty state.

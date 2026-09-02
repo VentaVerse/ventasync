@@ -92,6 +92,7 @@
 @import './pages/petty-cash.css' layer(vocabulary);
 @import './pages/reports.css' layer(vocabulary);
 @import './pages/channel-listing.css' layer(vocabulary);
+@import './pages/all-listings.css' layer(vocabulary);
 @import './pages/api-explorer.css' layer(vocabulary);
 @import './pages/channels.css' layer(vocabulary);
 @import './pages/tiktok-orders.css' layer(vocabulary);

@@ -23,4 +23,16 @@ interface ListingStateSource
      *         channel knows nothing about may be omitted.
      */
     public function listingStates(array $productIds): array;
+
+    /**
+     * Where a person ACTS on each product's listing for this channel - the
+     * channel's own workbench page, keyed by product id (null entries when
+     * the channel has nowhere to send them). Batch-shaped like
+     * listingStates(), so a fifty-row grid costs one lookup per channel.
+     * Core renders the links verbatim and never builds channel URLs itself.
+     *
+     * @param list<int> $productIds
+     * @return array<int, ?string>
+     */
+    public function listingUrls(array $productIds): array;
 }

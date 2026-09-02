@@ -677,4 +677,14 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
     {
         return app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->forProducts($productIds);
     }
+
+    public function listingUrls(array $productIds): array
+    {
+        $out = [];
+        foreach ($productIds as $pid) {
+            $out[(int) $pid] = route('ext.shopee.listings.edit', (int) $pid);
+        }
+
+        return $out;
+    }
 }

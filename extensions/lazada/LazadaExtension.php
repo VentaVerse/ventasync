@@ -753,4 +753,25 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
     {
         return app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)->forProducts($productIds);
     }
+
+    public function listingUrls(array $productIds): array
+    {
+        $productIds = array_values(array_unique(array_map('intval', $productIds)));
+        // The listing page is keyed by the ROW, so resolve each product's
+        // preferred row (the linked one, else the newest) in one query.
+        $rows = LazadaProduct::query()
+            ->whereIn('product_id', $productIds ?: [0])
+            ->orderByRaw("(lazada_item_id IS NOT NULL AND lazada_item_id <> '' AND unlinked_at IS NULL) asc")
+            ->orderBy('id')
+            ->pluck('id', 'product_id'); // later rows overwrite earlier: preferred wins
+
+        $out = [];
+        foreach ($productIds as $pid) {
+            $out[$pid] = $rows->has($pid)
+                ? route('ext.lazada.products.edit', $rows->get($pid))
+                : route('ext.lazada.products.create', ['product_id' => $pid]);
+        }
+
+        return $out;
+    }
 }
