@@ -386,30 +386,20 @@ class TikTokProductController extends Controller
         }
         $listing = TikTokListing::query()->where('product_id', $productId)->first();
         $pseudo = (object) ['product_id' => $productId, 'tiktok_product_id' => $truth->tiktok_product_id, 'tiktok_sku_id' => $truth->tiktok_sku_id];
-        $rows = app(TikTokStockPushService::class)->resolve([$pseudo], (string) config('catalog.prefix'),
-            fn (float $base, object $p) => $listing ? $listing->priceFor($base) : $base);
-        $skus = $rows[0]['skus'] ?? [];
-        if (!$skus) {
-            return redirect()->back()->with('error', ucfirst($what) . ' push failed: no TikTok SKU ids are recorded for this product; update it once from its group.');
-        }
-        $payload = array_map(fn ($s) => $what === 'price'
-            ? ['id' => $s['id'], 'price' => ['amount' => (string) round($s['price']), 'currency' => 'PHP']]
-            : ['id' => $s['id'], 'inventory' => [array_filter(['warehouse_id' => $c['warehouse_id'] ?: null, 'quantity' => $s['quantity']], fn ($v) => $v !== null)]],
-            $skus);
-        $path = '/product/202309/products/' . $truth->tiktok_product_id . ($what === 'price' ? '/prices/update' : '/inventory/update');
-        try {
-            $result = $what === 'price'
-                ? $client->updatePrice($c['app_key'], $c['app_secret'], $c['token'], (string) $truth->tiktok_product_id, $payload, $c['shop_cipher'] ?: null)
-                : $client->updateInventory($c['app_key'], $c['app_secret'], $c['token'], (string) $truth->tiktok_product_id, $payload, $c['shop_cipher'] ?: null);
-        } catch (\Throwable $e) {
-            $result = ['ok' => false, 'status' => 0, 'body' => ['message' => \App\Support\TransportError::plain($e, 'TikTok Shop')]];
-        }
-        $this->log('POST', $path, ['skus' => $payload], $result);
-        if (!$this->ok($result)) {
-            return redirect()->back()->with('error', ucfirst($what) . ' push failed: ' . $this->message($result));
+
+        /* The shared sender (Phase F, #184): skip ledger, per-SKU verdicts,
+         * the one-shot map repair, the shared tone. */
+        $results = app(\Extensions\tiktok\Services\TikTok\TikTokStockPricePush::class)->push(
+            $what === 'price' ? 'price' : 'stock', $c, [$pseudo], (string) config('catalog.prefix'),
+            fn (float $base, object $p) => $listing ? $listing->priceFor($base) : $base
+        );
+        $clause = \Extensions\tiktok\Services\TikTok\TikTokStockPricePush::ledgerClause($results);
+
+        if ($results['ok'] === 0) {
+            return redirect()->back()->with('error', ucfirst($what) . ' push failed: ' . (($results['last_error'] ?: null) ?? 'Unknown error') . $clause);
         }
 
-        return redirect()->back()->with('status', ucfirst($what) . ' pushed to TikTok Shop for ' . count($payload) . ' SKU' . (count($payload) === 1 ? '' : 's') . '.');
+        return redirect()->back()->with('status', ucfirst($what) . ' pushed to TikTok Shop.' . $clause);
     }
 
     /** Forget the link; the TikTok product stays up. */

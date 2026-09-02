@@ -60,77 +60,29 @@ class TikTokPushStock extends Command
             return 0;
         }
 
-        // A bare product pushed before ids were stored: ask TikTok once.
-        foreach ($pivotRows as $pivot) {
-            if (!$pivot->tiktok_sku_id) {
-                $detail = $client->getProduct($appKey, $appSecret, $token, $pivot->tiktok_product_id, $shopCipher);
-                $found = $detail['body']['data']['skus'][0]['id'] ?? null;
-                if ($found) {
-                    $pivot->update(['tiktok_sku_id' => (string) $found]);
-                    $pivot->tiktok_sku_id = (string) $found;
-                }
-            }
-        }
-
-        // The ONE resolver, shared with the group page: combinations first,
-        // then option values, then the bare product. The old loop read
-        // product_option_value alone and pushed the wrong figure for every
-        // multi-axis product on every tick.
-        $resolved = app(TikTokStockPushService::class)->resolve($pivotRows, $pfx);
-
         $this->info("Pushing stock for {$pivotRows->count()} product(s)...");
 
-        $totalOk = 0;
-        $totalErr = 0;
-        $skipped = 0;
+        /* The shared sender (Phase F, #184): the same path the buttons
+         * walk - skip ledger, per-SKU verdicts, the one-shot map repair -
+         * so the cron can no longer drift from the UI. */
+        $c = [
+            'app_key' => $appKey, 'app_secret' => $appSecret, 'token' => $token,
+            'shop_cipher' => $shopCipher, 'warehouse_id' => $warehouseId,
+        ];
+        $results = app(\Extensions\tiktok\Services\TikTok\TikTokStockPricePush::class)
+            ->push('stock', $c, $pivotRows, $pfx);
 
-        foreach ($resolved as $row) {
-            $pivot = $row['pivot'];
-            if ($row['product_status'] === 0) {
-                $skipped++;
-                continue;
-            }
-
-            $skuPayload = [];
-            foreach ($row['skus'] as $sku) {
-                $inv = ['quantity' => $sku['quantity']];
-                if ($warehouseId) $inv['warehouse_id'] = $warehouseId;
-                $skuPayload[] = ['id' => $sku['id'], 'inventory' => [$inv]];
-            }
-            if (empty($skuPayload)) {
-                $totalErr++;
-                continue;
-            }
-
-            $result = $client->updateInventory($appKey, $appSecret, $token, $pivot->tiktok_product_id, $skuPayload, $shopCipher);
-
-            TikTokApiLog::safeCreate([
-                'pack'            => 'push-stock-cron',
-                'method'          => 'POST',
-                'api_path'        => '/product/202309/products/' . $pivot->tiktok_product_id . '/inventory/update',
-                'auth_required'   => true,
-                'request_params'  => ['skus' => $skuPayload],
-                'response_status' => $result['status'] ?? 0,
-                'ok'              => $result['ok'] ?? false,
-                'response_body'   => $result['body'] ?? [],
-                'user_id'         => null,
-            ]);
-
-            $apiCode = (int) ($result['body']['code'] ?? -1);
-            if ($apiCode === 0) {
-                $totalOk++;
-            } else {
-                $totalErr++;
-                $msg = $result['body']['message'] ?? 'Unknown error';
-                Log::warning("TikTok push-stock failed for product {$pivot->tiktok_product_id}: {$msg}");
-            }
-
-            usleep(300000); // 300ms rate limit
+        $totalOk = $results['ok'];
+        $totalErr = $results['err'];
+        $skipped = $results['skipped'];
+        if ($totalErr > 0) {
+            Log::warning('TikTok push-stock: ' . $totalErr . ' product(s) failed', ['last_error' => $results['last_error']]);
         }
 
         $raw->update(['last_stock_push_at' => now()]);
 
-        $this->info("Done. Success: {$totalOk}, Failed: {$totalErr}, Skipped: {$skipped}");
+        $this->info("Done. Success: {$totalOk}, Failed: {$totalErr}, Skipped: {$skipped}."
+            . \Extensions\tiktok\Services\TikTok\TikTokStockPricePush::ledgerClause($results));
         return $totalErr > 0 ? 1 : 0;
     }
 

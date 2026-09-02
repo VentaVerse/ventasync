@@ -1248,58 +1248,33 @@ class TikTokProductGroupController extends Controller
                 ->with('status', 'No pushed products to update ' . $what . ' for.');
         }
 
-        // A bare product pushed before ids were stored: ask TikTok once.
-        foreach ($pivotRows as $pivot) {
-            if (!$pivot->tiktok_sku_id) {
-                $detail = $client->getProduct($c['app_key'], $c['app_secret'], $c['token'], $pivot->tiktok_product_id, $c['shop_cipher']);
-                $found = $detail['body']['data']['skus'][0]['id'] ?? null;
-                if ($found) {
-                    $pivot->update(['tiktok_sku_id' => (string) $found]);
-                    $pivot->tiktok_sku_id = (string) $found;
-                }
-            }
-        }
-
-        $resolved = app(TikTokStockPushService::class)->resolve(
-            $pivotRows, $pfx, fn (float $base, object $pivot) => $group->applyMarkup($base)
+        /* The shared sender (Phase F, #184): the skus[0].id hack becomes a
+         * real map repair, skips are named, per-SKU refusals are read, and
+         * a failed batch can no longer flash green. */
+        $results = app(\Extensions\tiktok\Services\TikTok\TikTokStockPricePush::class)->push(
+            $what === 'price' ? 'price' : 'stock', $c, $pivotRows, $pfx,
+            fn (float $base, object $pivot) => $group->applyMarkup($base)
         );
+        $ok = $results['ok'];
+        $fail = $results['err'];
 
-        $ok = 0;
-        $fail = 0;
-        foreach ($resolved as $row) {
-            $pivot = $row['pivot'];
-            $skuPayload = [];
-            foreach ($row['skus'] as $sku) {
-                $skuPayload[] = $what === 'price'
-                    ? ['id' => $sku['id'], 'price' => ['amount' => (string) round($sku['price']), 'currency' => 'PHP']]
-                    : ['id' => $sku['id'], 'inventory' => [array_filter([
-                        'warehouse_id' => $c['warehouse_id'] ?: null,
-                        'quantity' => $sku['quantity'],
-                    ], fn ($v) => $v !== null)]];
-            }
-            if (empty($skuPayload)) {
-                $fail++;
-                continue;
-            }
-
-            if ($what === 'price') {
-                $result = $client->updatePrice($c['app_key'], $c['app_secret'], $c['token'], $pivot->tiktok_product_id, $skuPayload, $c['shop_cipher']);
-                $this->logApi('POST', '/product/202309/products/' . $pivot->tiktok_product_id . '/prices/update', $result);
-            } else {
-                $result = $client->updateInventory($c['app_key'], $c['app_secret'], $c['token'], $pivot->tiktok_product_id, $skuPayload, $c['shop_cipher']);
-                $this->logApi('POST', '/product/202309/products/' . $pivot->tiktok_product_id . '/inventory/update', $result);
-            }
-
-            $apiOk = ($result['ok'] ?? false) && (int) ($result['body']['code'] ?? -1) === 0;
-            $apiOk ? $ok++ : $fail++;
+        /* The verdicts land on the pivots this page reads - a stock or
+         * price failure used to leave zero durable trace anywhere. */
+        foreach ($results['outcomes'] as $pid => $outcome) {
+            $this->writeProductStatus((int) $pid, $outcome['ok']
+                ? ['sync_status' => 'pushed', 'push_error' => null]
+                : ['sync_status' => 'error', 'push_error' => mb_substr('' . ($what === 'price' ? 'Price push: ' : 'Stock push: ') . $outcome['error'], 0, 255)]);
         }
 
         if ($what === 'stock') {
             $c['setting']->update(['last_stock_push_at' => now()]);
         }
 
-        return $this->productsRedirect($id)
-            ->with('status', ($what === 'price' ? 'Prices' : 'Stock') . " pushed: {$ok} ok, {$fail} failed.");
+        return $this->productsRedirect($id)->with(
+            \App\Integrations\Push\PushLedger::batchTone($ok, $fail),
+            ($what === 'price' ? 'Prices' : 'Stock') . " pushed: {$ok} ok, {$fail} failed."
+                . \Extensions\tiktok\Services\TikTok\TikTokStockPricePush::ledgerClause($results)
+        );
     }
 
 }

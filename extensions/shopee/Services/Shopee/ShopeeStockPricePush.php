@@ -262,39 +262,13 @@ class ShopeeStockPricePush
      */
     public static function ledgerClause(array $results): string
     {
-        $parts = [];
-        if (!empty($results['healed_items'])) {
-            $n = count(array_unique($results['healed_items']));
-            $parts[] = $n . ' item' . ($n === 1 ? '' : 's') . ' re-read from Shopee and repaired mid-push';
-        }
-        if (!empty($results['skipped_variations'])) {
-            $skips = collect($results['skipped_variations'])->unique(fn ($v) => $v['product_id'] . '|' . $v['sku']);
-            $names = $skips->take(5)->map(fn ($v) => $v['sku'] . ' (' . $v['reason'] . ')')->implode(', ');
-            $parts[] = $skips->count() . ' variation' . ($skips->count() === 1 ? '' : 's') . ' skipped: '
-                . $names . ($skips->count() > 5 ? ', ...' : '');
-        }
-
-        return $parts ? ' ' . implode('. ', $parts) . '.' : '';
+        return \App\Integrations\Push\PushLedger::clause($results, 'Shopee');
     }
 
     /** ERP variation SKUs per product: combinations first, then option values. */
     private function erpVariationSkus(array $productIds, string $pfx): array
     {
-        $skus = [];
-        foreach (DB::table('product_option_combinations')
-            ->whereIn('product_id', $productIds)
-            ->whereNotNull('sku')->where('sku', '!=', '')
-            ->get(['product_id', 'sku']) as $r) {
-            $skus[(int) $r->product_id][trim((string) $r->sku)] = true;
-        }
-        foreach (DB::table($pfx . 'product_option_value')
-            ->whereIn('product_id', $productIds)
-            ->whereNotNull('sku')->where('sku', '!=', '')
-            ->get(['product_id', 'sku']) as $r) {
-            $skus[(int) $r->product_id][trim((string) $r->sku)] = true;
-        }
-
-        return array_map(fn ($set) => array_keys($set), $skus);
+        return \App\Integrations\Push\PushLedger::erpVariationSkus($productIds, $pfx);
     }
 
     /** The SKUs the repair matches models against, lowercased, main SKU included. */

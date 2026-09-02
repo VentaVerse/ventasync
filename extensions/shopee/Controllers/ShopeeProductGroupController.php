@@ -2839,11 +2839,7 @@ class ShopeeProductGroupController extends Controller
      */
     private function batchTone(int $ok, int $err): string
     {
-        if ($err === 0) {
-            return 'status';
-        }
-
-        return $ok > 0 ? 'warning' : 'error';
+        return \App\Integrations\Push\PushLedger::batchTone($ok, $err);
     }
 
     /**
