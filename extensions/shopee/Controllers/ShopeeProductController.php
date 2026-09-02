@@ -1184,11 +1184,19 @@ class ShopeeProductController extends Controller
             $preset = $presets->firstWhere('id', $presetId);
         }
 
+        // The preset's category, by name, for the combo's visible input.
+        $presetCategoryName = null;
+        if ($preset && $preset->shopee_category_id) {
+            $presetCategoryName = \Extensions\shopee\Models\ShopeeCategory::query()
+                ->where('category_id', $preset->shopee_category_id)->value('name');
+        }
+
         return view('ext-shopee::products.bulk-push', [
             'rows' => $rows,
             'logistics' => $this->fetchLogistics(),
             'presets' => $presets,
             'preset' => $preset,
+            'presetCategoryName' => $presetCategoryName,
         ]);
     }
 

@@ -1,5 +1,5 @@
 @extends('layouts.channel')
-@section('title', 'Push ' . count($rows) . ' products to Shopee')
+@section('title', 'Push ' . count($rows) . ' ' . (count($rows) === 1 ? 'product' : 'products') . ' to Shopee')
 @section('breadcrumb', 'Push to Shopee')
 @section('own-errors', true)
 
@@ -158,8 +158,12 @@
                              data-combo-lookup-url="{{ route('ext.shopee.products.categoryLookup') }}">
                             <div class="gf-combo__field">
                                 <input type="hidden" id="bp-category-value" name="shared_category_id" data-combo-value value="{{ old('shared_category_id', $preset?->shopee_category_id) }}">
+                                {{-- The loaded preset's category shows by NAME:
+                                     a value only the hidden field carried looked
+                                     like nothing was loaded at all. --}}
                                 <x-ui.input id="bp-category" type="search" autocomplete="off" data-combo-input
-                                            placeholder="Type to search Shopee categories" :disabled="!$canManageShopee" />
+                                            placeholder="Type to search Shopee categories" :disabled="!$canManageShopee"
+                                            :value="old('shared_category_id', $preset?->shopee_category_id) ? ($presetCategoryName ?? ('#' . old('shared_category_id', $preset?->shopee_category_id))) : ''" />
                                 <div class="gf-combo__results" data-combo-results role="listbox" aria-label="Shopee leaf categories" hidden></div>
                             </div>
                         </div>
