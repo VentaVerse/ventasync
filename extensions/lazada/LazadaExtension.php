@@ -7,6 +7,7 @@ use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Concerns\RevealsCredentials;
 use App\Integrations\Contracts\DashboardContributor;
 use App\Integrations\Contracts\LayoutBannerContributor;
+use App\Integrations\Contracts\ListingStateSource;
 use App\Integrations\Contracts\MarketplaceSourceOptionsProvider;
 use App\Integrations\Contracts\MobileMarketplaceProvider;
 use App\Integrations\Contracts\OrderFeesContributor;
@@ -32,7 +33,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer
+class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ListingStateSource
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['unpaid'],
@@ -416,11 +417,33 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         if (Schema::hasTable('lazada_settings')) {
             $lzSetting = LazadaSetting::query()->first();
             if ($lzSetting) {
+                /* The listing troubles ride the chip (Phase C, #184), the
+                 * same two numbers Shopee's carries. A failure here must
+                 * not take the dashboard down. */
+                $flags = null;
+                $attention = 0;
+                try {
+                    $sum = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)->summary();
+                    $attention = (int) $sum['attention'];
+                    $parts = [];
+                    if ($sum['attention'] > 0) {
+                        $parts[] = $sum['attention'] . ' listing' . ($sum['attention'] === 1 ? ' needs' : 's need') . ' attention';
+                    }
+                    if ($sum['drift'] > 0) {
+                        $parts[] = $sum['drift'] . ' behind the catalogue';
+                    }
+                    $flags = $parts ? implode(' · ', $parts) : null;
+                } catch (\Throwable) {
+                    // the chip simply carries no flags line
+                }
+
                 $data['lazadaSyncStatus'] = (object) [
                     'order_sync_at' => $lzSetting->last_order_sync_at,
                     'push_stock_at' => $lzSetting->last_stock_push_at,
                     'return_sync_at' => $lzSetting->last_return_sync_at,
                     'expires_at'    => $lzSetting->expires_at,
+                    'listing_flags' => $flags,
+                    'listing_attention' => $attention,
                 ];
             }
         }
@@ -720,5 +743,14 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
     public function credentialManagePermission(): string
     {
         return 'manage_lazada/settings';
+    }
+
+    /**
+     * Phase C (#184): the one answer to "where does this product stand on
+     * Lazada?", for core surfaces that render listing state.
+     */
+    public function listingStates(array $productIds): array
+    {
+        return app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)->forProducts($productIds);
     }
 }

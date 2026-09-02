@@ -624,8 +624,13 @@ class LazadaProductGroupController extends Controller
 
         if (empty($data) || !is_array($data)) return;
 
-        // Update product status
-        $listing->status = $data['status'] ?? $listing->status;
+        // Write the answer through to the mirror (#184 C): group pushes call
+        // this right after the push, so the row is honest without the sweep.
+        $groupLzStatus = strtolower(trim((string) ($data['status'] ?? '')));
+        if ($groupLzStatus !== '') {
+            $listing->live_status = $groupLzStatus;
+            $listing->live_checked_at = now();
+        }
         $listing->last_sync_ok = true;
         $listing->last_sync_error_code = null;
         $listing->last_sync_error_message = null;
@@ -1226,25 +1231,34 @@ class LazadaProductGroupController extends Controller
             $listing = $pivot && $pivot->lazada_product_id ? LazadaProduct::find($pivot->lazada_product_id) : null;
             $listing ??= LazadaProduct::query()->where('product_id', $productId)->first();
             $hits = [];
+            $hitStatuses = [];
             foreach ($skusByProduct[$productId] ?? [] as $sku) {
                 if (isset($found[strtolower($sku)])) {
                     $hits[] = $found[strtolower($sku)]['item_id'];
+                    $hitStatuses[(string) $found[strtolower($sku)]['item_id']] =
+                        strtolower(trim((string) ($found[strtolower($sku)]['status'] ?? '')));
                 }
             }
             $hitItemId = $hits ? (string) $hits[0] : null;
+            /* The walk answered with the item's status; writing it to the
+             * mirror here means a check leaves every row it touched fresh
+             * instead of throwing the answer away (#184 C). */
+            $hitMirror = $hitItemId !== null && ($hitStatuses[$hitItemId] ?? '') !== ''
+                ? ['live_status' => $hitStatuses[$hitItemId], 'live_checked_at' => now()]
+                : [];
 
             if ($listing && $listing->lazada_item_id && !$listing->lazada_deleted_at) {
                 if ($hitItemId !== null && in_array((string) $listing->lazada_item_id, $hits, true)) {
-                    $listing->forceFill(['last_synced_at' => now(), 'last_sync_action' => 'check', 'last_sync_ok' => true, 'last_sync_error_message' => null])->save();
+                    $listing->forceFill($hitMirror + ['last_synced_at' => now(), 'last_sync_action' => 'check', 'last_sync_ok' => true, 'last_sync_error_message' => null])->save();
                     if ($pivot) $pivot->update(['sync_status' => 'pushed']);
                     $verdicts['confirmed']++;
                 } elseif ($hitItemId !== null) {
                     // The SKU sits on a different item now; the record follows the shop.
-                    $listing->forceFill(['lazada_item_id' => $hitItemId, 'lazada_deleted_at' => null, 'last_synced_at' => now(), 'last_sync_action' => 'check', 'last_sync_ok' => true])->save();
+                    $listing->forceFill($hitMirror + ['lazada_item_id' => $hitItemId, 'lazada_deleted_at' => null, 'last_synced_at' => now(), 'last_sync_action' => 'check', 'last_sync_ok' => true])->save();
                     if ($pivot) $pivot->update(['sync_status' => 'pushed']);
                     $verdicts['linked']++;
                 } else {
-                    $listing->forceFill(['lazada_deleted_at' => now(), 'last_synced_at' => now(), 'last_sync_action' => 'check', 'last_sync_ok' => false, 'last_sync_error_message' => 'Not found on Lazada'])->save();
+                    $listing->forceFill(['lazada_deleted_at' => now(), 'live_status' => 'missing', 'live_checked_at' => now(), 'last_synced_at' => now(), 'last_sync_action' => 'check', 'last_sync_ok' => false, 'last_sync_error_message' => 'Not found on Lazada'])->save();
                     if ($pivot) $pivot->update(['sync_status' => 'error']);
                     $problems[] = "#{$productId}: not found on Lazada; the link was dropped";
                     $verdicts['lost']++;
@@ -1263,7 +1277,7 @@ class LazadaProductGroupController extends Controller
                         'markup_percent' => $group->markup_percent,
                     ]);
                 }
-                $listing->forceFill(['lazada_item_id' => $hitItemId, 'lazada_deleted_at' => null, 'unlinked_at' => null, 'last_synced_at' => now(), 'last_sync_action' => 'check', 'last_sync_ok' => true])->save();
+                $listing->forceFill($hitMirror + ['lazada_item_id' => $hitItemId, 'lazada_deleted_at' => null, 'unlinked_at' => null, 'last_synced_at' => now(), 'last_sync_action' => 'check', 'last_sync_ok' => true])->save();
                 if ($pivot) {
                     $pivot->update(['lazada_product_id' => $listing->id, 'sync_status' => 'pushed']);
                 } else {

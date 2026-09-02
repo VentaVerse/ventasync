@@ -2,6 +2,7 @@
 
 namespace Extensions\lazada\Services\Lazada;
 
+use App\Integrations\Listings\ListingState;
 use Extensions\lazada\Controllers\LazadaProductController;
 use Extensions\lazada\Models\LazadaCategoryTemplate;
 use Extensions\lazada\Models\LazadaProductAttribute;
@@ -22,8 +23,12 @@ use Illuminate\Support\Facades\DB;
 class LazadaListingReadiness
 {
     /**
+     * Missing items come back twice: as sentences (missing) for prose, and
+     * as coded gaps (gaps) so deep-links and engines key on codes, never on
+     * label text (#184 C, same contract as Shopee's readiness).
+     *
      * @param Collection $listings LazadaProduct rows
-     * @return array<int, array{ready: bool, missing: array<string>}> keyed by listing id
+     * @return array<int, array{ready: bool, missing: array<string>, gaps: list<array{code: string, label: string}>}> keyed by listing id
      */
     public function forListings(Collection $listings): array
     {
@@ -54,10 +59,12 @@ class LazadaListingReadiness
         $out = [];
         foreach ($listings as $listing) {
             $missing = [];
+            $gaps = [];
             $product = $products->get((int) $listing->product_id);
 
             if (!$listing->primary_category_id) {
                 $missing[] = 'a Lazada category';
+                $gaps[] = ['code' => ListingState::GAP_CATEGORY, 'label' => 'a Lazada category'];
             }
 
             /* Brand is not demanded here: the payload builder defaults an
@@ -67,15 +74,18 @@ class LazadaListingReadiness
 
             if (!$product || (trim((string) $product->sku) === '' && trim((string) $product->model) === '')) {
                 $missing[] = 'a SKU on the catalog product';
+                $gaps[] = ['code' => ListingState::GAP_SKU, 'label' => 'a SKU on the catalog product'];
             }
             if (!$product || trim((string) $product->image) === '') {
                 $missing[] = 'a product image on the catalog product';
+                $gaps[] = ['code' => ListingState::GAP_IMAGE, 'label' => 'a product image on the catalog product'];
             }
 
             if ($listing->primary_category_id) {
                 $template = $templates->get((int) $listing->primary_category_id);
                 if (!$template || !$template->template_body) {
                     $missing[] = "its category's attribute template (open the listing once to read it)";
+                    $gaps[] = ['code' => ListingState::GAP_SHEET, 'label' => "its category's attribute template"];
                 } else {
                     $answered = ($savedAttrs->get($listing->id) ?? collect())
                         ->pluck('value', 'attribute_key');
@@ -98,15 +108,61 @@ class LazadaListingReadiness
                         }
                     }
                     if (!empty($unanswered)) {
-                        $missing[] = 'answers for ' . count($unanswered) . ' required '
+                        $label = 'answers for ' . count($unanswered) . ' required '
                             . \Illuminate\Support\Str::plural('attribute', count($unanswered))
                             . ' (' . implode(', ', array_slice($unanswered, 0, 5))
                             . (count($unanswered) > 5 ? ' and more' : '') . ')';
+                        $missing[] = $label;
+                        $gaps[] = ['code' => ListingState::GAP_ATTRIBUTES, 'label' => $label];
                     }
                 }
             }
 
-            $out[(int) $listing->id] = ['ready' => empty($missing), 'missing' => $missing];
+            $out[(int) $listing->id] = ['ready' => empty($missing), 'missing' => $missing, 'gaps' => $gaps];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Readiness for catalogue products with NO lazada_products row yet - the
+     * catalogue-first index and the state engine ask about these (#184 C).
+     * Everything a row would carry is by definition missing (the category,
+     * and the attribute sheet behind it), so only the catalogue-level checks
+     * vary per product.
+     *
+     * @param list<int> $productIds
+     * @return array<int, array{ready: bool, missing: array<string>, gaps: list<array{code: string, label: string}>}> keyed by product id
+     */
+    public function forProducts(array $productIds): array
+    {
+        $productIds = array_values(array_unique(array_map('intval', $productIds)));
+        if ($productIds === []) {
+            return [];
+        }
+
+        $pfx = (string) config('catalog.prefix');
+        $products = DB::table($pfx . 'product')
+            ->whereIn('product_id', $productIds)
+            ->get(['product_id', 'sku', 'model', 'image'])
+            ->keyBy('product_id');
+
+        $out = [];
+        foreach ($productIds as $productId) {
+            $product = $products->get($productId);
+            $missing = ['a Lazada category'];
+            $gaps = [['code' => ListingState::GAP_CATEGORY, 'label' => 'a Lazada category']];
+
+            if (!$product || (trim((string) $product->sku) === '' && trim((string) $product->model) === '')) {
+                $missing[] = 'a SKU on the catalog product';
+                $gaps[] = ['code' => ListingState::GAP_SKU, 'label' => 'a SKU on the catalog product'];
+            }
+            if (!$product || trim((string) $product->image) === '') {
+                $missing[] = 'a product image on the catalog product';
+                $gaps[] = ['code' => ListingState::GAP_IMAGE, 'label' => 'a product image on the catalog product'];
+            }
+
+            $out[$productId] = ['ready' => false, 'missing' => $missing, 'gaps' => $gaps];
         }
 
         return $out;

@@ -50,6 +50,7 @@ final class ListingState
 
     /** Gap codes a not_listed product can carry. Deep-links key on THESE, never on the label text. */
     public const GAP_CATEGORY = 'category';
+    public const GAP_SKU = 'sku';
     public const GAP_COURIERS = 'couriers';
     public const GAP_IMAGE = 'image';
     public const GAP_SHEET = 'sheet';
@@ -58,6 +59,9 @@ final class ListingState
     /**
      * @param list<string> $reasons  plain sentences for attention / drift
      * @param list<array{code: string, label: string}> $missing  gaps before a push can succeed
+     * @param ?string $attentionLabel  the channel's own word for an attention
+     *        state ("Violation", "Rejected") - supplied by the channel engine,
+     *        because only the channel knows its marketplace's vocabulary.
      */
     public function __construct(
         public readonly string $state,
@@ -68,6 +72,7 @@ final class ListingState
         public readonly ?Carbon $checkedAt = null,
         public readonly ?Carbon $pushedAt = null,
         public readonly ?string $channelStatusRaw = null,
+        public readonly ?string $attentionLabel = null,
     ) {
     }
 
@@ -84,7 +89,7 @@ final class ListingState
             self::LIVE => ['Live', 'success'],
             self::INACTIVE => ['Unlisted', 'neutral'],
             self::REVIEWING => ['Under review', 'warning'],
-            self::ATTENTION => [$this->attentionLabel(), 'danger'],
+            self::ATTENTION => [$this->attentionLabel ?? 'Needs attention', 'danger'],
             default => ['Not checked yet', 'neutral'],
         };
     }
@@ -97,18 +102,6 @@ final class ListingState
     public function tone(): string
     {
         return $this->badge()[1];
-    }
-
-    /** Attention states keep the marketplace's own vocabulary where sellers already know it. */
-    private function attentionLabel(): string
-    {
-        return match ($this->channelStatusRaw) {
-            'BANNED' => 'Violation',
-            'SELLER_DELETE' => 'Deleted',
-            'SHOPEE_DELETE' => 'Deleted by Shopee',
-            'MISSING' => 'Not found on Shopee',
-            default => 'Needs attention',
-        };
     }
 
     /** The drift chip beside a live/inactive badge, or null when there is nothing to say. */

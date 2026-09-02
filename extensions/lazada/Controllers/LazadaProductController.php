@@ -698,10 +698,14 @@ private function refreshLazadaProductCache(LazadaProduct $listing, object $setti
 
     if (empty($data) || !is_array($data)) return;
 
-    // 1. Update product status from Lazada
-    $lazadaStatus = $data['status'] ?? null;
-    if ($lazadaStatus) {
-        $listing->status = $lazadaStatus;
+    // 1. Write the answer through to the mirror (#184 C). This read runs
+    // after uploads and ID matches, so the status in hand is exactly the
+    // freshness the row needs - the old code wrote it to the dead `status`
+    // column nothing reads, and the mirror waited for the 30-minute sweep.
+    $lazadaStatus = strtolower(trim((string) ($data['status'] ?? '')));
+    if ($lazadaStatus !== '') {
+        $listing->live_status = $lazadaStatus;
+        $listing->live_checked_at = now();
     }
 
     // 2. Clear stale sync error fields
@@ -1751,6 +1755,10 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             try {
                 $listing->lazada_item_id = null;
                 $listing->lazada_deleted_at = now();
+                // The link is gone; a mirror value for it would be stale the
+                // moment it survived (#184 C).
+                $listing->live_status = null;
+                $listing->live_checked_at = null;
                 $listing->save();
             } catch (\Throwable $ex) {
                 // Avoid throwing if DB schema isn't migrated yet.
@@ -1791,6 +1799,9 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         // Mark as unlinked — product_id stays so display info is preserved
         $listing->lazada_item_id = null;
         $listing->unlinked_at = now();
+        // The mirror described the link that was just cut (#184 C).
+        $listing->live_status = null;
+        $listing->live_checked_at = null;
         $listing->save();
 
         // Remove cached Lazada variants so sync jobs skip this listing
@@ -1918,9 +1929,13 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 $listing->lazada_item_id = (string) $matchedItemId;
                 $listing->lazada_deleted_at = null;
                 $listing->unlinked_at = null;
+                // A fresh link voids the mirror; the refresh below reads the
+                // item back and fills it with Lazada's answer (#184 C).
+                $listing->live_status = null;
+                $listing->live_checked_at = null;
                 $listing->save();
 
-                // Full cache refresh: variants, status, stale cleanup, sync_status
+                // Full cache refresh: variants, mirror, stale cleanup, sync_status
                 $this->refreshLazadaProductCache($listing, $setting, $client);
             } catch (\Throwable $ex) {
                 // keep status log; avoid throwing in production
@@ -2036,6 +2051,10 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 }
                 $listing->lazada_deleted_at = null;
                 $listing->unlinked_at = null;
+                // A fresh link voids the mirror: whatever status the row wore
+                // belonged to the previous link. Read back below, never guessed.
+                $listing->live_status = null;
+                $listing->live_checked_at = null;
                 $listing->save();
                 // Persist Lazada sku_id and shop_sku (returned from /product/create) into variants table.
                 // Also resolve product_option_value_id so push-stock can map SKU → ERP qty.
@@ -2102,6 +2121,10 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                         }
                     }
                 }
+
+                // Write-through (#184 C): read the item straight back so the
+                // mirror learns what this push did without waiting for the sweep.
+                $this->refreshLazadaProductCache($listing, $setting, $client);
             } catch (\Throwable $ex) {
                 // ignore
             }
@@ -2659,9 +2682,16 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 try {
                     if ($itemId) {
                         $listing->lazada_item_id = $itemId;
+                        // A fresh link voids the mirror; the read-back below
+                        // fills it with Lazada's answer, never a guess.
+                        $listing->live_status = null;
+                        $listing->live_checked_at = null;
                     }
                     $listing->lazada_deleted_at = null;
                     $listing->save();
+                    // Write-through (#184 C): the mirror learns what this push
+                    // did without waiting for the 30-minute sweep.
+                    $this->refreshLazadaProductCache($listing, $setting, $client);
                 } catch (\Throwable $ex) {
                     // ignore
                 }
@@ -2815,6 +2845,11 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                     // only when linked AND not unlinked — collapsed to just Edit
                     // and Remove. Matching an id is the act of linking it.
                     $listing->unlinked_at = null;
+                    // A fresh link voids the mirror: the row reads "Not checked
+                    // yet" until the page filler or sweep asks Lazada, never a
+                    // stale status from a previous link (#184 C).
+                    $listing->live_status = null;
+                    $listing->live_checked_at = null;
                     // Record the success so the row reads as linked: without this
                     // the item id was saved but last_sync_ok / error_message kept
                     // whatever a prior failed run left, so a freshly matched
@@ -3316,6 +3351,10 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             try {
                 $listing->lazada_item_id = null;
                 $listing->lazada_deleted_at = now();
+                // The link is gone; void the mirror rather than keep a stale
+                // status the sweep can no longer correct (#184 C).
+                $listing->live_status = null;
+                $listing->live_checked_at = null;
                 $listing->save();
             } catch (\Throwable $ex) {
                 // ignore

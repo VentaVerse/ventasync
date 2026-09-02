@@ -135,15 +135,17 @@ class ShopeeListingStates
                 }
             }
 
-            [$state, $extraReason] = match ($worst) {
-                'NORMAL' => [ListingState::LIVE, null],
-                'UNLIST' => [ListingState::INACTIVE, null],
-                'REVIEWING' => [ListingState::REVIEWING, 'Shopee is reviewing it; nothing to do until it answers.'],
-                'BANNED' => [ListingState::ATTENTION, 'Shopee flagged a violation. Open the item in Seller Centre to see its notice.'],
-                'MISSING' => [ListingState::ATTENTION, 'Shopee no longer returns this listing. Run Check against Shopee, or push it again.'],
-                'SELLER_DELETE' => [ListingState::ATTENTION, 'It was deleted in Seller Centre. Push again to relist it.'],
-                'SHOPEE_DELETE' => [ListingState::ATTENTION, 'Shopee removed it. Check the item in Seller Centre before pushing again.'],
-                default => [ListingState::UNKNOWN, null],
+            // The attention label is Shopee's own word for the trouble;
+            // core ListingState knows no marketplace's vocabulary (#184 C).
+            [$state, $attentionLabel, $extraReason] = match ($worst) {
+                'NORMAL' => [ListingState::LIVE, null, null],
+                'UNLIST' => [ListingState::INACTIVE, null, null],
+                'REVIEWING' => [ListingState::REVIEWING, null, 'Shopee is reviewing it; nothing to do until it answers.'],
+                'BANNED' => [ListingState::ATTENTION, 'Violation', 'Shopee flagged a violation. Open the item in Seller Centre to see its notice.'],
+                'MISSING' => [ListingState::ATTENTION, 'Not found on Shopee', 'Shopee no longer returns this listing. Run Check against Shopee, or push it again.'],
+                'SELLER_DELETE' => [ListingState::ATTENTION, 'Deleted', 'It was deleted in Seller Centre. Push again to relist it.'],
+                'SHOPEE_DELETE' => [ListingState::ATTENTION, 'Deleted by Shopee', 'Shopee removed it. Check the item in Seller Centre before pushing again.'],
+                default => [ListingState::UNKNOWN, null, null],
             };
             if ($extraReason !== null) {
                 $reasons[] = $extraReason;
@@ -156,6 +158,7 @@ class ShopeeListingStates
                 checkedAt: $checkedAt,
                 pushedAt: $pushedAt,
                 channelStatusRaw: $worst,
+                attentionLabel: $attentionLabel,
             );
         }
 
