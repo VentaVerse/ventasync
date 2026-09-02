@@ -413,7 +413,6 @@ class WorkspaceInteriorsTest extends TestCase
 
         $listings = $this->actingAs($user)->get(route('ext.shopee.products.index'))->assertOk();
         $listings->assertDontSee(route('ext.shopee.products.bulk_push'), false);
-        $listings->assertDontSee(route('ext.shopee.products.add'), false);
 
         // The settings page is deliberately different from the four lists.
         // A read-tier operator is meant to be able to READ the credentials
@@ -516,7 +515,6 @@ class WorkspaceInteriorsTest extends TestCase
 
         $this->assertDenied($this->actingAs($user)->delete(route('ext.shopee.clear_api_logs')), 'clear logs');
         $this->assertDenied($this->actingAs($user)->get(route('ext.shopee.product-groups.create')), 'group create');
-        $this->assertDenied($this->actingAs($user)->get(route('ext.shopee.products.add')), 'listing create');
 
         // Nothing was written by any of the refused calls.
         $this->assertSame('live', ShopeeSetting::query()->first()->mode);

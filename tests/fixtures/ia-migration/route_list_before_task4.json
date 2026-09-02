@@ -1691,11 +1691,6 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/shopee/{store}/products/add",
-        "name": "ext.shopee.products.add"
-    },
-    {
-        "method": "GET|HEAD",
         "uri": "channels/shopee/{store}/products/brands",
         "name": "ext.shopee.products.brandsForCategory"
     },
@@ -1773,6 +1768,11 @@
         "method": "POST",
         "uri": "channels/shopee/{store}/products/unmatched/{unmatchedId}/dismiss",
         "name": "ext.shopee.products.dismiss_unmatched"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/unmatched/{unmatchedId}/import",
+        "name": "ext.shopee.products.import_unmatched"
     },
     {
         "method": "POST",

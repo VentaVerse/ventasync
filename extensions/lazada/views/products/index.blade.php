@@ -84,7 +84,8 @@
                 @csrf
                 <x-ui.button type="submit" variant="secondary">Check against Lazada</x-ui.button>
             </form>
-            <x-ui.button variant="primary" :href="route('ext.lazada.products.create')">New listing</x-ui.button>
+            {{-- "New listing" retired (#196 review): the table below IS the
+                 catalogue, and every unlisted row offers Prepare listing. --}}
         </div>
     @endif
 </div>

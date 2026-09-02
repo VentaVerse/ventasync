@@ -521,13 +521,6 @@ class ShopeeProductController extends Controller
     }
 
 
-    public function addProduct(Request $request)
-    {
-
-        return view('ext-shopee::products.add', [
-        ]);
-    }
-
     public function pushForm(Request $request, int $productId, ShopeeClient $client)
     {
         $pfx = (string) config('catalog.prefix');
@@ -2432,6 +2425,30 @@ class ShopeeProductController extends Controller
     }
 
     // ── Manual Link / Dismiss Unmatched ─────────────────────────────
+
+    /**
+     * Import a Shopee item into the core catalog (#196): the whole item -
+     * name, price, stock, parcel, description, images, variations - lands
+     * as a real product, Shopee-only details ride its listing record, and
+     * the link is made so it behaves as listed at once. One item id may
+     * hold many queue rows (one per variation); importing any of them
+     * imports the item and clears them all.
+     */
+    public function importUnmatched(int $unmatchedId, \Extensions\shopee\Services\Shopee\ShopeeItemImport $import)
+    {
+        $item = ShopeeUnmatchedItem::findOrFail($unmatchedId);
+
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+            return redirect()->back()->with('error', "Missing Shopee {$modeLabel} settings.");
+        }
+
+        $r = $import->import($auth, (int) $item->shopee_item_id);
+
+        return redirect()->back()->with($r['ok'] ? 'status' : 'error', $r['message']);
+    }
 
     public function linkUnmatched(Request $request, int $unmatchedId)
     {

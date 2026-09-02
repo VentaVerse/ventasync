@@ -1631,7 +1631,7 @@ public function store(Request $request)
         }
     }
 
-    private function saveAbsoluteOptions(int $productId, Request $request, array &$skuChanges = []): void
+    public function saveAbsoluteOptions(int $productId, Request $request, array &$skuChanges = []): void
     {
         $optionName = trim($request->input('option_name', ''));
         $option1Name = trim($request->input('option1_name', ''));

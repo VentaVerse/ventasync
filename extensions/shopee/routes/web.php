@@ -183,10 +183,12 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
         Route::post('/shopee/{store}/product-groups/fetch-attributes', [ShopeeProductGroupController::class, 'fetchAttributesAjax'])->name('ext.shopee.product-groups.fetchAttributes');
 
         // Shopee Products — writes
-        Route::get('/shopee/{store}/products/add', [ShopeeProductController::class, 'addProduct'])->name('ext.shopee.products.add')
-        // A form page is a MANAGE surface even though it is a GET: the old
-        // perm: group said so, and removing the group must not demote it.
-        ->defaults('permission_tier', 'manage');
+        // ext.shopee.products.add died with #196's review: it was a picker
+        // in front of the push form, and the catalogue-first table already
+        // offers every unlisted row its own push. The owner: "I dont think this
+        // feature should exist... not unless you give me a reason." No
+        // reason survived - it created nothing (core or Shopee), it only
+        // navigated, and a second door to the same room is how doors rot.
         Route::post('/shopee/{store}/products/check', [ShopeeProductController::class, 'checkAgainstShopee'])->name('ext.shopee.products.check');
         Route::post('/shopee/{store}/products/bulk/push', [ShopeeProductController::class, 'bulkPushToShopee'])->name('ext.shopee.products.bulk_push');
         Route::post('/shopee/{store}/products/bulk/sync/quantity', [ShopeeProductController::class, 'bulkSyncQuantity'])->name('ext.shopee.products.bulk_sync_quantity');
@@ -198,6 +200,7 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
         Route::post('/shopee/{store}/products/bulk/delete', [ShopeeProductController::class, 'bulkDeleteFromShopee'])->name('ext.shopee.products.bulk_delete');
         Route::post('/shopee/{store}/products/unmatched/sync', [ShopeeProductController::class, 'syncUnmatchedItems'])->name('ext.shopee.products.sync_unmatched');
         Route::post('/shopee/{store}/products/rebuild-cache', [ShopeeProductController::class, 'rebuildCache'])->name('ext.shopee.products.rebuild_cache');
+        Route::post('/shopee/{store}/products/unmatched/{unmatchedId}/import', [ShopeeProductController::class, 'importUnmatched'])->name('ext.shopee.products.import_unmatched');
         Route::post('/shopee/{store}/products/unmatched/{unmatchedId}/link', [ShopeeProductController::class, 'linkUnmatched'])->name('ext.shopee.products.link_unmatched');
         Route::post('/shopee/{store}/products/unmatched/{unmatchedId}/dismiss', [ShopeeProductController::class, 'dismissUnmatched'])->name('ext.shopee.products.dismiss_unmatched');
         Route::post('/shopee/{store}/products/{productId}/push', [ShopeeProductController::class, 'push'])->name('ext.shopee.products.push.post');
