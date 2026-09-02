@@ -36,95 +36,29 @@ class ShopeePushStock extends Command
         $this->info("Pushing stock for {$links->count()} link(s)...");
 
         $pfx = (string) config('catalog.prefix');
-        $totalOk = 0;
-        $totalErr = 0;
-        $totalSkipped = 0;
 
-        // Delegate qty resolution to the shared service so the UI sync
-        // (ShopeeProductGroupController::pushStockForLinks) and this cron
-        // walk identical logic — both honour product_option_combinations
-        // for multi-option products. Previously this cron read POV only,
-        // missing every multi-option SKU.
-        $resolved = app(\Extensions\shopee\Services\ShopeeStockPushService::class)->resolve($links, $pfx);
+        /* The shared sender (Phase E, #184, #190): link-driven plan, skip
+         * ledger, per-model failure_list verdicts, and the one-shot model
+         * repair - the same path the buttons walk, so the cron can no
+         * longer drift from the UI. Disabled products are dropped first,
+         * as before. */
+        $enabledIds = DB::table($pfx . 'product')
+            ->whereIn('product_id', $links->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->all())
+            ->where('status', 1)
+            ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        $totalSkipped = $links->count() - ($links = $links->filter(fn ($l) => in_array((int) $l->product_id, $enabledIds, true))->values())->count();
 
-        // Drop disabled products before grouping.
-        $resolved = array_values(array_filter($resolved, function ($row) use (&$totalSkipped) {
-            if (($row['product_status'] ?? 1) === 0) {
-                $totalSkipped++;
-                return false;
-            }
-            return true;
-        }));
+        $results = app(\Extensions\shopee\Services\Shopee\ShopeeStockPricePush::class)
+            ->push('stock', $auth, $links, $pfx);
 
-        $grouped = [];
-        foreach ($resolved as $row) {
-            $grouped[$row['item_id']][] = $row;
+        $totalOk = $results['ok'];
+        $totalErr = $results['err'];
+        if ($totalErr > 0) {
+            Log::warning('Shopee push-stock: ' . $totalErr . ' model(s) failed', ['last_error' => $results['last_error']]);
         }
 
-        foreach ($grouped as $itemId => $rows) {
-            $stockList = [];
-
-            foreach ($rows as $row) {
-                $stockList[] = ['model_id' => $row['model_id'], 'seller_stock' => [['stock' => $row['quantity']]]];
-            }
-
-            if (empty($stockList)) {
-                $totalSkipped++;
-                continue;
-            }
-
-            $body = [
-                'item_id'    => (int) $itemId,
-                'stock_list' => $stockList,
-            ];
-
-            $res = $client->shopPost(
-                $auth['mode'],
-                (int) $auth['partner_id'],
-                (string) $auth['partner_key'],
-                (string) $auth['access_token'],
-                (int) $auth['shop_id'],
-                '/api/v2/product/update_stock',
-                [],
-                $body
-            );
-
-            ShopeeApiLog::safeCreate([
-                'pack'            => 'shopee.product.update_stock.cron',
-                'method'          => 'POST',
-                'api_path'        => '/api/v2/product/update_stock',
-                'auth_required'   => true,
-                'request_params'  => $body,
-                'response_status' => (int) ($res['status'] ?? 0),
-                'ok'              => (bool) ($res['ok'] ?? false),
-                'response_body'   => $res['body'] ?? null,
-            ]);
-
-            $resBody = $res['body'] ?? [];
-            $errMsg = is_array($resBody) ? ($resBody['error'] ?? null) : null;
-
-            $isOk = ($res['ok'] ?? false) && (empty($errMsg) || $errMsg === '' || $errMsg === 'success');
-            $syncData = [
-                'last_synced_at' => now(),
-                'last_sync_action' => 'sync_qty',
-                'last_sync_ok' => $isOk,
-                'last_sync_error_code' => $isOk ? null : (string) ($errMsg ?? ''),
-                'last_sync_error_message' => $isOk ? null : (is_array($resBody) ? (string) ($resBody['message'] ?? '') : ''),
-            ];
-            foreach ($rows as $row) {
-                $row['link']->update($syncData);
-            }
-
-            if ($isOk) {
-                $totalOk += count($stockList);
-            } else {
-                $totalErr += count($stockList);
-                $msg = is_array($resBody) ? ($resBody['message'] ?? json_encode($resBody)) : (string) $resBody;
-                Log::warning("Shopee push-stock failed for item {$itemId}", ['response' => $msg]);
-            }
-        }
-
-        $this->info("Done. Success: {$totalOk}, Failed: {$totalErr}, Skipped: {$totalSkipped}");
+        $ledger = \Extensions\shopee\Services\Shopee\ShopeeStockPricePush::ledgerClause($results);
+        $this->info("Done. Success: {$totalOk}, Failed: {$totalErr}, Skipped: {$totalSkipped}." . $ledger);
 
         // Stamp sync timestamp on settings (independent of API logging)
         ShopeeSetting::query()->update(['last_stock_push_at' => now()]);

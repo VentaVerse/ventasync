@@ -27,6 +27,9 @@ use Illuminate\Support\Facades\Log;
 
 class ShopeeProductGroupController extends Controller
 {
+    /** The last push's skip/heal ledger, appended to the flash (Phase E). */
+    private array $lastPushLedger = [];
+
     /** Memoised shop-wide SKU index; see shopeeSkuIndex(). */
     private ?array $shopeeSkuIndex = null;
 
@@ -1123,7 +1126,7 @@ class ShopeeProductGroupController extends Controller
             ->whereNotNull('shopee_item_id')
             ->first();
         if ($existingLink) {
-            return $this->refreshShopeeProductLinks($pivot, $productId, (int) $existingLink->shopee_item_id, $skus, $erpHasOptions, $client, $mode, $pid, $pkey, $token, $shopId);
+            return $this->refreshShopeeProductLinks($pivot, $productId, (int) $existingLink->shopee_item_id, $skus, $client, $mode, $pid, $pkey, $token, $shopId);
         }
 
         // Step 1: Try cache for fast item_id lookup
@@ -1197,84 +1200,34 @@ class ShopeeProductGroupController extends Controller
             'sync_status' => 'pushed',
         ]);
 
-        return $this->refreshShopeeProductLinks($pivot, $productId, (int) $matchedItemId, $skus, $erpHasOptions, $client, $mode, $pid, $pkey, $token, $shopId);
+        return $this->refreshShopeeProductLinks($pivot, $productId, (int) $matchedItemId, $skus, $client, $mode, $pid, $pkey, $token, $shopId);
     }
 
     /**
      * Refresh Shopee product links and cache from the API model list.
      * Called by syncId for both new links and already-linked products.
+     * The actual work lives in ShopeeModelLinkRepair (Phase E, #184) so a
+     * refused push can run the same repair mid-flight; this wrapper only
+     * keeps the pivot and the redirect. It branches on SHOPEE's answer,
+     * not on whether the ERP has option SKUs.
      */
     private function refreshShopeeProductLinks(
-        object $pivot, int $productId, int $itemId, array $skus, bool $erpHasOptions,
+        object $pivot, int $productId, int $itemId, array $skus,
         \Extensions\shopee\Services\Shopee\ShopeeClient $client, string $mode, int $pid, string $pkey, string $token, int $shopId
     ) {
-        if ($erpHasOptions) {
-            $modelRes = $client->shopGet($mode, $pid, $pkey, $token, $shopId,
-                '/api/v2/product/get_model_list', ['item_id' => $itemId]);
+        $auth = ['mode' => $mode, 'partner_id' => $pid, 'partner_key' => $pkey, 'access_token' => $token, 'shop_id' => $shopId];
+        $r = app(\Extensions\shopee\Services\Shopee\ShopeeModelLinkRepair::class)
+            ->forItem($auth, $productId, $itemId, $skus);
 
-            $models = ($modelRes['body']['response'] ?? $modelRes['body'] ?? [])['model'] ?? [];
-            $linked = 0;
-            $activeModelIds = [];
-
-            // Remove stale parent-only link
-            ShopeeProductLink::query()
-                ->where('product_id', $productId)
-                ->where('shopee_item_id', $itemId)
-                ->whereNull('shopee_model_id')
-                ->delete();
-
-            foreach ($models as $model) {
-                $modelSku = strtolower(trim($model['model_sku'] ?? ''));
-                $modelId = (int) ($model['model_id'] ?? 0);
-                if ($modelSku === '' || $modelId === 0) continue;
-
-                $activeModelIds[] = $modelId;
-
-                // Refresh cache
-                ShopeeItemCache::query()->updateOrCreate(
-                    ['shopee_item_id' => $itemId, 'shopee_model_id' => $modelId],
-                    ['sku' => $model['model_sku']]
-                );
-
-                if (in_array($modelSku, $skus)) {
-                    ShopeeProductLink::updateOrCreate(
-                        ['product_id' => $productId, 'shopee_item_id' => $itemId, 'shopee_model_id' => $modelId],
-                        ['sku' => $model['model_sku'], 'last_synced_at' => now(), 'last_sync_ok' => true, 'last_sync_error_code' => null, 'last_sync_error_message' => null]
-                    );
-                    $linked++;
-                }
-            }
-
-            // Remove stale model links no longer on Shopee
-            if (!empty($activeModelIds)) {
-                ShopeeProductLink::query()
-                    ->where('product_id', $productId)
-                    ->where('shopee_item_id', $itemId)
-                    ->whereNotNull('shopee_model_id')
-                    ->whereNotIn('shopee_model_id', $activeModelIds)
-                    ->delete();
-
-                ShopeeItemCache::query()
-                    ->where('shopee_item_id', $itemId)
-                    ->whereNotNull('shopee_model_id')
-                    ->whereNotIn('shopee_model_id', $activeModelIds)
-                    ->delete();
-            }
-
-            $pivot->update(['shopee_item_id' => (string) $itemId, 'sync_status' => 'pushed']);
-
-            return redirect()->back()->with('status', "Shopee item ID {$itemId} synced, {$linked} variation(s) linked.");
+        if (isset($r['error'])) {
+            return redirect()->back()->with('error', "Shopee did not answer for item {$itemId}: {$r['error']}. Nothing was changed.");
         }
-
-        // Simple product, parent link only
-        ShopeeProductLink::updateOrCreate(
-            ['product_id' => $productId, 'shopee_item_id' => $itemId, 'shopee_model_id' => null],
-            ['sku' => $skus[0] ?? '', 'last_synced_at' => now(), 'last_sync_ok' => true, 'last_sync_error_code' => null, 'last_sync_error_message' => null]
-        );
 
         $pivot->update(['shopee_item_id' => (string) $itemId, 'sync_status' => 'pushed']);
 
-        return redirect()->back()->with('status', "Shopee item ID {$itemId} synced.");
+        return redirect()->back()->with('status', $r['mode'] === 'models'
+            ? "Shopee item ID {$itemId} synced, {$r['linked']} variation(s) linked."
+            : "Shopee item ID {$itemId} synced.");
     }
 
     public function linkProduct(int $groupId, int $productId)
@@ -2360,7 +2313,7 @@ class ShopeeProductGroupController extends Controller
                             ->first();
                         if ($pivot) {
                             $this->refreshShopeeProductLinks(
-                                $pivot, $productId, (int) $itemId, $allSkus, true,
+                                $pivot, $productId, (int) $itemId, $allSkus,
                                 $client, $auth['mode'], (int) $auth['partner_id'],
                                 (string) $auth['partner_key'], (string) $auth['access_token'],
                                 (int) $auth['shop_id']
@@ -2654,6 +2607,7 @@ class ShopeeProductGroupController extends Controller
         return $this->productsRedirect($id)->with(
             $this->batchTone($results['ok'], $results['err']),
             "Sync Price: {$results['ok']} success, {$results['err']} error, {$skip} skipped (not linked)."
+                . \Extensions\shopee\Services\Shopee\ShopeeStockPricePush::ledgerClause($this->lastPushLedger)
         );
     }
 
@@ -2692,10 +2646,11 @@ class ShopeeProductGroupController extends Controller
         if ($disabledCount > 0) {
             $msg .= ", {$disabledCount} skipped (disabled)";
         }
+        $ledger = \Extensions\shopee\Services\Shopee\ShopeeStockPricePush::ledgerClause($this->lastPushLedger);
 
         return $this->productsRedirect($id)->with(
             $this->batchTone($results['ok'], $results['err']),
-            $msg . '.'
+            $msg . '.' . $ledger
         );
     }
 
@@ -2897,157 +2852,29 @@ class ShopeeProductGroupController extends Controller
 
     private function pushStockForLinks(ShopeeClient $client, array $auth, string $pfx, $links): array
     {
-        $ok = 0;
-        $err = 0;
-        $outcomes = [];
-
-        // Resolve qty per link through the shared service (combinations
-        // first, POV fallback). Cron uses the same resolver.
-        $resolved = app(ShopeeStockPushService::class)->resolve($links, $pfx);
-
-        $grouped = [];
-        foreach ($resolved as $row) {
-            $grouped[$row['item_id']][] = $row;
-        }
-
-        foreach ($grouped as $itemId => $rows) {
-            $stockList = [];
-            $itemLinks = [];
-
-            foreach ($rows as $row) {
-                $stockList[] = ['model_id' => $row['model_id'], 'seller_stock' => [['stock' => $row['quantity']]]];
-                $itemLinks[] = $row['link'];
-            }
-
-            if (empty($stockList)) continue;
-
-            $path = '/api/v2/product/update_stock';
-            $payload = ['item_id' => (int) $itemId, 'stock_list' => $stockList];
-
-            $result = $client->shopPost(
-                $auth['mode'],
-                (int) $auth['partner_id'], (string) $auth['partner_key'],
-                (string) $auth['access_token'], (int) $auth['shop_id'],
-                $path, [], $payload
-            );
-
-            ShopeeApiLog::safeCreate([
-                'pack' => 'shopee.products.update_stock', 'method' => 'POST', 'api_path' => $path,
-                'auth_required' => true, 'request_params' => $payload,
-                'response_status' => $result['status'] ?? null, 'ok' => (bool) ($result['ok'] ?? false),
-                'response_body' => $result['body'] ?? null, 'user_id' => auth()->id(),
-            ]);
-
-            $isOk = ($result['ok'] ?? false) && (($result['body']['error'] ?? '') === '' || ($result['body']['error'] ?? null) === null);
-            $syncData = [
-                'last_synced_at' => now(),
-                'last_sync_action' => 'sync_qty',
-                'last_sync_ok' => $isOk,
-                'last_sync_error_code' => $isOk ? null : (string) ($result['body']['error'] ?? ''),
-                'last_sync_error_message' => $isOk ? null : (string) ($result['body']['message'] ?? ''),
-            ];
-            $failure = $isOk ? null : $this->apiFailureMessage($result);
-
-            foreach ($itemLinks as $link) {
-                $link->update($syncData);
-
-                // A product with several models has failed if ANY of them
-                // failed: the listing is not right on Shopee until all of it
-                // is. A recorded failure is never overwritten by a later
-                // success on a sibling model.
-                $pid = (int) $link->product_id;
-                if (! $isOk) {
-                    $outcomes[$pid] = ['ok' => false, 'error' => $failure];
-                } elseif (! array_key_exists($pid, $outcomes)) {
-                    $outcomes[$pid] = ['ok' => true, 'error' => null];
-                }
-            }
-
-            if ($isOk) {
-                $ok += count($stockList);
-            } else {
-                $err += count($stockList);
-            }
-        }
+        /* The shared sender (Phase E, #184, #190): link-driven plan, skip
+         * ledger, failure_list verdicts and the one-shot model repair. This
+         * wrapper keeps the outcomes shape the group flow records. */
+        $results = app(\Extensions\shopee\Services\Shopee\ShopeeStockPricePush::class)
+            ->push('stock', $auth, $links, $pfx);
+        $this->lastPushLedger = $results;
+        [$ok, $err, $outcomes] = [$results['ok'], $results['err'], $results['outcomes']];
 
         return ['ok' => $ok, 'err' => $err, 'outcomes' => $outcomes];
     }
 
     private function pushPriceForLinks(ShopeeClient $client, array $auth, string $pfx, $links, ShopeeProductGroup $group): array
     {
-        $ok = 0;
-        $err = 0;
-        $outcomes = [];
-
-        $resolved = app(ShopeeStockPushService::class)->resolve($links, $pfx);
-
+        /* The GROUP's markup makes this push, applied by the shared sender
+         * through the same closure contract the listing rule uses. */
         $markupPct = (float) ($group->markup_percent ?? 0);
         $markupFixed = (float) ($group->markup_fixed ?? 0);
+        $priceFor = fn (int $productId, float $price): float => $price + ($price * $markupPct / 100) + $markupFixed;
 
-        $grouped = [];
-        foreach ($resolved as $row) {
-            $grouped[$row['item_id']][] = $row;
-        }
-
-        foreach ($grouped as $itemId => $rows) {
-            $priceList = [];
-            $itemLinks = [];
-
-            foreach ($rows as $row) {
-                $price = $row['price'];
-                // Apply product group markup
-                $price = $price + ($price * $markupPct / 100) + $markupFixed;
-                $priceList[] = ['model_id' => $row['model_id'], 'original_price' => round($price, 2)];
-                $itemLinks[] = $row['link'];
-            }
-
-            if (empty($priceList)) continue;
-
-            $path = '/api/v2/product/update_price';
-            $payload = ['item_id' => (int) $itemId, 'price_list' => $priceList];
-
-            $result = $client->shopPost(
-                $auth['mode'],
-                (int) $auth['partner_id'], (string) $auth['partner_key'],
-                (string) $auth['access_token'], (int) $auth['shop_id'],
-                $path, [], $payload
-            );
-
-            ShopeeApiLog::safeCreate([
-                'pack' => 'shopee.products.update_price', 'method' => 'POST', 'api_path' => $path,
-                'auth_required' => true, 'request_params' => $payload,
-                'response_status' => $result['status'] ?? null, 'ok' => (bool) ($result['ok'] ?? false),
-                'response_body' => $result['body'] ?? null, 'user_id' => auth()->id(),
-            ]);
-
-            $isOk = ($result['ok'] ?? false) && (($result['body']['error'] ?? '') === '' || ($result['body']['error'] ?? null) === null);
-            $syncData = [
-                'last_synced_at' => now(),
-                'last_sync_action' => 'sync_price',
-                'last_sync_ok' => $isOk,
-                'last_sync_error_code' => $isOk ? null : (string) ($result['body']['error'] ?? ''),
-                'last_sync_error_message' => $isOk ? null : (string) ($result['body']['message'] ?? ''),
-            ];
-            $failure = $isOk ? null : $this->apiFailureMessage($result);
-
-            foreach ($itemLinks as $link) {
-                $link->update($syncData);
-
-                // See pushStockForLinks: any failed model fails the product.
-                $pid = (int) $link->product_id;
-                if (! $isOk) {
-                    $outcomes[$pid] = ['ok' => false, 'error' => $failure];
-                } elseif (! array_key_exists($pid, $outcomes)) {
-                    $outcomes[$pid] = ['ok' => true, 'error' => null];
-                }
-            }
-
-            if ($isOk) {
-                $ok += count($priceList);
-            } else {
-                $err += count($priceList);
-            }
-        }
+        $results = app(\Extensions\shopee\Services\Shopee\ShopeeStockPricePush::class)
+            ->push('price', $auth, $links, $pfx, $priceFor);
+        $this->lastPushLedger = $results;
+        [$ok, $err, $outcomes] = [$results['ok'], $results['err'], $results['outcomes']];
 
         return ['ok' => $ok, 'err' => $err, 'outcomes' => $outcomes];
     }

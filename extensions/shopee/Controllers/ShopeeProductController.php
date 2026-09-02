@@ -1669,6 +1669,29 @@ class ShopeeProductController extends Controller
 
     // ── Sync Qty (single, model-aware) ──────────────────────────────
 
+    /**
+     * The LISTING's price rule, never a borrowed group's (#96), as the
+     * closure the shared sender consumes: null means "skip this product
+     * BY NAME" - an item without a rule is never silently pushed at an
+     * unmarked price.
+     */
+    private function listingPriceFor(): callable
+    {
+        $cache = [];
+
+        return function (int $productId, float $price) use (&$cache): ?float {
+            if (!array_key_exists($productId, $cache)) {
+                $cache[$productId] = ShopeeListing::query()->where('product_id', $productId)->first();
+            }
+            $listing = $cache[$productId];
+            if (!$listing || ($listing->markup_percent === null && $listing->markup_fixed === null)) {
+                return null;
+            }
+
+            return (float) $listing->priceFor($price);
+        };
+    }
+
     public function syncQuantity(int $productId, ShopeeClient $client)
     {
         $setting = ShopeeSetting::query()->first()?->decrypted();
@@ -1691,11 +1714,13 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', 'Cannot sync quantity for a disabled product. Enable it first.');
         }
 
-        $results = $this->pushStockForLinks($client, $auth, $pfx, $links);
+        $results = app(\Extensions\shopee\Services\Shopee\ShopeeStockPricePush::class)
+            ->push('stock', $auth, $links, $pfx);
+        $clause = \Extensions\shopee\Services\Shopee\ShopeeStockPricePush::ledgerClause($results);
 
         $msg = $results['ok'] > 0
-            ? "Stock synced to Shopee ({$results['ok']} model(s))."
-            : 'Sync qty failed: ' . ($results['last_error'] ?? 'Unknown error');
+            ? "Stock synced to Shopee ({$results['ok']} model(s))." . $clause
+            : 'Sync qty failed: ' . (($results['last_error'] ?: null) ?? 'Unknown error') . $clause;
 
         return redirect()->back()->with($results['ok'] > 0 ? 'status' : 'error', $msg);
     }
@@ -1717,16 +1742,18 @@ class ShopeeProductController extends Controller
         }
 
         $pfx = (string) config('catalog.prefix');
-        $results = $this->pushPriceForLinks($client, $auth, $pfx, $links);
+        $results = app(\Extensions\shopee\Services\Shopee\ShopeeStockPricePush::class)
+            ->push('price', $auth, $links, $pfx, $this->listingPriceFor());
+        $clause = \Extensions\shopee\Services\Shopee\ShopeeStockPricePush::ledgerClause($results);
 
-        if (!empty($results['skipped'])) {
+        if (!empty($results['skipped_products']) && $results['ok'] === 0) {
             return redirect()->back()->with('error',
-                'Price not synced: ' . implode('; ', array_slice($results['skipped'], 0, 3)));
+                'Price not synced: ' . implode('; ', array_slice(array_values($results['skipped_products']), 0, 3)));
         }
 
         $msg = $results['ok'] > 0
-            ? "Price synced to Shopee ({$results['ok']} model(s))."
-            : 'Sync price failed: ' . ($results['last_error'] ?? 'Unknown error');
+            ? "Price synced to Shopee ({$results['ok']} model(s))." . $clause
+            : 'Sync price failed: ' . (($results['last_error'] ?: null) ?? 'Unknown error') . $clause;
 
         return redirect()->back()->with($results['ok'] > 0 ? 'status' : 'error', $msg);
     }
@@ -2160,11 +2187,10 @@ class ShopeeProductController extends Controller
 
         $links = ShopeeProductLink::query()->whereIn('product_id', $enabledIds)->get();
 
-        $ok = 0;
-        $err = 0;
         $skip = count($enabledIds) - $links->pluck('product_id')->unique()->count();
 
-        $results = $this->pushStockForLinks($client, $auth, $pfx, $links);
+        $results = app(\Extensions\shopee\Services\Shopee\ShopeeStockPricePush::class)
+            ->push('stock', $auth, $links, $pfx);
         $ok = $results['ok'];
         $err = $results['err'];
 
@@ -2172,8 +2198,9 @@ class ShopeeProductController extends Controller
         if ($disabledCount > 0) {
             $msg .= ", {$disabledCount} skipped (disabled)";
         }
+        $msg .= '.' . \Extensions\shopee\Services\Shopee\ShopeeStockPricePush::ledgerClause($results);
 
-        return redirect()->back()->with('status', $msg . '.');
+        return redirect()->back()->with('status', $msg);
     }
 
     // ── Bulk Sync Price (model-aware) ───────────────────────────────
@@ -2197,14 +2224,16 @@ class ShopeeProductController extends Controller
 
         $skip = count($ids) - $links->pluck('product_id')->unique()->count();
 
-        $results = $this->pushPriceForLinks($client, $auth, $pfx, $links);
+        $results = app(\Extensions\shopee\Services\Shopee\ShopeeStockPricePush::class)
+            ->push('price', $auth, $links, $pfx, $this->listingPriceFor());
 
         $summary = "Bulk Sync Price: {$results['ok']} success, {$results['err']} error, {$skip} skipped (not linked).";
 
-        if (!empty($results['skipped'])) {
-            $summary .= ' ' . count($results['skipped']) . ' without a listing price rule: '
-                . implode('; ', array_slice($results['skipped'], 0, 5));
+        if (!empty($results['skipped_products'])) {
+            $summary .= ' ' . count($results['skipped_products']) . ' without a listing price rule: '
+                . implode('; ', array_slice(array_values($results['skipped_products']), 0, 5));
         }
+        $summary .= \Extensions\shopee\Services\Shopee\ShopeeStockPricePush::ledgerClause($results);
 
         return redirect()->back()->with('status', $summary);
     }
@@ -2588,189 +2617,9 @@ class ShopeeProductController extends Controller
 
     // ── Model-Aware Stock Push Helper ───────────────────────────────
 
-    private function pushStockForLinks(ShopeeClient $client, array $auth, string $pfx, $links): array
-    {
-        $ok = 0;
-        $err = 0;
-        $lastError = '';
-
-        // Group links by shopee_item_id
-        $grouped = [];
-        foreach ($links as $link) {
-            $grouped[$link->shopee_item_id][] = $link;
-        }
-
-        foreach ($grouped as $itemId => $itemLinks) {
-            $stockList = [];
-
-            foreach ($itemLinks as $link) {
-                $productId = (int) $link->product_id;
-                $sku = trim((string) ($link->sku ?? ''));
-                $modelId = (int) ($link->shopee_model_id ?? 0);
-                $qty = 0;
-
-                if ($sku !== '') {
-                    // Try option value SKU for quantity
-                    $povQty = DB::table($pfx . 'product_option_value')
-                        ->where('product_id', $productId)
-                        ->where('sku', $sku)
-                        ->value('quantity');
-
-                    if ($povQty !== null) {
-                        $qty = max(0, (int) $povQty);
-                    } else {
-                        $qty = max(0, (int) (DB::table($pfx . 'product')->where('product_id', $productId)->value('quantity') ?? 0));
-                    }
-                } else {
-                    $qty = max(0, (int) (DB::table($pfx . 'product')->where('product_id', $productId)->value('quantity') ?? 0));
-                }
-
-                $stockList[] = ['model_id' => $modelId, 'seller_stock' => [['stock' => $qty]]];
-
-            }
-
-            if (empty($stockList)) continue;
-
-            $path = '/api/v2/product/update_stock';
-            $payload = ['item_id' => (int) $itemId, 'stock_list' => $stockList];
-
-            $result = $client->shopPost(
-                $auth['mode'],
-                (int) $auth['partner_id'], (string) $auth['partner_key'],
-                (string) $auth['access_token'], (int) $auth['shop_id'],
-                $path, [], $payload
-            );
-
-            ShopeeApiLog::safeCreate([
-                'pack' => 'shopee.products.update_stock', 'method' => 'POST', 'api_path' => $path,
-                'auth_required' => true, 'request_params' => $payload,
-                'response_status' => $result['status'] ?? null, 'ok' => (bool) ($result['ok'] ?? false),
-                'response_body' => $result['body'] ?? null, 'user_id' => auth()->id(),
-            ]);
-
-            $isOk = ($result['ok'] ?? false) && (($result['body']['error'] ?? '') === '' || ($result['body']['error'] ?? null) === null);
-            $syncData = [
-                'last_synced_at' => now(),
-                'last_sync_action' => 'sync_qty',
-                'last_sync_ok' => $isOk,
-                'last_sync_error_code' => $isOk ? null : (string) ($result['body']['error'] ?? ''),
-                'last_sync_error_message' => $isOk ? null : (string) ($result['body']['message'] ?? ''),
-            ];
-            foreach ($itemLinks as $link) {
-                $link->update($syncData);
-            }
-
-            if ($isOk) {
-                $ok += count($stockList);
-            } else {
-                $err += count($stockList);
-                $lastError = $result['body']['message'] ?? ($result['body']['error'] ?? 'Unknown error');
-            }
-        }
-
-        return ['ok' => $ok, 'err' => $err, 'last_error' => $lastError];
-    }
 
     // ── Model-Aware Price Push Helper ───────────────────────────────
 
-    private function pushPriceForLinks(ShopeeClient $client, array $auth, string $pfx, $links): array
-    {
-        $ok = 0;
-        $err = 0;
-        $lastError = '';
-        $skipped = [];
-
-        // Group links by shopee_item_id
-        $grouped = [];
-        foreach ($links as $link) {
-            $grouped[$link->shopee_item_id][] = $link;
-        }
-
-        foreach ($grouped as $itemId => $itemLinks) {
-            $priceList = [];
-
-            foreach ($itemLinks as $link) {
-                $productId = (int) $link->product_id;
-                $sku = trim((string) ($link->sku ?? ''));
-                $modelId = (int) ($link->shopee_model_id ?? 0);
-
-                // Base product price
-                $productRow = DB::table($pfx . 'product')->where('product_id', $productId)->first(['price', 'manufacturer_id']);
-                $basePrice = max(0, (float) ($productRow->price ?? 0));
-                $price = $basePrice;
-
-                // If linked via option SKU, use absolute_price
-                if ($sku !== '') {
-                    $pov = DB::table($pfx . 'product_option_value')
-                        ->where('product_id', $productId)
-                        ->where('sku', $sku)
-                        ->first(['absolute_price']);
-
-                    if ($pov && $pov->absolute_price !== null) {
-                        $price = max(0, (float) $pov->absolute_price);
-                    }
-                }
-
-                /* The LISTING's price rule, never a borrowed group's (#96).
-                 * The borrow made price sync multiply every item by group
-                 * #1's markup regardless of what it was listed at. An item
-                 * whose listing has no rule is skipped BY NAME rather than
-                 * silently pushed at an unmarked price - sync it from the
-                 * group page it was pushed from, or push it once from the
-                 * form to give it a rule. */
-                $listing = ShopeeListing::query()->where('product_id', $productId)->first();
-
-                if (!$listing || ($listing->markup_percent === null && $listing->markup_fixed === null)) {
-                    $skipped[] = '#' . $productId . ': no listing price rule - sync from its product group, or push once from the form';
-                    continue;
-                }
-
-                $price = $listing->priceFor((float) $price);
-
-                $priceList[] = ['model_id' => $modelId, 'original_price' => $price];
-            }
-
-            if (empty($priceList)) continue;
-
-            $path = '/api/v2/product/update_price';
-            $payload = ['item_id' => (int) $itemId, 'price_list' => $priceList];
-
-            $result = $client->shopPost(
-                $auth['mode'],
-                (int) $auth['partner_id'], (string) $auth['partner_key'],
-                (string) $auth['access_token'], (int) $auth['shop_id'],
-                $path, [], $payload
-            );
-
-            ShopeeApiLog::safeCreate([
-                'pack' => 'shopee.products.update_price', 'method' => 'POST', 'api_path' => $path,
-                'auth_required' => true, 'request_params' => $payload,
-                'response_status' => $result['status'] ?? null, 'ok' => (bool) ($result['ok'] ?? false),
-                'response_body' => $result['body'] ?? null, 'user_id' => auth()->id(),
-            ]);
-
-            $isOk = ($result['ok'] ?? false) && (($result['body']['error'] ?? '') === '' || ($result['body']['error'] ?? null) === null);
-            $syncData = [
-                'last_synced_at' => now(),
-                'last_sync_action' => 'sync_price',
-                'last_sync_ok' => $isOk,
-                'last_sync_error_code' => $isOk ? null : (string) ($result['body']['error'] ?? ''),
-                'last_sync_error_message' => $isOk ? null : (string) ($result['body']['message'] ?? ''),
-            ];
-            foreach ($itemLinks as $link) {
-                $link->update($syncData);
-            }
-
-            if ($isOk) {
-                $ok += count($priceList);
-            } else {
-                $err += count($priceList);
-                $lastError = $result['body']['message'] ?? ($result['body']['error'] ?? 'Unknown error');
-            }
-        }
-
-        return ['ok' => $ok, 'err' => $err, 'last_error' => $lastError, 'skipped' => $skipped];
-    }
 
     // ── General Helpers ──────────────────────────────────────────────
 
