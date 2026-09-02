@@ -682,16 +682,19 @@
                                 @csrf
                                 <button type="submit" class="x-menu__item">Push price</button>
                             </form>
-                            @if($link)
+                            {{-- The marketplace's own on/off, from the state
+                                 the badge wears (#188): only the applicable
+                                 toggle exists, where before both were rendered
+                                 with one hidden by raw status. --}}
+                            @if($link && $rowState?->state === \App\Integrations\Listings\ListingState::LIVE)
                                 <form method="POST" action="{{ route('ext.shopee.listings.toggle', $p->product_id) }}" data-slow-action
-                                      @if($rowLiveStatus !== 'NORMAL') hidden @endif
                                       data-confirm="Unlist this item from Shopee? Buyers stop seeing it immediately. It can be relisted at any time." data-confirm-verb="Unlist">
                                     @csrf
                                     <input type="hidden" name="action" value="unlist">
                                     <button type="submit" class="x-menu__item">Unlist from Shopee</button>
                                 </form>
+                            @elseif($link && $rowState?->state === \App\Integrations\Listings\ListingState::INACTIVE)
                                 <form method="POST" action="{{ route('ext.shopee.listings.toggle', $p->product_id) }}" data-slow-action
-                                      @if($rowLiveStatus !== 'UNLIST') hidden @endif
                                       data-confirm="Relist this item on Shopee? Buyers see it again immediately." data-confirm-tone="primary" data-confirm-verb="Relist">
                                     @csrf
                                     <input type="hidden" name="action" value="list">

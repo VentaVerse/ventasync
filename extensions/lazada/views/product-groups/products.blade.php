@@ -31,6 +31,9 @@
     // Read tier on this route is `view_lazada|manage_lazada`; every push,
     // sync, link, unlink and remove below is `manage_lazada`.
     $canManageLazada = auth()->user()?->hasPermission('manage_lazada/product_group') ?? false;
+    // Activate/Deactivate ride the listing routes, which carry the product
+    // permission - shown only to operators the route would let through.
+    $canToggleListing = auth()->user()?->hasPermission('manage_lazada/product') ?? false;
     $canEditCatalog = auth()->user()?->hasPermission('manage_catalog/product') ?? false;
 
     $returnTo = request()->getRequestUri();
@@ -234,6 +237,12 @@
             $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($p->product_id) : null;
             $variationCount = $optRows ? count($optRows) : 0;
 
+            /* The engine's answer for this product (#188): badge and menu
+               both read it, so the words and the buttons agree with the
+               Listings page and with each other. */
+            $rowState = ($listingStates ?? [])[(int) $p->product_id] ?? null;
+            $stateClass = \App\Integrations\Listings\ListingState::class;
+
             $pName = html_entity_decode((string) ($p->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
             $pSku = (string) ($p->sku ?: ($p->model ?: ''));
             $isManual = in_array((int) $p->product_id, $manualIds, true);
@@ -328,7 +337,9 @@
                      uses for the same fact. A failed push from THIS group is
                      told in the Last push column, scoped in words - it no
                      longer masquerades as the product's status. --}}
-                @if($listed)
+                @if($listed && $rowState && $rowState->state !== $stateClass::UNKNOWN && $rowState->state !== $stateClass::NOT_LISTED)
+                    <x-ui.badge :tone="$rowState->tone()">{{ $rowState->label() }}</x-ui.badge>
+                @elseif($listed)
                     <x-ui.badge tone="success">Listed</x-ui.badge>
                 @elseif($isUnlinked)
                     <span class="x-cell-muted">Unlinked</span>
@@ -429,6 +440,27 @@
                             <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
                             <button type="submit" class="x-menu__item">Push price</button>
                         </form>
+                        {{-- The marketplace's own on/off, from the state the
+                             badge wears - the Listings page offered this and
+                             this page did not, though both show the same row
+                             (#188, the owner 2026-09-02). --}}
+                        @if($canToggleListing && ($lazadaIdByProductId ?? collect())->has($p->product_id))
+                            @if($rowState?->state === $stateClass::LIVE)
+                                <form method="POST" action="{{ route('ext.lazada.listings.toggle', $lazadaIdByProductId[$p->product_id]) }}" data-slow-action
+                                      data-confirm="Deactivate {{ $pName ?: 'this product' }} on Lazada? Buyers stop seeing it. It can be activated again at any time." data-confirm-verb="Deactivate">
+                                    @csrf
+                                    <input type="hidden" name="action" value="deactivate">
+                                    <button type="submit" class="x-menu__item">Deactivate on Lazada</button>
+                                </form>
+                            @elseif($rowState?->state === $stateClass::INACTIVE)
+                                <form method="POST" action="{{ route('ext.lazada.listings.toggle', $lazadaIdByProductId[$p->product_id]) }}" data-slow-action
+                                      data-confirm="Activate {{ $pName ?: 'this product' }} on Lazada? Buyers see it again once Lazada applies it." data-confirm-tone="primary" data-confirm-verb="Activate">
+                                    @csrf
+                                    <input type="hidden" name="action" value="activate">
+                                    <button type="submit" class="x-menu__item">Activate on Lazada</button>
+                                </form>
+                            @endif
+                        @endif
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.lazada.product-groups.unlinkProduct', [$group->id, $p->product_id]) }}" data-slow-action
                               data-confirm="Unlink {{ $pName ?: 'this product' }} from Lazada? The product stays in the group but sync will stop." data-confirm-verb="Unlink">

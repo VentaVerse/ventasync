@@ -397,6 +397,11 @@ class LazadaProductGroupController extends Controller
             'group' => $group,
             'products' => $products,
             'pivotMap' => $pivotMap,
+            /* ONE state per row (#188): the same engine the Listings page
+             * renders, so this page's badges and menus can never disagree
+             * with it. */
+            'listingStates' => app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)
+                ->forProducts(array_map('intval', $pivotProductIds)),
             'optionRowsByProductId' => $optionRowsByProductId,
             // The row menu reaches the product's Lazada listing page, like
             // the Shopee and TikTok group pages do (critique 2026-08-25).

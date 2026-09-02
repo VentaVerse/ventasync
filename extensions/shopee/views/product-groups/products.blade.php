@@ -31,6 +31,9 @@
     // Read tier on this route is `view_shopee|manage_shopee`; every push,
     // sync, link, unlink and remove below is `manage_shopee`.
     $canManageShopee = auth()->user()?->hasPermission('manage_shopee/product_group') ?? false;
+    // Unlist/Relist ride the listing routes, which carry the product
+    // permission - shown only to operators the route would let through.
+    $canToggleListing = auth()->user()?->hasPermission('manage_shopee/product') ?? false;
     $canEditCatalog = auth()->user()?->hasPermission('manage_catalog/product') ?? false;
 
     $returnTo = request()->getRequestUri();
@@ -499,6 +502,25 @@
                             <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
                             <button type="submit" class="x-menu__item">Push price</button>
                         </form>
+                        {{-- The marketplace's own on/off, from the state the
+                             badge wears - the Listings page offers this and
+                             this page did not, though both show the same row
+                             (#188, the owner 2026-09-02). --}}
+                        @if($canToggleListing && $rowState?->state === \App\Integrations\Listings\ListingState::LIVE)
+                            <form method="POST" action="{{ route('ext.shopee.listings.toggle', $p->product_id) }}" data-slow-action
+                                  data-confirm="Unlist {{ $pName ?: 'this product' }} from Shopee? Buyers stop seeing it immediately. It can be relisted at any time." data-confirm-verb="Unlist">
+                                @csrf
+                                <input type="hidden" name="action" value="unlist">
+                                <button type="submit" class="x-menu__item">Unlist from Shopee</button>
+                            </form>
+                        @elseif($canToggleListing && $rowState?->state === \App\Integrations\Listings\ListingState::INACTIVE)
+                            <form method="POST" action="{{ route('ext.shopee.listings.toggle', $p->product_id) }}" data-slow-action
+                                  data-confirm="Relist {{ $pName ?: 'this product' }} on Shopee? Buyers see it again immediately." data-confirm-tone="primary" data-confirm-verb="Relist">
+                                @csrf
+                                <input type="hidden" name="action" value="list">
+                                <button type="submit" class="x-menu__item">Relist on Shopee</button>
+                            </form>
+                        @endif
                     @endif
 
                     <a class="x-menu__item" href="{{ route('ext.shopee.listings.edit', $p->product_id) }}">Open listing</a>

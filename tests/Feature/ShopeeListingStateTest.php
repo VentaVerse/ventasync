@@ -285,6 +285,65 @@ class ShopeeListingStateTest extends TestCase
             ->assertOk()->assertSee('My very first product');
     }
 
+    /**
+     * From Phase B1 until this fix BOTH toggles were invisible on every row:
+     * the label-map rewrite deleted $rowLiveStatus but the toggle forms still
+     * keyed their hidden attribute on it, and an undefined variable hides
+     * both. Actions now derive from the same state the badge wears (#188),
+     * so only the applicable toggle exists at all.
+     */
+    public function test_the_row_menu_offers_only_the_applicable_toggle(): void
+    {
+        $live = $this->product('TGL-LIVE');
+        ShopeeProductLink::create(['product_id' => $live, 'shopee_item_id' => 3001, 'sku' => 'TGL-LIVE', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        $off = $this->product('TGL-OFF');
+        ShopeeProductLink::create(['product_id' => $off, 'shopee_item_id' => 3002, 'sku' => 'TGL-OFF', 'live_status' => 'UNLIST', 'live_checked_at' => now()]);
+
+        $group = \App\Models\Admin\UserGroup::create(['name' => 'Shopee togglers']);
+        $group->permissions()->attach(
+            \App\Models\Admin\Permission::whereIn('key', ['view_shopee/product', 'manage_shopee/product'])->pluck('id')->all()
+        );
+        $user = \App\Models\User::factory()->create(['user_group_id' => $group->id]);
+
+        // The bulk bar always carries both verbs for the selection, so the
+        // assertions pin the row MENU's items specifically.
+        $liveRow = $this->actingAs($user)->get('/channels/shopee/products?q=TGL-LIVE')->assertOk();
+        $liveRow->assertSee('x-menu__item">Unlist from Shopee', false);
+        $liveRow->assertDontSee('x-menu__item">Relist on Shopee', false);
+
+        $offRow = $this->actingAs($user)->get('/channels/shopee/products?q=TGL-OFF')->assertOk();
+        $offRow->assertSee('x-menu__item">Relist on Shopee', false);
+        $offRow->assertDontSee('x-menu__item">Unlist from Shopee', false);
+    }
+
+    /** The group page offers the toggle the listings page offers (#188, the owner 2026-09-02). */
+    public function test_the_group_page_offers_the_toggle_the_listing_page_offers(): void
+    {
+        $pid = $this->product('TGL-GRP');
+        DB::table((string) config('catalog.prefix') . 'product_description')->insert([
+            'product_id' => $pid, 'language_id' => (int) config('catalog.default_language_id'),
+            'name' => 'Togglable in group', 'description' => '',
+            'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
+        ]);
+        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 3003, 'sku' => 'TGL-GRP', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        $grp = \Extensions\shopee\Models\ShopeeProductGroup::create(['name' => 'Toggle group', 'shopee_category_id' => 100139]);
+        \Extensions\shopee\Models\ShopeeProductGroupProduct::create([
+            'shopee_product_group_id' => $grp->id, 'product_id' => $pid,
+            'shopee_item_id' => 3003, 'sync_status' => 'pushed',
+        ]);
+
+        $ug = \App\Models\Admin\UserGroup::create(['name' => 'Shopee group togglers']);
+        $ug->permissions()->attach(
+            \App\Models\Admin\Permission::whereIn('key', [
+                'view_shopee/product_group', 'manage_shopee/product_group', 'manage_shopee/product',
+            ])->pluck('id')->all()
+        );
+        $user = \App\Models\User::factory()->create(['user_group_id' => $ug->id]);
+
+        $this->actingAs($user)->get(route('ext.shopee.product-groups.products', $grp->id))
+            ->assertOk()->assertSee('Unlist from Shopee');
+    }
+
     public function test_shopee_answers_the_core_contract_every_channel_will_share(): void
     {
         $pid = $this->product('VIACORE');

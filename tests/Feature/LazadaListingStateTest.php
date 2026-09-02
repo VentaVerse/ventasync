@@ -305,6 +305,33 @@ class LazadaListingStateTest extends TestCase
             ->assertOk()->assertSee('My very first product');
     }
 
+    /** The group page offers the toggle the listings page offers (#188, the owner 2026-09-02). */
+    public function test_the_group_page_offers_the_toggle_the_listing_page_offers(): void
+    {
+        $pid = $this->seedProduct('Togglable in group', 'TGL-1');
+        $listing = LazadaProduct::create([
+            'product_id' => $pid, 'lazada_item_id' => '3101',
+            'live_status' => 'inactive', 'live_checked_at' => now(),
+        ]);
+        $grp = \Extensions\lazada\Models\LazadaProductGroup::create(['name' => 'Toggle group', 'lazada_category_id' => 4321]);
+        \Extensions\lazada\Models\LazadaProductGroupProduct::create([
+            'lazada_product_group_id' => $grp->id, 'product_id' => $pid,
+            'lazada_product_id' => $listing->id, 'sync_status' => 'pushed',
+        ]);
+
+        $ug = \App\Models\Admin\UserGroup::create(['name' => 'Lazada group togglers']);
+        $ug->permissions()->attach(
+            \App\Models\Admin\Permission::whereIn('key', [
+                'view_lazada/product_group', 'manage_lazada/product_group', 'manage_lazada/product',
+            ])->pluck('id')->all()
+        );
+        $user = \App\Models\User::factory()->create(['user_group_id' => $ug->id]);
+
+        $page = $this->actingAs($user)->get(route('ext.lazada.product-groups.products', $grp->id))->assertOk();
+        $page->assertSee('Activate on Lazada');
+        $page->assertDontSee('Deactivate on Lazada');
+    }
+
     /** Core reaches Lazada's states through the same contract Shopee registered in Phase B. */
     public function test_the_engine_is_reachable_through_the_listing_state_contract(): void
     {
