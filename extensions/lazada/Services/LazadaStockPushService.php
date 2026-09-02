@@ -96,6 +96,7 @@ class LazadaStockPushService
 
             // Match by seller_sku first (survives option-value renumbering),
             // then by product_option_value_id, then the base product as a last resort.
+            $matched = true;
             if ($sellerSku !== '' && array_key_exists($sellerSku, $erpQtyBySku)) {
                 $qty   = $erpQtyBySku[$sellerSku];
                 $price = $erpPriceBySku[$sellerSku] ?? null;
@@ -117,11 +118,13 @@ class LazadaStockPushService
                 ]);
                 $qty   = 0;
                 $price = null;
+                $matched = false;
             }
 
             $items[] = [
                 'sku_id'     => (int) $skuId,
                 'seller_sku' => $sellerSku,
+                'matched'    => $matched,
                 'quantity'   => (int) $qty,
                 'price'      => $price !== null ? (float) $price : null,
             ];

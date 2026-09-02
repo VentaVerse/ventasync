@@ -502,96 +502,20 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 ->with('status', 'Cannot sync quantity: product #' . $productId . ' is disabled. Enable it first.');
         }
 
-        // Resolve Lazada SkuId for each variant (required by Lazada production API)
-        if (empty($listing->lazada_item_id)) {
-            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-                ->with('status', 'Cannot sync qty: product has no Lazada Item ID. Sync Lazada ID first.');
-        }
-        $skuIdMap = $this->itemCache()->resolveSkuIds($listing, $setting, $client);
-        if (empty($skuIdMap)) {
-            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-                ->with('status', 'Cannot sync qty: could not resolve Lazada SkuIds for this product.');
-        }
+        /* The shared sender (Phase F, #184): skip ledger by SKU name, the
+         * one-shot sku_id heal, per-SKU verdicts rolled into an honest
+         * listing message - the synthetic PARTIAL_FAILURE count sentence
+         * is dead. */
+        $results = app(\Extensions\lazada\Services\Lazada\LazadaStockPricePush::class)
+            ->push('stock', $setting, $creds, [$listing], $pfx);
+        $clause = \Extensions\lazada\Services\Lazada\LazadaStockPricePush::ledgerClause($results);
 
-        // Build ERP variant SKUs + quantities
-        $variantSkus = $this->payload()->getErpVariantStockByProductId($productId);
-        if (empty($variantSkus)) {
-            $sku = trim((string) ($product->sku ?? ''));
-            if ($sku === '') {
-                return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-                    ->with('status', 'Cannot sync: ERP product SKU is empty for product #' . (int)$product->product_id . '.');
-            }
-            $variantSkus = [[
-                'seller_sku' => $sku,
-                'quantity' => max(0, (int) ($product->quantity ?? 0)),
-            ]];
-        }
-
-        $apiPath = '/product/price_quantity/update';
-        $ok = 0;
-        $err = 0;
-        $last = null;
-
-        foreach ($variantSkus as $v) {
-            $sku = trim((string)($v['seller_sku'] ?? ''));
-            if ($sku === '') {
-                continue;
-            }
-            $skuId = $skuIdMap[$sku] ?? null;
-            if ($skuId === null) {
-                $err++;
-                continue;
-            }
-            $qty = max(0, (int)($v['quantity'] ?? 0));
-            $payloadXml = $this->payload()->buildQuantityUpdateXml($skuId, $qty);
-
-            $timestamp = (string) round(microtime(true) * 1000);
-            $params = [
-                'app_key' => (string) $creds['app_key'],
-                'sign_method' => 'sha256',
-                'timestamp' => $timestamp,
-                'access_token' => (string) $creds['access_token'],
-                'payload' => $payloadXml,
-            ];
-            $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
-
-            $result = $client->post((string) $setting->region, $apiPath, $params);
-            $last = $result;
-
-            LazadaApiLog::safeCreate([
-                'pack' => 'lazada.product.price_quantity.update.variant',
-                'method' => 'POST',
-                'api_path' => $apiPath,
-                'auth_required' => true,
-                'request_params' => $params,
-                'response_status' => (int)($result['status'] ?? 0),
-                'ok' => (bool)($result['ok'] ?? false),
-                'response_body' => $result['body'] ?? $result,
-                'user_id' => auth()->id(),
-            ]);
-
-            $e = $this->payload()->extractLazadaError($result);
-            if ($e['ok']) {
-                $ok++;
-            } else {
-                $err++;
-            }
-        }
-
-        $summary = [
-            'ok' => $err === 0,
-            'status' => (int)($last['status'] ?? 200),
-            'body' => [
-                'code' => $err === 0 ? '0' : 'PARTIAL_FAILURE',
-                'message' => "Synced qty for ".count($variantSkus)." SKU(s). Success: {$ok}, Error: {$err}.",
-                'last' => $last['body'] ?? $last,
-            ],
-        ];
-
-        $this->persistProductSyncStatus($listing, 'sync_quantity', $summary);
+        $msg = $results['ok'] > 0
+            ? 'Stock synced to Lazada.' . $clause
+            : 'Sync qty failed: ' . (($results['last_error'] ?: null) ?? 'Unknown error') . $clause;
 
         return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-            ->with('status', $summary['body']['message']);
+            ->with(\App\Integrations\Push\PushLedger::batchTone($results['ok'], $results['err']), $msg);
     }
 
     /**
@@ -638,105 +562,21 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             }
         }
 
-        // Resolve Lazada SkuId for each variant (required by Lazada production API)
-        if (empty($listing->lazada_item_id)) {
-            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-                ->with('status', 'Cannot sync price: product has no Lazada Item ID. Sync Lazada ID first.');
-        }
-        $skuIdMap = $this->itemCache()->resolveSkuIds($listing, $setting, $client);
-        if (empty($skuIdMap)) {
-            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-                ->with('status', 'Cannot sync price: could not resolve Lazada SkuIds for this product.');
-        }
+        /* The shared sender (Phase F, #184), priced by the listing's own
+         * rule (group fallback resolved above). */
+        $mPct = (float) ($percentMarkup ?? 0);
+        $mFixed = (float) ($fixedMarkup ?? 0);
+        $results = app(\Extensions\lazada\Services\Lazada\LazadaStockPricePush::class)
+            ->push('price', $setting, $creds, [$listing], $pfx,
+                fn (int $pid, float $base) => \Extensions\lazada\Services\Lazada\LazadaPushPayload::computeFinalPrice($base, $mFixed, $mPct));
+        $clause = \Extensions\lazada\Services\Lazada\LazadaStockPricePush::ledgerClause($results);
 
-        // If product has option SKUs, sync all variant prices (base +/- option adjustment).
-        // Otherwise, sync main product SKU.
-        $variantPrices = $this->payload()->getErpVariantPricesByProductId($productId, $basePrice);
-        if (empty($variantPrices)) {
-            $sku = trim((string) ($product->sku ?? ''));
-            if ($sku === '') {
-                return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-                    ->with('status', 'Cannot sync: ERP product SKU is empty for product #' . (int)$product->product_id . '.');
-            }
-            $variantPrices = [[
-                'seller_sku' => $sku,
-                'price' => $basePrice,
-            ]];
-        }
-
-        // Apply markup to all variant prices
-        foreach ($variantPrices as &$vp) {
-            $vp['price'] = LazadaPushPayload::computeFinalPrice((float) $vp['price'], $fixedMarkup, $percentMarkup);
-        }
-        unset($vp);
-
-        $apiPath = '/product/price_quantity/update';
-        $ok = 0;
-        $err = 0;
-        $last = null;
-
-        foreach ($variantPrices as $v) {
-            $sku = trim((string)($v['seller_sku'] ?? ''));
-            if ($sku === '') {
-                continue;
-            }
-            $skuId = $skuIdMap[$sku] ?? null;
-            if ($skuId === null) {
-                $err++;
-                continue;
-            }
-            $price = (float)($v['price'] ?? 0);
-            if ($price < 0) $price = 0;
-            $priceStr = number_format($price, 2, '.', '');
-            $payloadXml = $this->payload()->buildPriceUpdateXml($skuId, $priceStr);
-
-            $timestamp = (string) round(microtime(true) * 1000);
-            $params = [
-                'app_key' => (string) $creds['app_key'],
-                'sign_method' => 'sha256',
-                'timestamp' => $timestamp,
-                'access_token' => (string) $creds['access_token'],
-                'payload' => $payloadXml,
-            ];
-            $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
-
-            $result = $client->post((string) $setting->region, $apiPath, $params);
-            $last = $result;
-
-            LazadaApiLog::safeCreate([
-                'pack' => 'lazada.product.price_quantity.update.variant',
-                'method' => 'POST',
-                'api_path' => $apiPath,
-                'auth_required' => true,
-                'request_params' => $params,
-                'response_status' => (int)($result['status'] ?? 0),
-                'ok' => (bool)($result['ok'] ?? false),
-                'response_body' => $result['body'] ?? $result,
-                'user_id' => auth()->id(),
-            ]);
-
-            $e = $this->payload()->extractLazadaError($result);
-            if ($e['ok']) {
-                $ok++;
-            } else {
-                $err++;
-            }
-        }
-
-        $summary = [
-            'ok' => $err === 0,
-            'status' => (int)($last['status'] ?? 200),
-            'body' => [
-                'code' => $err === 0 ? '0' : 'PARTIAL_FAILURE',
-                'message' => "Synced price for ".count($variantPrices)." SKU(s). Success: {$ok}, Error: {$err}.",
-                'last' => $last['body'] ?? $last,
-            ],
-        ];
-
-        $this->persistProductSyncStatus($listing, 'sync_price', $summary);
+        $msg = $results['ok'] > 0
+            ? 'Price synced to Lazada.' . $clause
+            : 'Sync price failed: ' . (($results['last_error'] ?: null) ?? 'Unknown error') . $clause;
 
         return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-            ->with('status', $summary['body']['message']);
+            ->with(\App\Integrations\Push\PushLedger::batchTone($results['ok'], $results['err']), $msg);
     }
 
     /**
@@ -2001,157 +1841,18 @@ public function bulkSyncQuantity(Request $request, LazadaClient $client)
     }
 
     $pfx = (string) config('catalog.prefix');
-
     $listings = LazadaProduct::query()->whereIn('id', $ids)->get();
-    $productIds = $listings->pluck('product_id')->filter()->unique()->values()->all();
 
-    $products = collect();
-    if (!empty($productIds)) {
-        $products = DB::table($pfx.'product as p')
-            ->whereIn('p.product_id', $productIds)
-            ->get(['p.product_id', 'p.sku', 'p.quantity', 'p.status'])
-            ->keyBy('product_id');
-    }
+    /* The shared sender (Phase F, #184): one plan, one ledger, one tone. */
+    $results = app(\Extensions\lazada\Services\Lazada\LazadaStockPricePush::class)
+        ->push('stock', $setting, $creds, $listings, $pfx);
 
-    // Preload ERP option value data keyed by product_option_value_id and by product_id.
-    $erpOptionQty = collect();
-    $erpOptionsByProduct = collect();
-    if (!empty($productIds)) {
-        $erpOvRows = DB::table($pfx.'product_option_value as pov')
-            ->whereIn('pov.product_id', $productIds)
-            ->get(['pov.product_id', 'pov.product_option_value_id', 'pov.sku', 'pov.quantity']);
-        $erpOptionQty = $erpOvRows->keyBy('product_option_value_id');
-        $erpOptionsByProduct = $erpOvRows->groupBy(fn($r) => (int) $r->product_id);
-    }
-
-    $okCount = 0;
-    $errCount = 0;
-
-    foreach ($listings as $listing) {
-        $product = $products->get((int)$listing->product_id);
-        if (!$product) {
-            $this->persistProductSyncStatus($listing, 'bulk_sync_quantity', ['ok' => false, 'body' => ['code' => 'ERP_PRODUCT_NOT_FOUND', 'message' => 'ERP product not found']]);
-            $errCount++;
-            continue;
-        }
-
-        if ((int) $product->status === 0) {
-            $this->persistProductSyncStatus($listing, 'bulk_sync_quantity', ['ok' => false, 'body' => ['code' => 'PRODUCT_DISABLED', 'message' => 'ERP product is disabled (status=0).']]);
-            $errCount++;
-            continue;
-        }
-
-        if (empty($listing->lazada_item_id)) {
-            $this->persistProductSyncStatus($listing, 'bulk_sync_quantity', ['ok' => false, 'body' => ['code' => 'NO_ITEM_ID', 'message' => 'No Lazada Item ID. Sync Lazada ID first.']]);
-            $errCount++;
-            continue;
-        }
-
-        // Resolve Lazada SkuIds (cached or fetched from API)
-        $skuIdMap = $this->itemCache()->resolveSkuIds($listing, $setting, $client);
-        if (empty($skuIdMap)) {
-            $this->persistProductSyncStatus($listing, 'bulk_sync_quantity', ['ok' => false, 'body' => ['code' => 'NO_SKU_IDS', 'message' => 'Could not resolve Lazada SkuIds']]);
-            $errCount++;
-            continue;
-        }
-
-        $apiPath = '/product/price_quantity/update';
-        $pid = (int) ($product->product_id ?? 0);
-
-        // Build {seller_sku, quantity} list from ERP data, then match to Lazada SkuId.
-        $erpOvs = $erpOptionsByProduct->get($pid);
-        $variantSkus = [];
-
-        if ($erpOvs && count($erpOvs) > 0) {
-            foreach ($erpOvs as $ov) {
-                $sku = trim((string) ($ov->sku ?? ''));
-                if ($sku === '') continue;
-                $variantSkus[] = ['seller_sku' => $sku, 'quantity' => max(0, (int) ($ov->quantity ?? 0))];
-            }
-        }
-
-        // Fallback: main product SKU
-        if (empty($variantSkus)) {
-            $sku = trim((string) ($product->sku ?? ''));
-            if ($sku !== '') {
-                $variantSkus[] = ['seller_sku' => $sku, 'quantity' => max(0, (int) ($product->quantity ?? 0))];
-            }
-        }
-
-        if (empty($variantSkus)) {
-            $this->persistProductSyncStatus($listing, 'bulk_sync_quantity', ['ok' => false, 'body' => ['code' => 'EMPTY_SKU', 'message' => 'No SKU found']]);
-            $errCount++;
-            continue;
-        }
-
-        $ok = 0;
-        $err = 0;
-        $last = null;
-        foreach ($variantSkus as $v) {
-            $sku = trim((string)($v['seller_sku'] ?? ''));
-            if ($sku === '') continue;
-            $skuId = $skuIdMap[$sku] ?? null;
-            if ($skuId === null) {
-                $err++;
-                continue;
-            }
-            $qty = max(0, (int)($v['quantity'] ?? 0));
-            $payloadXml = $this->payload()->buildQuantityUpdateXml($skuId, $qty);
-
-            $timestamp = (string) round(microtime(true) * 1000);
-            $params = [
-                'app_key' => (string) $creds['app_key'],
-                'sign_method' => 'sha256',
-                'timestamp' => $timestamp,
-                'access_token' => (string) $creds['access_token'],
-                'payload' => $payloadXml,
-            ];
-            $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
-
-            $result = $client->post((string) $setting->region, $apiPath, $params);
-            $last = $result;
-
-            LazadaApiLog::safeCreate([
-                'pack' => 'lazada.product.price_quantity.update.bulk.variant',
-                'method' => 'POST',
-                'api_path' => $apiPath,
-                'auth_required' => true,
-                'request_params' => $params,
-                'response_status' => (int)($result['status'] ?? 0),
-                'ok' => (bool)($result['ok'] ?? false),
-                'response_body' => $result['body'] ?? $result,
-                'user_id' => auth()->id(),
-            ]);
-
-            $e = $this->payload()->extractLazadaError($result);
-            if ($e['ok']) {
-                $ok++;
-            } else {
-                $err++;
-            }
-        }
-
-        $summary = [
-            'ok' => $err === 0,
-            'status' => (int)($last['status'] ?? 200),
-            'body' => [
-                'code' => $err === 0 ? '0' : 'PARTIAL_FAILURE',
-                'message' => "Bulk synced qty for ".count($variantSkus)." SKU(s). Success: {$ok}, Error: {$err}.",
-                'last' => $last['body'] ?? $last,
-            ],
-        ];
-
-        $this->persistProductSyncStatus($listing, 'bulk_sync_quantity', $summary);
-
-        if ($err === 0) {
-            $okCount++;
-        } else {
-            $errCount++;
-        }
-    }
+    $msg = "Bulk Sync Qty: {$results['ok']} ok, {$results['err']} failed"
+        . ($results['skipped'] > 0 ? ", {$results['skipped']} skipped (disabled)" : '') . '.'
+        . \Extensions\lazada\Services\Lazada\LazadaStockPricePush::ledgerClause($results);
 
     return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-        ->with('status', "Bulk Sync Qty: processed ".count($ids)." listing(s). Success: {$okCount}, Error: {$errCount}.");
+        ->with(\App\Integrations\Push\PushLedger::batchTone($results['ok'], $results['err']), $msg);
 }
 
 public function bulkSyncPrice(Request $request, LazadaClient $client)
@@ -2174,173 +1875,36 @@ public function bulkSyncPrice(Request $request, LazadaClient $client)
     }
 
     $pfx = (string) config('catalog.prefix');
-
     $listings = LazadaProduct::query()->whereIn('id', $ids)->get();
-    $productIds = $listings->pluck('product_id')->filter()->unique()->values()->all();
 
-    $products = collect();
-    if (!empty($productIds)) {
-        $products = DB::table($pfx.'product as p')
-            ->whereIn('p.product_id', $productIds)
-            ->get(['p.product_id', 'p.sku', 'p.price'])
-            ->keyBy('product_id');
+    /* Each listing's own price rule (group fallback), resolved per
+     * product inside the closure - a bulk push must not borrow one
+     * listing's markup for another. */
+    $rules = [];
+    foreach ($listings as $l) {
+        $fixed = $l->markup_fixed;
+        $pct = $l->markup_percent;
+        if ($fixed === null && $pct === null) {
+            $g = $l->groups()->first();
+            if ($g) { $fixed = $g->markup_fixed; $pct = $g->markup_percent; }
+        }
+        $rules[(int) $l->product_id] = [$fixed, $pct];
     }
 
-    // Preload ERP variant price adjustments (product_option_value) for selected products.
-    $variantPriceByProductId = collect();
-    if (!empty($productIds)) {
-        $vrows = DB::table($pfx.'product_option_value as pov')
-            ->whereIn('pov.product_id', $productIds)
-            ->whereNotNull('pov.sku')
-            ->where('pov.sku', '!=', '')
-            ->orderBy('pov.product_option_value_id')
-            ->get(['pov.product_id', 'pov.sku', 'pov.absolute_price']);
-        $variantPriceByProductId = $vrows->groupBy(fn($r) => (int)$r->product_id);
-    }
+    $results = app(\Extensions\lazada\Services\Lazada\LazadaStockPricePush::class)
+        ->push('price', $setting, $creds, $listings, $pfx,
+            function (int $pid, float $base) use ($rules): float {
+                [$fixed, $pct] = $rules[$pid] ?? [null, null];
 
-    $okCount = 0;
-    $errCount = 0;
+                return \Extensions\lazada\Services\Lazada\LazadaPushPayload::computeFinalPrice($base, (float) ($fixed ?? 0), (float) ($pct ?? 0));
+            });
 
-    foreach ($listings as $listing) {
-        $product = $products->get((int)$listing->product_id);
-        if (!$product) {
-            $this->persistProductSyncStatus($listing, 'bulk_sync_price', ['ok' => false, 'body' => ['code' => 'ERP_PRODUCT_NOT_FOUND', 'message' => 'ERP product not found']]);
-            $errCount++;
-            continue;
-        }
-
-        if (empty($listing->lazada_item_id)) {
-            $this->persistProductSyncStatus($listing, 'bulk_sync_price', ['ok' => false, 'body' => ['code' => 'NO_ITEM_ID', 'message' => 'No Lazada Item ID. Sync Lazada ID first.']]);
-            $errCount++;
-            continue;
-        }
-
-        // Resolve Lazada SkuIds (cached or fetched from API)
-        $skuIdMap = $this->itemCache()->resolveSkuIds($listing, $setting, $client);
-        if (empty($skuIdMap)) {
-            $this->persistProductSyncStatus($listing, 'bulk_sync_price', ['ok' => false, 'body' => ['code' => 'NO_SKU_IDS', 'message' => 'Could not resolve Lazada SkuIds']]);
-            $errCount++;
-            continue;
-        }
-
-        $apiPath = '/product/price_quantity/update';
-
-        $pid = (int)($product->product_id ?? 0);
-        $basePrice = (float)($product->price ?? 0);
-        if ($basePrice < 0) {
-            $basePrice = 0;
-        }
-
-        $variants = $variantPriceByProductId->get($pid);
-        $variantSkus = [];
-        if ($variants && count($variants) > 0) {
-            foreach ($variants as $vr) {
-                $vSku = trim((string)($vr->sku ?? ''));
-                if ($vSku === '') continue;
-                $vPrice = (float)($vr->absolute_price ?? $basePrice);
-                if ($vPrice < 0) $vPrice = 0;
-                $variantSkus[] = ['seller_sku' => $vSku, 'price' => $vPrice];
-            }
-        }
-
-        if (empty($variantSkus)) {
-            $sku = trim((string)($product->sku ?? ''));
-            if ($sku === '') {
-                $this->persistProductSyncStatus($listing, 'bulk_sync_price', ['ok' => false, 'body' => ['code' => 'EMPTY_SKU', 'message' => 'ERP product SKU is empty']]);
-                $errCount++;
-                continue;
-            }
-            $variantSkus = [[
-                'seller_sku' => $sku,
-                'price' => $basePrice,
-            ]];
-        }
-
-        // Apply listing/group markup to all variant prices
-        $fixedMarkup = $listing->markup_fixed;
-        $percentMarkup = $listing->markup_percent;
-        if ($fixedMarkup === null && $percentMarkup === null) {
-            $mkGroup = $listing->groups()->first();
-            if ($mkGroup) {
-                $fixedMarkup = $mkGroup->markup_fixed;
-                $percentMarkup = $mkGroup->markup_percent;
-            }
-        }
-        foreach ($variantSkus as &$vs) {
-            $vs['price'] = LazadaPushPayload::computeFinalPrice((float) $vs['price'], $fixedMarkup, $percentMarkup);
-        }
-        unset($vs);
-
-        $ok = 0;
-        $err = 0;
-        $last = null;
-        foreach ($variantSkus as $v) {
-            $sku = trim((string)($v['seller_sku'] ?? ''));
-            if ($sku === '') continue;
-            $skuId = $skuIdMap[$sku] ?? null;
-            if ($skuId === null) {
-                $err++;
-                continue;
-            }
-            $price = (float)($v['price'] ?? 0);
-            if ($price < 0) $price = 0;
-            $priceStr = number_format($price, 2, '.', '');
-            $payloadXml = $this->payload()->buildPriceUpdateXml($skuId, $priceStr);
-
-            $timestamp = (string) round(microtime(true) * 1000);
-            $params = [
-                'app_key' => (string) $creds['app_key'],
-                'sign_method' => 'sha256',
-                'timestamp' => $timestamp,
-                'access_token' => (string) $creds['access_token'],
-                'payload' => $payloadXml,
-            ];
-            $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
-
-            $result = $client->post((string) $setting->region, $apiPath, $params);
-            $last = $result;
-
-            LazadaApiLog::safeCreate([
-                'pack' => 'lazada.product.price_quantity.update.bulk.variant',
-                'method' => 'POST',
-                'api_path' => $apiPath,
-                'auth_required' => true,
-                'request_params' => $params,
-                'response_status' => (int)($result['status'] ?? 0),
-                'ok' => (bool)($result['ok'] ?? false),
-                'response_body' => $result['body'] ?? $result,
-                'user_id' => auth()->id(),
-            ]);
-
-            $e = $this->payload()->extractLazadaError($result);
-            if ($e['ok']) {
-                $ok++;
-            } else {
-                $err++;
-            }
-        }
-
-        $summary = [
-            'ok' => $err === 0,
-            'status' => (int)($last['status'] ?? 200),
-            'body' => [
-                'code' => $err === 0 ? '0' : 'PARTIAL_FAILURE',
-                'message' => "Bulk synced price for ".count($variantSkus)." SKU(s). Success: {$ok}, Error: {$err}.",
-                'last' => $last['body'] ?? $last,
-            ],
-        ];
-
-        $this->persistProductSyncStatus($listing, 'bulk_sync_price', $summary);
-
-        if ($err === 0) {
-            $okCount++;
-        } else {
-            $errCount++;
-        }
-    }
+    $msg = "Bulk Sync Price: {$results['ok']} ok, {$results['err']} failed"
+        . ($results['skipped'] > 0 ? ", {$results['skipped']} skipped (disabled)" : '') . '.'
+        . \Extensions\lazada\Services\Lazada\LazadaStockPricePush::ledgerClause($results);
 
     return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-        ->with('status', "Bulk Sync Price: processed ".count($ids)." listing(s). Success: {$okCount}, Error: {$errCount}.");
+        ->with(\App\Integrations\Push\PushLedger::batchTone($results['ok'], $results['err']), $msg);
 }
 
 public function bulkDeleteFromLazada(Request $request, LazadaClient $client)

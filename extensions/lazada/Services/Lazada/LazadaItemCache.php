@@ -232,17 +232,14 @@ public function resolveSkuIds(LazadaProduct $listing, object $setting, LazadaCli
             $map[trim((string) $v->seller_sku)] = (int) $v->sku_id;
         }
 
-        // Check if all ERP option SKUs are covered by the cache.
-        // If not, the cache is stale — re-fetch from Lazada API.
+        // Check if all ERP variation SKUs are covered by the cache.
+        // If not, the cache is stale — re-fetch from Lazada API. The diff
+        // reads combinations AND option values (Phase F, #184): it read
+        // POV alone before, so a multi-option product's cache was forever
+        // "fresh" and a variation added in the catalogue never triggered
+        // the refetch that would have found its Lazada twin.
         $pfx = (string) config('catalog.prefix');
-        $erpSkus = DB::table($pfx . 'product_option_value')
-            ->where('product_id', (int) $listing->product_id)
-            ->whereNotNull('sku')
-            ->where('sku', '!=', '')
-            ->pluck('sku')
-            ->map(fn ($s) => trim((string) $s))
-            ->filter(fn ($s) => $s !== '')
-            ->toArray();
+        $erpSkus = \App\Integrations\Push\PushLedger::erpVariationSkus([(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? [];
 
         $missingSkus = array_diff($erpSkus, array_keys($map));
         if (empty($missingSkus)) {

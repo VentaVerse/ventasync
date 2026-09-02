@@ -188,14 +188,9 @@ class LazadaPushStock extends Command
                 ->map(fn ($s) => trim((string) $s))
                 ->toArray();
 
-            $erpSkus = DB::table($pfx . 'product_option_value')
-                ->where('product_id', (int) $listing->product_id)
-                ->whereNotNull('sku')
-                ->where('sku', '!=', '')
-                ->pluck('sku')
-                ->map(fn ($s) => trim((string) $s))
-                ->filter(fn ($s) => $s !== '')
-                ->toArray();
+            // Combinations AND option values (Phase F, #184): POV alone
+            // meant a multi-option product's cache never went stale here.
+            $erpSkus = \App\Integrations\Push\PushLedger::erpVariationSkus([(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? [];
 
             if (empty($erpSkus) || empty(array_diff($erpSkus, $cachedSkus))) {
                 continue; // Cache is up-to-date
@@ -221,6 +216,13 @@ class LazadaPushStock extends Command
         // class for why this is shared with the UI controller's push path.
         $service = app(LazadaStockPushService::class);
         $rows = $service->buildPushItems($listing, $product, $pfx);
+        /* Orphan variants (on Lazada, gone from the catalogue) are skipped,
+         * not zeroed (Phase F, #184) - a silent zero is a lie the shop
+         * wears until someone notices the missing stock. */
+        $hasVariations = !empty(\App\Integrations\Push\PushLedger::erpVariationSkus([(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? []);
+        if ($hasVariations) {
+            $rows = array_values(array_filter($rows, fn ($r) => $r['matched'] ?? true));
+        }
 
         // Cron only consumes sku_id/seller_sku/quantity. Strip the price field.
         return array_map(function ($r) {
