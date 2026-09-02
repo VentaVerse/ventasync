@@ -287,6 +287,22 @@ class ShopeeProductController extends Controller
             ->forProducts(array_map('intval', $pageIds));
 
         // Load unmatched items
+        /* Orphan links (Phase F, #184): rows whose catalog product no
+         * longer exists. The catalogue-first table cannot carry them and
+         * hiding them would hide money possibly still sitting on Shopee -
+         * the same queue Lazada's index has had since Phase C. */
+        $orphanLinks = ShopeeProductLink::query()
+            ->whereNotExists(function ($q) use ($pfx) {
+                $q->select(DB::raw(1))
+                    ->from($pfx . 'product as op')
+                    ->whereColumn('op.product_id', 'shopee_product_links.product_id');
+            })
+            ->orderByDesc('id')
+            ->get()
+            ->groupBy(fn ($l) => (int) $l->product_id);
+        $orphanStates = app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)
+            ->forProducts($orphanLinks->keys()->map(fn ($v) => (int) $v)->all());
+
         $unmatchedItems = ShopeeUnmatchedItem::query()
             ->where('status', 'unmatched')
             ->orderBy('item_name')
@@ -322,6 +338,8 @@ class ShopeeProductController extends Controller
             'allGroups' => $allGroups,
             'groupsByProductId' => $pageGroupMap,
             'unmatchedItems' => $unmatchedItems,
+            'orphanLinks' => $orphanLinks,
+            'orphanStates' => $orphanStates,
             'optionRowsByProductId' => $optionRowsByProductId,
             'shopeeTab' => $shopeeTab,
             'liveCounts' => $liveCounts,
