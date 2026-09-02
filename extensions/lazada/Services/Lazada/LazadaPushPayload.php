@@ -35,8 +35,20 @@ class LazadaPushPayload
         return round($price, 2);
     }
 
-    public function buildLazadaProductCreatePayload(LazadaProduct $listing, ?object $setting = null, ?LazadaClient $client = null): array
+    public function buildLazadaProductCreatePayload(LazadaProduct $listing, ?object $setting = null, ?LazadaClient $client = null, array $overrides = []): array
     {
+        /* A GROUP push builds with the group's category, markups and
+         * attribute values without them ever becoming the listing's own
+         * (#104's rule). This used to be enforced by overwriting the
+         * listing's rows and restoring them after the build - a crash
+         * between the two left the listing permanently wearing the
+         * group's values. The overrides ride an in-memory clone and a
+         * post-read merge; nothing is written anywhere.
+         */
+        if (!empty($overrides['settings'])) {
+            $listing = (clone $listing)->forceFill($overrides['settings']);
+        }
+
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
@@ -69,6 +81,11 @@ class LazadaPushPayload
             ->where('lazada_product_id', $listing->id)
             ->pluck('value', 'attribute_key')
             ->toArray();
+
+        // The group's attribute values, merged in memory (see above).
+        foreach (($overrides['attributes'] ?? []) as $oKey => $oValue) {
+            $attrs[(string) $oKey] = $oValue;
+        }
 
         // Internal/legacy key - do not send to Lazada as it does not satisfy QC.
         unset($attrs['__images__']);

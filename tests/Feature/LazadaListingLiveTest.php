@@ -31,6 +31,9 @@ class LazadaListingLiveTest extends TestCase
     /** @var array<int, array{path: string, params: array}> */
     public array $sentPosts = [];
 
+    /** Optional POST answers, keyed by api path; default stays the generic ok. */
+    public array $postResponses = [];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -55,7 +58,12 @@ class LazadaListingLiveTest extends TestCase
             {
                 $this->test->sentPosts[] = ['path' => $apiPath, 'params' => $params];
 
-                return ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => []]];
+                $answer = $this->test->postResponses[$apiPath] ?? null;
+                if ($answer instanceof \Closure) {
+                    return $answer($params);
+                }
+
+                return $answer ?? ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => []]];
             }
             public function get(string $region, string $apiPath, array $params, string $mode = 'live'): array
             {
@@ -356,6 +364,71 @@ class LazadaListingLiveTest extends TestCase
         $r->assertSee("This group's last push", false);
         $r->assertSee('Special characters');
         $r->assertSee('from its listing');
+    }
+
+    /**
+     * A group push builds with the group's category and attribute values
+     * WITHOUT them ever touching the listing's rows (#104). The old
+     * implementation overwrote the rows and restored them after the build;
+     * a crash between the two corrupted the listing permanently. Now the
+     * overrides ride the builder in memory: the wire carries the group's
+     * values, the database keeps the listing's own.
+     */
+    public function test_a_group_push_carries_group_values_without_writing_them(): void
+    {
+        $productId = $this->seedProduct('Group-dressed product', 'GRP-DRESS');
+        $pfx = (string) config('catalog.prefix');
+        DB::table($pfx . 'product')->where('product_id', $productId)->update(['image' => 'catalog/x.png']);
+
+        $listing = LazadaProduct::query()->create([
+            'product_id' => $productId, 'primary_category_id' => 111,
+        ]);
+        // markup_fixed is deliberately not mass-assignable; seed it directly.
+        $listing->forceFill(['markup_fixed' => 5])->save();
+        \Extensions\lazada\Models\LazadaProductAttribute::create([
+            'lazada_product_id' => $listing->id, 'attribute_key' => 'material', 'value' => 'Maple',
+        ]);
+
+        $group = \Extensions\lazada\Models\LazadaProductGroup::create([
+            'name' => 'Dressing group', 'lazada_category_id' => 222,
+            'markup_fixed' => 20,
+        ]);
+        \Extensions\lazada\Models\LazadaProductGroupProduct::create([
+            'lazada_product_group_id' => $group->id, 'product_id' => $productId,
+            'lazada_product_id' => $listing->id, 'sync_status' => 'pending',
+        ]);
+        \Extensions\lazada\Models\LazadaProductGroupAttribute::create([
+            'lazada_product_group_id' => $group->id, 'attribute_key' => 'material', 'value' => 'Rosewood',
+        ]);
+        // The GROUP's category has a cached template with no questions, so
+        // the mandatory gate passes and the build reaches the wire.
+        \Extensions\lazada\Models\LazadaCategoryTemplate::create([
+            'region' => 'ph', 'primary_category_id' => 222,
+            'template_body' => ['data' => ['attributes' => []]], 'fetched_at' => now(),
+        ]);
+
+        // The image inlink migration gets a real-shaped answer, so the
+        // push reaches /product/create.
+        $this->postResponses['/image/migrate'] = ['ok' => true, 'status' => 200, 'body' => [
+            'code' => '0', 'data' => ['image' => ['url' => 'https://sg-live.slatic.net/p/fake.jpg']],
+        ]];
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.lazada.product-groups.push', $group->id), ['ids' => [$productId]])
+            ->assertRedirect();
+
+        $create = collect($this->sentPosts)->firstWhere('path', '/product/create');
+        $this->assertNotNull($create, 'the push must reach /product/create');
+        $payload = (string) ($create['params']['payload'] ?? '');
+        $this->assertStringContainsString('Rosewood', $payload, "the wire carries the group's value");
+        $this->assertStringContainsString('222', $payload, "the wire carries the group's category");
+
+        $listing->refresh();
+        $this->assertSame(111, (int) $listing->primary_category_id, "the listing's own category is untouched");
+        $this->assertSame(5.0, (float) $listing->markup_fixed);
+        $this->assertSame('Maple', \Extensions\lazada\Models\LazadaProductAttribute::query()
+            ->where('lazada_product_id', $listing->id)->where('attribute_key', 'material')->value('value'),
+            "the listing's own attribute value is untouched");
     }
 
     public function test_readiness_names_gaps_and_the_bulk_upload_refuses_to_start(): void
