@@ -67,7 +67,14 @@ class TikTokListingController extends Controller
             : null;
         $readiness = app(TikTokListingReadiness::class)->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => []];
 
+        /* The engine's answer for this product, computed AFTER the
+         * write-through above so it reads the freshest mirror (#184 D).
+         * The page renders its words, never a map of its own. */
+        $listingState = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)
+            ->forProducts([$productId])[$productId] ?? null;
+
         return view('ext-tiktok::listings.edit', [
+            'listingState' => $listingState,
             'product' => $product,
             'listing' => $listing,
             'truth' => $truth,

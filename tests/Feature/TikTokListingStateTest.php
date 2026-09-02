@@ -254,6 +254,22 @@ class TikTokListingStateTest extends TestCase
         $this->assertSame(1, $data['tiktokSyncStatus']->listing_attention);
     }
 
+    /** The whole point of the catalogue-first index: a brand-new product is VISIBLE. */
+    public function test_a_product_with_no_tiktok_row_is_visible_by_default(): void
+    {
+        $this->seedProduct('My very first product', 'FIRST-1');
+
+        $page = $this->actingAs($this->manager())->get(route('ext.tiktok.products.index'))->assertOk();
+        $page->assertSee('My very first product');
+        $page->assertSee('Not listed');
+
+        // Before Phase D a product without a group or a link was invisible
+        // even to the not_listed filter - the scope whereIn intersected it away.
+        $this->actingAs($this->manager())
+            ->get(route('ext.tiktok.products.index', ['sync_status' => 'not_listed']))
+            ->assertOk()->assertSee('My very first product');
+    }
+
     /** Core reaches TikTok's states through the same contract as Shopee and Lazada. */
     public function test_the_engine_is_reachable_through_the_listing_state_contract(): void
     {

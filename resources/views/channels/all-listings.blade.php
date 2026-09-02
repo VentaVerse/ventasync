@@ -1,6 +1,7 @@
 @extends('layouts.blotter')
 @section('title', 'All Listings')
-@section('breadcrumb', 'All listings')
+{{-- No breadcrumb leaf: the nav entry already names this page, and a
+     leaf here rendered 'All listings' twice in the trail. --}}
 
 {{-- All Listings (Phase D, #184): rows are the catalogue, columns are
      whichever enabled channels implement ListingStateSource. Every badge

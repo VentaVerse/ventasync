@@ -21,7 +21,6 @@
         unset($qp['page']);
         return url()->current() . '?' . http_build_query($qp);
     };
-    $statusMap = \Extensions\tiktok\Services\TikTok\TikTokLiveListing::STATUS_MAP;
     $tabDefs = \Extensions\tiktok\Services\TikTok\TikTokLiveListing::TABS;
     $tabQuery = request()->except('page', 'tiktok_tab');
 @endphp
@@ -39,7 +38,8 @@
             @if($hasFilters)
                 {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product matches' : 'products match' }}
             @else
-                {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product' : 'products' }} in scope for TikTok Shop
+                {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product' : 'products' }} in your catalogue
+                &middot; {{ number_format($listedTotal ?? 0) }} listed on TikTok Shop
             @endif
         </p>
     </div>
@@ -177,7 +177,7 @@
 @endif
 
 @if($products->count() === 0)
-    <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'No products in scope yet' }}"
+    <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'No products yet' }}"
                 :description="$hasFilters
                     ? 'Try clearing the search, or widening the group and status filters.'
                     : 'This list shows catalog products that belong to a TikTok product group, plus anything already on TikTok Shop. Create a product group to bring products into scope.'">
@@ -230,7 +230,13 @@
             if ($listed && $liveCounts !== null) {
                 $rowLiveStatus = $liveStatuses[(string) $ttId] ?? null;
             }
-            $rowLiveMap = $statusMap + ['MISSING' => ['Not found on TikTok Shop', 'danger']];
+            /* ONE state per row (Phase D, #184): the engine's answer feeds
+               the badge, the drift chip AND the action menu (#188), so the
+               words and the buttons can never disagree. The blade's private
+               label map - built here out of STATUS_MAP plus its own MISSING
+               entry - is gone. */
+            $rowState = ($listingStates ?? [])[$pid] ?? null;
+            $stateClass = \App\Integrations\Listings\ListingState::class;
             $attemptFailed = $attempt && $attempt->sync_status === 'error';
         @endphp
         <tr>
@@ -283,22 +289,37 @@
                 @if($listed)<span class="x-num">{{ $ttId }}</span>@else<span class="x-cell-muted">None</span>@endif
             </td>
             <td class="cc-col-sync" data-label="Listing">
-                @if($rowLiveStatus !== null && isset($rowLiveMap[$rowLiveStatus]))
-                    <x-ui.badge :tone="$rowLiveMap[$rowLiveStatus][1]">{{ $rowLiveMap[$rowLiveStatus][0] }}</x-ui.badge>
-                @elseif($listed && $liveCounts !== null)
-                    <x-ui.badge tone="neutral" title="Press Refresh from TikTok Shop to read its status">Not checked yet</x-ui.badge>
-                @elseif($listed)
-                    <x-ui.badge tone="success">Listed</x-ui.badge>
-                @else
+                {{-- The engine's answer, rendered verbatim. Never checked
+                     reads as exactly that, not as a guess. --}}
+                @if($rowState === null)
                     <x-ui.badge tone="neutral">Not listed</x-ui.badge>
-                    @php $rowReady = $readinessByProductId[$pid] ?? null; @endphp
-                    @if($rowReady !== null)
-                        @if($rowReady['ready'])
-                            <span class="cc-checked">Ready to push</span>
-                        @else
-                            <span class="cc-checked"><x-ui.badge tone="warning">Not ready</x-ui.badge>
-                                <x-ui.hint label="What is missing before a push">Missing: {{ implode(', ', $rowReady['missing']) }}</x-ui.hint></span>
-                        @endif
+                @elseif($rowState->state === $stateClass::UNKNOWN && $listed && ($liveCounts ?? null) === null)
+                    {{-- No shop configured: the mirror cannot exist, and
+                         "Listed" is all the link can honestly say. --}}
+                    <x-ui.badge tone="success">Listed</x-ui.badge>
+                @elseif($rowState->state === $stateClass::UNKNOWN)
+                    <x-ui.badge tone="neutral" title="Press Refresh from TikTok Shop to read its status">{{ $rowState->label() }}</x-ui.badge>
+                @elseif($rowState->state === $stateClass::NOT_LISTED)
+                    <x-ui.badge :tone="$rowState->tone()">{{ $rowState->label() }}</x-ui.badge>
+                    @if($rowState->ready)
+                        <span class="cc-checked">Ready to push</span>
+                    @else
+                        <span class="cc-checked"><x-ui.badge tone="warning">Not ready</x-ui.badge>
+                            <x-ui.hint label="What is missing before a push">Missing: {{ $rowState->missingSummary() }}</x-ui.hint></span>
+                    @endif
+                @else
+                    {{-- The title rides a wrapping span: Blade cannot compile
+                         an @if inside a component tag's attribute list. --}}
+                    <span @if($rowState->checkedAt) title="Checked {{ $rowState->checkedAt->diffForHumans() }}" @endif>
+                        <x-ui.badge :tone="$rowState->tone()">{{ $rowState->label() }}</x-ui.badge>
+                    </span>
+                    {{-- Drift (#100), on this index for the first time: live
+                         and out of date are different facts, both shown. --}}
+                    @if($rowState->driftLabel())
+                        <span class="cc-checked"><x-ui.badge tone="warning">{{ $rowState->driftLabel() }}</x-ui.badge>
+                            <x-ui.hint label="What changed">{{ implode(' ', $rowState->reasons) }}</x-ui.hint></span>
+                    @elseif($rowState->reasons)
+                        <x-ui.hint label="What TikTok Shop says">{{ implode(' ', $rowState->reasons) }}</x-ui.hint>
                     @endif
                 @endif
             </td>
@@ -342,14 +363,18 @@
                                 @csrf
                                 <button type="submit" class="x-menu__item">Push price</button>
                             </form>
-                            @if($rowLiveStatus === 'ACTIVATE')
+                            {{-- The marketplace's own on/off, from the state
+                                 the badge wears (#188) - not the raw string,
+                                 which also went silent whenever the tab strip
+                                 was hidden. --}}
+                            @if($rowState?->state === $stateClass::LIVE)
                                 <form method="POST" action="{{ route('ext.tiktok.listings.toggle', $pid) }}" data-slow-action
                                       data-confirm="Deactivate this product on TikTok Shop? Buyers stop seeing it. It can be activated again at any time." data-confirm-verb="Deactivate">
                                     @csrf
                                     <input type="hidden" name="action" value="deactivate">
                                     <button type="submit" class="x-menu__item">Deactivate on TikTok Shop</button>
                                 </form>
-                            @elseif($rowLiveStatus === 'SELLER_DEACTIVATED')
+                            @elseif($rowState?->state === $stateClass::INACTIVE)
                                 <form method="POST" action="{{ route('ext.tiktok.listings.toggle', $pid) }}" data-slow-action
                                       data-confirm="Activate this product on TikTok Shop? Buyers see it again once TikTok applies it." data-confirm-tone="primary" data-confirm-verb="Activate">
                                     @csrf

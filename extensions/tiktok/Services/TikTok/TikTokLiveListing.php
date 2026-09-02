@@ -13,24 +13,17 @@ use Extensions\tiktok\Models\TikTokApiLog;
  */
 class TikTokLiveListing
 {
-    /** TikTok's product status words -> the seller center's, with a badge tone. */
-    public const STATUS_MAP = [
-        'ACTIVATE' => ['Live', 'success'],
-        'SELLER_DEACTIVATED' => ['Deactivated', 'neutral'],
-        'PLATFORM_DEACTIVATED' => ['Deactivated by TikTok', 'danger'],
-        'IN_REVIEW' => ['Under TikTok review', 'warning'],
-        'PENDING' => ['Under TikTok review', 'warning'],
-        'FAILED' => ['Failed review', 'danger'],
-        'FREEZE' => ['Frozen', 'danger'],
-        'DRAFT' => ['Draft', 'neutral'],
-        'DELETED' => ['Deleted', 'neutral'],
-    ];
+    /* The STATUS_MAP that lived here is gone (#184 D): the words come
+     * from TikTokListingStates -> ListingState now, one vocabulary for
+     * every surface. This service keeps only the wire and the tabs. */
 
-    /** The index's tabs: key => [label, TikTok status filter or null for all]. */
+    /** The index's tabs: key => [label, TikTok status filter or null for all].
+     * Labels speak the engine's words - the row badge says Unlisted, so the
+     * tab that filters to it must not say Deactivated. */
     public const TABS = [
         'all' => ['All', null],
         'live' => ['Live', 'ACTIVATE'],
-        'deactivated' => ['Deactivated', 'SELLER_DEACTIVATED'],
+        'deactivated' => ['Unlisted', 'SELLER_DEACTIVATED'],
         'review' => ['Under review', 'IN_REVIEW'],
         'failed' => ['Failed review', 'FAILED'],
         'frozen' => ['Frozen', 'FREEZE'],

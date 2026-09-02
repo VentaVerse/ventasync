@@ -526,6 +526,10 @@ class TikTokProductGroupController extends Controller
             'truthByProductId'     => $truthByProductId,
             'manualIds'            => $manualIds,
             'optionRowsByProductId' => $optionRowsByProductId,
+            /* ONE state per row (#188): the same engine the listings page
+             * renders, so badges and menus agree across surfaces. */
+            'listingStates'        => app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)
+                ->forProducts(array_map('intval', $pageIds)),
             'q'                    => $q,
             'syncStatus'           => $syncStatus,
             'erpStatus'            => $erpStatus,

@@ -70,11 +70,6 @@ class TikTokProductController extends Controller
         $sort = array_key_exists((string) $request->get('sort', 'id'), $sortColumns) ? (string) $request->get('sort', 'id') : 'id';
         $dir = strtolower((string) $request->get('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
 
-        // Scope: every product a TikTok group holds, plus anything already
-        // on TikTok Shop through the listing record.
-        $pivotProductIds = TikTokProductGroupProduct::query()->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->all();
-        $listedProductIds = TikTokListing::query()->whereNotNull('tiktok_product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
-        $scopeIds = array_values(array_unique(array_merge($pivotProductIds, $listedProductIds)));
         $groupsByProductId = DB::table('tiktok_product_group_products as tp')
             ->join('tiktok_product_groups as tg', 'tg.id', '=', 'tp.tiktok_product_group_id')
             ->get(['tp.product_id', 'tg.name'])
@@ -86,8 +81,14 @@ class TikTokProductController extends Controller
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
-            ->whereIn('p.product_id', $scopeIds ?: [0])
             ->select('p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as manufacturer_name');
+        /* No scope whereIn: the default view is THE CATALOGUE (Phase D,
+         * #184), as on Shopee and Lazada since Phase C. It used to be
+         * "products in a group, plus products already linked" - the
+         * CedCommerce worldview, where a product only existed for TikTok
+         * once a group claimed it, and a groupless never-pushed product
+         * was invisible even to the not_listed filter. Filtering by a
+         * group still narrows above. */
 
         if ($groupFilter !== 'all') {
             $inGroup = TikTokProductGroupProduct::query()->where('tiktok_product_group_id', (int) $groupFilter)->pluck('product_id')->all();
@@ -193,8 +194,25 @@ class TikTokProductController extends Controller
             }
         }
 
+        /* ONE state per row (Phase D, #184): the engine folds the mirror,
+         * the pivot fallback, drift and readiness into a single
+         * ListingState the blade renders verbatim - badge, drift chip and
+         * action menu alike (#188). Computed after the blank fill so it
+         * reads a filled mirror. */
+        $listingStates = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)
+            ->forProducts($pageIds);
+
+        // How many catalogue products actually stand on TikTok Shop, for
+        // the subtitle - listing rows plus pivot-only legacies, distinct.
+        $listedTotal = count(array_unique(array_merge(
+            TikTokListing::query()->whereNotNull('tiktok_product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all(),
+            TikTokProductGroupProduct::query()->whereNotNull('tiktok_product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all()
+        )));
+
         return view('ext-tiktok::products.index', [
             'products' => $products,
+            'listingStates' => $listingStates,
+            'listedTotal' => $listedTotal,
             'q' => $q, 'sort' => $sort, 'dir' => $dir,
             'syncStatus' => $syncStatus, 'manufacturerFilter' => $manufacturerFilter,
             'groupFilter' => $groupFilter, 'erpStatus' => $erpStatus,
@@ -228,7 +246,8 @@ class TikTokProductController extends Controller
             return redirect()->back()->with('error', $result['error'] . ' The statuses shown are from the last refresh.');
         }
 
-        $labels = ['ACTIVATE' => 'live', 'SELLER_DEACTIVATED' => 'deactivated', 'PLATFORM_DEACTIVATED' => 'deactivated by TikTok',
+        // One word per state, the engine's (#184 D): 'unlisted', not 'deactivated'.
+        $labels = ['ACTIVATE' => 'live', 'SELLER_DEACTIVATED' => 'unlisted', 'PLATFORM_DEACTIVATED' => 'deactivated by TikTok',
             'IN_REVIEW' => 'under review', 'PENDING' => 'under review', 'FAILED' => 'failed review', 'FREEZE' => 'frozen',
             'DRAFT' => 'draft', 'DELETED' => 'deleted', 'MISSING' => 'not found on TikTok Shop'];
         $parts = [];

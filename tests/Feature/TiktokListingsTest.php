@@ -213,7 +213,8 @@ class TiktokListingsTest extends TestCase
 
         $r->assertSessionHas('status');
         $this->assertStringContainsString('1 live', (string) session('status'));
-        $this->assertStringContainsString('1 deactivated', (string) session('status'));
+        // 'unlisted', the engine's word - the row badge and the tab say it too (#184 D).
+        $this->assertStringContainsString('1 unlisted', (string) session('status'));
         $this->assertCount(1, $this->callsFor('POST', '/product/202309/products/search'));
         $this->assertSame('ACTIVATE', TikTokListing::where('tiktok_product_id', 'tt-live')->value('live_status'));
         $this->assertSame('MISSING', TikTokListing::where('tiktok_product_id', 'tt-gone')->value('live_status'));

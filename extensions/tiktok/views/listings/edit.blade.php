@@ -12,8 +12,11 @@
     $canManage = auth()->user()?->hasPermission('manage_tiktok/listing') ?? false;
     $canEditCatalog = auth()->user()?->hasPermission('manage_catalog/product') ?? false;
     $listed = (bool) $truth;
-    $statusMap = \Extensions\tiktok\Services\TikTok\TikTokLiveListing::STATUS_MAP;
-    [$statusLabel, $statusTone] = $live ? ($statusMap[$live['status']] ?? [$live['status'] ?: 'Unknown', 'neutral']) : [null, null];
+    /* The engine's words (#184 D), same as every list this product sits
+       in - the page's own STATUS_MAP copy is gone. */
+    [$statusLabel, $statusTone] = ($live && ($listingState ?? null))
+        ? [$listingState->label(), $listingState->tone()]
+        : [null, null];
 
     $corePrice = (float) $product->price;
     $pct = $listing?->markup_percent;
