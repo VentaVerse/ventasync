@@ -326,6 +326,9 @@ class ShopeeProductController extends Controller
 
         return view('ext-shopee::products.index', [
             'products' => $products,
+            /* The relist preflight's page-side half (#191): a row whose
+             * Relist would certainly be refused offers the fix instead. */
+            'parcelGaps' => $this->parcelGapFor($products->pluck('product_id')->map(fn ($v) => (int) $v)->all()),
             'q' => $q,
             'shopeeLinks' => $shopeeLinks,
             'sort' => $sort,
@@ -460,6 +463,25 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', 'None of the selected products is on Shopee, so there is nothing to ' . ($unlist ? 'unlist' : 'relist') . '.');
         }
 
+        /* THE PREFLIGHT, per row (#191): relist candidates missing their
+         * parcel are held back BY NAME, never fired at Shopee to collect
+         * the refusal one row at a time. */
+        $heldBack = [];
+        if (!$unlist) {
+            $parcelGaps = $this->parcelGapFor($links->pluck('product_id')->map(fn ($v) => (int) $v)->all());
+            [$held, $links] = $links->partition(fn ($l) => isset($parcelGaps[(int) $l->product_id]));
+            foreach ($held as $l) {
+                $heldBack[] = '#' . $l->product_id . ' needs ' . $parcelGaps[(int) $l->product_id];
+            }
+            if ($links->isEmpty()) {
+                return redirect()->back()->with('error',
+                    'Nothing was relisted: Shopee will refuse ' . (count($heldBack) === 1 ? 'it' : 'all of them') . ' without a parcel. '
+                    . implode('; ', array_slice($heldBack, 0, 5))
+                    . (count($heldBack) > 5 ? '; and ' . (count($heldBack) - 5) . ' more' : '')
+                    . '. Add weight and size on the catalog products first.');
+            }
+        }
+
         $result = $this->unlistItems($client, $auth, $links->pluck('shopee_item_id')->all(), $unlist);
         $okItems = array_flip($result['ok']);
         foreach ($links as $l) {
@@ -484,11 +506,16 @@ class ShopeeProductController extends Controller
         if ($notOnShopee > 0) {
             $parts[] = $notOnShopee . ' skipped, not on Shopee.';
         }
+        if ($heldBack !== []) {
+            $parts[] = count($heldBack) . ' held back - Shopee would refuse without a parcel: '
+                . implode('; ', array_slice($heldBack, 0, 5))
+                . (count($heldBack) > 5 ? '; and ' . (count($heldBack) - 5) . ' more' : '') . '.';
+        }
         if ($result['error'] !== null) {
             $parts[] = 'Shopee did not answer: ' . $result['error'];
         }
         $message = implode(' ', $parts);
-        $tone = ($result['ok'] === [] || $result['error'] !== null) ? 'error' : 'status';
+        $tone = ($result['ok'] === [] || $result['error'] !== null) ? 'error' : ($heldBack !== [] || $result['failed'] !== [] ? 'warning' : 'status');
 
         return redirect()->back()->with($tone, $message);
     }
@@ -2529,6 +2556,29 @@ class ShopeeProductController extends Controller
 
     // ── General Helpers ──────────────────────────────────────────────
 
+    /**
+     * The parcel gap per product (#191): weight and package dimensions on
+     * the catalog product, which Shopee demands for pushes AND relists.
+     * @return array<int, string> product id => gap sentence (absent = fine)
+     */
+    private function parcelGapFor(array $productIds): array
+    {
+        $pfx = (string) config('catalog.prefix');
+        $out = [];
+        $rows = DB::table($pfx . 'product')->whereIn('product_id', $productIds)
+            ->get(['product_id', 'weight', 'length', 'width', 'height']);
+        foreach ($rows as $r) {
+            $missing = [];
+            if ((float) $r->weight <= 0) $missing[] = 'a package weight';
+            if ((float) $r->length <= 0 || (float) $r->width <= 0 || (float) $r->height <= 0) $missing[] = 'a package size (L×W×H)';
+            if ($missing !== []) {
+                $out[(int) $r->product_id] = implode(' and ', $missing);
+            }
+        }
+
+        return $out;
+    }
+
     private function parseProductIds(Request $request): array
     {
         $ids = $request->input('product_ids', []);
@@ -3129,6 +3179,13 @@ class ShopeeProductController extends Controller
             return ['ok' => false, 'message' => 'This product is not on Shopee yet, so there is nothing to update. Push it first.'];
         }
 
+        /* THE PREFLIGHT (#191): update_item carries the parcel, and Shopee
+         * refuses without one - knowable here, so no request is fired. */
+        if ($gap = $this->parcelGapFor([$productId])[$productId] ?? null) {
+            return ['ok' => false, 'message' => 'Not updated: Shopee will refuse it without ' . $gap
+                . '. Add them on the catalog product (Catalog → Products → edit), then push the update.'];
+        }
+
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $product = DB::table($pfx . 'product as p')
@@ -3420,6 +3477,17 @@ class ShopeeProductController extends Controller
         if (!$setting || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->back()->with('error', "Missing Shopee {$modeLabel} settings.");
+        }
+
+        /* THE PREFLIGHT (#191, the owner's own failure): Shopee refuses a
+         * relist of an item without a parcel, and used to say so only
+         * AFTER the call - then the next error, then the next. What is
+         * knowable in advance is checked in advance; the flash names the
+         * fields and where they live, and no request is fired. */
+        if (!$unlist && ($parcelGap = $this->parcelGapFor([$productId])[$productId] ?? null)) {
+            return redirect()->back()->with('error',
+                'Not relisted: Shopee will refuse it without ' . $parcelGap
+                . '. Add them on the catalog product (Catalog → Products → edit), then relist.');
         }
 
         $result = $this->unlistItems($client, $auth, [(int) $link->shopee_item_id], $unlist);

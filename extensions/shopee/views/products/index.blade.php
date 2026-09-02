@@ -768,12 +768,20 @@
                                     <button type="submit" class="x-menu__item">Unlist from Shopee</button>
                                 </form>
                             @elseif($link && $rowState?->state === \App\Integrations\Listings\ListingState::INACTIVE)
+                                @if(($parcelGaps[$p->product_id] ?? null) !== null)
+                                    {{-- The preflight, worn by the row (#191): Shopee
+                                         would refuse this relist for a knowable reason,
+                                         so the menu offers the FIX, not the failure. --}}
+                                    <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}"
+                                       title="Shopee will refuse a relist without {{ $parcelGaps[$p->product_id] }}">Add parcel size, then relist</a>
+                                @else
                                 <form method="POST" action="{{ route('ext.shopee.listings.toggle', $p->product_id) }}" data-slow-action
                                       data-confirm="Relist this item on Shopee? Buyers see it again immediately." data-confirm-tone="primary" data-confirm-verb="Relist">
                                     @csrf
                                     <input type="hidden" name="action" value="list">
                                     <button type="submit" class="x-menu__item">Relist on Shopee</button>
                                 </form>
+                                @endif
                             @endif
                             <div class="x-menu__sep"></div>
                             <form method="POST" action="{{ route('ext.shopee.products.unlink', $p->product_id) }}" data-slow-action

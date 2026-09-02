@@ -54,6 +54,7 @@ final class ListingState
     public const GAP_COURIERS = 'couriers';
     public const GAP_IMAGE = 'image';
     public const GAP_SHEET = 'sheet';
+    public const GAP_PARCEL = 'parcel';
     public const GAP_ATTRIBUTES = 'attributes';
 
     /**

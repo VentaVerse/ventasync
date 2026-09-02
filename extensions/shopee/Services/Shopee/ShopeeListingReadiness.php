@@ -53,6 +53,15 @@ class ShopeeListingReadiness
             ->whereIn('product_id', $productIds)
             ->pluck('image', 'product_id');
 
+        /* The parcel (#191): Shopee refuses a push - and a RELIST - of an
+         * item without a weight and package size, and it says so only
+         * after the call. The catalog product is where both live, so the
+         * gap is knowable here. */
+        $parcels = DB::table($pfx . 'product')
+            ->whereIn('product_id', $productIds)
+            ->get(['product_id', 'weight', 'length', 'width', 'height'])
+            ->keyBy('product_id');
+
         $categoryIds = $listings->pluck('shopee_category_id')
             ->filter()->map(fn ($v) => (int) $v)->unique()->values()->all();
         if ($sharedCategory) {
@@ -79,6 +88,11 @@ class ShopeeListingReadiness
             }
             if (trim((string) ($images[$productId] ?? '')) === '') {
                 $gaps[] = ['code' => \App\Integrations\Listings\ListingState::GAP_IMAGE, 'label' => 'a product image on the catalog product'];
+            }
+            $parcel = $parcels->get($productId);
+            if (!$parcel || (float) $parcel->weight <= 0 || (float) $parcel->length <= 0 || (float) $parcel->width <= 0 || (float) $parcel->height <= 0) {
+                $gaps[] = ['code' => \App\Integrations\Listings\ListingState::GAP_PARCEL,
+                    'label' => 'a package weight and size (L×W×H) on the catalog product'];
             }
 
             if ($categoryId) {
