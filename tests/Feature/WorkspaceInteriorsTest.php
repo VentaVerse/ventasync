@@ -174,8 +174,14 @@ class WorkspaceInteriorsTest extends TestCase
     /** @return array<string, string> route name => url */
     private function interiorUrls(): array
     {
+        // Multi-store S4 (#194): {store} needs a store to name, even for
+        // the guest and no-permission walks that seed nothing else.
+        if (ShopeeSetting::query()->count() === 0) {
+            $this->seedSetting();
+        }
+
         return [
-            'settings'       => route('ext.shopee.index'),
+            'settings'       => route('ext.shopee.settings.show'),
             'listings'       => route('ext.shopee.products.index'),
             'product-groups' => route('ext.shopee.product-groups.index'),
             'categories'     => route('ext.shopee.categories.index'),
@@ -344,7 +350,7 @@ class WorkspaceInteriorsTest extends TestCase
             route('ext.shopee.logistics.index') => ['<img src=x onerror=alert(2)>', '&lt;img src=x onerror=alert(2)&gt;'],
             route('ext.shopee.product-groups.index') => ['<b>bold group</b>', '&lt;b&gt;bold group&lt;/b&gt;'],
             route('ext.shopee.products.index') => ['<svg onload=alert(4)>', '&lt;svg onload=alert(4)&gt;'],
-            route('ext.shopee.index') => ['<i>alert(5)</i>', '&lt;i&gt;alert(5)&lt;/i&gt;'],
+            route('ext.shopee.settings.show') => ['<i>alert(5)</i>', '&lt;i&gt;alert(5)&lt;/i&gt;'],
         ] as $url => [$raw, $escaped]) {
             $html = $this->actingAs($user)->get($url)->assertOk()->getContent();
 
@@ -414,7 +420,7 @@ class WorkspaceInteriorsTest extends TestCase
         // page, so the fields still render - every one of them disabled, the
         // same treatment the status-mapping selects already carried. What
         // disappears is every control that writes.
-        $settings = $this->actingAs($user)->get(route('ext.shopee.index'))->assertOk();
+        $settings = $this->actingAs($user)->get(route('ext.shopee.settings.show'))->assertOk();
         $settings->assertDontSee(route('ext.shopee.toggle_mode'), false);
         $settings->assertDontSee(route('ext.shopee.token_get'), false);
         $settings->assertDontSee(route('ext.shopee.token_refresh'), false);
@@ -470,7 +476,7 @@ class WorkspaceInteriorsTest extends TestCase
             ->assertSee(route('ext.shopee.products.bulk_push'), false)
             ->assertSee(route('ext.shopee.products.search_catalog'), false);
 
-        $this->actingAs($user)->get(route('ext.shopee.index'))
+        $this->actingAs($user)->get(route('ext.shopee.settings.show'))
             ->assertOk()
             ->assertSee(route('ext.shopee.save'), false)
             ->assertSee(route('ext.shopee.token_get'), false);
@@ -539,7 +545,7 @@ class WorkspaceInteriorsTest extends TestCase
 
         $this->actingAs($this->manager())
             ->post(route('ext.shopee.save'), $payload)
-            ->assertRedirect(route('ext.shopee.index'));
+            ->assertRedirect(route('ext.shopee.settings.show'));
 
         $this->assertSame(111222, (int) ShopeeSetting::query()->first()->partner_id);
     }
@@ -565,7 +571,7 @@ class WorkspaceInteriorsTest extends TestCase
             'shop_id' => 900999,
             'access_token' => 'the-live-access-token',
             'region' => 'ph',
-        ])->assertRedirect(route('ext.shopee.index'))->assertSessionHas('status');
+        ])->assertRedirect(route('ext.shopee.settings.show'))->assertSessionHas('status');
 
         $row = ShopeeSetting::query()->first();
         $this->assertSame('live', $row->mode);
@@ -582,7 +588,7 @@ class WorkspaceInteriorsTest extends TestCase
             'sandbox_shop_id' => 800111,
             'sandbox_access_token' => 'the-sandbox-access-token',
             'sandbox_region' => 'sg',
-        ])->assertRedirect(route('ext.shopee.index'));
+        ])->assertRedirect(route('ext.shopee.settings.show'));
 
         $row->refresh();
         $this->assertSame('sandbox', $row->mode);
@@ -617,7 +623,7 @@ class WorkspaceInteriorsTest extends TestCase
             'shop_id' => '',
             'access_token' => '',
             'region' => 'sg',
-        ])->assertRedirect(route('ext.shopee.index'));
+        ])->assertRedirect(route('ext.shopee.settings.show'));
 
         $row = ShopeeSetting::query()->first();
         $this->assertSame('live-partner-key', decrypt($row->partner_key));
@@ -635,12 +641,12 @@ class WorkspaceInteriorsTest extends TestCase
         $user = $this->manager();
 
         $this->actingAs($user)->post(route('ext.shopee.toggle_mode'), ['mode' => 'sandbox'])
-            ->assertRedirect(route('ext.shopee.index'));
+            ->assertRedirect(route('ext.shopee.settings.show'));
 
         $this->assertSame('sandbox', ShopeeSetting::query()->first()->mode);
 
         $this->actingAs($user)->post(route('ext.shopee.toggle_mode'), ['mode' => 'live'])
-            ->assertRedirect(route('ext.shopee.index'));
+            ->assertRedirect(route('ext.shopee.settings.show'));
 
         $this->assertSame('live', ShopeeSetting::query()->first()->mode);
     }
@@ -699,7 +705,7 @@ class WorkspaceInteriorsTest extends TestCase
         $response = $this->actingAs($this->manager())
             ->get(route('ext.shopee.index', ['code' => 'the-auth-code', 'shop_id' => 900456]));
 
-        $response->assertRedirect(route('ext.shopee.index'));
+        $response->assertRedirect(route('ext.shopee.settings.show'));
         $response->assertSessionHas('shopee_result');
 
         Http::assertSentCount(1);
@@ -750,7 +756,7 @@ class WorkspaceInteriorsTest extends TestCase
 
         $this->actingAs($this->manager())
             ->get(route('ext.shopee.index', ['code' => 'sandbox-code', 'shop_id' => 800111]))
-            ->assertRedirect(route('ext.shopee.index'));
+            ->assertRedirect(route('ext.shopee.settings.show'));
 
         Http::assertSent(function ($request) {
             return str_starts_with(
@@ -776,7 +782,7 @@ class WorkspaceInteriorsTest extends TestCase
 
         $this->seedSetting();
 
-        $this->actingAs($this->manager())->get(route('ext.shopee.index'))->assertOk();
+        $this->actingAs($this->manager())->get(route('ext.shopee.settings.show'))->assertOk();
 
         Http::assertNothingSent();
     }
@@ -800,7 +806,7 @@ class WorkspaceInteriorsTest extends TestCase
         $this->seedSetting();
 
         $html = $this->actingAs($this->manager())
-            ->get(route('ext.shopee.index'))->assertOk()->getContent();
+            ->get(route('ext.shopee.settings.show'))->assertOk()->getContent();
 
         $redirect = preg_replace('/^http:/i', 'https:', route('ext.shopee.index'));
 
@@ -829,7 +835,7 @@ class WorkspaceInteriorsTest extends TestCase
         $this->seedSetting();
 
         $html = $this->actingAs($this->manager())
-            ->get(route('ext.shopee.index'))->assertOk()->getContent();
+            ->get(route('ext.shopee.settings.show'))->assertOk()->getContent();
 
         $this->assertStringContainsString('href="'.e(route('ext.shopee.authorize')).'"', $html);
         $this->assertStringContainsString('rel="noopener"', $html);
@@ -849,7 +855,7 @@ class WorkspaceInteriorsTest extends TestCase
         $this->seedSetting();
 
         $html = $this->actingAs($this->manager())
-            ->get(route('ext.shopee.index'))->assertOk()->getContent();
+            ->get(route('ext.shopee.settings.show'))->assertOk()->getContent();
 
         foreach ([
             'env', 'partner_id', 'partner_key', 'shop_id', 'access_token', 'region',
@@ -883,7 +889,7 @@ class WorkspaceInteriorsTest extends TestCase
         $this->seedSetting();
 
         $html = $this->actingAs($this->manager())
-            ->get(route('ext.shopee.index'))->assertOk()->getContent();
+            ->get(route('ext.shopee.settings.show'))->assertOk()->getContent();
 
         $saveAction = 'action="'.e(route('ext.shopee.save')).'"';
         preg_match_all('#<form[^>]*'.preg_quote($saveAction, '#').'.*?</form>#s', $html, $matches);
@@ -917,7 +923,7 @@ class WorkspaceInteriorsTest extends TestCase
         ]);
 
         $html = $this->actingAs($this->manager())
-            ->get(route('ext.shopee.index'))->assertOk()->getContent();
+            ->get(route('ext.shopee.settings.show'))->assertOk()->getContent();
 
         foreach ([
             'live-partner-key', 'live-access-token',
@@ -943,7 +949,7 @@ class WorkspaceInteriorsTest extends TestCase
             'response_body' => ['response' => ['shop_name' => 'Test & Co']],
         ]);
 
-        $this->actingAs($this->manager())->get(route('ext.shopee.index'))
+        $this->actingAs($this->manager())->get(route('ext.shopee.settings.show'))
             ->assertOk()
             ->assertSee('/api/v2/shop/get_shop_info')
             ->assertSee('action="'.e(route('ext.shopee.clear_api_logs')).'"', false);

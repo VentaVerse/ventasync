@@ -1370,69 +1370,9 @@
         "name": "ext.shopee.call_api"
     },
     {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/categories",
-        "name": "ext.shopee.categories.index"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/categories/fetch",
-        "name": "ext.shopee.categories.fetch"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/categories/{id}/attributes",
-        "name": "ext.shopee.categories.attributes.show"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/categories/{id}/attributes/fetch",
-        "name": "ext.shopee.categories.attributes.fetch"
-    },
-    {
         "method": "POST",
         "uri": "channels/shopee/explorer/run",
         "name": "ext.shopee.explorer_run"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/listings/{productId}",
-        "name": "ext.shopee.listings.edit"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/listings/{productId}",
-        "name": "ext.shopee.listings.update"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/listings/{productId}/push-discount",
-        "name": "ext.shopee.listings.push_discount"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/listings/{productId}/push-missing-variations",
-        "name": "ext.shopee.listings.push_missing_variations"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/listings/{productId}/push-update",
-        "name": "ext.shopee.listings.push_update"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/listings/{productId}/reread-variations",
-        "name": "ext.shopee.listings.reread_variations"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/listings/{productId}/toggle",
-        "name": "ext.shopee.listings.toggle"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/logistics",
-        "name": "ext.shopee.logistics.index"
     },
     {
         "method": "POST",
@@ -1441,363 +1381,13 @@
     },
     {
         "method": "POST",
-        "uri": "channels/shopee/logistics/fetch",
-        "name": "ext.shopee.logistics.fetch"
-    },
-    {
-        "method": "POST",
         "uri": "channels/shopee/order-status-map",
         "name": "ext.shopee.order_status_map"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/orders",
-        "name": "ext.shopee.orders.index"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/orders/fetch",
-        "name": "ext.shopee.orders.fetch"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/orders/fetch-returns",
-        "name": "ext.shopee.orders.fetch_returns"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/orders/reset",
-        "name": "ext.shopee.orders.reset"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/orders/returns",
-        "name": "ext.shopee.orders.returns"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/orders/returns/{returnSn}",
-        "name": "ext.shopee.orders.return_detail"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/orders/returns/{returnSn}/solutions",
-        "name": "ext.shopee.orders.return_solutions"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/orders/update-statuses",
-        "name": "ext.shopee.orders.update_statuses"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/orders/{orderSn}",
-        "name": "ext.shopee.orders.show"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/orders/{orderSn}/awb",
-        "name": "ext.shopee.orders.awb"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/orders/{orderSn}/ship",
-        "name": "ext.shopee.orders.ship"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/orders/{orderSn}/shipping-addresses",
-        "name": "ext.shopee.orders.shipping_addresses"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/orders/{orderSn}/tracking",
-        "name": "ext.shopee.orders.tracking"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/orders/{orderSn}/tracking-info",
-        "name": "ext.shopee.orders.tracking_info"
     },
     {
         "method": "POST",
         "uri": "channels/shopee/packs/run",
         "name": "ext.shopee.packs_run"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/product-groups",
-        "name": "ext.shopee.product-groups.index"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/product-groups",
-        "name": "ext.shopee.product-groups.store"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/product-groups/brands",
-        "name": "ext.shopee.product-groups.brandsForCategory"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/product-groups/categories/lookup",
-        "name": "ext.shopee.product-groups.categoryLookup"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/product-groups/categories/search",
-        "name": "ext.shopee.product-groups.searchCategories"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/product-groups/create",
-        "name": "ext.shopee.product-groups.create"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/product-groups/fetch-attributes",
-        "name": "ext.shopee.product-groups.fetchAttributes"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/product-groups/refresh-categories",
-        "name": "ext.shopee.product-groups.refreshCategories"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/product-groups/search-products",
-        "name": "ext.shopee.product-groups.searchProducts"
-    },
-    {
-        "method": "DELETE",
-        "uri": "channels/shopee/product-groups/{id}",
-        "name": "ext.shopee.product-groups.destroy"
-    },
-    {
-        "method": "PUT",
-        "uri": "channels/shopee/product-groups/{id}",
-        "name": "ext.shopee.product-groups.update"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/product-groups/{id}/edit",
-        "name": "ext.shopee.product-groups.edit"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/product-groups/{id}/orphans",
-        "name": "ext.shopee.product-groups.orphans"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/product-groups/{id}/products",
-        "name": "ext.shopee.product-groups.products"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/product-groups/{id}/products/add",
-        "name": "ext.shopee.product-groups.addProducts"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/product-groups/{id}/products/check",
-        "name": "ext.shopee.product-groups.check"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/product-groups/{id}/products/delete-from-shopee",
-        "name": "ext.shopee.product-groups.deleteFromShopee"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/product-groups/{id}/products/mass-remove",
-        "name": "ext.shopee.product-groups.massRemove"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/product-groups/{id}/products/push",
-        "name": "ext.shopee.product-groups.push"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/product-groups/{id}/products/push-prices",
-        "name": "ext.shopee.product-groups.pushPrices"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/product-groups/{id}/products/push-stock",
-        "name": "ext.shopee.product-groups.pushStock"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/product-groups/{id}/products/send",
-        "name": "ext.shopee.product-groups.send"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/product-groups/{id}/products/update-product",
-        "name": "ext.shopee.product-groups.updateProduct"
-    },
-    {
-        "method": "DELETE",
-        "uri": "channels/shopee/product-groups/{id}/products/{productId}",
-        "name": "ext.shopee.product-groups.removeProduct"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/product-groups/{id}/products/{productId}/link",
-        "name": "ext.shopee.product-groups.linkProduct"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/product-groups/{id}/products/{productId}/sync-id",
-        "name": "ext.shopee.product-groups.syncId"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/product-groups/{id}/products/{productId}/unlink",
-        "name": "ext.shopee.product-groups.unlinkProduct"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/product-groups/{id}/template/sync",
-        "name": "ext.shopee.product-groups.template_sync"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/products",
-        "name": "ext.shopee.products.index"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/products/add",
-        "name": "ext.shopee.products.add"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/products/brands",
-        "name": "ext.shopee.products.brandsForCategory"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/products/bulk/delete",
-        "name": "ext.shopee.products.bulk_delete"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/products/bulk/push",
-        "name": "ext.shopee.products.bulk_push_form"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/products/bulk/push",
-        "name": "ext.shopee.products.bulk_push"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/products/bulk/sync/price",
-        "name": "ext.shopee.products.bulk_sync_price"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/products/bulk/sync/quantity",
-        "name": "ext.shopee.products.bulk_sync_quantity"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/products/bulk/toggle",
-        "name": "ext.shopee.products.bulk_toggle"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/products/categories/lookup",
-        "name": "ext.shopee.products.categoryLookup"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/products/categories/search",
-        "name": "ext.shopee.products.searchCategories"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/products/check",
-        "name": "ext.shopee.products.check"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/products/fetch-attributes",
-        "name": "ext.shopee.products.fetchAttributes"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/products/rebuild-cache",
-        "name": "ext.shopee.products.rebuild_cache"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/products/refresh-status",
-        "name": "ext.shopee.products.refresh_status"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/products/search-catalog",
-        "name": "ext.shopee.products.search_catalog"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/products/unmatched/sync",
-        "name": "ext.shopee.products.sync_unmatched"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/products/unmatched/{unmatchedId}/dismiss",
-        "name": "ext.shopee.products.dismiss_unmatched"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/products/unmatched/{unmatchedId}/link",
-        "name": "ext.shopee.products.link_unmatched"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/products/{productId}/delete",
-        "name": "ext.shopee.products.delete"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/products/{productId}/push",
-        "name": "ext.shopee.products.push"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/products/{productId}/push",
-        "name": "ext.shopee.products.push.post"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/products/{productId}/push-direct",
-        "name": "ext.shopee.products.push_direct"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/products/{productId}/sync/price",
-        "name": "ext.shopee.products.sync_price"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/products/{productId}/sync/quantity",
-        "name": "ext.shopee.products.sync_quantity"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/products/{productId}/sync/shopee-id",
-        "name": "ext.shopee.products.sync_shopee_id"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/products/{productId}/unlink",
-        "name": "ext.shopee.products.unlink"
     },
     {
         "method": "POST",
@@ -1836,28 +1426,448 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/shopee/vouchers",
-        "name": "ext.shopee.vouchers.index"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/vouchers",
-        "name": "ext.shopee.vouchers.store"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/vouchers/{voucherId}/delete",
-        "name": "ext.shopee.vouchers.delete"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/vouchers/{voucherId}/end",
-        "name": "ext.shopee.vouchers.end"
+        "uri": "channels/shopee/{legacyPath}",
+        "name": "ext.shopee.legacy_storeless"
     },
     {
         "method": "GET|HEAD",
         "uri": "channels/shopee/{store?}",
         "name": "ext.shopee.dashboard"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/categories",
+        "name": "ext.shopee.categories.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/categories/fetch",
+        "name": "ext.shopee.categories.fetch"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/categories/{id}/attributes",
+        "name": "ext.shopee.categories.attributes.show"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/categories/{id}/attributes/fetch",
+        "name": "ext.shopee.categories.attributes.fetch"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/listings/{productId}",
+        "name": "ext.shopee.listings.edit"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/listings/{productId}",
+        "name": "ext.shopee.listings.update"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/listings/{productId}/push-discount",
+        "name": "ext.shopee.listings.push_discount"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/listings/{productId}/push-missing-variations",
+        "name": "ext.shopee.listings.push_missing_variations"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/listings/{productId}/push-update",
+        "name": "ext.shopee.listings.push_update"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/listings/{productId}/reread-variations",
+        "name": "ext.shopee.listings.reread_variations"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/listings/{productId}/toggle",
+        "name": "ext.shopee.listings.toggle"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/logistics",
+        "name": "ext.shopee.logistics.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/logistics/fetch",
+        "name": "ext.shopee.logistics.fetch"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/orders",
+        "name": "ext.shopee.orders.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/orders/fetch",
+        "name": "ext.shopee.orders.fetch"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/orders/fetch-returns",
+        "name": "ext.shopee.orders.fetch_returns"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/orders/reset",
+        "name": "ext.shopee.orders.reset"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/orders/returns",
+        "name": "ext.shopee.orders.returns"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/orders/returns/{returnSn}",
+        "name": "ext.shopee.orders.return_detail"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/orders/returns/{returnSn}/solutions",
+        "name": "ext.shopee.orders.return_solutions"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/orders/update-statuses",
+        "name": "ext.shopee.orders.update_statuses"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/orders/{orderSn}",
+        "name": "ext.shopee.orders.show"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/orders/{orderSn}/awb",
+        "name": "ext.shopee.orders.awb"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/orders/{orderSn}/ship",
+        "name": "ext.shopee.orders.ship"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/orders/{orderSn}/shipping-addresses",
+        "name": "ext.shopee.orders.shipping_addresses"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/orders/{orderSn}/tracking",
+        "name": "ext.shopee.orders.tracking"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/orders/{orderSn}/tracking-info",
+        "name": "ext.shopee.orders.tracking_info"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/product-groups",
+        "name": "ext.shopee.product-groups.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups",
+        "name": "ext.shopee.product-groups.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/product-groups/brands",
+        "name": "ext.shopee.product-groups.brandsForCategory"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/product-groups/categories/lookup",
+        "name": "ext.shopee.product-groups.categoryLookup"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/product-groups/categories/search",
+        "name": "ext.shopee.product-groups.searchCategories"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/product-groups/create",
+        "name": "ext.shopee.product-groups.create"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/fetch-attributes",
+        "name": "ext.shopee.product-groups.fetchAttributes"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/refresh-categories",
+        "name": "ext.shopee.product-groups.refreshCategories"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/product-groups/search-products",
+        "name": "ext.shopee.product-groups.searchProducts"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/shopee/{store}/product-groups/{id}",
+        "name": "ext.shopee.product-groups.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/shopee/{store}/product-groups/{id}",
+        "name": "ext.shopee.product-groups.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/product-groups/{id}/edit",
+        "name": "ext.shopee.product-groups.edit"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/product-groups/{id}/orphans",
+        "name": "ext.shopee.product-groups.orphans"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products",
+        "name": "ext.shopee.product-groups.products"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/add",
+        "name": "ext.shopee.product-groups.addProducts"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/check",
+        "name": "ext.shopee.product-groups.check"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/delete-from-shopee",
+        "name": "ext.shopee.product-groups.deleteFromShopee"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/mass-remove",
+        "name": "ext.shopee.product-groups.massRemove"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/push",
+        "name": "ext.shopee.product-groups.push"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/push-prices",
+        "name": "ext.shopee.product-groups.pushPrices"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/push-stock",
+        "name": "ext.shopee.product-groups.pushStock"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/send",
+        "name": "ext.shopee.product-groups.send"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/update-product",
+        "name": "ext.shopee.product-groups.updateProduct"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/{productId}",
+        "name": "ext.shopee.product-groups.removeProduct"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/{productId}/link",
+        "name": "ext.shopee.product-groups.linkProduct"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/{productId}/sync-id",
+        "name": "ext.shopee.product-groups.syncId"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/{productId}/unlink",
+        "name": "ext.shopee.product-groups.unlinkProduct"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/template/sync",
+        "name": "ext.shopee.product-groups.template_sync"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/products",
+        "name": "ext.shopee.products.index"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/products/add",
+        "name": "ext.shopee.products.add"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/products/brands",
+        "name": "ext.shopee.products.brandsForCategory"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/bulk/delete",
+        "name": "ext.shopee.products.bulk_delete"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/products/bulk/push",
+        "name": "ext.shopee.products.bulk_push_form"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/bulk/push",
+        "name": "ext.shopee.products.bulk_push"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/bulk/sync/price",
+        "name": "ext.shopee.products.bulk_sync_price"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/bulk/sync/quantity",
+        "name": "ext.shopee.products.bulk_sync_quantity"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/bulk/toggle",
+        "name": "ext.shopee.products.bulk_toggle"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/products/categories/lookup",
+        "name": "ext.shopee.products.categoryLookup"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/products/categories/search",
+        "name": "ext.shopee.products.searchCategories"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/check",
+        "name": "ext.shopee.products.check"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/fetch-attributes",
+        "name": "ext.shopee.products.fetchAttributes"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/rebuild-cache",
+        "name": "ext.shopee.products.rebuild_cache"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/refresh-status",
+        "name": "ext.shopee.products.refresh_status"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/products/search-catalog",
+        "name": "ext.shopee.products.search_catalog"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/unmatched/sync",
+        "name": "ext.shopee.products.sync_unmatched"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/unmatched/{unmatchedId}/dismiss",
+        "name": "ext.shopee.products.dismiss_unmatched"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/unmatched/{unmatchedId}/link",
+        "name": "ext.shopee.products.link_unmatched"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/{productId}/delete",
+        "name": "ext.shopee.products.delete"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/products/{productId}/push",
+        "name": "ext.shopee.products.push"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/{productId}/push",
+        "name": "ext.shopee.products.push.post"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/{productId}/push-direct",
+        "name": "ext.shopee.products.push_direct"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/{productId}/sync/price",
+        "name": "ext.shopee.products.sync_price"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/{productId}/sync/quantity",
+        "name": "ext.shopee.products.sync_quantity"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/{productId}/sync/shopee-id",
+        "name": "ext.shopee.products.sync_shopee_id"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/{productId}/unlink",
+        "name": "ext.shopee.products.unlink"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/settings",
+        "name": "ext.shopee.settings.show"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/vouchers",
+        "name": "ext.shopee.vouchers.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/vouchers",
+        "name": "ext.shopee.vouchers.store"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/vouchers/{voucherId}/delete",
+        "name": "ext.shopee.vouchers.delete"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/vouchers/{voucherId}/end",
+        "name": "ext.shopee.vouchers.end"
     },
     {
         "method": "POST",

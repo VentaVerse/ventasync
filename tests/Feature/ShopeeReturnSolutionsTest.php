@@ -34,6 +34,9 @@ class ShopeeReturnSolutionsTest extends TestCase
     {
         parent::setUp();
 
+        // Multi-store S4 (#194): shopee's tabs and {store} routes need a store.
+        \Extensions\shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');

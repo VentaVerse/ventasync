@@ -342,18 +342,18 @@ document.addEventListener('DOMContentLoaded', function () {
             btnShipConfirm.disabled = false;
         }
 
-        // The three Shopee order URLs below are hardcoded paths, not values
-        // handed down from a route() call, so they do NOT follow the routes
-        // file when it moves. They were updated with it in the IA migration's
-        // Task 2 (2026-08-08) and must be updated with it again next time:
-        // the ship POST in particular cannot be rescued by a 301, which drops
-        // the request body. Worth lifting onto data-attributes when this file
-        // is next touched for its own reasons.
+        // The order URLs ride data-orders-base, a route() value the page
+        // hands down (multi-store S4, #194) - hardcoded paths broke once in
+        // the IA migration and would have broken again when the routes
+        // gained their {store} segment. The fallback keeps the modal alive
+        // if the attribute ever goes missing, on the default store's legacy
+        // redirect (GETs only; the ship POST relies on the attribute).
+        var ordersBase = (shipForm && shipForm.getAttribute('data-orders-base')) || '/channels/shopee/orders';
         document.querySelectorAll('.btnArrangeShipment').forEach(function (el) {
             el.addEventListener('click', function () {
                 currentShipOrderSn = el.getAttribute('data-order-sn');
                 shipOrderSnEl.textContent = currentShipOrderSn;
-                shipForm.action = '/channels/shopee/orders/' + encodeURIComponent(currentShipOrderSn) + '/ship';
+                shipForm.action = ordersBase + '/' + encodeURIComponent(currentShipOrderSn) + '/ship';
                 shipResetModal();
                 fillParcel(document.getElementById('spShipParcel'), currentShipOrderSn, 'sp-hidden');
                 shipModal.style.display = 'flex';
@@ -369,7 +369,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 show(shipStep2Loading);
                 hide(shipStep2Content);
 
-                fetch('/channels/shopee/orders/' + encodeURIComponent(currentShipOrderSn) + '/shipping-addresses', {
+                fetch(ordersBase + '/' + encodeURIComponent(currentShipOrderSn) + '/shipping-addresses', {
                     headers: { 'Accept': 'application/json' }
                 })
                 .then(function (r) { return r.json(); })
@@ -448,7 +448,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     document.getElementById('spLoadingTitle').textContent = 'Generating AWB…';
                 }
 
-                var awbUrl = '/channels/shopee/orders/' + encodeURIComponent(currentShipOrderSn) + '/awb';
+                var awbUrl = ordersBase + '/' + encodeURIComponent(currentShipOrderSn) + '/awb';
                 var awbAttempts = 0;
                 var maxAttempts = 20;
 

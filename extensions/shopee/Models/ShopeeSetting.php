@@ -72,7 +72,39 @@ class ShopeeSetting extends Model
      */
     public static function defaultStore(): ?self
     {
+        // The store the request is standing in (bound by ResolveShopeeStore
+        // from the {store} route segment) outranks the first-enabled
+        // fallback: on a store page, "the store" is never ambiguous.
+        if (app()->bound('shopee.route-store')) {
+            return app('shopee.route-store');
+        }
+
         return static::query()->where('enabled', true)->orderBy('id')->first();
+    }
+
+    /**
+     * Keep URL generation able to fill the {store} segment (S4, #194)
+     * anywhere a link to a Shopee page is built OUTSIDE a Shopee store
+     * request - the channels hub, the fulfilment tabs, test code. The
+     * middleware overrides this per-request with the route's own store.
+     */
+    public static function syncUrlDefault(): void
+    {
+        try {
+            $id = static::query()->where('enabled', true)->orderBy('id')->value('id');
+        } catch (\Throwable $e) {
+            return; // no table yet (fresh install mid-migrate)
+        }
+        if ($id !== null) {
+            \Illuminate\Support\Facades\URL::defaults(['store' => (int) $id]);
+        }
+    }
+
+    protected static function booted(): void
+    {
+        static::created(fn () => static::syncUrlDefault());
+        static::updated(fn () => static::syncUrlDefault());
+        static::deleted(fn () => static::syncUrlDefault());
     }
 
     /**

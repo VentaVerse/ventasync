@@ -50,7 +50,7 @@
             </div>
         </div>
 
-        <form method="POST" id="formShipOrder" class="sp-hidden">
+        <form method="POST" id="formShipOrder" class="sp-hidden" data-orders-base="{{ route('ext.shopee.orders.index') }}">
             @csrf
             <input type="hidden" name="shipping_type" id="shipTypeInput" value="">
             <input type="hidden" name="address_id" id="shipAddressInput" value="">

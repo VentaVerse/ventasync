@@ -56,6 +56,10 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
     {
         parent::boot();
 
+        // Multi-store S4 (#194): let every route() call fill {store} even
+        // outside a Shopee page (hub, fulfilment tabs, test code).
+        \Extensions\shopee\Models\ShopeeSetting::syncUrlDefault();
+
         if ($this->app->runningInConsole()) {
             $this->commands([
                 \Extensions\shopee\Commands\ShopeePushStock::class,
@@ -75,6 +79,33 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
 
     public function integrationCards(): array
     {
+        /* Multi-store S4 (#194): the converted shape Venta, OpenCart and
+         * Shopify wear. One card for the channel; one StoreLink per
+         * settings row with the store's own menu, every item carrying its
+         * {store}. The card-level menu keeps only Settings, which is the
+         * channel-global page (it is also Shopee's OAuth landing, pinned
+         * storeless by the Open Platform console). A store still being
+         * configured stays visible as setup_pending. */
+        $stores = [];
+        foreach ($this->allStores() as $store) {
+            $p = ['store' => (int) $store->id];
+            $stores[] = new \App\Integrations\StoreLink(
+                id: $this->id . ':' . $store->id,
+                label: $store->store_name ?: ('Store #' . $store->id),
+                menu: [
+                    new MenuItem('Orders', 'ext.shopee.orders.index', 'view_shopee/order', null, $p, 'Sell'),
+                    new MenuItem('Returns', 'ext.shopee.orders.returns', 'view_shopee/order', null, $p, 'Sell'),
+                    new MenuItem('Vouchers', 'ext.shopee.vouchers.index', 'view_shopee/voucher', null, $p, 'Sell'),
+                    new MenuItem('Listings', 'ext.shopee.products.index', 'view_shopee/product', null, $p, 'Catalog'),
+                    new MenuItem('Presets', 'ext.shopee.product-groups.index', 'view_shopee/product_group', null, $p, 'Catalog'),
+                    new MenuItem('Categories', 'ext.shopee.categories.index', 'view_shopee/category', null, $p, 'Catalog'),
+                    new MenuItem('Logistics', 'ext.shopee.logistics.index', 'view_shopee/logistics', null, $p, 'Channel'),
+                    new MenuItem('Settings', 'ext.shopee.settings.show', 'view_shopee/settings', null, $p, 'Channel'),
+                ],
+                status: $store->enabled ? 'active' : 'setup_pending',
+            );
+        }
+
         return [
             new IntegrationCard(
                 id: $this->id,
@@ -93,52 +124,80 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                 // the dashboard's door gives, or the menu offers a 404.
                 permission: 'view_shopee/dashboard',
                 menu: [
-                    new MenuItem('Orders', 'ext.shopee.orders.index', 'view_shopee/order', group: 'Sell'),
-                    new MenuItem('Returns', 'ext.shopee.orders.returns', 'view_shopee/order', group: 'Sell'),
-                    new MenuItem('Vouchers', 'ext.shopee.vouchers.index', 'view_shopee/voucher', group: 'Sell'),
-                    new MenuItem('Listings', 'ext.shopee.products.index', 'view_shopee/product', group: 'Catalog'),
-                    new MenuItem('Presets', 'ext.shopee.product-groups.index', 'view_shopee/product_group', group: 'Catalog'),
-                    new MenuItem('Categories', 'ext.shopee.categories.index', 'view_shopee/category', group: 'Catalog'),
-                    new MenuItem('Logistics', 'ext.shopee.logistics.index', 'view_shopee/logistics', group: 'Channel'),
                     new MenuItem('Settings', 'ext.shopee.index', 'view_shopee/settings', group: 'Channel'),
                 ],
+                stores: $stores,
             ),
         ];
     }
 
+    /**
+     * Every settings row, enabled or not - the Integrations UI keeps a
+     * freshly-created, still-disabled store visible so the operator can
+     * finish configuring it (Venta's allStores, verbatim in spirit).
+     *
+     * @return iterable<\Extensions\shopee\Models\ShopeeSetting>
+     */
+    protected function allStores(): iterable
+    {
+        try {
+            if (! Schema::hasTable('shopee_settings')) {
+                return [];
+            }
+
+            return ShopeeSetting::query()->orderBy('id')->get();
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
     public function orderTabs(): array
     {
-        $shopeeStatusCount = function (array $statuses): int {
+        /* Multi-store S4 (#194): one tab per enabled store, counters
+         * scoped to the store's own rows. With a single store the tab
+         * keeps the channel's name - renaming the owner's hub tab to "Main
+         * store" would say less, not more; the store names take over the
+         * moment a second store exists and the name has to distinguish. */
+        if (! Schema::hasTable('shopee_settings')) {
+            return [];
+        }
+        $stores = ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get(['id', 'store_name']);
+
+        return $stores->map(fn ($store) => $this->buildOrderTab(
+            (int) $store->id,
+            $stores->count() > 1 ? ($store->store_name ?: ('Store #' . $store->id)) : 'Shopee'
+        ))->all();
+    }
+
+    protected function buildOrderTab(int $storeId, string $label): OrderTab
+    {
+        $shopeeStatusCount = function (array $statuses) use ($storeId): int {
             if (!Schema::hasTable('shopee_orders')) {
                 return 0;
             }
-            $region = Schema::hasTable('shopee_settings') ? (ShopeeSetting::query()->value('region') ?? 'ph') : 'ph';
 
-            return ShopeeOrder::query()->where('region', $region)->whereIn('status', $statuses)->count();
+            return ShopeeOrder::query()->where('shopee_setting_id', $storeId)->whereIn('status', $statuses)->count();
         };
 
-        return [
+        return
             new OrderTab(
-                id: $this->id,
-                label: 'Shopee',
+                id: $this->id . ':' . $storeId,
+                label: $label,
                 icon: 'shopee',
                 accent: '#ee4d2d',
                 routeName: 'ext.shopee.orders.index',
+                routeParams: ['store' => $storeId],
                 // OrderTab visibility uses view tier so a Shopee Orders Viewer
                 // still sees the marketplace's orders tab on the unified Orders
                 // workspace. The destination route GETs are read-tier gated,
                 // and per-action write buttons are gated separately in the view.
                 permission: 'view_shopee/order',
-                unprocessedCounter: function () {
+                unprocessedCounter: function () use ($storeId) {
                     if (!Schema::hasTable('shopee_orders')) {
                         return 0;
                     }
-                    $region = 'ph';
-                    if (Schema::hasTable('shopee_settings')) {
-                        $region = ShopeeSetting::query()->value('region') ?? 'ph';
-                    }
                     return ShopeeOrder::query()
-                        ->where('region', $region)
+                        ->where('shopee_setting_id', $storeId)
                     /* THE SAME STATUSES THE "To Ship" TAB GROUPS.
                      *
                      * This counted only the first sub-step, so the head
@@ -163,29 +222,32 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                     ['key' => 'to_pack', 'label' => 'to pack', 'counter' => fn () => $shopeeStatusCount(['READY_TO_SHIP'])],
                     ['key' => 'to_handover', 'label' => 'to handover', 'counter' => fn () => $shopeeStatusCount(['PROCESSED'])],
                 ],
-                dailyOrdersCounter: function () {
+                dailyOrdersCounter: function () use ($storeId) {
                     if (!Schema::hasTable('shopee_orders')) {
                         return 0;
                     }
                     return ShopeeOrder::query()
+                        ->where('shopee_setting_id', $storeId)
                         ->where('order_created_at', '>=', now()->startOfDay())
                         ->count();
                 },
-                dailyRevenueCounter: function () {
+                dailyRevenueCounter: function () use ($storeId) {
                     if (!Schema::hasTable('shopee_orders') || !Schema::hasTable('shopee_order_products')) {
                         return 0.0;
                     }
                     return (float) DB::table('shopee_order_products as p')
                         ->join('shopee_orders as o', 'o.id', '=', 'p.shopee_order_id')
+                        ->where('o.shopee_setting_id', $storeId)
                         ->where('o.order_created_at', '>=', now()->startOfDay())
                         ->sum(DB::raw('p.quantity * p.price'));
                 },
-                topProductsCallback: function (int $limit) {
+                topProductsCallback: function (int $limit) use ($storeId) {
                     if (!Schema::hasTable('shopee_orders') || !Schema::hasTable('shopee_order_products')) {
                         return [];
                     }
                     return DB::table('shopee_order_products as p')
                         ->join('shopee_orders as o', 'o.id', '=', 'p.shopee_order_id')
+                        ->where('o.shopee_setting_id', $storeId)
                         ->where('o.order_created_at', '>=', now()->startOfDay())
                         ->whereNotNull('p.sku')
                         ->where('p.sku', '!=', '')
@@ -210,7 +272,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                             variation: trim((string) ($r->variation ?? '')) ?: null,
                         ))->all();
                 },
-                recentOrdersCallback: function (int $limit) {
+                recentOrdersCallback: function (int $limit) use ($storeId) {
                     if (!Schema::hasTable('shopee_orders')) {
                         return [];
                     }
@@ -220,6 +282,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                     // which is not true of a marketplace order: there is a
                     // buyer, the name was simply never read.
                     $orders = ShopeeOrder::query()
+                        ->where('shopee_setting_id', $storeId)
                         ->orderByDesc('order_created_at')
                         ->limit($limit)
                         ->get(['id', 'order_sn', 'status', 'order_created_at', 'raw']);
@@ -253,8 +316,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                         url: route('ext.shopee.orders.show', $o->order_sn),
                     ))->all();
                 },
-            ),
-        ];
+            );
     }
 
     /**

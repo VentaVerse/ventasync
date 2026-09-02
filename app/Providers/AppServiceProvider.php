@@ -95,7 +95,9 @@ class AppServiceProvider extends ServiceProvider
                 // ext.{id}.dashboard. Channel from the name, store from the
                 // route's own {store} parameter, colon key out.
                 $channel = str_starts_with($name, 'ext.') ? (explode('.', $name)[1] ?? '') : '';
-                $store = $route?->parameter('store');
+                // Or the attribute a channel's store-resolver left after
+                // consuming the parameter (see ResolveShopeeStore).
+                $store = $route?->parameter('store') ?? request()->attributes->get('channel.store');
 
                 if ($channel !== '' && is_scalar($store) && (string) $store !== '') {
                     $channel .= ':' . $store;

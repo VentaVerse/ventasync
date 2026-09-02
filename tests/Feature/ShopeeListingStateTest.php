@@ -275,13 +275,13 @@ class ShopeeListingStateTest extends TestCase
         );
         $user = \App\Models\User::factory()->create(['user_group_id' => $group->id]);
 
-        $page = $this->actingAs($user)->get('/channels/shopee/products')->assertOk();
+        $page = $this->actingAs($user)->get(route('ext.shopee.products.index'))->assertOk();
         $page->assertSee('My very first product');
         $page->assertSee('Not listed');
 
         // And the not_listed filter can actually find it now: the old
         // default whereIn used to intersect it away.
-        $this->actingAs($user)->get('/channels/shopee/products?sync_status=not_listed')
+        $this->actingAs($user)->get(route('ext.shopee.products.index').'?sync_status=not_listed')
             ->assertOk()->assertSee('My very first product');
     }
 
@@ -307,11 +307,11 @@ class ShopeeListingStateTest extends TestCase
 
         // The bulk bar always carries both verbs for the selection, so the
         // assertions pin the row MENU's items specifically.
-        $liveRow = $this->actingAs($user)->get('/channels/shopee/products?q=TGL-LIVE')->assertOk();
+        $liveRow = $this->actingAs($user)->get(route('ext.shopee.products.index').'?q=TGL-LIVE')->assertOk();
         $liveRow->assertSee('x-menu__item">Unlist from Shopee', false);
         $liveRow->assertDontSee('x-menu__item">Relist on Shopee', false);
 
-        $offRow = $this->actingAs($user)->get('/channels/shopee/products?q=TGL-OFF')->assertOk();
+        $offRow = $this->actingAs($user)->get(route('ext.shopee.products.index').'?q=TGL-OFF')->assertOk();
         $offRow->assertSee('x-menu__item">Relist on Shopee', false);
         $offRow->assertDontSee('x-menu__item">Unlist from Shopee', false);
     }
@@ -355,7 +355,7 @@ class ShopeeListingStateTest extends TestCase
         );
         $user = \App\Models\User::factory()->create(['user_group_id' => $group->id]);
 
-        $page = $this->actingAs($user)->get('/channels/shopee/products')->assertOk();
+        $page = $this->actingAs($user)->get(route('ext.shopee.products.index'))->assertOk();
         $page->assertSee('points at a deleted catalog product');
         $page->assertSee('999001');
         $page->assertSee('No product (was #424242)');

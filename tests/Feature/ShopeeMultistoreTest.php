@@ -24,6 +24,7 @@ class ShopeeMultistoreTest extends TestCase
         $manager->install('shopee');
         $manager->enable('shopee');
         $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app['router']->getRoutes()->refreshNameLookups();
     }
 
     // ── S1: the ground ───────────────────────────────────────────────
@@ -194,6 +195,44 @@ class ShopeeMultistoreTest extends TestCase
         $this->assertSame('NORMAL', $linkB->fresh()->live_status,
             "store A's sweep must never stamp store B's links - B's item is absent from A's shop, not MISSING");
         $this->assertSame(1, $result['links'], 'the sweep counts only its own store');
+    }
+
+    // ── S4: the surfaces carry the store ─────────────────────────────
+
+    public function test_a_store_page_lives_under_its_store_and_an_unknown_store_is_404(): void
+    {
+        $this->artisan('permissions:sync-catalogue');
+        $g = \App\Models\Admin\UserGroup::create(['name' => 'S4 walker']);
+        $g->permissions()->attach(\App\Models\Admin\Permission::whereIn('key', ['view_shopee/product'])->pluck('id')->all());
+        $u = \App\Models\User::factory()->create(['user_group_id' => $g->id]);
+        $store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+
+        $this->actingAs($u)->get('/channels/shopee/' . $store->id . '/products')->assertOk();
+        $this->actingAs($u)->get('/channels/shopee/' . ($store->id + 99) . '/products')->assertNotFound();
+    }
+
+    public function test_a_single_store_era_url_rides_the_301_onto_the_default_store(): void
+    {
+        $this->artisan('permissions:sync-catalogue');
+        $g = \App\Models\Admin\UserGroup::create(['name' => 'S4 legacy']);
+        $g->permissions()->attach(\App\Models\Admin\Permission::whereIn('key', ['view_shopee/product'])->pluck('id')->all());
+        $u = \App\Models\User::factory()->create(['user_group_id' => $g->id]);
+        $store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+
+        $this->actingAs($u)->get('/channels/shopee/products?q=find-me')
+            ->assertRedirect('/channels/shopee/' . $store->id . '/products?q=find-me')
+            ->assertStatus(301);
+    }
+
+    public function test_route_generation_fills_the_store_from_the_default(): void
+    {
+        $store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+
+        $this->assertStringContainsString(
+            '/channels/shopee/' . $store->id . '/products',
+            route('ext.shopee.products.index'),
+            'a route() call with no explicit store must fill {store} from the default, or every unedited link in views and tests shatters'
+        );
     }
 
     public function test_the_existing_row_became_store_one_with_a_name(): void

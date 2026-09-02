@@ -385,17 +385,21 @@
              .x-fh-panel's own margin in pages/fulfilment.css instead, which
              is where it belongs. --}}
         <div class="x-fh-panel co-page" data-desk-scope id="{{ ($selectedView ?? 'orders') === 'returns' ? 'shopee-returns-page' : 'shopee-orders-page' }}">
+            {{-- The FULL selected key, store suffix included (multi-store
+                 S4, #194: shopee:2) - a bare 'shopee' here would drop the
+                 store on every self-link and land the next click on
+                 Summary. --}}
             @if(($selectedView ?? 'orders') === 'returns')
                 @include('ext-shopee::orders._returns_panel', [
                     'panelBaseUrl' => route('channels.fulfilment'),
-                    'panelHiddenParams' => ['channel' => 'shopee', 'view' => 'returns'],
-                    'panelOrdersUrl' => route('channels.fulfilment', ['channel' => 'shopee']),
+                    'panelHiddenParams' => ['channel' => $selectedChannel, 'view' => 'returns'],
+                    'panelOrdersUrl' => route('channels.fulfilment', ['channel' => $selectedChannel]),
                 ])
             @else
                 @include('ext-shopee::orders._panel', [
                     'panelBaseUrl' => route('channels.fulfilment'),
-                    'panelHiddenParams' => ['channel' => 'shopee'],
-                    'panelReturnsUrl' => route('channels.fulfilment', ['channel' => 'shopee', 'view' => 'returns']),
+                    'panelHiddenParams' => ['channel' => $selectedChannel],
+                    'panelReturnsUrl' => route('channels.fulfilment', ['channel' => $selectedChannel, 'view' => 'returns']),
                 ])
             @endif
         </div>

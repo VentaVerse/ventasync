@@ -48,7 +48,7 @@ class IntegrationController extends Controller
      * single-store channel can never be handed a store and a multi-store one
      * can never be rendered without one.
      */
-    private const ORDER_PANEL_STORE_SCOPED = ['venta', 'opencart', 'shopify'];
+    private const ORDER_PANEL_STORE_SCOPED = ['venta', 'opencart', 'shopify', 'shopee'];
 
     /**
      * Channels whose RETURNS list can also render in place here, keyed the
@@ -537,32 +537,46 @@ class IntegrationController extends Controller
             $hasWorkspace = $workspace->hasWorkspace($card);
 
             if (in_array($baseId, ['shopee', 'lazada', 'tiktok'], true)) {
-                // Single-store OAuth marketplaces: live/sandbox creds live in
-                // parallel columns on one settings row, selected by `mode`.
-                $row = DB::table($baseId . '_settings')->first();
-                $isSandbox = ($row?->mode ?? 'live') === 'sandbox';
-                $hasToken = $row ? !empty($isSandbox ? $row->sandbox_access_token : $row->access_token) : false;
-                // The sign-in's expiry (refresh token), never the access
-                // token the cron renews: see ChannelWorkspace::signInExpiry().
-                $signInExpiresAt = \App\Support\ChannelWorkspace::signInExpiry($row, $isSandbox);
-                $lastSyncRaw = $row?->last_order_sync_at;
-                $loggingOn = (bool) ($row?->api_logging ?? false);
+                // OAuth marketplaces: live/sandbox creds live in parallel
+                // columns on a settings row, selected by `mode`. Shopee is
+                // multi-store (S4, #194): one entry per store, each read
+                // against its own row and keyed shopee:{id} so the board,
+                // the sidebar and the fulfilment tabs name the same thing.
+                // Lazada and TikTok stay single-row until their own slices.
+                $storeRows = $card->stores !== []
+                    ? collect($card->stores)->map(fn ($store) => [
+                        DB::table($baseId . '_settings')->where('id', (int) substr($store->id, strpos($store->id, ':') + 1))->first(),
+                        $store,
+                    ])->all()
+                    : [[DB::table($baseId . '_settings')->first(), null]];
 
-                $entries[] = [
-                    'key' => $baseId,
-                    'workspaceKey' => $baseId,
-                    'label' => $card->name,
-                    'store' => null,
-                    'hasToken' => $hasToken,
-                    'tokenExpiresAt' => $signInExpiresAt,
-                    'lastSyncAt' => $lastSyncRaw ? Carbon::parse($lastSyncRaw) : null,
-                    // api_logging is off in this sandbox for every channel, so
-                    // this is null (not tracked) today, not a fabricated zero.
-                    'errors24h' => $loggingOn
-                        ? DB::table($baseId . '_api_logs')->where('created_at', '>=', $staleAfter)->where('ok', 0)->count()
-                        : null,
-                    'menu' => $card->menu,
-                ];
+                foreach ($storeRows as [$row, $store]) {
+                    $isSandbox = ($row?->mode ?? 'live') === 'sandbox';
+                    $hasToken = $row ? !empty($isSandbox ? $row->sandbox_access_token : $row->access_token) : false;
+                    // The sign-in's expiry (refresh token), never the access
+                    // token the cron renews: see ChannelWorkspace::signInExpiry().
+                    $signInExpiresAt = \App\Support\ChannelWorkspace::signInExpiry($row, $isSandbox);
+                    $lastSyncRaw = $row?->last_order_sync_at;
+                    $loggingOn = (bool) ($row?->api_logging ?? false);
+
+                    $entries[] = [
+                        'key' => $store?->id ?? $baseId,
+                        'workspaceKey' => $store?->id ?? $baseId,
+                        'label' => $card->name,
+                        'store' => $store?->label,
+                        'hasToken' => $hasToken,
+                        'tokenExpiresAt' => $signInExpiresAt,
+                        'lastSyncAt' => $lastSyncRaw ? Carbon::parse($lastSyncRaw) : null,
+                        // api_logging is off in this sandbox for every channel, so
+                        // this is null (not tracked) today, not a fabricated zero.
+                        'errors24h' => $loggingOn
+                            ? DB::table($baseId . '_api_logs')
+                                ->when($row !== null && $card->stores !== [], fn ($q) => $q->where('shopee_setting_id', $row->id))
+                                ->where('created_at', '>=', $staleAfter)->where('ok', 0)->count()
+                            : null,
+                        'menu' => $store?->menu ?? $card->menu,
+                    ];
+                }
             } elseif (in_array($baseId, ['venta', 'opencart', 'shopify', 'pedallion'], true)) {
                 // Multi-store (Venta/OpenCart/Shopify) or single-store
                 // (Pedallion) API-key integrations: no token expiry column
@@ -838,9 +852,11 @@ class IntegrationController extends Controller
 
             if ($selectedView === 'returns') {
                 $panelClass = self::RETURNS_PANEL_SERVICES[$selectedBase];
-                // No returns list is store-scoped: both channels that have
-                // one are single-store.
-                $panelStoreId = null;
+                // A store-scoped channel's returns list is the store's too
+                // (multi-store S4, #194: shopee); the tab already carries
+                // the store id the orders panel parsed. The single-store
+                // channels keep their storeless build.
+                $panelStoreId = in_array($selectedBase, self::ORDER_PANEL_STORE_SCOPED, true) ? $panelStoreId : null;
             }
 
             $panel = app($panelClass);

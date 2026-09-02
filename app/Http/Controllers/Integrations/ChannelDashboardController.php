@@ -42,7 +42,7 @@ abstract class ChannelDashboardController extends Controller
          * received the string '404' whenever the optional segment was
          * absent, and every single-store dashboard 404d on a key like
          * `shopee:404`. Asking for the parameter by name cannot collide. */
-        $store = $request->route('store');
+        $store = $request->route('store') ?? $request->attributes->get('channel.store');
 
         // The URL says /channels/venta/2; everything below this line speaks
         // the colon key `venta:2` - the same format StoreLink and OrderTab

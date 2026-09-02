@@ -155,7 +155,7 @@ class ShopeeOrderDetailTest extends TestCase
     {
         $order = $this->order();
 
-        $response = $this->actingAs($this->viewer())->get('/channels/shopee/orders/'.$order->order_sn);
+        $response = $this->actingAs($this->viewer())->get(route('ext.shopee.orders.show', $order->order_sn));
 
         $response->assertOk();
 
@@ -178,7 +178,7 @@ class ShopeeOrderDetailTest extends TestCase
     {
         $order = $this->order();
 
-        $response = $this->actingAs($this->viewer())->get('/channels/shopee/orders/'.$order->order_sn);
+        $response = $this->actingAs($this->viewer())->get(route('ext.shopee.orders.show', $order->order_sn));
 
         $response->assertOk();
 
@@ -239,7 +239,7 @@ class ShopeeOrderDetailTest extends TestCase
             'raw' => ['order_status' => 'UNPAID'],
         ]);
 
-        $response = $this->actingAs($this->viewer())->get('/channels/shopee/orders/'.$order->order_sn);
+        $response = $this->actingAs($this->viewer())->get(route('ext.shopee.orders.show', $order->order_sn));
 
         $response->assertOk();
         $response->assertSee('No items synced yet. Items will be fetched on the next order sync.');
@@ -273,7 +273,7 @@ class ShopeeOrderDetailTest extends TestCase
             'return_updated_at' => '2026-08-07 09:00:00',
         ]);
 
-        $response = $this->actingAs($this->viewer())->get('/channels/shopee/orders/'.$order->order_sn);
+        $response = $this->actingAs($this->viewer())->get(route('ext.shopee.orders.show', $order->order_sn));
 
         $response->assertOk();
         $response->assertSee('Returns and refunds');
@@ -295,13 +295,13 @@ class ShopeeOrderDetailTest extends TestCase
         $order = $this->order('READY_TO_SHIP');
         $refreshUrl = route('ext.shopee.orders.show', ['orderSn' => $order->order_sn, 'refresh' => 1]);
 
-        $asManager = $this->actingAs($this->manager())->get('/channels/shopee/orders/'.$order->order_sn);
+        $asManager = $this->actingAs($this->manager())->get(route('ext.shopee.orders.show', $order->order_sn));
         $asManager->assertOk();
         $asManager->assertSee($refreshUrl, false);
         $asManager->assertSee('btnArrangeShipment', false);
         $asManager->assertSee('data-order-sn="'.$order->order_sn.'"', false);
 
-        $asViewer = $this->actingAs($this->viewer())->get('/channels/shopee/orders/'.$order->order_sn);
+        $asViewer = $this->actingAs($this->viewer())->get(route('ext.shopee.orders.show', $order->order_sn));
         $asViewer->assertOk();
         $asViewer->assertDontSee($refreshUrl, false);
         $asViewer->assertDontSee('btnArrangeShipment', false);
@@ -320,10 +320,10 @@ class ShopeeOrderDetailTest extends TestCase
 
         $manager = $this->manager();
 
-        $this->actingAs($manager)->get('/channels/shopee/orders/'.$toPack->order_sn)
+        $this->actingAs($manager)->get(route('ext.shopee.orders.show', $toPack->order_sn))
             ->assertSee('btnArrangeShipment', false);
 
-        $this->actingAs($manager)->get('/channels/shopee/orders/'.$shipped->order_sn)
+        $this->actingAs($manager)->get(route('ext.shopee.orders.show', $shipped->order_sn))
             ->assertDontSee('btnArrangeShipment', false);
     }
 
@@ -335,12 +335,12 @@ class ShopeeOrderDetailTest extends TestCase
         $viewer = $this->viewer();
 
         // Both are read-tier routes, so the read tier keeps them.
-        $withParcel = $this->actingAs($viewer)->get('/channels/shopee/orders/'.$shipped->order_sn);
+        $withParcel = $this->actingAs($viewer)->get(route('ext.shopee.orders.show', $shipped->order_sn));
         $withParcel->assertSee(route('ext.shopee.orders.awb', ['orderSn' => $shipped->order_sn]), false);
         $withParcel->assertSee('btnShopeeTracking', false);
         $withParcel->assertSee(route('ext.shopee.orders.tracking_info', ['orderSn' => $shipped->order_sn]), false);
 
-        $noParcel = $this->actingAs($viewer)->get('/channels/shopee/orders/'.$toPack->order_sn);
+        $noParcel = $this->actingAs($viewer)->get(route('ext.shopee.orders.show', $toPack->order_sn));
         $noParcel->assertDontSee(route('ext.shopee.orders.awb', ['orderSn' => $toPack->order_sn]), false);
         $noParcel->assertDontSee('btnShopeeTracking', false);
     }
@@ -352,7 +352,7 @@ class ShopeeOrderDetailTest extends TestCase
         // The ship modal posts with Accept: application/json, so a denial
         // arrives as the middleware's JSON envelope rather than a redirect.
         $denied = $this->actingAs($this->viewer())
-            ->postJson('/channels/shopee/orders/'.$order->order_sn.'/ship', ['shipping_type' => 'dropoff']);
+            ->postJson(route('ext.shopee.orders.ship', $order->order_sn), ['shipping_type' => 'dropoff']);
 
         $denied->assertStatus(403);
         $denied->assertJson(['error' => 'permission_denied']);
@@ -367,7 +367,7 @@ class ShopeeOrderDetailTest extends TestCase
         // response comes from the CONTROLLER, which means the gate let this
         // user through, where the read tier above never reached it.
         $allowed = $this->actingAs($this->manager())
-            ->postJson('/channels/shopee/orders/'.$order->order_sn.'/ship', ['shipping_type' => 'dropoff']);
+            ->postJson(route('ext.shopee.orders.ship', $order->order_sn), ['shipping_type' => 'dropoff']);
 
         $allowed->assertStatus(422);
         $allowed->assertJson(['ok' => false]);
@@ -410,7 +410,7 @@ class ShopeeOrderDetailTest extends TestCase
         Http::fake();
 
         $response = $this->actingAs($this->viewer())
-            ->get('/channels/shopee/orders/'.$order->order_sn.'?refresh=1');
+            ->get(route('ext.shopee.orders.show', $order->order_sn).'?refresh=1');
 
         $response->assertOk();
         Http::assertNothingSent();
@@ -440,7 +440,7 @@ class ShopeeOrderDetailTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->manager())
-            ->get('/channels/shopee/orders/'.$order->order_sn.'?refresh=1');
+            ->get(route('ext.shopee.orders.show', $order->order_sn).'?refresh=1');
 
         $response->assertOk();
         Http::assertSent(fn ($request) => str_contains($request->url(), 'get_order_detail'));
@@ -455,7 +455,7 @@ class ShopeeOrderDetailTest extends TestCase
     {
         $order = $this->order('COMPLETED');
 
-        $response = $this->actingAs($this->manager())->get('/channels/shopee/orders/'.$order->order_sn);
+        $response = $this->actingAs($this->manager())->get(route('ext.shopee.orders.show', $order->order_sn));
 
         $response->assertOk();
         $response->assertDontSee('confirm(', false);
@@ -471,7 +471,7 @@ class ShopeeOrderDetailTest extends TestCase
     {
         $order = $this->order();
 
-        $response = $this->actingAs($this->viewer())->get('/channels/shopee/orders');
+        $response = $this->actingAs($this->viewer())->get(route('ext.shopee.orders.index'));
 
         $response->assertOk();
         // The stopgap is retired: the order number opens the detail page in

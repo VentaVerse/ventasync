@@ -63,7 +63,7 @@ public function root(Request $request, ShopeeClient $client)
             }
         }
 
-        return redirect()->route('ext.shopee.index')->with('shopee_result', [
+        return $this->redirectToSettings()->with('shopee_result', [
             'ok' => (bool)$result['ok'],
             'title' => 'OAuth Callback (Domain Redirect)',
             'data' => $result,
@@ -121,15 +121,42 @@ public function index(Request $request = null, ShopeeClient $client = null)
                     }
                 }
                 // Strip the OAuth params from the URL so a refresh doesn't
-                // re-exchange a stale (one-time-use) code.
-                return redirect()->route('ext.shopee.index')->with('shopee_result', [
-                    'ok'    => (bool) ($result['ok'] ?? false),
-                    'title' => 'OAuth callback — token exchange',
-                    'data'  => $result,
-                ]);
+                // re-exchange a stale (one-time-use) code. The store whose
+                // grant this was shows the result on ITS settings page.
+                $landing = ShopeeSetting::defaultStore();
+
+                return ($landing !== null
+                        ? redirect()->route('ext.shopee.settings.show', ['store' => $landing->id])
+                        : redirect()->route('ext.shopee.index'))
+                    ->with('shopee_result', [
+                        'ok'    => (bool) ($result['ok'] ?? false),
+                        'title' => 'OAuth callback — token exchange',
+                        'data'  => $result,
+                    ]);
             }
         }
 
+        /* Multi-store S4 (#194): /shopee is the OAuth landing (its URI is
+         * registered byte-for-byte in the Open Platform console) and
+         * nothing else any more. A plain visit goes where Venta's does:
+         * the first store's settings page, or the module page when no
+         * store exists yet to configure. */
+        $first = ShopeeSetting::query()->orderBy('id')->first();
+        if ($first !== null) {
+            return redirect()->route('ext.shopee.settings.show', ['store' => $first->id]);
+        }
+
+        return redirect()->route('channels.module', ['module' => 'shopee']);
+    }
+
+    /**
+     * The per-store settings page (multi-store S4, #194): everything the
+     * storeless /shopee page used to render, for the store the route
+     * names. ResolveShopeeStore has already bound that store, so every
+     * defaultStore() read below - and in the partials - answers with it.
+     */
+    public function showSettings(Request $request)
+    {
         $setting = ShopeeSetting::defaultStore();
 
         $pfx = (string) config('catalog.prefix');
@@ -232,7 +259,7 @@ public function index(Request $request = null, ShopeeClient $client = null)
         $setting->save();
 
         $label = $env === 'sandbox' ? 'Sandbox' : 'Production';
-        return redirect()->route('ext.shopee.index')->with('status', "{$label} settings saved.");
+        return $this->redirectToSettings()->with('status', "{$label} settings saved.");
     }
 
     public function toggleMode(Request $request)
@@ -243,7 +270,7 @@ public function index(Request $request = null, ShopeeClient $client = null)
         $setting->save();
 
         $label = $data['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
-        return redirect()->route('ext.shopee.index')->with('status', "Switched to {$label} mode.");
+        return $this->redirectToSettings()->with('status', "Switched to {$label} mode.");
     }
 
     public function callback(Request $request)
@@ -382,6 +409,20 @@ public function index(Request $request = null, ShopeeClient $client = null)
      * silently breaking OAuth, since the URL must byte-match what's
      * registered in the Shopee Open Platform console.
      */
+    /**
+     * Where a settings write lands (multi-store S4, #194): the settings
+     * page of the store it acted on. The storeless name survives only as
+     * the no-store fallback, where it forwards to the module page.
+     */
+    private function redirectToSettings()
+    {
+        $store = ShopeeSetting::defaultStore();
+
+        return $store !== null
+            ? redirect()->route('ext.shopee.settings.show', ['store' => $store->id])
+            : redirect()->route('ext.shopee.index');
+    }
+
     private function computedRedirectUri(): string
     {
         return preg_replace('/^http:/i', 'https:', route('ext.shopee.index'));
@@ -394,7 +435,7 @@ public function index(Request $request = null, ShopeeClient $client = null)
 
     if (!$setting || !$creds['partner_id'] || !$creds['partner_key']) {
         $modeLabel = $creds['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
-        return redirect()->route('ext.shopee.index')->with('shopee_result', [
+        return $this->redirectToSettings()->with('shopee_result', [
             'ok' => false,
             'title' => 'Missing settings',
             'data' => ['message' => "Partner ID and Partner Key for {$modeLabel} mode are required to authorize."],
@@ -403,7 +444,7 @@ public function index(Request $request = null, ShopeeClient $client = null)
 
     if (empty($creds['redirect_uri'])) {
         $modeLabel = $creds['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
-        return redirect()->route('ext.shopee.index')->with('shopee_result', [
+        return $this->redirectToSettings()->with('shopee_result', [
             'ok' => false,
             'title' => 'Missing redirect URI',
             'data' => ['message' => "A {$modeLabel} Redirect URI is required. Configure it in Shopee settings before authorizing."],
@@ -422,7 +463,7 @@ public function buildAuthUrl(ShopeeClient $client)
 
         if (!$setting || !$creds['partner_id'] || !$creds['partner_key']) {
             $modeLabel = $creds['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
-            return redirect()->route('ext.shopee.index')->with('shopee_result', [
+            return $this->redirectToSettings()->with('shopee_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => "Partner ID and Partner Key for {$modeLabel} mode are required to build the auth URL."],
@@ -431,7 +472,7 @@ public function buildAuthUrl(ShopeeClient $client)
 
         if (empty($creds['redirect_uri'])) {
             $modeLabel = $creds['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
-            return redirect()->route('ext.shopee.index')->with('shopee_result', [
+            return $this->redirectToSettings()->with('shopee_result', [
                 'ok' => false,
                 'title' => 'Missing redirect URI',
                 'data' => ['message' => "A {$modeLabel} Redirect URI is required. Configure it in Shopee settings before building the auth URL."],
@@ -440,7 +481,7 @@ public function buildAuthUrl(ShopeeClient $client)
 
         $url = $client->buildAuthUrl($creds['mode'], (int)$creds['partner_id'], (string)$creds['partner_key'], $creds['redirect_uri']);
 
-        return redirect()->route('ext.shopee.index')->with('shopee_result', [
+        return $this->redirectToSettings()->with('shopee_result', [
             'ok' => true,
             'title' => 'Auth URL generated',
             'data' => ['auth_url' => $url],
@@ -457,7 +498,7 @@ public function buildAuthUrl(ShopeeClient $client)
         $auth = $this->activeAuth($setting);
         if (!$setting || !$auth['partner_id'] || !$auth['partner_key'] || !$auth['shop_id']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
-            return redirect()->route('ext.shopee.index')->with('shopee_result', [
+            return $this->redirectToSettings()->with('shopee_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => "Partner ID, Partner Key, and Shop ID for {$modeLabel} mode are required."],
@@ -485,7 +526,7 @@ public function buildAuthUrl(ShopeeClient $client)
             }
         }
 
-        return redirect()->route('ext.shopee.index')->with('shopee_result', [
+        return $this->redirectToSettings()->with('shopee_result', [
             'ok' => (bool)$result['ok'],
             'title' => 'Token Get',
             'data' => $result,
@@ -498,7 +539,7 @@ public function buildAuthUrl(ShopeeClient $client)
         $auth = $this->activeAuth($setting);
         if (!$setting || !$auth['partner_id'] || !$auth['partner_key'] || !$auth['shop_id'] || !$auth['refresh_token']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
-            return redirect()->route('ext.shopee.index')->with('shopee_result', [
+            return $this->redirectToSettings()->with('shopee_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => "Partner ID, Partner Key, Shop ID, and Refresh Token for {$modeLabel} mode are required."],
@@ -539,7 +580,7 @@ public function buildAuthUrl(ShopeeClient $client)
             }
         }
 
-        return redirect()->route('ext.shopee.index')->with('shopee_result', [
+        return $this->redirectToSettings()->with('shopee_result', [
             'ok' => (bool)$result['ok'],
             'title' => 'Token Refresh',
             'data' => $result,
@@ -561,7 +602,7 @@ public function buildAuthUrl(ShopeeClient $client)
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['partner_id'] || !$auth['partner_key']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
-            return redirect()->route('ext.shopee.index')->with('shopee_result', [
+            return $this->redirectToSettings()->with('shopee_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => "Partner ID and Partner Key for {$modeLabel} mode are required."],
@@ -614,7 +655,7 @@ public function buildAuthUrl(ShopeeClient $client)
             ? $client->postJson($setting->mode, $path, $query, $body)
             : $client->get($setting->mode, $path, $query);
 
-        return redirect()->route('ext.shopee.index')->with('shopee_result', [
+        return $this->redirectToSettings()->with('shopee_result', [
             'ok' => (bool)$result['ok'],
             'title' => 'API Call Result',
             'data' => $result,
@@ -755,7 +796,7 @@ public function buildAuthUrl(ShopeeClient $client)
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['partner_id'] || !$auth['partner_key']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
-            return redirect()->route('ext.shopee.index')->with('shopee_result', [
+            return $this->redirectToSettings()->with('shopee_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => "Partner ID and Partner Key for {$modeLabel} mode are required."],
@@ -779,7 +820,7 @@ public function buildAuthUrl(ShopeeClient $client)
                     $customParams = $decoded;
                 }
             } catch (\Throwable $e) {
-                return redirect()->route('ext.shopee.index')->withInput()->with('shopee_result', [
+                return $this->redirectToSettings()->withInput()->with('shopee_result', [
                     'ok' => false,
                     'title' => 'Invalid JSON',
                     'data' => ['message' => $e->getMessage()],
@@ -835,7 +876,7 @@ public function buildAuthUrl(ShopeeClient $client)
             'user_id' => auth()->id(),
         ]);
 
-        return redirect()->route('ext.shopee.index')->with('shopee_result', [
+        return $this->redirectToSettings()->with('shopee_result', [
             'ok' => (bool)$result['ok'],
             'title' => 'API Explorer',
             'data' => $result,
@@ -852,7 +893,7 @@ public function buildAuthUrl(ShopeeClient $client)
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
-            return redirect()->route('ext.shopee.index')->with('shopee_result', [
+            return $this->redirectToSettings()->with('shopee_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => "Partner ID, Partner Key, Access Token, and Shop ID for {$modeLabel} mode are required for preset packs."],
@@ -941,7 +982,7 @@ public function buildAuthUrl(ShopeeClient $client)
             ];
         }
 
-        return redirect()->route('ext.shopee.index')->with('shopee_result', [
+        return $this->redirectToSettings()->with('shopee_result', [
             'ok' => collect($results)->every(fn($r) => $r['ok']),
             'title' => 'Preset Pack: ' . strtoupper($data['pack']),
             'data' => $results,
@@ -954,7 +995,7 @@ public function buildAuthUrl(ShopeeClient $client)
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
-            return redirect()->route('ext.shopee.index')->with('shopee_result', [
+            return $this->redirectToSettings()->with('shopee_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => "Partner ID, Partner Key, Access Token, and Shop ID for {$modeLabel} mode are required."],
@@ -984,7 +1025,7 @@ public function buildAuthUrl(ShopeeClient $client)
             'user_id' => auth()->id(),
         ]);
 
-        return redirect()->route('ext.shopee.index')->with('shopee_result', [
+        return $this->redirectToSettings()->with('shopee_result', [
             'ok' => (bool)$result['ok'],
             'title' => 'Logistics Channels',
             'data' => $result,

@@ -18,11 +18,27 @@ use Illuminate\Http\Request;
  */
 class ShopeeOrdersPanel
 {
-    public function build(Request $request): array
+    /**
+     * @param ?int $storeId Multi-store S4 (#194): the store this panel
+     *   renders, parsed off the hub tab id (shopee:2). Null falls back to
+     *   the request's own store - the orders PAGE reaches here through
+     *   ResolveShopeeStore, which has already bound it.
+     */
+    public function build(Request $request, ?int $storeId = null): array
     {
-        $settingRaw = ShopeeSetting::defaultStore();
+        $settingRaw = $storeId !== null
+            ? ShopeeSetting::query()->find($storeId)
+            : ShopeeSetting::defaultStore();
+        if ($storeId !== null && $settingRaw !== null) {
+            /* The hub page itself is storeless, so bind the tab's store for
+             * the render: every route() in the panel partial fills its
+             * {store} from this, and nested defaultStore() reads agree. */
+            app()->instance('shopee.route-store', $settingRaw);
+            \Illuminate\Support\Facades\URL::defaults(['store' => (int) $settingRaw->id]);
+        }
         $setting = $settingRaw?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
+        $settingId = (int) ($settingRaw?->id ?? 0);
 
         $filters = $request->validate([
             'q' => ['nullable', 'string', 'max:120'],
@@ -156,14 +172,14 @@ class ShopeeOrdersPanel
         // the step shown, since it reads every order's raw payload.
         $subStepStatuses = ['to_pack' => ['READY_TO_SHIP'], 'to_handover' => ['PROCESSED']];
         $courierTally = ($tab === 'PENDING' && isset($subStepStatuses[$pendingSubtab]))
-            ? $this->buildToShipCourierTally($auth['region'] ?? 'ph', $subStepStatuses[$pendingSubtab])
+            ? $this->buildToShipCourierTally($settingId, $subStepStatuses[$pendingSubtab])
             : new CourierTally();
 
         $query = ShopeeOrder::query()
-            ->where('region', $auth['region'] ?? 'ph')
+            ->where('shopee_setting_id', $settingId)
             ->with('products');
 
-        $baseCountQuery = ShopeeOrder::query()->where('region', $auth['region'] ?? 'ph');
+        $baseCountQuery = ShopeeOrder::query()->where('shopee_setting_id', $settingId);
 
         if ($tab !== 'ALL') {
             if ($tab === 'PENDING' && $pendingSubtab !== '') {
@@ -301,12 +317,12 @@ class ShopeeOrdersPanel
      *
      * @param  list<string>  $statuses  the step's Shopee statuses
      */
-    private function buildToShipCourierTally(string $region, array $statuses): CourierTally
+    private function buildToShipCourierTally(int $settingId, array $statuses): CourierTally
     {
         $tally = new CourierTally();
 
         ShopeeOrder::query()
-            ->where('region', $region)
+            ->where('shopee_setting_id', $settingId)
             ->whereIn('status', $statuses)
             ->select(['id', 'raw'])
             ->orderBy('id')

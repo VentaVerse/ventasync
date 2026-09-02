@@ -128,7 +128,11 @@
 
     try {
         foreach (app(\App\Integrations\IntegrationRegistry::class)->visibleOrderTabs($user) as $tab) {
-            $sync = $syncFor[$tab->id] ?? null;
+            /* A converted channel's tabs carry a store suffix (shopee:2,
+               multi-store S4, #194); the contributor contract stays keyed
+               by channel, so the base id is the fallback for both maps. */
+            $tabBase = explode(':', $tab->id, 2)[0];
+            $sync = $syncFor[$tab->id] ?? $syncFor[$tabBase] ?? null;
 
             if ($sync && ($sync->last_status ?? null) === 'failed') {
                 $state = ['tone' => 'bad', 'text' => 'last sync failed'];
@@ -151,7 +155,7 @@
                    nothing. */
                 'flags' => $sync->listing_flags ?? null,
                 'flags_bad' => (int) ($sync->listing_attention ?? 0) > 0,
-                'pending' => $pendingFor[$tab->id] ?? $tab->unprocessedCount(),
+                'pending' => $pendingFor[$tab->id] ?? $pendingFor[$tabBase] ?? $tab->unprocessedCount(),
                 'link' => RouteFacade::has($tab->routeName)
                     ? route($tab->routeName, $tab->routeParams)
                     : null,

@@ -27,6 +27,9 @@ class FulfilmentPolishTest extends TestCase
     {
         parent::setUp();
 
+        // Multi-store S4 (#194): shopee's tabs and {store} routes need a store.
+        \Extensions\shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
@@ -163,12 +166,12 @@ class FulfilmentPolishTest extends TestCase
         $group->permissions()->attach(Permission::whereIn('key', ['view_shopee/dashboard', 'view_shopee/order'])->pluck('id')->all());
         $user = User::factory()->create(['user_group_id' => $group->id]);
 
-        $html = $this->actingAs($user)->get('/channels/fulfilment?channel=shopee&tab=PENDING')->assertOk()->getContent();
+        $html = $this->actingAs($user)->get('/channels/fulfilment?channel=shopee:' . \Extensions\shopee\Models\ShopeeSetting::query()->value('id') . '&tab=PENDING')->assertOk()->getContent();
         $this->assertStringContainsString('Ship-by time, soonest first', $html);
         // Default order is still arrival, oldest first on To Ship: SB-LATE arrived first.
         $this->assertLessThan(strpos($html, 'SB-SOON'), strpos($html, 'SB-LATE'));
 
-        $sorted = $this->actingAs($user)->get('/channels/fulfilment?channel=shopee&tab=PENDING&sort=ship_by_asc')->assertOk()->getContent();
+        $sorted = $this->actingAs($user)->get('/channels/fulfilment?channel=shopee:' . \Extensions\shopee\Models\ShopeeSetting::query()->value('id') . '&tab=PENDING&sort=ship_by_asc')->assertOk()->getContent();
         $this->assertLessThan(strpos($sorted, 'SB-LATE'), strpos($sorted, 'SB-SOON'), 'soonest deadline first when asked');
     }
 

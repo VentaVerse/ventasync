@@ -752,6 +752,31 @@ class ChannelWorkspace
      */
     private function storeFigures(string $channelId, int $storeId): array
     {
+        /* Multi-store S4 (#194): Shopee's stores carry the SAME token
+         * anatomy its channel row always had - mode-split live/sandbox
+         * token columns with real expiries - so its per-store figures are
+         * that same reading against the store's own row. Without this the
+         * card said "Not tracked" about the one channel with the most
+         * tracked token in the house. */
+        if ($channelId === 'shopee') {
+            $row = DB::table('shopee_settings')->where('id', $storeId)->first();
+            $isSandbox = ($row?->mode ?? 'live') === 'sandbox';
+            $lastSyncRaw = $row?->last_order_sync_at;
+            $loggingOn = (bool) ($row?->api_logging ?? false);
+
+            return [
+                'hasToken' => $row ? ! empty($isSandbox ? $row->sandbox_access_token : $row->access_token) : false,
+                'tokenExpiresAt' => self::signInExpiry($row, $isSandbox),
+                'lastSyncAt' => $lastSyncRaw ? Carbon::parse($lastSyncRaw) : null,
+                'errors24h' => $loggingOn
+                    ? DB::table('shopee_api_logs')
+                        ->where('shopee_setting_id', $storeId)
+                        ->where('created_at', '>=', Carbon::now()->subHours(24))
+                        ->where('ok', 0)->count()
+                    : null,
+            ];
+        }
+
         $tokenColumn = match ($channelId) {
             'venta' => 'api_token',
             'opencart' => 'api_key',

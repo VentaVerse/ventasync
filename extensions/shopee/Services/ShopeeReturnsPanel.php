@@ -22,11 +22,19 @@ use Illuminate\Http\Request;
  */
 class ShopeeReturnsPanel
 {
-    public function build(Request $request): array
+    /** @param ?int $storeId Multi-store S4 (#194): the hub tab's store; see ShopeeOrdersPanel. */
+    public function build(Request $request, ?int $storeId = null): array
     {
-        $settingRaw = ShopeeSetting::defaultStore();
+        $settingRaw = $storeId !== null
+            ? ShopeeSetting::query()->find($storeId)
+            : ShopeeSetting::defaultStore();
+        if ($storeId !== null && $settingRaw !== null) {
+            app()->instance('shopee.route-store', $settingRaw);
+            \Illuminate\Support\Facades\URL::defaults(['store' => (int) $settingRaw->id]);
+        }
         $setting = $settingRaw?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
+        $settingId = (int) ($settingRaw?->id ?? 0);
 
         $filters = $request->validate([
             'q'           => ['nullable', 'string', 'max:120'],
@@ -101,9 +109,8 @@ class ShopeeReturnsPanel
             $tab = 'ALL';
         }
 
-        $region = $auth['region'] ?? 'ph';
-        $query = ShopeeReturn::query()->where('region', $region);
-        $baseCountQuery = ShopeeReturn::query()->where('region', $region);
+        $query = ShopeeReturn::query()->where('shopee_setting_id', $settingId);
+        $baseCountQuery = ShopeeReturn::query()->where('shopee_setting_id', $settingId);
 
         if ($tab !== 'ALL') {
             $statuses = $tabStatusMap[$tab] ?? [];
