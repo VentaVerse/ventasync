@@ -16,6 +16,26 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "ai-tools",
+        "name": "ai_tools.index"
+    },
+    {
+        "method": "POST",
+        "uri": "ai-tools",
+        "name": "ai_tools.store"
+    },
+    {
+        "method": "DELETE",
+        "uri": "ai-tools/{apiClient}",
+        "name": "ai_tools.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "ai-tools/{apiClient}",
+        "name": "ai_tools.update"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "api/catalog/categories",
         "name": "api.catalog.categories"
     },
@@ -2281,6 +2301,16 @@
     },
     {
         "method": "POST",
+        "uri": "channels/venta/{id}/sync-log-level",
+        "name": "ext.venta.set_sync_log_level"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/venta/{id}/sync-logs",
+        "name": "ext.venta.clear_sync_logs"
+    },
+    {
+        "method": "POST",
         "uri": "channels/venta/{id}/toggle-api-logging",
         "name": "ext.venta.toggle_api_logging"
     },
@@ -2288,6 +2318,41 @@
         "method": "GET|HEAD",
         "uri": "channels/venta/{store?}",
         "name": "ext.venta.dashboard"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/venta/{store}/listings",
+        "name": "ext.venta.listings.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/listings/bulk-toggle",
+        "name": "ext.venta.listings.bulk_toggle"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/listings/refresh-status",
+        "name": "ext.venta.listings.refresh_status"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/venta/{store}/listings/{productId}",
+        "name": "ext.venta.listings.edit"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/venta/{store}/listings/{productId}",
+        "name": "ext.venta.listings.update"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/listings/{productId}/push",
+        "name": "ext.venta.listings.push"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/listings/{productId}/toggle",
+        "name": "ext.venta.listings.toggle"
     },
     {
         "method": "GET|HEAD",
@@ -2305,9 +2370,64 @@
         "name": "ext.venta.orders.fetch"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "channels/venta/{store}/orders/pickup-addresses",
+        "name": "ext.venta.orders.pickup_addresses"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/venta/{store}/orders/shipping-couriers",
+        "name": "ext.venta.orders.shipping_couriers"
+    },
+    {
         "method": "DELETE",
         "uri": "channels/venta/{store}/orders/{order}",
         "name": "ext.venta.orders.destroy"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/venta/{store}/orders/{order}/awb",
+        "name": "ext.venta.orders.awb"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/orders/{order}/book",
+        "name": "ext.venta.orders.book"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/orders/{order}/book-manual",
+        "name": "ext.venta.orders.book_manual"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/orders/{order}/cancel-booking",
+        "name": "ext.venta.orders.cancel_booking"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/orders/{order}/clear-manual",
+        "name": "ext.venta.orders.clear_manual"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/orders/{order}/estimate",
+        "name": "ext.venta.orders.estimate"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/venta/{store}/orders/{order}/pickup-slots",
+        "name": "ext.venta.orders.pickup_slots"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/venta/{store}/orders/{order}/serviceability",
+        "name": "ext.venta.orders.serviceability"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/venta/{store}/orders/{order}/tracking",
+        "name": "ext.venta.orders.tracking"
     },
     {
         "method": "GET|HEAD",
