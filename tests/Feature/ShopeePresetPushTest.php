@@ -84,7 +84,7 @@ class ShopeePresetPushTest extends TestCase
         parent::tearDown();
     }
 
-    private function manager(): User
+    protected function manager(): User
     {
         $group = UserGroup::create(['name' => 'Preset pushers ' . uniqid()]);
         $group->permissions()->attach(
@@ -94,7 +94,7 @@ class ShopeePresetPushTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    private function seedProduct(): int
+    protected function seedProduct(): int
     {
         $pfx = (string) config('catalog.prefix');
         $pid = DB::table($pfx . 'product')->insertGetId([
@@ -112,7 +112,7 @@ class ShopeePresetPushTest extends TestCase
         return $pid;
     }
 
-    private function presetWithAttrs(): ShopeeProductGroup
+    protected function presetWithAttrs(): ShopeeProductGroup
     {
         $preset = ShopeeProductGroup::create([
             'name' => 'Everyday preset', 'shopee_category_id' => 100139,
