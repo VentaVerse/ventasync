@@ -610,7 +610,7 @@ document.addEventListener('DOMContentLoaded', function () {
             orderNoEl.textContent = btn.getAttribute('data-order-no') || '';
 
             reset();
-            fillParcel(document.getElementById('vtBookParcel'), btn.getAttribute('data-order-id'), 'vt-hidden');
+            fillParcel(document.getElementById('vtBookParcelSummary'), btn.getAttribute('data-order-id'), 'vt-hidden');
             showModal(modal);
 
             getJson(urls.serviceability)

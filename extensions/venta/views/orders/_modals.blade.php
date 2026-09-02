@@ -18,9 +18,14 @@
         </div>
         <div class="co-modal__meta">Order <strong id="vtBookOrderNo"></strong></div>
 
-        {{-- The parcel: filled by the module from the row's own template
-             (components/fulfilment/parcel) when the dialog opens. --}}
-        <div id="vtBookParcel" class="vt-hidden"></div>
+        {{-- The parcel summary: filled by the module from the row's own
+             template (components/fulfilment/parcel) when the dialog opens.
+             Its OWN id: it briefly shared vtBookParcel with the step-2
+             parcel-size select, and getElementById returned this div first
+             - so the courier's parcel options were poured in here as bare
+             text while the real dropdown stayed empty (the owner, live,
+             2026-09-02; introduced by 465a1365). --}}
+        <div id="vtBookParcelSummary" class="vt-hidden"></div>
 
         {{-- Step 1: who can carry it. Filled by the module from the
              storefront's serviceability answer, one button per courier. --}}
