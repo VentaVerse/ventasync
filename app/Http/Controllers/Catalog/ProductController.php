@@ -613,6 +613,12 @@ public function store(Request $request)
             ? $this->totalAbsoluteOptionsQuantity($request)
             : $this->totalOptionsQuantity($request->input('options', []));
 
+        /* BEFORE ANYTHING WRITES (#185): same gate update() runs. A create
+         * has no id to exclude, so 0 excludes nothing. */
+        if ($request->has('_options_format')) {
+            $this->validateOptionSkus(0, $request);
+        }
+
         $productId = DB::transaction(function () use ($request, $langId, $resolvedManufacturerId, $categoryIds, $pfx, $forcedQty) {
             $p = new Product();
 
@@ -1172,6 +1178,14 @@ public function store(Request $request)
             'options.*.values.*.cost_additional' => 'nullable|numeric',
         ]);
 
+        /* BEFORE ANYTHING WRITES (#185): the option-SKU gate used to fire
+         * from inside the save, after the product row and categories were
+         * already rewritten - a refused SKU left a half-saved product
+         * behind the error. Refuse first, write after. */
+        if ($request->has('_options_format')) {
+            $this->validateOptionSkus((int) $id, $request);
+        }
+
         $langId = (int) config('catalog.default_language_id');
 
         $resolvedManufacturerId = $this->resolveManufacturerId($request->manufacturer_id, $request->manufacturer_name);
@@ -1549,16 +1563,17 @@ public function store(Request $request)
         }
     }
 
-    private function saveAbsoluteOptions(int $productId, Request $request, array &$skuChanges = []): void
+
+    /**
+     * The option-SKU gate, BEFORE anything writes (#185): it used to
+     * throw from inside saveAbsoluteOptions, which update() calls after
+     * the product row and its categories were already rewritten - so a
+     * refused SKU left a half-saved product behind the error flash.
+     * update() and store() call this first; nothing is written until
+     * every typed SKU has passed.
+     */
+    private function validateOptionSkus(int $productId, Request $request): void
     {
-        $optionName = trim($request->input('option_name', ''));
-        $option1Name = trim($request->input('option1_name', ''));
-
-        if ($optionName === '' && $option1Name === '') {
-            $this->clearProductOptions($productId);
-            return;
-        }
-
         // Validate SKU uniqueness (cross-product + intra-form + vs parent SKU)
         $skuRule = new UniqueSku($productId);
         $errors = [];
@@ -1609,6 +1624,19 @@ public function store(Request $request)
         if (!empty($errors)) {
             throw \Illuminate\Validation\ValidationException::withMessages(['option_sku' => $errors]);
         }
+    }
+
+    private function saveAbsoluteOptions(int $productId, Request $request, array &$skuChanges = []): void
+    {
+        $optionName = trim($request->input('option_name', ''));
+        $option1Name = trim($request->input('option1_name', ''));
+
+        if ($optionName === '' && $option1Name === '') {
+            $this->clearProductOptions($productId);
+            return;
+        }
+
+        $this->validateOptionSkus($productId, $request);
 
         if ($option1Name !== '') {
             $this->saveAbsoluteTwoOptions($productId, $request, $skuChanges);

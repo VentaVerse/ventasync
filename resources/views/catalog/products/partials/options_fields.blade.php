@@ -133,11 +133,61 @@
 <script>
 'use strict';
 
-const EXISTING_OPTION  = @json($existingOptions->first() ?? null);
-const EXISTING_OPTION2 = @json($existingOptions->count() > 1 ? $existingOptions->get(1) : null);
-const EXISTING_VALUES  = @json($existingOptions->first() ? ($existingOptions->first()->values ?? []) : []);
-const EXISTING_VALUES2 = @json($existingOptions->count() > 1 ? ($existingOptions->get(1)->values ?? []) : []);
-const EXISTING_COMBOS  = @json($existingCombinations ?? []);
+@php
+    /* A FAILED SAVE RETURNS WHAT WAS TYPED (#185, the owner's live loss: add a
+     * variation, Save, "SKU already exists" - and every typed row gone,
+     * because this grid seeded from the DATABASE while the scalars read
+     * old(). When validation flashed variation input back, the same five
+     * constants are built from old() in the exact shapes the loader
+     * already reads, so the typed rows - names, SKUs, quantities, prices,
+     * costs - come back exactly as typed, failing SKU marked and all. */
+    $typedBack = ($errors ?? null)?->any() && (old('option_name') !== null || old('option1_name') !== null);
+    if ($typedBack && old('option1_name') !== null) {
+        // Two axes: the axis lists carry names; the combinations carry the rows.
+        $seedOption = (object) ['option_name' => old('option1_name')];
+        $seedOption2 = (object) ['option_name' => old('option2_name')];
+        $seedValues = collect((array) old('option1_values', []))->map(fn ($n) => (object) ['name' => (string) $n])->values();
+        $seedValues2 = collect((array) old('option2_values', []))->map(fn ($n) => (object) ['name' => (string) $n])->values();
+        $seedCombos = collect((array) old('combinations', []))->map(fn ($c) => (object) [
+            'opt1_name' => (string) ($c['opt1'] ?? ''),
+            'opt2_name' => (string) ($c['opt2'] ?? ''),
+            'sku' => (string) ($c['sku'] ?? ''),
+            'image' => (string) ($c['image'] ?? ''),
+            'status' => (int) ($c['status'] ?? 1),
+            'quantity' => $c['quantity'] ?? 0,
+            'absolute_price' => $c['absolute_price'] ?? 0,
+            'cost_amount' => $c['cost_amount'] ?? 0,
+            'cost_additional' => $c['cost_additional'] ?? 0,
+        ])->values();
+    } elseif ($typedBack) {
+        $seedOption = (object) ['option_name' => old('option_name')];
+        $seedOption2 = null;
+        $seedValues = collect((array) old('values', []))->map(fn ($v) => (object) [
+            'name' => (string) ($v['name'] ?? ''),
+            'option_value_id' => $v['option_value_id'] ?? null,
+            'sku' => (string) ($v['sku'] ?? ''),
+            'image' => (string) ($v['image'] ?? ''),
+            'status' => (int) ($v['status'] ?? 1),
+            'quantity' => $v['quantity'] ?? 0,
+            'absolute_price' => $v['absolute_price'] ?? 0,
+            'cost_amount' => $v['cost_amount'] ?? 0,
+            'cost_additional' => $v['cost_additional'] ?? 0,
+        ])->values();
+        $seedValues2 = collect();
+        $seedCombos = collect();
+    } else {
+        $seedOption = $existingOptions->first() ?? null;
+        $seedOption2 = $existingOptions->count() > 1 ? $existingOptions->get(1) : null;
+        $seedValues = $seedOption ? ($seedOption->values ?? []) : [];
+        $seedValues2 = $seedOption2 ? ($seedOption2->values ?? []) : [];
+        $seedCombos = $existingCombinations ?? [];
+    }
+@endphp
+const EXISTING_OPTION  = @json($seedOption);
+const EXISTING_OPTION2 = @json($seedOption2);
+const EXISTING_VALUES  = @json($seedValues);
+const EXISTING_VALUES2 = @json($seedValues2);
+const EXISTING_COMBOS  = @json($seedCombos);
 /* Edit form: cost fields start locked (see the lock row in the markup). */
 let variationCostLocked = @json(isset($product));
 
@@ -1493,6 +1543,7 @@ if (EXISTING_OPTION) {
             quantity: v.quantity || 0,
             absolute_price: parseFloat(v.absolute_price) || 0,
             cost_amount: parseFloat(v.cost_amount) || 0,
+            cost_additional: parseFloat(v.cost_additional) || 0,
         });
     });
 
@@ -1519,6 +1570,7 @@ if (EXISTING_OPTION) {
                         quantity: c.quantity || 0,
                         absolute_price: parseFloat(c.absolute_price) || 0,
                         cost_amount: parseFloat(c.cost_amount) || 0,
+                        cost_additional: parseFloat(c.cost_additional) || 0,
                     };
                 }
             });
@@ -1576,20 +1628,24 @@ refreshCostFormula();
 // ---- Highlight duplicate SKU fields on validation error ----
 @if($errors->has('option_sku'))
 (function() {
-    const errorSkus = @json(
-        collect($errors->get('option_sku'))->map(function($msg) {
-            if (preg_match('/SKU "([^"]+)"/', $msg, $m)) return strtolower($m[1]);
-            return null;
-        })->filter()->unique()->values()
+    /* The reason lands BESIDE the row (#185): the server's own sentence -
+       which now names the product holding the SKU - not a generic word
+       that sends the operator searching. */
+    const errorBySku = @json(
+        collect($errors->get('option_sku'))->mapWithKeys(function($msg) {
+            if (preg_match('/SKU "([^"]+)"/', $msg, $m)) return [strtolower($m[1]) => $msg];
+            return [];
+        })
     );
-    if (!errorSkus.length) return;
+    if (!Object.keys(errorBySku).length) return;
     const skuInputs = document.querySelectorAll('#data-table .js-sku');
     skuInputs.forEach(input => {
-        if (errorSkus.includes(input.value.trim().toLowerCase())) {
+        const msg = errorBySku[input.value.trim().toLowerCase()];
+        if (msg) {
             input.classList.add('input-error');
             const errDiv = document.createElement('div');
             errDiv.className = 'fm-error';
-            errDiv.textContent = 'Duplicate SKU';
+            errDiv.textContent = msg;
             input.parentNode.appendChild(errDiv);
         }
     });

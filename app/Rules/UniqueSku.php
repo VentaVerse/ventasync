@@ -24,13 +24,14 @@ class UniqueSku implements ValidationRule
 
         $p = (string) config('catalog.prefix');
 
-        // Check product.sku
-        $productQuery = DB::table($p . 'product')->where('sku', $sku);
+        // Check product.sku - naming WHO holds it (#185): "another
+        // product" sent the operator searching; the name lets them decide.
+        $holder = DB::table($p . 'product')->where('sku', $sku);
         if ($this->excludeProductId) {
-            $productQuery->where('product_id', '!=', $this->excludeProductId);
+            $holder->where('product_id', '!=', $this->excludeProductId);
         }
-        if ($productQuery->exists()) {
-            $fail("The SKU \"{$sku}\" is already used by another product.");
+        if ($holderId = $holder->value('product_id')) {
+            $fail("The SKU \"{$sku}\" is already used by " . $this->productName((int) $holderId) . '.');
             return;
         }
 
@@ -39,9 +40,32 @@ class UniqueSku implements ValidationRule
         if ($this->excludeProductId) {
             $optionQuery->where('product_id', '!=', $this->excludeProductId);
         }
-        if ($optionQuery->exists()) {
-            $fail("The SKU \"{$sku}\" is already used by another product's option value.");
+        if ($optionHolderId = $optionQuery->value('product_id')) {
+            $fail("The SKU \"{$sku}\" is already used by a variation of " . $this->productName((int) $optionHolderId) . '.');
             return;
         }
+
+        // Check product_option_combinations.sku - the third place a SKU
+        // lives, and the one the old rule never looked at.
+        $comboQuery = DB::table('product_option_combinations')->where('sku', $sku);
+        if ($this->excludeProductId) {
+            $comboQuery->where('product_id', '!=', $this->excludeProductId);
+        }
+        if ($comboHolderId = $comboQuery->value('product_id')) {
+            $fail("The SKU \"{$sku}\" is already used by a variation of " . $this->productName((int) $comboHolderId) . '.');
+            return;
+        }
+    }
+
+    private function productName(int $productId): string
+    {
+        $name = DB::table((string) config('catalog.prefix') . 'product_description')
+            ->where('product_id', $productId)
+            ->where('language_id', (int) config('catalog.default_language_id'))
+            ->value('name');
+
+        return $name !== null && trim((string) $name) !== ''
+            ? '"' . trim((string) $name) . "\" (#{$productId})"
+            : "product #{$productId}";
     }
 }
