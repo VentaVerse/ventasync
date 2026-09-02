@@ -778,21 +778,51 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
      */
     public function verifyWebhook(\Illuminate\Http\Request $request): bool
     {
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
-        $key = (string) ($auth['partner_key'] ?? '');
+        /* Multi-store S5 (#194): the push is signed with a PARTNER key,
+         * and each store may sit under its own partner app. The store the
+         * payload names (shop_id) offers its key first; every other
+         * enabled store's key is tried after it, because stores under one
+         * partner app share a key and the payload's store may be the
+         * second row holding it. An unmatched signature stays a refusal. */
         $received = (string) $request->header('Authorization', '');
-        if ($key === '' || $received === '') {
+        if ($received === '') {
             return false;
         }
 
-        foreach ([$request->url(), $request->fullUrl()] as $url) {
-            if (hash_equals(hash_hmac('sha256', $url . '|' . $request->getContent(), $key), $received)) {
-                return true;
+        $keys = [];
+        $named = $this->webhookStore((array) json_decode((string) $request->getContent(), true));
+        $stores = ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get();
+        foreach (($named ? collect([$named])->merge($stores) : $stores) as $store) {
+            $auth = ShopeeSetting::activeAuth($store->decrypted());
+            $key = (string) ($auth['partner_key'] ?? '');
+            if ($key !== '') {
+                $keys[$key] = true;
+            }
+        }
+
+        foreach (array_keys($keys) as $key) {
+            foreach ([$request->url(), $request->fullUrl()] as $url) {
+                if (hash_equals(hash_hmac('sha256', $url . '|' . $request->getContent(), $key), $received)) {
+                    return true;
+                }
             }
         }
 
         return false;
+    }
+
+    /** The store a Shopee push names, by the shop_id every push carries. */
+    private function webhookStore(array $payload): ?ShopeeSetting
+    {
+        $shopId = (int) ($payload['shop_id'] ?? 0);
+        if ($shopId <= 0) {
+            return null;
+        }
+
+        return ShopeeSetting::query()
+            ->where('shop_id', $shopId)
+            ->orWhere('sandbox_shop_id', $shopId)
+            ->orderBy('id')->first();
     }
 
     /**
@@ -828,7 +858,14 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             if ($status === '') {
                 return 'item push without a status; nothing applied';
             }
-            $n = ShopeeProductLink::query()->where('shopee_item_id', $itemId)
+            // The push names its shop; the mirror write stays inside that
+            // store's links (multi-store S5, #194). A push naming no shop
+            // this install holds still updates by item id alone - Shopee
+            // item ids are platform-unique, so that is narrow already.
+            $store = $this->webhookStore((array) $event->payload);
+            $n = ShopeeProductLink::query()
+                ->when($store !== null, fn ($q) => $q->where('shopee_setting_id', $store->id))
+                ->where('shopee_item_id', $itemId)
                 ->update(['live_status' => $status, 'live_checked_at' => now()]);
 
             return $n > 0

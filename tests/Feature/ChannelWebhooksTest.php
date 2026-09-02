@@ -75,6 +75,35 @@ class ChannelWebhooksTest extends TestCase
         $this->assertStringContainsString('mirror -> BANNED', (string) $event->outcome);
     }
 
+    /**
+     * Multi-store S5 (#194): a push names its shop, and the mirror write
+     * stays inside that store - the same item id linked under another
+     * store keeps the status it had.
+     */
+    public function test_a_push_touches_only_the_store_its_shop_id_names(): void
+    {
+        $two = ShopeeSetting::query()->create(['mode' => 'live', 'store_name' => 'Outlet', 'partner_id' => '1', 'partner_key' => 'k2', 'shop_id' => '9', 'access_token' => 't', 'refresh_token' => 'r']);
+        $mine = ShopeeProductLink::create(['shopee_setting_id' => $two->id, 'product_id' => 21, 'shopee_item_id' => 700, 'sku' => 'WH-2', 'live_status' => 'NORMAL']);
+        $other = ShopeeProductLink::create(['product_id' => 22, 'shopee_item_id' => 700, 'sku' => 'WH-3', 'live_status' => 'NORMAL']);
+
+        // Signed with store TWO's partner key, naming store two's shop.
+        $body = json_encode(['code' => 5, 'shop_id' => 9, 'data' => ['item_id' => 700, 'item_status' => 'BANNED']]);
+        $url = route('channels.webhooks.receive', ['channel' => 'shopee']);
+        $sig = hash_hmac('sha256', $url . '|' . $body, 'k2');
+
+        $this->call('POST', $url, [], [], [], [
+            'HTTP_AUTHORIZATION' => $sig, 'CONTENT_TYPE' => 'application/json',
+        ], $body)->assertOk();
+        $this->assertTrue(ChannelWebhookEvent::query()->latest('id')->first()->signature_ok,
+            "a second store's own partner key must verify");
+
+        $this->artisan('webhooks:process')->assertExitCode(0);
+
+        $this->assertSame('BANNED', $mine->fresh()->live_status);
+        $this->assertSame('NORMAL', $other->fresh()->live_status,
+            "the other store's link keeps its status - the push named shop 9, not this one");
+    }
+
     /** A delivery that fails the signature is kept as evidence, answered 401, and never applied. */
     public function test_an_unsigned_delivery_is_kept_but_never_applied(): void
     {
