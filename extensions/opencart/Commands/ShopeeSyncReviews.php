@@ -18,9 +18,13 @@ class ShopeeSyncReviews extends Command
 
     protected $description = 'Sync product reviews/comments from Shopee';
 
+    private string $pauseKey = 'shopee_sync_paused';
+
     public function handle(ShopeeClient $client): int
     {
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
+        $store = ShopeeSetting::defaultStore();
+        $setting = $store?->decrypted();
+        $this->pauseKey = 'shopee_sync_paused' . ($store ? ':' . $store->id : '');
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
@@ -28,7 +32,7 @@ class ShopeeSyncReviews extends Command
             return 1;
         }
 
-        if ($paused = Cache::get('shopee_sync_paused')) {
+        if ($paused = Cache::get($this->pauseKey)) {
             $this->warn('Shopee sync paused due to recent API error (' . $paused . '). Will retry automatically.');
             return 1;
         }
@@ -62,7 +66,7 @@ class ShopeeSyncReviews extends Command
         $errors = 0;
 
         foreach ($itemIds as $itemId) {
-            if (Cache::get('shopee_sync_paused')) break;
+            if (Cache::get($this->pauseKey)) break;
 
             try {
                 [$c, $u] = $this->syncItemReviews($client, $auth, $itemId, $lastSync, $days);
@@ -141,7 +145,7 @@ class ShopeeSyncReviews extends Command
                     break;
                 }
 
-                Cache::put('shopee_sync_paused', $msg, now()->addMinutes(10));
+                Cache::put($this->pauseKey, $msg, now()->addMinutes(10));
                 throw new \RuntimeException($msg);
             }
 

@@ -17,27 +17,41 @@ class ShopeeRefreshListingStatus extends Command
 
     protected $description = 'Refresh the mirrored Shopee status (live, unlisted, violation, under review) of every linked product';
 
+    /** Multi-store S3 (#194): one mirror sweep per enabled store, scoped
+     *  to that store's links so shops never stamp each other MISSING. */
     public function handle(ShopeeLiveListing $live): int
     {
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
-            $this->error('Missing Shopee credentials. Configure Shopee settings first.');
+        $stores = ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get();
+        if ($stores->isEmpty()) {
+            $this->error('No enabled Shopee store. Configure Shopee settings first.');
             return self::FAILURE;
         }
 
-        $result = $live->refreshMirror($auth);
-        if ($result['error'] !== null) {
-            $this->error('Shopee did not answer: ' . $result['error']);
-            return self::FAILURE;
+        $worst = self::SUCCESS;
+        foreach ($stores as $store) {
+            $label = $store->store_name ?: ('#' . $store->id);
+            $auth = ShopeeSetting::activeAuth($store->decrypted());
+            if (!$auth['complete']) {
+                $this->error("Store {$label}: missing Shopee credentials.");
+                $worst = self::FAILURE;
+                continue;
+            }
+
+            $result = $live->refreshMirror($auth, (int) $store->id);
+            if ($result['error'] !== null) {
+                $this->error("Store {$label}: Shopee did not answer: " . $result['error']);
+                $worst = self::FAILURE;
+                continue;
+            }
+
+            $this->info(sprintf(
+                'Store %s: refreshed %d link(s): %s.',
+                $label,
+                $result['links'],
+                implode(', ', array_map(fn ($k, $v) => "{$v} {$k}", array_keys($result['counts']), $result['counts'])) ?: 'nothing on Shopee'
+            ));
         }
 
-        $this->info(sprintf(
-            'Refreshed %d link(s): %s.',
-            $result['links'],
-            implode(', ', array_map(fn ($k, $v) => "{$v} {$k}", array_keys($result['counts']), $result['counts'])) ?: 'nothing on Shopee'
-        ));
-
-        return self::SUCCESS;
+        return $worst;
     }
 }

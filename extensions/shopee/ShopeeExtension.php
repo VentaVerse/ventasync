@@ -592,10 +592,20 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
            instead, which is the same object the card, the head and the
            channel sidebar read, so the four cannot disagree. This method
            keeps operational notices only. */
+        /* Any paused store raises the banner (multi-store S3, #194); the
+         * legacy storeless key still counts during the transition. */
         $paused = Cache::get('shopee_sync_paused');
+        $pausedLabel = null;
+        foreach (ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get(['id', 'store_name']) as $ps) {
+            if ($storePaused = Cache::get('shopee_sync_paused:' . $ps->id)) {
+                $paused = $storePaused;
+                $pausedLabel = $ps->store_name;
+                break;
+            }
+        }
         if ($paused) {
             $banners[] = [
-                'label'    => 'Shopee: Order sync paused — ' . $paused,
+                'label'    => 'Shopee' . ($pausedLabel ? " ({$pausedLabel})" : '') . ': Order sync paused — ' . $paused,
                 'severity' => 'error',
                 'href'     => route('ext.shopee.index'),
             ];

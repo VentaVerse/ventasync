@@ -532,7 +532,10 @@ public function buildAuthUrl(ShopeeClient $client)
                 if ($raw) {
                     $this->persistTokens($raw, $auth['mode'], (string)$access, $refresh, $result['body']['expire_in'] ?? null);
                 }
-                Cache::forget('shopee_sync_paused');
+                if ($raw) {
+                    Cache::forget('shopee_sync_paused:' . $raw->id);
+                }
+                Cache::forget('shopee_sync_paused'); // legacy pre-store key
             }
         }
 

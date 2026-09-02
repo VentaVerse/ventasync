@@ -89,7 +89,12 @@ class ShopeeLiveListing
      *
      * @return array{error: ?string, counts: array<string, int>, links: int}
      */
-    public function refreshMirror(array $auth): array
+    /**
+     * @param ?int $settingId Multi-store S3 (#194): the store whose links
+     *   this sweep may touch. Without it a two-store sweep would stamp the
+     *   other shop's links MISSING. Null means all (single-store legacy).
+     */
+    public function refreshMirror(array $auth, ?int $settingId = null): array
     {
         $idsByStatus = [];
         foreach (self::STATUSES as $status) {
@@ -107,6 +112,7 @@ class ShopeeLiveListing
             $counts[$status] = 0;
             foreach (array_chunk($ids, 500) as $chunk) {
                 $counts[$status] += \Extensions\shopee\Models\ShopeeProductLink::query()
+                    ->when($settingId !== null, fn ($q) => $q->where('shopee_setting_id', $settingId))
                     ->whereIn('shopee_item_id', $chunk)
                     ->update(['live_status' => $status, 'live_checked_at' => $now]);
                 foreach ($chunk as $id) {
@@ -115,6 +121,7 @@ class ShopeeLiveListing
             }
         }
         $missing = \Extensions\shopee\Models\ShopeeProductLink::query()
+            ->when($settingId !== null, fn ($q) => $q->where('shopee_setting_id', $settingId))
             ->whereNotIn('shopee_item_id', array_keys($seen) ?: [0])
             ->update(['live_status' => 'MISSING', 'live_checked_at' => $now]);
         if ($missing > 0) {
@@ -124,7 +131,8 @@ class ShopeeLiveListing
         return [
             'error' => null,
             'counts' => array_filter($counts),
-            'links' => (int) \Extensions\shopee\Models\ShopeeProductLink::query()->count(),
+            'links' => (int) \Extensions\shopee\Models\ShopeeProductLink::query()
+                ->when($settingId !== null, fn ($q) => $q->where('shopee_setting_id', $settingId))->count(),
         ];
     }
 

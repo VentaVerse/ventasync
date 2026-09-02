@@ -24,18 +24,48 @@ class ShopeeSyncOrders extends Command
 
     protected $description = 'Sync orders from Shopee (create new + update existing + returns)';
 
+    /**
+     * Multi-store S3 (#194): one loop over enabled stores, and a store
+     * that fails - bad token, API pause, anything thrown - is reported
+     * and skipped, never allowed to stop the stores after it.
+     */
     public function handle(ShopeeClient $client): int
     {
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
-            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
-            $this->error("Missing Shopee {$modeLabel} credentials/token. Configure Shopee settings first.");
+        $stores = ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get();
+        if ($stores->isEmpty()) {
+            $this->error('No enabled Shopee store. Configure Shopee settings first.');
             return 1;
         }
 
-        if ($paused = Cache::get('shopee_sync_paused')) {
-            $this->warn('Shopee order sync paused due to recent API error (' . $paused . '). Will retry automatically.');
+        $worst = 0;
+        foreach ($stores as $store) {
+            $label = $store->store_name ?: ('#' . $store->id);
+            $this->info("=== Shopee store: {$label} ===");
+            try {
+                $worst = max($worst, $this->syncStore($client, $store));
+            } catch (\Throwable $e) {
+                $this->error("Store {$label} failed: " . $e->getMessage());
+                Log::error('Shopee sync: store failed', ['store' => $store->id, 'error' => $e->getMessage()]);
+                $worst = 1;
+            }
+        }
+
+        $this->info('Done.');
+        return $worst;
+    }
+
+    private function syncStore(ShopeeClient $client, ShopeeSetting $store): int
+    {
+        $setting = $store->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+            $this->error("Missing Shopee {$modeLabel} credentials/token for this store.");
+            return 1;
+        }
+
+        if ($paused = Cache::get('shopee_sync_paused:' . $store->id)) {
+            $this->warn('This store is paused due to a recent API error (' . $paused . '). Will retry automatically.');
             return 1;
         }
 
@@ -45,10 +75,10 @@ class ShopeeSyncOrders extends Command
         if (!$returnsOnly) {
             $this->info('--- Syncing Shopee orders ---');
             $this->syncOrders($client, $setting, $auth);
-            ShopeeSetting::query()->update(['last_order_sync_at' => now()]);
+            $store->forceFill(['last_order_sync_at' => now()])->save();
         }
 
-        if (Cache::get('shopee_sync_paused')) {
+        if (Cache::get('shopee_sync_paused:' . $store->id)) {
             return 1;
         }
 
@@ -63,10 +93,9 @@ class ShopeeSyncOrders extends Command
         if (!$skipReturns) {
             $this->info('--- Syncing Shopee returns ---');
             $this->syncReturns($client, $setting, $auth);
-            ShopeeSetting::query()->update(['last_return_sync_at' => now()]);
+            $store->forceFill(['last_return_sync_at' => now()])->save();
         }
 
-        $this->info('Done.');
         return 0;
     }
 
@@ -80,7 +109,7 @@ class ShopeeSyncOrders extends Command
         $region = $auth['region'] ?? 'ph';
 
         $latestUpdated = ShopeeOrder::query()
-            ->where('region', $region)
+            ->where('shopee_setting_id', (int) $setting->id)
             ->max('order_updated_at');
 
         if ($latestUpdated) {
@@ -145,7 +174,7 @@ class ShopeeSyncOrders extends Command
                     $body = $res['body'] ?? [];
                     $msg = is_array($body) ? ($body['message'] ?? 'API error') : 'API error';
                     $this->error("  API error: {$msg}");
-                    Cache::put('shopee_sync_paused', $msg, now()->addMinutes(10));
+                    Cache::put('shopee_sync_paused:' . $setting->id, $msg, now()->addMinutes(10));
                     return;
                 }
 
@@ -211,7 +240,7 @@ class ShopeeSyncOrders extends Command
                 if ($orderSn === '') continue;
 
                 $existing = ShopeeOrder::query()
-                    ->where('region', $region)
+                    ->where('shopee_setting_id', (int) $setting->id)
                     ->where('order_sn', $orderSn)
                     ->first();
 
@@ -246,6 +275,7 @@ class ShopeeSyncOrders extends Command
                     // --- Create new order ---
                     try {
                         $newOrder = ShopeeOrder::query()->create([
+                            'shopee_setting_id' => (int) $setting->id,
                             'region'           => $region,
                             'order_sn'         => $orderSn,
                             'status'           => (string) ($o['order_status'] ?? ''),
@@ -375,7 +405,7 @@ class ShopeeSyncOrders extends Command
                 $shopeeOrder = null;
                 if ($orderSn !== '') {
                     $shopeeOrder = ShopeeOrder::query()
-                        ->where('region', $region)
+                        ->where('shopee_setting_id', (int) $setting->id)
                         ->where('order_sn', $orderSn)
                         ->first();
                 }
@@ -383,10 +413,11 @@ class ShopeeSyncOrders extends Command
                 try {
                     ShopeeReturn::query()->updateOrCreate(
                         [
-                            'region'    => $region,
+                            'shopee_setting_id' => (int) $setting->id,
                             'return_sn' => $returnSn,
                         ],
                         [
+                            'region'            => $region,
                             'order_sn'          => $orderSn,
                             'shopee_order_id'   => $shopeeOrder?->id,
                             'status'            => (string) ($detail['status'] ?? ($ret['status'] ?? '')),
@@ -487,7 +518,7 @@ class ShopeeSyncOrders extends Command
         $region = $auth['region'] ?? 'ph';
 
         $orders = ShopeeOrder::query()
-            ->where('region', $region)
+            ->where('shopee_setting_id', (int) $setting->id)
             ->whereIn('status', ['SHIPPED', 'TO_CONFIRM_RECEIVE', 'COMPLETED'])
             ->whereNull('fees')
             ->get();
@@ -519,7 +550,7 @@ class ShopeeSyncOrders extends Command
 
         // Find COMPLETED orders without payout_status = 'Paid'
         $pendingOrders = ShopeeOrder::query()
-            ->where('region', $region)
+            ->where('shopee_setting_id', (int) $setting->id)
             ->where('status', 'COMPLETED')
             ->where(function ($q) {
                 $q->whereNull('payout_status')
@@ -583,7 +614,7 @@ class ShopeeSyncOrders extends Command
         foreach ($pendingOrders as $orderSn) {
             if (isset($paidMap[$orderSn])) {
                 ShopeeOrder::query()
-                    ->where('region', $region)
+                    ->where('shopee_setting_id', (int) $setting->id)
                     ->where('order_sn', $orderSn)
                     ->update([
                         'payout_status' => 'Paid',
@@ -593,7 +624,7 @@ class ShopeeSyncOrders extends Command
             } else {
                 // Mark as Releasing (completed but not yet paid out)
                 ShopeeOrder::query()
-                    ->where('region', $region)
+                    ->where('shopee_setting_id', (int) $setting->id)
                     ->where('order_sn', $orderSn)
                     ->whereNull('payout_status')
                     ->update(['payout_status' => 'Releasing']);

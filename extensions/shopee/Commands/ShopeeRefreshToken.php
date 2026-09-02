@@ -14,11 +14,42 @@ class ShopeeRefreshToken extends Command
 
     protected $description = 'Refresh the Shopee access token before it expires';
 
+    /**
+     * Multi-store S3 (#194): every enabled store refreshes its own token
+     * pair, and a store that fails is reported and skipped. The QAS
+     * lesson stands per store: a refresh token is single-use, so the
+     * grant always writes back to the ROW it was minted from - tokens
+     * never cross stores.
+     */
     public function handle(ShopeeClient $client): int
     {
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
+        $stores = ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get();
+        if ($stores->isEmpty()) {
+            $this->error('No enabled Shopee store. Configure Shopee settings first.');
+            return 1;
+        }
+
+        $worst = 0;
+        foreach ($stores as $store) {
+            $label = $store->store_name ?: ('#' . $store->id);
+            $this->info("=== Shopee store: {$label} ===");
+            try {
+                $worst = max($worst, $this->refreshStore($client, $store));
+            } catch (\Throwable $e) {
+                $this->error("Store {$label} failed: " . $e->getMessage());
+                Log::error('Shopee token refresh: store failed', ['store' => $store->id, 'error' => $e->getMessage()]);
+                $worst = 1;
+            }
+        }
+
+        return $worst;
+    }
+
+    private function refreshStore(ShopeeClient $client, ShopeeSetting $store): int
+    {
+        $setting = $store->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
-        if (!$setting || !$auth['partner_id'] || !$auth['partner_key'] || !$auth['shop_id'] || !$auth['refresh_token']) {
+        if (!$auth['partner_id'] || !$auth['partner_key'] || !$auth['shop_id'] || !$auth['refresh_token']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             $this->error("Missing Shopee {$modeLabel} credentials. Partner ID, Partner Key, Shop ID, and Refresh Token are required.");
             return 1;
@@ -58,7 +89,9 @@ class ShopeeRefreshToken extends Command
             $refresh = $result['body']['refresh_token'] ?? null;
 
             if ($access) {
-                $raw = ShopeeSetting::defaultStore();
+                // Write back to THE row the refresh token came from, never a
+                // re-resolved default: tokens must not cross stores.
+                $raw = $store;
                 if ($raw) {
                     $isSandbox = $auth['mode'] === 'sandbox';
                     if ($isSandbox) {
@@ -86,7 +119,8 @@ class ShopeeRefreshToken extends Command
                     }
                     $raw->save();
                 }
-                Cache::forget('shopee_sync_paused');
+                Cache::forget('shopee_sync_paused:' . $store->id);
+                Cache::forget('shopee_sync_paused'); // legacy pre-store key
                 $this->info('Token refreshed successfully.');
                 return 0;
             }

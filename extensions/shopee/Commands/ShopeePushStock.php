@@ -16,17 +16,42 @@ class ShopeePushStock extends Command
 
     protected $description = 'Push ERP product quantities to Shopee for all linked products';
 
+    /** Multi-store S3 (#194): each enabled store pushes its own links. */
     public function handle(ShopeeClient $client): int
     {
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
-            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
-            $this->error("Missing Shopee {$modeLabel} credentials/token. Configure Shopee settings first.");
+        $stores = ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get();
+        if ($stores->isEmpty()) {
+            $this->error('No enabled Shopee store. Configure Shopee settings first.');
             return 1;
         }
 
-        $links = ShopeeProductLink::query()->get();
+        $worst = 0;
+        foreach ($stores as $store) {
+            $label = $store->store_name ?: ('#' . $store->id);
+            $this->info("=== Shopee store: {$label} ===");
+            try {
+                $worst = max($worst, $this->pushStore($store));
+            } catch (\Throwable $e) {
+                $this->error("Store {$label} failed: " . $e->getMessage());
+                Log::error('Shopee push-stock: store failed', ['store' => $store->id, 'error' => $e->getMessage()]);
+                $worst = 1;
+            }
+        }
+
+        return $worst;
+    }
+
+    private function pushStore(ShopeeSetting $store): int
+    {
+        $setting = $store->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+            $this->error("Missing Shopee {$modeLabel} credentials/token for this store.");
+            return 1;
+        }
+
+        $links = ShopeeProductLink::forStore($store)->get();
 
         if ($links->isEmpty()) {
             $this->warn('No Shopee product links found.');
@@ -60,8 +85,8 @@ class ShopeePushStock extends Command
         $ledger = \Extensions\shopee\Services\Shopee\ShopeeStockPricePush::ledgerClause($results);
         $this->info("Done. Success: {$totalOk}, Failed: {$totalErr}, Skipped: {$totalSkipped}." . $ledger);
 
-        // Stamp sync timestamp on settings (independent of API logging)
-        ShopeeSetting::query()->update(['last_stock_push_at' => now()]);
+        // Stamp sync timestamp on this store (independent of API logging)
+        $store->forceFill(['last_stock_push_at' => now()])->save();
 
         return $totalErr > 0 ? 1 : 0;
     }

@@ -16,6 +16,16 @@ class ShopeeMultistoreTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $manager = $this->app->make(\App\Extensions\ExtensionManager::class);
+        $manager->install('shopee');
+        $manager->enable('shopee');
+        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+    }
+
     // ── S1: the ground ───────────────────────────────────────────────
 
     public function test_default_store_is_the_first_enabled_row(): void
@@ -113,6 +123,77 @@ class ShopeeMultistoreTest extends TestCase
 
         $this->expectException(\Illuminate\Database\QueryException::class);
         $store->delete();
+    }
+
+    // ── S3: services and crons walk the stores ───────────────────────
+
+    private function storeWithCreds(string $name, int $shopId): ShopeeSetting
+    {
+        return ShopeeSetting::create([
+            'mode' => 'production', 'store_name' => $name,
+            'partner_id' => 100001, 'partner_key' => encrypt('pk'),
+            'shop_id' => $shopId,
+            'access_token' => encrypt('at-' . $shopId), 'refresh_token' => encrypt('rt-' . $shopId),
+            'expires_at' => now()->addMinutes(5), 'region' => 'ph',
+        ]);
+    }
+
+    public function test_token_refresh_walks_every_store_and_a_failure_stops_nothing(): void
+    {
+        $one = $this->storeWithCreds('Main store', 111);
+        $two = $this->storeWithCreds('Outlet', 222);
+
+        $fake = new class extends \Extensions\shopee\Services\Shopee\ShopeeClient {
+            public array $askedShopIds = [];
+            public function __construct() {}
+            public function signAuth(int $partnerId, string $partnerKey, string $path, int $timestamp): string { return 'sig'; }
+            public function postJson(string $mode, string $path, array $query, array $body): array
+            {
+                $this->askedShopIds[] = (int) $body['shop_id'];
+                if ((int) $body['shop_id'] === 111) {
+                    return ['ok' => false, 'status' => 400, 'body' => ['message' => 'invalid refresh token']];
+                }
+                return ['ok' => true, 'status' => 200, 'body' => ['access_token' => 'fresh-access', 'refresh_token' => 'fresh-refresh', 'expire_in' => 14400]];
+            }
+        };
+        $this->app->instance(\Extensions\shopee\Services\Shopee\ShopeeClient::class, $fake);
+
+        $this->artisan('shopee:refresh-token')->assertExitCode(1);
+
+        $this->assertSame([111, 222], $fake->askedShopIds,
+            'the first store failing must not stop the second from refreshing');
+        $this->assertSame('fresh-access', decrypt($two->fresh()->access_token),
+            'the surviving store got its new token');
+        $this->assertSame('at-111', decrypt($one->fresh()->access_token),
+            'the failed store keeps its old token untouched - a failed grant writes nothing');
+    }
+
+    public function test_the_mirror_sweep_stays_inside_its_store(): void
+    {
+        $one = $this->storeWithCreds('Main store', 111);
+        $two = $this->storeWithCreds('Outlet', 222);
+        $linkA = \Extensions\shopee\Models\ShopeeProductLink::create(['shopee_setting_id' => $one->id, 'product_id' => 11, 'shopee_item_id' => 901, 'live_status' => 'NORMAL']);
+        $linkB = \Extensions\shopee\Models\ShopeeProductLink::create(['shopee_setting_id' => $two->id, 'product_id' => 11, 'shopee_item_id' => 902, 'live_status' => 'NORMAL']);
+
+        $fake = new class extends \Extensions\shopee\Services\Shopee\ShopeeClient {
+            public function __construct() {}
+            public function shopGet(string $mode, int $partnerId, string $partnerKey, string $accessToken, int $shopId, string $path, array $extraQuery = []): array
+            {
+                // Store A's shop holds only item 901, in NORMAL.
+                $items = ($extraQuery['item_status'] ?? '') === 'NORMAL' ? [['item_id' => 901]] : [];
+                return ['ok' => true, 'status' => 200, 'body' => ['response' => ['item' => $items, 'has_next_page' => false]]];
+            }
+        };
+
+        $live = new \Extensions\shopee\Services\Shopee\ShopeeLiveListing($fake);
+        $auth = ShopeeSetting::activeAuth($one->decrypted());
+        $result = $live->refreshMirror($auth, (int) $one->id);
+
+        $this->assertNull($result['error']);
+        $this->assertSame('NORMAL', $linkA->fresh()->live_status);
+        $this->assertSame('NORMAL', $linkB->fresh()->live_status,
+            "store A's sweep must never stamp store B's links - B's item is absent from A's shop, not MISSING");
+        $this->assertSame(1, $result['links'], 'the sweep counts only its own store');
     }
 
     public function test_the_existing_row_became_store_one_with_a_name(): void
