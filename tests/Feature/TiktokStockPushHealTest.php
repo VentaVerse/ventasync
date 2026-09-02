@@ -85,6 +85,7 @@ class TiktokStockPushHealTest extends TestCase
         $group->permissions()->attach(
             Permission::whereIn('key', [
                 'view_tiktok/product', 'manage_tiktok/product',
+                'view_tiktok/listing', 'manage_tiktok/listing',
                 'view_tiktok/product_group', 'manage_tiktok/product_group',
             ])->pluck('id')->all()
         );
@@ -221,6 +222,23 @@ class TiktokStockPushHealTest extends TestCase
         $calls = $this->inventoryCalls();
         $this->assertCount(2, $calls, 'one refusal, one retry');
         $this->assertSame(['s-new'], array_column($calls[1]['skus'], 'id'), 'the retry carries the fresh id');
+    }
+
+    /** The listing page says how much of the catalogue stands on TikTok Shop, and names the verb. */
+    public function test_the_listing_page_carries_coverage_and_points_at_update(): void
+    {
+        $pid = $this->comboProduct(['TT-1' => 5, 'TT-2' => 8]);
+        TikTokListing::create(['product_id' => $pid, 'tiktok_product_id' => 'tt-cov', 'tiktok_sku_id' => json_encode(['TT-1' => 's1'])]);
+        $this->getProductAnswers['tt-cov'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'data' => [
+            'status' => 'ACTIVATE', 'title' => 'TT', 'skus' => [['id' => 's1', 'seller_sku' => 'TT-1', 'inventory' => []]],
+        ]]];
+
+        $page = $this->actingAs($this->manager())
+            ->get(route('ext.tiktok.listings.edit', $pid))->assertOk();
+
+        $page->assertSee('1 of 2 variations');
+        $page->assertSee('TT-2');
+        $page->assertSee('Push update - it carries every catalogue variation');
     }
 
     /** A failed group batch can no longer flash green. */

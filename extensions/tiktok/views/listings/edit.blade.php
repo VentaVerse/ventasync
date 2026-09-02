@@ -95,6 +95,20 @@
                         <span class="fm-stat__k">Status</span>
                         <span class="fm-stat__v"><x-ui.badge :tone="$statusTone">{{ $statusLabel }}</x-ui.badge></span>
                     </div>
+                    {{-- Variation coverage (Phase F, #184): Push update
+                         carries every catalogue variation, so it IS the
+                         add-variation verb - said here at last. --}}
+                    @if(($coverage['total'] ?? 0) > 0)
+                        <div class="fm-stat">
+                            <span class="fm-stat__k">On TikTok Shop</span>
+                            <span class="fm-stat__v">
+                                {{ $coverage['linked'] }} of {{ $coverage['total'] }} variations
+                                @if(!empty($coverage['missing']))
+                                    <x-ui.hint label="What is not on TikTok Shop">In the catalogue but not on TikTok Shop: {{ implode(', ', $coverage['missing']) }}. Stock and price pushes skip these and say so. Press Push update - it carries every catalogue variation, missing ones included.</x-ui.hint>
+                                @endif
+                            </span>
+                        </div>
+                    @endif
                     <div class="fm-stat">
                         <span class="fm-stat__k">Stock on TikTok Shop</span>
                         <span class="fm-stat__v">{{ $live['stock'] }}</span>

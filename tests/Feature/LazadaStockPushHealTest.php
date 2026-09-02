@@ -229,6 +229,22 @@ class LazadaStockPushHealTest extends TestCase
             'the verdict names the SKU and the reason - not PARTIAL_FAILURE with a count');
     }
 
+    /** The listing page says how much of the catalogue stands on Lazada, and names the verb. */
+    public function test_the_listing_page_carries_coverage_and_points_at_update(): void
+    {
+        $pid = $this->comboProduct(['LZ-1' => 5, 'LZ-2' => 8]);
+        $listing = LazadaProduct::create(['product_id' => $pid, 'lazada_item_id' => '900']);
+        LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
+        $this->fakeItem(['LZ-1' => 11]);
+
+        $page = $this->actingAs($this->manager())
+            ->get(route('ext.lazada.products.edit', $listing->id))->assertOk();
+
+        $page->assertSee('1 of 2 variations');
+        $page->assertSee('LZ-2');
+        $page->assertSee('Update on Lazada - the update carries every catalogue variation');
+    }
+
     /** A combination added in the catalogue triggers the staleness refetch at last. */
     public function test_a_new_combination_makes_the_cache_refetch(): void
     {

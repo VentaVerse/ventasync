@@ -73,7 +73,27 @@ class TikTokListingController extends Controller
         $listingState = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)
             ->forProducts([$productId])[$productId] ?? null;
 
+        /* Variation coverage (Phase F, #184): the catalogue's SKUs vs the
+         * sku-id map TikTok holds. The update payload carries every
+         * catalogue variation (a combo without an id is created on
+         * update), so PUSH UPDATE is the add-variation verb - this line
+         * says so instead of leaving unlink-and-resync as folklore. */
+        $covPfx = (string) config('catalog.prefix');
+        $covSkus = \App\Integrations\Push\PushLedger::erpVariationSkus([$productId], $covPfx)[$productId] ?? [];
+        // derivedTruth's pseudo-object carries no map; read it where it lives.
+        $covRaw = \Extensions\tiktok\Models\TikTokListing::query()->where('product_id', $productId)->value('tiktok_sku_id')
+            ?? \Extensions\tiktok\Models\TikTokProductGroupProduct::query()->where('product_id', $productId)
+                ->whereNotNull('tiktok_product_id')->orderByDesc('last_pushed_at')->value('tiktok_sku_id');
+        $covMap = \Extensions\tiktok\Services\TikTok\TikTokVariationPush::existingIds($covRaw);
+        $covKeys = array_change_key_case(array_flip(array_map('strval', array_keys($covMap))), CASE_LOWER);
+        $coverage = [
+            'total' => count($covSkus),
+            'linked' => count(array_filter($covSkus, fn ($sku) => isset($covKeys[strtolower($sku)]))),
+            'missing' => array_values(array_filter($covSkus, fn ($sku) => !isset($covKeys[strtolower($sku)]))),
+        ];
+
         return view('ext-tiktok::listings.edit', [
+            'coverage' => $coverage,
             'listingState' => $listingState,
             'product' => $product,
             'listing' => $listing,

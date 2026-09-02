@@ -2262,7 +2262,22 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             // Do not auto-save; just suggest in UI
         }
 
+        /* Variation coverage (Phase F, #184): the catalogue's SKUs vs the
+         * variant rows Lazada holds, so this page can say "On Lazada:
+         * 1 of 2 variations" and name the missing side - and say that
+         * UPDATE ON LAZADA is the verb that sends them, because the update
+         * payload carries every catalogue variation. The unlink-and-resync
+         * ritual existed only because nothing said so. */
+        $covSkus = \App\Integrations\Push\PushLedger::erpVariationSkus([(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? [];
+        $covVariantSkus = $listing->variants->pluck('seller_sku')->map(fn ($v) => strtolower(trim((string) $v)))->flip();
+        $coverage = [
+            'total' => count($covSkus),
+            'linked' => count(array_filter($covSkus, fn ($sku) => $covVariantSkus->has(strtolower($sku)))),
+            'missing' => array_values(array_filter($covSkus, fn ($sku) => !$covVariantSkus->has(strtolower($sku)))),
+        ];
+
         return view('ext-lazada::products.form', [
+            'coverage' => $coverage,
             'mode' => 'edit',
             'listing' => $listing,
             'products' => $products,

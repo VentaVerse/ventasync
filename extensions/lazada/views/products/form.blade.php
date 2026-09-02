@@ -218,6 +218,22 @@
                             <span class="fm-stat__v">{{ $live['item_name'] }}</span>
                         </div>
                     @endif
+                    {{-- Variation coverage (Phase F, #184): the fact whose
+                         absence made unlink-and-resync feel necessary. The
+                         update payload carries every catalogue variation, so
+                         UPDATE ON LAZADA is the add-variation verb - this
+                         line finally says so. --}}
+                    @if(($coverage['total'] ?? 0) > 0)
+                        <div class="fm-stat">
+                            <span class="fm-stat__k">On Lazada</span>
+                            <span class="fm-stat__v">
+                                {{ $coverage['linked'] }} of {{ $coverage['total'] }} variations
+                                @if(!empty($coverage['missing']))
+                                    <x-ui.hint label="What is not on Lazada">In the catalogue but not on Lazada: {{ implode(', ', $coverage['missing']) }}. Stock and price pushes skip these and say so. Press Update on Lazada - the update carries every catalogue variation, missing ones included.</x-ui.hint>
+                                @endif
+                            </span>
+                        </div>
+                    @endif
                 </div>
                 @if(!empty($live['skus']))
                     <x-ui.table caption="This item's SKUs as Lazada holds them right now">
