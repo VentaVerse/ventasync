@@ -2670,6 +2670,21 @@
         "name": "manufacturers.lookup"
     },
     {
+        "method": "DELETE",
+        "uri": "mcp",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "mcp",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "mcp",
+        "name": "mcp"
+    },
+    {
         "method": "GET|HEAD",
         "uri": "opencart",
         "name": null
