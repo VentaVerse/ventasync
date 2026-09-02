@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, \App\Integrations\Contracts\ListingStateSource
+class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, \App\Integrations\Contracts\ListingStateSource, \App\Integrations\Contracts\WebhookReceiver
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -587,5 +587,76 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
         }
 
         return $out;
+    }
+
+    // ── Webhooks (Phase E, #184) ────────────────────────────────────
+
+    public function webhookChannel(): string
+    {
+        return 'tiktok';
+    }
+
+    /**
+     * TikTok Shop signs each push HMAC-SHA256(app_secret, app_key + body)
+     * into the Authorization header.
+     */
+    public function verifyWebhook(\Illuminate\Http\Request $request): bool
+    {
+        $setting = TikTokSetting::query()->first()?->decrypted();
+        $appKey = (string) ($setting->app_key ?? '');
+        $appSecret = (string) ($setting->app_secret ?? '');
+        $received = (string) $request->header('Authorization', '');
+        if ($appKey === '' || $appSecret === '' || $received === '') {
+            return false;
+        }
+
+        return hash_equals(hash_hmac('sha256', $appKey . $request->getContent(), $appSecret), $received);
+    }
+
+    /** Named by shape, so an unrecognised type still reads honestly in the inbox. */
+    public function webhookEventType(array $payload): ?string
+    {
+        $data = (array) ($payload['data'] ?? []);
+        if (isset($data['product_id']) && (isset($data['status']) || isset($data['product_status']))) {
+            return 'product_status';
+        }
+        if (isset($data['order_id'])) {
+            return 'order_status';
+        }
+
+        return isset($payload['type']) ? 'type_' . (int) $payload['type'] : null;
+    }
+
+    /**
+     * v1 applies only MIRRORS - see ShopeeExtension: order transitions
+     * carry stock movements, which belong to the order sync's own path.
+     */
+    public function handleWebhookEvent(\App\Models\ChannelWebhookEvent $event): string
+    {
+        $data = (array) ($event->payload['data'] ?? []);
+
+        if ($event->event_type === 'product_status') {
+            $productId = (string) $data['product_id'];
+            $status = strtoupper(trim((string) ($data['status'] ?? $data['product_status'] ?? '')));
+            if ($status === '') {
+                return 'product push without a status; nothing applied';
+            }
+            $n = \Extensions\tiktok\Models\TikTokListing::query()
+                ->where('tiktok_product_id', $productId)
+                ->update(['live_status' => $status, 'live_checked_at' => now()]);
+
+            return $n > 0
+                ? "product {$productId} mirror -> {$status}"
+                : "product {$productId} is not linked here; nothing to refresh";
+        }
+
+        if ($event->event_type === 'order_status') {
+            $orderId = (string) ($data['order_id'] ?? '');
+            $status = (string) ($data['order_status'] ?? $data['status'] ?? '');
+
+            return "order {$orderId} moved to {$status} on TikTok Shop; the next order sync applies it (stock rides that path)";
+        }
+
+        return 'stored; no handler for ' . ($event->event_type ?? 'this shape') . ' yet';
     }
 }

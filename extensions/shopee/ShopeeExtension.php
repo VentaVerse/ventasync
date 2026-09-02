@@ -33,7 +33,7 @@ use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Contracts\ListingStateSource;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class ShopeeExtension extends ExtensionProvider implements ListingStateSource, IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, RootRouteHandler, CredentialRevealer
+class ShopeeExtension extends ExtensionProvider implements ListingStateSource, IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, RootRouteHandler, CredentialRevealer, \App\Integrations\Contracts\WebhookReceiver
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -686,5 +686,87 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         }
 
         return $out;
+    }
+
+    // ── Webhooks (Phase E, #184) ────────────────────────────────────
+
+    public function webhookChannel(): string
+    {
+        return 'shopee';
+    }
+
+    /**
+     * Shopee signs each push HMAC-SHA256(partner_key, url + '|' + body)
+     * into the Authorization header. Checked against both the bare and
+     * the full URL, since the registered callback may carry a query.
+     */
+    public function verifyWebhook(\Illuminate\Http\Request $request): bool
+    {
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+        $key = (string) ($auth['partner_key'] ?? '');
+        $received = (string) $request->header('Authorization', '');
+        if ($key === '' || $received === '') {
+            return false;
+        }
+
+        foreach ([$request->url(), $request->fullUrl()] as $url) {
+            if (hash_equals(hash_hmac('sha256', $url . '|' . $request->getContent(), $key), $received)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Named by SHAPE, not by Shopee's numeric code list - the shape is
+     * what the handler needs, and an unrecognised code still gets an
+     * honest name in the inbox.
+     */
+    public function webhookEventType(array $payload): ?string
+    {
+        $data = (array) ($payload['data'] ?? []);
+        if (isset($data['item_id'], $data['item_status'])) {
+            return 'item_status';
+        }
+        if (isset($data['ordersn'])) {
+            return 'order_status';
+        }
+
+        return isset($payload['code']) ? 'code_' . (int) $payload['code'] : null;
+    }
+
+    /**
+     * v1 applies only MIRRORS - surfaces with no side effects. An order
+     * push is recorded, never written: order status transitions carry
+     * stock movements, and those belong to the order sync's own path.
+     */
+    public function handleWebhookEvent(\App\Models\ChannelWebhookEvent $event): string
+    {
+        $data = (array) ($event->payload['data'] ?? []);
+
+        if ($event->event_type === 'item_status') {
+            $itemId = (int) $data['item_id'];
+            $status = strtoupper(trim((string) $data['item_status']));
+            if ($status === '') {
+                return 'item push without a status; nothing applied';
+            }
+            $n = ShopeeProductLink::query()->where('shopee_item_id', $itemId)
+                ->update(['live_status' => $status, 'live_checked_at' => now()]);
+
+            return $n > 0
+                ? "item {$itemId} mirror -> {$status} ({$n} link row" . ($n === 1 ? '' : 's') . ')'
+                : "item {$itemId} is not linked here; nothing to refresh";
+        }
+
+        if ($event->event_type === 'order_status') {
+            $sn = (string) ($data['ordersn'] ?? '');
+            $status = (string) ($data['status'] ?? '');
+
+            return "order {$sn} moved to {$status} on Shopee; the next order sync applies it (stock rides that path)";
+        }
+
+        return 'stored; no handler for ' . ($event->event_type ?? 'this shape') . ' yet';
     }
 }

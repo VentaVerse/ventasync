@@ -460,4 +460,20 @@ class IntegrationRegistry
     {
         return $this->providersImplementing(\App\Integrations\Contracts\ListingStateSource::class);
     }
+
+    /**
+     * The channel answering on POST /webhooks/{segment}, or null. Passes
+     * the same enable/licence gates as every other contributor: a
+     * disabled channel's endpoint answers 404, exactly like its pages.
+     */
+    public function webhookReceiverFor(string $segment): ?\App\Integrations\Contracts\WebhookReceiver
+    {
+        foreach ($this->providersImplementing(\App\Integrations\Contracts\WebhookReceiver::class) as $receiver) {
+            if ($receiver->webhookChannel() === $segment) {
+                return $receiver;
+            }
+        }
+
+        return null;
+    }
 }

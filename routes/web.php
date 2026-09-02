@@ -29,6 +29,14 @@ Route::middleware(['auth'])->group(function () {
 
 Route::middleware(['auth'])->group(base_path('routes/channels/web.php'));
 
+/* The marketplaces' push deliveries (Phase E, #184). Public by necessity
+ * - Shopee and TikTok hold no session - and authenticated by each
+ * channel's own signature scheme inside the controller. Stored fast,
+ * applied by webhooks:process a minute later. */
+Route::post('/webhooks/{channel}', [\App\Http\Controllers\Integrations\WebhookController::class, 'receive'])
+    ->where('channel', '[a-z0-9_-]+')
+    ->name('channels.webhooks.receive');
+
 Route::middleware(['auth'])->group(function () {
     // AI Tools: connect an assistant (an mcp-enabled API application with a
     // read-only key). Permissions derive from the controller:

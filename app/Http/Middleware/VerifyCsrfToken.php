@@ -12,6 +12,8 @@ class VerifyCsrfToken extends Middleware
      * @var array<int, string>
      */
     protected $except = [
-        //
+        // Marketplace push deliveries carry no session and sign their own
+        // way (Phase E, #184); the controller verifies per channel.
+        'webhooks/*',
     ];
 }
