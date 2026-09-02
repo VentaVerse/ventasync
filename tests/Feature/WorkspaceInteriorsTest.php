@@ -1678,8 +1678,11 @@ class WorkspaceInteriorsTest extends TestCase
     {
         $this->seedLazadaSetting();
         // The sortable header only exists when there are rows to sort; an
-        // empty list renders the empty state and no <thead> at all.
-        LazadaProduct::create(['product_id' => 4243, 'lazada_item_id' => '551122']);
+        // empty list renders the empty state and no <thead> at all. The
+        // table is the catalogue since Phase C (#184), so the row that
+        // makes the header exist is a real catalog product.
+        $pid = $this->seedCatalogProduct('Sortable Strings', 'SORT-1');
+        LazadaProduct::create(['product_id' => $pid, 'lazada_item_id' => '551122']);
         $user = $this->lazadaManager();
 
         $html = $this->actingAs($user)

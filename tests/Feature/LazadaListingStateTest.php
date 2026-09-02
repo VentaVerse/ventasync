@@ -287,6 +287,24 @@ class LazadaListingStateTest extends TestCase
         $this->assertSame(1, $data['lazadaSyncStatus']->listing_attention);
     }
 
+    /** The whole point of the catalogue-first index: a brand-new product is VISIBLE. */
+    public function test_a_product_with_no_listing_row_is_visible_on_the_index_by_default(): void
+    {
+        $productId = $this->seedProduct('My very first product', 'FIRST-1');
+
+        $r = $this->actingAs($this->manager())->get(route('ext.lazada.products.index'));
+        $r->assertOk()->assertSee('My very first product')->assertSee('Not listed');
+
+        // And the filters that describe it can find it - before Phase C a
+        // product without a mapping row was invisible even to "Not listed".
+        $this->actingAs($this->manager())
+            ->get(route('ext.lazada.products.index', ['sync_status' => 'not_uploaded']))
+            ->assertOk()->assertSee('My very first product');
+        $this->actingAs($this->manager())
+            ->get(route('ext.lazada.products.index', ['sync_status' => 'not_ready']))
+            ->assertOk()->assertSee('My very first product');
+    }
+
     /** Core reaches Lazada's states through the same contract Shopee registered in Phase B. */
     public function test_the_engine_is_reachable_through_the_listing_state_contract(): void
     {

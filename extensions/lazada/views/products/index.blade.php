@@ -56,24 +56,22 @@
 <div class="cc-page"
      x-data="{
         selected: [],
-        ids: {{ \Illuminate\Support\Js::from(collect($listings)->pluck('id')->map(fn ($v) => (string) $v)->values()) }}
+        ids: {{ \Illuminate\Support\Js::from(collect($products->items())->filter(fn ($r) => $r->listing_id)->pluck('listing_id')->map(fn ($v) => (string) $v)->values()) }}
      }">
 
 <div class="x-list-head">
     <div>
         <h1 class="x-page-title">Listings</h1>
         <p class="x-page-sub">
-            {{-- $paginator->total() is the FILTERED total, so a search that
-                 matches nothing rendered "0 listings mapped to Lazada" on a
-                 shop with two thousand of them - which reads as though the
-                 mapping had been wiped. A filtered count says what it is
-                 counting. --}}
+            {{-- The table is the CATALOGUE now (Phase C, #184): every
+                 product appears, listed or not, so the subtitle carries the
+                 two numbers a seller actually asks for. A filtered count
+                 says what it is counting. --}}
             @if($hasFilters)
-                {{ number_format($paginator->total()) }} of {{ number_format($totalListings) }}
-                {{ $totalListings === 1 ? 'listing' : 'listings' }}
-                {{ $paginator->total() === 1 ? 'matches' : 'match' }}
+                {{ number_format($paginator->total()) }} {{ $paginator->total() === 1 ? 'product matches' : 'products match' }}
             @else
-                {{ number_format($paginator->total()) }} {{ $paginator->total() === 1 ? 'listing' : 'listings' }} mapped to Lazada
+                {{ number_format($catalogueTotal) }} {{ $catalogueTotal === 1 ? 'product' : 'products' }} in your catalogue
+                &middot; {{ number_format($listedTotal) }} listed on Lazada
             @endif
         </p>
     </div>
@@ -189,6 +187,96 @@
     @else
         <p class="fm-section__note">Nothing is waiting. <x-ui.hint label="What a scan does">A scan compares every item on your Lazada shop against catalog SKUs and lists anything it could not place.</x-ui.hint></p>
     @endif
+</section>
+@endif
+
+@php $orphans = $orphanListings ?? collect(); @endphp
+@if($orphans->isNotEmpty())
+{{-- Orphan listings (Phase C, #184). The table below is the catalogue, so
+     a listing whose catalog product was deleted has no row to live on -
+     but it may still be live on Lazada, taking orders for a product this
+     system no longer knows. That is a work queue, not a footnote. --}}
+<section class="fm-section cc-unmatched">
+    <div class="fm-section__head">
+        <h2 class="fm-section__title">{{ number_format($orphans->count()) }} {{ $orphans->count() === 1 ? 'listing points' : 'listings point' }} at a deleted catalog product</h2>
+    </div>
+    <p class="fm-section__note">Each of these was mapped to a catalog product that no longer exists. If one is still live on Lazada, delete it there or unlink it here; once unlinked, it can be removed from this list.</p>
+
+    <x-ui.table>
+        <x-slot:head>
+            <tr>
+                <th scope="col" class="cc-col-chanid">Lazada ID</th>
+                <th scope="col" class="cc-col-link">Catalog product</th>
+                <th scope="col" class="cc-col-sync">Listing</th>
+                <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
+            </tr>
+        </x-slot:head>
+
+        @foreach($orphans as $ol)
+            @php
+                $oHasItem = !empty($ol->lazada_item_id);
+                $oUnlinked = !is_null($ol->unlinked_at);
+                $oState = $ol->product_id ? (($orphanStates ?? [])[(int) $ol->product_id] ?? null) : null;
+                $oLabel = 'Lazada item ' . ($ol->lazada_item_id ?: '#' . $ol->id);
+            @endphp
+            <tr>
+                <td class="cc-col-chanid" data-label="Lazada ID">
+                    @if($oHasItem)
+                        <span class="x-num">{{ $ol->lazada_item_id }}</span>
+                    @else
+                        <span class="x-cell-muted">None</span>
+                    @endif
+                </td>
+                <td class="cc-col-link" data-label="Catalog product">
+                    <span class="x-cell-muted">No product{{ $ol->product_id ? ' (was #' . $ol->product_id . ')' : '' }}</span>
+                </td>
+                <td class="cc-col-sync" data-label="Listing">
+                    {{-- The same engine words as the main table, never a
+                         private map. --}}
+                    @if($oState && $oState->state !== \App\Integrations\Listings\ListingState::UNKNOWN && $oState->state !== \App\Integrations\Listings\ListingState::NOT_LISTED)
+                        <x-ui.badge :tone="$oState->tone()">{{ $oState->label() }}</x-ui.badge>
+                    @elseif($oHasItem)
+                        <x-ui.badge tone="neutral">Not checked yet</x-ui.badge>
+                    @else
+                        <x-ui.badge tone="neutral">Not listed</x-ui.badge>
+                    @endif
+                </td>
+                <td class="x-td-actions">
+                    @if($canManageLazada)
+                    <x-ui.menu label="{{ $oLabel }} actions">
+                        @if($oHasItem && !$oUnlinked)
+                            <form method="POST" action="{{ route('ext.lazada.products.sync_quantity', $ol->id) }}" data-slow-action>
+                                @csrf
+                                <button type="submit" class="x-menu__item">Push stock</button>
+                            </form>
+                            <form method="POST" action="{{ route('ext.lazada.products.sync_price', $ol->id) }}" data-slow-action>
+                                @csrf
+                                <button type="submit" class="x-menu__item">Push price</button>
+                            </form>
+                            <div class="x-menu__sep"></div>
+                            <form method="POST" action="{{ route('ext.lazada.products.unlink', $ol->id) }}" data-slow-action
+                                  data-confirm="Unlink {{ $oLabel }}? Only the link is removed. The Lazada listing stays up and syncing stops." data-confirm-verb="Unlink">
+                                @csrf
+                                <button type="submit" class="x-menu__item x-menu__item--danger">Unlink from Lazada</button>
+                            </form>
+                            <form method="POST" action="{{ route('ext.lazada.products.delete_lazada', $ol->id) }}" data-slow-action
+                                  data-confirm="Delete {{ $oLabel }} from Lazada? The listing is removed at the marketplace and this cannot be undone." data-confirm-verb="Delete from Lazada">
+                                @csrf
+                                <button type="submit" class="x-menu__item x-menu__item--danger">Delete from Lazada</button>
+                            </form>
+                        @else
+                            <form method="POST" action="{{ route('ext.lazada.products.remove', $ol->id) }}" data-slow-action
+                                  data-confirm="Remove {{ $oLabel }} from the local list? Nothing on Lazada is deleted." data-confirm-verb="Remove from list">
+                                @csrf
+                                <button type="submit" class="x-menu__item x-menu__item--danger">Remove from this list</button>
+                            </form>
+                        @endif
+                    </x-ui.menu>
+                    @endif
+                </td>
+            </tr>
+        @endforeach
+    </x-ui.table>
 </section>
 @endif
 
@@ -417,11 +505,13 @@
 </div>
 @endif
 
-@if(count($listings) === 0)
-    <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'No listings yet' }}"
+@if($products->count() === 0)
+    <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : (($lazadaTab ?? 'all') !== 'all' ? 'Nothing holds this status' : 'No products yet') }}"
                 :description="$hasFilters
                     ? 'Try clearing the search, or widening the group and status filters.'
-                    : 'A listing is a catalog product mapped to a Lazada category, brand and attributes. Add one, or create a product group to map a batch at once.'">
+                    : ((($lazadaTab ?? 'all') !== 'all')
+                        ? 'No listing on Lazada holds this status right now.'
+                        : 'Every catalog product appears here, ready to list on Lazada. Add your first product and it will be waiting.')">
         {{-- An empty state that tells you to clear the search and offers no
              way to do it is a dead end: the only control that clears it was
              a 30x19px link back up in the filter bar, above the fold on a
@@ -430,9 +520,13 @@
         <x-slot:action>
             <x-ui.button :href="route('ext.lazada.products.index')">Clear filters</x-ui.button>
         </x-slot:action>
-        @elseif($canManageLazada)
+        @elseif(($lazadaTab ?? 'all') !== 'all')
         <x-slot:action>
-            <x-ui.button variant="primary" :href="route('ext.lazada.products.create')">New listing</x-ui.button>
+            <x-ui.button :href="route('ext.lazada.products.index')">Back to all products</x-ui.button>
+        </x-slot:action>
+        @elseif($canEditCatalog)
+        <x-slot:action>
+            <x-ui.button variant="primary" :href="route('products.create')">Add a product</x-ui.button>
         </x-slot:action>
         @endif
     </x-ui.empty>
@@ -490,48 +584,61 @@
         </tr>
     </x-slot:head>
 
-    @foreach($listings as $l)
+    @foreach($products as $row)
         @php
-            $p = $productsById->get($l->product_id);
-            $thumbSrc = $productThumbsById->get($l->product_id);
-            $pName = $p ? html_entity_decode((string) ($p->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8') : '';
-            $pSku = $p ? (string) ($p->sku ?? '') : '';
-            $pQty = $p ? (int) ($p->quantity ?? 0) : null;
-            $pStatus = $p ? (int) ($p->status ?? 0) : null;
-            $pMfg = $p ? (string) ($p->manufacturer_name ?? '') : '';
+            $pid = (int) $row->product_id;
+            $listing = $row->listing_id ? $listingsById->get((int) $row->listing_id) : null;
+            /* ONE state per row (Phase C, #184): badge, readiness AND the
+               action menu below all read this same object, so the words and
+               the buttons can never disagree (#188). */
+            $rowState = $listingStates[$pid] ?? null;
+            $stateClass = \App\Integrations\Listings\ListingState::class;
 
-            $isDeleted = !is_null($l->lazada_deleted_at);
-            $hasItemId = !is_null($l->lazada_item_id) && (string) $l->lazada_item_id !== '';
-            $isUnlinked = !is_null($l->unlinked_at);
+            $thumbSrc = $productThumbsById->get($pid);
+            $pName = (string) ($row->name ?? '');
+            $pSku = (string) ($row->sku ?? '');
+            $pQty = (int) ($row->quantity ?? 0);
+            $pStatus = (int) ($row->status ?? 0);
+            $pMfg = (string) ($row->manufacturer_name ?? '');
 
-            $hasSyncInfo = !is_null($l->last_synced_at) || !is_null($l->last_sync_ok);
-            $syncFailed = $hasSyncInfo && !is_null($l->last_sync_ok) && !$l->last_sync_ok;
+            $isDeleted = !is_null($row->lazada_deleted_at);
+            $hasItemId = !is_null($row->lazada_item_id) && (string) $row->lazada_item_id !== '';
+            $isUnlinked = !is_null($row->unlinked_at);
 
-            $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($l->product_id) : null;
+            $hasSyncInfo = !is_null($row->last_synced_at) || !is_null($row->last_sync_ok);
+            $syncFailed = $hasSyncInfo && !is_null($row->last_sync_ok) && !$row->last_sync_ok;
+
+            $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($pid) : null;
             $variationCount = $optRows ? count($optRows) : 0;
 
-            $editUrl = route('ext.lazada.products.edit', $l->id);
+            // A product with no listing row begins at the create form,
+            // prefilled; one with a row opens it.
+            $editUrl = $listing
+                ? route('ext.lazada.products.edit', $listing->id)
+                : route('ext.lazada.products.create', ['product_id' => $pid]);
+
+            // What the operator is about to act on, for the confirms below.
+            $rowLabel = $pName !== '' ? $pName : ($pSku !== '' ? $pSku : 'product ' . $pid);
         @endphp
         <tr>
             @if($canManageLazada)
             <td class="cc-col-check">
-                {{-- No name attribute: these boxes belong to no form. Each
-                     bulk action is its own form and the module injects the
-                     ticked ids into whichever one is submitted, which is the
-                     pre-redesign wire unchanged. x-model keeps Alpine's count
-                     in step with the DOM the module reads. --}}
-                <input type="checkbox" class="cc-check" data-row-check value="{{ (string) $l->id }}"
-                       data-live="{{ !empty($l->lazada_item_id) ? (string) ($l->live_status ?? '') : 'NOT_LISTED' }}"
-                       x-model="selected" aria-label="Select listing {{ $l->id }}">
+                {{-- Bulk actions post listing_ids[], so only a product that
+                     HAS a listing row can be ticked. No name attribute: the
+                     module injects the ticked ids into whichever bulk form
+                     is submitted. data-live carries the raw mirror word for
+                     the bulk toggle's verb filter; it is a wire, the
+                     rendered words come from the engine. --}}
+                @if($listing)
+                <input type="checkbox" class="cc-check" data-row-check value="{{ (string) $listing->id }}"
+                       data-live="{{ $hasItemId ? (string) ($listing->live_status ?? '') : 'NOT_LISTED' }}"
+                       x-model="selected" aria-label="Select {{ $rowLabel }}">
+                @endif
             </td>
             @endif
 
             <td class="cc-col-id" data-label="ID">
-                @if($l->product_id)
-                    <span class="x-num">{{ $l->product_id }}</span>
-                @else
-                    <span class="x-cell-muted">None</span>
-                @endif
+                <span class="x-num">{{ $pid }}</span>
             </td>
 
             <td data-label="Product">
@@ -551,34 +658,15 @@
                         @else
                             <span class="co-item__name">{{ $pName ?: 'Unnamed product' }}</span>
                         @endif
-                        {{-- Manufacturer and group sit here rather than in
-                             columns of their own. Measured, not preferred:
-                             with those two as separate fixed columns the
-                             remaining eleven left the Product column about
-                             95px at 1440, which put "No SKU" on five lines
-                             and pushed the row's overflow menu off the
-                             table. This is the same fold Shopee's rebuilt
-                             listings table already makes. --}}
-                        {{-- Catalog status rides the meta line (critique
-                             2026-08-25): as its own column the table ran
-                             119px past its wrap at 1440 and hid Last sync,
-                             the column this page exists for. --}}
                         <div class="co-item__meta">
-                            @if($p !== null)
-                                <x-ui.badge :tone="$pStatus ? 'success' : 'neutral'">{{ $pStatus ? 'Enabled' : 'Disabled' }}</x-ui.badge>
-                            @else
-                                <span class="x-cell-muted">No product</span>
-                            @endif
+                            <x-ui.badge :tone="$pStatus ? 'success' : 'neutral'">{{ $pStatus ? 'Enabled' : 'Disabled' }}</x-ui.badge>
                             <span class="co-item__sku">{{ $pSku ?: 'No SKU' }}</span>
                             @if($pMfg !== '')
                                 <span>{{ $pMfg }}</span>
                             @endif
-                            @if($l->groups->count() > 0)
-                                @php $firstGroup = $l->groups->first(); @endphp
-                                {{-- Which product GROUPS hold this product;
-                                     same self-naming label as the Shopee
-                                     listings page. --}}
-                                <span class="co-item__var" @if($l->groups->count() > 1) title="Groups: {{ $l->groups->pluck('name')->implode(', ') }}" @endif>Group{{ $l->groups->count() > 1 ? 's' : '' }}: {{ $firstGroup->name }}@if($l->groups->count() > 1) and {{ $l->groups->count() - 1 }} more @endif</span>
+                            @if($listing && $listing->groups->count() > 0)
+                                @php $firstGroup = $listing->groups->first(); @endphp
+                                <span class="co-item__var" @if($listing->groups->count() > 1) title="Groups: {{ $listing->groups->pluck('name')->implode(', ') }}" @endif>Group{{ $listing->groups->count() > 1 ? 's' : '' }}: {{ $firstGroup->name }}@if($listing->groups->count() > 1) and {{ $listing->groups->count() - 1 }} more @endif</span>
                             @endif
                             @if($isUnlinked)
                                 <span>Unlinked</span>
@@ -586,13 +674,6 @@
                         </div>
 
                         @if($variationCount > 0)
-                            {{-- Variation is the user-facing word across this
-                                 app and across Lazada, Shopee and TikTok. The
-                                 database columns are still option_*. The old
-                                 page printed these values down three separate
-                                 columns, one line per variation, which only
-                                 lined up while every column had the same
-                                 number of lines. --}}
                             <div class="cc-vars">
                                 @foreach($optRows as $or)
                                     @php
@@ -618,24 +699,16 @@
             </td>
 
             <td class="cc-col-qty x-td-num" data-label="Stock">
-                @if(is_null($pQty))
-                    <span class="x-cell-muted">Unknown</span>
-                @else
-                    <span class="x-num">{{ $pQty }}</span>
-                @endif
+                <span class="x-num">{{ $pQty }}</span>
             </td>
 
             <td class="cc-col-price x-td-num" data-label="Price">
-                @if($p)
-                    <x-money :php="(float) $p->price" />
-                @else
-                    <span class="x-cell-muted">Unknown</span>
-                @endif
+                <x-money :php="(float) $row->price" />
             </td>
 
             <td class="cc-col-chanid" data-label="Lazada ID">
                 @if($hasItemId)
-                    <span class="x-num">{{ $l->lazada_item_id }}</span>
+                    <span class="x-num">{{ $row->lazada_item_id }}</span>
                 @else
                     <span class="x-cell-muted">None</span>
                 @endif
@@ -643,49 +716,42 @@
 
 
             <td class="cc-col-sync" data-label="Listing">
-                @php
-                    /* The mirrored status for this row; the strip says when
-                       it was refreshed. Never refreshed reads as exactly
-                       that, not as a guess. A row Lazada no longer returns
-                       reads as missing rather than borrowing Uploaded. */
-                    $rowLiveStatus = $hasItemId ? ($liveStatuses[(string) $l->lazada_item_id] ?? null) : null;
-                    $rowLiveMap = [
-                        'active' => ['Active', 'success'],
-                        'inactive' => ['Inactive', 'neutral'],
-                        'pending' => ['Pending QC', 'warning'],
-                        'rejected' => ['Violation', 'danger'],
-                        'sold-out' => ['Sold out', 'warning'],
-                        'soldout' => ['Sold out', 'warning'],
-                        'deleted' => ['Deleted on Lazada', 'danger'],
-                        'missing' => ['Not found on Lazada', 'danger'],
-                    ];
-                @endphp
-                @if($rowLiveStatus !== null && isset($rowLiveMap[$rowLiveStatus]))
-                    <x-ui.badge :tone="$rowLiveMap[$rowLiveStatus][1]">{{ $rowLiveMap[$rowLiveStatus][0] }}</x-ui.badge>
-                @elseif($hasItemId && ($liveCounts ?? null) !== null)
-                    <x-ui.badge tone="neutral" title="Press Refresh from Lazada to read its status">Not checked yet</x-ui.badge>
-                @elseif($hasItemId)
-                    <x-ui.badge tone="success">Listed</x-ui.badge>
-                @elseif($isDeleted)
-                    <x-ui.badge tone="neutral">Deleted</x-ui.badge>
-                @else
+                {{-- The engine's answer, rendered verbatim. This cell used
+                     to carry its own label map - the fourth status
+                     vocabulary on one channel, already drifted from the
+                     controller's - and a five-branch fallback ladder.
+                     Never checked reads as exactly that, not as a guess. --}}
+                @if($rowState === null)
                     <x-ui.badge tone="neutral">Not listed</x-ui.badge>
-                    {{-- The computed readiness (#101): the answer BEFORE the
-                         upload is pressed, by the same shared computation
-                         the bulk upload refuses on. --}}
-                    @php $rowReady = $readinessByListingId[(int) $l->id] ?? null; @endphp
-                    @if($rowReady !== null)
-                        @if($rowReady['ready'])
-                            <span class="cc-checked">Ready to push</span>
-                        @else
-                            {{-- A badge, with the list behind the hint: the same
-                                 sentence four lines tall on every row of the page
-                                 doubled the row height for words identical down
-                                 the column. The listing page keeps the full
-                                 sentence beside the fields that fill it. --}}
-                            <span class="cc-checked"><x-ui.badge tone="warning">Not ready</x-ui.badge>
-                                <x-ui.hint label="What is missing before a push">Missing: {{ implode(', ', $rowReady['missing']) }}</x-ui.hint></span>
-                        @endif
+                @elseif($rowState->state === $stateClass::UNKNOWN && $hasItemId && ($liveCounts ?? null) === null)
+                    {{-- No shop configured: the mirror cannot exist, and
+                         "Listed" is all the link can honestly say. --}}
+                    <x-ui.badge tone="success">Listed</x-ui.badge>
+                @elseif($rowState->state === $stateClass::UNKNOWN)
+                    <x-ui.badge tone="neutral" title="Press Refresh from Lazada to read its status">{{ $rowState->label() }}</x-ui.badge>
+                @elseif($rowState->state === $stateClass::NOT_LISTED)
+                    <x-ui.badge :tone="$rowState->tone()">{{ $rowState->label() }}</x-ui.badge>
+                    {{-- The answer BEFORE the push is pressed (#101), from
+                         the same computation every other surface uses. --}}
+                    @if($rowState->ready)
+                        <span class="cc-checked">Ready to push</span>
+                    @else
+                        <span class="cc-checked"><x-ui.badge tone="warning">Not ready</x-ui.badge>
+                            <x-ui.hint label="What is missing before a push">Missing: {{ $rowState->missingSummary() }}</x-ui.hint></span>
+                    @endif
+                @else
+                    {{-- The title rides a wrapping span: Blade cannot compile
+                         an @if inside a component tag's attribute list. --}}
+                    <span @if($rowState->checkedAt) title="Checked {{ $rowState->checkedAt->diffForHumans() }}" @endif>
+                        <x-ui.badge :tone="$rowState->tone()">{{ $rowState->label() }}</x-ui.badge>
+                    </span>
+                    {{-- Drift (#100): live and out of date are different
+                         facts, so both are shown. --}}
+                    @if($rowState->driftLabel())
+                        <span class="cc-checked"><x-ui.badge tone="warning">{{ $rowState->driftLabel() }}</x-ui.badge>
+                            <x-ui.hint label="What changed">{{ implode(' ', $rowState->reasons) }}</x-ui.hint></span>
+                    @elseif($rowState->reasons)
+                        <x-ui.hint label="What Lazada says">{{ implode(' ', $rowState->reasons) }}</x-ui.hint>
                     @endif
                 @endif
             </td>
@@ -693,34 +759,27 @@
             <td class="cc-col-err" data-label="Last sync">
                 @if($syncFailed)
                     @php
-                        $reason = trim((string) ($l->last_sync_error_message ?? ''));
-                        // 120, matching the group page. Str::limit at 80 cut
-                        // the actionable half off every Lazada validation
-                        // message and offered no way to reach the rest, so
-                        // the one column that only fills when something is
-                        // wrong could not say what was wrong.
+                        $reason = trim((string) ($row->last_sync_error_message ?? ''));
+                        // 120, matching the group page: at 80 the actionable
+                        // half of a Lazada validation message was cut off.
                         $clipped = Str::limit($reason, 120);
                     @endphp
 
                     @if($reason === '')
                         <span class="cc-err">
-                            @if($l->last_sync_error_code)<span class="cc-err__code">{{ $l->last_sync_error_code }}</span> @endif
+                            @if($row->last_sync_error_code)<span class="cc-err__code">{{ $row->last_sync_error_code }}</span> @endif
                             Failed
                         </span>
                     @elseif($clipped === $reason)
                         <span class="cc-err">
-                            @if($l->last_sync_error_code)<span class="cc-err__code">{{ $l->last_sync_error_code }}</span> @endif
+                            @if($row->last_sync_error_code)<span class="cc-err__code">{{ $row->last_sync_error_code }}</span> @endif
                             {{ $reason }}
                         </span>
                     @else
-                        {{-- <details>, not a tooltip, and the same component
-                             the group page already uses: a title attribute
-                             waits a second, never appears on a phone, and
-                             cannot be reached from the keyboard. --}}
                         <details class="cc-reason">
                             <summary class="cc-reason__summary">
                                 <span class="cc-err cc-reason__clip">
-                                    @if($l->last_sync_error_code)<span class="cc-err__code">{{ $l->last_sync_error_code }}</span> @endif
+                                    @if($row->last_sync_error_code)<span class="cc-err__code">{{ $row->last_sync_error_code }}</span> @endif
                                     {{ $clipped }}
                                 </span>
                                 <span class="cc-reason__toggle">
@@ -731,13 +790,13 @@
                             <p class="cc-err cc-reason__full">{{ $reason }}</p>
                         </details>
                     @endif
-                    @if($l->last_synced_at)
-                        <span class="cc-when">{{ \Carbon\Carbon::parse($l->last_synced_at)->diffForHumans() }}</span>
+                    @if($row->last_synced_at)
+                        <span class="cc-when">{{ \Carbon\Carbon::parse($row->last_synced_at)->diffForHumans() }}</span>
                     @endif
-                @elseif($hasSyncInfo && $l->last_sync_ok)
+                @elseif($hasSyncInfo && $row->last_sync_ok)
                     <span class="x-cell-muted">Succeeded</span>
-                    @if($l->last_synced_at)
-                        <span class="cc-when">{{ \Carbon\Carbon::parse($l->last_synced_at)->diffForHumans() }}</span>
+                    @if($row->last_synced_at)
+                        <span class="cc-when">{{ \Carbon\Carbon::parse($row->last_synced_at)->diffForHumans() }}</span>
                     @endif
                 @else
                     <span class="x-cell-muted">Never</span>
@@ -746,84 +805,80 @@
 
             <td class="x-td-actions">
                 @if($canManageLazada)
-                {{-- Each action keeps its own form inside the menu, exactly
-                     where the pre-redesign page had it, so no action gains or
-                     loses a confirmation step: Upload, Unlink, Delete and
-                     Remove carry data-confirm, the three sync actions do not,
-                     as before. The menu panel is z-index 20
-                     (components/ui-table.css), above the row's stretched-link
-                     overlay, so its controls stay clickable. --}}
-                @php
-                    // What the operator is about to act on, for the confirms
-                    // below. The bulk path renders six product names and a
-                    // count; the single-row path said "this listing" while
-                    // the row it came from sat behind a backdrop - and it is
-                    // the path taken ten times a day, half-attentive, from a
-                    // seven-item menu.
-                    $rowLabel = $pName !== '' ? $pName : ($pSku !== '' ? $pSku : 'listing ' . $l->id);
-                @endphp
-                <x-ui.menu label="Listing {{ $l->id }} actions">
-                    {{-- --primary exists for exactly this and was used in
-                         one file out of four: the action that always works,
-                         so nobody reads seven items to find it. --}}
-                    <a class="x-menu__item x-menu__item--primary" href="{{ $editUrl }}">Edit listing</a>
+                {{-- The menu derives from the SAME state the badge wears
+                     (#188). The old ladder keyed on three booleans and a
+                     raw status, and rendered both toggles with one hidden -
+                     so a row could say one thing and offer the actions of
+                     another. Now: what the badge says decides what the
+                     menu holds, and only the applicable toggle exists. --}}
+                <x-ui.menu label="{{ $rowLabel }} actions">
+                    @if(!$listing)
+                        {{-- No listing row yet: the one action is to begin.
+                             The create form opens with this product picked. --}}
+                        <a class="x-menu__item x-menu__item--primary" href="{{ $editUrl }}">Set up on Lazada</a>
+                    @else
+                        <a class="x-menu__item x-menu__item--primary" href="{{ $editUrl }}">Edit listing</a>
 
-                    @if(!$hasItemId)
-                        {{-- One push, and it opens the listing page first
-                             (#149), where the push button sits under what
-                             is about to go up. The one-click upload is gone
-                             from the menu; the route stays for the page. --}}
-                        <a class="x-menu__item" href="{{ $editUrl }}">Push to Lazada</a>
-                        <form method="POST" action="{{ route('ext.lazada.products.sync_lazada_id', $l->id) }}" data-slow-action>
-                            @csrf
-                            <button type="submit" class="x-menu__item">Match Lazada ID</button>
-                        </form>
-                    @endif
+                        @if(!$hasItemId)
+                            {{-- One push, and it opens the listing page first
+                                 (#149), where the push button sits under what
+                                 is about to go up. --}}
+                            <a class="x-menu__item" href="{{ $editUrl }}">Push to Lazada</a>
+                            <form method="POST" action="{{ route('ext.lazada.products.sync_lazada_id', $listing->id) }}" data-slow-action>
+                                @csrf
+                                <button type="submit" class="x-menu__item">Match Lazada ID</button>
+                            </form>
+                        @endif
 
-                    @if(!$isUnlinked && $hasItemId)
-                        <form method="POST" action="{{ route('ext.lazada.products.sync_quantity', $l->id) }}" data-slow-action>
-                            @csrf
-                            <button type="submit" class="x-menu__item">Push stock</button>
-                        </form>
-                        <form method="POST" action="{{ route('ext.lazada.products.sync_price', $l->id) }}" data-slow-action>
-                            @csrf
-                            <button type="submit" class="x-menu__item">Push price</button>
-                        </form>
-                        {{-- The marketplace's own on/off, by the mirrored status. --}}
-                        <form method="POST" action="{{ route('ext.lazada.listings.toggle', $l->id) }}" data-slow-action
-                              @if($rowLiveStatus !== 'active') hidden @endif
-                              data-confirm="Deactivate {{ $rowLabel }} on Lazada? Buyers stop seeing it. It can be activated again at any time." data-confirm-verb="Deactivate">
-                            @csrf
-                            <input type="hidden" name="action" value="deactivate">
-                            <button type="submit" class="x-menu__item">Deactivate on Lazada</button>
-                        </form>
-                        <form method="POST" action="{{ route('ext.lazada.listings.toggle', $l->id) }}" data-slow-action
-                              @if($rowLiveStatus !== 'inactive') hidden @endif
-                              data-confirm="Activate {{ $rowLabel }} on Lazada? Buyers see it again once Lazada applies it." data-confirm-tone="primary" data-confirm-verb="Activate">
-                            @csrf
-                            <input type="hidden" name="action" value="activate">
-                            <button type="submit" class="x-menu__item">Activate on Lazada</button>
-                        </form>
-                        <div class="x-menu__sep"></div>
-                        <form method="POST" action="{{ route('ext.lazada.products.unlink', $l->id) }}" data-slow-action
-                              data-confirm="Unlink {{ $rowLabel }} from Lazada? Only the link is removed. The Lazada listing stays up and syncing stops." data-confirm-verb="Unlink">
-                            @csrf
-                            <button type="submit" class="x-menu__item x-menu__item--danger">Unlink from Lazada</button>
-                        </form>
-                        <form method="POST" action="{{ route('ext.lazada.products.delete_lazada', $l->id) }}" data-slow-action
-                              data-confirm="Delete {{ $rowLabel }} from Lazada? The listing is removed at the marketplace and this cannot be undone." data-confirm-verb="Delete from Lazada">
-                            @csrf
-                            <button type="submit" class="x-menu__item x-menu__item--danger">Delete from Lazada</button>
-                        </form>
-                    @endif
+                        @if($hasItemId && !$isUnlinked)
+                            <form method="POST" action="{{ route('ext.lazada.products.sync_quantity', $listing->id) }}" data-slow-action>
+                                @csrf
+                                <button type="submit" class="x-menu__item">Push stock</button>
+                            </form>
+                            <form method="POST" action="{{ route('ext.lazada.products.sync_price', $listing->id) }}" data-slow-action>
+                                @csrf
+                                <button type="submit" class="x-menu__item">Push price</button>
+                            </form>
+                            {{-- The marketplace's own on/off, from the state
+                                 the badge already wears: a live listing can
+                                 be deactivated, an unlisted one activated,
+                                 and any other state offers neither. --}}
+                            @if($rowState?->state === $stateClass::LIVE)
+                                <form method="POST" action="{{ route('ext.lazada.listings.toggle', $listing->id) }}" data-slow-action
+                                      data-confirm="Deactivate {{ $rowLabel }} on Lazada? Buyers stop seeing it. It can be activated again at any time." data-confirm-verb="Deactivate">
+                                    @csrf
+                                    <input type="hidden" name="action" value="deactivate">
+                                    <button type="submit" class="x-menu__item">Deactivate on Lazada</button>
+                                </form>
+                            @elseif($rowState?->state === $stateClass::INACTIVE)
+                                <form method="POST" action="{{ route('ext.lazada.listings.toggle', $listing->id) }}" data-slow-action
+                                      data-confirm="Activate {{ $rowLabel }} on Lazada? Buyers see it again once Lazada applies it." data-confirm-tone="primary" data-confirm-verb="Activate">
+                                    @csrf
+                                    <input type="hidden" name="action" value="activate">
+                                    <button type="submit" class="x-menu__item">Activate on Lazada</button>
+                                </form>
+                            @endif
+                            <div class="x-menu__sep"></div>
+                            <form method="POST" action="{{ route('ext.lazada.products.unlink', $listing->id) }}" data-slow-action
+                                  data-confirm="Unlink {{ $rowLabel }} from Lazada? Only the link is removed. The Lazada listing stays up and syncing stops." data-confirm-verb="Unlink">
+                                @csrf
+                                <button type="submit" class="x-menu__item x-menu__item--danger">Unlink from Lazada</button>
+                            </form>
+                            <form method="POST" action="{{ route('ext.lazada.products.delete_lazada', $listing->id) }}" data-slow-action
+                                  data-confirm="Delete {{ $rowLabel }} from Lazada? The listing is removed at the marketplace and this cannot be undone." data-confirm-verb="Delete from Lazada">
+                                @csrf
+                                <button type="submit" class="x-menu__item x-menu__item--danger">Delete from Lazada</button>
+                            </form>
+                        @endif
 
-                    @if($isUnlinked)
-                        <div class="x-menu__sep"></div>
-                        <form method="POST" action="{{ route('ext.lazada.products.remove', $l->id) }}" data-slow-action
-                              data-confirm="Remove {{ $rowLabel }} from the local list? Nothing on Lazada is deleted." data-confirm-verb="Remove from list">
-                            @csrf
-                            <button type="submit" class="x-menu__item x-menu__item--danger">Remove from this list</button>
-                        </form>
+                        @if($isUnlinked)
+                            <div class="x-menu__sep"></div>
+                            <form method="POST" action="{{ route('ext.lazada.products.remove', $listing->id) }}" data-slow-action
+                                  data-confirm="Remove {{ $rowLabel }} from the local list? Nothing on Lazada is deleted." data-confirm-verb="Remove from list">
+                                @csrf
+                                <button type="submit" class="x-menu__item x-menu__item--danger">Remove from this list</button>
+                            </form>
+                        @endif
                     @endif
                 </x-ui.menu>
                 @endif

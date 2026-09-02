@@ -944,12 +944,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        /* ── The seller center's own tabs, Lazada parity (2026-08-24) ──
-         * Same contract as Shopee's listings index: each tab is a
-         * /products/get filter answered by Lazada ON THIS LOAD, with its
-         * live count; when Lazada does not answer, the tabs step aside
-         * behind a note and the stored view continues - absent, never
-         * stale. */
+        /* ── The seller center's own tabs (Lazada parity, 2026-08-24) ── */
         $tabMap = [
             'active' => 'live',
             'inactive' => 'inactive',
@@ -966,19 +961,15 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         /* Since 2026-08-28 the counts and the per-row statuses come from
          * the MIRROR on the listing rows (live_status, live_checked_at),
          * refreshed every 30 minutes by the automation, on demand by the
-         * Refresh button, and written through by every activate and
-         * deactivate the ERP makes. A page view asks Lazada for nothing
-         * (the owner: six calls per click had become the cost of the page).
-         * The strip says when the mirror was last refreshed. */
+         * Refresh button, and written through by every push, toggle,
+         * match, delete and unlink the ERP makes (#184 C). A page view
+         * asks Lazada for nothing beyond filling its own blanks. */
         $liveSetting = LazadaSetting::query()->first()?->decrypted();
         $liveCreds = LazadaSetting::activeCredentials($liveSetting);
         $liveCounts = null;
         $liveTabError = null;
         $liveCheckedAt = null;
         if ($liveSetting && $liveCreds['complete']) {
-            // The /products/get FILTER words in $tabMap are not the STATUS
-            // words Lazada returns on an item (filter "live" is status
-            // "active"); the mirror stores the status word.
             $statusMap = self::TAB_STATUS;
             $liveCounts = LazadaProduct::mirrorCounts($statusMap);
             $liveCheckedAt = LazadaProduct::query()->max('live_checked_at');
@@ -990,281 +981,201 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         // Search & filter params
         $q = trim((string) $request->query('q', ''));
         $syncStatus = (string) $request->query('sync_status', 'all');
-        // 'error' is why a seller opens this page. last_sync_ok has been
-        // written on every push all along and was readable in one column and
-        // filterable from nowhere, so finding the listings that failed among
-        // two thousand meant paging through forty screens looking for red.
         if (!in_array($syncStatus, ['all', 'not_uploaded', 'uploaded', 'deleted', 'error', 'ready', 'not_ready'], true)) {
             $syncStatus = 'all';
         }
-        $groupFilter = $request->query('group', 'all');
+        $groupFilter = (string) $request->query('group', 'all');
         $manufacturerFilter = (string) $request->query('manufacturer', 'all');
         $erpStatus = (string) $request->query('erp_status', 'all');
 
-        // Sorting (UI-driven). Keep this strict to avoid injection / unexpected behavior.
+        /* Sorting: allow-listed and mapped to a real column, ordered in
+         * SQL - this page paginates at the database now (Phase C, #184),
+         * where it used to load every row and sort a collection. */
+        $sortColumns = [
+            'id' => 'p.product_id',
+            'product' => 'pd.name',
+            'quantity' => 'p.quantity',
+            'price' => 'p.price',
+            'product_status' => 'p.status',
+            'manufacturer' => 'm.name',
+        ];
+        // Listing-side sorts are expressions over the joined row, stated
+        // here rather than interpolated from input.
+        $sortExpressions = [
+            'lazada_item_id' => "(lp.lazada_item_id IS NULL OR lp.lazada_item_id = ''), lp.lazada_item_id",
+            'lazada_status' => "CASE WHEN lp.lazada_item_id IS NOT NULL AND lp.lazada_item_id <> '' THEN 2 WHEN lp.lazada_deleted_at IS NOT NULL THEN 1 ELSE 0 END",
+            'last_sync' => "CASE WHEN lp.last_sync_ok IS NULL THEN 0 WHEN lp.last_sync_ok = 1 THEN 1 ELSE 2 END, lp.last_synced_at",
+        ];
         $sort = (string) $request->query('sort', 'id');
-        $dir = strtolower((string) $request->query('dir', 'desc')) === 'asc' ? 'asc' : 'desc';
-        $allowedSorts = ['id', 'product', 'group', 'lazada_item_id', 'quantity', 'product_status', 'lazada_status', 'manufacturer', 'last_sync'];
-        if (!in_array($sort, $allowedSorts, true)) {
+        if (!array_key_exists($sort, $sortColumns) && !array_key_exists($sort, $sortExpressions)) {
             $sort = 'id';
         }
+        $dir = strtolower((string) $request->query('dir', 'desc')) === 'asc' ? 'asc' : 'desc';
 
-        // Build filtered query
-        $query = LazadaProduct::query();
+        /* ── The catalogue is the table (Phase C, #184) ──
+         *
+         * The query starts from the PRODUCT, exactly as Shopee's does,
+         * and left-joins the listing row. Before this the page listed
+         * lazada_products rows only - the CedCommerce worldview, where a
+         * product existed for Lazada once someone had made a mapping row
+         * for it. A product without one was invisible even under the
+         * "Not listed" filter, the "All products" count was really the
+         * mapping count, and every sort loaded the whole table into
+         * memory. One preferred listing row per product: the one actually
+         * linked to Lazada, else the newest. */
+        $lpPick = DB::table('lazada_products')
+            ->selectRaw("product_id, COALESCE(MAX(CASE WHEN lazada_item_id IS NOT NULL AND lazada_item_id <> '' AND unlinked_at IS NULL THEN id END), MAX(id)) as pick_id")
+            ->whereNotNull('product_id')
+            ->groupBy('product_id');
 
-        // Product group filter (applied at DB level via pivot)
-        if ($groupFilter !== 'all') {
-            if ($groupFilter === 'none') {
-                $query->whereDoesntHave('groups');
-            } else {
-                $query->whereHas('groups', fn ($q) => $q->where('lazada_product_groups.id', (int) $groupFilter));
+        $query = DB::table($pfx . 'product as p')
+            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+                $j->on('p.product_id', '=', 'pd.product_id')
+                    ->where('pd.language_id', '=', $langId);
+            })
+            ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
+            ->leftJoinSub($lpPick, 'lps', 'lps.product_id', '=', 'p.product_id')
+            ->leftJoin('lazada_products as lp', 'lp.id', '=', 'lps.pick_id')
+            ->select(
+                'p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku',
+                'p.price', 'p.quantity', 'p.status', 'm.name as manufacturer_name',
+                'lp.id as listing_id', 'lp.lazada_item_id', 'lp.live_status',
+                'lp.lazada_deleted_at', 'lp.unlinked_at',
+                'lp.last_sync_ok', 'lp.last_synced_at',
+                'lp.last_sync_error_code', 'lp.last_sync_error_message'
+            );
+
+        // Product group filter, through the pivot's denormalised product_id
+        if ($groupFilter === 'none') {
+            $groupedIds = DB::table('lazada_product_group_products')->whereNotNull('product_id')->pluck('product_id')->unique()->all();
+            if (!empty($groupedIds)) {
+                $query->whereNotIn('p.product_id', $groupedIds);
             }
+        } elseif ($groupFilter !== 'all') {
+            $specificIds = DB::table('lazada_product_group_products')
+                ->where('lazada_product_group_id', (int) $groupFilter)
+                ->whereNotNull('product_id')->pluck('product_id')->unique()->all();
+            $query->whereIn('p.product_id', $specificIds ?: [0]);
         }
 
-        // Sync status filter (applied at DB level)
-        if ($syncStatus === 'uploaded') {
-            $query->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '');
-        } elseif ($syncStatus === 'deleted') {
-            $query->whereNotNull('lazada_deleted_at');
-        } elseif ($syncStatus === 'error') {
-            $query->where('last_sync_ok', false)->whereNotNull('last_sync_ok');
-        } elseif ($syncStatus === 'not_uploaded') {
-            $query->where(function ($qb) {
-                $qb->whereNull('lazada_item_id')->orWhere('lazada_item_id', '=', '');
-            })->whereNull('lazada_deleted_at');
-        }
-
-        // If search query, find matching product IDs + also search Lazada item ID directly
-        if ($q !== '') {
-            $searchProductIds = DB::table($pfx . 'product as p')
-                ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
-                    $j->on('p.product_id', '=', 'pd.product_id')
-                        ->where('pd.language_id', '=', $langId);
-                })
-                ->where(function ($qb) use ($q) {
-                    $qb->where('pd.name', 'like', '%' . $q . '%')
-                        ->orWhere('p.sku', 'like', '%' . $q . '%')
-                        ->orWhere('p.model', 'like', '%' . $q . '%');
-                })
-                ->pluck('p.product_id')
-                ->toArray();
-
-            $query->where(function ($qb) use ($searchProductIds, $q) {
-                $qb->whereIn('product_id', $searchProductIds)
-                    ->orWhere('lazada_item_id', 'like', '%' . $q . '%');
-            });
-        }
-
-        // Manufacturer filter — find matching ERP product IDs, then filter Lazada query
+        // Manufacturer filter
         if ($manufacturerFilter !== 'all') {
-            $mfgProductIds = DB::table($pfx . 'product')
-                ->where('manufacturer_id', (int) $manufacturerFilter)
-                ->pluck('product_id')
-                ->toArray();
-            $query->whereIn('product_id', $mfgProductIds);
+            $query->where('p.manufacturer_id', (int) $manufacturerFilter);
         }
 
         // ERP Status filter
         if ($erpStatus === 'enabled') {
-            $statusProductIds = DB::table($pfx . 'product')
-                ->where('status', 1)
-                ->pluck('product_id')
-                ->toArray();
-            $query->whereIn('product_id', $statusProductIds);
+            $query->where('p.status', 1);
         } elseif ($erpStatus === 'disabled') {
-            $statusProductIds = DB::table($pfx . 'product')
-                ->where('status', 0)
-                ->pluck('product_id')
-                ->toArray();
-            $query->whereIn('product_id', $statusProductIds);
+            $query->where('p.status', 0);
         }
 
-        // A live tab narrows the table to the items Lazada holds in that
-        // status right now. Only uploaded rows can match: the tab is a
-        // view of the shop, and an unpushed product is not in it.
-        // The catalogue's own total, before a Lazada tab narrows the table:
-        // the "All products" tab wears it so it reads as a total, not a status.
+        // Text search: catalogue fields, or the Lazada item id itself
+        if ($q !== '') {
+            $query->where(function ($sub) use ($q) {
+                $sub->where('pd.name', 'like', '%' . $q . '%')
+                    ->orWhere('p.model', 'like', '%' . $q . '%')
+                    ->orWhere('p.sku', 'like', '%' . $q . '%')
+                    ->orWhere('lp.lazada_item_id', 'like', '%' . $q . '%');
+            });
+        }
+
+        // Sync status filter
+        if ($syncStatus === 'uploaded') {
+            $query->whereNotNull('lp.lazada_item_id')->where('lp.lazada_item_id', '!=', '');
+        } elseif ($syncStatus === 'not_uploaded') {
+            $query->where(function ($sub) {
+                $sub->whereNull('lp.lazada_item_id')->orWhere('lp.lazada_item_id', '=', '');
+            })->whereNull('lp.lazada_deleted_at');
+        } elseif ($syncStatus === 'deleted') {
+            $query->whereNotNull('lp.lazada_deleted_at');
+        } elseif ($syncStatus === 'error') {
+            /* The reason to open this page: what failed, filterable. */
+            $query->where('lp.last_sync_ok', false)->whereNotNull('lp.last_sync_ok');
+        } elseif ($syncStatus === 'ready' || $syncStatus === 'not_ready') {
+            /* The computed answer (#101): which unlisted products could be
+             * pushed RIGHT NOW - by the same LazadaListingReadiness every
+             * other surface reads, rows and rowless products alike. */
+            $readiness = app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class);
+            $candidateRows = LazadaProduct::query()
+                ->where(function ($sub) {
+                    $sub->whereNull('lazada_item_id')->orWhere('lazada_item_id', '=', '');
+                })
+                ->whereNull('lazada_deleted_at')->whereNotNull('product_id')->get();
+            $rowAnswers = $readiness->forListings($candidateRows);
+            $readyByProduct = [];
+            foreach ($candidateRows as $row) {
+                $readyByProduct[(int) $row->product_id] = (bool) ($rowAnswers[(int) $row->id]['ready'] ?? false);
+            }
+            $mappedIds = LazadaProduct::query()->whereNotNull('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->all();
+            $rowlessIds = DB::table($pfx . 'product')
+                ->when(!empty($mappedIds), fn ($qq) => $qq->whereNotIn('product_id', $mappedIds))
+                ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+            foreach ($readiness->forProducts($rowlessIds) as $pid => $answer) {
+                $readyByProduct[$pid] = (bool) $answer['ready'];
+            }
+            $wantReady = $syncStatus === 'ready';
+            $matching = array_keys(array_filter($readyByProduct, fn ($r) => $r === $wantReady));
+            $query->whereIn('p.product_id', $matching ?: [0]);
+        }
+
+        // The catalogue's own total, before a Lazada tab narrows the table.
         $catalogueTotal = (clone $query)->count();
 
+        // A live tab narrows the table to the items Lazada holds in that
+        // status right now. Only uploaded rows can match.
         if ($lazadaTab !== 'all' && $liveCounts !== null) {
-            $query->where('live_status', self::TAB_STATUS[$lazadaTab])
-                ->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '');
+            $query->where('lp.live_status', self::TAB_STATUS[$lazadaTab])
+                ->whereNotNull('lp.lazada_item_id')->where('lp.lazada_item_id', '!=', '');
         }
 
-        // Load Lazada products (sorting by ERP-derived fields is done in-memory below).
-        $listings = $query->get();
-
-        /* Readiness (#101, Lazada half): the computed "can this upload
-         * succeed" for every not-yet-uploaded listing, from the same
-         * shared answer the bulk upload refuses on. */
-        $readinessCandidates = $listings->filter(
-            fn ($l) => empty($l->lazada_item_id) && empty($l->lazada_deleted_at)
-        );
-        $readinessByListingId = app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class)
-            ->forListings($readinessCandidates);
-
-        if ($syncStatus === 'ready' || $syncStatus === 'not_ready') {
-            $wantReady = $syncStatus === 'ready';
-            $listings = $readinessCandidates->filter(
-                fn ($l) => ($readinessByListingId[(int) $l->id]['ready'] ?? false) === $wantReady
-            )->values();
+        // Unlinked leftovers stay pinned to the top, as they always were:
+        // a cut link is unfinished business, not one row among two thousand.
+        $query->orderByRaw('(lp.unlinked_at IS NOT NULL) desc');
+        if (isset($sortExpressions[$sort])) {
+            $query->orderByRaw($sortExpressions[$sort] . ' ' . $dir);
+        } else {
+            $query->orderBy($sortColumns[$sort], $dir);
+        }
+        // A stable tiebreak, or two products with the same name swap places
+        // between pages and a row appears twice while another never shows.
+        if (($sortColumns[$sort] ?? null) !== 'p.product_id') {
+            $query->orderBy('p.product_id', 'asc');
         }
 
-        // Attach a small amount of product info for display
-        $productIds = $listings->pluck('product_id')->filter()->unique()->values()->all();
-        $productsById = collect();
+        $products = $query->paginate(50)->withQueryString();
+
+        foreach ($products as $row) {
+            if (isset($row->name)) {
+                $row->name = html_entity_decode($row->name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            }
+        }
+
+        $pageIds = $products->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        $pageListingIds = $products->pluck('listing_id')->filter()->map(fn ($v) => (int) $v)->all();
+
+        // The listing models for this page (groups ride along for display)
+        $listingsById = LazadaProduct::query()
+            ->with('groups')
+            ->whereIn('id', $pageListingIds ?: [0])
+            ->get()
+            ->keyBy('id');
+
+        // Thumbnails and variation rows, page-sized
         $productThumbsById = collect();
         $optionRowsByProductId = collect();
-        if (!empty($productIds)) {
-            $rows = DB::table($pfx.'product as p')
-                ->leftJoin($pfx.'product_description as pd', function ($j) use ($langId) {
-                    $j->on('p.product_id', '=', 'pd.product_id')
-                        ->where('pd.language_id', '=', $langId);
-                })
-                ->leftJoin($pfx.'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
-                ->whereIn('p.product_id', $productIds)
-                ->get(['p.product_id', 'p.sku', 'p.model', 'p.price', 'p.quantity', 'p.status', 'p.image', 'pd.name', 'm.name as manufacturer_name']);
-
-            $productsById = $rows->keyBy('product_id');
-
-            // Precompute main thumbnail URLs for the listing grid. Browser
-            // facing, so root-relative: see toDisplayImageUrl().
-            $productThumbsById = $rows->mapWithKeys(function ($r) {
-                $url = $this->toDisplayImageUrl($r->image ?? null);
-                return [(int)$r->product_id => $url];
+        if (!empty($pageIds)) {
+            $productThumbsById = $products->mapWithKeys(function ($r) {
+                return [(int) $r->product_id => $this->toDisplayImageUrl($r->image ?? null)];
             });
-
-            // Preload option rows for UI (show option values + SKU + qty)
-            // Keep this read-only and minimal; avoid N+1 queries on the grid.
-            // Variation rows: the shared combinations-first query the core
-            // product list uses (App\Support\VariationRows).
-            $optionRowsByProductId = \App\Support\VariationRows::forProducts($productIds);
-
+            $optionRowsByProductId = \App\Support\VariationRows::forProducts($pageIds);
         }
 
-        // All product groups for filter dropdown
-        $allGroups = \Extensions\lazada\Models\LazadaProductGroup::query()->orderBy('name')->pluck('name', 'id');
-
-        // Eager-load groups for each listing (for display + sort)
-        $listings->load('groups');
-
-        // Build a map: lazada_product_id => first group name (for sorting)
-        $groupNames = $allGroups;
-
-        // Separate unlinked products (always pinned to top of list)
-        $unlinked = $listings->filter(fn ($l) => !is_null($l->unlinked_at));
-        $linked = $listings->filter(fn ($l) => is_null($l->unlinked_at));
-
-        // Apply sort in-memory using the attached ERP product info.
-        $linked = $linked->sortBy(function ($l) use ($sort, $productsById, $groupNames) {
-            $pid = (int)$l->product_id;
-            $p = $productsById->get($pid);
-
-            // "ID" column in Lazada Products UI refers to the ERP Product ID.
-            if ($sort === 'id') {
-                return $pid;
-            }
-
-            if ($sort === 'lazada_item_id') {
-                // Nulls last (use a leading flag)
-                $val = (string)($l->lazada_item_id ?? '');
-                $isNull = $val === '' ? 1 : 0;
-                return sprintf('%d|%s', $isNull, $val);
-            }
-
-            if ($sort === 'product') {
-                // Sort by product name, then SKU. Null/unknown products last.
-                $name = $p ? trim((string)($p->name ?? '')) : '';
-                $sku = $p ? trim((string)($p->sku ?? '')) : '';
-                $isNull = ($name === '' && $sku === '') ? 1 : 0;
-                return sprintf('%d|%s|%s', $isNull, mb_strtolower($name), mb_strtolower($sku));
-            }
-
-            if ($sort === 'group') {
-                $firstGroup = $l->groups->first();
-                $grpName = $firstGroup ? mb_strtolower((string) $firstGroup->name) : '';
-                $isNull = $grpName === '' ? 1 : 0;
-                return sprintf('%d|%s', $isNull, $grpName);
-            }
-
-            if ($sort === 'quantity') {
-                return (int)($p->quantity ?? -1);
-            }
-
-            /* Failures first when sorted descending, then most recent.
-             * Never-synced rows sort below both, because "we have not tried"
-             * is not an outcome and does not belong between the two that are.
-             * The timestamp is padded so it compares as a string alongside
-             * the flag rather than needing a second sort key. */
-            if ($sort === 'last_sync') {
-                if (is_null($l->last_sync_ok)) {
-                    return '0|';
-                }
-
-                $stamp = $l->last_synced_at
-                    ? \Carbon\Carbon::parse($l->last_synced_at)->format('YmdHis')
-                    : '00000000000000';
-
-                return sprintf('%d|%s', $l->last_sync_ok ? 1 : 2, $stamp);
-            }
-
-            if ($sort === 'price') {
-                return (float)($p->price ?? 0);
-            }
-
-            if ($sort === 'product_status') {
-                return (int)($p->status ?? -1);
-            }
-
-            if ($sort === 'lazada_status') {
-                // Uploaded > Deleted > Not Uploaded
-                $hasItemId = !is_null($l->lazada_item_id) && (string)$l->lazada_item_id !== '';
-                $isDeleted = !is_null($l->lazada_deleted_at);
-                if ($hasItemId) return 2;
-                if ($isDeleted) return 1;
-                return 0;
-            }
-
-            if ($sort === 'manufacturer') {
-                $mfgName = $p ? mb_strtolower(trim((string)($p->manufacturer_name ?? ''))) : '';
-                $isNull = $mfgName === '' ? 1 : 0;
-                return sprintf('%d|%s', $isNull, $mfgName);
-            }
-
-            return $pid;
-        });
-
-        if ($dir === 'desc') {
-            $linked = $linked->reverse();
-        }
-
-        // Unlinked products pinned to top, then sorted linked products
-        $listings = $unlinked->values()->merge($linked->values());
-
-        // Paginate in-memory (50 per page)
-        $perPage = 50;
-        $page = max(1, (int) $request->query('page', 1));
-        $total = $listings->count();
-        $paged = $listings->slice(($page - 1) * $perPage, $perPage)->values();
-        $paginator = new \Illuminate\Pagination\LengthAwarePaginator(
-            $paged, $total, $perPage, $page,
-            ['path' => $request->url(), 'query' => $request->query()]
-        );
-
-        /* Live status chip per uploaded row on this page: one
-         * sku_seller_list lookup per 50 rows. An uploaded row ABSENT from
-         * a successful answer is marked missing - that absence is Lazada
-         * saying the shop holds no such item (deleted there, or a row
-         * copied in by a database refresh). Failure leaves the map empty
-         * and the rows fall back to the stored badge - absent, never
-         * stale. */
-        /* The mirror fills its own blanks (the owner, 2026-08-28: a product
-         * pushed a minute ago should not read "Not checked yet"). A row
-         * that got its item id from a push or a match has no status until
-         * someone asks; the page asks Lazada once for those rows, up to
-         * ten a view, then reads the mirror like every other row. */
+        /* The mirror fills its own blanks (the owner, 2026-08-28): a row with
+         * an item id and no status is asked about once, up to ten per
+         * view, then the page reads the mirror like every other row. */
         if ($liveCounts !== null) {
-            $blank = collect($paged)->filter(fn ($l) => !empty($l->lazada_item_id) && $l->live_status === null)->take(10);
+            $blank = $listingsById->filter(fn ($l) => !empty($l->lazada_item_id) && $l->live_status === null)->take(10);
             if ($blank->isNotEmpty()) {
                 $live = app(\Extensions\lazada\Services\Lazada\LazadaLiveListing::class);
                 $filled = false;
@@ -1285,35 +1196,60 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                     $filled = true;
                 }
                 if ($filled) {
-                    $liveCounts = LazadaProduct::mirrorCounts($statusMap);
+                    $liveCounts = LazadaProduct::mirrorCounts(self::TAB_STATUS);
                     $liveCheckedAt = $liveCheckedAt ?? now();
                 }
             }
         }
 
-        /* The status chip per uploaded row on this page, from the mirror.
-         * Null (Lazada did not answer for it) renders as "Not checked
-         * yet", never as a guess. */
-        $liveStatuses = [];
-        foreach ($paged as $l) {
-            if (!empty($l->lazada_item_id) && $l->live_status !== null) {
-                $liveStatuses[(string) $l->lazada_item_id] = (string) $l->live_status;
-            }
-        }
+        /* ONE state per row (Phase C, #184): the engine folds the mirror,
+         * drift and readiness into a single ListingState the blade renders
+         * verbatim - badge, readiness and row actions alike (#188).
+         * Computed after the blank fill so it reads a filled mirror. */
+        $listingStates = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)
+            ->forProducts($pageIds);
+
+        // How many catalogue products actually stand on Lazada, for the
+        // page's subtitle - an honest count, not the mapping-row count.
+        $listedTotal = LazadaProduct::query()
+            ->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '')
+            ->whereNull('unlinked_at')->whereNotNull('product_id')
+            ->distinct()->count('product_id');
+
+        /* Orphan listings (Phase C, #184): rows whose catalog product no
+         * longer exists. The catalogue-first table cannot carry them -
+         * there is no product row to hang them on - and hiding them would
+         * hide money possibly still sitting on Lazada, so they surface as
+         * their own short queue above the table, like unmatched items. */
+        $orphanListings = LazadaProduct::query()
+            ->where(function ($sub) use ($pfx) {
+                $sub->whereNull('product_id')
+                    ->orWhereNotExists(function ($qq) use ($pfx) {
+                        $qq->select(DB::raw(1))
+                            ->from($pfx . 'product as op')
+                            ->whereColumn('op.product_id', 'lazada_products.product_id');
+                    });
+            })
+            ->orderByDesc('id')
+            ->get();
+        $orphanStates = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)
+            ->forProducts($orphanListings->pluck('product_id')->filter()->map(fn ($v) => (int) $v)->all());
 
         $unmatchedItems = \Extensions\lazada\Models\LazadaUnmatchedItem::query()
             ->where('status', 'unmatched')
             ->orderBy('item_name')
             ->get();
 
-        // Manufacturer list for filter dropdown
         $allManufacturers = DB::table($pfx . 'manufacturer')
             ->orderBy('name')
             ->pluck('name', 'manufacturer_id');
 
+        $allGroups = \Extensions\lazada\Models\LazadaProductGroup::query()->orderBy('name')->pluck('name', 'id');
+
         return view('ext-lazada::products.index', [
-            'listings' => $paged,
-            'productsById' => $productsById,
+            'products' => $products,
+            'listingsById' => $listingsById,
+            'listingStates' => $listingStates,
             'productThumbsById' => $productThumbsById,
             'optionRowsByProductId' => $optionRowsByProductId,
             'allGroups' => $allGroups,
@@ -1321,22 +1257,20 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'sort' => $sort,
             'dir' => $dir,
             'q' => $q,
-            // The unfiltered total, so a filtered count can say what it is
-            // a count OF rather than borrowing the wording of a total.
-            'totalListings' => LazadaProduct::query()->count(),
             'syncStatus' => $syncStatus,
             'manufacturerFilter' => $manufacturerFilter,
             'erpStatus' => $erpStatus,
             'groupFilter' => $groupFilter,
-            'paginator' => $paginator,
+            'paginator' => $products,
             'unmatchedItems' => $unmatchedItems,
+            'orphanListings' => $orphanListings,
+            'orphanStates' => $orphanStates,
             'lazadaTab' => $lazadaTab,
             'liveCounts' => $liveCounts,
             'liveTabError' => $liveTabError,
-            'liveStatuses' => $liveStatuses,
             'liveCheckedAt' => $liveCheckedAt,
             'catalogueTotal' => $catalogueTotal,
-            'readinessByListingId' => $readinessByListingId,
+            'listedTotal' => $listedTotal,
         ]);
     }
 
