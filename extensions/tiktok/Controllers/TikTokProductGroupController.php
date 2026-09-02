@@ -563,7 +563,12 @@ class TikTokProductGroupController extends Controller
     {
         $group = TikTokProductGroup::findOrFail($id);
 
-        $this->writeProductStatus($product, ['sync_status' => 'unlinked']);
+        /* The LISTING row lets go too (#184 D): it kept its link before,
+         * so the product still read "Listed" and offered Update and Delete
+         * against a link the operator had just cut. Same writes as the
+         * row-menu unlink, mirror included. */
+        TikTokListing::query()->where('product_id', $product)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null]);
+        $this->writeProductStatus($product, ['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'sync_status' => 'unlinked']);
 
         return $this->productsRedirect($id)
             ->with('status', 'Product unlinked from TikTok.');
@@ -656,6 +661,15 @@ class TikTokProductGroupController extends Controller
             $updateData['tiktok_sku_id'] = $matchedSkuId;
         }
         $pivot->update($updateData);
+
+        // The LISTING row learns the match too (#184 D) - it is the truth
+        // source every state read prefers - with the mirror honestly blank
+        // until the page filler or the sweep asks TikTok.
+        TikTokListing::query()->updateOrCreate(['product_id' => (int) $pivot->product_id], [
+            'tiktok_product_id' => (string) $matchedProductId,
+            'tiktok_sku_id' => $matchedSkuId ?: null,
+            'live_status' => null, 'live_checked_at' => null,
+        ]);
 
         return redirect()->back()->with('status', "TikTok product ID {$matchedProductId} synced.");
     }
@@ -764,7 +778,12 @@ class TikTokProductGroupController extends Controller
         }
 
         if ($deleted > 0) {
-            // Clear tiktok_product_id and reset sync status for successfully deleted
+            // Clear the link everywhere it lives (#184 D): the pivots AND
+            // the listing row, which used to keep pointing at a product
+            // deleted at TikTok - so it still read "Listed" and offered
+            // Update against a dead id. Mirror voided with it.
+            TikTokListing::query()->whereIn('product_id', $ids)
+                ->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null]);
             foreach ($ids as $unlinkedId) {
                 $this->writeProductStatus((int) $unlinkedId, [
                     'tiktok_product_id' => null,
@@ -962,11 +981,13 @@ class TikTokProductGroupController extends Controller
                     $this->writeProductStatus((int) $productId, ['tiktok_product_id' => (string) $known, 'sync_status' => 'pushed', 'push_error' => null]);
                     $verdicts['confirmed']++;
                 } elseif ($hit !== null) {
-                    TikTokListing::query()->updateOrCreate(['product_id' => $productId], ['tiktok_product_id' => $hit, 'tiktok_sku_id' => null, 'last_checked_at' => now()]);
+                    // A fresh link voids the mirror: whatever status the row
+                    // wore belonged to the previous link (#184 D).
+                    TikTokListing::query()->updateOrCreate(['product_id' => $productId], ['tiktok_product_id' => $hit, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null, 'last_checked_at' => now()]);
                     $this->writeProductStatus((int) $productId, ['tiktok_product_id' => $hit, 'tiktok_sku_id' => null, 'sync_status' => 'pushed', 'push_error' => null]);
                     $verdicts['linked']++;
                 } else {
-                    TikTokListing::query()->where('product_id', $productId)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'last_checked_at' => now()]);
+                    TikTokListing::query()->where('product_id', $productId)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null, 'last_checked_at' => now()]);
                     $this->writeProductStatus((int) $productId, ['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'sync_status' => 'error', 'push_error' => 'Not found on TikTok Shop; the link was dropped.']);
                     $problems[] = "#{$productId}: not found on TikTok Shop; the link was dropped";
                     $verdicts['lost']++;
@@ -975,7 +996,10 @@ class TikTokProductGroupController extends Controller
             }
 
             if ($hit !== null) {
-                TikTokListing::query()->updateOrCreate(['product_id' => $productId], ['tiktok_product_id' => $hit, 'last_checked_at' => now(), 'last_push_source' => 'check']);
+                // No last_push_source here: a check is not a push, and a
+                // source with no timestamp read as provenance from nowhere.
+                // Never pushed from the ERP means drift honestly unknowable.
+                TikTokListing::query()->updateOrCreate(['product_id' => $productId], ['tiktok_product_id' => $hit, 'live_status' => null, 'live_checked_at' => null, 'last_checked_at' => now()]);
                 $this->writeProductStatus((int) $productId, ['tiktok_product_id' => $hit, 'sync_status' => 'pushed', 'push_error' => null]);
                 $verdicts['linked']++;
             } else {

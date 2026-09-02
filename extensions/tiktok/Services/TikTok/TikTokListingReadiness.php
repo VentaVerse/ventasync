@@ -2,6 +2,7 @@
 
 namespace Extensions\tiktok\Services\TikTok;
 
+use App\Integrations\Listings\ListingState;
 use Extensions\tiktok\Models\TikTokCategoryTemplate;
 use Extensions\tiktok\Models\TikTokListing;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +19,14 @@ class TikTokListingReadiness
 {
     public function __construct(private TikTokAttributes $attributes) {}
 
-    /** @return array<int, array{ready: bool, missing: array<string>}> */
+    /**
+     * Missing items come back twice: as sentences (missing) for prose -
+     * byte-identical to what the guards have always said, which tests pin -
+     * and as coded gaps so deep-links and the state engine key on codes,
+     * never on label text (#184 D, same contract as Shopee's and Lazada's).
+     *
+     * @return array<int, array{ready: bool, missing: array<string>, gaps: list<array{code: string, label: string}>}>
+     */
     public function forProducts(array $productIds): array
     {
         if (empty($productIds)) {
@@ -38,28 +46,34 @@ class TikTokListingReadiness
             $productId = (int) $productId;
             $listing = $listings->get($productId);
             $missing = [];
+            $gaps = [];
 
             if (!$listing || !$listing->tiktok_category_id) {
                 $missing[] = 'a TikTok category';
+                $gaps[] = ['code' => ListingState::GAP_CATEGORY, 'label' => 'a TikTok category'];
             }
             if (trim((string) ($images[$productId] ?? '')) === '') {
                 $missing[] = 'a product image on the catalog product';
+                $gaps[] = ['code' => ListingState::GAP_IMAGE, 'label' => 'a product image on the catalog product'];
             }
             if ($listing && $listing->tiktok_category_id) {
                 $template = $templates->get($listing->tiktok_category_id);
                 if (!$template) {
                     $missing[] = "its category's attribute sheet (open the listing page once to read it)";
+                    $gaps[] = ['code' => ListingState::GAP_SHEET, 'label' => "its category's attribute sheet"];
                 } else {
                     $unanswered = $this->attributes->missingRequired($this->attributes->rows($template), $listing->attribute_values ?? []);
                     if ($unanswered) {
-                        $missing[] = 'answers for ' . count($unanswered) . ' required '
+                        $label = 'answers for ' . count($unanswered) . ' required '
                             . (count($unanswered) === 1 ? 'attribute' : 'attributes')
                             . ' (' . implode(', ', array_slice($unanswered, 0, 3)) . (count($unanswered) > 3 ? ', ...' : '') . ')';
+                        $missing[] = $label;
+                        $gaps[] = ['code' => ListingState::GAP_ATTRIBUTES, 'label' => $label];
                     }
                 }
             }
 
-            $out[$productId] = ['ready' => empty($missing), 'missing' => $missing];
+            $out[$productId] = ['ready' => empty($missing), 'missing' => $missing, 'gaps' => $gaps];
         }
 
         return $out;

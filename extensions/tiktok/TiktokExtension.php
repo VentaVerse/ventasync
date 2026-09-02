@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer
+class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, \App\Integrations\Contracts\ListingStateSource
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -307,10 +307,32 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
         if (Schema::hasTable('tiktok_settings')) {
             $ttSetting = TikTokSetting::query()->first();
             if ($ttSetting) {
+                /* The listing troubles ride the chip (Phase D, #184), the
+                 * same two numbers Shopee's and Lazada's carry. A failure
+                 * here must not take the dashboard down. */
+                $flags = null;
+                $attention = 0;
+                try {
+                    $sum = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)->summary();
+                    $attention = (int) $sum['attention'];
+                    $parts = [];
+                    if ($sum['attention'] > 0) {
+                        $parts[] = $sum['attention'] . ' listing' . ($sum['attention'] === 1 ? ' needs' : 's need') . ' attention';
+                    }
+                    if ($sum['drift'] > 0) {
+                        $parts[] = $sum['drift'] . ' behind the catalogue';
+                    }
+                    $flags = $parts ? implode(' · ', $parts) : null;
+                } catch (\Throwable) {
+                    // the chip simply carries no flags line
+                }
+
                 $data['tiktokSyncStatus'] = (object) [
                     'order_sync_at'  => $ttSetting->last_order_sync_at,
                     'push_stock_at'  => $ttSetting->last_stock_push_at,
                     'expires_at'     => $ttSetting->expires_at,
+                    'listing_flags'  => $flags,
+                    'listing_attention' => $attention,
                 ];
             }
         }
@@ -546,5 +568,24 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
     public function credentialManagePermission(): string
     {
         return 'manage_tiktok/settings';
+    }
+
+    /**
+     * Phase D (#184): the one answer to "where does this product stand on
+     * TikTok Shop?", for core surfaces that render listing state.
+     */
+    public function listingStates(array $productIds): array
+    {
+        return app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)->forProducts($productIds);
+    }
+
+    public function listingUrls(array $productIds): array
+    {
+        $out = [];
+        foreach ($productIds as $pid) {
+            $out[(int) $pid] = route('ext.tiktok.listings.edit', (int) $pid);
+        }
+
+        return $out;
     }
 }

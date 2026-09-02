@@ -396,7 +396,9 @@ class TikTokProductController extends Controller
     /** Forget the link; the TikTok product stays up. */
     public function unlink(int $productId)
     {
-        TikTokListing::query()->where('product_id', $productId)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null]);
+        // The mirror described the link that was just cut (#184 D): a kept
+        // status would be stale forever, and a later re-match would wear it.
+        TikTokListing::query()->where('product_id', $productId)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null]);
         TikTokProductGroupProduct::query()->where('product_id', $productId)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'sync_status' => 'unlinked']);
 
         return redirect()->back()->with('status', 'Unlinked. The TikTok Shop product stays up and can be matched again later.');
@@ -419,7 +421,9 @@ class TikTokProductController extends Controller
         if (!$this->ok($result)) {
             return redirect()->back()->with('error', 'Delete failed: ' . $this->message($result));
         }
-        TikTokListing::query()->where('product_id', $productId)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null]);
+        // The link is gone; void the mirror rather than keep a status the
+        // sweep can no longer correct (#184 D).
+        TikTokListing::query()->where('product_id', $productId)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null]);
         TikTokProductGroupProduct::query()->where('product_id', $productId)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'sync_status' => 'pending']);
 
         return redirect()->back()->with('status', 'Deleted from TikTok Shop.');
