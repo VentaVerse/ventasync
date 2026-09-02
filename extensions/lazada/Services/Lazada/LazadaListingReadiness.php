@@ -60,10 +60,10 @@ class LazadaListingReadiness
                 $missing[] = 'a Lazada category';
             }
 
-            $noBrand = strtolower(trim((string) ($listing->brand_name_override ?? ''))) === 'no brand';
-            if (!$noBrand && (int) ($listing->brand_id ?? 0) <= 0) {
-                $missing[] = 'a brand (or No brand)';
-            }
+            /* Brand is not demanded here: the payload builder defaults an
+             * unchosen brand to "No Brand", exactly as Shopee's does, so a
+             * listing without one pushes fine. Demanding it anyway made a
+             * pushable listing read "Not ready" (#175). */
 
             if (!$product || (trim((string) $product->sku) === '' && trim((string) $product->model) === '')) {
                 $missing[] = 'a SKU on the catalog product';
@@ -86,6 +86,11 @@ class LazadaListingReadiness
                         }
                         $key = (string) ($attr['key'] ?? '');
                         if ($key === '' || $controller->isSkuLevelRequiredKey($key)) {
+                            continue;
+                        }
+                        if (strtolower($key) === 'brand' || LazadaProductController::isAutoFilledAttributeKey($key)) {
+                            // Brand defaults to No Brand; name, description
+                            // and friends fill from the catalogue at push.
                             continue;
                         }
                         if (trim((string) ($answered[$key] ?? '')) === '') {

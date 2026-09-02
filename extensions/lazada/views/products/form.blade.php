@@ -539,7 +539,7 @@
             @elseif(!$template)
                 <p class="fm-section__note">The category template has not been read from Lazada yet. Read it below and the attributes will appear here.</p>
             @else
-                <p class="fm-section__note">Type a value, or point an attribute at a field on the catalog product so every push reads the current one. Read from Lazada {{ $template->fetched_at ? $template->fetched_at->format('Y-m-d H:i') : 'at an unrecorded time' }}.</p>
+                <p class="fm-section__note">Only this category's own questions are asked here. Name, description and model come from the catalog product by themselves, the way a Shopee push takes them. Type a value, or point an attribute at a field on the catalog product so every push reads the current one. Read from Lazada {{ $template->fetched_at ? $template->fetched_at->format('Y-m-d H:i') : 'at an unrecorded time' }}.</p>
 
                 <form id="lazada-attributes" method="POST" action="{{ route('ext.lazada.products.attributes_save', $listing->id) }}">
                     @csrf
@@ -553,6 +553,15 @@
                             @php
                                 $suggestion = $suggested[$key] ?? null;
                                 $rawSaved = $saved[$key] ?? '';
+                            @endphp
+                            {{-- A row the catalogue answers by itself is not
+                                 shown as a question. It reappears only when a
+                                 custom value was saved for it, so an override
+                                 someone already typed stays visible and
+                                 editable rather than silently applying. --}}
+                            @continue(\Extensions\lazada\Controllers\LazadaProductController::isAutoFilledAttributeKey($key)
+                                && (trim((string) $rawSaved) === '' || str_starts_with((string) $rawSaved, '__map:')))
+                            @php
                                 $fromGroup = !array_key_exists($key, ($productOwnAttrs ?? []))
                                     && array_key_exists($key, ($groupAttrs ?? []));
 

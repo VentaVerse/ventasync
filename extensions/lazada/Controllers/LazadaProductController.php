@@ -54,6 +54,60 @@ class LazadaProductController extends Controller
     ];
 
     /**
+     * Template attributes the catalogue can answer by itself, keyed by
+     * Lazada's machine name => the ERP field that answers it (#175).
+     *
+     * Lazada's category template lists name and description in the same
+     * mandatory list as Colour Family, because its API has no top-level
+     * content fields: EVERYTHING travels inside Attributes. The old design
+     * (CedCommerce's shape) read that as "the operator must answer every
+     * row". Shopee and TikTok were rebuilt to fill the obvious fields from
+     * the catalogue and only ask the category's own questions; this set is
+     * Lazada catching up. A saved value still wins: auto-fill only steps in
+     * where the operator said nothing.
+     */
+    public const AUTO_FILLED_ATTRIBUTES = [
+        'name'              => 'name',
+        'description'       => 'description',
+        'short_description' => 'description',
+        'model'             => 'model',
+    ];
+
+    public static function isAutoFilledAttributeKey(string $key): bool
+    {
+        return array_key_exists(strtolower(trim($key)), self::AUTO_FILLED_ATTRIBUTES);
+    }
+
+    /**
+     * Fill the blanks the catalogue can fill, BEFORE any mandatory gate
+     * runs. This used to exist as a fallback below the gate, where it could
+     * never fire: the gate threw "name is mandatory" first (#175).
+     */
+    private function autoFillBasics(array $attrs, ?object $productRow): array
+    {
+        foreach (self::AUTO_FILLED_ATTRIBUTES as $key => $erpField) {
+            $current = $attrs[$key] ?? null;
+            if ($current !== null && trim((string) $current) !== '') {
+                continue;   // the operator's own value always wins
+            }
+            $resolved = $this->resolveMappedValue($erpField, $productRow);
+            if ($resolved === null || trim($resolved) === '') {
+                // short_description falls back to the name rather than
+                // staying blank: Lazada wants highlights, and the product's
+                // name is a poor highlight but an honest one.
+                $resolved = $key === 'short_description'
+                    ? $this->resolveMappedValue('name', $productRow)
+                    : null;
+            }
+            if ($resolved !== null && trim($resolved) !== '') {
+                $attrs[$key] = $resolved;
+            }
+        }
+
+        return $attrs;
+    }
+
+    /**
      * Check if a stored attribute value is a mapping reference.
      */
     private function isMapValue(?string $value): bool
@@ -3995,6 +4049,11 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                     // Those are handled in the Variant Mapping section / payload builder.
                     continue;
                 }
+                if (self::isAutoFilledAttributeKey($k)) {
+                    // Name, description and friends fill themselves from the
+                    // catalogue at push time; blank here is not a problem.
+                    continue;
+                }
                 $val = $merged[$k] ?? null;
                 if ($val === null || trim((string)$val) === '') {
                     $label = $requiredNames[$k] ?? $k;
@@ -4130,6 +4189,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
         // Resolve __map: attribute values to actual product field values for payload.
         $attrs = $this->resolveMapAttributes($attrs, $product);
+        $attrs = $this->autoFillBasics($attrs, $product);
 
         // Validate mandatory attributes before building payload
         $requiredKeys = [];
@@ -5189,6 +5249,10 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
             }
         }
 
+        // What the catalogue can answer, it answers, BEFORE the gate below:
+        // this fallback used to sit after it, where it could never fire.
+        $attrs = $this->autoFillBasics($attrs, $product);
+
         // Local mandatory checks (attribute + sku level) before calling Lazada.
         $requiredKeys = [];
         $requiredNames = [];
@@ -5254,18 +5318,9 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
 
         // Lazada payload (best-effort). We'll adjust based on QC responses.
         // IMPORTANT: Do NOT send present-but-null attributes; Lazada treats them as "blank" (C004).
+        // (name/description used to be re-filled here, after the gate; that
+        // now happens once in autoFillBasics(), before it.)
         $attrFinal = is_array($attrs) ? $attrs : [];
-
-        if ((!isset($attrFinal['name']) || trim((string)$attrFinal['name']) === '') && $product && !empty($product->name)) {
-            $attrFinal['name'] = (string)$product->name;
-        }
-        if ((!isset($attrFinal['description']) || trim((string)$attrFinal['description']) === '') && $product && !empty($product->description)) {
-            $desc = (string)$product->description;
-            if (str_contains($desc, '&lt;') || str_contains($desc, '&gt;') || str_contains($desc, '&amp;')) {
-                $desc = html_entity_decode($desc, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            }
-            $attrFinal['description'] = $desc;
-        }
 
         // Clean null/blank values before sending to Lazada.
         $attrFinal = (array) $this->compactPayloadValue($attrFinal);
@@ -5769,6 +5824,16 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
             if (!is_array($a)) {
                 continue;
             }
+            /* Sale props are the variation axes (Colour Family, Size): they
+             * are consumed by getLazadaSalePropKeys() and sent at SKU level,
+             * so showing them on the attribute sheet asked the operator the
+             * same question twice. Keys wrapped in underscores (__images__)
+             * are wire plumbing, not questions. TikTok's normaliser has
+             * dropped both since it was written; Lazada's kept everything
+             * (#175). */
+            if (!empty($a['is_sale_prop'])) {
+                continue;
+            }
             $name = (string)($a['name'] ?? $a['attribute_name'] ?? '');
             $id = $a['id'] ?? $a['attribute_id'] ?? null;
             $required = (bool)($a['is_mandatory'] ?? $a['isMandatory'] ?? $a['mandatory'] ?? $a['is_required'] ?? $a['required'] ?? false);
@@ -5776,7 +5841,7 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
             $options = $a['options'] ?? $a['option_values'] ?? $a['values'] ?? null;
 
             $key = $name !== '' ? $name : (is_scalar($id) ? (string)$id : '');
-            if ($key === '') {
+            if ($key === '' || str_starts_with($key, '__')) {
                 continue;
             }
 
