@@ -28,7 +28,7 @@ class ShopeeVoucherController extends Controller
             $status = 'all';
         }
 
-        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
 
         $vouchers = null;   // null = the marketplace did not answer
@@ -82,7 +82,7 @@ class ShopeeVoucherController extends Controller
             'starts_at.after' => 'The start has to be in the future.',
         ]);
 
-        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             return redirect()->route('ext.shopee.vouchers.index')->with('error', 'Missing Shopee settings.');
@@ -135,7 +135,7 @@ class ShopeeVoucherController extends Controller
 
     private function passThrough(ShopeeClient $client, string $path, int $voucherId, string $okWords, string $failWord)
     {
-        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             return redirect()->route('ext.shopee.vouchers.index')->with('error', 'Missing Shopee settings.');

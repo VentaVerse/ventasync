@@ -60,7 +60,7 @@ class ShopeeOrderController extends Controller
      */
     public function returnSolutions(Request $request, ShopeeClient $client, string $returnSn)
     {
-        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
 
         if (!$auth || empty($auth['access_token']) || empty($auth['shop_id'])) {
@@ -146,7 +146,7 @@ class ShopeeOrderController extends Controller
 
     public function returnDetail(Request $request, string $returnSn)
     {
-        $settingRaw = ShopeeSetting::query()->first();
+        $settingRaw = ShopeeSetting::defaultStore();
         $setting = $settingRaw?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
         $region = $auth['region'] ?? 'ph';
@@ -182,7 +182,7 @@ class ShopeeOrderController extends Controller
             abort(404);
         }
 
-        $settingRaw = ShopeeSetting::query()->first();
+        $settingRaw = ShopeeSetting::defaultStore();
         $setting = $settingRaw?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
         $region = $auth['region'] ?? 'ph';
@@ -340,7 +340,7 @@ class ShopeeOrderController extends Controller
 
         $skipStock = !empty($data['no_stock']);
 
-        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
@@ -547,7 +547,7 @@ class ShopeeOrderController extends Controller
             'date_to' => 'required|date|after_or_equal:date_from',
         ]);
 
-        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
@@ -690,7 +690,7 @@ class ShopeeOrderController extends Controller
 
     public function getShippingAddresses(ShopeeClient $client, string $orderSn)
     {
-        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
@@ -736,7 +736,7 @@ class ShopeeOrderController extends Controller
     {
         $json = $request->expectsJson();
 
-        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
@@ -917,7 +917,7 @@ class ShopeeOrderController extends Controller
 
     public function getTrackingNumber(ShopeeClient $client, string $orderSn)
     {
-        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
@@ -957,7 +957,7 @@ class ShopeeOrderController extends Controller
 
     public function getTrackingInfo(ShopeeClient $client, string $orderSn)
     {
-        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
@@ -1032,7 +1032,7 @@ class ShopeeOrderController extends Controller
                 ->header('Content-Disposition', 'inline; filename="AWB-' . $safeOrderSn . '.pdf"');
         }
 
-        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
@@ -1245,7 +1245,7 @@ class ShopeeOrderController extends Controller
             ]);
         }
 
-        $settingRaw = ShopeeSetting::query()->first();
+        $settingRaw = ShopeeSetting::defaultStore();
         $setting = $settingRaw?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
         $region = $auth['region'] ?? 'ph';
@@ -1275,7 +1275,7 @@ class ShopeeOrderController extends Controller
     {
         try { @set_time_limit(0); } catch (\Throwable $e) {}
 
-        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';

@@ -17,7 +17,7 @@ class ShopeeCategoryAttributeController extends Controller
     {
         $category = ShopeeCategory::query()->where('category_id', $categoryId)->firstOrFail();
 
-        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
         $region = (string)($setting->region ?? '');
 
         $template = ShopeeCategoryTemplate::query()
@@ -48,7 +48,7 @@ class ShopeeCategoryAttributeController extends Controller
     {
         $category = ShopeeCategory::query()->where('category_id', $categoryId)->firstOrFail();
 
-        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';

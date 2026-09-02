@@ -16,7 +16,7 @@ class ShopeeRefreshToken extends Command
 
     public function handle(ShopeeClient $client): int
     {
-        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['partner_id'] || !$auth['partner_key'] || !$auth['shop_id'] || !$auth['refresh_token']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
@@ -58,7 +58,7 @@ class ShopeeRefreshToken extends Command
             $refresh = $result['body']['refresh_token'] ?? null;
 
             if ($access) {
-                $raw = ShopeeSetting::query()->first();
+                $raw = ShopeeSetting::defaultStore();
                 if ($raw) {
                     $isSandbox = $auth['mode'] === 'sandbox';
                     if ($isSandbox) {

@@ -296,7 +296,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
 
     private function shopeeUpdateItemSku(ShopeeProductLink $link, int $itemId, string $newSku): ?string
     {
-        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             return null;
@@ -371,7 +371,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         }
 
         if (Schema::hasTable('shopee_settings')) {
-            $spSetting = ShopeeSetting::query()->first();
+            $spSetting = ShopeeSetting::defaultStore();
             if ($spSetting) {
                 /* The listing troubles ride the chip (Phase B, #184): a
                  * violation or a vanished listing used to live only on a
@@ -467,7 +467,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             $pendingSub = '';
         }
 
-        $region = ShopeeSetting::query()->first()->region ?? 'ph';
+        $region = ShopeeSetting::defaultStore()->region ?? 'ph';
         $base = ShopeeOrder::query()->where('region', $region);
         $query = ShopeeOrder::query()->where('region', $region);
 
@@ -702,7 +702,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
      */
     public function verifyWebhook(\Illuminate\Http\Request $request): bool
     {
-        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
         $key = (string) ($auth['partner_key'] ?? '');
         $received = (string) $request->header('Authorization', '');

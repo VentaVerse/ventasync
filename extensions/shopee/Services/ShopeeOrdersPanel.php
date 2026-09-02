@@ -20,7 +20,7 @@ class ShopeeOrdersPanel
 {
     public function build(Request $request): array
     {
-        $settingRaw = ShopeeSetting::query()->first();
+        $settingRaw = ShopeeSetting::defaultStore();
         $setting = $settingRaw?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
 

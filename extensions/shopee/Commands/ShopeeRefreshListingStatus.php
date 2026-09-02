@@ -19,7 +19,7 @@ class ShopeeRefreshListingStatus extends Command
 
     public function handle(ShopeeLiveListing $live): int
     {
-        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             $this->error('Missing Shopee credentials. Configure Shopee settings first.');

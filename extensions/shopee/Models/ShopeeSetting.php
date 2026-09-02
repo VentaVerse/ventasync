@@ -17,6 +17,8 @@ class ShopeeSetting extends Model
     protected $table = 'shopee_settings';
 
     protected $fillable = [
+        'store_name',
+        'enabled',
         'mode',
         'partner_id',
         'partner_key',
@@ -46,6 +48,7 @@ class ShopeeSetting extends Model
     ];
 
     protected $casts = [
+        'enabled' => 'boolean',
         'api_logging' => 'boolean',
         'expires_at' => 'datetime',
         'refresh_expires_at' => 'datetime',
@@ -56,6 +59,21 @@ class ShopeeSetting extends Model
         'last_return_sync_at' => 'datetime',
         'last_review_sync_at' => 'datetime',
     ];
+
+    /**
+     * The store a storeless read acts for (multi-store S1, #194): the
+     * first enabled row - which, until S4 threads {store} through the
+     * routes, is the same single row the old singleton reads returned.
+     *
+     * Every former ShopeeSetting::defaultStore() call goes through
+     * here so S4 re-aims ONE name at the route's store instead of
+     * hunting 89 spellings. New code that already knows its store
+     * should take a ShopeeSetting instance, not call this.
+     */
+    public static function defaultStore(): ?self
+    {
+        return static::query()->where('enabled', true)->orderBy('id')->first();
+    }
 
     /**
      * Return a read-only decrypted copy of this setting.
@@ -102,7 +120,7 @@ class ShopeeSetting extends Model
         // stale shop across tests and long-lived workers.
         $base = request()->attributes->get('shopee.listing-url-base', false);
         if ($base === false) {
-            $setting = static::query()->first()?->decrypted();
+            $setting = static::defaultStore()?->decrypted();
             $auth = static::activeAuth($setting);
             $region = strtolower(trim((string) ($setting->region ?? ''))) ?: 'ph';
             $base = !empty($auth['shop_id'])

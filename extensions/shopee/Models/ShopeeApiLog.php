@@ -37,7 +37,7 @@ class ShopeeApiLog extends Model
     {
         try {
             // Skip logging if disabled in settings
-            $setting = ShopeeSetting::query()->first();
+            $setting = ShopeeSetting::defaultStore();
             if ($setting && $setting->api_logging === false) {
                 return;
             }

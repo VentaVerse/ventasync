@@ -27,15 +27,15 @@ public function root(Request $request, ShopeeClient $client)
         return redirect()->route('dashboard');
     }
 
-    $setting = ShopeeSetting::query()->first()?->decrypted();
+    $setting = ShopeeSetting::defaultStore()?->decrypted();
     $mode = $setting->mode ?? 'sandbox';
 
     // Persist shop_id to the env-appropriate column.
     if ($shopId) {
-        $raw = ShopeeSetting::query()->first() ?? new ShopeeSetting();
+        $raw = ShopeeSetting::defaultStore() ?? new ShopeeSetting();
         $this->persistShopId($raw, $mode, (int)$shopId);
         // Reload so the activeAuth() check below sees the just-saved shop_id.
-        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
     }
 
     $auth = $this->activeAuth($setting);
@@ -56,7 +56,7 @@ public function root(Request $request, ShopeeClient $client)
             $refresh = $result['body']['refresh_token'] ?? null;
 
             if ($access) {
-                $raw = ShopeeSetting::query()->first();
+                $raw = ShopeeSetting::defaultStore();
                 if ($raw) {
                     $this->persistTokens($raw, $auth['mode'], (string)$access, $refresh, $result['body']['expire_in'] ?? null);
                 }
@@ -90,12 +90,12 @@ public function index(Request $request = null, ShopeeClient $client = null)
         $cbCode = (string) $request->query('code', '');
         $cbShopId = (string) $request->query('shop_id', '');
         if ($cbCode !== '' || $cbShopId !== '') {
-            $rawSetting = ShopeeSetting::query()->first() ?? new ShopeeSetting();
+            $rawSetting = ShopeeSetting::defaultStore() ?? new ShopeeSetting();
             $mode = $rawSetting->mode ?? 'sandbox';
             if ($cbShopId !== '') {
                 $this->persistShopId($rawSetting, $mode, (int) $cbShopId);
             }
-            $dec = ShopeeSetting::query()->first()?->decrypted();
+            $dec = ShopeeSetting::defaultStore()?->decrypted();
             $auth = $this->activeAuth($dec);
             if ($cbCode !== '' && $auth['partner_id'] && $auth['partner_key'] && $auth['shop_id']) {
                 $result = $client->exchangeToken(
@@ -108,7 +108,7 @@ public function index(Request $request = null, ShopeeClient $client = null)
                 if (($result['ok'] ?? false) && is_array($result['body'] ?? null)) {
                     $access = $result['body']['access_token'] ?? null;
                     if ($access) {
-                        $raw = ShopeeSetting::query()->first();
+                        $raw = ShopeeSetting::defaultStore();
                         if ($raw) {
                             $this->persistTokens(
                                 $raw,
@@ -130,7 +130,7 @@ public function index(Request $request = null, ShopeeClient $client = null)
             }
         }
 
-        $setting = ShopeeSetting::query()->first();
+        $setting = ShopeeSetting::defaultStore();
 
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
@@ -206,7 +206,7 @@ public function index(Request $request = null, ShopeeClient $client = null)
             'sandbox_region' => 'nullable|in:sg,my,th,vn,id,ph,tw,br,mx,co,cl,pl',
         ]);
 
-        $setting = ShopeeSetting::query()->first() ?? new ShopeeSetting();
+        $setting = ShopeeSetting::defaultStore() ?? new ShopeeSetting();
 
         $env = $data['env'] ?? 'live';
         $setting->mode = $env;
@@ -238,7 +238,7 @@ public function index(Request $request = null, ShopeeClient $client = null)
     public function toggleMode(Request $request)
     {
         $data = $request->validate(['mode' => 'required|in:live,sandbox']);
-        $setting = ShopeeSetting::query()->first() ?? new ShopeeSetting();
+        $setting = ShopeeSetting::defaultStore() ?? new ShopeeSetting();
         $setting->mode = $data['mode'];
         $setting->save();
 
@@ -254,7 +254,7 @@ public function index(Request $request = null, ShopeeClient $client = null)
 
         // Store shop_id in the env-appropriate column.
         if ($shopId) {
-            $raw = ShopeeSetting::query()->first() ?? new ShopeeSetting();
+            $raw = ShopeeSetting::defaultStore() ?? new ShopeeSetting();
             $this->persistShopId($raw, $raw->mode ?? 'sandbox', (int)$shopId);
         }
 
@@ -389,7 +389,7 @@ public function index(Request $request = null, ShopeeClient $client = null)
 
     public function redirectToShopeeAuth(ShopeeClient $client)
 {
-    $setting = ShopeeSetting::query()->first()?->decrypted();
+    $setting = ShopeeSetting::defaultStore()?->decrypted();
     $creds = $this->activeCredentials($setting);
 
     if (!$setting || !$creds['partner_id'] || !$creds['partner_key']) {
@@ -417,7 +417,7 @@ public function index(Request $request = null, ShopeeClient $client = null)
 
 public function buildAuthUrl(ShopeeClient $client)
     {
-        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
         $creds = $this->activeCredentials($setting);
 
         if (!$setting || !$creds['partner_id'] || !$creds['partner_key']) {
@@ -453,7 +453,7 @@ public function buildAuthUrl(ShopeeClient $client)
             'code' => 'required|string',
         ]);
 
-        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = $this->activeAuth($setting);
         if (!$setting || !$auth['partner_id'] || !$auth['partner_key'] || !$auth['shop_id']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
@@ -478,7 +478,7 @@ public function buildAuthUrl(ShopeeClient $client)
             $refresh = $result['body']['refresh_token'] ?? null;
 
             if ($access) {
-                $raw = ShopeeSetting::query()->first();
+                $raw = ShopeeSetting::defaultStore();
                 if ($raw) {
                     $this->persistTokens($raw, $auth['mode'], (string)$access, $refresh, $result['body']['expire_in'] ?? null);
                 }
@@ -494,7 +494,7 @@ public function buildAuthUrl(ShopeeClient $client)
 
     public function tokenRefresh(ShopeeClient $client)
     {
-        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = $this->activeAuth($setting);
         if (!$setting || !$auth['partner_id'] || !$auth['partner_key'] || !$auth['shop_id'] || !$auth['refresh_token']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
@@ -528,7 +528,7 @@ public function buildAuthUrl(ShopeeClient $client)
             $refresh = $result['body']['refresh_token'] ?? null;
 
             if ($access) {
-                $raw = ShopeeSetting::query()->first();
+                $raw = ShopeeSetting::defaultStore();
                 if ($raw) {
                     $this->persistTokens($raw, $auth['mode'], (string)$access, $refresh, $result['body']['expire_in'] ?? null);
                 }
@@ -554,7 +554,7 @@ public function buildAuthUrl(ShopeeClient $client)
             'use_shop_id' => 'nullable|boolean',
         ]);
 
-        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['partner_id'] || !$auth['partner_key']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
@@ -677,7 +677,7 @@ public function buildAuthUrl(ShopeeClient $client)
 
     public function toggleLogging(Request $request)
     {
-        $setting = ShopeeSetting::query()->first();
+        $setting = ShopeeSetting::defaultStore();
         if (!$setting) {
             return back()->with('error', 'Shopee settings not found.');
         }
@@ -748,7 +748,7 @@ public function buildAuthUrl(ShopeeClient $client)
             'params_json' => 'nullable|string|max:20000',
         ]);
 
-        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['partner_id'] || !$auth['partner_key']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
@@ -845,7 +845,7 @@ public function buildAuthUrl(ShopeeClient $client)
             'pack' => 'required|in:shop_info,catalog,orders,logistics,full',
         ]);
 
-        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
@@ -947,7 +947,7 @@ public function buildAuthUrl(ShopeeClient $client)
 
     public function logisticsChannels(ShopeeClient $client)
     {
-        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
