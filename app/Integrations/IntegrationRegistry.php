@@ -448,4 +448,16 @@ class IntegrationRegistry
 
         return app(ExtensionManager::class)->isEnabled($baseId);
     }
+
+    /**
+     * Every enabled channel that can answer "where does this product's
+     * listing stand?" (Phase B, #184). Consumers: the All Listings grid
+     * and any core surface showing per-listing sync state.
+     *
+     * @return array<int, \App\Integrations\Contracts\ListingStateSource>
+     */
+    public function listingStateSources(): array
+    {
+        return $this->providersImplementing(\App\Integrations\Contracts\ListingStateSource::class);
+    }
 }

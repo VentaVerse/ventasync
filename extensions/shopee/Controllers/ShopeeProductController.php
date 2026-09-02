@@ -277,15 +277,13 @@ class ShopeeProductController extends Controller
             }
         }
 
-        /* Readiness for the page's unlisted rows (#101): Ready to push,
-         * or what is still missing, computed from our own records - the
-         * same answer the listing page shows. */
-        $unlinkedPageIds = array_values(array_filter(
-            $pageIds,
-            fn ($id) => !$shopeeLinks->has($id)
-        ));
-        $readinessByProductId = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)
-            ->forProducts($unlinkedPageIds);
+        /* ONE state per row (Phase B, #184): the engine folds the mirror,
+         * the listing record, drift and readiness into a single
+         * ListingState the blade renders verbatim. Computed after
+         * fillBlanks so it reads a filled mirror. This replaces the
+         * page's separate readiness call and its own label map. */
+        $listingStates = app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)
+            ->forProducts(array_map('intval', $pageIds));
 
         // Load unmatched items
         $unmatchedItems = ShopeeUnmatchedItem::query()
@@ -328,9 +326,9 @@ class ShopeeProductController extends Controller
             'liveCounts' => $liveCounts,
             'liveTabError' => $liveTabError,
             'liveStatuses' => $liveStatuses,
+            'listingStates' => $listingStates,
             'catalogueTotal' => $catalogueTotal,
             'liveCheckedAt' => $liveCheckedAt,
-            'readinessByProductId' => $readinessByProductId,
         ]);
     }
 
@@ -813,6 +811,11 @@ class ShopeeProductController extends Controller
             ]
         );
 
+        // The mirror learns the pushed item's real status at once (it can
+        // be NORMAL or REVIEWING; only Shopee knows which), so the row
+        // never reads "Not checked yet" for a push made a minute ago.
+        app(\Extensions\shopee\Services\Shopee\ShopeeLiveListing::class)->confirm($auth, [(int) $itemId]);
+
         // Variations ride the push: one Shopee model per combination,
         // priced by the rule the listing just stored.
         $savedListing = ShopeeListing::query()->where('product_id', $productId)->first();
@@ -1043,6 +1046,9 @@ class ShopeeProductController extends Controller
                 'price' => $sellingPrice,
             ],
         ])->save();
+
+        // Write-through: the mirror learns the item's real status now.
+        app(\Extensions\shopee\Services\Shopee\ShopeeLiveListing::class)->confirm($auth, [(int) $itemId]);
 
         // Variations ride the push, priced by the listing's own rule.
         $variations = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)->pushForProduct(
@@ -1348,6 +1354,7 @@ class ShopeeProductController extends Controller
             $itemId = ($result['ok'] ?? false) ? ($body['response']['item_id'] ?? null) : null;
 
             if ($itemId) {
+                $confirmItemIds[] = (int) $itemId;
                 ShopeeProductLink::create([
                     'product_id' => $productId,
                     'shopee_item_id' => (int) $itemId,
@@ -1384,6 +1391,10 @@ class ShopeeProductController extends Controller
 
             usleep(300000); // 300ms rate limit between pushes
         }
+
+        // Write-through, once for the whole batch (50 items per call):
+        // every pushed row's mirror carries its real status immediately.
+        app(\Extensions\shopee\Services\Shopee\ShopeeLiveListing::class)->confirm($auth, $confirmItemIds ?? []);
 
         $summary = "Bulk Push: {$okCount} pushed";
         if ($updatedCount > 0) $summary .= ", {$updatedCount} already listed and updated in place";
@@ -3323,6 +3334,13 @@ class ShopeeProductController extends Controller
                     'markup_fixed' => $listing?->markup_fixed,
                 ],
             ]
+        );
+
+        // A content update can send the item back under Shopee review, so
+        // the mirror is asked rather than assumed.
+        app(\Extensions\shopee\Services\Shopee\ShopeeLiveListing::class)->confirm(
+            $auth,
+            ShopeeProductLink::query()->where('product_id', $productId)->pluck('shopee_item_id')->all()
         );
 
         ActivityLogger::log(

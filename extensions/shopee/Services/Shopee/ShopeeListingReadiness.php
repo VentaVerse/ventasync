@@ -22,7 +22,10 @@ class ShopeeListingReadiness
 {
     /**
      * @param array<int> $productIds
-     * @return array<int, array{ready: bool, missing: array<string>}>
+     * @return array<int, array{ready: bool, missing: array<string>, gaps: list<array{code: string, label: string}>}>
+     *         `missing` is the sentences the pages print; `gaps` says the
+     *         same thing in codes (ListingState::GAP_*), so deep-links and
+     *         engines key on a code instead of substring-matching English.
      */
     /**
      * @param array{category_id?: int|null, logistic_ids?: array<int>|null} $shared
@@ -63,37 +66,39 @@ class ShopeeListingReadiness
         foreach ($productIds as $productId) {
             $productId = (int) $productId;
             $listing = $listings->get($productId);
-            $missing = [];
 
             $categoryId = $sharedCategory ?: (int) ($listing->shopee_category_id ?? 0);
             $logisticIds = $sharedLogistics ?? ($listing->logistic_ids ?? []);
+            $gaps = [];
 
             if (!$categoryId) {
-                $missing[] = 'a Shopee category';
+                $gaps[] = ['code' => \App\Integrations\Listings\ListingState::GAP_CATEGORY, 'label' => 'a Shopee category'];
             }
             if (empty($logisticIds)) {
-                $missing[] = 'at least one courier';
+                $gaps[] = ['code' => \App\Integrations\Listings\ListingState::GAP_COURIERS, 'label' => 'at least one courier'];
             }
             if (trim((string) ($images[$productId] ?? '')) === '') {
-                $missing[] = 'a product image on the catalog product';
+                $gaps[] = ['code' => \App\Integrations\Listings\ListingState::GAP_IMAGE, 'label' => 'a product image on the catalog product'];
             }
 
             if ($categoryId) {
                 $template = $templates->get($categoryId);
                 if (!$template) {
-                    $missing[] = "its category's attribute sheet (open the listing page once to read it)";
+                    $gaps[] = ['code' => \App\Integrations\Listings\ListingState::GAP_SHEET, 'label' => "its category's attribute sheet (open the listing page once to read it)"];
                 } else {
                     $unanswered = $this->missingRequiredAttributes($template, $listing?->attribute_values ?? []);
                     if (!empty($unanswered)) {
-                        $missing[] = 'answers for ' . count($unanswered) . ' required '
-                            . \Illuminate\Support\Str::plural('attribute', count($unanswered))
-                            . ' (' . implode(', ', array_slice($unanswered, 0, 5))
-                            . (count($unanswered) > 5 ? ' and more' : '') . ')';
+                        $gaps[] = ['code' => \App\Integrations\Listings\ListingState::GAP_ATTRIBUTES,
+                            'label' => 'answers for ' . count($unanswered) . ' required '
+                                . \Illuminate\Support\Str::plural('attribute', count($unanswered))
+                                . ' (' . implode(', ', array_slice($unanswered, 0, 5))
+                                . (count($unanswered) > 5 ? ' and more' : '') . ')'];
                     }
                 }
             }
 
-            $out[$productId] = ['ready' => empty($missing), 'missing' => $missing];
+            $missing = array_map(fn ($g) => $g['label'], $gaps);
+            $out[$productId] = ['ready' => empty($gaps), 'missing' => $missing, 'gaps' => $gaps];
         }
 
         return $out;

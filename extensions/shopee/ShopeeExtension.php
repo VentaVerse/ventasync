@@ -30,9 +30,10 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 use App\Integrations\Contracts\CredentialRevealer;
+use App\Integrations\Contracts\ListingStateSource;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, RootRouteHandler, CredentialRevealer
+class ShopeeExtension extends ExtensionProvider implements ListingStateSource, IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, RootRouteHandler, CredentialRevealer
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -643,5 +644,14 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
     public function credentialManagePermission(): string
     {
         return 'manage_shopee/settings';
+    }
+
+    /**
+     * Phase B (#184): the one answer to "where does this product stand on
+     * Shopee?", for core surfaces that render listing state.
+     */
+    public function listingStates(array $productIds): array
+    {
+        return app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->forProducts($productIds);
     }
 }

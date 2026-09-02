@@ -170,6 +170,40 @@ class ShopeeLiveListing
     }
 
     /**
+     * Write-through after a push (Phase B, #184): ask Shopee what the
+     * pushed items' status actually is and write the mirror, so a product
+     * pushed a minute ago never reads "Not checked yet" and never reads a
+     * guess either - a fresh item can be NORMAL or REVIEWING and only
+     * Shopee knows which. Seven of the ten push paths used to skip the
+     * mirror entirely; they all call this now.
+     *
+     * Failure is swallowed on purpose: the push already succeeded, and
+     * reporting it as failed because the confirming READ failed would be
+     * a lie. The row simply stays blank and the next sweep fills it.
+     */
+    public function confirm(array $auth, array $itemIds): void
+    {
+        $itemIds = array_values(array_filter(array_map('intval', $itemIds)));
+        if ($itemIds === []) {
+            return;
+        }
+        try {
+            $statuses = $this->statusesFor($auth, $itemIds);
+        } catch (\Throwable) {
+            return;
+        }
+        $now = now();
+        foreach ($statuses as $itemId => $status) {
+            if ($status === '' || $status === null) {
+                continue;
+            }
+            \Extensions\shopee\Models\ShopeeProductLink::query()
+                ->where('shopee_item_id', $itemId)
+                ->update(['live_status' => $status, 'live_checked_at' => $now]);
+        }
+    }
+
+    /**
      * Fill the mirror for links that were never checked. One call per 50,
      * only for the given links, and only once: after this they carry a
      * status and a timestamp like every other row.

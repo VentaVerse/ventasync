@@ -553,45 +553,44 @@
             </td>
 
             <td class="cc-col-sync" data-label="Listing">
-                @php
-                    /* The mirrored status for this row; the strip says when
-                       it was refreshed. Never refreshed reads as exactly
-                       that, not as a guess. */
-                    $rowLiveStatus = $link ? ($liveStatuses[(int) $link->shopee_item_id] ?? null) : null;
-                    $rowLiveMap = [
-                        'NORMAL' => ['Live', 'success'],
-                        'UNLIST' => ['Unlisted', 'neutral'],
-                        'BANNED' => ['Violation', 'danger'],
-                        'REVIEWING' => ['Under review', 'warning'],
-                        'SELLER_DELETE' => ['Deleted', 'neutral'],
-                        'SHOPEE_DELETE' => ['Deleted by Shopee', 'danger'],
-                        'MISSING' => ['Not found on Shopee', 'danger'],
-                    ];
-                @endphp
-                @if($rowLiveStatus !== null && isset($rowLiveMap[$rowLiveStatus]))
-                    <x-ui.badge :tone="$rowLiveMap[$rowLiveStatus][1]">{{ $rowLiveMap[$rowLiveStatus][0] }}</x-ui.badge>
-                @elseif($link && ($liveCounts ?? null) !== null)
-                    <x-ui.badge tone="neutral" title="Press Refresh from Shopee to read its status">Not checked yet</x-ui.badge>
-                @elseif($link)
-                    <x-ui.badge tone="success">Listed</x-ui.badge>
-                @else
+                {{-- ONE state, from the engine (Phase B, #184). This cell
+                     used to carry its own label map, one of three copies
+                     that had already drifted apart; every word and tone now
+                     comes from ListingState and cannot disagree with any
+                     other page. Never checked reads as exactly that, not as
+                     a guess. --}}
+                @php $rowState = $listingStates[(int) $p->product_id] ?? null; @endphp
+                @if($rowState === null)
                     <x-ui.badge tone="neutral">Not listed</x-ui.badge>
-                    {{-- The computed readiness (#101): the answer BEFORE the
-                         push is pressed, by the same shared computation the
-                         listing page and the bulk push use. --}}
-                    @php $rowReady = $readinessByProductId[$p->product_id] ?? null; @endphp
-                    @if($rowReady !== null)
-                        @if($rowReady['ready'])
-                            <span class="cc-checked">Ready to push</span>
-                        @else
-                            {{-- A badge, with the list behind the hint: the same
-                                 sentence four lines tall on every row of the page
-                                 doubled the row height for words identical down
-                                 the column. The listing page keeps the full
-                                 sentence beside the fields that fill it. --}}
-                            <span class="cc-checked"><x-ui.badge tone="warning">Not ready</x-ui.badge>
-                                <x-ui.hint label="What is missing before a push">Missing: {{ implode(', ', $rowReady['missing']) }}</x-ui.hint></span>
-                        @endif
+                @elseif($rowState->state === \App\Integrations\Listings\ListingState::UNKNOWN && $link && ($liveCounts ?? null) === null)
+                    {{-- No shop configured: the mirror cannot exist, and
+                         "Listed" is all the link can honestly say. --}}
+                    <x-ui.badge tone="success">Listed</x-ui.badge>
+                @elseif($rowState->state === \App\Integrations\Listings\ListingState::UNKNOWN)
+                    <x-ui.badge tone="neutral" title="Press Refresh from Shopee to read its status">{{ $rowState->label() }}</x-ui.badge>
+                @elseif($rowState->state === \App\Integrations\Listings\ListingState::NOT_LISTED)
+                    <x-ui.badge :tone="$rowState->tone()">{{ $rowState->label() }}</x-ui.badge>
+                    {{-- The answer BEFORE the push is pressed (#101), from
+                         the same computation every other surface uses. --}}
+                    @if($rowState->ready)
+                        <span class="cc-checked">Ready to push</span>
+                    @else
+                        <span class="cc-checked"><x-ui.badge tone="warning">Not ready</x-ui.badge>
+                            <x-ui.hint label="What is missing before a push">Missing: {{ $rowState->missingSummary() }}</x-ui.hint></span>
+                    @endif
+                @else
+                    {{-- The title rides a wrapping span: Blade cannot compile
+                         an @if inside a component tag's attribute list. --}}
+                    <span @if($rowState->checkedAt) title="Checked {{ $rowState->checkedAt->diffForHumans() }}" @endif>
+                        <x-ui.badge :tone="$rowState->tone()">{{ $rowState->label() }}</x-ui.badge>
+                    </span>
+                    {{-- Drift (#100), now visible on the index too: live and
+                         out of date are different facts, so both are shown. --}}
+                    @if($rowState->driftLabel())
+                        <span class="cc-checked"><x-ui.badge tone="warning">{{ $rowState->driftLabel() }}</x-ui.badge>
+                            <x-ui.hint label="What changed">{{ implode(' ', $rowState->reasons) }}</x-ui.hint></span>
+                    @elseif($rowState->reasons)
+                        <x-ui.hint label="What Shopee says">{{ implode(' ', $rowState->reasons) }}</x-ui.hint>
                     @endif
                 @endif
             </td>

@@ -2269,6 +2269,7 @@ class ShopeeProductGroupController extends Controller
                     ]);
                 }
 
+                $confirmItemIds[] = (int) $itemId;
                 // Seed a parent link first so any later read sees the item_id
                 // even if the model fetch below fails partway.
                 ShopeeProductLink::create([
@@ -2393,6 +2394,10 @@ class ShopeeProductGroupController extends Controller
             usleep(300000); // 300ms rate limit between pushes
         }
 
+        // Write-through for the batch: the mirror carries each pushed
+        // item's real status (NORMAL or REVIEWING) before the page renders.
+        app(\Extensions\shopee\Services\Shopee\ShopeeLiveListing::class)->confirm($auth, $confirmItemIds ?? []);
+
         return ['ok' => $okCount, 'skip' => $skipCount, 'err' => $errCount, 'errors' => $errors];
     }
 
@@ -2512,6 +2517,8 @@ class ShopeeProductGroupController extends Controller
                 $links = ShopeeProductLink::query()->where('product_id', $productId)->get();
                 $this->pushPriceForLinks($client, $auth, $pfx, $links, $group);
                 $this->pushStockForLinks($client, $auth, $pfx, $links);
+                // A content update can send the item back under review.
+                app(\Extensions\shopee\Services\Shopee\ShopeeLiveListing::class)->confirm($auth, $links->pluck('shopee_item_id')->all());
 
                 $this->writeProductStatus($productId, [
                         'sync_status' => 'pushed',
