@@ -238,16 +238,27 @@
                         <span class="fm-stat__v">
                             {{ $coverage['linked'] }} of {{ $coverage['total'] }} variations
                             @if($coverage['missing']->isNotEmpty())
-                                <x-ui.hint label="What is not on Shopee">In the catalogue but not on Shopee: {{ $coverage['missing']->map(fn ($v) => $v['sku'] !== '' ? $v['sku'] : $v['name'])->implode(', ') }}. Stock and price pushes skip these and say so. To add a variation to a live listing, add it in Seller Centre, then press Re-read variations here.</x-ui.hint>
+                                <x-ui.hint label="What is not on Shopee">In the catalogue but not on Shopee: {{ $coverage['missing']->map(fn ($v) => $v['sku'] !== '' ? $v['sku'] : $v['name'])->implode(', ') }}. Stock and price pushes skip these and say so. Push missing variations sends them up without touching what is already live.</x-ui.hint>
                             @endif
                         </span>
                     </div>
                 @endif
                 @if($canManage)
-                    <form method="POST" action="{{ route('ext.shopee.listings.reread_variations', $product->product_id) }}" data-slow-action>
-                        @csrf
-                        <x-ui.button type="submit" size="sm">Re-read variations from Shopee</x-ui.button>
-                    </form>
+                    <div class="fm-actions-row">
+                        @if(($coverage['missing'] ?? collect())->isNotEmpty())
+                            {{-- Phase F (#184): the loop that used to be
+                                 unlink, re-match and hope is one push. --}}
+                            <form method="POST" action="{{ route('ext.shopee.listings.push_missing_variations', $product->product_id) }}" data-slow-action
+                                  data-confirm="Add the missing variations to the live Shopee listing? What is already live is not touched; new tier options are appended and the new variations go up priced by this listing's rule." data-confirm-tone="primary" data-confirm-verb="Add variations">
+                                @csrf
+                                <x-ui.button type="submit" variant="primary" size="sm">Push missing variations</x-ui.button>
+                            </form>
+                        @endif
+                        <form method="POST" action="{{ route('ext.shopee.listings.reread_variations', $product->product_id) }}" data-slow-action>
+                            @csrf
+                            <x-ui.button type="submit" size="sm">Re-read variations from Shopee</x-ui.button>
+                        </form>
+                    </div>
                 @endif
 
                 @if(!empty($live['models']))

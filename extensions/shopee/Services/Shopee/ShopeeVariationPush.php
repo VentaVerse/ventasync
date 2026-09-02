@@ -69,6 +69,225 @@ class ShopeeVariationPush
     }
 
     /**
+     * Add the catalogue's missing variations to an ALREADY-LISTED item
+     * (Phase F, #184). The owner's daily loop - add a variation in the ERP,
+     * then unlink and re-match hoping it sticks - becomes one push:
+     *
+     *   1. read what Shopee holds (one get_model_list);
+     *   2. find the catalogue combinations Shopee is missing, by SKU;
+     *   3. extend the tier structure by APPENDING options only - existing
+     *      options keep their positions, so existing models keep their
+     *      meaning (update_tier_variation);
+     *   4. add_model for the new combinations, priced by the push's rule.
+     *
+     * Anything that cannot be done safely blind is refused in plain words
+     * before any write: a tier-count mismatch, a price spread past
+     * Shopee's 5x rule (existing models included), an unanswered read.
+     * A flat item (no models yet) ships its whole structure through the
+     * existing init path instead.
+     *
+     * @return array{ok: bool, message: string, added: int}
+     */
+    public function pushMissingModels(ShopeeClient $client, array $auth, int $itemId, int $productId, \Closure $priceFor, ?\Closure $uploadImageId = null): array
+    {
+        $modelRes = $client->shopGet(
+            $auth['mode'], (int) $auth['partner_id'], (string) $auth['partner_key'],
+            (string) $auth['access_token'], (int) $auth['shop_id'],
+            '/api/v2/product/get_model_list', ['item_id' => $itemId]
+        );
+        $body = $modelRes['body'] ?? [];
+        if (!($modelRes['ok'] ?? false) || (($body['error'] ?? '') !== '' && ($body['error'] ?? null) !== null)) {
+            return ['ok' => false, 'message' => 'Shopee did not answer for the item\'s variations: ' . (string) ($body['message'] ?? 'no answer') . ' Nothing was changed.', 'added' => 0];
+        }
+        $resp = $body['response'] ?? $body;
+        $shopeeModels = (array) ($resp['model'] ?? []);
+        $shopeeTiers = (array) ($resp['tier_variation'] ?? []);
+
+        // A flat item gains its first variations through the init path.
+        if (empty($shopeeModels)) {
+            $r = $this->pushForProduct($client, $auth, $itemId, $productId, $priceFor, $uploadImageId);
+            if ($r === null) {
+                return ['ok' => true, 'message' => 'The catalogue has no variations for this product; nothing to add.', 'added' => 0];
+            }
+
+            return ['ok' => (bool) $r['ok'], 'message' => $r['ok']
+                ? 'The item had no variations; its whole structure went up (' . $r['models'] . ' variations).'
+                : $r['message'], 'added' => $r['ok'] ? (int) $r['models'] : 0];
+        }
+
+        // The catalogue's side: combinations, axes, and each combo's values.
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+        $combos = DB::table('product_option_combinations')
+            ->where('product_id', $productId)
+            ->orderBy('sort_order')
+            ->get(['id', 'sku', 'quantity', 'absolute_price', 'image']);
+        if ($combos->isEmpty()) {
+            return ['ok' => true, 'message' => 'The catalogue has no variations for this product; nothing to add.', 'added' => 0];
+        }
+
+        $existingSkus = [];
+        foreach ($shopeeModels as $m) {
+            $sku = strtolower(trim((string) ($m['model_sku'] ?? '')));
+            if ($sku !== '') {
+                $existingSkus[$sku] = true;
+            }
+        }
+        $missing = $combos->filter(function ($c) use ($existingSkus) {
+            $sku = strtolower(trim((string) ($c->sku ?? '')));
+
+            return $sku !== '' && !isset($existingSkus[$sku]);
+        })->values();
+        if ($missing->isEmpty()) {
+            return ['ok' => true, 'message' => 'Every catalogue variation is already on Shopee.', 'added' => 0];
+        }
+
+        $values = DB::table('product_option_combination_values as cv')
+            ->join($pfx . 'product_option_value as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
+            ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                  ->where('ovd.language_id', '=', $langId);
+            })
+            ->whereIn('cv.combination_id', $combos->pluck('id')->all())
+            ->orderBy('pov.product_option_id')
+            ->get(['cv.combination_id', 'pov.product_option_id', 'ovd.name as value_name']);
+        $comboValues = []; // combination_id => list of value names in axis order
+        $axisSet = [];
+        foreach ($values as $v) {
+            $comboValues[(int) $v->combination_id][(int) $v->product_option_id] =
+                html_entity_decode((string) $v->value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $axisSet[(int) $v->product_option_id] = true;
+        }
+        $axisIds = array_keys($axisSet);
+
+        if (count($axisIds) !== count($shopeeTiers)) {
+            return ['ok' => false, 'message' => 'The catalogue arranges this product in ' . count($axisIds)
+                . ' option ' . (count($axisIds) === 1 ? 'axis' : 'axes') . ' but the Shopee listing has ' . count($shopeeTiers)
+                . ' tier' . (count($shopeeTiers) === 1 ? '' : 's') . '. Restructuring a live listing is not safe to do blind - adjust it in Seller Centre, then press Re-read variations.', 'added' => 0];
+        }
+
+        /* The 5x rule holds across the WHOLE item, existing models
+         * included - adding a cheap variation next to a dear one is
+         * exactly how the spread breaks. */
+        $parentPrice = (float) (DB::table($pfx . 'product')->where('product_id', $productId)->value('price') ?? 0);
+        $prices = [];
+        foreach ($shopeeModels as $m) {
+            $existing = (float) ($m['price_info'][0]['original_price'] ?? 0);
+            if ($existing > 0) {
+                $prices[] = $existing;
+            }
+        }
+        $newModels = [];
+        foreach ($missing as $combo) {
+            $core = (float) $combo->absolute_price > 0 ? (float) $combo->absolute_price : $parentPrice;
+            $prices[] = (float) $priceFor($core);
+        }
+        $pMin = min($prices);
+        $pMax = max($prices);
+        if ($pMin > 0 && $pMax / $pMin > self::PRICE_RATIO_LIMIT) {
+            return ['ok' => false, 'message' => 'Adding ' . ($missing->count() === 1 ? 'this variation' : 'these variations')
+                . ' would make the dearest cost more than 5 times the cheapest ('
+                . \App\Support\Money::base($pMin) . ' to ' . \App\Support\Money::base($pMax)
+                . ' across the whole item), and Shopee refuses that spread. Adjust the prices, then push.', 'added' => 0];
+        }
+
+        /* Place each missing combination on the tiers, appending options
+         * where a value is new. Existing entries pass through VERBATIM so
+         * nothing already live moves. */
+        $newTiers = array_values(array_map(fn ($t) => [
+            'name' => (string) ($t['name'] ?? 'Variation'),
+            'option_list' => array_values((array) ($t['option_list'] ?? [])),
+        ], $shopeeTiers));
+        $extended = 0;
+        foreach ($missing as $combo) {
+            $tierIndex = [];
+            foreach ($axisIds as $tierN => $axisId) {
+                $valueName = trim((string) ($comboValues[(int) $combo->id][$axisId] ?? ''));
+                if ($valueName === '') {
+                    return ['ok' => false, 'message' => 'Variation ' . trim((string) $combo->sku)
+                        . ' is missing a value on one of its option axes, so it cannot be placed on the tiers. Fix the variation in the catalogue first.', 'added' => 0];
+                }
+                $found = null;
+                foreach ($newTiers[$tierN]['option_list'] as $i => $entry) {
+                    if (strcasecmp(trim((string) ($entry['option'] ?? '')), $valueName) === 0) {
+                        $found = $i;
+                        break;
+                    }
+                }
+                if ($found === null) {
+                    $entry = ['option' => mb_substr($valueName, 0, 50)];
+                    if ($tierN === 0 && $uploadImageId !== null && trim((string) ($combo->image ?? '')) !== '') {
+                        $imageId = $uploadImageId(trim((string) $combo->image));
+                        if ($imageId !== null && $imageId !== '') {
+                            $entry['image'] = ['image_id' => $imageId];
+                        }
+                    }
+                    $newTiers[$tierN]['option_list'][] = $entry;
+                    $found = count($newTiers[$tierN]['option_list']) - 1;
+                    $extended++;
+                }
+                $tierIndex[] = $found;
+            }
+
+            $core = (float) $combo->absolute_price > 0 ? (float) $combo->absolute_price : $parentPrice;
+            $newModels[] = [
+                'tier_index' => $tierIndex,
+                'model_sku' => mb_substr(trim((string) $combo->sku), 0, 100),
+                'original_price' => $priceFor($core),
+                'seller_stock' => [['stock' => max(0, (int) $combo->quantity)]],
+            ];
+        }
+
+        if ($extended > 0) {
+            $tierPayload = ['item_id' => $itemId, 'tier_variation' => $newTiers];
+            $tierRes = $client->shopPost(
+                $auth['mode'], (int) $auth['partner_id'], (string) $auth['partner_key'],
+                (string) $auth['access_token'], (int) $auth['shop_id'],
+                '/api/v2/product/update_tier_variation', [], $tierPayload
+            );
+            ShopeeApiLog::safeCreate([
+                'pack' => 'shopee.products.update_tier_variation', 'method' => 'POST',
+                'api_path' => '/api/v2/product/update_tier_variation', 'auth_required' => true,
+                'request_params' => $tierPayload,
+                'response_status' => $tierRes['status'] ?? null, 'ok' => (bool) ($tierRes['ok'] ?? false),
+                'response_body' => $tierRes['body'] ?? null, 'user_id' => auth()->id(),
+            ]);
+            $tierBody = $tierRes['body'] ?? [];
+            if (!($tierRes['ok'] ?? false) || (($tierBody['error'] ?? '') !== '' && ($tierBody['error'] ?? null) !== null)) {
+                return ['ok' => false, 'message' => 'Shopee refused the new tier option: '
+                    . (string) ($tierBody['message'] ?? ($tierBody['error'] ?? 'no answer')) . ' Nothing was added.', 'added' => 0];
+            }
+        }
+
+        $addPayload = ['item_id' => $itemId, 'model_list' => $newModels];
+        $addRes = $client->shopPost(
+            $auth['mode'], (int) $auth['partner_id'], (string) $auth['partner_key'],
+            (string) $auth['access_token'], (int) $auth['shop_id'],
+            '/api/v2/product/add_model', [], $addPayload
+        );
+        ShopeeApiLog::safeCreate([
+            'pack' => 'shopee.products.add_model', 'method' => 'POST',
+            'api_path' => '/api/v2/product/add_model', 'auth_required' => true,
+            'request_params' => $addPayload,
+            'response_status' => $addRes['status'] ?? null, 'ok' => (bool) ($addRes['ok'] ?? false),
+            'response_body' => $addRes['body'] ?? null, 'user_id' => auth()->id(),
+        ]);
+        $addBody = $addRes['body'] ?? [];
+        if (!($addRes['ok'] ?? false) || (($addBody['error'] ?? '') !== '' && ($addBody['error'] ?? null) !== null)) {
+            return ['ok' => false, 'message' => 'Shopee refused the new variation'
+                . (count($newModels) === 1 ? '' : 's') . ': '
+                . (string) ($addBody['message'] ?? ($addBody['error'] ?? 'no answer')), 'added' => 0];
+        }
+
+        return [
+            'ok' => true,
+            'message' => count($newModels) . ' variation' . (count($newModels) === 1 ? '' : 's') . ' added to Shopee'
+                . ($extended > 0 ? ' (' . $extended . ' new tier option' . ($extended === 1 ? '' : 's') . ')' : '') . '.',
+            'added' => count($newModels),
+        ];
+    }
+
+    /**
      * Remove a just-created item whose variations were refused (#192):
      * delete it at Shopee and take this push's link and cache rows with
      * it, so nothing half-listed stays up and nothing here claims it is.

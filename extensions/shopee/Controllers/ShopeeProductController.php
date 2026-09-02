@@ -3131,6 +3131,58 @@ class ShopeeProductController extends Controller
         return redirect()->back()->with('status', $msg);
     }
 
+    /**
+     * Add the catalogue's missing variations to the live listing (Phase F,
+     * #184): one push where the daily loop used to be unlink, re-match,
+     * and hope. On success the link rows are re-read at once, so the
+     * coverage line and the pushes see the new models immediately.
+     */
+    public function pushMissingVariations(int $productId, ShopeeClient $client)
+    {
+        $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
+        if (!$link) {
+            return redirect()->back()->with('error', 'Product not linked to Shopee. Match a Shopee ID first.');
+        }
+
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            return redirect()->back()->with('error', 'Missing Shopee settings.');
+        }
+
+        $listing = ShopeeListing::query()->where('product_id', $productId)->first();
+        if (!$listing || ($listing->markup_percent === null && $listing->markup_fixed === null)) {
+            return redirect()->back()->with('error', 'Adding variations needs the listing\'s own price rule, and this listing has none. Push once from the form to give it one.');
+        }
+
+        $r = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)->pushMissingModels(
+            $client, $auth, (int) $link->shopee_item_id, $productId,
+            fn (float $core) => (float) $listing->priceFor($core),
+            $this->tierImageUploader($client, $auth)
+        );
+
+        if (!$r['ok']) {
+            return redirect()->back()->with('error', $r['message']);
+        }
+
+        if ($r['added'] > 0) {
+            // The links learn the new models at once, by the same repair
+            // everything else uses.
+            $pfx = (string) config('catalog.prefix');
+            $skus = DB::table($pfx . 'product_option_value')
+                ->where('product_id', $productId)->whereNotNull('sku')->where('sku', '!=', '')
+                ->pluck('sku')->map(fn ($v) => strtolower(trim((string) $v)))
+                ->merge(DB::table('product_option_combinations')
+                    ->where('product_id', $productId)->whereNotNull('sku')->where('sku', '!=', '')
+                    ->pluck('sku')->map(fn ($v) => strtolower(trim((string) $v))))
+                ->unique()->values()->all();
+            app(\Extensions\shopee\Services\Shopee\ShopeeModelLinkRepair::class)
+                ->forItem($auth, $productId, (int) $link->shopee_item_id, $skus);
+        }
+
+        return redirect()->back()->with('status', $r['message'] . ($r['added'] > 0 ? ' Links updated.' : ''));
+    }
+
     public function saveListing(Request $request, int $productId)
     {
         $pfx = (string) config('catalog.prefix');

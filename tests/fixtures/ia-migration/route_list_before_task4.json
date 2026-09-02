@@ -1406,6 +1406,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/shopee/listings/{productId}/push-missing-variations",
+        "name": "ext.shopee.listings.push_missing_variations"
+    },
+    {
+        "method": "POST",
         "uri": "channels/shopee/listings/{productId}/push-update",
         "name": "ext.shopee.listings.push_update"
     },
@@ -2663,21 +2668,6 @@
         "method": "GET|HEAD",
         "uri": "lookup/manufacturers",
         "name": "manufacturers.lookup"
-    },
-    {
-        "method": "DELETE",
-        "uri": "mcp",
-        "name": null
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "mcp",
-        "name": null
-    },
-    {
-        "method": "POST",
-        "uri": "mcp",
-        "name": "mcp"
     },
     {
         "method": "GET|HEAD",

@@ -241,3 +241,12 @@
     .cl-total__v { font-size: 19px; }
     .cl-json { max-height: 240px; font-size: 11px; }
 }
+
+/* Two verbs on one line beside the coverage fact (Phase F, #184): the
+   primary way forward and the read-back, together where the gap is named. */
+.fm-actions-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--bl-space-3);
+    align-items: center;
+}
