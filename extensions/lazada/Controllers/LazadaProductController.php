@@ -1288,7 +1288,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             return redirect()->back()->with('error', 'Lazada did not answer: ' . $result['error'] . ' The statuses shown are from the last refresh.');
         }
 
-        $labels = ['active' => 'active', 'inactive' => 'inactive', 'pending' => 'pending QC', 'rejected' => 'in violation',
+        // One word per state, the engine's (#184 C): 'rejected', not 'in violation'.
+        $labels = ['active' => 'active', 'inactive' => 'inactive', 'pending' => 'pending QC', 'rejected' => 'rejected',
             'sold-out' => 'sold out', 'soldout' => 'sold out', 'deleted' => 'deleted', 'missing' => 'not found on Lazada'];
         $parts = [];
         foreach ($result['counts'] as $status => $n) {

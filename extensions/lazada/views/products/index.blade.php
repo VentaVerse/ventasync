@@ -301,7 +301,10 @@
             'active' => 'Active',
             'inactive' => 'Inactive',
             'pending' => 'Pending QC',
-            'violation' => 'Violation',
+            // One state, one word: the row badge says Rejected (the
+            // engine's label), so the tab that filters to it must not
+            // say Violation (Phase C, #184).
+            'violation' => 'Rejected',
             'soldout' => 'Sold out',
             'deleted' => 'Deleted',
         ];
