@@ -224,6 +224,30 @@ class ShopeeMultistoreTest extends TestCase
             ->assertStatus(301);
     }
 
+    /**
+     * The first live regression of S4 (the owner, 2026-09-03): the global
+     * {store} default leaked into OTHER channels' optional {store?}
+     * dashboard segments, and every nav link to Lazada became
+     * /channels/lazada/1 - a designed 404. Single-store dashboards carry
+     * no store parameter at all now; this holds the door shut.
+     */
+    public function test_the_shopee_store_default_never_leaks_into_another_channels_links(): void
+    {
+        ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+
+        $manager = $this->app->make(\App\Extensions\ExtensionManager::class);
+        foreach (['lazada', 'tiktok'] as $ext) {
+            $manager->install($ext);
+            $manager->enable($ext);
+        }
+        $this->app->register(\Extensions\lazada\LazadaExtension::class);
+        $this->app->register(\Extensions\tiktok\TikTokExtension::class);
+        $this->app['router']->getRoutes()->refreshNameLookups();
+
+        $this->assertStringEndsWith('/channels/lazada', route('ext.lazada.dashboard'));
+        $this->assertStringEndsWith('/channels/tiktok', route('ext.tiktok.dashboard'));
+    }
+
     public function test_route_generation_fills_the_store_from_the_default(): void
     {
         $store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);

@@ -183,8 +183,12 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
 // /channels/tiktok/orders - same rule the old wildcard relied on. On a
 // single-store channel a store suffix resolves to no card, which is a 404.
 Route::middleware(['auth'])->prefix('channels')->group(function () {
-    Route::get('/tiktok/{store?}', [\Extensions\tiktok\Controllers\TiktokDashboardController::class, 'show'])
-        ->where('store', '[0-9]+')
+    // No {store?} tail: this channel is single-store, and an optional
+    // 'store' parameter is exactly what a GLOBAL URL default fills - the
+    // moment Shopee (multi-store S4, #194) registered a default store id,
+    // every generated link here became /channels/tiktok/1 and 404d. A
+    // store-suffixed URL still 404s, now by matching no route at all.
+    Route::get('/tiktok', [\Extensions\tiktok\Controllers\TiktokDashboardController::class, 'show'])
         // Refused BY ABSENCE: a channel you may not see must answer exactly
         // like one that does not exist. See EnsureControllerPermission.
         ->defaults('permission_denial', '404')

@@ -455,6 +455,11 @@
         "name": "fulfilment.print.pick"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada",
+        "name": "ext.lazada.dashboard"
+    },
+    {
         "method": "DELETE",
         "uri": "channels/lazada/api-logs",
         "name": "ext.lazada.clear_api_logs"
@@ -1011,11 +1016,6 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/{store?}",
-        "name": "ext.lazada.dashboard"
-    },
-    {
-        "method": "GET|HEAD",
         "uri": "channels/listings",
         "name": "channels.listings"
     },
@@ -1163,6 +1163,11 @@
         "method": "GET|HEAD",
         "uri": "channels/opencart/{store}/settings",
         "name": "ext.opencart.settings.show"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/pedallion",
+        "name": "ext.pedallion.dashboard"
     },
     {
         "method": "GET|HEAD",
@@ -1348,11 +1353,6 @@
         "method": "POST",
         "uri": "channels/pedallion/settings/toggle-logging",
         "name": "ext.pedallion.toggle_logging"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/pedallion/{store?}",
-        "name": "ext.pedallion.dashboard"
     },
     {
         "method": "POST",
@@ -1935,6 +1935,11 @@
         "name": "ext.shopify.settings.show"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok",
+        "name": "ext.tiktok.dashboard"
+    },
+    {
         "method": "DELETE",
         "uri": "channels/tiktok/api-logs",
         "name": "ext.tiktok.clear_api_logs"
@@ -2273,11 +2278,6 @@
         "method": "POST",
         "uri": "channels/tiktok/token/refresh",
         "name": "ext.tiktok.token_refresh"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/tiktok/{store?}",
-        "name": "ext.tiktok.dashboard"
     },
     {
         "method": "POST",
