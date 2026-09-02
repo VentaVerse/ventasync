@@ -837,7 +837,8 @@ class WorkspaceInteriorsTest extends TestCase
         $html = $this->actingAs($this->manager())
             ->get(route('ext.shopee.settings.show'))->assertOk()->getContent();
 
-        $this->assertStringContainsString('href="'.e(route('ext.shopee.authorize')).'"', $html);
+        // The link names WHICH store is consenting (S4b, #194).
+        $this->assertStringContainsString('href="'.e(route('ext.shopee.authorize', ['store' => ShopeeSetting::query()->value('id')])).'"', $html);
         $this->assertStringContainsString('rel="noopener"', $html);
         $this->assertStringContainsString('action="'.e(route('ext.shopee.token_get')).'"', $html);
         $this->assertStringContainsString('action="'.e(route('ext.shopee.token_refresh')).'"', $html);

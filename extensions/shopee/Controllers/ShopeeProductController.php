@@ -1794,8 +1794,10 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', 'No items found on Shopee.');
         }
 
-        // Clear existing cache
-        DB::table('shopee_item_cache')->delete();
+        // Clear existing cache - this store's half of it only (S4b, #194).
+        DB::table('shopee_item_cache')
+            ->when(app()->bound('shopee.route-store'), fn ($q) => $q->where('shopee_setting_id', app('shopee.route-store')->id))
+            ->delete();
 
         $cached = 0;
         $modelsCached = 0;

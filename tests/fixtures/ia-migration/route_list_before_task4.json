@@ -1355,74 +1355,9 @@
         "name": "ext.pedallion.dashboard"
     },
     {
-        "method": "DELETE",
-        "uri": "channels/shopee/api-logs",
-        "name": "ext.shopee.clear_api_logs"
-    },
-    {
         "method": "POST",
-        "uri": "channels/shopee/auth-url",
-        "name": "ext.shopee.auth_url"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/call",
-        "name": "ext.shopee.call_api"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/explorer/run",
-        "name": "ext.shopee.explorer_run"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/logistics/channels",
-        "name": "ext.shopee.logistics_channels"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/order-status-map",
-        "name": "ext.shopee.order_status_map"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/packs/run",
-        "name": "ext.shopee.packs_run"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/purge-raw",
-        "name": "ext.shopee.purge_raw"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/return-status-map",
-        "name": "ext.shopee.return_status_map"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/save",
-        "name": "ext.shopee.save"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/toggle-logging",
-        "name": "ext.shopee.toggle_logging"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/toggle-mode",
-        "name": "ext.shopee.toggle_mode"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/token/get",
-        "name": "ext.shopee.token_get"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/token/refresh",
-        "name": "ext.shopee.token_refresh"
+        "uri": "channels/shopee/stores",
+        "name": "ext.shopee.stores.store"
     },
     {
         "method": "GET|HEAD",
@@ -1433,6 +1368,21 @@
         "method": "GET|HEAD",
         "uri": "channels/shopee/{store?}",
         "name": "ext.shopee.dashboard"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/shopee/{store}/api-logs",
+        "name": "ext.shopee.clear_api_logs"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/auth-url",
+        "name": "ext.shopee.auth_url"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/call",
+        "name": "ext.shopee.call_api"
     },
     {
         "method": "GET|HEAD",
@@ -1453,6 +1403,11 @@
         "method": "POST",
         "uri": "channels/shopee/{store}/categories/{id}/attributes/fetch",
         "name": "ext.shopee.categories.attributes.fetch"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/explorer/run",
+        "name": "ext.shopee.explorer_run"
     },
     {
         "method": "GET|HEAD",
@@ -1496,8 +1451,18 @@
     },
     {
         "method": "POST",
+        "uri": "channels/shopee/{store}/logistics/channels",
+        "name": "ext.shopee.logistics_channels"
+    },
+    {
+        "method": "POST",
         "uri": "channels/shopee/{store}/logistics/fetch",
         "name": "ext.shopee.logistics.fetch"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/order-status-map",
+        "name": "ext.shopee.order_status_map"
     },
     {
         "method": "GET|HEAD",
@@ -1568,6 +1533,11 @@
         "method": "GET|HEAD",
         "uri": "channels/shopee/{store}/orders/{orderSn}/tracking-info",
         "name": "ext.shopee.orders.tracking_info"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/packs/run",
+        "name": "ext.shopee.packs_run"
     },
     {
         "method": "GET|HEAD",
@@ -1845,9 +1815,44 @@
         "name": "ext.shopee.products.unlink"
     },
     {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/purge-raw",
+        "name": "ext.shopee.purge_raw"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/return-status-map",
+        "name": "ext.shopee.return_status_map"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/save",
+        "name": "ext.shopee.save"
+    },
+    {
         "method": "GET|HEAD",
         "uri": "channels/shopee/{store}/settings",
         "name": "ext.shopee.settings.show"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/toggle-logging",
+        "name": "ext.shopee.toggle_logging"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/toggle-mode",
+        "name": "ext.shopee.toggle_mode"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/token/get",
+        "name": "ext.shopee.token_get"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/token/refresh",
+        "name": "ext.shopee.token_refresh"
     },
     {
         "method": "GET|HEAD",

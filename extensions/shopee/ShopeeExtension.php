@@ -127,6 +127,10 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                     new MenuItem('Settings', 'ext.shopee.index', 'view_shopee/settings', group: 'Channel'),
                 ],
                 stores: $stores,
+                addStore: new \App\Integrations\AddStoreAction(
+                    route: 'ext.shopee.stores.store',
+                    permission: 'manage_shopee/settings',
+                ),
             ),
         ];
     }

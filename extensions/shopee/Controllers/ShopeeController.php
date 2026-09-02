@@ -90,7 +90,26 @@ public function index(Request $request = null, ShopeeClient $client = null)
         $cbCode = (string) $request->query('code', '');
         $cbShopId = (string) $request->query('shop_id', '');
         if ($cbCode !== '' || $cbShopId !== '') {
-            $rawSetting = ShopeeSetting::defaultStore() ?? new ShopeeSetting();
+            /* Whose grant is this (S4b, #194)? The store that started the
+             * consent flow, else the store already holding this shop_id,
+             * else the default. Bound for the request so every
+             * defaultStore() read below - persistShopId, the exchange, the
+             * token write - lands on the SAME row: a grant must never
+             * split across stores. */
+            $rawSetting = ($id = cache()->pull('shopee_oauth_store')) !== null
+                ? ShopeeSetting::query()->find($id)
+                : null;
+            if ($rawSetting === null && $cbShopId !== '') {
+                $rawSetting = ShopeeSetting::query()
+                    ->where('shop_id', (int) $cbShopId)
+                    ->orWhere('sandbox_shop_id', (int) $cbShopId)
+                    ->orderBy('id')->first();
+            }
+            $rawSetting ??= ShopeeSetting::defaultStore();
+            if ($rawSetting !== null) {
+                app()->instance('shopee.route-store', $rawSetting);
+            }
+            $rawSetting ??= new ShopeeSetting();
             $mode = $rawSetting->mode ?? 'sandbox';
             if ($cbShopId !== '') {
                 $this->persistShopId($rawSetting, $mode, (int) $cbShopId);
@@ -231,9 +250,21 @@ public function index(Request $request = null, ShopeeClient $client = null)
             'sandbox_shop_id' => 'nullable|integer|min:1',
             'sandbox_access_token' => 'nullable|string',
             'sandbox_region' => 'nullable|in:sg,my,th,vn,id,ph,tw,br,mx,co,cl,pl',
+            'store_name' => 'nullable|string|max:128',
+            'enabled' => 'nullable|boolean',
         ]);
 
         $setting = ShopeeSetting::defaultStore() ?? new ShopeeSetting();
+
+        /* The store's own identity (S4b, #194): its name, and whether the
+         * crons and tabs treat it as live. Sent only by forms that carry
+         * the fields, so older callers change nothing. */
+        if (array_key_exists('store_name', $data) && $data['store_name'] !== null) {
+            $setting->store_name = $data['store_name'];
+        }
+        if (array_key_exists('enabled', $data) && $data['enabled'] !== null) {
+            $setting->enabled = (bool) $data['enabled'];
+        }
 
         $env = $data['env'] ?? 'live';
         $setting->mode = $env;
@@ -410,6 +441,30 @@ public function index(Request $request = null, ShopeeClient $client = null)
      * registered in the Shopee Open Platform console.
      */
     /**
+     * A new Shopee store (S4b, #194): a named, disabled row the operator
+     * then dresses on its own settings page - credentials, mode, OAuth.
+     * Venta's createStore, in Shopee's anatomy.
+     */
+    public function createStore(Request $request)
+    {
+        $data = $request->validate([
+            'store_name' => ['required', 'string', 'max:128'],
+        ]);
+
+        $setting = ShopeeSetting::create([
+            'store_name' => $data['store_name'],
+            'enabled' => false,
+            'mode' => 'live',
+        ]);
+
+        \App\Services\ActivityLogger::log('created', 'Shopee Store', $setting->id, $setting->store_name);
+
+        return redirect()
+            ->route('ext.shopee.settings.show', ['store' => $setting->id])
+            ->with('status', 'Store created. Add the partner credentials and authorize it to start syncing.');
+    }
+
+    /**
      * Where a settings write lands (multi-store S4, #194): the settings
      * page of the store it acted on. The storeless name survives only as
      * the no-store fallback, where it forwards to the module page.
@@ -430,7 +485,18 @@ public function index(Request $request = null, ShopeeClient $client = null)
 
     public function redirectToShopeeAuth(ShopeeClient $client)
 {
-    $setting = ShopeeSetting::defaultStore()?->decrypted();
+    /* Which store is consenting (S4b, #194): named by ?store= from the
+     * store's own settings page, else the default. Remembered for the
+     * callback, because Shopee's redirect URI is one fixed URL for the
+     * whole install and the answer arrives with no other context. */
+    $store = request()->query('store')
+        ? ShopeeSetting::query()->find((int) request()->query('store'))
+        : ShopeeSetting::defaultStore();
+    if ($store !== null) {
+        app()->instance('shopee.route-store', $store);
+        cache(['shopee_oauth_store' => $store->id], now()->addMinutes(30));
+    }
+    $setting = $store?->decrypted();
     $creds = $this->activeCredentials($setting);
 
     if (!$setting || !$creds['partner_id'] || !$creds['partner_key']) {

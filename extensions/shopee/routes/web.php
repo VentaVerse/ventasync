@@ -72,6 +72,10 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
     // ── Shopee Settings + Catalog management ────────────────────
     Route::group([], function () {
         // Catalog browsing (lists, search)
+        // Creating a store is the one settings write with no store to stand
+        // in yet (S4b, #194): the card's Add store modal posts a name here.
+        Route::post('/shopee/stores', [ShopeeSettingsController::class, 'createStore'])->name('ext.shopee.stores.store');
+
         // The per-store settings page (multi-store S4, #194); the storeless
         // /shopee OAuth landing redirects here.
         Route::get('/shopee/{store}/settings', [ShopeeSettingsController::class, 'showSettings'])->name('ext.shopee.settings.show');
@@ -121,26 +125,26 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
     Route::group([], function () {
         // OAuth / token / mode. ext.shopee.authorize is NOT here: it is one of
         // the two exempt OAuth surfaces registered above, outside this prefix.
-        Route::post('/shopee/save', [ShopeeSettingsController::class, 'save'])->name('ext.shopee.save');
-        Route::post('/shopee/toggle-mode', [ShopeeSettingsController::class, 'toggleMode'])->name('ext.shopee.toggle_mode');
-        Route::post('/shopee/auth-url', [ShopeeSettingsController::class, 'buildAuthUrl'])->name('ext.shopee.auth_url');
-        Route::post('/shopee/token/get', [ShopeeSettingsController::class, 'tokenGet'])->name('ext.shopee.token_get');
-        Route::post('/shopee/token/refresh', [ShopeeSettingsController::class, 'tokenRefresh'])->name('ext.shopee.token_refresh');
+        Route::post('/shopee/{store}/save', [ShopeeSettingsController::class, 'save'])->name('ext.shopee.save');
+        Route::post('/shopee/{store}/toggle-mode', [ShopeeSettingsController::class, 'toggleMode'])->name('ext.shopee.toggle_mode');
+        Route::post('/shopee/{store}/auth-url', [ShopeeSettingsController::class, 'buildAuthUrl'])->name('ext.shopee.auth_url');
+        Route::post('/shopee/{store}/token/get', [ShopeeSettingsController::class, 'tokenGet'])->name('ext.shopee.token_get');
+        Route::post('/shopee/{store}/token/refresh', [ShopeeSettingsController::class, 'tokenRefresh'])->name('ext.shopee.token_refresh');
 
         // API Explorer — calls live Shopee API; treat as privileged write.
-        Route::post('/shopee/call', [ShopeeApiExplorerController::class, 'callApi'])->name('ext.shopee.call_api');
-        Route::post('/shopee/explorer/run', [ShopeeApiExplorerController::class, 'explorerRun'])->name('ext.shopee.explorer_run');
-        Route::post('/shopee/packs/run', [ShopeeApiExplorerController::class, 'packsRun'])->name('ext.shopee.packs_run');
-        Route::post('/shopee/logistics/channels', [ShopeeApiExplorerController::class, 'logisticsChannels'])->name('ext.shopee.logistics_channels');
+        Route::post('/shopee/{store}/call', [ShopeeApiExplorerController::class, 'callApi'])->name('ext.shopee.call_api');
+        Route::post('/shopee/{store}/explorer/run', [ShopeeApiExplorerController::class, 'explorerRun'])->name('ext.shopee.explorer_run');
+        Route::post('/shopee/{store}/packs/run', [ShopeeApiExplorerController::class, 'packsRun'])->name('ext.shopee.packs_run');
+        Route::post('/shopee/{store}/logistics/channels', [ShopeeApiExplorerController::class, 'logisticsChannels'])->name('ext.shopee.logistics_channels');
 
         // Status-map saves + sync window saves
-        Route::post('/shopee/order-status-map', [ShopeeSettingsController::class, 'saveOrderStatusMap'])->name('ext.shopee.order_status_map');
-        Route::post('/shopee/return-status-map', [ShopeeSettingsController::class, 'saveReturnStatusMap'])->name('ext.shopee.return_status_map');
+        Route::post('/shopee/{store}/order-status-map', [ShopeeSettingsController::class, 'saveOrderStatusMap'])->name('ext.shopee.order_status_map');
+        Route::post('/shopee/{store}/return-status-map', [ShopeeSettingsController::class, 'saveReturnStatusMap'])->name('ext.shopee.return_status_map');
 
         // API logging admin
-        Route::post('/shopee/toggle-logging', [ShopeeSettingsController::class, 'toggleLogging'])->name('ext.shopee.toggle_logging');
-        Route::delete('/shopee/api-logs', [ShopeeSettingsController::class, 'clearApiLogs'])->name('ext.shopee.clear_api_logs');
-        Route::post('/shopee/purge-raw', [ShopeeSettingsController::class, 'purgeRaw'])->name('ext.shopee.purge_raw');
+        Route::post('/shopee/{store}/toggle-logging', [ShopeeSettingsController::class, 'toggleLogging'])->name('ext.shopee.toggle_logging');
+        Route::delete('/shopee/{store}/api-logs', [ShopeeSettingsController::class, 'clearApiLogs'])->name('ext.shopee.clear_api_logs');
+        Route::post('/shopee/{store}/purge-raw', [ShopeeSettingsController::class, 'purgeRaw'])->name('ext.shopee.purge_raw');
 
         // Shopee Categories — fetches that pull from Shopee and persist locally
         Route::post('/shopee/{store}/categories/fetch', [ShopeeCategoryController::class, 'fetch'])->name('ext.shopee.categories.fetch');

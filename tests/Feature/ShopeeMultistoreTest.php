@@ -235,6 +235,83 @@ class ShopeeMultistoreTest extends TestCase
         );
     }
 
+    // ── S4b: a second store is safe ──────────────────────────────────
+
+    public function test_a_store_page_reads_only_its_own_stores_rows(): void
+    {
+        $this->artisan('permissions:sync-catalogue');
+        $g = \App\Models\Admin\UserGroup::create(['name' => 'S4b reader']);
+        $g->permissions()->attach(\App\Models\Admin\Permission::whereIn('key', ['view_shopee/product', 'manage_shopee/product'])->pluck('id')->all());
+        $u = \App\Models\User::factory()->create(['user_group_id' => $g->id]);
+        $one = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $two = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Outlet']);
+
+        $pfx = (string) config('catalog.prefix');
+        $pid = \Illuminate\Support\Facades\DB::table($pfx . 'product')->insertGetId([
+            'model' => 'MS-1', 'sku' => 'MS-1', 'quantity' => 5, 'price' => 100, 'status' => 1,
+            'image' => '', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'manufacturer_id' => 0,
+            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+        ]);
+        \Illuminate\Support\Facades\DB::table($pfx . 'product_description')->insert([
+            'product_id' => $pid, 'language_id' => (int) config('catalog.default_language_id'),
+            'name' => 'Multi store product', 'description' => '', 'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
+        ]);
+        \Extensions\shopee\Models\ShopeeProductLink::create(['shopee_setting_id' => $one->id, 'product_id' => $pid, 'shopee_item_id' => 111111]);
+        \Extensions\shopee\Models\ShopeeProductLink::create(['shopee_setting_id' => $two->id, 'product_id' => $pid, 'shopee_item_id' => 222222]);
+
+        $pageOne = $this->actingAs($u)->get('/channels/shopee/' . $one->id . '/products')->assertOk()->getContent();
+        $this->assertStringContainsString('111111', $pageOne, "store one's page shows its own link");
+        $this->assertStringNotContainsString('222222', $pageOne, "store one's page must not show the other shop's item id");
+
+        $pageTwo = $this->actingAs($u)->get('/channels/shopee/' . $two->id . '/products')->assertOk()->getContent();
+        $this->assertStringContainsString('222222', $pageTwo);
+        $this->assertStringNotContainsString('111111', $pageTwo);
+    }
+
+    public function test_add_store_creates_a_disabled_row_and_lands_on_its_settings(): void
+    {
+        $this->artisan('permissions:sync-catalogue');
+        $g = \App\Models\Admin\UserGroup::create(['name' => 'S4b creator']);
+        $g->permissions()->attach(\App\Models\Admin\Permission::whereIn('key', ['manage_shopee/settings', 'view_shopee/settings'])->pluck('id')->all());
+        $u = \App\Models\User::factory()->create(['user_group_id' => $g->id]);
+        ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+
+        $r = $this->actingAs($u)->post(route('ext.shopee.stores.store'), ['store_name' => 'Outlet']);
+
+        $outlet = ShopeeSetting::query()->where('store_name', 'Outlet')->first();
+        $this->assertNotNull($outlet);
+        $this->assertFalse((bool) $outlet->enabled, 'a new store is setup_pending until the operator switches it on');
+        $r->assertRedirect(route('ext.shopee.settings.show', ['store' => $outlet->id]));
+    }
+
+    public function test_the_oauth_callback_lands_the_grant_on_the_consenting_store(): void
+    {
+        $this->artisan('permissions:sync-catalogue');
+        $g = \App\Models\Admin\UserGroup::create(['name' => 'S4b oauth']);
+        $g->permissions()->attach(\App\Models\Admin\Permission::whereIn('key', ['manage_shopee/settings', 'view_shopee/settings'])->pluck('id')->all());
+        $u = \App\Models\User::factory()->create(['user_group_id' => $g->id]);
+        $one = $this->storeWithCreds('Main store', 111);
+        $two = $this->storeWithCreds('Outlet', 222);
+
+        $fake = new class extends \Extensions\shopee\Services\Shopee\ShopeeClient {
+            public function __construct() {}
+            public function exchangeToken(string $mode, int $partnerId, string $partnerKey, string $code, int $shopId): array
+            {
+                return ['ok' => true, 'status' => 200, 'body' => ['access_token' => 'granted-' . $shopId, 'refresh_token' => 'r', 'expire_in' => 14400]];
+            }
+        };
+        $this->app->instance(\Extensions\shopee\Services\Shopee\ShopeeClient::class, $fake);
+
+        /* The callback names shop 222 - store two's shop. The grant must
+         * land on store two's row and leave store one untouched, or a
+         * second store's authorization would silently overwrite the
+         * first's working token. */
+        $this->actingAs($u)->get(route('ext.shopee.index', ['code' => 'the-code', 'shop_id' => 222]));
+
+        $this->assertSame('granted-222', decrypt($two->fresh()->access_token), 'the grant landed on the consenting store');
+        $this->assertSame('at-111', decrypt($one->fresh()->access_token), "the other store's token is untouched");
+    }
+
     public function test_the_existing_row_became_store_one_with_a_name(): void
     {
         /* The migration names the first row so the store list never shows

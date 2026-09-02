@@ -22,6 +22,21 @@ trait BelongsToShopeeStore
         static::creating(function ($model) {
             $model->shopee_setting_id ??= ShopeeSetting::defaultStore()?->id;
         });
+
+        /* THE READ FENCE (S4b, #194). On a store page (ResolveShopeeStore
+         * bound the row) every query on a store-owned model is the store's
+         * own - ~180 read sites became store-correct here instead of one
+         * by one, and an upsert's lookup half now finds only the store's
+         * row, matching what the creating hook stamps. Outside a store
+         * request (console, webhooks, the hub before a panel binds) the
+         * closure adds nothing, so crons that thread explicit stores keep
+         * their own scoping. Cross-store work under a bound store says so:
+         * withoutGlobalScope('shopeeStore'). */
+        static::addGlobalScope('shopeeStore', function (Builder $query) {
+            if (app()->bound('shopee.route-store')) {
+                $query->where($query->qualifyColumn('shopee_setting_id'), app('shopee.route-store')->id);
+            }
+        });
     }
 
     public function store(): BelongsTo

@@ -358,6 +358,7 @@ class ShopeeProductGroupController extends Controller
          * they describe this group's own last attempt, which genuinely is
          * this page's private history. */
         $linkedProductIds = DB::table('shopee_product_links')
+            ->when(app()->bound('shopee.route-store'), fn ($q) => $q->where('shopee_setting_id', app('shopee.route-store')->id))
             ->whereNotNull('shopee_item_id')
             ->select('product_id');
         if ($syncStatus === 'pushed') {
@@ -1253,6 +1254,7 @@ class ShopeeProductGroupController extends Controller
         }
 
         $linkId = DB::table('shopee_product_links')
+            ->when(app()->bound('shopee.route-store'), fn ($q) => $q->where('shopee_setting_id', app('shopee.route-store')->id))
             ->where('product_id', $productId)
             ->value('shopee_item_id');
 

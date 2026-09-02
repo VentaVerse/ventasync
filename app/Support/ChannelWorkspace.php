@@ -604,7 +604,12 @@ class ChannelWorkspace
     {
         if ($state === 'setup') {
             if ($card->id === 'shopee' && Route::has('ext.shopee.authorize')) {
-                return ['label' => 'Connect', 'url' => route('ext.shopee.authorize')];
+                // The consent flow needs to know WHICH store is connecting
+                // (S4b, #194); a store key carries it as ?store=.
+                $storeKey = $this->store($card, $channel)?->id;
+                $bareStore = $storeKey !== null ? (explode(':', $storeKey, 2)[1] ?? null) : null;
+
+                return ['label' => 'Connect', 'url' => route('ext.shopee.authorize', $bareStore !== null ? ['store' => $bareStore] : [])];
             }
 
             return null;

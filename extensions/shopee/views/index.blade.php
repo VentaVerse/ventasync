@@ -157,6 +157,18 @@
                 <input type="hidden" name="env" value="live">
 
                 <div class="fm-fields">
+                    <x-ui.field label="Store name" for="sp-store-name-1" name="store_name" wide
+                                hint="How this store is named across the ERP - the sidebar, the fulfilment tabs, the channels board.">
+                        <x-ui.input id="sp-store-name-1" name="store_name" type="text" autocomplete="off" :disabled="!$canManageShopee"
+                                    value="{{ $setting->store_name ?? '' }}" />
+                    </x-ui.field>
+
+                    <x-ui.field label="Store is active" for="sp-enabled-1" name="enabled" wide
+                                hint="An active store syncs on the crons and shows its tabs. Switch off to pause the store without losing anything.">
+                        <input type="hidden" name="enabled" value="0">
+                        <label class="fm-check"><input type="checkbox" id="sp-enabled-1" name="enabled" value="1" @checked((bool) ($setting->enabled ?? true)) @disabled(!$canManageShopee)> Active</label>
+                    </x-ui.field>
+
                     <x-ui.field label="Partner ID" for="sp-partner-id" name="partner_id" wide
                                 hint="The numeric app identifier from your Shopee Open Platform app. Not a secret, so it is shown in full.">
                         <x-ui.input id="sp-partner-id" name="partner_id" class="fm-input--num" type="text" autocomplete="off" :disabled="!$canManageShopee"
@@ -245,7 +257,7 @@
                     <div class="cs-step__body">
                         <span class="cs-step__title">Authorise with Shopee</span>
                         <div>
-                            <x-ui.button size="sm" :href="route('ext.shopee.authorize')" target="_blank" rel="noopener">Open Shopee authorisation</x-ui.button>
+                            <x-ui.button size="sm" :href="route('ext.shopee.authorize', ['store' => $setting->id ?? null])" target="_blank" rel="noopener">Open Shopee authorisation</x-ui.button>
                         </div>
                         <p class="cs-step__note">Opens Shopee sign-in in a new tab. After you grant access Shopee sends you back here with an auth code, and the code is exchanged for a token automatically.</p>
                     </div>
@@ -394,7 +406,7 @@
                     <div class="cs-step__body">
                         <span class="cs-step__title">Authorise with Shopee sandbox</span>
                         <div>
-                            <x-ui.button size="sm" :href="route('ext.shopee.authorize')" target="_blank" rel="noopener">Open sandbox authorisation</x-ui.button>
+                            <x-ui.button size="sm" :href="route('ext.shopee.authorize', ['store' => $setting->id ?? null])" target="_blank" rel="noopener">Open sandbox authorisation</x-ui.button>
                         </div>
                         <p class="cs-step__note">Opens the Shopee test environment in a new tab, using the sandbox credentials above.</p>
                     </div>
