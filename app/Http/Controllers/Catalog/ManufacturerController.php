@@ -66,7 +66,11 @@ return view('catalog.manufacturers.index', compact('manufacturers', 'q'));
 {
     $manufacturer = Manufacturer::where('manufacturer_id', (int) $id)->firstOrFail();
 
-    return view('catalog.manufacturers.edit', compact('manufacturer'));
+    // The way back (#189): the list URL, search intact; never the edit page itself.
+    $cameFrom = \App\Support\BackTo::capture();
+    $returnUrl = str_contains($cameFrom, '/manufacturers') && !str_contains($cameFrom, '/manufacturers/' . $id) ? $cameFrom : null;
+
+    return view('catalog.manufacturers.edit', compact('manufacturer', 'returnUrl'));
 }
 
 
@@ -86,7 +90,7 @@ return view('catalog.manufacturers.index', compact('manufacturers', 'q'));
     $changes = ActivityLogger::diff($original, $m->getAttributes(), ['name', 'sort_order']);
     ActivityLogger::log('updated', 'Manufacturer', (int) $id, $request->name, $changes);
 
-    return redirect()->route('manufacturers.index')->with('status','Saved');
+    return \App\Support\BackTo::follow($request->input('_return'), 'manufacturers.index')->with('status', 'Saved');
 }
 
 

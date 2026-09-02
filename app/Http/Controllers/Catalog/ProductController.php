@@ -1100,7 +1100,12 @@ public function store(Request $request)
             }
         }
 
-        $returnUrl = url()->previous();
+        /* The way back (#189): the list URL the operator came from, search
+         * and filters intact - made RELATIVE, because update()'s safety
+         * check (rightly) accepts only local paths, and an absolute URL
+         * here meant every save fell back to the bare index. That one
+         * mismatch was the whole bug the owner reported. */
+        $returnUrl = preg_replace('#^https?://[^/]+#', '', url()->previous()) ?: '';
         // Only keep return URL if it's a products list page (not the edit page itself)
         if (!str_contains($returnUrl, '/products') || str_contains($returnUrl, '/products/' . $id)) {
             $returnUrl = route('products.index');

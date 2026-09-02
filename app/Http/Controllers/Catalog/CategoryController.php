@@ -134,7 +134,10 @@ return view('catalog.categories.index', ['categories' => $categories, 'q' => $q]
 
         $parents = $this->parentOptions((int)$id);
 
-        return view('catalog.categories.edit', compact('category','parents'));
+        // The way back (#189): the list URL, search intact; never the edit page itself.
+        $cameFrom = \App\Support\BackTo::capture();
+        $returnUrl = str_contains($cameFrom, '/categories') && !str_contains($cameFrom, '/categories/' . $id) ? $cameFrom : null;
+        return view('catalog.categories.edit', compact('category','parents'))->with('returnUrl', $returnUrl);
     }
 
     public function update(Request $request, $id)
@@ -191,7 +194,7 @@ return view('catalog.categories.index', ['categories' => $categories, 'q' => $q]
 
         ActivityLogger::log('updated', 'Category', (int) $id, $request->name, $changes);
 
-        return redirect()->route('categories.index')->with('status','Saved');
+        return \App\Support\BackTo::follow($request->input('_return'), 'categories.index')->with('status', 'Saved');
     }
 
     public function destroy($id)

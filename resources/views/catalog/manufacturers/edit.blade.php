@@ -10,7 +10,9 @@
 @section('breadcrumb', $manufacturer->name ?: ('Manufacturer ' . $manufacturer->manufacturer_id))
 
 @section('content')
+@php $backUrl = old('_return', $returnUrl ?? null) ?: route('manufacturers.index'); @endphp
 <form method="POST" action="{{ route('manufacturers.update', $manufacturer->manufacturer_id) }}" class="fm-page">
+    <input type="hidden" name="_return" value="{{ $backUrl }}">
     @csrf
     @method('PUT')
 
@@ -27,7 +29,7 @@
 
     <div class="fm-head">
         <div class="fm-head__main">
-            <a class="fm-back" href="{{ route('manufacturers.index') }}">
+            <a class="fm-back" href="{{ $backUrl }}">
                 <x-ui.icon name="chevron-left" size="14" /> Manufacturers
             </a>
             <h1 class="fm-title">{{ $manufacturer->name ?: 'Untitled manufacturer' }}</h1>
@@ -87,7 +89,7 @@
     <div class="fm-bar">
         <span class="fm-bar__meta">Manufacturer {{ $manufacturer->manufacturer_id }}</span>
         <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ route('manufacturers.index') }}">Cancel</a>
+            <a class="fm-cancel" href="{{ $backUrl }}">Cancel</a>
             <x-ui.button type="submit" variant="primary">Save changes</x-ui.button>
         </div>
     </div>
