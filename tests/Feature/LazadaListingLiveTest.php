@@ -393,22 +393,23 @@ class LazadaListingLiveTest extends TestCase
         $this->assertSame(990077, (int) $payload['Request']['Product']['ItemId']);
         $r->assertSessionHas('status');
 
-        // Activate without cached SKU ids: refused with the reason, nothing sent.
+        // Activate: /product/update, carrying the attributes and the SKUs
+        // Lazada itself just returned. It no longer depends on cached
+        // variant rows, so a listing whose variants were never cached is
+        // still switchable; Lazada is the one that names its SKUs.
         $this->sentPosts = [];
-        $r2 = $this->actingAs($this->manager())
-            ->post(route('ext.lazada.listings.toggle', $listing->id), ['action' => 'activate']);
-        $this->assertSame([], $this->sentPosts, 'Activate must not fire without SKU ids.');
-        $r2->assertSessionHas('error');
+        $this->getResponses['/product/item/get'] = ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => [
+            'item_id' => 990077,
+            'attributes' => ['name' => 'Toggle me', 'brand' => 'No Brand'],
+            'skus' => [['SkuId' => 555111, 'SellerSku' => 'LZT-TOG', 'quantity' => 3, 'price' => 110]],
+        ]]];
 
-        // Activate with a cached SKU id: /product/update, SKU-level Status active.
-        \Extensions\lazada\Models\LazadaProductVariant::query()->create([
-            'lazada_product_id' => $listing->id, 'seller_sku' => 'LZT-TOG', 'sku_id' => 555111,
-        ]);
         $this->actingAs($this->manager())
             ->post(route('ext.lazada.listings.toggle', $listing->id), ['action' => 'activate']);
         $sent = collect($this->sentPosts)->firstWhere('path', '/product/update');
         $this->assertNotNull($sent, 'Activate must reach /product/update.');
         $payload = json_decode($sent['params']['payload'], true);
+        $this->assertSame('Toggle me', $payload['Request']['Product']['Attributes']['name'], 'Attributes travel or Lazada answers E001');
         $this->assertSame(555111, (int) $payload['Request']['Product']['Skus']['Sku'][0]['SkuId']);
         $this->assertSame('active', $payload['Request']['Product']['Skus']['Sku'][0]['Status']);
     }
@@ -503,5 +504,111 @@ class LazadaListingLiveTest extends TestCase
 
         $r->assertOk();
         $r->assertSee('Lazada did not answer');
+    }
+
+    /**
+     * Reactivating a live listing (the owner, live, 2026-09-01). /product/update
+     * is not a patch endpoint: it validates the Product node it is given, so
+     * a status-only payload came back
+     *
+     *     E001: Parameter Attributes is mandatory
+     *
+     * on a product that was already uploaded and merely switched off. The
+     * attributes now travel with the call, read back from Lazada rather than
+     * rebuilt from the ERP, so pressing Activate changes the status and
+     * nothing else.
+     */
+    public function test_activate_carries_the_listings_own_attributes_back_to_lazada(): void
+    {
+        $productId = $this->seedProduct('Valeton GP-200', 'GP200');
+        $listing = LazadaProduct::query()->create([
+            'product_id' => $productId, 'lazada_item_id' => '1830026816', 'live_status' => 'inactive',
+        ]);
+
+        $this->getResponses['/product/item/get'] = ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => [
+            'item_id' => 1830026816,
+            'attributes' => [
+                'name' => 'Valeton GP-200 as Lazada holds it',
+                'description' => '<p>Live copy</p>',
+                'brand' => 'Valeton',
+                'warranty_type' => 'Local supplier warranty',
+                'short_description' => '',
+            ],
+            'skus' => [[
+                'SkuId' => 7785126563, 'SellerSku' => 'GP200-BLACK',
+                'quantity' => 7, 'price' => 21990,
+                'Url' => 'https://www.lazada.com.ph/products/x.html', 'ShopSku' => '123_PH_456',
+            ]],
+        ]]];
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.lazada.listings.toggle', $listing->id), ['action' => 'activate'])
+            ->assertRedirect();
+
+        $update = collect($this->sentPosts)->firstWhere('path', '/product/update');
+        $this->assertNotNull($update, 'activate goes through /product/update');
+
+        $payload = json_decode($update['params']['payload'], true);
+        $product = $payload['Request']['Product'];
+
+        // The thing the marketplace refused without.
+        $this->assertArrayHasKey('Attributes', $product);
+        $this->assertSame('Valeton GP-200 as Lazada holds it', $product['Attributes']['name']);
+        $this->assertSame('Valeton', $product['Attributes']['brand']);
+        $this->assertArrayNotHasKey('short_description', $product['Attributes'], 'empty values are not sent back');
+
+        // Exactly one thing changes, and price and stock ride along untouched
+        // so a status flip cannot blank them.
+        $sku = $product['Skus']['Sku'][0];
+        $this->assertSame('active', $sku['Status']);
+        $this->assertSame(7785126563, $sku['SkuId']);
+        $this->assertSame('GP200-BLACK', $sku['SellerSku']);
+        $this->assertSame(7, $sku['Quantity']);
+        $this->assertSame(21990, $sku['price']);
+        $this->assertArrayNotHasKey('Url', $sku, 'read-only fields are not sent back');
+        $this->assertArrayNotHasKey('ShopSku', $sku);
+
+        $this->assertSame('active', $listing->fresh()->live_status);
+    }
+
+    public function test_activate_refuses_rather_than_sending_a_product_lazada_did_not_confirm(): void
+    {
+        $productId = $this->seedProduct('Ghost', 'GHOST');
+        $listing = LazadaProduct::query()->create([
+            'product_id' => $productId, 'lazada_item_id' => '999', 'live_status' => 'inactive',
+        ]);
+
+        $this->getResponses['/product/item/get'] = ['ok' => true, 'status' => 200, 'body' => [
+            'code' => '0', 'data' => ['item_id' => 999, 'attributes' => [], 'skus' => []],
+        ]];
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.lazada.listings.toggle', $listing->id), ['action' => 'activate'])
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        $this->assertNull(collect($this->sentPosts)->firstWhere('path', '/product/update'), 'nothing is sent when the read came back empty');
+        $this->assertSame('inactive', $listing->fresh()->live_status, 'the mirror is not moved on a refusal');
+    }
+
+    /** Deactivate is a real endpoint and stays a one-field call. */
+    public function test_deactivate_still_sends_only_the_item_id(): void
+    {
+        $productId = $this->seedProduct('Valeton GP-5', 'GP5');
+        $listing = LazadaProduct::query()->create([
+            'product_id' => $productId, 'lazada_item_id' => '222', 'live_status' => 'active',
+        ]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.lazada.listings.toggle', $listing->id), ['action' => 'deactivate'])
+            ->assertRedirect();
+
+        $call = collect($this->sentPosts)->firstWhere('path', '/product/deactivate');
+        $this->assertNotNull($call);
+        $this->assertSame(
+            ['Request' => ['Product' => ['ItemId' => 222]]],
+            json_decode($call['params']['payload'], true)
+        );
+        $this->assertSame('inactive', $listing->fresh()->live_status);
     }
 }

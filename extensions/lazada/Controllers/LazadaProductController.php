@@ -2252,6 +2252,94 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
     }
 
     /**
+     * The live listing as Lazada holds it, in the shape /product/update
+     * wants it back: its attributes verbatim, and its SKUs reduced to the
+     * writable fields.
+     *
+     * Only writable fields are carried. Lazada returns read-only ones on
+     * item/get (Url, ShopSku, and friends) that /product/update rejects,
+     * and price and quantity are carried precisely so that a status change
+     * cannot blank them if Lazada treats the Sku node as a replacement
+     * rather than a patch.
+     *
+     * @return array{ok: bool, attributes?: array<string, mixed>, skus?: list<array<string, mixed>>, message?: string}
+     */
+    private function fetchLazadaItemForUpdate(LazadaClient $client, object $setting, array $creds, string $itemId): array
+    {
+        if (trim($itemId) === '') {
+            return ['ok' => false, 'message' => 'This listing has no Lazada item id.'];
+        }
+
+        $apiPath = '/product/item/get';
+        $params = [
+            'app_key' => (string) $creds['app_key'],
+            'sign_method' => 'sha256',
+            'timestamp' => (string) round(microtime(true) * 1000),
+            'access_token' => (string) $creds['access_token'],
+            'item_id' => $itemId,
+        ];
+        $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
+
+        try {
+            $res = $client->get((string) $setting->region, $apiPath, $params);
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'message' => \App\Support\TransportError::plain($e, 'Lazada')];
+        }
+
+        LazadaApiLog::safeCreate([
+            'pack' => 'lazada.listings.toggle.read', 'method' => 'GET',
+            'api_path' => $apiPath, 'auth_required' => true,
+            'request_params' => $params,
+            'response_status' => (int) ($res['status'] ?? 0),
+            'ok' => (bool) ($res['ok'] ?? false),
+            'response_body' => $res['body'] ?? null, 'user_id' => auth()->id(),
+        ]);
+
+        $e = $this->extractLazadaError($res);
+        if (! ($e['ok'] ?? false)) {
+            return ['ok' => false, 'message' => (string) ($e['message'] ?? 'Lazada refused the read.')];
+        }
+
+        $body = $res['body'] ?? [];
+        $data = is_array($body) ? ($body['data'] ?? $body) : [];
+
+        // item/get answers with lower-case keys; /product/update wants the
+        // same machine names it was given, which is what these already are.
+        $attributes = data_get($data, 'attributes') ?? data_get($data, 'Attributes') ?? [];
+        $attributes = is_array($attributes) ? array_filter($attributes, fn ($v) => $v !== null && $v !== '') : [];
+
+        $rawSkus = data_get($data, 'skus') ?? data_get($data, 'Skus.Sku') ?? [];
+        $skus = [];
+        foreach ((array) $rawSkus as $sku) {
+            if (! is_array($sku)) {
+                continue;
+            }
+            $skuId = $sku['SkuId'] ?? $sku['sku_id'] ?? null;
+            if ($skuId === null || $skuId === '') {
+                continue;
+            }
+
+            $row = ['SkuId' => (int) $skuId, 'Status' => 'active'];
+            foreach ([
+                'SellerSku' => ['SellerSku', 'SellerSKU', 'seller_sku'],
+                'Quantity'  => ['quantity', 'Quantity'],
+                'price'     => ['price', 'Price'],
+            ] as $out => $candidates) {
+                foreach ($candidates as $key) {
+                    if (isset($sku[$key]) && $sku[$key] !== '' && $sku[$key] !== null) {
+                        $row[$out] = $sku[$key];
+                        break;
+                    }
+                }
+            }
+
+            $skus[] = $row;
+        }
+
+        return ['ok' => true, 'attributes' => $attributes, 'skus' => $skus];
+    }
+
+    /**
      * One activate or deactivate, the same call for the row menu, the
      * listing page and the selection bar. Lazada deactivates by ItemId;
      * activating goes through /product/update with the SKU ids the ERP has
@@ -2266,18 +2354,43 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             $apiPath = '/product/deactivate';
             $productPayload = ['Request' => ['Product' => ['ItemId' => (int) $listing->lazada_item_id]]];
         } else {
-            $skuIds = LazadaProductVariant::query()
-                ->where('lazada_product_id', $listing->id)
-                ->whereNotNull('sku_id')
-                ->pluck('sku_id')
-                ->map(fn ($v) => (int) $v)->filter()->values();
-            if ($skuIds->isEmpty()) {
-                return ['ok' => false, 'message' => 'Activate needs the listing\'s Lazada SKU ids and none are cached. Open the listing to refresh its variants, then try again.'];
+            /* Reactivation goes through /product/update, which is NOT a patch
+             * endpoint: Lazada validates the Product node you send against the
+             * category schema instead of merging it into the stored listing,
+             * so a Product without Attributes is refused with
+             *
+             *     E001: Parameter Attributes is mandatory
+             *
+             * even though the listing is already live and already has them
+             * (the owner, live, 2026-09-01). The attributes therefore have to
+             * travel with the call.
+             *
+             * They are read back from Lazada rather than rebuilt from the
+             * ERP's own answers, for two reasons. The operator pressed
+             * Activate, not Push changes: sending ERP content here would
+             * overwrite the live name, description and dimensions as a side
+             * effect of flipping a status. And the ERP's sheet may be
+             * half-answered (see #175) on a listing Lazada is perfectly happy
+             * with, which would make a live product impossible to switch back
+             * on. Round-tripping the marketplace's own values changes exactly
+             * one thing: Status.
+             */
+            $live = $this->fetchLazadaItemForUpdate($client, $setting, $creds, (string) $listing->lazada_item_id);
+            if (! ($live['ok'] ?? false)) {
+                return ['ok' => false, 'message' => (string) ($live['message'] ?? 'Could not read the listing from Lazada.')];
             }
+            if (empty($live['attributes'])) {
+                return ['ok' => false, 'message' => 'Lazada returned no attributes for this item, so activating it would send an incomplete product. Open the listing on Lazada and check it still exists.'];
+            }
+            if (empty($live['skus'])) {
+                return ['ok' => false, 'message' => 'Lazada returned no SKUs for this item, so there is nothing to activate.'];
+            }
+
             $apiPath = '/product/update';
             $productPayload = ['Request' => ['Product' => [
                 'ItemId' => (int) $listing->lazada_item_id,
-                'Skus' => ['Sku' => $skuIds->map(fn ($sid) => ['SkuId' => $sid, 'Status' => 'active'])->all()],
+                'Attributes' => $live['attributes'],
+                'Skus' => ['Sku' => $live['skus']],
             ]]];
         }
         $timestamp = (string) round(microtime(true) * 1000);
