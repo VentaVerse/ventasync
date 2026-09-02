@@ -128,17 +128,18 @@ class ShopeeProductController extends Controller
             } else {
                 $query->whereIn('p.product_id', $specificIds);
             }
-        } else {
-            // Default: show products matching at least one product group + products with existing Shopee links
-            $allMatchedIds = $groupMapping['ids'] ?? [];
-            $linkedIds = ShopeeProductLink::query()->pluck('product_id')->unique()->toArray();
-            $allVisibleIds = array_values(array_unique(array_merge($allMatchedIds, $linkedIds)));
-            if (empty($allVisibleIds)) {
-                $query->whereRaw('1=0');
-            } else {
-                $query->whereIn('p.product_id', $allVisibleIds);
-            }
         }
+        /* No else: the default view is THE CATALOGUE (Phase C, #184).
+         *
+         * It used to be "products in a group, plus products already
+         * linked" - the CedCommerce worldview, where a product only
+         * existed for Shopee once a group claimed it. A groupless,
+         * never-pushed product was invisible even under the not_listed
+         * and ready filters (this whereIn intersected them away), which
+         * for a new user meant their very first product rendered an
+         * empty Shopee page. The strip already names the tab "Your
+         * catalogue / All products"; now it tells the truth. Filtering
+         * by a group still narrows to that group above. */
 
         // Manufacturer filter
         if ($manufacturerFilter !== 'all') {

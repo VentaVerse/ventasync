@@ -252,6 +252,39 @@ class ShopeeListingStateTest extends TestCase
         $this->assertNull($data['shopeeSyncStatus']->listing_flags);
     }
 
+    /**
+     * The default view is the catalogue (Phase C, #184). It used to be
+     * "products in a group, plus products already linked" - the
+     * CedCommerce worldview - so a groupless, never-pushed product was
+     * invisible even under the not_listed and ready filters, and a new
+     * user's very first product rendered an empty Shopee page.
+     */
+    public function test_a_groupless_never_pushed_product_is_visible_by_default(): void
+    {
+        $pid = $this->product('FIRSTEVER');
+        $pfx = (string) config('catalog.prefix');
+        DB::table($pfx . 'product_description')->insert([
+            'product_id' => $pid, 'language_id' => (int) config('catalog.default_language_id'),
+            'name' => 'My very first product', 'description' => '',
+            'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
+        ]);
+
+        $group = \App\Models\Admin\UserGroup::create(['name' => 'Shopee viewers']);
+        $group->permissions()->attach(
+            \App\Models\Admin\Permission::whereIn('key', ['view_shopee/product', 'manage_shopee/product'])->pluck('id')->all()
+        );
+        $user = \App\Models\User::factory()->create(['user_group_id' => $group->id]);
+
+        $page = $this->actingAs($user)->get('/channels/shopee/products')->assertOk();
+        $page->assertSee('My very first product');
+        $page->assertSee('Not listed');
+
+        // And the not_listed filter can actually find it now: the old
+        // default whereIn used to intersect it away.
+        $this->actingAs($user)->get('/channels/shopee/products?sync_status=not_listed')
+            ->assertOk()->assertSee('My very first product');
+    }
+
     public function test_shopee_answers_the_core_contract_every_channel_will_share(): void
     {
         $pid = $this->product('VIACORE');
