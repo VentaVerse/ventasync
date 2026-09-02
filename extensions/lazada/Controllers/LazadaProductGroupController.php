@@ -15,6 +15,7 @@ use Extensions\lazada\Models\LazadaProductGroupProduct;
 use Extensions\lazada\Models\LazadaProductVariant;
 use Extensions\lazada\Models\LazadaSetting;
 use App\Services\ActivityLogger;
+use Extensions\lazada\Services\Lazada\LazadaAttributes;
 use Extensions\lazada\Services\Lazada\LazadaClient;
 use Extensions\lazada\Services\LazadaStockPushService;
 use Extensions\lazada\Services\Lazada\LazadaLiveListing;
@@ -24,6 +25,14 @@ use Illuminate\Support\Facades\Log;
 
 class LazadaProductGroupController extends Controller
 {
+
+    /** The one attribute vocabulary (Phase C, #184): this controller carried
+     * its own pre-#175 fork of the extractor, which still showed sale props
+     * and __wire__ keys as questions on the group sheet. */
+    private function attrs(): LazadaAttributes
+    {
+        return app(LazadaAttributes::class);
+    }
     /**
      * Write a product's status to EVERY group that holds it.
      *
@@ -117,7 +126,7 @@ class LazadaProductGroupController extends Controller
                 ->first();
 
             if ($template && $template->template_body) {
-                $attributes = $this->extractAttributes($template->template_body);
+                $attributes = $this->attrs()->extractAttributes($template->template_body);
             }
 
             if ($group->exists) {
@@ -168,7 +177,7 @@ class LazadaProductGroupController extends Controller
             'attributes' => $attributes,
             'saved' => $saved,
             'selectedBrandName' => $selectedBrandName,
-            'erpSourceFields' => LazadaProductController::ERP_SOURCE_FIELDS,
+            'erpSourceFields' => LazadaAttributes::ERP_SOURCE_FIELDS,
             'groupProducts' => $groupProducts,
         ]);
     }
@@ -2187,8 +2196,8 @@ class LazadaProductGroupController extends Controller
             ['template_body' => $result['body'] ?? null, 'fetched_at' => now()]
         );
 
-        $attributes = $this->extractAttributes($template->template_body);
-        $erpSourceFields = \Extensions\lazada\Controllers\LazadaProductController::ERP_SOURCE_FIELDS;
+        $attributes = $this->attrs()->extractAttributes($template->template_body);
+        $erpSourceFields = \Extensions\lazada\Controllers\LazadaAttributes::ERP_SOURCE_FIELDS;
 
         $html = view('ext-lazada::product-groups._attributes', [
             'attributes' => $attributes,
@@ -2206,37 +2215,5 @@ class LazadaProductGroupController extends Controller
         return (string) ($setting->region ?? '');
     }
 
-    private function extractAttributes($body): array
-    {
-        if (!is_array($body)) return [];
-        $data = $body['data'] ?? $body;
-        if (is_array($data) && isset($data['attributes']) && is_array($data['attributes'])) {
-            return $this->normalizeAttributes($data['attributes']);
-        }
-        if (is_array($data) && array_is_list($data)) {
-            return $this->normalizeAttributes($data);
-        }
-        return [];
-    }
 
-    private function normalizeAttributes(array $raw): array
-    {
-        $out = [];
-        foreach ($raw as $a) {
-            if (!is_array($a)) continue;
-            $name = (string) ($a['name'] ?? $a['attribute_name'] ?? '');
-            $id = $a['id'] ?? $a['attribute_id'] ?? null;
-            $required = (bool) ($a['is_mandatory'] ?? $a['isMandatory'] ?? $a['mandatory'] ?? $a['is_required'] ?? $a['required'] ?? false);
-            $inputType = (string) ($a['input_type'] ?? $a['type'] ?? $a['inputType'] ?? 'text');
-            $options = $a['options'] ?? $a['option_values'] ?? $a['values'] ?? null;
-            $key = $name !== '' ? $name : (is_scalar($id) ? (string) $id : '');
-            if ($key === '') continue;
-            $out[] = [
-                'key' => $key, 'name' => $name !== '' ? $name : $key,
-                'required' => $required, 'input_type' => $inputType,
-                'options' => is_array($options) ? $options : [],
-            ];
-        }
-        return $out;
-    }
 }

@@ -33,7 +33,7 @@
                 $key = (string) ($attribute['key'] ?? '');
             @endphp
             @continue(strtolower(trim($key)) === 'brand')
-            @continue(\Extensions\lazada\Controllers\LazadaProductController::isAutoFilledAttributeKey($key)
+            @continue(\Extensions\lazada\Services\Lazada\LazadaAttributes::isAutoFilledAttributeKey($key)
                 && (trim((string) ($saved[$key] ?? '')) === '' || str_starts_with((string) ($saved[$key] ?? ''), '__map:')))
             @php
                 $value = old('attributes.' . $key, $saved[$key] ?? '');

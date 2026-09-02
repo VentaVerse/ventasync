@@ -559,7 +559,7 @@
                                  custom value was saved for it, so an override
                                  someone already typed stays visible and
                                  editable rather than silently applying. --}}
-                            @continue(\Extensions\lazada\Controllers\LazadaProductController::isAutoFilledAttributeKey($key)
+                            @continue(\Extensions\lazada\Services\Lazada\LazadaAttributes::isAutoFilledAttributeKey($key)
                                 && (trim((string) $rawSaved) === '' || str_starts_with((string) $rawSaved, '__map:')))
                             @php
                                 $fromGroup = !array_key_exists($key, ($productOwnAttrs ?? []))

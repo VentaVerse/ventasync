@@ -3,7 +3,6 @@
 namespace Extensions\lazada\Services\Lazada;
 
 use App\Integrations\Listings\ListingState;
-use Extensions\lazada\Controllers\LazadaProductController;
 use Extensions\lazada\Models\LazadaCategoryTemplate;
 use Extensions\lazada\Models\LazadaProductAttribute;
 use Extensions\lazada\Models\LazadaSetting;
@@ -38,7 +37,7 @@ class LazadaListingReadiness
 
         $pfx = (string) config('catalog.prefix');
         $region = (string) (LazadaSetting::query()->first()?->region ?? '');
-        $controller = app(LazadaProductController::class);
+        $attrs = app(LazadaAttributes::class);
 
         $products = DB::table($pfx . 'product')
             ->whereIn('product_id', $listings->pluck('product_id')->filter()->all())
@@ -90,15 +89,15 @@ class LazadaListingReadiness
                     $answered = ($savedAttrs->get($listing->id) ?? collect())
                         ->pluck('value', 'attribute_key');
                     $unanswered = [];
-                    foreach ($controller->extractAttributes($template->template_body) as $attr) {
+                    foreach ($attrs->extractAttributes($template->template_body) as $attr) {
                         if (empty($attr['required'])) {
                             continue;
                         }
                         $key = (string) ($attr['key'] ?? '');
-                        if ($key === '' || $controller->isSkuLevelRequiredKey($key)) {
+                        if ($key === '' || $attrs->isSkuLevelRequiredKey($key)) {
                             continue;
                         }
-                        if (strtolower($key) === 'brand' || LazadaProductController::isAutoFilledAttributeKey($key)) {
+                        if (strtolower($key) === 'brand' || LazadaAttributes::isAutoFilledAttributeKey($key)) {
                             // Brand defaults to No Brand; name, description
                             // and friends fill from the catalogue at push.
                             continue;

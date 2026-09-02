@@ -30,7 +30,7 @@ class LazadaCategoryAttributeController extends Controller
                 ->first();
 
             if ($template && $template->template_body) {
-                $attributes = $this->extractAttributes($template->template_body);
+                $attributes = app(\Extensions\lazada\Services\Lazada\LazadaAttributes::class)->extractAttributes($template->template_body, questionsOnly: false, withRaw: true);
             }
         }
 
@@ -105,51 +105,5 @@ class LazadaCategoryAttributeController extends Controller
             ->with('status', 'Category attributes fetched successfully for: ' . $category->name);
     }
 
-    private function extractAttributes($body): array
-    {
-        if (!is_array($body)) {
-            return [];
-        }
-
-        $data = $body['data'] ?? $body;
-        if (is_array($data) && isset($data['attributes']) && is_array($data['attributes'])) {
-            return $this->normalizeAttributes($data['attributes']);
-        }
-        if (is_array($data) && array_is_list($data)) {
-            return $this->normalizeAttributes($data);
-        }
-        return [];
-    }
-
-    private function normalizeAttributes(array $raw): array
-    {
-        $out = [];
-        foreach ($raw as $a) {
-            if (!is_array($a)) {
-                continue;
-            }
-
-            $name = (string)($a['name'] ?? $a['attribute_name'] ?? '');
-            $id = $a['id'] ?? $a['attribute_id'] ?? null;
-            $required = (bool)($a['is_mandatory'] ?? $a['isMandatory'] ?? $a['mandatory'] ?? $a['is_required'] ?? $a['required'] ?? false);
-            $inputType = (string)($a['input_type'] ?? $a['type'] ?? $a['inputType'] ?? 'text');
-            $options = $a['options'] ?? $a['option_values'] ?? $a['values'] ?? null;
-
-            $key = $name !== '' ? $name : (is_scalar($id) ? (string)$id : '');
-            if ($key === '') {
-                continue;
-            }
-
-            $out[] = [
-                'key' => $key,
-                'name' => $name !== '' ? $name : $key,
-                'required' => $required,
-                'input_type' => $inputType,
-                'options' => is_array($options) ? $options : [],
-                'raw' => $a,
-            ];
-        }
-        return $out;
-    }
 
 }
