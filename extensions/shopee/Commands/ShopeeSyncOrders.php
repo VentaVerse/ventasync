@@ -172,7 +172,7 @@ class ShopeeSyncOrders extends Command
 
                 if (!($res['ok'] ?? false)) {
                     $body = $res['body'] ?? [];
-                    $msg = is_array($body) ? ($body['message'] ?? 'API error') : 'API error';
+                    $msg = \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
                     $this->error("  API error: {$msg}");
                     Cache::put('shopee_sync_paused:' . $setting->id, $msg, now()->addMinutes(10));
                     return;
@@ -364,7 +364,7 @@ class ShopeeSyncOrders extends Command
 
             if (!($res['ok'] ?? false)) {
                 $body = $res['body'] ?? [];
-                $msg = is_array($body) ? ($body['message'] ?? 'API error') : 'API error';
+                $msg = \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
                 $this->error("  API error: {$msg}");
                 return;
             }

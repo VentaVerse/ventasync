@@ -798,7 +798,7 @@ class ShopeeProductController extends Controller
         $itemId = $body['response']['item_id'] ?? null;
         if (!$itemId) {
             return redirect()->route('ext.shopee.products.push', $productId)
-                ->with('error', 'Push succeeded but no item_id returned. Check API logs.')->withInput();
+                ->with('error', 'Shopee accepted the push but returned no item id, so the link could not be recorded. Run Check against Shopee to adopt the item it created.')->withInput();
         }
 
         ShopeeProductLink::create([
@@ -1083,7 +1083,7 @@ class ShopeeProductController extends Controller
 
         $itemId = $body['response']['item_id'] ?? null;
         if (!$itemId) {
-            return redirect()->back()->with('error', 'Push succeeded but no item_id returned. Check API logs.');
+            return redirect()->back()->with('error', 'Shopee accepted the push but returned no item id, so the link could not be recorded. Run Check against Shopee to adopt the item it created.');
         }
 
         ShopeeProductLink::create([
@@ -1506,7 +1506,7 @@ class ShopeeProductController extends Controller
                 }
                 $okCount++;
             } else {
-                $msg = is_array($body) ? ($body['message'] ?? ($body['error'] ?? 'API error')) : 'API error';
+                $msg = \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
                 $errors[] = "#{$productId}: {$msg}";
                 $errCount++;
             }

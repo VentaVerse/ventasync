@@ -1888,7 +1888,7 @@ class ShopeeProductGroupController extends Controller
 
                 $okCount++;
             } else {
-                $msg = is_array($body) ? ($body['message'] ?? ($body['error'] ?? 'API error')) : 'API error';
+                $msg = \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
                 $errors[] = "#{$productId}: {$msg}";
 
                 // The reason is SAVED, not just flashed. This used to write the
@@ -2048,7 +2048,7 @@ class ShopeeProductGroupController extends Controller
                 ActivityLogger::log('updated', 'Shopee Product', $productId, 'Updated item ' . $itemId . ' on Shopee via preset');
                 $okCount++;
             } else {
-                $msg = is_array($body) ? ($body['message'] ?? ($body['error'] ?? 'API error')) : 'API error';
+                $msg = \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
                 $errors[] = "#{$productId}: {$msg}";
 
                 $this->writeProductStatus($productId, [
@@ -2627,7 +2627,7 @@ class ShopeeProductGroupController extends Controller
         }
 
         if (!($result['ok'] ?? false) || empty($nodes)) {
-            $msg = is_array($body) ? ($body['message'] ?? ($body['error'] ?? 'Failed')) : 'Failed';
+            $msg = \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
             return response()->json(['ok' => false, 'message' => 'Fetch failed: ' . $msg]);
         }
 

@@ -73,7 +73,7 @@ class LazadaCategoryController extends Controller
         }
 
         if (!$result['ok'] || !is_array($nodes) || count($nodes) === 0) {
-            $msg = is_array($body) ? ($body['message'] ?? ($body['code'] ?? 'Failed')) : 'Failed';
+            $msg = \App\Support\MarketplaceAnswer::plain('Lazada', ['ok' => false, 'body' => is_array($body) ? $body : []]);
             return redirect()->route('ext.lazada.categories.index')->with('error', 'Fetch failed: ' . $msg);
         }
 

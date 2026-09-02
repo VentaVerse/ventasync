@@ -759,7 +759,22 @@
                 </div>
             </div>
             <p class="fm-section__note">{{ $result['title'] ?? 'Result' }}</p>
-            <pre class="cs-pre">{{ json_encode($result['data'] ?? $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+            {{-- The REASON is the visible text; the payload is one click
+                 away, never the message (the owner, 2026-09-03). A success keeps
+                 its confirmation data in view - that is what was asked for. --}}
+            @if(!$ok)
+                @php
+                    $answerRaw = is_array($result['data'] ?? null) ? $result['data'] : ['body' => ['message' => (string) ($result['data'] ?? '')], 'ok' => false];
+                    $answerText = \App\Support\MarketplaceAnswer::errorText('Lazada', $answerRaw);
+                @endphp
+                <p class="fm-section__note fm-section__note--strong">@include('partials.channel-answer', ['channel' => 'Lazada', 'raw' => $answerText, 'settingsRoute' => null])</p>
+                <details class="fm-note__more">
+                    <summary>Full response</summary>
+                    <pre class="cs-pre">{{ json_encode($result['data'] ?? $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                </details>
+            @else
+                <pre class="cs-pre">{{ json_encode($result['data'] ?? $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+            @endif
         </section>
     @endif
 

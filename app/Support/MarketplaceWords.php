@@ -30,6 +30,22 @@ final class MarketplaceWords
             return null; // already plain, from TransportError
         }
 
+        // The hardcoded map grows here (the owner, 2026-09-03): each entry
+        // is a refusal met in real use, translated into what to DO.
+        if (str_contains($m, 'rate limit') || str_contains($m, 'too many request') || str_contains($m, 'request too frequent')) {
+            return $channel . ' is rate-limiting this app right now. Wait a minute and try the same action again.';
+        }
+        if (str_contains($m, 'wrong sign') || str_contains($m, 'sign is invalid') || str_contains($m, 'incompletesignature') || str_contains($m, 'signature')) {
+            return 'The app credentials look wrong - ' . $channel . ' refused the request signature. Check the Partner ID and Partner Key on the Settings page.';
+        }
+        if (str_contains($m, 'shop_id') && (str_contains($m, 'not found') || str_contains($m, 'invalid'))) {
+            return $channel . " does not recognise this Shop ID. Re-run the authorisation from Settings so the shop names itself.";
+        }
+        if (str_contains($m, 'error_param')) {
+            $detail = trim((string) preg_replace('/^.*?error_param\.?/i', '', $raw)) ?: null;
+            return $channel . ' refused a field in the request' . ($detail ? ': ' . $detail : '') . '. Fix that field on the listing and push again.';
+        }
+
         return null;
     }
 }

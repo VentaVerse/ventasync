@@ -889,10 +889,12 @@ class ShopeeOrderController extends Controller
         $errMsg = $shipBodyResp['error'] ?? ($shipBodyResp['message'] ?? null);
 
         if (!($shipRes['ok'] ?? false) || (is_string($errMsg) && $errMsg !== '' && $errMsg !== 'success')) {
-            if ($json) return response()->json(['ok' => false, 'message' => 'Ship order failed: ' . ($errMsg ?? 'Unknown error')], 422);
+            // The reason, not the code and never the payload (2026-09-03).
+            $shipReason = \App\Support\MarketplaceAnswer::plain('Shopee', $shipRes);
+            if ($json) return response()->json(['ok' => false, 'message' => 'Ship order failed: ' . $shipReason], 422);
             return redirect()->route('ext.shopee.orders.index')->with('shopee_orders_last_result', [
                 'ok' => false,
-                'message' => 'Ship order failed: ' . ($errMsg ?? 'Unknown error'),
+                'message' => 'Ship order failed: ' . $shipReason,
                 'raw' => $shipRes,
             ]);
         }
@@ -1315,7 +1317,7 @@ class ShopeeOrderController extends Controller
 
             if (!($res['ok'] ?? false)) {
                 $body = $res['body'] ?? [];
-                $msg = is_array($body) ? ($body['message'] ?? ($body['msg'] ?? 'API error')) : 'API error';
+                $msg = \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
                 return redirect()->route('ext.shopee.orders.index', ['tab' => 'RETURN'])->with('shopee_orders_last_result', [
                     'ok' => false,
                     'message' => 'Shopee Returns API error: ' . $msg,

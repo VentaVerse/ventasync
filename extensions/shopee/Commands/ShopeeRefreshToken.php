@@ -126,9 +126,7 @@ class ShopeeRefreshToken extends Command
             }
         }
 
-        $msg = is_array($result['body'] ?? null)
-            ? ($result['body']['message'] ?? json_encode($result['body']))
-            : (string) ($result['body'] ?? 'Unknown error');
+        $msg = \App\Support\MarketplaceAnswer::plain('Shopee', is_array($result['body'] ?? null) ? $result : ['ok' => false, 'body' => []]);
         Log::warning('Shopee token refresh failed', ['response' => $msg]);
         $this->error('Token refresh failed: ' . $msg);
         return 1;

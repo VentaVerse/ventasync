@@ -179,8 +179,7 @@ class TikTokCouponController extends Controller
 
     private function callMessage(array $result): string
     {
-        return is_array($result['body'] ?? null)
-            ? (string) ($result['body']['message'] ?? 'no response')
-            : 'no response';
+        // The one reader that knows where every channel hides its reason.
+        return \App\Support\MarketplaceAnswer::errorText('TikTok Shop', $result);
     }
 }

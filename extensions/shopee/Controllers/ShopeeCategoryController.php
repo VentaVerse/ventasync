@@ -87,7 +87,7 @@ class ShopeeCategoryController extends Controller
         }
 
         if (!$result['ok'] || empty($nodes)) {
-            $msg = is_array($body) ? ($body['message'] ?? ($body['error'] ?? 'Failed')) : 'Failed';
+            $msg = \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
             return redirect()->route('ext.shopee.categories.index')
                 ->with('error', 'Fetch failed: ' . $msg);
         }

@@ -1502,7 +1502,7 @@ class LazadaProductGroupController extends Controller
         }
 
         if (!$result['ok'] || empty($nodes)) {
-            $msg = is_array($body) ? ($body['message'] ?? ($body['code'] ?? 'Failed')) : 'Failed';
+            $msg = \App\Support\MarketplaceAnswer::plain('Lazada', ['ok' => false, 'body' => is_array($body) ? $body : []]);
             return response()->json(['ok' => false, 'message' => 'Fetch failed: ' . $msg]);
         }
 
