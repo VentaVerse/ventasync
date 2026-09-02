@@ -163,7 +163,7 @@ class LazadaPushStock extends Command
         if ($noVariants->isNotEmpty()) {
             $this->info("Resolving variants for {$noVariants->count()} listing(s) with no cached variants...");
             foreach ($noVariants as $listing) {
-                $this->fetchAndCacheLazadaVariants($listing, $setting, $client, $pfx);
+                app(\Extensions\lazada\Services\Lazada\LazadaItemCache::class)->fetchAndCacheVariants($listing, $setting, $client, 'lazada.product.item.get.cron');
                 $fetched++;
             }
         }
@@ -201,7 +201,7 @@ class LazadaPushStock extends Command
                 continue; // Cache is up-to-date
             }
 
-            $this->fetchAndCacheLazadaVariants($listing, $setting, $client, $pfx);
+            app(\Extensions\lazada\Services\Lazada\LazadaItemCache::class)->fetchAndCacheVariants($listing, $setting, $client, 'lazada.product.item.get.cron');
             $refreshed++;
             if ($refreshed >= $remaining) break;
         }
@@ -232,82 +232,6 @@ class LazadaPushStock extends Command
         }, $rows);
     }
 
-    /**
-     * Fetch product SKU details from Lazada API and cache them in lazada_product_variants.
-     */
-    private function fetchAndCacheLazadaVariants(LazadaProduct $listing, object $setting, LazadaClient $client, string $pfx): void
-    {
-        $itemId = (string) ($listing->lazada_item_id ?? '');
-        if ($itemId === '') return;
-
-        $creds = LazadaSetting::activeCredentials($setting);
-
-        $apiPath = '/product/item/get';
-        $params = [
-            'app_key'      => (string) $creds['app_key'],
-            'sign_method'  => 'sha256',
-            'timestamp'    => (string) round(microtime(true) * 1000),
-            'access_token' => (string) $creds['access_token'],
-            'item_id'      => $itemId,
-        ];
-        $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
-
-        $res = $client->get((string) $setting->region, $apiPath, $params);
-        $body = $res['body'] ?? [];
-        $data = $body['data'] ?? $body;
-
-        $skus = data_get($data, 'skus') ?? data_get($data, 'Skus.Sku') ?? [];
-        if (!is_array($skus)) return;
-
-        // Build seller_sku => product_option_value_id map from ERP
-        $skuToPovId = [];
-        $erpOvs = DB::table($pfx . 'product_option_value')
-            ->where('product_id', (int) $listing->product_id)
-            ->whereNotNull('sku')
-            ->where('sku', '!=', '')
-            ->get(['product_option_value_id', 'sku']);
-        foreach ($erpOvs as $ov) {
-            $skuToPovId[trim((string) $ov->sku)] = (int) $ov->product_option_value_id;
-        }
-
-        foreach ($skus as $s) {
-            $sellerSku = trim((string) ($s['SellerSku'] ?? $s['seller_sku'] ?? ''));
-            $skuId = $s['SkuId'] ?? $s['sku_id'] ?? $s['skuId'] ?? null;
-            $shopSku = $s['ShopSku'] ?? $s['shop_sku'] ?? null;
-
-            if ($skuId === null || $skuId === '') continue;
-
-            $povId = $skuToPovId[$sellerSku] ?? null;
-
-            try {
-                LazadaProductVariant::updateOrCreate(
-                    ['lazada_product_id' => $listing->id, 'seller_sku' => $sellerSku],
-                    [
-                        'sku_id' => (int) $skuId,
-                        'shop_sku' => $shopSku ? (string) $shopSku : null,
-                        'product_option_value_id' => $povId,
-                    ]
-                );
-            } catch (\Throwable $ex) {
-                Log::warning("Failed to cache Lazada variant for listing {$listing->id}", [
-                    'seller_sku' => $sellerSku,
-                    'error' => $ex->getMessage(),
-                ]);
-            }
-        }
-
-        LazadaApiLog::safeCreate([
-            'pack'            => 'lazada.product.item.get.cron',
-            'method'          => 'GET',
-            'api_path'        => $apiPath,
-            'auth_required'   => true,
-            'request_params'  => $params,
-            'response_status' => (int) ($res['status'] ?? 0),
-            'ok'              => (bool) ($res['ok'] ?? false),
-            'response_body'   => $body,
-            'user_id'         => null,
-        ]);
-    }
 
     /**
      * Build XML payload with multiple SKUs in a single request.

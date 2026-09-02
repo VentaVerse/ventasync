@@ -17,6 +17,7 @@ use Extensions\lazada\Models\LazadaSetting;
 use App\Services\ActivityLogger;
 use Extensions\lazada\Services\Lazada\LazadaAttributes;
 use Extensions\lazada\Services\Lazada\LazadaClient;
+use Extensions\lazada\Services\Lazada\LazadaItemCache;
 use Extensions\lazada\Services\LazadaStockPushService;
 use Extensions\lazada\Services\Lazada\LazadaLiveListing;
 use Illuminate\Http\Request;
@@ -529,7 +530,7 @@ class LazadaProductGroupController extends Controller
         // If already has a lazada_item_id, just refresh variant cache (no need to search)
         $lazadaProduct = LazadaProduct::find($pivot->lazada_product_id);
         if ($lazadaProduct && $lazadaProduct->lazada_item_id && !$lazadaProduct->unlinked_at) {
-            $this->refreshLazadaVariants($lazadaProduct, $setting, $client);
+            app(LazadaItemCache::class)->refreshListing($lazadaProduct, $setting, $client, 'lazada.product.item.get.cache.group');
             $pivot->update(['sync_status' => 'synced']);
             return redirect()->back()->with('status', "Lazada item ID {$lazadaProduct->lazada_item_id} — cache refreshed.");
         }
@@ -585,7 +586,7 @@ class LazadaProductGroupController extends Controller
             ]);
 
             // Refresh variant cache + product status from API
-            $this->refreshLazadaVariants($lazadaProduct, $setting, $client);
+            app(LazadaItemCache::class)->refreshListing($lazadaProduct, $setting, $client, 'lazada.product.item.get.cache.group');
         }
 
         // Update sync status
@@ -594,105 +595,6 @@ class LazadaProductGroupController extends Controller
         return redirect()->back()->with('status', "Lazada item ID {$matchedItemId} synced for this product.");
     }
 
-    /**
-     * Refresh variant cache and product status from Lazada API.
-     */
-    private function refreshLazadaVariants(LazadaProduct $listing, object $setting, LazadaClient $client): void
-    {
-        $itemId = (string) ($listing->lazada_item_id ?? '');
-        if ($itemId === '') return;
-
-        $creds = LazadaSetting::activeCredentials($setting);
-
-        $apiPath = '/product/item/get';
-        $params = [
-            'app_key'      => (string) $creds['app_key'],
-            'sign_method'  => 'sha256',
-            'timestamp'    => (string) round(microtime(true) * 1000),
-            'access_token' => (string) $creds['access_token'],
-            'item_id'      => $itemId,
-        ];
-        $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
-
-        $res = $client->get((string) $setting->region, $apiPath, $params);
-        $body = $res['body'] ?? [];
-        $data = $body['data'] ?? $body;
-
-        $apiCode = is_array($body) ? (string)($body['code'] ?? '') : '';
-        \Extensions\lazada\Models\LazadaApiLog::safeCreate([
-            'pack'            => 'lazada.product.item.get.cache.group',
-            'method'          => 'GET',
-            'api_path'        => $apiPath,
-            'auth_required'   => true,
-            'request_params'  => $params,
-            'response_status' => (int) ($res['status'] ?? 0),
-            'ok'              => ($res['ok'] ?? false) && ($apiCode === '' || $apiCode === '0'),
-            'response_body'   => $body,
-            'user_id'         => auth()->id(),
-        ]);
-
-        if (empty($data) || !is_array($data)) return;
-
-        // Write the answer through to the mirror (#184 C): group pushes call
-        // this right after the push, so the row is honest without the sweep.
-        $groupLzStatus = strtolower(trim((string) ($data['status'] ?? '')));
-        if ($groupLzStatus !== '') {
-            $listing->live_status = $groupLzStatus;
-            $listing->live_checked_at = now();
-        }
-        $listing->last_sync_ok = true;
-        $listing->last_sync_error_code = null;
-        $listing->last_sync_error_message = null;
-        $listing->last_synced_at = now();
-        $listing->save();
-
-        // Refresh variants
-        $pfx = (string) config('catalog.prefix');
-        $skuToPovId = [];
-        $erpOvs = DB::table($pfx . 'product_option_value')
-            ->where('product_id', (int) $listing->product_id)
-            ->whereNotNull('sku')->where('sku', '!=', '')
-            ->get(['product_option_value_id', 'sku']);
-        foreach ($erpOvs as $ov) {
-            $skuToPovId[trim((string) $ov->sku)] = (int) $ov->product_option_value_id;
-        }
-
-        $skus = data_get($data, 'skus') ?? data_get($data, 'Skus.Sku') ?? [];
-        $activeSellerSkus = [];
-
-        foreach ($skus as $s) {
-            $sellerSku = trim((string) ($s['SellerSku'] ?? $s['seller_sku'] ?? ''));
-            $skuId = $s['SkuId'] ?? $s['sku_id'] ?? $s['skuId'] ?? null;
-            $shopSku = $s['ShopSku'] ?? $s['shop_sku'] ?? null;
-
-            if ($skuId === null || $skuId === '') continue;
-
-            $activeSellerSkus[] = $sellerSku;
-
-            try {
-                LazadaProductVariant::updateOrCreate(
-                    ['lazada_product_id' => $listing->id, 'seller_sku' => $sellerSku],
-                    [
-                        'sku_id' => (int) $skuId,
-                        'shop_sku' => $shopSku ? (string) $shopSku : null,
-                        'product_option_value_id' => $skuToPovId[$sellerSku] ?? null,
-                    ]
-                );
-            } catch (\Throwable $ex) {}
-        }
-
-        // Remove stale variants
-        if (!empty($activeSellerSkus)) {
-            LazadaProductVariant::where('lazada_product_id', $listing->id)
-                ->whereNotIn('seller_sku', $activeSellerSkus)
-                ->delete();
-        }
-
-        // Update group pivot sync status
-        DB::table('lazada_product_group_products')
-            ->where('lazada_product_id', $listing->id)
-            ->update(['sync_status' => 'synced', 'push_error' => null]);
-    }
 
     public function linkProduct(int $groupId, int $productId)
     {
@@ -945,7 +847,7 @@ class LazadaProductGroupController extends Controller
                 }
 
                 // Refresh variant cache after push
-                $this->refreshLazadaVariants($listing, $setting, $client);
+                app(LazadaItemCache::class)->refreshListing($listing, $setting, $client, 'lazada.product.item.get.cache.group');
 
                 $this->persistSyncStatus($listing, 'push', true);
 
@@ -1159,7 +1061,7 @@ class LazadaProductGroupController extends Controller
 
             $e = $this->extractLazadaError($result);
             if ($e['ok']) {
-                $this->refreshLazadaVariants($listing, $setting, $client);
+                app(LazadaItemCache::class)->refreshListing($listing, $setting, $client, 'lazada.product.item.get.cache.group');
                 $this->persistSyncStatus($listing, 'push', true);
 
                 /* Provenance (#104): the GROUP's settings made this push -
@@ -1434,7 +1336,7 @@ class LazadaProductGroupController extends Controller
                 continue;
             }
 
-            $skuIdMap = $this->resolveLazadaSkuIds($listing, $setting, $client);
+            $skuIdMap = app(LazadaItemCache::class)->resolveSkuIds($listing, $setting, $client, 'lazada.product.item.get.variants.group');
             if (empty($skuIdMap)) {
                 $this->persistSyncStatus($listing, 'sync_price', false, 'NO_SKU_IDS', 'Could not resolve Lazada SkuIds.');
                 $errCount++;
@@ -1573,7 +1475,7 @@ class LazadaProductGroupController extends Controller
                 continue;
             }
 
-            $skuIdMap = $this->resolveLazadaSkuIds($listing, $setting, $client);
+            $skuIdMap = app(LazadaItemCache::class)->resolveSkuIds($listing, $setting, $client, 'lazada.product.item.get.variants.group');
             if (empty($skuIdMap)) {
                 $this->persistSyncStatus($listing, 'sync_qty', false, 'NO_SKU_IDS', 'Could not resolve Lazada SkuIds.');
                 $errCount++;
@@ -1700,7 +1602,7 @@ class LazadaProductGroupController extends Controller
             $itemId = trim((string) ($listing->lazada_item_id ?? ''));
             if ($itemId !== '') {
                 try {
-                    $skuIdList = $lazCtrl->fetchSkuIdListByItemId(
+                    $skuIdList = app(LazadaItemCache::class)->fetchSkuIdListByItemId(
                         $client,
                         (string) $setting->region,
                         (string) $creds['app_key'],
@@ -1819,121 +1721,6 @@ class LazadaProductGroupController extends Controller
         try { $listing->save(); } catch (\Throwable $ex) {}
     }
 
-    private function resolveLazadaSkuIds(LazadaProduct $listing, object $setting, LazadaClient $client): array
-    {
-        $map = [];
-
-        $cached = LazadaProductVariant::where('lazada_product_id', $listing->id)
-            ->whereNotNull('sku_id')
-            ->get(['seller_sku', 'sku_id']);
-
-        if ($cached->isNotEmpty()) {
-            foreach ($cached as $v) {
-                $map[trim((string) $v->seller_sku)] = (int) $v->sku_id;
-            }
-
-            $pfx = (string) config('catalog.prefix');
-            $erpSkus = DB::table($pfx . 'product_option_value')
-                ->where('product_id', (int) $listing->product_id)
-                ->whereNotNull('sku')
-                ->where('sku', '!=', '')
-                ->pluck('sku')
-                ->map(fn($s) => trim((string) $s))
-                ->filter(fn($s) => $s !== '')
-                ->toArray();
-
-            if (empty(array_diff($erpSkus, array_keys($map)))) {
-                return $map;
-            }
-        }
-
-        $variants = $this->fetchAndCacheLazadaVariants($listing, $setting, $client);
-        $map = [];
-        foreach ($variants as $v) {
-            $map[trim((string) $v['seller_sku'])] = (int) $v['sku_id'];
-        }
-        return $map;
-    }
-
-    private function fetchAndCacheLazadaVariants(LazadaProduct $listing, object $setting, LazadaClient $client): array
-    {
-        $itemId = (string) ($listing->lazada_item_id ?? '');
-        if ($itemId === '') return [];
-
-        $creds = LazadaSetting::activeCredentials($setting);
-
-        $apiPath = '/product/item/get';
-        $timestamp = (string) round(microtime(true) * 1000);
-        $params = [
-            'app_key' => (string) $creds['app_key'],
-            'sign_method' => 'sha256',
-            'timestamp' => $timestamp,
-            'access_token' => (string) $creds['access_token'],
-            'item_id' => $itemId,
-        ];
-        $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
-
-        $res = $client->get((string) $setting->region, $apiPath, $params);
-        $body = $res['body'] ?? [];
-        $data = $body['data'] ?? $body;
-
-        $apiCode = is_array($body) ? (string)($body['code'] ?? '') : '';
-        \Extensions\lazada\Models\LazadaApiLog::safeCreate([
-            'pack'            => 'lazada.product.item.get.variants.group',
-            'method'          => 'GET',
-            'api_path'        => $apiPath,
-            'auth_required'   => true,
-            'request_params'  => $params,
-            'response_status' => (int) ($res['status'] ?? 0),
-            'ok'              => ($res['ok'] ?? false) && ($apiCode === '' || $apiCode === '0'),
-            'response_body'   => $body,
-            'user_id'         => auth()->id(),
-        ]);
-
-        $skus = data_get($data, 'skus') ?? data_get($data, 'Skus.Sku') ?? [];
-        if (!is_array($skus)) return [];
-
-        $pfx = (string) config('catalog.prefix');
-        $skuToPovId = [];
-        $erpOvs = DB::table($pfx . 'product_option_value')
-            ->where('product_id', (int) $listing->product_id)
-            ->whereNotNull('sku')
-            ->where('sku', '!=', '')
-            ->get(['product_option_value_id', 'sku']);
-        foreach ($erpOvs as $ov) {
-            $skuToPovId[trim((string) $ov->sku)] = (int) $ov->product_option_value_id;
-        }
-
-        $variants = [];
-        foreach ($skus as $s) {
-            $sellerSku = trim((string) ($s['SellerSku'] ?? $s['seller_sku'] ?? ''));
-            $skuId = $s['SkuId'] ?? $s['sku_id'] ?? $s['skuId'] ?? null;
-            $shopSku = $s['ShopSku'] ?? $s['shop_sku'] ?? null;
-
-            if ($skuId === null || $skuId === '') continue;
-
-            $povId = $skuToPovId[$sellerSku] ?? null;
-
-            $variants[] = [
-                'seller_sku' => $sellerSku,
-                'sku_id' => (int) $skuId,
-                'shop_sku' => $shopSku ? (string) $shopSku : null,
-            ];
-
-            try {
-                LazadaProductVariant::updateOrCreate(
-                    ['lazada_product_id' => $listing->id, 'seller_sku' => $sellerSku],
-                    [
-                        'sku_id' => (int) $skuId,
-                        'shop_sku' => $shopSku ? (string) $shopSku : null,
-                        'product_option_value_id' => $povId,
-                    ]
-                );
-            } catch (\Throwable $ex) {}
-        }
-
-        return $variants;
-    }
 
     private function buildQuantityUpdateXml(int $skuId, int $quantity): string
     {
