@@ -126,11 +126,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Fill a select from a [{value, label}] list, choosing a default.
     // Returns whether there was anything to offer.
-    function fillSelect(select, options, chosen) {
+    function fillSelect(select, options, chosen, placeholder) {
         clear(select);
+        /* With a placeholder there is NO preselected answer (the owner,
+           2026-09-03: the packer booked a Small parcel because Small was
+           the default - a default here is a decision nobody made). The
+           placeholder is unpickable-by-accident: Confirm refuses until a
+           real choice replaces it. */
+        if (placeholder) {
+            var ph = new Option(placeholder, '');
+            ph.selected = true;
+            select.appendChild(ph);
+        }
         (options || []).forEach(function (o) {
             var opt = new Option(o.label, String(o.value));
-            if (chosen !== null && chosen !== undefined && String(o.value) === String(chosen)) opt.selected = true;
+            if (!placeholder && chosen !== null && chosen !== undefined && String(o.value) === String(chosen)) opt.selected = true;
             select.appendChild(opt);
         });
         return (options || []).length > 0;
@@ -322,8 +332,13 @@ document.addEventListener('DOMContentLoaded', function () {
             hide(errorEl);
 
             var d = info.defaults || {};
-            if (fillSelect(serviceEl, info.service_types, d.service)) show(serviceWrap); else hide(serviceWrap);
-            if (fillSelect(parcelEl, info.parcel_options, d.parcel)) show(parcelWrap); else hide(parcelWrap);
+            /* The schedule and the parcel are the two choices a wrong
+               default has already cost real bookings; each starts at
+               "Choose one" and Confirm refuses until it is answered.
+               Payment keeps its default - it is store policy, not a
+               per-parcel judgement. */
+            if (fillSelect(serviceEl, info.service_types, null, 'Choose a schedule…')) show(serviceWrap); else hide(serviceWrap);
+            if (fillSelect(parcelEl, info.parcel_options, null, 'Choose a parcel size…')) show(parcelWrap); else hide(parcelWrap);
             if (fillSelect(paymentEl, info.shipping_payment_options, d.shipping_payment)) show(paymentWrap); else hide(paymentWrap);
 
             loadAddresses();
@@ -365,10 +380,32 @@ document.addEventListener('DOMContentLoaded', function () {
                 .then(function (data) {
                     var slots = (data && data.ok && Array.isArray(data.slots)) ? data.slots : [];
                     if (slots.length === 0) return;
+                    /* When slots exist, the pickup is a decision like the
+                       parcel: the rider may already have come this morning,
+                       and no cutoff rule can know that. "Choose one" first;
+                       drop-off stays a real option a person picks. */
+                    clear(slotEl);
+                    var ph = new Option('Choose a pickup…', UNCHOSEN_SLOT);
+                    ph.selected = true;
+                    slotEl.appendChild(ph);
+                    slotEl.appendChild(new Option('Drop off myself', ''));
                     slots.forEach(function (s) { slotEl.appendChild(new Option(s.label, s.value)); });
                     show(slotWrap);
                 })
                 .catch(function () { /* no slots is a valid state */ });
+        }
+
+        var UNCHOSEN_SLOT = '__choose__';
+
+        /* Which required choices still say "Choose one" - the same list
+           gates the quote (no price for a parcel nobody picked) and the
+           Confirm (no booking either). */
+        function unanswered() {
+            var missing = [];
+            if (!serviceWrap.classList.contains('vt-hidden') && serviceEl.value === '') missing.push({ el: serviceEl, name: 'the schedule' });
+            if (!parcelWrap.classList.contains('vt-hidden') && parcelEl.value === '') missing.push({ el: parcelEl, name: 'the parcel size' });
+            if (!slotWrap.classList.contains('vt-hidden') && slotEl.value === UNCHOSEN_SLOT) missing.push({ el: slotEl, name: 'the pickup' });
+            return missing;
         }
 
         function options() {
@@ -377,7 +414,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!serviceWrap.classList.contains('vt-hidden') && serviceEl.value) opts.service = serviceEl.value;
             if (!parcelWrap.classList.contains('vt-hidden') && parcelEl.value) opts.parcel = parcelEl.value;
             if (!paymentWrap.classList.contains('vt-hidden') && paymentEl.value) opts.shipping_payment = paymentEl.value;
-            if (slotEl.value) opts.pickup_slot = slotEl.value;
+            if (slotEl.value && slotEl.value !== UNCHOSEN_SLOT) opts.pickup_slot = slotEl.value;
             if (insureEl.checked) opts.insure = true;
             return opts;
         }
@@ -408,6 +445,12 @@ document.addEventListener('DOMContentLoaded', function () {
         // order are dropped, so the ledger always describes what is shown.
         function quote() {
             if (quoteTimer) clearTimeout(quoteTimer);
+            var missing = unanswered();
+            if (missing.length > 0) {
+                ++quoteSeq; // drop any answer already in flight
+                setQuote(null, 'Choose ' + missing.map(function (m) { return m.name; }).join(' and ') + ' to see the price.');
+                return;
+            }
             quoteTimer = setTimeout(function () {
                 var seq = ++quoteSeq;
                 setQuote(null, 'Asking ' + courierLabel);
@@ -434,7 +477,10 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         [addressEl, serviceEl, parcelEl, slotEl, paymentEl].forEach(function (el) {
-            el.addEventListener('change', quote);
+            el.addEventListener('change', function () {
+                el.classList.remove('vt-book__select--missing');
+                quote();
+            });
         });
         insureEl.addEventListener('change', quote);
         estimateBtn.addEventListener('click', quote);
@@ -485,6 +531,18 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         confirmBtn.addEventListener('click', function () {
+            /* THE GATE (the owner, 2026-09-03): an unanswered "Choose one" is
+               refused here, by name, before anything is sent - a wrong
+               booking costs a repack and a rider. */
+            [serviceEl, parcelEl, slotEl].forEach(function (el) { el.classList.remove('vt-book__select--missing'); });
+            var missing = unanswered();
+            if (missing.length > 0) {
+                missing.forEach(function (m) { m.el.classList.add('vt-book__select--missing'); });
+                showError('Choose ' + missing.map(function (m) { return m.name; }).join(' and ') + ' first. Nothing was booked.');
+                missing[0].el.focus();
+                return;
+            }
+
             confirmBtn.disabled = true;
             hide(errorEl);
             hideModal(modal);

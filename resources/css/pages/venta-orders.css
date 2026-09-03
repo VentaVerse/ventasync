@@ -280,3 +280,11 @@
     font-size: 12.5px;
     color: var(--bl-ink-2);
 }
+
+/* A required choice still saying "Choose one" when Confirm was pressed
+   (the owner, 2026-09-03: the packer booked the default parcel). The mark
+   clears the moment the choice is made. */
+.vt-book__select--missing {
+    border-color: var(--bl-bad, #b3341f);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--bl-bad, #b3341f) 18%, transparent);
+}
