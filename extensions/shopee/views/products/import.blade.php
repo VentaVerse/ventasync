@@ -146,5 +146,7 @@
 </section>
 @endif
 
+<x-channel.import-progress name="Shopee" />
+
 </div>
 @endsection

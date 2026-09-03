@@ -1,0 +1,235 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Extensions\ExtensionManager;
+use App\Models\Admin\Permission;
+use App\Models\Admin\UserGroup;
+use App\Models\User;
+use Extensions\opencart\Models\OpenCartProductLink;
+use Extensions\opencart\Models\OpenCartSetting;
+use Extensions\opencart\Models\OpenCartUnmatchedItem;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Tests\TestCase;
+
+/**
+ * OpenCart joins the import pattern (cleanup point 11, the owner 2026-09-04),
+ * closing the set: every channel now has the same Import page. What is
+ * distinct here: option prices arrive RELATIVE (+/- over the base) and
+ * must convert to absolute; a product with ONE option set becomes a real
+ * axis, one with several imports flat and says so, because OpenCart
+ * options are independent - there are no combination rows to read.
+ */
+class OpenCartItemImportTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private const BASE = 'https://oc-one.test';
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $manager = $this->app->make(ExtensionManager::class);
+        $manager->install('opencart');
+        $manager->enable('opencart');
+        $this->app->register(\Extensions\opencart\OpencartExtension::class);
+        $this->app['router']->getRoutes()->refreshNameLookups();
+        $this->artisan('permissions:sync-catalogue');
+    }
+
+    private function store(): OpenCartSetting
+    {
+        return OpenCartSetting::query()->create([
+            'store_name' => 'One', 'enabled' => true,
+            'base_url' => self::BASE, 'api_key' => 'k',
+        ]);
+    }
+
+    private function manager(): User
+    {
+        $group = UserGroup::create(['name' => 'OpenCart import managers']);
+        $group->permissions()->attach(
+            Permission::whereIn('key', ['view_opencart/import', 'manage_opencart/import'])->pluck('id')->all()
+        );
+
+        return User::factory()->create(['user_group_id' => $group->id]);
+    }
+
+    private function seedProduct(string $sku): int
+    {
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+        $pid = DB::table($pfx . 'product')->insertGetId([
+            'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100,
+            'status' => 1, 'image' => '', 'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5,
+            'manufacturer_id' => 0,
+            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+        ]);
+        DB::table($pfx . 'product_description')->insert([
+            'product_id' => $pid, 'language_id' => $langId,
+            'name' => 'Existing ' . $sku, 'description' => '',
+            'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
+        ]);
+
+        return $pid;
+    }
+
+    /** One fake for the api/erp module: every call carries index.php?route=... */
+    private function fakeProducts(array $rows): void
+    {
+        Http::fake([
+            self::BASE . '/index.php*' => Http::response([
+                'success' => true,
+                'data' => $rows,
+                'pagination' => ['page' => 1, 'limit' => 100, 'total' => count($rows), 'total_pages' => 1],
+            ]),
+        ]);
+    }
+
+    public function test_the_scan_queues_what_the_store_holds_and_the_catalog_does_not(): void
+    {
+        $setting = $this->store();
+        $this->seedProduct('KNOWN-1');
+
+        $this->fakeProducts([
+            ['product_id' => 11, 'model' => 'KNOWN-1', 'sku' => '', 'name' => 'Known product', 'price' => '100', 'quantity' => 5],
+            ['product_id' => 12, 'model' => 'M-12', 'sku' => 'NEW-1', 'name' => 'Caf&eacute; grinder', 'price' => '250', 'quantity' => 3,
+                'image' => 'catalog/grinder.jpg',
+                'option_values' => [['option_name' => 'Size', 'option_value_name' => 'S']]],
+        ]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.opencart.products.sync_unmatched', $setting->id))
+            ->assertRedirect();
+
+        $this->assertSame(1, OpenCartUnmatchedItem::query()->where('status', 'unmatched')->count(),
+            'a model the catalog knows counts as its SKU - OpenCart habit - and is never queued');
+        $row = OpenCartUnmatchedItem::query()->firstOrFail();
+        $this->assertSame(12, (int) $row->oc_product_id);
+        $this->assertSame('Café grinder', $row->name, 'OpenCart entities decode before display');
+        $this->assertSame(self::BASE . '/image/catalog/grinder.jpg', $row->image_url,
+            'store-relative image paths resolve against the store base');
+    }
+
+    public function test_import_converts_one_option_set_to_an_axis_with_absolute_prices(): void
+    {
+        $setting = $this->store();
+        $row = OpenCartUnmatchedItem::create([
+            'opencart_setting_id' => $setting->id, 'oc_product_id' => 12,
+            'sku' => 'IMP-1', 'name' => 'Importable', 'status' => 'unmatched',
+        ]);
+
+        $this->fakeProducts([[
+            'product_id' => 12, 'model' => 'IMP-1', 'sku' => 'IMP-1',
+            'name' => 'Importable thing', 'description' => '&lt;p&gt;Store words.&lt;/p&gt;',
+            'price' => '100.0000', 'quantity' => 6, 'weight' => '0.40',
+            'length' => '10', 'width' => '10', 'height' => '5',
+            'option_values' => [
+                ['option_name' => 'Size', 'option_value_name' => 'Small', 'sku' => 'IMP-1-S', 'quantity' => 4, 'price' => '5.0000', 'price_prefix' => '-'],
+                ['option_name' => 'Size', 'option_value_name' => 'Large', 'sku' => 'IMP-1-L', 'quantity' => 2, 'price' => '10.0000', 'price_prefix' => '+'],
+            ],
+        ]]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.opencart.products.import_unmatched', [$setting->id, $row->id]))
+            ->assertRedirect();
+
+        $pfx = (string) config('catalog.prefix');
+        $product = DB::table($pfx . 'product')->where('sku', 'IMP-1')->first();
+        $this->assertNotNull($product, 'the import must create the catalog product');
+        $this->assertSame(1, (int) $product->status, 'already selling on the store: it arrives enabled');
+
+        $values = DB::table($pfx . 'product_option_value')
+            ->where('product_id', $product->product_id)->get();
+        $this->assertEqualsCanonicalizing(['IMP-1-S', 'IMP-1-L'], $values->pluck('sku')->all(),
+            'one OpenCart option set becomes a real variation axis');
+
+        // The conversion under test: relative +/- over base 100 must land
+        // as absolute 95 and 110 in the column the catalog sells from.
+        $absolute = $values->map(fn ($v) => (float) $v->absolute_price)->all();
+        $this->assertEqualsCanonicalizing([95.0, 110.0], $absolute,
+            'relative OpenCart prices convert to absolute variation prices');
+
+        $link = OpenCartProductLink::query()->where('product_id', $product->product_id)->first();
+        $this->assertNotNull($link);
+        $this->assertSame(12, (int) $link->oc_product_id);
+        $this->assertSame('linked', $row->fresh()->status);
+    }
+
+    public function test_multiple_independent_option_sets_import_flat_and_say_so(): void
+    {
+        $setting = $this->store();
+        $row = OpenCartUnmatchedItem::create([
+            'opencart_setting_id' => $setting->id, 'oc_product_id' => 13,
+            'sku' => 'IMP-3', 'name' => 'Multi-option', 'status' => 'unmatched',
+        ]);
+
+        $this->fakeProducts([[
+            'product_id' => 13, 'model' => 'IMP-3', 'sku' => 'IMP-3',
+            'name' => 'Multi-option thing', 'price' => '100', 'quantity' => 6,
+            'option_values' => [
+                ['option_name' => 'Size', 'option_value_name' => 'Small', 'price' => '0', 'price_prefix' => '+'],
+                ['option_name' => 'Color', 'option_value_name' => 'Red', 'price' => '0', 'price_prefix' => '+'],
+            ],
+        ]]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.opencart.products.import_unmatched', [$setting->id, $row->id]))
+            ->assertRedirect();
+
+        $pfx = (string) config('catalog.prefix');
+        $product = DB::table($pfx . 'product')->where('sku', 'IMP-3')->first();
+        $this->assertNotNull($product);
+        $this->assertSame(0, DB::table($pfx . 'product_option_value')->where('product_id', $product->product_id)->count(),
+            'independent option sets cannot honestly become variations - the import stays flat');
+        $this->assertStringContainsString('independent option sets', session('status'),
+            'the flat import says so instead of quietly dropping structure');
+    }
+
+    public function test_a_sku_the_catalog_holds_rolls_the_import_back(): void
+    {
+        $setting = $this->store();
+        $this->seedProduct('CLASH-V');
+        $row = OpenCartUnmatchedItem::create([
+            'opencart_setting_id' => $setting->id, 'oc_product_id' => 14,
+            'sku' => 'IMP-2', 'name' => 'Clashing', 'status' => 'unmatched',
+        ]);
+
+        $this->fakeProducts([[
+            'product_id' => 14, 'model' => 'IMP-2', 'sku' => 'IMP-2',
+            'name' => 'Clashing thing', 'price' => '100', 'quantity' => 6,
+            'option_values' => [
+                ['option_name' => 'Size', 'option_value_name' => 'Small', 'sku' => 'CLASH-V', 'quantity' => 1, 'price' => '0', 'price_prefix' => '+'],
+            ],
+        ]]);
+
+        $r = $this->actingAs($this->manager())
+            ->post(route('ext.opencart.products.import_unmatched', [$setting->id, $row->id]));
+
+        $r->assertSessionHas('error');
+        $this->assertStringContainsString('Not imported', session('error'));
+        $pfx = (string) config('catalog.prefix');
+        $this->assertNull(DB::table($pfx . 'product')->where('sku', 'IMP-2')->first(),
+            'a refused import must leave nothing half-created');
+        $this->assertSame('unmatched', $row->fresh()->status);
+    }
+
+    public function test_the_import_page_owns_the_queue(): void
+    {
+        $setting = $this->store();
+        OpenCartUnmatchedItem::create([
+            'opencart_setting_id' => $setting->id, 'oc_product_id' => 90,
+            'sku' => 'Q-1', 'name' => 'Queued thing', 'status' => 'unmatched',
+        ]);
+
+        $html = $this->actingAs($this->manager())
+            ->get(route('ext.opencart.products.import', $setting->id))
+            ->assertOk()->getContent();
+
+        $this->assertStringContainsString('Queued thing', $html);
+        $this->assertStringContainsString(route('ext.opencart.products.sync_unmatched', $setting->id), $html);
+    }
+}

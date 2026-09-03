@@ -1165,6 +1165,36 @@
         "name": "ext.opencart.product-groups.push"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "channels/opencart/{store}/products/import",
+        "name": "ext.opencart.products.import"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/opencart/{store}/products/search-catalog",
+        "name": "ext.opencart.products.search_catalog"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/opencart/{store}/products/unmatched/sync",
+        "name": "ext.opencart.products.sync_unmatched"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/opencart/{store}/products/unmatched/{unmatchedId}/dismiss",
+        "name": "ext.opencart.products.dismiss_unmatched"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/opencart/{store}/products/unmatched/{unmatchedId}/import",
+        "name": "ext.opencart.products.import_unmatched"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/opencart/{store}/products/unmatched/{unmatchedId}/link",
+        "name": "ext.opencart.products.link_unmatched"
+    },
+    {
         "method": "POST",
         "uri": "channels/opencart/{store}/products/{product}/push",
         "name": "ext.opencart.products.push"
@@ -1973,6 +2003,36 @@
         "method": "DELETE",
         "uri": "channels/shopify/{store}/orders/{order}",
         "name": "ext.shopify.orders.destroy"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopify/{store}/products/import",
+        "name": "ext.shopify.products.import"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopify/{store}/products/search-catalog",
+        "name": "ext.shopify.products.search_catalog"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopify/{store}/products/unmatched/sync",
+        "name": "ext.shopify.products.sync_unmatched"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopify/{store}/products/unmatched/{unmatchedId}/dismiss",
+        "name": "ext.shopify.products.dismiss_unmatched"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopify/{store}/products/unmatched/{unmatchedId}/import",
+        "name": "ext.shopify.products.import_unmatched"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopify/{store}/products/unmatched/{unmatchedId}/link",
+        "name": "ext.shopify.products.link_unmatched"
     },
     {
         "method": "GET|HEAD",

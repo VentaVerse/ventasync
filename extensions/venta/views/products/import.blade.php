@@ -83,8 +83,6 @@
                     </td>
                     <td class="cc-col-chanid" data-label="Item ID">
                         <span class="x-num">{{ $ui->venta_product_id ?: '–' }}</span>
-                        @if(false)
-                        @endif
                     </td>
                     <td class="cc-col-link" data-label="Catalog product">
                         {{-- The typeahead's wire is unchanged: type, GET
@@ -139,6 +137,8 @@
     <p class="fm-section__note">Importing needs the Venta manage permission.</p>
 </section>
 @endif
+
+<x-channel.import-progress :name="$setting->store_name ?: 'Venta'" />
 
 </div>
 @endsection

@@ -32,6 +32,7 @@ import './pages/store-settings';
 import './pages/group-form';
 import './pages/group-products';
 import './pages/channel-listing-form';
+import './pages/channel-import';
 import './pages/purchasing';
 import './pages/product-vendors';
 import './pages/warehousing';

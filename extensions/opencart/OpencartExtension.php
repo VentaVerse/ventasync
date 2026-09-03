@@ -88,6 +88,7 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                         ['label' => 'Sync log', 'section' => 'sync'],
                     ]),
                     new MenuItem('Product Groups', 'ext.opencart.product-groups.index', 'view_opencart/product_group', null, ['store' => $store->id], 'Catalog'),
+                    new MenuItem('Import', 'ext.opencart.products.import', 'view_opencart/import', null, ['store' => $store->id], 'Catalog'),
                     new MenuItem('Orders', 'ext.opencart.orders.index', 'view_opencart/order', null, ['store' => $store->id], 'Sell'),
                 ],
                 status: $store->enabled ? 'active' : 'setup_pending',

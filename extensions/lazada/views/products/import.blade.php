@@ -135,5 +135,7 @@
 </section>
 @endif
 
+<x-channel.import-progress :name="'Lazada'" />
+
 </div>
 @endsection

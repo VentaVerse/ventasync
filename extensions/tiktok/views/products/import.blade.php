@@ -118,5 +118,7 @@
 </section>
 @endif
 
+<x-channel.import-progress :name="'TikTok Shop'" />
+
 </div>
 @endsection

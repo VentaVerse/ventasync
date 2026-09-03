@@ -261,10 +261,8 @@ class MultistoreWorkspaceTest extends TestCase
             $rows[] = ['Catalog', 'Listings', route('ext.venta.listings.index', ['store' => $storeId])];
         }
         $rows[] = ['Catalog', 'Product Groups', route('ext.'.$channel.'.product-groups.index', ['store' => $storeId])];
-        if ($channel === 'venta') {
-            // Import joined 2026-09-04 (cleanup point 11).
-            $rows[] = ['Catalog', 'Import', route('ext.venta.products.import', ['store' => $storeId])];
-        }
+        // Import joined 2026-09-04 (cleanup point 11) - every channel has it.
+        $rows[] = ['Catalog', 'Import', route('ext.'.$channel.'.products.import', ['store' => $storeId])];
         $rows[] = ['Channel', 'Settings', route('ext.'.$channel.'.settings.show', ['store' => $storeId])];
 
         return $rows;

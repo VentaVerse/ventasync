@@ -101,6 +101,21 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/catalog/reviews/delete-all', [ReviewController::class, 'deleteAll'])->name('ext.opencart.reviews.delete_all');
 });
 
+// ── IMPORT (cleanup point 11, 2026-09-04) ───────────────────────────────
+//
+// The scan-and-queue Import page under the Catalog menu, mirroring the
+// other channels. Queue rows are per remote PRODUCT; a single-option
+// product carries its option set across as variations, a multi-option
+// one imports flat (OpenCart options are independent, no combinations).
+Route::middleware(['auth'])->prefix('channels')->group(function () {
+    Route::get('/opencart/{store}/products/import', [\Extensions\opencart\Controllers\OpenCartImportController::class, 'importPage'])->whereNumber('store')->name('ext.opencart.products.import');
+    Route::get('/opencart/{store}/products/search-catalog', [\Extensions\opencart\Controllers\OpenCartImportController::class, 'searchCatalog'])->whereNumber('store')->name('ext.opencart.products.search_catalog');
+    Route::post('/opencart/{store}/products/unmatched/sync', [\Extensions\opencart\Controllers\OpenCartImportController::class, 'syncUnmatched'])->whereNumber('store')->name('ext.opencart.products.sync_unmatched');
+    Route::post('/opencart/{store}/products/unmatched/{unmatchedId}/import', [\Extensions\opencart\Controllers\OpenCartImportController::class, 'importUnmatched'])->whereNumber('store')->whereNumber('unmatchedId')->name('ext.opencart.products.import_unmatched');
+    Route::post('/opencart/{store}/products/unmatched/{unmatchedId}/link', [\Extensions\opencart\Controllers\OpenCartImportController::class, 'linkUnmatched'])->whereNumber('store')->whereNumber('unmatchedId')->name('ext.opencart.products.link_unmatched');
+    Route::post('/opencart/{store}/products/unmatched/{unmatchedId}/dismiss', [\Extensions\opencart\Controllers\OpenCartImportController::class, 'dismissUnmatched'])->whereNumber('store')->whereNumber('unmatchedId')->name('ext.opencart.products.dismiss_unmatched');
+});
+
 // ── THE CHANNEL'S OWN LANDING PAGE ──────────────────────────────────────
 //
 // /channels/opencart was core's /integrations/{channel} wildcard until the

@@ -303,6 +303,12 @@ function buildResultButton(item, onPick) {
  * listings pages is the same control on a <form>, unchanged.
  */
 export function initCatalogPicker(form) {
+    // Two modules can reach the same control (this one and channel-import.js
+    // both sweep form[data-unmatched-link]); binding twice would double every
+    // listener, so the first sweep claims it.
+    if (form.dataset.pickerBound) return;
+    form.dataset.pickerBound = '1';
+
     const searchUrl = form.getAttribute('data-search-url');
     const input = form.querySelector('[data-unmatched-search]');
     const list = form.querySelector('[data-unmatched-results]');
