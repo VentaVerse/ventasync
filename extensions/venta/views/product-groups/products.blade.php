@@ -425,7 +425,7 @@
                         @csrf
                         <input type="hidden" name="_return" value="{{ $returnTo }}">
                         <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
-                        <button type="submit" class="x-menu__item x-menu__item--primary">Send to {{ $storeName }}</button>
+                        <button type="submit" class="x-menu__item x-menu__item--primary">Push to {{ $storeName }}</button>
                     </form>
 
                     <div class="x-menu__sep" role="separator"></div>
@@ -470,7 +470,7 @@
                             @csrf
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
                             <button type="submit" class="x-menu__item"
-                                    data-confirm="Forget the connection between this product and {{ $storeName }}? Nothing is deleted there. Sending it again will re-match or create it."
+                                    data-confirm="Forget the connection between this product and {{ $storeName }}? Nothing is deleted there. Pushing it again will re-match or create it."
                                     data-confirm-tone="primary">Unlink</button>
                         </form>
                         <form method="POST" action="{{ route('ext.venta.product-groups.deleteFromVenta', [$setting->id, $group->id, $p->product_id]) }}">

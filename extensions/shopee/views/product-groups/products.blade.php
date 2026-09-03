@@ -159,7 +159,7 @@
               data-bulk-confirm="Send the selected products to Shopee? Each one is checked against Shopee first, then created or updated to match the catalog.">
             @csrf
             <input type="hidden" name="_return" value="{{ $returnTo }}">
-            <x-ui.button type="submit" size="sm">Send to Shopee</x-ui.button>
+            <x-ui.button type="submit" size="sm">Push to Shopee</x-ui.button>
         </form>
         <form method="POST" action="{{ route('ext.shopee.product-groups.pushPrices', $group->id) }}" data-bulk-form>
             @csrf
@@ -486,7 +486,7 @@
                         @csrf
                         <input type="hidden" name="_return" value="{{ $returnTo }}">
                         <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
-                        <button type="submit" class="x-menu__item">Send to Shopee</button>
+                        <button type="submit" class="x-menu__item">Push to Shopee</button>
                     </form>
 
                     @if($listed)
@@ -540,7 +540,7 @@
                     @if($listed)
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.shopee.product-groups.unlinkProduct', [$group->id, $p->product_id]) }}" data-slow-action
-                              data-confirm="Unlink {{ $pName ?: 'this product' }} from Shopee? The listing stays on Shopee; the ERP just stops tracking it. Send will re-find it." data-confirm-verb="Unlink">
+                              data-confirm="Unlink {{ $pName ?: 'this product' }} from Shopee? The listing stays on Shopee; the ERP just stops tracking it. Push will re-find it." data-confirm-verb="Unlink">
                             @csrf
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
                             <button type="submit" class="x-menu__item x-menu__item--danger">Unlink from Shopee</button>

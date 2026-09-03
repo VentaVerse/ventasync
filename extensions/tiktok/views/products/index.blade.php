@@ -255,7 +255,7 @@
         <form method="POST" action="{{ route('ext.tiktok.products.bulk_send') }}" data-bulk-form
               data-bulk-confirm="Send the selected products to TikTok Shop? New products are created; anything already listed gets its content updated in place.">
             @csrf
-            <x-ui.button type="submit" size="sm">Send to TikTok Shop</x-ui.button>
+            <x-ui.button type="submit" size="sm">Push to TikTok Shop</x-ui.button>
         </form>
         <form method="POST" action="{{ route('ext.tiktok.products.check') }}" data-bulk-form>
             @csrf
