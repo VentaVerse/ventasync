@@ -22,7 +22,6 @@ use Extensions\shopee\Services\Shopee\ShopeeClient;
 use Extensions\shopee\Services\ShopeeStockPushService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class ShopeeProductGroupController extends Controller
@@ -1631,19 +1630,8 @@ class ShopeeProductGroupController extends Controller
                 continue;
             }
 
-            $imageIds = [];
-            foreach ($imagePaths as $imgPath) {
-                $localPath = $this->resolveLocalImagePath($imgPath);
-                if (!$localPath || !file_exists($localPath)) continue;
-
-                $uploadResult = $this->uploadImage($client, $auth, $localPath);
-                if ($uploadResult['ok'] ?? false) {
-                    $imgId = $uploadResult['body']['response']['image_info']['image_id'] ?? null;
-                    if ($imgId) $imageIds[] = (string) $imgId;
-                } else {
-                    break;
-                }
-            }
+            $imageIds = app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class)
+                ->uploadImages($client, $auth, $imagePaths)['ids'];
 
             if (empty($imageIds)) {
                 $errors[] = "#{$productId}: Image upload failed";
@@ -1976,19 +1964,8 @@ class ShopeeProductGroupController extends Controller
                 ->toArray();
             $imagePaths = array_merge($imagePaths, $additionalImages);
 
-            $imageIds = [];
-            foreach ($imagePaths as $imgPath) {
-                $localPath = $this->resolveLocalImagePath($imgPath);
-                if (!$localPath || !file_exists($localPath)) continue;
-
-                $uploadResult = $this->uploadImage($client, $auth, $localPath);
-                if ($uploadResult['ok'] ?? false) {
-                    $imgId = $uploadResult['body']['response']['image_info']['image_id'] ?? null;
-                    if ($imgId) $imageIds[] = (string) $imgId;
-                } else {
-                    break;
-                }
-            }
+            $imageIds = app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class)
+                ->uploadImages($client, $auth, $imagePaths)['ids'];
 
             // Build update payload
             $payload = [
@@ -2428,48 +2405,6 @@ class ShopeeProductGroupController extends Controller
         [$ok, $err, $outcomes] = [$results['ok'], $results['err'], $results['outcomes']];
 
         return ['ok' => $ok, 'err' => $err, 'outcomes' => $outcomes];
-    }
-
-    private function resolveLocalImagePath(string $path): ?string
-    {
-        $try = [
-            storage_path('app/public/' . $path),
-            public_path('image/' . $path),
-            public_path($path),
-        ];
-        foreach ($try as $p) {
-            if (file_exists($p)) return $p;
-        }
-        return null;
-    }
-
-    private function uploadImage(ShopeeClient $client, array $auth, string $localPath): array
-    {
-        $path = '/api/v2/media_space/upload_image';
-        $timestamp = time();
-        $sign = $client->signShop(
-            (int) $auth['partner_id'], (string) $auth['partner_key'],
-            $path, $timestamp, (string) $auth['access_token'], (int) $auth['shop_id']
-        );
-
-        $query = http_build_query([
-            'partner_id' => (int) $auth['partner_id'], 'timestamp' => $timestamp,
-            'sign' => $sign, 'access_token' => (string) $auth['access_token'],
-            'shop_id' => (int) $auth['shop_id'],
-        ]);
-
-        $url = $client->baseUrl($auth['mode']) . $path . '?' . $query;
-
-        $contents = file_get_contents($localPath);
-        if ($contents === false) {
-            return ['status' => 0, 'ok' => false, 'body' => ['error' => 'file_read_failed', 'message' => 'Could not read image file: ' . basename($localPath)]];
-        }
-
-        $response = Http::timeout(30)
-            ->attach('image', $contents, basename($localPath))
-            ->post($url);
-
-        return ['status' => $response->status(), 'ok' => $response->ok(), 'body' => $response->json() ?? $response->body()];
     }
 
     public function syncTemplate(Request $request, int $id, ShopeeClient $client)

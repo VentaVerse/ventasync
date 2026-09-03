@@ -18,7 +18,6 @@ use Extensions\shopee\Services\Shopee\ShopeeClient;
 use Extensions\shopee\Services\Shopee\ShopeeLiveListing;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class ShopeeProductController extends Controller
@@ -709,41 +708,14 @@ class ShopeeProductController extends Controller
         }
 
         // Step 1: Upload images
-        $imageIds = [];
-        foreach ($request->input('selected_images', []) as $imgPath) {
-            $localPath = $this->resolveLocalImagePath($imgPath);
-            if (!$localPath || !file_exists($localPath)) {
-                continue;
-            }
-
-            $uploadResult = $this->uploadImage($client, $auth, $localPath);
-
-            ShopeeApiLog::safeCreate([
-                'pack' => 'shopee.products.upload_image',
-                'method' => 'POST',
-                'api_path' => '/api/v2/media_space/upload_image',
-                'auth_required' => true,
-                'request_params' => ['image' => $imgPath],
-                'response_status' => $uploadResult['status'] ?? null,
-                'ok' => (bool) ($uploadResult['ok'] ?? false),
-                'response_body' => $uploadResult['body'] ?? null,
-                'user_id' => auth()->id(),
-            ]);
-
-            if (!($uploadResult['ok'] ?? false)) {
-                $msg = is_array($uploadResult['body'] ?? null)
-                    ? ($uploadResult['body']['message'] ?? ($uploadResult['body']['error'] ?? 'Upload failed'))
-                    : 'Upload failed';
-                return redirect()->route('ext.shopee.products.push', $productId)
-                    ->with('error', 'Image upload failed for "' . basename($imgPath) . '": ' . $msg)
-                    ->withInput();
-            }
-
-            $imageId = $uploadResult['body']['response']['image_info']['image_id'] ?? null;
-            if ($imageId) {
-                $imageIds[] = (string) $imageId;
-            }
+        $create = app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class);
+        $up = $create->uploadImages($client, $auth, (array) $request->input('selected_images', []));
+        if ($up['error'] !== null) {
+            return redirect()->route('ext.shopee.products.push', $productId)
+                ->with('error', $up['error'])
+                ->withInput();
         }
+        $imageIds = $up['ids'];
 
         if (empty($imageIds)) {
             return redirect()->route('ext.shopee.products.push', $productId)
@@ -805,29 +777,13 @@ class ShopeeProductController extends Controller
             $payload['attribute_list'] = $attributeList;
         }
 
-        $path = '/api/v2/product/add_item';
-        $result = $client->shopPost(
-            $auth['mode'],
-            (int) $auth['partner_id'], (string) $auth['partner_key'],
-            (string) $auth['access_token'], (int) $auth['shop_id'],
-            $path, [], $payload
-        );
-
-        ShopeeApiLog::safeCreate([
-            'pack' => 'shopee.products.add_item', 'method' => 'POST', 'api_path' => $path,
-            'auth_required' => true, 'request_params' => $payload,
-            'response_status' => $result['status'] ?? null, 'ok' => (bool) ($result['ok'] ?? false),
-            'response_body' => $result['body'] ?? null, 'user_id' => auth()->id(),
-        ]);
-
-        $body = $result['body'] ?? null;
-        if (!($result['ok'] ?? false)) {
-            $msg = is_array($body) ? ($body['message'] ?? ($body['error'] ?? 'API call failed')) : 'API call failed';
+        $added = $create->addItem($client, $auth, $payload, 'shopee.products.add_item');
+        if (!$added['ok']) {
             return redirect()->route('ext.shopee.products.push', $productId)
-                ->with('error', 'Push failed: ' . $msg)->withInput();
+                ->with('error', 'Push failed: ' . $added['error'])->withInput();
         }
 
-        $itemId = $body['response']['item_id'] ?? null;
+        $itemId = $added['item_id'];
         if (!$itemId) {
             return redirect()->route('ext.shopee.products.push', $productId)
                 ->with('error', 'Shopee accepted the push but returned no item id, so the link could not be recorded. Run Check against Shopee to adopt the item it created.')->withInput();
@@ -885,30 +841,24 @@ class ShopeeProductController extends Controller
         // Variations ride the push: one Shopee model per combination,
         // priced by the rule the listing just stored.
         $savedListing = ShopeeListing::query()->where('product_id', $productId)->first();
-        $variations = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)->pushForProduct(
+        $rode = $create->variationsRideOrUndo(
             $client, $auth, (int) $itemId, $productId,
-            fn (float $core) => $savedListing->priceFor($core),
-            $this->tierImageUploader($client, $auth)
+            fn (float $core) => $savedListing->priceFor($core)
         );
 
-        if ($variations !== null && !$variations['ok']) {
-            /* #192: half-listed is worse than unlisted. The item was just
-             * created and its variations were refused, so it stands with
-             * only the parent SKU - selling the wrong thing. Take it down
-             * again and report ONE honest failure. */
-            $undone = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)
-                ->undoCreate($client, $auth, $productId, (int) $itemId);
-
-            return redirect()->route('ext.shopee.products.index')->with('error', $undone
-                ? 'Not pushed: the variations were refused - ' . $variations['message']
+        if (!$rode['ok']) {
+            /* #192: half-listed is worse than unlisted - the service took
+             * the just-created item down again; report ONE honest failure. */
+            return redirect()->route('ext.shopee.products.index')->with('error', $rode['undone']
+                ? 'Not pushed: the variations were refused - ' . $rode['message']
                     . ' The item was removed from Shopee again, so nothing half-listed stays up.'
-                : 'The variations were refused - ' . $variations['message']
+                : 'The variations were refused - ' . $rode['message']
                     . ' Shopee also refused to remove the half-created item (ID ' . $itemId . '). Delete it in Seller Centre, then push again.');
         }
 
         $flash = 'Product pushed to Shopee. Item ID: ' . $itemId . '. Its settings are saved on the listing for one-click pushes and price sync.';
-        if ($variations !== null) {
-            $flash .= ' ' . $variations['models'] . ' variations went with it.';
+        if ($rode['models'] !== null) {
+            $flash .= ' ' . $rode['models'] . ' variations went with it.';
         }
 
         return redirect()->route('ext.shopee.products.index')->with('status', $flash);
@@ -984,68 +934,23 @@ class ShopeeProductController extends Controller
         if ((float) $product->weight <= 0) {
             return redirect()->back()->with('error', 'Push failed: Product weight must be greater than 0.');
         }
-        $pkgLength = max(1, (int) $product->length);
-        $pkgWidth = max(1, (int) $product->width);
-        $pkgHeight = max(1, (int) $product->height);
 
         // Step 1: Upload images
-        $imagePaths = [];
-        if (!empty($product->image)) {
-            $imagePaths[] = $product->image;
-        }
-        $additionalImages = DB::table($pfx . 'product_image')
-            ->where('product_id', $productId)
-            ->orderBy('sort_order')
-            ->pluck('image')
-            ->toArray();
-        $imagePaths = array_merge($imagePaths, $additionalImages);
+        $create = app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class);
+        $imagePaths = $create->catalogImagePaths($pfx, $product);
 
         if (empty($imagePaths)) {
             return redirect()->back()->with('error', 'Push failed: Product has no images.');
         }
 
-        $imageIds = [];
-        foreach ($imagePaths as $imgPath) {
-            $localPath = $this->resolveLocalImagePath($imgPath);
-            if (!$localPath || !file_exists($localPath)) {
-                continue;
-            }
-
-            $uploadResult = $this->uploadImage($client, $auth, $localPath);
-
-            ShopeeApiLog::safeCreate([
-                'pack' => 'shopee.products.upload_image',
-                'method' => 'POST',
-                'api_path' => '/api/v2/media_space/upload_image',
-                'auth_required' => true,
-                'request_params' => ['image' => $imgPath],
-                'response_status' => $uploadResult['status'] ?? null,
-                'ok' => (bool) ($uploadResult['ok'] ?? false),
-                'response_body' => $uploadResult['body'] ?? null,
-                'user_id' => auth()->id(),
-            ]);
-
-            if (!($uploadResult['ok'] ?? false)) {
-                $msg = is_array($uploadResult['body'] ?? null)
-                    ? ($uploadResult['body']['message'] ?? ($uploadResult['body']['error'] ?? 'Upload failed'))
-                    : 'Upload failed';
-                return redirect()->back()->with('error', 'Push failed: Image upload failed for "' . basename($imgPath) . '": ' . $msg);
-            }
-
-            $imageId = $uploadResult['body']['response']['image_info']['image_id'] ?? null;
-            if ($imageId) {
-                $imageIds[] = (string) $imageId;
-            }
+        $up = $create->uploadImages($client, $auth, $imagePaths);
+        if ($up['error'] !== null) {
+            return redirect()->back()->with('error', 'Push failed: ' . $up['error']);
         }
+        $imageIds = $up['ids'];
 
         if (empty($imageIds)) {
             return redirect()->back()->with('error', 'Push failed: No images were uploaded successfully.');
-        }
-
-        // Step 2: Build add_item payload
-        $logisticInfo = [];
-        foreach ($logisticIds as $lid) {
-            $logisticInfo[] = ['logistic_id' => (int) $lid, 'enabled' => true];
         }
 
         /* The listing's own price rule; price itself is never stored, so
@@ -1066,54 +971,19 @@ class ShopeeProductController extends Controller
 
         $sellingPrice = $listing->priceFor((float) $product->price);
 
-        $payload = [
-            'original_price' => $sellingPrice,
-            'description' => mb_substr(($listing->description !== null && trim($listing->description) !== '') ? $listing->description : $description, 0, 5000),
-            'item_name' => mb_substr(($listing->item_name !== null && trim($listing->item_name) !== '') ? $listing->item_name : $itemName, 0, 255),
-            'seller_stock' => [['stock' => max(0, (int) $product->quantity)]],
-            'item_sku' => (string) ($product->sku ?? ''),
-            'weight' => (float) ($listing->weight ?? $product->weight),
-            'dimension' => [
-                'package_length' => (int) ($listing->package_length ?? $pkgLength),
-                'package_width' => (int) ($listing->package_width ?? $pkgWidth),
-                'package_height' => (int) ($listing->package_height ?? $pkgHeight),
-            ],
-            'category_id' => (int) $listing->shopee_category_id,
-            'image' => ['image_id_list' => $imageIds],
-            'logistic_info' => $logisticInfo,
-            'brand' => app(ShopeeProductGroupController::class)
-                ->buildBrandPayload((int) $listing->shopee_category_id, (int) ($listing->shopee_brand_id ?? 0)),
-        ];
-
-        // The listing's answers to the category's attribute sheet (#98).
-        $attributeList = app(ShopeeProductGroupController::class)
-            ->attributeListFromSaved($listing->attribute_values ?? [], (int) $listing->shopee_category_id);
-        if (!empty($attributeList)) {
-            $payload['attribute_list'] = $attributeList;
-        }
-
-        $path = '/api/v2/product/add_item';
-        $result = $client->shopPost(
-            $auth['mode'],
-            (int) $auth['partner_id'], (string) $auth['partner_key'],
-            (string) $auth['access_token'], (int) $auth['shop_id'],
-            $path, [], $payload
+        // The listing's own content/price/parcel over the catalog's, and
+        // its answers to the category's attribute sheet (#98).
+        $payload = $create->payloadFromListing(
+            $listing, $product, $itemName, $description, $imageIds,
+            $listing->attribute_values ?? []
         );
 
-        ShopeeApiLog::safeCreate([
-            'pack' => 'shopee.products.add_item.direct', 'method' => 'POST', 'api_path' => $path,
-            'auth_required' => true, 'request_params' => $payload,
-            'response_status' => $result['status'] ?? null, 'ok' => (bool) ($result['ok'] ?? false),
-            'response_body' => $result['body'] ?? null, 'user_id' => auth()->id(),
-        ]);
-
-        $body = $result['body'] ?? null;
-        if (!($result['ok'] ?? false)) {
-            $msg = is_array($body) ? ($body['message'] ?? ($body['error'] ?? 'API call failed')) : 'API call failed';
-            return redirect()->back()->with('error', 'Push failed: ' . $msg);
+        $added = $create->addItem($client, $auth, $payload, 'shopee.products.add_item.direct');
+        if (!$added['ok']) {
+            return redirect()->back()->with('error', 'Push failed: ' . $added['error']);
         }
 
-        $itemId = $body['response']['item_id'] ?? null;
+        $itemId = $added['item_id'];
         if (!$itemId) {
             return redirect()->back()->with('error', 'Shopee accepted the push but returned no item id, so the link could not be recorded. Run Check against Shopee to adopt the item it created.');
         }
@@ -1140,27 +1010,23 @@ class ShopeeProductController extends Controller
         app(\Extensions\shopee\Services\Shopee\ShopeeLiveListing::class)->confirm($auth, [(int) $itemId]);
 
         // Variations ride the push, priced by the listing's own rule.
-        $variations = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)->pushForProduct(
+        $rode = $create->variationsRideOrUndo(
             $client, $auth, (int) $itemId, $productId,
-            fn (float $core) => $listing->priceFor($core),
-            $this->tierImageUploader($client, $auth)
+            fn (float $core) => $listing->priceFor($core)
         );
 
-        if ($variations !== null && !$variations['ok']) {
+        if (!$rode['ok']) {
             // #192: see push() - never leave a half-listed item standing.
-            $undone = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)
-                ->undoCreate($client, $auth, $productId, (int) $itemId);
-
-            return redirect()->back()->with('error', $undone
-                ? 'Not pushed: the variations were refused - ' . $variations['message']
+            return redirect()->back()->with('error', $rode['undone']
+                ? 'Not pushed: the variations were refused - ' . $rode['message']
                     . ' The item was removed from Shopee again, so nothing half-listed stays up.'
-                : 'The variations were refused - ' . $variations['message']
+                : 'The variations were refused - ' . $rode['message']
                     . ' Shopee also refused to remove the half-created item (ID ' . $itemId . '). Delete it in Seller Centre, then push again.');
         }
 
         $flash = 'Product pushed to Shopee. Item ID: ' . $itemId;
-        if ($variations !== null) {
-            $flash .= '. ' . $variations['models'] . ' variations went with it.';
+        if ($rode['models'] !== null) {
+            $flash .= '. ' . $rode['models'] . ' variations went with it.';
         }
 
         return redirect()->back()->with('status', $flash);
@@ -1327,6 +1193,7 @@ class ShopeeProductController extends Controller
         $updatedCount = 0;
         $errCount = 0;
         $errors = [];
+        $create = app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class);
 
         foreach ($productIds as $productId) {
             /* SEND SEMANTICS (critique P1, 2026-08-25): already-listed
@@ -1400,14 +1267,7 @@ class ShopeeProductController extends Controller
             }
 
             // Upload images
-            $imagePaths = [];
-            if (!empty($product->image)) $imagePaths[] = $product->image;
-            $additionalImages = DB::table($pfx . 'product_image')
-                ->where('product_id', $productId)
-                ->orderBy('sort_order')
-                ->pluck('image')
-                ->toArray();
-            $imagePaths = array_merge($imagePaths, $additionalImages);
+            $imagePaths = $create->catalogImagePaths($pfx, $product);
 
             if (empty($imagePaths)) {
                 $errors[] = "#{$productId}: No images";
@@ -1415,32 +1275,20 @@ class ShopeeProductController extends Controller
                 continue;
             }
 
-            $imageIds = [];
-            $imgFailed = false;
-            foreach ($imagePaths as $imgPath) {
-                $localPath = $this->resolveLocalImagePath($imgPath);
-                if (!$localPath || !file_exists($localPath)) continue;
-
-                $uploadResult = $this->uploadImage($client, $auth, $localPath);
-                if ($uploadResult['ok'] ?? false) {
-                    $imgId = $uploadResult['body']['response']['image_info']['image_id'] ?? null;
-                    if ($imgId) $imageIds[] = (string) $imgId;
-                } else {
-                    $imgFailed = true;
-                    break;
-                }
+            /* A refused upload refuses the product (the old loop pushed on
+             * with the images it had, listing the item half-imaged). */
+            $up = $create->uploadImages($client, $auth, $imagePaths);
+            if ($up['error'] !== null) {
+                $errors[] = "#{$productId}: " . $up['error'];
+                $errCount++;
+                continue;
             }
+            $imageIds = $up['ids'];
 
             if (empty($imageIds)) {
                 $errors[] = "#{$productId}: Image upload failed";
                 $errCount++;
                 continue;
-            }
-
-            // Build payload from the listing's own settings and content
-            $logisticInfo = [];
-            foreach (($listing->logistic_ids ?? []) as $lid) {
-                $logisticInfo[] = ['logistic_id' => (int) $lid, 'enabled' => true];
             }
 
             /* #192: knowable variation refusals stop this product before
@@ -1455,49 +1303,15 @@ class ShopeeProductController extends Controller
 
             $sellingPrice = $listing->priceFor((float) $product->price);
 
-            $payload = [
-                'original_price' => $sellingPrice,
-                'description' => mb_substr(($listing->description !== null && trim($listing->description) !== '') ? $listing->description : $description, 0, 5000),
-                'item_name' => mb_substr(($listing->item_name !== null && trim($listing->item_name) !== '') ? $listing->item_name : $itemName, 0, 255),
-                'seller_stock' => [['stock' => max(0, (int) $product->quantity)]],
-                'item_sku' => (string) ($product->sku ?? ''),
-                'weight' => (float) ($listing->weight ?? $product->weight),
-                'dimension' => [
-                    'package_length' => (int) ($listing->package_length ?? max(1, (int) $product->length)),
-                    'package_width' => (int) ($listing->package_width ?? max(1, (int) $product->width)),
-                    'package_height' => (int) ($listing->package_height ?? max(1, (int) $product->height)),
-                ],
-                'category_id' => (int) $listing->shopee_category_id,
-                'image' => ['image_id_list' => $imageIds],
-                'logistic_info' => $logisticInfo,
-                'brand' => app(ShopeeProductGroupController::class)
-                    ->buildBrandPayload((int) $listing->shopee_category_id, (int) ($listing->shopee_brand_id ?? 0)),
-            ];
-
-            // The listing's attribute answers ride the bulk push too (#98).
-            $attributeList = app(ShopeeProductGroupController::class)
-                ->attributeListFromSaved(($listing->attribute_values ?? []) + $presetAttrs, (int) $listing->shopee_category_id);
-            if (!empty($attributeList)) {
-                $payload['attribute_list'] = $attributeList;
-            }
-
-            $path = '/api/v2/product/add_item';
-            $result = $client->shopPost(
-                $auth['mode'],
-                (int) $auth['partner_id'], (string) $auth['partner_key'],
-                (string) $auth['access_token'], (int) $auth['shop_id'],
-                $path, [], $payload
+            // The listing's own settings and content; its attribute
+            // answers ride the bulk push too, preset filling gaps (#98).
+            $payload = $create->payloadFromListing(
+                $listing, $product, $itemName, $description, $imageIds,
+                ($listing->attribute_values ?? []) + $presetAttrs
             );
 
-            ShopeeApiLog::safeCreate([
-                'pack' => 'shopee.products.add_item.bulk', 'method' => 'POST', 'api_path' => $path,
-                'auth_required' => true, 'request_params' => $payload,
-                'response_status' => $result['status'] ?? null, 'ok' => (bool) ($result['ok'] ?? false),
-                'response_body' => $result['body'] ?? null, 'user_id' => auth()->id(),
-            ]);
-
-            $body = $result['body'] ?? [];
-            $itemId = ($result['ok'] ?? false) ? ($body['response']['item_id'] ?? null) : null;
+            $added = $create->addItem($client, $auth, $payload, 'shopee.products.add_item.bulk');
+            $itemId = $added['item_id'];
 
             if ($itemId) {
                 $confirmItemIds[] = (int) $itemId;
@@ -1520,26 +1334,23 @@ class ShopeeProductController extends Controller
                     ],
                 ])->save();
                 // Variations ride the push, priced by the listing's rule.
-                $variations = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)->pushForProduct(
+                $rode = $create->variationsRideOrUndo(
                     $client, $auth, (int) $itemId, $productId,
-                    fn (float $core) => $listing->priceFor($core),
-                    $this->tierImageUploader($client, $auth)
+                    fn (float $core) => $listing->priceFor($core)
                 );
-                if ($variations !== null && !$variations['ok']) {
+                if (!$rode['ok']) {
                     // #192: never leave a half-listed item standing.
-                    $undone = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)
-                        ->undoCreate($client, $auth, $productId, (int) $itemId);
-                    $errors[] = $undone
-                        ? "#{$productId}: not pushed - its variations were refused (" . $variations['message'] . '); the item was removed from Shopee again'
-                        : "#{$productId}: its variations were refused (" . $variations['message'] . ') and Shopee also refused to remove the half-created item ' . $itemId . ' - delete it in Seller Centre';
+                    $errors[] = $rode['undone']
+                        ? "#{$productId}: not pushed - its variations were refused (" . $rode['message'] . '); the item was removed from Shopee again'
+                        : "#{$productId}: its variations were refused (" . $rode['message'] . ') and Shopee also refused to remove the half-created item ' . $itemId . ' - delete it in Seller Centre';
                     $errCount++;
                     usleep(300000);
                     continue;
                 }
                 $okCount++;
             } else {
-                $msg = \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
-                $errors[] = "#{$productId}: {$msg}";
+                $errors[] = "#{$productId}: " . ($added['error']
+                    ?? 'Shopee accepted the push but returned no item id - run Check against Shopee to adopt the item it created');
                 $errCount++;
             }
 
@@ -2691,68 +2502,6 @@ class ShopeeProductController extends Controller
         return $q->distinct()->pluck('p.product_id')->all();
     }
 
-    private function resolveLocalImagePath(string $path): ?string
-    {
-        $try = [
-            storage_path('app/public/' . $path),
-            public_path('image/' . $path),
-            public_path($path),
-        ];
-        foreach ($try as $p) {
-            if (file_exists($p)) return $p;
-        }
-        return null;
-    }
-
-    /**
-     * A closure the variation push can use to turn a combination's local
-     * image path into a Shopee image_id. Best effort by design: a missing
-     * file or failed upload returns null and the option simply goes
-     * without a picture.
-     */
-    private function tierImageUploader(ShopeeClient $client, array $auth): \Closure
-    {
-        return function (string $path) use ($client, $auth): ?string {
-            $localPath = $this->resolveLocalImagePath($path);
-            if (!$localPath || !file_exists($localPath)) {
-                return null;
-            }
-            $result = $this->uploadImage($client, $auth, $localPath);
-            $imageId = ($result['body']['response']['image_info']['image_id'] ?? null);
-
-            return ($result['ok'] ?? false) && $imageId ? (string) $imageId : null;
-        };
-    }
-
-    private function uploadImage(ShopeeClient $client, array $auth, string $localPath): array
-    {
-        $path = '/api/v2/media_space/upload_image';
-        $timestamp = time();
-        $sign = $client->signShop(
-            (int) $auth['partner_id'], (string) $auth['partner_key'],
-            $path, $timestamp, (string) $auth['access_token'], (int) $auth['shop_id']
-        );
-
-        $query = http_build_query([
-            'partner_id' => (int) $auth['partner_id'], 'timestamp' => $timestamp,
-            'sign' => $sign, 'access_token' => (string) $auth['access_token'],
-            'shop_id' => (int) $auth['shop_id'],
-        ]);
-
-        $url = $client->baseUrl($auth['mode']) . $path . '?' . $query;
-
-        $contents = file_get_contents($localPath);
-        if ($contents === false) {
-            return ['status' => 0, 'ok' => false, 'body' => ['error' => 'file_read_failed', 'message' => 'Could not read image file: ' . basename($localPath)]];
-        }
-
-        $response = Http::timeout(30)
-            ->attach('image', $contents, basename($localPath))
-            ->post($url);
-
-        return ['status' => $response->status(), 'ok' => $response->ok(), 'body' => $response->json() ?? $response->body()];
-    }
-
     private function fetchLogistics(): array
     {
         return ShopeeLogistic::query()
@@ -3077,7 +2826,7 @@ class ShopeeProductController extends Controller
         $r = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)->pushMissingModels(
             $client, $auth, (int) $link->shopee_item_id, $productId,
             fn (float $core) => (float) $listing->priceFor($core),
-            $this->tierImageUploader($client, $auth)
+            app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class)->tierImageUploader($client, $auth)
         );
 
         if (!$r['ok']) {

@@ -1,0 +1,255 @@
+<?php
+
+namespace Extensions\shopee\Services\Shopee;
+
+use App\Support\MarketplaceAnswer;
+use Extensions\shopee\Controllers\ShopeeProductGroupController;
+use Extensions\shopee\Models\ShopeeApiLog;
+use Extensions\shopee\Models\ShopeeListing;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+
+/**
+ * The shared machinery of putting an item ON Shopee (#184 decomposition).
+ * Four surfaces create items - the push form, the one-click row push, the
+ * index bulk, the group send - and until now each carried its own copy of
+ * the image upload loop, the add_item call, and the variations-or-undo
+ * tail; ShopeeProductController and ShopeeProductGroupController even held
+ * duplicate private uploadImage/resolveLocalImagePath helpers. A fix to
+ * one copy (the half-listed undo of #192, the plain-error mandate) had to
+ * be re-made three more times or silently miss a surface.
+ *
+ * The controllers keep what is genuinely theirs: validation, which
+ * settings price the push, provenance stamps, and the wording of their
+ * flashes. Everything a copy could drift on lives here once.
+ */
+class ShopeeItemCreate
+{
+    /** Main image first, then the gallery in its saved order. */
+    public function catalogImagePaths(string $pfx, object $product): array
+    {
+        $paths = [];
+        if (!empty($product->image)) {
+            $paths[] = $product->image;
+        }
+
+        return array_merge($paths, DB::table($pfx . 'product_image')
+            ->where('product_id', (int) $product->product_id)
+            ->orderBy('sort_order')
+            ->pluck('image')
+            ->toArray());
+    }
+
+    public function resolveLocalImagePath(string $path): ?string
+    {
+        $try = [
+            storage_path('app/public/' . $path),
+            public_path('image/' . $path),
+            public_path($path),
+        ];
+        foreach ($try as $p) {
+            if (file_exists($p)) {
+                return $p;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Upload every resolvable path, logging each call (the bulk and group
+     * loops used to skip the log, so a failed batch upload left no
+     * evidence). Stops at the first refusal.
+     *
+     * @return array{ids: list<string>, error: ?string}
+     */
+    public function uploadImages(ShopeeClient $client, array $auth, array $paths): array
+    {
+        $ids = [];
+        foreach ($paths as $imgPath) {
+            $localPath = $this->resolveLocalImagePath((string) $imgPath);
+            if (!$localPath || !file_exists($localPath)) {
+                continue;
+            }
+
+            $uploadResult = $this->uploadImage($client, $auth, $localPath);
+
+            ShopeeApiLog::safeCreate([
+                'pack' => 'shopee.products.upload_image',
+                'method' => 'POST',
+                'api_path' => '/api/v2/media_space/upload_image',
+                'auth_required' => true,
+                'request_params' => ['image' => $imgPath],
+                'response_status' => $uploadResult['status'] ?? null,
+                'ok' => (bool) ($uploadResult['ok'] ?? false),
+                'response_body' => $uploadResult['body'] ?? null,
+                'user_id' => auth()->id(),
+            ]);
+
+            if (!($uploadResult['ok'] ?? false)) {
+                $msg = MarketplaceAnswer::plain('Shopee', $uploadResult);
+
+                return ['ids' => $ids, 'error' => 'Image upload failed for "' . basename((string) $imgPath) . '": ' . $msg];
+            }
+
+            $imageId = $uploadResult['body']['response']['image_info']['image_id'] ?? null;
+            if ($imageId) {
+                $ids[] = (string) $imageId;
+            }
+        }
+
+        return ['ids' => $ids, 'error' => null];
+    }
+
+    public function uploadImage(ShopeeClient $client, array $auth, string $localPath): array
+    {
+        $path = '/api/v2/media_space/upload_image';
+        $timestamp = time();
+        $sign = $client->signShop(
+            (int) $auth['partner_id'], (string) $auth['partner_key'],
+            $path, $timestamp, (string) $auth['access_token'], (int) $auth['shop_id']
+        );
+
+        $query = http_build_query([
+            'partner_id' => (int) $auth['partner_id'], 'timestamp' => $timestamp,
+            'sign' => $sign, 'access_token' => (string) $auth['access_token'],
+            'shop_id' => (int) $auth['shop_id'],
+        ]);
+
+        $url = $client->baseUrl($auth['mode']) . $path . '?' . $query;
+
+        $contents = file_get_contents($localPath);
+        if ($contents === false) {
+            return ['status' => 0, 'ok' => false, 'body' => ['error' => 'file_read_failed', 'message' => 'Could not read image file: ' . basename($localPath)]];
+        }
+
+        $response = Http::timeout(30)
+            ->attach('image', $contents, basename($localPath))
+            ->post($url);
+
+        $body = $response->json();
+
+        /* Stricter than the two controller copies this replaces: Shopee
+         * answers HTTP 200 with an error in the body, and the old
+         * $response->ok() counted that as a success whose missing
+         * image_id was then skipped without a word. */
+        return [
+            'status' => $response->status(),
+            'ok' => $response->successful() && empty($body['error']),
+            'body' => $body ?? $response->body(),
+        ];
+    }
+
+    /** The uploader ShopeeVariationPush borrows for tier images. */
+    public function tierImageUploader(ShopeeClient $client, array $auth): \Closure
+    {
+        return function (string $path) use ($client, $auth): ?string {
+            $localPath = $this->resolveLocalImagePath($path);
+            if (!$localPath) {
+                return null;
+            }
+            $result = $this->uploadImage($client, $auth, $localPath);
+
+            return ($result['ok'] ?? false)
+                ? ($result['body']['response']['image_info']['image_id'] ?? null)
+                : null;
+        };
+    }
+
+    /**
+     * The add_item payload every listing-settings push sends (the row
+     * push and the index bulk built this block char-for-char twice):
+     * content the operator wrote on the listing wins, the catalog fills
+     * the rest, SKU is always the catalog's (reconcile matches by it).
+     */
+    public function payloadFromListing(ShopeeListing $listing, object $product, string $itemName, string $description, array $imageIds, array $attributeValues): array
+    {
+        $logisticInfo = [];
+        foreach (($listing->logistic_ids ?? []) as $lid) {
+            $logisticInfo[] = ['logistic_id' => (int) $lid, 'enabled' => true];
+        }
+
+        $payload = [
+            'original_price' => $listing->priceFor((float) $product->price),
+            'description' => mb_substr(($listing->description !== null && trim($listing->description) !== '') ? $listing->description : $description, 0, 5000),
+            'item_name' => mb_substr(($listing->item_name !== null && trim($listing->item_name) !== '') ? $listing->item_name : $itemName, 0, 255),
+            'seller_stock' => [['stock' => max(0, (int) $product->quantity)]],
+            'item_sku' => (string) ($product->sku ?? ''),
+            'weight' => (float) ($listing->weight ?? $product->weight),
+            'dimension' => [
+                'package_length' => (int) ($listing->package_length ?? max(1, (int) $product->length)),
+                'package_width' => (int) ($listing->package_width ?? max(1, (int) $product->width)),
+                'package_height' => (int) ($listing->package_height ?? max(1, (int) $product->height)),
+            ],
+            'category_id' => (int) $listing->shopee_category_id,
+            'image' => ['image_id_list' => $imageIds],
+            'logistic_info' => $logisticInfo,
+            'brand' => app(ShopeeProductGroupController::class)
+                ->buildBrandPayload((int) $listing->shopee_category_id, (int) ($listing->shopee_brand_id ?? 0)),
+        ];
+
+        $attributeList = app(ShopeeProductGroupController::class)
+            ->attributeListFromSaved($attributeValues, (int) $listing->shopee_category_id);
+        if (!empty($attributeList)) {
+            $payload['attribute_list'] = $attributeList;
+        }
+
+        return $payload;
+    }
+
+    /**
+     * One add_item call: sent, logged under the caller's pack, answered
+     * in plain words. item_id can be null on an accepted call - Shopee
+     * does that - and the caller owns what to tell the operator then.
+     *
+     * @return array{ok: bool, item_id: ?int, error: ?string}
+     */
+    public function addItem(ShopeeClient $client, array $auth, array $payload, string $logPack): array
+    {
+        $path = '/api/v2/product/add_item';
+        $result = $client->shopPost(
+            $auth['mode'],
+            (int) $auth['partner_id'], (string) $auth['partner_key'],
+            (string) $auth['access_token'], (int) $auth['shop_id'],
+            $path, [], $payload
+        );
+
+        ShopeeApiLog::safeCreate([
+            'pack' => $logPack, 'method' => 'POST', 'api_path' => $path,
+            'auth_required' => true, 'request_params' => $payload,
+            'response_status' => $result['status'] ?? null, 'ok' => (bool) ($result['ok'] ?? false),
+            'response_body' => $result['body'] ?? null, 'user_id' => auth()->id(),
+        ]);
+
+        if (!($result['ok'] ?? false)) {
+            return ['ok' => false, 'item_id' => null, 'error' => MarketplaceAnswer::plain('Shopee', $result)];
+        }
+
+        $itemId = $result['body']['response']['item_id'] ?? null;
+
+        return ['ok' => true, 'item_id' => $itemId !== null ? (int) $itemId : null, 'error' => null];
+    }
+
+    /**
+     * The #192 tail: variations ride the freshly created item, and a
+     * refusal takes the item down again - half-listed is worse than
+     * unlisted (the owner's #2062).
+     *
+     * @return array{ok: bool, models: ?int, undone: bool, message: ?string}
+     */
+    public function variationsRideOrUndo(ShopeeClient $client, array $auth, int $itemId, int $productId, callable $priceFor): array
+    {
+        $variations = app(ShopeeVariationPush::class)->pushForProduct(
+            $client, $auth, $itemId, $productId, $priceFor,
+            $this->tierImageUploader($client, $auth)
+        );
+
+        if ($variations !== null && !$variations['ok']) {
+            $undone = app(ShopeeVariationPush::class)->undoCreate($client, $auth, $productId, $itemId);
+
+            return ['ok' => false, 'models' => null, 'undone' => $undone, 'message' => (string) $variations['message']];
+        }
+
+        return ['ok' => true, 'models' => $variations !== null ? (int) $variations['models'] : null, 'undone' => false, 'message' => null];
+    }
+}
