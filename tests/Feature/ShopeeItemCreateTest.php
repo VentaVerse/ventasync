@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Extensions\shopee\Services\Shopee\ShopeeClient;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Extensions\shopee\Services\Shopee\ShopeeItemCreate;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -17,6 +18,8 @@ use Tests\TestCase;
  */
 class ShopeeItemCreateTest extends TestCase
 {
+    use RefreshDatabase;
+
     private const AUTH = [
         'mode' => 'sandbox', 'partner_id' => 1, 'partner_key' => 'k',
         'access_token' => 't', 'shop_id' => 2, 'complete' => true,
