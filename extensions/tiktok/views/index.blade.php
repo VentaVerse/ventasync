@@ -81,6 +81,15 @@
     ];
 @endphp
 
+{{-- The section shown, from the menubar's own ?tab= links (the
+     in-page tab strip retired 2026-09-03: the channel menubar carries the
+     sections now). Unknown or unpermitted sections fall to the default,
+     so a hand-typed URL can never land on a blank page. --}}
+@php
+    $csKnown = ['connection', 'status', 'logs'];
+    if ($canManageTiktok) { $csKnown[] = 'explorer'; $csKnown[] = 'automations'; }
+    $csSection = in_array(request('tab'), $csKnown, true) ? request('tab') : ($hasResult ? 'logs' : 'connection');
+@endphp
 <div class="cs-page"
      data-channel-settings
      data-tab-prefix="tt-tab-"
@@ -103,33 +112,10 @@
 </div>
 @endunless
 
-{{-- Five views of one subject, so this is the same segmented control the
-     orders pages use for their status filters rather than a second tab
-     grammar. API explorer and Automations are write-only tools (they call
-     TikTok directly and set the cron schedule) so a read-only operator does
-     not see them; Status mapping and API log show their data with the write
-     controls removed. --}}
-<div class="x-segment-bar">
-    <div class="x-segment" role="tablist" aria-label="Settings sections">
-        <button type="button" class="x-segment__item is-active" role="tab" aria-selected="true" id="tt-tab-connection-tab" aria-controls="tt-tab-connection" data-cs-tab="tt-tab-connection">Connection</button>
-        <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="tt-tab-status-tab" aria-controls="tt-tab-status" data-cs-tab="tt-tab-status">Status mapping</button>
-        @if($canManageTiktok)
-            <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="tt-tab-explorer-tab" aria-controls="tt-tab-explorer" data-cs-tab="tt-tab-explorer">API explorer</button>
-        @endif
-        <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="tt-tab-logs-tab" aria-controls="tt-tab-logs" data-cs-tab="tt-tab-logs">
-            <span>API log</span>
-            @if($logCount > 0)<span class="x-segment__count">{{ number_format($logCount) }}</span>@endif
-        </button>
-        @if($canManageTiktok)
-            <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="tt-tab-automations-tab" aria-controls="tt-tab-automations" data-cs-tab="tt-tab-automations">Automations</button>
-        @endif
-    </div>
-</div>
-
 {{-- ================================================================
      CONNECTION
      ================================================================ --}}
-<div id="tt-tab-connection" class="cs-panel" role="tabpanel" aria-labelledby="tt-tab-connection-tab">
+<div id="tt-tab-connection" class="cs-panel" @if($csSection !== 'connection') hidden @endif>
 
     <section class="fm-section">
         <div class="fm-section__head">
@@ -463,7 +449,7 @@
 {{-- ================================================================
      STATUS MAPPING
      ================================================================ --}}
-<div id="tt-tab-status" class="cs-panel" role="tabpanel" aria-labelledby="tt-tab-status-tab" hidden>
+<div id="tt-tab-status" class="cs-panel" @if($csSection !== 'status') hidden @endif>
 
     <section class="fm-section">
         <div class="fm-section__head">
@@ -557,7 +543,7 @@
      API EXPLORER
      ================================================================ --}}
 @if($canManageTiktok)
-<div id="tt-tab-explorer" class="cs-panel" role="tabpanel" aria-labelledby="tt-tab-explorer-tab" hidden>
+<div id="tt-tab-explorer" class="cs-panel" @if($csSection !== 'explorer') hidden @endif>
     <section class="fm-section">
         <div class="fm-section__head">
             <h2 class="fm-section__title">API explorer</h2>
@@ -709,7 +695,7 @@
 {{-- ================================================================
      API LOG
      ================================================================ --}}
-<div id="tt-tab-logs" class="cs-panel" role="tabpanel" aria-labelledby="tt-tab-logs-tab" hidden>
+<div id="tt-tab-logs" class="cs-panel" @if($csSection !== 'logs') hidden @endif>
 
     <section class="fm-section">
         <div class="fm-section__head">
@@ -858,7 +844,7 @@
      AUTOMATIONS
      ================================================================ --}}
 @if($canManageTiktok)
-<div id="tt-tab-automations" class="cs-panel" role="tabpanel" aria-labelledby="tt-tab-automations-tab" hidden>
+<div id="tt-tab-automations" class="cs-panel" @if($csSection !== 'automations') hidden @endif>
     <section class="fm-section">
         <div class="fm-section__head">
             <h2 class="fm-section__title">Scheduled jobs</h2>

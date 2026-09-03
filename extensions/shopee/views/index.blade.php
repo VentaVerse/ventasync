@@ -59,6 +59,15 @@
     ];
 @endphp
 
+{{-- The section shown, from the menubar's own ?tab= links (the
+     in-page tab strip retired 2026-09-03: the channel menubar carries the
+     sections now). Unknown or unpermitted sections fall to the default,
+     so a hand-typed URL can never land on a blank page. --}}
+@php
+    $csKnown = ['connection', 'status', 'logs'];
+    if ($canManageShopee) { $csKnown[] = 'explorer'; $csKnown[] = 'automations'; }
+    $csSection = in_array(request('tab'), $csKnown, true) ? request('tab') : ($hasResult ? 'logs' : 'connection');
+@endphp
 <div class="cs-page"
      data-channel-settings
      data-tab-prefix="sp-tab-"
@@ -81,33 +90,10 @@
 </div>
 @endunless
 
-{{-- Five views of one subject, so this is the same segmented control the
-     orders pages use for their status filters rather than a second tab
-     grammar. API Explorer and Automations are write-only tools (they call
-     Shopee directly and set the cron schedule) so a read-only operator does
-     not see them; Status Mapping and API Logs show their data with the write
-     controls removed. --}}
-<div class="x-segment-bar">
-    <div class="x-segment" role="tablist" aria-label="Settings sections">
-        <button type="button" class="x-segment__item is-active" role="tab" aria-selected="true" id="sp-tab-connection-tab" aria-controls="sp-tab-connection" data-cs-tab="sp-tab-connection">Connection</button>
-        <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="sp-tab-status-tab" aria-controls="sp-tab-status" data-cs-tab="sp-tab-status">Status mapping</button>
-        @if($canManageShopee)
-            <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="sp-tab-explorer-tab" aria-controls="sp-tab-explorer" data-cs-tab="sp-tab-explorer">API explorer</button>
-        @endif
-        <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="sp-tab-logs-tab" aria-controls="sp-tab-logs" data-cs-tab="sp-tab-logs">
-            <span>API log</span>
-            @if($logCount > 0)<span class="x-segment__count">{{ number_format($logCount) }}</span>@endif
-        </button>
-        @if($canManageShopee)
-            <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="sp-tab-automations-tab" aria-controls="sp-tab-automations" data-cs-tab="sp-tab-automations">Automations</button>
-        @endif
-    </div>
-</div>
-
 {{-- ================================================================
      CONNECTION
      ================================================================ --}}
-<div id="sp-tab-connection" class="cs-panel" role="tabpanel" aria-labelledby="sp-tab-connection-tab">
+<div id="sp-tab-connection" class="cs-panel" @if($csSection !== 'connection') hidden @endif>
 
     <section class="fm-section">
         <div class="fm-section__head">
@@ -463,7 +449,7 @@
 {{-- ================================================================
      STATUS MAPPING
      ================================================================ --}}
-<div id="sp-tab-status" class="cs-panel" role="tabpanel" aria-labelledby="sp-tab-status-tab" hidden>
+<div id="sp-tab-status" class="cs-panel" @if($csSection !== 'status') hidden @endif>
 
     <section class="fm-section">
         <div class="fm-section__head">
@@ -557,7 +543,7 @@
      API EXPLORER
      ================================================================ --}}
 @if($canManageShopee)
-<div id="sp-tab-explorer" class="cs-panel" role="tabpanel" aria-labelledby="sp-tab-explorer-tab" hidden>
+<div id="sp-tab-explorer" class="cs-panel" @if($csSection !== 'explorer') hidden @endif>
     <section class="fm-section">
         <div class="fm-section__head">
             <h2 class="fm-section__title">API explorer</h2>
@@ -705,7 +691,7 @@
 {{-- ================================================================
      API LOG
      ================================================================ --}}
-<div id="sp-tab-logs" class="cs-panel" role="tabpanel" aria-labelledby="sp-tab-logs-tab" hidden>
+<div id="sp-tab-logs" class="cs-panel" @if($csSection !== 'logs') hidden @endif>
 
     <section class="fm-section">
         <div class="fm-section__head">
@@ -852,7 +838,7 @@
      AUTOMATIONS
      ================================================================ --}}
 @if($canManageShopee)
-<div id="sp-tab-automations" class="cs-panel" role="tabpanel" aria-labelledby="sp-tab-automations-tab" hidden>
+<div id="sp-tab-automations" class="cs-panel" @if($csSection !== 'automations') hidden @endif>
     <section class="fm-section">
         <div class="fm-section__head">
             <h2 class="fm-section__title">Scheduled jobs</h2>

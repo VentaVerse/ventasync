@@ -73,6 +73,15 @@
     ];
 @endphp
 
+{{-- The section shown, from the menubar's own ?tab= links (the
+     in-page tab strip retired 2026-09-03: the channel menubar carries the
+     sections now). Unknown or unpermitted sections fall to the default,
+     so a hand-typed URL can never land on a blank page. --}}
+@php
+    $csKnown = ['connection', 'status', 'logs'];
+    if ($canManageLazada) { $csKnown[] = 'explorer'; $csKnown[] = 'automations'; }
+    $csSection = in_array(request('tab'), $csKnown, true) ? request('tab') : ($hasResult ? 'logs' : 'connection');
+@endphp
 <div class="cs-page"
      data-channel-settings
      data-tab-prefix="lz-tab-"
@@ -95,33 +104,10 @@
 </div>
 @endunless
 
-{{-- Five views of one subject, so this is the same segmented control the
-     orders pages use for their status filters rather than a second tab
-     grammar. API explorer and Automations are write-only tools (they call
-     Lazada directly and set the cron schedule) so a read-only operator does
-     not see them; Status mapping and API log show their data with the write
-     controls removed. --}}
-<div class="x-segment-bar">
-    <div class="x-segment" role="tablist" aria-label="Settings sections">
-        <button type="button" class="x-segment__item is-active" role="tab" aria-selected="true" id="lz-tab-connection-tab" aria-controls="lz-tab-connection" data-cs-tab="lz-tab-connection">Connection</button>
-        <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="lz-tab-status-tab" aria-controls="lz-tab-status" data-cs-tab="lz-tab-status">Status mapping</button>
-        @if($canManageLazada)
-            <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="lz-tab-explorer-tab" aria-controls="lz-tab-explorer" data-cs-tab="lz-tab-explorer">API explorer</button>
-        @endif
-        <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="lz-tab-logs-tab" aria-controls="lz-tab-logs" data-cs-tab="lz-tab-logs">
-            <span>API log</span>
-            @if($logCount > 0)<span class="x-segment__count">{{ number_format($logCount) }}</span>@endif
-        </button>
-        @if($canManageLazada)
-            <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="lz-tab-automations-tab" aria-controls="lz-tab-automations" data-cs-tab="lz-tab-automations">Automations</button>
-        @endif
-    </div>
-</div>
-
 {{-- ================================================================
      CONNECTION
      ================================================================ --}}
-<div id="lz-tab-connection" class="cs-panel" role="tabpanel" aria-labelledby="lz-tab-connection-tab">
+<div id="lz-tab-connection" class="cs-panel" @if($csSection !== 'connection') hidden @endif>
 
     <section class="fm-section">
         <div class="fm-section__head">
@@ -475,7 +461,7 @@
 {{-- ================================================================
      STATUS MAPPING
      ================================================================ --}}
-<div id="lz-tab-status" class="cs-panel" role="tabpanel" aria-labelledby="lz-tab-status-tab" hidden>
+<div id="lz-tab-status" class="cs-panel" @if($csSection !== 'status') hidden @endif>
 
     <section class="fm-section">
         <div class="fm-section__head">
@@ -569,7 +555,7 @@
      API EXPLORER
      ================================================================ --}}
 @if($canManageLazada)
-<div id="lz-tab-explorer" class="cs-panel" role="tabpanel" aria-labelledby="lz-tab-explorer-tab" hidden>
+<div id="lz-tab-explorer" class="cs-panel" @if($csSection !== 'explorer') hidden @endif>
     <section class="fm-section">
         <div class="fm-section__head">
             <h2 class="fm-section__title">API explorer</h2>
@@ -721,7 +707,7 @@
 {{-- ================================================================
      API LOG
      ================================================================ --}}
-<div id="lz-tab-logs" class="cs-panel" role="tabpanel" aria-labelledby="lz-tab-logs-tab" hidden>
+<div id="lz-tab-logs" class="cs-panel" @if($csSection !== 'logs') hidden @endif>
 
     <section class="fm-section">
         <div class="fm-section__head">
@@ -868,7 +854,7 @@
      AUTOMATIONS
      ================================================================ --}}
 @if($canManageLazada)
-<div id="lz-tab-automations" class="cs-panel" role="tabpanel" aria-labelledby="lz-tab-automations-tab" hidden>
+<div id="lz-tab-automations" class="cs-panel" @if($csSection !== 'automations') hidden @endif>
     <section class="fm-section">
         <div class="fm-section__head">
             <h2 class="fm-section__title">Scheduled jobs</h2>

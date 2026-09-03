@@ -14,6 +14,19 @@
      Every entry has already passed both permission gates in
      ChannelWorkspace::groups()/allows(), so nothing here re-asks. --}}
 @php
+    /* A section child (a ?tab= deep link into its item's own page) is
+       current when the operator stands on that page with that tab - the
+       path must match too, because orders pages use ?tab for their status
+       filters. */
+    $mbSectionOn = function (string $u): bool {
+        if (strtok($u, '?') !== url()->current()) {
+            return false;
+        }
+        parse_str((string) (parse_url($u, PHP_URL_QUERY) ?: ''), $q);
+
+        return isset($q['tab']) && $q['tab'] === request()->query('tab');
+    };
+
     $mbEntries = [];
 
     if ($channelHasOverview) {
@@ -44,7 +57,7 @@
                 'label' => $mbItems[0]['label'],
                 'items' => array_map(fn ($c) => [
                     'label' => $c['label'], 'url' => $c['url'],
-                    'active' => false, 'children' => [],
+                    'active' => $mbSectionOn($c['url']), 'children' => [],
                 ], $mbItems[0]['children']),
                 'active' => request()->routeIs($mbItems[0]['route']),
             ];
@@ -87,12 +100,13 @@
                     </button>
                     <div class="x-chnav__menu" x-show="open === {{ $mi }}" x-cloak>
                         @foreach($entry['items'] as $item)
-                            @php $mbOn = !empty($item['route']) && request()->routeIs($item['route']); @endphp
+                            @php $mbOn = ($item['active'] ?? false) || (!empty($item['route']) && request()->routeIs($item['route'])); @endphp
                             <a class="x-chnav__child {{ $mbOn ? 'is-active' : '' }}"
                                @if($mbOn) aria-current="page" @endif
                                href="{{ $item['url'] }}">{{ $item['label'] }}</a>
                             @foreach($item['children'] ?? [] as $mbChild)
-                                <a class="x-chnav__child x-chnav__child--section"
+                                <a class="x-chnav__child x-chnav__child--section {{ $mbSectionOn($mbChild['url']) ? 'is-active' : '' }}"
+                                   @if($mbSectionOn($mbChild['url'])) aria-current="page" @endif
                                    href="{{ $mbChild['url'] }}">{{ $mbChild['label'] }}</a>
                             @endforeach
                         @endforeach

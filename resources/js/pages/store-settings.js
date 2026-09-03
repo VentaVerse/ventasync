@@ -638,7 +638,13 @@ function initImport(root, config) {
         button.addEventListener('click', function () {
             const id = button.getAttribute('data-goto-tab');
             const tab = root.querySelector('[data-cs-tab="' + id + '"]');
-            if (tab) tab.click();
+            if (tab) { tab.click(); return; }
+            /* The in-page strip retired (2026-09-03); sections are
+               server-rendered off ?tab=, so the jump is a navigation. */
+            const prefix = root.getAttribute('data-tab-prefix') || '';
+            const url = new URL(window.location.href);
+            url.searchParams.set('tab', prefix && id.indexOf(prefix) === 0 ? id.slice(prefix.length) : id);
+            window.location.assign(url);
         });
     });
 

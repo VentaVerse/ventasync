@@ -60,6 +60,15 @@
     $erpStatusOptions = $erpOrderStatuses->map(fn ($s) => ['id' => (int) $s->order_status_id, 'name' => (string) $s->name])->values();
 @endphp
 
+{{-- The section shown, from the menubar's own ?tab= links (the
+     in-page tab strip retired 2026-09-03: the channel menubar carries the
+     sections now). Unknown or unpermitted sections fall to the default,
+     so a hand-typed URL can never land on a blank page. --}}
+@php
+    $csKnown = ['connection', 'orders', 'status', 'automations', 'sync'];
+    if ($canManageOpencart) { $csKnown[] = 'import'; }
+    $csSection = in_array(request('tab'), $csKnown, true) ? request('tab') : ('connection');
+@endphp
 <div class="cs-page"
      data-channel-settings
      data-store-settings
@@ -111,23 +120,10 @@
 </div>
 @endunless
 
-<div class="x-segment-bar">
-    <div class="x-segment" role="tablist" aria-label="Settings sections">
-        <button type="button" class="x-segment__item is-active" role="tab" aria-selected="true" id="oc-tab-connection-tab" aria-controls="oc-tab-connection" data-cs-tab="oc-tab-connection">Connection</button>
-        <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="oc-tab-orders-tab" aria-controls="oc-tab-orders" data-cs-tab="oc-tab-orders">Order sync</button>
-        <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="oc-tab-status-tab" aria-controls="oc-tab-status" data-cs-tab="oc-tab-status">Status mapping</button>
-        <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="oc-tab-automations-tab" aria-controls="oc-tab-automations" data-cs-tab="oc-tab-automations">Automations</button>
-        @if($canManageOpencart)
-            <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="oc-tab-import-tab" aria-controls="oc-tab-import" data-cs-tab="oc-tab-import">First import</button>
-        @endif
-        <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="oc-tab-sync-tab" aria-controls="oc-tab-sync" data-cs-tab="oc-tab-sync">Sync log</button>
-    </div>
-</div>
-
 {{-- ================================================================
      CONNECTION
      ================================================================ --}}
-<div id="oc-tab-connection" class="cs-panel" role="tabpanel" aria-labelledby="oc-tab-connection-tab">
+<div id="oc-tab-connection" class="cs-panel" @if($csSection !== 'connection') hidden @endif>
 
     @if($store->enabled)
     <section class="fm-section">
@@ -277,7 +273,7 @@
 {{-- ================================================================
      ORDER SYNC
      ================================================================ --}}
-<div id="oc-tab-orders" class="cs-panel" role="tabpanel" aria-labelledby="oc-tab-orders-tab" hidden>
+<div id="oc-tab-orders" class="cs-panel" @if($csSection !== 'orders') hidden @endif>
 
     <section class="fm-section">
         <div class="fm-section__head">
@@ -384,7 +380,7 @@
 {{-- ================================================================
      STATUS MAPPING
      ================================================================ --}}
-<div id="oc-tab-status" class="cs-panel" role="tabpanel" aria-labelledby="oc-tab-status-tab" hidden>
+<div id="oc-tab-status" class="cs-panel" @if($csSection !== 'status') hidden @endif>
     <section class="fm-section">
         <div class="fm-section__head">
             <h2 class="fm-section__title">Order status mapping</h2>
@@ -451,7 +447,7 @@
      SCHEDULING
      ================================================================ --}}
 @if($canManageOpencart)
-<div id="oc-tab-automations" class="cs-panel" role="tabpanel" aria-labelledby="oc-tab-automations-tab" hidden>
+<div id="oc-tab-automations" class="cs-panel" @if($csSection !== 'automations') hidden @endif>
     <section class="fm-section">
         <div class="fm-section__head">
             <h2 class="fm-section__title">Scheduled jobs</h2>
@@ -472,7 +468,7 @@
     </section>
 </div>
 
-<div id="oc-tab-import" class="cs-panel" role="tabpanel" aria-labelledby="oc-tab-import-tab" hidden>
+<div id="oc-tab-import" class="cs-panel" @if($csSection !== 'import') hidden @endif>
     <section class="fm-section">
         <div class="fm-section__head">
             <h2 class="fm-section__title">Import everything, once</h2>
@@ -544,7 +540,7 @@
 {{-- ================================================================
      RUN LOG
      ================================================================ --}}
-<div id="oc-tab-sync" class="cs-panel" role="tabpanel" aria-labelledby="oc-tab-sync-tab" hidden>
+<div id="oc-tab-sync" class="cs-panel" @if($csSection !== 'sync') hidden @endif>
     <section class="fm-section">
         <div class="fm-section__head">
             <h2 class="fm-section__title">Recent runs</h2>

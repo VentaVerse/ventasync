@@ -57,6 +57,14 @@
     $erpStatusOptions = $erpOrderStatuses->map(fn ($s) => ['id' => (int) $s->order_status_id, 'name' => (string) $s->name])->values();
 @endphp
 
+{{-- The section shown, from the menubar's own ?tab= links (the
+     in-page tab strip retired 2026-09-03: the channel menubar carries the
+     sections now). Unknown sections fall to the default, so a hand-typed
+     URL can never land on a blank page. --}}
+@php
+    $csKnown = ['connection', 'status', 'automations', 'logs', 'sync'];
+    $csSection = in_array(request('tab'), $csKnown, true) ? request('tab') : ('connection');
+@endphp
 <div class="cs-page"
      data-channel-settings
      data-store-settings
@@ -99,26 +107,10 @@
 </div>
 @endunless
 
-{{-- Five views of one subject, so this is the same segmented control the
-     orders pages use for their status filters rather than a second tab
-     grammar. --}}
-<div class="x-segment-bar">
-    <div class="x-segment" role="tablist" aria-label="Settings sections">
-        <button type="button" class="x-segment__item is-active" role="tab" aria-selected="true" id="vt-tab-connection-tab" aria-controls="vt-tab-connection" data-cs-tab="vt-tab-connection">Connection</button>
-        <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="vt-tab-status-tab" aria-controls="vt-tab-status" data-cs-tab="vt-tab-status">Status mapping</button>
-        <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="vt-tab-automations-tab" aria-controls="vt-tab-automations" data-cs-tab="vt-tab-automations">Automations</button>
-        <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="vt-tab-logs-tab" aria-controls="vt-tab-logs" data-cs-tab="vt-tab-logs">
-            <span>API log</span>
-            @if($apiLogCount > 0)<span class="x-segment__count">{{ number_format($apiLogCount) }}</span>@endif
-        </button>
-        <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="vt-tab-sync-tab" aria-controls="vt-tab-sync" data-cs-tab="vt-tab-sync">Sync log</button>
-    </div>
-</div>
-
 {{-- ================================================================
      CONNECTION
      ================================================================ --}}
-<div id="vt-tab-connection" class="cs-panel" role="tabpanel" aria-labelledby="vt-tab-connection-tab">
+<div id="vt-tab-connection" class="cs-panel" @if($csSection !== 'connection') hidden @endif>
 
     @if($store->enabled)
     <section class="fm-section">
@@ -288,7 +280,7 @@
 {{-- ================================================================
      STATUS MAPPING
      ================================================================ --}}
-<div id="vt-tab-status" class="cs-panel" role="tabpanel" aria-labelledby="vt-tab-status-tab" hidden>
+<div id="vt-tab-status" class="cs-panel" @if($csSection !== 'status') hidden @endif>
     <section class="fm-section">
         <div class="fm-section__head">
             <h2 class="fm-section__title">Order status mapping</h2>
@@ -359,7 +351,7 @@
 {{-- ================================================================
      SCHEDULING
      ================================================================ --}}
-<div id="vt-tab-automations" class="cs-panel" role="tabpanel" aria-labelledby="vt-tab-automations-tab" hidden>
+<div id="vt-tab-automations" class="cs-panel" @if($csSection !== 'automations') hidden @endif>
     <section class="fm-section">
         <div class="fm-section__head">
             <h2 class="fm-section__title">Scheduled jobs</h2>
@@ -387,7 +379,7 @@
 {{-- ================================================================
      API LOG
      ================================================================ --}}
-<div id="vt-tab-logs" class="cs-panel" role="tabpanel" aria-labelledby="vt-tab-logs-tab" hidden>
+<div id="vt-tab-logs" class="cs-panel" @if($csSection !== 'logs') hidden @endif>
 
     <section class="fm-section">
         <div class="fm-section__head">
@@ -478,7 +470,7 @@
 {{-- ================================================================
      SYNC LOG
      ================================================================ --}}
-<div id="vt-tab-sync" class="cs-panel" role="tabpanel" aria-labelledby="vt-tab-sync-tab" hidden>
+<div id="vt-tab-sync" class="cs-panel" @if($csSection !== 'sync') hidden @endif>
 
     {{-- The same pair the API log tab carries: what gets written, and a way
          to clear what already is. Per store, because one busy channel should
