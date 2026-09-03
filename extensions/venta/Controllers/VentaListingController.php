@@ -62,6 +62,162 @@ class VentaListingController extends Controller
         return redirect()->back()->with($r['tone'], $r['summary']);
     }
 
+    /**
+     * The Import page (cleanup point 11, the owner 2026-09-04): Venta joins
+     * the Big 3 - its own page under the Catalog menu holding the scan
+     * and the queue, Import / Link / Dismiss per row, store-scoped.
+     */
+    public function importPage(int $store)
+    {
+        $setting = VentaSetting::findOrFail($store);
+
+        return view('ext-venta::products.import', [
+            'setting' => $setting,
+            'store' => $store,
+            'unmatchedItems' => \Extensions\venta\Models\VentaUnmatchedItem::query()
+                ->where('venta_setting_id', $store)
+                ->where('status', 'unmatched')
+                ->orderBy('name')
+                ->get(),
+        ]);
+    }
+
+    /**
+     * Scan: page through the store's products and queue every SKU the
+     * catalog cannot place - not on a product, not on a variation, not
+     * already linked. Same diff the Big 3 run.
+     */
+    public function syncUnmatched(int $store)
+    {
+        $setting = VentaSetting::findOrFail($store);
+        if (! $setting->enabled) {
+            return redirect()->back()->with('error', 'That Venta store is turned off, so nothing was scanned.');
+        }
+
+        $client = new \Extensions\venta\Services\Venta\VentaClient($setting);
+        $pfx = (string) config('catalog.prefix');
+
+        $known = collect()
+            ->merge(DB::table($pfx . 'product')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
+            ->merge(DB::table($pfx . 'product')->whereNotNull('model')->where('model', '!=', '')->pluck('model'))
+            ->merge(DB::table($pfx . 'product_option_value')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
+            ->merge(DB::table('product_option_combinations')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
+            ->map(fn ($v) => strtolower(trim((string) $v)))
+            ->flip();
+
+        $found = 0;
+        $queued = 0;
+        $page = 1;
+        do {
+            $answer = $client->get('products', ['per_page' => 100, 'page' => $page]);
+            if (! ($answer['ok'] ?? false)) {
+                return redirect()->back()->with('error', 'Venta did not answer the scan: '
+                    . \App\Support\MarketplaceAnswer::plain('Venta', $answer)
+                    . ($found > 0 ? " ({$found} items were read before it stopped.)" : ''));
+            }
+            $items = array_values((array) (($answer['body']['data'] ?? $answer['body']) ?: []));
+            foreach ($items as $item) {
+                $sku = trim((string) ($item['sku'] ?? ''));
+                if ($sku === '') {
+                    continue;
+                }
+                $found++;
+                if (isset($known[strtolower($sku)])) {
+                    continue;
+                }
+                \Extensions\venta\Models\VentaUnmatchedItem::updateOrCreate(
+                    ['venta_setting_id' => $store, 'sku' => $sku],
+                    [
+                        'venta_product_id' => (int) ($item['id'] ?? 0) ?: null,
+                        'name' => \Illuminate\Support\Str::limit((string) ($item['name'] ?? ''), 250, ''),
+                        'price' => (float) ($item['price'] ?? 0),
+                        'quantity' => (int) ($item['quantity'] ?? 0),
+                        'image_url' => (string) (is_array($item['images'] ?? null)
+                            ? (is_array(($item['images'][0] ?? null)) ? ($item['images'][0]['url'] ?? $item['images'][0]['src'] ?? '') : ($item['images'][0] ?? ''))
+                            : ''),
+                        'variant_count' => is_array($item['variants'] ?? null) ? count($item['variants']) : 0,
+                        'status' => 'unmatched',
+                    ]
+                );
+                $queued++;
+            }
+            $page++;
+        } while (count($items) === 100 && $page <= 100);
+
+        return redirect()->back()->with('status',
+            "Scanned {$found} items on " . ($setting->store_name ?: 'Venta') . '. '
+            . ($queued > 0 ? "{$queued} not in the catalog are waiting below." : 'Everything matches a catalog SKU.'));
+    }
+
+    public function importUnmatched(int $store, int $unmatchedId, \Extensions\venta\Services\Venta\VentaItemImport $import)
+    {
+        $setting = VentaSetting::findOrFail($store);
+        $row = \Extensions\venta\Models\VentaUnmatchedItem::query()
+            ->where('venta_setting_id', $store)->findOrFail($unmatchedId);
+
+        $r = $import->import($setting, $row);
+
+        return redirect()->back()->with($r['ok'] ? 'status' : 'error', $r['message']);
+    }
+
+    public function linkUnmatched(Request $request, int $store, int $unmatchedId)
+    {
+        VentaSetting::findOrFail($store);
+        $row = \Extensions\venta\Models\VentaUnmatchedItem::query()
+            ->where('venta_setting_id', $store)->findOrFail($unmatchedId);
+
+        $data = $request->validate(['product_id' => 'required|integer|min:1']);
+        $pfx = (string) config('catalog.prefix');
+        if (! DB::table($pfx . 'product')->where('product_id', (int) $data['product_id'])->exists()) {
+            return redirect()->back()->with('error', 'That catalog product does not exist.');
+        }
+
+        VentaProductLink::updateOrCreate(
+            ['venta_setting_id' => $store, 'product_id' => (int) $data['product_id']],
+            ['venta_product_id' => $row->venta_product_id, 'sku' => $row->sku]
+        );
+        $row->update(['status' => 'linked', 'linked_product_id' => (int) $data['product_id']]);
+
+        return redirect()->back()->with('status', 'Linked "' . ($row->name ?: $row->sku) . '" to catalog product #' . $data['product_id'] . '.');
+    }
+
+    public function dismissUnmatched(int $store, int $unmatchedId)
+    {
+        VentaSetting::findOrFail($store);
+        \Extensions\venta\Models\VentaUnmatchedItem::query()
+            ->where('venta_setting_id', $store)->findOrFail($unmatchedId)
+            ->update(['status' => 'dismissed']);
+
+        return redirect()->back()->with('status', 'Dismissed. It will not be listed again unless a scan finds it changed.');
+    }
+
+    /** The Link typeahead's catalog search, same JSON the Big 3 serve. */
+    public function searchCatalog(Request $request, int $store)
+    {
+        VentaSetting::findOrFail($store);
+        $q = trim((string) $request->query('q', ''));
+        if (strlen($q) < 2) {
+            return response()->json(['items' => []]);
+        }
+
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+        $rows = DB::table($pfx . 'product as p')
+            ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
+                $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
+            })
+            ->where(function ($w) use ($q) {
+                $w->where('pd.name', 'like', "%{$q}%")
+                    ->orWhere('p.sku', 'like', "%{$q}%")
+                    ->orWhere('p.model', 'like', "%{$q}%");
+            })
+            ->orderBy('p.product_id', 'desc')
+            ->limit(20)
+            ->get(['p.product_id', 'pd.name', 'p.sku', 'p.model']);
+
+        return response()->json(['items' => $rows]);
+    }
+
     public function index(Request $request, int $store)
     {
         $setting = VentaSetting::findOrFail($store);

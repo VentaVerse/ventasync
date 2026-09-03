@@ -2626,6 +2626,36 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "channels/venta/{store}/products/import",
+        "name": "ext.venta.products.import"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/venta/{store}/products/search-catalog",
+        "name": "ext.venta.products.search_catalog"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/products/unmatched/sync",
+        "name": "ext.venta.products.sync_unmatched"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/products/unmatched/{unmatchedId}/dismiss",
+        "name": "ext.venta.products.dismiss_unmatched"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/products/unmatched/{unmatchedId}/import",
+        "name": "ext.venta.products.import_unmatched"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/products/unmatched/{unmatchedId}/link",
+        "name": "ext.venta.products.link_unmatched"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "channels/venta/{store}/settings",
         "name": "ext.venta.settings.show"
     },
