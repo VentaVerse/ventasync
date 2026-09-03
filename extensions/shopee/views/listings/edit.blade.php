@@ -311,16 +311,22 @@
                 <h2 class="fm-section__title">Not on Shopee yet</h2>
                 @if($canManage && empty($missing))
                     <div class="fm-section__aside">
-                        {{-- Opens the review form, prefilled from this page
-                             (#149): every push shows what is about to go. --}}
-                        <x-ui.button variant="primary" :href="route('ext.shopee.products.push', $product->product_id)">Push to Shopee</x-ui.button>
+                        {{-- Push is a verb on THIS page now (2026-09-03, the
+                             one-editor merge; the separate push form is
+                             gone). #149's see-before-it-goes holds: this
+                             page IS what goes up. --}}
+                        <form method="POST" action="{{ route('ext.shopee.products.push_direct', $product->product_id) }}" data-slow-action
+                              data-confirm="Push this product to Shopee now, using the settings and content on this page? Its variations go with it." data-confirm-tone="primary" data-confirm-verb="Push">
+                            @csrf
+                            <x-ui.button type="submit" variant="primary">Push to Shopee</x-ui.button>
+                        </form>
                     </div>
                 @endif
             </div>
             @if(empty($missing))
-                <p class="fm-section__note">Everything the push needs is set. The one-click push uses the settings and content below.</p>
+                <p class="fm-section__note">Everything the push needs is set. Push to Shopee sends it up using the settings and content below.</p>
             @else
-                <p class="fm-section__note">Before the one-click push can run, this listing still needs {{ implode(', ', $missing) }}. Set what is missing below and save, or use the <a href="{{ route('ext.shopee.products.push', $product->product_id) }}">push form</a>, which walks through all of it including images.</p>
+                <p class="fm-section__note">Before it can go to Shopee, this listing still needs {{ implode(', ', $missing) }}. Set what is missing below and save; the push button appears when nothing is left.</p>
             @endif
         </section>
     @endif
@@ -631,6 +637,14 @@
         <div class="fm-bar__actions">
             <a class="fm-cancel" href="{{ route('ext.shopee.products.index') }}">{{ $canManage ? 'Cancel' : 'Back' }}</a>
             @if($canManage)
+                @if(!$link)
+                    {{-- One trip for the common case: save what was just
+                         typed, then push - the save half runs first, so a
+                         refusal never loses the typing. The controller
+                         re-checks readiness after saving and names what is
+                         still missing instead of pushing blind. --}}
+                    <x-ui.button type="submit" form="listing-form" name="push_after" value="1">Save and push to Shopee</x-ui.button>
+                @endif
                 <x-ui.button type="submit" form="listing-form" variant="primary">Save listing</x-ui.button>
             @endif
         </div>

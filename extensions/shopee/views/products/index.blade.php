@@ -741,12 +741,24 @@
 
                     @if($canManageShopee)
                         @if(!$link)
-                            {{-- One push, and it always opens the review form
-                                 first (#149): the operator sees what goes up
-                                 before it goes. The one-click push that sat
-                                 beside it is gone from the menu; the route
-                                 stays for the bulk bar and the group page. --}}
-                            <a class="x-menu__item" href="{{ route('ext.shopee.products.push', $p->product_id) }}">Push to Shopee</a>
+                            {{-- The one-editor merge (2026-09-03): a READY
+                                 listing pushes directly, with a confirm that
+                                 names its settings as the source; anything
+                                 incomplete lands in the listing editor, which
+                                 names what is missing. #149's see-before-it-
+                                 goes survives as the editor itself - it shows
+                                 everything that would go up. --}}
+                            @php $rowReady = $pushReady[$p->product_id]['ready'] ?? false; @endphp
+                            @if($rowReady)
+                                <form method="POST" action="{{ route('ext.shopee.products.push_direct', $p->product_id) }}" data-slow-action
+                                      data-confirm="Push this product to Shopee now, using its saved listing settings (category, couriers, price rule)? Its variations go with it." data-confirm-tone="primary" data-confirm-verb="Push">
+                                    @csrf
+                                    <button type="submit" class="x-menu__item">Push to Shopee</button>
+                                </form>
+                            @else
+                                <a class="x-menu__item" href="{{ route('ext.shopee.listings.edit', $p->product_id) }}"
+                                   title="Not ready yet - the listing page names what is still missing">Push to Shopee</a>
+                            @endif
                             <form method="POST" action="{{ route('ext.shopee.products.sync_shopee_id', $p->product_id) }}" data-slow-action>
                                 @csrf
                                 <button type="submit" class="x-menu__item">Match Shopee ID</button>

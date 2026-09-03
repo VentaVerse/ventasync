@@ -11,7 +11,8 @@ use Illuminate\Support\Facades\Http;
 
 /**
  * The shared machinery of putting an item ON Shopee (#184 decomposition).
- * Four surfaces create items - the push form, the one-click row push, the
+ * Three surfaces create items - the one-click push (rows and the listing
+ * editor since the 2026-09-03 one-editor merge, when the push form died), the
  * index bulk, the group send - and until now each carried its own copy of
  * the image upload loop, the add_item call, and the variations-or-undo
  * tail; ShopeeProductController and ShopeeProductGroupController even held

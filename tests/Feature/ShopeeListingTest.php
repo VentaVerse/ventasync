@@ -137,29 +137,40 @@ class ShopeeListingTest extends TestCase
         ]);
     }
 
-    public function test_the_push_form_gives_birth_to_the_listing_record(): void
+    public function test_the_listing_editor_gives_birth_to_the_listing_record_and_pushes(): void
     {
+        /* The push form died in the one-editor merge (2026-09-03): the
+           listing editor is where a listing is born now, and Save and push
+           is the one trip that creates the record and publishes it. The
+           rule is stated directly (markup_fixed 70 over a 300 core), never
+           a price (card #97 holds by construction). */
         $productId = $this->seedProduct(300.0);
+        // Readiness demands the category's attribute sheet has been read
+        // once; an empty sheet has no mandatory answers to give.
+        \Extensions\shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 100200], ['attributes' => []]);
 
         $this->actingAs($this->manager())
-            ->post(route('ext.shopee.products.push.post', $productId), [
+            ->post(route('ext.shopee.listings.update', $productId), [
+                'shopee_category_id' => 100200, 'logistic_ids' => [8003],
+                'markup_fixed' => 70,
                 'item_name' => 'Shopee-only name', 'description' => 'Shopee-only description.',
-                'original_price' => 370.00, 'normal_stock' => 5, 'item_sku' => 'LST-SKU-1',
-                'weight' => 0.5, 'package_length' => 10, 'package_width' => 10, 'package_height' => 5,
-                'category_id' => 100200, 'logistic_ids' => [8003],
-                'selected_images' => ['catalog/__listing-test.png'],
+                'push_after' => 1,
             ]);
 
         $listing = ShopeeListing::query()->where('product_id', $productId)->first();
-        $this->assertNotNull($listing, 'The form push must create the listing record.');
+        $this->assertNotNull($listing, 'Save and push must create the listing record.');
         $this->assertSame(100200, (int) $listing->shopee_category_id);
         $this->assertSame([8003], $listing->logistic_ids);
-        // The operator priced it at 370 over a 300 core: the rule stored is
-        // core + 70, never the price itself (card #97).
-        $this->assertSame(70.0, $listing->markup_fixed);
-        $this->assertSame('form', $listing->last_push_source);
-        $this->assertSame(370.0, (float) $listing->last_push_settings['price']);
+        $this->assertSame(70.0, (float) $listing->markup_fixed);
         $this->assertSame('Shopee-only name', $listing->item_name);
+
+        // The push half ran on what was just saved: rule over the core.
+        $add = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/add_item');
+        $this->assertNotNull($add, 'Save and push must reach add_item.');
+        $this->assertSame(370.0, (float) $add['body']['original_price']);
+        $listing->refresh();
+        $this->assertSame('listing', $listing->last_push_source);
+        $this->assertSame(370.0, (float) $listing->last_push_settings['price']);
     }
 
     public function test_one_click_push_refuses_a_product_with_no_listing_instead_of_borrowing(): void

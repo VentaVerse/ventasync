@@ -335,11 +335,23 @@ class ShopeeProductController extends Controller
             $pageGroupMap[$pid] = $groupMap[$pid] ?? [];
         }
 
+        /* The push preflight (2026-09-03, the one-editor merge): a row not
+         * yet on Shopee offers a DIRECT push only when its listing would
+         * certainly be accepted; otherwise the same words lead into the
+         * listing editor, which names what is still missing. Computed for
+         * the unlisted rows on this page only. */
+        $unlistedIds = $products->filter(fn ($p) => !isset($shopeeLinks[(int) $p->product_id]))
+            ->pluck('product_id')->map(fn ($v) => (int) $v)->values()->all();
+        $pushReady = $unlistedIds !== []
+            ? app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)->forProducts($unlistedIds)
+            : [];
+
         return view('ext-shopee::products.index', [
             'products' => $products,
             /* The relist preflight's page-side half (#191): a row whose
              * Relist would certainly be refused offers the fix instead. */
             'parcelGaps' => $this->parcelGapFor($products->pluck('product_id')->map(fn ($v) => (int) $v)->all()),
+            'pushReady' => $pushReady,
             'q' => $q,
             'shopeeLinks' => $shopeeLinks,
             'sort' => $sort,
@@ -532,338 +544,12 @@ class ShopeeProductController extends Controller
     }
 
 
-    public function pushForm(Request $request, int $productId, ShopeeClient $client)
-    {
-        $pfx = (string) config('catalog.prefix');
-        $langId = (int) config('catalog.default_language_id');
-
-        $product = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
-                $j->on('p.product_id', '=', 'pd.product_id')
-                  ->where('pd.language_id', '=', $langId);
-            })
-            ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
-            ->where('p.product_id', $productId)
-            ->first([
-                'p.product_id', 'pd.name', 'pd.description', 'p.image',
-                'p.model', 'p.sku', 'p.price', 'p.quantity',
-                'p.weight', 'p.length', 'p.width', 'p.height',
-                'p.manufacturer_id',
-                'm.name as manufacturer_name',
-            ]);
-
-        if (!$product) {
-            abort(404, 'Product not found.');
-        }
-
-        // Check product status by fetching it separately (not in the join query)
-        $erpStatus = DB::table($pfx . 'product')->where('product_id', $productId)->value('status');
-        if ((int) $erpStatus === 0) {
-            return redirect()->route('ext.shopee.products.index')
-                ->with('error', 'Cannot push a disabled product to Shopee. Enable it first.');
-        }
-
-        $product->name = html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
-
-        $existingLink = ShopeeProductLink::query()->where('product_id', $productId)->first();
-        if ($existingLink) {
-            return redirect()->route('ext.shopee.products.index')
-                ->with('error', 'Product is already listed on Shopee (Item ID: ' . $existingLink->shopee_item_id . ').');
-        }
-
-        $images = [];
-        if (!empty($product->image)) {
-            $images[] = $product->image;
-        }
-        $additionalImages = DB::table($pfx . 'product_image')
-            ->where('product_id', $productId)
-            ->orderBy('sort_order')
-            ->pluck('image')
-            ->toArray();
-        $images = array_merge($images, $additionalImages);
-
-
-        $logistics = $this->fetchLogistics();
-
-        /* Prefill from the product's OWN listing record (#96/#97), never
-         * from a borrowed group. The borrow used to take the FIRST group
-         * whose filter matched, and with every live group's filters empty
-         * that meant primary-key order chose the markup. A product with no
-         * listing yet starts from the catalog values, visibly. */
-        $listing = ShopeeListing::query()->where('product_id', $productId)->first();
-        $groupLogisticIds = $listing ? ($listing->logistic_ids ?? []) : [];
-        $groupCategoryId = $listing ? ($listing->shopee_category_id ?? null) : null;
-
-        // Apply product group price markup (query params from Add Product page override group)
-        $basePrice = (float) $product->price;
-        $qMarkupPct = $request->query('markup_percent');
-        $qMarkupFixed = $request->query('markup_fixed');
-        $qCategoryId = $request->query('category_id');
-
-        if ($qMarkupPct !== null || $qMarkupFixed !== null) {
-            $markupPct = $qMarkupPct !== null ? (float) $qMarkupPct : 0;
-            $markupFixed = $qMarkupFixed !== null ? (float) $qMarkupFixed : 0;
-        } else {
-            $markupPct = $listing ? (float) ($listing->markup_percent ?? 0) : 0;
-            $markupFixed = $listing ? (float) ($listing->markup_fixed ?? 0) : 0;
-        }
-        $suggestedPrice = round($basePrice + ($basePrice * $markupPct / 100) + $markupFixed, 2);
-
-        if ($qCategoryId !== null) {
-            $groupCategoryId = (int) $qCategoryId ?: null;
-        }
-
-        /* The category's attribute sheet (#98, form half): a FIRST push can
-         * answer what the category asks right here, instead of going up
-         * bare and filling attributes on the listing afterwards. Same
-         * template, same partial, same reload-on-category-change as the
-         * listing page and the group form. */
-        $formCategoryId = (int) ($groupCategoryId ?? 0);
-        $groupController = app(ShopeeProductGroupController::class);
-        if ($formCategoryId > 0) {
-            $groupController->ensureTemplate($formCategoryId, app(ShopeeClient::class));
-        }
-        $sheet = $groupController->normalizedAttributesFor($formCategoryId);
-
-        return view('ext-shopee::products.push', [
-            'product' => $product,
-            'images' => $images,
-            'logistics' => $logistics,
-            'groupLogisticIds' => $groupLogisticIds,
-            'groupCategoryId' => $groupCategoryId,
-            'groupName' => $listing ? 'this product\'s own listing' : null,
-            'suggestedPrice' => $suggestedPrice,
-            'markupPercent' => $markupPct != 0 ? $markupPct : null,
-            'markupFixed' => $markupFixed != 0 ? $markupFixed : null,
-            'attrTemplate' => $sheet['template'],
-            'attrRows' => $sheet['attributes'],
-            'savedAttributes' => $listing->attribute_values ?? [],
-        ]);
-    }
-
-    public function push(Request $request, int $productId, ShopeeClient $client)
-    {
-        $request->validate([
-            'item_name' => 'required|string|max:255',
-            'description' => 'required|string|max:5000',
-            // The rule (#150). original_price stays accepted for a caller
-            // that states a final figure; the form no longer sends it.
-            'markup_percent' => 'nullable|numeric|min:-100|max:1000',
-            'markup_fixed' => 'nullable|numeric|min:-1000000|max:1000000',
-            'original_price' => 'nullable|numeric|min:0.01',
-            'normal_stock' => 'required|integer|min:0', // mapped to seller_stock in payload
-            'item_sku' => 'nullable|string|max:100',
-            'weight' => 'required|numeric|min:0.01',
-            'package_length' => 'required|integer|min:1',
-            'package_width' => 'required|integer|min:1',
-            'package_height' => 'required|integer|min:1',
-            'category_id' => 'required|integer|min:1',
-            'logistic_ids' => 'required|array|min:1',
-            'logistic_ids.*' => 'integer',
-            'selected_images' => 'required|array|min:1',
-            'selected_images.*' => 'string',
-            'attributes' => 'nullable|array',
-            'attributes.*' => 'nullable|string|max:500',
-        ]);
-
-        /* The price is computed HERE, from the rule, over the catalog price
-         * at this moment (#150). A final figure is accepted only when no
-         * rule was given, for the callers that still speak that way. */
-        $pfxForPrice = (string) config('catalog.prefix');
-        $corePrice = (float) DB::table($pfxForPrice . 'product')->where('product_id', $productId)->value('price');
-        $ruleGiven = $request->filled('markup_percent') || $request->filled('markup_fixed');
-        $markupPercent = $ruleGiven ? (float) $request->input('markup_percent', 0) : null;
-        $markupFixed = $ruleGiven ? (float) $request->input('markup_fixed', 0) : null;
-        if ($ruleGiven) {
-            $pushedPrice = round($corePrice + ($corePrice * $markupPercent / 100) + $markupFixed, 2);
-        } elseif ($request->filled('original_price')) {
-            $pushedPrice = (float) $request->input('original_price');
-        } else {
-            $pushedPrice = round($corePrice, 2);
-        }
-        if ($pushedPrice <= 0) {
-            return back()->withInput()->withErrors(['markup_fixed' => 'That rule prices the product at ' . \App\Support\Money::base($pushedPrice) . '. Shopee needs a price above zero.']);
-        }
-
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
-            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
-            return redirect()->back()
-                ->with('error', "Missing Shopee {$modeLabel} settings.");
-        }
-
-        $existingLink = ShopeeProductLink::query()->where('product_id', $productId)->first();
-        if ($existingLink) {
-            return redirect()->back()
-                ->with('error', 'Product already listed on Shopee (Item ID: ' . $existingLink->shopee_item_id . ').');
-        }
-
-        // Skip disabled products
-        $pfx = (string) config('catalog.prefix');
-        $erpStatus = DB::table($pfx . 'product')->where('product_id', $productId)->value('status');
-        if ((int) $erpStatus === 0) {
-            return redirect()->back()
-                ->with('error', 'Cannot push a disabled product to Shopee. Enable it first.');
-        }
-
-        // Step 1: Upload images
-        $create = app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class);
-        $up = $create->uploadImages($client, $auth, (array) $request->input('selected_images', []));
-        if ($up['error'] !== null) {
-            return redirect()->route('ext.shopee.products.push', $productId)
-                ->with('error', $up['error'])
-                ->withInput();
-        }
-        $imageIds = $up['ids'];
-
-        if (empty($imageIds)) {
-            return redirect()->route('ext.shopee.products.push', $productId)
-                ->with('error', 'No images were uploaded successfully.')
-                ->withInput();
-        }
-
-        /* #192: what Shopee will knowably refuse about the variations is
-         * checked BEFORE the item exists. A parent that goes up and then
-         * loses its variations is a half-listed item selling the wrong
-         * thing - the owner's #2062 - so a knowable refusal (the 5x price
-         * ratio, the 50-variation cap) stops the push at the door. */
-        $vPct = $ruleGiven ? (float) $markupPercent : 0.0;
-        $vFixed = $ruleGiven ? (float) $markupFixed : round($pushedPrice - $corePrice, 2);
-        $refusal = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)
-            ->refusalFor($productId, fn (float $core) => round($core + ($core * $vPct / 100) + $vFixed, 2));
-        if ($refusal !== null) {
-            return redirect()->route('ext.shopee.products.push', $productId)
-                ->with('error', 'Not pushed: ' . $refusal)
-                ->withInput();
-        }
-
-        // Step 2: Build add_item payload
-        $logisticInfo = [];
-        foreach ($request->input('logistic_ids', []) as $lid) {
-            $logisticInfo[] = ['logistic_id' => (int) $lid, 'enabled' => true];
-        }
-
-        $payload = [
-            'original_price' => $pushedPrice,
-            'description' => (string) $request->input('description'),
-            'item_name' => (string) $request->input('item_name'),
-            'seller_stock' => [['stock' => (int) $request->input('normal_stock')]],
-            'item_sku' => (string) ($request->input('item_sku') ?? ''),
-            'weight' => (float) $request->input('weight'),
-            'dimension' => [
-                'package_length' => (int) $request->input('package_length'),
-                'package_width' => (int) $request->input('package_width'),
-                'package_height' => (int) $request->input('package_height'),
-            ],
-            'category_id' => (int) $request->input('category_id'),
-            'image' => ['image_id_list' => $imageIds],
-            'logistic_info' => $logisticInfo,
-            'brand' => ['brand_id' => 0, 'original_brand_name' => 'No Brand'],
-        ];
-
-        /* The answers the operator just gave on THIS form (#98, form
-         * half); anything already held on the listing fills the gaps, so
-         * a re-push after unlink does not forget old answers. */
-        $postedAttributes = array_filter(
-            array_map(fn ($v) => trim((string) $v), (array) $request->input('attributes', [])),
-            fn ($v) => $v !== ''
-        );
-        $existingListing = ShopeeListing::query()->where('product_id', $productId)->first();
-        $mergedAttributes = $postedAttributes + ($existingListing?->attribute_values ?? []);
-        $attributeList = app(ShopeeProductGroupController::class)
-            ->attributeListFromSaved($mergedAttributes, (int) $request->input('category_id'));
-        if (!empty($attributeList)) {
-            $payload['attribute_list'] = $attributeList;
-        }
-
-        $added = $create->addItem($client, $auth, $payload, 'shopee.products.add_item');
-        if (!$added['ok']) {
-            return redirect()->route('ext.shopee.products.push', $productId)
-                ->with('error', 'Push failed: ' . $added['error'])->withInput();
-        }
-
-        $itemId = $added['item_id'];
-        if (!$itemId) {
-            return redirect()->route('ext.shopee.products.push', $productId)
-                ->with('error', 'Shopee accepted the push but returned no item id, so the link could not be recorded. Run Check against Shopee to adopt the item it created.')->withInput();
-        }
-
-        ShopeeProductLink::create([
-            'product_id' => $productId,
-            'shopee_item_id' => (int) $itemId,
-            'shopee_model_id' => null,
-            'sku' => $request->input('item_sku') ?? '',
-        ]);
-
-        /* THE PUSH FORM IS WHERE A LISTING'S SETTINGS ARE BORN (#96/#97).
-         * What the operator just chose - category, couriers, content - is
-         * saved as the product's OWN listing record, so every later
-         * one-click push and price sync uses these settings instead of
-         * borrowing a group's by primary-key order.
-         *
-         * The markup rule: the form posts a final price, so the rule the
-         * operator expressed is "this listing sells at core plus the
-         * difference". Stored as a fixed markup; price is NEVER stored
-         * (card #97), so a core price change moves this listing with it. */
-        ShopeeListing::query()->updateOrCreate(
-            ['product_id' => $productId],
-            [
-                'shopee_category_id' => (int) $request->input('category_id'),
-                'logistic_ids' => array_map('intval', (array) $request->input('logistic_ids', [])),
-                // The rule as stated; a final figure becomes a fixed markup.
-                'markup_percent' => $ruleGiven ? $markupPercent : 0,
-                'markup_fixed' => $ruleGiven ? $markupFixed : round($pushedPrice - $corePrice, 2),
-                'item_name' => (string) $request->input('item_name'),
-                'description' => (string) $request->input('description'),
-                'attribute_values' => $mergedAttributes ?: null,
-                'weight' => (float) $request->input('weight'),
-                'package_length' => (int) $request->input('package_length'),
-                'package_width' => (int) $request->input('package_width'),
-                'package_height' => (int) $request->input('package_height'),
-                'last_pushed_at' => now(),
-                'last_push_source' => 'form',
-                'last_push_settings' => [
-                    'category_id' => (int) $request->input('category_id'),
-                    'logistic_ids' => array_map('intval', (array) $request->input('logistic_ids', [])),
-                    'price' => $pushedPrice,
-                    'markup_percent' => $ruleGiven ? $markupPercent : 0,
-                    'markup_fixed' => $ruleGiven ? $markupFixed : round($pushedPrice - $corePrice, 2),
-                ],
-            ]
-        );
-
-        // The mirror learns the pushed item's real status at once (it can
-        // be NORMAL or REVIEWING; only Shopee knows which), so the row
-        // never reads "Not checked yet" for a push made a minute ago.
-        app(\Extensions\shopee\Services\Shopee\ShopeeLiveListing::class)->confirm($auth, [(int) $itemId]);
-
-        // Variations ride the push: one Shopee model per combination,
-        // priced by the rule the listing just stored.
-        $savedListing = ShopeeListing::query()->where('product_id', $productId)->first();
-        $rode = $create->variationsRideOrUndo(
-            $client, $auth, (int) $itemId, $productId,
-            fn (float $core) => $savedListing->priceFor($core)
-        );
-
-        if (!$rode['ok']) {
-            /* #192: half-listed is worse than unlisted - the service took
-             * the just-created item down again; report ONE honest failure. */
-            return redirect()->route('ext.shopee.products.index')->with('error', $rode['undone']
-                ? 'Not pushed: the variations were refused - ' . $rode['message']
-                    . ' The item was removed from Shopee again, so nothing half-listed stays up.'
-                : 'The variations were refused - ' . $rode['message']
-                    . ' Shopee also refused to remove the half-created item (ID ' . $itemId . '). Delete it in Seller Centre, then push again.');
-        }
-
-        $flash = 'Product pushed to Shopee. Item ID: ' . $itemId . '. Its settings are saved on the listing for one-click pushes and price sync.';
-        if ($rode['models'] !== null) {
-            $flash .= ' ' . $rode['models'] . ' variations went with it.';
-        }
-
-        return redirect()->route('ext.shopee.products.index')->with('status', $flash);
-    }
-
+    /* pushForm() and push() - the manual push review form - lived here
+     * until the one-editor merge (the owner, 2026-09-03). The listing editor
+     * is the single place a listing is prepared now, and the push is a
+     * verb on it (Save and push / Push to Shopee via pushDirect below);
+     * readiness names what is incomplete BEFORE any call, which is the
+     * see-before-it-goes guarantee #149 built the form for. */
     // ── Push Direct (auto-populate from product + product group) ─────────
 
     public function pushDirect(int $productId, ShopeeClient $client)
@@ -909,14 +595,14 @@ class ShopeeProductController extends Controller
          * are empty, so primary-key order chose the markup and nothing on
          * screen said which group priced the push. It succeeded at the
          * wrong price, silently. Now the one-click push runs only on the
-         * product's OWN listing settings - born on the push form - and
+         * product's OWN listing settings - saved on its listing page - and
          * says exactly what to do when there are none. */
         $listing = ShopeeListing::query()->where('product_id', $productId)->first();
 
         if (!$listing || !$listing->pushable()) {
             return redirect()->back()->with('error',
                 'Push failed: this product has no Shopee listing settings yet. '
-                . 'Push it once from the push form (its category, couriers and price rule are saved there), '
+                . 'Open its listing (Listings → Open listing) and save its category, couriers and price rule, '
                 . 'or push it from a preset whose settings you mean.');
         }
 
@@ -1253,7 +939,7 @@ class ShopeeProductController extends Controller
                 $listing->markup_fixed = $sharedFixed;
             }
             if (!$listing->pushable()) {
-                $errors[] = "#{$productId}: no listing settings - push it once from the push form, or from a preset";
+                $errors[] = "#{$productId}: no listing settings - open its listing and save them, or push from a preset";
                 $errCount++;
                 continue;
             }
@@ -2851,7 +2537,7 @@ class ShopeeProductController extends Controller
         return redirect()->back()->with('status', $r['message'] . ($r['added'] > 0 ? ' Links updated.' : ''));
     }
 
-    public function saveListing(Request $request, int $productId)
+    public function saveListing(Request $request, int $productId, ShopeeClient $client)
     {
         $pfx = (string) config('catalog.prefix');
         $exists = DB::table($pfx . 'product')->where('product_id', $productId)->exists();
@@ -2913,6 +2599,29 @@ class ShopeeProductController extends Controller
                 ) ?: null,
             ]
         );
+
+        /* Save and push (2026-09-03, the one-editor merge): the save half
+         * has already landed, so a refusal below never loses the typing.
+         * Readiness is re-checked on what was JUST saved and every gap is
+         * named - the button never leads to a refusal it could have
+         * spelled out. */
+        if ($request->boolean('push_after')) {
+            if (ShopeeProductLink::query()->where('product_id', $productId)->exists()) {
+                return redirect()->route('ext.shopee.listings.edit', $productId)
+                    ->with('status', 'Listing saved. It is already on Shopee - use Push update to send these settings onto the live item.');
+            }
+
+            $readiness = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)
+                ->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => ['its readiness could not be checked']];
+
+            if (!$readiness['ready']) {
+                return redirect()->route('ext.shopee.listings.edit', $productId)
+                    ->with('error', 'Saved, but not pushed: this listing still needs '
+                        . implode(', ', $readiness['missing']) . '. Set what is missing and try again.');
+            }
+
+            return $this->pushDirect($productId, $client);
+        }
 
         return redirect()->route('ext.shopee.listings.edit', $productId)
             ->with('status', 'Listing saved. These settings drive the next push and price sync.');

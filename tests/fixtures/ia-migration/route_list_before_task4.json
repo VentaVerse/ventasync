@@ -1790,16 +1790,6 @@
         "name": "ext.shopee.products.delete"
     },
     {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/{store}/products/{productId}/push",
-        "name": "ext.shopee.products.push"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/{store}/products/{productId}/push",
-        "name": "ext.shopee.products.push.post"
-    },
-    {
         "method": "POST",
         "uri": "channels/shopee/{store}/products/{productId}/push-direct",
         "name": "ext.shopee.products.push_direct"

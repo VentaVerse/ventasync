@@ -682,14 +682,38 @@ class ShopeeListingPageTest extends TestCase
         $this->getResponses['/api/v2/product/get_item_base_info'] =
             ['ok' => true, 'status' => 200, 'body' => ['response' => ['item_list' => []]]];
 
-        // #149 (2026-08-26): the row menu no longer publishes anything
-        // itself. Its one push opens the review form, so nothing there
-        // needs a confirmation, and the one-click confirm is gone with it.
+        /* The one-editor merge (2026-09-03) settled #149's concern the
+           other way around: the row pushes directly ONLY when readiness
+           says Shopee would accept it, and then it asks first - the very
+           confirmation this critique wanted. The listing above is ready
+           (its category's sheet is seeded empty), so the row must offer
+           the confirmed direct push. */
+        \Extensions\shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 100013], ['attributes' => []]);
+
         $this->actingAs($this->manager())
             ->get(route('ext.shopee.products.index'))
-            ->assertSee(route('ext.shopee.products.push', $productId), false)
-            ->assertDontSee('Push this product to Shopee now?')
-            ->assertDontSee('Review push settings');
+            ->assertSee(route('ext.shopee.products.push_direct', $productId), false)
+            ->assertSee('Push this product to Shopee now, using its saved listing settings', false);
+    }
+
+    public function test_an_unready_rows_push_leads_into_the_listing_editor(): void
+    {
+        /* The other half of the merge: no settings at all means no direct
+           push - the same words lead into the editor, which names what is
+           missing (proper error handling, the owner 2026-09-03). */
+        $productId = $this->seedProduct();
+        \Extensions\shopee\Models\ShopeeProductGroup::create([
+            'name' => 'Unready scope', 'catalog_category_ids' => [], 'manufacturer_ids' => [],
+            'shopee_category_id' => 100013, 'logistic_ids' => [8003],
+        ]);
+        $this->fakeItemList(['NORMAL' => [], 'UNLIST' => [], 'BANNED' => [], 'REVIEWING' => []]);
+        $this->getResponses['/api/v2/product/get_item_base_info'] =
+            ['ok' => true, 'status' => 200, 'body' => ['response' => ['item_list' => []]]];
+
+        $this->actingAs($this->manager())
+            ->get(route('ext.shopee.products.index'))
+            ->assertDontSee(route('ext.shopee.products.push_direct', $productId), false)
+            ->assertSee('Not ready yet - the listing page names what is still missing', false);
     }
 
     public function test_the_item_id_links_to_the_live_listing(): void

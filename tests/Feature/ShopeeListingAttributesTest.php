@@ -185,8 +185,10 @@ class ShopeeListingAttributesTest extends TestCase
             ->assertDontSee('required attributes');
     }
 
-    public function test_the_push_form_renders_the_sheet_for_the_prefilled_category(): void
+    public function test_the_listing_editor_renders_the_sheet_for_the_saved_category(): void
     {
+        /* The push form died in the one-editor merge (2026-09-03); the
+           listing editor is where the sheet is answered now. */
         $productId = $this->seedProduct();
         ShopeeListing::query()->create([
             'product_id' => $productId,
@@ -194,38 +196,36 @@ class ShopeeListingAttributesTest extends TestCase
         ]);
 
         $r = $this->actingAs($this->manager())
-            ->get(route('ext.shopee.products.push', $productId));
+            ->get(route('ext.shopee.listings.edit', $productId));
 
         $r->assertOk();
-        $r->assertSee('Category attributes');
         $r->assertSee('Brand Origin');
         $r->assertSee('Warranty Type');
     }
 
-    public function test_a_form_push_sends_the_answers_and_births_them_onto_the_listing(): void
+    public function test_a_save_and_push_sends_the_answers_and_births_them_onto_the_listing(): void
     {
+        /* The one trip that replaced the form push: the answers are saved
+           onto the listing and ride its own push in the same submit. */
         $productId = $this->seedProduct();
 
-        $this->actingAs($this->manager())->post(route('ext.shopee.products.push.post', $productId), [
-            'item_name' => 'Attribute test product',
-            'description' => 'Words enough for the form.',
-            'original_price' => 350, 'normal_stock' => 5, 'item_sku' => 'ATTR-SKU',
-            'weight' => 1, 'package_length' => 10, 'package_width' => 10, 'package_height' => 10,
-            'category_id' => 106755,
+        $this->actingAs($this->manager())->post(route('ext.shopee.listings.update', $productId), [
+            'shopee_category_id' => 106755,
             'logistic_ids' => [41003],
-            'selected_images' => ['catalog/__attr-test.png'],
+            'item_name' => 'Attribute test product',
             'attributes' => ['1000' => 'Japan', '2000' => '1 year', '9999' => ''],
+            'push_after' => 1,
         ]);
 
         $add = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/add_item');
-        $this->assertNotNull($add, 'The form push must reach add_item.');
+        $this->assertNotNull($add, 'Save and push must reach add_item.');
         $list = collect($add['body']['attribute_list'] ?? []);
-        $this->assertCount(2, $list, 'The answers given on the form ride its own push.');
+        $this->assertCount(2, $list, 'The answers given on the editor ride its own push.');
         $this->assertSame(72, (int) $list->firstWhere('attribute_id', 1000)['attribute_value_list'][0]['value_id']);
 
         $listing = ShopeeListing::query()->where('product_id', $productId)->firstOrFail();
         $this->assertSame(['1000' => 'Japan', '2000' => '1 year'], $listing->attribute_values,
-            'The form is where the listing is born; its answers are part of the birth.');
+            'The editor is where the listing is born; its answers are part of the birth.');
     }
 
     public function test_the_push_resolves_answers_into_shopees_attribute_list(): void
