@@ -25,9 +25,9 @@
         <h1 class="x-page-title">Import from {{ $setting->store_name ?: 'Venta' }}</h1>
         <p class="x-page-sub">
             @if($hasUnmatched)
-                {{ number_format($unmatched->count()) }} {{ $unmatched->count() === 1 ? 'item' : 'items' }} on the store, not in the catalog.
+                {{ number_format($unmatched->count()) }} {{ $unmatched->count() === 1 ? 'item' : 'items' }} on the store, not in your main catalog.
             @else
-                Bring items that exist on the store into the catalog.
+                Bring items that exist on the store into your main catalog.
             @endif
         </p>
     </div>
@@ -43,7 +43,6 @@
 
 @if($canManageVenta)
 <section class="fm-section cc-unmatched">
-
 
     @if($hasUnmatched)
         <p class="fm-section__note">These items exist on the store but not in your main catalog. Import one - or tick several and import them together - to create the real product in your main catalog, details, variations and images included; or link it to a catalog product it already is, or dismiss it.</p>
@@ -64,7 +63,7 @@
         <x-ui.table>
             <x-slot:head>
                 <tr>
-                    <th scope="col" class="cc-col-check"><input type="checkbox" data-import-check-all aria-label="Select all for import"></th>
+                    <th scope="col" class="cc-col-check"><input type="checkbox" class="cc-check" data-import-check-all aria-label="Select all for import"></th>
                     <th scope="col">Store item</th>
                     <th scope="col" class="cc-col-sku">SKU</th>
                     <th scope="col" class="cc-col-chanid">Item ID</th>
@@ -76,7 +75,7 @@
             @foreach($unmatched as $ui)
                 <tr>
                     <td class="cc-col-check" data-label="Select">
-                        <input type="checkbox" form="cc-import-selected" name="unmatched_ids[]" value="{{ $ui->id }}" data-import-check aria-label="Select {{ $ui->name ?: $ui->sku }} for import">
+                        <input type="checkbox" class="cc-check" form="cc-import-selected" name="unmatched_ids[]" value="{{ $ui->id }}" data-import-check aria-label="Select {{ $ui->name ?: $ui->sku }} for import">
                     </td>
                     <td data-label="Store item">
                         <div class="co-item">

@@ -21,9 +21,9 @@
         <h1 class="x-page-title">Import from TikTok Shop</h1>
         <p class="x-page-sub">
             @if($hasUnmatched)
-                {{ number_format($unmatched->count()) }} {{ $unmatched->count() === 1 ? 'item' : 'items' }} on TikTok Shop, not in the catalog.
+                {{ number_format($unmatched->count()) }} {{ $unmatched->count() === 1 ? 'item' : 'items' }} on TikTok Shop, not in your main catalog.
             @else
-                Bring items that exist on TikTok Shop into the catalog.
+                Bring items that exist on TikTok Shop into your main catalog.
             @endif
         </p>
     </div>
@@ -33,14 +33,12 @@
                 @csrf
                 <x-ui.button type="submit" variant="{{ $hasUnmatched ? 'secondary' : 'primary' }}">{{ $hasUnmatched ? 'Scan again' : 'Scan TikTok Shop for new items' }}</x-ui.button>
             </form>
-            
         </div>
     @endif
 </div>
 
 @if($canManageTiktok)
 <section class="fm-section cc-unmatched">
-
 
     @if($hasUnmatched)
         <p class="fm-section__note">These products exist on TikTok Shop but not in your main catalog. Import one - or tick several and import them together - to create the real product in your main catalog, details, variations and images included; or link it to a catalog product it already is, or dismiss it.</p>
@@ -61,7 +59,7 @@
         <x-ui.table>
             <x-slot:head>
                 <tr>
-                    <th scope="col" class="cc-col-check"><input type="checkbox" data-import-check-all aria-label="Select all for import"></th>
+                    <th scope="col" class="cc-col-check"><input type="checkbox" class="cc-check" data-import-check-all aria-label="Select all for import"></th>
                     <th scope="col">TikTok Shop product</th>
                     <th scope="col" class="cc-col-sku">SKU</th>
                     <th scope="col" class="cc-col-chanid">Product ID</th>
@@ -73,7 +71,7 @@
             @foreach($unmatched as $ui)
                 <tr>
                     <td class="cc-col-check" data-label="Select">
-                        <input type="checkbox" form="cc-import-selected" name="unmatched_ids[]" value="{{ $ui->id }}" data-import-check aria-label="Select {{ $ui->name ?: $ui->sku }} for import">
+                        <input type="checkbox" class="cc-check" form="cc-import-selected" name="unmatched_ids[]" value="{{ $ui->id }}" data-import-check aria-label="Select {{ $ui->item_name ?: $ui->sku }} for import">
                     </td>
                     <td data-label="TikTok Shop product">
                         <div class="co-item">

@@ -182,7 +182,7 @@ class ChannelItemImportTest extends TestCase
 
         $html = $this->actingAs($this->manager(['manage_tiktok/product', 'view_tiktok/product']))
             ->get(route('ext.tiktok.products.import'))->assertOk()->getContent();
-        $this->assertStringContainsString('on TikTok Shop, not in the catalog', $html);
+        $this->assertStringContainsString('on TikTok Shop, not in your main catalog', $html);
         $this->assertStringContainsString(route('ext.tiktok.products.import_unmatched', TikTokUnmatchedItem::query()->value('id')), $html);
     }
 }

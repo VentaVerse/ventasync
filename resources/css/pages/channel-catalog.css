@@ -740,6 +740,16 @@
     .cc-page .x-table > tbody > tr > td.cc-col-stat,
     .cc-page .x-table > tbody > tr > td.cc-col-err { display: none; }
 
+    /* THE WIDTH RESET, back where it has to live. The generic restack in
+       blotter-components.css sets td width back to auto, but that rule is
+       in the components layer and this file is in vocabulary - a later
+       layer wins regardless of specificity - so every .cc-col-* fixed
+       width in this file stays LITERAL on the phone grid. Measured: the
+       340px linker cell ran 44px past the card's edge on the import pages
+       at 390px, input clipped mid-letter. The generic rule cannot reach
+       these from a lower layer; the page resets its own. */
+    .cc-page .x-table > tbody > tr > td { width: auto; }
+
     /* The tick box shares the first line with the actions rather than
        taking a line of its own above the name. */
     .cc-page .x-table > tbody > tr > td.cc-col-check { grid-column: 1; grid-row: 1; align-self: center; }

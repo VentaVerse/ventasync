@@ -166,7 +166,7 @@ class ShopeeItemImportTest extends TestCase
             ->get(route('ext.shopee.products.import'))->assertOk()->getContent();
 
         $this->assertStringContainsString(route('ext.shopee.products.import_unmatched', ShopeeUnmatchedItem::query()->value('id')), $html);
-        $this->assertStringContainsString('not in the catalog', $html);
+        $this->assertStringContainsString('not in your main catalog', $html);
         $this->assertStringNotContainsString('Unmatched items', $html, 'the concept is Import now; the old label retired with it');
 
         $workbench = $this->actingAs($manager)
