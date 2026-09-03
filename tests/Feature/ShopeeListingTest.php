@@ -132,7 +132,7 @@ class ShopeeListingTest extends TestCase
     private function seedCatchAllGroup(): ShopeeProductGroup
     {
         return ShopeeProductGroup::create([
-            'name' => 'multi effects', 'catalog_category_ids' => [], 'manufacturer_ids' => [],
+            'name' => 'multi effects',
             'shopee_category_id' => 100013, 'logistic_ids' => [8003], 'markup_percent' => 50, 'markup_fixed' => 0,
         ]);
     }

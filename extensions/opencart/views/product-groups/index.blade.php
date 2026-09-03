@@ -57,30 +57,11 @@
             $pCount = $productCounts[$g->id] ?? 0;
             $productsUrl = route('ext.opencart.product-groups.products', [$setting->id, $g->id]);
 
-            // The same two lists the old view joined into one
-            // "Cat: ... | Mfg: ..." cell. They are what decides which
-            // catalog products fall into the product group, so they read as a
-            // sentence under the product group's own name.
-            $catNames = collect($g->catalog_category_ids ?? [])->map(fn ($id) => $categoryNames->get($id))->filter()->values();
-            $mfgNames = collect($g->manufacturer_ids ?? [])->map(fn ($id) => $manufacturerNames->get($id))->filter()->values();
-
-            $filterParts = [];
-            if ($catNames->isNotEmpty()) {
-                $filterParts[] = 'Categories: ' . $catNames->implode(', ');
-            }
-            if ($mfgNames->isNotEmpty()) {
-                $filterParts[] = 'Manufacturers: ' . $mfgNames->implode(', ');
-            }
         @endphp
         <tr>
             <td class="cc-col-id" data-label="ID"><span class="x-num">{{ $g->id }}</span></td>
             <td data-label="Product group">
                 <a class="x-row-link" href="{{ $productsUrl }}">{{ $g->name }}</a>
-                @if(!empty($filterParts))
-                    <span class="cc-sub">{{ implode('. ', $filterParts) }}</span>
-                @else
-                    <span class="cc-sub">Products are added by hand, not by a filter</span>
-                @endif
             </td>
             <td class="cc-col-count x-td-num" data-label="Products"><span class="x-num">{{ number_format($pCount) }}</span></td>
             <td class="x-td-actions">

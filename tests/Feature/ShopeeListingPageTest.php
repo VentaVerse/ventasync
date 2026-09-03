@@ -537,7 +537,7 @@ class ShopeeListingPageTest extends TestCase
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
         ]);
         $group = \Extensions\shopee\Models\ShopeeProductGroup::create([
-            'name' => 'Check stampers', 'catalog_category_ids' => [], 'manufacturer_ids' => [],
+            'name' => 'Check stampers',
             'shopee_category_id' => 100013, 'logistic_ids' => [41003],
         ]);
         DB::table('shopee_product_group_products')->insert([
@@ -674,7 +674,7 @@ class ShopeeListingPageTest extends TestCase
         $productId = $this->seedProduct();
         // A catch-all group brings the unlinked product into the index's scope.
         \Extensions\shopee\Models\ShopeeProductGroup::create([
-            'name' => 'Confirm scope', 'catalog_category_ids' => [], 'manufacturer_ids' => [],
+            'name' => 'Confirm scope',
             'shopee_category_id' => 100013, 'logistic_ids' => [8003],
         ]);
         ShopeeListing::query()->create([
@@ -706,7 +706,7 @@ class ShopeeListingPageTest extends TestCase
            missing (proper error handling, the owner 2026-09-03). */
         $productId = $this->seedProduct();
         \Extensions\shopee\Models\ShopeeProductGroup::create([
-            'name' => 'Unready scope', 'catalog_category_ids' => [], 'manufacturer_ids' => [],
+            'name' => 'Unready scope',
             'shopee_category_id' => 100013, 'logistic_ids' => [8003],
         ]);
         $this->fakeItemList(['NORMAL' => [], 'UNLIST' => [], 'BANNED' => [], 'REVIEWING' => []]);

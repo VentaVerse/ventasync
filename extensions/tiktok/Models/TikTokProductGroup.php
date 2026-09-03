@@ -9,13 +9,11 @@ class TikTokProductGroup extends Model
     protected $table = 'tiktok_product_groups';
 
     protected $fillable = [
-        'name', 'tiktok_category_id', 'catalog_category_ids', 'manufacturer_ids',
+        'name', 'tiktok_category_id',
         'markup_percent', 'markup_fixed',
     ];
 
     protected $casts = [
-        'catalog_category_ids' => 'array',
-        'manufacturer_ids' => 'array',
     ];
 
     public function category()

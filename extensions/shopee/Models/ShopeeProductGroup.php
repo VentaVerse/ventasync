@@ -12,14 +12,12 @@ class ShopeeProductGroup extends Model
 
     protected $fillable = [
         'shopee_setting_id',
-        'name', 'catalog_category_ids', 'manufacturer_ids',
+        'name',
         'shopee_category_id', 'shopee_brand_id', 'logistic_ids',
         'markup_fixed', 'markup_percent',
     ];
 
     protected $casts = [
-        'catalog_category_ids' => 'array',
-        'manufacturer_ids' => 'array',
         'logistic_ids' => 'array',
     ];
 

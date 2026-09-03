@@ -73,35 +73,12 @@ class TikTokProductGroupController extends Controller
         ];
     }
 
+    /** Pivot-only since the cleanup (point 2, the owner 2026-09-03). */
     private function getMatchingProductIds(TikTokProductGroup $group): array
     {
-        $pfx = (string) config('catalog.prefix');
-        $catIds = $group->catalog_category_ids ?? [];
-        $mfgIds = $group->manufacturer_ids ?? [];
-
-        $filterIds = [];
-
-        if (!empty($catIds) || !empty($mfgIds)) {
-            $query = DB::table($pfx . 'product as p')->select('p.product_id');
-
-            if (!empty($catIds)) {
-                $query->join($pfx . 'product_to_category as ptc', 'p.product_id', '=', 'ptc.product_id')
-                    ->whereIn('ptc.category_id', $catIds);
-            }
-            if (!empty($mfgIds)) {
-                $query->whereIn('p.manufacturer_id', $mfgIds);
-            }
-
-            $filterIds = $query->distinct()->pluck('p.product_id')->toArray();
-        }
-
-        // Manual products
-        $manualIds = [];
-        if ($group->exists) {
-            $manualIds = $group->groupProducts()->pluck('product_id')->toArray();
-        }
-
-        return array_values(array_unique(array_merge($filterIds, $manualIds)));
+        return $group->exists
+            ? $group->groupProducts()->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all()
+            : [];
     }
 
     private function logApi(string $method, string $path, array $result): void
@@ -192,25 +169,6 @@ class TikTokProductGroupController extends Controller
             $ttCategoryNames = TikTokCategory::whereIn('id', $ttCatIds)->pluck('name', 'id');
         }
 
-        // ERP category names
-        $catIds = $groups->pluck('catalog_category_ids')->filter()->flatten()->unique()->values()->all();
-        $categoryNames = collect();
-        if (!empty($catIds)) {
-            $categoryNames = DB::table($pfx . 'category_description')
-                ->whereIn('category_id', $catIds)
-                ->where('language_id', $langId)
-                ->pluck('name', 'category_id');
-        }
-
-        // Manufacturer names
-        $mfgIds = $groups->pluck('manufacturer_ids')->filter()->flatten()->unique()->values()->all();
-        $manufacturerNames = collect();
-        if (!empty($mfgIds)) {
-            $manufacturerNames = DB::table($pfx . 'manufacturer')
-                ->whereIn('manufacturer_id', $mfgIds)
-                ->pluck('name', 'manufacturer_id');
-        }
-
         // Product counts per group
         $productCounts = [];
         foreach ($groups as $g) {
@@ -218,7 +176,7 @@ class TikTokProductGroupController extends Controller
         }
 
         return view('ext-tiktok::product-groups.index', compact(
-            'groups', 'ttCategoryNames', 'categoryNames', 'manufacturerNames', 'productCounts'
+            'groups', 'ttCategoryNames', 'productCounts'
         ));
     }
 
@@ -322,7 +280,7 @@ class TikTokProductGroupController extends Controller
         ActivityLogger::log('created', 'TikTok Product Group', $group->id, $group->name);
 
         return redirect()->route('ext.tiktok.product-groups.edit', $group->id)
-            ->with('status', 'Preset created with ' . count($productIds) . ' product(s).');
+            ->with('status', 'Product group created with ' . count($productIds) . ' product(s).');
     }
 
     public function update(Request $request, int $id)
@@ -339,8 +297,6 @@ class TikTokProductGroupController extends Controller
         $group->update([
             'name'                 => $data['name'],
             'tiktok_category_id'   => $data['tiktok_category_id'],
-            'catalog_category_ids' => null,
-            'manufacturer_ids'     => null,
             'markup_percent'       => $data['markup_percent'] ?? null,
             'markup_fixed'         => $data['markup_fixed'] ?? null,
         ]);
@@ -370,7 +326,7 @@ class TikTokProductGroupController extends Controller
         ActivityLogger::log('updated', 'TikTok Product Group', $group->id, $group->name);
 
         return redirect()->route('ext.tiktok.product-groups.edit', $group->id)
-            ->with('status', 'Preset saved.');
+            ->with('status', 'Product group saved.');
     }
 
     public function destroy(int $id)
@@ -382,7 +338,7 @@ class TikTokProductGroupController extends Controller
         ActivityLogger::log('deleted', 'TikTok Product Group', $id, $name);
 
         return redirect()->route('ext.tiktok.product-groups.index')
-            ->with('status', 'Preset "' . e($name) . '" deleted.');
+            ->with('status', 'Product group "' . e($name) . '" deleted.');
     }
 
     // ── Product Assignment ──────────────────────────────────────
@@ -547,10 +503,13 @@ class TikTokProductGroupController extends Controller
         }
 
         $existing = $group->groupProducts()->pluck('product_id')->toArray();
-        $added = 0;
+        $ids = array_values(array_diff($ids, $existing));
 
-        foreach ($ids as $pid) {
-            if (in_array($pid, $existing)) continue;
+        /* One product, one group (cleanup point 2). */
+        $claim = \App\Integrations\OneGroupRule::claim('tiktok_product_group_products', 'tiktok_product_group_id', 'tiktok_product_groups', null, $group->id, $ids, array_map('intval', (array) $request->input('move_ids', [])));
+
+        $added = 0;
+        foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
             TikTokProductGroupProduct::create([
                 'tiktok_product_group_id' => $group->id,
                 'product_id'              => $pid,
@@ -560,7 +519,8 @@ class TikTokProductGroupController extends Controller
         }
 
         return $this->productsRedirect($id)
-            ->with('status', "{$added} product(s) added.");
+            ->with($added > 0 ? 'status' : 'warning', "{$added} product(s) added."
+                . \App\Integrations\OneGroupRule::heldClause($claim['held']));
     }
 
     public function unlinkProduct(int $id, int $product)

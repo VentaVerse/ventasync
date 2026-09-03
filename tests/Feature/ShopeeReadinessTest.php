@@ -119,7 +119,7 @@ class ShopeeReadinessTest extends TestCase
     private function catchAllGroup(): void
     {
         \Extensions\shopee\Models\ShopeeProductGroup::create([
-            'name' => 'Readiness scope', 'catalog_category_ids' => [], 'manufacturer_ids' => [],
+            'name' => 'Readiness scope',
             'shopee_category_id' => 106755, 'logistic_ids' => [41003],
         ]);
     }

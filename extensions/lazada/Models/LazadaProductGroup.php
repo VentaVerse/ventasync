@@ -9,14 +9,12 @@ class LazadaProductGroup extends Model
     protected $table = 'lazada_product_groups';
 
     protected $fillable = [
-        'name', 'catalog_category_ids', 'manufacturer_ids',
+        'name',
         'lazada_category_id', 'brand_id', 'brand_name_override',
         'markup_fixed', 'markup_percent',
     ];
 
     protected $casts = [
-        'catalog_category_ids' => 'array',
-        'manufacturer_ids' => 'array',
     ];
 
     public function groupAttributes()

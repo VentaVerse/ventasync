@@ -324,8 +324,6 @@ class VentaProductGroupController extends Controller
             'name'                 => $data['name'],
             'venta_category_id'    => $data['venta_category_id'] ?? null,
             'venta_brand_id'       => $data['venta_brand_id'] ?? null,
-            'catalog_category_ids' => null,
-            'manufacturer_ids'     => null,
             'markup_percent'       => $data['markup_percent'] ?? 0,
             'markup_fixed'         => $data['markup_fixed'] ?? 0,
         ]);
@@ -342,7 +340,7 @@ class VentaProductGroupController extends Controller
         ActivityLogger::log('created', 'Venta Product Group', $group->id, $group->name);
 
         return redirect()->route('ext.venta.product-groups.edit', [$store, $group->id])
-            ->with('status', 'Preset created with ' . count($productIds) . ' product(s).');
+            ->with('status', 'Product group created with ' . count($productIds) . ' product(s).');
     }
 
     public function update(Request $request, int $store, int $group)
@@ -362,8 +360,6 @@ class VentaProductGroupController extends Controller
             'name'                 => $data['name'],
             'venta_category_id'    => $data['venta_category_id'] ?? $g->venta_category_id,
             'venta_brand_id'       => $data['venta_brand_id'] ?? $g->venta_brand_id,
-            'catalog_category_ids' => null,
-            'manufacturer_ids'     => null,
             'markup_percent'       => $data['markup_percent'] ?? $g->markup_percent,
             'markup_fixed'         => $data['markup_fixed'] ?? $g->markup_fixed,
         ]);
@@ -390,7 +386,7 @@ class VentaProductGroupController extends Controller
         ActivityLogger::log('updated', 'Venta Product Group', $g->id, $g->name);
 
         return redirect()->route('ext.venta.product-groups.edit', [$store, $g->id])
-            ->with('status', 'Preset saved.');
+            ->with('status', 'Product group saved.');
     }
 
     public function destroy(int $store, int $group)
@@ -403,7 +399,7 @@ class VentaProductGroupController extends Controller
         ActivityLogger::log('deleted', 'Venta Product Group', (int) $group, $name);
 
         return redirect()->route('ext.venta.product-groups.index', $store)
-            ->with('status', 'Preset "' . e($name) . '" deleted.');
+            ->with('status', 'Product group "' . e($name) . '" deleted.');
     }
 
     // ── Products listing ────────────────────────────────────
@@ -1619,10 +1615,13 @@ class VentaProductGroupController extends Controller
 
         $ids = array_map('intval', (array) $ids);
         $existing = $g->products()->pluck('product_id')->toArray();
-        $added = 0;
+        $ids = array_values(array_diff($ids, $existing));
 
-        foreach ($ids as $pid) {
-            if (in_array($pid, $existing)) continue;
+        /* One product, one group (cleanup point 2). */
+        $claim = \App\Integrations\OneGroupRule::claim('venta_product_group_products', 'venta_product_group_id', 'venta_product_groups', 'venta_setting_id', $g->id, $ids, array_map('intval', (array) $request->input('move_ids', [])));
+
+        $added = 0;
+        foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
             VentaProductGroupProduct::create([
                 'venta_product_group_id' => $g->id,
                 'product_id'             => $pid,
@@ -1631,7 +1630,8 @@ class VentaProductGroupController extends Controller
         }
 
         return $this->productsRedirect($store, $group)
-            ->with('status', "{$added} product(s) added to product group.");
+            ->with($added > 0 ? 'status' : 'warning', "{$added} product(s) added to product group."
+                . \App\Integrations\OneGroupRule::heldClause($claim['held']));
     }
 
     public function removeProduct(int $store, int $group, int $product)
@@ -1695,35 +1695,14 @@ class VentaProductGroupController extends Controller
 
     // ── Helpers ──────────────────────────────────────────────
 
+    /** Pivot-only since the cleanup (point 2, the owner 2026-09-03): the
+     *  legacy category/manufacturer filters never survived the rebuild's
+     *  forms and made membership invisible. */
     private function getMatchingProductIds(VentaProductGroup $group): array
     {
-        $pfx = (string) config('catalog.prefix');
-        $catIds = $group->catalog_category_ids ?? [];
-        $mfgIds = $group->manufacturer_ids ?? [];
-
-        $filterIds = [];
-
-        if (!empty($catIds) || !empty($mfgIds)) {
-            $query = DB::table($pfx . 'product as p')->select('p.product_id');
-
-            if (!empty($catIds)) {
-                $query->join($pfx . 'product_to_category as ptc', 'p.product_id', '=', 'ptc.product_id')
-                    ->whereIn('ptc.category_id', $catIds);
-            }
-
-            if (!empty($mfgIds)) {
-                $query->whereIn('p.manufacturer_id', $mfgIds);
-            }
-
-            $filterIds = $query->distinct()->pluck('p.product_id')->toArray();
-        }
-
-        $manualIds = [];
-        if ($group->exists) {
-            $manualIds = $group->products()->pluck('product_id')->toArray();
-        }
-
-        return array_values(array_unique(array_merge($filterIds, $manualIds)));
+        return $group->exists
+            ? $group->products()->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all()
+            : [];
     }
 
     private function getProductImages(string $pfx, int $productId): array

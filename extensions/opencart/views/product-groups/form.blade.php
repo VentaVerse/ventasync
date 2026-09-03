@@ -27,14 +27,10 @@
 
     // Same restore-from-old shape the pre-redesign view used, so a failed
     // validation round trip keeps the operator's selections.
-    $selectedCatIds = array_map('intval', (array) (old('catalog_category_ids', $group->catalog_category_ids ?? []) ?? []));
-    $selectedMfgIds = array_map('intval', (array) (old('manufacturer_ids', $group->manufacturer_ids ?? []) ?? []));
 
     $categoryOptions = $catalogCategories->map(fn ($c) => ['id' => (int) $c->category_id, 'name' => (string) $c->name])->values();
     $manufacturerOptions = ($manufacturers ?? collect())->map(fn ($m) => ['id' => (int) $m->manufacturer_id, 'name' => (string) $m->name])->values();
 
-    $categoryNamesById = $categoryOptions->pluck('name', 'id');
-    $manufacturerNamesById = $manufacturerOptions->pluck('name', 'id');
 
     // JSON_HEX_TAG is what makes a data island safe: it encodes < and > so a
     // category literally named "</script>" cannot close the element. The rest
@@ -98,65 +94,7 @@
                 </div>
             </section>
 
-            <section class="fm-section">
-                <div class="fm-section__head">
-                    <h2 class="fm-section__title">Which products go in</h2>
-                </div>
-                <p class="fm-section__note">A product joins this product group when it matches any category chosen here, or any manufacturer chosen here. Leave both empty and the product group holds only the products you add by hand on the Products page.</p>
-
-                {{-- The picker only binds for the manage tier: a read-tier
-                     operator gets the tags as they are stored, with no search
-                     box to add to them and no remove buttons that would edit a
-                     form they cannot save. --}}
-                <div class="fm-fields fm-fields--2" @if($canManageOpencart) data-group-filter-picker @endif>
-                    <x-ui.field label="Categories" for="pg-cat-search" name="catalog_category_ids" wide
-                                hint="Type to search, click to add. Removing one here removes its products from the product group.">
-                        <div class="fm-tags" data-picker-tags="catalog_category_ids[]" data-picker-noun="category">
-                            @foreach($selectedCatIds as $catId)
-                                <span class="fm-tag" data-id="{{ $catId }}">
-                                    <span>{{ $categoryNamesById[$catId] ?? ('Category ' . $catId) }}</span>
-                                    <input type="hidden" name="catalog_category_ids[]" value="{{ $catId }}">
-                                    @if($canManageOpencart)
-                                        <button type="button" class="fm-tag__x"
-                                                aria-label="Remove {{ $categoryNamesById[$catId] ?? ('category ' . $catId) }}">&times;</button>
-                                    @endif
-                                </span>
-                            @endforeach
-                        </div>
-                        @if($canManageOpencart)
-                        <div class="fm-ta">
-                            <x-ui.input id="pg-cat-search" autocomplete="off" placeholder="Search categories" data-picker-search />
-                            <div class="fm-ta__list" data-picker-list></div>
-                        </div>
-                        <script type="application/json" data-picker-options>{!! json_encode($categoryOptions, $jsonFlags) !!}</script>
-                        @endif
-                    </x-ui.field>
-
-                    <x-ui.field label="Manufacturers" for="pg-mfg-search" name="manufacturer_ids" wide
-                                hint="Type to search, click to add.">
-                        <div class="fm-tags" data-picker-tags="manufacturer_ids[]" data-picker-noun="manufacturer">
-                            @foreach($selectedMfgIds as $mfgId)
-                                <span class="fm-tag" data-id="{{ $mfgId }}">
-                                    <span>{{ $manufacturerNamesById[$mfgId] ?? ('Manufacturer ' . $mfgId) }}</span>
-                                    <input type="hidden" name="manufacturer_ids[]" value="{{ $mfgId }}">
-                                    @if($canManageOpencart)
-                                        <button type="button" class="fm-tag__x"
-                                                aria-label="Remove {{ $manufacturerNamesById[$mfgId] ?? ('manufacturer ' . $mfgId) }}">&times;</button>
-                                    @endif
-                                </span>
-                            @endforeach
-                        </div>
-                        @if($canManageOpencart)
-                        <div class="fm-ta">
-                            <x-ui.input id="pg-mfg-search" autocomplete="off" placeholder="Search manufacturers" data-picker-search />
-                            <div class="fm-ta__list" data-picker-list></div>
-                        </div>
-                        <script type="application/json" data-picker-options>{!! json_encode($manufacturerOptions, $jsonFlags) !!}</script>
-                        @endif
-                    </x-ui.field>
-                </div>
-            </section>
-        </div>
+                    </div>
 
         <div class="fm-col fm-col--side">
             <div class="fm-card">

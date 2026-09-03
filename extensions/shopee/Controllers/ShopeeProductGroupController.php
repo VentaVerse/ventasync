@@ -207,8 +207,6 @@ class ShopeeProductGroupController extends Controller
 
         $group = ShopeeProductGroup::create([
             'name' => $data['name'],
-            'catalog_category_ids' => null,
-            'manufacturer_ids' => null,
             'shopee_category_id' => $data['shopee_category_id'] ?? null,
             'shopee_brand_id' => (int) ($data['shopee_brand_id'] ?? 0),
             'logistic_ids' => !empty($logIds) ? array_values(array_map('intval', $logIds)) : null,
@@ -220,9 +218,11 @@ class ShopeeProductGroupController extends Controller
 
         $this->saveGroupAttributes($group, (array) $request->input('attributes', []));
 
-        // Add products from dual-listbox
-        $productIds = array_map('intval', array_filter($data['product_ids'] ?? []));
-        foreach ($productIds as $pid) {
+        // Add products from dual-listbox, through the one-group rule.
+        $ids = array_map('intval', array_filter($data['product_ids'] ?? []));
+        $claim = \App\Integrations\OneGroupRule::claim('shopee_product_group_products', 'shopee_product_group_id', 'shopee_product_groups', 'shopee_setting_id', $group->id, $ids, array_map('intval', (array) $request->input('move_ids', [])));
+        $assigned = array_merge($claim['free'], array_keys($claim['moved']));
+        foreach ($assigned as $pid) {
             ShopeeProductGroupProduct::create([
                 'shopee_product_group_id' => $group->id,
                 'product_id' => $pid,
@@ -230,7 +230,8 @@ class ShopeeProductGroupController extends Controller
         }
 
         return redirect()->route('ext.shopee.product-groups.edit', $group->id)
-            ->with('status', 'Preset created. ' . count($productIds) . ' product(s) assigned.');
+            ->with('status', 'Product group created. ' . count($assigned) . ' product(s) assigned.'
+                . \App\Integrations\OneGroupRule::heldClause($claim['held']));
     }
 
     public function update(Request $request, int $id)
@@ -256,8 +257,6 @@ class ShopeeProductGroupController extends Controller
 
         $group->update([
             'name' => $data['name'],
-            'catalog_category_ids' => null,
-            'manufacturer_ids' => null,
             'shopee_category_id' => $data['shopee_category_id'] ?? null,
             'shopee_brand_id' => (int) ($data['shopee_brand_id'] ?? 0),
             'logistic_ids' => !empty($logIds) ? array_values(array_map('intval', $logIds)) : null,
@@ -269,14 +268,16 @@ class ShopeeProductGroupController extends Controller
 
         $this->saveGroupAttributes($group, (array) $request->input('attributes', []));
 
-        // Sync product assignments
+        // Sync product assignments, through the one-group rule.
         $newProductIds = array_map('intval', array_filter($data['product_ids'] ?? []));
         $existingProductIds = $group->groupProducts()->pluck('product_id')->toArray();
 
-        $toAdd = array_diff($newProductIds, $existingProductIds);
+        $ids = array_values(array_diff($newProductIds, $existingProductIds));
         $toRemove = array_diff($existingProductIds, $newProductIds);
 
-        foreach ($toAdd as $pid) {
+        $claim = \App\Integrations\OneGroupRule::claim('shopee_product_group_products', 'shopee_product_group_id', 'shopee_product_groups', 'shopee_setting_id', $group->id, $ids, array_map('intval', (array) $request->input('move_ids', [])));
+
+        foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
             ShopeeProductGroupProduct::create([
                 'shopee_product_group_id' => $group->id,
                 'product_id' => $pid,
@@ -288,7 +289,7 @@ class ShopeeProductGroupController extends Controller
         }
 
         return redirect()->route('ext.shopee.product-groups.edit', $group->id)
-            ->with('status', 'Preset saved.');
+            ->with('status', 'Product group saved.' . \App\Integrations\OneGroupRule::heldClause($claim['held']));
     }
 
     public function destroy(int $id)
@@ -300,7 +301,7 @@ class ShopeeProductGroupController extends Controller
         ActivityLogger::log('deleted', 'Shopee Product group', (int) $id, $name);
 
         return redirect()->route('ext.shopee.product-groups.index')
-            ->with('status', 'Preset "' . e($name) . '" deleted.');
+            ->with('status', 'Product group "' . e($name) . '" deleted.');
     }
 
     /**
@@ -1022,9 +1023,15 @@ class ShopeeProductGroupController extends Controller
         }
 
         $existing = $group->groupProducts()->whereIn('product_id', $ids)->pluck('product_id')->toArray();
+        $ids = array_values(array_diff($ids, $existing));
+
+        /* One product, one group (cleanup point 2): products owned by
+         * another group are held and named, unless the operator said
+         * Move here (move_ids). */
+        $claim = \App\Integrations\OneGroupRule::claim('shopee_product_group_products', 'shopee_product_group_id', 'shopee_product_groups', 'shopee_setting_id', $group->id, $ids, array_map('intval', (array) $request->input('move_ids', [])));
+
         $added = 0;
-        foreach ($ids as $pid) {
-            if (in_array($pid, $existing)) continue;
+        foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
             ShopeeProductGroupProduct::create([
                 'shopee_product_group_id' => $group->id,
                 'product_id' => $pid,
@@ -1032,15 +1039,14 @@ class ShopeeProductGroupController extends Controller
             $added++;
         }
 
-        // Duplicates were swallowed: adding 5 products of which 3 were already
-        // in the group reported "2 product(s) added" and left the operator to
-        // work out what happened to the other three.
-        $skipped = count($ids) - $added;
-
         $summary = "{$added} product(s) added to the product group.";
-        if ($skipped > 0) {
-            $summary .= " {$skipped} already in the product group.";
+        if (count($existing) > 0) {
+            $summary .= ' ' . count($existing) . ' already in the product group.';
         }
+        foreach ($claim['moved'] as $pid => $from) {
+            $summary .= " #{$pid} moved here from '{$from}'.";
+        }
+        $summary .= \App\Integrations\OneGroupRule::heldClause($claim['held']);
 
         return $this->productsRedirect($group->id)
             ->with($added > 0 ? 'status' : 'warning', $summary);

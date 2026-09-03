@@ -2088,60 +2088,37 @@ class ShopeeProductController extends Controller
     }
 
 
+    /**
+     * Which group each product belongs to, PIVOT-ONLY since the cleanup
+     * (point 2, the owner 2026-09-03). The filter-based resolution this
+     * replaces never read the pivot at all - and a group with empty
+     * filters matched EVERY product, the catch-all trap that once priced
+     * pushes silently (#96).
+     */
     private function getGroupProductMapping(): array
     {
-        $groups = ShopeeProductGroup::all();
-        if ($groups->isEmpty()) return ['ids' => null, 'map' => []];
-
-        $pfx = (string) config('catalog.prefix');
-        $allIds = collect();
-        $map = [];
-
-        foreach ($groups as $group) {
-            $catIds = $group->catalog_category_ids ?? [];
-            $mfgIds = $group->manufacturer_ids ?? [];
-
-            $q = DB::table($pfx . 'product as p')->select('p.product_id');
-
-            if (!empty($catIds)) {
-                $q->join($pfx . 'product_to_category as ptc', 'p.product_id', '=', 'ptc.product_id')
-                    ->whereIn('ptc.category_id', $catIds);
-            }
-            if (!empty($mfgIds)) {
-                $q->whereIn('p.manufacturer_id', $mfgIds);
-            }
-
-            $pids = $q->distinct()->pluck('p.product_id');
-            $allIds = $allIds->merge($pids);
-
-            foreach ($pids as $pid) {
-                $map[(int) $pid][] = $group->name;
-            }
+        if (!ShopeeProductGroup::query()->exists()) {
+            return ['ids' => null, 'map' => []];
         }
 
-        return ['ids' => $allIds->unique()->values()->all(), 'map' => $map];
+        $rows = DB::table('shopee_product_group_products as pgp')
+            ->join('shopee_product_groups as g', 'g.id', '=', 'pgp.shopee_product_group_id')
+            ->whereIn('g.id', ShopeeProductGroup::query()->pluck('id'))
+            ->get(['pgp.product_id', 'g.name']);
+
+        $map = [];
+        foreach ($rows as $r) {
+            $map[(int) $r->product_id][] = (string) $r->name;
+        }
+
+        return ['ids' => array_keys($map), 'map' => $map];
     }
 
     private function getProductIdsByGroup(int $groupId): array
     {
-        $group = ShopeeProductGroup::find($groupId);
-        if (!$group) return [];
-
-        $pfx = (string) config('catalog.prefix');
-        $catIds = $group->catalog_category_ids ?? [];
-        $mfgIds = $group->manufacturer_ids ?? [];
-
-        $q = DB::table($pfx . 'product as p')->select('p.product_id');
-
-        if (!empty($catIds)) {
-            $q->join($pfx . 'product_to_category as ptc', 'p.product_id', '=', 'ptc.product_id')
-                ->whereIn('ptc.category_id', $catIds);
-        }
-        if (!empty($mfgIds)) {
-            $q->whereIn('p.manufacturer_id', $mfgIds);
-        }
-
-        return $q->distinct()->pluck('p.product_id')->all();
+        return DB::table('shopee_product_group_products')
+            ->where('shopee_product_group_id', $groupId)
+            ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
     }
 
     private function fetchLogistics(): array

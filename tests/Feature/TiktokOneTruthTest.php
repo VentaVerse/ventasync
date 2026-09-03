@@ -68,19 +68,16 @@ class TiktokOneTruthTest extends TestCase
         return $productId;
     }
 
-    public function test_a_group_page_tells_the_products_truth_derived_across_groups(): void
+    public function test_a_group_page_tells_the_products_truth_beyond_its_own_attempt(): void
     {
+        /* Reshaped 2026-09-04 (one product, one group): the dual-membership
+           scenario this pinned is illegal now, but the truth it guarded
+           survives - the group page must show the PRODUCT's real listed
+           state even when the group's own last attempt failed. Here the
+           listing record carries the truth (pushed from another door,
+           provenance recorded), while the one group holds a failed try. */
         $productId = $this->seedProduct();
 
-        // Group A pushed it successfully...
-        $groupA = TikTokProductGroup::create(['name' => 'Truth group A', 'tiktok_category_id' => 'cat-1']);
-        TikTokProductGroupProduct::create([
-            'tiktok_product_group_id' => $groupA->id, 'product_id' => $productId,
-            'tiktok_product_id' => 'tt-990077', 'sync_status' => 'pushed',
-            'last_pushed_at' => now()->subMinutes(5),
-        ]);
-
-        // ...and group B's own attempt failed.
         $groupB = TikTokProductGroup::create(['name' => 'Truth group B', 'tiktok_category_id' => 'cat-1']);
         TikTokProductGroupProduct::create([
             'tiktok_product_group_id' => $groupB->id, 'product_id' => $productId,
@@ -88,11 +85,17 @@ class TiktokOneTruthTest extends TestCase
             'last_pushed_at' => now()->subMinutes(37),
         ]);
 
+        \Extensions\tiktok\Models\TikTokListing::create([
+            'product_id' => $productId, 'tiktok_product_id' => 'tt-990077',
+            'last_pushed_at' => now()->subMinutes(5),
+            'last_push_source' => 'group:Truth group A',
+        ]);
+
         $r = $this->actingAs($this->manager())
             ->get(route('ext.tiktok.product-groups.products', $groupB->id));
 
         $r->assertOk();
-        // Group B shows the PRODUCT's truth: listed, with A's id and provenance.
+        // Group B shows the PRODUCT's truth: listed, with the real id and provenance.
         $r->assertSee('tt-990077');
         $r->assertSee('Listed');
         $r->assertSee('from the Truth group A product group');

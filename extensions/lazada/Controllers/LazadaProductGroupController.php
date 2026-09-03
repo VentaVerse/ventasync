@@ -205,8 +205,6 @@ class LazadaProductGroupController extends Controller
 
         $group = LazadaProductGroup::create([
             'name' => $data['name'],
-            'catalog_category_ids' => null,
-            'manufacturer_ids' => null,
             'lazada_category_id' => $data['lazada_category_id'] ?? null,
             'brand_id' => $data['brand_id'] ?? null,
             'brand_name_override' => !empty($request->input('no_brand')) ? 'No Brand' : null,
@@ -223,7 +221,7 @@ class LazadaProductGroupController extends Controller
         $this->addProductsToGroup($group, $productIds);
 
         return redirect()->route('ext.lazada.product-groups.edit', $group->id)
-            ->with('status', 'Preset created. ' . count($productIds) . ' product(s) assigned.');
+            ->with('status', 'Product group created. ' . count($productIds) . ' product(s) assigned.');
     }
 
     public function update(Request $request, int $id)
@@ -243,8 +241,6 @@ class LazadaProductGroupController extends Controller
 
         $group->update([
             'name' => $data['name'],
-            'catalog_category_ids' => null,
-            'manufacturer_ids' => null,
             'lazada_category_id' => $data['lazada_category_id'] ?? null,
             'brand_id' => $data['brand_id'] ?? null,
             'brand_name_override' => !empty($request->input('no_brand')) ? 'No Brand' : null,
@@ -272,7 +268,7 @@ class LazadaProductGroupController extends Controller
         }
 
         return redirect()->route('ext.lazada.product-groups.edit', $group->id)
-            ->with('status', 'Preset saved.');
+            ->with('status', 'Product group saved.');
     }
 
     public function destroy(int $id)
@@ -307,7 +303,7 @@ class LazadaProductGroupController extends Controller
             $kept = count($stillLinked);
         }
 
-        $parts = ['Preset "' . e($group->name) . '" deleted.'];
+        $parts = ['Product group "' . e($group->name) . '" deleted.'];
         if ($removed > 0) $parts[] = "{$removed} product(s) removed.";
         if ($kept > 0) $parts[] = "{$kept} product(s) still linked to other groups.";
 
@@ -479,10 +475,11 @@ class LazadaProductGroupController extends Controller
                 ->with('error', 'No products selected.');
         }
 
-        $added = $this->addProductsToGroup($group, $ids);
+        $added = $this->addProductsToGroup($group, $ids, array_map('intval', (array) $request->input('move_ids', [])));
 
         return $this->productsRedirect($group->id)
-            ->with('status', "{$added} product(s) added to the product group.");
+            ->with($added > 0 ? 'status' : 'warning', "{$added} product(s) added to the product group."
+                . \App\Integrations\OneGroupRule::heldClause($this->lastHeld));
     }
 
     /**
@@ -1380,12 +1377,22 @@ class LazadaProductGroupController extends Controller
 
     // -- Helpers ----------------------------------------------------------
 
+    /** Products the one-group rule held back on the last add, for flashes. */
+    private array $lastHeld = [];
+
     /**
      * Add catalog products to a group, creating LazadaProduct records as needed.
      */
-    private function addProductsToGroup(LazadaProductGroup $group, array $productIds): int
+    private function addProductsToGroup(LazadaProductGroup $group, array $productIds, array $moveIds = []): int
     {
         $existing = $group->groupProducts()->whereIn('product_id', $productIds)->pluck('product_id')->toArray();
+
+        /* One product, one group (cleanup point 2): products owned by
+         * another group are dropped here and named by the caller's flash
+         * via lastHeld. */
+        $claim = \App\Integrations\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', null, $group->id, array_values(array_diff(array_map('intval', $productIds), $existing)), $moveIds);
+        $this->lastHeld = $claim['held'];
+        $productIds = array_merge($claim['free'], array_keys($claim['moved']), array_map('intval', $existing));
         $added = 0;
 
         $groupAttrs = LazadaProductGroupAttribute::query()

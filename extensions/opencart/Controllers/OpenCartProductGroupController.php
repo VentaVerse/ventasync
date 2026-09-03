@@ -33,26 +33,7 @@ class OpenCartProductGroupController extends Controller
 
         $groups = OpenCartProductGroup::where('opencart_setting_id', $store)->orderByDesc('id')->get();
 
-        // Category names
-        $catIds = $groups->pluck('catalog_category_ids')->filter()->flatten()->unique()->values()->all();
-        $categoryNames = collect();
-        if (!empty($catIds)) {
-            $categoryNames = DB::table($pfx . 'category_description')
-                ->whereIn('category_id', $catIds)
-                ->where('language_id', $langId)
-                ->pluck('name', 'category_id');
-        }
-
-        // Manufacturer names
-        $mfgIds = $groups->pluck('manufacturer_ids')->filter()->flatten()->unique()->values()->all();
-        $manufacturerNames = collect();
-        if (!empty($mfgIds)) {
-            $manufacturerNames = DB::table($pfx . 'manufacturer')
-                ->whereIn('manufacturer_id', $mfgIds)
-                ->pluck('name', 'manufacturer_id');
-        }
-
-        // Product counts per group (filter-matched + manual)
+        // Product counts per group
         $productCounts = [];
         foreach ($groups as $g) {
             $productCounts[$g->id] = count($this->getMatchingProductIds($g));
@@ -61,8 +42,6 @@ class OpenCartProductGroupController extends Controller
         return view('ext-opencart::product-groups.index', [
             'setting' => $setting,
             'groups' => $groups,
-            'categoryNames' => $categoryNames,
-            'manufacturerNames' => $manufacturerNames,
             'productCounts' => $productCounts,
         ]);
     }
@@ -112,26 +91,18 @@ class OpenCartProductGroupController extends Controller
 
         $data = $request->validate([
             'name' => 'required|string|max:255',
-            'catalog_category_ids' => 'nullable|array',
-            'catalog_category_ids.*' => 'integer|min:1',
-            'manufacturer_ids' => 'nullable|array',
-            'manufacturer_ids.*' => 'integer|min:1',
         ]);
 
-        $catIds = array_filter($data['catalog_category_ids'] ?? []);
-        $mfgIds = array_filter($data['manufacturer_ids'] ?? []);
 
         $group = OpenCartProductGroup::create([
             'opencart_setting_id' => $store,
             'name' => $data['name'],
-            'catalog_category_ids' => !empty($catIds) ? array_values(array_map('intval', $catIds)) : null,
-            'manufacturer_ids' => !empty($mfgIds) ? array_values(array_map('intval', $mfgIds)) : null,
         ]);
 
         ActivityLogger::log('created', 'OpenCart Product Group', $group->id, $group->name);
 
         return redirect()->route('ext.opencart.product-groups.edit', [$store, $group->id])
-            ->with('status', 'Preset created.');
+            ->with('status', 'Product group created.');
     }
 
     public function update(Request $request, int $store, int $group)
@@ -141,25 +112,17 @@ class OpenCartProductGroupController extends Controller
 
         $data = $request->validate([
             'name' => 'required|string|max:255',
-            'catalog_category_ids' => 'nullable|array',
-            'catalog_category_ids.*' => 'integer|min:1',
-            'manufacturer_ids' => 'nullable|array',
-            'manufacturer_ids.*' => 'integer|min:1',
         ]);
 
-        $catIds = array_filter($data['catalog_category_ids'] ?? []);
-        $mfgIds = array_filter($data['manufacturer_ids'] ?? []);
 
         $g->update([
             'name' => $data['name'],
-            'catalog_category_ids' => !empty($catIds) ? array_values(array_map('intval', $catIds)) : null,
-            'manufacturer_ids' => !empty($mfgIds) ? array_values(array_map('intval', $mfgIds)) : null,
         ]);
 
         ActivityLogger::log('updated', 'OpenCart Product Group', $g->id, $g->name);
 
         return redirect()->route('ext.opencart.product-groups.edit', [$store, $g->id])
-            ->with('status', 'Preset saved.');
+            ->with('status', 'Product group saved.');
     }
 
     public function destroy(int $store, int $group)
@@ -172,7 +135,7 @@ class OpenCartProductGroupController extends Controller
         ActivityLogger::log('deleted', 'OpenCart Product Group', (int) $group, $name);
 
         return redirect()->route('ext.opencart.product-groups.index', $store)
-            ->with('status', 'Preset "' . e($name) . '" deleted.');
+            ->with('status', 'Product group "' . e($name) . '" deleted.');
     }
 
     public function products(Request $request, int $store, int $group)
@@ -308,10 +271,13 @@ class OpenCartProductGroupController extends Controller
 
         $ids = array_map('intval', (array) $ids);
         $existing = $g->groupProducts()->pluck('product_id')->toArray();
-        $added = 0;
+        $ids = array_values(array_diff($ids, $existing));
 
-        foreach ($ids as $pid) {
-            if (in_array($pid, $existing)) continue;
+        /* One product, one group (cleanup point 2). */
+        $claim = \App\Integrations\OneGroupRule::claim('opencart_product_group_products', 'opencart_product_group_id', 'opencart_product_groups', 'opencart_setting_id', $g->id, $ids, array_map('intval', (array) $request->input('move_ids', [])));
+
+        $added = 0;
+        foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
             OpenCartProductGroupProduct::create([
                 'opencart_product_group_id' => $g->id,
                 'product_id' => $pid,
@@ -320,7 +286,8 @@ class OpenCartProductGroupController extends Controller
         }
 
         return redirect()->route('ext.opencart.product-groups.products', [$store, $group])
-            ->with('status', "{$added} product(s) added to product group.");
+            ->with($added > 0 ? 'status' : 'warning', "{$added} product(s) added to product group."
+                . \App\Integrations\OneGroupRule::heldClause($claim['held']));
     }
 
     public function removeProduct(int $store, int $group, int $product)
@@ -368,35 +335,11 @@ class OpenCartProductGroupController extends Controller
 
     // ── Helpers ──────────────────────────────────────────────────────
 
+    /** Pivot-only since the cleanup (point 2, the owner 2026-09-03). */
     private function getMatchingProductIds(OpenCartProductGroup $group): array
     {
-        $pfx = (string) config('catalog.prefix');
-        $catIds = $group->catalog_category_ids ?? [];
-        $mfgIds = $group->manufacturer_ids ?? [];
-
-        $filterIds = [];
-
-        if (!empty($catIds) || !empty($mfgIds)) {
-            $query = DB::table($pfx . 'product as p')->select('p.product_id');
-
-            if (!empty($catIds)) {
-                $query->join($pfx . 'product_to_category as ptc', 'p.product_id', '=', 'ptc.product_id')
-                    ->whereIn('ptc.category_id', $catIds);
-            }
-
-            if (!empty($mfgIds)) {
-                $query->whereIn('p.manufacturer_id', $mfgIds);
-            }
-
-            $filterIds = $query->distinct()->pluck('p.product_id')->toArray();
-        }
-
-        // Manual products
-        $manualIds = [];
-        if ($group->exists) {
-            $manualIds = $group->groupProducts()->pluck('product_id')->toArray();
-        }
-
-        return array_values(array_unique(array_merge($filterIds, $manualIds)));
+        return $group->exists
+            ? $group->groupProducts()->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all()
+            : [];
     }
 }

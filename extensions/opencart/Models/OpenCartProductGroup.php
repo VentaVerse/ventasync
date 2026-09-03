@@ -8,11 +8,9 @@ class OpenCartProductGroup extends Model
 {
     protected $table = 'opencart_product_groups';
 
-    protected $fillable = ['opencart_setting_id', 'name', 'catalog_category_ids', 'manufacturer_ids'];
+    protected $fillable = ['opencart_setting_id', 'name',];
 
     protected $casts = [
-        'catalog_category_ids' => 'array',
-        'manufacturer_ids' => 'array',
     ];
 
     public function setting()

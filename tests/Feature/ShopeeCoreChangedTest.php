@@ -167,7 +167,7 @@ class ShopeeCoreChangedTest extends TestCase
             'last_pushed_at' => now()->subDays(3), 'last_push_source' => 'listing',
         ]);
         $group = ShopeeProductGroup::create([
-            'name' => 'Core watch group', 'catalog_category_ids' => [], 'manufacturer_ids' => [],
+            'name' => 'Core watch group',
             'shopee_category_id' => 100013, 'logistic_ids' => [41003],
         ]);
         DB::table('shopee_product_group_products')->insert([

@@ -15,15 +15,11 @@ class VentaProductGroup extends Model
         'name',
         'venta_category_id',
         'venta_brand_id',
-        'catalog_category_ids',
-        'manufacturer_ids',
         'markup_percent',
         'markup_fixed',
     ];
 
     protected $casts = [
-        'catalog_category_ids' => 'array',
-        'manufacturer_ids'     => 'array',
         'markup_percent'       => 'decimal:2',
         'markup_fixed'         => 'decimal:2',
     ];
