@@ -1285,6 +1285,11 @@
         "name": "ext.pedallion.products.bulk_unlink"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "channels/pedallion/products/import",
+        "name": "ext.pedallion.products.import"
+    },
+    {
         "method": "POST",
         "uri": "channels/pedallion/products/link",
         "name": "ext.pedallion.products.link"
@@ -1293,6 +1298,31 @@
         "method": "POST",
         "uri": "channels/pedallion/products/push-qty",
         "name": "ext.pedallion.products.push_qty"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/pedallion/products/search-catalog",
+        "name": "ext.pedallion.products.search_catalog"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/products/unmatched/sync",
+        "name": "ext.pedallion.products.sync_unmatched"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/products/unmatched/{unmatchedId}/dismiss",
+        "name": "ext.pedallion.products.dismiss_unmatched"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/products/unmatched/{unmatchedId}/import",
+        "name": "ext.pedallion.products.import_unmatched"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/products/unmatched/{unmatchedId}/link",
+        "name": "ext.pedallion.products.link_unmatched"
     },
     {
         "method": "DELETE",

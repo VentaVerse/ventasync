@@ -7,7 +7,6 @@ use Extensions\tiktok\Models\TikTokListing;
 use Extensions\tiktok\Models\TikTokUnmatchedItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -212,22 +211,17 @@ class TikTokItemImport
             if ($url === '' || ! preg_match('#^https://#i', $url)) {
                 continue;
             }
-            try {
-                $answer = Http::timeout(20)->get($url);
-                if (! $answer->successful()) {
-                    continue;
-                }
-                $ext = match ($answer->header('Content-Type')) {
-                    'image/png' => 'png',
-                    'image/webp' => 'webp',
-                    default => 'jpg',
-                };
-                $rel = 'catalog/import/tiktok/' . $productId . '/' . $i . '.' . $ext;
-                Storage::disk('public')->put($rel, $answer->body());
-                $paths[] = $rel;
-            } catch (\Throwable $e) {
+            /* The shared SSRF guard (App\Support\RemoteImage,
+             * 2026-09-04): the URL is the channel's data, so it is
+             * https-only, resolved-and-checked against private ranges,
+             * and never allowed to redirect. */
+            $img = \App\Support\RemoteImage::fetch($url);
+            if ($img === null) {
                 continue; // a photo is never a reason to fail an import
             }
+            $rel = 'catalog/import/tiktok/' . $productId . '/' . $i . '.' . $img['ext'];
+            Storage::disk('public')->put($rel, $img['body']);
+            $paths[] = $rel;
         }
 
         return $paths;

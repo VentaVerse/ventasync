@@ -7,7 +7,6 @@ use Extensions\venta\Models\VentaSetting;
 use Extensions\venta\Models\VentaUnmatchedItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -149,27 +148,16 @@ class VentaItemImport
         $paths = [];
         $slug = Str::slug($sku) ?: 'item';
         foreach (array_values($urls) as $i => $url) {
-            $url = trim((string) $url);
-            if ($url === '' || ! preg_match('#^https?://#i', $url)) {
+            $img = \App\Support\RemoteImage::fetch((string) $url);
+            if ($img === null) {
+                // A photo is never a reason to fail an import - and an
+                // unfetchable URL (non-https, private address, redirect,
+                // non-image) is refused by the shared SSRF guard.
                 continue;
             }
-            try {
-                $answer = Http::timeout(20)->get($url);
-                if (! $answer->successful()) {
-                    continue;
-                }
-                $ext = match ($answer->header('Content-Type')) {
-                    'image/png' => 'png',
-                    'image/webp' => 'webp',
-                    default => 'jpg',
-                };
-                $rel = 'catalog/import/venta/' . $slug . '/' . $i . '.' . $ext;
-                Storage::disk('public')->put($rel, $answer->body());
-                $paths[] = $rel;
-            } catch (\Throwable) {
-                // A photo is never a reason to fail an import.
-                continue;
-            }
+            $rel = 'catalog/import/venta/' . $slug . '/' . $i . '.' . $img['ext'];
+            Storage::disk('public')->put($rel, $img['body']);
+            $paths[] = $rel;
         }
 
         return $paths;

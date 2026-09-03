@@ -8,7 +8,6 @@ use Extensions\shopee\Models\ShopeeProductLink;
 use Extensions\shopee\Models\ShopeeUnmatchedItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -263,24 +262,18 @@ class ShopeeItemImport
             if ($url === '' || ! preg_match('#^https://#i', $url)) {
                 continue;
             }
-            try {
-                $answer = Http::timeout(20)->get($url);
-                if (! $answer->successful()) {
-                    continue;
-                }
-                $body = $answer->body();
-                $ext = match ($answer->header('Content-Type')) {
-                    'image/png' => 'png',
-                    'image/webp' => 'webp',
-                    default => 'jpg',
-                };
-                $rel = 'catalog/import/shopee/' . $itemId . '/' . ($suffix !== '' ? $suffix . '-' : '') . $i . '.' . $ext;
-                Storage::disk('public')->put($rel, $body);
-                $paths[] = $rel;
-            } catch (\Throwable $e) {
+            /* The shared SSRF guard (App\Support\RemoteImage,
+             * 2026-09-04): the URL is the channel's data, so it is
+             * https-only, resolved-and-checked against private ranges,
+             * and never allowed to redirect. */
+            $img = \App\Support\RemoteImage::fetch($url);
+            if ($img === null) {
                 // A photo is never a reason to fail an import.
                 continue;
             }
+            $rel = 'catalog/import/shopee/' . $itemId . '/' . ($suffix !== '' ? $suffix . '-' : '') . $i . '.' . $img['ext'];
+            Storage::disk('public')->put($rel, $img['body']);
+            $paths[] = $rel;
         }
 
         return $paths;
