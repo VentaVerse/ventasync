@@ -253,10 +253,14 @@ class WorkspaceInteriorsTest extends TestCase
                 $html,
                 "{$label} is still inside the .x-legacy content boundary."
             );
+            /* The literal changed 2026-09-03: channel pages render in the
+               blotter shell's own <main>, whose class list carries the
+               flex sizing. The pin is the same - an x-content region with
+               no legacy class on it. */
             $this->assertStringContainsString(
-                'class="x-content "',
+                'class="x-content min-w-0 flex-1',
                 $html,
-                "{$label} did not render the opted-out content class."
+                "{$label} did not render the shared content region."
             );
         }
     }
@@ -1063,9 +1067,9 @@ class WorkspaceInteriorsTest extends TestCase
                 "Lazada {$label} is still inside the .x-legacy content boundary."
             );
             $this->assertStringContainsString(
-                'class="x-content "',
+                'class="x-content min-w-0 flex-1',
                 $html,
-                "Lazada {$label} did not render the opted-out content class."
+                "Lazada {$label} did not render the shared content region."
             );
         }
     }
@@ -1922,9 +1926,9 @@ class WorkspaceInteriorsTest extends TestCase
             "{$label} is still inside the .x-legacy content boundary."
         );
         $this->assertStringContainsString(
-            'class="x-content "',
+            'class="x-content min-w-0 flex-1',
             $html,
-            "{$label} did not render the opted-out content class."
+            "{$label} did not render the shared content region."
         );
     }
 

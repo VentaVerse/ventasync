@@ -100,7 +100,13 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                     new MenuItem('Presets', 'ext.shopee.product-groups.index', 'view_shopee/product_group', null, $p, 'Catalog'),
                     new MenuItem('Categories', 'ext.shopee.categories.index', 'view_shopee/category', null, $p, 'Catalog'),
                     new MenuItem('Logistics', 'ext.shopee.logistics.index', 'view_shopee/logistics', null, $p, 'Channel'),
-                    new MenuItem('Settings', 'ext.shopee.settings.show', 'view_shopee/settings', null, $p, 'Channel'),
+                    new MenuItem('Settings', 'ext.shopee.settings.show', 'view_shopee/settings', null, $p, 'Channel', children: [
+                        ['label' => 'Connection', 'section' => 'connection'],
+                        ['label' => 'Status mapping', 'section' => 'status'],
+                        ['label' => 'API explorer', 'section' => 'explorer', 'permission' => 'manage_shopee/settings'],
+                        ['label' => 'API log', 'section' => 'logs'],
+                        ['label' => 'Automations', 'section' => 'automations', 'permission' => 'manage_shopee/settings'],
+                    ]),
                 ],
                 status: $store->enabled ? 'active' : 'setup_pending',
             );

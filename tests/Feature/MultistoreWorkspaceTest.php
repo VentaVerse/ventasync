@@ -234,17 +234,18 @@ class MultistoreWorkspaceTest extends TestCase
      */
     private function visibleChrome(string $html): string
     {
-        // [^>]* so the tag may carry attributes: the channel shell became an
-        // off-canvas drawer below 1024px and the <aside> now holds Alpine's
-        // :class and an id. The classes are still required; only the
-        // assumption that nothing else sits in the tag is relaxed.
-        preg_match('/<aside class="x-sidebar x-sidebar--channel"[^>]*>(.*?)<\/aside>/s', $html, $sidebar);
+        // Since 2026-09-03 the channel chrome is the x-chnav menubar and it
+        // renders INSIDE <main> (the teleportation fix), so the content
+        // region alone is the workspace. The global sidebar stays outside
+        // this slice on purpose: it now legitimately lists every store of
+        // every channel, which is exactly what these isolation checks must
+        // not count as leakage.
         preg_match('/<main\b[^>]*class="x-content[^"]*"[^>]*>(.*?)<\/main>/s', $html, $content);
 
-        $this->assertNotEmpty($sidebar[1] ?? '', 'No channel sidebar rendered.');
         $this->assertNotEmpty($content[1] ?? '', 'No content region rendered.');
+        $this->assertStringContainsString('x-chnav', $content[1], 'No channel menubar rendered.');
 
-        return $sidebar[1].$content[1];
+        return $content[1];
     }
 
     /** The destinations a store workspace offers, in sidebar order.
@@ -442,9 +443,20 @@ class MultistoreWorkspaceTest extends TestCase
 
             $response->assertOk();
             $response->assertSee($store->label);
-            $response->assertSee('<span class="x-cnav__group-label">Sell</span>', false);
-            $response->assertSee('<span class="x-cnav__group-label">Catalog</span>', false);
-            $response->assertSee('<span class="x-cnav__group-label">Channel</span>', false);
+            // Sell holds one item on a store workspace, so the menubar
+            // offers Orders directly rather than a one-entry menu; the
+            // Channel group's one item (Settings, carrying its page
+            // sections) becomes the Settings menu the same way.
+            $response->assertSee('>Orders</a>', false);
+            // Venta's Catalog holds two items (Listings + Presets)
+            // and keeps its menu; OpenCart's holds one and flattens to the
+            // item itself, same rule as Orders above.
+            if ($channel === 'venta') {
+                $response->assertSee('data-chnav-group="Catalog"', false);
+            } else {
+                $response->assertSee('>Presets</a>', false);
+            }
+            $response->assertSee('data-chnav-group="Settings"', false);
 
             foreach ($this->expectedGroups($channel, $storeId) as [, , $url]) {
                 $response->assertSee(e($url), false);
@@ -513,8 +525,13 @@ class MultistoreWorkspaceTest extends TestCase
         $response = $this->actingAs($user)->get('/channels/opencart/'.$first);
 
         $response->assertOk();
-        $response->assertDontSee(e(route('ext.opencart.reviews.index')), false);
-        $response->assertDontSee('>Reviews</a>', false);
+        /* The check moved onto the workspace slice (2026-09-03): the global
+           sidebar now renders on channel pages and rightly offers Reviews
+           under its own Catalog group - the pin is that the CHANNEL's menu
+           does not adopt it. */
+        $chrome = $this->visibleChrome($response->getContent());
+        $this->assertStringNotContainsString(e(route('ext.opencart.reviews.index')), $chrome);
+        $this->assertStringNotContainsString('>Reviews</a>', $chrome);
     }
 
     // ------------------------------------------------------------------
@@ -613,15 +630,17 @@ class MultistoreWorkspaceTest extends TestCase
                 $response = $this->actingAs($user)->get($path);
 
                 $response->assertOk();
-                $response->assertSee('x-cnav', false);
+                $response->assertSee('x-chnav', false);
                 $response->assertSee('All channels');
-                // The sidebar head names the store this page belongs to.
-                $response->assertSee('<span class="x-cnav__store">'.e($store->label).'</span>', false);
-                // data-nav, not data-nav-group: partials/nav.blade.php always
-                // renders the outer <nav class="x-nav" data-nav> wrapper, so
-                // its absence is real evidence the global sidebar did not
-                // render.
-                $response->assertDontSee('data-nav', false, 'The global nav rendered on the '.$name.' page.');
+                // The store this page belongs to is named in the trail now
+                // that the old sidebar head is gone - it is what stays on
+                // screen while the page scrolls.
+                preg_match('/<div class="x-topbar__crumb">(.*?)<\/div>/s', $response->getContent(), $mbCrumb);
+                $this->assertStringContainsString(e($store->label), $mbCrumb[1] ?? '',
+                    'The trail does not name the store on the '.$name.' page.');
+                // Reversed 2026-09-03 (the teleportation fix): the global
+                // sidebar now STAYS on every channel page.
+                $response->assertSee('data-nav', false);
             }
         }
     }
@@ -687,15 +706,15 @@ class MultistoreWorkspaceTest extends TestCase
             ->get('/channels/'.$channel.'/'.$first.'/orders');
 
         $response->assertOk();
-        $response->assertSee('x-cnav', false);
+        $response->assertSee('x-chnav', false);
 
         $chrome = $this->visibleChrome($response->getContent());
 
-        $this->assertStringContainsString('<span class="x-cnav__group-label">Sell</span>', $chrome);
+        $this->assertStringContainsString('>Orders</a>', $chrome);
         $this->assertStringContainsString(route('ext.'.$channel.'.orders.index', ['store' => $first]), $chrome);
 
-        $this->assertStringNotContainsString('<span class="x-cnav__group-label">Catalog</span>', $chrome);
-        $this->assertStringNotContainsString('<span class="x-cnav__group-label">Channel</span>', $chrome);
+        $this->assertStringNotContainsString('data-chnav-group="Catalog"', $chrome);
+        $this->assertStringNotContainsString('data-chnav-group="Settings"', $chrome);
         $this->assertStringNotContainsString(route('ext.'.$channel.'.product-groups.index', ['store' => $first]), $chrome);
         $this->assertStringNotContainsString(route('ext.'.$channel.'.settings.show', ['store' => $first]), $chrome);
         $this->assertStringNotContainsString(

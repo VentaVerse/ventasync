@@ -1,0 +1,176 @@
+/* ============================================================
+   The channel menubar (partials/channel-menubar.blade.php).
+
+   The channel's own menu, inside the page instead of a swapped
+   sidebar (the owner, 2026-09-03: the old workspace shell read as
+   teleportation - enter Lazada and the nav you stood in is gone).
+   Menu language, deliberately not tabs: parents open downward on
+   click, the way a desktop menubar does, and the only channel
+   colour is the dot on the parent that owns the current page and
+   the edge on the current item inside its menu. Identity (name,
+   store, state) lives in the breadcrumb, not here.
+
+   Sticky, so the menu rides along on every page of the channel.
+   ============================================================ */
+@layer components {
+    .x-chband {
+        position: sticky;
+        top: 0;
+        z-index: 30;
+        background: var(--bl-sheet);
+        border-bottom: 1px solid var(--bl-rule);
+        /* Bleed across x-content's own gutter so the rule under the bar
+           runs edge to edge of the content region; the items' first text
+           edge then lines back up with the page content (13px is the
+           item's own padding). x-content zeroes --bl-pad, not
+           --bl-page-gutter, so the gutter is still readable here. */
+        margin: 0 calc(var(--bl-page-gutter) * -1) 22px;
+        padding: 0 calc(var(--bl-page-gutter) - 13px);
+    }
+
+    .x-chnav {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 42px;
+    }
+
+    .x-chnav__link,
+    .x-chnav__parent {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 13px;
+        border: 0;
+        background: none;
+        cursor: pointer;
+        font: inherit;
+        font-size: 13.5px;
+        font-weight: 550;
+        color: var(--bl-ink-2);
+        text-decoration: none;
+        border-radius: var(--bl-r-ctrl, 5px);
+        transition: color var(--bl-motion-fast, .12s), background var(--bl-motion-fast, .12s);
+    }
+
+    .x-chnav__link:hover,
+    .x-chnav__parent:hover {
+        color: var(--bl-ink);
+        background: var(--bl-paper);
+    }
+
+    .x-chnav__chev {
+        opacity: .55;
+        transition: transform var(--bl-motion-fast, .12s);
+    }
+
+    .x-chnav__parent[aria-expanded="true"] .x-chnav__chev {
+        transform: rotate(180deg);
+        opacity: .8;
+    }
+
+    .x-chnav__group { position: relative; }
+
+    /* Where you are: the parent (or direct link) that owns the current
+       page wears the channel's own colour, quietly - a menu's kind of
+       emphasis, never a tab underline. */
+    .x-chnav__link.is-current,
+    .x-chnav__group.is-current > .x-chnav__parent {
+        color: var(--bl-ink);
+        font-weight: 700;
+    }
+
+    .x-chnav__link.is-current::before,
+    .x-chnav__group.is-current > .x-chnav__parent::before {
+        content: '';
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--ch-deep, var(--bl-brand));
+        margin-right: 2px;
+    }
+
+    [data-theme='dark'] .x-chnav__link.is-current::before,
+    [data-theme='dark'] .x-chnav__group.is-current > .x-chnav__parent::before {
+        background: var(--ch-lift, var(--bl-brand));
+    }
+
+    /* The submenu hangs from the bar. Alpine owns open/closed (click,
+       Escape, click-outside, slide-across-when-open), so there is no
+       :hover opener to fight it. */
+    .x-chnav__menu {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        z-index: 40;
+        min-width: 188px;
+        padding: 5px;
+        background: var(--bl-sheet);
+        border: 1px solid var(--bl-rule);
+        border-radius: var(--bl-r-panel, 8px);
+        box-shadow: 0 8px 24px -6px var(--bl-scrim, rgba(15, 20, 25, .35));
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+    }
+
+    /* The last parent sits nearest the right edge, so its menu hangs
+       left of the anchor instead of running off the viewport. */
+    .x-chnav__group:last-child .x-chnav__menu {
+        left: auto;
+        right: 0;
+    }
+
+    .x-chnav__child {
+        padding: 7px 11px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--bl-ink-2);
+        text-decoration: none;
+        border-radius: var(--bl-r-ctrl, 5px);
+    }
+
+    .x-chnav__child:hover {
+        color: var(--bl-ink);
+        background: var(--bl-paper);
+    }
+
+    .x-chnav__child.is-active {
+        color: var(--bl-ink);
+        font-weight: 650;
+        background: var(--bl-paper);
+        box-shadow: inset 2px 0 0 var(--ch-deep, var(--bl-brand));
+    }
+
+    [data-theme='dark'] .x-chnav__child.is-active {
+        box-shadow: inset 2px 0 0 var(--ch-lift, var(--bl-brand));
+    }
+
+    /* A page section inside an item's own page (Settings' Connection,
+       Logs, ...) reads one step quieter than a page. */
+    .x-chnav__child--section {
+        padding-left: 22px;
+        font-size: 12.5px;
+        color: var(--bl-ink-3);
+    }
+
+    .x-chnav__child--section:hover { color: var(--bl-ink); }
+
+    @media (max-width: 900px) {
+        .x-chnav {
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .x-chnav::-webkit-scrollbar { display: none; }
+
+        .x-chnav__link,
+        .x-chnav__parent {
+            flex: none;
+            padding: 9px 13px 11px;
+        }
+
+        /* An open menu must escape the strip's own scroll clipping. */
+        .x-chnav:has([aria-expanded="true"]) { overflow: visible; }
+    }
+}

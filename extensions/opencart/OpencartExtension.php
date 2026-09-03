@@ -79,7 +79,14 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                     // center at /integrations/opencart:{id}, built from
                     // exactly this menu, with these ['store' => id] params
                     // carried through unchanged.
-                    new MenuItem('Settings', 'ext.opencart.settings.show', 'view_opencart/settings', null, ['store' => $store->id], 'Channel'),
+                    new MenuItem('Settings', 'ext.opencart.settings.show', 'view_opencart/settings', null, ['store' => $store->id], 'Channel', children: [
+                        ['label' => 'Connection', 'section' => 'connection'],
+                        ['label' => 'Order sync', 'section' => 'orders'],
+                        ['label' => 'Status mapping', 'section' => 'status'],
+                        ['label' => 'Automations', 'section' => 'automations'],
+                        ['label' => 'First import', 'section' => 'import', 'permission' => 'manage_opencart/settings'],
+                        ['label' => 'Sync log', 'section' => 'sync'],
+                    ]),
                     new MenuItem('Presets', 'ext.opencart.product-groups.index', 'view_opencart/product_group', null, ['store' => $store->id], 'Catalog'),
                     new MenuItem('Orders', 'ext.opencart.orders.index', 'view_opencart/order', null, ['store' => $store->id], 'Sell'),
                 ],

@@ -209,7 +209,7 @@ class TiktokWorkspaceTest extends TestCase
         $response = $this->actingAs($user)->get('/channels/tiktok/orders');
 
         $response->assertOk();
-        $response->assertSee('x-cnav', false);
+        $response->assertSee('x-chnav', false);
     }
 
     /**
@@ -226,11 +226,11 @@ class TiktokWorkspaceTest extends TestCase
 
         $response->assertOk();
 
-        $response->assertSee('<span class="x-cnav__group-label">Sell</span>', false);
+        $response->assertSee('data-chnav-group="Sell"', false);
         $response->assertSee('>Orders</a>', false);
 
-        $response->assertDontSee('<span class="x-cnav__group-label">Catalog</span>', false);
-        $response->assertDontSee('<span class="x-cnav__group-label">Channel</span>', false);
+        $response->assertDontSee('data-chnav-group="Catalog"', false);
+        $response->assertDontSee('data-chnav-group="Channel"', false);
         $response->assertDontSee('>Presets</a>', false);
         $response->assertDontSee('>Categories</a>', false);
         $response->assertDontSee('>Settings</a>', false);
@@ -258,12 +258,13 @@ class TiktokWorkspaceTest extends TestCase
         $response = $this->actingAs($user)->get($path);
 
         $response->assertOk();
-        $response->assertSee('x-cnav', false);
+        $response->assertSee('x-chnav', false);
         $response->assertSee('All channels');
-        // data-nav, not data-nav-group: partials/nav.blade.php always renders
-        // the outer <nav class="x-nav" data-nav> wrapper, so its absence is
-        // real evidence the global sidebar did not render.
-        $response->assertDontSee('data-nav', false);
+        // Reversed 2026-09-03 (the teleportation fix): the global sidebar
+        // now STAYS on every channel page - data-nav present is the proof -
+        // and the channel's own menu rides as the x-chnav menubar instead
+        // of a swapped sidebar.
+        $response->assertSee('data-nav', false);
     }
 
     /**

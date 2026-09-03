@@ -76,7 +76,13 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
                     // center at /integrations/venta:{id}, built from exactly
                     // this menu, with these ['store' => id] params carried
                     // through unchanged.
-                    new MenuItem('Settings', 'ext.venta.settings.show', 'view_venta/settings', null, ['store' => $store->id], 'Channel'),
+                    new MenuItem('Settings', 'ext.venta.settings.show', 'view_venta/settings', null, ['store' => $store->id], 'Channel', children: [
+                        ['label' => 'Connection', 'section' => 'connection'],
+                        ['label' => 'Status mapping', 'section' => 'status'],
+                        ['label' => 'Automations', 'section' => 'automations'],
+                        ['label' => 'API log', 'section' => 'logs'],
+                        ['label' => 'Sync log', 'section' => 'sync'],
+                    ]),
                     new MenuItem('Listings', 'ext.venta.listings.index', 'view_venta/listing', null, ['store' => $store->id], 'Catalog'),
                     new MenuItem('Presets', 'ext.venta.product-groups.index', 'view_venta/product_group', null, ['store' => $store->id], 'Catalog'),
                     new MenuItem('Orders', 'ext.venta.orders.index', 'view_venta/order', null, ['store' => $store->id], 'Sell'),

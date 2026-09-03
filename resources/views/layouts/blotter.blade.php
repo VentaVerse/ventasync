@@ -10,8 +10,12 @@
     @stack('styles')
 </head>
 {{-- bl-app marks a page as converted to the v2.2 shell, the same way x-app
-     marked the shell before it. The suite asserts on it. --}}
-<body class="bl-app min-h-screen">
+     marked the shell before it. The suite asserts on it. body-class and
+     body-attrs are how layouts/channel rides this shell: the channel class
+     and the channel's accent variables land here, so one document serves
+     both and the channel pages stop teleporting into a second shell
+     (the owner, 2026-09-03). --}}
+<body class="bl-app min-h-screen @yield('body-class')" @hasSection('body-attrs')@yield('body-attrs')@endif>
 {{-- The navigation progress line (components/nav-progress.css, js/nav-progress.js). --}}
 <div class="x-progress" id="x-progress" aria-hidden="true"></div>
 {{-- The bypass block (WCAG 2.4.1). A keyboard user passed 15 to 17 stops
@@ -81,8 +85,18 @@
                  same partial the channel workspace carries. The settings pages
                  had no way back to Settings but the sidebar (live fix
                  2026-08-26). --}}
+            {{-- x-topbar__crumb is the name the workspace tests slice the
+                 trail out by; it rode the old channel topbar and moved here
+                 with the channel pages (2026-09-03). --}}
             <div class="hidden min-w-0 sm:block">
-                @include('partials.breadcrumb')
+                {{-- The inner div carries the exact class the workspace
+                     tests slice the trail out by (it rode the old channel
+                     topbar and moved here with the channel pages,
+                     2026-09-03); the outer one keeps the shell's own
+                     responsive rule. --}}
+                <div class="x-topbar__crumb">
+                    @include('partials.breadcrumb')
+                </div>
             </div>
 
             {{-- Opens the command palette, which owns search for the whole
@@ -166,7 +180,11 @@
              this one. It is not a style hook here: the suite slices the page
              on it to prove a panel rendered inside the content area rather
              than anywhere else on the document. --}}
-        <main id="main" tabindex="-1" class="x-content min-w-0 flex-1">
+        <main id="main" tabindex="-1" class="x-content min-w-0 flex-1 @yield('content-class', '')">
+            {{-- The channel menubar (or nothing). A section, not an include,
+                 so only layouts/channel pays for it and this layout never
+                 learns what a channel is. --}}
+            @yield('main-prelude')
             {{ $slot ?? '' }}
             @yield('content')
         </main>

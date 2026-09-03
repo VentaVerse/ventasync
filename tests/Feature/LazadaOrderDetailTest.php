@@ -182,11 +182,12 @@ class LazadaOrderDetailTest extends TestCase
 
         $response->assertOk();
 
-        // Channel sidebar present, global sidebar absent, no cross-marketplace
-        // strip: the same three discriminators ChannelWorkspaceTest uses.
-        $response->assertSee('x-cnav', false);
+        // Channel menubar present, global sidebar PRESENT (reversed
+        // 2026-09-03, the teleportation fix: one shell, the channel menu
+        // rides inside the page), no cross-marketplace strip.
+        $response->assertSee('x-chnav', false);
         $response->assertSee('All channels');
-        $response->assertDontSee('data-nav', false);
+        $response->assertSee('data-nav', false);
         $response->assertDontSee('All marketplaces');
 
         // On the shared detail anatomy, outside the .x-legacy boundary.

@@ -95,12 +95,16 @@ class ChannelStateLabelTest extends TestCase
      */
     public function test_no_view_keeps_its_own_copy_of_the_wording(): void
     {
+        /* partials/channel-nav left the list 2026-09-03: the swapped
+           sidebar it guarded is gone (the teleportation fix), and its
+           replacement menubar deliberately carries no state wording - the
+           board and the Overview are where a channel's state is read. */
         $views = [
-            'resources/views/partials/channel-nav.blade.php',
             'resources/views/channels/board.blade.php',
         ];
 
         foreach ($views as $view) {
+            $this->assertFileExists(base_path($view));
             $source = file_get_contents(base_path($view));
 
             $this->assertStringContainsString('ChannelWorkspace::badge(', $source,

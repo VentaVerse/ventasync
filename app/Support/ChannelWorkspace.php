@@ -919,10 +919,25 @@ class ChannelWorkspace
             // still be reachable.
             $group = in_array($item->group, self::GROUPS, true) ? $item->group : 'Channel';
 
+            $url = route($item->routeName, $item->routeParams);
             $buckets[$group][] = [
                 'label' => $item->label,
                 'route' => $item->routeName,
-                'url' => route($item->routeName, $item->routeParams),
+                'url' => $url,
+                // The page's own sections, ready as links. ?tab= is the
+                // deep-link the settings tab script already honours first
+                // in its restore order (channel-settings.js), so these
+                // links land with the right section open and never invent
+                // a destination the page does not have.
+                'children' => array_values(array_map(fn ($c) => [
+                    'label' => (string) $c['label'],
+                    'url' => $url . (str_contains($url, '?') ? '&' : '?') . 'tab=' . $c['section'],
+                ], array_filter($item->children, function ($c) use ($user) {
+                    // The same gate the page puts on the section's own tab
+                    // button, so the menu never offers a section the page
+                    // will not show this user.
+                    return empty($c['permission']) || ($user?->hasPermission($c['permission']) ?? false);
+                }))),
             ];
         }
 
