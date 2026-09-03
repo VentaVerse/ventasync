@@ -235,17 +235,19 @@ class MultistoreWorkspaceTest extends TestCase
     private function visibleChrome(string $html): string
     {
         // Since 2026-09-03 the channel chrome is the x-chnav menubar and it
-        // renders INSIDE <main> (the teleportation fix), so the content
-        // region alone is the workspace. The global sidebar stays outside
+        // renders as shell chrome directly above <main> (the polish pass
+        // moved it out of the content region to run full width), so the
+        // workspace is the band plus the content region. The global sidebar stays outside
         // this slice on purpose: it now legitimately lists every store of
         // every channel, which is exactly what these isolation checks must
         // not count as leakage.
+        preg_match('/<div class="x-chband">(.*?)<main\b/s', $html, $band);
         preg_match('/<main\b[^>]*class="x-content[^"]*"[^>]*>(.*?)<\/main>/s', $html, $content);
 
+        $this->assertNotEmpty($band[1] ?? '', 'No channel menubar rendered.');
         $this->assertNotEmpty($content[1] ?? '', 'No content region rendered.');
-        $this->assertStringContainsString('x-chnav', $content[1], 'No channel menubar rendered.');
 
-        return $content[1];
+        return $band[1].$content[1];
     }
 
     /** The destinations a store workspace offers, in sidebar order.

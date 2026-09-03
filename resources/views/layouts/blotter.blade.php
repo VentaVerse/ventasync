@@ -176,6 +176,12 @@
             </div>
         </header>
 
+        {{-- A full-width band between the topbar and the content - shell
+             chrome, not page content, so it spans the column edge to edge
+             and never inherits the content region's ceiling or gutters.
+             layouts/channel puts the channel menubar here (2026-09-03). --}}
+        @yield('shell-band')
+
         {{-- x-content names the content region, as it did on the shell before
              this one. It is not a style hook here: the suite slices the page
              on it to prove a panel rendered inside the content area rather

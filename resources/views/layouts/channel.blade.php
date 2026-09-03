@@ -28,7 +28,10 @@
     style="--ch: {{ \App\Support\ChannelAccent::raw($__chAccent) }}; --ch-deep: {{ \App\Support\ChannelAccent::deep($__chAccent) }}; --ch-cta: {{ \App\Support\ChannelAccent::cta($__chAccent) }}; --ch-lift: {{ \App\Support\ChannelAccent::onDark($__chAccent) }};"
 @endsection
 
-@section('main-prelude')
+@section('shell-band')
     @include('partials.channel-menubar')
+@endsection
+
+@section('main-prelude')
     @include('partials.legacy-page-contract')
 @endsection

@@ -19,12 +19,10 @@
         z-index: 30;
         background: var(--bl-sheet);
         border-bottom: 1px solid var(--bl-rule);
-        /* Bleed across x-content's own gutter so the rule under the bar
-           runs edge to edge of the content region; the items' first text
-           edge then lines back up with the page content (13px is the
-           item's own padding). x-content zeroes --bl-pad, not
-           --bl-page-gutter, so the gutter is still readable here. */
-        margin: 0 calc(var(--bl-page-gutter) * -1) 22px;
+        /* Shell chrome since the polish pass: the band renders between the
+           topbar and <main>, so it spans the column edge to edge on its
+           own. The inset aligns the first item's TEXT (13px is the item's
+           own padding) with the topbar's gutter above and the crumb text. */
         padding: 0 calc(var(--bl-page-gutter) - 13px);
     }
 
@@ -95,34 +93,54 @@
         background: var(--ch-lift, var(--bl-brand));
     }
 
-    /* The submenu hangs from the bar. Alpine owns open/closed (click,
-       Escape, click-outside, slide-across-when-open), so there is no
-       :hover opener to fight it. */
+    /* The submenu hangs from the bar. Alpine owns open/closed - hover on
+       a pointer that can hover, click/Enter everywhere, Escape,
+       click-outside, mouseleave, slide-across-when-open. */
     .x-chnav__menu {
         position: absolute;
-        top: calc(100% + 4px);
-        left: 0;
+        top: calc(100% + 5px);
+        left: 2px; /* the panel edge tucks in so child text (13px pad)
+                      sits flush under the parent's own text (13px + 2px) */
         z-index: 40;
-        min-width: 188px;
+        min-width: 200px;
         padding: 5px;
         background: var(--bl-sheet);
         border: 1px solid var(--bl-rule);
         border-radius: var(--bl-r-panel, 8px);
-        box-shadow: 0 8px 24px -6px var(--bl-scrim, rgba(15, 20, 25, .35));
+        box-shadow: 0 10px 28px -8px var(--bl-scrim, rgba(15, 20, 25, .4)),
+                    0 2px 8px -2px var(--bl-scrim, rgba(15, 20, 25, .25));
         display: flex;
         flex-direction: column;
         gap: 1px;
+        transform-origin: top;
+        animation: x-chnav-drop var(--bl-motion-fast, .12s) ease-out;
     }
 
-    /* The last parent sits nearest the right edge, so its menu hangs
-       left of the anchor instead of running off the viewport. */
-    .x-chnav__group:last-child .x-chnav__menu {
-        left: auto;
+    /* The invisible bridge over the drop gap, so a pointer travelling
+       from the parent into its menu never crosses bare page and closes
+       the menu it was reaching for. */
+    .x-chnav__menu::before {
+        content: '';
+        position: absolute;
+        top: -7px;
+        left: 0;
         right: 0;
+        height: 7px;
+    }
+
+    @keyframes x-chnav-drop {
+        from {
+            opacity: 0;
+            transform: translateY(-3px);
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .x-chnav__menu { animation: none; }
     }
 
     .x-chnav__child {
-        padding: 7px 11px;
+        padding: 7px 13px;
         font-size: 13px;
         font-weight: 500;
         color: var(--bl-ink-2);
@@ -149,7 +167,7 @@
     /* A page section inside an item's own page (Settings' Connection,
        Logs, ...) reads one step quieter than a page. */
     .x-chnav__child--section {
-        padding-left: 22px;
+        padding-left: 26px;
         font-size: 12.5px;
         color: var(--bl-ink-3);
     }
@@ -172,5 +190,12 @@
 
         /* An open menu must escape the strip's own scroll clipping. */
         .x-chnav:has([aria-expanded="true"]) { overflow: visible; }
+
+        /* The last parent can sit at the strip's right edge, so its menu
+           hangs left of the anchor instead of running off the viewport. */
+        .x-chnav__group:last-child .x-chnav__menu {
+            left: auto;
+            right: 2px;
+        }
     }
 }

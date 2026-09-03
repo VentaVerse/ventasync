@@ -61,9 +61,12 @@
 @endphp
 
 <div class="x-chband">
+    {{-- hoverable: matchMedia once at init, so a phone's synthetic
+         mouseenter (fired on tap, before click) never fights the tap. --}}
     <nav class="x-chnav" aria-label="{{ $channelCard->name }} navigation"
-         x-data="{ open: null }"
+         x-data="{ open: null, hoverable: window.matchMedia('(hover: hover)').matches }"
          @click.outside="open = null"
+         @mouseleave="if (hoverable) open = null"
          @keydown.escape.window="open = null">
         @foreach($mbEntries as $mi => $entry)
             @if($entry['kind'] === 'link')
@@ -74,9 +77,10 @@
                 <div class="x-chnav__group {{ $entry['active'] ? 'is-current' : '' }}" data-chnav-group="{{ $entry['label'] }}">
                     <button type="button" class="x-chnav__parent"
                             @click="open = (open === {{ $mi }} ? null : {{ $mi }})"
-                            {{-- a menubar convention: once one menu is open,
-                                 sliding across the bar switches menus --}}
-                            @mouseenter="if (open !== null) open = {{ $mi }}"
+                            {{-- a pointer that can hover opens on hover; the
+                                 nav's own mouseleave closes, and sliding
+                                 across the bar switches menus --}}
+                            @mouseenter="if (hoverable) open = {{ $mi }}"
                             :aria-expanded="open === {{ $mi }} ? 'true' : 'false'">
                         {{ $entry['label'] }}
                         <x-ui.icon name="chevron-down" size="9" class="x-chnav__chev" />
