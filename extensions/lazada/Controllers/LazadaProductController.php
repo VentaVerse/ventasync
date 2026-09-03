@@ -3523,6 +3523,26 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ->with('status', "Unmatched sync complete. Lazada items: " . count($allProducts) . ". Already matched: {$matchedCount}. Unmatched: {$unmatchedCount}.");
     }
 
+    /**
+     * Import a Lazada item into the core catalog (#196): the whole item
+     * lands as a real product, Lazada-only details ride its listing
+     * record, the variant cache fills, and the queue rows clear.
+     */
+    public function importUnmatchedItem(int $unmatchedId, \Extensions\lazada\Services\Lazada\LazadaItemImport $import)
+    {
+        $item = \Extensions\lazada\Models\LazadaUnmatchedItem::findOrFail($unmatchedId);
+
+        $setting = LazadaSetting::query()->first()?->decrypted();
+        $creds = LazadaSetting::activeCredentials($setting);
+        if (!$setting || !$setting->region || !$creds['complete']) {
+            return redirect()->back()->with('error', 'Missing Lazada settings.');
+        }
+
+        $r = $import->import($setting, $creds, (string) $item->lazada_item_id);
+
+        return redirect()->back()->with($r['ok'] ? 'status' : 'error', $r['message']);
+    }
+
     public function linkUnmatchedItem(Request $request, int $unmatchedId)
     {
         $request->validate(['product_id' => 'required|integer|min:1']);

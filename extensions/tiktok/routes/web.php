@@ -130,6 +130,11 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         // settings, Send for a selection, stock and price for one product,
         // unlink, delete, and the attribute sheet read for the listing page.
         Route::post('/tiktok/products/fetch-attributes', [TikTokProductController::class, 'fetchAttributes'])->name('ext.tiktok.products.fetchAttributes');
+        Route::get('/tiktok/products/search-catalog', [TikTokProductController::class, 'searchCatalogProducts'])->name('ext.tiktok.products.search_catalog');
+        Route::post('/tiktok/products/unmatched/sync', [TikTokProductController::class, 'syncUnmatchedItems'])->name('ext.tiktok.products.sync_unmatched');
+        Route::post('/tiktok/products/unmatched/{unmatchedId}/import', [TikTokProductController::class, 'importUnmatched'])->name('ext.tiktok.products.import_unmatched');
+        Route::post('/tiktok/products/unmatched/{unmatchedId}/link', [TikTokProductController::class, 'linkUnmatched'])->name('ext.tiktok.products.link_unmatched');
+        Route::post('/tiktok/products/unmatched/{unmatchedId}/dismiss', [TikTokProductController::class, 'dismissUnmatched'])->name('ext.tiktok.products.dismiss_unmatched');
         Route::post('/tiktok/products/bulk/apply-preset', [TikTokProductController::class, 'bulkApplyPreset'])->name('ext.tiktok.products.bulk_apply_preset');
         Route::post('/tiktok/products/check', [TikTokProductController::class, 'checkAgainstTikTok'])->name('ext.tiktok.products.check');
         Route::post('/tiktok/products/bulk/send', [TikTokProductController::class, 'bulkSend'])->name('ext.tiktok.products.bulk_send');

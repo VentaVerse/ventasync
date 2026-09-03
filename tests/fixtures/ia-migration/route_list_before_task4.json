@@ -881,6 +881,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/lazada/products/unmatched/{unmatchedId}/import",
+        "name": "ext.lazada.products.import_unmatched"
+    },
+    {
+        "method": "POST",
         "uri": "channels/lazada/products/unmatched/{unmatchedId}/link",
         "name": "ext.lazada.products.link_unmatched"
     },
@@ -2218,6 +2223,31 @@
         "method": "POST",
         "uri": "channels/tiktok/products/refresh-status",
         "name": "ext.tiktok.products.refresh_status"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/products/search-catalog",
+        "name": "ext.tiktok.products.search_catalog"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/products/unmatched/sync",
+        "name": "ext.tiktok.products.sync_unmatched"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/products/unmatched/{unmatchedId}/dismiss",
+        "name": "ext.tiktok.products.dismiss_unmatched"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/products/unmatched/{unmatchedId}/import",
+        "name": "ext.tiktok.products.import_unmatched"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/products/unmatched/{unmatchedId}/link",
+        "name": "ext.tiktok.products.link_unmatched"
     },
     {
         "method": "POST",

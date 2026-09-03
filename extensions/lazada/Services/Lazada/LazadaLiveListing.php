@@ -272,6 +272,18 @@ class LazadaLiveListing
      *
      * @return array{live: ?array, error: ?string}
      */
+    /**
+     * The FULL /product/item/get answer, for callers that need the whole
+     * item rather than the condensed status view - the importer (#196)
+     * reads name, description, brand, images, parcel and variation
+     * properties from it. Throws the same plain RuntimeException the
+     * other reads throw.
+     */
+    public function raw(object $setting, array $creds, string $itemId): array
+    {
+        return $this->signedGet($setting, $creds, '/product/item/get', ['item_id' => $itemId]);
+    }
+
     public function fetch(object $setting, array $creds, string $itemId): array
     {
         try {

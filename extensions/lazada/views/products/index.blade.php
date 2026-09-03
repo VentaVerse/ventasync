@@ -101,21 +101,21 @@
     <div class="fm-section__head">
         <h2 class="fm-section__title">
             @if($hasUnmatched)
-                {{ number_format($unmatched->count()) }} unmatched {{ $unmatched->count() === 1 ? 'item' : 'items' }} on Lazada
+                {{ number_format($unmatched->count()) }} {{ $unmatched->count() === 1 ? 'item' : 'items' }} on Lazada, not in the catalog
             @else
-                Unmatched items
+                Import from Lazada
             @endif
         </h2>
         <div class="fm-section__aside">
             <form method="POST" action="{{ route('ext.lazada.products.sync_unmatched') }}">
                 @csrf
-                <x-ui.button type="submit" size="sm">{{ $hasUnmatched ? 'Scan again' : 'Scan for unmatched items' }}</x-ui.button>
+                <x-ui.button type="submit" size="sm">{{ $hasUnmatched ? 'Scan again' : 'Scan Lazada for new items' }}</x-ui.button>
             </form>
         </div>
     </div>
 
     @if($hasUnmatched)
-        <p class="fm-section__note">These items exist on Lazada but no catalog product has a matching SKU. Link each one to the catalog product it really is, or dismiss it if it should not be tracked here.</p>
+        <p class="fm-section__note">These items exist on Lazada but not in the catalog. Import one to create the real product here - details, variations and images included - or link it to a catalog product it already is, or dismiss it.</p>
 
         <x-ui.table>
             <x-slot:head>
@@ -178,13 +178,15 @@
                         </form>
                     </td>
                     <td class="x-td-actions">
-                        {{-- Dismiss is the secondary way out of this queue, so
-                             it sits in the row's overflow rather than beside
-                             Link. Two buttons of different weight on every row
-                             is the mixed grammar this system avoids, and
-                             dismissing is the rarer of the two by a wide
-                             margin. --}}
-                        <x-ui.menu label="Unmatched item {{ $ui->lazada_item_id }} actions">
+                        {{-- Import is the queue's whole point (#196); Link
+                             stays for an item the catalog already has under
+                             another SKU; Dismiss stays the rare way out. --}}
+                        <form method="POST" action="{{ route('ext.lazada.products.import_unmatched', $ui->id) }}" data-slow-action
+                              data-confirm="Import this Lazada item into the catalog? A real product is created here - name, price, stock, variations and images - and linked to the Lazada item. Nothing changes on Lazada." data-confirm-tone="primary" data-confirm-verb="Import">
+                            @csrf
+                            <x-ui.button type="submit" size="sm" variant="primary">Import</x-ui.button>
+                        </form>
+                        <x-ui.menu label="Lazada item {{ $ui->lazada_item_id }} actions">
                             <form method="POST" action="{{ route('ext.lazada.products.dismiss_unmatched', $ui->id) }}">
                                 @csrf
                                 <button type="submit" class="x-menu__item">Dismiss, stop tracking it</button>

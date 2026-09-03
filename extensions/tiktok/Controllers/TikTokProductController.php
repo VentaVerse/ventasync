@@ -218,6 +218,8 @@ class TikTokProductController extends Controller
             'groupFilter' => $groupFilter, 'erpStatus' => $erpStatus,
             'allManufacturers' => DB::table($pfx . 'manufacturer')->orderBy('name')->pluck('name', 'manufacturer_id'),
             'allGroups' => TikTokProductGroup::query()->orderBy('name')->pluck('name', 'id'),
+            'unmatchedItems' => \Extensions\tiktok\Models\TikTokUnmatchedItem::query()
+                ->where('status', 'unmatched')->orderBy('item_name')->get(),
             'groupsByProductId' => $groupsByProductId,
             'optionRowsByProductId' => \App\Support\VariationRows::forProducts($pageIds),
             'listingsByProductId' => $listingsByProductId,
@@ -325,6 +327,160 @@ class TikTokProductController extends Controller
      * exists yet. Then Send to TikTok Shop works, without one visit to
      * the Presets page.
      */
+    /**
+     * TikTok's import queue (#196): walk the shop once, keep what is
+     * neither linked here nor matched by any catalog SKU - the same
+     * scan Shopee and Lazada carry, in TikTok's anatomy.
+     */
+    /**
+     * Catalog search for the import queue's Link picker (#196) - the
+     * same JSON shape Shopee's picker reads, so the shared module works
+     * unchanged.
+     */
+    public function searchCatalogProducts(Request $request)
+    {
+        $q = trim((string) $request->get('q', ''));
+        if ($q === '' || strlen($q) < 2) {
+            return response()->json([]);
+        }
+
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $results = DB::table($pfx . 'product as p')
+            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+                $j->on('p.product_id', '=', 'pd.product_id')
+                  ->where('pd.language_id', '=', $langId);
+            })
+            ->where(function ($sub) use ($q) {
+                $sub->where('pd.name', 'like', '%' . $q . '%')
+                    ->orWhere('p.model', 'like', '%' . $q . '%')
+                    ->orWhere('p.sku', 'like', '%' . $q . '%');
+            })
+            ->limit(20)
+            ->get(['p.product_id', 'pd.name', 'p.model', 'p.sku', 'p.image']);
+
+        return response()->json($results->map(fn ($r) => [
+            'product_id' => (int) $r->product_id,
+            'name' => (string) ($r->name ?? ''),
+            'model' => (string) ($r->model ?? ''),
+            'sku' => (string) ($r->sku ?? ''),
+            'image' => (string) ($r->image ?? ''),
+            'options' => [],
+        ]));
+    }
+
+    public function syncUnmatchedItems(TikTokLiveListing $live)
+    {
+        $c = $this->creds();
+        if (!$c) {
+            return redirect()->back()->with('error', 'Missing TikTok settings.');
+        }
+
+        $shop = $live->shop($c);
+        if ($shop['products'] === null) {
+            return redirect()->back()->with('error', 'Scan failed: ' . $shop['error']);
+        }
+
+        $linked = TikTokListing::query()->whereNotNull('tiktok_product_id')->pluck('tiktok_product_id')
+            ->merge(\Extensions\tiktok\Models\TikTokProductGroupProduct::query()->whereNotNull('tiktok_product_id')->pluck('tiktok_product_id'))
+            ->map(fn ($v) => (string) $v)->flip();
+
+        $pfx = (string) config('catalog.prefix');
+        $erpSkus = [];
+        foreach (DB::table($pfx . 'product')->get(['sku', 'model']) as $p) {
+            foreach ([$p->sku, $p->model] as $v) {
+                if (trim((string) $v) !== '') $erpSkus[strtolower(trim((string) $v))] = true;
+            }
+        }
+        foreach (DB::table($pfx . 'product_option_value')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku') as $v) {
+            $erpSkus[strtolower(trim((string) $v))] = true;
+        }
+        foreach (DB::table('product_option_combinations')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku') as $v) {
+            $erpSkus[strtolower(trim((string) $v))] = true;
+        }
+
+        \Extensions\tiktok\Models\TikTokUnmatchedItem::query()->where('status', 'unmatched')->delete();
+
+        $found = 0;
+        $scanned = 0;
+        foreach ($shop['products'] as $ttId => $p) {
+            $scanned++;
+            if ($linked->has((string) $ttId)) {
+                continue;
+            }
+            $skus = array_values(array_filter(array_map(fn ($v) => trim((string) $v), (array) ($p['skus'] ?? []))));
+            $matched = false;
+            foreach ($skus as $sku) {
+                if (isset($erpSkus[strtolower($sku)])) {
+                    $matched = true;
+                    break;
+                }
+            }
+            if ($matched) {
+                continue;
+            }
+            foreach (($skus ?: [null]) as $sku) {
+                \Extensions\tiktok\Models\TikTokUnmatchedItem::updateOrCreate(
+                    ['tiktok_product_id' => (string) $ttId, 'sku' => $sku],
+                    ['item_name' => (string) ($p['title'] ?? ''), 'status' => 'unmatched', 'linked_product_id' => null]
+                );
+                $found++;
+            }
+        }
+
+        return redirect()->back()->with('status',
+            "Scanned {$scanned} products on TikTok Shop: " . ($found > 0 ? "{$found} not in the catalog." : 'everything is matched or linked.'));
+    }
+
+    /** Import one queued product into the core catalog (#196). */
+    public function importUnmatched(int $unmatchedId, \Extensions\tiktok\Services\TikTok\TikTokItemImport $import)
+    {
+        $item = \Extensions\tiktok\Models\TikTokUnmatchedItem::findOrFail($unmatchedId);
+        $c = $this->creds();
+        if (!$c) {
+            return redirect()->back()->with('error', 'Missing TikTok settings.');
+        }
+
+        $r = $import->import($c, (string) $item->tiktok_product_id);
+
+        return redirect()->back()->with($r['ok'] ? 'status' : 'error', $r['message']);
+    }
+
+    /** Link a queued product to a catalog product it already is. */
+    public function linkUnmatched(Request $request, int $unmatchedId)
+    {
+        $request->validate(['product_id' => 'required|integer|min:1']);
+        $item = \Extensions\tiktok\Models\TikTokUnmatchedItem::findOrFail($unmatchedId);
+        $productId = (int) $request->input('product_id');
+
+        $pfx = (string) config('catalog.prefix');
+        if (! DB::table($pfx . 'product')->where('product_id', $productId)->exists()) {
+            return redirect()->back()->with('error', 'Catalog product not found.');
+        }
+
+        TikTokListing::updateOrCreate(
+            ['product_id' => $productId],
+            ['tiktok_product_id' => (string) $item->tiktok_product_id, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null]
+        );
+        \Extensions\tiktok\Models\TikTokUnmatchedItem::query()
+            ->where('tiktok_product_id', $item->tiktok_product_id)
+            ->update(['status' => 'linked', 'linked_product_id' => $productId]);
+
+        return redirect()->back()->with('status', 'Linked "' . ($item->item_name ?: 'Unnamed product') . '" to catalog product #' . $productId . '.');
+    }
+
+    /** Stop tracking a queued product. */
+    public function dismissUnmatched(int $unmatchedId)
+    {
+        $item = \Extensions\tiktok\Models\TikTokUnmatchedItem::findOrFail($unmatchedId);
+        \Extensions\tiktok\Models\TikTokUnmatchedItem::query()
+            ->where('tiktok_product_id', $item->tiktok_product_id)
+            ->update(['status' => 'dismissed']);
+
+        return redirect()->back()->with('status', 'Dismissed "' . ($item->item_name ?: 'Unnamed product') . '".');
+    }
+
     public function bulkApplyPreset(Request $request)
     {
         $data = $request->validate([

@@ -210,6 +210,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         // Lazada Products — sample push, unmatched workflow
         Route::post('/lazada/products/{id}/push/sample', [LazadaProductController::class, 'pushSample'])->whereNumber('id')->name('ext.lazada.products.push_sample');
         Route::post('/lazada/products/unmatched/sync', [LazadaProductController::class, 'syncUnmatchedItems'])->name('ext.lazada.products.sync_unmatched');
+        Route::post('/lazada/products/unmatched/{unmatchedId}/import', [LazadaProductController::class, 'importUnmatchedItem'])->name('ext.lazada.products.import_unmatched');
         Route::post('/lazada/products/unmatched/{unmatchedId}/link', [LazadaProductController::class, 'linkUnmatchedItem'])->name('ext.lazada.products.link_unmatched');
         Route::post('/lazada/products/unmatched/{unmatchedId}/dismiss', [LazadaProductController::class, 'dismissUnmatchedItem'])->name('ext.lazada.products.dismiss_unmatched');
 
