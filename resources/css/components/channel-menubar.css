@@ -21,9 +21,8 @@
         border-bottom: 1px solid var(--bl-rule);
         /* Shell chrome since the polish pass: the band renders between the
            topbar and <main>, so it spans the column edge to edge on its
-           own. The inset aligns the first item's TEXT (13px is the item's
-           own padding) with the topbar's gutter above and the crumb text. */
-        padding: 0 calc(var(--bl-page-gutter) - 13px);
+           own - the rule under it runs the full width. */
+        padding: 0;
     }
 
     .x-chnav {
@@ -31,6 +30,16 @@
         align-items: center;
         gap: 6px;
         min-height: 42px;
+        /* The items live in the same centered ceiling the content uses
+           (the owner, 2026-09-03: full-width band, but the nav starts at the
+           left edge of the centered column, never at the window's). On a
+           screen narrower than the ceiling this is exactly the old inset;
+           on an ultrawide the items travel with the content instead of
+           stranding at the far left. 13px is the item's own padding, so
+           the first LABEL sits flush with the content's left edge. */
+        max-width: var(--bl-content-max);
+        margin-inline: auto;
+        padding-inline: calc(var(--bl-page-gutter) - 13px);
     }
 
     .x-chnav__link,
