@@ -279,7 +279,10 @@ class ShopeeListingPageTest extends TestCase
         $r->assertSee('On Shopee');
         $r->assertSee('All products');
         $r->assertSee('as of 08:30, Aug 28');
-        $r->assertSee('Refresh from Shopee');
+        // Icon-only since the cleanup (2026-09-03); the words live in the
+        // accessible name.
+        $r->assertSee('aria-label="Refresh statuses from Shopee"', false);
+        $r->assertSee('Repair links');
         $r->assertSee('shopee_tab=unlisted', false);
         $r->assertSee('Unlisted');
         $r->assertSee('Relist on Shopee');

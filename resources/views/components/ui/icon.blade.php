@@ -27,6 +27,7 @@
         'chevron-right' => '<path d="m9 18 6-6-6-6"/>',
         'chevron-up'    => '<path d="m18 15-6-6-6 6"/>',
         'chevron-down'  => '<path d="m6 9 6 6 6-6"/>',
+        'refresh-cw'    => '<path d="M3 12a9 9 0 0 1 15.36-6.36L21 8M21 12a9 9 0 0 1-15.36 6.36L3 16"/><path d="M21 3v5h-5M3 21v-5h5"/>',
         'square'   => '<rect x="3" y="3" width="18" height="18" rx="2"/>',
         // Was missing, so <x-ui.icon name="info"> fell through to 'square'
         // and drew a bare box - which, in a form made of controls, read as an

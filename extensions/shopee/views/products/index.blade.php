@@ -75,15 +75,10 @@
     </div>
     @if($canManageShopee)
         <div class="cc-head-actions">
-            {{-- The group page's check, page-wide (Phase F, #184): with no
-                 rows ticked it walks every linked product, 200 at a time.
-                 "New listing" retired with #196: the table below IS the
-                 catalogue, and every unlisted row offers its own push. --}}
-            <form method="POST" action="{{ route('ext.shopee.products.check') }}"
-                  data-confirm="Check every linked product against Shopee? Nothing is sent or changed on Shopee; the ERP updates its own records to match what it finds, 200 products at a time." data-confirm-tone="primary" data-confirm-verb="Check against Shopee">
-                @csrf
-                <x-ui.button type="submit" variant="secondary">Check against Shopee</x-ui.button>
-            </form>
+            {{-- Repair links moved down beside the freshness stamp
+                 (2026-09-03, the cleanup): both are global maintenance, not
+                 page actions, so they read as page furniture on the ON
+                 SHOPEE strip rather than as header buttons. --}}
         </div>
     @endif
 </div>
@@ -328,9 +323,23 @@
                     @endif
                 </span>
                 @if($canManageShopee)
+                    {{-- Icon only (the owner, 2026-09-03): the statuses refresh
+                         themselves every 30 minutes (Automations); this is
+                         the on-demand twin, page furniture rather than a
+                         page action. The title carries the words. --}}
                     <form method="POST" action="{{ route('ext.shopee.products.refresh_status') }}" class="x-segment-group__refresh" data-slow-action>
                         @csrf
-                        <x-ui.button type="submit" size="sm">Refresh from Shopee</x-ui.button>
+                        <button type="submit" class="cc-iconbtn" title="Refresh statuses from Shopee now (they refresh themselves every 30 minutes)" aria-label="Refresh statuses from Shopee">
+                            <x-ui.icon name="refresh-cw" size="13" />
+                        </button>
+                    </form>
+                    {{-- The link audit, renamed from Check against Shopee:
+                         confirms every linked item still exists, adopts
+                         strays by SKU, drops dead links. --}}
+                    <form method="POST" action="{{ route('ext.shopee.products.check') }}" class="cc-repair"
+                          data-confirm="Repair the links against Shopee? Nothing is sent or changed on Shopee; the ERP confirms every linked item still exists, adopts strays by SKU and drops dead links, 200 products at a time." data-confirm-tone="primary" data-confirm-verb="Repair links">
+                        @csrf
+                        <button type="submit" class="cc-quiet">Repair links</button>
                     </form>
                 @endif
             </div>
@@ -420,10 +429,10 @@
             <x-ui.button type="submit" size="sm">Push to Shopee</x-ui.button>
         </form>
         {{-- Replaces Match Shopee IDs, which could only fill in blanks; the
-             check also verifies the ids the rows already have (Phase F, #184). --}}
+             repair also verifies the ids the rows already have (Phase F, #184). --}}
         <form method="POST" action="{{ route('ext.shopee.products.check') }}" data-bulk-form>
             @csrf
-            <x-ui.button type="submit" size="sm">Check against Shopee</x-ui.button>
+            <x-ui.button type="submit" size="sm">Repair links</x-ui.button>
         </form>
         <form method="POST" action="{{ route('ext.shopee.products.bulk_sync_quantity') }}" data-bulk-form>
             @csrf
