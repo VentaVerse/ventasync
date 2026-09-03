@@ -78,7 +78,7 @@
 @if(empty($attributes))
     <x-ui.empty title="Nothing cached for this category yet"
                 :description="$canManageShopee
-                    ? 'Read them from Shopee and they will be listed here, ready to map on a preset.'
+                    ? 'Read them from Shopee and they will be listed here, ready to map on a product group.'
                     : 'Someone with the Shopee manage permission needs to read them from Shopee first.'" />
 @else
     <x-ui.table>

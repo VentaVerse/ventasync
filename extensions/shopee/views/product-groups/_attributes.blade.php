@@ -1,7 +1,7 @@
 {{-- Shopee category attributes: one row per attribute Shopee defines for the
      chosen category.
 
-     This partial is rendered twice over: inline by the preset form, and as the
+     This partial is rendered twice over: inline by the product group form, and as the
      body of ShopeeProductGroupController::fetchAttributesAjax()'s JSON
      response when the operator changes the category. Its markup is therefore
      part of that endpoint's contract, not only of the form's, and the two

@@ -216,7 +216,7 @@ class LazadaProductGroupController extends Controller
 
         $this->saveGroupAttributes($group, (array) $request->input('attributes', []));
 
-        ActivityLogger::log('created', 'Lazada Preset', $group->id, $group->name);
+        ActivityLogger::log('created', 'Lazada Product group', $group->id, $group->name);
 
         // Add products from dual-listbox
         $productIds = array_map('intval', array_filter($data['product_ids'] ?? []));
@@ -254,7 +254,7 @@ class LazadaProductGroupController extends Controller
 
         $this->saveGroupAttributes($group, (array) $request->input('attributes', []));
 
-        ActivityLogger::log('updated', 'Lazada Preset', $group->id, $group->name);
+        ActivityLogger::log('updated', 'Lazada Product group', $group->id, $group->name);
 
         // Sync product assignments
         $newProductIds = array_map('intval', array_filter($data['product_ids'] ?? []));
@@ -284,7 +284,7 @@ class LazadaProductGroupController extends Controller
 
         $group->delete();
 
-        ActivityLogger::log('deleted', 'Lazada Preset', (int) $id, $group->name);
+        ActivityLogger::log('deleted', 'Lazada Product group', (int) $id, $group->name);
 
         // Check which lazada products no longer have any group links
         $removed = 0;
@@ -482,7 +482,7 @@ class LazadaProductGroupController extends Controller
         $added = $this->addProductsToGroup($group, $ids);
 
         return $this->productsRedirect($group->id)
-            ->with('status', "{$added} product(s) added to the preset.");
+            ->with('status', "{$added} product(s) added to the product group.");
     }
 
     /**
@@ -511,7 +511,7 @@ class LazadaProductGroupController extends Controller
         $group = LazadaProductGroup::query()->findOrFail($groupId);
         $pivot = $group->groupProducts()->where('product_id', $productId)->first();
         if (!$pivot) {
-            return redirect()->back()->with('error', 'Product not in this preset.');
+            return redirect()->back()->with('error', 'Product not in this product group.');
         }
 
         $setting = LazadaSetting::query()->first()?->decrypted();
@@ -640,7 +640,7 @@ class LazadaProductGroupController extends Controller
         $group->groupProducts()->where('product_id', $productId)->delete();
 
         return $this->productsRedirect($group->id)
-            ->with('status', 'Product removed from the preset.');
+            ->with('status', 'Product removed from the product group.');
     }
 
     /**
@@ -656,7 +656,7 @@ class LazadaProductGroupController extends Controller
         }
 
         return $this->productsRedirect($group->id)
-            ->with('status', count($ids) . ' product(s) removed from the preset.');
+            ->with('status', count($ids) . ' product(s) removed from the product group.');
     }
 
     public function push(Request $request, int $id, LazadaClient $client)
@@ -668,7 +668,7 @@ class LazadaProductGroupController extends Controller
         }
 
         if (!$group->lazada_category_id) {
-            return $this->productsRedirect($id)->with('error', 'This preset has no Lazada category configured. Set a category first.');
+            return $this->productsRedirect($id)->with('error', 'This product group has no Lazada category configured. Set a category first.');
         }
 
         $setting = LazadaSetting::query()->first()?->decrypted();
@@ -839,7 +839,7 @@ class LazadaProductGroupController extends Controller
                 if ($pivot) $pivot->update(['sync_status' => 'pushed']);
 
                 ActivityLogger::log('created', 'Lazada Product', $listing->id,
-                    'Pushed ERP #' . $productId . ' to Lazada via preset');
+                    'Pushed ERP #' . $productId . ' to Lazada via product group');
 
                 $okCount++;
             } else {
@@ -873,7 +873,7 @@ class LazadaProductGroupController extends Controller
         }
 
         if (!$group->lazada_category_id) {
-            return $this->productsRedirect($id)->with('error', 'This preset has no Lazada category configured.');
+            return $this->productsRedirect($id)->with('error', 'This product group has no Lazada category configured.');
         }
 
         $setting = LazadaSetting::query()->first()?->decrypted();
@@ -1017,7 +1017,7 @@ class LazadaProductGroupController extends Controller
                 if ($pivot) $pivot->update(['sync_status' => 'pushed']);
 
                 ActivityLogger::log('updated', 'Lazada Product', $listing->id,
-                    'Updated ERP #' . $productId . ' on Lazada via preset');
+                    'Updated ERP #' . $productId . ' on Lazada via product group');
 
                 return ['ok' => true, 'message' => 'updated'];
             }
@@ -1062,7 +1062,7 @@ class LazadaProductGroupController extends Controller
             $productIds = $group->groupProducts()->pluck('product_id')->map('intval')->all();
         }
         if (empty($productIds)) {
-            return $this->productsRedirect($id)->with('error', 'This preset has no products to check.');
+            return $this->productsRedirect($id)->with('error', 'This product group has no products to check.');
         }
 
         $r = $check->run($setting, $creds, $productIds, $group);
@@ -1310,7 +1310,7 @@ class LazadaProductGroupController extends Controller
                 $this->writeProductStatus($pivotRow->product_id, ['sync_status' => 'pending']);
 
                 ActivityLogger::log('deleted', 'Lazada Product', $listing->id,
-                    'Deleted from Lazada via preset, ERP #' . (int) $listing->product_id);
+                    'Deleted from Lazada via product group, ERP #' . (int) $listing->product_id);
 
                 $okCount++;
             } else {

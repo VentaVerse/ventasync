@@ -2456,7 +2456,7 @@ class WorkspaceInteriorsTest extends TestCase
         $groups->assertDontSee('Delete group');
 
         $form = $this->actingAs($user)->get(route('ext.venta.product-groups.edit', [$one, $group->id]))->assertOk();
-        $form->assertDontSee('Save preset');
+        $form->assertDontSee('Save product group');
         $this->assertMatchesRegularExpression('/name="name"[^>]*\bdisabled\b/', $form->getContent());
 
         $products = $this->actingAs($user)->get(route('ext.venta.product-groups.products', [$one, $group->id]))->assertOk();
@@ -2546,7 +2546,7 @@ class WorkspaceInteriorsTest extends TestCase
             ->assertOk()->assertSee(route('ext.venta.product-groups.create', $one), false);
 
         $this->actingAs($user)->get(route('ext.venta.product-groups.edit', [$one, $group->id]))
-            ->assertOk()->assertSee('Save preset');
+            ->assertOk()->assertSee('Save product group');
 
         $products = $this->actingAs($user)->get(route('ext.venta.product-groups.products', [$one, $group->id]))->assertOk();
         foreach ([
@@ -2978,7 +2978,7 @@ class WorkspaceInteriorsTest extends TestCase
         $groups->assertDontSee('Delete group');
 
         $form = $this->actingAs($user)->get(route('ext.opencart.product-groups.edit', [$one, $group->id]))->assertOk();
-        $form->assertDontSee('Save preset');
+        $form->assertDontSee('Save product group');
         $this->assertMatchesRegularExpression('/name="name"[^>]*\bdisabled\b/', $form->getContent());
 
         $products = $this->actingAs($user)->get(route('ext.opencart.product-groups.products', [$one, $group->id]))->assertOk();
@@ -3041,7 +3041,7 @@ class WorkspaceInteriorsTest extends TestCase
             ->assertOk()->assertSee(route('ext.opencart.product-groups.create', $one), false);
 
         $this->actingAs($user)->get(route('ext.opencart.product-groups.edit', [$one, $group->id]))
-            ->assertOk()->assertSee('Save preset');
+            ->assertOk()->assertSee('Save product group');
 
         $products = $this->actingAs($user)->get(route('ext.opencart.product-groups.products', [$one, $group->id]))->assertOk();
         $products->assertSee(route('ext.opencart.product-groups.push', [$one, $group->id]), false);

@@ -1,6 +1,6 @@
 @extends('layouts.channel')
-@section('title', ($mode === 'create' ? 'Add' : 'Edit') . ' Shopee Preset')
-@section('breadcrumb', $mode === 'create' ? 'New Preset' : $group->name)
+@section('title', ($mode === 'create' ? 'Add' : 'Edit') . ' Shopee Product group')
+@section('breadcrumb', $mode === 'create' ? 'New Product group' : $group->name)
 
 {{-- This page shows its own validation summary (the fm-note below) and marks
      the offending fields inline, so partials/legacy-page-contract skips its
@@ -27,8 +27,8 @@
 @section('content')
 @php
     // The CREATE render is manage-tier, but the EDIT render is registered in
-    // the read preset (extensions/shopee/routes/web.php), so a view_shopee
-    // operator can open this page on an existing preset. Every write behind it
+    // the read product group (extensions/shopee/routes/web.php), so a view_shopee
+    // operator can open this page on an existing product group. Every write behind it
     // is manage-only. The route middleware is the real gate; this flag stops
     // the page offering controls that would 403, which the previous version
     // did not do at all: it hardcoded the manage tier on.
@@ -42,7 +42,7 @@
 
     // The right-hand panel's starting contents. The controller has already
     // restored these from old('product_ids') when a validation round trip
-    // failed, so this is simply what the server says is in the preset now.
+    // failed, so this is simply what the server says is in the product group now.
     $rightItems = $groupProducts->map(fn ($p) => [
         'product_id' => (int) $p->product_id,
         'name'       => (string) ($p->name ?? ''),
@@ -78,9 +78,9 @@
     <div class="fm-head">
         <div class="fm-head__main">
             <a class="fm-back" href="{{ route('ext.shopee.product-groups.index') }}">
-                <x-ui.icon name="chevron-left" size="14" /> Presets
+                <x-ui.icon name="chevron-left" size="14" /> Product Groups
             </a>
-            <h1 class="fm-title">{{ $mode === 'create' ? 'New preset' : $group->name }}</h1>
+            <h1 class="fm-title">{{ $mode === 'create' ? 'New product group' : $group->name }}</h1>
             <div class="fm-stamps">
                 <span class="fm-stamp">
                     <span class="fm-stamp__k">Channel</span>
@@ -88,7 +88,7 @@
                 </span>
                 @if($mode === 'edit')
                     <span class="fm-stamp">
-                        <span class="fm-stamp__k">Preset</span>
+                        <span class="fm-stamp__k">Product group</span>
                         <span class="fm-stamp__v">{{ $group->id }}</span>
                     </span>
                 @endif
@@ -109,7 +109,7 @@
                     <h2 class="fm-section__title">Name</h2>
                 </div>
                 <div class="fm-fields">
-                    <x-ui.field label="Product preset name" for="pg-name" name="name" :required="true" wide
+                    <x-ui.field label="Product product group name" for="pg-name" name="name" :required="true" wide
                                 hint="What this batch of products is, in the words your team uses. It is never sent to Shopee.">
                         <x-ui.input id="pg-name" name="name" value="{{ old('name', $group->name) }}"
                                     placeholder="Guitar pedals" :disabled="!$canManageShopee" />
@@ -200,7 +200,7 @@
                 <div class="fm-section__head">
                     <h2 class="fm-section__title">Delivery options</h2>
                 </div>
-                <p class="fm-section__note">Which of Shopee's couriers a product from this preset is offered on. Pick at least one.</p>
+                <p class="fm-section__note">Which of Shopee's couriers a product from this product group is offered on. Pick at least one.</p>
 
                 @if($errors->has('logistic_ids'))
                     <div class="fm-error">{{ $errors->first('logistic_ids') }}</div>
@@ -235,7 +235,7 @@
             {{-- ------------------------------------------------------------
                  Category attributes.
 
-                 Rendered inline when the preset already has a category, and
+                 Rendered inline when the product group already has a category, and
                  replaced wholesale when the category changes: the endpoint
                  answers with the same Blade partial this @include renders, so
                  both paths land looking identical.
@@ -253,7 +253,7 @@
                 <div class="fm-section__head">
                     <h2 class="fm-section__title">Category attributes</h2>
                 </div>
-                <p class="fm-section__note">Values Shopee asks for on every product in this category. They are saved with the preset and used on every push.</p>
+                <p class="fm-section__note">Values Shopee asks for on every product in this category. They are saved with the product group and used on every push.</p>
                 <div data-attributes-target>
                     @if($hasAttributes)
                         @include('ext-shopee::product-groups._attributes', [
@@ -269,18 +269,18 @@
             {{-- ------------------------------------------------------------
                  Products.
 
-                 The same two-panel set builder Venta's preset form uses, and
+                 The same two-panel set builder Venta's product group form uses, and
                  the same module drives it. The only thing that submits is the
                  right-hand side, as `product_ids[]`, which is the wire this
                  page always had.
                  ------------------------------------------------------------ --}}
             <section class="fm-section">
                 <div class="fm-section__head">
-                    <h2 class="fm-section__title">Products in this preset</h2>
+                    <h2 class="fm-section__title">Products in this product group</h2>
                 </div>
 
                 @if($canManageShopee)
-                <p class="fm-section__note">Search the catalog on the left, move what belongs into the preset on the right. Only what is on the right is saved.</p>
+                <p class="fm-section__note">Search the catalog on the left, move what belongs into the product group on the right. Only what is on the right is saved.</p>
 
                 <div class="gf-dual"
                      data-group-product-picker
@@ -335,24 +335,24 @@
                         </div>
 
                         <div class="gf-move">
-                            <x-ui.button type="button" size="sm" data-gf-add aria-label="Add the selected catalog products to the preset">
+                            <x-ui.button type="button" size="sm" data-gf-add aria-label="Add the selected catalog products to the product group">
                                 Add <x-ui.icon name="chevron-right" size="14" />
                             </x-ui.button>
-                            <x-ui.button type="button" size="sm" data-gf-remove aria-label="Take the selected products out of the preset">
+                            <x-ui.button type="button" size="sm" data-gf-remove aria-label="Take the selected products out of the product group">
                                 <x-ui.icon name="chevron-left" size="14" /> Remove
                             </x-ui.button>
                         </div>
 
                         <div class="gf-pane">
                             <div class="gf-pane__head">
-                                <span class="gf-pane__title">In this preset</span>
+                                <span class="gf-pane__title">In this product group</span>
                                 <span class="gf-pane__count x-num" data-gf-right-count>{{ $rightItems->count() }}</span>
                             </div>
                             <div class="gf-pane__body">
                                 <table class="gf-list">
                                     <thead>
                                         <tr>
-                                            <th scope="col" class="gf-col-check"><input type="checkbox" class="cc-check" data-gf-right-all aria-label="Select every product in the preset"></th>
+                                            <th scope="col" class="gf-col-check"><input type="checkbox" class="cc-check" data-gf-right-all aria-label="Select every product in the product group"></th>
                                             <th scope="col" class="gf-col-id">ID</th>
                                             <th scope="col">Product</th>
                                             <th scope="col" class="gf-col-qty">Stock</th>
@@ -375,10 +375,10 @@
                 {{-- Read tier. The two-pane control is a builder for this list
                      and nothing else, so the list itself is what a reader is
                      shown. Nothing here submits. --}}
-                <p class="fm-section__note">{{ $rightItems->count() }} {{ $rightItems->count() === 1 ? 'product is' : 'products are' }} in this preset.</p>
+                <p class="fm-section__note">{{ $rightItems->count() }} {{ $rightItems->count() === 1 ? 'product is' : 'products are' }} in this product group.</p>
 
                 @if($rightItems->isEmpty())
-                    <x-ui.empty title="No products in this preset"
+                    <x-ui.empty title="No products in this product group"
                                 description="Someone with the manage tier needs to add them." />
                 @else
                     <x-ui.table>
@@ -436,12 +436,12 @@
 
     <div class="fm-bar">
         <span class="fm-bar__meta">{{ $canManageShopee
-            ? ($mode === 'create' ? 'Nothing is saved until you create the preset.' : 'Changes are saved to this preset, not pushed to Shopee.')
-            : 'You can read this preset. Changing it needs the Shopee manage permission.' }}</span>
+            ? ($mode === 'create' ? 'Nothing is saved until you create the product group.' : 'Changes are saved to this product group, not pushed to Shopee.')
+            : 'You can read this product group. Changing it needs the Shopee manage permission.' }}</span>
         <div class="fm-bar__actions">
             <a class="fm-cancel" href="{{ route('ext.shopee.product-groups.index') }}">{{ $canManageShopee ? 'Cancel' : 'Back' }}</a>
             @if($canManageShopee)
-                <x-ui.button type="submit" variant="primary">{{ $mode === 'create' ? 'Create preset' : 'Save preset' }}</x-ui.button>
+                <x-ui.button type="submit" variant="primary">{{ $mode === 'create' ? 'Create product group' : 'Save product group' }}</x-ui.button>
             @endif
         </div>
     </div>

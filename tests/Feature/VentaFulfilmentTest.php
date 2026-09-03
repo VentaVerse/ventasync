@@ -520,7 +520,7 @@ class VentaFulfilmentTest extends TestCase
                 'success' => true, 'all_refused' => false,
                 'couriers' => ['spx' => [
                     'status' => 'serviceable', 'fees' => [], 'currency' => 'PHP', 'from' => null,
-                    'name' => 'SPX', 'parcel_options' => [['value' => 'preset-a', 'label' => 'Small box preset']],
+                    'name' => 'SPX', 'parcel_options' => [['value' => 'preset-a', 'label' => 'Small box product group']],
                     'defaults' => ['parcel' => 'preset-a'],
                 ]],
             ]),

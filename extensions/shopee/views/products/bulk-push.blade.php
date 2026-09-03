@@ -17,37 +17,7 @@
     $toUpdate = count($rows) - $toCreate;
 @endphp
 
-{{-- Presets (Phase F, #184): a saved group, read as reusable settings.
-     Loading one reloads this form with the shared fields prefilled and
-     its attribute defaults riding the push - the batch does everything a
-     group's Send does, from here. A GET reload, so no script decides
-     what a push will carry. --}}
-@if(($presets ?? collect())->isNotEmpty())
-    <form method="GET" action="{{ route('ext.shopee.products.bulk_push_form') }}" class="x-filters bp-preset-bar">
-        @foreach($rows as $row)
-            <input type="hidden" name="product_ids[]" value="{{ $row['product_id'] }}">
-        @endforeach
-        <label for="bp-preset" class="vt-book__label">Start from a preset</label>
-        <div class="x-select-wrap x-filters__select">
-            <select id="bp-preset" name="preset" class="x-input">
-                <option value="">None - each field by hand</option>
-                @foreach($presets as $p)
-                    <option value="{{ $p->id }}" @selected(($preset?->id ?? null) === $p->id)>{{ $p->name }}</option>
-                @endforeach
-            </select>
-            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-        </div>
-        <x-ui.button type="submit" variant="secondary" size="sm">Load</x-ui.button>
-        @if($preset)
-            <span class="x-cell-muted">Loaded "{{ $preset->name }}" - its category, couriers, price rule and attribute defaults ride this push; each listing's own answers still win.</span>
-        @endif
-    </form>
-@endif
-
 <form method="POST" class="fm-page" action="{{ route('ext.shopee.products.bulk_push') }}" data-slow-action>
-    @if($preset)
-        <input type="hidden" name="preset_group_id" value="{{ $preset->id }}">
-    @endif
     @csrf
     @foreach($rows as $row)
         <input type="hidden" name="product_ids[]" value="{{ $row['product_id'] }}">
@@ -134,7 +104,7 @@
                             @endphp
                             <label class="gf-check {{ $enabledAtShopee ? '' : 'gf-check--off' }}">
                                 <input type="checkbox" class="cc-check" name="shared_logistic_ids[]" value="{{ $logisticId }}"
-                                       @checked(in_array((string) $logisticId, array_map('strval', (array) old('shared_logistic_ids', $preset?->logistic_ids ?? [])), true))
+                                       @checked(in_array((string) $logisticId, array_map('strval', (array) old('shared_logistic_ids', [])), true))
                                        @disabled(!$canManageShopee)>
                                 <span class="gf-check__label">{{ $logisticName }}</span>
                                 @unless($enabledAtShopee)<span class="gf-check__note">off at Shopee</span>@endunless
@@ -157,13 +127,10 @@
                              data-combo-search-url="{{ route('ext.shopee.products.searchCategories') }}"
                              data-combo-lookup-url="{{ route('ext.shopee.products.categoryLookup') }}">
                             <div class="gf-combo__field">
-                                <input type="hidden" id="bp-category-value" name="shared_category_id" data-combo-value value="{{ old('shared_category_id', $preset?->shopee_category_id) }}">
-                                {{-- The loaded preset's category shows by NAME:
-                                     a value only the hidden field carried looked
-                                     like nothing was loaded at all. --}}
+                                <input type="hidden" id="bp-category-value" name="shared_category_id" data-combo-value value="{{ old('shared_category_id') }}">
                                 <x-ui.input id="bp-category" type="search" autocomplete="off" data-combo-input
                                             placeholder="Type to search Shopee categories" :disabled="!$canManageShopee"
-                                            :value="old('shared_category_id', $preset?->shopee_category_id) ? ($presetCategoryName ?? ('#' . old('shared_category_id', $preset?->shopee_category_id))) : ''" />
+                                            :value="old('shared_category_id') ? ('#' . old('shared_category_id')) : ''" />
                                 <div class="gf-combo__results" data-combo-results role="listbox" aria-label="Shopee leaf categories" hidden></div>
                             </div>
                         </div>
@@ -178,11 +145,11 @@
                     <div class="fm-fields fm-fields--2">
                         <x-ui.field label="Percent added" for="bp-markup-pct" name="shared_markup_percent">
                             <x-ui.input id="bp-markup-pct" name="shared_markup_percent" type="number" step="0.01" min="-100" max="1000"
-                                        class="fm-input--num" placeholder="own" :value="old('shared_markup_percent', $preset?->markup_percent)" :disabled="!$canManageShopee" />
+                                        class="fm-input--num" placeholder="own" :value="old('shared_markup_percent')" :disabled="!$canManageShopee" />
                         </x-ui.field>
                         <x-ui.field label="Fixed amount added" for="bp-markup-fixed" name="shared_markup_fixed">
                             <x-ui.input id="bp-markup-fixed" name="shared_markup_fixed" type="number" step="0.01"
-                                        class="fm-input--num" placeholder="own" :value="old('shared_markup_fixed', $preset?->markup_fixed)" :disabled="!$canManageShopee" />
+                                        class="fm-input--num" placeholder="own" :value="old('shared_markup_fixed')" :disabled="!$canManageShopee" />
                         </x-ui.field>
                     </div>
                 </div>
@@ -198,12 +165,7 @@
     </div>
 
     <div class="fm-bar">
-        <span class="fm-bar__meta">Nothing is written onto the listings: what you set here is sent with this push and recorded as sent.
-            {{-- Save-as-preset (Phase F): reviewed once, reusable next time,
-                 never a page to go work in. --}}
-            <x-ui.input name="preset_save_name" class="bp-preset-save" maxlength="100"
-                        placeholder="Save these shared settings as a preset (name)" :value="old('preset_save_name')" />
-        </span>
+        <span class="fm-bar__meta">Nothing is written onto the listings: what you set here is sent with this push and recorded as sent.</span>
         <div class="fm-bar__actions">
             <a class="fm-cancel" href="{{ route('ext.shopee.products.index') }}">Cancel</a>
             @if($canManageShopee)

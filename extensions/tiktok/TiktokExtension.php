@@ -95,7 +95,7 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                     new MenuItem('Returns', 'ext.tiktok.orders.returns', 'view_tiktok/order', group: 'Sell'),
                     new MenuItem('Coupons', 'ext.tiktok.coupons.index', 'view_tiktok/coupon', group: 'Sell'),
                     new MenuItem('Listings', 'ext.tiktok.products.index', 'view_tiktok/product', group: 'Catalog'),
-                    new MenuItem('Presets', 'ext.tiktok.product-groups.index', 'view_tiktok/product_group', group: 'Catalog'),
+                    new MenuItem('Product Groups', 'ext.tiktok.product-groups.index', 'view_tiktok/product_group', group: 'Catalog'),
                     new MenuItem('Categories', 'ext.tiktok.categories.index', 'view_tiktok/product_group', group: 'Catalog'),
                     new MenuItem('Settings', 'ext.tiktok.index', 'view_tiktok/settings', group: 'Channel', children: [
                         ['label' => 'Connection', 'section' => 'connection'],

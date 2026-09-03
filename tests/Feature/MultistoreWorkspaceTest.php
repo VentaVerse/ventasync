@@ -260,7 +260,7 @@ class MultistoreWorkspaceTest extends TestCase
         if ($channel === 'venta') {
             $rows[] = ['Catalog', 'Listings', route('ext.venta.listings.index', ['store' => $storeId])];
         }
-        $rows[] = ['Catalog', 'Presets', route('ext.'.$channel.'.product-groups.index', ['store' => $storeId])];
+        $rows[] = ['Catalog', 'Product Groups', route('ext.'.$channel.'.product-groups.index', ['store' => $storeId])];
         $rows[] = ['Channel', 'Settings', route('ext.'.$channel.'.settings.show', ['store' => $storeId])];
 
         return $rows;
@@ -450,13 +450,13 @@ class MultistoreWorkspaceTest extends TestCase
             // Channel group's one item (Settings, carrying its page
             // sections) becomes the Settings menu the same way.
             $response->assertSee('>Orders</a>', false);
-            // Venta's Catalog holds two items (Listings + Presets)
+            // Venta's Catalog holds two items (Listings + Product Groups)
             // and keeps its menu; OpenCart's holds one and flattens to the
             // item itself, same rule as Orders above.
             if ($channel === 'venta') {
                 $response->assertSee('data-chnav-group="Catalog"', false);
             } else {
-                $response->assertSee('>Presets</a>', false);
+                $response->assertSee('>Product Groups</a>', false);
             }
             $response->assertSee('data-chnav-group="Settings"', false);
 

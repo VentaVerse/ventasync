@@ -535,7 +535,7 @@ class VentaProductGroupController extends Controller
         $productIds = $this->getMatchingProductIds($g);
         if (!in_array($product, $productIds)) {
             return $this->productsRedirect($store, $group)
-                ->with('error', 'Product not in this preset.');
+                ->with('error', 'Product not in this product group.');
         }
 
         $pfx = (string) config('catalog.prefix');
@@ -769,12 +769,12 @@ class VentaProductGroupController extends Controller
         }
 
         if (empty($ids)) {
-            return $this->productsRedirect($store, $group)->with('error', 'This preset has no products to check.');
+            return $this->productsRedirect($store, $group)->with('error', 'This product group has no products to check.');
         }
 
         /* The sweep lives in VentaLinkCheck now, shared with the Listings
          * workbench (#184's one-workbench rule); this entry point supplies
-         * the preset's members as the default scope. */
+         * the product group's members as the default scope. */
         $r = app(\Extensions\venta\Services\Venta\VentaLinkCheck::class)->run($setting, $ids);
 
         return $this->productsRedirect($store, $group)->with($r['tone'], $r['summary']);
@@ -1601,7 +1601,7 @@ class VentaProductGroupController extends Controller
         }
 
         return $this->productsRedirect($store, $group)
-            ->with('status', count($ids) . ' product(s) removed from the preset.');
+            ->with('status', count($ids) . ' product(s) removed from the product group.');
     }
 
     // ── Add Products / Remove / Search ──────────────────────

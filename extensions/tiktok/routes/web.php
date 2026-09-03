@@ -135,7 +135,6 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         Route::post('/tiktok/products/unmatched/{unmatchedId}/import', [TikTokProductController::class, 'importUnmatched'])->name('ext.tiktok.products.import_unmatched');
         Route::post('/tiktok/products/unmatched/{unmatchedId}/link', [TikTokProductController::class, 'linkUnmatched'])->name('ext.tiktok.products.link_unmatched');
         Route::post('/tiktok/products/unmatched/{unmatchedId}/dismiss', [TikTokProductController::class, 'dismissUnmatched'])->name('ext.tiktok.products.dismiss_unmatched');
-        Route::post('/tiktok/products/bulk/apply-preset', [TikTokProductController::class, 'bulkApplyPreset'])->name('ext.tiktok.products.bulk_apply_preset');
         Route::post('/tiktok/products/check', [TikTokProductController::class, 'checkAgainstTikTok'])->name('ext.tiktok.products.check');
         Route::post('/tiktok/products/bulk/send', [TikTokProductController::class, 'bulkSend'])->name('ext.tiktok.products.bulk_send');
         // Activate / deactivate the selection in one call, and refresh the listing status mirror on demand (the owner, 2026-08-28).

@@ -78,7 +78,7 @@
 @if(empty($attributes))
     <x-ui.empty title="Nothing cached for this category yet"
                 :description="$canManageLazada
-                    ? 'Read them from Lazada and they will be listed here, ready to map on a preset.'
+                    ? 'Read them from Lazada and they will be listed here, ready to map on a product group.'
                     : 'Someone with the Lazada manage permission needs to read them from Lazada first.'" />
 @else
     <x-ui.table>

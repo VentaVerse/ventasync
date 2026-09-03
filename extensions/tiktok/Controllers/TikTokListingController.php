@@ -92,22 +92,7 @@ class TikTokListingController extends Controller
             'missing' => array_values(array_filter($covSkus, fn ($sku) => !isset($covKeys[strtolower($sku)]))),
         ];
 
-        /* Start from a preset (#195): ?preset= shows the preset's category
-         * and price rule in the fields; nothing changes until saved. */
-        $presets = \Extensions\tiktok\Models\TikTokProductGroup::query()->orderBy('name')->get(['id', 'name', 'tiktok_category_id', 'markup_percent', 'markup_fixed']);
-        $preset = request()->filled('preset') ? $presets->firstWhere('id', (int) request()->query('preset')) : null;
-        if ($preset) {
-            $listing ??= new \Extensions\tiktok\Models\TikTokListing(['product_id' => $productId]);
-            $listing->forceFill(array_filter([
-                'tiktok_category_id' => $preset->tiktok_category_id,
-                'markup_percent' => $preset->markup_percent,
-                'markup_fixed' => $preset->markup_fixed,
-            ], fn ($v) => $v !== null));
-        }
-
         return view('ext-tiktok::listings.edit', [
-            'presets' => $presets,
-            'preset' => $preset,
             'coverage' => $coverage,
             'listingState' => $listingState,
             'product' => $product,
@@ -128,7 +113,6 @@ class TikTokListingController extends Controller
         $this->productOrFail($productId);
 
         $data = $request->validate([
-            'preset_save_name' => 'nullable|string|max:100',
             'tiktok_category_id' => 'nullable|string|max:64|exists:tiktok_categories,id',
             'brand_id' => 'nullable|string|max:64',
             'brand_name' => 'nullable|string|max:191',
@@ -169,24 +153,8 @@ class TikTokListingController extends Controller
             ]
         );
 
-        /* Save these shared settings as a preset (#195): named here,
-         * created on save, never a page to go work in. */
-        $presetNote = '';
-        $saveName = trim((string) ($data['preset_save_name'] ?? ''));
-        if ($saveName !== '') {
-            \Extensions\tiktok\Models\TikTokProductGroup::updateOrCreate(
-                ['name' => $saveName],
-                [
-                    'tiktok_category_id' => $blank($data['tiktok_category_id'] ?? null),
-                    'markup_percent' => $blank($data['markup_percent'] ?? null),
-                    'markup_fixed' => $blank($data['markup_fixed'] ?? null),
-                ]
-            );
-            $presetNote = " Shared settings saved as preset '{$saveName}'.";
-        }
-
         return redirect()->route('ext.tiktok.listings.edit', $productId)
-            ->with('status', 'Listing saved. These settings drive the next push and price sync.' . $presetNote);
+            ->with('status', 'Listing saved. These settings drive the next push and price sync.');
     }
 
     /**

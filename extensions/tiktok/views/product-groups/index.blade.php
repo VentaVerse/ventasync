@@ -1,6 +1,6 @@
 @extends('layouts.channel')
-@section('title', 'TikTok Shop Presets')
-@section('breadcrumb', 'Presets')
+@section('title', 'TikTok Shop Product Groups')
+@section('breadcrumb', 'Product Groups')
 
 {{-- Leaves the .x-legacy content boundary, rebuilt on the token set. --}}
 @section('content')
@@ -8,9 +8,9 @@
     // Read tier is `view_tiktok|manage_tiktok`; create, update and destroy are
     // all `manage_tiktok`. Replaces a hardcoded `true`.
     //
-    // The edit GET is registered in the READ preset, so a view-tier operator
+    // The edit GET is registered in the READ product group, so a view-tier operator
     // can technically open the form. The link is still gated here, the way
-    // Lazada's Presets page gates its own: that form exists only to be
+    // Lazada's Product Groups page gates its own: that form exists only to be
     // saved, and the PUT behind it is manage-only, so offering it to an
     // operator who cannot submit it is offering a dead end.
     $canManageTiktok = auth()->user()?->hasPermission('manage_tiktok/product_group') ?? false;
@@ -20,23 +20,23 @@
 
 <div class="x-list-head">
     <div>
-        <h1 class="x-page-title">Presets</h1>
+        <h1 class="x-page-title">Product Groups</h1>
         <p class="x-page-sub">
-            {{ number_format($groups->count()) }} {{ $groups->count() === 1 ? 'preset' : 'presets' }}.
-            <x-ui.hint label="What a preset is">A preset holds the shared TikTok Shop settings a push starts from - category and price markup. Keep products under it and push them from here, or work per listing on the Listings page.</x-ui.hint>
+            {{ number_format($groups->count()) }} {{ $groups->count() === 1 ? 'product group' : 'product groups' }}.
+            <x-ui.hint label="What a product group is">A product group holds the shared TikTok Shop settings a push starts from - category and price markup. Keep products under it and push them from here, or work per listing on the Listings page.</x-ui.hint>
         </p>
     </div>
     @if($canManageTiktok)
-        <x-ui.button variant="primary" :href="route('ext.tiktok.product-groups.create')">New preset</x-ui.button>
+        <x-ui.button variant="primary" :href="route('ext.tiktok.product-groups.create')">New product group</x-ui.button>
     @endif
 </div>
 
 @if($groups->count() === 0)
-    <x-ui.empty title="No presets yet"
-                description="A preset holds the TikTok Shop category and price markup a batch of products shares, so a push sets them once instead of per listing.">
+    <x-ui.empty title="No product groups yet"
+                description="A product group holds the TikTok Shop category and price markup a batch of products shares, so a push sets them once instead of per listing.">
         @if($canManageTiktok)
         <x-slot:action>
-            <x-ui.button variant="primary" :href="route('ext.tiktok.product-groups.create')">New preset</x-ui.button>
+            <x-ui.button variant="primary" :href="route('ext.tiktok.product-groups.create')">New product group</x-ui.button>
         </x-slot:action>
         @endif
     </x-ui.empty>
@@ -45,7 +45,7 @@
     <x-slot:head>
         <tr>
             <th scope="col" class="cc-col-id">ID</th>
-            <th scope="col">Preset</th>
+            <th scope="col">Product group</th>
             <th scope="col" class="cc-col-count x-td-num">Products</th>
             <th scope="col">TikTok category</th>
             <th scope="col" class="cc-col-markup">Markup</th>
@@ -60,7 +60,7 @@
 
             // The same two lists the old view joined into one "Cat: ... | Mfg: ..."
             // string. They are what decides which catalog products fall into
-            // the preset, so they read as a sentence under the preset's own name
+            // the product group, so they read as a sentence under the product group's own name
             // rather than as a fourth column of comma-joined ids.
             $catNames = collect($g->catalog_category_ids ?? [])->map(fn ($id) => $categoryNames->get($id))->filter()->values();
             $mfgNames = collect($g->manufacturer_ids ?? [])->map(fn ($id) => $manufacturerNames->get($id))->filter()->values();
@@ -80,7 +80,7 @@
         @endphp
         <tr>
             <td class="cc-col-id" data-label="ID"><span class="x-num">{{ $g->id }}</span></td>
-            <td data-label="Preset">
+            <td data-label="Product group">
                 <a class="x-row-link" href="{{ $productsUrl }}">{{ $g->name }}</a>
                 @if(!empty($filterParts))
                     <span class="cc-sub">{{ implode('. ', $filterParts) }}</span>
@@ -113,10 +113,10 @@
                 {{-- The old row carried three standing buttons, one of them a
                      solid red Delete, on every line. The row itself is the link
                      to its products now, and the rest sit in the overflow. --}}
-                <x-ui.menu label="Preset {{ $g->name }} actions">
-                    <a class="x-menu__item" href="{{ $productsUrl }}">Products in this preset</a>
+                <x-ui.menu label="Product group {{ $g->name }} actions">
+                    <a class="x-menu__item" href="{{ $productsUrl }}">Products in this product group</a>
                     @if($canManageTiktok)
-                        <a class="x-menu__item" href="{{ route('ext.tiktok.product-groups.edit', $g->id) }}">Edit preset</a>
+                        <a class="x-menu__item" href="{{ route('ext.tiktok.product-groups.edit', $g->id) }}">Edit product group</a>
                         <div class="x-menu__sep"></div>
                         {{-- Destroy is never a standing control: it sits in the
                              overflow behind the shared confirm dialog and drives
@@ -124,8 +124,8 @@
                              nested inside a row that is itself a stretched
                              link. --}}
                         <button type="button" class="x-menu__item x-menu__item--danger"
-                                data-confirm="Delete the preset {{ $g->name }}? Its listing rows are removed with it. Nothing changes in the catalog, and nothing already live on TikTok Shop is touched."
-                                data-confirm-submit="ttpg-del-{{ $g->id }}">Delete preset</button>
+                                data-confirm="Delete the product group {{ $g->name }}? Its listing rows are removed with it. Nothing changes in the catalog, and nothing already live on TikTok Shop is touched."
+                                data-confirm-submit="ttpg-del-{{ $g->id }}">Delete product group</button>
                     @endif
                 </x-ui.menu>
             </td>

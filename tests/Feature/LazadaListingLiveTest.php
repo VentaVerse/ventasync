@@ -361,7 +361,7 @@ class LazadaListingLiveTest extends TestCase
         $r->assertSee('990077');
         $r->assertSee('Listed');
         $r->assertDontSee('>Failed<', false);
-        $r->assertSee("This preset's last push", false);
+        $r->assertSee("This product group's last push", false);
         $r->assertSee('Special characters');
         $r->assertSee('from its listing');
     }

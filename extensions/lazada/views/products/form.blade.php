@@ -126,7 +126,7 @@
                 @endif
                 @if($linkedGroups->count() > 0)
                     <span class="fm-stamp">
-                        <span class="fm-stamp__k">Preset</span>
+                        <span class="fm-stamp__k">Product group</span>
                         <span class="fm-stamp__v">{{ $linkedGroups->first()->name }}@if($linkedGroups->count() > 1) and {{ $linkedGroups->count() - 1 }} more @endif</span>
                     </span>
                 @endif
@@ -319,33 +319,6 @@
                 @endif
             </div>
         </section>
-    @endif
-
-    {{-- Start from a preset (#195): a GET reload of this same form with
-         the preset's shared settings and attribute defaults shown in the
-         fields. Nothing is applied until the operator saves. --}}
-    @if(($presets ?? collect())->isNotEmpty() && (auth()->user()?->hasPermission('manage_lazada/product') ?? false))
-        <form method="GET"
-              action="{{ $mode === 'create' ? route('ext.lazada.products.create') : route('ext.lazada.products.edit', $listing->id) }}"
-              class="x-filters bp-preset-bar">
-            @if($mode === 'create' && ($listing->product_id ?? null))
-                <input type="hidden" name="product_id" value="{{ $listing->product_id }}">
-            @endif
-            <label for="lz-preset" class="vt-book__label">Start from a preset</label>
-            <div class="x-select-wrap x-filters__select">
-                <select id="lz-preset" name="preset" class="x-input">
-                    <option value="">None - each field by hand</option>
-                    @foreach($presets as $p)
-                        <option value="{{ $p->id }}" @selected(($preset?->id ?? null) === $p->id)>{{ $p->name }}</option>
-                    @endforeach
-                </select>
-                <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-            </div>
-            <x-ui.button type="submit" variant="secondary" size="sm">Load</x-ui.button>
-            @if($preset ?? null)
-                <span class="x-cell-muted">Loaded "{{ $preset->name }}" - its category, brand, price rule and attribute defaults now fill the fields below. Save to keep them.</span>
-            @endif
-        </form>
     @endif
 
     {{-- ============================================================
@@ -709,7 +682,7 @@
                                     @endif
 
                                     @if($fromGroup)
-                                        <p class="gf-attr__note">Inherited from the preset. Saving here overrides it for this listing.</p>
+                                        <p class="gf-attr__note">Inherited from the product group. Saving here overrides it for this listing.</p>
                                     @endif
 
                                     @if(!$isSelect && !$isMapped && empty($saved[$key] ?? null) && empty(old('attributes.' . $key)) && !empty($suggestion))
@@ -899,10 +872,6 @@
             : 'Saves the category, brand and markup. The sections above each save on their own.' }}</span>
         <div class="fm-bar__actions">
             <a class="fm-cancel" href="{{ route('ext.lazada.products.index') }}">Cancel</a>
-            {{-- Save these shared settings as a preset (#195): named here,
-                 created on save, never a page to go work in. --}}
-            <input type="text" name="preset_save_name" form="lazada-listing" class="x-input fm-bar__preset-name"
-                   placeholder="Save as preset…" maxlength="100" aria-label="Save these shared settings as a preset named">
             <x-ui.button type="submit" form="lazada-listing" variant="primary">{{ $mode === 'create' ? 'Create listing' : 'Save listing' }}</x-ui.button>
             {{-- The push, from the page that shows what goes up (#149): the
                  index's row menu opens this page rather than uploading on a

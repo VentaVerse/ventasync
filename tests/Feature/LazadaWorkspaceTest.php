@@ -168,7 +168,7 @@ class LazadaWorkspaceTest extends TestCase
             array_column($groups[0]['items'], 'label')
         );
         $this->assertSame(
-            ['Listings', 'Presets', 'Categories', 'Brands'],
+            ['Listings', 'Product Groups', 'Categories', 'Brands'],
             array_column($groups[1]['items'], 'label')
         );
         $this->assertSame(
@@ -241,7 +241,7 @@ class LazadaWorkspaceTest extends TestCase
         $response->assertDontSee('data-chnav-group="Catalog"', false);
         $response->assertDontSee('data-chnav-group="Channel"', false);
         $response->assertDontSee('>Listings</a>', false);
-        $response->assertDontSee('>Presets</a>', false);
+        $response->assertDontSee('>Product Groups</a>', false);
         $response->assertDontSee('>Categories</a>', false);
         $response->assertDontSee('>Brands</a>', false);
         $response->assertDontSee('>Settings</a>', false);

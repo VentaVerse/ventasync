@@ -1,6 +1,6 @@
 @extends('layouts.channel')
-@section('title', ($mode === 'create' ? 'Add' : 'Edit') . ' TikTok Shop Preset')
-@section('breadcrumb', $mode === 'create' ? 'New Preset' : $group->name)
+@section('title', ($mode === 'create' ? 'Add' : 'Edit') . ' TikTok Shop Product group')
+@section('breadcrumb', $mode === 'create' ? 'New Product group' : $group->name)
 
 {{-- This page shows its own validation summary (the fm-note below) and marks
      the offending fields inline, so partials/legacy-page-contract skips its
@@ -24,9 +24,9 @@
      `data-combo-mode="local"` half of the shared combobox. --}}
 @section('content')
 @php
-    // The CREATE render is manage-tier, the EDIT render is in the read preset
+    // The CREATE render is manage-tier, the EDIT render is in the read product group
     // (extensions/tiktok/routes/web.php), so a view_tiktok operator can open
-    // this page on an existing preset. The previous version hardcoded the
+    // this page on an existing product group. The previous version hardcoded the
     // manage tier on and offered a Save button that would 403.
     $canManageTiktok = auth()->user()?->hasPermission('manage_tiktok/product_group') ?? false;
 
@@ -75,9 +75,9 @@
     <div class="fm-head">
         <div class="fm-head__main">
             <a class="fm-back" href="{{ route('ext.tiktok.product-groups.index') }}">
-                <x-ui.icon name="chevron-left" size="14" /> Presets
+                <x-ui.icon name="chevron-left" size="14" /> Product Groups
             </a>
-            <h1 class="fm-title">{{ $mode === 'create' ? 'New preset' : $group->name }}</h1>
+            <h1 class="fm-title">{{ $mode === 'create' ? 'New product group' : $group->name }}</h1>
             <div class="fm-stamps">
                 <span class="fm-stamp">
                     <span class="fm-stamp__k">Channel</span>
@@ -85,7 +85,7 @@
                 </span>
                 @if($mode === 'edit')
                     <span class="fm-stamp">
-                        <span class="fm-stamp__k">Preset</span>
+                        <span class="fm-stamp__k">Product group</span>
                         <span class="fm-stamp__v">{{ $group->id }}</span>
                     </span>
                 @endif
@@ -106,7 +106,7 @@
                     <h2 class="fm-section__title">Name</h2>
                 </div>
                 <div class="fm-fields">
-                    <x-ui.field label="Product preset name" for="pg-name" name="name" :required="true" wide
+                    <x-ui.field label="Product product group name" for="pg-name" name="name" :required="true" wide
                                 hint="What this batch of products is, in the words your team uses. It is never sent to TikTok Shop.">
                         <x-ui.input id="pg-name" name="name" value="{{ old('name', $group->name) }}"
                                     placeholder="Guitar pedals" :disabled="!$canManageTiktok" />
@@ -153,7 +153,7 @@
             </section>
 
             {{-- The category's attribute sheet (#156): what TikTok Shop asks
-                 for this category, answered once for the whole preset. Reloaded
+                 for this category, answered once for the whole product group. Reloaded
                  when the category changes (data-attributes-fetch, same wire
                  as Shopee's). --}}
             <section class="fm-section"
@@ -165,7 +165,7 @@
                 <div class="fm-section__head">
                     <h2 class="fm-section__title">Category attributes</h2>
                 </div>
-                <p class="fm-section__note">What TikTok Shop asks for this category. Answers go with every push from this preset; a product's own listing page can override them.</p>
+                <p class="fm-section__note">What TikTok Shop asks for this category. Answers go with every push from this product group; a product's own listing page can override them.</p>
                 <div data-attributes-target>
                     @include('ext-tiktok::product-groups._attributes', [
                         'rows' => $attributeRows, 'saved' => $savedAttributes, 'template' => $template, 'canManage' => $canManageTiktok,
@@ -175,11 +175,11 @@
 
             <section class="fm-section">
                 <div class="fm-section__head">
-                    <h2 class="fm-section__title">Products in this preset</h2>
+                    <h2 class="fm-section__title">Products in this product group</h2>
                 </div>
 
                 @if($canManageTiktok)
-                <p class="fm-section__note">Search the catalog on the left, move what belongs into the preset on the right. Only what is on the right is saved.</p>
+                <p class="fm-section__note">Search the catalog on the left, move what belongs into the product group on the right. Only what is on the right is saved.</p>
 
                 <div class="gf-dual"
                      data-group-product-picker
@@ -234,24 +234,24 @@
                         </div>
 
                         <div class="gf-move">
-                            <x-ui.button type="button" size="sm" data-gf-add aria-label="Add the selected catalog products to the preset">
+                            <x-ui.button type="button" size="sm" data-gf-add aria-label="Add the selected catalog products to the product group">
                                 Add <x-ui.icon name="chevron-right" size="14" />
                             </x-ui.button>
-                            <x-ui.button type="button" size="sm" data-gf-remove aria-label="Take the selected products out of the preset">
+                            <x-ui.button type="button" size="sm" data-gf-remove aria-label="Take the selected products out of the product group">
                                 <x-ui.icon name="chevron-left" size="14" /> Remove
                             </x-ui.button>
                         </div>
 
                         <div class="gf-pane">
                             <div class="gf-pane__head">
-                                <span class="gf-pane__title">In this preset</span>
+                                <span class="gf-pane__title">In this product group</span>
                                 <span class="gf-pane__count x-num" data-gf-right-count>{{ $rightItems->count() }}</span>
                             </div>
                             <div class="gf-pane__body">
                                 <table class="gf-list">
                                     <thead>
                                         <tr>
-                                            <th scope="col" class="gf-col-check"><input type="checkbox" class="cc-check" data-gf-right-all aria-label="Select every product in the preset"></th>
+                                            <th scope="col" class="gf-col-check"><input type="checkbox" class="cc-check" data-gf-right-all aria-label="Select every product in the product group"></th>
                                             <th scope="col" class="gf-col-id">ID</th>
                                             <th scope="col">Product</th>
                                             <th scope="col" class="gf-col-qty">Stock</th>
@@ -268,10 +268,10 @@
                     <script type="application/json" data-gf-initial>{!! json_encode($rightItems, $jsonFlags) !!}</script>
                 </div>
                 @else
-                <p class="fm-section__note">{{ $rightItems->count() }} {{ $rightItems->count() === 1 ? 'product is' : 'products are' }} in this preset.</p>
+                <p class="fm-section__note">{{ $rightItems->count() }} {{ $rightItems->count() === 1 ? 'product is' : 'products are' }} in this product group.</p>
 
                 @if($rightItems->isEmpty())
-                    <x-ui.empty title="No products in this preset"
+                    <x-ui.empty title="No products in this product group"
                                 description="Someone with the manage tier needs to add them." />
                 @else
                     <x-ui.table>
@@ -329,12 +329,12 @@
 
     <div class="fm-bar">
         <span class="fm-bar__meta">{{ $canManageTiktok
-            ? ($mode === 'create' ? 'Nothing is saved until you create the preset.' : 'Changes are saved to this preset, not pushed to TikTok Shop.')
-            : 'You can read this preset. Changing it needs the TikTok manage permission.' }}</span>
+            ? ($mode === 'create' ? 'Nothing is saved until you create the product group.' : 'Changes are saved to this product group, not pushed to TikTok Shop.')
+            : 'You can read this product group. Changing it needs the TikTok manage permission.' }}</span>
         <div class="fm-bar__actions">
             <a class="fm-cancel" href="{{ route('ext.tiktok.product-groups.index') }}">{{ $canManageTiktok ? 'Cancel' : 'Back' }}</a>
             @if($canManageTiktok)
-                <x-ui.button type="submit" variant="primary">{{ $mode === 'create' ? 'Create preset' : 'Save preset' }}</x-ui.button>
+                <x-ui.button type="submit" variant="primary">{{ $mode === 'create' ? 'Create product group' : 'Save product group' }}</x-ui.button>
             @endif
         </div>
     </div>

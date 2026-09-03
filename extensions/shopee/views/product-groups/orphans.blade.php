@@ -13,7 +13,7 @@
      should not be one. --}}
 @section('content')
 @php
-    $groupName = $group->name ?: 'this preset';
+    $groupName = $group->name ?: 'this product group';
 @endphp
 
 <div class="cc-page">

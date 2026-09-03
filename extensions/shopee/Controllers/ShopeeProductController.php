@@ -603,7 +603,7 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error',
                 'Push failed: this product has no Shopee listing settings yet. '
                 . 'Open its listing (Listings → Open listing) and save its category, couriers and price rule, '
-                . 'or push it from a preset whose settings you mean.');
+                . 'or push it from its product group.');
         }
 
         $logisticIds = $listing->logistic_ids ?? [];
@@ -774,31 +774,9 @@ class ShopeeProductController extends Controller
             ];
         }
 
-        /* Presets (Phase F, #184): the product GROUPS, read as reusable
-         * settings. Loading one prefills the shared fields below and its
-         * attribute defaults ride the push - the batch does everything a
-         * group's Send does, from the workbench, and the group table is
-         * the preset store: no new schema, no second vocabulary. */
-        $presets = ShopeeProductGroup::query()->orderBy('name')->get(['id', 'name', 'shopee_category_id', 'logistic_ids', 'markup_percent', 'markup_fixed']);
-        $preset = null;
-        $presetId = (int) $request->query('preset', 0);
-        if ($presetId > 0) {
-            $preset = $presets->firstWhere('id', $presetId);
-        }
-
-        // The preset's category, by name, for the combo's visible input.
-        $presetCategoryName = null;
-        if ($preset && $preset->shopee_category_id) {
-            $presetCategoryName = \Extensions\shopee\Models\ShopeeCategory::query()
-                ->where('category_id', $preset->shopee_category_id)->value('name');
-        }
-
         return view('ext-shopee::products.bulk-push', [
             'rows' => $rows,
             'logistics' => $this->fetchLogistics(),
-            'presets' => $presets,
-            'preset' => $preset,
-            'presetCategoryName' => $presetCategoryName,
         ]);
     }
 
@@ -818,24 +796,10 @@ class ShopeeProductController extends Controller
             'shared_markup_percent' => 'nullable|numeric|min:-100|max:1000',
             'shared_markup_fixed' => 'nullable|numeric|min:-1000000|max:1000000',
         ]);
-        $request->validate([
-            'preset_group_id' => 'nullable|integer|exists:shopee_product_groups,id',
-            'preset_save_name' => 'nullable|string|max:100',
-        ]);
         $sharedCategory = (int) $request->input('shared_category_id', 0) ?: null;
         $sharedLogistics = $request->filled('shared_logistic_ids') ? array_map('intval', (array) $request->input('shared_logistic_ids')) : null;
         $sharedRule = $request->filled('shared_markup_percent') || $request->filled('shared_markup_fixed');
 
-        /* The loaded preset's attribute defaults ride the batch. Each
-         * listing's OWN answers still win - the preset fills the gaps,
-         * the same courtesy Lazada's sheet shows group defaults. */
-        $presetAttrs = [];
-        if ($request->filled('preset_group_id')) {
-            $presetAttrs = \Extensions\shopee\Models\ShopeeProductGroupAttribute::query()
-                ->where('shopee_product_group_id', (int) $request->input('preset_group_id'))
-                ->pluck('value', 'attribute_key')
-                ->toArray();
-        }
         $sharedPercent = $sharedRule ? (float) $request->input('shared_markup_percent', 0) : null;
         $sharedFixed = $sharedRule ? (float) $request->input('shared_markup_fixed', 0) : null;
         $hasShared = $sharedCategory || $sharedLogistics || $sharedRule;
@@ -939,7 +903,7 @@ class ShopeeProductController extends Controller
                 $listing->markup_fixed = $sharedFixed;
             }
             if (!$listing->pushable()) {
-                $errors[] = "#{$productId}: no listing settings - open its listing and save them, or push from a preset";
+                $errors[] = "#{$productId}: no listing settings - open its listing and save them, or push from its group";
                 $errCount++;
                 continue;
             }
@@ -990,10 +954,10 @@ class ShopeeProductController extends Controller
             $sellingPrice = $listing->priceFor((float) $product->price);
 
             // The listing's own settings and content; its attribute
-            // answers ride the bulk push too, preset filling gaps (#98).
+            // answers ride the bulk push too (#98).
             $payload = $create->payloadFromListing(
                 $listing, $product, $itemName, $description, $imageIds,
-                ($listing->attribute_values ?? []) + $presetAttrs
+                $listing->attribute_values ?? []
             );
 
             $added = $create->addItem($client, $auth, $payload, 'shopee.products.add_item.bulk');
@@ -1047,30 +1011,12 @@ class ShopeeProductController extends Controller
         // every pushed row's mirror carries its real status immediately.
         app(\Extensions\shopee\Services\Shopee\ShopeeLiveListing::class)->confirm($auth, $confirmItemIds ?? []);
 
-        /* Save-as-preset (Phase F): the shared settings just reviewed
-         * become a reusable preset by name - created here, applied here,
-         * never a page to go work in. */
-        $presetNote = '';
-        $saveName = trim((string) $request->input('preset_save_name', ''));
-        if ($saveName !== '') {
-            ShopeeProductGroup::updateOrCreate(
-                ['name' => $saveName],
-                [
-                    'shopee_category_id' => $sharedCategory,
-                    'logistic_ids' => $sharedLogistics,
-                    'markup_percent' => $sharedRule ? $sharedPercent : null,
-                    'markup_fixed' => $sharedRule ? $sharedFixed : null,
-                ]
-            );
-            $presetNote = " Shared settings saved as preset '{$saveName}'.";
-        }
 
         $summary = "Bulk Push: {$okCount} pushed";
         if ($updatedCount > 0) $summary .= ", {$updatedCount} already listed and updated in place";
         if ($skipCount > 0) $summary .= ", {$skipCount} skipped (disabled)";
         if ($errCount > 0) $summary .= ", {$errCount} failed";
         if (!empty($errors)) $summary .= '. Errors: ' . implode('; ', array_slice($errors, 0, 5));
-        $summary .= $presetNote;
 
         return redirect()->back()->with($okCount > 0 ? 'status' : 'error', $summary);
     }

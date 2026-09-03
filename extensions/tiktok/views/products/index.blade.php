@@ -215,8 +215,8 @@
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
     <div class="x-select-wrap x-filters__select">
-        <select name="group" class="x-input" data-autosubmit aria-label="Filter by preset">
-            <option value="all" @selected($groupFilter === 'all')>All presets</option>
+        <select name="group" class="x-input" data-autosubmit aria-label="Filter by product group">
+            <option value="all" @selected($groupFilter === 'all')>All product groups</option>
             @foreach($allGroups as $gId => $gName)
                 <option value="{{ $gId }}" @selected($groupFilter === (string) $gId)>{{ $gName }}</option>
             @endforeach
@@ -261,25 +261,6 @@
             @csrf
             <x-ui.button type="submit" size="sm">Check against TikTok Shop</x-ui.button>
         </form>
-        {{-- Apply a preset to the selection (#195): the ticked products'
-             listing records take the preset's category and price rule,
-             created where none exists - then Send just works. --}}
-        @if(($allGroups ?? collect())->isNotEmpty())
-        <form method="POST" action="{{ route('ext.tiktok.products.bulk_apply_preset') }}" data-bulk-form
-              data-bulk-confirm="Apply this preset to the selected products? Their TikTok category and price rule are overwritten with the preset's; TikTok Shop sees it on the next Send or Push update.">
-            @csrf
-            <div class="x-select-wrap">
-                <select name="preset_group_id" class="x-input" aria-label="Preset to apply" required>
-                    <option value="">Apply preset…</option>
-                    @foreach($allGroups as $gId => $gName)
-                        <option value="{{ $gId }}">{{ $gName }}</option>
-                    @endforeach
-                </select>
-                <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-            </div>
-            <x-ui.button type="submit" size="sm">Apply</x-ui.button>
-        </form>
-        @endif
         {{-- Deactivate / Activate for the selection (the owner, 2026-08-28). Each
              form acts only on the ticked rows its verb applies to, per the
              mirrored status; the count is in the label and the rest of the
@@ -305,7 +286,7 @@
 @if($products->count() === 0)
     <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'No products yet' }}"
                 :description="$hasFilters
-                    ? 'Try clearing the search, or widening the preset and status filters.'
+                    ? 'Try clearing the search, or widening the product group and status filters.'
                     : 'Every catalog product appears here, ready to list on TikTok Shop. Add your first product and it will be waiting.'">
         <x-slot:action>
             @if($hasFilters)
@@ -385,7 +366,7 @@
                             <span class="co-item__sku">{{ $p->sku ?: 'No SKU' }}</span>
                             @if($p->manufacturer_name)<span>{{ $p->manufacturer_name }}</span>@endif
                             @if(count($pGroups) > 0)
-                                <span class="co-item__var" @if(count($pGroups) > 1) title="Presets: {{ implode(', ', $pGroups) }}" @endif>Preset{{ count($pGroups) > 1 ? 's' : '' }}: {{ $pGroups[0] }}@if(count($pGroups) > 1) and {{ count($pGroups) - 1 }} more @endif</span>
+                                <span class="co-item__var" @if(count($pGroups) > 1) title="Product Groups: {{ implode(', ', $pGroups) }}" @endif>Product group{{ count($pGroups) > 1 ? 's' : '' }}: {{ $pGroups[0] }}@if(count($pGroups) > 1) and {{ count($pGroups) - 1 }} more @endif</span>
                             @endif
                         </div>
                         @if($optRows && count($optRows) > 0)
@@ -455,7 +436,7 @@
                     @if($attempt->last_pushed_at)<span class="cc-when">{{ $attempt->last_pushed_at->diffForHumans() }}</span>@endif
                 @elseif($listing?->last_pushed_at)
                     <span class="x-cell-muted">Pushed</span>
-                    <span class="cc-when">{{ $listing->last_pushed_at->diffForHumans() }}{{ $listing->last_push_source ? ' from ' . (str_starts_with($listing->last_push_source, 'group:') ? 'the ' . substr($listing->last_push_source, 6) . ' preset' : 'its listing') : '' }}</span>
+                    <span class="cc-when">{{ $listing->last_pushed_at->diffForHumans() }}{{ $listing->last_push_source ? ' from ' . (str_starts_with($listing->last_push_source, 'group:') ? 'the ' . substr($listing->last_push_source, 6) . ' product group' : 'its listing') : '' }}</span>
                 @elseif($attempt?->last_pushed_at)
                     <span class="x-cell-muted">Pushed</span>
                     <span class="cc-when">{{ $attempt->last_pushed_at->diffForHumans() }}</span>

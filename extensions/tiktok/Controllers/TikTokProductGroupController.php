@@ -586,7 +586,7 @@ class TikTokProductGroupController extends Controller
         $group = TikTokProductGroup::findOrFail($id);
         $pivot = $group->groupProducts()->where('product_id', $product)->first();
         if (!$pivot) {
-            return redirect()->back()->with('error', 'Product not in this preset.');
+            return redirect()->back()->with('error', 'Product not in this product group.');
         }
 
         $raw = TikTokSetting::query()->first();
@@ -719,7 +719,7 @@ class TikTokProductGroupController extends Controller
             ->delete();
 
         return $this->productsRedirect($id)
-            ->with('status', 'Product removed from the preset.');
+            ->with('status', 'Product removed from the product group.');
     }
 
     public function massRemove(Request $request, int $id)
@@ -737,7 +737,7 @@ class TikTokProductGroupController extends Controller
             ->delete();
 
         return $this->productsRedirect($id)
-            ->with('status', $deleted . ' product(s) removed from the preset.');
+            ->with('status', $deleted . ' product(s) removed from the product group.');
     }
 
     public function deleteFromTikTok(Request $request, int $id)
@@ -943,7 +943,7 @@ class TikTokProductGroupController extends Controller
             $productIds = $group->groupProducts()->pluck('product_id')->map('intval')->all();
         }
         if (empty($productIds)) {
-            return $this->productsRedirect($id)->with('error', 'This preset has no products to check.');
+            return $this->productsRedirect($id)->with('error', 'This product group has no products to check.');
         }
 
         $r = $check->run($c, $productIds);

@@ -47,7 +47,7 @@
     </div>
     @if(auth()->user()?->hasPermission('manage_venta/listing') ?? false)
         <div class="cc-head-actions">
-            {{-- The preset page's check, page-wide (#184's one-workbench
+            {{-- The product group page's check, page-wide (#184's one-workbench
                  rule, now on Venta too): with no rows ticked it walks
                  every linked product, 200 at a time. --}}
             <form method="POST" action="{{ route('ext.venta.listings.check', $setting->id) }}"

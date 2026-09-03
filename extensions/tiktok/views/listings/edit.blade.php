@@ -144,7 +144,7 @@
                 @endif
             @endif
             @if($truth->last_pushed_at ?? null)
-                <p class="fm-section__note">Pushed {{ \Illuminate\Support\Carbon::parse($truth->last_pushed_at)->diffForHumans() }}{{ ($truth->group_name ?? null) ? ' from the ' . $truth->group_name . ' preset' : ' from this listing' }}.</p>
+                <p class="fm-section__note">Pushed {{ \Illuminate\Support\Carbon::parse($truth->last_pushed_at)->diffForHumans() }}{{ ($truth->group_name ?? null) ? ' from the ' . $truth->group_name . ' product group' : ' from this listing' }}.</p>
             @endif
         </section>
     @else
@@ -164,31 +164,9 @@
             @if(empty($missing))
                 <p class="fm-section__note">Everything the push needs is set. The one-click push uses the settings and content below.</p>
             @else
-                <p class="fm-section__note">Before the one-click push can run, this listing still needs {{ implode(', ', $missing) }}. Set what is missing below and save, or push it from one of its presets.</p>
+                <p class="fm-section__note">Before the one-click push can run, this listing still needs {{ implode(', ', $missing) }}. Set what is missing below and save, or push it from one of its product groups.</p>
             @endif
         </section>
-    @endif
-
-    {{-- Start from a preset (#195): a GET reload with the preset's
-         category and price rule shown in the fields; nothing changes
-         until saved. --}}
-    @if(($presets ?? collect())->isNotEmpty() && $canManage)
-        <form method="GET" action="{{ route('ext.tiktok.listings.edit', $product->product_id) }}" class="x-filters bp-preset-bar">
-            <label for="tt-preset" class="vt-book__label">Start from a preset</label>
-            <div class="x-select-wrap x-filters__select">
-                <select id="tt-preset" name="preset" class="x-input">
-                    <option value="">None - each field by hand</option>
-                    @foreach($presets as $p)
-                        <option value="{{ $p->id }}" @selected(($preset?->id ?? null) === $p->id)>{{ $p->name }}</option>
-                    @endforeach
-                </select>
-                <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-            </div>
-            <x-ui.button type="submit" variant="secondary" size="sm">Load</x-ui.button>
-            @if($preset ?? null)
-                <span class="x-cell-muted">Loaded "{{ $preset->name }}" - its category and price rule now fill the fields below. Save to keep them.</span>
-            @endif
-        </form>
     @endif
 
     <form id="listing-form" method="POST" action="{{ route('ext.tiktok.listings.update', $product->product_id) }}">
@@ -306,7 +284,7 @@
                         @if($listing?->last_pushed_at)
                             <div class="fm-stats">
                                 <div class="fm-stat"><span class="fm-stat__k">When</span><span class="fm-stat__v">{{ $listing->last_pushed_at->diffForHumans() }}</span></div>
-                                <div class="fm-stat"><span class="fm-stat__k">From</span><span class="fm-stat__v">{{ str_starts_with((string) $listing->last_push_source, 'group:') ? 'the ' . substr($listing->last_push_source, 6) . ' preset' : 'this listing' }}</span></div>
+                                <div class="fm-stat"><span class="fm-stat__k">From</span><span class="fm-stat__v">{{ str_starts_with((string) $listing->last_push_source, 'group:') ? 'the ' . substr($listing->last_push_source, 6) . ' product group' : 'this listing' }}</span></div>
                             </div>
                         @else
                             <p class="fm-section__note">Never pushed from VentaSync.</p>
@@ -328,9 +306,6 @@
         <div class="fm-bar__actions">
             <a class="fm-cancel" href="{{ route('ext.tiktok.products.index') }}">{{ $canManage ? 'Cancel' : 'Back' }}</a>
             @if($canManage)
-                {{-- Save these shared settings as a preset (#195). --}}
-                <input type="text" name="preset_save_name" form="listing-form" class="x-input fm-bar__preset-name"
-                       placeholder="Save as preset…" maxlength="100" aria-label="Save these shared settings as a preset named">
                 <x-ui.button type="submit" form="listing-form" variant="primary">Save listing</x-ui.button>
             @endif
         </div>

@@ -369,9 +369,9 @@
     </div>
 
     <div class="x-select-wrap x-filters__select">
-        <select name="group" class="x-input" data-autosubmit aria-label="Filter by preset">
-            <option value="all" @selected($groupFilter === 'all')>All presets</option>
-            <option value="none" @selected($groupFilter === 'none')>Not in a preset</option>
+        <select name="group" class="x-input" data-autosubmit aria-label="Filter by product group">
+            <option value="all" @selected($groupFilter === 'all')>All product groups</option>
+            <option value="none" @selected($groupFilter === 'none')>Not in a product group</option>
             @foreach(($allGroups ?? collect()) as $pId => $pName)
                 <option value="{{ $pId }}" @selected($groupFilter === (string) $pId)>{{ $pName }}</option>
             @endforeach
@@ -472,7 +472,7 @@
 @if($products->count() === 0)
     <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'No products yet' }}"
                 :description="$hasFilters
-                    ? 'Try clearing the search, or widening the preset and status filters.'
+                    ? 'Try clearing the search, or widening the product group and status filters.'
                     : 'Every catalog product appears here, ready to list on Shopee. Add your first product and it will be waiting.'">
         {{-- An empty state that says "try clearing the search" and offers no
              way to do it is a dead end. The way out belongs where the reader
@@ -584,7 +584,7 @@
                                      every order page). The label now says
                                      what it is, and the full list rides on
                                      the title for the "and N more" case. --}}
-                                <span class="co-item__var" @if(count($pGroups) > 1) title="Presets: {{ implode(', ', $pGroups) }}" @endif>Preset{{ count($pGroups) > 1 ? 's' : '' }}: {{ $pGroups[0] }}@if(count($pGroups) > 1) and {{ count($pGroups) - 1 }} more @endif</span>
+                                <span class="co-item__var" @if(count($pGroups) > 1) title="Product Groups: {{ implode(', ', $pGroups) }}" @endif>Product group{{ count($pGroups) > 1 ? 's' : '' }}: {{ $pGroups[0] }}@if(count($pGroups) > 1) and {{ count($pGroups) - 1 }} more @endif</span>
                             @endif
                         </div>
 

@@ -56,15 +56,15 @@
     <div>
         <h1 class="x-page-title">{{ $group->name }}</h1>
         <p class="x-page-sub">
-            {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product' : 'products' }} in this preset on TikTok Shop
+            {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product' : 'products' }} in this product group on TikTok Shop
         </p>
     </div>
-    {{-- Both ask about the whole preset (parity #156, from Shopee's page):
+    {{-- Both ask about the whole product group (parity #156, from Shopee's page):
          Check posts because it writes; Unlinked is a GET because it reads. --}}
     <div class="cc-head-actions">
         @if($canManageTiktok)
             <form method="POST" action="{{ route('ext.tiktok.product-groups.check', $group->id) }}"
-                  data-confirm="Check every product in this preset against TikTok Shop? Nothing is sent or changed on TikTok Shop; the ERP updates its own records to match what it finds." data-confirm-tone="primary" data-confirm-verb="Check against TikTok Shop">
+                  data-confirm="Check every product in this product group against TikTok Shop? Nothing is sent or changed on TikTok Shop; the ERP updates its own records to match what it finds." data-confirm-tone="primary" data-confirm-verb="Check against TikTok Shop">
                 @csrf
                 <input type="hidden" name="_return" value="{{ $returnTo }}">
                 <x-ui.button type="submit" variant="secondary">Check against TikTok Shop</x-ui.button>
@@ -72,7 +72,7 @@
         @endif
         <x-ui.button variant="secondary" :href="route('ext.tiktok.product-groups.orphans', $group->id)">Unlinked on TikTok Shop</x-ui.button>
         @if($canManageTiktok)
-            <x-ui.button :href="route('ext.tiktok.product-groups.edit', $group->id)">Edit preset</x-ui.button>
+            <x-ui.button :href="route('ext.tiktok.product-groups.edit', $group->id)">Edit product group</x-ui.button>
         @endif
     </div>
 </div>
@@ -82,7 +82,7 @@
      navigation and not an action. Every parameter name is unchanged. --}}
 <form method="GET" action="{{ $listUrl }}" class="x-filters">
     <x-ui.input type="search" name="q" class="x-filters__search"
-                value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search products in this preset" />
+                value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search products in this product group" />
 
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
         <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by catalog status">
@@ -98,7 +98,7 @@
             <option value="all" @selected($syncStatus === 'all')>Listed or not</option>
             <option value="pushed" @selected($syncStatus === 'pushed')>Listed on TikTok</option>
             <option value="pending" @selected($syncStatus === 'pending')>Not listed</option>
-            <option value="error" @selected($syncStatus === 'error')>Last push from this preset failed</option>
+            <option value="error" @selected($syncStatus === 'error')>Last push from this product group failed</option>
             <option value="unlinked" @selected($syncStatus === 'unlinked')>Unlinked</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
@@ -143,10 +143,10 @@
             <x-ui.button type="submit" size="sm">Push stock</x-ui.button>
         </form>
         <form method="POST" action="{{ route('ext.tiktok.product-groups.massRemove', $group->id) }}" data-bulk-form
-              data-bulk-confirm="Take the selected products out of this preset? Nothing is deleted from the catalog, and nothing already live on TikTok Shop is touched.">
+              data-bulk-confirm="Take the selected products out of this product group? Nothing is deleted from the catalog, and nothing already live on TikTok Shop is touched.">
             @csrf
             <input type="hidden" name="_return" value="{{ $returnTo }}">
-            <x-ui.button type="submit" size="sm">Remove from preset</x-ui.button>
+            <x-ui.button type="submit" size="sm">Remove from product group</x-ui.button>
         </form>
         <form method="POST" action="{{ route('ext.tiktok.product-groups.deleteFromTikTok', $group->id) }}" data-bulk-form
               data-bulk-confirm="Delete the selected products from TikTok Shop? They are removed at the marketplace and this cannot be undone.">
@@ -159,13 +159,13 @@
 @endif
 
 @if($products->count() === 0)
-    <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'No products in this preset' }}"
+    <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'No products in this product group' }}"
                 :description="$hasFilters
                     ? 'Try clearing the search, or widening the catalog and push filters.'
-                    : 'Edit the preset to pick products from the catalog, or add them one at a time below.'">
+                    : 'Edit the product group to pick products from the catalog, or add them one at a time below.'">
         @if($canManageTiktok && !$hasFilters)
         <x-slot:action>
-            <x-ui.button variant="primary" :href="route('ext.tiktok.product-groups.edit', $group->id)">Edit preset</x-ui.button>
+            <x-ui.button variant="primary" :href="route('ext.tiktok.product-groups.edit', $group->id)">Edit product group</x-ui.button>
         </x-slot:action>
         @endif
     </x-ui.empty>
@@ -203,10 +203,10 @@
 
             /* PRODUCT truth vs GROUP memory (one-truth port, 2026-08-25).
                TikTok has no listings table, so the product's fact is
-               DERIVED across every preset's pivot rows - whichever holds
+               DERIVED across every product group's pivot rows - whichever holds
                the id, latest push first - and the provenance names which
-               preset's push made it true. This row's pivot keeps only this
-               preset's own last ATTEMPT. */
+               product group's push made it true. This row's pivot keeps only this
+               product group's own last ATTEMPT. */
             $truth = $truthByProductId->get($p->product_id);
             $listed = $truth !== null;
 
@@ -221,7 +221,7 @@
             $provenanceAt = ($truth->last_pushed_at ?? null)
                 ? \Illuminate\Support\Carbon::parse($truth->last_pushed_at)
                 : null;
-            $provenanceLabel = $truth ? 'from the ' . $truth->group_name . ' preset' : '';
+            $provenanceLabel = $truth ? 'from the ' . $truth->group_name . ' product group' : '';
 
             $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($p->product_id) : null;
             $variationCount = $optRows ? count($optRows) : 0;
@@ -238,7 +238,7 @@
             if (!empty($p->manufacturer_name)) {
                 $metaParts[] = (string) $p->manufacturer_name;
             }
-            $metaParts[] = $isManual ? 'added by hand' : 'matched by the preset filter';
+            $metaParts[] = $isManual ? 'added by hand' : 'matched by the product group filter';
             $meta = implode(' / ', $metaParts);
         @endphp
         <tr>
@@ -316,9 +316,9 @@
             </td>
 
             <td class="cc-col-sync" data-label="Listing">
-                {{-- The PRODUCT's state across every preset, the same words
+                {{-- The PRODUCT's state across every product group, the same words
                      the other channels use for the same fact. A failed push
-                     from THIS preset is told in the Last push column, scoped
+                     from THIS product group is told in the Last push column, scoped
                      in words - it no longer masquerades as the product's
                      status. --}}
                 @php
@@ -342,7 +342,7 @@
                      wrong, and rendered "Never" - the strongest possible
                      statement that nothing has ever gone wrong. --}}
                 {{-- Two facts share this column, each named: what actually
-                     went up (derived across every preset) and what THIS GROUP
+                     went up (derived across every product group) and what THIS GROUP
                      last tried (its own attempt history). --}}
                 @if($attemptFailed)
                     @php
@@ -350,7 +350,7 @@
                         $reason = $reason !== '' ? $reason : 'No reason was recorded.';
                         $clipped = \Illuminate\Support\Str::limit($reason, 120);
                     @endphp
-                    <span class="cc-err">This preset's last push{{ $attemptAt ? ' ' . $attemptAt->diffForHumans() : '' }} failed:</span>
+                    <span class="cc-err">This product group's last push{{ $attemptAt ? ' ' . $attemptAt->diffForHumans() : '' }} failed:</span>
                     @if($clipped === $reason)
                         <span class="cc-err">{{ $reason }}</span>
                     @else
@@ -447,7 +447,7 @@
                         <a class="x-menu__item" href="{{ route('ext.tiktok.listings.edit', $p->product_id) }}">Open listing</a>
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.tiktok.product-groups.unlinkProduct', [$group->id, $p->product_id]) }}" data-slow-action
-                              data-confirm="Unlink {{ $pName ?: 'this product' }} from TikTok Shop? The product stays in the preset but sync will stop." data-confirm-verb="Unlink">
+                              data-confirm="Unlink {{ $pName ?: 'this product' }} from TikTok Shop? The product stays in the product group but sync will stop." data-confirm-verb="Unlink">
                             @csrf
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
                             <button type="submit" class="x-menu__item x-menu__item--danger">Unlink from TikTok Shop</button>
@@ -472,11 +472,11 @@
                     @if($isManual)
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.tiktok.product-groups.removeProduct', [$group->id, $p->product_id]) }}"
-                              data-confirm="Take {{ $pName ?: 'this product' }} out of the preset? Nothing is deleted from the catalog, and nothing already live on TikTok Shop is touched." data-confirm-verb="Remove from preset">
+                              data-confirm="Take {{ $pName ?: 'this product' }} out of the product group? Nothing is deleted from the catalog, and nothing already live on TikTok Shop is touched." data-confirm-verb="Remove from product group">
                             @csrf
                             @method('DELETE')
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <button type="submit" class="x-menu__item x-menu__item--danger">Remove from preset</button>
+                            <button type="submit" class="x-menu__item x-menu__item--danger">Remove from product group</button>
                         </form>
                     @endif
                 </x-ui.menu>
@@ -500,7 +500,7 @@
     <div class="fm-section__head">
         <h2 class="fm-section__title">Add a product by name</h2>
     </div>
-    <p class="fm-section__note">For a product the preset's filter does not pick up. Type at least two characters.</p>
+    <p class="fm-section__note">For a product the product group's filter does not pick up. Type at least two characters.</p>
 
     <form id="tiktok-add-products" method="POST" action="{{ route('ext.tiktok.product-groups.addProducts', $group->id) }}">
         @csrf

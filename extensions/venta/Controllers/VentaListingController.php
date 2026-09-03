@@ -34,7 +34,7 @@ class VentaListingController extends Controller
      * Same anatomy as Shopee's, Lazada's and TikTok's.
      */
     /**
-     * Ask this store about the links the page believes in - the preset
+     * Ask this store about the links the page believes in - the product group
      * page's check, on the workbench (#184's one-workbench rule). With
      * rows ticked it checks those; with none it checks every linked
      * product, 200 at a time.

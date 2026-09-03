@@ -811,11 +811,6 @@
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products/bulk/apply-preset",
-        "name": "ext.lazada.products.bulk_apply_preset"
-    },
-    {
-        "method": "POST",
         "uri": "channels/lazada/products/bulk/delete",
         "name": "ext.lazada.products.bulk_delete"
     },
@@ -2173,11 +2168,6 @@
         "method": "GET|HEAD",
         "uri": "channels/tiktok/products/brands",
         "name": "ext.tiktok.products.brandsSearch"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/tiktok/products/bulk/apply-preset",
-        "name": "ext.tiktok.products.bulk_apply_preset"
     },
     {
         "method": "POST",

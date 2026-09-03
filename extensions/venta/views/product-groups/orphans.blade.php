@@ -12,7 +12,7 @@
      operator decides. There is no Adopt button and there should not be one. --}}
 @section('content')
 @php
-    $groupName = $group->name ?: 'this preset';
+    $groupName = $group->name ?: 'this product group';
 @endphp
 
 <div class="cc-page">

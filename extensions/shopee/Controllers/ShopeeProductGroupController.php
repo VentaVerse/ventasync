@@ -216,7 +216,7 @@ class ShopeeProductGroupController extends Controller
             'markup_percent' => $data['markup_percent'] ?? null,
         ]);
 
-        ActivityLogger::log('created', 'Shopee Preset', $group->id, $group->name);
+        ActivityLogger::log('created', 'Shopee Product group', $group->id, $group->name);
 
         $this->saveGroupAttributes($group, (array) $request->input('attributes', []));
 
@@ -265,7 +265,7 @@ class ShopeeProductGroupController extends Controller
             'markup_percent' => $data['markup_percent'] ?? null,
         ]);
 
-        ActivityLogger::log('updated', 'Shopee Preset', $group->id, $group->name);
+        ActivityLogger::log('updated', 'Shopee Product group', $group->id, $group->name);
 
         $this->saveGroupAttributes($group, (array) $request->input('attributes', []));
 
@@ -297,7 +297,7 @@ class ShopeeProductGroupController extends Controller
         $name = $group->name;
         $group->delete();
 
-        ActivityLogger::log('deleted', 'Shopee Preset', (int) $id, $name);
+        ActivityLogger::log('deleted', 'Shopee Product group', (int) $id, $name);
 
         return redirect()->route('ext.shopee.product-groups.index')
             ->with('status', 'Preset "' . e($name) . '" deleted.');
@@ -1037,9 +1037,9 @@ class ShopeeProductGroupController extends Controller
         // work out what happened to the other three.
         $skipped = count($ids) - $added;
 
-        $summary = "{$added} product(s) added to the preset.";
+        $summary = "{$added} product(s) added to the product group.";
         if ($skipped > 0) {
-            $summary .= " {$skipped} already in the preset.";
+            $summary .= " {$skipped} already in the product group.";
         }
 
         return $this->productsRedirect($group->id)
@@ -1083,7 +1083,7 @@ class ShopeeProductGroupController extends Controller
         $group = ShopeeProductGroup::query()->findOrFail($groupId);
         $pivot = $group->groupProducts()->where('product_id', $productId)->first();
         if (!$pivot) {
-            return redirect()->back()->with('error', 'Product not in this preset.');
+            return redirect()->back()->with('error', 'Product not in this product group.');
         }
 
         $setting = ShopeeSetting::defaultStore()?->decrypted();
@@ -1240,7 +1240,7 @@ class ShopeeProductGroupController extends Controller
         // group at all, because the message sat outside the check.
         if (! $pivot) {
             return $this->productsRedirect($group->id)
-                ->with('error', 'That product is not in this preset.');
+                ->with('error', 'That product is not in this product group.');
         }
 
         // Already holds an item id: re-linking is just clearing the unlinked
@@ -1284,7 +1284,7 @@ class ShopeeProductGroupController extends Controller
         $group->groupProducts()->where('product_id', $productId)->delete();
 
         return $this->productsRedirect($group->id)
-            ->with('status', 'Product removed from the preset.');
+            ->with('status', 'Product removed from the product group.');
     }
 
     /**
@@ -1304,9 +1304,9 @@ class ShopeeProductGroupController extends Controller
         // still claimed ten removals.
         $removed = $group->groupProducts()->whereIn('product_id', $ids)->delete();
 
-        $summary = "{$removed} product(s) removed from the preset.";
+        $summary = "{$removed} product(s) removed from the product group.";
         if ($removed < count($ids)) {
-            $summary .= ' ' . (count($ids) - $removed) . ' were not in the preset.';
+            $summary .= ' ' . (count($ids) - $removed) . ' were not in the product group.';
         }
 
         return $this->productsRedirect($group->id)
@@ -1352,7 +1352,7 @@ class ShopeeProductGroupController extends Controller
         }
 
         if (empty($productIds)) {
-            return $this->productsRedirect($id)->with('error', 'This preset has no products to check.');
+            return $this->productsRedirect($id)->with('error', 'This product group has no products to check.');
         }
 
         $r = $this->linkCheck->run($client, $auth, $productIds);
@@ -1499,9 +1499,9 @@ class ShopeeProductGroupController extends Controller
 
         if ($toCreate) {
             if (! $group->shopee_category_id) {
-                $blocked[] = 'Nothing new could be created: this preset has no Shopee category set.';
+                $blocked[] = 'Nothing new could be created: this product group has no Shopee category set.';
             } elseif (empty($group->logistic_ids ?? [])) {
-                $blocked[] = 'Nothing new could be created: this preset has no logistics channels set.';
+                $blocked[] = 'Nothing new could be created: this product group has no logistics channels set.';
             } else {
                 $created = $this->createOnShopee($group, $toCreate, $client, $auth, $pfx, $langId);
             }
@@ -2022,7 +2022,7 @@ class ShopeeProductGroupController extends Controller
                         'last_pushed_at' => now(),
                     ]);
 
-                ActivityLogger::log('updated', 'Shopee Product', $productId, 'Updated item ' . $itemId . ' on Shopee via preset');
+                ActivityLogger::log('updated', 'Shopee Product', $productId, 'Updated item ' . $itemId . ' on Shopee via product group');
                 $okCount++;
             } else {
                 $msg = \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
@@ -2059,12 +2059,12 @@ class ShopeeProductGroupController extends Controller
         }
 
         if (!$group->shopee_category_id) {
-            return $this->productsRedirect($id)->with('error', 'This preset has no Shopee category configured. Set a category first.');
+            return $this->productsRedirect($id)->with('error', 'This product group has no Shopee category configured. Set a category first.');
         }
 
         $logisticIds = $group->logistic_ids ?? [];
         if (empty($logisticIds)) {
-            return $this->productsRedirect($id)->with('error', 'This preset has no logistics channels configured.');
+            return $this->productsRedirect($id)->with('error', 'This product group has no logistics channels configured.');
         }
 
         $pfx = (string) config('catalog.prefix');
@@ -2248,7 +2248,7 @@ class ShopeeProductGroupController extends Controller
                 // Clear pivot sync data
                 $this->writeProductStatus($productId, ['shopee_item_id' => null, 'sync_status' => 'pending']);
 
-                ActivityLogger::log('deleted', 'Shopee Product', $productId, 'Deleted item ' . $itemId . ' from Shopee via preset');
+                ActivityLogger::log('deleted', 'Shopee Product', $productId, 'Deleted item ' . $itemId . ' from Shopee via product group');
                 $okCount++;
             } else {
                 // The reason used to be discarded here, so "3 deleted, 9

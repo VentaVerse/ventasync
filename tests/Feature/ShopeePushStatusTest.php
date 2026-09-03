@@ -53,7 +53,7 @@ class ShopeePushStatusTest extends TestCase
             'The pivot item id is a private copy that drifts; the page must not display it.');
         $this->assertStringContainsString('@if($attemptFailed)', $view,
             'The group\'s own failed attempt must still be told.');
-        $this->assertStringContainsString("This preset's last push", $view,
+        $this->assertStringContainsString("This product group's last push", $view,
             'The failure must name itself as this group\'s attempt, not as the product\'s status.');
     }
 

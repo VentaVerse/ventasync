@@ -1512,55 +1512,6 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         return redirect()->back()->with($done === 0 ? 'error' : 'status', implode(' ', $parts));
     }
 
-    /**
-     * Dress the selected listings in a preset's shared settings in one
-     * act (#195): category, brand, markups overwrite - that is what
-     * "apply" means, and the flash says so - and the preset's attribute
-     * defaults fill in per key. Then the ordinary Push works, without
-     * one visit to the Presets page.
-     */
-    public function bulkApplyPreset(Request $request)
-    {
-        $data = $request->validate([
-            'preset_group_id' => 'required|integer|exists:lazada_product_groups,id',
-            'listing_ids' => 'required|array|min:1',
-        ]);
-        $ids = array_values(array_unique(array_filter(array_map(fn ($v) => (int) $v, (array) $data['listing_ids']), fn ($v) => $v > 0)));
-
-        $preset = \Extensions\lazada\Models\LazadaProductGroup::findOrFail((int) $data['preset_group_id']);
-        $presetAttrs = \Extensions\lazada\Models\LazadaProductGroupAttribute::query()
-            ->where('lazada_product_group_id', $preset->id)->pluck('value', 'attribute_key');
-
-        $listings = LazadaProduct::query()->whereIn('id', $ids)->get();
-        foreach ($listings as $listing) {
-            $listing->forceFill(array_filter([
-                'primary_category_id' => $preset->lazada_category_id,
-                'brand_id' => $preset->brand_id,
-                'brand_name_override' => $preset->brand_name_override,
-                'markup_fixed' => $preset->markup_fixed,
-                'markup_percent' => $preset->markup_percent,
-            ], fn ($v) => $v !== null))->save();
-
-            foreach ($presetAttrs as $key => $value) {
-                \Extensions\lazada\Models\LazadaProductAttribute::updateOrCreate(
-                    ['lazada_product_id' => $listing->id, 'attribute_key' => $key],
-                    ['value' => $value]
-                );
-            }
-        }
-
-        $applied = [];
-        if ($preset->lazada_category_id) $applied[] = 'category';
-        if ($preset->brand_id || $preset->brand_name_override) $applied[] = 'brand';
-        if ($preset->markup_fixed !== null || $preset->markup_percent !== null) $applied[] = 'price rule';
-        if ($presetAttrs->isNotEmpty()) $applied[] = $presetAttrs->count() . ' attribute defaults';
-
-        return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-            ->with('status', "Preset '{$preset->name}' applied to " . $listings->count() . ' listing' . ($listings->count() === 1 ? '' : 's')
-                . ($applied ? ' (' . implode(', ', $applied) . ')' : '')
-                . '. Their next Update or Push carries these settings.');
-    }
-
     public function bulkUploadToLazada(Request $request, LazadaClient $client)
     {
         $ids = $request->input('listing_ids', []);
@@ -2151,39 +2102,17 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         // Brand search is handled by AJAX autocomplete; no need to preload all brands.
         // Product selection is handled by AJAX search (searchCatalogProducts endpoint).
 
-        /* Start from a preset (#195): ?preset= overlays the preset's shared
-         * settings onto the blank form - category, brand, markups - and its
-         * attribute defaults ride $saved below. The operator still sees and
-         * saves every value, so nothing is applied invisibly. */
-        $presets = \Extensions\lazada\Models\LazadaProductGroup::query()->orderBy('name')->get(['id', 'name', 'lazada_category_id', 'brand_id', 'brand_name_override', 'markup_fixed', 'markup_percent']);
-        $preset = $request->filled('preset') ? $presets->firstWhere('id', (int) $request->query('preset')) : null;
-
         $blank = new LazadaProduct([
             'product_id' => $request->input('product_id'),
         ]);
-        if ($preset) {
-            $blank->forceFill(array_filter([
-                'primary_category_id' => $preset->lazada_category_id,
-                'brand_id' => $preset->brand_id,
-                'brand_name_override' => $preset->brand_name_override,
-                'markup_fixed' => $preset->markup_fixed,
-                'markup_percent' => $preset->markup_percent,
-            ], fn ($v) => $v !== null));
-        }
-        $presetAttrs = $preset
-            ? \Extensions\lazada\Models\LazadaProductGroupAttribute::query()
-                ->where('lazada_product_group_id', $preset->id)->pluck('value', 'attribute_key')->toArray()
-            : [];
 
         return view('ext-lazada::products.form', [
             'mode' => 'create',
-            'presets' => $presets,
-            'preset' => $preset,
             'listing' => $blank,
             'categories' => $categories,
             'template' => null,
             'attributes' => [],
-            'saved' => $presetAttrs,
+            'saved' => [],
             'suggested' => [],
             'groupAttrs' => [],
             'productOwnAttrs' => [],
@@ -2225,48 +2154,10 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
         ActivityLogger::log('created', 'Lazada Product', $listing->id, 'ERP #' . (int)$data['product_id']);
 
-        $presetNote = $this->savePresetIfAsked($request, $listing);
-
         return redirect()->route('ext.lazada.products.edit', $listing->id)
-            ->with('status', trim('Listing settings saved.' . $presetNote));
+            ->with('status', 'Listing settings saved.');
     }
 
-    /**
-     * "Save these shared settings as a preset" (#195): the listing's
-     * category, brand, markups and attribute values become a reusable
-     * preset, created or refreshed by name - without ever opening the
-     * Presets page.
-     */
-    private function savePresetIfAsked(Request $request, LazadaProduct $listing): string
-    {
-        $name = trim((string) $request->input('preset_save_name', ''));
-        if ($name === '') {
-            return '';
-        }
-
-        $preset = \Extensions\lazada\Models\LazadaProductGroup::updateOrCreate(
-            ['name' => $name],
-            [
-                'lazada_category_id' => $listing->primary_category_id,
-                'brand_id' => $listing->brand_id,
-                'brand_name_override' => $listing->brand_name_override,
-                'markup_fixed' => $listing->markup_fixed,
-                'markup_percent' => $listing->markup_percent,
-            ]
-        );
-
-        $attrs = \Extensions\lazada\Models\LazadaProductAttribute::query()
-            ->where('lazada_product_id', $listing->id)
-            ->pluck('value', 'attribute_key');
-        foreach ($attrs as $key => $value) {
-            \Extensions\lazada\Models\LazadaProductGroupAttribute::updateOrCreate(
-                ['lazada_product_group_id' => $preset->id, 'attribute_key' => $key],
-                ['value' => $value]
-            );
-        }
-
-        return " Shared settings saved as preset '{$name}'.";
-    }
 
     public function edit(int $id, \Extensions\lazada\Services\Lazada\LazadaLiveListing $liveListing)
     {
@@ -2359,22 +2250,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         // Merge: product's own values take priority over group defaults
         $saved = array_merge($groupAttrs, $productOwnSaved);
 
-        /* Start from a preset (#195): loading one SHOWS its values - shared
-         * settings and attribute defaults - and the operator saves them
-         * consciously. Until saved, nothing on the listing changes. */
-        $presets = \Extensions\lazada\Models\LazadaProductGroup::query()->orderBy('name')->get(['id', 'name', 'lazada_category_id', 'brand_id', 'brand_name_override', 'markup_fixed', 'markup_percent']);
-        $preset = request()->filled('preset') ? $presets->firstWhere('id', (int) request()->query('preset')) : null;
-        if ($preset) {
-            $listing->forceFill(array_filter([
-                'primary_category_id' => $preset->lazada_category_id,
-                'brand_id' => $preset->brand_id,
-                'brand_name_override' => $preset->brand_name_override,
-                'markup_fixed' => $preset->markup_fixed,
-                'markup_percent' => $preset->markup_percent,
-            ], fn ($v) => $v !== null));
-            $saved = array_merge($saved, \Extensions\lazada\Models\LazadaProductGroupAttribute::query()
-                ->where('lazada_product_group_id', $preset->id)->pluck('value', 'attribute_key')->toArray());
-        }
 
         // Variants: use OpenCart-style product_option_value rows
         $variants = DB::table($pfx.'product_option_value as pov')
@@ -2457,8 +2332,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'template' => $template,
             'attributes' => $attributes,
             'saved' => $saved,
-            'presets' => $presets,
-            'preset' => $preset,
             'variants' => $variants,
             'variantMap' => $variantMap,
             'productRow' => $productRow,
@@ -2532,9 +2405,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
         ActivityLogger::log('updated', 'Lazada Product', $listing->id, 'ERP #' . (int)$listing->product_id);
 
-        $presetNote = $this->savePresetIfAsked($request, $listing);
-
-        return redirect()->route('ext.lazada.products.edit', $listing->id)->with('status', 'Listing updated.' . $presetNote);
+        return redirect()->route('ext.lazada.products.edit', $listing->id)->with('status', 'Listing updated.');
     }
 
     public function syncBrands(Request $request, int $id, LazadaClient $client)

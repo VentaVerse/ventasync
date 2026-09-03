@@ -90,7 +90,7 @@ class PermissionEditorSafetyTest extends TestCase
             $this->assertMatchesRegularExpression(
                 '/data-preset="' . $preset . '"[^>]*data-confirm-count="/s',
                 $html,
-                'The ' . $preset . ' preset replaces every area and must ask first.'
+                'The ' . $preset . ' product group replaces every area and must ask first.'
             );
         }
     }
