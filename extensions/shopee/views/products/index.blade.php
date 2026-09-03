@@ -237,7 +237,11 @@
     <div class="cc-bulkbar__actions">
         {{-- Opens the combined review form for the selection (#151); the
              form is the confirmation, so this carries none. --}}
-        <form method="GET" action="{{ route('ext.shopee.products.bulk_push_form') }}" data-bulk-form>
+        {{-- Opens the bulk review modal (cleanup point 9): the verdict
+             leads, blockers group by gap. Without JS this lands on the
+             roster page as before. --}}
+        <form method="GET" action="{{ route('ext.shopee.products.bulk_push_form') }}" data-bulk-form
+              data-bulk-push-review="{{ route('ext.shopee.products.bulk_push_review') }}">
             <x-ui.button type="submit" size="sm">Push to Shopee</x-ui.button>
         </form>
         {{-- Replaces Match Shopee IDs, which could only fill in blanks; the
@@ -571,8 +575,11 @@
                                  everything that would go up. --}}
                             @php $rowReady = $pushReady[$p->product_id]['ready'] ?? false; @endphp
                             @if($rowReady)
+                                {{-- Opens the review modal (cleanup 7+9):
+                                     what goes up, shown before it goes.
+                                     Without JS the form still pushes. --}}
                                 <form method="POST" action="{{ route('ext.shopee.products.push_direct', $p->product_id) }}" data-slow-action
-                                      data-confirm="Push this product to Shopee now, using its saved listing settings (category, couriers, price rule)? Its variations go with it." data-confirm-tone="primary" data-confirm-verb="Push">
+                                      data-push-review="{{ route('ext.shopee.products.push_review', $p->product_id) }}">
                                     @csrf
                                     <button type="submit" class="x-menu__item">Push to Shopee</button>
                                 </form>
@@ -668,4 +675,9 @@
 </div>
 
 </div>{{-- /.cc-page --}}
+
+@if($canManageShopee)
+    @include('ext-shopee::products._push_review_modal')
+@endif
+
 @endsection

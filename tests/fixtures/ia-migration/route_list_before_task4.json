@@ -1696,6 +1696,16 @@
     },
     {
         "method": "POST",
+        "uri": "channels/shopee/{store}/products/bulk-fix",
+        "name": "ext.shopee.products.bulk_fix"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/products/bulk-push-review",
+        "name": "ext.shopee.products.bulk_push_review"
+    },
+    {
+        "method": "POST",
         "uri": "channels/shopee/{store}/products/bulk/delete",
         "name": "ext.shopee.products.bulk_delete"
     },
@@ -1793,6 +1803,11 @@
         "method": "POST",
         "uri": "channels/shopee/{store}/products/{productId}/push-direct",
         "name": "ext.shopee.products.push_direct"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/products/{productId}/push-review",
+        "name": "ext.shopee.products.push_review"
     },
     {
         "method": "POST",

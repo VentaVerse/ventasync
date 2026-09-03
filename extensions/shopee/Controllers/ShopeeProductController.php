@@ -538,6 +538,198 @@ class ShopeeProductController extends Controller
     }
 
 
+    /**
+     * What a push would send, as JSON for the review modal (cleanup 7+9,
+     * approved from the draft 2026-09-03): the computed price WITH its
+     * arithmetic, category and couriers by NAME, image and variation
+     * counts, and the title/description that would go - the only two
+     * fields the modal lets the operator edit on the way out.
+     */
+    public function pushReview(int $productId)
+    {
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $product = DB::table($pfx . 'product as p')
+            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+                $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
+            })
+            ->where('p.product_id', $productId)
+            ->first(['p.product_id', 'pd.name', 'pd.description', 'p.sku', 'p.price', 'p.image']);
+        if (!$product) {
+            return response()->json(['ok' => false, 'message' => 'Product not found.'], 404);
+        }
+
+        $listing = ShopeeListing::query()->where('product_id', $productId)->first();
+        $readiness = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)
+            ->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => []];
+
+        $categoryName = $listing?->shopee_category_id
+            ? \Extensions\shopee\Models\ShopeeCategory::query()->where('category_id', $listing->shopee_category_id)->value('name')
+            : null;
+        $courierNames = !empty($listing?->logistic_ids)
+            ? \Extensions\shopee\Models\ShopeeLogistic::query()->whereIn('logistics_channel_id', $listing->logistic_ids)->pluck('logistics_channel_name')->all()
+            : [];
+        $imageCount = (int) DB::table($pfx . 'product_image')->where('product_id', $productId)->count()
+            + (trim((string) $product->image) !== '' ? 1 : 0);
+        $variationCount = DB::table('product_option_combinations')->where('product_id', $productId)->count();
+
+        $corePrice = (float) $product->price;
+        $finalPrice = $listing ? $listing->priceFor($corePrice) : $corePrice;
+        $pct = (float) ($listing->markup_percent ?? 0);
+        $fixed = (float) ($listing->markup_fixed ?? 0);
+        $ruleWords = ($pct == 0.0 && $fixed == 0.0)
+            ? 'catalog price'
+            : trim(($pct != 0.0 ? $pct . '%' : '') . ($pct != 0.0 && $fixed != 0.0 ? ' + ' : '') . ($fixed != 0.0 ? number_format($fixed, 2) : '')) . ' over catalog';
+
+        return response()->json([
+            'ok' => true,
+            'ready' => (bool) $readiness['ready'],
+            'missing' => $readiness['missing'],
+            'name' => html_entity_decode((string) $product->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+            'sku' => (string) $product->sku,
+            'price' => number_format($finalPrice, 2),
+            'core_price' => number_format($corePrice, 2),
+            'rule' => $ruleWords,
+            'category' => $categoryName ?: ($listing?->shopee_category_id ? '#' . $listing->shopee_category_id : null),
+            'couriers' => $courierNames,
+            'images' => $imageCount,
+            'variations' => $variationCount,
+            'title' => (string) ($listing?->item_name ?: html_entity_decode((string) $product->name, ENT_QUOTES | ENT_HTML5, 'UTF-8')),
+            'description' => (string) ($listing?->description ?: trim(strip_tags(html_entity_decode((string) $product->description, ENT_QUOTES | ENT_HTML5, 'UTF-8')))),
+            'push_url' => route('ext.shopee.products.push_direct', $productId),
+            'listing_url' => route('ext.shopee.listings.edit', $productId),
+        ]);
+    }
+
+    /**
+     * The bulk review, verdict first (cleanup point 9): how many are
+     * ready, and the blockers GROUPED BY GAP - one fix per gap, never a
+     * fifty-row hunt. Product-level gaps say so and link out.
+     */
+    public function bulkPushReview(Request $request)
+    {
+        $ids = array_values(array_unique(array_map('intval', (array) $request->input('product_ids', []))));
+        if ($ids === []) {
+            return response()->json(['ok' => false, 'message' => 'No products selected.'], 422);
+        }
+
+        $alreadyListed = ShopeeProductLink::query()->whereIn('product_id', $ids)
+            ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        $unlisted = array_values(array_diff($ids, $alreadyListed));
+
+        $readiness = $unlisted !== []
+            ? app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)->forProducts($unlisted)
+            : [];
+
+        $pfx = (string) config('catalog.prefix');
+        $names = DB::table($pfx . 'product_description')
+            ->whereIn('product_id', $ids)
+            ->where('language_id', (int) config('catalog.default_language_id'))
+            ->pluck('name', 'product_id');
+
+        $ready = [];
+        $byAttribute = [];
+        $needCouriers = [];
+        $needCategory = [];
+        $productLevel = [];
+        foreach ($readiness as $pid => $r) {
+            if ($r['ready']) {
+                $ready[] = $pid;
+                continue;
+            }
+            foreach ($r['gaps'] as $gap) {
+                $code = $gap['code'] ?? '';
+                if (!empty($gap['attributes'])) {
+                    foreach ($gap['attributes'] as $attrName) {
+                        $byAttribute[$attrName][] = $pid;
+                    }
+                } elseif ($code === \App\Integrations\Listings\ListingState::GAP_COURIERS) {
+                    $needCouriers[] = $pid;
+                } elseif ($code === \App\Integrations\Listings\ListingState::GAP_CATEGORY || $code === \App\Integrations\Listings\ListingState::GAP_SHEET) {
+                    $needCategory[$pid] = $gap['label'];
+                } else {
+                    // Image and parcel live on the catalog product: honest
+                    // about not being batch-fixable.
+                    $productLevel[$pid][] = $gap['label'];
+                }
+            }
+        }
+
+        $logistics = \Extensions\shopee\Models\ShopeeLogistic::query()
+            ->orderByDesc('enabled')->orderBy('logistics_channel_name')
+            ->get(['logistics_channel_id', 'logistics_channel_name', 'enabled'])
+            ->map(fn ($c) => ['id' => (int) $c->logistics_channel_id, 'name' => (string) $c->logistics_channel_name, 'enabled' => (bool) $c->enabled]);
+
+        $productRef = fn (int $pid) => [
+            'product_id' => $pid,
+            'name' => html_entity_decode((string) ($names[$pid] ?? ('Product ' . $pid)), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+            'catalog_url' => route('products.edit', $pid),
+            'listing_url' => route('ext.shopee.listings.edit', $pid),
+        ];
+
+        return response()->json([
+            'ok' => true,
+            'total' => count($ids),
+            'already_listed' => count($alreadyListed),
+            'already_listed_ids' => array_values($alreadyListed),
+            'ready' => array_values($ready),
+            'attribute_gaps' => collect($byAttribute)->map(fn ($pids, $attr) => [
+                'attribute' => $attr,
+                'product_ids' => array_values(array_unique($pids)),
+            ])->values(),
+            'courier_gap' => ['product_ids' => array_values(array_unique($needCouriers)), 'logistics' => $logistics],
+            'category_gaps' => collect($needCategory)->map(fn ($label, $pid) => $productRef($pid) + ['label' => $label])->values(),
+            'product_level' => collect($productLevel)->map(fn ($labels, $pid) => $productRef($pid) + ['labels' => $labels])->values(),
+            'fix_url' => route('ext.shopee.products.bulk_fix'),
+            'push_url' => route('ext.shopee.products.bulk_push'),
+            'roster_url' => route('ext.shopee.products.bulk_push_form'),
+        ]);
+    }
+
+    /**
+     * One fix for one gap across many listings (cleanup point 9): an
+     * attribute answered for every product missing it, or couriers set on
+     * every listing that has none. Writes exactly what answering on each
+     * listing page would have written - nothing else changes.
+     */
+    public function bulkFix(Request $request)
+    {
+        $data = $request->validate([
+            'kind' => 'required|in:attribute,couriers',
+            'product_ids' => 'required|array|min:1',
+            'product_ids.*' => 'integer|min:1',
+            'attribute' => 'required_if:kind,attribute|string|max:191',
+            'value' => 'required_if:kind,attribute|string|max:500',
+            'logistic_ids' => 'required_if:kind,couriers|array',
+            'logistic_ids.*' => 'integer|min:1',
+        ]);
+
+        $ids = array_map('intval', $data['product_ids']);
+        $written = 0;
+
+        foreach ($ids as $pid) {
+            $listing = ShopeeListing::query()->firstOrCreate(['product_id' => $pid]);
+            if ($data['kind'] === 'attribute') {
+                $values = $listing->attribute_values ?? [];
+                if (trim((string) ($values[$data['attribute']] ?? '')) !== '') {
+                    continue; // an existing answer is never overwritten from here
+                }
+                $values[$data['attribute']] = trim((string) $data['value']);
+                $listing->attribute_values = $values;
+            } else {
+                if (!empty($listing->logistic_ids)) {
+                    continue; // the gap was "no couriers"; a chosen set stays its own
+                }
+                $listing->logistic_ids = array_map('intval', $data['logistic_ids']);
+            }
+            $listing->save();
+            $written++;
+        }
+
+        return response()->json(['ok' => true, 'written' => $written]);
+    }
+
     /* pushForm() and push() - the manual push review form - lived here
      * until the one-editor merge (the owner, 2026-09-03). The listing editor
      * is the single place a listing is prepared now, and the push is a
@@ -546,10 +738,25 @@ class ShopeeProductController extends Controller
      * see-before-it-goes guarantee #149 built the form for. */
     // ── Push Direct (auto-populate from product + product group) ─────────
 
-    public function pushDirect(int $productId, ShopeeClient $client)
+    public function pushDirect(Request $request, int $productId, ShopeeClient $client)
     {
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
+
+        /* The review modal's two editable fields (cleanup 7+9): edits are
+         * saved as the listing's own wording FIRST, then the push runs on
+         * what was just saved - the same order Save and push uses, so a
+         * refusal never loses the typing. Absent fields change nothing. */
+        if ($request->filled('title') || $request->filled('description')) {
+            $data = $request->validate([
+                'title' => 'nullable|string|max:255',
+                'description' => 'nullable|string|max:5000',
+            ]);
+            ShopeeListing::query()->updateOrCreate(['product_id' => $productId], array_filter([
+                'item_name' => $data['title'] ?? null,
+                'description' => $data['description'] ?? null,
+            ], fn ($v) => $v !== null && trim((string) $v) !== ''));
+        }
 
         $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
@@ -2553,7 +2760,7 @@ class ShopeeProductController extends Controller
                         . implode(', ', $readiness['missing']) . '. Set what is missing and try again.');
             }
 
-            return $this->pushDirect($productId, $client);
+            return $this->pushDirect($request, $productId, $client);
         }
 
         return redirect()->route('ext.shopee.listings.edit', $productId)

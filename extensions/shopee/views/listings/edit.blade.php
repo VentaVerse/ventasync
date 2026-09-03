@@ -316,7 +316,7 @@
                              gone). #149's see-before-it-goes holds: this
                              page IS what goes up. --}}
                         <form method="POST" action="{{ route('ext.shopee.products.push_direct', $product->product_id) }}" data-slow-action
-                              data-confirm="Push this product to Shopee now, using the settings and content on this page? Its variations go with it." data-confirm-tone="primary" data-confirm-verb="Push">
+                              data-push-review="{{ route('ext.shopee.products.push_review', $product->product_id) }}">
                             @csrf
                             <x-ui.button type="submit" variant="primary">Push to Shopee</x-ui.button>
                         </form>
@@ -651,4 +651,9 @@
     </div>
 
 </div>
+
+@if($canManage)
+    @include('ext-shopee::products._push_review_modal')
+@endif
+
 @endsection

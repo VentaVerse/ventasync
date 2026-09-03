@@ -106,7 +106,11 @@ class ShopeeListingReadiness
                             'label' => 'answers for ' . count($unanswered) . ' required '
                                 . \Illuminate\Support\Str::plural('attribute', count($unanswered))
                                 . ' (' . implode(', ', array_slice($unanswered, 0, 5))
-                                . (count($unanswered) > 5 ? ' and more' : '') . ')'];
+                                . (count($unanswered) > 5 ? ' and more' : '') . ')',
+                            // Per-attribute names, so the bulk review can
+                            // group one fix per ATTRIBUTE across products
+                            // (cleanup point 9).
+                            'attributes' => $unanswered];
                     }
                 }
             }

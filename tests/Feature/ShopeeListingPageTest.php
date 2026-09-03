@@ -696,7 +696,10 @@ class ShopeeListingPageTest extends TestCase
         $this->actingAs($this->manager())
             ->get(route('ext.shopee.products.index'))
             ->assertSee(route('ext.shopee.products.push_direct', $productId), false)
-            ->assertSee('Push this product to Shopee now, using its saved listing settings', false);
+            // The ask is the review MODAL now (cleanup 7+9): the form
+            // carries the review endpoint and shows what goes up before
+            // it goes; without JS it still pushes natively.
+            ->assertSee('data-push-review="' . route('ext.shopee.products.push_review', $productId) . '"', false);
     }
 
     public function test_an_unready_rows_push_leads_into_the_listing_editor(): void

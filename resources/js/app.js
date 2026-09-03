@@ -40,6 +40,7 @@ import './pages/reviews';
 import './pages/settings';
 import './pages/ai-tools';
 import './pages/order-form';
+import './pages/push-review';
 
 import { initNavGroups } from './nav-groups';
 import xenonPalette from './palette';

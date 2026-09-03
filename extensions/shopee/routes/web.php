@@ -104,6 +104,8 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
         Route::get('/shopee/{store}/products/categories/lookup', [ShopeeProductController::class, 'categoryLookup'])->name('ext.shopee.products.categoryLookup');
         Route::get('/shopee/{store}/products/brands', [ShopeeProductController::class, 'brandsForCategory'])->name('ext.shopee.products.brandsForCategory');
         Route::get('/shopee/{store}/products/import', [ShopeeProductController::class, 'importPage'])->name('ext.shopee.products.import');
+        Route::get('/shopee/{store}/products/{productId}/push-review', [ShopeeProductController::class, 'pushReview'])->whereNumber('productId')->name('ext.shopee.products.push_review');
+        Route::get('/shopee/{store}/products/bulk-push-review', [ShopeeProductController::class, 'bulkPushReview'])->name('ext.shopee.products.bulk_push_review');
         // The combined review form for a multi-select push (#151). Before
         // the {productId} route in the file for the reader; the router
         // never confuses them because bulk is not a number.
@@ -191,6 +193,7 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
         // navigated, and a second door to the same room is how doors rot.
         Route::post('/shopee/{store}/products/check', [ShopeeProductController::class, 'checkAgainstShopee'])->name('ext.shopee.products.check');
         Route::post('/shopee/{store}/products/bulk/push', [ShopeeProductController::class, 'bulkPushToShopee'])->name('ext.shopee.products.bulk_push');
+        Route::post('/shopee/{store}/products/bulk-fix', [ShopeeProductController::class, 'bulkFix'])->name('ext.shopee.products.bulk_fix');
         Route::post('/shopee/{store}/products/bulk/sync/quantity', [ShopeeProductController::class, 'bulkSyncQuantity'])->name('ext.shopee.products.bulk_sync_quantity');
         // Unlist / relist the selection in one call (the owner, 2026-08-28).
         Route::post('/shopee/{store}/products/bulk/toggle', [ShopeeProductController::class, 'bulkToggle'])->name('ext.shopee.products.bulk_toggle');
