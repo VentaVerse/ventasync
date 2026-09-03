@@ -2411,6 +2411,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/venta/{store}/listings/check",
+        "name": "ext.venta.listings.check"
+    },
+    {
+        "method": "POST",
         "uri": "channels/venta/{store}/listings/refresh-status",
         "name": "ext.venta.listings.refresh_status"
     },

@@ -45,6 +45,18 @@
             @endif
         </p>
     </div>
+    @if(auth()->user()?->hasPermission('manage_venta/listing') ?? false)
+        <div class="cc-head-actions">
+            {{-- The preset page's check, page-wide (#184's one-workbench
+                 rule, now on Venta too): with no rows ticked it walks
+                 every linked product, 200 at a time. --}}
+            <form method="POST" action="{{ route('ext.venta.listings.check', $setting->id) }}"
+                  data-confirm="Check every linked product against {{ $storeName }}? Nothing is sent or changed on {{ $storeName }}; the ERP updates its own records to match what it finds, 200 products at a time." data-confirm-tone="primary" data-confirm-verb="Check">
+                @csrf
+                <x-ui.button type="submit" variant="secondary">Check against {{ $storeName }}</x-ui.button>
+            </form>
+        </div>
+    @endif
 </div>
 
 {{-- Two questions on one strip, each named (the owner, 2026-08-28): the
@@ -134,6 +146,10 @@
 <div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar role="status">
     <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected <span class="cc-bulkbar__note" data-bulk-skipped></span></span>
     <div class="cc-bulkbar__actions">
+        <form method="POST" action="{{ route('ext.venta.listings.check', $setting->id) }}" data-bulk-form>
+            @csrf
+            <x-ui.button type="submit" size="sm">Check against {{ $storeName }}</x-ui.button>
+        </form>
         {{-- Unlist / Relist for the selection, in the store's own terms.
              Each form acts only on the ticked rows its verb applies to, per
              the mirrored status; the count is in the label and the rest of

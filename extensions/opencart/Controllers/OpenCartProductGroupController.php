@@ -131,7 +131,7 @@ class OpenCartProductGroupController extends Controller
         ActivityLogger::log('created', 'OpenCart Product Group', $group->id, $group->name);
 
         return redirect()->route('ext.opencart.product-groups.edit', [$store, $group->id])
-            ->with('status', 'Product group created.');
+            ->with('status', 'Preset created.');
     }
 
     public function update(Request $request, int $store, int $group)
@@ -159,7 +159,7 @@ class OpenCartProductGroupController extends Controller
         ActivityLogger::log('updated', 'OpenCart Product Group', $g->id, $g->name);
 
         return redirect()->route('ext.opencart.product-groups.edit', [$store, $g->id])
-            ->with('status', 'Product group saved.');
+            ->with('status', 'Preset saved.');
     }
 
     public function destroy(int $store, int $group)
@@ -172,7 +172,7 @@ class OpenCartProductGroupController extends Controller
         ActivityLogger::log('deleted', 'OpenCart Product Group', (int) $group, $name);
 
         return redirect()->route('ext.opencart.product-groups.index', $store)
-            ->with('status', 'Product group "' . e($name) . '" deleted.');
+            ->with('status', 'Preset "' . e($name) . '" deleted.');
     }
 
     public function products(Request $request, int $store, int $group)

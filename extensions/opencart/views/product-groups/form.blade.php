@@ -1,6 +1,6 @@
 @extends('layouts.channel')
-@section('title', ($mode === 'create' ? 'Add' : 'Edit') . ' ' . $setting->store_name . ' Product Group')
-@section('breadcrumb', ($mode === 'create' ? 'New' : 'Edit') . ' Product Group')
+@section('title', ($mode === 'create' ? 'Add' : 'Edit') . ' ' . $setting->store_name . ' Preset')
+@section('breadcrumb', ($mode === 'create' ? 'New' : 'Edit') . ' Preset')
 
 {{-- This page shows its own validation summary (the fm-note below) and marks
      the offending fields inline, so partials/legacy-page-contract skips its
@@ -16,8 +16,8 @@
 @section('content')
 @php
     // The create GET is `manage_opencart`, but the EDIT GET is registered in
-    // the read group, so a `view_opencart` operator can open this page on an
-    // existing group. The store and update writes behind it are manage-only,
+    // the read preset, so a `view_opencart` operator can open this page on an
+    // existing preset. The store and update writes behind it are manage-only,
     // so for that operator every control is disabled and the Save button is
     // absent: a form you can fill in and never submit is worse than a form
     // that says up front it is a read.
@@ -64,9 +64,9 @@
     <div class="fm-head">
         <div class="fm-head__main">
             <a class="fm-back" href="{{ route('ext.opencart.product-groups.index', $setting->id) }}">
-                <x-ui.icon name="chevron-left" size="14" /> Product Groups
+                <x-ui.icon name="chevron-left" size="14" /> Presets
             </a>
-            <h1 class="fm-title">{{ $mode === 'create' ? 'New product group' : $group->name }}</h1>
+            <h1 class="fm-title">{{ $mode === 'create' ? 'New preset' : $group->name }}</h1>
             <div class="fm-stamps">
                 <span class="fm-stamp">
                     <span class="fm-stamp__k">Store</span>
@@ -74,7 +74,7 @@
                 </span>
                 @if($mode === 'edit')
                     <span class="fm-stamp">
-                        <span class="fm-stamp__k">Group</span>
+                        <span class="fm-stamp__k">Preset</span>
                         <span class="fm-stamp__v">{{ $group->id }}</span>
                     </span>
                 @endif
@@ -91,7 +91,7 @@
                 </div>
 
                 <div class="fm-fields">
-                    <x-ui.field label="Product group name" for="pg-name" name="name" :required="true" wide
+                    <x-ui.field label="Product preset name" for="pg-name" name="name" :required="true" wide
                                 hint="What this batch of products is, in the words your team uses. It is never sent to OpenCart.">
                         <x-ui.input id="pg-name" name="name" value="{{ old('name', $group->name) }}" placeholder="Guitar pedals" :disabled="!$canManageOpencart" />
                     </x-ui.field>
@@ -102,7 +102,7 @@
                 <div class="fm-section__head">
                     <h2 class="fm-section__title">Which products go in</h2>
                 </div>
-                <p class="fm-section__note">A product joins this group when it matches any category chosen here, or any manufacturer chosen here. Leave both empty and the group holds only the products you add by hand on the Products page.</p>
+                <p class="fm-section__note">A product joins this preset when it matches any category chosen here, or any manufacturer chosen here. Leave both empty and the preset holds only the products you add by hand on the Products page.</p>
 
                 {{-- The picker only binds for the manage tier: a read-tier
                      operator gets the tags as they are stored, with no search
@@ -110,7 +110,7 @@
                      form they cannot save. --}}
                 <div class="fm-fields fm-fields--2" @if($canManageOpencart) data-group-filter-picker @endif>
                     <x-ui.field label="Categories" for="pg-cat-search" name="catalog_category_ids" wide
-                                hint="Type to search, click to add. Removing one here removes its products from the group.">
+                                hint="Type to search, click to add. Removing one here removes its products from the preset.">
                         <div class="fm-tags" data-picker-tags="catalog_category_ids[]" data-picker-noun="category">
                             @foreach($selectedCatIds as $catId)
                                 <span class="fm-tag" data-id="{{ $catId }}">
@@ -163,7 +163,7 @@
                 <div class="fm-card__head"><h2 class="fm-card__title">Matching now</h2></div>
                 <div class="fm-card__body">
                     {{-- The figure the old view printed at the bottom of the
-                         filter block. It is the count as the group is SAVED,
+                         filter block. It is the count as the preset is SAVED,
                          not as the form currently stands, so the sentence
                          underneath says so rather than leaving an operator to
                          wonder why it did not move when they added a
@@ -180,12 +180,12 @@
 
     <div class="fm-bar">
         <span class="fm-bar__meta">{{ $canManageOpencart
-            ? ($mode === 'create' ? 'Nothing is saved until you create the group.' : 'Changes are saved to ' . $storeName . '.')
-            : 'You can read this group. Changing it needs the OpenCart manage permission.' }}</span>
+            ? ($mode === 'create' ? 'Nothing is saved until you create the preset.' : 'Changes are saved to ' . $storeName . '.')
+            : 'You can read this preset. Changing it needs the OpenCart manage permission.' }}</span>
         <div class="fm-bar__actions">
             <a class="fm-cancel" href="{{ route('ext.opencart.product-groups.index', $setting->id) }}">{{ $canManageOpencart ? 'Cancel' : 'Back' }}</a>
             @if($canManageOpencart)
-                <x-ui.button type="submit" variant="primary">{{ $mode === 'create' ? 'Create product group' : 'Save product group' }}</x-ui.button>
+                <x-ui.button type="submit" variant="primary">{{ $mode === 'create' ? 'Create preset' : 'Save preset' }}</x-ui.button>
             @endif
         </div>
     </div>

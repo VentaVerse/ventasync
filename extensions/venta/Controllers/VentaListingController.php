@@ -33,6 +33,35 @@ class VentaListingController extends Controller
      * store's own status from the mirror, and the row's verbs in its menu.
      * Same anatomy as Shopee's, Lazada's and TikTok's.
      */
+    /**
+     * Ask this store about the links the page believes in - the preset
+     * page's check, on the workbench (#184's one-workbench rule). With
+     * rows ticked it checks those; with none it checks every linked
+     * product, 200 at a time.
+     */
+    public function checkAgainstVenta(Request $request, int $store, \Extensions\venta\Services\Venta\VentaLinkCheck $check)
+    {
+        $setting = VentaSetting::findOrFail($store);
+        if (! $setting->enabled) {
+            return redirect()->back()->with('error',
+                'That Venta store is turned off, so nothing could be checked. Enable it in its settings first.');
+        }
+
+        $ids = array_values(array_unique(array_map('intval', array_filter((array) $request->input('product_ids', [])))));
+        if (empty($ids)) {
+            $ids = \Extensions\venta\Models\VentaProductLink::query()
+                ->where('venta_setting_id', $store)
+                ->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+        }
+        if (empty($ids)) {
+            return redirect()->back()->with('error', 'Nothing is linked to this store yet, so there is nothing to check.');
+        }
+
+        $r = $check->run($setting, $ids);
+
+        return redirect()->back()->with($r['tone'], $r['summary']);
+    }
+
     public function index(Request $request, int $store)
     {
         $setting = VentaSetting::findOrFail($store);

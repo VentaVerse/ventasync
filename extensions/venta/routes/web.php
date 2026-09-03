@@ -57,6 +57,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     // routes below. Derives its own venta/listing permission pair, as
     // TikTok's does, so a listings-only operator can be given exactly this.
     Route::get('/venta/{store}/listings', [VentaListingController::class, 'index'])->name('ext.venta.listings.index');
+    Route::post('/venta/{store}/listings/check', [VentaListingController::class, 'checkAgainstVenta'])->name('ext.venta.listings.check');
     Route::get('/venta/{store}/listings/{productId}', [VentaListingController::class, 'edit'])
         ->whereNumber('productId')->name('ext.venta.listings.edit');
 });

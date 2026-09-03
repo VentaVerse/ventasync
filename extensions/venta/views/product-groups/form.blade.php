@@ -1,6 +1,6 @@
 @extends('layouts.channel')
-@section('title', ($mode === 'create' ? 'Add' : 'Edit') . ' ' . $setting->store_name . ' Product Group')
-@section('breadcrumb', ($mode === 'create' ? 'New' : 'Edit') . ' Product Group')
+@section('title', ($mode === 'create' ? 'Add' : 'Edit') . ' ' . $setting->store_name . ' Preset')
+@section('breadcrumb', ($mode === 'create' ? 'New' : 'Edit') . ' Preset')
 
 {{-- This page shows its own validation summary (the fm-note below) and marks
      the offending fields inline, so partials/legacy-page-contract skips its
@@ -17,8 +17,8 @@
 @section('content')
 @php
     // The create GET is `manage_venta`, but the EDIT GET is registered in the
-    // read group, so a `view_venta` operator can open this page on an existing
-    // group. The store and update writes behind it are manage-only, so for
+    // read preset, so a `view_venta` operator can open this page on an existing
+    // preset. The store and update writes behind it are manage-only, so for
     // that operator every control is disabled, the two-pane picker is replaced
     // by the plain list it is a builder for, and the Save button is absent: a
     // form you can fill in and never submit is worse than a form that says up
@@ -30,7 +30,7 @@
     // The right-hand panel's starting contents. VentaProductGroupController
     // has already restored these from old('product_ids') when a validation
     // round trip failed, so this is simply what the server says is in the
-    // group right now.
+    // preset right now.
     $rightItems = $groupProducts->map(fn ($p) => [
         'product_id' => (int) $p->product_id,
         'name'       => (string) ($p->name ?? ''),
@@ -64,9 +64,9 @@
     <div class="fm-head">
         <div class="fm-head__main">
             <a class="fm-back" href="{{ route('ext.venta.product-groups.index', $setting->id) }}">
-                <x-ui.icon name="chevron-left" size="14" /> Product Groups
+                <x-ui.icon name="chevron-left" size="14" /> Presets
             </a>
-            <h1 class="fm-title">{{ $mode === 'create' ? 'New product group' : $group->name }}</h1>
+            <h1 class="fm-title">{{ $mode === 'create' ? 'New preset' : $group->name }}</h1>
             <div class="fm-stamps">
                 <span class="fm-stamp">
                     <span class="fm-stamp__k">Store</span>
@@ -74,7 +74,7 @@
                 </span>
                 @if($mode === 'edit')
                     <span class="fm-stamp">
-                        <span class="fm-stamp__k">Group</span>
+                        <span class="fm-stamp__k">Preset</span>
                         <span class="fm-stamp__v">{{ $group->id }}</span>
                     </span>
                 @endif
@@ -96,7 +96,7 @@
                 </div>
 
                 <div class="fm-fields">
-                    <x-ui.field label="Product group name" for="pg-name" name="name" :required="true" wide
+                    <x-ui.field label="Product preset name" for="pg-name" name="name" :required="true" wide
                                 hint="What this batch of products is, in the words your team uses. It is never sent to the Venta store.">
                         <x-ui.input id="pg-name" name="name" value="{{ old('name', $group->name) }}" placeholder="Guitar pedals" :disabled="!$canManageVenta" />
                     </x-ui.field>
@@ -116,10 +116,10 @@
                  ------------------------------------------------------------ --}}
             <section class="fm-section">
                 <div class="fm-section__head">
-                    <h2 class="fm-section__title">Products in this group</h2>
+                    <h2 class="fm-section__title">Products in this preset</h2>
                 </div>
                 @if($canManageVenta)
-                <p class="fm-section__note">Search the catalog on the left, move what belongs into the group on the right. Only what is on the right is saved.</p>
+                <p class="fm-section__note">Search the catalog on the left, move what belongs into the preset on the right. Only what is on the right is saved.</p>
 
                 <div class="gf-dual"
                      data-group-product-picker
@@ -174,24 +174,24 @@
                         </div>
 
                         <div class="gf-move">
-                            <x-ui.button type="button" size="sm" data-gf-add aria-label="Add the selected catalog products to the group">
+                            <x-ui.button type="button" size="sm" data-gf-add aria-label="Add the selected catalog products to the preset">
                                 Add <x-ui.icon name="chevron-right" size="14" />
                             </x-ui.button>
-                            <x-ui.button type="button" size="sm" data-gf-remove aria-label="Take the selected products out of the group">
+                            <x-ui.button type="button" size="sm" data-gf-remove aria-label="Take the selected products out of the preset">
                                 <x-ui.icon name="chevron-left" size="14" /> Remove
                             </x-ui.button>
                         </div>
 
                         <div class="gf-pane">
                             <div class="gf-pane__head">
-                                <span class="gf-pane__title">In this group</span>
+                                <span class="gf-pane__title">In this preset</span>
                                 <span class="gf-pane__count x-num" data-gf-right-count>{{ $rightItems->count() }}</span>
                             </div>
                             <div class="gf-pane__body">
                                 <table class="gf-list">
                                     <thead>
                                         <tr>
-                                            <th scope="col" class="gf-col-check"><input type="checkbox" class="cc-check" data-gf-right-all aria-label="Select every product in the group"></th>
+                                            <th scope="col" class="gf-col-check"><input type="checkbox" class="cc-check" data-gf-right-all aria-label="Select every product in the preset"></th>
                                             <th scope="col" class="gf-col-id">ID</th>
                                             <th scope="col">Product</th>
                                             <th scope="col" class="gf-col-qty">Stock</th>
@@ -214,10 +214,10 @@
                 {{-- Read tier. The two-pane control is a builder for this list
                      and nothing else, so the list itself is what a reader is
                      shown. Nothing here submits. --}}
-                <p class="fm-section__note">{{ $rightItems->count() }} {{ $rightItems->count() === 1 ? 'product is' : 'products are' }} in this group.</p>
+                <p class="fm-section__note">{{ $rightItems->count() }} {{ $rightItems->count() === 1 ? 'product is' : 'products are' }} in this preset.</p>
 
                 @if($rightItems->isEmpty())
-                    <x-ui.empty title="No products in this group"
+                    <x-ui.empty title="No products in this preset"
                                 description="Someone with the manage tier needs to add them." />
                 @else
                     <x-ui.table>
@@ -273,12 +273,12 @@
 
     <div class="fm-bar">
         <span class="fm-bar__meta">{{ $canManageVenta
-            ? ($mode === 'create' ? 'Nothing is saved until you create the group.' : 'Changes are saved to ' . $storeName . '.')
-            : 'You can read this group. Changing it needs the Venta manage permission.' }}</span>
+            ? ($mode === 'create' ? 'Nothing is saved until you create the preset.' : 'Changes are saved to ' . $storeName . '.')
+            : 'You can read this preset. Changing it needs the Venta manage permission.' }}</span>
         <div class="fm-bar__actions">
             <a class="fm-cancel" href="{{ route('ext.venta.product-groups.index', $setting->id) }}">{{ $canManageVenta ? 'Cancel' : 'Back' }}</a>
             @if($canManageVenta)
-                <x-ui.button type="submit" variant="primary">{{ $mode === 'create' ? 'Create product group' : 'Save product group' }}</x-ui.button>
+                <x-ui.button type="submit" variant="primary">{{ $mode === 'create' ? 'Create preset' : 'Save preset' }}</x-ui.button>
             @endif
         </div>
     </div>

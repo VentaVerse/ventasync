@@ -41,11 +41,11 @@
     <div>
         <h1 class="x-page-title">{{ $group->name }}</h1>
         <p class="x-page-sub">
-            {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product' : 'products' }} in this group on {{ $storeName }}
+            {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product' : 'products' }} in this preset on {{ $storeName }}
         </p>
     </div>
     @if($canManageOpencart)
-        <x-ui.button :href="route('ext.opencart.product-groups.edit', [$setting->id, $group->id])">Edit group</x-ui.button>
+        <x-ui.button :href="route('ext.opencart.product-groups.edit', [$setting->id, $group->id])">Edit preset</x-ui.button>
     @endif
 </div>
 
@@ -54,7 +54,7 @@
      text field and no submit does not submit on Enter per the HTML spec. --}}
 <form method="GET" action="{{ $listUrl }}" class="x-filters">
     <x-ui.input type="search" name="q" class="x-filters__search"
-                value="{{ $q }}" placeholder="Name, SKU or model" aria-label="Search products in this group" />
+                value="{{ $q }}" placeholder="Name, SKU or model" aria-label="Search products in this preset" />
     <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
     @if($hasSearch)
         <a class="x-filters__reset" href="{{ $listUrl }}">Clear</a>
@@ -82,13 +82,13 @@
 @endif
 
 @if($products->count() === 0)
-    <x-ui.empty title="{{ $hasSearch ? 'Nothing matches that search' : 'No products in this group' }}"
+    <x-ui.empty title="{{ $hasSearch ? 'Nothing matches that search' : 'No products in this preset' }}"
                 :description="$hasSearch
-                    ? 'Clear the search to see everything in the group.'
-                    : 'Edit the group to widen its category and manufacturer filter, or add products one at a time below.'">
+                    ? 'Clear the search to see everything in the preset.'
+                    : 'Edit the preset to widen its category and manufacturer filter, or add products one at a time below.'">
         @if($canManageOpencart && !$hasSearch)
         <x-slot:action>
-            <x-ui.button variant="primary" :href="route('ext.opencart.product-groups.edit', [$setting->id, $group->id])">Edit group</x-ui.button>
+            <x-ui.button variant="primary" :href="route('ext.opencart.product-groups.edit', [$setting->id, $group->id])">Edit preset</x-ui.button>
         </x-slot:action>
         @endif
     </x-ui.empty>
@@ -172,7 +172,7 @@
                     <div class="co-item__body">
                         <a class="x-row-link co-item__name" href="{{ route('products.edit', $p->product_id) }}">{{ $pName ?: 'Unnamed product' }}</a>
                         <span class="co-item__meta">
-                            {{ $pSku !== '' ? $pSku : 'No SKU' }} / {{ $isManual ? 'added by hand' : 'matched by the group filter' }}
+                            {{ $pSku !== '' ? $pSku : 'No SKU' }} / {{ $isManual ? 'added by hand' : 'matched by the preset filter' }}
                         </span>
                     </div>
                 </div>
@@ -225,10 +225,10 @@
                     @if($isManual)
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.opencart.product-groups.removeProduct', [$setting->id, $group->id, $p->product_id]) }}"
-                              data-confirm="Take {{ $pName ?: 'this product' }} out of the group? Nothing is deleted from the catalog, and nothing already on {{ $storeName }} is touched.">
+                              data-confirm="Take {{ $pName ?: 'this product' }} out of the preset? Nothing is deleted from the catalog, and nothing already on {{ $storeName }} is touched.">
                             @csrf
                             @method('DELETE')
-                            <button type="submit" class="x-menu__item x-menu__item--danger">Remove from group</button>
+                            <button type="submit" class="x-menu__item x-menu__item--danger">Remove from preset</button>
                         </form>
                     @endif
                 </x-ui.menu>
@@ -252,7 +252,7 @@
     <div class="fm-section__head">
         <h2 class="fm-section__title">Add a product by name</h2>
     </div>
-    <p class="fm-section__note">For a product the group's category and manufacturer filter does not pick up. Type at least two characters.</p>
+    <p class="fm-section__note">For a product the preset's category and manufacturer filter does not pick up. Type at least two characters.</p>
 
     <form id="opencart-add-products" method="POST" action="{{ route('ext.opencart.product-groups.addProducts', [$setting->id, $group->id]) }}">
         @csrf

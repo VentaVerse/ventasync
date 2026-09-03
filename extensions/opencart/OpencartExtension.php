@@ -80,7 +80,7 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                     // exactly this menu, with these ['store' => id] params
                     // carried through unchanged.
                     new MenuItem('Settings', 'ext.opencart.settings.show', 'view_opencart/settings', null, ['store' => $store->id], 'Channel'),
-                    new MenuItem('Product Groups', 'ext.opencart.product-groups.index', 'view_opencart/product_group', null, ['store' => $store->id], 'Catalog'),
+                    new MenuItem('Presets', 'ext.opencart.product-groups.index', 'view_opencart/product_group', null, ['store' => $store->id], 'Catalog'),
                     new MenuItem('Orders', 'ext.opencart.orders.index', 'view_opencart/order', null, ['store' => $store->id], 'Sell'),
                 ],
                 status: $store->enabled ? 'active' : 'setup_pending',

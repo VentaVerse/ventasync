@@ -40,10 +40,10 @@
     <div>
         <h1 class="x-page-title">{{ $group->name }}</h1>
         <p class="x-page-sub">
-            {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product' : 'products' }} in this group on {{ $storeName }}
+            {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product' : 'products' }} in this preset on {{ $storeName }}
         </p>
     </div>
-    {{-- Both of these ask about the whole group, which is why they sit in the
+    {{-- Both of these ask about the whole preset, which is why they sit in the
          header and not in the bulk bar: the bulk bar only exists once rows are
          ticked, and "is anything out of step?" is a question you ask before
          you know which rows to tick.
@@ -54,7 +54,7 @@
     <div class="cc-head-actions">
         @if($canManageVenta)
             <form method="POST" action="{{ route('ext.venta.product-groups.check', [$setting->id, $group->id]) }}"
-                  data-confirm="Check every product in this group against {{ $storeName }}? Nothing is sent or changed on {{ $storeName }}; the ERP updates its own records to match what it finds.">
+                  data-confirm="Check every product in this preset against {{ $storeName }}? Nothing is sent or changed on {{ $storeName }}; the ERP updates its own records to match what it finds.">
                 @csrf
                 <input type="hidden" name="_return" value="{{ $returnTo }}">
                 <x-ui.button type="submit" variant="secondary">Check against {{ $storeName }}</x-ui.button>
@@ -64,7 +64,7 @@
             Unlinked on {{ $storeName }}
         </x-ui.button>
         @if($canManageVenta)
-            <x-ui.button :href="route('ext.venta.product-groups.edit', [$setting->id, $group->id])">Edit group</x-ui.button>
+            <x-ui.button :href="route('ext.venta.product-groups.edit', [$setting->id, $group->id])">Edit preset</x-ui.button>
         @endif
     </div>
 </div>
@@ -75,7 +75,7 @@
      navigation and not an action. Every param name is unchanged. --}}
 <form method="GET" action="{{ $listUrl }}" class="x-filters">
     <x-ui.input type="search" name="q" class="x-filters__search"
-                value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search products in this group" />
+                value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search products in this preset" />
 
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
         <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by catalog status">
@@ -107,7 +107,7 @@
 {{-- Bulk bar. It exists only once at least one row is ticked, which is why
      the old page's standing accent-tinted strip of five buttons is gone. Each
      action is still its own form posting `ids[]` to its own route; the module
-     injects the ticked ids into whichever form is submitted. Remove from group
+     injects the ticked ids into whichever form is submitted. Remove from preset
      keeps the transparent danger treatment, not a solid red fill. --}}
 {{-- role="status" so the bar arriving is heard, not only seen. aria-live is
      on the COUNT rather than the whole bar: the buttons do not change, and
@@ -140,19 +140,19 @@
             <input type="hidden" name="_return" value="{{ $returnTo }}">
             <x-ui.button type="submit" size="sm">Check against {{ $storeName }}</x-ui.button>
         </form>
-        {{-- Remove from group first, then Delete from Venta LAST and alone in
+        {{-- Remove from preset first, then Delete from Venta LAST and alone in
              the danger fill, matching Shopee, Lazada and TikTok.
 
              Venta was the only one of the four that could not delete in bulk,
-             so its last slot held Remove from group in red - the same
+             so its last slot held Remove from preset in red - the same
              position and the same colour that means "delete from the
              marketplace" on the other three. An operator moving between
              channels reads position before words. --}}
         <form method="POST" action="{{ route('ext.venta.product-groups.mass-remove', [$setting->id, $group->id]) }}" data-bulk-form
-              data-bulk-confirm="Take the selected products out of this group? Nothing is deleted from the catalog, and nothing already live on {{ $storeName }} is touched.">
+              data-bulk-confirm="Take the selected products out of this preset? Nothing is deleted from the catalog, and nothing already live on {{ $storeName }} is touched.">
             @csrf
             <input type="hidden" name="_return" value="{{ $returnTo }}">
-            <x-ui.button type="submit" size="sm">Remove from group</x-ui.button>
+            <x-ui.button type="submit" size="sm">Remove from preset</x-ui.button>
         </form>
         <form method="POST" action="{{ route('ext.venta.product-groups.bulk-delete-from-venta', [$setting->id, $group->id]) }}" data-bulk-form
               data-bulk-confirm="Delete the selected products from {{ $storeName }}? They are removed at the storefront and this cannot be undone.">
@@ -165,13 +165,13 @@
 @endif
 
 @if($products->count() === 0)
-    <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'No products in this group' }}"
+    <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'No products in this preset' }}"
                 :description="$hasFilters
                     ? 'Try clearing the search, or widening the catalog and push filters.'
-                    : 'Edit the group to pick products from the catalog, or add them one at a time below.'">
+                    : 'Edit the preset to pick products from the catalog, or add them one at a time below.'">
         @if($canManageVenta && !$hasFilters)
         <x-slot:action>
-            <x-ui.button variant="primary" :href="route('ext.venta.product-groups.edit', [$setting->id, $group->id])">Edit group</x-ui.button>
+            <x-ui.button variant="primary" :href="route('ext.venta.product-groups.edit', [$setting->id, $group->id])">Edit preset</x-ui.button>
         </x-slot:action>
         @endif
     </x-ui.empty>
@@ -234,7 +234,7 @@
             if (!empty($p->manufacturer_name)) {
                 $metaParts[] = (string) $p->manufacturer_name;
             }
-            $metaParts[] = $isManual ? 'added by hand' : 'matched by the group filter';
+            $metaParts[] = $isManual ? 'added by hand' : 'matched by the preset filter';
             $meta = implode(' / ', $metaParts);
         @endphp
         <tr>
@@ -459,8 +459,8 @@
                             @csrf
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
                             <button type="submit" class="x-menu__item"
-                                    data-confirm="Take {{ $pName ?: 'this product' }} out of this group? Nothing is deleted from the catalog, and nothing on {{ $storeName }} is touched."
-                                    data-confirm-tone="primary">Remove from group</button>
+                                    data-confirm="Take {{ $pName ?: 'this product' }} out of this preset? Nothing is deleted from the catalog, and nothing on {{ $storeName }} is touched."
+                                    data-confirm-tone="primary">Remove from preset</button>
                         </form>
                     @endif
 
@@ -501,7 +501,7 @@
     <div class="fm-section__head">
         <h2 class="fm-section__title">Add a product by name</h2>
     </div>
-    <p class="fm-section__note">For a product the group's filter does not pick up. Type at least two characters.</p>
+    <p class="fm-section__note">For a product the preset's filter does not pick up. Type at least two characters.</p>
 
     <form id="venta-add-products" method="POST" action="{{ route('ext.venta.product-groups.addProducts', [$setting->id, $group->id]) }}">
         @csrf

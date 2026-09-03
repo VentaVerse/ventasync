@@ -31,6 +31,7 @@ class VentaCheckAndOrphansTest extends TestCase
 {
     private const CONTROLLER = 'extensions/venta/Controllers/VentaProductGroupController.php';
     private const SERVICE = 'extensions/venta/Services/Venta/VentaProductPush.php';
+    private const CHECK = 'extensions/venta/Services/Venta/VentaLinkCheck.php';
     private const PRODUCTS_VIEW = 'extensions/venta/views/product-groups/products.blade.php';
     private const ORPHANS_VIEW = 'extensions/venta/views/product-groups/orphans.blade.php';
 
@@ -103,7 +104,7 @@ class VentaCheckAndOrphansTest extends TestCase
      */
     public function test_an_unreachable_product_keeps_its_previous_row(): void
     {
-        $body = $this->methodBody('checkAgainstVenta');
+        $body = $this->methodBody('run', self::CHECK);
 
         $this->assertMatchesRegularExpression(
             "/'unreachable'\s*\)\s*\{(?:(?!writeProductStatus).)*?continue;/s",
@@ -117,7 +118,7 @@ class VentaCheckAndOrphansTest extends TestCase
 
     public function test_the_check_records_when_it_asked(): void
     {
-        $this->assertStringContainsString("'last_confirmed_at' => now()", $this->methodBody('checkAgainstVenta'),
+        $this->assertStringContainsString("'last_confirmed_at' => now()", $this->methodBody('run', self::CHECK),
             'Checking leaves no trace, so the operator cannot tell a fresh answer from an old belief.');
     }
 
@@ -149,7 +150,7 @@ class VentaCheckAndOrphansTest extends TestCase
 
     public function test_checking_never_writes_to_venta(): void
     {
-        $body = $this->methodBody('checkAgainstVenta');
+        $body = $this->methodBody('run', self::CHECK);
 
         foreach (['createProduct(', 'updateProduct(', 'updateVariant(', '$client->post(', '$client->put(', '$client->delete('] as $write) {
             $this->assertStringNotContainsString($write, $body,
@@ -160,7 +161,7 @@ class VentaCheckAndOrphansTest extends TestCase
 
     public function test_the_check_does_not_silently_cap_its_own_work(): void
     {
-        $body = $this->methodBody('checkAgainstVenta');
+        $body = $this->methodBody('run', self::CHECK);
 
         $this->assertStringContainsString('$skippedForSize', $body,
             'The check has no ceiling, so a large group runs until the request times out.');

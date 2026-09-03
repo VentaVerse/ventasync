@@ -257,7 +257,7 @@ class MultistoreWorkspaceTest extends TestCase
         if ($channel === 'venta') {
             $rows[] = ['Catalog', 'Listings', route('ext.venta.listings.index', ['store' => $storeId])];
         }
-        $rows[] = ['Catalog', 'Product Groups', route('ext.'.$channel.'.product-groups.index', ['store' => $storeId])];
+        $rows[] = ['Catalog', 'Presets', route('ext.'.$channel.'.product-groups.index', ['store' => $storeId])];
         $rows[] = ['Channel', 'Settings', route('ext.'.$channel.'.settings.show', ['store' => $storeId])];
 
         return $rows;

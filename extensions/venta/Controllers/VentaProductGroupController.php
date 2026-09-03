@@ -342,7 +342,7 @@ class VentaProductGroupController extends Controller
         ActivityLogger::log('created', 'Venta Product Group', $group->id, $group->name);
 
         return redirect()->route('ext.venta.product-groups.edit', [$store, $group->id])
-            ->with('status', 'Product group created with ' . count($productIds) . ' product(s).');
+            ->with('status', 'Preset created with ' . count($productIds) . ' product(s).');
     }
 
     public function update(Request $request, int $store, int $group)
@@ -390,7 +390,7 @@ class VentaProductGroupController extends Controller
         ActivityLogger::log('updated', 'Venta Product Group', $g->id, $g->name);
 
         return redirect()->route('ext.venta.product-groups.edit', [$store, $g->id])
-            ->with('status', 'Product group saved.');
+            ->with('status', 'Preset saved.');
     }
 
     public function destroy(int $store, int $group)
@@ -403,7 +403,7 @@ class VentaProductGroupController extends Controller
         ActivityLogger::log('deleted', 'Venta Product Group', (int) $group, $name);
 
         return redirect()->route('ext.venta.product-groups.index', $store)
-            ->with('status', 'Product group "' . e($name) . '" deleted.');
+            ->with('status', 'Preset "' . e($name) . '" deleted.');
     }
 
     // ── Products listing ────────────────────────────────────
@@ -535,7 +535,7 @@ class VentaProductGroupController extends Controller
         $productIds = $this->getMatchingProductIds($g);
         if (!in_array($product, $productIds)) {
             return $this->productsRedirect($store, $group)
-                ->with('error', 'Product not in this group.');
+                ->with('error', 'Product not in this preset.');
         }
 
         $pfx = (string) config('catalog.prefix');
@@ -769,122 +769,15 @@ class VentaProductGroupController extends Controller
         }
 
         if (empty($ids)) {
-            return $this->productsRedirect($store, $group)->with('error', 'This group has no products to check.');
+            return $this->productsRedirect($store, $group)->with('error', 'This preset has no products to check.');
         }
 
-        // A ceiling, because this runs in a web request and each product costs
-        // a round trip. It is reported rather than applied quietly: a check
-        // that silently examined the first 200 of 500 would leave the operator
-        // believing the other 300 had been confirmed.
-        $limit = 200;
-        $skippedForSize = max(0, count($ids) - $limit);
-        $ids = array_slice($ids, 0, $limit);
+        /* The sweep lives in VentaLinkCheck now, shared with the Listings
+         * workbench (#184's one-workbench rule); this entry point supplies
+         * the preset's members as the default scope. */
+        $r = app(\Extensions\venta\Services\Venta\VentaLinkCheck::class)->run($setting, $ids);
 
-        $storeName = $setting->store_name ?: 'Unnamed store';
-        $pfx = (string) config('catalog.prefix');
-        $client = new VentaClient($setting);
-
-        $verdicts = [];
-        $clashes = [];
-
-        foreach ($ids as $pid) {
-            $verdict = $this->reconcileLink($client, $store, $pid, $pfx);
-            $state = $verdict['state'];
-            $verdicts[$state] = ($verdicts[$state] ?? 0) + 1;
-
-            if ($state === 'unreachable') {
-                // Venta never answered, so nothing is known and nothing is
-                // written. The row keeps whatever it said before, which is
-                // honest: it was always a belief and it still is.
-                continue;
-            }
-
-            if ($state === 'blocked') {
-                $clashes[] = "#{$pid}: {$verdict['message']}";
-                $this->writeProductStatus($g, $pid, [
-                    'sync_status' => 'error',
-                    'push_error' => $verdict['message'],
-                    'last_confirmed_at' => now(),
-                ]);
-                continue;
-            }
-
-            if ($state === 'lost') {
-                // reconcileLink has already dropped the dead link. The row goes
-                // back to not-pushed, which is what it truthfully is.
-                $this->writeProductStatus($g, $pid, [
-                    'sync_status' => 'pending',
-                    'push_error' => null,
-                    'venta_sku' => null,
-                    'last_pushed_at' => null,
-                    'last_confirmed_at' => now(),
-                ]);
-                continue;
-            }
-
-            if ($state === 'new') {
-                $this->writeProductStatus($g, $pid, [
-                    'sync_status' => 'pending',
-                    'push_error' => null,
-                    'last_confirmed_at' => now(),
-                ]);
-                continue;
-            }
-
-            // confirmed, adopted, repointed: Venta has it and the link is right.
-            $this->writeProductStatus($g, $pid, [
-                'sync_status' => 'pushed',
-                'venta_sku' => $verdict['sku'],
-                'push_error' => null,
-                'last_confirmed_at' => now(),
-            ]);
-        }
-
-        $checked = count($ids) - ($verdicts['unreachable'] ?? 0);
-
-        // The message reports FINDINGS. Nothing here pushed anything, so it
-        // must not imply that anything was fixed on Venta's side.
-        $parts = [];
-        if (! empty($verdicts['confirmed'])) {
-            $parts[] = $verdicts['confirmed'] . ' still on ' . $storeName;
-        }
-        if (! empty($verdicts['adopted'])) {
-            $parts[] = $verdicts['adopted'] . ' found and linked';
-        }
-        if (! empty($verdicts['repointed'])) {
-            $parts[] = $verdicts['repointed'] . ' pointed at the wrong product and corrected';
-        }
-        if (! empty($verdicts['lost'])) {
-            $parts[] = $verdicts['lost'] . ' no longer on ' . $storeName . ', now marked not pushed';
-        }
-        if (! empty($verdicts['new'])) {
-            $parts[] = $verdicts['new'] . ' not pushed yet';
-        }
-        if ($clashes) {
-            $parts[] = count($clashes) . ' blocked by another product holding the same Venta id';
-        }
-        if (! empty($verdicts['unreachable'])) {
-            $parts[] = $verdicts['unreachable'] . ' could not be checked because ' . $storeName . ' did not answer';
-        }
-
-        $msg = "Checked {$checked} against {$storeName}. " . ($parts ? implode('. ', $parts) . '.' : 'Nothing to report.');
-
-        if ($skippedForSize > 0) {
-            $msg .= " {$skippedForSize} further " . ($skippedForSize === 1 ? 'product was' : 'products were')
-                . ' not checked this time. Run it again to continue.';
-        }
-
-        if ($clashes) {
-            $msg .= ' ' . implode('; ', array_slice($clashes, 0, 2));
-            if (count($clashes) > 2) {
-                $msg .= ' (and ' . (count($clashes) - 2) . ' more)';
-            }
-        }
-
-        $problems = count($clashes) + ($verdicts['unreachable'] ?? 0);
-        $tone = $problems === 0 ? 'status' : ($checked > 0 ? 'warning' : 'error');
-
-        return $this->productsRedirect($store, $group)->with($tone, $msg);
+        return $this->productsRedirect($store, $group)->with($r['tone'], $r['summary']);
     }
 
     // ── Push Products (create/update on Venta) ──────────────
@@ -1708,7 +1601,7 @@ class VentaProductGroupController extends Controller
         }
 
         return $this->productsRedirect($store, $group)
-            ->with('status', count($ids) . ' product(s) removed from group.');
+            ->with('status', count($ids) . ' product(s) removed from the preset.');
     }
 
     // ── Add Products / Remove / Search ──────────────────────
