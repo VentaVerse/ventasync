@@ -121,7 +121,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         Route::post('/lazada/reverse-status-map', [LazadaSettingsController::class, 'saveReverseStatusMap'])->name('ext.lazada.reverse_status_map');
 
         // API logging admin
-        Route::post('/lazada/toggle-logging', [LazadaSettingsController::class, 'toggleLogging'])->name('ext.lazada.toggle_logging');
+        Route::post('/lazada/api-log-mode', [LazadaSettingsController::class, 'setApiLogMode'])->name('ext.lazada.api_log_mode');
         Route::delete('/lazada/api-logs', [LazadaSettingsController::class, 'clearApiLogs'])->name('ext.lazada.clear_api_logs');
         Route::post('/lazada/purge-raw', [LazadaSettingsController::class, 'purgeRaw'])->name('ext.lazada.purge_raw');
 

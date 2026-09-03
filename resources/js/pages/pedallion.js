@@ -13,13 +13,11 @@
  * this project does not put behaviour in Blade, so the parts that are
  * Pedallion's own live here.
  *
- * What is NOT here, because it is shared: the tab strip and the API-logging
- * toggle. Both are the same object on every channel settings page and are
- * handled by ./channel-settings.js, which this page opts into by carrying
- * [data-channel-settings] and the same data-cs-tab / data-cs-logging
- * attributes. The one difference is the field name that toggle posts, which
- * this channel declares as data-field="logging_enabled"; the wire is
- * unchanged.
+ * What is NOT here, because it is shared: the tab strip, handled by
+ * ./channel-settings.js, which this page opts into by carrying
+ * [data-channel-settings] and the same data-cs-tab attributes. The API
+ * log's recording control is the shared partial's plain POST mode form
+ * (#200), so it needs no script at all.
  *
  * Everything that varies is a data- attribute on the page root, so no URL is
  * Blade-interpolated into a script literal:

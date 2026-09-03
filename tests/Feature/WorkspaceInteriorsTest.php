@@ -203,7 +203,7 @@ class WorkspaceInteriorsTest extends TestCase
             'shop_id' => 900456,
             'access_token' => encrypt('live-access-token'),
             'region' => 'ph',
-            'api_logging' => true,
+            'api_log_mode' => 'all',
         ], $overrides));
     }
 
@@ -507,7 +507,7 @@ class WorkspaceInteriorsTest extends TestCase
             route('ext.shopee.token_refresh'),
             route('ext.shopee.order_status_map'),
             route('ext.shopee.return_status_map'),
-            route('ext.shopee.toggle_logging'),
+            route('ext.shopee.api_log_mode'),
             route('ext.shopee.purge_raw'),
             route('ext.shopee.logistics_channels'),
             route('ext.shopee.categories.fetch'),
@@ -658,17 +658,22 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertSame('live', ShopeeSetting::query()->first()->mode);
     }
 
-    public function test_the_logging_switch_saves_without_a_page_reload(): void
+    public function test_the_log_mode_control_saves_and_returns_to_the_panel(): void
     {
-        $this->seedSetting(['api_logging' => true]);
+        $this->seedSetting(['api_log_mode' => 'all']);
         $user = $this->manager();
 
         $this->actingAs($user)
-            ->postJson(route('ext.shopee.toggle_logging'), ['api_logging' => 0])
-            ->assertOk()
-            ->assertJson(['ok' => true, 'api_logging' => false]);
+            ->post(route('ext.shopee.api_log_mode'), ['mode' => 'errors'])
+            ->assertRedirect(route('ext.shopee.index', ['tab' => 'logs']));
 
-        $this->assertFalse((bool) ShopeeSetting::query()->first()->api_logging);
+        $this->assertSame('errors', ShopeeSetting::query()->first()->api_log_mode);
+
+        // A word that is not a mode is refused, and the setting stands.
+        $this->actingAs($user)
+            ->post(route('ext.shopee.api_log_mode'), ['mode' => 'loud'])
+            ->assertSessionHasErrors('mode');
+        $this->assertSame('errors', ShopeeSetting::query()->first()->api_log_mode);
     }
 
     /* =================================================================
@@ -1027,7 +1032,7 @@ class WorkspaceInteriorsTest extends TestCase
             'app_key' => '100123',
             'app_secret' => encrypt('live-app-secret'),
             'access_token' => encrypt('live-access-token'),
-            'api_logging' => true,
+            'api_log_mode' => 'all',
         ], $overrides));
     }
 
@@ -1340,7 +1345,7 @@ class WorkspaceInteriorsTest extends TestCase
             route('ext.lazada.sandbox_token_save'),
             route('ext.lazada.order_status_map'),
             route('ext.lazada.reverse_status_map'),
-            route('ext.lazada.toggle_logging'),
+            route('ext.lazada.api_log_mode'),
             route('ext.lazada.purge_raw'),
             route('ext.lazada.explorer_run'),
             route('ext.lazada.categories.fetch'),
@@ -1500,17 +1505,16 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertSame('live', LazadaSetting::query()->first()->mode);
     }
 
-    public function test_the_lazada_logging_switch_saves_without_a_page_reload(): void
+    public function test_the_lazada_log_mode_control_saves_and_returns_to_the_panel(): void
     {
-        $this->seedLazadaSetting(['api_logging' => true]);
+        $this->seedLazadaSetting(['api_log_mode' => 'all']);
         $user = $this->lazadaManager();
 
         $this->actingAs($user)
-            ->postJson(route('ext.lazada.toggle_logging'), ['api_logging' => 0])
-            ->assertOk()
-            ->assertJson(['ok' => true, 'api_logging' => false]);
+            ->post(route('ext.lazada.api_log_mode'), ['mode' => 'errors'])
+            ->assertRedirect(route('ext.lazada.index', ['tab' => 'logs']));
 
-        $this->assertFalse((bool) LazadaSetting::query()->first()->api_logging);
+        $this->assertSame('errors', LazadaSetting::query()->first()->api_log_mode);
     }
 
     /* ---- the OAuth surfaces this view is not allowed to change ------ */
@@ -1779,7 +1783,7 @@ class WorkspaceInteriorsTest extends TestCase
             'shop_cipher' => 'TTP_cipher_abc',
             'shop_name' => 'example TikTok',
             'region' => 'ph',
-            'api_logging' => true,
+            'api_log_mode' => 'all',
         ], $overrides));
         $setting->save();
 
@@ -1800,7 +1804,7 @@ class WorkspaceInteriorsTest extends TestCase
             'base_url' => 'https://one.venta.test',
             'api_token' => 'venta-token-one',
             'enabled' => true,
-            'api_logging' => true,
+            'api_log_mode' => 'all',
             'sync_last_days' => 30,
             'warehouse_id' => 4,
             'brand_color' => '#059669',
@@ -1811,7 +1815,7 @@ class WorkspaceInteriorsTest extends TestCase
             'base_url' => 'https://two.venta.test',
             'api_token' => 'venta-token-two',
             'enabled' => true,
-            'api_logging' => false,
+            'api_log_mode' => 'off',
             'sync_last_days' => 14,
             'warehouse_id' => 9,
             'brand_color' => '#123456',
@@ -2075,7 +2079,7 @@ class WorkspaceInteriorsTest extends TestCase
             'ext.tiktok.toggle_mode', 'ext.tiktok.token_get',
             'ext.tiktok.token_refresh', 'ext.tiktok.shops', 'ext.tiktok.authorize',
             'ext.tiktok.explorer_run', 'ext.tiktok.packs_run',
-            'ext.tiktok.toggle_logging', 'ext.tiktok.clear_api_logs', 'ext.tiktok.purge_raw',
+            'ext.tiktok.api_log_mode', 'ext.tiktok.clear_api_logs', 'ext.tiktok.purge_raw',
         ] as $name) {
             $settings->assertDontSee(route($name), false);
         }
@@ -2122,7 +2126,7 @@ class WorkspaceInteriorsTest extends TestCase
             'ext.tiktok.toggle_mode', 'ext.tiktok.save', 'ext.tiktok.token_get',
             'ext.tiktok.token_refresh', 'ext.tiktok.shops', 'ext.tiktok.authorize',
             'ext.tiktok.explorer_run', 'ext.tiktok.packs_run',
-            'ext.tiktok.toggle_logging', 'ext.tiktok.clear_api_logs', 'ext.tiktok.purge_raw',
+            'ext.tiktok.api_log_mode', 'ext.tiktok.clear_api_logs', 'ext.tiktok.purge_raw',
             'ext.tiktok.order_status_map',
         ] as $name) {
             $settings->assertSee(route($name), false);
@@ -2320,28 +2324,25 @@ class WorkspaceInteriorsTest extends TestCase
 
     /**
      * I-4: the shared switch (channel-settings.js) POSTs JSON on every
-     * channel, and TikTokController::toggleLogging() now answers in kind
-     * instead of a 302 the fetch would silently follow, re-rendering and
-     * discarding the whole settings page on every flip. Mirrors Shopee's
+     * channel; #200 turned the switch into a three-way mode saved by a
+     * plain POST that redirects back to the Logs panel. Mirrors Shopee's
      * and Lazada's identical assertion.
      */
-    public function test_the_tiktok_logging_switch_saves_without_a_page_reload(): void
+    public function test_the_tiktok_log_mode_control_saves_and_returns_to_the_panel(): void
     {
-        $this->seedTiktokSetting(['api_logging' => true]);
+        $this->seedTiktokSetting(['api_log_mode' => 'all']);
 
         $this->actingAs($this->tiktokManager())
-            ->postJson(route('ext.tiktok.toggle_logging'), ['api_logging' => 0])
-            ->assertOk()
-            ->assertJson(['ok' => true, 'api_logging' => false]);
+            ->post(route('ext.tiktok.api_log_mode'), ['mode' => 'off'])
+            ->assertRedirect(route('ext.tiktok.index', ['tab' => 'logs']));
 
-        $this->assertFalse((bool) TikTokSetting::query()->first()->api_logging);
+        $this->assertSame('off', TikTokSetting::query()->first()->api_log_mode);
 
         $this->actingAs($this->tiktokManager())
-            ->postJson(route('ext.tiktok.toggle_logging'), ['api_logging' => 1])
-            ->assertOk()
-            ->assertJson(['ok' => true, 'api_logging' => true]);
+            ->post(route('ext.tiktok.api_log_mode'), ['mode' => 'all'])
+            ->assertRedirect(route('ext.tiktok.index', ['tab' => 'logs']));
 
-        $this->assertTrue((bool) TikTokSetting::query()->first()->api_logging);
+        $this->assertSame('all', TikTokSetting::query()->first()->api_log_mode);
     }
 
     /* =================================================================
@@ -2508,7 +2509,7 @@ class WorkspaceInteriorsTest extends TestCase
             route('ext.venta.test'),
             route('ext.venta.fetch_statuses'),
             route('ext.venta.save_status_map'),
-            route('ext.venta.toggle_api_logging', $one),
+            route('ext.venta.api_log_mode', $one),
             route('ext.venta.clear_api_logs', $one),
         ] as $url) {
             $settings->assertDontSee($url, false);
@@ -2576,7 +2577,7 @@ class WorkspaceInteriorsTest extends TestCase
             route('ext.venta.test'),
             route('ext.venta.fetch_statuses'),
             route('ext.venta.save_status_map'),
-            route('ext.venta.toggle_api_logging', $one),
+            route('ext.venta.api_log_mode', $one),
             route('ext.venta.clear_api_logs', $one),
         ] as $url) {
             $settings->assertSee($url, false);
@@ -2596,7 +2597,7 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertDenied($this->actingAs($user)->post(route('ext.venta.test'), ['store_id' => $one]), 'test');
         $this->assertDenied($this->actingAs($user)->post(route('ext.venta.fetch_statuses'), ['store_id' => $one]), 'fetch_statuses');
         $this->assertDenied($this->actingAs($user)->post(route('ext.venta.save_status_map'), ['store_id' => $one]), 'save_status_map');
-        $this->assertDenied($this->actingAs($user)->post(route('ext.venta.toggle_api_logging', $one)), 'toggle_api_logging');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.venta.api_log_mode', $one)), 'api_log_mode');
         $this->assertDenied($this->actingAs($user)->delete(route('ext.venta.clear_api_logs', $one)), 'clear_api_logs');
         $this->assertDenied($this->actingAs($user)->get(route('ext.venta.product-groups.create', $one)), 'product-groups.create');
         $this->assertDenied($this->actingAs($user)->post(route('ext.venta.product-groups.push', [$one, $group->id])), 'product-groups.push');

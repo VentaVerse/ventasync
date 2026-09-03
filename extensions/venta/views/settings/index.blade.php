@@ -39,7 +39,8 @@
     $storeHost = parse_url((string) $store->base_url, PHP_URL_HOST) ?: $store->base_url;
 
     $statusMap = $orderStatusMaps->get($store->id, collect());
-    $storeApiLogs = ($apiLogs ?? collect())->where('venta_setting_id', $store->id);
+    // #200: the controller already scoped and paginated this store's log.
+    $storeApiLogs = $apiLogs;
     // Paginated by the controller and already scoped to this store.
     $storeSyncLogs = $syncLogs;
     $syncLevel = $store->sync_log_level;
@@ -47,8 +48,6 @@
         ? \App\Support\LogRetention::LEVELS[$syncLevel]
         : \App\Support\LogRetention::LEVELS[\App\Support\LogRetention::level()] . ' (default)';
 
-    $apiLogCount = $storeApiLogs->count();
-    $apiLogging = (bool) $store->api_logging;
 
     // The option list the fetch-statuses handler rebuilds its selects from.
     // Data, not behaviour: JSON_HEX_TAG encodes < and > so a status literally
@@ -381,90 +380,25 @@
      ================================================================ --}}
 <div id="vt-tab-logs" class="cs-panel" @if($csSection !== 'logs') hidden @endif>
 
-    <section class="fm-section">
-        <div class="fm-section__head">
-            <h2 class="fm-section__title">Recording</h2>
-            <div class="fm-section__aside">
-                @if($canManageVenta)
-                    {{-- A plain POST, not a fetch: VentaController::
-                         toggleApiLogging() flips the column and redirects with
-                         a flash, and it reads nothing from the body. The
-                         control names what pressing it will do rather than
-                         showing an on/off knob whose current position has to
-                         be decoded. --}}
-                    <form method="POST" action="{{ route('ext.venta.toggle_api_logging', $store->id) }}">
-                        @csrf
-                        <x-ui.button type="submit" size="sm">{{ $apiLogging ? 'Stop recording' : 'Start recording' }}</x-ui.button>
-                    </form>
-                @endif
-                <x-ui.badge :tone="$apiLogging ? 'success' : 'neutral'">{{ $apiLogging ? 'Recording' : 'Not recording' }}</x-ui.badge>
-            </div>
-        </div>
-        <p class="fm-section__note">Keeps a copy of every request sent to {{ $storeName }} and the response that came back. Useful while setting a store up, and worth switching off once it is running.</p>
-    </section>
 
-    <section class="fm-section">
-        <div class="fm-section__head">
-            <h2 class="fm-section__title">Recent calls</h2>
-            @if($apiLogCount > 0 && $canManageVenta)
-            <div class="fm-section__aside">
-                <form method="POST" action="{{ route('ext.venta.clear_api_logs', $store->id) }}"
-                      data-confirm="Delete every recorded API call for {{ $storeName }}? This cannot be undone.">
-                    @csrf
-                    @method('DELETE')
-                    <x-ui.button type="submit" variant="danger" size="sm">Delete all</x-ui.button>
-                </form>
-            </div>
-            @endif
-        </div>
-
-        @if($apiLogCount === 0)
-            <x-ui.empty title="Nothing recorded yet"
-                        description="Calls appear here as soon as a sync runs, provided recording is on." />
-        @else
-            <x-ui.table>
-                <x-slot:head>
-                    <tr>
-                        <th scope="col" class="cs-col-when">When</th>
-                        <th scope="col" class="cs-col-method">Method</th>
-                        <th scope="col">Endpoint</th>
-                        <th scope="col" class="cs-col-status x-td-num">Status</th>
-                        <th scope="col" class="cs-col-ms x-td-num">Time</th>
-                    </tr>
-                </x-slot:head>
-
-                @foreach($storeApiLogs->take(30) as $alog)
-                    <tr>
-                        <td class="cs-col-when" data-label="When">{{ $alog->created_at->format('M d, H:i:s') }}</td>
-                        <td class="cs-col-method" data-label="Method">
-                            <x-ui.badge :tone="$alog->ok ? 'success' : 'danger'">{{ $alog->method }}</x-ui.badge>
-                        </td>
-                        <td data-label="Endpoint">
-                            <div class="cs-code">{{ $alog->endpoint }}</div>
-                            @if(!$alog->ok && $alog->response_body)
-                                <span class="cc-err">{{ \Illuminate\Support\Str::limit(json_encode($alog->response_body), 120) }}</span>
-                            @endif
-
-                            {{-- Server-rendered disclosure, so a payload never
-                                 needs JavaScript to be read and nothing is
-                                 written into the page by script. --}}
-                            <details class="cs-disclosure">
-                                <summary>Request and response</summary>
-                                <div class="cs-disclosure__body">
-                                    <span class="cs-disclosure__label">Request body</span>
-                                    <pre class="cs-pre">{{ $alog->request_body ? json_encode($alog->request_body, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) : 'Nothing sent (a GET request)' }}</pre>
-                                    <span class="cs-disclosure__label">Response</span>
-                                    <pre class="cs-pre">{{ $alog->response_body ? json_encode($alog->response_body, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) : 'Empty response' }}</pre>
-                                </div>
-                            </details>
-                        </td>
-                        <td class="cs-col-status x-td-num" data-label="Status">{{ $alog->status_code }}</td>
-                        <td class="cs-col-ms x-td-num" data-label="Time">{{ $alog->response_time_ms }} ms</td>
-                    </tr>
-                @endforeach
-            </x-ui.table>
-        @endif
-    </section>
+    {{-- #200: the shared API log panel - the three-way mode, All/Errors
+         and path filters that survive a refresh, pages of 50, and the
+         retention stated in words. --}}
+    @include('partials.channel-api-log', [
+        'logChannel' => $storeName,
+        'canManage' => $canManageVenta,
+        'logMode' => $store->api_log_mode ?? 'all',
+        'modeUrl' => route('ext.venta.api_log_mode', $store->id),
+        'logs' => $storeApiLogs,
+        'clearUrl' => route('ext.venta.clear_api_logs', $store->id),
+        'map' => [
+            'path' => 'endpoint', 'status' => 'status_code',
+            'okFn' => fn ($r) => (bool) $r->ok,
+            'ms' => 'response_time_ms', 'pack' => null, 'signed' => null,
+            'request' => 'request_body', 'response' => 'response_body',
+            'requestLabel' => 'Request body',
+        ],
+    ])
 </div>
 
 {{-- ================================================================

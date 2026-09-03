@@ -432,7 +432,7 @@ class ChannelWorkspace
     /**
      * Health rows for the Overview page: Last sync, Token expiry, and API
      * errors in 24 hours. A null value means the figure genuinely is not
-     * tracked (no token/expiry column for this channel, or api_logging is
+     * tracked (no token/expiry column for this channel, or the api log mode is
      * switched off on its settings row) - the view renders "Not tracked"
      * rather than a fabricated zero, since a real zero would read as "no
      * errors" when it actually means "never measured".
@@ -727,13 +727,13 @@ class ChannelWorkspace
         $isSandbox = ($row?->mode ?? 'live') === 'sandbox';
 
         $lastSyncRaw = $row?->last_order_sync_at;
-        $loggingOn = (bool) ($row?->api_logging ?? false);
+        $loggingOn = (($row?->api_log_mode ?? 'off') !== 'off');
 
         return [
             'hasToken' => $row ? ! empty($isSandbox ? $row->sandbox_access_token : $row->access_token) : false,
             'tokenExpiresAt' => self::signInExpiry($row, $isSandbox),
             'lastSyncAt' => $lastSyncRaw ? Carbon::parse($lastSyncRaw) : null,
-            // api_logging is off in this sandbox for every channel today, so
+            // the api_log_mode is off in this sandbox for every channel, so
             // this reads null (not tracked), not a fabricated zero.
             'errors24h' => $loggingOn
                 ? DB::table($channelId . '_api_logs')->where('created_at', '>=', Carbon::now()->subHours(24))->where('ok', 0)->count()
@@ -767,7 +767,7 @@ class ChannelWorkspace
             $row = DB::table('shopee_settings')->where('id', $storeId)->first();
             $isSandbox = ($row?->mode ?? 'live') === 'sandbox';
             $lastSyncRaw = $row?->last_order_sync_at;
-            $loggingOn = (bool) ($row?->api_logging ?? false);
+            $loggingOn = (($row?->api_log_mode ?? 'off') !== 'off');
 
             return [
                 'hasToken' => $row ? ! empty($isSandbox ? $row->sandbox_access_token : $row->access_token) : false,
@@ -802,14 +802,15 @@ class ChannelWorkspace
         $lastSyncRaw = $row?->last_order_sync_at;
         $since = Carbon::now()->subHours(24);
 
-        // venta_api_logs is written only while that store's api_logging
-        // switch is on, so a zero with it off would read as "no errors" when
+        // venta_api_logs is written only while that store's api_log_mode
+        // still records (errors count in every mode but off), so a zero
+        // with it off would read as "no errors" when
         // it means "never measured". opencart_sync_log has no such switch
         // and is written by every sync run, so its zero is a real zero.
         $errors24h = null;
 
         if ($row && $channelId === 'venta') {
-            $errors24h = ((bool) ($row->api_logging ?? false))
+            $errors24h = ((($row->api_log_mode ?? 'off') !== 'off'))
                 ? DB::table('venta_api_logs')
                     ->where('venta_setting_id', $row->id)
                     ->where('created_at', '>=', $since)
@@ -824,9 +825,9 @@ class ChannelWorkspace
                 ->count();
         } elseif ($row && $channelId === 'shopify') {
             // Same shape as Venta's: shopify_api_logs is written only while
-            // that store's api_logging switch is on, so a zero with it off
+            // that store's api_log_mode still records, so a zero with it off
             // means "never measured", not "no errors".
-            $errors24h = ((bool) ($row->api_logging ?? false))
+            $errors24h = ((($row->api_log_mode ?? 'off') !== 'off'))
                 ? DB::table('shopify_api_logs')
                     ->where('shopify_setting_id', $row->id)
                     ->where('created_at', '>=', $since)
@@ -875,7 +876,7 @@ class ChannelWorkspace
             'hasToken' => $row ? ! empty($row->api_key) : false,
             'tokenExpiresAt' => null,
             'lastSyncAt' => $lastSyncRaw ? Carbon::parse($lastSyncRaw) : null,
-            'errors24h' => ((bool) ($row?->logging_enabled ?? false))
+            'errors24h' => ((($row?->api_log_mode ?? 'off') !== 'off'))
                 ? DB::table('pedallion_api_logs')
                     ->where('created_at', '>=', Carbon::now()->subHours(24))
                     ->where('status_code', '>=', 400)

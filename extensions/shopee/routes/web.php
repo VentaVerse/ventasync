@@ -144,7 +144,7 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
         Route::post('/shopee/{store}/return-status-map', [ShopeeSettingsController::class, 'saveReturnStatusMap'])->name('ext.shopee.return_status_map');
 
         // API logging admin
-        Route::post('/shopee/{store}/toggle-logging', [ShopeeSettingsController::class, 'toggleLogging'])->name('ext.shopee.toggle_logging');
+        Route::post('/shopee/{store}/api-log-mode', [ShopeeSettingsController::class, 'setApiLogMode'])->name('ext.shopee.api_log_mode');
         Route::delete('/shopee/{store}/api-logs', [ShopeeSettingsController::class, 'clearApiLogs'])->name('ext.shopee.clear_api_logs');
         Route::post('/shopee/{store}/purge-raw', [ShopeeSettingsController::class, 'purgeRaw'])->name('ext.shopee.purge_raw');
 

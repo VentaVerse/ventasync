@@ -59,10 +59,10 @@ class TikTokController extends Controller
     {
         $setting = TikTokSetting::query()->first();
 
-        $logs = TikTokApiLog::query()
-            ->orderByDesc('id')
-            ->limit(25)
-            ->get();
+        // #200: the shared log panel - errors-only and path filters, paged.
+        $logs = \App\Support\ApiLogPanel::paginate(
+            TikTokApiLog::query(), 'api_path', fn ($q) => $q->where('ok', 0)
+        );
 
         // Order status mapping data
         $pfx = (string) config('catalog.prefix');
@@ -685,23 +685,19 @@ class TikTokController extends Controller
 
     // -- Toggle logging ---------------------------------------------------
 
-    public function toggleLogging(Request $request)
+    /** The three-way log mode (#200): everything / errors only / off. */
+    public function setApiLogMode(Request $request)
     {
+        $data = $request->validate(['mode' => 'required|in:' . implode(',', \App\Support\ApiLogMode::MODES)]);
         $setting = TikTokSetting::query()->first();
         if (!$setting) {
             return back()->with('error', 'TikTok settings not found.');
         }
 
-        $setting->update([
-            'api_logging' => (bool) $request->input('api_logging'),
-        ]);
+        $setting->update(['api_log_mode' => $data['mode']]);
 
-        if ($request->expectsJson()) {
-            return response()->json(['ok' => true, 'api_logging' => $setting->api_logging]);
-        }
-
-        $state = $setting->api_logging ? 'enabled' : 'disabled';
-        return back()->with('status', "TikTok API logging {$state}.");
+        return redirect()->route('ext.tiktok.index', ['tab' => 'logs'])
+            ->with('status', 'TikTok API log now records: ' . \App\Support\ApiLogMode::labels()[$data['mode']] . '.');
     }
 
     // -- Clear API logs ---------------------------------------------------

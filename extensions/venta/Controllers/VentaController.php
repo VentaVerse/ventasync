@@ -48,11 +48,12 @@ class VentaController extends Controller
 
         $syncLogCount = VentaSyncLog::where('venta_setting_id', $active->id)->count();
 
-        $apiLogs = VentaApiLog::query()
-            ->where('venta_setting_id', $active->id)
-            ->orderByDesc('created_at')
-            ->limit(50)
-            ->get();
+        // #200: the shared log panel - errors-only and path filters, paged.
+        $apiLogs = \App\Support\ApiLogPanel::paginate(
+            VentaApiLog::query()->where('venta_setting_id', $active->id),
+            'endpoint',
+            fn ($q) => $q->where('ok', 0)
+        );
 
         $orderStatusMaps = VentaOrderStatusMap::query()
             ->where('venta_setting_id', $active->id)
@@ -394,13 +395,17 @@ class VentaController extends Controller
         return response()->json(['status' => 'Order status mapping saved.']);
     }
 
-    public function toggleApiLogging($id)
+    /** The three-way log mode (#200): everything / errors only / off. */
+    public function setApiLogMode(Request $request, $id)
     {
+        $data = $request->validate(['mode' => 'required|in:' . implode(',', \App\Support\ApiLogMode::MODES)]);
         $store = VentaSetting::findOrFail($id);
-        $store->update(['api_logging' => !$store->api_logging]);
+        $store->update(['api_log_mode' => $data['mode']]);
 
-        return redirect()->route('ext.venta.index')
-            ->with('status', 'API logging ' . ($store->api_logging ? 'enabled' : 'disabled') . ' for ' . $store->store_name . '.');
+        // ['tab' => 'logs'] so the operator lands back on the panel they
+        // pressed the control on (the old toggle bounced to Connection).
+        return redirect()->route('ext.venta.settings.show', ['store' => $store->id, 'tab' => 'logs'])
+            ->with('status', ($store->store_name ?: 'Venta') . ' API log now records: ' . \App\Support\ApiLogMode::labels()[$data['mode']] . '.');
     }
 
     /**

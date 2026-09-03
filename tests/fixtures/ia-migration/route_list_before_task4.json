@@ -460,6 +460,11 @@
         "name": "ext.lazada.dashboard"
     },
     {
+        "method": "POST",
+        "uri": "channels/lazada/api-log-mode",
+        "name": "ext.lazada.api_log_mode"
+    },
+    {
         "method": "DELETE",
         "uri": "channels/lazada/api-logs",
         "name": "ext.lazada.clear_api_logs"
@@ -996,11 +1001,6 @@
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/toggle-logging",
-        "name": "ext.lazada.toggle_logging"
-    },
-    {
-        "method": "POST",
         "uri": "channels/lazada/toggle-mode",
         "name": "ext.lazada.toggle_mode"
     },
@@ -1405,6 +1405,11 @@
         "name": "ext.pedallion.index"
     },
     {
+        "method": "POST",
+        "uri": "channels/pedallion/settings/api-log-mode",
+        "name": "ext.pedallion.api_log_mode"
+    },
+    {
         "method": "DELETE",
         "uri": "channels/pedallion/settings/api-logs",
         "name": "ext.pedallion.clear_api_logs"
@@ -1431,11 +1436,6 @@
     },
     {
         "method": "POST",
-        "uri": "channels/pedallion/settings/toggle-logging",
-        "name": "ext.pedallion.toggle_logging"
-    },
-    {
-        "method": "POST",
         "uri": "channels/shopee/stores",
         "name": "ext.shopee.stores.store"
     },
@@ -1448,6 +1448,11 @@
         "method": "GET|HEAD",
         "uri": "channels/shopee/{store?}",
         "name": "ext.shopee.dashboard"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/api-log-mode",
+        "name": "ext.shopee.api_log_mode"
     },
     {
         "method": "DELETE",
@@ -1931,11 +1936,6 @@
     },
     {
         "method": "POST",
-        "uri": "channels/shopee/{store}/toggle-logging",
-        "name": "ext.shopee.toggle_logging"
-    },
-    {
-        "method": "POST",
         "uri": "channels/shopee/{store}/toggle-mode",
         "name": "ext.shopee.toggle_mode"
     },
@@ -1995,14 +1995,14 @@
         "name": "ext.shopify.destroy"
     },
     {
+        "method": "POST",
+        "uri": "channels/shopify/{id}/api-log-mode",
+        "name": "ext.shopify.api_log_mode"
+    },
+    {
         "method": "DELETE",
         "uri": "channels/shopify/{id}/api-logs",
         "name": "ext.shopify.clear_api_logs"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopify/{id}/toggle-api-logging",
-        "name": "ext.shopify.toggle_api_logging"
     },
     {
         "method": "GET|HEAD",
@@ -2068,6 +2068,11 @@
         "method": "GET|HEAD",
         "uri": "channels/tiktok",
         "name": "ext.tiktok.dashboard"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/api-log-mode",
+        "name": "ext.tiktok.api_log_mode"
     },
     {
         "method": "DELETE",
@@ -2426,11 +2431,6 @@
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/toggle-logging",
-        "name": "ext.tiktok.toggle_logging"
-    },
-    {
-        "method": "POST",
         "uri": "channels/tiktok/toggle-mode",
         "name": "ext.tiktok.toggle_mode"
     },
@@ -2500,6 +2500,11 @@
         "name": "ext.venta.destroy"
     },
     {
+        "method": "POST",
+        "uri": "channels/venta/{id}/api-log-mode",
+        "name": "ext.venta.api_log_mode"
+    },
+    {
         "method": "DELETE",
         "uri": "channels/venta/{id}/api-logs",
         "name": "ext.venta.clear_api_logs"
@@ -2513,11 +2518,6 @@
         "method": "DELETE",
         "uri": "channels/venta/{id}/sync-logs",
         "name": "ext.venta.clear_sync_logs"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/venta/{id}/toggle-api-logging",
-        "name": "ext.venta.toggle_api_logging"
     },
     {
         "method": "GET|HEAD",

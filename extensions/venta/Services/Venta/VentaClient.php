@@ -43,7 +43,7 @@ class VentaClient
 
     private function logCall(string $method, string $path, ?array $requestBody, array $result, int $durationMs): void
     {
-        if ($this->setting && !$this->setting->api_logging) {
+        if (! \App\Support\ApiLogMode::shouldLog($this->setting?->api_log_mode, (bool) ($result['ok'] ?? false))) {
             return;
         }
 

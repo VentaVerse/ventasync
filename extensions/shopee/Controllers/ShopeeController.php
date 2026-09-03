@@ -218,10 +218,10 @@ public function index(Request $request = null, ShopeeClient $client = null)
             ->pluck('order_status_id', 'shopee_status')
             ->all();
 
-        $logs = ShopeeApiLog::query()
-            ->orderByDesc('id')
-            ->limit(25)
-            ->get();
+        // #200: the shared log panel - errors-only and path filters, paged.
+        $logs = \App\Support\ApiLogPanel::paginate(
+            ShopeeApiLog::query(), 'api_path', fn ($q) => $q->where('ok', 0)
+        );
 
         return view('ext-shopee::index', [
             'setting' => $setting?->decrypted(),
@@ -785,23 +785,19 @@ public function buildAuthUrl(ShopeeClient $client)
         return back()->with('status', 'Return status mapping saved.');
     }
 
-    public function toggleLogging(Request $request)
+    /** The three-way log mode (#200): everything / errors only / off. */
+    public function setApiLogMode(Request $request)
     {
+        $data = $request->validate(['mode' => 'required|in:' . implode(',', \App\Support\ApiLogMode::MODES)]);
         $setting = ShopeeSetting::defaultStore();
         if (!$setting) {
             return back()->with('error', 'Shopee settings not found.');
         }
 
-        $setting->update([
-            'api_logging' => (bool) $request->input('api_logging'),
-        ]);
+        $setting->update(['api_log_mode' => $data['mode']]);
 
-        if ($request->expectsJson()) {
-            return response()->json(['ok' => true, 'api_logging' => $setting->api_logging]);
-        }
-
-        $state = $setting->api_logging ? 'enabled' : 'disabled';
-        return redirect()->route('ext.shopee.index', ['tab' => 'logs'])->with('status', "Shopee API logging {$state}.");
+        return redirect()->route('ext.shopee.index', ['tab' => 'logs'])
+            ->with('status', 'Shopee API log now records: ' . \App\Support\ApiLogMode::labels()[$data['mode']] . '.');
     }
 
     public function clearApiLogs()

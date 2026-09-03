@@ -53,7 +53,7 @@ class CredentialRevealTest extends TestCase
             'sandbox_app_key' => '114192',
             'sandbox_app_secret' => encrypt(self::SECRET),
             'sandbox_access_token' => encrypt(self::TOKEN),
-            'api_logging' => true,
+            'api_log_mode' => 'all',
         ]);
     }
 

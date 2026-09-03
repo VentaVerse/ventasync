@@ -26,7 +26,7 @@ class TikTokSetting extends Model
         'sync_last_days',
         'sync_last_days_returns',
         'order_tab_map',
-        'api_logging',
+        'api_log_mode',
         'last_order_sync_at',
         'last_stock_push_at',
         'sandbox_app_key',
@@ -44,7 +44,6 @@ class TikTokSetting extends Model
     ];
 
     protected $casts = [
-        'api_logging' => 'boolean',
         'order_tab_map' => 'array',
         'expires_at' => 'datetime',
         'refresh_expires_at' => 'datetime',

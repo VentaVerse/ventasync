@@ -31,7 +31,7 @@ class ShopeeSetting extends Model
         'region',
         'sync_last_days',
         'sync_last_days_returns',
-        'api_logging',
+        'api_log_mode',
         'last_order_sync_at',
         'last_stock_push_at',
         'last_return_sync_at',
@@ -49,7 +49,6 @@ class ShopeeSetting extends Model
 
     protected $casts = [
         'enabled' => 'boolean',
-        'api_logging' => 'boolean',
         'expires_at' => 'datetime',
         'refresh_expires_at' => 'datetime',
         'sandbox_expires_at' => 'datetime',

@@ -8,8 +8,10 @@ use Illuminate\Console\Command;
 
 /**
  * Trims the sync-run and API-call logs to their retention. Scheduled daily
- * beside activity-log:purge, and run on demand by the Purge now button in
- * Settings, Website.
+ * beside activity-log:purge (Kernel.php); the settings pages' API log
+ * panels state the retention in words so operators know it exists. (The
+ * "Purge now" button this docblock once named left with the 2026-09-01
+ * settings-column removal.)
  */
 class PurgeLogs extends Command
 {

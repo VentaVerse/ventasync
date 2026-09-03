@@ -557,7 +557,7 @@ class IntegrationController extends Controller
                     // token the cron renews: see ChannelWorkspace::signInExpiry().
                     $signInExpiresAt = \App\Support\ChannelWorkspace::signInExpiry($row, $isSandbox);
                     $lastSyncRaw = $row?->last_order_sync_at;
-                    $loggingOn = (bool) ($row?->api_logging ?? false);
+                    $loggingOn = (($row?->api_log_mode ?? 'off') !== 'off');
 
                     $entries[] = [
                         'key' => $store?->id ?? $baseId,
@@ -567,7 +567,7 @@ class IntegrationController extends Controller
                         'hasToken' => $hasToken,
                         'tokenExpiresAt' => $signInExpiresAt,
                         'lastSyncAt' => $lastSyncRaw ? Carbon::parse($lastSyncRaw) : null,
-                        // api_logging is off in this sandbox for every channel, so
+                        // the api_log_mode is off in this sandbox for every channel, so
                         // this is null (not tracked) today, not a fabricated zero.
                         'errors24h' => $loggingOn
                             ? DB::table($baseId . '_api_logs')
@@ -599,11 +599,11 @@ class IntegrationController extends Controller
 
                     $errors24h = null;
                     if ($row && $baseId === 'venta') {
-                        $errors24h = ((bool) ($row->api_logging ?? false))
+                        $errors24h = ((($row->api_log_mode ?? 'off') !== 'off'))
                             ? DB::table('venta_api_logs')->where('venta_setting_id', $row->id)->where('created_at', '>=', $staleAfter)->where('ok', 0)->count()
                             : null;
                     } elseif ($row && $baseId === 'shopify') {
-                        $errors24h = ((bool) ($row->api_logging ?? false))
+                        $errors24h = ((($row->api_log_mode ?? 'off') !== 'off'))
                             ? DB::table('shopify_api_logs')->where('shopify_setting_id', $row->id)->where('created_at', '>=', $staleAfter)->where('ok', 0)->count()
                             : null;
                     } elseif ($row && $baseId === 'opencart') {
@@ -612,7 +612,7 @@ class IntegrationController extends Controller
                         // here is a real "no failures", not an absent metric.
                         $errors24h = DB::table('opencart_sync_log')->where('opencart_setting_id', $row->id)->where('created_at', '>=', $staleAfter)->where('status', 'failed')->count();
                     } elseif ($row && $baseId === 'pedallion') {
-                        $errors24h = ((bool) ($row->logging_enabled ?? false))
+                        $errors24h = ((($row->api_log_mode ?? 'off') !== 'off'))
                             ? DB::table('pedallion_api_logs')->where('created_at', '>=', $staleAfter)->where('status_code', '>=', 400)->count()
                             : null;
                     }

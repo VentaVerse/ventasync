@@ -89,10 +89,10 @@ class LazadaController extends Controller
     {
         $setting = LazadaSetting::query()->first();
 
-        $logs = LazadaApiLog::query()
-            ->orderByDesc('id')
-            ->limit(25)
-            ->get();
+        // #200: the shared log panel - errors-only and path filters, paged.
+        $logs = \App\Support\ApiLogPanel::paginate(
+            LazadaApiLog::query(), 'api_path', fn ($q) => $q->where('ok', 0)
+        );
 
         // Lightweight list for dropdowns (kept small for production safety)
         $pfx = (string) config('catalog.prefix');
@@ -235,23 +235,19 @@ class LazadaController extends Controller
         return back()->with('status', 'Reverse order status mapping saved.');
     }
 
-    public function toggleLogging(Request $request)
+    /** The three-way log mode (#200): everything / errors only / off. */
+    public function setApiLogMode(Request $request)
     {
+        $data = $request->validate(['mode' => 'required|in:' . implode(',', \App\Support\ApiLogMode::MODES)]);
         $setting = LazadaSetting::query()->first();
         if (!$setting) {
             return back()->with('error', 'Lazada settings not found.');
         }
 
-        $setting->update([
-            'api_logging' => (bool) $request->input('api_logging'),
-        ]);
+        $setting->update(['api_log_mode' => $data['mode']]);
 
-        if ($request->expectsJson()) {
-            return response()->json(['ok' => true, 'api_logging' => $setting->api_logging]);
-        }
-
-        $state = $setting->api_logging ? 'enabled' : 'disabled';
-        return redirect()->route('ext.lazada.index', ['tab' => 'logs'])->with('status', "Lazada API logging {$state}.");
+        return redirect()->route('ext.lazada.index', ['tab' => 'logs'])
+            ->with('status', 'Lazada API log now records: ' . \App\Support\ApiLogMode::labels()[$data['mode']] . '.');
     }
 
     public function clearApiLogs()

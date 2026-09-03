@@ -69,10 +69,8 @@
     $hasSandboxToken = !empty($setting->sandbox_access_token ?? '');
     $sandboxTokenExpired = $hasSandboxToken && ($setting->sandbox_expires_at ?? null) && \Carbon\Carbon::parse($setting->sandbox_expires_at)->lt(now());
 
-    $logCount = count($logs);
     $hasResult = !empty($result);
 
-    $apiLogging = (bool) ($setting->api_logging ?? true);
 
     // Exactly the six TikTokController::packsRun() validates, no more.
     $packs = [
@@ -697,33 +695,6 @@
      ================================================================ --}}
 <div id="tt-tab-logs" class="cs-panel" @if($csSection !== 'logs') hidden @endif>
 
-    <section class="fm-section">
-        <div class="fm-section__head">
-            <h2 class="fm-section__title">Recording</h2>
-            <div class="fm-section__aside">
-                @if($canManageTiktok)
-                    <label class="fm-switch">
-                        {{-- No hidden companion field: this switch does not post
-                             with a form. Its change handler sends
-                             {"api_logging": 0|1} to toggle-logging, which
-                             TikTokController::toggleLogging() reads through
-                             $request->input() exactly as it read the old
-                             form-encoded field. --}}
-                        <input type="checkbox" class="fm-switch__input" value="1" @checked($apiLogging)
-                               data-cs-logging data-url="{{ route('ext.tiktok.toggle_logging') }}"
-                               aria-label="Record TikTok API requests and responses">
-                        <span class="fm-switch__track"></span>
-                        <span class="fm-switch__text">
-                            <span class="fm-switch__label" data-cs-logging-label>{{ $apiLogging ? 'Recording' : 'Not recording' }}</span>
-                        </span>
-                    </label>
-                @else
-                    <x-ui.badge :tone="$apiLogging ? 'success' : 'neutral'">{{ $apiLogging ? 'Recording' : 'Not recording' }}</x-ui.badge>
-                @endif
-            </div>
-        </div>
-        <p class="fm-section__note">Keeps a copy of every request sent to TikTok and the response that came back. Useful while setting a shop up, and worth switching off once it is running.</p>
-    </section>
 
     @if($result)
         @php $ok = (bool) ($result['ok'] ?? false); @endphp
@@ -754,65 +725,24 @@
         </section>
     @endif
 
-    <section class="fm-section">
-        <div class="fm-section__head">
-            <h2 class="fm-section__title">Recent calls</h2>
-            @if($logCount > 0 && $canManageTiktok)
-            <div class="fm-section__aside">
-                <form method="POST" action="{{ route('ext.tiktok.clear_api_logs') }}"
-                      data-confirm="Delete every recorded TikTok API call? This cannot be undone.">
-                    @csrf
-                    @method('DELETE')
-                    <x-ui.button type="submit" variant="danger" size="sm">Delete all</x-ui.button>
-                </form>
-            </div>
-            @endif
-        </div>
-
-        @if($logCount === 0)
-            <x-ui.empty title="Nothing recorded yet"
-                        description="Calls appear here as soon as a sync runs or you run something from the API explorer." />
-        @else
-            <x-ui.table>
-                <x-slot:head>
-                    <tr>
-                        <th scope="col" class="cs-col-when">When</th>
-                        <th scope="col" class="cs-col-method">Method</th>
-                        <th scope="col">Path</th>
-                        <th scope="col" class="cs-col-auth">Signed</th>
-                        <th scope="col" class="cs-col-status x-td-num">Status</th>
-                    </tr>
-                </x-slot:head>
-
-                @foreach($logs as $log)
-                    <tr>
-                        <td class="cs-col-when" data-label="When">{{ $log->created_at }}</td>
-                        <td class="cs-col-method" data-label="Method">
-                            <x-ui.badge :tone="$log->ok ? 'success' : 'danger'">{{ $log->method }}</x-ui.badge>
-                        </td>
-                        <td data-label="Path">
-                            @if(!empty($log->pack))
-                                <span class="cs-map-label">Preset {{ strtoupper($log->pack) }}</span>
-                            @endif
-                            <div class="cs-code">{{ $log->api_path }}</div>
-
-                            <details class="cs-disclosure">
-                                <summary>Request and response</summary>
-                                <div class="cs-disclosure__body">
-                                    <span class="cs-disclosure__label">Request parameters</span>
-                                    <pre class="cs-pre">{{ json_encode($log->request_params, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
-                                    <span class="cs-disclosure__label">Response</span>
-                                    <pre class="cs-pre">{{ json_encode($log->response_body, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
-                                </div>
-                            </details>
-                        </td>
-                        <td class="cs-col-auth" data-label="Signed">{{ $log->auth_required ? 'Yes' : 'No' }}</td>
-                        <td class="cs-col-status x-td-num" data-label="Status">{{ $log->response_status ?? '-' }}</td>
-                    </tr>
-                @endforeach
-            </x-ui.table>
-        @endif
-    </section>
+    {{-- #200: the shared API log panel - the three-way mode, All/Errors
+         and path filters that survive a refresh, pages of 50, and the
+         retention stated in words. --}}
+    @include('partials.channel-api-log', [
+        'logChannel' => 'TikTok',
+        'canManage' => $canManageTiktok,
+        'logMode' => $setting->api_log_mode ?? 'all',
+        'modeUrl' => route('ext.tiktok.api_log_mode'),
+        'logs' => $logs,
+        'clearUrl' => route('ext.tiktok.clear_api_logs'),
+        'map' => [
+            'path' => 'api_path', 'status' => 'response_status',
+            'okFn' => fn ($r) => (bool) $r->ok,
+            'ms' => null, 'pack' => 'pack', 'signed' => 'auth_required',
+            'request' => 'request_params', 'response' => 'response_body',
+            'requestLabel' => 'Request parameters',
+        ],
+    ])
 
     @if($canManageTiktok)
     <section class="fm-section">

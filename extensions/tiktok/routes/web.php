@@ -94,7 +94,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         Route::post('/tiktok/packs/run', [TiktokApiExplorerController::class, 'packsRun'])->name('ext.tiktok.packs_run');
 
         // API logging admin
-        Route::post('/tiktok/toggle-logging', [TiktokSettingsController::class, 'toggleLogging'])->name('ext.tiktok.toggle_logging');
+        Route::post('/tiktok/api-log-mode', [TiktokSettingsController::class, 'setApiLogMode'])->name('ext.tiktok.api_log_mode');
         Route::delete('/tiktok/api-logs', [TiktokSettingsController::class, 'clearApiLogs'])->name('ext.tiktok.clear_api_logs');
         Route::post('/tiktok/purge-raw', [TiktokSettingsController::class, 'purgeRaw'])->name('ext.tiktok.purge_raw');
 

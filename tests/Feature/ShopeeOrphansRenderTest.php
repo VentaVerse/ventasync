@@ -69,7 +69,7 @@ class ShopeeOrphansRenderTest extends TestCase
             'shop_id' => 900456,
             'access_token' => encrypt('live-access-token'),
             'region' => 'ph',
-            'api_logging' => false,
+            'api_log_mode' => 'off',
         ]);
 
         return ShopeeProductGroup::create(['name' => 'Mosky'])->id;

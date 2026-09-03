@@ -369,6 +369,33 @@
 }
 
 /* ------------------------------------------------------------------
+   The API log panel (#200). The mode buttons sit together as one
+   control; the toolbar above Recent calls holds the All/Errors
+   segment, the path filter, the refresh and Delete all, wrapping on
+   narrow screens without ever leaving the section head.
+   ------------------------------------------------------------------ */
+
+.cs-logmode {
+    display: flex;
+    gap: var(--bl-space-1);
+}
+
+.cs-logtools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--bl-space-2);
+}
+
+.cs-logsearch {
+    display: flex;
+    align-items: center;
+    gap: var(--bl-space-1);
+}
+
+.cs-logsearch__q { width: 180px; }
+
+/* ------------------------------------------------------------------
    Data maintenance. A number of days and a destructive button. The
    button keeps the transparent .x-btn--danger treatment; nothing on
    this page is a solid red fill.

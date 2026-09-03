@@ -33,8 +33,9 @@ class TikTokApiLog extends Model
     public static function safeCreate(array $attributes): void
     {
         try {
+            // The three-way mode (#200): off, errors only, everything.
             $setting = TikTokSetting::query()->first();
-            if ($setting && $setting->api_logging === false) {
+            if (! \App\Support\ApiLogMode::shouldLog($setting?->api_log_mode, (bool) ($attributes['ok'] ?? true))) {
                 return;
             }
 

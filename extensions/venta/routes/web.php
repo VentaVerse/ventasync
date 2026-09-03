@@ -79,7 +79,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::delete('/venta/{id}', [VentaSettingsController::class, 'destroy'])->name('ext.venta.destroy');
     Route::post('/venta/test', [VentaSettingsController::class, 'testConnection'])->name('ext.venta.test');
     Route::post('/venta/save-status-map', [VentaSettingsController::class, 'saveOrderStatusMap'])->name('ext.venta.save_status_map');
-    Route::post('/venta/{id}/toggle-api-logging', [VentaSettingsController::class, 'toggleApiLogging'])->name('ext.venta.toggle_api_logging');
+    Route::post('/venta/{id}/api-log-mode', [VentaSettingsController::class, 'setApiLogMode'])->name('ext.venta.api_log_mode');
     Route::delete('/venta/{id}/api-logs', [VentaSettingsController::class, 'clearApiLogs'])->name('ext.venta.clear_api_logs');
     // The sync log's own pair, beside the API log's: the controls belong on
     // the tab that shows the log, not in a global setting (the owner, 2026-09-01).
