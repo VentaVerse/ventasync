@@ -238,6 +238,15 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             $query->where('p.status', 1);
         } elseif ($erpStatus === 'disabled') {
             $query->where('p.status', 0);
+        } else {
+            /* The default view (#197): a disabled product Lazada does not
+             * hold is noise; a disabled product still listed needs eyes.
+             * The catalog-status filter still offers Disabled on purpose. */
+            $query->where(function ($sub) {
+                $sub->where('p.status', 1)
+                    ->orWhereIn('p.product_id', LazadaProduct::query()
+                        ->whereNotNull('lazada_item_id')->whereNull('lazada_deleted_at')->select('product_id'));
+            });
         }
 
         // Text search: catalogue fields, or the Lazada item id itself

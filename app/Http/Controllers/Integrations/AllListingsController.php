@@ -51,6 +51,22 @@ class AllListingsController extends Controller
             $query->where('p.status', 1);
         } elseif ($erpStatus === 'disabled') {
             $query->where('p.status', 0);
+        } else {
+            /* The default view (#197): a disabled product NO visible
+             * channel lists is hidden - the pushes skip it and every cell
+             * would read Not listed. One still listed somewhere stays: it
+             * likely needs unlisting, not hiding. listedProductIds() is
+             * the contract's answer, so core never names a channel. */
+            $listedAnywhere = [];
+            foreach ($registry->listingStateSources() as $source) {
+                foreach ($source->listedProductIds() as $pid) {
+                    $listedAnywhere[$pid] = true;
+                }
+            }
+            $query->where(function ($sub) use ($listedAnywhere) {
+                $sub->where('p.status', 1)
+                    ->orWhereIn('p.product_id', array_keys($listedAnywhere) ?: [0]);
+            });
         }
 
         $query->orderByDesc('p.product_id');

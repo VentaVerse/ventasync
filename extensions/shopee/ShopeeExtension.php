@@ -754,6 +754,19 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         return app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->forProducts($productIds);
     }
 
+
+    /** Every catalog product this shop currently lists (#197). */
+    public function listedProductIds(): array
+    {
+        if (! Schema::hasTable('shopee_product_links')) {
+            return [];
+        }
+
+        return \Extensions\shopee\Models\ShopeeProductLink::query()
+            ->whereNotNull('shopee_item_id')
+            ->distinct()->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+    }
+
     public function listingUrls(array $productIds): array
     {
         $out = [];

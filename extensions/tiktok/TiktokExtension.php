@@ -579,6 +579,21 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
         return app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)->forProducts($productIds);
     }
 
+
+    /** Every catalog product TikTok Shop currently lists (#197). */
+    public function listedProductIds(): array
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('tiktok_listings')) {
+            return [];
+        }
+
+        return \Extensions\tiktok\Models\TikTokListing::query()
+            ->whereNotNull('tiktok_product_id')->pluck('product_id')
+            ->merge(\Extensions\tiktok\Models\TikTokProductGroupProduct::query()
+                ->whereNotNull('tiktok_product_id')->pluck('product_id'))
+            ->map(fn ($v) => (int) $v)->unique()->values()->all();
+    }
+
     public function listingUrls(array $productIds): array
     {
         $out = [];

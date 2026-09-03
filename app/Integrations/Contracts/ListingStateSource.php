@@ -35,4 +35,15 @@ interface ListingStateSource
      * @return array<int, ?string>
      */
     public function listingUrls(array $productIds): array;
+
+    /**
+     * Every catalog product id this channel currently lists (#197). Core
+     * uses it for one judgement it cannot make alone: a DISABLED catalog
+     * product that no visible channel lists is hidden from the default
+     * grid, while one still listed somewhere stays in view - it likely
+     * needs unlisting, not hiding.
+     *
+     * @return list<int>
+     */
+    public function listedProductIds(): array;
 }

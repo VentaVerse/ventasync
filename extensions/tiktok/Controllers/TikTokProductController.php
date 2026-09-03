@@ -101,6 +101,17 @@ class TikTokProductController extends Controller
             $query->where('p.status', 1);
         } elseif ($erpStatus === 'disabled') {
             $query->where('p.status', 0);
+        } else {
+            /* The default view (#197): a disabled product TikTok Shop does
+             * not hold is noise; a disabled product still listed needs
+             * eyes. The filter still offers Disabled on purpose. */
+            $query->where(function ($sub) {
+                $sub->where('p.status', 1)
+                    ->orWhereIn('p.product_id', TikTokListing::query()
+                        ->whereNotNull('tiktok_product_id')->select('product_id'))
+                    ->orWhereIn('p.product_id', \Extensions\tiktok\Models\TikTokProductGroupProduct::query()
+                        ->whereNotNull('tiktok_product_id')->select('product_id'));
+            });
         }
         if ($q !== '') {
             $query->where(function ($w) use ($q) {

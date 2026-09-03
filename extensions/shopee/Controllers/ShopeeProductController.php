@@ -151,6 +151,18 @@ class ShopeeProductController extends Controller
             $query->where('p.status', 1);
         } elseif ($erpStatus === 'disabled') {
             $query->where('p.status', 0);
+        } else {
+            /* The default view (#197, the owner): a disabled product the channel
+             * does not hold is noise - the pushes skip it anyway. A disabled
+             * product still LISTED here is exactly what an operator must
+             * see: it likely needs unlisting, and it wears its Disabled
+             * badge. The catalog-status filter still offers Disabled for
+             * looking at the hidden ones on purpose. */
+            $query->where(function ($sub) {
+                $sub->where('p.status', 1)
+                    ->orWhereIn('p.product_id', \Extensions\shopee\Models\ShopeeProductLink::query()
+                        ->whereNotNull('shopee_item_id')->select('product_id'));
+            });
         }
 
         // Text search

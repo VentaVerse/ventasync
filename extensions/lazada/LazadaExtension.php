@@ -754,6 +754,19 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         return app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)->forProducts($productIds);
     }
 
+
+    /** Every catalog product Lazada currently lists (#197). */
+    public function listedProductIds(): array
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('lazada_products')) {
+            return [];
+        }
+
+        return \Extensions\lazada\Models\LazadaProduct::query()
+            ->whereNotNull('lazada_item_id')->whereNull('lazada_deleted_at')
+            ->distinct()->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+    }
+
     public function listingUrls(array $productIds): array
     {
         $productIds = array_values(array_unique(array_map('intval', $productIds)));
