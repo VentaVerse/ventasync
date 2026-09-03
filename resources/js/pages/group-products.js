@@ -35,6 +35,7 @@ import { initChannelListings } from './channel-listings';
 function initManualAdd(section) {
     const searchUrl = section.getAttribute('data-search-url');
     const formId = section.getAttribute('data-form');
+    const groupId = Number(section.getAttribute('data-group-id') || 0);
     const input = section.querySelector('[data-manual-search]');
     const go = section.querySelector('[data-manual-search-go]');
     const results = section.querySelector('[data-manual-results]');
@@ -108,6 +109,16 @@ function initManualAdd(section) {
             check.appendChild(box);
             tr.appendChild(check);
 
+            /* One product, one group (cleanup point 3): a result another
+               group already owns is shown, never hidden - read-only, its
+               owner named, with Move here as the deliberate transfer. */
+            const ownedElsewhere = item.group_id && Number(item.group_id) !== groupId;
+            if (ownedElsewhere) {
+                box.disabled = true;
+                box.setAttribute('aria-label', (item.name || 'Product ' + item.product_id) + " is in '" + item.group_name + "'");
+                tr.className = 'cc-row--owned';
+            }
+
             const id = document.createElement('td');
             id.className = 'cc-col-id';
             const idValue = document.createElement('span');
@@ -125,6 +136,34 @@ function initManualAdd(section) {
             meta.className = 'co-item__meta';
             meta.textContent = item.sku || item.model || 'No SKU';
             product.appendChild(meta);
+            if (ownedElsewhere) {
+                const owner = document.createElement('span');
+                owner.className = 'cc-owner';
+                owner.textContent = "In: " + item.group_name;
+                product.appendChild(owner);
+
+                const move = document.createElement('button');
+                move.type = 'button';
+                move.className = 'cc-quiet cc-move';
+                move.textContent = 'Move here';
+                move.addEventListener('click', function () {
+                    const form = document.getElementById(formId);
+                    if (!form) return;
+                    const hidden = document.createElement('input');
+                    hidden.type = 'hidden';
+                    hidden.name = 'move_ids[]';
+                    hidden.value = String(item.product_id);
+                    form.appendChild(hidden);
+                    box.disabled = false;
+                    box.checked = true;
+                    move.replaceWith(Object.assign(document.createElement('span'), {
+                        className: 'cc-owner',
+                        textContent: "moving here from '" + item.group_name + "'",
+                    }));
+                    refreshAddState();
+                });
+                product.appendChild(move);
+            }
             tr.appendChild(product);
 
             const price = document.createElement('td');

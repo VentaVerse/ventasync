@@ -94,7 +94,11 @@ class OneGroupRule
 
         if ($storeFk !== null) {
             $storeId = DB::table($groupTable)->where('id', $groupId)->value($storeFk);
-            $q->where('g.' . $storeFk, $storeId);
+            // A group id that resolves no store (0 on a create form) means
+            // no scope to narrow by; unscoped beats matching nothing.
+            if ($storeId !== null) {
+                $q->where('g.' . $storeFk, $storeId);
+            }
         }
 
         $out = [];

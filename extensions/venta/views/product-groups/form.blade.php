@@ -123,6 +123,7 @@
 
                 <div class="gf-dual"
                      data-group-product-picker
+                     data-group-id="{{ $group->id ?? 0 }}"
                      data-search-url="{{ route('ext.venta.product-groups.searchProducts', $setting->id) }}">
 
                     <div class="gf-filters">

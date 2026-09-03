@@ -511,6 +511,7 @@
      are built with createElement and textContent only. --}}
 <section class="fm-section cc-unmatched"
          data-group-manual-add
+         data-group-id="{{ $group->id }}"
          data-search-url="{{ route('ext.lazada.product-groups.searchProducts') }}"
          data-form="lazada-add-products">
     <div class="fm-section__head">

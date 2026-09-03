@@ -568,3 +568,37 @@
     position: relative;
     z-index: 40;
 }
+
+/* One product, one group (cleanup point 3): owned search results are
+   read-only with their owner named; Move here is the deliberate
+   transfer. Shared by the dual-pane form picker (gf-) and the
+   products-page manual add (cc-). */
+.gf-row--owned .gf-name,
+.cc-row--owned .co-item__name { color: var(--bl-ink-3); }
+
+.gf-owner,
+.cc-owner {
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--bl-attn);
+}
+
+.gf-move,
+.cc-move {
+    margin-left: 8px;
+    border: 0;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 550;
+    color: var(--bl-ink-2);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.gf-move:hover,
+.cc-move:hover { color: var(--bl-ink); }

@@ -807,7 +807,23 @@ class TikTokProductGroupController extends Controller
             ->limit(100)
             ->get();
 
-        return response()->json(['items' => $rows]);
+                /* One product, one group (cleanup points 2+3): each result names
+         * the group that already owns it, so the picker can show it
+         * read-only with a Move here instead of a surprise refusal. */
+        $owners = DB::table('tiktok_product_group_products as pv')
+            ->join('tiktok_product_groups as g', 'g.id', '=', 'pv.tiktok_product_group_id')
+            ->whereIn('pv.product_id', $rows->pluck('product_id')->all() ?: [0])
+            ->get(['pv.product_id', 'g.id as group_id', 'g.name'])
+            ->keyBy('product_id');
+        $rows = $rows->map(function ($r) use ($owners) {
+            $own = $owners->get($r->product_id);
+            $r->group_id = $own->group_id ?? null;
+            $r->group_name = $own->name ?? null;
+
+            return $r;
+        });
+
+        return response()->json(['items' => $rows->values()]);
     }
 
     // ── Push Products ───────────────────────────────────────────

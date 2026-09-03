@@ -175,6 +175,7 @@ function initFilterPicker(field) {
 
 function initProductPicker(root) {
     const searchUrl = root.getAttribute('data-search-url');
+    const groupId = Number(root.getAttribute('data-group-id') || 0);
     const leftBody = root.querySelector('[data-gf-left]');
     const rightBody = root.querySelector('[data-gf-right]');
     const leftCount = root.querySelector('[data-gf-left-count]');
@@ -218,6 +219,11 @@ function initProductPicker(root) {
     function row(item, side) {
         const tr = document.createElement('tr');
 
+        /* One product, one group (cleanup point 3): a result another group
+           already owns is shown, never hidden - read-only, its owner
+           named, with Move here as the deliberate transfer. */
+        const ownedElsewhere = side === 'left' && item.group_id && Number(item.group_id) !== groupId;
+
         const check = document.createElement('td');
         check.className = 'gf-col-check';
         const box = document.createElement('input');
@@ -226,6 +232,11 @@ function initProductPicker(root) {
         box.value = String(item.product_id);
         box.setAttribute('data-gf-check', side);
         box.setAttribute('aria-label', 'Select ' + (item.name || 'product ' + item.product_id));
+        if (ownedElsewhere) {
+            box.disabled = true;
+            box.setAttribute('aria-label', (item.name || 'Product ' + item.product_id) + " is in '" + item.group_name + "'");
+            tr.className = 'gf-row--owned';
+        }
         check.appendChild(box);
         tr.appendChild(check);
 
@@ -245,6 +256,31 @@ function initProductPicker(root) {
             sku.textContent = item.sku;
             product.appendChild(sku);
         }
+        if (ownedElsewhere) {
+            const owner = document.createElement('span');
+            owner.className = 'gf-owner';
+            owner.textContent = "In: " + item.group_name;
+            product.appendChild(owner);
+
+            const move = document.createElement('button');
+            move.type = 'button';
+            move.className = 'gf-move';
+            move.textContent = 'Move here';
+            move.addEventListener('click', function () {
+                item._move = true;
+                right.push(item);
+                left = left.filter(function (l) { return Number(l.product_id) !== Number(item.product_id); });
+                renderLeft();
+                renderRight();
+            });
+            product.appendChild(move);
+        }
+        if (side === 'right' && item._move) {
+            const owner = document.createElement('span');
+            owner.className = 'gf-owner';
+            owner.textContent = "moves here from '" + item.group_name + "' on save";
+            product.appendChild(owner);
+        }
         tr.appendChild(product);
 
         const qty = document.createElement('td');
@@ -263,6 +299,13 @@ function initProductPicker(root) {
             hidden.name = 'product_ids[]';
             hidden.value = String(item.product_id);
             inputs.appendChild(hidden);
+            if (item._move) {
+                const move = document.createElement('input');
+                move.type = 'hidden';
+                move.name = 'move_ids[]';
+                move.value = String(item.product_id);
+                inputs.appendChild(move);
+            }
         });
     }
 
