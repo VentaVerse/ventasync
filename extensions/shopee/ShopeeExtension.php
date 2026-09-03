@@ -106,6 +106,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                     // Channel group, so the menubar renders it as the same
                     // Settings menu every other channel shows.
                     new MenuItem('Logistics', 'ext.shopee.logistics.index', 'view_shopee/logistics', null, $p, 'Catalog'),
+                    new MenuItem('Import', 'ext.shopee.products.import', 'view_shopee/product', null, $p, 'Catalog'),
                     new MenuItem('Settings', 'ext.shopee.settings.show', 'view_shopee/settings', null, $p, 'Channel', children: [
                         ['label' => 'Connection', 'section' => 'connection'],
                         ['label' => 'Status mapping', 'section' => 'status'],

@@ -100,6 +100,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                     new MenuItem('Product Groups', 'ext.lazada.product-groups.index', 'view_lazada/product_group', group: 'Catalog'),
                     new MenuItem('Categories', 'ext.lazada.categories.index', 'view_lazada/category', group: 'Catalog'),
                     new MenuItem('Brands', 'ext.lazada.brands.index', 'view_lazada/brand', group: 'Catalog'),
+                    new MenuItem('Import', 'ext.lazada.products.import', 'view_lazada/product', group: 'Catalog'),
                     new MenuItem('Settings', 'ext.lazada.index', 'view_lazada/settings', group: 'Channel', children: [
                         ['label' => 'Connection', 'section' => 'connection'],
                         ['label' => 'Status mapping', 'section' => 'status'],

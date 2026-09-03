@@ -71,6 +71,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
 
         // Catalog browsing (lists, search)
         Route::get('/lazada/products', [LazadaProductController::class, 'index'])->name('ext.lazada.products.index');
+        Route::get('/lazada/products/import', [LazadaProductController::class, 'importPage'])->name('ext.lazada.products.import');
 
         // Vouchers (#153): a live read of the shop's vouchers.
         Route::get('/lazada/vouchers', [\Extensions\lazada\Controllers\LazadaVoucherController::class, 'index'])->name('ext.lazada.vouchers.index');

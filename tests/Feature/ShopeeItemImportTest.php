@@ -154,16 +154,25 @@ class ShopeeItemImportTest extends TestCase
         $this->assertSame('unmatched', $row->fresh()->status);
     }
 
-    public function test_the_queue_offers_import_and_the_old_vocabulary_is_gone(): void
+    public function test_the_import_page_owns_the_queue_and_the_workbench_carries_none_of_it(): void
     {
+        /* Cleanup point 10 (the owner, 2026-09-03): the queue moved off the
+           workbench onto its own page under the Catalog menu - the card
+           sat permanently open saying "Nothing is waiting". */
         $this->queueRow();
+        $manager = $this->manager();
 
-        $html = $this->actingAs($this->manager())
-            ->get(route('ext.shopee.products.index'))->assertOk()->getContent();
+        $html = $this->actingAs($manager)
+            ->get(route('ext.shopee.products.import'))->assertOk()->getContent();
 
         $this->assertStringContainsString(route('ext.shopee.products.import_unmatched', ShopeeUnmatchedItem::query()->value('id')), $html);
         $this->assertStringContainsString('not in the catalog', $html);
         $this->assertStringNotContainsString('Unmatched items', $html, 'the concept is Import now; the old label retired with it');
-        $this->assertStringNotContainsString('New listing</x-ui.button>', $html, 'the picker page retired - every unlisted row offers its own push');
+
+        $workbench = $this->actingAs($manager)
+            ->get(route('ext.shopee.products.index'))->assertOk()->getContent();
+        $this->assertStringNotContainsString('Scan Shopee for new items', $workbench,
+            'the workbench grew the import card back');
+        $this->assertStringNotContainsString('New listing</x-ui.button>', $workbench, 'the picker page retired - every unlisted row offers its own push');
     }
 }

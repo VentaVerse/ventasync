@@ -414,10 +414,6 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $orphanStates = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)
             ->forProducts($orphanListings->pluck('product_id')->filter()->map(fn ($v) => (int) $v)->all());
 
-        $unmatchedItems = \Extensions\lazada\Models\LazadaUnmatchedItem::query()
-            ->where('status', 'unmatched')
-            ->orderBy('item_name')
-            ->get();
 
         $allManufacturers = DB::table($pfx . 'manufacturer')
             ->orderBy('name')
@@ -441,7 +437,6 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'erpStatus' => $erpStatus,
             'groupFilter' => $groupFilter,
             'paginator' => $products,
-            'unmatchedItems' => $unmatchedItems,
             'orphanListings' => $orphanListings,
             'orphanStates' => $orphanStates,
             'lazadaTab' => $lazadaTab,
@@ -2090,6 +2085,20 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
     return redirect()->to(url()->previous(route('ext.lazada.products.index')))
         ->with('status', "Bulk Delete: processed ".count($ids)." product(s). Success: {$okCount}, Error: {$errCount}.");
 }
+
+    /**
+     * The Import page (cleanup point 10, the owner 2026-09-03): its own page
+     * under the Catalog menu, not a card squatting on the workbench.
+     */
+    public function importPage()
+    {
+        return view('ext-lazada::products.import', [
+            'unmatchedItems' => \Extensions\lazada\Models\LazadaUnmatchedItem::query()
+                ->where('status', 'unmatched')
+                ->orderBy('item_name')
+                ->get(),
+        ]);
+    }
 
     public function create(Request $request)
     {

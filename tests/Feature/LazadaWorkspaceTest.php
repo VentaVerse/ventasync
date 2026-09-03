@@ -123,6 +123,7 @@ class LazadaWorkspaceTest extends TestCase
             'ext.lazada.orders.returns',
             'ext.lazada.vouchers.index',   // joined 2026-08-26 (#153, quest 4)
             'ext.lazada.products.index',
+            'ext.lazada.products.import', // joined 2026-09-03 (cleanup point 10)
             'ext.lazada.product-groups.index',
             'ext.lazada.categories.index',
             'ext.lazada.brands.index',
@@ -168,7 +169,7 @@ class LazadaWorkspaceTest extends TestCase
             array_column($groups[0]['items'], 'label')
         );
         $this->assertSame(
-            ['Listings', 'Product Groups', 'Categories', 'Brands'],
+            ['Listings', 'Product Groups', 'Categories', 'Brands', 'Import'],
             array_column($groups[1]['items'], 'label')
         );
         $this->assertSame(
@@ -194,9 +195,10 @@ class LazadaWorkspaceTest extends TestCase
         }
 
         // Without this the whole test passes vacuously when groups() returns
-        // nothing. Seven is every Lazada destination, so this also proves
-        // the operator permissions above are sufficient to see all of them.
-        $this->assertCount(7, $urls);
+        // nothing. Eight is every Lazada destination (Import joined
+        // 2026-09-03), so this also proves the operator permissions above
+        // are sufficient to see all of them.
+        $this->assertCount(8, $urls);
     }
 
     public function test_workspace_renders_for_a_permitted_user(): void

@@ -67,6 +67,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         // readiness before a push, and the combobox endpoints the listing
         // page reads (the door is keyed on this controller).
         Route::get('/tiktok/products', [TikTokProductController::class, 'index'])->name('ext.tiktok.products.index');
+        Route::get('/tiktok/products/import', [TikTokProductController::class, 'importPage'])->name('ext.tiktok.products.import');
         Route::get('/tiktok/products/categories/search', [TikTokProductController::class, 'searchCategories'])->name('ext.tiktok.products.searchCategories');
         Route::get('/tiktok/products/categories/lookup', [TikTokProductController::class, 'categoryLookup'])->name('ext.tiktok.products.categoryLookup');
         Route::get('/tiktok/products/brands', [TikTokProductController::class, 'brandsSearch'])->name('ext.tiktok.products.brandsSearch');

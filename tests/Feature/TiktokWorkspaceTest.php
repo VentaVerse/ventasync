@@ -127,6 +127,7 @@ class TiktokWorkspaceTest extends TestCase
             'ext.tiktok.orders.returns',  // joined 2026-08-26 (#156, parity)
             'ext.tiktok.coupons.index',   // joined 2026-08-26 (#153, quest 4)
             'ext.tiktok.products.index',  // joined 2026-08-26 (#156, parity)
+            'ext.tiktok.products.import', // joined 2026-09-03 (cleanup point 10)
             'ext.tiktok.product-groups.index',
             'ext.tiktok.categories.index',
             'ext.tiktok.index',
@@ -188,7 +189,7 @@ class TiktokWorkspaceTest extends TestCase
         // nothing. Five is every TikTok destination this operator holds
         // (Returns joined 2026-08-26), so this also proves the operator
         // permissions above are sufficient to see all of them.
-        $this->assertCount(5, $urls);
+        $this->assertCount(5, $urls); // Import (view_tiktok/product) is rightly filtered for this operator
     }
 
     public function test_workspace_renders_for_a_permitted_user(): void

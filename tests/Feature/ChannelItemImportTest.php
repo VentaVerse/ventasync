@@ -181,7 +181,7 @@ class ChannelItemImportTest extends TestCase
         $this->assertSame(2, TikTokUnmatchedItem::query()->where('status', 'unmatched')->count(), 'one row per seller SKU, like the other channels');
 
         $html = $this->actingAs($this->manager(['manage_tiktok/product', 'view_tiktok/product']))
-            ->get(route('ext.tiktok.products.index'))->assertOk()->getContent();
+            ->get(route('ext.tiktok.products.import'))->assertOk()->getContent();
         $this->assertStringContainsString('on TikTok Shop, not in the catalog', $html);
         $this->assertStringContainsString(route('ext.tiktok.products.import_unmatched', TikTokUnmatchedItem::query()->value('id')), $html);
     }

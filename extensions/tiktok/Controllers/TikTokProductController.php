@@ -229,8 +229,6 @@ class TikTokProductController extends Controller
             'groupFilter' => $groupFilter, 'erpStatus' => $erpStatus,
             'allManufacturers' => DB::table($pfx . 'manufacturer')->orderBy('name')->pluck('name', 'manufacturer_id'),
             'allGroups' => TikTokProductGroup::query()->orderBy('name')->pluck('name', 'id'),
-            'unmatchedItems' => \Extensions\tiktok\Models\TikTokUnmatchedItem::query()
-                ->where('status', 'unmatched')->orderBy('item_name')->get(),
             'groupsByProductId' => $groupsByProductId,
             'optionRowsByProductId' => \App\Support\VariationRows::forProducts($pageIds),
             'listingsByProductId' => $listingsByProductId,
@@ -272,6 +270,20 @@ class TikTokProductController extends Controller
     }
 
     /** The one-click push on the product's OWN listing settings (#96). */
+    /**
+     * The Import page (cleanup point 10, the owner 2026-09-03): its own page
+     * under the Catalog menu, not a card squatting on the workbench.
+     */
+    public function importPage()
+    {
+        return view('ext-tiktok::products.import', [
+            'unmatchedItems' => \Extensions\tiktok\Models\TikTokUnmatchedItem::query()
+                ->where('status', 'unmatched')
+                ->orderBy('item_name')
+                ->get(),
+        ]);
+    }
+
     public function pushDirect(int $productId, TikTokClient $client)
     {
         $c = $this->creds();

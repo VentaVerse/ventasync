@@ -476,7 +476,12 @@ class WorkspaceInteriorsTest extends TestCase
 
         $this->actingAs($user)->get(route('ext.shopee.products.index'))
             ->assertOk()
-            ->assertSee(route('ext.shopee.products.bulk_push'), false)
+            ->assertSee(route('ext.shopee.products.bulk_push'), false);
+
+        // The link typeahead rode the import queue onto its own page
+        // (cleanup point 10, 2026-09-03).
+        $this->actingAs($user)->get(route('ext.shopee.products.import'))
+            ->assertOk()
             ->assertSee(route('ext.shopee.products.search_catalog'), false);
 
         $this->actingAs($user)->get(route('ext.shopee.settings.show'))
@@ -1303,7 +1308,12 @@ class WorkspaceInteriorsTest extends TestCase
 
         $this->actingAs($user)->get(route('ext.lazada.products.index'))
             ->assertOk()
-            ->assertSee(route('ext.lazada.products.bulk_upload'), false)
+            ->assertSee(route('ext.lazada.products.bulk_upload'), false);
+
+        // The link typeahead rode the import queue onto its own page
+        // (cleanup point 10, 2026-09-03).
+        $this->actingAs($user)->get(route('ext.lazada.products.import'))
+            ->assertOk()
             ->assertSee(route('ext.lazada.products.search_catalog'), false);
 
         $this->actingAs($user)->get(route('ext.lazada.index'))

@@ -103,6 +103,7 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
         Route::get('/shopee/{store}/products/categories/search', [ShopeeProductController::class, 'searchCategories'])->name('ext.shopee.products.searchCategories');
         Route::get('/shopee/{store}/products/categories/lookup', [ShopeeProductController::class, 'categoryLookup'])->name('ext.shopee.products.categoryLookup');
         Route::get('/shopee/{store}/products/brands', [ShopeeProductController::class, 'brandsForCategory'])->name('ext.shopee.products.brandsForCategory');
+        Route::get('/shopee/{store}/products/import', [ShopeeProductController::class, 'importPage'])->name('ext.shopee.products.import');
         // The combined review form for a multi-select push (#151). Before
         // the {productId} route in the file for the reader; the router
         // never confuses them because bulk is not a number.

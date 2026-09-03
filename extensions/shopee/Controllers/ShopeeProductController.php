@@ -314,11 +314,6 @@ class ShopeeProductController extends Controller
         $orphanStates = app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)
             ->forProducts($orphanLinks->keys()->map(fn ($v) => (int) $v)->all());
 
-        $unmatchedItems = ShopeeUnmatchedItem::query()
-            ->where('status', 'unmatched')
-            ->orderBy('item_name')
-            ->get();
-
         // Manufacturer list for filter dropdown
         $allManufacturers = DB::table($pfx . 'manufacturer')
             ->orderBy('name')
@@ -363,7 +358,6 @@ class ShopeeProductController extends Controller
             'allManufacturers' => $allManufacturers,
             'allGroups' => $allGroups,
             'groupsByProductId' => $pageGroupMap,
-            'unmatchedItems' => $unmatchedItems,
             'orphanLinks' => $orphanLinks,
             'orphanStates' => $orphanStates,
             'optionRowsByProductId' => $optionRowsByProductId,
@@ -1356,6 +1350,22 @@ class ShopeeProductController extends Controller
     }
 
     // ── Scan for Unmatched Shopee Items ────────────────────────────
+
+    /**
+     * The Import page (cleanup point 10, the owner 2026-09-03): its own page
+     * under the Catalog menu, not a card squatting on the workbench - the
+     * card sat permanently open saying "Nothing is waiting" to everyone
+     * except a fresh install. Scan, then Import / Link / Dismiss per row.
+     */
+    public function importPage()
+    {
+        return view('ext-shopee::products.import', [
+            'unmatchedItems' => ShopeeUnmatchedItem::query()
+                ->where('status', 'unmatched')
+                ->orderBy('item_name')
+                ->get(),
+        ]);
+    }
 
     public function syncUnmatchedItems(ShopeeClient $client)
     {

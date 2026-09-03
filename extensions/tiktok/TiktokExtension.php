@@ -97,6 +97,7 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                     new MenuItem('Listings', 'ext.tiktok.products.index', 'view_tiktok/product', group: 'Catalog'),
                     new MenuItem('Product Groups', 'ext.tiktok.product-groups.index', 'view_tiktok/product_group', group: 'Catalog'),
                     new MenuItem('Categories', 'ext.tiktok.categories.index', 'view_tiktok/product_group', group: 'Catalog'),
+                    new MenuItem('Import', 'ext.tiktok.products.import', 'view_tiktok/product', group: 'Catalog'),
                     new MenuItem('Settings', 'ext.tiktok.index', 'view_tiktok/settings', group: 'Channel', children: [
                         ['label' => 'Connection', 'section' => 'connection'],
                         ['label' => 'Status mapping', 'section' => 'status'],

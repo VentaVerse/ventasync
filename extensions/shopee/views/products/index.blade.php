@@ -48,8 +48,6 @@
         return url()->current() . '?' . http_build_query($qp);
     };
 
-    $unmatched = $unmatchedItems ?? collect();
-    $hasUnmatched = $unmatched->count() > 0;
 @endphp
 
 <div class="cc-page"
@@ -83,124 +81,7 @@
     @endif
 </div>
 
-@if($canManageShopee)
-{{-- Unmatched items. Shopee listings whose SKU matched nothing in the
-     catalog, which is a work queue and not part of the list below, so it
-     sits above the table as its own titled section. Rebuilding the cache
-     and re-scanning are the two machine actions that feed it, so they live
-     here beside it rather than in a row of page-header buttons. --}}
-<section class="fm-section cc-unmatched">
-    <div class="fm-section__head">
-        <h2 class="fm-section__title">
-            @if($hasUnmatched)
-                {{ number_format($unmatched->count()) }} {{ $unmatched->count() === 1 ? 'item' : 'items' }} on Shopee, not in the catalog
-            @else
-                Import from Shopee
-            @endif
-        </h2>
-        <div class="fm-section__aside">
-            <form method="POST" action="{{ route('ext.shopee.products.sync_unmatched') }}">
-                @csrf
-                <x-ui.button type="submit" size="sm">{{ $hasUnmatched ? 'Scan again' : 'Scan Shopee for new items' }}</x-ui.button>
-            </form>
-            <form method="POST" action="{{ route('ext.shopee.products.rebuild_cache') }}"
-                  data-confirm="Rebuild the Shopee item cache? This reads every item on your Shopee shop and can take a minute." data-confirm-tone="primary" data-confirm-verb="Rebuild cache">
-                @csrf
-                <x-ui.button type="submit" size="sm">Rebuild item cache</x-ui.button>
-            </form>
-        </div>
-    </div>
 
-    @if($hasUnmatched)
-        <p class="fm-section__note">These items exist on Shopee but not in the catalog. Import one to create the real product here - details, variations and images included - or link it to a catalog product it already is, or dismiss it.</p>
-
-        <x-ui.table>
-            <x-slot:head>
-                <tr>
-                    <th scope="col">Shopee item</th>
-                    <th scope="col" class="cc-col-sku">SKU</th>
-                    <th scope="col" class="cc-col-chanid">Item ID</th>
-                    <th scope="col" class="cc-col-link">Catalog product</th>
-                    <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
-                </tr>
-            </x-slot:head>
-
-            @foreach($unmatched as $ui)
-                <tr>
-                    <td data-label="Shopee item">
-                        <div class="co-item">
-                            <div class="cc-thumb cc-thumb--sm">
-                                <span class="co-item__none">None</span>
-                                @if($ui->image_url)
-                                    <img src="{{ $ui->image_url }}" alt="" loading="lazy" decoding="async" data-thumb>
-                                @endif
-                            </div>
-                            <div class="co-item__body">
-                                <span class="co-item__name">{{ $ui->item_name ?: 'Unnamed item' }}</span>
-                            </div>
-                        </div>
-                    </td>
-                    <td class="cc-col-sku" data-label="SKU">
-                        @if($ui->sku)
-                            <span class="x-num">{{ $ui->sku }}</span>
-                        @else
-                            <span class="x-cell-muted">None</span>
-                        @endif
-                    </td>
-                    <td class="cc-col-chanid" data-label="Item ID">
-                        <span class="x-num">{{ $ui->shopee_item_id }}</span>
-                        @if($ui->shopee_model_id)
-                            <span class="cc-sub cc-sub--mono">Variation {{ $ui->shopee_model_id }}</span>
-                        @endif
-                    </td>
-                    <td class="cc-col-link" data-label="Catalog product">
-                        {{-- The typeahead's wire is unchanged: type, GET
-                             search-catalog?q=, pick a result, the picked id
-                             lands in this form's product_id and the form
-                             POSTs to link_unmatched/{id}. What changed is
-                             where the behaviour lives (a bundled module, not
-                             an inline script) and how the results are built
-                             (createElement/textContent, never innerHTML with
-                             a product name off the API). --}}
-                        <form method="POST" action="{{ route('ext.shopee.products.link_unmatched', $ui->id) }}"
-                              class="cc-link"
-                              data-unmatched-link
-                              data-search-url="{{ route('ext.shopee.products.search_catalog') }}">
-                            @csrf
-                            <div class="fm-ta">
-                                <input type="text" class="x-input" data-unmatched-search
-                                       placeholder="Search name, model or SKU" autocomplete="off"
-                                       aria-label="Search the catalog for the product this Shopee item is">
-                                <div class="fm-ta__list" data-unmatched-results role="listbox" aria-label="Catalog matches"></div>
-                            </div>
-                            <input type="hidden" name="product_id" value="" data-unmatched-id>
-                            <x-ui.button type="submit" size="sm" disabled data-unmatched-submit>Link</x-ui.button>
-                        </form>
-                    </td>
-                    <td class="x-td-actions">
-                        {{-- Import is the queue's whole point (#196); Link
-                             stays for an item the catalog already has under
-                             another SKU; Dismiss stays the rare way out. --}}
-                        <form method="POST" action="{{ route('ext.shopee.products.import_unmatched', $ui->id) }}" data-slow-action
-                              data-confirm="Import this Shopee item into the catalog? A real product is created here - name, price, stock, variations and images - and linked to the Shopee item. Nothing changes on Shopee." data-confirm-tone="primary" data-confirm-verb="Import">
-                            @csrf
-                            <x-ui.button type="submit" size="sm" variant="primary">Import</x-ui.button>
-                        </form>
-                        <x-ui.menu label="Shopee item {{ $ui->shopee_item_id }} actions">
-                            <form method="POST" action="{{ route('ext.shopee.products.dismiss_unmatched', $ui->id) }}">
-                                @csrf
-                                <button type="submit" class="x-menu__item">Dismiss, stop tracking it</button>
-                            </form>
-                        </x-ui.menu>
-                    </td>
-                </tr>
-            @endforeach
-        </x-ui.table>
-    @else
-        <p class="fm-section__note">Nothing is waiting. <x-ui.hint label="What a scan does">A scan compares every item on your Shopee shop against catalog SKUs and lists anything it could not place.</x-ui.hint></p>
-    @endif
-</section>
-@endif
 
 @php $shOrphans = $orphanLinks ?? collect(); @endphp
 @if($shOrphans->isNotEmpty())
