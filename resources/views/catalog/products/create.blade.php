@@ -230,21 +230,24 @@
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Shipping</h2></div>
                 <div class="fm-card__body">
+                    {{-- Required at birth (#198): a zero default would let
+                         the requirement pass unread. Placeholders show the
+                         shape; the operator types the truth. --}}
                     <div class="fm-fields fm-fields--2">
-                        <x-ui.field label="Weight" name="weight">
-                            <x-ui.input id="f-weight" name="weight" class="fm-input--num" value="{{ old('weight', '0') }}" placeholder="0.5" />
+                        <x-ui.field label="Weight" name="weight" :required="true">
+                            <x-ui.input id="f-weight" name="weight" class="fm-input--num" value="{{ old('weight') }}" placeholder="0.5" required />
                         </x-ui.field>
-                        <x-ui.field label="Length" name="length">
-                            <x-ui.input id="f-length" name="length" class="fm-input--num" value="{{ old('length', '0') }}" placeholder="10" />
+                        <x-ui.field label="Length" name="length" :required="true">
+                            <x-ui.input id="f-length" name="length" class="fm-input--num" value="{{ old('length') }}" placeholder="10" required />
                         </x-ui.field>
-                        <x-ui.field label="Width" name="width">
-                            <x-ui.input id="f-width" name="width" class="fm-input--num" value="{{ old('width', '0') }}" placeholder="5" />
+                        <x-ui.field label="Width" name="width" :required="true">
+                            <x-ui.input id="f-width" name="width" class="fm-input--num" value="{{ old('width') }}" placeholder="5" required />
                         </x-ui.field>
-                        <x-ui.field label="Height" name="height">
-                            <x-ui.input id="f-height" name="height" class="fm-input--num" value="{{ old('height', '0') }}" placeholder="3" />
+                        <x-ui.field label="Height" name="height" :required="true">
+                            <x-ui.input id="f-height" name="height" class="fm-input--num" value="{{ old('height') }}" placeholder="3" required />
                         </x-ui.field>
                     </div>
-                    <div class="fm-hint">Used to build marketplace listings.</div>
+                    <div class="fm-hint">Shopee, Lazada and TikTok all refuse a push without a parcel, so it is set once, here.</div>
                 </div>
             </div>
         </div>

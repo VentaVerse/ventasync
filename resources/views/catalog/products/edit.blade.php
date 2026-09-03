@@ -316,9 +316,23 @@
             </div>
 
             {{-- Shipping ----------------------------------------------- --}}
+            @php
+                $parcelIncomplete = (float) ($product->weight ?? 0) <= 0
+                    || (float) ($product->length ?? 0) <= 0
+                    || (float) ($product->width ?? 0) <= 0
+                    || (float) ($product->height ?? 0) <= 0;
+            @endphp
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Shipping</h2></div>
                 <div class="fm-card__body">
+                    @if($parcelIncomplete)
+                        {{-- Old rows keep saving (#198) - a save is never held
+                             hostage to fields nobody touched - but the debt is
+                             said out loud where it gets paid. --}}
+                        <div class="fm-note fm-note--warn" role="status">
+                            <div class="fm-note__body">This product has no complete parcel. Shopee, Lazada and TikTok all refuse a push or relist without a weight and size - fill these four fields and the channel pages stop flagging it.</div>
+                        </div>
+                    @endif
                     <div class="fm-fields fm-fields--2">
                         <x-ui.field label="Weight" name="weight">
                             <x-ui.input id="f-weight" name="weight" class="fm-input--num" value="{{ old('weight', $trim($product->weight ?? '0')) }}" placeholder="0.5" />
@@ -333,7 +347,7 @@
                             <x-ui.input id="f-height" name="height" class="fm-input--num" value="{{ old('height', $trim($product->height ?? '0')) }}" placeholder="3" />
                         </x-ui.field>
                     </div>
-                    <div class="fm-hint">Used to build marketplace listings.</div>
+                    <div class="fm-hint">Shopee, Lazada and TikTok all refuse a push without a parcel.</div>
                 </div>
             </div>
         </div>

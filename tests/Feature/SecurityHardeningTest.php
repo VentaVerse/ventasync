@@ -380,6 +380,7 @@ class SecurityHardeningTest extends TestCase
             'price' => 10,
             'quantity' => 1,
             'status' => 1,
+            'weight' => '0.5', 'length' => '10', 'width' => '5', 'height' => '3',
             'description' => $this->xssAndLegitPayload(),
         ]);
 

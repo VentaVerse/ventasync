@@ -260,6 +260,15 @@ $q = trim((string) $request->get('q', ''));
     $status = (string) $request->input('status', '');
     if ($status === '0' || $status === '1') {
         $query->where('p.status', (int) $status);
+    } elseif ($status === 'no_parcel') {
+        /* The backfill surface (#198): every row the channels would refuse
+         * for a missing weight or size, in one filtered list. */
+        $query->where(function ($sub) {
+            $sub->where('p.weight', '<=', 0)
+                ->orWhere('p.length', '<=', 0)
+                ->orWhere('p.width', '<=', 0)
+                ->orWhere('p.height', '<=', 0);
+        });
     }
 
 if ($q !== '') {
@@ -529,7 +538,11 @@ public function store(Request $request)
         $pfxProduct = $pfx . 'product';
 
         $request->validate([
-            /* WHAT A PRODUCT ACTUALLY NEEDS TO EXIST IS A NAME.
+            /* WHAT A PRODUCT ACTUALLY NEEDS TO EXIST IS A NAME - and, since
+             * 2026-09-03, A PARCEL (#198): every channel refuses a push
+             * without weight and dimensions, so they earn what model, price
+             * and quantity never did. Amended by the owner during the rebuild
+             * review; the original decision below stands for the rest.
              *
              * Model, SKU, price and quantity were all required, and none of
              * them earns it:
@@ -560,10 +573,15 @@ public function store(Request $request)
             'cost_additional' => 'nullable|numeric',
             'quantity' => 'nullable|integer',
             // Physical attributes (needed for marketplace payloads e.g. Lazada)
-            'weight' => 'nullable|numeric',
-            'length' => 'nullable|numeric',
-            'width'  => 'nullable|numeric',
-            'height' => 'nullable|numeric',
+            /* The parcel is required at birth (#198, the owner): Shopee, Lazada
+             * and TikTok all refuse a push without it, and #191's preflight
+             * only catches the gap later. Existing rows with zeros keep
+             * saving (never hold a save hostage to untouched fields) - the
+             * Missing-parcel filter below is how that debt gets worked. */
+            'weight' => 'required|numeric|gt:0',
+            'length' => 'required|numeric|gt:0',
+            'width'  => 'required|numeric|gt:0',
+            'height' => 'required|numeric|gt:0',
             'status' => 'required|in:0,1',
             'manufacturer_id' => 'nullable|integer',
             'manufacturer_name' => 'nullable|string|max:255',
@@ -589,6 +607,15 @@ public function store(Request $request)
             'options.*.values.*.cost_amount' => 'nullable|numeric',
             'options.*.values.*.cost_percentage' => 'nullable|numeric',
             'options.*.values.*.cost_additional' => 'nullable|numeric',
+        ], [
+            'weight.required' => 'A package weight is needed - Shopee, Lazada and TikTok all refuse a push without one.',
+            'weight.gt' => 'The package weight must be more than zero - the channels refuse a weightless parcel.',
+            'length.required' => 'The package size (L×W×H) is needed - the channels refuse a push without it.',
+            'width.required' => 'The package size (L×W×H) is needed - the channels refuse a push without it.',
+            'height.required' => 'The package size (L×W×H) is needed - the channels refuse a push without it.',
+            'length.gt' => 'Each package dimension must be more than zero.',
+            'width.gt' => 'Each package dimension must be more than zero.',
+            'height.gt' => 'Each package dimension must be more than zero.',
         ]);
 
         $langId = (int) config('catalog.default_language_id');
