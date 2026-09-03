@@ -318,6 +318,29 @@ class ShopeeProductGroupController extends Controller
         $syncStatus = (string) $request->input('sync_status', 'all');
         $erpStatus = (string) $request->input('erp_status', 'all');
 
+        /* The scope strips (cleanup point 4, the owner 2026-09-04): "the
+         * product group IS the same as All Products, only filtered by
+         * group" - so this page wears the same Your catalogue / On Shopee
+         * strips as the workbench, counted over the MEMBERS. Same mirror,
+         * same tab keys, same freshness stamp. */
+        $tabMap = ['live' => 'NORMAL', 'unlisted' => 'UNLIST', 'violation' => 'BANNED', 'reviewing' => 'REVIEWING'];
+        $shopeeTab = (string) $request->get('shopee_tab', 'all');
+        if (!array_key_exists($shopeeTab, $tabMap)) {
+            $shopeeTab = 'all';
+        }
+        $memberIds = $group->groupProducts()->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+        $liveCounts = null;
+        $liveCheckedAt = null;
+        if ($setting && $auth['complete']) {
+            $liveCounts = ShopeeProductLink::mirrorCounts($tabMap, $memberIds);
+            $liveCheckedAt = ShopeeProductLink::query()->whereIn('product_id', $memberIds ?: [0])->max('live_checked_at');
+            $liveCheckedAt = $liveCheckedAt ? \Illuminate\Support\Carbon::parse($liveCheckedAt) : null;
+        } else {
+            $shopeeTab = 'all';
+        }
+
         $pivotTable = 'shopee_product_group_products';
 
         $query = DB::table($pfx . 'product as p')
@@ -371,6 +394,17 @@ class ShopeeProductGroupController extends Controller
             // The badge has always had four states and the filter offered
             // three, so unlinked products could only be found by eye.
             $query->where('gp.sync_status', 'unlinked');
+        }
+
+        // The members' own total, before a Shopee tab narrows the table.
+        $catalogueTotal = (clone $query)->count();
+
+        if ($shopeeTab !== 'all' && $liveCounts !== null) {
+            $tabProductIds = ShopeeProductLink::query()
+                ->whereIn('product_id', $memberIds ?: [0])
+                ->where('live_status', $tabMap[$shopeeTab])
+                ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+            $query->whereIn('p.product_id', $tabProductIds ?: [0]);
         }
 
         $products = $query->orderBy('p.product_id', 'desc')->paginate(50)->appends($request->except('page'));
@@ -442,6 +476,10 @@ class ShopeeProductGroupController extends Controller
             'q' => $q,
             'syncStatus' => $syncStatus,
             'erpStatus' => $erpStatus,
+            'shopeeTab' => $shopeeTab,
+            'liveCounts' => $liveCounts,
+            'liveCheckedAt' => $liveCheckedAt,
+            'catalogueTotal' => $catalogueTotal,
         ]);
     }
 

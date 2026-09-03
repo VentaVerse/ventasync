@@ -39,9 +39,11 @@ class ShopeeProductLink extends Model
      * @param  array<string, string>  $tabMap  tab key => Shopee item_status
      * @return array<string, int>
      */
-    public static function mirrorCounts(array $tabMap): array
+    /** @param ?int[] $productIds narrow to these products (a group's members) */
+    public static function mirrorCounts(array $tabMap, ?array $productIds = null): array
     {
         $byStatus = static::query()
+            ->when($productIds !== null, fn ($q) => $q->whereIn('product_id', $productIds ?: [0]))
             ->whereNotNull('live_status')
             ->selectRaw('live_status, COUNT(DISTINCT product_id) as n')
             ->groupBy('live_status')

@@ -80,10 +80,20 @@
     @endif
 </div>
 
+{{-- The same Your catalogue / On Shopee strips as the workbench (cleanup
+     point 4, 2026-09-04), counted over this group's members: the product
+     group IS the same as All Products, only filtered by group. --}}
+@include('ext-shopee::products._scope_strips', [
+    'stripRoute' => 'ext.shopee.product-groups.products',
+    'stripParams' => ['id' => $group->id],
+])
+
 {{-- One filter row. The two selects submit on change (data-autosubmit,
      resources/js/list-filters.js) and Clear is a link, because it is
      navigation and not an action. Every parameter name is unchanged. --}}
 <form method="GET" action="{{ $listUrl }}" class="x-filters">
+    {{-- The filter form keeps the strip's tab, same as the workbench. --}}
+    <input type="hidden" name="shopee_tab" value="{{ $shopeeTab ?? 'all' }}">
     <x-ui.input type="search" name="q" class="x-filters__search"
                 value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search products in this product group" />
 
