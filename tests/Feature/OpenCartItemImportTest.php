@@ -231,5 +231,13 @@ class OpenCartItemImportTest extends TestCase
 
         $this->assertStringContainsString('Queued thing', $html);
         $this->assertStringContainsString(route('ext.opencart.products.sync_unmatched', $setting->id), $html);
+
+        // Import selected (the owner, 2026-09-04): the bulk form and the row
+        // checkbox that belongs to it through form="".
+        $this->assertStringContainsString('id="cc-import-selected"', $html);
+        $this->assertStringContainsString(route('ext.opencart.products.import_selected', $setting->id), $html);
+        $this->assertStringContainsString('form="cc-import-selected" name="unmatched_ids[]"', $html);
+        $this->assertStringContainsString('your main catalog', $html,
+            'the confirm copy names the destination in plain words');
     }
 }

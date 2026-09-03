@@ -46,11 +46,25 @@
 
 
     @if($hasUnmatched)
-        <p class="fm-section__note">These items exist on the store but not in the catalog. Import one to create the real product here - details, variations and images included - or link it to a catalog product it already is, or dismiss it.</p>
+        <p class="fm-section__note">These items exist on the store but not in your main catalog. Import one - or tick several and import them together - to create the real product in your main catalog, details, variations and images included; or link it to a catalog product it already is, or dismiss it.</p>
+
+        {{-- Import selected (the owner, 2026-09-04): the checkboxes in the
+             table belong to this form through form="", so one press
+             imports every ticked row, each in its own transaction. --}}
+        <form id="cc-import-selected" method="POST" action="{{ route('ext.venta.products.import_selected', $store) }}"
+              class="cc-import-bulk" data-slow-action
+              data-confirm="Import the selected items into your main catalog?"
+              data-confirm-one="Import the selected item into your main catalog? A real product is created there - name, price, stock, variations and images - and linked. Nothing changes on the store."
+              data-confirm-many="Import the :n selected items into your main catalog? A real product is created there for each one - name, price, stock, variations and images - and linked. Nothing changes on the store."
+              data-confirm-tone="primary" data-confirm-verb="Import">
+            @csrf
+            <x-ui.button type="submit" size="sm" variant="primary" disabled data-import-selected-button>Import selected</x-ui.button>
+        </form>
 
         <x-ui.table>
             <x-slot:head>
                 <tr>
+                    <th scope="col" class="cc-col-check"><input type="checkbox" data-import-check-all aria-label="Select all for import"></th>
                     <th scope="col">Store item</th>
                     <th scope="col" class="cc-col-sku">SKU</th>
                     <th scope="col" class="cc-col-chanid">Item ID</th>
@@ -61,6 +75,9 @@
 
             @foreach($unmatched as $ui)
                 <tr>
+                    <td class="cc-col-check" data-label="Select">
+                        <input type="checkbox" form="cc-import-selected" name="unmatched_ids[]" value="{{ $ui->id }}" data-import-check aria-label="Select {{ $ui->name ?: $ui->sku }} for import">
+                    </td>
                     <td data-label="Store item">
                         <div class="co-item">
                             <div class="cc-thumb cc-thumb--sm">
@@ -113,7 +130,7 @@
                              stays for an item the catalog already has under
                              another SKU; Dismiss stays the rare way out. --}}
                         <form method="POST" action="{{ route('ext.venta.products.import_unmatched', [$store, $ui->id]) }}" data-slow-action
-                              data-confirm="Import this store item into the catalog? A real product is created here - name, price, stock, variations and images - and linked to the store item. Nothing changes on the store." data-confirm-tone="primary" data-confirm-verb="Import">
+                              data-confirm="Import this store item into your main catalog? A real product is created there - name, price, stock, variations and images - and linked to the store item. Nothing changes on the store." data-confirm-tone="primary" data-confirm-verb="Import">
                             @csrf
                             <x-ui.button type="submit" size="sm" variant="primary">Import</x-ui.button>
                         </form>

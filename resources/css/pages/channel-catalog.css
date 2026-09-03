@@ -593,6 +593,10 @@
    listings pages put it. */
 .x-list-head + .cc-unmatched { margin-top: 0; }
 
+/* Import selected: the bulk form sits between the queue note and the table.
+   The button only earns itself once a row is ticked (channel-import.js). */
+.cc-import-bulk { margin-bottom: var(--bl-space-3); }
+
 /* Two head actions (a secondary control beside a primary one). `.x-list-head`
    is a two-child flex, so a page with more than one needs a wrapper, the same
    one pages/settings.css writes as `.st-head-actions` for the same reason. */

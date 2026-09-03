@@ -871,6 +871,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/lazada/products/unmatched/import-selected",
+        "name": "ext.lazada.products.import_selected"
+    },
+    {
+        "method": "POST",
         "uri": "channels/lazada/products/unmatched/sync",
         "name": "ext.lazada.products.sync_unmatched"
     },
@@ -1176,6 +1181,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/opencart/{store}/products/unmatched/import-selected",
+        "name": "ext.opencart.products.import_selected"
+    },
+    {
+        "method": "POST",
         "uri": "channels/opencart/{store}/products/unmatched/sync",
         "name": "ext.opencart.products.sync_unmatched"
     },
@@ -1333,6 +1343,11 @@
         "method": "GET|HEAD",
         "uri": "channels/pedallion/products/search-catalog",
         "name": "ext.pedallion.products.search_catalog"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/products/unmatched/import-selected",
+        "name": "ext.pedallion.products.import_selected"
     },
     {
         "method": "POST",
@@ -1836,6 +1851,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/shopee/{store}/products/unmatched/import-selected",
+        "name": "ext.shopee.products.import_selected"
+    },
+    {
+        "method": "POST",
         "uri": "channels/shopee/{store}/products/unmatched/sync",
         "name": "ext.shopee.products.sync_unmatched"
     },
@@ -2013,6 +2033,11 @@
         "method": "GET|HEAD",
         "uri": "channels/shopify/{store}/products/search-catalog",
         "name": "ext.shopify.products.search_catalog"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopify/{store}/products/unmatched/import-selected",
+        "name": "ext.shopify.products.import_selected"
     },
     {
         "method": "POST",
@@ -2323,6 +2348,11 @@
         "method": "GET|HEAD",
         "uri": "channels/tiktok/products/search-catalog",
         "name": "ext.tiktok.products.search_catalog"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/products/unmatched/import-selected",
+        "name": "ext.tiktok.products.import_selected"
     },
     {
         "method": "POST",
@@ -2723,6 +2753,11 @@
         "method": "GET|HEAD",
         "uri": "channels/venta/{store}/products/search-catalog",
         "name": "ext.venta.products.search_catalog"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/products/unmatched/import-selected",
+        "name": "ext.venta.products.import_selected"
     },
     {
         "method": "POST",

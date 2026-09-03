@@ -170,6 +170,49 @@ class VentaItemImportTest extends TestCase
         $this->assertSame('unmatched', $row->fresh()->status);
     }
 
+    public function test_import_selected_runs_each_row_and_reports_honestly(): void
+    {
+        $setting = $this->store();
+        $this->seedProduct('CLASH-V');
+        $good = VentaUnmatchedItem::create([
+            'venta_setting_id' => $setting->id, 'sku' => 'SEL-1', 'name' => 'Good one', 'status' => 'unmatched',
+        ]);
+        $bad = VentaUnmatchedItem::create([
+            'venta_setting_id' => $setting->id, 'sku' => 'SEL-2', 'name' => 'Clashing one', 'status' => 'unmatched',
+        ]);
+
+        Http::fake([
+            self::BASE . '/api/v1/products/SEL-1/variants' => Http::response(['data' => []]),
+            self::BASE . '/api/v1/products/SEL-1' => Http::response(['data' => [
+                'id' => 81, 'sku' => 'SEL-1', 'name' => 'Good one', 'price' => 100, 'quantity' => 2, 'images' => [],
+            ]]),
+            self::BASE . '/api/v1/products/SEL-2/variants' => Http::response(['data' => [
+                ['sku' => 'CLASH-V', 'name' => 'Red', 'price' => 110, 'quantity' => 1],
+            ]]),
+            self::BASE . '/api/v1/products/SEL-2' => Http::response(['data' => [
+                'id' => 82, 'sku' => 'SEL-2', 'name' => 'Clashing one', 'price' => 100, 'quantity' => 1, 'images' => [],
+            ]]),
+        ]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.venta.products.import_selected', $setting->id), [
+                'unmatched_ids' => [$good->id, $bad->id],
+            ])
+            ->assertRedirect();
+
+        $this->assertStringContainsString('Imported 1 of 2 selected items', session('status'),
+            'a mixed run reports what landed and what did not');
+        $this->assertStringContainsString('Clashing one', session('status'),
+            'the failed row is named, not counted');
+        $this->assertSame('linked', $good->fresh()->status);
+        $this->assertSame('unmatched', $bad->fresh()->status, 'the failed row stays in the queue');
+
+        $pfx = (string) config('catalog.prefix');
+        $this->assertNotNull(DB::table($pfx . 'product')->where('sku', 'SEL-1')->first());
+        $this->assertNull(DB::table($pfx . 'product')->where('sku', 'SEL-2')->first(),
+            'the refused import rolled back alone - it did not take the good one with it');
+    }
+
     public function test_the_import_page_owns_the_queue(): void
     {
         $setting = $this->store();

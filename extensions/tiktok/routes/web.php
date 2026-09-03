@@ -133,6 +133,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         Route::post('/tiktok/products/fetch-attributes', [TikTokProductController::class, 'fetchAttributes'])->name('ext.tiktok.products.fetchAttributes');
         Route::get('/tiktok/products/search-catalog', [TikTokProductController::class, 'searchCatalogProducts'])->name('ext.tiktok.products.search_catalog');
         Route::post('/tiktok/products/unmatched/sync', [TikTokProductController::class, 'syncUnmatchedItems'])->name('ext.tiktok.products.sync_unmatched');
+        Route::post('/tiktok/products/unmatched/import-selected', [TikTokProductController::class, 'importSelectedUnmatched'])->name('ext.tiktok.products.import_selected');
         Route::post('/tiktok/products/unmatched/{unmatchedId}/import', [TikTokProductController::class, 'importUnmatched'])->name('ext.tiktok.products.import_unmatched');
         Route::post('/tiktok/products/unmatched/{unmatchedId}/link', [TikTokProductController::class, 'linkUnmatched'])->name('ext.tiktok.products.link_unmatched');
         Route::post('/tiktok/products/unmatched/{unmatchedId}/dismiss', [TikTokProductController::class, 'dismissUnmatched'])->name('ext.tiktok.products.dismiss_unmatched');

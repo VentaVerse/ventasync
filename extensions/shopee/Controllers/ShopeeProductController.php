@@ -2122,6 +2122,40 @@ class ShopeeProductController extends Controller
         return redirect()->back()->with($r['ok'] ? 'status' : 'error', $r['message']);
     }
 
+    /** Import selected (the owner, 2026-09-04): the single import, per ticked row. */
+    public function importSelectedUnmatched(Request $request, \Extensions\shopee\Services\Shopee\ShopeeItemImport $import)
+    {
+        $data = $request->validate(['unmatched_ids' => 'required|array|min:1|max:100', 'unmatched_ids.*' => 'integer|min:1']);
+
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+            return redirect()->back()->with('error', "Missing Shopee {$modeLabel} settings.");
+        }
+
+        $rows = ShopeeUnmatchedItem::query()
+            ->whereIn('id', $data['unmatched_ids'])->where('status', 'unmatched')->get();
+        if ($rows->isEmpty()) {
+            return redirect()->back()->with('error', 'None of the selected items are still waiting to be imported.');
+        }
+
+        $done = 0;
+        $failed = [];
+        foreach ($rows as $row) {
+            $r = $import->import($auth, (int) $row->shopee_item_id);
+            if ($r['ok'] ?? false) {
+                $done++;
+            } else {
+                $failed[] = ($row->item_name ?: $row->sku) . ': ' . ($r['message'] ?? 'not imported');
+            }
+        }
+
+        $line = \App\Support\BulkImportSummary::line($done, $rows->count(), $failed);
+
+        return redirect()->back()->with($line['tone'], $line['message']);
+    }
+
     public function linkUnmatched(Request $request, int $unmatchedId)
     {
         $request->validate(['product_id' => 'required|integer|min:1']);

@@ -203,6 +203,7 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
         Route::post('/shopee/{store}/products/bulk/delete', [ShopeeProductController::class, 'bulkDeleteFromShopee'])->name('ext.shopee.products.bulk_delete');
         Route::post('/shopee/{store}/products/unmatched/sync', [ShopeeProductController::class, 'syncUnmatchedItems'])->name('ext.shopee.products.sync_unmatched');
         Route::post('/shopee/{store}/products/rebuild-cache', [ShopeeProductController::class, 'rebuildCache'])->name('ext.shopee.products.rebuild_cache');
+        Route::post('/shopee/{store}/products/unmatched/import-selected', [ShopeeProductController::class, 'importSelectedUnmatched'])->name('ext.shopee.products.import_selected');
         Route::post('/shopee/{store}/products/unmatched/{unmatchedId}/import', [ShopeeProductController::class, 'importUnmatched'])->name('ext.shopee.products.import_unmatched');
         Route::post('/shopee/{store}/products/unmatched/{unmatchedId}/link', [ShopeeProductController::class, 'linkUnmatched'])->name('ext.shopee.products.link_unmatched');
         Route::post('/shopee/{store}/products/unmatched/{unmatchedId}/dismiss', [ShopeeProductController::class, 'dismissUnmatched'])->name('ext.shopee.products.dismiss_unmatched');

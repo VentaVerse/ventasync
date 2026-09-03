@@ -61,6 +61,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::get('/venta/{store}/products/import', [VentaListingController::class, 'importPage'])->name('ext.venta.products.import');
     Route::get('/venta/{store}/products/search-catalog', [VentaListingController::class, 'searchCatalog'])->name('ext.venta.products.search_catalog');
     Route::post('/venta/{store}/products/unmatched/sync', [VentaListingController::class, 'syncUnmatched'])->name('ext.venta.products.sync_unmatched');
+    Route::post('/venta/{store}/products/unmatched/import-selected', [VentaListingController::class, 'importSelectedUnmatched'])->whereNumber('store')->name('ext.venta.products.import_selected');
     Route::post('/venta/{store}/products/unmatched/{unmatchedId}/import', [VentaListingController::class, 'importUnmatched'])->whereNumber('unmatchedId')->name('ext.venta.products.import_unmatched');
     Route::post('/venta/{store}/products/unmatched/{unmatchedId}/link', [VentaListingController::class, 'linkUnmatched'])->whereNumber('unmatchedId')->name('ext.venta.products.link_unmatched');
     Route::post('/venta/{store}/products/unmatched/{unmatchedId}/dismiss', [VentaListingController::class, 'dismissUnmatched'])->whereNumber('unmatchedId')->name('ext.venta.products.dismiss_unmatched');

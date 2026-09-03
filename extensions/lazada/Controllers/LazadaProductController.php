@@ -3432,6 +3432,39 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         return redirect()->back()->with($r['ok'] ? 'status' : 'error', $r['message']);
     }
 
+    /** Import selected (the owner, 2026-09-04): the single import, per ticked row. */
+    public function importSelectedUnmatched(Request $request, \Extensions\lazada\Services\Lazada\LazadaItemImport $import)
+    {
+        $data = $request->validate(['unmatched_ids' => 'required|array|min:1|max:100', 'unmatched_ids.*' => 'integer|min:1']);
+
+        $setting = LazadaSetting::query()->first()?->decrypted();
+        $creds = LazadaSetting::activeCredentials($setting);
+        if (!$setting || !$setting->region || !$creds['complete']) {
+            return redirect()->back()->with('error', 'Missing Lazada settings.');
+        }
+
+        $rows = \Extensions\lazada\Models\LazadaUnmatchedItem::query()
+            ->whereIn('id', $data['unmatched_ids'])->where('status', 'unmatched')->get();
+        if ($rows->isEmpty()) {
+            return redirect()->back()->with('error', 'None of the selected items are still waiting to be imported.');
+        }
+
+        $done = 0;
+        $failed = [];
+        foreach ($rows as $row) {
+            $r = $import->import($setting, $creds, (string) $row->lazada_item_id);
+            if ($r['ok'] ?? false) {
+                $done++;
+            } else {
+                $failed[] = ($row->item_name ?: $row->sku) . ': ' . ($r['message'] ?? 'not imported');
+            }
+        }
+
+        $line = \App\Support\BulkImportSummary::line($done, $rows->count(), $failed);
+
+        return redirect()->back()->with($line['tone'], $line['message']);
+    }
+
     public function linkUnmatchedItem(Request $request, int $unmatchedId)
     {
         $request->validate(['product_id' => 'required|integer|min:1']);

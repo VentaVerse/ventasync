@@ -160,6 +160,35 @@ class VentaListingController extends Controller
         return redirect()->back()->with($r['ok'] ? 'status' : 'error', $r['message']);
     }
 
+    /** Import selected (the owner, 2026-09-04): the single import, per ticked row. */
+    public function importSelectedUnmatched(Request $request, int $store, \Extensions\venta\Services\Venta\VentaItemImport $import)
+    {
+        $data = $request->validate(['unmatched_ids' => 'required|array|min:1|max:100', 'unmatched_ids.*' => 'integer|min:1']);
+
+        $setting = VentaSetting::findOrFail($store);
+        $rows = \Extensions\venta\Models\VentaUnmatchedItem::query()
+            ->where('venta_setting_id', $store)
+            ->whereIn('id', $data['unmatched_ids'])->where('status', 'unmatched')->get();
+        if ($rows->isEmpty()) {
+            return redirect()->back()->with('error', 'None of the selected items are still waiting to be imported.');
+        }
+
+        $done = 0;
+        $failed = [];
+        foreach ($rows as $row) {
+            $r = $import->import($setting, $row);
+            if ($r['ok'] ?? false) {
+                $done++;
+            } else {
+                $failed[] = ($row->name ?: $row->sku) . ': ' . ($r['message'] ?? 'not imported');
+            }
+        }
+
+        $line = \App\Support\BulkImportSummary::line($done, $rows->count(), $failed);
+
+        return redirect()->back()->with($line['tone'], $line['message']);
+    }
+
     public function linkUnmatched(Request $request, int $store, int $unmatchedId)
     {
         VentaSetting::findOrFail($store);
