@@ -99,7 +99,13 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                     new MenuItem('Listings', 'ext.shopee.products.index', 'view_shopee/product', null, $p, 'Catalog'),
                     new MenuItem('Presets', 'ext.shopee.product-groups.index', 'view_shopee/product_group', null, $p, 'Catalog'),
                     new MenuItem('Categories', 'ext.shopee.categories.index', 'view_shopee/category', null, $p, 'Catalog'),
-                    new MenuItem('Logistics', 'ext.shopee.logistics.index', 'view_shopee/logistics', null, $p, 'Channel'),
+                    // Catalog, not Channel (the owner, 2026-09-03): the enabled
+                    // couriers ride every listing payload's logistic_info,
+                    // so this is catalogue material even though it feels
+                    // settings-adjacent. Also leaves Settings alone in the
+                    // Channel group, so the menubar renders it as the same
+                    // Settings menu every other channel shows.
+                    new MenuItem('Logistics', 'ext.shopee.logistics.index', 'view_shopee/logistics', null, $p, 'Catalog'),
                     new MenuItem('Settings', 'ext.shopee.settings.show', 'view_shopee/settings', null, $p, 'Channel', children: [
                         ['label' => 'Connection', 'section' => 'connection'],
                         ['label' => 'Status mapping', 'section' => 'status'],
