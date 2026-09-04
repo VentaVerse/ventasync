@@ -111,6 +111,10 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
                 addStore: new \App\Integrations\AddStoreAction(
                     route: 'ext.venta.stores.store',
                     permission: 'manage_venta/settings',
+                    label: 'Add store',
+                    fields: [
+                        ['name' => 'base_url', 'label' => 'Store URL', 'type' => 'url', 'placeholder' => 'https://gearshipper.venta.ph', 'hint' => 'The address of your Venta storefront.'],
+                    ],
                 ),
             ),
         ];

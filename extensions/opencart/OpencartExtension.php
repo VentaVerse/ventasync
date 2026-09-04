@@ -116,6 +116,10 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                 addStore: new \App\Integrations\AddStoreAction(
                     route: 'ext.opencart.stores.store',
                     permission: 'manage_opencart/settings',
+                    label: 'Add store',
+                    fields: [
+                        ['name' => 'base_url', 'label' => 'Store URL', 'type' => 'url', 'placeholder' => 'https://shop.example.com', 'hint' => 'The base address of your OpenCart shop.'],
+                    ],
                 ),
                 stores: $stores,
             ),

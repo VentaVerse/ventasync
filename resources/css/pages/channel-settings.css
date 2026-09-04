@@ -1078,3 +1078,137 @@
     flex-wrap: wrap;
 }
 .cs-inline-form .x-select-wrap { min-width: 190px; }
+
+/* ------------------------------------------------------------------
+   The Add-store modal on the Integrations board (the owner, 2026-09-04).
+   Pick a channel, answer the fewest questions. Rides the shared
+   .modal-backdrop / .modal shell; these are only its own internals.
+   ------------------------------------------------------------------ */
+
+.cs-addmodal {
+    max-width: 520px;
+    padding: 0;
+    text-align: left;
+}
+
+.cs-addmodal__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--bl-space-3);
+    padding: var(--bl-space-4) var(--bl-space-5);
+    border-bottom: 1px solid var(--bl-rule);
+}
+
+.cs-addmodal__title { margin: 0; font-size: 15px; font-weight: 650; }
+
+.cs-addmodal__body { padding: var(--bl-space-5); }
+
+.cs-addmodal__lead {
+    margin: 0 0 var(--bl-space-4);
+    font-size: 13px;
+    color: var(--bl-ink-2);
+}
+
+/* The channel picker: a tile per channel, logo over name. */
+.cs-chgrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+    gap: var(--bl-space-3);
+}
+
+.cs-chtile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--bl-space-2);
+    padding: var(--bl-space-4) var(--bl-space-3);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule-2);
+    border-radius: var(--bl-r-ctrl);
+    font: inherit;
+    color: var(--bl-ink);
+    cursor: pointer;
+    transition: border-color var(--bl-motion-fast), background var(--bl-motion-fast);
+}
+
+.cs-chtile:hover {
+    border-color: var(--bl-brand-deep);
+    background: var(--bl-paper);
+}
+
+.cs-chtile:focus-visible {
+    outline: none;
+    border-color: var(--bl-brand-deep);
+    box-shadow: 0 0 0 2px var(--bl-brand-wash);
+}
+
+.cs-chtile__name { font-size: 13px; font-weight: 550; }
+
+/* The channel logo: an uploaded PNG over a lettered fallback, so a
+   channel with no logo yet still reads (channel-add.js hides a broken
+   image). */
+.ch-logo {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--bl-r-ctrl);
+    background: var(--bl-paper);
+    border: 1px solid var(--bl-rule-2);
+    overflow: hidden;
+}
+
+.ch-logo--sm { width: 34px; height: 34px; }
+
+.ch-logo__ltr {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--bl-ink-3);
+}
+
+.ch-logo__img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 6px;
+    background: var(--bl-paper);
+}
+
+/* Step 2: the short form. */
+.cs-addmodal__back {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: var(--bl-space-4);
+    padding: 0;
+    background: none;
+    border: 0;
+    font: inherit;
+    font-size: 12.5px;
+    color: var(--bl-ink-2);
+    cursor: pointer;
+}
+
+.cs-addmodal__back:hover { color: var(--bl-ink); }
+
+.cs-addform__head {
+    display: flex;
+    align-items: center;
+    gap: var(--bl-space-3);
+    margin-bottom: var(--bl-space-4);
+}
+
+.cs-addform__name { font-size: 14px; font-weight: 600; }
+
+.cs-addmodal__foot {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--bl-space-3);
+    margin-top: var(--bl-space-5);
+}

@@ -2,8 +2,19 @@
 @section('title', 'Integrations')
 
 @section('content')
-<h1 class="x-page-title">Integrations</h1>
-<p class="x-page-sub">Connection health across every sales channel.</p>
+<div class="x-list-head">
+    <div>
+        <h1 class="x-page-title">Integrations</h1>
+        <p class="x-page-sub">Connection health across every sales channel.</p>
+    </div>
+    @if(!empty($addable))
+        <div class="cc-head-actions">
+            <x-ui.button variant="primary" data-add-store-open>
+                <x-ui.icon name="plus" size="14" /> Add store
+            </x-ui.button>
+        </div>
+    @endif
+</div>
 
 <div class="x-board">
     @forelse($channels as $c)
@@ -47,4 +58,8 @@
             description="Enable a marketplace integration on the Extensions page to see its health here." />
     @endforelse
 </div>
+
+@if(!empty($addable))
+    @include('channels._add-store-modal')
+@endif
 @endsection

@@ -715,7 +715,29 @@ class IntegrationController extends Controller
             }
         }
 
-        return view('channels.board', compact('channels'));
+        // The Add-store modal's channel list: every card that declares an
+        // AddStoreAction the operator may use. Name is always asked; the
+        // action's own `fields` carry whatever else a row cannot exist
+        // without (a base URL, a shop domain). Nothing else - credentials
+        // are filled on the store's settings page after it is created.
+        $addable = [];
+        foreach ($cards as $card) {
+            $add = $card->addStore ?? null;
+            if (! $add) {
+                continue;
+            }
+            if ($add->permission && (! $user || ! $user->hasPermission($add->permission))) {
+                continue;
+            }
+            $addable[] = [
+                'id' => $card->id,
+                'name' => $card->name,
+                'route' => route($add->route),
+                'fields' => $add->fields,
+            ];
+        }
+
+        return view('channels.board', compact('channels', 'addable'));
     }
 
     /**

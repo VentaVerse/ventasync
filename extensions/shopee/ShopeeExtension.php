@@ -143,6 +143,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                 addStore: new \App\Integrations\AddStoreAction(
                     route: 'ext.shopee.stores.store',
                     permission: 'manage_shopee/settings',
+                    label: 'Add store',
                 ),
             ),
         ];
