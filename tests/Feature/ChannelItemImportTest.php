@@ -171,7 +171,7 @@ class ChannelItemImportTest extends TestCase
         // and a fetch renders one row per PRODUCT, saved nowhere.
         $html = $this->actingAs($this->manager(['manage_tiktok/product', 'view_tiktok/product']))
             ->get(route('ext.tiktok.products.import'))->assertOk()->getContent();
-        $this->assertStringContainsString('Nothing is fetched yet', $html);
+        $this->assertStringContainsString('Nothing fetched yet', $html);
 
         $html = $this->actingAs($this->manager(['manage_tiktok/product', 'view_tiktok/product']))
             ->get(route('ext.tiktok.products.import', ['fetch' => 1]))->assertOk()->getContent();

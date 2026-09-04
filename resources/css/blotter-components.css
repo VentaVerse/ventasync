@@ -2732,6 +2732,14 @@
         color: var(--bl-ink-3);
     }
 
+    /* The empty-thumbnail placeholder on the import pages: a quiet image
+       glyph, not the word "None" repeated down a column. Muted so a row
+       that HAS a photo is what draws the eye. */
+    .co-item__ph {
+        color: var(--bl-ink-3);
+        opacity: 0.55;
+    }
+
     /* The band that caps each order: buyer and reference on the left,
        created on the right.
 

@@ -37,16 +37,18 @@ document.addEventListener('DOMContentLoaded', function () {
        this only keeps the count honest and the button earned. */
     var bulk = document.getElementById('cc-import-selected');
     if (!bulk) return;
+    var bar = document.querySelector('[data-import-bar]');
+    var count = document.querySelector('[data-import-count]');
     var all = document.querySelector('[data-import-check-all]');
     var boxes = Array.prototype.slice.call(document.querySelectorAll('[data-import-check]'));
-    var button = bulk.querySelector('[data-import-selected-button]');
 
     function refresh() {
         var n = boxes.filter(function (b) { return b.checked; }).length;
-        if (button) {
-            button.disabled = n === 0;
-            button.textContent = n > 0 ? 'Import selected (' + n + ')' : 'Import selected';
-        }
+        // The bar appears only once a row is ticked - the page never
+        // carries a control that does nothing (the products and listings
+        // pages hold the same rule). It rides sticky under the top bar.
+        if (bar) bar.hidden = n === 0;
+        if (count) count.textContent = String(n);
         if (all) {
             all.checked = n > 0 && n === boxes.length;
             all.indeterminate = n > 0 && n < boxes.length;

@@ -210,7 +210,7 @@ class OpenCartItemImportTest extends TestCase
             ->get(route('ext.opencart.products.import', $setting->id))
             ->assertOk()->getContent();
 
-        $this->assertStringContainsString('Nothing is fetched yet', $html);
+        $this->assertStringContainsString('Nothing fetched yet', $html);
         $this->assertStringContainsString('Fetch from One', $html);
         $this->assertStringContainsString('your main catalog', $html,
             'the copy names the destination in plain words');

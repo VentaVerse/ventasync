@@ -84,7 +84,7 @@ class VentaItemImportTest extends TestCase
             ->get(route('ext.venta.products.import', $setting->id))
             ->assertOk()->getContent();
 
-        $this->assertStringContainsString('Nothing is fetched yet', $html);
+        $this->assertStringContainsString('Nothing fetched yet', $html);
         $this->assertStringContainsString('Fetch from One', $html);
         Http::assertNothingSent();
     }

@@ -28,11 +28,11 @@
             @endif
         </p>
     </div>
-    @if($canManage)
+    @if($canManage && ($fetched !== null || $fetchError))
         <div class="cc-head-actions">
             <form method="GET" action="{{ route('ext.opencart.products.import', $store) }}" data-slow-action>
                 <input type="hidden" name="fetch" value="1">
-                <x-ui.button type="submit" variant="{{ $fetched !== null ? 'secondary' : 'primary' }}">{{ $fetched !== null ? 'Fetch again' : 'Fetch from ' . $storeLabel }}</x-ui.button>
+                <x-ui.button type="submit" variant="secondary">Fetch again</x-ui.button>
             </form>
         </div>
     @endif
@@ -44,24 +44,40 @@
     @if($fetchError)
         <p class="fm-section__note fm-section__note--strong">{{ $fetchError }}</p>
     @elseif($fetched === null)
-        <p class="fm-section__note">Nothing is fetched yet. Press Fetch and the store's items are read live and compared against your main catalog's SKUs; anything the catalog cannot place is listed here to import or link. <x-ui.hint label="Why the page starts blank">Nothing from the store is saved on this side, so there is no stale list to mislead you - every visit reads the store as it is right now.</x-ui.hint></p>
+        {{-- The first-run state: an empty state with the Fetch CTA,
+             the detail in a tooltip, not a paragraph in a blank card. --}}
+        <x-ui.empty title="Nothing fetched yet"
+                    description="Fetch reads the store live and compares it against your main catalog. Anything the catalog cannot place is listed here to import or link. Nothing is stored on this side, so every visit reads the store as it is right now.">
+            <x-slot:action>
+                <form method="GET" action="{{ route('ext.opencart.products.import', $store) }}" data-slow-action>
+                    <input type="hidden" name="fetch" value="1">
+                    <x-ui.button type="submit" variant="primary">Fetch from {{ $storeLabel }}</x-ui.button>
+                </form>
+            </x-slot:action>
+        </x-ui.empty>
     @elseif(count($rows) === 0)
-        <p class="fm-section__note">Everything on the store matches a SKU in your main catalog. Nothing to import.</p>
+        <x-ui.empty title="Everything matches"
+                    description="Every item on the store already maps to a SKU in your main catalog. Nothing to import." />
     @else
-        <p class="fm-section__note">These items exist on the store but not in your main catalog. Import one - or tick several and import them together - to create the real product in your main catalog, details, variations and images included; or link it to a catalog product it already is.</p>
+        <p class="fm-section__note">These items exist on the store but not in your main catalog. <x-ui.hint label="How importing works">Import one, or tick several and import them together, to create the real product in your main catalog - details, variations and images included. Or link it to a catalog product it already is.</x-ui.hint></p>
 
         {{-- Import selected: the checkboxes in the table belong to this
              form through form="", so one press imports every ticked row,
              each re-read live and in its own transaction. --}}
-        <form id="cc-import-selected" method="POST" action="{{ route('ext.opencart.products.import_selected', $store) }}"
-              class="cc-import-bulk" data-slow-action
+        {{-- The bar appears only once a row is ticked (channel-import.js),
+             the same rule the products and listings pages hold. --}}
+        <div class="cc-bulkbar" data-import-bar hidden>
+            <span class="cc-bulkbar__count"><span data-import-count>0</span> selected</span>
+            <form id="cc-import-selected" method="POST" action="{{ route('ext.opencart.products.import_selected', $store) }}"
+                  class="cc-bulkbar__actions" data-slow-action
               data-confirm="Import the selected items into your main catalog?"
               data-confirm-one="Import the selected item into your main catalog? A real product is created there - name, price, stock, variations and images - and linked. Nothing changes on the store."
               data-confirm-many="Import the :n selected items into your main catalog? A real product is created there for each one - name, price, stock, variations and images - and linked. Nothing changes on the store."
               data-confirm-tone="primary" data-confirm-verb="Import">
-            @csrf
-            <x-ui.button type="submit" size="sm" variant="primary" disabled data-import-selected-button>Import selected</x-ui.button>
-        </form>
+                @csrf
+                <x-ui.button type="submit" size="sm" variant="primary" data-import-selected-button>Import selected</x-ui.button>
+            </form>
+        </div>
 
         <x-ui.table>
             <x-slot:head>
@@ -82,7 +98,7 @@
                     <td data-label="Store product">
                         <div class="co-item">
                             <div class="cc-thumb cc-thumb--sm">
-                                <span class="co-item__none">None</span>
+                                <x-ui.icon name="image" size="15" class="co-item__ph" />
                                 @if($row['image_url'])
                                     <img src="{{ $row['image_url'] }}" alt="" loading="lazy" decoding="async" data-thumb>
                                 @endif
