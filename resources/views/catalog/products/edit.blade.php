@@ -143,12 +143,13 @@
                         </div>
                     </x-ui.field>
 
-                    <x-ui.field label="Model" name="model">
-                        <x-ui.input id="f-model" name="model" class="fm-input--num" value="{{ old('model', $product->model) }}" />
-                    </x-ui.field>
-
-                    <x-ui.field label="SKU" name="sku">
-                        <x-ui.input id="f-sku" name="sku" class="fm-input--num" value="{{ old('sku', $product->sku) }}" />
+                    {{-- Model retired from the form (the owner, 2026-09-04):
+                         no channel has the concept; the column lives on for
+                         OpenCart's native model and legacy rows. An absent
+                         field never blanks a stored value. --}}
+                    <x-ui.field label="SKU" name="sku" :required="true"
+                                hint="How imports, stock pushes and link repair recognise this product.">
+                        <x-ui.input id="f-sku" name="sku" class="fm-input--num" value="{{ old('sku', $product->sku) }}" required />
                     </x-ui.field>
 
                     <x-ui.field label="Categories" for="category_search" name="category_ids"
@@ -198,7 +199,7 @@
                 <p class="fm-section__note" id="cost-lock-note">Set when a purchase order is received.</p>
 
                 <div class="fm-fields">
-                    <x-ui.field label="Selling price" for="product_price" name="price">
+                    <x-ui.field label="Selling price" for="product_price" name="price" :required="true">
                         <x-ui.input id="product_price" name="price" class="fm-input--num" value="{{ old('price', $trim($product->price)) }}" />
                     </x-ui.field>
                 </div>

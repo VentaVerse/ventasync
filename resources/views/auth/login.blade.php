@@ -49,20 +49,14 @@
             @csrf
 
             <div class="fm-field">
-                <label class="fm-label" for="username">
-                    Username
-                    <span class="fm-req">Required</span>
-                </label>
+                <label class="fm-label" for="username">Username</label>
                 <input class="x-input" id="username" type="text" name="username"
                        value="{{ old('username') }}" required autofocus
                        autocomplete="username" placeholder="Your assigned username">
             </div>
 
             <div class="fm-field">
-                <label class="fm-label" for="password">
-                    Password
-                    <span class="fm-req">Required</span>
-                </label>
+                <label class="fm-label" for="password">Password</label>
                 <input class="x-input" id="password" type="password" name="password"
                        required autocomplete="current-password" placeholder="Your password">
             </div>

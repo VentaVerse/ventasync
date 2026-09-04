@@ -43,7 +43,7 @@
                         {{-- Said in words at label weight, not as a red badge:
                              a column of twenty red badges teaches the operator
                              that red is decoration. --}}
-                        @if(!empty($attribute['required']))<span class="gf-attr__req">Required</span>@endif
+                        @if(!empty($attribute['required']))<span class="gf-attr__req" aria-hidden="true">*</span><span class="x-sr">(required)</span>@endif
                     </label>
                     {{-- Shopee's attribute key is its numeric attribute_id, so
                          a bare "1" under the name says nothing. It is worth

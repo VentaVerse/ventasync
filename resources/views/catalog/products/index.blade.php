@@ -60,9 +60,6 @@
             <option value="">All statuses</option>
             <option value="1" @selected($status === '1')>Enabled</option>
             <option value="0" @selected($status === '0')>Disabled</option>
-            {{-- The backfill surface (#198): the rows the channels refuse
-                 to push, findable in one click so the debt gets paid. --}}
-            <option value="no_parcel" @selected($status === 'no_parcel')>Missing weight or size</option>
         </x-ui.select>
 
         {{-- The sort, as a control the phone can reach: this table

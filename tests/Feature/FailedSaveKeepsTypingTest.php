@@ -52,7 +52,7 @@ class FailedSaveKeepsTypingTest extends TestCase
             'name' => 'Edited product', 'model' => 'KEEP-1', 'sku' => 'KEEP-1',
             'price' => '250.00', 'quantity' => '17', 'status' => '1',
             'weight' => '1', 'length' => '10', 'width' => '10', 'height' => '10',
-            'manufacturer_id' => '0', 'images_json' => '[]',
+            'manufacturer_id' => '0', 'images_json' => '["catalog/demo.jpg"]',
             'description' => 'A dependable test product description that comfortably clears the eighty character floor the marketplaces set.',
             '_options_format' => 'absolute',
         ], $overrides);

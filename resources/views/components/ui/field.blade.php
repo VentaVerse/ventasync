@@ -22,7 +22,7 @@
     @if($label)
         <label class="fm-label" @if($controlId) for="{{ $controlId }}" @endif>
             {{ $label }}
-            @if($required)<span class="fm-req" data-required-marker>Required</span>@endif
+            @if($required)<span class="fm-req" data-required-marker aria-hidden="true">*</span><span class="x-sr">(required)</span>@endif
         </label>
     @endif
 

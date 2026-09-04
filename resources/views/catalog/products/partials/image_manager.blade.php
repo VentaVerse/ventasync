@@ -1,6 +1,14 @@
 @php
-  $pimInitial = $productImages ?? [];
-  $pimToken = $pimToken ?? '';
+  /* A refused save must hand back the images the operator staged
+     (2026-09-04, when at least one image became required): old() wins
+     over the controller's list, and the old pim_token rides along so
+     the temp files the staged paths point at are still the ones
+     finalized. */
+  $pimOld = json_decode((string) old('images_json', ''), true);
+  $pimInitial = is_array($pimOld) && $pimOld !== []
+      ? array_values(array_filter(array_map(fn ($i) => is_array($i) ? (string) ($i['path'] ?? '') : (string) $i, $pimOld)))
+      : ($productImages ?? []);
+  $pimToken = (string) old('pim_token', $pimToken ?? '');
   $pimProductId = (int) ($pimProductId ?? 0);
 @endphp
 
@@ -34,7 +42,7 @@
 
 <section class="fm-section" aria-labelledby="sec-images">
     <div class="fm-section__head">
-        <h2 class="fm-section__title" id="sec-images">Images</h2>
+        <h2 class="fm-section__title" id="sec-images">Images <span class="fm-req" aria-hidden="true">*</span><span class="x-sr">(required)</span></h2>
         <x-ui.hint label="How image order works">Drag a tile to reorder. The first image is the one the
             catalog and the marketplaces show, and it is marked Main.</x-ui.hint>
         <div class="fm-section__aside">
@@ -50,6 +58,7 @@
 
         <div class="fm-img__grid" id="pimGrid"></div>
         <div class="fm-img__empty" id="pimEmpty">No images yet. Browse the library to add some.</div>
+        @error('images_json')<div class="fm-error">{{ $message }}</div>@enderror
     </div>
 </section>
 

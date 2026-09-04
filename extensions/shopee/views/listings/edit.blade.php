@@ -541,7 +541,7 @@
                 </div>
 
                 <div class="fm-card">
-                    <div class="fm-card__head" id="sl-couriers"><h2 class="fm-card__title">Couriers <span class="fm-req">Required</span></h2></div>
+                    <div class="fm-card__head" id="sl-couriers"><h2 class="fm-card__title">Couriers <span class="fm-req" aria-hidden="true">*</span><span class="x-sr">(required)</span></h2></div>
                     <div class="fm-card__body">
                         @if($errors->has('logistic_ids'))
                             <div class="fm-error">{{ $errors->first('logistic_ids') }}</div>

@@ -49,7 +49,7 @@
                 <div class="gf-attr__label">
                     <label class="gf-attr__name" for="{{ $controlId }}">
                         {{ $attribute['name'] }}
-                        @if(!empty($attribute['required']))<span class="gf-attr__req">Required</span>@endif
+                        @if(!empty($attribute['required']))<span class="gf-attr__req" aria-hidden="true">*</span><span class="x-sr">(required)</span>@endif
                     </label>
                     <span class="gf-attr__key">{{ $key }}</span>
                 </div>

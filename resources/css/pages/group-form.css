@@ -448,16 +448,17 @@
     word-break: break-all;
 }
 
-/* Mandatory is said in words at label weight, not as a red badge.
-   Twenty red badges down one column teaches the operator that red is
-   decoration. Deliberately identical to .fm-req, which is the marker
-   every other required field in this system carries: the same fact
-   should not be shouted here and murmured there. */
+/* Mandatory is the asterisk every form taught (the owner, 2026-09-04) -
+   deliberately identical to .fm-req, which is the marker every other
+   required field in this system carries: the same fact should not be
+   shouted here and murmured there. Muted rather than attn here, because
+   twenty attention-coloured stars down one attribute column would teach
+   the operator that the colour is decoration. */
 .gf-attr__req {
-    margin-left: var(--bl-space-2);
+    margin-left: 2px;
     color: var(--bl-ink-3);
-    font-size: 11px;
-    font-weight: 400;
+    font-size: 13px;
+    font-weight: 700;
 }
 
 .gf-attr__control { min-width: 0; }

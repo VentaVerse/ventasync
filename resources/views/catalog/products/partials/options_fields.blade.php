@@ -30,7 +30,7 @@
                 <div class="fm-vars__head">
                     <div class="fm-field">
                         <label class="fm-label" for="opt1-name-input">
-                            Variation 1 <span class="fm-req">Required</span>
+                            Variation 1 <span class="fm-req" aria-hidden="true">*</span><span class="x-sr">(required)</span>
                         </label>
                         <input class="x-input" id="opt1-name-input" placeholder="Colour, cable length" autocomplete="off">
                     </div>
@@ -63,7 +63,7 @@
                 <div class="fm-vars__head">
                     <div class="fm-field">
                         <label class="fm-label" for="opt2-name-input">
-                            Variation 2 <span class="fm-req">Required</span>
+                            Variation 2 <span class="fm-req" aria-hidden="true">*</span><span class="x-sr">(required)</span>
                         </label>
                         <input class="x-input" id="opt2-name-input" placeholder="Size, plug type" autocomplete="off">
                     </div>

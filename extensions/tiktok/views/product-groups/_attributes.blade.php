@@ -26,7 +26,7 @@
                 <div class="gf-attr__label">
                     <label class="gf-attr__name" for="{{ $controlId }}">
                         {{ $row['name'] }}
-                        @if($row['required'])<span class="gf-attr__req">Required</span>@endif
+                        @if($row['required'])<span class="gf-attr__req" aria-hidden="true">*</span><span class="x-sr">(required)</span>@endif
                     </label>
                     <span class="gf-attr__key">TikTok attribute {{ $key }}</span>
                 </div>

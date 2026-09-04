@@ -72,7 +72,7 @@ class BackToTheSearchTest extends TestCase
             'name' => 'Search me too', 'model' => 'BTS-2', 'sku' => 'BTS-2',
             'price' => '300', 'quantity' => '5', 'status' => '1',
             'weight' => '1', 'length' => '10', 'width' => '10', 'height' => '10',
-            'manufacturer_id' => '0', 'images_json' => '[]',
+            'manufacturer_id' => '0', 'images_json' => '["catalog/demo.jpg"]',
             'description' => 'A dependable test product description that comfortably clears the eighty character floor the marketplaces set.',
             '_return' => '/catalog/products?q=Search+me+too&page=2',
         ]);
@@ -108,7 +108,7 @@ class BackToTheSearchTest extends TestCase
             'name' => 'Do not follow', 'model' => 'BTS-3', 'sku' => 'BTS-3',
             'price' => '300', 'quantity' => '5', 'status' => '1',
             'weight' => '1', 'length' => '10', 'width' => '10', 'height' => '10',
-            'manufacturer_id' => '0', 'images_json' => '[]',
+            'manufacturer_id' => '0', 'images_json' => '["catalog/demo.jpg"]',
             'description' => 'A dependable test product description that comfortably clears the eighty character floor the marketplaces set.',
             '_return' => 'https://evil.example/phish',
         ]);

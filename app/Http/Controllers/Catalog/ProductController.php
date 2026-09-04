@@ -274,15 +274,6 @@ $q = trim((string) $request->get('q', ''));
     $status = (string) $request->input('status', '');
     if ($status === '0' || $status === '1') {
         $query->where('p.status', (int) $status);
-    } elseif ($status === 'no_parcel') {
-        /* The backfill surface (#198): every row the channels would refuse
-         * for a missing weight or size, in one filtered list. */
-        $query->where(function ($sub) {
-            $sub->where('p.weight', '<=', 0)
-                ->orWhere('p.length', '<=', 0)
-                ->orWhere('p.width', '<=', 0)
-                ->orWhere('p.height', '<=', 0);
-        });
     }
 
 if ($q !== '') {
@@ -552,36 +543,29 @@ public function store(Request $request)
         $pfxProduct = $pfx . 'product';
 
         $request->validate([
-            /* WHAT A PRODUCT ACTUALLY NEEDS TO EXIST IS A NAME - and, since
-             * 2026-09-03, A PARCEL (#198): every channel refuses a push
-             * without weight and dimensions, so they earn what model, price
-             * and quantity never did. Amended by the owner during the rebuild
-             * review; the original decision below stands for the rest.
+            /* WHAT A PRODUCT NEEDS TO EXIST is what the channels need to
+             * LIST it (the owner, settled across 2026-09-03/04, reversing the
+             * 2026-08-21 minimalism): a name, a SKU, a real description, a
+             * price above zero, a parcel and at least one photo. Every one
+             * of these is something Shopee, Lazada or TikTok refuses a
+             * listing without - or, for the SKU, something this system's
+             * own matching (imports, stock pushes, link repair) is blind
+             * without, and Lazada's SellerSku is mandatory besides.
              *
-             * Model, SKU, price and quantity were all required, and none of
-             * them earns it:
+             * What is NOT required, and why:
              *
-             *   model     the owner does not want the field at all. It exists
-             *             because Lazada and Shopee have one, and the channel
-             *             mapping fills that in - so a blank model here is a
-             *             normal state, not a half-finished record.
-             *   sku       plenty of catalog lines never get one. UniqueSku
-             *             was already written to pass on an empty value, so
-             *             the rule and the requirement have disagreed for as
-             *             long as both existed.
-             *   price     a product being set up before it is priced is an
-             *             ordinary Tuesday. Null means zero, which is what
-             *             the column holds anyway.
-             *   quantity  same, and on a product with variations it is not
-             *             even editable - it is the sum of the rows below.
-             *
-             * Requiring a field is a claim that the record is meaningless
-             * without it. That is true of the name and of nothing else here.
+             *   model     retired from the form entirely - no channel has
+             *             the concept (Shopee's model_sku is a variation
+             *             SKU). The column stays for OpenCart's native
+             *             model and legacy rows; API callers may still
+             *             send it.
+             *   quantity  on a product with variations it is not even
+             *             editable - it is the sum of the rows below.
              */
             'name' => 'required|string|max:255',
             'model' => 'nullable|string|max:64',
-            'sku' => ['nullable', 'string', 'max:64', new UniqueSku()],
-            'price' => 'nullable|numeric',
+            'sku' => ['required', 'string', 'max:64', new UniqueSku()],
+            'price' => 'required|numeric|gt:0',
             'cost_amount' => 'nullable|numeric',
             'cost_percentage' => 'nullable|numeric',
             'cost_additional' => 'nullable|numeric',
@@ -610,7 +594,7 @@ public function store(Request $request)
              * channels this catalog exists to feed is not saved half-made
              * and repaired at push time. */
             'description' => ['required', 'string', new \App\Rules\MinPlainTextLength(80)],
-            'images_json' => 'nullable|string',
+            'images_json' => ['required', 'string', new \App\Rules\HasAtLeastOneImage()],
 
             'options' => 'array',
             'options.*.option_id' => 'required|integer|min:1',
@@ -628,6 +612,10 @@ public function store(Request $request)
             'options.*.values.*.cost_percentage' => 'nullable|numeric',
             'options.*.values.*.cost_additional' => 'nullable|numeric',
         ], [
+            'sku.required' => 'A SKU is needed - it is how imports, stock pushes and link repair recognise this product, and Lazada refuses a listing without one.',
+            'price.required' => 'A price above zero is needed - a listing pushed without one goes live at zero.',
+            'price.gt' => 'The price must be more than zero - a listing pushed at zero sells at zero.',
+            'images_json.required' => 'At least one product photo is needed - Shopee, Lazada and TikTok all refuse a listing without one.',
             'weight.required' => 'A package weight is needed - Shopee, Lazada and TikTok all refuse a push without one.',
             'weight.gt' => 'The package weight must be more than zero - the channels refuse a weightless package.',
             'length.required' => 'The package size (L×W×H) is needed - the channels refuse a push without it.',
@@ -1168,32 +1156,29 @@ public function store(Request $request)
         $pfxProduct = config('catalog.prefix') . 'product';
 
         $request->validate([
-            /* WHAT A PRODUCT ACTUALLY NEEDS TO EXIST IS A NAME.
+            /* WHAT A PRODUCT NEEDS TO EXIST is what the channels need to
+             * LIST it (the owner, settled across 2026-09-03/04, reversing the
+             * 2026-08-21 minimalism): a name, a SKU, a real description, a
+             * price above zero, a parcel and at least one photo. Every one
+             * of these is something Shopee, Lazada or TikTok refuses a
+             * listing without - or, for the SKU, something this system's
+             * own matching (imports, stock pushes, link repair) is blind
+             * without, and Lazada's SellerSku is mandatory besides.
              *
-             * Model, SKU, price and quantity were all required, and none of
-             * them earns it:
+             * What is NOT required, and why:
              *
-             *   model     the owner does not want the field at all. It exists
-             *             because Lazada and Shopee have one, and the channel
-             *             mapping fills that in - so a blank model here is a
-             *             normal state, not a half-finished record.
-             *   sku       plenty of catalog lines never get one. UniqueSku
-             *             was already written to pass on an empty value, so
-             *             the rule and the requirement have disagreed for as
-             *             long as both existed.
-             *   price     a product being set up before it is priced is an
-             *             ordinary Tuesday. Null means zero, which is what
-             *             the column holds anyway.
-             *   quantity  same, and on a product with variations it is not
-             *             even editable - it is the sum of the rows below.
-             *
-             * Requiring a field is a claim that the record is meaningless
-             * without it. That is true of the name and of nothing else here.
+             *   model     retired from the form entirely - no channel has
+             *             the concept (Shopee's model_sku is a variation
+             *             SKU). The column stays for OpenCart's native
+             *             model and legacy rows; API callers may still
+             *             send it.
+             *   quantity  on a product with variations it is not even
+             *             editable - it is the sum of the rows below.
              */
             'name' => 'required|string|max:255',
             'model' => 'nullable|string|max:64',
-            'sku' => ['nullable', 'string', 'max:64', new UniqueSku((int) $id)],
-            'price' => 'nullable|numeric',
+            'sku' => ['required', 'string', 'max:64', new UniqueSku((int) $id)],
+            'price' => 'required|numeric|gt:0',
             'cost_amount' => 'nullable|numeric',
             'cost_percentage' => 'nullable|numeric',
             'cost_additional' => 'nullable|numeric',
@@ -1222,7 +1207,7 @@ public function store(Request $request)
              * channels this catalog exists to feed is not saved half-made
              * and repaired at push time. */
             'description' => ['required', 'string', new \App\Rules\MinPlainTextLength(80)],
-            'images_json' => 'nullable|string',
+            'images_json' => ['required', 'string', new \App\Rules\HasAtLeastOneImage()],
 
             'options' => 'array',
             'options.*.option_id' => 'required|integer|min:1',
@@ -1239,6 +1224,19 @@ public function store(Request $request)
             'options.*.values.*.cost_amount' => 'nullable|numeric',
             'options.*.values.*.cost_percentage' => 'nullable|numeric',
             'options.*.values.*.cost_additional' => 'nullable|numeric',
+        ], [
+            'sku.required' => 'A SKU is needed - it is how imports, stock pushes and link repair recognise this product, and Lazada refuses a listing without one.',
+            'price.required' => 'A price above zero is needed - a listing pushed without one goes live at zero.',
+            'price.gt' => 'The price must be more than zero - a listing pushed at zero sells at zero.',
+            'images_json.required' => 'At least one product photo is needed - Shopee, Lazada and TikTok all refuse a listing without one.',
+            'weight.required' => 'A package weight is needed - Shopee, Lazada and TikTok all refuse a push without one.',
+            'weight.gt' => 'The package weight must be more than zero - the channels refuse a weightless package.',
+            'length.required' => 'The package size (L×W×H) is needed - the channels refuse a push without it.',
+            'width.required' => 'The package size (L×W×H) is needed - the channels refuse a push without it.',
+            'height.required' => 'The package size (L×W×H) is needed - the channels refuse a push without it.',
+            'length.gt' => 'Each package dimension must be more than zero.',
+            'width.gt' => 'Each package dimension must be more than zero.',
+            'height.gt' => 'Each package dimension must be more than zero.',
         ]);
 
         /* BEFORE ANYTHING WRITES (#185): the option-SKU gate used to fire
@@ -1290,7 +1288,12 @@ public function store(Request $request)
              * The field only exists because Lazada and Shopee have one, and
              * the channel mapping supplies it there. Empty is a real answer
              * here, so it is recorded as one. */
-            $p->model = trim((string) ($request->input('model') ?? ''));
+            /* The form retired the field (2026-09-04); only a caller that
+             * actually sends model may change it, and an absent key leaves
+             * a legacy value alone rather than blanking it. */
+            if ($request->has('model')) {
+                $p->model = trim((string) ($request->input('model') ?? ''));
+            }
             $p->sku = $request->sku ?? '';
 
             $newProductSku = trim((string) $p->sku);

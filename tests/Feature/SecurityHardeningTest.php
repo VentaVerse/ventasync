@@ -270,6 +270,7 @@ class SecurityHardeningTest extends TestCase
             'status' => 1,
             'weight' => '0.5', 'length' => '10', 'width' => '5', 'height' => '3',
             'description' => 'A dependable test product description that comfortably clears the eighty character floor the marketplaces set.',
+            'images_json' => '["catalog/demo.jpg"]',
             '_return' => $returnUrl,
         ];
     }
@@ -384,6 +385,7 @@ class SecurityHardeningTest extends TestCase
             'status' => 1,
             'weight' => '0.5', 'length' => '10', 'width' => '5', 'height' => '3',
             'description' => $this->xssAndLegitPayload(),
+            'images_json' => '["catalog/demo.jpg"]',
         ]);
 
         $response->assertRedirect(route('products.index'));
