@@ -166,7 +166,7 @@ class LazadaVoucherController extends Controller
     /** @return array{0: ?object, 1: array} the decrypted setting row and its active credentials */
     private function creds(): array
     {
-        $setting = LazadaSetting::query()->first();
+        $setting = LazadaSetting::defaultStore();
         $decrypted = $setting?->decrypted();
         $creds = LazadaSetting::activeCredentials($decrypted);
         if ($setting && !$setting->region) {

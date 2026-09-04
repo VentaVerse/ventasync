@@ -92,6 +92,37 @@ class LazadaSetting extends Model
      * Expects $this to be the decrypted() result. Calling on an encrypted
      * row returns ciphertext, which Lazada will reject as InvalidSignature.
      */
+    /**
+     * The store the request is standing in (bound by ResolveLazadaStore from
+     * the {store} route segment) outranks the first-enabled fallback: on a
+     * store page, "the store" is never ambiguous. Off a store page - the
+     * OAuth callback, a cron command - it is the first enabled store.
+     *
+     * This is what the ~100 LazadaSetting::first() call sites became on the
+     * multi-store conversion (the owner 2026-09-05): a storeless context keeps
+     * the old behaviour, a store-scoped one gets the right row.
+     */
+    public static function defaultStore(): ?self
+    {
+        if (app()->bound('lazada.route-store')) {
+            return app('lazada.route-store');
+        }
+
+        return static::query()->where('enabled', true)->orderBy('id')->first();
+    }
+
+    /** Every store, enabled or not - the Integrations card's store list. */
+    public static function allStores(): \Illuminate\Support\Collection
+    {
+        return static::query()->orderBy('id')->get();
+    }
+
+    /** Every enabled store - what the sync and cron paths iterate. */
+    public static function enabledStores(): \Illuminate\Support\Collection
+    {
+        return static::query()->where('enabled', true)->orderBy('id')->get();
+    }
+
     public static function activeCredentials(?object $setting): array
     {
         if (!$setting) {

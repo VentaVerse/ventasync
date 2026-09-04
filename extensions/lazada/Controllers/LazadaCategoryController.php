@@ -42,7 +42,7 @@ class LazadaCategoryController extends Controller
 
     public function fetch(Request $request, LazadaClient $client)
     {
-        $setting = LazadaSetting::query()->first()?->decrypted();
+        $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
             return redirect()->route('ext.lazada.categories.index')->with('error', 'Missing Lazada settings. Please configure Region, App Key, and App Secret first.');

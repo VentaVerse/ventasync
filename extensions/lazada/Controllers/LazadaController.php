@@ -87,7 +87,7 @@ class LazadaController extends Controller
 
     public function index()
     {
-        $setting = LazadaSetting::query()->first();
+        $setting = LazadaSetting::defaultStore();
 
         // #200: the shared log panel - errors-only and path filters, paged.
         $logs = \App\Support\ApiLogPanel::paginate(
@@ -239,7 +239,7 @@ class LazadaController extends Controller
     public function setApiLogMode(Request $request)
     {
         $data = $request->validate(['mode' => 'required|in:' . implode(',', \App\Support\ApiLogMode::MODES)]);
-        $setting = LazadaSetting::query()->first();
+        $setting = LazadaSetting::defaultStore();
         if (!$setting) {
             return back()->with('error', 'Lazada settings not found.');
         }
@@ -304,7 +304,7 @@ class LazadaController extends Controller
             'params_json' => 'nullable|string|max:20000',
         ]);
 
-        $setting = LazadaSetting::query()->first()?->decrypted();
+        $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
             return redirect()->route('ext.lazada.index')->with('lazada_result', [
@@ -635,7 +635,7 @@ class LazadaController extends Controller
             }
         }
 
-        $setting = LazadaSetting::query()->first()?->decrypted();
+        $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
             return redirect()->route('ext.lazada.index')->with('lazada_result', [
@@ -928,7 +928,7 @@ class LazadaController extends Controller
             'sandbox_app_secret' => 'nullable|string|max:255',
         ]);
 
-        $setting = LazadaSetting::query()->first() ?? new LazadaSetting();
+        $setting = LazadaSetting::defaultStore() ?? new LazadaSetting();
 
         $setting->region = $data['region'] ?? null;
 
@@ -956,7 +956,7 @@ class LazadaController extends Controller
     public function toggleMode(Request $request)
     {
         $data = $request->validate(['mode' => 'required|in:live,sandbox']);
-        $setting = LazadaSetting::query()->first() ?? new LazadaSetting();
+        $setting = LazadaSetting::defaultStore() ?? new LazadaSetting();
         $setting->mode = $data['mode'];
         $setting->save();
 
@@ -965,7 +965,7 @@ class LazadaController extends Controller
 
     public function redirectToAuth(Request $request, LazadaClient $client)
     {
-        $setting = LazadaSetting::query()->first()?->decrypted();
+        $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         // ?sandbox=1 from "Authorize Sandbox" button forces sandbox mode.
         // Otherwise the mode toggle (`$setting->mode`) decides.
@@ -1034,7 +1034,7 @@ class LazadaController extends Controller
         // Persist the auth code so it's visible in the UI even if token exchange fails.
         if ($code !== '') {
             try {
-                $rawForCode = LazadaSetting::query()->first() ?? new LazadaSetting();
+                $rawForCode = LazadaSetting::defaultStore() ?? new LazadaSetting();
                 if ($isSandbox) {
                     $rawForCode->sandbox_auth_code = encrypt($code);
                 } else {
@@ -1054,7 +1054,7 @@ class LazadaController extends Controller
 
         // Auto token exchange to complete the POC when settings are present.
         $tokenResult = null;
-        $setting = LazadaSetting::query()->first()?->decrypted();
+        $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         $appKey = $isSandbox ? ($setting->sandbox_app_key ?? null) : ($creds['app_key'] ?? null);
         $appSecret = $isSandbox ? ($setting->sandbox_app_secret ?? null) : ($creds['app_secret'] ?? null);
@@ -1068,7 +1068,7 @@ class LazadaController extends Controller
                 $expiresIn = $tokenResult['body']['expires_in'] ?? null;
                 $refreshExpiresIn = $tokenResult['body']['refresh_expires_in'] ?? null;
 
-                $raw = LazadaSetting::query()->first() ?? new LazadaSetting();
+                $raw = LazadaSetting::defaultStore() ?? new LazadaSetting();
 
                 if ($isSandbox) {
                     if ($access) {
@@ -1140,7 +1140,7 @@ class LazadaController extends Controller
             'sandbox' => 'nullable|in:0,1',
         ]);
 
-        $setting = LazadaSetting::query()->first()?->decrypted();
+        $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         // The form may carry an explicit `sandbox` flag (the sandbox tab posts
         // <input name="sandbox" value="1">). Otherwise fall back to the mode toggle.
@@ -1169,7 +1169,7 @@ class LazadaController extends Controller
             $expiresIn = $result['body']['expires_in'] ?? null;
             $refreshExpiresIn = $result['body']['refresh_expires_in'] ?? null;
 
-            $raw = LazadaSetting::query()->first() ?? new LazadaSetting();
+            $raw = LazadaSetting::defaultStore() ?? new LazadaSetting();
 
             if ($isSandbox) {
                 if ($access) $raw->sandbox_access_token = encrypt((string)$access);
@@ -1202,7 +1202,7 @@ class LazadaController extends Controller
 
     public function tokenRefresh(Request $request, LazadaClient $client)
     {
-        $setting = LazadaSetting::query()->first()?->decrypted();
+        $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         $isSandbox = $request->has('sandbox')
             ? $request->boolean('sandbox')
@@ -1240,7 +1240,7 @@ class LazadaController extends Controller
             $access = $result['body']['access_token'] ?? null;
             $expiresIn = $result['body']['expires_in'] ?? null;
 
-            $raw = LazadaSetting::query()->first();
+            $raw = LazadaSetting::defaultStore();
             if ($raw && $access) {
                 if ($isSandbox) {
                     $raw->sandbox_access_token = encrypt((string)$access);
@@ -1284,7 +1284,7 @@ class LazadaController extends Controller
             'expires_in_days'      => 'nullable|integer|min:1|max:365',
         ]);
 
-        $setting = LazadaSetting::query()->first() ?? new LazadaSetting();
+        $setting = LazadaSetting::defaultStore() ?? new LazadaSetting();
 
         // Saving a sandbox token implies the user wants to be in sandbox mode.
         // Matches the same auto-sync we did for the env-driven settings save.
@@ -1306,7 +1306,7 @@ class LazadaController extends Controller
             'api_path' => 'required|string',
         ]);
 
-        $setting = LazadaSetting::query()->first()?->decrypted();
+        $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->route('ext.lazada.index')->with('lazada_result', [
@@ -1362,7 +1362,7 @@ class LazadaController extends Controller
      */
     public function categoryTree(LazadaClient $client)
     {
-        $setting = LazadaSetting::query()->first()?->decrypted();
+        $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
             return redirect()->route('ext.lazada.index')->with('lazada_result', [
@@ -1420,7 +1420,7 @@ class LazadaController extends Controller
             'category_id' => 'required|integer|min:1',
         ]);
 
-        $setting = LazadaSetting::query()->first()?->decrypted();
+        $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
             return redirect()->route('ext.lazada.index')->with('lazada_result', [
@@ -1480,7 +1480,7 @@ class LazadaController extends Controller
             'page_size' => 'nullable|integer|min:1|max:200',
         ]);
 
-        $setting = LazadaSetting::query()->first()?->decrypted();
+        $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
             return redirect()->route('ext.lazada.index')->with('lazada_result', [
@@ -1540,7 +1540,7 @@ class LazadaController extends Controller
             'seller_sku' => 'required|string|max:255',
         ]);
 
-        $setting = LazadaSetting::query()->first()?->decrypted();
+        $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->route('ext.lazada.index')->with('lazada_result', [
@@ -1636,7 +1636,7 @@ class LazadaController extends Controller
             'description' => 'nullable|string|max:20000',
         ]);
 
-        $setting = LazadaSetting::query()->first()?->decrypted();
+        $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->route('ext.lazada.index')->with('lazada_result', [
@@ -1916,7 +1916,7 @@ class LazadaController extends Controller
             'offset' => 'nullable|integer|min:0|max:5000',
         ]);
 
-        $setting = LazadaSetting::query()->first()?->decrypted();
+        $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->route('ext.lazada.index')->with('lazada_result', [
@@ -1959,7 +1959,7 @@ class LazadaController extends Controller
             'order_id' => 'required|string|max:64',
         ]);
 
-        $setting = LazadaSetting::query()->first()?->decrypted();
+        $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->route('ext.lazada.index')->with('lazada_result', [
@@ -1995,7 +1995,7 @@ class LazadaController extends Controller
             'order_item_ids' => 'required|string|max:2000', // comma-separated
         ]);
 
-        $setting = LazadaSetting::query()->first()?->decrypted();
+        $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->route('ext.lazada.index')->with('lazada_result', [
