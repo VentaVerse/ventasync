@@ -73,6 +73,7 @@ class BackToTheSearchTest extends TestCase
             'price' => '300', 'quantity' => '5', 'status' => '1',
             'weight' => '1', 'length' => '10', 'width' => '10', 'height' => '10',
             'manufacturer_id' => '0', 'images_json' => '[]',
+            'description' => 'A dependable test product description that comfortably clears the eighty character floor the marketplaces set.',
             '_return' => '/catalog/products?q=Search+me+too&page=2',
         ]);
 
@@ -108,6 +109,7 @@ class BackToTheSearchTest extends TestCase
             'price' => '300', 'quantity' => '5', 'status' => '1',
             'weight' => '1', 'length' => '10', 'width' => '10', 'height' => '10',
             'manufacturer_id' => '0', 'images_json' => '[]',
+            'description' => 'A dependable test product description that comfortably clears the eighty character floor the marketplaces set.',
             '_return' => 'https://evil.example/phish',
         ]);
 

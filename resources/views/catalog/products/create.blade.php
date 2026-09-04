@@ -94,7 +94,8 @@
                         </div>
                     </x-ui.field>
 
-                    <x-ui.field label="Description" name="description" wide>
+                    <x-ui.field label="Description" name="description" wide :required="true"
+                                hint="At least 80 characters of actual text - the strictest marketplace bar (TikTok), and comfortably past Shopee's 25.">
                         {{-- Escaped, not {!! !!}. A textarea's contents are
                              parsed as character data, so escaping is what makes
                              the stored HTML round-trip intact; the raw echo the

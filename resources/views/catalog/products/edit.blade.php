@@ -173,7 +173,8 @@
                         </div>
                     </x-ui.field>
 
-                    <x-ui.field label="Description" name="description" wide>
+                    <x-ui.field label="Description" name="description" wide :required="true"
+                                hint="At least 80 characters of actual text - the strictest marketplace bar (TikTok), and comfortably past Shopee's 25.">
                         {{-- Escaped, not {!! !!}: a textarea's contents are
                              character data, so escaping is what makes stored
                              HTML round-trip intact. The raw echo this view
@@ -334,16 +335,16 @@
                         </div>
                     @endif
                     <div class="fm-fields fm-fields--2">
-                        <x-ui.field label="Weight" name="weight">
+                        <x-ui.field label="Weight" name="weight" :required="true">
                             <x-ui.input id="f-weight" name="weight" class="fm-input--num" value="{{ old('weight', $trim($product->weight ?? '0')) }}" placeholder="0.5" />
                         </x-ui.field>
-                        <x-ui.field label="Length" name="length">
+                        <x-ui.field label="Length" name="length" :required="true">
                             <x-ui.input id="f-length" name="length" class="fm-input--num" value="{{ old('length', $trim($product->length ?? '0')) }}" placeholder="10" />
                         </x-ui.field>
-                        <x-ui.field label="Width" name="width">
+                        <x-ui.field label="Width" name="width" :required="true">
                             <x-ui.input id="f-width" name="width" class="fm-input--num" value="{{ old('width', $trim($product->width ?? '0')) }}" placeholder="5" />
                         </x-ui.field>
-                        <x-ui.field label="Height" name="height">
+                        <x-ui.field label="Height" name="height" :required="true">
                             <x-ui.input id="f-height" name="height" class="fm-input--num" value="{{ old('height', $trim($product->height ?? '0')) }}" placeholder="3" />
                         </x-ui.field>
                     </div>

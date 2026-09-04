@@ -575,9 +575,9 @@ public function store(Request $request)
             // Physical attributes (needed for marketplace payloads e.g. Lazada)
             /* The parcel is required at birth (#198, the owner): Shopee, Lazada
              * and TikTok all refuse a push without it, and #191's preflight
-             * only catches the gap later. Existing rows with zeros keep
-             * saving (never hold a save hostage to untouched fields) - the
-             * Missing-parcel filter below is how that debt gets worked. */
+             * only catches the gap later. Since 2026-09-04 update() enforces
+             * the same rule, so a legacy zero gets filled the next time
+             * anyone touches the product. */
             'weight' => 'required|numeric|gt:0',
             'length' => 'required|numeric|gt:0',
             'width'  => 'required|numeric|gt:0',
@@ -589,7 +589,13 @@ public function store(Request $request)
             'category_ids.*' => 'integer|min:1',
             'category_id' => 'nullable|integer',
             'category_name' => 'nullable|string|max:1024',
-            'description' => 'nullable|string',
+            /* Required at the strictest marketplace's bar (#198 follow-up,
+             * the owner 2026-09-04): TikTok's listing-quality floor is 80
+             * characters of text, Shopee's hard minimum is about 25,
+             * Lazada publishes none. A product that cannot list on the
+             * channels this catalog exists to feed is not saved half-made
+             * and repaired at push time. */
+            'description' => ['required', 'string', new \App\Rules\MinPlainTextLength(80)],
             'images_json' => 'nullable|string',
 
             'options' => 'array',
@@ -1178,11 +1184,16 @@ public function store(Request $request)
             'cost_percentage' => 'nullable|numeric',
             'cost_additional' => 'nullable|numeric',
             'quantity' => 'nullable|integer',
-            // Physical attributes (needed for marketplace payloads e.g. Lazada)
-            'weight' => 'nullable|numeric',
-            'length' => 'nullable|numeric',
-            'width'  => 'nullable|numeric',
-            'height' => 'nullable|numeric',
+            /* The parcel is required on EVERY save now, not only at birth
+             * (the owner, 2026-09-04, reversing #198's edit carve-out): the
+             * goal is that a push can never fail on a missing parcel, and
+             * an edit is exactly the moment the owner is looking at the
+             * product. Legacy rows with zeros get filled the next time
+             * anyone touches them. */
+            'weight' => 'required|numeric|gt:0',
+            'length' => 'required|numeric|gt:0',
+            'width'  => 'required|numeric|gt:0',
+            'height' => 'required|numeric|gt:0',
             'status' => 'required|in:0,1',
             'manufacturer_id' => 'nullable|integer',
             'manufacturer_name' => 'nullable|string|max:255',
@@ -1190,7 +1201,13 @@ public function store(Request $request)
             'category_ids.*' => 'integer|min:1',
             'category_id' => 'nullable|integer',
             'category_name' => 'nullable|string|max:1024',
-            'description' => 'nullable|string',
+            /* Required at the strictest marketplace's bar (#198 follow-up,
+             * the owner 2026-09-04): TikTok's listing-quality floor is 80
+             * characters of text, Shopee's hard minimum is about 25,
+             * Lazada publishes none. A product that cannot list on the
+             * channels this catalog exists to feed is not saved half-made
+             * and repaired at push time. */
+            'description' => ['required', 'string', new \App\Rules\MinPlainTextLength(80)],
             'images_json' => 'nullable|string',
 
             'options' => 'array',

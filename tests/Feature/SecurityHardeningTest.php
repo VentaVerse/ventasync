@@ -268,6 +268,8 @@ class SecurityHardeningTest extends TestCase
             'price' => 10,
             'quantity' => 1,
             'status' => 1,
+            'weight' => '0.5', 'length' => '10', 'width' => '5', 'height' => '3',
+            'description' => 'A dependable test product description that comfortably clears the eighty character floor the marketplaces set.',
             '_return' => $returnUrl,
         ];
     }
@@ -329,7 +331,7 @@ class SecurityHardeningTest extends TestCase
      */
     private function xssAndLegitPayload(): string
     {
-        return '<p>Legit paragraph.</p><b>Bold text</b><ul><li>One</li><li>Two</li></ul>'
+        return '<p>Legit paragraph with enough honest words about the product to clear the eighty character description floor.</p><b>Bold text</b><ul><li>One</li><li>Two</li></ul>'
             . '<a href="https://example.com/page">Good link</a>'
             . '<script>alert(2)</script>'
             . '<img src="javascript:alert(3)" onerror="alert(4)">'
@@ -346,14 +348,14 @@ class SecurityHardeningTest extends TestCase
      */
     private function expectedSanitizedPayload(): string
     {
-        return '<p>Legit paragraph.</p><b>Bold text</b><ul><li>One</li><li>Two</li></ul>'
+        return '<p>Legit paragraph with enough honest words about the product to clear the eighty character description floor.</p><b>Bold text</b><ul><li>One</li><li>Two</li></ul>'
             . '<a href="https://example.com/page">Good link</a><img><a>bad link</a>';
     }
 
     /** Purely legitimate markup, no hostile content at all. */
     private function legitOnlyPayload(): string
     {
-        return '<p>Legit paragraph.</p><b>Bold text</b><ul><li>One</li><li>Two</li></ul>'
+        return '<p>Legit paragraph with enough honest words about the product to clear the eighty character description floor.</p><b>Bold text</b><ul><li>One</li><li>Two</li></ul>'
             . '<a href="https://example.com/page">Good link</a>';
     }
 

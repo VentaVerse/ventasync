@@ -10,12 +10,15 @@ use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
- * Weight and dimensions become required on the core product (#198,
- * the owner: "This will prevent issues with the weight and dimensions when
- * pushing."). New products hard-require the parcel; existing rows with
- * zeros keep saving - a save is never held hostage to fields nobody
- * touched (#185's lesson) - and the Missing-parcel filter is where
- * that debt gets worked down.
+ * Weight, dimensions and a real description are required on EVERY core
+ * product save (#198, extended by the owner 2026-09-04: "the actual goal is
+ * to prevent errors" - a product that cannot list on the Big 3 is not
+ * saved half-made and repaired at push time). The 80-character
+ * description floor is the strictest marketplace bar (TikTok's listing
+ * quality floor; Shopee's hard minimum is ~25; Lazada publishes none),
+ * counted on the text with the HTML stripped. The 2026-09 change
+ * reverses #198's edit carve-out: an old zero-parcel row must be
+ * completed the next time anyone touches it.
  */
 class ParcelRequiredTest extends TestCase
 {
@@ -52,6 +55,7 @@ class ParcelRequiredTest extends TestCase
         $r = $this->actingAs($this->manager())->post(route('products.store'), [
             'name' => 'Parcel-less newborn', 'price' => '100', 'status' => '1',
             'weight' => '0', 'length' => '0', 'width' => '0', 'height' => '0',
+            'description' => 'A well-made product description with easily more than the eighty characters of text the strictest marketplace demands.',
         ]);
 
         $r->assertSessionHasErrors(['weight', 'length', 'width', 'height']);
@@ -65,10 +69,11 @@ class ParcelRequiredTest extends TestCase
         $this->actingAs($this->manager())->post(route('products.store'), [
             'name' => 'Well-parcelled newborn', 'price' => '100', 'status' => '1',
             'weight' => '0.5', 'length' => '10', 'width' => '5', 'height' => '3',
+            'description' => 'A well-made product description with easily more than the eighty characters of text the strictest marketplace demands.',
         ])->assertSessionHasNoErrors();
     }
 
-    public function test_an_old_zero_parcel_row_still_saves_but_wears_the_warning(): void
+    public function test_an_old_zero_parcel_row_must_be_completed_on_edit(): void
     {
         $pid = $this->seedProduct('OLD-ZERO', 0);
         $user = $this->manager();
@@ -76,12 +81,40 @@ class ParcelRequiredTest extends TestCase
         $page = $this->actingAs($user)->get(route('products.edit', $pid))->assertOk()->getContent();
         $this->assertStringContainsString('This product has no complete parcel', $page);
 
+        // The 2026-09-04 reversal of #198's carve-out: an edit is exactly
+        // the moment the owner is looking at the product, so the zero
+        // parcel does not survive it.
         $this->actingAs($user)->put(route('products.update', $pid), [
             'name' => 'Renamed, parcel untouched', 'model' => 'OLD-ZERO', 'sku' => 'OLD-ZERO',
             'price' => '300', 'quantity' => '5', 'status' => '1',
             'weight' => '0', 'length' => '0', 'width' => '0', 'height' => '0',
             'manufacturer_id' => '0', 'images_json' => '[]',
+            'description' => 'A well-made product description with easily more than the eighty characters of text the strictest marketplace demands.',
+        ])->assertSessionHasErrors(['weight', 'length', 'width', 'height']);
+
+        $this->actingAs($user)->put(route('products.update', $pid), [
+            'name' => 'Renamed, parcel filled', 'model' => 'OLD-ZERO', 'sku' => 'OLD-ZERO',
+            'price' => '300', 'quantity' => '5', 'status' => '1',
+            'weight' => '0.5', 'length' => '10', 'width' => '5', 'height' => '3',
+            'manufacturer_id' => '0', 'images_json' => '[]',
+            'description' => 'A well-made product description with easily more than the eighty characters of text the strictest marketplace demands.',
         ])->assertSessionHasNoErrors();
+    }
+
+    public function test_a_description_shorter_than_the_strictest_bar_is_refused(): void
+    {
+        $r = $this->actingAs($this->manager())->post(route('products.store'), [
+            'name' => 'Terse newborn', 'price' => '100', 'status' => '1',
+            'weight' => '0.5', 'length' => '10', 'width' => '5', 'height' => '3',
+            // 26 chars of text in a lot of markup: passes Shopee's 25,
+            // fails TikTok's 80, and the tags must not count.
+            'description' => '<p><strong>Nice guitar,</strong> plays well.</p>',
+        ]);
+
+        $r->assertSessionHasErrors(['description']);
+        $this->assertStringContainsString('80 characters', session('errors')->first('description'));
+        $this->assertStringContainsString('TikTok', session('errors')->first('description'),
+            'the refusal names WHICH marketplace sets the bar');
     }
 
     public function test_the_missing_parcel_filter_finds_the_debt(): void
