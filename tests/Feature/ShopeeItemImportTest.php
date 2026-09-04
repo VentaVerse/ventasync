@@ -9,7 +9,6 @@ use App\Models\User;
 use Extensions\shopee\Models\ShopeeListing;
 use Extensions\shopee\Models\ShopeeProductLink;
 use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Models\ShopeeUnmatchedItem;
 use Extensions\shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -86,21 +85,10 @@ class ShopeeItemImportTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    private function queueRow(): ShopeeUnmatchedItem
-    {
-        return ShopeeUnmatchedItem::create([
-            'shopee_item_id' => 990001, 'shopee_model_id' => 71,
-            'item_name' => 'Imported Overdrive Pedal', 'sku' => 'IMP-OD1-9',
-            'status' => 'unmatched',
-        ]);
-    }
-
     public function test_the_whole_item_lands_as_a_real_linked_product(): void
     {
-        $row = $this->queueRow();
-
         $r = $this->actingAs($this->manager())
-            ->post(route('ext.shopee.products.import_unmatched', $row->id));
+            ->post(route('ext.shopee.products.import_one'), ['ref' => 990001]);
 
         $r->assertSessionHas('status');
         $this->assertStringContainsString('Imported "Imported Overdrive Pedal"', session('status'));
@@ -130,8 +118,6 @@ class ShopeeItemImportTest extends TestCase
 
         // Linked at once: parent + both models.
         $this->assertSame(3, ShopeeProductLink::where('product_id', $product->product_id)->count());
-
-        $this->assertSame('linked', $row->fresh()->status, 'every queue row of the item clears together');
     }
 
     public function test_a_sku_collision_refuses_the_import_and_creates_nothing(): void
@@ -142,32 +128,28 @@ class ShopeeItemImportTest extends TestCase
             'status' => 1, 'image' => '', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
             'manufacturer_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        $row = $this->queueRow();
-
         $r = $this->actingAs($this->manager())
-            ->post(route('ext.shopee.products.import_unmatched', $row->id));
+            ->post(route('ext.shopee.products.import_one'), ['ref' => 990001]);
 
         $r->assertSessionHas('error');
         $this->assertStringContainsString('Not imported', session('error'));
         $this->assertNull(DB::table($pfx . 'product')->where('sku', 'IMP-OD1')->first(),
             'a refused import must leave nothing half-created - the transaction rolls the product back');
-        $this->assertSame('unmatched', $row->fresh()->status);
     }
 
-    public function test_the_import_page_owns_the_queue_and_the_workbench_carries_none_of_it(): void
+    public function test_the_page_starts_blank_and_the_workbench_carries_none_of_it(): void
     {
-        /* Cleanup point 10 (the owner, 2026-09-03): the queue moved off the
-           workbench onto its own page under the Catalog menu - the card
-           sat permanently open saying "Nothing is waiting". */
-        $this->queueRow();
+        /* Stateless (the owner, 2026-09-04): nothing about the shop's items is
+           saved, so the page is blank until Fetch - and the workbench
+           never grew the import card back (cleanup point 10). */
         $manager = $this->manager();
 
         $html = $this->actingAs($manager)
             ->get(route('ext.shopee.products.import'))->assertOk()->getContent();
 
-        $this->assertStringContainsString(route('ext.shopee.products.import_unmatched', ShopeeUnmatchedItem::query()->value('id')), $html);
-        $this->assertStringContainsString('not in your main catalog', $html);
-        $this->assertStringNotContainsString('Unmatched items', $html, 'the concept is Import now; the old label retired with it');
+        $this->assertStringContainsString('Nothing is fetched yet', $html);
+        $this->assertStringContainsString('Fetch from Shopee', $html);
+        $this->assertStringContainsString('your main catalog', $html);
 
         $workbench = $this->actingAs($manager)
             ->get(route('ext.shopee.products.index'))->assertOk()->getContent();

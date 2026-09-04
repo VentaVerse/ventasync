@@ -9,11 +9,9 @@ use App\Models\User;
 use Extensions\lazada\Models\LazadaProduct;
 use Extensions\lazada\Models\LazadaProductAttribute;
 use Extensions\lazada\Models\LazadaSetting;
-use Extensions\lazada\Models\LazadaUnmatchedItem;
 use Extensions\lazada\Services\Lazada\LazadaClient;
 use Extensions\tiktok\Models\TikTokListing;
 use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Models\TikTokUnmatchedItem;
 use Extensions\tiktok\Services\TikTok\TikTokClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -116,10 +114,9 @@ class ChannelItemImportTest extends TestCase
 
     public function test_a_lazada_item_lands_whole_with_its_channel_details_riding_the_listing(): void
     {
-        $row = LazadaUnmatchedItem::create(['lazada_item_id' => 5551234, 'item_name' => 'Imported Cable Pack', 'sku' => 'LZI-1M', 'status' => 'unmatched']);
 
         $r = $this->actingAs($this->manager(['manage_lazada/product', 'view_lazada/product']))
-            ->post(route('ext.lazada.products.import_unmatched', $row->id));
+            ->post(route('ext.lazada.products.import_one'), ['ref' => '5551234']);
 
         $r->assertSessionHas('status');
         $this->assertStringContainsString('Imported "Imported Cable Pack"', session('status'));
@@ -141,15 +138,13 @@ class ChannelItemImportTest extends TestCase
         $this->assertSame('Nylon', LazadaProductAttribute::where('lazada_product_id', $listing->id)->where('attribute_key', 'material')->value('value'),
             'a Lazada-only field the core has no column for rides the listing record, not the floor');
 
-        $this->assertSame('linked', $row->fresh()->status);
     }
 
     public function test_a_tiktok_product_lands_whole_and_the_listing_row_is_the_link(): void
     {
-        $row = TikTokUnmatchedItem::create(['tiktok_product_id' => 'tt-imp-1', 'item_name' => 'Imported Strap', 'sku' => 'TTI-BLK', 'status' => 'unmatched']);
 
         $r = $this->actingAs($this->manager(['manage_tiktok/product', 'view_tiktok/product']))
-            ->post(route('ext.tiktok.products.import_unmatched', $row->id));
+            ->post(route('ext.tiktok.products.import_one'), ['ref' => 'tt-imp-1']);
 
         $r->assertSessionHas('status');
         $this->assertStringContainsString('Imported "Imported Strap"', session('status'));
@@ -168,21 +163,20 @@ class ChannelItemImportTest extends TestCase
         $this->assertSame('s-1', (string) data_get(json_decode((string) $listing->tiktok_sku_id, true), 'TTI-BLK'),
             'the seller_sku -> id map lands too - stock and price pushes work at once');
 
-        $this->assertSame('linked', $row->fresh()->status);
     }
 
-    public function test_the_tiktok_scan_queues_what_the_shop_holds_and_the_catalog_does_not(): void
+    public function test_the_tiktok_fetch_renders_the_live_diff_and_saves_none_of_it(): void
     {
-        $r = $this->actingAs($this->manager(['manage_tiktok/product', 'view_tiktok/product']))
-            ->post(route('ext.tiktok.products.sync_unmatched'));
-
-        $r->assertSessionHas('status');
-        $this->assertStringContainsString('not in the catalog', session('status'));
-        $this->assertSame(2, TikTokUnmatchedItem::query()->where('status', 'unmatched')->count(), 'one row per seller SKU, like the other channels');
-
+        // Stateless (the owner, 2026-09-04): the page is blank until Fetch,
+        // and a fetch renders one row per PRODUCT, saved nowhere.
         $html = $this->actingAs($this->manager(['manage_tiktok/product', 'view_tiktok/product']))
             ->get(route('ext.tiktok.products.import'))->assertOk()->getContent();
-        $this->assertStringContainsString('on TikTok Shop, not in your main catalog', $html);
-        $this->assertStringContainsString(route('ext.tiktok.products.import_unmatched', TikTokUnmatchedItem::query()->value('id')), $html);
+        $this->assertStringContainsString('Nothing is fetched yet', $html);
+
+        $html = $this->actingAs($this->manager(['manage_tiktok/product', 'view_tiktok/product']))
+            ->get(route('ext.tiktok.products.import', ['fetch' => 1]))->assertOk()->getContent();
+        $this->assertStringContainsString('Imported Strap', $html);
+        $this->assertStringContainsString('name="refs[]" value="tt-imp-1"', $html);
+        $this->assertStringContainsString('not in your main catalog', $html);
     }
 }

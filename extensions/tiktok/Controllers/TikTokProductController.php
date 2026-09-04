@@ -274,13 +274,17 @@ class TikTokProductController extends Controller
      * The Import page (cleanup point 10, the owner 2026-09-03): its own page
      * under the Catalog menu, not a card squatting on the workbench.
      */
-    public function importPage()
+    public function importPage(Request $request, \Extensions\tiktok\Services\TikTok\TikTokLiveListing $live)
     {
+        $fetched = null;
+        $fetchError = null;
+        if ($request->boolean('fetch')) {
+            [$fetched, $fetchError] = $this->fetchUnmatched($live);
+        }
+
         return view('ext-tiktok::products.import', [
-            'unmatchedItems' => \Extensions\tiktok\Models\TikTokUnmatchedItem::query()
-                ->where('status', 'unmatched')
-                ->orderBy('item_name')
-                ->get(),
+            'fetched' => $fetched,
+            'fetchError' => $fetchError,
         ]);
     }
 
@@ -393,16 +397,22 @@ class TikTokProductController extends Controller
         ]));
     }
 
-    public function syncUnmatchedItems(TikTokLiveListing $live)
+    /**
+     * Read the shop live and keep only products the catalog cannot place
+     * - not linked, no SKU known. Pure read; one row per product.
+     *
+     * @return array{0: ?array{found: int, rows: list<array>}, 1: ?string}
+     */
+    private function fetchUnmatched(TikTokLiveListing $live): array
     {
         $c = $this->creds();
         if (!$c) {
-            return redirect()->back()->with('error', 'Missing TikTok settings.');
+            return [null, 'Missing TikTok settings.'];
         }
 
         $shop = $live->shop($c);
         if ($shop['products'] === null) {
-            return redirect()->back()->with('error', 'Scan failed: ' . $shop['error']);
+            return [null, 'Fetch failed: ' . $shop['error']];
         }
 
         $linked = TikTokListing::query()->whereNotNull('tiktok_product_id')->pluck('tiktok_product_id')
@@ -423,12 +433,10 @@ class TikTokProductController extends Controller
             $erpSkus[strtolower(trim((string) $v))] = true;
         }
 
-        \Extensions\tiktok\Models\TikTokUnmatchedItem::query()->where('status', 'unmatched')->delete();
-
         $found = 0;
-        $scanned = 0;
+        $rows = [];
         foreach ($shop['products'] as $ttId => $p) {
-            $scanned++;
+            $found++;
             if ($linked->has((string) $ttId)) {
                 continue;
             }
@@ -443,79 +451,67 @@ class TikTokProductController extends Controller
             if ($matched) {
                 continue;
             }
-            foreach (($skus ?: [null]) as $sku) {
-                // The scan refreshes the FACTS, never the verdict: a
-                // dismissed row stays dismissed (the owner, 2026-09-04 -
-                // updateOrCreate used to resurrect it every scan).
-                $row = \Extensions\tiktok\Models\TikTokUnmatchedItem::firstOrNew(
-                    ['tiktok_product_id' => (string) $ttId, 'sku' => $sku]
-                );
-                if (! $row->exists) {
-                    $row->status = 'unmatched';
-                }
-                $row->fill(['item_name' => (string) ($p['title'] ?? '')])->save();
-                if ($row->status === 'unmatched') {
-                    $found++;
-                }
-            }
+            $rows[] = [
+                'ref' => (string) $ttId,
+                'sku' => (string) ($skus[0] ?? ''),
+                'channel_id' => (string) $ttId,
+                'name' => (string) ($p['title'] ?? ''),
+                'image_url' => '',
+                'variants' => count($skus),
+            ];
         }
 
-        return redirect()->back()->with('status',
-            "Scanned {$scanned} products on TikTok Shop: " . ($found > 0 ? "{$found} not in the catalog." : 'everything is matched or linked.'));
+        return [['found' => $found, 'rows' => $rows], null];
     }
 
-    /** Import one queued product into the core catalog (#196). */
-    public function importUnmatched(int $unmatchedId, \Extensions\tiktok\Services\TikTok\TikTokItemImport $import)
+    /** Import one fetched product, re-read live by its id. */
+    public function importOne(Request $request, \Extensions\tiktok\Services\TikTok\TikTokItemImport $import)
     {
-        $item = \Extensions\tiktok\Models\TikTokUnmatchedItem::findOrFail($unmatchedId);
+        $data = $request->validate(['ref' => 'required|string|max:64']);
         $c = $this->creds();
         if (!$c) {
             return redirect()->back()->with('error', 'Missing TikTok settings.');
         }
 
-        $r = $import->import($c, (string) $item->tiktok_product_id);
+        $r = $import->import($c, (string) $data['ref']);
 
         return redirect()->back()->with($r['ok'] ? 'status' : 'error', $r['message']);
     }
 
-    /** Import selected (the owner, 2026-09-04): the single import, per ticked row. */
-    public function importSelectedUnmatched(Request $request, \Extensions\tiktok\Services\TikTok\TikTokItemImport $import)
+    /** Import selected: every ticked row, each in its own transaction. */
+    public function importSelected(Request $request, \Extensions\tiktok\Services\TikTok\TikTokItemImport $import)
     {
-        $data = $request->validate(['unmatched_ids' => 'required|array|min:1|max:100', 'unmatched_ids.*' => 'integer|min:1']);
-
+        $data = $request->validate(['refs' => 'required|array|min:1|max:100', 'refs.*' => 'string|max:64']);
         $c = $this->creds();
         if (!$c) {
             return redirect()->back()->with('error', 'Missing TikTok settings.');
         }
 
-        $rows = \Extensions\tiktok\Models\TikTokUnmatchedItem::query()
-            ->whereIn('id', $data['unmatched_ids'])->where('status', 'unmatched')->get();
-        if ($rows->isEmpty()) {
-            return redirect()->back()->with('error', 'None of the selected products are still waiting to be imported.');
-        }
-
         $done = 0;
         $failed = [];
-        foreach ($rows as $row) {
-            $r = $import->import($c, (string) $row->tiktok_product_id);
+        $refs = array_values(array_unique($data['refs']));
+        foreach ($refs as $ref) {
+            $r = $import->import($c, (string) $ref);
             if ($r['ok'] ?? false) {
                 $done++;
             } else {
-                $failed[] = ($row->item_name ?: $row->sku) . ': ' . ($r['message'] ?? 'not imported');
+                $failed[] = '#' . $ref . ': ' . ($r['message'] ?? 'not imported');
             }
         }
 
-        $line = \App\Support\BulkImportSummary::line($done, $rows->count(), $failed);
+        $line = \App\Support\BulkImportSummary::line($done, count($refs), $failed);
 
         return redirect()->back()->with($line['tone'], $line['message']);
     }
 
-    /** Link a queued product to a catalog product it already is. */
-    public function linkUnmatched(Request $request, int $unmatchedId)
+    /** Link a fetched product to a catalog product it already is. */
+    public function linkItem(Request $request)
     {
-        $request->validate(['product_id' => 'required|integer|min:1']);
-        $item = \Extensions\tiktok\Models\TikTokUnmatchedItem::findOrFail($unmatchedId);
-        $productId = (int) $request->input('product_id');
+        $data = $request->validate([
+            'ref' => 'required|string|max:64',
+            'product_id' => 'required|integer|min:1',
+        ]);
+        $productId = (int) $data['product_id'];
 
         $pfx = (string) config('catalog.prefix');
         if (! DB::table($pfx . 'product')->where('product_id', $productId)->exists()) {
@@ -524,24 +520,10 @@ class TikTokProductController extends Controller
 
         TikTokListing::updateOrCreate(
             ['product_id' => $productId],
-            ['tiktok_product_id' => (string) $item->tiktok_product_id, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null]
+            ['tiktok_product_id' => (string) $data['ref'], 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null]
         );
-        \Extensions\tiktok\Models\TikTokUnmatchedItem::query()
-            ->where('tiktok_product_id', $item->tiktok_product_id)
-            ->update(['status' => 'linked', 'linked_product_id' => $productId]);
 
-        return redirect()->back()->with('status', 'Linked "' . ($item->item_name ?: 'Unnamed product') . '" to catalog product #' . $productId . '.');
-    }
-
-    /** Stop tracking a queued product. */
-    public function dismissUnmatched(int $unmatchedId)
-    {
-        $item = \Extensions\tiktok\Models\TikTokUnmatchedItem::findOrFail($unmatchedId);
-        \Extensions\tiktok\Models\TikTokUnmatchedItem::query()
-            ->where('tiktok_product_id', $item->tiktok_product_id)
-            ->update(['status' => 'dismissed']);
-
-        return redirect()->back()->with('status', 'Dismissed "' . ($item->item_name ?: 'Unnamed product') . '".');
+        return redirect()->back()->with('status', 'Linked TikTok product #' . $data['ref'] . ' to catalog product #' . $productId . '.');
     }
 
     public function bulkSend(Request $request, TikTokClient $client)

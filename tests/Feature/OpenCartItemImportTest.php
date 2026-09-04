@@ -8,7 +8,6 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\opencart\Models\OpenCartProductLink;
 use Extensions\opencart\Models\OpenCartSetting;
-use Extensions\opencart\Models\OpenCartUnmatchedItem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -89,7 +88,7 @@ class OpenCartItemImportTest extends TestCase
         ]);
     }
 
-    public function test_the_scan_queues_what_the_store_holds_and_the_catalog_does_not(): void
+    public function test_fetch_renders_the_live_diff_and_saves_none_of_it(): void
     {
         $setting = $this->store();
         $this->seedProduct('KNOWN-1');
@@ -101,26 +100,21 @@ class OpenCartItemImportTest extends TestCase
                 'option_values' => [['option_name' => 'Size', 'option_value_name' => 'S']]],
         ]);
 
-        $this->actingAs($this->manager())
-            ->post(route('ext.opencart.products.sync_unmatched', $setting->id))
-            ->assertRedirect();
+        $html = $this->actingAs($this->manager())
+            ->get(route('ext.opencart.products.import', ['store' => $setting->id, 'fetch' => 1]))
+            ->assertOk()->getContent();
 
-        $this->assertSame(1, OpenCartUnmatchedItem::query()->where('status', 'unmatched')->count(),
-            'a model the catalog knows counts as its SKU - OpenCart habit - and is never queued');
-        $row = OpenCartUnmatchedItem::query()->firstOrFail();
-        $this->assertSame(12, (int) $row->oc_product_id);
-        $this->assertSame('Café grinder', $row->name, 'OpenCart entities decode before display');
-        $this->assertSame(self::BASE . '/image/catalog/grinder.jpg', $row->image_url,
+        $this->assertStringContainsString('Café grinder', $html, 'OpenCart entities decode before display');
+        $this->assertStringNotContainsString('Known product', $html,
+            'a model the catalog knows counts as its SKU - OpenCart habit - and is never listed');
+        $this->assertStringContainsString('name="refs[]" value="12"', $html);
+        $this->assertStringContainsString(self::BASE . '/image/catalog/grinder.jpg', $html,
             'store-relative image paths resolve against the store base');
     }
 
     public function test_import_converts_one_option_set_to_an_axis_with_absolute_prices(): void
     {
         $setting = $this->store();
-        $row = OpenCartUnmatchedItem::create([
-            'opencart_setting_id' => $setting->id, 'oc_product_id' => 12,
-            'sku' => 'IMP-1', 'name' => 'Importable', 'status' => 'unmatched',
-        ]);
 
         $this->fakeProducts([[
             'product_id' => 12, 'model' => 'IMP-1', 'sku' => 'IMP-1',
@@ -134,7 +128,7 @@ class OpenCartItemImportTest extends TestCase
         ]]);
 
         $this->actingAs($this->manager())
-            ->post(route('ext.opencart.products.import_unmatched', [$setting->id, $row->id]))
+            ->post(route('ext.opencart.products.import_one', $setting->id), ['ref' => 12])
             ->assertRedirect();
 
         $pfx = (string) config('catalog.prefix');
@@ -156,16 +150,11 @@ class OpenCartItemImportTest extends TestCase
         $link = OpenCartProductLink::query()->where('product_id', $product->product_id)->first();
         $this->assertNotNull($link);
         $this->assertSame(12, (int) $link->oc_product_id);
-        $this->assertSame('linked', $row->fresh()->status);
     }
 
     public function test_multiple_independent_option_sets_import_flat_and_say_so(): void
     {
         $setting = $this->store();
-        $row = OpenCartUnmatchedItem::create([
-            'opencart_setting_id' => $setting->id, 'oc_product_id' => 13,
-            'sku' => 'IMP-3', 'name' => 'Multi-option', 'status' => 'unmatched',
-        ]);
 
         $this->fakeProducts([[
             'product_id' => 13, 'model' => 'IMP-3', 'sku' => 'IMP-3',
@@ -177,7 +166,7 @@ class OpenCartItemImportTest extends TestCase
         ]]);
 
         $this->actingAs($this->manager())
-            ->post(route('ext.opencart.products.import_unmatched', [$setting->id, $row->id]))
+            ->post(route('ext.opencart.products.import_one', $setting->id), ['ref' => 13])
             ->assertRedirect();
 
         $pfx = (string) config('catalog.prefix');
@@ -193,10 +182,6 @@ class OpenCartItemImportTest extends TestCase
     {
         $setting = $this->store();
         $this->seedProduct('CLASH-V');
-        $row = OpenCartUnmatchedItem::create([
-            'opencart_setting_id' => $setting->id, 'oc_product_id' => 14,
-            'sku' => 'IMP-2', 'name' => 'Clashing', 'status' => 'unmatched',
-        ]);
 
         $this->fakeProducts([[
             'product_id' => 14, 'model' => 'IMP-2', 'sku' => 'IMP-2',
@@ -207,37 +192,28 @@ class OpenCartItemImportTest extends TestCase
         ]]);
 
         $r = $this->actingAs($this->manager())
-            ->post(route('ext.opencart.products.import_unmatched', [$setting->id, $row->id]));
+            ->post(route('ext.opencart.products.import_one', $setting->id), ['ref' => 14]);
 
         $r->assertSessionHas('error');
         $this->assertStringContainsString('Not imported', session('error'));
         $pfx = (string) config('catalog.prefix');
         $this->assertNull(DB::table($pfx . 'product')->where('sku', 'IMP-2')->first(),
             'a refused import must leave nothing half-created');
-        $this->assertSame('unmatched', $row->fresh()->status);
     }
 
-    public function test_the_import_page_owns_the_queue(): void
+    public function test_the_page_starts_blank_and_reads_nothing(): void
     {
         $setting = $this->store();
-        OpenCartUnmatchedItem::create([
-            'opencart_setting_id' => $setting->id, 'oc_product_id' => 90,
-            'sku' => 'Q-1', 'name' => 'Queued thing', 'status' => 'unmatched',
-        ]);
+        Http::fake();
 
         $html = $this->actingAs($this->manager())
             ->get(route('ext.opencart.products.import', $setting->id))
             ->assertOk()->getContent();
 
-        $this->assertStringContainsString('Queued thing', $html);
-        $this->assertStringContainsString(route('ext.opencart.products.sync_unmatched', $setting->id), $html);
-
-        // Import selected (the owner, 2026-09-04): the bulk form and the row
-        // checkbox that belongs to it through form="".
-        $this->assertStringContainsString('id="cc-import-selected"', $html);
-        $this->assertStringContainsString(route('ext.opencart.products.import_selected', $setting->id), $html);
-        $this->assertStringContainsString('form="cc-import-selected" name="unmatched_ids[]"', $html);
+        $this->assertStringContainsString('Nothing is fetched yet', $html);
+        $this->assertStringContainsString('Fetch from One', $html);
         $this->assertStringContainsString('your main catalog', $html,
-            'the confirm copy names the destination in plain words');
+            'the copy names the destination in plain words');
+        Http::assertNothingSent();
     }
 }

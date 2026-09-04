@@ -2090,13 +2090,22 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
      * The Import page (cleanup point 10, the owner 2026-09-03): its own page
      * under the Catalog menu, not a card squatting on the workbench.
      */
-    public function importPage()
+    /**
+     * The Import page, stateless (the owner, 2026-09-04): nothing about the
+     * store's items is saved - blank until Fetch reads Lazada live, rows
+     * exist only in the render, Import re-reads by item id.
+     */
+    public function importPage(Request $request, LazadaClient $client)
     {
+        $fetched = null;
+        $fetchError = null;
+        if ($request->boolean('fetch')) {
+            [$fetched, $fetchError] = $this->fetchUnmatched($client);
+        }
+
         return view('ext-lazada::products.import', [
-            'unmatchedItems' => \Extensions\lazada\Models\LazadaUnmatchedItem::query()
-                ->where('status', 'unmatched')
-                ->orderBy('item_name')
-                ->get(),
+            'fetched' => $fetched,
+            'fetchError' => $fetchError,
         ]);
     }
 
@@ -3246,19 +3255,23 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
     // ── Unmatched Items: Sync / Link / Dismiss ─────────────────────
 
-    public function syncUnmatchedItems(LazadaClient $client)
+    /**
+     * Read the store live and keep only items the catalog cannot place -
+     * not linked in lazada_products, no SKU known. Pure read; one row per
+     * ITEM (importing brings the whole item, SKUs and all).
+     *
+     * @return array{0: ?array{found: int, rows: list<array>}, 1: ?string}
+     */
+    private function fetchUnmatched(LazadaClient $client): array
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
-            return redirect()->route('ext.lazada.products.index')
-                ->with('status', 'Missing Lazada settings.');
+            return [null, 'Missing Lazada settings.'];
         }
 
-        // Fetch all Lazada products
         $skuMap = $this->matcher()->fetchLazadaSkuMap($setting, $client);
 
-        // Build a reverse map: item_id => [[sku, ...]]
         $itemSkus = [];
         foreach ($skuMap as $sku => $itemIds) {
             foreach ($itemIds as $itemId) {
@@ -3266,7 +3279,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             }
         }
 
-        // We also need item names/images. Fetch all products again briefly
         $allProducts = [];
         $offset = 0;
         $limit = 50;
@@ -3306,7 +3318,10 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             $page++;
         } while ($offset < $totalProducts && $page < $maxPages);
 
-        // Get all ERP-linked lazada_products item_ids
+        if ($allProducts === []) {
+            return [null, 'Lazada answered with no products, or the read failed partway.'];
+        }
+
         $linkedItemIds = LazadaProduct::query()
             ->whereNotNull('lazada_item_id')
             ->where('lazada_item_id', '!=', '')
@@ -3315,121 +3330,66 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ->unique()
             ->all();
 
-        // Also try to match by SKU to existing lazada_products
         $pfx = (string) config('catalog.prefix');
         $existingSkus = [];
         $lazProducts = LazadaProduct::query()->get(['id', 'product_id']);
         foreach ($lazProducts as $lp) {
             $pid = (int) $lp->product_id;
-            // Get main model SKU
             $mainSku = DB::table($pfx . 'product')->where('product_id', $pid)->value('model');
-            if ($mainSku) $existingSkus[trim((string) $mainSku)] = (string) ($lp->lazada_item_id ?? '');
-            // Get option value SKUs
+            if ($mainSku) $existingSkus[trim((string) $mainSku)] = true;
             $ovSkus = DB::table($pfx . 'product_option_value')
                 ->where('product_id', $pid)
                 ->whereNotNull('sku')
                 ->where('sku', '!=', '')
                 ->pluck('sku');
-            foreach ($ovSkus as $s) {
-                $existingSkus[trim((string) $s)] = (string) ($lp->lazada_item_id ?? '');
+            foreach ($ovSkus as $os) {
+                $existingSkus[trim((string) $os)] = true;
             }
         }
 
-        // Clear old unmatched entries
-        \Extensions\lazada\Models\LazadaUnmatchedItem::query()->where('status', 'unmatched')->delete();
-
-        $unmatchedCount = 0;
-        $matchedCount = 0;
-
+        $rows = [];
         foreach ($allProducts as $itemId => $product) {
-            // Skip if already linked in lazada_products
             if (in_array((string) $itemId, $linkedItemIds, true)) {
-                $matchedCount++;
                 continue;
             }
 
-            // Check if any SKU for this item matches an existing ERP product
             $skusForItem = $itemSkus[(string) $itemId] ?? [];
-            $found = false;
+            $matched = false;
             foreach ($skusForItem as $sku) {
                 if (isset($existingSkus[$sku])) {
-                    $found = true;
+                    $matched = true;
                     break;
                 }
             }
-            if ($found) {
-                $matchedCount++;
+            if ($matched) {
                 continue;
             }
 
-            // Get product info
             $itemName = $product['attributes']['name'] ?? ($product['name'] ?? 'Unknown');
             $imageUrl = null;
             $images = $product['images'] ?? ($product['skus'][0]['Images'] ?? []);
             if (is_array($images) && !empty($images)) {
                 $imageUrl = is_string($images[0] ?? null) ? $images[0] : null;
             }
+            $skuCount = is_array($product['skus'] ?? null) ? count($product['skus']) : 0;
 
-            // Store each SKU variant as an unmatched entry
-            $skus = $product['skus'] ?? [];
-            if (empty($skus)) {
-                // No SKU info at all. The scan refreshes the FACTS, never
-                // the verdict: a dismissed row stays dismissed (the owner,
-                // 2026-09-04 - updateOrCreate used to resurrect it, and
-                // null the link, every scan).
-                $row = \Extensions\lazada\Models\LazadaUnmatchedItem::firstOrNew(
-                    ['lazada_item_id' => (string) $itemId, 'sku' => '']
-                );
-                if (! $row->exists) {
-                    $row->status = 'unmatched';
-                }
-                $row->fill([
-                    'lazada_sku_id' => null,
-                    'item_name' => $itemName,
-                    'image_url' => $imageUrl,
-                    'raw_data' => $product,
-                ])->save();
-                if ($row->status === 'unmatched') {
-                    $unmatchedCount++;
-                }
-            } else {
-                foreach ($skus as $skuData) {
-                    $sellerSku = trim((string) ($skuData['SellerSku'] ?? ($skuData['seller_sku'] ?? ($skuData['SellerSKU'] ?? ''))));
-                    $skuId = $skuData['SkuId'] ?? ($skuData['skuId'] ?? ($skuData['ShopSku'] ?? null));
-                    $skuImage = $skuData['Images'][0] ?? $imageUrl;
-
-                    // Same verdict-preserving write as the no-SKU branch.
-                    $row = \Extensions\lazada\Models\LazadaUnmatchedItem::firstOrNew(
-                        ['lazada_item_id' => (string) $itemId, 'sku' => $sellerSku]
-                    );
-                    if (! $row->exists) {
-                        $row->status = 'unmatched';
-                    }
-                    $row->fill([
-                        'lazada_sku_id' => $skuId ? (string) $skuId : null,
-                        'item_name' => $itemName . ($sellerSku ? ' [' . $sellerSku . ']' : ''),
-                        'image_url' => $skuImage,
-                        'raw_data' => array_merge($product, ['_sku' => $skuData]),
-                    ])->save();
-                    if ($row->status === 'unmatched') {
-                        $unmatchedCount++;
-                    }
-                }
-            }
+            $rows[] = [
+                'ref' => (string) $itemId,
+                'sku' => (string) ($skusForItem[0] ?? ''),
+                'channel_id' => (string) $itemId,
+                'name' => (string) $itemName,
+                'image_url' => (string) ($imageUrl ?? ''),
+                'variants' => $skuCount,
+            ];
         }
 
-        return redirect()->route('ext.lazada.products.index')
-            ->with('status', "Unmatched sync complete. Lazada items: " . count($allProducts) . ". Already matched: {$matchedCount}. Unmatched: {$unmatchedCount}.");
+        return [['found' => count($allProducts), 'rows' => $rows], null];
     }
 
-    /**
-     * Import a Lazada item into the core catalog (#196): the whole item
-     * lands as a real product, Lazada-only details ride its listing
-     * record, the variant cache fills, and the queue rows clear.
-     */
-    public function importUnmatchedItem(int $unmatchedId, \Extensions\lazada\Services\Lazada\LazadaItemImport $import)
+    /** Import one fetched item, re-read live by its item id. */
+    public function importOne(Request $request, \Extensions\lazada\Services\Lazada\LazadaItemImport $import)
     {
-        $item = \Extensions\lazada\Models\LazadaUnmatchedItem::findOrFail($unmatchedId);
+        $data = $request->validate(['ref' => 'required|string|max:64']);
 
         $setting = LazadaSetting::query()->first()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
@@ -3437,15 +3397,15 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             return redirect()->back()->with('error', 'Missing Lazada settings.');
         }
 
-        $r = $import->import($setting, $creds, (string) $item->lazada_item_id);
+        $r = $import->import($setting, $creds, (string) $data['ref']);
 
         return redirect()->back()->with($r['ok'] ? 'status' : 'error', $r['message']);
     }
 
-    /** Import selected (the owner, 2026-09-04): the single import, per ticked row. */
-    public function importSelectedUnmatched(Request $request, \Extensions\lazada\Services\Lazada\LazadaItemImport $import)
+    /** Import selected: every ticked row, each in its own transaction. */
+    public function importSelected(Request $request, \Extensions\lazada\Services\Lazada\LazadaItemImport $import)
     {
-        $data = $request->validate(['unmatched_ids' => 'required|array|min:1|max:100', 'unmatched_ids.*' => 'integer|min:1']);
+        $data = $request->validate(['refs' => 'required|array|min:1|max:100', 'refs.*' => 'string|max:64']);
 
         $setting = LazadaSetting::query()->first()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
@@ -3453,72 +3413,53 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             return redirect()->back()->with('error', 'Missing Lazada settings.');
         }
 
-        $rows = \Extensions\lazada\Models\LazadaUnmatchedItem::query()
-            ->whereIn('id', $data['unmatched_ids'])->where('status', 'unmatched')->get();
-        if ($rows->isEmpty()) {
-            return redirect()->back()->with('error', 'None of the selected items are still waiting to be imported.');
-        }
-
         $done = 0;
         $failed = [];
-        foreach ($rows as $row) {
-            $r = $import->import($setting, $creds, (string) $row->lazada_item_id);
+        $refs = array_values(array_unique($data['refs']));
+        foreach ($refs as $ref) {
+            $r = $import->import($setting, $creds, (string) $ref);
             if ($r['ok'] ?? false) {
                 $done++;
             } else {
-                $failed[] = ($row->item_name ?: $row->sku) . ': ' . ($r['message'] ?? 'not imported');
+                $failed[] = '#' . $ref . ': ' . ($r['message'] ?? 'not imported');
             }
         }
 
-        $line = \App\Support\BulkImportSummary::line($done, $rows->count(), $failed);
+        $line = \App\Support\BulkImportSummary::line($done, count($refs), $failed);
 
         return redirect()->back()->with($line['tone'], $line['message']);
     }
 
-    public function linkUnmatchedItem(Request $request, int $unmatchedId)
+    /** Link a fetched item to a catalog product it already is. */
+    public function linkItem(Request $request)
     {
-        $request->validate(['product_id' => 'required|integer|min:1']);
-
-        $item = \Extensions\lazada\Models\LazadaUnmatchedItem::findOrFail($unmatchedId);
-        $productId = (int) $request->input('product_id');
+        $data = $request->validate([
+            'ref' => 'required|string|max:64',
+            'product_id' => 'required|integer|min:1',
+        ]);
+        $productId = (int) $data['product_id'];
 
         $pfx = (string) config('catalog.prefix');
-        $product = DB::table($pfx . 'product')->where('product_id', $productId)->first(['product_id']);
-        if (!$product) {
-            return redirect()->route('ext.lazada.products.index')->with('status', 'Catalog product not found.');
+        if (! DB::table($pfx . 'product')->where('product_id', $productId)->exists()) {
+            return redirect()->back()->with('error', 'Catalog product not found.');
         }
 
-        // Check if a LazadaProduct listing already exists for this product
         $listing = LazadaProduct::query()->where('product_id', $productId)->first();
         if ($listing) {
-            // Update with the Lazada item_id
             if (empty($listing->lazada_item_id)) {
-                $listing->lazada_item_id = $item->lazada_item_id;
+                $listing->lazada_item_id = (string) $data['ref'];
                 $listing->lazada_deleted_at = null;
                 $listing->unlinked_at = null;
                 $listing->save();
             }
         } else {
-            // Create a new minimal listing
             LazadaProduct::create([
                 'product_id' => $productId,
-                'lazada_item_id' => $item->lazada_item_id,
+                'lazada_item_id' => (string) $data['ref'],
             ]);
         }
 
-        $item->update(['status' => 'linked', 'linked_product_id' => $productId]);
-
-        return redirect()->route('ext.lazada.products.index')
-            ->with('status', 'Linked "' . ($item->item_name ?? 'Unknown') . '" to product #' . $productId . '.');
-    }
-
-    public function dismissUnmatchedItem(int $unmatchedId)
-    {
-        $item = \Extensions\lazada\Models\LazadaUnmatchedItem::findOrFail($unmatchedId);
-        $item->update(['status' => 'dismissed']);
-
-        return redirect()->route('ext.lazada.products.index')
-            ->with('status', 'Dismissed "' . ($item->item_name ?? 'Unknown') . '".');
+        return redirect()->back()->with('status', 'Linked Lazada item #' . $data['ref'] . ' to catalog product #' . $productId . '.');
     }
 
     public function searchCatalogProducts(Request $request)

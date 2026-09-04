@@ -12,7 +12,6 @@ use Extensions\shopee\Models\ShopeeListing;
 use Extensions\shopee\Models\ShopeeProductLink;
 use Extensions\shopee\Models\ShopeeProductGroup;
 use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Models\ShopeeUnmatchedItem;
 use App\Services\ActivityLogger;
 use Extensions\shopee\Services\Shopee\ShopeeClient;
 use Extensions\shopee\Services\Shopee\ShopeeLiveListing;
@@ -1564,34 +1563,49 @@ class ShopeeProductController extends Controller
      * card sat permanently open saying "Nothing is waiting" to everyone
      * except a fresh install. Scan, then Import / Link / Dismiss per row.
      */
-    public function importPage()
+    /**
+     * The Import page, stateless (the owner, 2026-09-04): nothing about the
+     * shop's items is saved - blank until Fetch reads Shopee live, rows
+     * exist only in the render, Import re-reads by item id.
+     */
+    public function importPage(Request $request, ShopeeClient $client)
     {
+        $fetched = null;
+        $fetchError = null;
+        if ($request->boolean('fetch')) {
+            [$fetched, $fetchError] = $this->fetchUnmatched($client);
+        }
+
         return view('ext-shopee::products.import', [
-            'unmatchedItems' => ShopeeUnmatchedItem::query()
-                ->where('status', 'unmatched')
-                ->orderBy('item_name')
-                ->get(),
+            'fetched' => $fetched,
+            'fetchError' => $fetchError,
         ]);
     }
 
-    public function syncUnmatchedItems(ShopeeClient $client)
+    /**
+     * Read the shop live and keep only items the catalog cannot place.
+     * Model-aware: an item is listed when ANY of its models is neither
+     * linked nor known by SKU - importing brings the whole item, models
+     * and all. Pure read.
+     *
+     * @return array{0: ?array{found: int, rows: list<array>}, 1: ?string}
+     */
+    private function fetchUnmatched(ShopeeClient $client): array
     {
         $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
-            return redirect()->route('ext.shopee.products.index')->with('error', "Missing Shopee {$modeLabel} settings.");
+            return [null, "Missing Shopee {$modeLabel} settings."];
         }
 
         $pfx = (string) config('catalog.prefix');
 
-        // 1. Fetch all Shopee item IDs
-        $allItemIds = $this->fetchAllShopeeItemIds($client, $auth, 730, 'shopee.products.sync_unmatched');
+        $allItemIds = $this->fetchAllShopeeItemIds($client, $auth, 730, 'shopee.products.fetch_unmatched');
         if (empty($allItemIds)) {
-            return redirect()->route('ext.shopee.products.index')->with('error', 'No items found on Shopee.');
+            return [null, 'No items found on Shopee.'];
         }
 
-        // 2. Get all linked item+model combos from ShopeeProductLink
         $linkedCombos = ShopeeProductLink::query()->get(['shopee_item_id', 'shopee_model_id']);
         $linkedSet = [];
         foreach ($linkedCombos as $lc) {
@@ -1599,31 +1613,21 @@ class ShopeeProductController extends Controller
             $linkedSet[$key] = true;
         }
 
-        // 3. Build ERP SKU set for matching (case-insensitive)
         $erpSkus = [];
-        // Product model + sku fields
         $erpProducts = DB::table($pfx . 'product')->whereNotNull('model')->where('model', '!=', '')->get(['model', 'sku']);
         foreach ($erpProducts as $ep) {
             if ($ep->model !== null && $ep->model !== '') $erpSkus[strtolower(trim($ep->model))] = true;
             if ($ep->sku !== null && $ep->sku !== '') $erpSkus[strtolower(trim($ep->sku))] = true;
         }
-        // Option value SKUs
         $optSkus = DB::table($pfx . 'product_option_value')
-            ->whereNotNull('sku')
-            ->where('sku', '!=', '')
-            ->pluck('sku');
-        foreach ($optSkus as $s) {
-            $erpSkus[strtolower(trim($s))] = true;
+            ->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku');
+        foreach ($optSkus as $os) {
+            $erpSkus[strtolower(trim($os))] = true;
         }
 
-        // 4. Clear old unmatched entries
-        ShopeeUnmatchedItem::query()->where('status', 'unmatched')->delete();
+        $found = 0;
+        $rows = [];
 
-        $unmatchedCount = 0;
-        $matchedCount = 0;
-        $totalScanned = 0;
-
-        // 5. Fetch item info in chunks and check matches
         foreach (array_chunk($allItemIds, 50) as $chunk) {
             $infoResult = $client->shopGet(
                 $auth['mode'],
@@ -1645,10 +1649,9 @@ class ShopeeProductController extends Controller
                 $imageUrl = $item['image']['image_url_list'][0] ?? null;
 
                 if (!$itemId) continue;
-                $totalScanned++;
+                $found++;
 
                 if ($hasModel) {
-                    // Fetch models for this item
                     $modelResult = $client->shopGet(
                         $auth['mode'],
                         (int) $auth['partner_id'], (string) $auth['partner_key'],
@@ -1661,81 +1664,43 @@ class ShopeeProductController extends Controller
 
                     $models = (($modelResult['body'] ?? [])['response'] ?? ($modelResult['body'] ?? []))['model'] ?? [];
 
+                    $unplaced = null;
                     foreach ($models as $model) {
                         $modelId = (int) ($model['model_id'] ?? 0);
                         $modelSku = trim((string) ($model['model_sku'] ?? ''));
                         if (!$modelId) continue;
-
-                        $linkKey = $itemId . ':' . $modelId;
-
-                        // Already linked?
-                        if (isset($linkedSet[$linkKey])) {
-                            $matchedCount++;
-                            continue;
-                        }
-
-                        // SKU matches ERP?
-                        if ($modelSku !== '' && isset($erpSkus[strtolower($modelSku)])) {
-                            $matchedCount++;
-                            continue;
-                        }
-
-                        // Unmatched model. The scan refreshes the FACTS,
-                        // never the verdict: a dismissed row stays dismissed
-                        // (the owner, 2026-09-04 - updateOrCreate used to
-                        // resurrect it, and null the link, every scan).
-                        $row = ShopeeUnmatchedItem::firstOrNew(
-                            ['shopee_item_id' => (string) $itemId, 'shopee_model_id' => (string) $modelId]
-                        );
-                        if (! $row->exists) {
-                            $row->status = 'unmatched';
-                        }
-                        $row->fill([
-                            'item_name' => $itemName . ($modelSku ? ' [' . $modelSku . ']' : ''),
-                            'sku' => $modelSku,
-                            'image_url' => $imageUrl,
-                        ])->save();
-                        if ($row->status === 'unmatched') {
-                            $unmatchedCount++;
-                        }
+                        if (isset($linkedSet[$itemId . ':' . $modelId])) continue;
+                        if ($modelSku !== '' && isset($erpSkus[strtolower($modelSku)])) continue;
+                        $unplaced = $modelSku ?: $unplaced;
+                        $unplaced = $unplaced ?? '';
                     }
+                    if ($unplaced === null) continue;
+
+                    $rows[] = [
+                        'ref' => $itemId,
+                        'sku' => $itemSku !== '' ? $itemSku : (string) $unplaced,
+                        'channel_id' => $itemId,
+                        'name' => $itemName,
+                        'image_url' => (string) ($imageUrl ?? ''),
+                        'variants' => count($models),
+                    ];
                 } else {
-                    // Simple item (no models)
-                    $linkKey = $itemId . ':';
+                    if (isset($linkedSet[$itemId . ':'])) continue;
+                    if ($itemSku !== '' && isset($erpSkus[strtolower($itemSku)])) continue;
 
-                    if (isset($linkedSet[$linkKey])) {
-                        $matchedCount++;
-                        continue;
-                    }
-
-                    // SKU matches ERP?
-                    if ($itemSku !== '' && isset($erpSkus[strtolower($itemSku)])) {
-                        $matchedCount++;
-                        continue;
-                    }
-
-                    // Unmatched item - same verdict-preserving write as the
-                    // model branch above.
-                    $row = ShopeeUnmatchedItem::firstOrNew(
-                        ['shopee_item_id' => (string) $itemId, 'shopee_model_id' => null]
-                    );
-                    if (! $row->exists) {
-                        $row->status = 'unmatched';
-                    }
-                    $row->fill([
-                        'item_name' => $itemName,
+                    $rows[] = [
+                        'ref' => $itemId,
                         'sku' => $itemSku,
-                        'image_url' => $imageUrl,
-                    ])->save();
-                    if ($row->status === 'unmatched') {
-                        $unmatchedCount++;
-                    }
+                        'channel_id' => $itemId,
+                        'name' => $itemName,
+                        'image_url' => (string) ($imageUrl ?? ''),
+                        'variants' => 0,
+                    ];
                 }
             }
         }
 
-        return redirect()->route('ext.shopee.products.index')
-            ->with('status', "Unmatched scan complete. Shopee items scanned: {$totalScanned}. Already matched: {$matchedCount}. Unmatched: {$unmatchedCount}.");
+        return [['found' => $found, 'rows' => $rows], null];
     }
 
     // ── Bulk Sync Qty (model-aware) ─────────────────────────────────
@@ -2116,9 +2081,10 @@ class ShopeeProductController extends Controller
      * hold many queue rows (one per variation); importing any of them
      * imports the item and clears them all.
      */
-    public function importUnmatched(int $unmatchedId, \Extensions\shopee\Services\Shopee\ShopeeItemImport $import)
+    /** Import one fetched item, re-read live by its item id. */
+    public function importOne(Request $request, \Extensions\shopee\Services\Shopee\ShopeeItemImport $import)
     {
-        $item = ShopeeUnmatchedItem::findOrFail($unmatchedId);
+        $data = $request->validate(['ref' => 'required|integer|min:1']);
 
         $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
@@ -2127,15 +2093,15 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', "Missing Shopee {$modeLabel} settings.");
         }
 
-        $r = $import->import($auth, (int) $item->shopee_item_id);
+        $r = $import->import($auth, (int) $data['ref']);
 
         return redirect()->back()->with($r['ok'] ? 'status' : 'error', $r['message']);
     }
 
-    /** Import selected (the owner, 2026-09-04): the single import, per ticked row. */
-    public function importSelectedUnmatched(Request $request, \Extensions\shopee\Services\Shopee\ShopeeItemImport $import)
+    /** Import selected: every ticked row, each in its own transaction. */
+    public function importSelected(Request $request, \Extensions\shopee\Services\Shopee\ShopeeItemImport $import)
     {
-        $data = $request->validate(['unmatched_ids' => 'required|array|min:1|max:100', 'unmatched_ids.*' => 'integer|min:1']);
+        $data = $request->validate(['refs' => 'required|array|min:1|max:100', 'refs.*' => 'integer|min:1']);
 
         $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
@@ -2144,69 +2110,51 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', "Missing Shopee {$modeLabel} settings.");
         }
 
-        $rows = ShopeeUnmatchedItem::query()
-            ->whereIn('id', $data['unmatched_ids'])->where('status', 'unmatched')->get();
-        if ($rows->isEmpty()) {
-            return redirect()->back()->with('error', 'None of the selected items are still waiting to be imported.');
-        }
-
         $done = 0;
         $failed = [];
-        foreach ($rows as $row) {
-            $r = $import->import($auth, (int) $row->shopee_item_id);
+        $refs = array_values(array_unique(array_map('intval', $data['refs'])));
+        foreach ($refs as $ref) {
+            $r = $import->import($auth, $ref);
             if ($r['ok'] ?? false) {
                 $done++;
             } else {
-                $failed[] = ($row->item_name ?: $row->sku) . ': ' . ($r['message'] ?? 'not imported');
+                $failed[] = '#' . $ref . ': ' . ($r['message'] ?? 'not imported');
             }
         }
 
-        $line = \App\Support\BulkImportSummary::line($done, $rows->count(), $failed);
+        $line = \App\Support\BulkImportSummary::line($done, count($refs), $failed);
 
         return redirect()->back()->with($line['tone'], $line['message']);
     }
 
-    public function linkUnmatched(Request $request, int $unmatchedId)
+    /** Link a fetched item to a catalog product it already is (item-level). */
+    public function linkItem(Request $request)
     {
-        $request->validate(['product_id' => 'required|integer|min:1']);
-
-        $item = ShopeeUnmatchedItem::findOrFail($unmatchedId);
-        $productId = (int) $request->input('product_id');
+        $data = $request->validate([
+            'ref' => 'required|integer|min:1',
+            'sku' => 'nullable|string|max:191',
+            'product_id' => 'required|integer|min:1',
+        ]);
 
         $pfx = (string) config('catalog.prefix');
-        $product = DB::table($pfx . 'product')->where('product_id', $productId)->first(['product_id']);
-        if (!$product) {
+        if (! DB::table($pfx . 'product')->where('product_id', (int) $data['product_id'])->exists()) {
             return redirect()->back()->with('error', 'Catalog product not found.');
         }
 
-        // Create the link
         $exists = ShopeeProductLink::query()
-            ->where('shopee_item_id', $item->shopee_item_id)
-            ->where('shopee_model_id', $item->shopee_model_id)
+            ->where('shopee_item_id', (string) $data['ref'])
+            ->whereNull('shopee_model_id')
             ->exists();
-
-        if (!$exists) {
+        if (! $exists) {
             ShopeeProductLink::create([
-                'product_id' => $productId,
-                'shopee_item_id' => $item->shopee_item_id,
-                'shopee_model_id' => $item->shopee_model_id,
-                'sku' => $item->sku ?? '',
+                'product_id' => (int) $data['product_id'],
+                'shopee_item_id' => (string) $data['ref'],
+                'shopee_model_id' => null,
+                'sku' => trim((string) ($data['sku'] ?? '')),
             ]);
         }
 
-        $item->update(['status' => 'linked', 'linked_product_id' => $productId]);
-
-        return redirect()->back()
-            ->with('status', 'Linked "' . ($item->item_name ?? 'Unknown') . '" to product #' . $productId . '.');
-    }
-
-    public function dismissUnmatched(int $unmatchedId)
-    {
-        $item = ShopeeUnmatchedItem::findOrFail($unmatchedId);
-        $item->update(['status' => 'dismissed']);
-
-        return redirect()->back()
-            ->with('status', 'Dismissed "' . ($item->item_name ?? 'Unknown') . '".');
+        return redirect()->back()->with('status', 'Linked Shopee item #' . $data['ref'] . ' to catalog product #' . $data['product_id'] . '.');
     }
 
     public function searchCatalogProducts(Request $request)

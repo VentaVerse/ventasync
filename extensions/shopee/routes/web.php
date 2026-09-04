@@ -201,12 +201,13 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
         Route::post('/shopee/{store}/products/refresh-status', [ShopeeProductController::class, 'refreshStatus'])->name('ext.shopee.products.refresh_status');
         Route::post('/shopee/{store}/products/bulk/sync/price', [ShopeeProductController::class, 'bulkSyncPrice'])->name('ext.shopee.products.bulk_sync_price');
         Route::post('/shopee/{store}/products/bulk/delete', [ShopeeProductController::class, 'bulkDeleteFromShopee'])->name('ext.shopee.products.bulk_delete');
-        Route::post('/shopee/{store}/products/unmatched/sync', [ShopeeProductController::class, 'syncUnmatchedItems'])->name('ext.shopee.products.sync_unmatched');
+        // Stateless import (the owner, 2026-09-04): the page's GET carries
+        // ?fetch=1 to read the shop live; these act on the values the
+        // rendered page carries. Nothing is saved - nothing to dismiss.
+        Route::post('/shopee/{store}/products/import-one', [ShopeeProductController::class, 'importOne'])->name('ext.shopee.products.import_one');
+        Route::post('/shopee/{store}/products/import-selected', [ShopeeProductController::class, 'importSelected'])->name('ext.shopee.products.import_selected');
+        Route::post('/shopee/{store}/products/link-item', [ShopeeProductController::class, 'linkItem'])->name('ext.shopee.products.link_item');
         Route::post('/shopee/{store}/products/rebuild-cache', [ShopeeProductController::class, 'rebuildCache'])->name('ext.shopee.products.rebuild_cache');
-        Route::post('/shopee/{store}/products/unmatched/import-selected', [ShopeeProductController::class, 'importSelectedUnmatched'])->name('ext.shopee.products.import_selected');
-        Route::post('/shopee/{store}/products/unmatched/{unmatchedId}/import', [ShopeeProductController::class, 'importUnmatched'])->name('ext.shopee.products.import_unmatched');
-        Route::post('/shopee/{store}/products/unmatched/{unmatchedId}/link', [ShopeeProductController::class, 'linkUnmatched'])->name('ext.shopee.products.link_unmatched');
-        Route::post('/shopee/{store}/products/unmatched/{unmatchedId}/dismiss', [ShopeeProductController::class, 'dismissUnmatched'])->name('ext.shopee.products.dismiss_unmatched');
         Route::post('/shopee/{store}/products/{productId}/push-direct', [ShopeeProductController::class, 'pushDirect'])->name('ext.shopee.products.push_direct');
         Route::post('/shopee/{store}/products/{productId}/sync/shopee-id', [ShopeeProductController::class, 'syncSingleProductId'])->name('ext.shopee.products.sync_shopee_id');
         Route::post('/shopee/{store}/products/{productId}/sync/quantity', [ShopeeProductController::class, 'syncQuantity'])->name('ext.shopee.products.sync_quantity');

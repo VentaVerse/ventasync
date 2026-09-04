@@ -8,20 +8,17 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\venta\Models\VentaProductLink;
 use Extensions\venta\Models\VentaSetting;
-use Extensions\venta\Models\VentaUnmatchedItem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 /**
- * Venta joins the import pattern (cleanup point 11, the owner 2026-09-04):
- * the scan queues what the store holds and the catalog cannot place,
- * and Import creates the real product - description, images skipped
- * gracefully, variations as a single axis (Venta variants carry no
- * option structure) - linked to the store and enabled, because it is
- * already selling there. A SKU the catalog already holds rolls the
- * whole import back.
+ * The stateless import (the owner, 2026-09-04: "lets not even save them").
+ * Nothing about the store's items is persisted: the page is blank until
+ * Fetch reads the store live, rows exist only in the render, and Import
+ * re-reads the item by its SKU at the moment it acts. What IS written
+ * is real data only - the catalog product and its channel link.
  */
 class VentaItemImportTest extends TestCase
 {
@@ -78,7 +75,21 @@ class VentaItemImportTest extends TestCase
         return $pid;
     }
 
-    public function test_the_scan_queues_what_the_store_holds_and_the_catalog_does_not(): void
+    public function test_the_page_starts_blank_and_reads_nothing(): void
+    {
+        $setting = $this->store();
+        Http::fake();
+
+        $html = $this->actingAs($this->manager())
+            ->get(route('ext.venta.products.import', $setting->id))
+            ->assertOk()->getContent();
+
+        $this->assertStringContainsString('Nothing is fetched yet', $html);
+        $this->assertStringContainsString('Fetch from One', $html);
+        Http::assertNothingSent();
+    }
+
+    public function test_fetch_renders_the_live_diff_and_saves_none_of_it(): void
     {
         $setting = $this->store();
         $this->seedProduct('KNOWN-1');
@@ -90,23 +101,19 @@ class VentaItemImportTest extends TestCase
             ]]),
         ]);
 
-        $this->actingAs($this->manager())
-            ->post(route('ext.venta.products.sync_unmatched', $setting->id))
-            ->assertRedirect();
+        $html = $this->actingAs($this->manager())
+            ->get(route('ext.venta.products.import', ['store' => $setting->id, 'fetch' => 1]))
+            ->assertOk()->getContent();
 
-        $this->assertSame(1, VentaUnmatchedItem::query()->where('status', 'unmatched')->count(),
-            'a SKU the catalog knows is never queued');
-        $row = VentaUnmatchedItem::query()->firstOrFail();
-        $this->assertSame('NEW-1', $row->sku);
-        $this->assertSame(1, (int) $row->variant_count);
+        $this->assertStringContainsString('Store-only product', $html);
+        $this->assertStringNotContainsString('Known product', $html, 'a SKU the catalog knows is never listed');
+        $this->assertStringContainsString('name="refs[]" value="NEW-1"', $html);
+        $this->assertStringContainsString('Read 2 items on the store just now', $html);
     }
 
     public function test_import_creates_the_product_with_variations_and_the_link(): void
     {
         $setting = $this->store();
-        $row = VentaUnmatchedItem::create([
-            'venta_setting_id' => $setting->id, 'sku' => 'IMP-1', 'name' => 'Importable', 'status' => 'unmatched',
-        ]);
 
         Http::fake([
             self::BASE . '/api/v1/products/IMP-1/variants' => Http::response(['data' => [
@@ -121,7 +128,7 @@ class VentaItemImportTest extends TestCase
         ]);
 
         $this->actingAs($this->manager())
-            ->post(route('ext.venta.products.import_unmatched', [$setting->id, $row->id]))
+            ->post(route('ext.venta.products.import_one', $setting->id), ['ref' => 'IMP-1'])
             ->assertRedirect();
 
         $pfx = (string) config('catalog.prefix');
@@ -137,18 +144,12 @@ class VentaItemImportTest extends TestCase
         $link = VentaProductLink::query()->where('product_id', $product->product_id)->first();
         $this->assertNotNull($link);
         $this->assertSame(77, (int) $link->venta_product_id);
-
-        $this->assertSame('linked', $row->fresh()->status);
-        $this->assertSame((int) $product->product_id, (int) $row->fresh()->linked_product_id);
     }
 
     public function test_a_sku_the_catalog_holds_rolls_the_import_back(): void
     {
         $setting = $this->store();
-        $existing = $this->seedProduct('CLASH-V');
-        $row = VentaUnmatchedItem::create([
-            'venta_setting_id' => $setting->id, 'sku' => 'IMP-2', 'name' => 'Clashing', 'status' => 'unmatched',
-        ]);
+        $this->seedProduct('CLASH-V');
 
         Http::fake([
             self::BASE . '/api/v1/products/IMP-2/variants' => Http::response(['data' => [
@@ -160,51 +161,19 @@ class VentaItemImportTest extends TestCase
         ]);
 
         $r = $this->actingAs($this->manager())
-            ->post(route('ext.venta.products.import_unmatched', [$setting->id, $row->id]));
+            ->post(route('ext.venta.products.import_one', $setting->id), ['ref' => 'IMP-2']);
 
         $r->assertSessionHas('error');
         $this->assertStringContainsString('Not imported', session('error'));
         $pfx = (string) config('catalog.prefix');
         $this->assertNull(DB::table($pfx . 'product')->where('sku', 'IMP-2')->first(),
             'a refused import must leave nothing half-created');
-        $this->assertSame('unmatched', $row->fresh()->status);
     }
 
-    public function test_a_dismissed_row_stays_dismissed_through_a_scan(): void
-    {
-        $setting = $this->store();
-        $dismissed = VentaUnmatchedItem::create([
-            'venta_setting_id' => $setting->id, 'sku' => 'NEW-1', 'name' => 'Old name', 'status' => 'dismissed',
-        ]);
-
-        Http::fake([
-            self::BASE . '/api/v1/products?*' => Http::response(['data' => [
-                ['id' => 12, 'sku' => 'NEW-1', 'name' => 'New name', 'price' => 250, 'quantity' => 3],
-            ]]),
-        ]);
-
-        $this->actingAs($this->manager())
-            ->post(route('ext.venta.products.sync_unmatched', $setting->id))
-            ->assertRedirect();
-
-        // The scan refreshes the facts, never the verdict: the row keeps
-        // its dismissal (scans used to resurrect it), takes the new name,
-        // and is not counted as waiting.
-        $this->assertSame('dismissed', $dismissed->fresh()->status);
-        $this->assertSame('New name', $dismissed->fresh()->name);
-        $this->assertStringNotContainsString('waiting below', session('status'));
-    }
-
-    public function test_import_selected_runs_each_row_and_reports_honestly(): void
+    public function test_import_selected_runs_each_ref_and_reports_honestly(): void
     {
         $setting = $this->store();
         $this->seedProduct('CLASH-V');
-        $good = VentaUnmatchedItem::create([
-            'venta_setting_id' => $setting->id, 'sku' => 'SEL-1', 'name' => 'Good one', 'status' => 'unmatched',
-        ]);
-        $bad = VentaUnmatchedItem::create([
-            'venta_setting_id' => $setting->id, 'sku' => 'SEL-2', 'name' => 'Clashing one', 'status' => 'unmatched',
-        ]);
 
         Http::fake([
             self::BASE . '/api/v1/products/SEL-1/variants' => Http::response(['data' => []]),
@@ -221,35 +190,32 @@ class VentaItemImportTest extends TestCase
 
         $this->actingAs($this->manager())
             ->post(route('ext.venta.products.import_selected', $setting->id), [
-                'unmatched_ids' => [$good->id, $bad->id],
+                'refs' => ['SEL-1', 'SEL-2'],
             ])
             ->assertRedirect();
 
         $this->assertStringContainsString('Imported 1 of 2 selected items', session('status'),
             'a mixed run reports what landed and what did not');
-        $this->assertStringContainsString('Clashing one', session('status'),
-            'the failed row is named, not counted');
-        $this->assertSame('linked', $good->fresh()->status);
-        $this->assertSame('unmatched', $bad->fresh()->status, 'the failed row stays in the queue');
-
         $pfx = (string) config('catalog.prefix');
         $this->assertNotNull(DB::table($pfx . 'product')->where('sku', 'SEL-1')->first());
         $this->assertNull(DB::table($pfx . 'product')->where('sku', 'SEL-2')->first(),
             'the refused import rolled back alone - it did not take the good one with it');
     }
 
-    public function test_the_import_page_owns_the_queue(): void
+    public function test_link_writes_the_real_link_from_the_values_the_page_carried(): void
     {
         $setting = $this->store();
-        VentaUnmatchedItem::create([
-            'venta_setting_id' => $setting->id, 'sku' => 'Q-1', 'name' => 'Queued thing', 'status' => 'unmatched',
-        ]);
+        $pid = $this->seedProduct('MINE-1');
 
-        $html = $this->actingAs($this->manager())
-            ->get(route('ext.venta.products.import', $setting->id))
-            ->assertOk()->getContent();
+        $this->actingAs($this->manager())
+            ->post(route('ext.venta.products.link_item', $setting->id), [
+                'ref' => 'STORE-SKU-9', 'channel_id' => 99, 'product_id' => $pid,
+            ])
+            ->assertRedirect();
 
-        $this->assertStringContainsString('Queued thing', $html);
-        $this->assertStringContainsString(route('ext.venta.products.sync_unmatched', $setting->id), $html);
+        $link = VentaProductLink::query()->where('product_id', $pid)->first();
+        $this->assertNotNull($link, 'linking writes real data - the one thing this page does persist');
+        $this->assertSame('STORE-SKU-9', $link->sku);
+        $this->assertSame(99, (int) $link->venta_product_id);
     }
 }

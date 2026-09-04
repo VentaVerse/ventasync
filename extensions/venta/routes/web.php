@@ -58,13 +58,14 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     // TikTok's does, so a listings-only operator can be given exactly this.
     Route::get('/venta/{store}/listings', [VentaListingController::class, 'index'])->name('ext.venta.listings.index');
     Route::post('/venta/{store}/listings/check', [VentaListingController::class, 'checkAgainstVenta'])->name('ext.venta.listings.check');
+    // Stateless import (the owner, 2026-09-04): GET ?fetch=1 reads the store
+    // live and renders; import/link act on the values the page carries.
+    // Nothing is saved, so there is no queue and nothing to dismiss.
     Route::get('/venta/{store}/products/import', [VentaListingController::class, 'importPage'])->name('ext.venta.products.import');
     Route::get('/venta/{store}/products/search-catalog', [VentaListingController::class, 'searchCatalog'])->name('ext.venta.products.search_catalog');
-    Route::post('/venta/{store}/products/unmatched/sync', [VentaListingController::class, 'syncUnmatched'])->name('ext.venta.products.sync_unmatched');
-    Route::post('/venta/{store}/products/unmatched/import-selected', [VentaListingController::class, 'importSelectedUnmatched'])->whereNumber('store')->name('ext.venta.products.import_selected');
-    Route::post('/venta/{store}/products/unmatched/{unmatchedId}/import', [VentaListingController::class, 'importUnmatched'])->whereNumber('unmatchedId')->name('ext.venta.products.import_unmatched');
-    Route::post('/venta/{store}/products/unmatched/{unmatchedId}/link', [VentaListingController::class, 'linkUnmatched'])->whereNumber('unmatchedId')->name('ext.venta.products.link_unmatched');
-    Route::post('/venta/{store}/products/unmatched/{unmatchedId}/dismiss', [VentaListingController::class, 'dismissUnmatched'])->whereNumber('unmatchedId')->name('ext.venta.products.dismiss_unmatched');
+    Route::post('/venta/{store}/products/import-one', [VentaListingController::class, 'importOne'])->whereNumber('store')->name('ext.venta.products.import_one');
+    Route::post('/venta/{store}/products/import-selected', [VentaListingController::class, 'importSelected'])->whereNumber('store')->name('ext.venta.products.import_selected');
+    Route::post('/venta/{store}/products/link-item', [VentaListingController::class, 'linkItem'])->whereNumber('store')->name('ext.venta.products.link_item');
     Route::get('/venta/{store}/listings/{productId}', [VentaListingController::class, 'edit'])
         ->whereNumber('productId')->name('ext.venta.listings.edit');
 });

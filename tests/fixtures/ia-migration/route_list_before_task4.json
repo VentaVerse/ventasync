@@ -866,6 +866,21 @@
     },
     {
         "method": "POST",
+        "uri": "channels/lazada/products/import-one",
+        "name": "ext.lazada.products.import_one"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/products/import-selected",
+        "name": "ext.lazada.products.import_selected"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/products/link-item",
+        "name": "ext.lazada.products.link_item"
+    },
+    {
+        "method": "POST",
         "uri": "channels/lazada/products/refresh-status",
         "name": "ext.lazada.products.refresh_status"
     },
@@ -873,31 +888,6 @@
         "method": "GET|HEAD",
         "uri": "channels/lazada/products/search-catalog",
         "name": "ext.lazada.products.search_catalog"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/lazada/products/unmatched/import-selected",
-        "name": "ext.lazada.products.import_selected"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/lazada/products/unmatched/sync",
-        "name": "ext.lazada.products.sync_unmatched"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/lazada/products/unmatched/{unmatchedId}/dismiss",
-        "name": "ext.lazada.products.dismiss_unmatched"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/lazada/products/unmatched/{unmatchedId}/import",
-        "name": "ext.lazada.products.import_unmatched"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/lazada/products/unmatched/{unmatchedId}/link",
-        "name": "ext.lazada.products.link_unmatched"
     },
     {
         "method": "PUT",
@@ -1175,34 +1165,24 @@
         "name": "ext.opencart.products.import"
     },
     {
-        "method": "GET|HEAD",
-        "uri": "channels/opencart/{store}/products/search-catalog",
-        "name": "ext.opencart.products.search_catalog"
+        "method": "POST",
+        "uri": "channels/opencart/{store}/products/import-one",
+        "name": "ext.opencart.products.import_one"
     },
     {
         "method": "POST",
-        "uri": "channels/opencart/{store}/products/unmatched/import-selected",
+        "uri": "channels/opencart/{store}/products/import-selected",
         "name": "ext.opencart.products.import_selected"
     },
     {
         "method": "POST",
-        "uri": "channels/opencart/{store}/products/unmatched/sync",
-        "name": "ext.opencart.products.sync_unmatched"
+        "uri": "channels/opencart/{store}/products/link-item",
+        "name": "ext.opencart.products.link_item"
     },
     {
-        "method": "POST",
-        "uri": "channels/opencart/{store}/products/unmatched/{unmatchedId}/dismiss",
-        "name": "ext.opencart.products.dismiss_unmatched"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/opencart/{store}/products/unmatched/{unmatchedId}/import",
-        "name": "ext.opencart.products.import_unmatched"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/opencart/{store}/products/unmatched/{unmatchedId}/link",
-        "name": "ext.opencart.products.link_unmatched"
+        "method": "GET|HEAD",
+        "uri": "channels/opencart/{store}/products/search-catalog",
+        "name": "ext.opencart.products.search_catalog"
     },
     {
         "method": "POST",
@@ -1331,8 +1311,23 @@
     },
     {
         "method": "POST",
+        "uri": "channels/pedallion/products/import-one",
+        "name": "ext.pedallion.products.import_one"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/products/import-selected",
+        "name": "ext.pedallion.products.import_selected"
+    },
+    {
+        "method": "POST",
         "uri": "channels/pedallion/products/link",
         "name": "ext.pedallion.products.link"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/pedallion/products/link-item",
+        "name": "ext.pedallion.products.link_item"
     },
     {
         "method": "POST",
@@ -1343,31 +1338,6 @@
         "method": "GET|HEAD",
         "uri": "channels/pedallion/products/search-catalog",
         "name": "ext.pedallion.products.search_catalog"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/pedallion/products/unmatched/import-selected",
-        "name": "ext.pedallion.products.import_selected"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/pedallion/products/unmatched/sync",
-        "name": "ext.pedallion.products.sync_unmatched"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/pedallion/products/unmatched/{unmatchedId}/dismiss",
-        "name": "ext.pedallion.products.dismiss_unmatched"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/pedallion/products/unmatched/{unmatchedId}/import",
-        "name": "ext.pedallion.products.import_unmatched"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/pedallion/products/unmatched/{unmatchedId}/link",
-        "name": "ext.pedallion.products.link_unmatched"
     },
     {
         "method": "DELETE",
@@ -1841,6 +1811,21 @@
     },
     {
         "method": "POST",
+        "uri": "channels/shopee/{store}/products/import-one",
+        "name": "ext.shopee.products.import_one"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/import-selected",
+        "name": "ext.shopee.products.import_selected"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/link-item",
+        "name": "ext.shopee.products.link_item"
+    },
+    {
+        "method": "POST",
         "uri": "channels/shopee/{store}/products/rebuild-cache",
         "name": "ext.shopee.products.rebuild_cache"
     },
@@ -1853,31 +1838,6 @@
         "method": "GET|HEAD",
         "uri": "channels/shopee/{store}/products/search-catalog",
         "name": "ext.shopee.products.search_catalog"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/{store}/products/unmatched/import-selected",
-        "name": "ext.shopee.products.import_selected"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/{store}/products/unmatched/sync",
-        "name": "ext.shopee.products.sync_unmatched"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/{store}/products/unmatched/{unmatchedId}/dismiss",
-        "name": "ext.shopee.products.dismiss_unmatched"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/{store}/products/unmatched/{unmatchedId}/import",
-        "name": "ext.shopee.products.import_unmatched"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/{store}/products/unmatched/{unmatchedId}/link",
-        "name": "ext.shopee.products.link_unmatched"
     },
     {
         "method": "POST",
@@ -2030,34 +1990,24 @@
         "name": "ext.shopify.products.import"
     },
     {
-        "method": "GET|HEAD",
-        "uri": "channels/shopify/{store}/products/search-catalog",
-        "name": "ext.shopify.products.search_catalog"
+        "method": "POST",
+        "uri": "channels/shopify/{store}/products/import-one",
+        "name": "ext.shopify.products.import_one"
     },
     {
         "method": "POST",
-        "uri": "channels/shopify/{store}/products/unmatched/import-selected",
+        "uri": "channels/shopify/{store}/products/import-selected",
         "name": "ext.shopify.products.import_selected"
     },
     {
         "method": "POST",
-        "uri": "channels/shopify/{store}/products/unmatched/sync",
-        "name": "ext.shopify.products.sync_unmatched"
+        "uri": "channels/shopify/{store}/products/link-item",
+        "name": "ext.shopify.products.link_item"
     },
     {
-        "method": "POST",
-        "uri": "channels/shopify/{store}/products/unmatched/{unmatchedId}/dismiss",
-        "name": "ext.shopify.products.dismiss_unmatched"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopify/{store}/products/unmatched/{unmatchedId}/import",
-        "name": "ext.shopify.products.import_unmatched"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopify/{store}/products/unmatched/{unmatchedId}/link",
-        "name": "ext.shopify.products.link_unmatched"
+        "method": "GET|HEAD",
+        "uri": "channels/shopify/{store}/products/search-catalog",
+        "name": "ext.shopify.products.search_catalog"
     },
     {
         "method": "GET|HEAD",
@@ -2346,6 +2296,21 @@
     },
     {
         "method": "POST",
+        "uri": "channels/tiktok/products/import-one",
+        "name": "ext.tiktok.products.import_one"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/products/import-selected",
+        "name": "ext.tiktok.products.import_selected"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/products/link-item",
+        "name": "ext.tiktok.products.link_item"
+    },
+    {
+        "method": "POST",
         "uri": "channels/tiktok/products/refresh-status",
         "name": "ext.tiktok.products.refresh_status"
     },
@@ -2353,31 +2318,6 @@
         "method": "GET|HEAD",
         "uri": "channels/tiktok/products/search-catalog",
         "name": "ext.tiktok.products.search_catalog"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/tiktok/products/unmatched/import-selected",
-        "name": "ext.tiktok.products.import_selected"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/tiktok/products/unmatched/sync",
-        "name": "ext.tiktok.products.sync_unmatched"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/tiktok/products/unmatched/{unmatchedId}/dismiss",
-        "name": "ext.tiktok.products.dismiss_unmatched"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/tiktok/products/unmatched/{unmatchedId}/import",
-        "name": "ext.tiktok.products.import_unmatched"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/tiktok/products/unmatched/{unmatchedId}/link",
-        "name": "ext.tiktok.products.link_unmatched"
     },
     {
         "method": "POST",
@@ -2750,34 +2690,24 @@
         "name": "ext.venta.products.import"
     },
     {
-        "method": "GET|HEAD",
-        "uri": "channels/venta/{store}/products/search-catalog",
-        "name": "ext.venta.products.search_catalog"
+        "method": "POST",
+        "uri": "channels/venta/{store}/products/import-one",
+        "name": "ext.venta.products.import_one"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/products/unmatched/import-selected",
+        "uri": "channels/venta/{store}/products/import-selected",
         "name": "ext.venta.products.import_selected"
     },
     {
         "method": "POST",
-        "uri": "channels/venta/{store}/products/unmatched/sync",
-        "name": "ext.venta.products.sync_unmatched"
+        "uri": "channels/venta/{store}/products/link-item",
+        "name": "ext.venta.products.link_item"
     },
     {
-        "method": "POST",
-        "uri": "channels/venta/{store}/products/unmatched/{unmatchedId}/dismiss",
-        "name": "ext.venta.products.dismiss_unmatched"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/venta/{store}/products/unmatched/{unmatchedId}/import",
-        "name": "ext.venta.products.import_unmatched"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/venta/{store}/products/unmatched/{unmatchedId}/link",
-        "name": "ext.venta.products.link_unmatched"
+        "method": "GET|HEAD",
+        "uri": "channels/venta/{store}/products/search-catalog",
+        "name": "ext.venta.products.search_catalog"
     },
     {
         "method": "GET|HEAD",

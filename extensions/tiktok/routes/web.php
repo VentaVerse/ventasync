@@ -132,11 +132,12 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         // unlink, delete, and the attribute sheet read for the listing page.
         Route::post('/tiktok/products/fetch-attributes', [TikTokProductController::class, 'fetchAttributes'])->name('ext.tiktok.products.fetchAttributes');
         Route::get('/tiktok/products/search-catalog', [TikTokProductController::class, 'searchCatalogProducts'])->name('ext.tiktok.products.search_catalog');
-        Route::post('/tiktok/products/unmatched/sync', [TikTokProductController::class, 'syncUnmatchedItems'])->name('ext.tiktok.products.sync_unmatched');
-        Route::post('/tiktok/products/unmatched/import-selected', [TikTokProductController::class, 'importSelectedUnmatched'])->name('ext.tiktok.products.import_selected');
-        Route::post('/tiktok/products/unmatched/{unmatchedId}/import', [TikTokProductController::class, 'importUnmatched'])->name('ext.tiktok.products.import_unmatched');
-        Route::post('/tiktok/products/unmatched/{unmatchedId}/link', [TikTokProductController::class, 'linkUnmatched'])->name('ext.tiktok.products.link_unmatched');
-        Route::post('/tiktok/products/unmatched/{unmatchedId}/dismiss', [TikTokProductController::class, 'dismissUnmatched'])->name('ext.tiktok.products.dismiss_unmatched');
+        // Stateless import (the owner, 2026-09-04): the page's GET carries
+        // ?fetch=1 to read the shop live; these act on the values the
+        // rendered page carries. Nothing is saved - nothing to dismiss.
+        Route::post('/tiktok/products/import-one', [TikTokProductController::class, 'importOne'])->name('ext.tiktok.products.import_one');
+        Route::post('/tiktok/products/import-selected', [TikTokProductController::class, 'importSelected'])->name('ext.tiktok.products.import_selected');
+        Route::post('/tiktok/products/link-item', [TikTokProductController::class, 'linkItem'])->name('ext.tiktok.products.link_item');
         Route::post('/tiktok/products/check', [TikTokProductController::class, 'checkAgainstTikTok'])->name('ext.tiktok.products.check');
         Route::post('/tiktok/products/bulk/send', [TikTokProductController::class, 'bulkSend'])->name('ext.tiktok.products.bulk_send');
         // Activate / deactivate the selection in one call, and refresh the listing status mirror on demand (the owner, 2026-08-28).

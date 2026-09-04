@@ -191,6 +191,12 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
         Route::post('/lazada/products/{id}/sync/lazada-id', [LazadaProductController::class, 'syncLazadaId'])->whereNumber('id')->name('ext.lazada.products.sync_lazada_id');
 
         // Lazada Products — bulk writes
+        // Stateless import (the owner, 2026-09-04): the page's GET carries
+        // ?fetch=1 to read the store live; these act on the values the
+        // rendered page carries. Nothing is saved - nothing to dismiss.
+        Route::post('/lazada/products/import-one', [LazadaProductController::class, 'importOne'])->name('ext.lazada.products.import_one');
+        Route::post('/lazada/products/import-selected', [LazadaProductController::class, 'importSelected'])->name('ext.lazada.products.import_selected');
+        Route::post('/lazada/products/link-item', [LazadaProductController::class, 'linkItem'])->name('ext.lazada.products.link_item');
         Route::post('/lazada/products/bulk/upload', [LazadaProductController::class, 'bulkUploadToLazada'])->name('ext.lazada.products.bulk_upload');
         Route::post('/lazada/listings/{id}/toggle', [LazadaProductController::class, 'toggleListing'])->whereNumber('id')->name('ext.lazada.listings.toggle');
         // Activate / deactivate the selection (the owner, 2026-08-28), and refresh the status mirror on demand.
@@ -209,11 +215,6 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
 
         // Lazada Products — sample push, unmatched workflow
         Route::post('/lazada/products/{id}/push/sample', [LazadaProductController::class, 'pushSample'])->whereNumber('id')->name('ext.lazada.products.push_sample');
-        Route::post('/lazada/products/unmatched/sync', [LazadaProductController::class, 'syncUnmatchedItems'])->name('ext.lazada.products.sync_unmatched');
-        Route::post('/lazada/products/unmatched/import-selected', [LazadaProductController::class, 'importSelectedUnmatched'])->name('ext.lazada.products.import_selected');
-        Route::post('/lazada/products/unmatched/{unmatchedId}/import', [LazadaProductController::class, 'importUnmatchedItem'])->name('ext.lazada.products.import_unmatched');
-        Route::post('/lazada/products/unmatched/{unmatchedId}/link', [LazadaProductController::class, 'linkUnmatchedItem'])->name('ext.lazada.products.link_unmatched');
-        Route::post('/lazada/products/unmatched/{unmatchedId}/dismiss', [LazadaProductController::class, 'dismissUnmatchedItem'])->name('ext.lazada.products.dismiss_unmatched');
 
         // Brands + Categories — fetches that pull from Lazada and persist locally
         Route::post('/lazada/brands/sync', [LazadaProductController::class, 'syncBrandsGlobal'])->name('ext.lazada.brands_sync');

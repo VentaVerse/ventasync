@@ -5,7 +5,6 @@ namespace Extensions\opencart\Controllers;
 use App\Http\Controllers\Controller;
 use Extensions\opencart\Models\OpenCartProductLink;
 use Extensions\opencart\Models\OpenCartSetting;
-use Extensions\opencart\Models\OpenCartUnmatchedItem;
 use Extensions\opencart\Services\OpenCart\OpenCartClient;
 use Extensions\opencart\Services\OpenCart\OpenCartItemImport;
 use Illuminate\Http\Request;
@@ -21,50 +20,59 @@ use Illuminate\Support\Str;
  */
 class OpenCartImportController extends Controller
 {
-    public function importPage(int $store)
+    /**
+     * The Import page, stateless (the owner, 2026-09-04): nothing about the
+     * store's products is saved - blank until Fetch reads the store live
+     * through its api/erp module, rows exist only in the render.
+     */
+    public function importPage(Request $request, int $store)
     {
         $setting = OpenCartSetting::findOrFail($store);
+
+        $fetched = null;
+        $fetchError = null;
+        if ($request->boolean('fetch')) {
+            [$fetched, $fetchError] = $this->fetchUnmatched($setting);
+        }
 
         return view('ext-opencart::products.import', [
             'setting' => $setting,
             'store' => $store,
-            'unmatchedItems' => OpenCartUnmatchedItem::query()
-                ->where('opencart_setting_id', $store)
-                ->where('status', 'unmatched')
-                ->orderBy('name')
-                ->get(),
+            'fetched' => $fetched,
+            'fetchError' => $fetchError,
         ]);
     }
 
     /**
-     * Scan: page through the store's products and queue everything the
-     * catalog cannot place - SKU (or model, OpenCart's habitual SKU field)
-     * not on a product, a variation, or an existing link.
+     * Read the store live and keep only products the catalog cannot
+     * place - SKU (or model, OpenCart's habitual SKU field) unknown and
+     * no link row. Pure read.
+     *
+     * @return array{0: ?array{found: int, rows: list<array>}, 1: ?string}
      */
-    public function syncUnmatched(int $store)
+    private function fetchUnmatched(OpenCartSetting $setting): array
     {
-        $setting = OpenCartSetting::findOrFail($store);
         if (! $setting->enabled) {
-            return redirect()->back()->with('error', 'That OpenCart store is turned off, so nothing was scanned.');
+            return [null, 'That OpenCart store is turned off, so nothing was fetched.'];
         }
 
         $client = new OpenCartClient($setting);
         $known = $this->knownSkus();
         $linked = OpenCartProductLink::query()
-            ->where('opencart_setting_id', $store)
+            ->where('opencart_setting_id', $setting->id)
             ->pluck('oc_product_id')
             ->flip();
         $base = rtrim((string) $setting->base_url, '/');
 
         $found = 0;
-        $queued = 0;
+        $rows = [];
         $page = 1;
         do {
             $answer = $client->getProducts($page, 100);
             if (! ($answer['ok'] ?? false)) {
-                return redirect()->back()->with('error', 'OpenCart did not answer the scan: '
+                return [null, 'OpenCart did not answer the fetch: '
                     . \App\Support\MarketplaceAnswer::plain('OpenCart', $answer)
-                    . ($found > 0 ? " ({$found} products were read before it stopped.)" : ''));
+                    . ($found > 0 ? " ({$found} products were read before it stopped.)" : '')];
             }
             $items = array_values((array) ($answer['body']['data'] ?? []));
             $totalPages = (int) ($answer['body']['pagination']['total_pages'] ?? $page);
@@ -78,102 +86,76 @@ class OpenCartImportController extends Controller
                     continue;
                 }
                 $rel = trim((string) ($item['image'] ?? ''));
-                // The scan refreshes the FACTS, never the verdict: a dismissed
-                // row stays dismissed and a linked one stays linked (the owner,
-                // 2026-09-04 - updateOrCreate used to resurrect both every scan).
-                $row = OpenCartUnmatchedItem::firstOrNew(['opencart_setting_id' => $store, 'oc_product_id' => (int) ($item['product_id'] ?? 0)]);
-                if (! $row->exists) {
-                    $row->status = 'unmatched';
-                }
-                $row->fill([
-                        'sku' => $sku ?: null,
-                        'name' => Str::limit(html_entity_decode((string) ($item['name'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'), 250, ''),
-                        'price' => (float) ($item['price'] ?? 0),
-                        'quantity' => (int) ($item['quantity'] ?? 0),
-                        'image_url' => $rel !== '' ? $base . '/image/' . ltrim($rel, '/') : '',
-                        'variant_count' => is_array($item['option_values'] ?? null) ? count($item['option_values']) : 0,
-                ])->save();
-                if ($row->status === 'unmatched') {
-                    $queued++;
-                }
+                $rows[] = [
+                    'ref' => (int) ($item['product_id'] ?? 0),
+                    'sku' => $sku,
+                    'channel_id' => (int) ($item['product_id'] ?? 0),
+                    'name' => Str::limit(html_entity_decode((string) ($item['name'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'), 250, ''),
+                    'image_url' => $rel !== '' ? $base . '/image/' . ltrim($rel, '/') : '',
+                    'variants' => is_array($item['option_values'] ?? null) ? count($item['option_values']) : 0,
+                ];
             }
             $page++;
         } while ($page <= $totalPages && $page <= 100);
 
-        return redirect()->back()->with('status',
-            "Scanned {$found} products on " . ($setting->store_name ?: 'OpenCart') . '. '
-            . ($queued > 0 ? "{$queued} not in the catalog are waiting below." : 'Everything matches a catalog SKU.'));
+        return [['found' => $found, 'rows' => $rows], null];
     }
 
-    public function importUnmatched(int $store, int $unmatchedId, OpenCartItemImport $import)
+    /** Import one fetched product, re-read live by its id. */
+    public function importOne(Request $request, int $store, OpenCartItemImport $import)
     {
+        $data = $request->validate(['ref' => 'required|integer|min:1']);
         $setting = OpenCartSetting::findOrFail($store);
-        $row = OpenCartUnmatchedItem::query()
-            ->where('opencart_setting_id', $store)->findOrFail($unmatchedId);
 
-        $r = $import->import($setting, $row);
+        $r = $import->import($setting, (int) $data['ref']);
 
         return redirect()->back()->with($r['ok'] ? 'status' : 'error', $r['message']);
     }
 
-    /** Import selected (the owner, 2026-09-04): the single import, per ticked row. */
-    public function importSelectedUnmatched(Request $request, int $store, OpenCartItemImport $import)
+    /** Import selected: every ticked row, each in its own transaction. */
+    public function importSelected(Request $request, int $store, OpenCartItemImport $import)
     {
-        $data = $request->validate(['unmatched_ids' => 'required|array|min:1|max:100', 'unmatched_ids.*' => 'integer|min:1']);
-
+        $data = $request->validate(['refs' => 'required|array|min:1|max:100', 'refs.*' => 'integer|min:1']);
         $setting = OpenCartSetting::findOrFail($store);
-        $rows = OpenCartUnmatchedItem::query()
-            ->where('opencart_setting_id', $store)
-            ->whereIn('id', $data['unmatched_ids'])->where('status', 'unmatched')->get();
-        if ($rows->isEmpty()) {
-            return redirect()->back()->with('error', 'None of the selected products are still waiting to be imported.');
-        }
 
         $done = 0;
         $failed = [];
-        foreach ($rows as $row) {
-            $r = $import->import($setting, $row);
+        $refs = array_values(array_unique(array_map('intval', $data['refs'])));
+        foreach ($refs as $ref) {
+            $r = $import->import($setting, $ref);
             if ($r['ok'] ?? false) {
                 $done++;
             } else {
-                $failed[] = ($row->name ?: $row->sku) . ': ' . ($r['message'] ?? 'not imported');
+                $failed[] = '#' . $ref . ': ' . ($r['message'] ?? 'not imported');
             }
         }
 
-        $line = \App\Support\BulkImportSummary::line($done, $rows->count(), $failed);
+        $line = \App\Support\BulkImportSummary::line($done, count($refs), $failed);
 
         return redirect()->back()->with($line['tone'], $line['message']);
     }
 
-    public function linkUnmatched(Request $request, int $store, int $unmatchedId)
+    /** Link a fetched product to a catalog product it already is. */
+    public function linkItem(Request $request, int $store)
     {
         OpenCartSetting::findOrFail($store);
-        $row = OpenCartUnmatchedItem::query()
-            ->where('opencart_setting_id', $store)->findOrFail($unmatchedId);
+        $data = $request->validate([
+            'ref' => 'required|integer|min:1',
+            'sku' => 'nullable|string|max:191',
+            'product_id' => 'required|integer|min:1',
+        ]);
 
-        $data = $request->validate(['product_id' => 'required|integer|min:1']);
         $pfx = (string) config('catalog.prefix');
         if (! DB::table($pfx . 'product')->where('product_id', (int) $data['product_id'])->exists()) {
             return redirect()->back()->with('error', 'That catalog product does not exist.');
         }
 
         OpenCartProductLink::updateOrCreate(
-            ['opencart_setting_id' => $store, 'oc_product_id' => (int) $row->oc_product_id],
-            ['product_id' => (int) $data['product_id'], 'sku' => $row->sku]
+            ['opencart_setting_id' => $store, 'oc_product_id' => (int) $data['ref']],
+            ['product_id' => (int) $data['product_id'], 'sku' => trim((string) ($data['sku'] ?? '')) ?: null]
         );
-        $row->update(['status' => 'linked', 'linked_product_id' => (int) $data['product_id']]);
 
-        return redirect()->back()->with('status', 'Linked "' . ($row->name ?: $row->sku) . '" to catalog product #' . $data['product_id'] . '.');
-    }
-
-    public function dismissUnmatched(int $store, int $unmatchedId)
-    {
-        OpenCartSetting::findOrFail($store);
-        OpenCartUnmatchedItem::query()
-            ->where('opencart_setting_id', $store)->findOrFail($unmatchedId)
-            ->update(['status' => 'dismissed']);
-
-        return redirect()->back()->with('status', 'Dismissed. Scans will not list it again.');
+        return redirect()->back()->with('status', 'Linked OpenCart product #' . $data['ref'] . ' to catalog product #' . $data['product_id'] . '.');
     }
 
     /** The Link typeahead's catalog search, same JSON every channel serves. */

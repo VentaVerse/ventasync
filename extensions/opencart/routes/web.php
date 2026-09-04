@@ -108,13 +108,14 @@ Route::middleware(['auth'])->group(function () {
 // product carries its option set across as variations, a multi-option
 // one imports flat (OpenCart options are independent, no combinations).
 Route::middleware(['auth'])->prefix('channels')->group(function () {
+    // Stateless import (the owner, 2026-09-04): GET ?fetch=1 reads the store
+    // live and renders; import/link act on the values the page carries.
+    // Nothing is saved, so there is no queue and nothing to dismiss.
     Route::get('/opencart/{store}/products/import', [\Extensions\opencart\Controllers\OpenCartImportController::class, 'importPage'])->whereNumber('store')->name('ext.opencart.products.import');
     Route::get('/opencart/{store}/products/search-catalog', [\Extensions\opencart\Controllers\OpenCartImportController::class, 'searchCatalog'])->whereNumber('store')->name('ext.opencart.products.search_catalog');
-    Route::post('/opencart/{store}/products/unmatched/sync', [\Extensions\opencart\Controllers\OpenCartImportController::class, 'syncUnmatched'])->whereNumber('store')->name('ext.opencart.products.sync_unmatched');
-    Route::post('/opencart/{store}/products/unmatched/import-selected', [\Extensions\opencart\Controllers\OpenCartImportController::class, 'importSelectedUnmatched'])->whereNumber('store')->name('ext.opencart.products.import_selected');
-    Route::post('/opencart/{store}/products/unmatched/{unmatchedId}/import', [\Extensions\opencart\Controllers\OpenCartImportController::class, 'importUnmatched'])->whereNumber('store')->whereNumber('unmatchedId')->name('ext.opencart.products.import_unmatched');
-    Route::post('/opencart/{store}/products/unmatched/{unmatchedId}/link', [\Extensions\opencart\Controllers\OpenCartImportController::class, 'linkUnmatched'])->whereNumber('store')->whereNumber('unmatchedId')->name('ext.opencart.products.link_unmatched');
-    Route::post('/opencart/{store}/products/unmatched/{unmatchedId}/dismiss', [\Extensions\opencart\Controllers\OpenCartImportController::class, 'dismissUnmatched'])->whereNumber('store')->whereNumber('unmatchedId')->name('ext.opencart.products.dismiss_unmatched');
+    Route::post('/opencart/{store}/products/import-one', [\Extensions\opencart\Controllers\OpenCartImportController::class, 'importOne'])->whereNumber('store')->name('ext.opencart.products.import_one');
+    Route::post('/opencart/{store}/products/import-selected', [\Extensions\opencart\Controllers\OpenCartImportController::class, 'importSelected'])->whereNumber('store')->name('ext.opencart.products.import_selected');
+    Route::post('/opencart/{store}/products/link-item', [\Extensions\opencart\Controllers\OpenCartImportController::class, 'linkItem'])->whereNumber('store')->name('ext.opencart.products.link_item');
 });
 
 // ── THE CHANNEL'S OWN LANDING PAGE ──────────────────────────────────────

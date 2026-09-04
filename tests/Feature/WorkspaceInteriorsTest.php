@@ -11,7 +11,6 @@ use Extensions\shopee\Models\ShopeeCategory;
 use Extensions\shopee\Models\ShopeeLogistic;
 use Extensions\shopee\Models\ShopeeProductGroup;
 use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Models\ShopeeUnmatchedItem;
 use Extensions\shopee\ShopeeExtension;
 use Extensions\lazada\LazadaExtension;
 use Extensions\lazada\Models\LazadaApiLog;
@@ -20,7 +19,6 @@ use Extensions\lazada\Models\LazadaCategory;
 use Extensions\lazada\Models\LazadaProduct;
 use Extensions\lazada\Models\LazadaProductGroup;
 use Extensions\lazada\Models\LazadaSetting;
-use Extensions\lazada\Models\LazadaUnmatchedItem;
 use Extensions\opencart\Models\OpenCartOrderStatusMap;
 use Extensions\opencart\Models\OpenCartProductGroup;
 use Extensions\opencart\Models\OpenCartSetting;
@@ -453,16 +451,6 @@ class WorkspaceInteriorsTest extends TestCase
     public function test_the_manage_tier_is_offered_those_same_controls(): void
     {
         $this->seedSetting();
-        // The catalog typeahead only exists where there is something to
-        // link, so the queue needs an entry for that assertion to mean
-        // anything.
-        ShopeeUnmatchedItem::create([
-            'shopee_item_id' => 10076385934,
-            'shopee_model_id' => 0,
-            'item_name' => 'Unmatched pedal',
-            'sku' => 'UNM-1',
-            'status' => 'unmatched',
-        ]);
         $user = $this->manager();
 
         $this->actingAs($user)->get(route('ext.shopee.categories.index'))
@@ -478,11 +466,11 @@ class WorkspaceInteriorsTest extends TestCase
             ->assertOk()
             ->assertSee(route('ext.shopee.products.bulk_push'), false);
 
-        // The link typeahead rode the import queue onto its own page
-        // (cleanup point 10, 2026-09-03).
+        // The import page is stateless (2026-09-04): blank until Fetch,
+        // so what the manage tier is offered here is the Fetch control.
         $this->actingAs($user)->get(route('ext.shopee.products.import'))
             ->assertOk()
-            ->assertSee(route('ext.shopee.products.search_catalog'), false);
+            ->assertSee('Fetch from Shopee');
 
         $this->actingAs($user)->get(route('ext.shopee.settings.show'))
             ->assertOk()
@@ -514,7 +502,7 @@ class WorkspaceInteriorsTest extends TestCase
             route('ext.shopee.logistics.fetch'),
             route('ext.shopee.products.bulk_push'),
             route('ext.shopee.products.bulk_delete'),
-            route('ext.shopee.products.sync_unmatched'),
+            route('ext.shopee.products.import_one'),
             route('ext.shopee.products.rebuild_cache'),
         ];
 
@@ -1172,12 +1160,6 @@ class WorkspaceInteriorsTest extends TestCase
 
         LazadaProductGroup::create(['name' => '<b>bold group</b>']);
 
-        LazadaUnmatchedItem::create([
-            'lazada_item_id' => '990011',
-            'item_name' => '<svg onload=alert(3)>',
-            'sku' => 'UNM-LZ-1',
-            'status' => 'unmatched',
-        ]);
 
         $user = $this->lazadaManager();
 
@@ -1259,7 +1241,7 @@ class WorkspaceInteriorsTest extends TestCase
         $listings->assertDontSee(route('ext.lazada.products.bulk_upload'), false);
         $listings->assertDontSee(route('ext.lazada.products.bulk_delete'), false);
         $listings->assertDontSee(route('ext.lazada.products.create'), false);
-        $listings->assertDontSee(route('ext.lazada.products.sync_unmatched'), false);
+        $listings->assertDontSee(route('ext.lazada.products.import_one'), false);
 
         // The settings page is deliberately different from the four lists. A
         // read-tier operator is meant to be able to READ the credentials page,
@@ -1291,15 +1273,6 @@ class WorkspaceInteriorsTest extends TestCase
     public function test_the_lazada_manage_tier_is_offered_those_same_controls(): void
     {
         $this->seedLazadaSetting();
-        // The catalog typeahead only exists where there is something to
-        // link, so the queue needs an entry for that assertion to mean
-        // anything.
-        LazadaUnmatchedItem::create([
-            'lazada_item_id' => '10076385934',
-            'item_name' => 'Unmatched pedal',
-            'sku' => 'UNM-LZ-2',
-            'status' => 'unmatched',
-        ]);
         $user = $this->lazadaManager();
 
         $this->actingAs($user)->get(route('ext.lazada.categories.index'))
@@ -1315,11 +1288,10 @@ class WorkspaceInteriorsTest extends TestCase
             ->assertOk()
             ->assertSee(route('ext.lazada.products.bulk_upload'), false);
 
-        // The link typeahead rode the import queue onto its own page
-        // (cleanup point 10, 2026-09-03).
+        // The import page is stateless (2026-09-04): blank until Fetch.
         $this->actingAs($user)->get(route('ext.lazada.products.import'))
             ->assertOk()
-            ->assertSee(route('ext.lazada.products.search_catalog'), false);
+            ->assertSee('Fetch from Lazada');
 
         $this->actingAs($user)->get(route('ext.lazada.index'))
             ->assertOk()
@@ -1352,7 +1324,7 @@ class WorkspaceInteriorsTest extends TestCase
             route('ext.lazada.brands.fetch'),
             route('ext.lazada.products.bulk_upload'),
             route('ext.lazada.products.bulk_delete'),
-            route('ext.lazada.products.sync_unmatched'),
+            route('ext.lazada.products.import_one'),
         ];
 
         foreach ($posts as $url) {
