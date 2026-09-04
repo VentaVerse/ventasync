@@ -375,9 +375,15 @@
    narrow screens without ever leaving the section head.
    ------------------------------------------------------------------ */
 
-.cs-logmode {
-    display: flex;
-    gap: var(--bl-space-1);
+/* The recording-mode control is the x-segment track - the same control
+   as the All/Errors filter in the same panel, and the same button-item
+   reset the tab strip above already carries (see `.cs-page
+   button.x-segment__item`). This only gives it room as its own row
+   under the heading rather than crowding the section head. */
+.cs-modeseg {
+    width: max-content;
+    max-width: 100%;
+    margin-top: var(--bl-space-3);
 }
 
 .cs-logtools {

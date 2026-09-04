@@ -61,7 +61,6 @@
     $__hasSandboxToken = !empty($setting->sandbox_access_token ?? '');
     $__sandboxTokenExpired = $__hasSandboxToken && ($setting->sandbox_expires_at ?? null) && \Carbon\Carbon::parse($setting->sandbox_expires_at)->lt(now());
 
-    $hasResult = !empty($result);
 
 
     // Exactly the six LazadaController::save() validates, no more.
@@ -78,13 +77,17 @@
 @php
     $csKnown = ['connection', 'status', 'logs'];
     if ($canManageLazada) { $csKnown[] = 'explorer'; $csKnown[] = 'automations'; }
-    $csSection = in_array(request('tab'), $csKnown, true) ? request('tab') : ($hasResult ? 'logs' : 'connection');
+    // A flashed result (a token fetch, a test, a save) used to force
+    // the Logs tab, teleporting the operator there on any outcome
+    // (the owner, 2026-09-04). The result banner is page-level now, so
+    // the default tab stays Connection where the actions live.
+    $csSection = in_array(request('tab'), $csKnown, true) ? request('tab') : 'connection';
 @endphp
 <div class="cs-page"
      data-channel-settings
      data-tab-prefix="lz-tab-"
      data-tab-storage-key="lz-active-tab"
-     data-default-tab="{{ $hasResult ? 'lz-tab-logs' : '' }}">
+     data-default-tab="">
 
 <div class="x-list-head">
     <div>
@@ -105,6 +108,38 @@
 {{-- ================================================================
      CONNECTION
      ================================================================ --}}
+{{-- The result of the last action (token fetch, test, save), shown
+     page-level so it is visible on whatever tab the operator is on -
+     it no longer drags them to the Logs tab (the owner, 2026-09-04). --}}
+    @if($result)
+        @php $ok = (bool) ($result['ok'] ?? false); @endphp
+        <section class="fm-section">
+            <div class="fm-section__head">
+                <h2 class="fm-section__title">Last result</h2>
+                <div class="fm-section__aside">
+                    <x-ui.badge :tone="$ok ? 'success' : 'danger'">{{ $ok ? 'Succeeded' : 'Failed' }}</x-ui.badge>
+                </div>
+            </div>
+            <p class="fm-section__note">{{ $result['title'] ?? 'Result' }}</p>
+            {{-- The REASON is the visible text; the payload is one click
+                 away, never the message (the owner, 2026-09-03). A success keeps
+                 its confirmation data in view - that is what was asked for. --}}
+            @if(!$ok)
+                @php
+                    $answerRaw = is_array($result['data'] ?? null) ? $result['data'] : ['body' => ['message' => (string) ($result['data'] ?? '')], 'ok' => false];
+                    $answerText = \App\Support\MarketplaceAnswer::errorText('Lazada', $answerRaw);
+                @endphp
+                <p class="fm-section__note fm-section__note--strong">@include('partials.channel-answer', ['channel' => 'Lazada', 'raw' => $answerText, 'settingsRoute' => null])</p>
+                <details class="fm-note__more">
+                    <summary>Full response</summary>
+                    <pre class="cs-pre">{{ json_encode($result['data'] ?? $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                </details>
+            @else
+                <pre class="cs-pre">{{ json_encode($result['data'] ?? $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+            @endif
+        </section>
+    @endif
+
 <div id="lz-tab-connection" class="cs-panel" @if($csSection !== 'connection') hidden @endif>
 
     <section class="fm-section">
@@ -708,34 +743,6 @@
 <div id="lz-tab-logs" class="cs-panel" @if($csSection !== 'logs') hidden @endif>
 
 
-    @if($result)
-        @php $ok = (bool) ($result['ok'] ?? false); @endphp
-        <section class="fm-section">
-            <div class="fm-section__head">
-                <h2 class="fm-section__title">Last result</h2>
-                <div class="fm-section__aside">
-                    <x-ui.badge :tone="$ok ? 'success' : 'danger'">{{ $ok ? 'Succeeded' : 'Failed' }}</x-ui.badge>
-                </div>
-            </div>
-            <p class="fm-section__note">{{ $result['title'] ?? 'Result' }}</p>
-            {{-- The REASON is the visible text; the payload is one click
-                 away, never the message (the owner, 2026-09-03). A success keeps
-                 its confirmation data in view - that is what was asked for. --}}
-            @if(!$ok)
-                @php
-                    $answerRaw = is_array($result['data'] ?? null) ? $result['data'] : ['body' => ['message' => (string) ($result['data'] ?? '')], 'ok' => false];
-                    $answerText = \App\Support\MarketplaceAnswer::errorText('Lazada', $answerRaw);
-                @endphp
-                <p class="fm-section__note fm-section__note--strong">@include('partials.channel-answer', ['channel' => 'Lazada', 'raw' => $answerText, 'settingsRoute' => null])</p>
-                <details class="fm-note__more">
-                    <summary>Full response</summary>
-                    <pre class="cs-pre">{{ json_encode($result['data'] ?? $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
-                </details>
-            @else
-                <pre class="cs-pre">{{ json_encode($result['data'] ?? $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
-            @endif
-        </section>
-    @endif
 
     {{-- #200: the shared API log panel - the three-way mode, All/Errors
          and path filters that survive a refresh, pages of 50, and the
@@ -760,8 +767,10 @@
     <section class="fm-section">
         <div class="fm-section__head">
             <h2 class="fm-section__title">Free up space</h2>
+            {{-- Explanation to a tooltip (the owner, 2026-09-04): the
+                 control is self-evident, the caveat is one tap away. --}}
+            <x-ui.hint label="What clearing does">Every synced Lazada order, order line and return keeps the full API response it came from. Clearing those payloads on older rows frees database space and changes nothing about the orders themselves.</x-ui.hint>
         </div>
-        <p class="fm-section__note">Every synced Lazada order, order line and return keeps the full API response it came from. Clearing those payloads on older rows frees database space and changes nothing about the orders themselves.</p>
 
         <form method="POST" action="{{ route('ext.lazada.purge_raw') }}"
               data-confirm="Clear the stored API payloads on Lazada rows older than the number of days given? The orders and returns stay, only the raw payloads go, and this cannot be undone.">

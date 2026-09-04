@@ -36,29 +36,26 @@
 <section class="fm-section">
     <div class="fm-section__head">
         <h2 class="fm-section__title">Recording</h2>
-        <div class="fm-section__aside">
-            @if($canManage)
-                {{-- Three plain submits, one per mode: the active one is
-                     lit, pressing another switches to it. No knob whose
-                     position has to be decoded. --}}
-                <form method="POST" action="{{ $modeUrl }}" class="cs-logmode" role="group" aria-label="What the API log records">
-                    @csrf
-                    @foreach($modeLabels as $mode => $label)
-                        <x-ui.button type="submit" name="mode" value="{{ $mode }}" size="sm"
-                                     variant="{{ $logMode === $mode ? 'primary' : 'secondary' }}"
-                                     aria-pressed="{{ $logMode === $mode ? 'true' : 'false' }}">{{ $label }}</x-ui.button>
-                    @endforeach
-                </form>
-            @else
-                <x-ui.badge :tone="$logMode === \App\Support\ApiLogMode::OFF ? 'neutral' : 'success'">{{ $modeLabels[$logMode] ?? 'Everything' }}</x-ui.badge>
-            @endif
-        </div>
+        {{-- The explanation moved off the page into a tooltip (the owner,
+             2026-09-04): prose the operator reads once, not a paragraph
+             sitting under the control forever. --}}
+        <x-ui.hint label="What each recording mode keeps">Everything keeps a copy of each request sent to {{ $logChannel }} and the answer that came back. Errors only keeps just the failed calls, so the every-minute order fetches stay out of the log while the rows that explain a problem stay in. Either way, rows older than {{ $keepDays }} days are removed nightly.</x-ui.hint>
     </div>
-    <p class="fm-section__note">
-        Everything keeps a copy of each request sent to {{ $logChannel }} and the answer that came back.
-        Errors only keeps just the failed calls, so the every-minute order fetches stay out of the log while the rows that explain a problem stay in.
-        Either way, rows older than {{ $keepDays }} days are removed nightly.
-    </p>
+    @if($canManage)
+        {{-- One segmented control, the same shape as the All/Errors filter
+             below it: a bordered track, the active mode filled. It POSTs,
+             so it is a form of submit buttons rather than links. --}}
+        <form method="POST" action="{{ $modeUrl }}" class="x-segment cs-modeseg" role="group" aria-label="What the API log records">
+            @csrf
+            @foreach($modeLabels as $mode => $label)
+                <button type="submit" name="mode" value="{{ $mode }}"
+                        class="x-segment__item {{ $logMode === $mode ? 'is-active' : '' }}"
+                        aria-pressed="{{ $logMode === $mode ? 'true' : 'false' }}"><span>{{ $label }}</span></button>
+            @endforeach
+        </form>
+    @else
+        <x-ui.badge :tone="$logMode === \App\Support\ApiLogMode::OFF ? 'neutral' : 'success'">{{ $modeLabels[$logMode] ?? 'Everything' }}</x-ui.badge>
+    @endif
 </section>
 
 <section class="fm-section">
