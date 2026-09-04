@@ -48,7 +48,7 @@ class IntegrationController extends Controller
      * single-store channel can never be handed a store and a multi-store one
      * can never be rendered without one.
      */
-    private const ORDER_PANEL_STORE_SCOPED = ['venta', 'opencart', 'shopify', 'shopee'];
+    private const ORDER_PANEL_STORE_SCOPED = ['venta', 'opencart', 'shopify', 'shopee', 'lazada'];
 
     /**
      * Channels whose RETURNS list can also render in place here, keyed the
@@ -569,9 +569,19 @@ class IntegrationController extends Controller
                         'lastSyncAt' => $lastSyncRaw ? Carbon::parse($lastSyncRaw) : null,
                         // the api_log_mode is off in this sandbox for every channel, so
                         // this is null (not tracked) today, not a fabricated zero.
+                        // Scope to this store only when the channel's api-log
+                        // table actually carries its own store key. Shopee's
+                        // does (shopee_setting_id); Lazada is multi-store now
+                        // too but its api log is not partitioned, so its count
+                        // is honestly channel-wide rather than crashing on a
+                        // column that isn't there.
                         'errors24h' => $loggingOn
                             ? DB::table($baseId . '_api_logs')
-                                ->when($row !== null && $card->stores !== [], fn ($q) => $q->where('shopee_setting_id', $row->id))
+                                ->when(
+                                    $row !== null && $card->stores !== []
+                                        && \Illuminate\Support\Facades\Schema::hasColumn($baseId . '_api_logs', $baseId . '_setting_id'),
+                                    fn ($q) => $q->where($baseId . '_setting_id', $row->id)
+                                )
                                 ->where('created_at', '>=', $staleAfter)->where('ok', 0)->count()
                             : null,
                         'menu' => $store?->menu ?? $card->menu,

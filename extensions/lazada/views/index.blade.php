@@ -271,7 +271,7 @@
                     <div class="cs-step__body">
                         <span class="cs-step__title">Authorise with Lazada</span>
                         <div>
-                            <x-ui.button size="sm" :href="route('ext.lazada.authorize')" target="_blank" rel="noopener">Open Lazada authorisation</x-ui.button>
+                            <x-ui.button size="sm" :href="route('ext.lazada.authorize', ['store' => $setting->id ?? null])" target="_blank" rel="noopener">Open Lazada authorisation</x-ui.button>
                         </div>
                         <p class="cs-step__note">Opens Lazada sign-in in a new tab. After you grant access Lazada sends you back to the callback URL above with an auth code, and the code is exchanged for a token automatically.</p>
                     </div>
@@ -406,7 +406,7 @@
                         <div>
                             {{-- The ?sandbox=1 is the contract: redirectToAuth()
                                  reads it to decide which app key it sends. --}}
-                            <x-ui.button size="sm" :href="route('ext.lazada.authorize') . '?sandbox=1'" target="_blank" rel="noopener">Open sandbox authorisation</x-ui.button>
+                            <x-ui.button size="sm" :href="route('ext.lazada.authorize', ['store' => $setting->id ?? null, 'sandbox' => 1])" target="_blank" rel="noopener">Open sandbox authorisation</x-ui.button>
                         </div>
                         <p class="cs-step__note">Opens the Lazada test environment in a new tab, using the sandbox credentials above.</p>
                     </div>

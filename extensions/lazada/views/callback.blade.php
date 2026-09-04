@@ -162,7 +162,7 @@
                         @endif
                     </p>
                     <div class="od-form__actions">
-                        <x-ui.button variant="primary" :href="route('ext.lazada.index')">Go to Lazada settings</x-ui.button>
+                        <x-ui.button variant="primary" :href="!empty($store) ? route('ext.lazada.index', ['store' => $store->id]) : route('ext.lazada.dashboard')">Go to Lazada settings</x-ui.button>
                     </div>
                 </div>
             </div>

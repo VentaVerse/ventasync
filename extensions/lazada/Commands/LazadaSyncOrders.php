@@ -26,7 +26,28 @@ class LazadaSyncOrders extends Command
 
     public function handle(LazadaClient $client): int
     {
-        $setting = LazadaSetting::query()->first()?->decrypted();
+        $stores = \Extensions\lazada\Models\LazadaSetting::enabledStores();
+        if ($stores->isEmpty()) { $this->error('No enabled Lazada store. Configure Lazada settings first.'); return 1; }
+        $worst = 0;
+        foreach ($stores as $store) {
+            $label = $store->store_name ?: ('#' . $store->id);
+            $this->info("=== Lazada store: {$label} ===");
+            app()->instance('lazada.route-store', $store); // bind: the model trait now scopes every query + stamps writes to THIS store
+            try {
+                $worst = max($worst, $this->handleStore($client, $store));
+            } catch (\Throwable $e) {
+                $this->error("Store {$label} failed: " . $e->getMessage());
+                \Illuminate\Support\Facades\Log::error('Lazada '.class_basename($this).': store failed', ['store' => $store->id, 'error' => $e->getMessage()]);
+                $worst = 1;
+            }
+        }
+        app()->forgetInstance('lazada.route-store');
+        return $worst;
+    }
+
+    private function handleStore(LazadaClient $client, \Extensions\lazada\Models\LazadaSetting $store): int
+    {
+        $setting = $store->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             $this->error('Missing Lazada credentials/token. Configure Lazada settings first.');
@@ -49,7 +70,7 @@ class LazadaSyncOrders extends Command
         if (!$returnsOnly) {
             $this->info('--- Syncing Lazada orders ---');
             $this->syncOrders($client, $setting);
-            LazadaSetting::query()->update(['last_order_sync_at' => now()]);
+            $store->forceFill(['last_order_sync_at' => now()])->save();
 
             if (Cache::get('lazada_sync_paused')) {
                 return 1;
@@ -65,7 +86,7 @@ class LazadaSyncOrders extends Command
         if (!$skipReturns) {
             $this->info('--- Syncing reverse orders (returns/refunds) ---');
             $this->syncReturns($client, $setting);
-            LazadaSetting::query()->update(['last_return_sync_at' => now()]);
+            $store->forceFill(['last_return_sync_at' => now()])->save();
         }
 
         $this->info('Done.');

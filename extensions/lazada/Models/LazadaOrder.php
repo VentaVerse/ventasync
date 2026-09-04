@@ -4,14 +4,18 @@ namespace Extensions\lazada\Models;
 
 use App\Models\Catalog\Order;
 use Illuminate\Database\Eloquent\Model;
+use Extensions\lazada\Models\Concerns\BelongsToLazadaStore;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class LazadaOrder extends Model
 {
+    use BelongsToLazadaStore;
+
     protected $table = 'lazada_orders';
 
     protected $fillable = [
+        'lazada_setting_id',
         'region',
         'order_id',
         'status',

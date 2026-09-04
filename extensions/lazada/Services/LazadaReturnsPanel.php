@@ -21,9 +21,17 @@ use Illuminate\Http\Request;
  */
 class LazadaReturnsPanel
 {
-    public function build(Request $request): array
+    public function build(Request $request, ?int $storeId = null): array
     {
-        $setting = LazadaSetting::query()->first();
+        $setting = $storeId !== null
+            ? LazadaSetting::query()->find($storeId)
+            : LazadaSetting::defaultStore();
+        if ($storeId !== null && $setting !== null) {
+            // The hub page is storeless; bind the tab's store so the global
+            // scope narrows every return read and route() fills its {store}.
+            app()->instance('lazada.route-store', $setting);
+            \Illuminate\Support\Facades\URL::defaults(['store' => (int) $setting->id]);
+        }
         $region = $setting->region ?? 'ph';
 
         $filters = $request->validate([
@@ -221,6 +229,9 @@ class LazadaReturnsPanel
         $erpMap = $tradeIds->isEmpty() ? collect() : \DB::table('lazada_orders')
             ->whereIn('order_id', $tradeIds->all())
             ->whereNotNull('catalog_order_id')
+            // Raw DB::table bypasses the BelongsToLazadaStore global scope, so
+            // scope the ERP-order lookup to the current store explicitly.
+            ->when(app()->bound('lazada.route-store'), fn ($q) => $q->where('lazada_setting_id', app('lazada.route-store')->id))
             ->pluck('catalog_order_id', 'order_id');
 
         // Product images aren't in the return payload — resolve them by seller SKU

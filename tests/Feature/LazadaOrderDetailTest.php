@@ -35,6 +35,9 @@ class LazadaOrderDetailTest extends TestCase
 {
     use RefreshDatabase;
 
+    /** The store every store-scoped Lazada URL in this file names. */
+    private LazadaSetting $lazadaStore;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -49,6 +52,12 @@ class LazadaOrderDetailTest extends TestCase
         // lookup table are invisible to Route::has(), which ChannelWorkspace
         // calls for every sidebar destination. See ChannelWorkspaceTest.
         $this->app['router']->getRoutes()->refreshNameLookups();
+
+        // Multi-store (the owner 2026-09-05): every Lazada page is store-scoped.
+        // An ENABLED store lets URL::defaults fill {store} on every
+        // route('ext.lazada.orders.show', ...) call, and its id names the
+        // store-scoped literal paths below - exactly like Shopee.
+        $this->lazadaStore = LazadaSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
     /** Read tier: can open the page, holds nothing that writes. */
@@ -178,7 +187,7 @@ class LazadaOrderDetailTest extends TestCase
     {
         $order = $this->order();
 
-        $response = $this->actingAs($this->viewer())->get('/channels/lazada/orders/'.$order->order_id);
+        $response = $this->actingAs($this->viewer())->get('/channels/lazada/'.$this->lazadaStore->id.'/orders/'.$order->order_id);
 
         $response->assertOk();
 
@@ -202,7 +211,7 @@ class LazadaOrderDetailTest extends TestCase
     {
         $order = $this->order();
 
-        $response = $this->actingAs($this->viewer())->get('/channels/lazada/orders/'.$order->order_id);
+        $response = $this->actingAs($this->viewer())->get('/channels/lazada/'.$this->lazadaStore->id.'/orders/'.$order->order_id);
 
         $response->assertOk();
 
@@ -269,7 +278,7 @@ class LazadaOrderDetailTest extends TestCase
             'raw' => ['order_number' => 'LZ-EMPTY-000001', 'statuses' => ['pending']],
         ]);
 
-        $response = $this->actingAs($this->viewer())->get('/channels/lazada/orders/'.$order->order_id);
+        $response = $this->actingAs($this->viewer())->get('/channels/lazada/'.$this->lazadaStore->id.'/orders/'.$order->order_id);
 
         $response->assertOk();
         $response->assertSee('No items synced yet. Items will be fetched on the next order sync.');
@@ -325,7 +334,7 @@ class LazadaOrderDetailTest extends TestCase
             'raw' => ['item_price' => 500.00, 'paid_price' => 480.00],
         ]);
 
-        $response = $this->actingAs($this->viewer())->get('/channels/lazada/orders/'.$order->order_id);
+        $response = $this->actingAs($this->viewer())->get('/channels/lazada/'.$this->lazadaStore->id.'/orders/'.$order->order_id);
 
         $response->assertOk();
         $response->assertSee('No fee data yet.');
@@ -343,12 +352,12 @@ class LazadaOrderDetailTest extends TestCase
         $order = $this->order();
         $refreshUrl = route('ext.lazada.orders.show', ['orderId' => $order->order_id, 'refresh' => 1]);
 
-        $asManager = $this->actingAs($this->manager())->get('/channels/lazada/orders/'.$order->order_id);
+        $asManager = $this->actingAs($this->manager())->get('/channels/lazada/'.$this->lazadaStore->id.'/orders/'.$order->order_id);
         $asManager->assertOk();
         $asManager->assertSee($refreshUrl, false);
         $asManager->assertSee('Refresh from Lazada');
 
-        $asViewer = $this->actingAs($this->viewer())->get('/channels/lazada/orders/'.$order->order_id);
+        $asViewer = $this->actingAs($this->viewer())->get('/channels/lazada/'.$this->lazadaStore->id.'/orders/'.$order->order_id);
         $asViewer->assertOk();
         $asViewer->assertDontSee($refreshUrl, false);
         $asViewer->assertDontSee('Refresh from Lazada');
@@ -368,7 +377,7 @@ class LazadaOrderDetailTest extends TestCase
         // (a stored PDF and a courier lookup change nothing), so the viewer
         // keeps them. That is the previous page's behaviour too: it offered
         // both to everyone.
-        $response = $this->actingAs($this->viewer())->get('/channels/lazada/orders/'.$order->order_id);
+        $response = $this->actingAs($this->viewer())->get('/channels/lazada/'.$this->lazadaStore->id.'/orders/'.$order->order_id);
 
         $response->assertSee(route('ext.lazada.orders.awb', ['orderId' => $order->order_id]), false);
         $response->assertSee('btnLzLogistics', false);
@@ -380,7 +389,7 @@ class LazadaOrderDetailTest extends TestCase
         $order = $this->order();
 
         $denied = $this->actingAs($this->viewer())
-            ->postJson('/channels/lazada/orders/'.$order->order_id.'/rts');
+            ->postJson('/channels/lazada/'.$this->lazadaStore->id.'/orders/'.$order->order_id.'/rts');
 
         $denied->assertStatus(403);
         $denied->assertJson(['error' => 'permission_denied']);
@@ -396,7 +405,7 @@ class LazadaOrderDetailTest extends TestCase
         // means the gate let this user through, where the read tier above
         // never reached it.
         $allowed = $this->actingAs($this->manager())
-            ->postJson('/channels/lazada/orders/'.$order->order_id.'/rts');
+            ->postJson('/channels/lazada/'.$this->lazadaStore->id.'/orders/'.$order->order_id.'/rts');
 
         $allowed->assertStatus(302);
         $allowed->assertSessionHas('lazada_orders_last_result.ok', false);
@@ -416,13 +425,19 @@ class LazadaOrderDetailTest extends TestCase
 
     private function configureLazadaCredentials(): LazadaSetting
     {
-        return LazadaSetting::create([
+        // Dresses the store setUp seeded; a second row would fight it for
+        // defaultStore() and win nothing (mirrors ShopeeOrderDetailTest's
+        // configureShopeeCredentials on the multi-store conversion).
+        $s = LazadaSetting::query()->orderBy('id')->firstOrFail();
+        $s->fill([
             'mode' => 'live',
             'region' => 'ph',
             'app_key' => 'test-app-key',
             'app_secret' => 'test-app-secret',
             'access_token' => 'test-access-token',
-        ]);
+        ])->save();
+
+        return $s;
     }
 
     /** A stored payload thin enough that rawLikelyHasOrderDetail() is false. */
@@ -444,7 +459,7 @@ class LazadaOrderDetailTest extends TestCase
         Http::fake();
 
         // No `?refresh` at all: the hole this finding named specifically.
-        $response = $this->actingAs($this->viewer())->get('/channels/lazada/orders/'.$order->order_id);
+        $response = $this->actingAs($this->viewer())->get('/channels/lazada/'.$this->lazadaStore->id.'/orders/'.$order->order_id);
 
         $response->assertOk();
         Http::assertNothingSent();
@@ -468,7 +483,7 @@ class LazadaOrderDetailTest extends TestCase
             '*' => Http::response([], 200),
         ]);
 
-        $response = $this->actingAs($this->manager())->get('/channels/lazada/orders/'.$order->order_id);
+        $response = $this->actingAs($this->manager())->get('/channels/lazada/'.$this->lazadaStore->id.'/orders/'.$order->order_id);
 
         $response->assertOk();
         Http::assertSent(fn ($request) => str_contains($request->url(), '/order/get'));
@@ -479,7 +494,7 @@ class LazadaOrderDetailTest extends TestCase
     {
         $order = $this->order('delivered', ['order_id' => 'LZ-DETAIL-0002']);
 
-        $response = $this->actingAs($this->manager())->get('/channels/lazada/orders/'.$order->order_id);
+        $response = $this->actingAs($this->manager())->get('/channels/lazada/'.$this->lazadaStore->id.'/orders/'.$order->order_id);
 
         $response->assertOk();
         $response->assertDontSee('confirm(', false);
@@ -495,7 +510,7 @@ class LazadaOrderDetailTest extends TestCase
     {
         $order = $this->order();
 
-        $response = $this->actingAs($this->viewer())->get('/channels/lazada/orders');
+        $response = $this->actingAs($this->viewer())->get('/channels/lazada/'.$this->lazadaStore->id.'/orders');
 
         $response->assertOk();
         // The stopgap is retired: the order number opens the detail page in

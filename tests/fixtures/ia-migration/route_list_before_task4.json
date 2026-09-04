@@ -455,568 +455,578 @@
         "name": "fulfilment.print.pick"
     },
     {
+        "method": "POST",
+        "uri": "channels/lazada/stores",
+        "name": "ext.lazada.stores.store"
+    },
+    {
         "method": "GET|HEAD",
-        "uri": "channels/lazada",
+        "uri": "channels/lazada/{legacyPath}",
+        "name": "ext.lazada.legacy_storeless"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store?}",
         "name": "ext.lazada.dashboard"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/api-log-mode",
+        "uri": "channels/lazada/{store}/api-log-mode",
         "name": "ext.lazada.api_log_mode"
     },
     {
         "method": "DELETE",
-        "uri": "channels/lazada/api-logs",
+        "uri": "channels/lazada/{store}/api-logs",
         "name": "ext.lazada.clear_api_logs"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/brands",
+        "uri": "channels/lazada/{store}/brands",
         "name": "ext.lazada.brands.index"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/brands/autocomplete",
+        "uri": "channels/lazada/{store}/brands/autocomplete",
         "name": "ext.lazada.brands.autocomplete"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/brands/fetch",
+        "uri": "channels/lazada/{store}/brands/fetch",
         "name": "ext.lazada.brands.fetch"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/brands/sync",
+        "uri": "channels/lazada/{store}/brands/sync",
         "name": "ext.lazada.brands_sync"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/call",
+        "uri": "channels/lazada/{store}/call",
         "name": "ext.lazada.call_api"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/categories",
+        "uri": "channels/lazada/{store}/categories",
         "name": "ext.lazada.categories.index"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/categories/fetch",
+        "uri": "channels/lazada/{store}/categories/fetch",
         "name": "ext.lazada.categories.fetch"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/categories/{category_id}/attributes",
+        "uri": "channels/lazada/{store}/categories/{category_id}/attributes",
         "name": "ext.lazada.categories.attributes.show"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/categories/{category_id}/attributes/fetch",
+        "uri": "channels/lazada/{store}/categories/{category_id}/attributes/fetch",
         "name": "ext.lazada.categories.attributes.fetch"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/category/attributes",
+        "uri": "channels/lazada/{store}/category/attributes",
         "name": "ext.lazada.category_attributes"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/category/brands",
+        "uri": "channels/lazada/{store}/category/brands",
         "name": "ext.lazada.brands_query"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/category/tree",
+        "uri": "channels/lazada/{store}/category/tree",
         "name": "ext.lazada.category_tree"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/explorer/run",
+        "uri": "channels/lazada/{store}/explorer/run",
         "name": "ext.lazada.explorer_run"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/listings/{id}/push-discount",
+        "uri": "channels/lazada/{store}/listings/{id}/push-discount",
         "name": "ext.lazada.listings.push_discount"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/listings/{id}/toggle",
+        "uri": "channels/lazada/{store}/listings/{id}/toggle",
         "name": "ext.lazada.listings.toggle"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/order-status-map",
+        "uri": "channels/lazada/{store}/order-status-map",
         "name": "ext.lazada.order_status_map"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/order/awb/pdf",
+        "uri": "channels/lazada/{store}/order/awb/pdf",
         "name": "ext.lazada.awb_pdf_get"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/order/items/get",
+        "uri": "channels/lazada/{store}/order/items/get",
         "name": "ext.lazada.order_items_get"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/orders",
+        "uri": "channels/lazada/{store}/orders",
         "name": "ext.lazada.orders.index"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/orders/bulk-awb",
+        "uri": "channels/lazada/{store}/orders/bulk-awb",
         "name": "ext.lazada.orders.bulk_awb"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/orders/bulk-pack-print",
+        "uri": "channels/lazada/{store}/orders/bulk-pack-print",
         "name": "ext.lazada.orders.bulk_pack_print"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/orders/fetch",
+        "uri": "channels/lazada/{store}/orders/fetch",
         "name": "ext.lazada.orders.fetch"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/orders/get",
+        "uri": "channels/lazada/{store}/orders/get",
         "name": "ext.lazada.orders_get"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/orders/reset",
+        "uri": "channels/lazada/{store}/orders/reset",
         "name": "ext.lazada.orders.reset"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/orders/returns",
+        "uri": "channels/lazada/{store}/orders/returns",
         "name": "ext.lazada.orders.returns"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/orders/returns/fetch",
+        "uri": "channels/lazada/{store}/orders/returns/fetch",
         "name": "ext.lazada.orders.fetch_returns"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/orders/update-statuses",
+        "uri": "channels/lazada/{store}/orders/update-statuses",
         "name": "ext.lazada.orders.update_statuses"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/orders/{orderId}",
+        "uri": "channels/lazada/{store}/orders/{orderId}",
         "name": "ext.lazada.orders.show"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/orders/{orderId}/awb",
+        "uri": "channels/lazada/{store}/orders/{orderId}/awb",
         "name": "ext.lazada.orders.awb"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/orders/{orderId}/cancel",
+        "uri": "channels/lazada/{store}/orders/{orderId}/cancel",
         "name": "ext.lazada.orders.cancel"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/orders/{orderId}/cancel-reasons",
+        "uri": "channels/lazada/{store}/orders/{orderId}/cancel-reasons",
         "name": "ext.lazada.orders.cancel_reasons"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/orders/{orderId}/logistics-trace",
+        "uri": "channels/lazada/{store}/orders/{orderId}/logistics-trace",
         "name": "ext.lazada.orders.logistics_trace"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/orders/{orderId}/pack",
+        "uri": "channels/lazada/{store}/orders/{orderId}/pack",
         "name": "ext.lazada.orders.pack"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/orders/{orderId}/pack-print",
+        "uri": "channels/lazada/{store}/orders/{orderId}/pack-print",
         "name": "ext.lazada.orders.pack_print"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/orders/{orderId}/packing-list",
+        "uri": "channels/lazada/{store}/orders/{orderId}/packing-list",
         "name": "ext.lazada.orders.packing_list"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/orders/{orderId}/pick-list",
+        "uri": "channels/lazada/{store}/orders/{orderId}/pick-list",
         "name": "ext.lazada.orders.pick_list"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/orders/{orderId}/recreate-package",
+        "uri": "channels/lazada/{store}/orders/{orderId}/recreate-package",
         "name": "ext.lazada.orders.recreate_package"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/orders/{orderId}/rts",
+        "uri": "channels/lazada/{store}/orders/{orderId}/rts",
         "name": "ext.lazada.orders.rts"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/orders/{orderId}/ship-print",
+        "uri": "channels/lazada/{store}/orders/{orderId}/ship-print",
         "name": "ext.lazada.orders.ship_print"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/orders/{orderId}/ship-print",
+        "uri": "channels/lazada/{store}/orders/{orderId}/ship-print",
         "name": "ext.lazada.orders.ship_print_post"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/packs/run",
+        "uri": "channels/lazada/{store}/packs/run",
         "name": "ext.lazada.packs_run"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/product-groups",
+        "uri": "channels/lazada/{store}/product-groups",
         "name": "ext.lazada.product-groups.index"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/product-groups",
+        "uri": "channels/lazada/{store}/product-groups",
         "name": "ext.lazada.product-groups.store"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/product-groups/create",
+        "uri": "channels/lazada/{store}/product-groups/create",
         "name": "ext.lazada.product-groups.create"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/product-groups/fetch-attributes",
+        "uri": "channels/lazada/{store}/product-groups/fetch-attributes",
         "name": "ext.lazada.product-groups.fetchAttributes"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/product-groups/refresh-categories",
+        "uri": "channels/lazada/{store}/product-groups/refresh-categories",
         "name": "ext.lazada.product-groups.refreshCategories"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/product-groups/search-products",
+        "uri": "channels/lazada/{store}/product-groups/search-products",
         "name": "ext.lazada.product-groups.searchProducts"
     },
     {
         "method": "DELETE",
-        "uri": "channels/lazada/product-groups/{id}",
+        "uri": "channels/lazada/{store}/product-groups/{id}",
         "name": "ext.lazada.product-groups.destroy"
     },
     {
         "method": "PUT",
-        "uri": "channels/lazada/product-groups/{id}",
+        "uri": "channels/lazada/{store}/product-groups/{id}",
         "name": "ext.lazada.product-groups.update"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/product-groups/{id}/edit",
+        "uri": "channels/lazada/{store}/product-groups/{id}/edit",
         "name": "ext.lazada.product-groups.edit"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/product-groups/{id}/orphans",
+        "uri": "channels/lazada/{store}/product-groups/{id}/orphans",
         "name": "ext.lazada.product-groups.orphans"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/product-groups/{id}/products",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products",
         "name": "ext.lazada.product-groups.products"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/product-groups/{id}/products/add",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/add",
         "name": "ext.lazada.product-groups.addProducts"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/product-groups/{id}/products/check",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/check",
         "name": "ext.lazada.product-groups.check"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/product-groups/{id}/products/delete-from-lazada",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/delete-from-lazada",
         "name": "ext.lazada.product-groups.deleteFromLazada"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/product-groups/{id}/products/mass-remove",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/mass-remove",
         "name": "ext.lazada.product-groups.massRemove"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/product-groups/{id}/products/push",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/push",
         "name": "ext.lazada.product-groups.push"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/product-groups/{id}/products/push-prices",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/push-prices",
         "name": "ext.lazada.product-groups.pushPrices"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/product-groups/{id}/products/push-stock",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/push-stock",
         "name": "ext.lazada.product-groups.pushStock"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/product-groups/{id}/products/update-product",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/update-product",
         "name": "ext.lazada.product-groups.updateProduct"
     },
     {
         "method": "DELETE",
-        "uri": "channels/lazada/product-groups/{id}/products/{productId}",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/{productId}",
         "name": "ext.lazada.product-groups.removeProduct"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/product-groups/{id}/products/{productId}/link",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/{productId}/link",
         "name": "ext.lazada.product-groups.linkProduct"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/product-groups/{id}/products/{productId}/sync-id",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/{productId}/sync-id",
         "name": "ext.lazada.product-groups.syncId"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/product-groups/{id}/products/{productId}/unlink",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/{productId}/unlink",
         "name": "ext.lazada.product-groups.unlinkProduct"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/product-groups/{id}/template/sync",
+        "uri": "channels/lazada/{store}/product-groups/{id}/template/sync",
         "name": "ext.lazada.product-groups.template_sync"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/product/create",
+        "uri": "channels/lazada/{store}/product/create",
         "name": "ext.lazada.product_create"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/product/payload-preview",
+        "uri": "channels/lazada/{store}/product/payload-preview",
         "name": "ext.lazada.product_payload_preview"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/products",
+        "uri": "channels/lazada/{store}/products",
         "name": "ext.lazada.products.index"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products",
+        "uri": "channels/lazada/{store}/products",
         "name": "ext.lazada.products.store"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products/bulk/delete",
+        "uri": "channels/lazada/{store}/products/bulk/delete",
         "name": "ext.lazada.products.bulk_delete"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products/bulk/sync/lazada-id",
+        "uri": "channels/lazada/{store}/products/bulk/sync/lazada-id",
         "name": "ext.lazada.products.bulk_sync_lazada_id"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products/bulk/sync/price",
+        "uri": "channels/lazada/{store}/products/bulk/sync/price",
         "name": "ext.lazada.products.bulk_sync_price"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products/bulk/sync/quantity",
+        "uri": "channels/lazada/{store}/products/bulk/sync/quantity",
         "name": "ext.lazada.products.bulk_sync_quantity"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products/bulk/toggle",
+        "uri": "channels/lazada/{store}/products/bulk/toggle",
         "name": "ext.lazada.products.bulk_toggle"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products/bulk/upload",
+        "uri": "channels/lazada/{store}/products/bulk/upload",
         "name": "ext.lazada.products.bulk_upload"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products/check",
+        "uri": "channels/lazada/{store}/products/check",
         "name": "ext.lazada.products.check"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/products/create",
+        "uri": "channels/lazada/{store}/products/create",
         "name": "ext.lazada.products.create"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products/get",
+        "uri": "channels/lazada/{store}/products/get",
         "name": "ext.lazada.products_get"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/products/import",
+        "uri": "channels/lazada/{store}/products/import",
         "name": "ext.lazada.products.import"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products/import-one",
+        "uri": "channels/lazada/{store}/products/import-one",
         "name": "ext.lazada.products.import_one"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products/import-selected",
+        "uri": "channels/lazada/{store}/products/import-selected",
         "name": "ext.lazada.products.import_selected"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products/link-item",
+        "uri": "channels/lazada/{store}/products/link-item",
         "name": "ext.lazada.products.link_item"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products/refresh-status",
+        "uri": "channels/lazada/{store}/products/refresh-status",
         "name": "ext.lazada.products.refresh_status"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/products/search-catalog",
+        "uri": "channels/lazada/{store}/products/search-catalog",
         "name": "ext.lazada.products.search_catalog"
     },
     {
         "method": "PUT",
-        "uri": "channels/lazada/products/{id}",
+        "uri": "channels/lazada/{store}/products/{id}",
         "name": "ext.lazada.products.update"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products/{id}/attributes",
+        "uri": "channels/lazada/{store}/products/{id}/attributes",
         "name": "ext.lazada.products.attributes_save"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products/{id}/brands/sync",
+        "uri": "channels/lazada/{store}/products/{id}/brands/sync",
         "name": "ext.lazada.products.brands_sync"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products/{id}/delete/lazada",
+        "uri": "channels/lazada/{store}/products/{id}/delete/lazada",
         "name": "ext.lazada.products.delete_lazada"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/products/{id}/edit",
+        "uri": "channels/lazada/{store}/products/{id}/edit",
         "name": "ext.lazada.products.edit"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products/{id}/payload/build",
+        "uri": "channels/lazada/{store}/products/{id}/payload/build",
         "name": "ext.lazada.products.payload_build"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products/{id}/push/sample",
+        "uri": "channels/lazada/{store}/products/{id}/push/sample",
         "name": "ext.lazada.products.push_sample"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products/{id}/remove",
+        "uri": "channels/lazada/{store}/products/{id}/remove",
         "name": "ext.lazada.products.remove"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products/{id}/sync/lazada-id",
+        "uri": "channels/lazada/{store}/products/{id}/sync/lazada-id",
         "name": "ext.lazada.products.sync_lazada_id"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products/{id}/sync/price",
+        "uri": "channels/lazada/{store}/products/{id}/sync/price",
         "name": "ext.lazada.products.sync_price"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products/{id}/sync/quantity",
+        "uri": "channels/lazada/{store}/products/{id}/sync/quantity",
         "name": "ext.lazada.products.sync_quantity"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products/{id}/template/sync",
+        "uri": "channels/lazada/{store}/products/{id}/template/sync",
         "name": "ext.lazada.products.template_sync"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products/{id}/unlink",
+        "uri": "channels/lazada/{store}/products/{id}/unlink",
         "name": "ext.lazada.products.unlink"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products/{id}/upload",
+        "uri": "channels/lazada/{store}/products/{id}/upload",
         "name": "ext.lazada.products.upload"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/products/{id}/variants",
+        "uri": "channels/lazada/{store}/products/{id}/variants",
         "name": "ext.lazada.products.variants_save"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/purge-raw",
+        "uri": "channels/lazada/{store}/purge-raw",
         "name": "ext.lazada.purge_raw"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/reverse-status-map",
+        "uri": "channels/lazada/{store}/reverse-status-map",
         "name": "ext.lazada.reverse_status_map"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/sandbox-token/save",
+        "uri": "channels/lazada/{store}/sandbox-token/save",
         "name": "ext.lazada.sandbox_token_save"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/save",
+        "uri": "channels/lazada/{store}/save",
         "name": "ext.lazada.save"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/settings",
+        "uri": "channels/lazada/{store}/settings",
         "name": "ext.lazada.index"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/toggle-mode",
+        "uri": "channels/lazada/{store}/toggle-mode",
         "name": "ext.lazada.toggle_mode"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/token/create",
+        "uri": "channels/lazada/{store}/token/create",
         "name": "ext.lazada.token_create"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/token/refresh",
+        "uri": "channels/lazada/{store}/token/refresh",
         "name": "ext.lazada.token_refresh"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/vouchers",
+        "uri": "channels/lazada/{store}/vouchers",
         "name": "ext.lazada.vouchers.index"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/vouchers",
+        "uri": "channels/lazada/{store}/vouchers",
         "name": "ext.lazada.vouchers.store"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/vouchers/{voucherId}/deactivate",
+        "uri": "channels/lazada/{store}/vouchers/{voucherId}/deactivate",
         "name": "ext.lazada.vouchers.deactivate"
     },
     {

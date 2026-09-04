@@ -196,6 +196,9 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $lpPick = DB::table('lazada_products')
             ->selectRaw("product_id, COALESCE(MAX(CASE WHEN lazada_item_id IS NOT NULL AND lazada_item_id <> '' AND unlinked_at IS NULL THEN id END), MAX(id)) as pick_id")
             ->whereNotNull('product_id')
+            // Raw DB::table bypasses the BelongsToLazadaStore global scope, so
+            // scope the listing pick to the current store explicitly.
+            ->when(app()->bound('lazada.route-store'), fn ($q) => $q->where('lazada_setting_id', app('lazada.route-store')->id))
             ->groupBy('product_id');
 
         $query = DB::table($pfx . 'product as p')

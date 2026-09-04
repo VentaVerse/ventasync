@@ -15,7 +15,28 @@ class LazadaRefreshToken extends Command
 
     public function handle(LazadaClient $client): int
     {
-        $setting = LazadaSetting::query()->first()?->decrypted();
+        $stores = \Extensions\lazada\Models\LazadaSetting::enabledStores();
+        if ($stores->isEmpty()) { $this->error('No enabled Lazada store. Configure Lazada settings first.'); return 1; }
+        $worst = 0;
+        foreach ($stores as $store) {
+            $label = $store->store_name ?: ('#' . $store->id);
+            $this->info("=== Lazada store: {$label} ===");
+            app()->instance('lazada.route-store', $store); // bind: the model trait now scopes every query + stamps writes to THIS store
+            try {
+                $worst = max($worst, $this->handleStore($client, $store));
+            } catch (\Throwable $e) {
+                $this->error("Store {$label} failed: " . $e->getMessage());
+                \Illuminate\Support\Facades\Log::error('Lazada '.class_basename($this).': store failed', ['store' => $store->id, 'error' => $e->getMessage()]);
+                $worst = 1;
+            }
+        }
+        app()->forgetInstance('lazada.route-store');
+        return $worst;
+    }
+
+    private function handleStore(LazadaClient $client, \Extensions\lazada\Models\LazadaSetting $store): int
+    {
+        $setting = $store->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         $isSandbox = (($setting->mode ?? 'live') === 'sandbox');
         $modeLabel = $isSandbox ? 'sandbox' : 'live';
@@ -57,7 +78,7 @@ class LazadaRefreshToken extends Command
             $refreshExpiresIn = $result['body']['refresh_expires_in'] ?? null;
 
             if ($access) {
-                $raw = LazadaSetting::query()->first();
+                $raw = LazadaSetting::query()->find($store->id);
                 if ($raw) {
                     if ($isSandbox) {
                         $raw->sandbox_access_token = encrypt((string) $access);

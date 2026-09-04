@@ -3,12 +3,16 @@
 namespace Extensions\lazada\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Extensions\lazada\Models\Concerns\BelongsToLazadaStore;
 
 class LazadaProductGroup extends Model
 {
+    use BelongsToLazadaStore;
+
     protected $table = 'lazada_product_groups';
 
     protected $fillable = [
+        'lazada_setting_id',
         'name',
         'lazada_category_id', 'brand_id', 'brand_name_override',
         'markup_fixed', 'markup_percent',

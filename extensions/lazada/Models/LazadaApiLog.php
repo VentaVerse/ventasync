@@ -40,7 +40,7 @@ class LazadaApiLog extends Model
     {
         try {
             // The three-way mode (#200): off, errors only, everything.
-            $setting = LazadaSetting::query()->first();
+            $setting = LazadaSetting::defaultStore();
             if (! \App\Support\ApiLogMode::shouldLog($setting?->api_log_mode, (bool) ($attributes['ok'] ?? true))) {
                 return;
             }

@@ -227,9 +227,17 @@ class ShopeeMultistoreTest extends TestCase
     /**
      * The first live regression of S4 (the owner, 2026-09-03): the global
      * {store} default leaked into OTHER channels' optional {store?}
-     * dashboard segments, and every nav link to Lazada became
-     * /channels/lazada/1 - a designed 404. Single-store dashboards carry
-     * no store parameter at all now; this holds the door shut.
+     * dashboard segments, and every nav link to a single-store channel
+     * became /channels/x/1 - a designed 404. A SINGLE-store dashboard
+     * carries no store parameter at all, so the default has nothing to fill;
+     * this holds that door shut.
+     *
+     * TikTok is the single-store witness. Lazada left this assertion when it
+     * went MULTI-store (2026-09-05): its dashboard now carries {store?} like
+     * Venta/OpenCart/Shopee, so a BARE dashboard link does receive the
+     * default - which is exactly why the nav builds channel links with an
+     * explicit store (Navigation::channelItems), asserted just below and in
+     * LazadaMultistoreTest, never bare.
      */
     public function test_the_shopee_store_default_never_leaks_into_another_channels_links(): void
     {
@@ -244,8 +252,14 @@ class ShopeeMultistoreTest extends TestCase
         $this->app->register(\Extensions\tiktok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
 
-        $this->assertStringEndsWith('/channels/lazada', route('ext.lazada.dashboard'));
+        // A single-store channel's dashboard has no {store?} for the Shopee
+        // default to fill.
         $this->assertStringEndsWith('/channels/tiktok', route('ext.tiktok.dashboard'));
+
+        // A multi-store channel's link is built with an explicit store, which
+        // overrides any leaked default and lands on the right store.
+        $lz = \Extensions\lazada\Models\LazadaSetting::create(['mode' => 'live', 'store_name' => 'Gearshipper']);
+        $this->assertStringEndsWith('/channels/lazada/' . $lz->id, route('ext.lazada.dashboard', ['store' => $lz->id]));
     }
 
     public function test_route_generation_fills_the_store_from_the_default(): void

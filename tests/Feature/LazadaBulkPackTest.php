@@ -43,6 +43,11 @@ class LazadaBulkPackTest extends TestCase
         $this->app->register(LazadaExtension::class);
 
         $this->app['router']->getRoutes()->refreshNameLookups();
+
+        // Multi-store (the owner 2026-09-05): every Lazada page is store-scoped,
+        // and an ENABLED store lets URL::defaults fill {store} on every
+        // route('ext.lazada.orders.*') call below - exactly like Shopee.
+        \Extensions\lazada\Models\LazadaSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
     private function userWith(array $permissionKeys): User

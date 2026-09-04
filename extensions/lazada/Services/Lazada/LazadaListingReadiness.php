@@ -36,7 +36,7 @@ class LazadaListingReadiness
         }
 
         $pfx = (string) config('catalog.prefix');
-        $region = (string) (LazadaSetting::query()->first()?->region ?? '');
+        $region = (string) (LazadaSetting::defaultStore()?->region ?? '');
         $attrs = app(LazadaAttributes::class);
 
         $products = DB::table($pfx . 'product')

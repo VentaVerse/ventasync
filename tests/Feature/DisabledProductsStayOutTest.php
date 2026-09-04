@@ -94,7 +94,14 @@ class DisabledProductsStayOutTest extends TestCase
         $this->seedProduct('DIS-TT', 'Disabled tiktok nowhere', 0);
         $user = $this->operator();
 
-        $lz = $this->actingAs($user)->get(route('ext.lazada.products.index'))->assertOk()->getContent();
+        // Multi-store (the owner 2026-09-05): Lazada pages are store-scoped, so an
+        // enabled store must name the {store} segment. Seeded and passed here
+        // rather than in setUp: setUp's shopee tests share the single 'store'
+        // URL default, so a lazada store seeded there would fill their shopee
+        // routes with a lazada id and 404 them.
+        $lazadaStore = \Extensions\lazada\Models\LazadaSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+
+        $lz = $this->actingAs($user)->get(route('ext.lazada.products.index', ['store' => $lazadaStore->id]))->assertOk()->getContent();
         $this->assertStringNotContainsString('Disabled lazada nowhere', $lz);
 
         $tt = $this->actingAs($user)->get(route('ext.tiktok.products.index'))->assertOk()->getContent();

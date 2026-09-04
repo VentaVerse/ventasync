@@ -763,7 +763,7 @@ public function extractCreatedItemId(array $result): ?string
 
     private function region(): string
     {
-        $setting = LazadaSetting::query()->first();
+        $setting = LazadaSetting::defaultStore();
         return (string)($setting->region ?? '');
     }
 }

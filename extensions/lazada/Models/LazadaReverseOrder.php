@@ -3,12 +3,16 @@
 namespace Extensions\lazada\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Extensions\lazada\Models\Concerns\BelongsToLazadaStore;
 
 class LazadaReverseOrder extends Model
 {
+    use BelongsToLazadaStore;
+
     protected $table = 'lazada_reverse_orders';
 
     protected $fillable = [
+        'lazada_setting_id',
         'region',
         'reverse_order_id',
         'trade_order_id',

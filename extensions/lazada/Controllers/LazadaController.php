@@ -965,7 +965,21 @@ class LazadaController extends Controller
 
     public function redirectToAuth(Request $request, LazadaClient $client)
     {
-        $setting = LazadaSetting::defaultStore()?->decrypted();
+        /* Which store is consenting (multi-store, the owner 2026-09-05): named by
+         * ?store= from that store's own settings page, else the default. Bound
+         * for the request so the reads below answer with it, and - the crux -
+         * carried through OAuth in the `state` parameter, because Lazada's
+         * callback URL is one fixed URL for the whole install and the grant
+         * comes back with no other context. Mirrors ShopeeController's cache
+         * carrier, but Lazada echoes `state` verbatim so it is the channel. */
+        $store = $request->query('store')
+            ? LazadaSetting::query()->find((int) $request->query('store'))
+            : LazadaSetting::defaultStore();
+        if ($store !== null) {
+            app()->instance('lazada.route-store', $store);
+        }
+
+        $setting = $store?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         // ?sandbox=1 from "Authorize Sandbox" button forces sandbox mode.
         // Otherwise the mode toggle (`$setting->mode`) decides.
@@ -979,24 +993,125 @@ class LazadaController extends Controller
 
         if (!$setting || !$appKey) {
             $modeLabel = $isSandbox ? 'Sandbox' : 'Production';
-            return redirect()->route('ext.lazada.index')->with('lazada_result', [
+            return $this->redirectToSettings()->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => "{$modeLabel} App Key is required to authorize."],
             ]);
         }
 
-        // Stateless POC, but we still bind a state token to reduce accidental cross-account redirects.
-        // The sandbox flag is stashed so callback() can route the auth code + token to the right columns.
-        $state = Str::random(24);
-        session([
-            'lazada_oauth_state'   => $state,
-            'lazada_oauth_sandbox' => $isSandbox,
-        ]);
+        /* The store id and sandbox flag ride the OAuth state so the callback
+         * recovers them even when it lands with no session (a proxy, a
+         * cross-domain hop). The state is HMAC-signed with the app key, so the
+         * callback can TRUST the store it names without leaning on the session
+         * cookie the state exists to do without - an unsigned state would let
+         * anyone name any store and have its auth code written there. */
+        $state = self::oauthStateToken((int) $store->id, $isSandbox);
+        // A best-effort session copy remains only as a same-device sanity
+        // signal; the signature, not the session, is what authorises the state.
+        session(['lazada_oauth_sandbox' => $isSandbox]);
 
         $url = $client->authUrl((string)$appKey, $this->computedRedirectUri(), $state);
 
         return redirect()->away($url);
+    }
+
+    /**
+     * Build the signed OAuth state that carries the consenting store through
+     * Lazada's fixed callback URL: "{storeId}.{sandbox}.{nonce}.{hmac}", the
+     * hmac keyed on the app key over the first three parts. The nonce keeps two
+     * states for the same store distinct; the signature is what makes the
+     * store id trustworthy when it comes back, with no session in the loop.
+     */
+    public static function oauthStateToken(int $storeId, bool $isSandbox): string
+    {
+        $payload = $storeId . '.' . ($isSandbox ? '1' : '0') . '.' . Str::random(24);
+
+        return $payload . '.' . hash_hmac('sha256', $payload, (string) config('app.key'));
+    }
+
+    /**
+     * Verify and decode a signed OAuth state. Returns ['store_id', 'sandbox']
+     * only when the signature checks out; null for anything forged, tampered,
+     * malformed, or absent. hash_equals keeps the compare constant-time.
+     */
+    private function parseOAuthState(string $state): ?array
+    {
+        if (! preg_match('/^(\d+)\.([01])\.([A-Za-z0-9]+)\.([0-9a-f]{64})$/', $state, $m)) {
+            return null;
+        }
+
+        $payload = $m[1] . '.' . $m[2] . '.' . $m[3];
+        if (! hash_equals(hash_hmac('sha256', $payload, (string) config('app.key')), $m[4])) {
+            return null;
+        }
+
+        return ['store_id' => (int) $m[1], 'sandbox' => $m[2] === '1'];
+    }
+
+    /**
+     * Where a settings write lands (multi-store, the owner 2026-09-05): the
+     * settings page of the store it acted on. Falls back to the module page
+     * when no store exists to name.
+     */
+    private function redirectToSettings()
+    {
+        $store = LazadaSetting::defaultStore();
+
+        return $store !== null
+            ? redirect()->route('ext.lazada.index', ['store' => $store->id])
+            : redirect()->route('channels.module', ['module' => 'lazada']);
+    }
+
+    /**
+     * Recover the store the grant belongs to from a VERIFIED OAuth state (see
+     * parseOAuthState). Binds it for the request so every defaultStore() read
+     * and every route() link below lands on the same store, and returns
+     * [storeId|null, isSandbox]. An absent state - the plain callback page a
+     * person opens with no grant in flight - falls back to the default store
+     * and the session sandbox flag; a PRESENT but invalid state never reaches
+     * here, callback() refuses it before any store is bound or code is written.
+     */
+    private function bindStoreFromState(string $state): array
+    {
+        $parsed = $this->parseOAuthState($state);
+        if ($parsed !== null) {
+            $store = LazadaSetting::query()->find($parsed['store_id']);
+            if ($store !== null) {
+                app()->instance('lazada.route-store', $store);
+                \Illuminate\Support\Facades\URL::defaults(['store' => (int) $store->id]);
+
+                return [(int) $store->id, $parsed['sandbox']];
+            }
+        }
+
+        return [LazadaSetting::defaultStore()?->id, (bool) session('lazada_oauth_sandbox', false)];
+    }
+
+    /**
+     * Add a Lazada store from the Integrations board's Add store modal
+     * (multi-store, the owner 2026-09-05). The fewest questions: a name only. The
+     * row is born disabled - region, app key/secret and the OAuth grant are
+     * filled on its settings page, exactly where a first-time connection is
+     * configured - so it never joins a sync half-built.
+     */
+    public function createStore(Request $request)
+    {
+        $data = $request->validate([
+            'store_name' => ['required', 'string', 'max:128'],
+        ]);
+
+        $setting = LazadaSetting::create([
+            'store_name' => $data['store_name'],
+            'enabled'    => false,
+            'mode'       => 'live',
+        ]);
+
+        \App\Services\ActivityLogger::log('created', 'Lazada Store', $setting->id, $setting->store_name);
+
+        return redirect()
+            ->route('ext.lazada.index', ['store' => $setting->id])
+            ->with('status', 'Store created. Add the region and app credentials, then authorize it to start syncing.');
     }
 
     /**
@@ -1019,17 +1134,35 @@ class LazadaController extends Controller
         $saved = false;
         $saveError = null;
 
-        // Optional state check (non-blocking in POC to avoid bricking prod behind proxies)
-        $expected = (string)session('lazada_oauth_state');
-        $stateOk = true;
-        if ($expected !== '' && $state !== '' && !hash_equals($expected, $state)) {
-            $stateOk = false;
+        /* THE STATE GATE (multi-store, the owner 2026-09-05). A real OAuth return
+         * carries the signed state we minted in redirectToAuth. A code that
+         * arrives with a forged, tampered, or absent state is a CSRF or
+         * cross-site callback - refuse it before a single store is bound or a
+         * single code is written, or an attacker could name a store in the
+         * state and have this shop's auth code land there. The signature, not
+         * the session, is the authority, so this holds even cross-domain where
+         * no session cookie survives. A bare visit to the page (no code) is not
+         * a grant and renders normally. */
+        $stateOk = $this->parseOAuthState($state) !== null;
+        if ($code !== '' && ! $stateOk) {
+            return view('ext-lazada::callback', [
+                'code' => null,
+                'state' => null,
+                'state_ok' => false,
+                'saved' => false,
+                'save_error' => null,
+                'token_result' => null,
+                'message' => 'This authorisation link could not be verified and was not used. Start again from the Lazada settings screen - authorisation links are single use.',
+                'query' => $request->query(),
+                'store' => LazadaSetting::defaultStore(),
+            ]);
         }
 
-        // Read the sandbox flag set by redirectToAuth so we route the auth
-        // code, token-exchange credentials, and persisted tokens to the right
-        // column set (sandbox_* vs live).
-        $isSandbox = (bool) session('lazada_oauth_sandbox', false);
+        /* Recover the consenting store AND the sandbox flag from the VERIFIED
+         * state. This binds lazada.route-store so every defaultStore() read and
+         * route() link below is that store's own - the grant must never split
+         * across stores. */
+        [$storeId, $isSandbox] = $this->bindStoreFromState($state);
 
         // Persist the auth code so it's visible in the UI even if token exchange fails.
         if ($code !== '') {
@@ -1124,12 +1257,19 @@ class LazadaController extends Controller
         return view('ext-lazada::callback', [
             'code' => $code !== '' ? $code : null,
             'state' => $state !== '' ? $state : null,
-            'state_ok' => $stateOk,
+            // A bare visit to the page (no code) has no state to refuse, so it
+            // reads as "nothing exchanged", not "refused". A present code only
+            // reaches here past the state gate above, so $stateOk is true then.
+            'state_ok' => $code === '' ? true : $stateOk,
             'saved' => $saved,
             'save_error' => $saveError,
             'token_result' => $tokenResult,
             'message' => $message,
             'query' => $request->query(),
+            // The store the grant belongs to (bound from state above), so the
+            // "Go to settings" link lands on it. Null on a fresh install with
+            // no store at all - the view degrades to the channel landing then.
+            'store' => LazadaSetting::defaultStore(),
         ]);
     }
 

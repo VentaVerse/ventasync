@@ -3,14 +3,17 @@
 namespace Extensions\lazada\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Extensions\lazada\Models\Concerns\BelongsToLazadaStore;
 
 class LazadaProduct extends Model
 {
+    use BelongsToLazadaStore;
+
     // Lazada products table
     protected $table = 'lazada_products';
 
     protected $fillable = [
-        'product_id', 'primary_category_id', 'brand_id', 'brand_name_override',
+        'lazada_setting_id', 'product_id', 'primary_category_id', 'brand_id', 'brand_name_override',
         // The markups were missing here, and every create() that passed them
         // dropped them SILENTLY - the same disease 0af64cea documented on
         // the group dance's update(). Found again by #195's save-as pin.

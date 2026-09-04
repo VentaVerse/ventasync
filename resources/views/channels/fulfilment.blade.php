@@ -418,14 +418,14 @@
             @if(($selectedView ?? 'orders') === 'returns')
                 @include('ext-lazada::orders._returns_panel', [
                     'panelBaseUrl' => route('channels.fulfilment'),
-                    'panelHiddenParams' => ['channel' => 'lazada', 'view' => 'returns'],
-                    'panelOrdersUrl' => route('channels.fulfilment', ['channel' => 'lazada']),
+                    'panelHiddenParams' => ['channel' => $selectedChannel, 'view' => 'returns'],
+                    'panelOrdersUrl' => route('channels.fulfilment', ['channel' => $selectedChannel]),
                 ])
             @else
                 @include('ext-lazada::orders._panel', [
                     'panelBaseUrl' => route('channels.fulfilment'),
-                    'panelHiddenParams' => ['channel' => 'lazada'],
-                    'panelReturnsUrl' => route('channels.fulfilment', ['channel' => 'lazada', 'view' => 'returns']),
+                    'panelHiddenParams' => ['channel' => $selectedChannel],
+                    'panelReturnsUrl' => route('channels.fulfilment', ['channel' => $selectedChannel, 'view' => 'returns']),
                 ])
             @endif
         </div>

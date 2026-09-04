@@ -9,6 +9,7 @@ use App\Models\User;
 use Extensions\lazada\LazadaExtension;
 use Extensions\lazada\Models\LazadaOrder;
 use Extensions\lazada\Models\LazadaOrderProduct;
+use Extensions\lazada\Models\LazadaSetting;
 use Extensions\tiktok\Models\TikTokOrder;
 use Extensions\tiktok\TiktokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -25,6 +26,9 @@ class HandoverCourierStripTest extends TestCase
     use RefreshDatabase;
 
     private int $groupSeq = 0;
+
+    /** The store every store-scoped Lazada URL in this file names. */
+    private LazadaSetting $lazadaStore;
 
     /**
      * Same idempotent-install rationale as FulfilmentHubTest::setUp().
@@ -43,6 +47,11 @@ class HandoverCourierStripTest extends TestCase
         $this->app->register(TiktokExtension::class);
 
         $this->app['router']->getRoutes()->refreshNameLookups();
+
+        // Multi-store (the owner 2026-09-05): the Lazada orders page is now
+        // store-scoped. An enabled store names the {store} segment; the panel
+        // still filters by region ('ph' fallback), so the fixtures match.
+        $this->lazadaStore = LazadaSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
     private function userWith(array $permissionKeys): User
@@ -90,7 +99,7 @@ class HandoverCourierStripTest extends TestCase
         $this->lazadaHandoverOrder('FL-1', 'Pickup: Flash Express PH, Delivery: Flash Express PH', '2026-08-03 09:00:00');
 
         $html = $this->actingAs($this->userWith(['view_lazada/order']))
-            ->get('/channels/lazada/orders?tab=TO_SHIP&pending_sub=to_handover')
+            ->get('/channels/lazada/'.$this->lazadaStore->id.'/orders?tab=TO_SHIP&pending_sub=to_handover')
             ->assertOk()
             ->getContent();
 
@@ -113,7 +122,7 @@ class HandoverCourierStripTest extends TestCase
         $this->lazadaHandoverOrder('FL-1', 'Pickup: Flash Express PH, Delivery: Flash Express PH', '2026-08-03 09:00:00');
 
         $html = $this->actingAs($this->userWith(['view_lazada/order']))
-            ->get('/channels/lazada/orders?tab=TO_SHIP&pending_sub=to_handover&courier='.urlencode('flash express'))
+            ->get('/channels/lazada/'.$this->lazadaStore->id.'/orders?tab=TO_SHIP&pending_sub=to_handover&courier='.urlencode('flash express'))
             ->assertOk()
             ->getContent();
 
@@ -131,7 +140,7 @@ class HandoverCourierStripTest extends TestCase
         $this->lazadaHandoverOrder('JT-1', 'Pickup: J&T Express PH, Delivery: J&T Express PH', '2026-08-01 09:00:00');
 
         $html = $this->actingAs($this->userWith(['view_lazada/order']))
-            ->get('/channels/lazada/orders?tab=TO_SHIP&pending_sub=to_handover&courier=spx+express')
+            ->get('/channels/lazada/'.$this->lazadaStore->id.'/orders?tab=TO_SHIP&pending_sub=to_handover&courier=spx+express')
             ->assertOk()
             ->getContent();
 
@@ -157,7 +166,7 @@ class HandoverCourierStripTest extends TestCase
         ]);
 
         $html = $this->actingAs($this->userWith(['view_lazada/order']))
-            ->get('/channels/lazada/orders?tab=TO_SHIP&pending_sub=to_pack')
+            ->get('/channels/lazada/'.$this->lazadaStore->id.'/orders?tab=TO_SHIP&pending_sub=to_pack')
             ->assertOk()
             ->getContent();
 
@@ -169,7 +178,7 @@ class HandoverCourierStripTest extends TestCase
 
         // A key from another step's tally narrows nothing on this one.
         $html = $this->actingAs($this->userWith(['view_lazada/order']))
-            ->get('/channels/lazada/orders?tab=TO_SHIP&pending_sub=to_pack&courier=' . urlencode('j&t express'))
+            ->get('/channels/lazada/'.$this->lazadaStore->id.'/orders?tab=TO_SHIP&pending_sub=to_pack&courier=' . urlencode('j&t express'))
             ->assertOk()
             ->getContent();
 
@@ -187,7 +196,7 @@ class HandoverCourierStripTest extends TestCase
         ]);
 
         $html = $this->actingAs($this->userWith(['view_lazada/order', 'manage_lazada/order']))
-            ->get('/channels/lazada/orders?tab=TO_SHIP&pending_sub=to_pack')
+            ->get('/channels/lazada/'.$this->lazadaStore->id.'/orders?tab=TO_SHIP&pending_sub=to_pack')
             ->assertOk()
             ->getContent();
 

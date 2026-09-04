@@ -998,6 +998,12 @@ class WorkspaceInteriorsTest extends TestCase
     /** @return array<string, string> label => url */
     private function lazadaInteriorUrls(): array
     {
+        // Multi-store (the owner 2026-09-05): {store} needs a store to name, even
+        // for the guest and no-permission walks that seed nothing else.
+        if (LazadaSetting::query()->count() === 0) {
+            $this->seedLazadaSetting();
+        }
+
         return [
             'settings'       => route('ext.lazada.index'),
             'listings'       => route('ext.lazada.products.index'),
@@ -1529,13 +1535,17 @@ class WorkspaceInteriorsTest extends TestCase
      */
     public function test_the_lazada_settings_page_still_carries_every_oauth_control(): void
     {
-        $this->seedLazadaSetting();
+        $setting = $this->seedLazadaSetting();
 
         $html = $this->actingAs($this->lazadaManager())
             ->get(route('ext.lazada.index'))->assertOk()->getContent();
 
-        $this->assertStringContainsString('href="'.e(route('ext.lazada.authorize')).'"', $html);
-        $this->assertStringContainsString('href="'.e(route('ext.lazada.authorize').'?sandbox=1').'"', $html);
+        // The link names WHICH store is consenting (multi-store, the owner
+        // 2026-09-05): the OAuth route stays storeless, so the store rides
+        // a ?store= query the settings page passes, and the sandbox link
+        // adds ?sandbox=1 alongside it.
+        $this->assertStringContainsString('href="'.e(route('ext.lazada.authorize', ['store' => $setting->id])).'"', $html);
+        $this->assertStringContainsString('href="'.e(route('ext.lazada.authorize', ['store' => $setting->id, 'sandbox' => 1])).'"', $html);
         $this->assertStringContainsString('rel="noopener"', $html);
         $this->assertStringContainsString('action="'.e(route('ext.lazada.token_create')).'"', $html);
         $this->assertStringContainsString('action="'.e(route('ext.lazada.token_refresh')).'"', $html);

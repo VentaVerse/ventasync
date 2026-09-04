@@ -534,7 +534,7 @@ class LazadaAttributes
 
     private function region(): string
     {
-        $setting = LazadaSetting::query()->first();
+        $setting = LazadaSetting::defaultStore();
         return (string)($setting->region ?? '');
     }
 }

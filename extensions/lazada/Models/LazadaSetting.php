@@ -98,7 +98,7 @@ class LazadaSetting extends Model
      * store page, "the store" is never ambiguous. Off a store page - the
      * OAuth callback, a cron command - it is the first enabled store.
      *
-     * This is what the ~100 LazadaSetting::first() call sites became on the
+     * This is what the ~100 storeless settings reads became on the
      * multi-store conversion (the owner 2026-09-05): a storeless context keeps
      * the old behaviour, a store-scoped one gets the right row.
      */
@@ -121,6 +121,34 @@ class LazadaSetting extends Model
     public static function enabledStores(): \Illuminate\Support\Collection
     {
         return static::query()->where('enabled', true)->orderBy('id')->get();
+    }
+
+    /**
+     * Keep URL generation able to fill the {store} segment anywhere a link
+     * to a Lazada page is built OUTSIDE a Lazada store request - the
+     * channels hub, the fulfilment tabs, the OAuth callback view, test
+     * code. ResolveLazadaStore overrides this per-request with the route's
+     * own store. Without it, route('ext.lazada.index') off a store page
+     * has no {store} to fill and throws. (Multi-store, the owner 2026-09-05;
+     * ShopeeSetting::syncUrlDefault verbatim in spirit.)
+     */
+    public static function syncUrlDefault(): void
+    {
+        try {
+            $id = static::query()->where('enabled', true)->orderBy('id')->value('id');
+        } catch (\Throwable $e) {
+            return; // no table yet (fresh install mid-migrate)
+        }
+        if ($id !== null) {
+            \Illuminate\Support\Facades\URL::defaults(['store' => (int) $id]);
+        }
+    }
+
+    protected static function booted(): void
+    {
+        static::created(fn () => static::syncUrlDefault());
+        static::updated(fn () => static::syncUrlDefault());
+        static::deleted(fn () => static::syncUrlDefault());
     }
 
     public static function activeCredentials(?object $setting): array

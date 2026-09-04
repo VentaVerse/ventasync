@@ -22,7 +22,28 @@ class LazadaPushStock extends Command
 
     public function handle(LazadaClient $client): int
     {
-        $setting = LazadaSetting::query()->first()?->decrypted();
+        $stores = \Extensions\lazada\Models\LazadaSetting::enabledStores();
+        if ($stores->isEmpty()) { $this->error('No enabled Lazada store. Configure Lazada settings first.'); return 1; }
+        $worst = 0;
+        foreach ($stores as $store) {
+            $label = $store->store_name ?: ('#' . $store->id);
+            $this->info("=== Lazada store: {$label} ===");
+            app()->instance('lazada.route-store', $store); // bind: the model trait now scopes every query + stamps writes to THIS store
+            try {
+                $worst = max($worst, $this->handleStore($client, $store));
+            } catch (\Throwable $e) {
+                $this->error("Store {$label} failed: " . $e->getMessage());
+                \Illuminate\Support\Facades\Log::error('Lazada '.class_basename($this).': store failed', ['store' => $store->id, 'error' => $e->getMessage()]);
+                $worst = 1;
+            }
+        }
+        app()->forgetInstance('lazada.route-store');
+        return $worst;
+    }
+
+    private function handleStore(LazadaClient $client, \Extensions\lazada\Models\LazadaSetting $store): int
+    {
+        $setting = $store->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             $this->error('Missing Lazada credentials/token. Configure Lazada settings first.');
@@ -89,7 +110,7 @@ class LazadaPushStock extends Command
 
         if (empty($allPushItems)) {
             $this->info("No SKUs to push (skipped: {$skipped}).");
-            LazadaSetting::query()->update(['last_stock_push_at' => now()]);
+            $store->forceFill(['last_stock_push_at' => now()])->save();
             return 0;
         }
 
@@ -135,7 +156,7 @@ class LazadaPushStock extends Command
 
         $this->info("Done. Success: {$totalOk}, Failed: {$totalErr}, Skipped: {$skipped}");
 
-        LazadaSetting::query()->update(['last_stock_push_at' => now()]);
+        $store->forceFill(['last_stock_push_at' => now()])->save();
 
         return $totalErr > 0 ? 1 : 0;
     }

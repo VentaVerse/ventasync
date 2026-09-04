@@ -9,6 +9,7 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use App\Support\ChannelWorkspace;
 use Extensions\lazada\LazadaExtension;
+use Extensions\lazada\Models\LazadaSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -21,6 +22,9 @@ use Tests\TestCase;
 class LazadaWorkspaceTest extends TestCase
 {
     use RefreshDatabase;
+
+    /** The store every store-scoped Lazada URL in this file names. */
+    private LazadaSetting $lazadaStore;
 
     /**
      * Holds both real Lazada read permissions and nothing else: a genuine
@@ -92,6 +96,11 @@ class LazadaWorkspaceTest extends TestCase
         $this->app->register(LazadaExtension::class);
 
         $this->app['router']->getRoutes()->refreshNameLookups();
+
+        // Multi-store (the owner 2026-09-05): every Lazada page is store-scoped.
+        // An ENABLED store lets URL::defaults fill {store} on every route()
+        // call, and its id names the store-scoped literal paths below.
+        $this->lazadaStore = LazadaSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
     private function lazadaCard(): \App\Integrations\IntegrationCard
@@ -109,11 +118,26 @@ class LazadaWorkspaceTest extends TestCase
         $this->fail('Lazada did not register an IntegrationCard.');
     }
 
+    /**
+     * The workspace menu now lives on the per-store StoreLink, not the card
+     * (multi-store, the owner 2026-09-05: the card menu is empty and every
+     * destination carries a {store}). setUp seeds one store, so its menu is
+     * what these assertions read - the same shape ChannelWorkspace::menuFor
+     * resolves for a store-keyed channel.
+     */
+    private function lazadaMenu(): array
+    {
+        $stores = $this->lazadaCard()->stores;
+        $this->assertNotEmpty($stores, 'Lazada card exposed no store link to read a menu from.');
+
+        return $stores[0]->menu;
+    }
+
     public function test_lazada_menu_covers_every_workspace_destination(): void
     {
         $routes = array_map(
             fn ($i) => $i->routeName,
-            $this->lazadaCard()->menu
+            $this->lazadaMenu()
         );
 
         // Listings, Returns and Brands were missing before this task, the
@@ -133,7 +157,7 @@ class LazadaWorkspaceTest extends TestCase
 
     public function test_every_lazada_menu_item_declares_a_known_group(): void
     {
-        foreach ($this->lazadaCard()->menu as $item) {
+        foreach ($this->lazadaMenu() as $item) {
             $this->assertContains(
                 $item->group,
                 ['Sell', 'Catalog', 'Channel'],
@@ -144,9 +168,11 @@ class LazadaWorkspaceTest extends TestCase
 
     public function test_lazada_orders_menu_item_keeps_its_default_tab_param(): void
     {
-        foreach ($this->lazadaCard()->menu as $item) {
+        foreach ($this->lazadaMenu() as $item) {
             if ($item->routeName === 'ext.lazada.orders.index') {
-                $this->assertSame(['tab' => 'TO_SHIP'], $item->routeParams);
+                // The store-scoped menu item carries its {store} alongside the
+                // default tab (multi-store: $p + ['tab' => 'TO_SHIP']).
+                $this->assertSame(['store' => $this->lazadaStore->id, 'tab' => 'TO_SHIP'], $item->routeParams);
 
                 return;
             }
@@ -158,7 +184,7 @@ class LazadaWorkspaceTest extends TestCase
     public function test_groups_are_ordered_and_bucketed(): void
     {
         $user = $this->lazadaOperator();
-        $groups = app(ChannelWorkspace::class)->groups($this->lazadaCard(), $user);
+        $groups = app(ChannelWorkspace::class)->groups($this->lazadaCard(), $user, 'lazada:'.$this->lazadaStore->id);
 
         $this->assertSame(
             ['Sell', 'Catalog', 'Channel'],
@@ -181,7 +207,7 @@ class LazadaWorkspaceTest extends TestCase
     public function test_every_destination_is_linkable(): void
     {
         $user = $this->lazadaOperator();
-        $groups = app(ChannelWorkspace::class)->groups($this->lazadaCard(), $user);
+        $groups = app(ChannelWorkspace::class)->groups($this->lazadaCard(), $user, 'lazada:'.$this->lazadaStore->id);
 
         $urls = [];
 
@@ -206,7 +232,7 @@ class LazadaWorkspaceTest extends TestCase
         $user = $this->lazadaOperator();
 
         $this->actingAs($user)
-            ->get('/channels/lazada')
+            ->get('/channels/lazada/'.$this->lazadaStore->id)
             ->assertOk()
             ->assertSee('Lazada')
             ->assertSee('Overview');
@@ -216,7 +242,7 @@ class LazadaWorkspaceTest extends TestCase
     {
         $user = $this->lazadaOrdersOnlyOperator();
 
-        $response = $this->actingAs($user)->get('/channels/lazada/orders');
+        $response = $this->actingAs($user)->get('/channels/lazada/'.$this->lazadaStore->id.'/orders');
 
         $response->assertOk();
         $response->assertSee('x-chnav', false);
@@ -232,7 +258,7 @@ class LazadaWorkspaceTest extends TestCase
     {
         $user = $this->lazadaOrdersOnlyOperator();
 
-        $response = $this->actingAs($user)->get('/channels/lazada/orders');
+        $response = $this->actingAs($user)->get('/channels/lazada/'.$this->lazadaStore->id.'/orders');
 
         $response->assertOk();
 
@@ -251,20 +277,26 @@ class LazadaWorkspaceTest extends TestCase
 
     public static function lazadaPageProvider(): array
     {
+        // Multi-store (the owner 2026-09-05): each row is the page suffix AFTER
+        // /channels/lazada/{store}. The store segment is prepended by the
+        // consumer, which can read $this->lazadaStore - a static provider
+        // cannot. Every page is still covered.
         return [
-            'orders' => ['/channels/lazada/orders'],
-            'returns' => ['/channels/lazada/orders/returns'],
-            'listings' => ['/channels/lazada/products'],
-            'product groups' => ['/channels/lazada/product-groups'],
-            'categories' => ['/channels/lazada/categories'],
-            'brands' => ['/channels/lazada/brands'],
-            'settings' => ['/channels/lazada/settings'],
+            'orders' => ['orders'],
+            'returns' => ['orders/returns'],
+            'listings' => ['products'],
+            'product groups' => ['product-groups'],
+            'categories' => ['categories'],
+            'brands' => ['brands'],
+            'settings' => ['settings'],
         ];
     }
 
     #[\PHPUnit\Framework\Attributes\DataProvider('lazadaPageProvider')]
-    public function test_lazada_pages_render_inside_the_workspace(string $path): void
+    public function test_lazada_pages_render_inside_the_workspace(string $suffix): void
     {
+        $path = '/channels/lazada/'.$this->lazadaStore->id.'/'.$suffix;
+
         // lazadaOperator() holds exactly view_lazada and view_lazada_orders,
         // which is every permission any of these seven routes' perm:
         // middleware demands, so a real read-only operator proves all seven
@@ -290,8 +322,10 @@ class LazadaWorkspaceTest extends TestCase
      * exact bug Shopee's own conversion hit and fixed.
      */
     #[\PHPUnit\Framework\Attributes\DataProvider('lazadaPageProvider')]
-    public function test_the_breadcrumb_trail_is_not_duplicated(string $path): void
+    public function test_the_breadcrumb_trail_is_not_duplicated(string $suffix): void
     {
+        $path = '/channels/lazada/'.$this->lazadaStore->id.'/'.$suffix;
+
         $html = $this->actingAs($this->lazadaOperator())->get($path)->getContent();
 
         $crumb = preg_match('/<div class="x-topbar__crumb">(.*?)<\/div>/s', $html, $m)
@@ -326,7 +360,7 @@ class LazadaWorkspaceTest extends TestCase
      */
     public function test_the_seller_center_shows_no_other_marketplace(): void
     {
-        $response = $this->actingAs($this->lazadaOperator())->get('/channels/lazada/orders/returns');
+        $response = $this->actingAs($this->lazadaOperator())->get('/channels/lazada/'.$this->lazadaStore->id.'/orders/returns');
 
         $response->assertOk();
         $response->assertDontSee('All marketplaces');
@@ -427,7 +461,7 @@ class LazadaWorkspaceTest extends TestCase
     {
         $this->seedLazadaOrders();
 
-        $response = $this->actingAs($this->lazadaOrdersOnlyOperator())->get('/channels/lazada/orders?tab=ALL');
+        $response = $this->actingAs($this->lazadaOrdersOnlyOperator())->get('/channels/lazada/'.$this->lazadaStore->id.'/orders?tab=ALL');
 
         $response->assertOk();
         $response->assertDontSee('x-cmdbar', false);
@@ -447,7 +481,7 @@ class LazadaWorkspaceTest extends TestCase
     {
         $this->seedLazadaOrders();
 
-        $response = $this->actingAs($this->lazadaOrdersManager())->get('/channels/lazada/orders?tab=ALL&per_page=50');
+        $response = $this->actingAs($this->lazadaOrdersManager())->get('/channels/lazada/'.$this->lazadaStore->id.'/orders?tab=ALL&per_page=50');
 
         $response->assertOk();
         // The command bar, gated on the manage tier.
@@ -482,17 +516,17 @@ class LazadaWorkspaceTest extends TestCase
         // asserting only the redirect would also pass if the request had
         // reached the controller and been bounced for some other reason.
         $this->actingAs($viewer)
-            ->postJson('/channels/lazada/orders/fetch', ['date_from' => '2026-08-01', 'date_to' => '2026-08-07'])
+            ->postJson('/channels/lazada/'.$this->lazadaStore->id.'/orders/fetch', ['date_from' => '2026-08-01', 'date_to' => '2026-08-07'])
             ->assertForbidden()
             ->assertJsonPath('error', 'permission_denied');
 
         foreach ([
-            '/channels/lazada/orders/fetch',
-            '/channels/lazada/orders/update-statuses',
-            '/channels/lazada/orders/returns/fetch',
-            '/channels/lazada/orders/' . $order->order_id . '/rts',
-            '/channels/lazada/orders/' . $order->order_id . '/pack-print',
-            '/channels/lazada/orders/' . $order->order_id . '/recreate-package',
+            '/channels/lazada/'.$this->lazadaStore->id.'/orders/fetch',
+            '/channels/lazada/'.$this->lazadaStore->id.'/orders/update-statuses',
+            '/channels/lazada/'.$this->lazadaStore->id.'/orders/returns/fetch',
+            '/channels/lazada/'.$this->lazadaStore->id.'/orders/' . $order->order_id . '/rts',
+            '/channels/lazada/'.$this->lazadaStore->id.'/orders/' . $order->order_id . '/pack-print',
+            '/channels/lazada/'.$this->lazadaStore->id.'/orders/' . $order->order_id . '/recreate-package',
         ] as $writeRoute) {
             $this->actingAs($viewer)
                 ->post($writeRoute, ['date_from' => '2026-08-01', 'date_to' => '2026-08-07'])
@@ -506,7 +540,7 @@ class LazadaWorkspaceTest extends TestCase
         // nothing beyond it: the controller's key is present and the
         // middleware's is not.
         $this->actingAs($this->lazadaOrdersManager())
-            ->post('/channels/lazada/orders/fetch', ['date_from' => '2026-08-01', 'date_to' => '2026-08-07'])
+            ->post('/channels/lazada/'.$this->lazadaStore->id.'/orders/fetch', ['date_from' => '2026-08-01', 'date_to' => '2026-08-07'])
             ->assertRedirect()
             ->assertSessionHas('lazada_orders_last_result')
             ->assertSessionMissing('error');
@@ -516,12 +550,12 @@ class LazadaWorkspaceTest extends TestCase
     {
         $viewer = $this->lazadaOrdersOnlyOperator();
 
-        $this->actingAs($viewer)->get('/channels/lazada/orders/returns')
+        $this->actingAs($viewer)->get('/channels/lazada/'.$this->lazadaStore->id.'/orders/returns')
             ->assertOk()
             ->assertDontSee('formFetchLazadaReturns', false)
             ->assertDontSee('Fetch returns');
 
-        $this->actingAs($this->lazadaOrdersManager())->get('/channels/lazada/orders/returns')
+        $this->actingAs($this->lazadaOrdersManager())->get('/channels/lazada/'.$this->lazadaStore->id.'/orders/returns')
             ->assertOk()
             ->assertSee('formFetchLazadaReturns', false)
             ->assertSee('Fetch returns');
@@ -538,7 +572,7 @@ class LazadaWorkspaceTest extends TestCase
         $this->seedLazadaOrders();
 
         $html = $this->actingAs($this->lazadaOrdersManager())
-            ->get('/channels/lazada/orders?tab=ALL&per_page=50')
+            ->get('/channels/lazada/'.$this->lazadaStore->id.'/orders?tab=ALL&per_page=50')
             ->getContent();
 
         // No raw marketplace constant reaches the screen.
@@ -598,7 +632,7 @@ class LazadaWorkspaceTest extends TestCase
     {
         $this->seedLazadaOrders();
 
-        $response = $this->actingAs($this->lazadaOperator())->get('/channels/lazada/orders');
+        $response = $this->actingAs($this->lazadaOperator())->get('/channels/lazada/'.$this->lazadaStore->id.'/orders');
 
         $response->assertOk();
         $response->assertDontSee('All marketplaces');
@@ -617,7 +651,7 @@ class LazadaWorkspaceTest extends TestCase
         $this->seedLazadaOrders();
 
         $html = $this->actingAs($this->lazadaOrdersManager())
-            ->get('/channels/lazada/orders?tab=TO_SHIP&pending_sub=to_arrange&sort=created_asc&per_page=20&buyer_name=Fixture')
+            ->get('/channels/lazada/'.$this->lazadaStore->id.'/orders?tab=TO_SHIP&pending_sub=to_arrange&sort=created_asc&per_page=20&buyer_name=Fixture')
             ->getContent();
 
         // The sub-step segment keeps the search, the sort and the page size,

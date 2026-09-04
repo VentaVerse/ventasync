@@ -56,6 +56,11 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
     {
         parent::boot();
 
+        // Multi-store (the owner 2026-09-05): let every route() call fill {store}
+        // even outside a Lazada store request (hub, fulfilment tabs, the OAuth
+        // callback view, test code). ResolveLazadaStore overrides per-request.
+        LazadaSetting::syncUrlDefault();
+
         if ($this->app->runningInConsole()) {
             $this->commands([
                 \Extensions\lazada\Commands\LazadaPushStock::class,
@@ -75,6 +80,38 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
 
     public function integrationCards(): array
     {
+        /* Multi-store (the owner 2026-09-05): the converted shape Shopee, Venta,
+         * OpenCart and Shopify wear. One card for the channel; one StoreLink
+         * per settings row with the store's own menu, every item carrying its
+         * {store}. The card-level menu keeps only Settings. A store still
+         * being configured stays visible as setup_pending. */
+        $stores = [];
+        foreach ($this->allStores() as $store) {
+            $p = ['store' => (int) $store->id];
+            $stores[] = new \App\Integrations\StoreLink(
+                id: $this->id . ':' . $store->id,
+                label: $store->store_name ?: ('Store #' . $store->id),
+                menu: [
+                    new MenuItem('Orders', 'ext.lazada.orders.index', 'view_lazada/order', null, $p + ['tab' => 'TO_SHIP'], 'Sell'),
+                    new MenuItem('Returns', 'ext.lazada.orders.returns', 'view_lazada/order', null, $p, 'Sell'),
+                    new MenuItem('Vouchers', 'ext.lazada.vouchers.index', 'view_lazada/voucher', null, $p, 'Sell'),
+                    new MenuItem('Listings', 'ext.lazada.products.index', 'view_lazada/product', null, $p, 'Catalog'),
+                    new MenuItem('Product Groups', 'ext.lazada.product-groups.index', 'view_lazada/product_group', null, $p, 'Catalog'),
+                    new MenuItem('Categories', 'ext.lazada.categories.index', 'view_lazada/category', null, $p, 'Catalog'),
+                    new MenuItem('Brands', 'ext.lazada.brands.index', 'view_lazada/brand', null, $p, 'Catalog'),
+                    new MenuItem('Import', 'ext.lazada.products.import', 'view_lazada/product', null, $p, 'Catalog'),
+                    new MenuItem('Settings', 'ext.lazada.index', 'view_lazada/settings', null, $p, 'Channel', children: [
+                        ['label' => 'Connection', 'section' => 'connection'],
+                        ['label' => 'Status mapping', 'section' => 'status'],
+                        ['label' => 'API explorer', 'section' => 'explorer', 'permission' => 'manage_lazada/settings'],
+                        ['label' => 'API log', 'section' => 'logs'],
+                        ['label' => 'Automations', 'section' => 'automations', 'permission' => 'manage_lazada/settings'],
+                    ]),
+                ],
+                status: $store->enabled ? 'active' : 'setup_pending',
+            );
+        }
+
         return [
             new IntegrationCard(
                 id: $this->id,
@@ -84,50 +121,79 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                 accent: '#0f146d',
                 // Card + menu use the VIEW tier so read-only operators still
                 // see Lazada in the Integrations hub and contextual sidebar.
-                // User::hasPermission('view_lazada/dashboard') is satisfied by the
-                // view or the manage tier (manage implies view), so managers
-                // are not excluded by tightening this gate.
-                // The dashboard's own derived key (lazada/dashboard), not the
-                // legacy view_lazada: the card decides who sees this channel
-                // in the hub and the nav, and that must be the same answer
-                // the dashboard's door gives, or the menu offers a 404.
+                // The dashboard's own derived key (lazada/dashboard): the card
+                // decides who sees this channel in the hub and the nav, and
+                // that must be the same answer the dashboard's door gives.
                 permission: 'view_lazada/dashboard',
-                menu: [
-                    new MenuItem('Orders', 'ext.lazada.orders.index', 'view_lazada/order', null, ['tab' => 'TO_SHIP'], 'Sell'),
-                    new MenuItem('Returns', 'ext.lazada.orders.returns', 'view_lazada/order', group: 'Sell'),
-                    new MenuItem('Vouchers', 'ext.lazada.vouchers.index', 'view_lazada/voucher', group: 'Sell'),
-                    new MenuItem('Listings', 'ext.lazada.products.index', 'view_lazada/product', group: 'Catalog'),
-                    new MenuItem('Product Groups', 'ext.lazada.product-groups.index', 'view_lazada/product_group', group: 'Catalog'),
-                    new MenuItem('Categories', 'ext.lazada.categories.index', 'view_lazada/category', group: 'Catalog'),
-                    new MenuItem('Brands', 'ext.lazada.brands.index', 'view_lazada/brand', group: 'Catalog'),
-                    new MenuItem('Import', 'ext.lazada.products.import', 'view_lazada/product', group: 'Catalog'),
-                    new MenuItem('Settings', 'ext.lazada.index', 'view_lazada/settings', group: 'Channel', children: [
-                        ['label' => 'Connection', 'section' => 'connection'],
-                        ['label' => 'Status mapping', 'section' => 'status'],
-                        ['label' => 'API explorer', 'section' => 'explorer', 'permission' => 'manage_lazada/settings'],
-                        ['label' => 'API log', 'section' => 'logs'],
-                        ['label' => 'Automations', 'section' => 'automations', 'permission' => 'manage_lazada/settings'],
-                    ]),
-                ],
+                // No card-level menu: unlike Shopee (whose /lazada-equivalent
+                // is a storeless OAuth landing) or OpenCart (a storeless
+                // Reviews page), Lazada has no channel-global page - every
+                // settings route now needs a {store}. The per-store StoreLinks
+                // below carry Settings, so a card-level link here would only
+                // be a link that throws the moment no store is enabled.
+                menu: [],
+                stores: $stores,
+                addStore: new \App\Integrations\AddStoreAction(
+                    route: 'ext.lazada.stores.store',
+                    permission: 'manage_lazada/settings',
+                    label: 'Add store',
+                ),
             ),
         ];
     }
 
+    /**
+     * Every settings row, enabled or not - the Integrations UI keeps a
+     * freshly-created, still-disabled store visible so the operator can finish
+     * configuring it.
+     *
+     * @return iterable<\Extensions\lazada\Models\LazadaSetting>
+     */
+    protected function allStores(): iterable
+    {
+        try {
+            if (! Schema::hasTable('lazada_settings')) {
+                return [];
+            }
+
+            return LazadaSetting::query()->orderBy('id')->get();
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
     public function orderTabs(): array
     {
-        $lazadaStatusCount = function (array $statuses): int {
+        /* Multi-store (Lazada #194 parity with Shopee S4): one tab per
+         * enabled store, counters scoped to the store's own rows. With a
+         * single store the tab keeps the channel's name - the store names
+         * take over the moment a second store exists and the name has to
+         * distinguish. */
+        if (! Schema::hasTable('lazada_settings')) {
+            return [];
+        }
+        $stores = LazadaSetting::query()->where('enabled', true)->orderBy('id')->get(['id', 'store_name']);
+
+        return $stores->map(fn ($store) => $this->buildOrderTab(
+            (int) $store->id,
+            $stores->count() > 1 ? ($store->store_name ?: ('Store #' . $store->id)) : 'Lazada'
+        ))->all();
+    }
+
+    private function buildOrderTab(int $storeId, string $label): OrderTab
+    {
+        $lazadaStatusCount = function (array $statuses) use ($storeId): int {
             if (!Schema::hasTable('lazada_orders')) {
                 return 0;
             }
-            $region = Schema::hasTable('lazada_settings') ? (LazadaSetting::query()->value('region') ?? 'ph') : 'ph';
 
-            return LazadaOrder::query()->where('region', $region)->whereIn('status', $statuses)->count();
+            return LazadaOrder::query()->where('lazada_setting_id', $storeId)->whereIn('status', $statuses)->count();
         };
 
-        return [
+        return
             new OrderTab(
-                id: $this->id,
-                label: 'Lazada',
+                id: $this->id . ':' . $storeId,
+                label: $label,
                 icon: 'lazada',
                 accent: '#0f146d',
                 routeName: 'ext.lazada.orders.index',
@@ -136,17 +202,13 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                 // workspace. The destination route GETs are read-tier gated,
                 // and per-action write buttons are gated separately in the view.
                 permission: 'view_lazada/order',
-                routeParams: ['tab' => 'TO_SHIP'],
-                unprocessedCounter: function () {
+                routeParams: ['store' => $storeId, 'tab' => 'TO_SHIP'],
+                unprocessedCounter: function () use ($storeId) {
                     if (!Schema::hasTable('lazada_orders')) {
                         return 0;
                     }
-                    $region = 'ph';
-                    if (Schema::hasTable('lazada_settings')) {
-                        $region = LazadaSetting::query()->value('region') ?? 'ph';
-                    }
                     return LazadaOrder::query()
-                        ->where('region', $region)
+                        ->where('lazada_setting_id', $storeId)
                     /* THE SAME STATUSES THE "To Ship" TAB GROUPS.
                      *
                      * This counted only the first sub-step, so the head
@@ -172,29 +234,32 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                     ['key' => 'to_arrange', 'label' => 'to arrange', 'counter' => fn () => $lazadaStatusCount(['packed'])],
                     ['key' => 'to_handover', 'label' => 'to handover', 'counter' => fn () => $lazadaStatusCount(['ready_to_ship'])],
                 ],
-                dailyOrdersCounter: function () {
+                dailyOrdersCounter: function () use ($storeId) {
                     if (!Schema::hasTable('lazada_orders')) {
                         return 0;
                     }
                     return LazadaOrder::query()
+                        ->where('lazada_setting_id', $storeId)
                         ->where('order_created_at', '>=', now()->startOfDay())
                         ->count();
                 },
-                dailyRevenueCounter: function () {
+                dailyRevenueCounter: function () use ($storeId) {
                     if (!Schema::hasTable('lazada_orders') || !Schema::hasTable('lazada_order_products')) {
                         return 0.0;
                     }
                     return (float) DB::table('lazada_order_products as p')
                         ->join('lazada_orders as o', 'o.id', '=', 'p.lazada_order_id')
+                        ->where('o.lazada_setting_id', $storeId)
                         ->where('o.order_created_at', '>=', now()->startOfDay())
                         ->sum(DB::raw('p.quantity * COALESCE(p.paid_price, p.item_price)'));
                 },
-                topProductsCallback: function (int $limit) {
+                topProductsCallback: function (int $limit) use ($storeId) {
                     if (!Schema::hasTable('lazada_orders') || !Schema::hasTable('lazada_order_products')) {
                         return [];
                     }
                     return DB::table('lazada_order_products as p')
                         ->join('lazada_orders as o', 'o.id', '=', 'p.lazada_order_id')
+                        ->where('o.lazada_setting_id', $storeId)
                         ->where('o.order_created_at', '>=', now()->startOfDay())
                         ->whereNotNull('p.sku')
                         ->where('p.sku', '!=', '')
@@ -219,11 +284,12 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                             variation: trim((string) ($r->variation ?? '')) ?: null,
                         ))->all();
                 },
-                recentOrdersCallback: function (int $limit) {
+                recentOrdersCallback: function (int $limit) use ($storeId) {
                     if (!Schema::hasTable('lazada_orders')) {
                         return [];
                     }
                     $orders = LazadaOrder::query()
+                        ->where('lazada_setting_id', $storeId)
                         ->orderByDesc('order_created_at')
                         ->limit($limit)
                         ->get(['id', 'order_id', 'status', 'order_created_at']);
@@ -243,8 +309,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                         url: route('ext.lazada.orders.show', $o->order_id),
                     ))->all();
                 },
-            ),
-        ];
+            );
     }
 
     /**
@@ -340,7 +405,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
 
     private function lazadaUpdateSellerSku(LazadaProduct $listing, string $oldSku, string $newSku): ?string
     {
-        $setting = LazadaSetting::query()->first()?->decrypted();
+        $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$creds['access_token'] || !$creds['app_key']) {
             return null;
@@ -422,7 +487,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         }
 
         if (Schema::hasTable('lazada_settings')) {
-            $lzSetting = LazadaSetting::query()->first();
+            $lzSetting = LazadaSetting::defaultStore();
             if ($lzSetting) {
                 /* The listing troubles ride the chip (Phase C, #184), the
                  * same two numbers Shopee's carries. A failure here must
@@ -575,7 +640,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
             $pendingSub = '';
         }
 
-        $region = LazadaSetting::query()->first()->region ?? 'ph';
+        $region = LazadaSetting::defaultStore()->region ?? 'ph';
         $base = LazadaOrder::query()->where('region', $region);
         $query = LazadaOrder::query()->where('region', $region);
 

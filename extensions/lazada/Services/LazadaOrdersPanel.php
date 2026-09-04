@@ -19,9 +19,19 @@ use Illuminate\Http\Request;
  */
 class LazadaOrdersPanel
 {
-    public function build(Request $request): array
+    public function build(Request $request, ?int $storeId = null): array
     {
-        $setting = LazadaSetting::query()->first();
+        $setting = $storeId !== null
+            ? LazadaSetting::query()->find($storeId)
+            : LazadaSetting::defaultStore();
+        if ($storeId !== null && $setting !== null) {
+            /* The hub page itself is storeless, so bind the tab's store for
+             * the render: the model global scope narrows every LazadaOrder
+             * read to it, every route() in the panel partial fills its
+             * {store} from it, and nested defaultStore() reads agree. */
+            app()->instance('lazada.route-store', $setting);
+            \Illuminate\Support\Facades\URL::defaults(['store' => (int) $setting->id]);
+        }
 
         $filters = $request->validate([
             'q' => ['nullable', 'string', 'max:120'],
