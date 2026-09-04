@@ -4,7 +4,6 @@ namespace Extensions\lazada\Services\Lazada;
 
 use Extensions\lazada\Models\LazadaProduct;
 use Extensions\lazada\Models\LazadaProductAttribute;
-use Extensions\lazada\Models\LazadaUnmatchedItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -128,8 +127,6 @@ class LazadaItemImport
             return ['ok' => false, 'message' => 'Not imported: ' . implode(' ', collect($e->errors())->flatten()->take(3)->all())];
         }
 
-        LazadaUnmatchedItem::query()->where('lazada_item_id', $itemId)
-            ->update(['status' => 'linked', 'linked_product_id' => $productId]);
 
         return [
             'ok' => true,

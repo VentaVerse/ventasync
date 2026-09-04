@@ -4,7 +4,6 @@ namespace Extensions\venta\Services\Venta;
 
 use Extensions\venta\Models\VentaProductLink;
 use Extensions\venta\Models\VentaSetting;
-use Extensions\venta\Models\VentaUnmatchedItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -25,22 +24,22 @@ use Illuminate\Support\Str;
  */
 class VentaItemImport
 {
-    public function import(VentaSetting $setting, VentaUnmatchedItem $row): array
+    public function import(VentaSetting $setting, string $importSku): array
     {
         $client = new VentaClient($setting);
 
-        $answer = $client->getProduct($row->sku);
+        $answer = $client->getProduct($importSku);
         if (! ($answer['ok'] ?? false)) {
-            return ['ok' => false, 'message' => 'Venta did not answer for "' . $row->sku . '": '
+            return ['ok' => false, 'message' => 'Venta did not answer for "' . $importSku . '": '
                 . \App\Support\MarketplaceAnswer::plain('Venta', $answer)];
         }
         $item = $answer['body']['data'] ?? $answer['body'] ?? [];
         if (empty($item)) {
-            return ['ok' => false, 'message' => 'Venta answered with no product for "' . $row->sku . '".'];
+            return ['ok' => false, 'message' => 'Venta answered with no product for "' . $importSku . '".'];
         }
 
         $variants = [];
-        $vAnswer = $client->getVariants($row->sku);
+        $vAnswer = $client->getVariants($importSku);
         if ($vAnswer['ok'] ?? false) {
             $variants = array_values((array) ($vAnswer['body']['data'] ?? $vAnswer['body'] ?? []));
         }
@@ -48,8 +47,8 @@ class VentaItemImport
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $name = trim((string) ($item['name'] ?? '')) ?: ('Venta item ' . $row->sku);
-        $sku = trim((string) ($item['sku'] ?? $row->sku));
+        $name = trim((string) ($item['name'] ?? '')) ?: ('Venta item ' . $importSku);
+        $sku = trim((string) ($item['sku'] ?? $importSku));
         $ventaId = (int) ($item['id'] ?? 0);
 
         try {
@@ -107,7 +106,6 @@ class VentaItemImport
             return ['ok' => false, 'message' => 'Not imported: ' . implode(' ', collect($e->errors())->flatten()->take(3)->all())];
         }
 
-        $row->update(['status' => 'linked', 'linked_product_id' => $productId, 'venta_product_id' => $ventaId ?: $row->venta_product_id]);
 
         return [
             'ok' => true,

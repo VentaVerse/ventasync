@@ -4,7 +4,6 @@ namespace Extensions\tiktok\Services\TikTok;
 
 use App\Support\MarketplaceAnswer;
 use Extensions\tiktok\Models\TikTokListing;
-use Extensions\tiktok\Models\TikTokUnmatchedItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -126,8 +125,6 @@ class TikTokItemImport
             return ['ok' => false, 'message' => 'Not imported: ' . implode(' ', collect($e->errors())->flatten()->take(3)->all())];
         }
 
-        TikTokUnmatchedItem::query()->where('tiktok_product_id', $tiktokProductId)
-            ->update(['status' => 'linked', 'linked_product_id' => $productId]);
 
         return [
             'ok' => true,

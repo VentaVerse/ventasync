@@ -5,7 +5,6 @@ namespace Extensions\shopee\Services\Shopee;
 use App\Support\MarketplaceAnswer;
 use Extensions\shopee\Models\ShopeeListing;
 use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeUnmatchedItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -138,8 +137,6 @@ class ShopeeItemImport
 
         // The queue column is an enum from the link era; an imported item
         // IS linked, and linked_product_id says to what.
-        ShopeeUnmatchedItem::query()->where('shopee_item_id', $itemId)
-            ->update(['status' => 'linked', 'linked_product_id' => $productId]);
 
         return [
             'ok' => true,

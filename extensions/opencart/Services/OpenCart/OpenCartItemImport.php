@@ -4,7 +4,6 @@ namespace Extensions\opencart\Services\OpenCart;
 
 use Extensions\opencart\Models\OpenCartProductLink;
 use Extensions\opencart\Models\OpenCartSetting;
-use Extensions\opencart\Models\OpenCartUnmatchedItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -23,24 +22,24 @@ use Illuminate\Support\Str;
  */
 class OpenCartItemImport
 {
-    public function import(OpenCartSetting $setting, OpenCartUnmatchedItem $row): array
+    public function import(OpenCartSetting $setting, int $ocProductId): array
     {
         $client = new OpenCartClient($setting);
 
-        $answer = $client->getProducts(1, 1, null, (int) $row->oc_product_id);
+        $answer = $client->getProducts(1, 1, null, (int) $ocProductId);
         if (! ($answer['ok'] ?? false)) {
-            return ['ok' => false, 'message' => 'OpenCart did not answer for product ' . $row->oc_product_id . ': '
+            return ['ok' => false, 'message' => 'OpenCart did not answer for product ' . $ocProductId . ': '
                 . \App\Support\MarketplaceAnswer::plain('OpenCart', $answer)];
         }
         $item = ($answer['body']['data'] ?? [])[0] ?? [];
         if (empty($item)) {
-            return ['ok' => false, 'message' => 'OpenCart answered with no product for ' . $row->oc_product_id . '.'];
+            return ['ok' => false, 'message' => 'OpenCart answered with no product for ' . $ocProductId . '.'];
         }
 
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $name = trim(html_entity_decode((string) ($item['name'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?: ('OpenCart product ' . $row->oc_product_id);
+        $name = trim(html_entity_decode((string) ($item['name'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?: ('OpenCart product ' . $ocProductId);
         $sku = trim((string) ($item['sku'] ?? '')) ?: trim((string) ($item['model'] ?? ''));
 
         $optionValues = array_values((array) ($item['option_values'] ?? []));
@@ -48,7 +47,7 @@ class OpenCartItemImport
         $multiOption = count($optionNames) > 1;
 
         try {
-            $productId = DB::transaction(function () use ($pfx, $langId, $item, $optionValues, $multiOption, $name, $sku, $setting, $row) {
+            $productId = DB::transaction(function () use ($pfx, $langId, $item, $optionValues, $multiOption, $name, $sku, $setting, $ocProductId) {
                 $productId = DB::table($pfx . 'product')->insertGetId([
                     'model' => trim((string) ($item['model'] ?? '')) ?: $sku,
                     'sku' => $sku,
@@ -85,7 +84,7 @@ class OpenCartItemImport
                         $urls[] = $base . '/image/' . ltrim($rel, '/');
                     }
                 }
-                $paths = $this->downloadImages($urls, (string) $row->oc_product_id);
+                $paths = $this->downloadImages($urls, (string) $ocProductId);
                 if ($paths !== []) {
                     DB::table($pfx . 'product')->where('product_id', $productId)->update(['image' => $paths[0]]);
                     foreach (array_slice($paths, 1) as $i => $path) {
@@ -100,7 +99,7 @@ class OpenCartItemImport
                 }
 
                 OpenCartProductLink::updateOrCreate(
-                    ['opencart_setting_id' => $setting->id, 'oc_product_id' => (int) $row->oc_product_id],
+                    ['opencart_setting_id' => $setting->id, 'oc_product_id' => (int) $ocProductId],
                     ['product_id' => $productId, 'sku' => $sku ?: null]
                 );
 
@@ -109,8 +108,6 @@ class OpenCartItemImport
         } catch (\Illuminate\Validation\ValidationException $e) {
             return ['ok' => false, 'message' => 'Not imported: ' . implode(' ', collect($e->errors())->flatten()->take(3)->all())];
         }
-
-        $row->update(['status' => 'linked', 'linked_product_id' => $productId]);
 
         return [
             'ok' => true,
