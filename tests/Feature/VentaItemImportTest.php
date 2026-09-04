@@ -170,6 +170,31 @@ class VentaItemImportTest extends TestCase
         $this->assertSame('unmatched', $row->fresh()->status);
     }
 
+    public function test_a_dismissed_row_stays_dismissed_through_a_scan(): void
+    {
+        $setting = $this->store();
+        $dismissed = VentaUnmatchedItem::create([
+            'venta_setting_id' => $setting->id, 'sku' => 'NEW-1', 'name' => 'Old name', 'status' => 'dismissed',
+        ]);
+
+        Http::fake([
+            self::BASE . '/api/v1/products?*' => Http::response(['data' => [
+                ['id' => 12, 'sku' => 'NEW-1', 'name' => 'New name', 'price' => 250, 'quantity' => 3],
+            ]]),
+        ]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.venta.products.sync_unmatched', $setting->id))
+            ->assertRedirect();
+
+        // The scan refreshes the facts, never the verdict: the row keeps
+        // its dismissal (scans used to resurrect it), takes the new name,
+        // and is not counted as waiting.
+        $this->assertSame('dismissed', $dismissed->fresh()->status);
+        $this->assertSame('New name', $dismissed->fresh()->name);
+        $this->assertStringNotContainsString('waiting below', session('status'));
+    }
+
     public function test_import_selected_runs_each_row_and_reports_honestly(): void
     {
         $setting = $this->store();

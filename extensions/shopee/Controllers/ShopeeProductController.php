@@ -1680,18 +1680,24 @@ class ShopeeProductController extends Controller
                             continue;
                         }
 
-                        // Unmatched model
-                        $unmatchedCount++;
-                        ShopeeUnmatchedItem::updateOrCreate(
-                            ['shopee_item_id' => (string) $itemId, 'shopee_model_id' => (string) $modelId],
-                            [
-                                'item_name' => $itemName . ($modelSku ? ' [' . $modelSku . ']' : ''),
-                                'sku' => $modelSku,
-                                'image_url' => $imageUrl,
-                                'status' => 'unmatched',
-                                'linked_product_id' => null,
-                            ]
+                        // Unmatched model. The scan refreshes the FACTS,
+                        // never the verdict: a dismissed row stays dismissed
+                        // (the owner, 2026-09-04 - updateOrCreate used to
+                        // resurrect it, and null the link, every scan).
+                        $row = ShopeeUnmatchedItem::firstOrNew(
+                            ['shopee_item_id' => (string) $itemId, 'shopee_model_id' => (string) $modelId]
                         );
+                        if (! $row->exists) {
+                            $row->status = 'unmatched';
+                        }
+                        $row->fill([
+                            'item_name' => $itemName . ($modelSku ? ' [' . $modelSku . ']' : ''),
+                            'sku' => $modelSku,
+                            'image_url' => $imageUrl,
+                        ])->save();
+                        if ($row->status === 'unmatched') {
+                            $unmatchedCount++;
+                        }
                     }
                 } else {
                     // Simple item (no models)
@@ -1708,18 +1714,22 @@ class ShopeeProductController extends Controller
                         continue;
                     }
 
-                    // Unmatched item
-                    $unmatchedCount++;
-                    ShopeeUnmatchedItem::updateOrCreate(
-                        ['shopee_item_id' => (string) $itemId, 'shopee_model_id' => null],
-                        [
-                            'item_name' => $itemName,
-                            'sku' => $itemSku,
-                            'image_url' => $imageUrl,
-                            'status' => 'unmatched',
-                            'linked_product_id' => null,
-                        ]
+                    // Unmatched item - same verdict-preserving write as the
+                    // model branch above.
+                    $row = ShopeeUnmatchedItem::firstOrNew(
+                        ['shopee_item_id' => (string) $itemId, 'shopee_model_id' => null]
                     );
+                    if (! $row->exists) {
+                        $row->status = 'unmatched';
+                    }
+                    $row->fill([
+                        'item_name' => $itemName,
+                        'sku' => $itemSku,
+                        'image_url' => $imageUrl,
+                    ])->save();
+                    if ($row->status === 'unmatched') {
+                        $unmatchedCount++;
+                    }
                 }
             }
         }

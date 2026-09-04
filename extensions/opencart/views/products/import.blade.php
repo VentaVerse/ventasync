@@ -125,20 +125,25 @@
                         </form>
                     </td>
                     <td class="x-td-actions">
-                        {{-- Import is the queue's whole point (#196); Link
-                             stays for an item the catalog already has under
-                             another SKU; Dismiss stays the rare way out. --}}
-                        <form method="POST" action="{{ route('ext.opencart.products.import_unmatched', [$store, $ui->id]) }}" data-slow-action
-                              data-confirm="Import this store item into your main catalog? A real product is created there - name, price, stock, variations and images - and linked to the store item. Nothing changes on the store." data-confirm-tone="primary" data-confirm-verb="Import">
-                            @csrf
-                            <x-ui.button type="submit" size="sm" variant="primary">Import</x-ui.button>
-                        </form>
-                        <x-ui.menu label="Store item {{ $ui->sku }} actions">
-                            <form method="POST" action="{{ route('ext.opencart.products.dismiss_unmatched', [$store, $ui->id]) }}">
+                        {{-- One baseline (the owner, 2026-09-04): the kebab that
+                             held a single action is gone; Dismiss stands beside
+                             Import as the quiet way out it is. --}}
+                        <div class="cc-rowact">
+                            {{-- Import is the queue's whole point (#196); Link
+                                 stays for an item the catalog already has under
+                                 another SKU; Dismiss stays the rare way out. --}}
+                            <form method="POST" action="{{ route('ext.opencart.products.import_unmatched', [$store, $ui->id]) }}" data-slow-action
+                                  data-confirm="Import this store item into your main catalog? A real product is created there - name, price, stock, variations and images - and linked to the store item. Nothing changes on the store." data-confirm-tone="primary" data-confirm-verb="Import">
                                 @csrf
-                                <button type="submit" class="x-menu__item">Dismiss, stop tracking it</button>
+                                <x-ui.button type="submit" size="sm" variant="primary">Import</x-ui.button>
                             </form>
-                        </x-ui.menu>
+                        
+                            <form method="POST" action="{{ route('ext.opencart.products.dismiss_unmatched', [$store, $ui->id]) }}"
+                                  data-confirm="Stop tracking this store product? Scans will not list it again." data-confirm-verb="Dismiss">
+                                @csrf
+                                <button type="submit" class="cc-quiet">Dismiss</button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
             @endforeach

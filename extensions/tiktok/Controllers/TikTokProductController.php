@@ -444,11 +444,19 @@ class TikTokProductController extends Controller
                 continue;
             }
             foreach (($skus ?: [null]) as $sku) {
-                \Extensions\tiktok\Models\TikTokUnmatchedItem::updateOrCreate(
-                    ['tiktok_product_id' => (string) $ttId, 'sku' => $sku],
-                    ['item_name' => (string) ($p['title'] ?? ''), 'status' => 'unmatched', 'linked_product_id' => null]
+                // The scan refreshes the FACTS, never the verdict: a
+                // dismissed row stays dismissed (the owner, 2026-09-04 -
+                // updateOrCreate used to resurrect it every scan).
+                $row = \Extensions\tiktok\Models\TikTokUnmatchedItem::firstOrNew(
+                    ['tiktok_product_id' => (string) $ttId, 'sku' => $sku]
                 );
-                $found++;
+                if (! $row->exists) {
+                    $row->status = 'unmatched';
+                }
+                $row->fill(['item_name' => (string) ($p['title'] ?? '')])->save();
+                if ($row->status === 'unmatched') {
+                    $found++;
+                }
             }
         }
 

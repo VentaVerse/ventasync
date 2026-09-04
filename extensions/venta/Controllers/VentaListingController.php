@@ -125,9 +125,14 @@ class VentaListingController extends Controller
                 if (isset($known[strtolower($sku)])) {
                     continue;
                 }
-                \Extensions\venta\Models\VentaUnmatchedItem::updateOrCreate(
-                    ['venta_setting_id' => $store, 'sku' => $sku],
-                    [
+                // The scan refreshes the FACTS, never the verdict: a dismissed
+                // row stays dismissed and a linked one stays linked (the owner,
+                // 2026-09-04 - updateOrCreate used to resurrect both every scan).
+                $row = \Extensions\venta\Models\VentaUnmatchedItem::firstOrNew(['venta_setting_id' => $store, 'sku' => $sku]);
+                if (! $row->exists) {
+                    $row->status = 'unmatched';
+                }
+                $row->fill([
                         'venta_product_id' => (int) ($item['id'] ?? 0) ?: null,
                         'name' => \Illuminate\Support\Str::limit((string) ($item['name'] ?? ''), 250, ''),
                         'price' => (float) ($item['price'] ?? 0),
@@ -136,10 +141,10 @@ class VentaListingController extends Controller
                             ? (is_array(($item['images'][0] ?? null)) ? ($item['images'][0]['url'] ?? $item['images'][0]['src'] ?? '') : ($item['images'][0] ?? ''))
                             : ''),
                         'variant_count' => is_array($item['variants'] ?? null) ? count($item['variants']) : 0,
-                        'status' => 'unmatched',
-                    ]
-                );
-                $queued++;
+                ])->save();
+                if ($row->status === 'unmatched') {
+                    $queued++;
+                }
             }
             $page++;
         } while (count($items) === 100 && $page <= 100);
@@ -217,7 +222,7 @@ class VentaListingController extends Controller
             ->where('venta_setting_id', $store)->findOrFail($unmatchedId)
             ->update(['status' => 'dismissed']);
 
-        return redirect()->back()->with('status', 'Dismissed. It will not be listed again unless a scan finds it changed.');
+        return redirect()->back()->with('status', 'Dismissed. Scans will not list it again.');
     }
 
     /** The Link typeahead's catalog search, same JSON the Big 3 serve. */

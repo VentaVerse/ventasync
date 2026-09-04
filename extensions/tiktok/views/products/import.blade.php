@@ -107,17 +107,22 @@
                         </form>
                     </td>
                     <td class="x-td-actions">
-                        <form method="POST" action="{{ route('ext.tiktok.products.import_unmatched', $ui->id) }}" data-slow-action
-                              data-confirm="Import this TikTok Shop product into your main catalog? A real product is created there - name, price, stock, variations and images - and linked. Nothing changes on TikTok Shop." data-confirm-tone="primary" data-confirm-verb="Import">
-                            @csrf
-                            <x-ui.button type="submit" size="sm" variant="primary">Import</x-ui.button>
-                        </form>
-                        <x-ui.menu label="TikTok Shop product {{ $ui->tiktok_product_id }} actions">
-                            <form method="POST" action="{{ route('ext.tiktok.products.dismiss_unmatched', $ui->id) }}">
+                        {{-- One baseline (the owner, 2026-09-04): the kebab that
+                             held a single action is gone; Dismiss stands beside
+                             Import as the quiet way out it is. --}}
+                        <div class="cc-rowact">
+                            <form method="POST" action="{{ route('ext.tiktok.products.import_unmatched', $ui->id) }}" data-slow-action
+                                  data-confirm="Import this TikTok Shop product into your main catalog? A real product is created there - name, price, stock, variations and images - and linked. Nothing changes on TikTok Shop." data-confirm-tone="primary" data-confirm-verb="Import">
                                 @csrf
-                                <button type="submit" class="x-menu__item">Dismiss, stop tracking it</button>
+                                <x-ui.button type="submit" size="sm" variant="primary">Import</x-ui.button>
                             </form>
-                        </x-ui.menu>
+                        
+                            <form method="POST" action="{{ route('ext.tiktok.products.dismiss_unmatched', $ui->id) }}"
+                                  data-confirm="Stop tracking this TikTok Shop product? Scans will not list it again." data-confirm-verb="Dismiss">
+                                @csrf
+                                <button type="submit" class="cc-quiet">Dismiss</button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
             @endforeach

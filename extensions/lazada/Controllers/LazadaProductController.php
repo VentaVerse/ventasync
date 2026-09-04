@@ -3373,37 +3373,47 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             // Store each SKU variant as an unmatched entry
             $skus = $product['skus'] ?? [];
             if (empty($skus)) {
-                // No SKU info at all
-                $unmatchedCount++;
-                \Extensions\lazada\Models\LazadaUnmatchedItem::updateOrCreate(
-                    ['lazada_item_id' => (string) $itemId, 'sku' => ''],
-                    [
-                        'lazada_sku_id' => null,
-                        'item_name' => $itemName,
-                        'image_url' => $imageUrl,
-                        'raw_data' => $product,
-                        'status' => 'unmatched',
-                        'linked_product_id' => null,
-                    ]
+                // No SKU info at all. The scan refreshes the FACTS, never
+                // the verdict: a dismissed row stays dismissed (the owner,
+                // 2026-09-04 - updateOrCreate used to resurrect it, and
+                // null the link, every scan).
+                $row = \Extensions\lazada\Models\LazadaUnmatchedItem::firstOrNew(
+                    ['lazada_item_id' => (string) $itemId, 'sku' => '']
                 );
+                if (! $row->exists) {
+                    $row->status = 'unmatched';
+                }
+                $row->fill([
+                    'lazada_sku_id' => null,
+                    'item_name' => $itemName,
+                    'image_url' => $imageUrl,
+                    'raw_data' => $product,
+                ])->save();
+                if ($row->status === 'unmatched') {
+                    $unmatchedCount++;
+                }
             } else {
                 foreach ($skus as $skuData) {
                     $sellerSku = trim((string) ($skuData['SellerSku'] ?? ($skuData['seller_sku'] ?? ($skuData['SellerSKU'] ?? ''))));
                     $skuId = $skuData['SkuId'] ?? ($skuData['skuId'] ?? ($skuData['ShopSku'] ?? null));
                     $skuImage = $skuData['Images'][0] ?? $imageUrl;
 
-                    $unmatchedCount++;
-                    \Extensions\lazada\Models\LazadaUnmatchedItem::updateOrCreate(
-                        ['lazada_item_id' => (string) $itemId, 'sku' => $sellerSku],
-                        [
-                            'lazada_sku_id' => $skuId ? (string) $skuId : null,
-                            'item_name' => $itemName . ($sellerSku ? ' [' . $sellerSku . ']' : ''),
-                            'image_url' => $skuImage,
-                            'raw_data' => array_merge($product, ['_sku' => $skuData]),
-                            'status' => 'unmatched',
-                            'linked_product_id' => null,
-                        ]
+                    // Same verdict-preserving write as the no-SKU branch.
+                    $row = \Extensions\lazada\Models\LazadaUnmatchedItem::firstOrNew(
+                        ['lazada_item_id' => (string) $itemId, 'sku' => $sellerSku]
                     );
+                    if (! $row->exists) {
+                        $row->status = 'unmatched';
+                    }
+                    $row->fill([
+                        'lazada_sku_id' => $skuId ? (string) $skuId : null,
+                        'item_name' => $itemName . ($sellerSku ? ' [' . $sellerSku . ']' : ''),
+                        'image_url' => $skuImage,
+                        'raw_data' => array_merge($product, ['_sku' => $skuData]),
+                    ])->save();
+                    if ($row->status === 'unmatched') {
+                        $unmatchedCount++;
+                    }
                 }
             }
         }
