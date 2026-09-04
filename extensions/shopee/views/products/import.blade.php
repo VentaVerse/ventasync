@@ -20,13 +20,11 @@
 <div class="x-list-head">
     <div>
         <h1 class="x-page-title">Import from {{ $storeLabel }}</h1>
-        <p class="x-page-sub">
-            @if($fetched !== null)
+        @if($fetched !== null)
+            <p class="x-page-sub">
                 Read {{ number_format($fetched['found']) }} {{ $fetched['found'] === 1 ? 'item' : 'items' }} on Shopee just now; {{ count($rows) === 0 ? 'all of them match your main catalog.' : number_format(count($rows)) . ' ' . (count($rows) === 1 ? 'is' : 'are') . ' not in your main catalog.' }}
-            @else
-                Bring items that exist on Shopee into your main catalog. Nothing here is stored: fetch to see the live list.
-            @endif
-        </p>
+            </p>
+        @endif
     </div>
     @if($canManage && ($fetched !== null || $fetchError))
         <div class="cc-head-actions">
@@ -44,10 +42,12 @@
     @if($fetchError)
         <p class="fm-section__note fm-section__note--strong">{{ $fetchError }}</p>
     @elseif($fetched === null)
-        {{-- The first-run state: an empty state with the Fetch CTA,
-             the detail in a tooltip, not a paragraph in a blank card. --}}
+        {{-- First-run: a shaped initial look, not a paragraph. The
+             action is self-evident, so one orienting line stands in
+             for the explanation a tooltip used to carry. --}}
         <x-ui.empty title="Nothing fetched yet"
-                    description="Fetch reads Shopee live and compares it against your main catalog. Anything the catalog cannot place is listed here to import or link. Nothing is stored on this side, so every visit reads the store as it is right now.">
+                    description="Read what is listed on Shopee and bring anything missing into your main catalog.">
+            <x-slot:icon><x-ui.icon name="download" size="22" /></x-slot:icon>
             <x-slot:action>
                 <form method="GET" action="{{ route('ext.shopee.products.import') }}" data-slow-action>
                     <input type="hidden" name="fetch" value="1">

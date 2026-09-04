@@ -1749,6 +1749,22 @@
         border-top: 1px solid var(--bl-rule-2);
     }
 
+    /* The optional first-run medallion: a muted glyph in a soft ring. No
+       accent colour - this world spends its one accent on the action
+       (DESIGN.md), so the icon orients without competing with the CTA. */
+    .x-empty__icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 48px;
+        height: 48px;
+        margin: 0 auto 14px;
+        border-radius: var(--bl-r-pill);
+        background: var(--bl-paper);
+        border: 1px solid var(--bl-rule-2);
+        color: var(--bl-ink-3);
+    }
+
     .x-empty__title {
         margin: 0;
         font-size: 15px;
