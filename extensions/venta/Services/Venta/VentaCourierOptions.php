@@ -19,8 +19,10 @@ final class VentaCourierOptions
         'quadx' => [
             'name' => 'QuadX',
             'service_types' => [
-                ['value' => 'next_day', 'label' => 'Next day'],
+                // Same day pickup leads (the owner, 2026-09-04), and both name
+                // their pickup for unity.
                 ['value' => 'same_day_pickup', 'label' => 'Same day pickup'],
+                ['value' => 'next_day', 'label' => 'Next day pickup'],
             ],
             'parcel_options' => [
                 ['value' => 'small-pouch', 'label' => 'White small pouch'],

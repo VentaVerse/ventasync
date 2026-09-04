@@ -505,7 +505,9 @@ class VentaFulfilmentTest extends TestCase
             ->assertJsonPath('couriers.quadx.defaults.service', 'next_day')
             ->json();
 
-        $this->assertSame(['next_day', 'same_day_pickup'], array_column($json['couriers']['quadx']['service_types'], 'value'));
+        // Same day pickup leads (the owner, 2026-09-04); the default schedule
+        // stays next_day - order is presentation, the default is policy.
+        $this->assertSame(['same_day_pickup', 'next_day'], array_column($json['couriers']['quadx']['service_types'], 'value'));
         $this->assertContains('box', array_column($json['couriers']['quadx']['parcel_options'], 'value'));
         $this->assertSame('cash', $json['couriers']['quadx']['shipping_payment_options'][0]['value']);
     }

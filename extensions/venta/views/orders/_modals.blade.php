@@ -95,7 +95,7 @@
 
                 <div class="vt-book__grid vt-book__grid--2">
                     <div id="vtBookServiceWrap" class="vt-book__field vt-hidden">
-                        <label for="vtBookService" class="vt-book__label">Service</label>
+                        <label for="vtBookService" class="vt-book__label">Schedule</label>
                         <div class="x-select-wrap">
                             <select id="vtBookService" class="x-input"></select>
                             <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
