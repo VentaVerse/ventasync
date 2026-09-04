@@ -327,11 +327,11 @@
                 <div class="fm-card__head"><h2 class="fm-card__title">Shipping</h2></div>
                 <div class="fm-card__body">
                     @if($parcelIncomplete)
-                        {{-- Old rows keep saving (#198) - a save is never held
-                             hostage to fields nobody touched - but the debt is
-                             said out loud where it gets paid. --}}
+                        {{-- Since 2026-09-04 the save itself requires these
+                             fields, so this note is the WHY over the refusal
+                             the form is about to make. --}}
                         <div class="fm-note fm-note--warn" role="status">
-                            <div class="fm-note__body">This product has no complete parcel. Shopee, Lazada and TikTok all refuse a push or relist without a weight and size - fill these four fields and the channel pages stop flagging it.</div>
+                            <div class="fm-note__body">This product is missing its weight or size. Shopee, Lazada and TikTok all refuse a push or relist without them - fill these four fields and the channel pages stop flagging it.</div>
                         </div>
                     @endif
                     <div class="fm-fields fm-fields--2">
@@ -348,7 +348,7 @@
                             <x-ui.input id="f-height" name="height" class="fm-input--num" value="{{ old('height', $trim($product->height ?? '0')) }}" placeholder="3" />
                         </x-ui.field>
                     </div>
-                    <div class="fm-hint">Shopee, Lazada and TikTok all refuse a push without a parcel.</div>
+                    <div class="fm-hint">Shopee, Lazada and TikTok all refuse a push without a weight and size.</div>
                 </div>
             </div>
         </div>

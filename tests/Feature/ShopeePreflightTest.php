@@ -134,7 +134,7 @@ class ShopeePreflightTest extends TestCase
         $html = $this->actingAs($this->manager())
             ->get(route('ext.shopee.products.index', ['q' => 'PF-5']))->assertOk()->getContent();
 
-        $this->assertStringContainsString('Add parcel size, then relist', $html);
+        $this->assertStringContainsString('Add weight and size, then relist', $html);
         $this->assertStringNotContainsString('x-menu__item">Relist on Shopee', $html,
             'a row whose relist would certainly be refused must not offer it');
     }

@@ -128,7 +128,7 @@
                              never leads to a refusal it could have named. --}}
                         @if(!$liveError && empty($missing))
                         <form method="POST" action="{{ route('ext.shopee.listings.push_update', $product->product_id) }}"
-                              data-confirm="Push this listing's content and settings onto the live Shopee item? Title, description, parcel, category and couriers are updated. Price and stock are not touched - they have their own syncs." data-confirm-tone="primary" data-confirm-verb="Push update">
+                              data-confirm="Push this listing's content and settings onto the live Shopee item? Title, description, weight and size, category and couriers are updated. Price and stock are not touched - they have their own syncs." data-confirm-tone="primary" data-confirm-verb="Push update">
                             @csrf
                             <x-ui.button type="submit">Push update to Shopee</x-ui.button>
                         </form>

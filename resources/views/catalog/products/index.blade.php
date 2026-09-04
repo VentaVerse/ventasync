@@ -13,7 +13,9 @@
     $hasFilters = $q !== '' || $status !== '';
 
     $sortUrl = fn (string $col) => route('products.index', array_merge(
-        request()->except('sort', 'dir'),
+        // sort_by is the select's carrier for the same pair; a header
+        // click must not leave a stale copy of it in the URL.
+        request()->except('sort', 'dir', 'sort_by'),
         ['sort' => $col, 'dir' => ($sort === $col && $dir === 'asc') ? 'desc' : 'asc']
     ));
 
@@ -60,13 +62,37 @@
             <option value="0" @selected($status === '0')>Disabled</option>
             {{-- The backfill surface (#198): the rows the channels refuse
                  to push, findable in one click so the debt gets paid. --}}
-            <option value="no_parcel" @selected($status === 'no_parcel')>Missing parcel</option>
+            <option value="no_parcel" @selected($status === 'no_parcel')>Missing weight or size</option>
         </x-ui.select>
 
-        {{-- Keeps the sorted column from being dropped the moment a filter
-             is submitted. --}}
-        <input type="hidden" name="sort" value="{{ $sort }}">
-        <input type="hidden" name="dir" value="{{ $dir }}">
+        {{-- The sort, as a control the phone can reach: this table
+             scrolls sideways there, so the header you want is usually
+             off-screen (the owner, 2026-09-04). One select carries field and
+             direction as one decision, and it doubles as the carrier that
+             keeps the sort through a filter submit. --}}
+        <label class="x-sr" for="products-sort">Sort products</label>
+        @php $sortChoices = [
+            'product_id:desc' => 'Newest first',
+            'product_id:asc' => 'Oldest first',
+            'updated:desc' => 'Recently updated',
+            'name:asc' => 'Name, A to Z',
+            'name:desc' => 'Name, Z to A',
+            'price:asc' => 'Price, low to high',
+            'price:desc' => 'Price, high to low',
+            'quantity:asc' => 'Stock, low to high',
+            'quantity:desc' => 'Stock, high to low',
+        ]; @endphp
+        <x-ui.select id="products-sort" name="sort_by" class="x-filters__select--narrow" data-autosubmit>
+            {{-- A header can sort by a pair this list does not carry
+                 (Status). The select must say so rather than silently
+                 showing Newest first over a differently-ordered table. --}}
+            @unless(array_key_exists($sort . ':' . $dir, $sortChoices))
+                <option value="{{ $sort }}:{{ $dir }}" selected>Sorted by column</option>
+            @endunless
+            @foreach($sortChoices as $value => $label)
+                <option value="{{ $value }}" @selected($value === $sort . ':' . $dir)>{{ $label }}</option>
+            @endforeach
+        </x-ui.select>
 
         @if($hasFilters)
             <a href="{{ route('products.index') }}" class="x-filters__reset">Clear filters</a>

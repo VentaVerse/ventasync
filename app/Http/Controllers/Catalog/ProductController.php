@@ -217,9 +217,17 @@ public function index(Request $request)
         $pfx = config('catalog.prefix');
 $q = trim((string) $request->get('q', ''));
 
-    // Sorting
+    // Sorting. Two carriers, one truth: the column headers set sort/dir
+    // (their historic wire), and the filter bar's sort select sends the
+    // pair as one sort_by value - "name:asc" - because a field dropdown
+    // plus a separate direction toggle is two controls for one decision.
+    // The select exists for the phone - this table scrolls sideways
+    // there, so the header you want to click is usually off-screen
+    // (the owner, 2026-09-04) - and for the combos no header offers, like
+    // recently updated. Newest first is the default: the products you
+    // just made are the ones you came to work on.
     $sort = (string) $request->get('sort', 'product_id');
-    $dir = strtolower((string) $request->get('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+    $dir = strtolower((string) $request->get('dir', $request->filled('sort') ? 'asc' : 'desc')) === 'desc' ? 'desc' : 'asc';
 
     $allowedSort = [
         'product_id'   => 'p.product_id',
@@ -227,7 +235,13 @@ $q = trim((string) $request->get('q', ''));
         'quantity'     => 'p.quantity',
         'price'        => 'p.price',
         'status'       => 'p.status',
+        'updated'      => 'p.date_modified',
     ];
+
+    if ($request->filled('sort_by') && preg_match('/^([a-z_]+):(asc|desc)$/', (string) $request->get('sort_by'), $m)
+        && array_key_exists($m[1], $allowedSort)) {
+        [, $sort, $dir] = $m;
+    }
 
     if (!array_key_exists($sort, $allowedSort)) {
         $sort = 'product_id';
@@ -615,7 +629,7 @@ public function store(Request $request)
             'options.*.values.*.cost_additional' => 'nullable|numeric',
         ], [
             'weight.required' => 'A package weight is needed - Shopee, Lazada and TikTok all refuse a push without one.',
-            'weight.gt' => 'The package weight must be more than zero - the channels refuse a weightless parcel.',
+            'weight.gt' => 'The package weight must be more than zero - the channels refuse a weightless package.',
             'length.required' => 'The package size (L×W×H) is needed - the channels refuse a push without it.',
             'width.required' => 'The package size (L×W×H) is needed - the channels refuse a push without it.',
             'height.required' => 'The package size (L×W×H) is needed - the channels refuse a push without it.',

@@ -248,7 +248,7 @@
                             <x-ui.input id="f-height" name="height" class="fm-input--num" value="{{ old('height') }}" placeholder="3" required />
                         </x-ui.field>
                     </div>
-                    <div class="fm-hint">Shopee, Lazada and TikTok all refuse a push without a parcel, so it is set once, here.</div>
+                    <div class="fm-hint">Shopee, Lazada and TikTok all refuse a push without a weight and size, so they are set once, here.</div>
                 </div>
             </div>
         </div>

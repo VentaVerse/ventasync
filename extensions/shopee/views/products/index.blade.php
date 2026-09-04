@@ -617,7 +617,7 @@
                                          would refuse this relist for a knowable reason,
                                          so the menu offers the FIX, not the failure. --}}
                                     <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}"
-                                       title="Shopee will refuse a relist without {{ $parcelGaps[$p->product_id] }}">Add parcel size, then relist</a>
+                                       title="Shopee will refuse a relist without {{ $parcelGaps[$p->product_id] }}">Add weight and size, then relist</a>
                                 @else
                                 <form method="POST" action="{{ route('ext.shopee.listings.toggle', $p->product_id) }}" data-slow-action
                                       data-confirm="Relist this item on Shopee? Buyers see it again immediately." data-confirm-tone="primary" data-confirm-verb="Relist">

@@ -79,7 +79,7 @@ class ParcelRequiredTest extends TestCase
         $user = $this->manager();
 
         $page = $this->actingAs($user)->get(route('products.edit', $pid))->assertOk()->getContent();
-        $this->assertStringContainsString('This product has no complete parcel', $page);
+        $this->assertStringContainsString('This product is missing its weight or size', $page);
 
         // The 2026-09-04 reversal of #198's carve-out: an edit is exactly
         // the moment the owner is looking at the product, so the zero
