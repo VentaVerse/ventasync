@@ -9,6 +9,8 @@ class LazadaSetting extends Model
     protected $table = 'lazada_settings';
 
     protected $fillable = [
+        'store_name',
+        'enabled',
         'mode',
         'region',
         'app_key',
@@ -39,6 +41,7 @@ class LazadaSetting extends Model
     ];
 
     protected $casts = [
+        'enabled' => 'boolean',
         'expires_at' => 'datetime',
         'refresh_expires_at' => 'datetime',
         'sandbox_expires_at' => 'datetime',
