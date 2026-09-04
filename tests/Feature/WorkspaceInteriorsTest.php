@@ -2183,12 +2183,15 @@ class WorkspaceInteriorsTest extends TestCase
      */
     public function test_the_tiktok_settings_page_still_carries_every_oauth_control(): void
     {
-        $this->seedTiktokSetting();
+        $setting = $this->seedTiktokSetting();
         $html = $this->actingAs($this->tiktokManager())->get(route('ext.tiktok.index'))->assertOk()->getContent();
 
-        $authorize = route('ext.tiktok.authorize');
+        // The link names WHICH store is consenting (multi-store). TikTok's
+        // authorize route stays storeless, so the store rides as ?store=.
+        $authorize = route('ext.tiktok.authorize', ['store' => $setting->id]);
 
-        // Two authorize links, one per environment panel, both the bare route.
+        // Two authorize links, one per environment panel, both carrying the
+        // store param and nothing else - sandbox is read from the stored mode.
         $this->assertSame(2, substr_count($html, 'href="'.e($authorize).'"'));
         $this->assertStringNotContainsString($authorize.'?sandbox', $html);
         $this->assertStringNotContainsString(e($authorize).'?sandbox', $html);

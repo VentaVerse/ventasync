@@ -27,6 +27,14 @@ class ChannelItemImportTest extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * The seeded Lazada store. Both channels are store-scoped (the owner
+     * 2026-09-05) and share the one 'store' URL default, so whichever setUp
+     * creates last (TikTok) wins it; a bare route('ext.lazada.*') then fills
+     * {store} with the TikTok id and 404s. The Lazada route names its store.
+     */
+    private LazadaSetting $lazadaStore;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -41,7 +49,7 @@ class ChannelItemImportTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalogue');
 
-        LazadaSetting::query()->create(['mode' => 'live', 'region' => 'ph', 'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r']);
+        $this->lazadaStore = LazadaSetting::query()->create(['mode' => 'live', 'region' => 'ph', 'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r']);
         TikTokSetting::create(['mode' => 'production', 'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3)]);
 
         Http::fake(['*' => Http::response('fake-image-bytes', 200, ['Content-Type' => 'image/jpeg'])]);
@@ -116,7 +124,7 @@ class ChannelItemImportTest extends TestCase
     {
 
         $r = $this->actingAs($this->manager(['manage_lazada/product', 'view_lazada/product']))
-            ->post(route('ext.lazada.products.import_one'), ['ref' => '5551234']);
+            ->post(route('ext.lazada.products.import_one', ['store' => $this->lazadaStore->id]), ['ref' => '5551234']);
 
         $r->assertSessionHas('status');
         $this->assertStringContainsString('Imported "Imported Cable Pack"', session('status'));

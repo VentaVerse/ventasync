@@ -9,6 +9,8 @@ class TikTokSetting extends Model
     protected $table = 'tiktok_settings';
 
     protected $fillable = [
+        'store_name',
+        'enabled',
         'mode',
         'app_key',
         'app_secret',
@@ -44,6 +46,7 @@ class TikTokSetting extends Model
     ];
 
     protected $casts = [
+        'enabled' => 'boolean',
         'order_tab_map' => 'array',
         'expires_at' => 'datetime',
         'refresh_expires_at' => 'datetime',
@@ -54,6 +57,61 @@ class TikTokSetting extends Model
     ];
 
     /**
+     * The store a storeless read acts for (multi-store, the owner 2026-09-05): the
+     * store the request is standing in (bound by ResolveTikTokStore from the
+     * {store} route segment) when there is one, else the first enabled store.
+     * Every former storeless settings read goes through here, so a
+     * store page gets the right row and a storeless context (the OAuth
+     * callback, a cron command) keeps the old first-enabled behaviour. Mirrors
+     * LazadaSetting::defaultStore.
+     */
+    public static function defaultStore(): ?self
+    {
+        if (app()->bound('tiktok.route-store')) {
+            return app('tiktok.route-store');
+        }
+
+        return static::query()->where('enabled', true)->orderBy('id')->first();
+    }
+
+    /** Every store, enabled or not - the Integrations card's store list. */
+    public static function allStores(): \Illuminate\Support\Collection
+    {
+        return static::query()->orderBy('id')->get();
+    }
+
+    /** Every enabled store - what the sync and cron paths iterate. */
+    public static function enabledStores(): \Illuminate\Support\Collection
+    {
+        return static::query()->where('enabled', true)->orderBy('id')->get();
+    }
+
+    /**
+     * Keep URL generation able to fill the {store} segment anywhere a link to
+     * a TikTok page is built OUTSIDE a TikTok store request - the channels hub,
+     * the fulfilment tabs, the OAuth callback view, test code.
+     * ResolveTikTokStore overrides this per-request with the route's own store.
+     */
+    public static function syncUrlDefault(): void
+    {
+        try {
+            $id = static::query()->where('enabled', true)->orderBy('id')->value('id');
+        } catch (\Throwable $e) {
+            return; // no table yet (fresh install mid-migrate)
+        }
+        if ($id !== null) {
+            \Illuminate\Support\Facades\URL::defaults(['store' => (int) $id]);
+        }
+    }
+
+    protected static function booted(): void
+    {
+        static::created(fn () => static::syncUrlDefault());
+        static::updated(fn () => static::syncUrlDefault());
+        static::deleted(fn () => static::syncUrlDefault());
+    }
+
+    /**
      * Credentials for whichever mode the shop runs in, or null when any
      * part is missing. The same four keys the controllers' creds() build.
      *
@@ -61,7 +119,7 @@ class TikTokSetting extends Model
      */
     public static function credentials(): ?array
     {
-        $s = static::query()->first();
+        $s = static::defaultStore();
         if (!$s) {
             return null;
         }

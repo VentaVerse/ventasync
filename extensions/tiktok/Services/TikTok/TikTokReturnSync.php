@@ -119,7 +119,9 @@ class TikTokReturnSync
             // The return status map: a mapped status moves the linked sales order.
             $statusId = (int) ($returnMap[(string) ($ro['return_status'] ?? '')] ?? 0);
             $catalogOrderId = $payload['order_id']
-                ? (int) (DB::table('tiktok_orders')->where('order_id', $payload['order_id'])->value('catalog_order_id') ?? 0)
+                ? (int) (DB::table('tiktok_orders')->where('order_id', $payload['order_id'])
+                    ->when(app()->bound('tiktok.route-store'), fn ($q) => $q->where('tiktok_setting_id', app('tiktok.route-store')->id))
+                    ->value('catalog_order_id') ?? 0)
                 : 0;
             if ($statusId > 0 && $catalogOrderId > 0) {
                 $catalogOrder = Order::find($catalogOrderId);

@@ -51,6 +51,11 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
     {
         parent::boot();
 
+        // Multi-store (the owner 2026-09-05): let every route() call fill {store}
+        // even outside a TikTok store request (hub, fulfilment tabs, the OAuth
+        // callback view, test code). The route-store binding overrides per-request.
+        TikTokSetting::syncUrlDefault();
+
         if ($this->app->runningInConsole()) {
             $this->commands([
                 \Extensions\tiktok\Commands\TikTokPushStock::class,
@@ -70,6 +75,37 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
 
     public function integrationCards(): array
     {
+        /* Multi-store (the owner 2026-09-05): the converted shape Shopee, Venta,
+         * OpenCart, Shopify and Lazada wear. One card for the channel; one
+         * StoreLink per settings row with the store's own menu, every item
+         * carrying its {store}. The card-level menu is empty. A store still
+         * being configured stays visible as setup_pending. */
+        $stores = [];
+        foreach ($this->allStores() as $store) {
+            $p = ['store' => (int) $store->id];
+            $stores[] = new \App\Integrations\StoreLink(
+                id: $this->id . ':' . $store->id,
+                label: $store->store_name ?: ('Store #' . $store->id),
+                menu: [
+                    new MenuItem('Orders', 'ext.tiktok.orders.index', 'view_tiktok/order', null, $p, 'Sell'),
+                    new MenuItem('Returns', 'ext.tiktok.orders.returns', 'view_tiktok/order', null, $p, 'Sell'),
+                    new MenuItem('Coupons', 'ext.tiktok.coupons.index', 'view_tiktok/coupon', null, $p, 'Sell'),
+                    new MenuItem('Listings', 'ext.tiktok.products.index', 'view_tiktok/product', null, $p, 'Catalog'),
+                    new MenuItem('Product Groups', 'ext.tiktok.product-groups.index', 'view_tiktok/product_group', null, $p, 'Catalog'),
+                    new MenuItem('Categories', 'ext.tiktok.categories.index', 'view_tiktok/product_group', null, $p, 'Catalog'),
+                    new MenuItem('Import', 'ext.tiktok.products.import', 'view_tiktok/product', null, $p, 'Catalog'),
+                    new MenuItem('Settings', 'ext.tiktok.index', 'view_tiktok/settings', null, $p, 'Channel', children: [
+                        ['label' => 'Connection', 'section' => 'connection'],
+                        ['label' => 'Status mapping', 'section' => 'status'],
+                        ['label' => 'API explorer', 'section' => 'explorer', 'permission' => 'manage_tiktok/settings'],
+                        ['label' => 'API log', 'section' => 'logs'],
+                        ['label' => 'Automations', 'section' => 'automations', 'permission' => 'manage_tiktok/settings'],
+                    ]),
+                ],
+                status: $store->enabled ? 'active' : 'setup_pending',
+            );
+        }
+
         return [
             new IntegrationCard(
                 id: $this->id,
@@ -90,32 +126,73 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                 // in the hub and the nav, and that must be the same answer
                 // the dashboard's door gives, or the menu offers a 404.
                 permission: 'view_tiktok/dashboard',
-                menu: [
-                    new MenuItem('Orders', 'ext.tiktok.orders.index', 'view_tiktok/order', group: 'Sell'),
-                    new MenuItem('Returns', 'ext.tiktok.orders.returns', 'view_tiktok/order', group: 'Sell'),
-                    new MenuItem('Coupons', 'ext.tiktok.coupons.index', 'view_tiktok/coupon', group: 'Sell'),
-                    new MenuItem('Listings', 'ext.tiktok.products.index', 'view_tiktok/product', group: 'Catalog'),
-                    new MenuItem('Product Groups', 'ext.tiktok.product-groups.index', 'view_tiktok/product_group', group: 'Catalog'),
-                    new MenuItem('Categories', 'ext.tiktok.categories.index', 'view_tiktok/product_group', group: 'Catalog'),
-                    new MenuItem('Import', 'ext.tiktok.products.import', 'view_tiktok/product', group: 'Catalog'),
-                    new MenuItem('Settings', 'ext.tiktok.index', 'view_tiktok/settings', group: 'Channel', children: [
-                        ['label' => 'Connection', 'section' => 'connection'],
-                        ['label' => 'Status mapping', 'section' => 'status'],
-                        ['label' => 'API explorer', 'section' => 'explorer', 'permission' => 'manage_tiktok/settings'],
-                        ['label' => 'API log', 'section' => 'logs'],
-                        ['label' => 'Automations', 'section' => 'automations', 'permission' => 'manage_tiktok/settings'],
-                    ]),
-                ],
+                // No card-level menu: TikTok has no channel-global page - every
+                // settings route now needs a {store}. The per-store StoreLinks
+                // above carry Settings, so a card-level link to ext.tiktok.index
+                // would only throw the moment no store is enabled.
+                menu: [],
+                stores: $stores,
+                addStore: new \App\Integrations\AddStoreAction(
+                    route: 'ext.tiktok.stores.store',
+                    permission: 'manage_tiktok/settings',
+                    label: 'Add store',
+                ),
             ),
         ];
     }
 
+    /**
+     * Every settings row, enabled or not - the Integrations UI keeps a
+     * freshly-created, still-disabled store visible so the operator can finish
+     * configuring it.
+     *
+     * @return iterable<\Extensions\tiktok\Models\TikTokSetting>
+     */
+    protected function allStores(): iterable
+    {
+        try {
+            if (! Schema::hasTable('tiktok_settings')) {
+                return [];
+            }
+
+            return TikTokSetting::query()->orderBy('id')->get();
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
     public function orderTabs(): array
     {
-        return [
+        /* Multi-store (the owner 2026-09-05, parity with Lazada/Shopee): one tab
+         * per enabled store, counters scoped to the store's own rows. With a
+         * single store the tab keeps the channel's name - the store names
+         * take over the moment a second store exists and the name has to
+         * distinguish. */
+        if (! Schema::hasTable('tiktok_settings')) {
+            return [];
+        }
+        $stores = TikTokSetting::query()->where('enabled', true)->orderBy('id')->get(['id', 'store_name']);
+
+        return $stores->map(fn ($store) => $this->buildOrderTab(
+            (int) $store->id,
+            $stores->count() > 1 ? ($store->store_name ?: ('Store #' . $store->id)) : 'TikTok'
+        ))->all();
+    }
+
+    private function buildOrderTab(int $storeId, string $label): OrderTab
+    {
+        $tiktokStatusCount = function (array $statuses) use ($storeId): int {
+            if (!Schema::hasTable('tiktok_orders')) {
+                return 0;
+            }
+
+            return TikTokOrder::query()->where('tiktok_setting_id', $storeId)->whereIn('status', $statuses)->count();
+        };
+
+        return
             new OrderTab(
-                id: $this->id,
-                label: 'TikTok',
+                id: $this->id . ':' . $storeId,
+                label: $label,
                 icon: 'video',
                 accent: '#1e1e1e',
                 routeName: 'ext.tiktok.orders.index',
@@ -123,7 +200,8 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                 // still sees the marketplace's orders tab on the unified Orders
                 // workspace.
                 permission: 'view_tiktok/order',
-                unprocessedCounter: function () {
+                routeParams: ['store' => $storeId],
+                unprocessedCounter: function () use ($storeId) {
                     if (!Schema::hasTable('tiktok_orders')) {
                         return 0;
                     }
@@ -141,6 +219,7 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                      * one moves the other has to, and FoundationTest asserts
                      * they still agree. */
                     return TikTokOrder::query()
+                        ->where('tiktok_setting_id', $storeId)
                         ->whereIn('status', ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION'])
                         ->count();
                 },
@@ -149,32 +228,35 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                  * it, which the staff count against the shelf. The statuses are the
                  * orders panel's own sub-tab map, so the card and the tab agree. */
                 stages: [
-                    ['key' => 'to_pack', 'label' => 'to pack', 'counter' => fn () => Schema::hasTable('tiktok_orders') ? TikTokOrder::query()->whereIn('status', ['AWAITING_SHIPMENT'])->count() : 0],
-                    ['key' => 'to_handover', 'label' => 'to handover', 'counter' => fn () => Schema::hasTable('tiktok_orders') ? TikTokOrder::query()->whereIn('status', ['AWAITING_COLLECTION'])->count() : 0],
+                    ['key' => 'to_pack', 'label' => 'to pack', 'counter' => fn () => $tiktokStatusCount(['AWAITING_SHIPMENT'])],
+                    ['key' => 'to_handover', 'label' => 'to handover', 'counter' => fn () => $tiktokStatusCount(['AWAITING_COLLECTION'])],
                 ],
-                dailyOrdersCounter: function () {
+                dailyOrdersCounter: function () use ($storeId) {
                     if (!Schema::hasTable('tiktok_orders')) {
                         return 0;
                     }
                     return TikTokOrder::query()
+                        ->where('tiktok_setting_id', $storeId)
                         ->where('order_created_at', '>=', now()->startOfDay())
                         ->count();
                 },
-                dailyRevenueCounter: function () {
+                dailyRevenueCounter: function () use ($storeId) {
                     if (!Schema::hasTable('tiktok_orders') || !Schema::hasTable('tiktok_order_products')) {
                         return 0.0;
                     }
                     return (float) DB::table('tiktok_order_products as p')
                         ->join('tiktok_orders as o', 'o.id', '=', 'p.tiktok_order_id')
+                        ->where('o.tiktok_setting_id', $storeId)
                         ->where('o.order_created_at', '>=', now()->startOfDay())
                         ->sum(DB::raw('p.quantity * COALESCE(p.sale_price, p.item_price)'));
                 },
-                topProductsCallback: function (int $limit) {
+                topProductsCallback: function (int $limit) use ($storeId) {
                     if (!Schema::hasTable('tiktok_orders') || !Schema::hasTable('tiktok_order_products')) {
                         return [];
                     }
                     return DB::table('tiktok_order_products as p')
                         ->join('tiktok_orders as o', 'o.id', '=', 'p.tiktok_order_id')
+                        ->where('o.tiktok_setting_id', $storeId)
                         ->where('o.order_created_at', '>=', now()->startOfDay())
                         ->whereNotNull('p.sku')
                         ->where('p.sku', '!=', '')
@@ -199,11 +281,12 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                             variation: trim((string) ($r->variation ?? '')) ?: null,
                         ))->all();
                 },
-                recentOrdersCallback: function (int $limit) {
+                recentOrdersCallback: function (int $limit) use ($storeId) {
                     if (!Schema::hasTable('tiktok_orders')) {
                         return [];
                     }
                     $orders = TikTokOrder::query()
+                        ->where('tiktok_setting_id', $storeId)
                         ->orderByDesc('order_created_at')
                         ->limit($limit)
                         ->get(['id', 'order_id', 'status', 'buyer_name', 'order_created_at']);
@@ -223,8 +306,7 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                         url: route('ext.tiktok.orders.show', $o->id),
                     ))->all();
                 },
-            ),
-        ];
+            );
     }
 
     /**
@@ -250,7 +332,7 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
             return null;
         }
 
-        $setting = TikTokSetting::query()->first();
+        $setting = TikTokSetting::defaultStore();
         if (!$setting || !$setting->access_token || !$setting->app_key) {
             return null;
         }
@@ -312,7 +394,7 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
         ];
 
         if (Schema::hasTable('tiktok_settings')) {
-            $ttSetting = TikTokSetting::query()->first();
+            $ttSetting = TikTokSetting::defaultStore();
             if ($ttSetting) {
                 /* The listing troubles ride the chip (Phase D, #184), the
                  * same two numbers Shopee's and Lazada's carry. A failure
@@ -624,7 +706,7 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
      */
     public function verifyWebhook(\Illuminate\Http\Request $request): bool
     {
-        $setting = TikTokSetting::query()->first()?->decrypted();
+        $setting = TikTokSetting::defaultStore()?->decrypted();
         $appKey = (string) ($setting->app_key ?? '');
         $appSecret = (string) ($setting->app_secret ?? '');
         $received = (string) $request->header('Authorization', '');

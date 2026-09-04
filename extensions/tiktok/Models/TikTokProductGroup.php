@@ -3,13 +3,16 @@
 namespace Extensions\tiktok\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Extensions\tiktok\Models\Concerns\BelongsToTikTokStore;
 
 class TikTokProductGroup extends Model
 {
+    use BelongsToTikTokStore;
+
     protected $table = 'tiktok_product_groups';
 
     protected $fillable = [
-        'name', 'tiktok_category_id',
+        'tiktok_setting_id', 'name', 'tiktok_category_id',
         'markup_percent', 'markup_fixed',
     ];
 

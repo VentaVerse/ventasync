@@ -2025,373 +2025,383 @@
         "name": "ext.shopify.settings.show"
     },
     {
+        "method": "POST",
+        "uri": "channels/tiktok/stores",
+        "name": "ext.tiktok.stores.store"
+    },
+    {
         "method": "GET|HEAD",
-        "uri": "channels/tiktok",
+        "uri": "channels/tiktok/{legacyPath}",
+        "name": "ext.tiktok.legacy_storeless"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store?}",
         "name": "ext.tiktok.dashboard"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/api-log-mode",
+        "uri": "channels/tiktok/{store}/api-log-mode",
         "name": "ext.tiktok.api_log_mode"
     },
     {
         "method": "DELETE",
-        "uri": "channels/tiktok/api-logs",
+        "uri": "channels/tiktok/{store}/api-logs",
         "name": "ext.tiktok.clear_api_logs"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/tiktok/categories",
+        "uri": "channels/tiktok/{store}/categories",
         "name": "ext.tiktok.categories.index"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/categories/sync",
+        "uri": "channels/tiktok/{store}/categories/sync",
         "name": "ext.tiktok.categories.sync"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/tiktok/coupons",
+        "uri": "channels/tiktok/{store}/coupons",
         "name": "ext.tiktok.coupons.index"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/coupons",
+        "uri": "channels/tiktok/{store}/coupons",
         "name": "ext.tiktok.coupons.store"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/coupons/{couponId}/deactivate",
+        "uri": "channels/tiktok/{store}/coupons/{couponId}/deactivate",
         "name": "ext.tiktok.coupons.deactivate"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/explorer/run",
+        "uri": "channels/tiktok/{store}/explorer/run",
         "name": "ext.tiktok.explorer_run"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/tiktok/listings/{productId}",
+        "uri": "channels/tiktok/{store}/listings/{productId}",
         "name": "ext.tiktok.listings.edit"
     },
     {
         "method": "PUT",
-        "uri": "channels/tiktok/listings/{productId}",
+        "uri": "channels/tiktok/{store}/listings/{productId}",
         "name": "ext.tiktok.listings.update"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/listings/{productId}/push-discount",
+        "uri": "channels/tiktok/{store}/listings/{productId}/push-discount",
         "name": "ext.tiktok.listings.push_discount"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/listings/{productId}/push-update",
+        "uri": "channels/tiktok/{store}/listings/{productId}/push-update",
         "name": "ext.tiktok.listings.push_update"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/listings/{productId}/toggle",
+        "uri": "channels/tiktok/{store}/listings/{productId}/toggle",
         "name": "ext.tiktok.listings.toggle"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/order-status-map",
+        "uri": "channels/tiktok/{store}/order-status-map",
         "name": "ext.tiktok.order_status_map"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/tiktok/orders",
+        "uri": "channels/tiktok/{store}/orders",
         "name": "ext.tiktok.orders.index"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/orders/fetch",
+        "uri": "channels/tiktok/{store}/orders/fetch",
         "name": "ext.tiktok.orders.fetch"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/tiktok/orders/returns",
+        "uri": "channels/tiktok/{store}/orders/returns",
         "name": "ext.tiktok.orders.returns"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/orders/returns/fetch",
+        "uri": "channels/tiktok/{store}/orders/returns/fetch",
         "name": "ext.tiktok.orders.fetch_returns"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/orders/update-statuses",
+        "uri": "channels/tiktok/{store}/orders/update-statuses",
         "name": "ext.tiktok.orders.updateStatuses"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/tiktok/orders/{id}/awb",
+        "uri": "channels/tiktok/{store}/orders/{id}/awb",
         "name": "ext.tiktok.orders.awb"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/orders/{id}/ship",
+        "uri": "channels/tiktok/{store}/orders/{id}/ship",
         "name": "ext.tiktok.orders.ship"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/tiktok/orders/{id}/show",
+        "uri": "channels/tiktok/{store}/orders/{id}/show",
         "name": "ext.tiktok.orders.show"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/tiktok/orders/{id}/tracking",
+        "uri": "channels/tiktok/{store}/orders/{id}/tracking",
         "name": "ext.tiktok.orders.tracking"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/packs/run",
+        "uri": "channels/tiktok/{store}/packs/run",
         "name": "ext.tiktok.packs_run"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/tiktok/product-groups",
+        "uri": "channels/tiktok/{store}/product-groups",
         "name": "ext.tiktok.product-groups.index"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/product-groups",
+        "uri": "channels/tiktok/{store}/product-groups",
         "name": "ext.tiktok.product-groups.store"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/tiktok/product-groups/create",
+        "uri": "channels/tiktok/{store}/product-groups/create",
         "name": "ext.tiktok.product-groups.create"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/product-groups/fetch-attributes",
+        "uri": "channels/tiktok/{store}/product-groups/fetch-attributes",
         "name": "ext.tiktok.product-groups.fetchAttributes"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/tiktok/product-groups/search-products",
+        "uri": "channels/tiktok/{store}/product-groups/search-products",
         "name": "ext.tiktok.product-groups.searchProducts"
     },
     {
         "method": "DELETE",
-        "uri": "channels/tiktok/product-groups/{id}",
+        "uri": "channels/tiktok/{store}/product-groups/{id}",
         "name": "ext.tiktok.product-groups.destroy"
     },
     {
         "method": "PUT",
-        "uri": "channels/tiktok/product-groups/{id}",
+        "uri": "channels/tiktok/{store}/product-groups/{id}",
         "name": "ext.tiktok.product-groups.update"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/product-groups/{id}/add-products",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/add-products",
         "name": "ext.tiktok.product-groups.addProducts"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/product-groups/{id}/delete-from-tiktok",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/delete-from-tiktok",
         "name": "ext.tiktok.product-groups.deleteFromTikTok"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/tiktok/product-groups/{id}/edit",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/edit",
         "name": "ext.tiktok.product-groups.edit"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/product-groups/{id}/mass-remove",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/mass-remove",
         "name": "ext.tiktok.product-groups.massRemove"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/tiktok/product-groups/{id}/orphans",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/orphans",
         "name": "ext.tiktok.product-groups.orphans"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/tiktok/product-groups/{id}/products",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/products",
         "name": "ext.tiktok.product-groups.products"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/product-groups/{id}/products/check",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/products/check",
         "name": "ext.tiktok.product-groups.check"
     },
     {
         "method": "DELETE",
-        "uri": "channels/tiktok/product-groups/{id}/products/{product}",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/products/{product}",
         "name": "ext.tiktok.product-groups.removeProduct"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/product-groups/{id}/products/{product}/link",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/products/{product}/link",
         "name": "ext.tiktok.product-groups.linkProduct"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/product-groups/{id}/products/{product}/sync-id",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/products/{product}/sync-id",
         "name": "ext.tiktok.product-groups.syncId"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/product-groups/{id}/products/{product}/unlink",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/products/{product}/unlink",
         "name": "ext.tiktok.product-groups.unlinkProduct"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/product-groups/{id}/push",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/push",
         "name": "ext.tiktok.product-groups.push"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/product-groups/{id}/push-prices",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/push-prices",
         "name": "ext.tiktok.product-groups.pushPrices"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/product-groups/{id}/push-stock",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/push-stock",
         "name": "ext.tiktok.product-groups.pushStock"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/product-groups/{id}/update-product",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/update-product",
         "name": "ext.tiktok.product-groups.updateProduct"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/tiktok/products",
+        "uri": "channels/tiktok/{store}/products",
         "name": "ext.tiktok.products.index"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/tiktok/products/brands",
+        "uri": "channels/tiktok/{store}/products/brands",
         "name": "ext.tiktok.products.brandsSearch"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/products/bulk/send",
+        "uri": "channels/tiktok/{store}/products/bulk/send",
         "name": "ext.tiktok.products.bulk_send"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/products/bulk/toggle",
+        "uri": "channels/tiktok/{store}/products/bulk/toggle",
         "name": "ext.tiktok.products.bulk_toggle"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/tiktok/products/categories/lookup",
+        "uri": "channels/tiktok/{store}/products/categories/lookup",
         "name": "ext.tiktok.products.categoryLookup"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/tiktok/products/categories/search",
+        "uri": "channels/tiktok/{store}/products/categories/search",
         "name": "ext.tiktok.products.searchCategories"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/products/check",
+        "uri": "channels/tiktok/{store}/products/check",
         "name": "ext.tiktok.products.check"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/products/fetch-attributes",
+        "uri": "channels/tiktok/{store}/products/fetch-attributes",
         "name": "ext.tiktok.products.fetchAttributes"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/tiktok/products/import",
+        "uri": "channels/tiktok/{store}/products/import",
         "name": "ext.tiktok.products.import"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/products/import-one",
+        "uri": "channels/tiktok/{store}/products/import-one",
         "name": "ext.tiktok.products.import_one"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/products/import-selected",
+        "uri": "channels/tiktok/{store}/products/import-selected",
         "name": "ext.tiktok.products.import_selected"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/products/link-item",
+        "uri": "channels/tiktok/{store}/products/link-item",
         "name": "ext.tiktok.products.link_item"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/products/refresh-status",
+        "uri": "channels/tiktok/{store}/products/refresh-status",
         "name": "ext.tiktok.products.refresh_status"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/tiktok/products/search-catalog",
+        "uri": "channels/tiktok/{store}/products/search-catalog",
         "name": "ext.tiktok.products.search_catalog"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/products/{productId}/delete",
+        "uri": "channels/tiktok/{store}/products/{productId}/delete",
         "name": "ext.tiktok.products.delete"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/products/{productId}/push",
+        "uri": "channels/tiktok/{store}/products/{productId}/push",
         "name": "ext.tiktok.products.push_direct"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/products/{productId}/push-price",
+        "uri": "channels/tiktok/{store}/products/{productId}/push-price",
         "name": "ext.tiktok.products.push_price"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/products/{productId}/push-stock",
+        "uri": "channels/tiktok/{store}/products/{productId}/push-stock",
         "name": "ext.tiktok.products.push_stock"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/products/{productId}/unlink",
+        "uri": "channels/tiktok/{store}/products/{productId}/unlink",
         "name": "ext.tiktok.products.unlink"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/purge-raw",
+        "uri": "channels/tiktok/{store}/purge-raw",
         "name": "ext.tiktok.purge_raw"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/return-status-map",
+        "uri": "channels/tiktok/{store}/return-status-map",
         "name": "ext.tiktok.return_status_map"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/save",
+        "uri": "channels/tiktok/{store}/save",
         "name": "ext.tiktok.save"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/tiktok/settings",
+        "uri": "channels/tiktok/{store}/settings",
         "name": "ext.tiktok.index"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/shops",
+        "uri": "channels/tiktok/{store}/shops",
         "name": "ext.tiktok.shops"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/toggle-mode",
+        "uri": "channels/tiktok/{store}/toggle-mode",
         "name": "ext.tiktok.toggle_mode"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/token/get",
+        "uri": "channels/tiktok/{store}/token/get",
         "name": "ext.tiktok.token_get"
     },
     {
         "method": "POST",
-        "uri": "channels/tiktok/token/refresh",
+        "uri": "channels/tiktok/{store}/token/refresh",
         "name": "ext.tiktok.token_refresh"
     },
     {

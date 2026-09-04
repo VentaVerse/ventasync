@@ -136,7 +136,7 @@ class TikTokCouponController extends Controller
 
     private function creds(): ?array
     {
-        $s = TikTokSetting::query()->first();
+        $s = TikTokSetting::defaultStore();
         if (!$s) {
             return null;
         }

@@ -34,7 +34,7 @@ class TikTokApiLog extends Model
     {
         try {
             // The three-way mode (#200): off, errors only, everything.
-            $setting = TikTokSetting::query()->first();
+            $setting = TikTokSetting::defaultStore();
             if (! \App\Support\ApiLogMode::shouldLog($setting?->api_log_mode, (bool) ($attributes['ok'] ?? true))) {
                 return;
             }

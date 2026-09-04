@@ -3,6 +3,7 @@
 namespace Extensions\tiktok\Services;
 
 use Extensions\tiktok\Models\TikTokReturn;
+use Extensions\tiktok\Models\TikTokSetting;
 use Illuminate\Http\Request;
 
 /**
@@ -49,8 +50,18 @@ class TikTokReturnsPanel
         'REPLACEMENT' => 'Replacement',
     ];
 
-    public function build(Request $request): array
+    public function build(Request $request, ?int $storeId = null): array
     {
+        $setting = $storeId !== null
+            ? TikTokSetting::query()->find($storeId)
+            : TikTokSetting::defaultStore();
+        if ($storeId !== null && $setting !== null) {
+            // The hub page is storeless; bind the tab's store so the global
+            // scope narrows every return read and route() fills its {store}.
+            app()->instance('tiktok.route-store', $setting);
+            \Illuminate\Support\Facades\URL::defaults(['store' => (int) $setting->id]);
+        }
+
         $filters = $request->validate([
             'q' => ['nullable', 'string', 'max:120'],
             'opened_from' => ['nullable', 'date'],
@@ -119,6 +130,9 @@ class TikTokReturnsPanel
         $erpMap = $orderIds->isEmpty() ? collect() : \DB::table('tiktok_orders')
             ->whereIn('order_id', $orderIds->all())
             ->whereNotNull('catalog_order_id')
+            // Raw DB::table bypasses the BelongsToTikTokStore global scope, so
+            // narrow to the bound store by hand on a store page.
+            ->when(app()->bound('tiktok.route-store'), fn ($q) => $q->where('tiktok_setting_id', app('tiktok.route-store')->id))
             ->pluck('catalog_order_id', 'order_id');
 
         return [

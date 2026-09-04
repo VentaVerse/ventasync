@@ -22,7 +22,7 @@ class TikTokOrderController extends Controller
 {
     private function creds(): array
     {
-        $s = TikTokSetting::first();
+        $s = TikTokSetting::defaultStore();
         if (!$s) {
             abort(404, 'TikTok settings not configured.');
         }

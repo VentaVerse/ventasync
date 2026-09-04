@@ -3,6 +3,7 @@
 namespace Extensions\tiktok\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Extensions\tiktok\Models\Concerns\BelongsToTikTokStore;
 
 /**
  * The product's TikTok record (#146, then parity #156): the settings an
@@ -15,10 +16,12 @@ use Illuminate\Database\Eloquent\Model;
  */
 class TikTokListing extends Model
 {
+    use BelongsToTikTokStore;
+
     protected $table = 'tiktok_listings';
 
     protected $fillable = [
-        'product_id',
+        'tiktok_setting_id', 'product_id',
         'tiktok_product_id', 'tiktok_sku_id',
         'tiktok_category_id', 'brand_id', 'brand_name', 'attribute_values',
         'title', 'description', 'markup_percent', 'markup_fixed',

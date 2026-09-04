@@ -5,6 +5,7 @@ namespace Extensions\tiktok\Services;
 use App\Support\Fulfilment\CourierTally;
 use App\Support\FulfilmentSteps;
 use Extensions\tiktok\Models\TikTokOrder;
+use Extensions\tiktok\Models\TikTokSetting;
 use Illuminate\Http\Request;
 
 /**
@@ -31,8 +32,20 @@ class TikTokOrdersPanel
         'CANCELLED'        => ['CANCELLED'],
     ];
 
-    public function build(Request $request): array
+    public function build(Request $request, ?int $storeId = null): array
     {
+        $setting = $storeId !== null
+            ? TikTokSetting::query()->find($storeId)
+            : TikTokSetting::defaultStore();
+        if ($storeId !== null && $setting !== null) {
+            /* The hub page itself is storeless, so bind the tab's store for
+             * the render: the model global scope narrows every TikTokOrder
+             * read to it, every route() in the panel partial fills its
+             * {store} from it, and nested defaultStore() reads agree. */
+            app()->instance('tiktok.route-store', $setting);
+            \Illuminate\Support\Facades\URL::defaults(['store' => (int) $setting->id]);
+        }
+
         $filters = $request->validate([
             'q' => ['nullable', 'string', 'max:120'],
             'placed_from' => ['nullable', 'date'],

@@ -266,7 +266,7 @@
                     <div class="cs-step__body">
                         <span class="cs-step__title">Authorise with TikTok Shop</span>
                         <div>
-                            <x-ui.button size="sm" :href="route('ext.tiktok.authorize')" target="_blank" rel="noopener">Open TikTok Shop authorisation</x-ui.button>
+                            <x-ui.button size="sm" :href="route('ext.tiktok.authorize', ['store' => $setting->id ?? null])" target="_blank" rel="noopener">Open TikTok Shop authorisation</x-ui.button>
                         </div>
                         <p class="cs-step__note">Opens TikTok Shop sign-in in a new tab, using whichever environment is selected above. After you grant access TikTok sends you back to the callback URL with an auth code, and the code is exchanged for a token automatically.</p>
                     </div>
@@ -405,12 +405,12 @@
                     <div class="cs-step__body">
                         <span class="cs-step__title">Authorise with the TikTok test environment</span>
                         <div>
-                            {{-- The same URL as the production button, with no
-                                 query parameter. redirectToAuth() reads the
-                                 stored `mode` column, which the segmented
-                                 control above has already set to sandbox by the
-                                 time this panel is on screen. --}}
-                            <x-ui.button size="sm" :href="route('ext.tiktok.authorize')" target="_blank" rel="noopener">Open sandbox authorisation</x-ui.button>
+                            {{-- The same URL as the production button, carrying
+                                 only the store id, not a mode parameter.
+                                 redirectToAuth() reads the stored `mode` column,
+                                 which the segmented control above has already set
+                                 to sandbox by the time this panel is on screen. --}}
+                            <x-ui.button size="sm" :href="route('ext.tiktok.authorize', ['store' => $setting->id ?? null])" target="_blank" rel="noopener">Open sandbox authorisation</x-ui.button>
                         </div>
                         <p class="cs-step__note">Opens the TikTok test environment in a new tab, using the sandbox credentials above.</p>
                     </div>

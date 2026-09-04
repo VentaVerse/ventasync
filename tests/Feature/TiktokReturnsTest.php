@@ -28,6 +28,9 @@ class TiktokReturnsTest extends TestCase
     public array $callResponses = [];
     private int $groupSeq = 0;
 
+    /** The store setUp seeds; raw DB inserts must carry its id to be found. */
+    private TikTokSetting $tiktokStore;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -39,7 +42,7 @@ class TiktokReturnsTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalogue');
 
-        TikTokSetting::create(['mode' => 'production', 'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3)]);
+        $this->tiktokStore = TikTokSetting::create(['mode' => 'production', 'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3)]);
 
         $test = $this;
         $fake = new class($test) extends TikTokClient {
@@ -140,7 +143,7 @@ class TiktokReturnsTest extends TestCase
     {
         $pfx = (string) config('catalog.prefix');
         $catalogOrderId = DB::table($pfx . 'order')->insertGetId($this->orderColumnDefaults() + ['order_status_id' => 5, 'total' => 450]);
-        DB::table('tiktok_orders')->insert(['region' => 'PH', 'order_id' => 'ord-1', 'status' => 'COMPLETED', 'catalog_order_id' => $catalogOrderId, 'raw' => '{}', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('tiktok_orders')->insert(['tiktok_setting_id' => $this->tiktokStore->id, 'region' => 'PH', 'order_id' => 'ord-1', 'status' => 'COMPLETED', 'catalog_order_id' => $catalogOrderId, 'raw' => '{}', 'created_at' => now(), 'updated_at' => now()]);
         TikTokOrderStatusMap::create(['tiktok_status' => 'RETURN_OR_REFUND_REQUEST_COMPLETE', 'context' => 'return', 'order_status_id' => 11]);
         $this->callResponses['POST /return_refund/202309/returns/search'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
             'data' => ['return_orders' => [$this->sampleReturn(['return_status' => 'RETURN_OR_REFUND_REQUEST_COMPLETE'])]]]];

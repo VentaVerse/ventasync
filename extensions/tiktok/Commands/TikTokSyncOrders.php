@@ -32,11 +32,28 @@ class TikTokSyncOrders extends Command
      */
     public function handle(): int
     {
-        $raw = TikTokSetting::query()->first();
-        if (!$raw) {
-            $this->error('TikTok settings not configured.');
-            return 1;
+        $stores = \Extensions\tiktok\Models\TikTokSetting::enabledStores();
+        if ($stores->isEmpty()) { $this->error('No enabled TikTok store. Configure TikTok settings first.'); return 1; }
+        $worst = 0;
+        foreach ($stores as $store) {
+            $label = $store->store_name ?: ('#' . $store->id);
+            $this->info("=== TikTok store: {$label} ===");
+            app()->instance('tiktok.route-store', $store); // bind: the model trait now scopes every query + stamps writes to THIS store
+            try {
+                $worst = max($worst, $this->handleStore($store));
+            } catch (\Throwable $e) {
+                $this->error("Store {$label} failed: " . $e->getMessage());
+                \Illuminate\Support\Facades\Log::error('TikTok '.class_basename($this).': store failed', ['store' => $store->id, 'error' => $e->getMessage()]);
+                $worst = 1;
+            }
         }
+        app()->forgetInstance('tiktok.route-store');
+        return $worst;
+    }
+
+    private function handleStore(\Extensions\tiktok\Models\TikTokSetting $store): int
+    {
+        $raw = $store;
 
         $returnsOnly = (bool) $this->option('returns');
         $skipReturns = (bool) $this->option('no-returns');
@@ -159,7 +176,7 @@ class TikTokSyncOrders extends Command
 
         if (empty($allOrders)) {
             $this->info('No orders found.');
-            $raw->update(['last_order_sync_at' => now()]);
+            $raw->forceFill(['last_order_sync_at' => now()])->save();
             return 0;
         }
 
@@ -253,7 +270,7 @@ class TikTokSyncOrders extends Command
             'shop_cipher' => $shopCipher,
         ]);
 
-        $raw->update(['last_order_sync_at' => now()]);
+        $raw->forceFill(['last_order_sync_at' => now()])->save();
 
         $this->info("Synced: {$saved} new, {$updated} updated (" . count($allOrders) . " total).");
         return 0;

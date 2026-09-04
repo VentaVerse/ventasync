@@ -57,7 +57,7 @@ class TikTokController extends Controller
 
     public function index()
     {
-        $setting = TikTokSetting::query()->first();
+        $setting = TikTokSetting::defaultStore();
 
         // #200: the shared log panel - errors-only and path filters, paged.
         $logs = \App\Support\ApiLogPanel::paginate(
@@ -133,7 +133,7 @@ class TikTokController extends Controller
             'sandbox_app_secret' => 'nullable|string|max:255',
         ]);
 
-        $setting = TikTokSetting::query()->first() ?? new TikTokSetting();
+        $setting = TikTokSetting::defaultStore() ?? new TikTokSetting();
 
         $env = $data['env'] ?? 'live';
         $setting->mode = $env;
@@ -165,7 +165,7 @@ class TikTokController extends Controller
     public function toggleMode(Request $request)
     {
         $data = $request->validate(['mode' => 'required|in:live,sandbox']);
-        $setting = TikTokSetting::query()->first() ?? new TikTokSetting();
+        $setting = TikTokSetting::defaultStore() ?? new TikTokSetting();
         $setting->mode = $data['mode'];
         $setting->save();
 
@@ -175,27 +175,133 @@ class TikTokController extends Controller
 
     // -- Redirect to TikTok auth ------------------------------------------
 
-    public function redirectToAuth(TikTokClient $client)
+    public function redirectToAuth(Request $request, TikTokClient $client)
     {
-        $raw = TikTokSetting::query()->first();
+        /* Which store is consenting (multi-store, the owner 2026-09-05): named by
+         * ?store= from that store's own settings page, else the default. Bound
+         * for the request, and carried through OAuth in the `state` parameter,
+         * because TikTok's callback URL is one fixed URL for the whole install
+         * and the grant comes back with no other context. Mirrors Lazada. */
+        $raw = $request->query('store')
+            ? TikTokSetting::query()->find((int) $request->query('store'))
+            : TikTokSetting::defaultStore();
+        if ($raw !== null) {
+            app()->instance('tiktok.route-store', $raw);
+        }
+
         $setting = $raw?->decrypted();
         $sandbox = $raw && $raw->mode === 'sandbox';
         $activeKey = $sandbox ? ($setting->sandbox_app_key ?? '') : ($setting->app_key ?? '');
 
         if (!$setting || !$activeKey) {
-            return redirect()->route('ext.tiktok.index')->with('tiktok_result', [
+            return $this->redirectToSettings()->with('tiktok_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => 'App Key is required to authorize.'],
             ]);
         }
 
-        $state = Str::random(24);
-        session(['tiktok_oauth_state' => $state]);
+        // state = "{storeId}.{sandbox}.{nonce}.{hmac}", signed so the callback
+        // can trust the store it names without leaning on the session.
+        $state = self::oauthStateToken((int) $raw->id, $sandbox);
+        session(['tiktok_oauth_sandbox' => $sandbox]);
 
         $url = $client->authUrl($activeKey, $state);
 
         return redirect()->away($url);
+    }
+
+    /**
+     * Where a settings write lands (multi-store, the owner 2026-09-05): the
+     * settings page of the store it acted on. Falls back to the module page
+     * when no store exists to name.
+     */
+    private function redirectToSettings()
+    {
+        $store = TikTokSetting::defaultStore();
+
+        return $store !== null
+            ? redirect()->route('ext.tiktok.index', ['store' => $store->id])
+            : redirect()->route('channels.module', ['module' => 'tiktok']);
+    }
+
+    /**
+     * Build the signed OAuth state that carries the consenting store through
+     * TikTok's fixed callback URL: "{storeId}.{sandbox}.{nonce}.{hmac}", the
+     * hmac keyed on the app key over the first three parts. See
+     * LazadaController::oauthStateToken - the same design.
+     */
+    public static function oauthStateToken(int $storeId, bool $isSandbox): string
+    {
+        $payload = $storeId . '.' . ($isSandbox ? '1' : '0') . '.' . Str::random(24);
+
+        return $payload . '.' . hash_hmac('sha256', $payload, (string) config('app.key'));
+    }
+
+    /**
+     * Verify and decode a signed OAuth state. Returns ['store_id', 'sandbox']
+     * only when the signature checks out; null for anything forged, tampered,
+     * malformed, or absent.
+     */
+    private function parseOAuthState(string $state): ?array
+    {
+        if (! preg_match('/^(\d+)\.([01])\.([A-Za-z0-9]+)\.([0-9a-f]{64})$/', $state, $m)) {
+            return null;
+        }
+
+        $payload = $m[1] . '.' . $m[2] . '.' . $m[3];
+        if (! hash_equals(hash_hmac('sha256', $payload, (string) config('app.key')), $m[4])) {
+            return null;
+        }
+
+        return ['store_id' => (int) $m[1], 'sandbox' => $m[2] === '1'];
+    }
+
+    /**
+     * Recover the consenting store from a VERIFIED state and bind it for the
+     * request, so every defaultStore() read and route() link lands on it. An
+     * absent state falls back to the default store; a PRESENT but invalid state
+     * never reaches here (callback refuses it first).
+     */
+    private function bindStoreFromState(string $state): array
+    {
+        $parsed = $this->parseOAuthState($state);
+        if ($parsed !== null) {
+            $store = TikTokSetting::query()->find($parsed['store_id']);
+            if ($store !== null) {
+                app()->instance('tiktok.route-store', $store);
+                \Illuminate\Support\Facades\URL::defaults(['store' => (int) $store->id]);
+
+                return [(int) $store->id, $parsed['sandbox']];
+            }
+        }
+
+        return [TikTokSetting::defaultStore()?->id, (bool) session('tiktok_oauth_sandbox', false)];
+    }
+
+    /**
+     * Add a TikTok store from the Integrations board's Add store modal
+     * (multi-store, the owner 2026-09-05). The fewest questions: a name only. The
+     * row is born disabled - app key/secret, region and the OAuth grant are
+     * filled on its settings page - so it never joins a sync half-built.
+     */
+    public function createStore(Request $request)
+    {
+        $data = $request->validate([
+            'store_name' => ['required', 'string', 'max:128'],
+        ]);
+
+        $setting = TikTokSetting::create([
+            'store_name' => $data['store_name'],
+            'enabled'    => false,
+            'mode'       => 'live',
+        ]);
+
+        \App\Services\ActivityLogger::log('created', 'TikTok Store', $setting->id, $setting->store_name);
+
+        return redirect()
+            ->route('ext.tiktok.index', ['store' => $setting->id])
+            ->with('status', 'Store created. Add the app credentials and region, then authorize it to start syncing.');
     }
 
     // -- OAuth callback ---------------------------------------------------
@@ -208,20 +314,28 @@ class TikTokController extends Controller
         $saved = false;
         $saveError = null;
 
-        // Optional state check
-        $expected = (string) session('tiktok_oauth_state');
-        $stateOk = true;
-        if ($expected !== '' && $state !== '' && !hash_equals($expected, $state)) {
-            $stateOk = false;
+        /* THE STATE GATE (multi-store, the owner 2026-09-05). A real OAuth return
+         * carries the signed state minted in redirectToAuth. A code arriving
+         * with a forged, tampered, or absent state is a CSRF or cross-site
+         * callback - refuse it before a store is bound or a token written, or
+         * an attacker could name a store in the state and have this shop's
+         * grant land there. The signature, not the session, is the authority. */
+        $stateOk = $this->parseOAuthState($state) !== null;
+        if ($code !== '' && ! $stateOk) {
+            return $this->redirectToSettings()->with('tiktok_result', [
+                'ok' => false,
+                'title' => 'OAuth refused',
+                'data' => ['message' => 'This authorisation link could not be verified and was not used. Start again from the TikTok settings screen.'],
+            ]);
         }
+
+        // Recover the consenting store + sandbox flag from the verified state.
+        [$storeId, $sandbox] = $this->bindStoreFromState($state);
 
         // Auto token exchange when settings are present
         $tokenResult = null;
-        $setting = TikTokSetting::query()->first()?->decrypted();
-
-        // Determine active credentials based on mode
-        $raw = TikTokSetting::query()->first();
-        $sandbox = $raw && $raw->mode === 'sandbox';
+        $raw = TikTokSetting::defaultStore();
+        $setting = $raw?->decrypted();
         $activeKey = $sandbox ? ($setting->sandbox_app_key ?? '') : ($setting->app_key ?? '');
         $activeSecret = $sandbox ? ($setting->sandbox_app_secret ?? '') : ($setting->app_secret ?? '');
 
@@ -293,7 +407,7 @@ class TikTokController extends Controller
     {
         $request->validate(['code' => 'required|string']);
 
-        $raw = TikTokSetting::query()->first();
+        $raw = TikTokSetting::defaultStore();
         $setting = $raw?->decrypted();
         $sandbox = $raw && $raw->mode === 'sandbox';
         $activeKey = $sandbox ? ($setting->sandbox_app_key ?? '') : ($setting->app_key ?? '');
@@ -340,7 +454,7 @@ class TikTokController extends Controller
 
     public function tokenRefresh(TikTokClient $client)
     {
-        $raw = TikTokSetting::query()->first();
+        $raw = TikTokSetting::defaultStore();
         $setting = $raw?->decrypted();
         $sandbox = $raw && $raw->mode === 'sandbox';
         $activeKey = $sandbox ? ($setting->sandbox_app_key ?? '') : ($setting->app_key ?? '');
@@ -387,7 +501,7 @@ class TikTokController extends Controller
 
     public function getShops(TikTokClient $client)
     {
-        $raw = TikTokSetting::query()->first();
+        $raw = TikTokSetting::defaultStore();
         $setting = $raw?->decrypted();
         $sandbox = $raw && $raw->mode === 'sandbox';
         $activeKey = $sandbox ? ($setting->sandbox_app_key ?? '') : ($setting->app_key ?? '');
@@ -478,7 +592,7 @@ class TikTokController extends Controller
             'params_json' => 'nullable|string|max:20000',
         ]);
 
-        $setting = TikTokSetting::query()->first()?->decrypted();
+        $setting = TikTokSetting::defaultStore()?->decrypted();
         if (!$setting || !$setting->app_key || !$setting->app_secret) {
             return redirect()->route('ext.tiktok.index')->with('tiktok_result', [
                 'ok' => false,
@@ -532,7 +646,7 @@ class TikTokController extends Controller
 
         $shopCipher = null;
         if ($authRequired) {
-            $raw = TikTokSetting::query()->first();
+            $raw = TikTokSetting::defaultStore();
             $isSandbox = ($raw->mode ?? 'live') === 'sandbox';
             $shopCipher = $isSandbox ? ($raw->sandbox_shop_cipher ?? null) : ($raw->shop_cipher ?? null);
         }
@@ -587,7 +701,7 @@ class TikTokController extends Controller
             'pack' => 'required|in:shops,products,orders,logistics,finance,full',
         ]);
 
-        $setting = TikTokSetting::query()->first()?->decrypted();
+        $setting = TikTokSetting::defaultStore()?->decrypted();
         if (!$setting || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
             return redirect()->route('ext.tiktok.index')->with('tiktok_result', [
                 'ok' => false,
@@ -596,7 +710,7 @@ class TikTokController extends Controller
             ]);
         }
 
-        $raw = TikTokSetting::query()->first();
+        $raw = TikTokSetting::defaultStore();
         $shopCipher = $raw->shop_cipher ?? null;
 
         $packs = [
@@ -689,7 +803,7 @@ class TikTokController extends Controller
     public function setApiLogMode(Request $request)
     {
         $data = $request->validate(['mode' => 'required|in:' . implode(',', \App\Support\ApiLogMode::MODES)]);
-        $setting = TikTokSetting::query()->first();
+        $setting = TikTokSetting::defaultStore();
         if (!$setting) {
             return back()->with('error', 'TikTok settings not found.');
         }

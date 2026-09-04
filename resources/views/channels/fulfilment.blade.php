@@ -443,14 +443,14 @@
             @if(($selectedView ?? 'orders') === 'returns')
                 @include('ext-tiktok::orders._returns_panel', [
                     'panelBaseUrl' => route('channels.fulfilment'),
-                    'panelHiddenParams' => ['channel' => 'tiktok', 'view' => 'returns'],
-                    'panelOrdersUrl' => route('channels.fulfilment', ['channel' => 'tiktok']),
+                    'panelHiddenParams' => ['channel' => $selectedChannel, 'view' => 'returns'],
+                    'panelOrdersUrl' => route('channels.fulfilment', ['channel' => $selectedChannel]),
                 ])
             @else
                 @include('ext-tiktok::orders._panel', [
                     'panelBaseUrl' => route('channels.fulfilment'),
-                    'panelHiddenParams' => ['channel' => 'tiktok'],
-                    'panelReturnsUrl' => route('channels.fulfilment', ['channel' => 'tiktok', 'view' => 'returns']),
+                    'panelHiddenParams' => ['channel' => $selectedChannel],
+                    'panelReturnsUrl' => route('channels.fulfilment', ['channel' => $selectedChannel, 'view' => 'returns']),
                 ])
             @endif
         </div>

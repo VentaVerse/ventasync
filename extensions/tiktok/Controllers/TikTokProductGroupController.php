@@ -55,7 +55,7 @@ class TikTokProductGroupController extends Controller
 
     private function creds(): array
     {
-        $s = TikTokSetting::first();
+        $s = TikTokSetting::defaultStore();
         if (!$s) {
             abort(404, 'TikTok settings not configured.');
         }
@@ -549,7 +549,7 @@ class TikTokProductGroupController extends Controller
             return redirect()->back()->with('error', 'Product not in this product group.');
         }
 
-        $raw = TikTokSetting::query()->first();
+        $raw = TikTokSetting::defaultStore();
         if (!$raw) {
             return redirect()->back()->with('error', 'TikTok settings not configured.');
         }

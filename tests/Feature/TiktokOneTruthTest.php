@@ -8,6 +8,7 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\tiktok\Models\TikTokProductGroup;
 use Extensions\tiktok\Models\TikTokProductGroupProduct;
+use Extensions\tiktok\Models\TikTokSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -24,6 +25,9 @@ class TiktokOneTruthTest extends TestCase
 {
     use RefreshDatabase;
 
+    /** The store every store-scoped TikTok route in this file names. */
+    private TikTokSetting $tiktokStore;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -34,6 +38,10 @@ class TiktokOneTruthTest extends TestCase
         $this->app->register(\Extensions\tiktok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalogue');
+
+        // Multi-store (the owner 2026-09-05): every TikTok page is store-scoped, so
+        // a store must exist for ResolveTikTokStore to bind the {store} segment.
+        $this->tiktokStore = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
     private function manager(): User
@@ -92,7 +100,7 @@ class TiktokOneTruthTest extends TestCase
         ]);
 
         $r = $this->actingAs($this->manager())
-            ->get(route('ext.tiktok.product-groups.products', $groupB->id));
+            ->get(route('ext.tiktok.product-groups.products', ['store' => $this->tiktokStore->id, 'id' => $groupB->id]));
 
         $r->assertOk();
         // Group B shows the PRODUCT's truth: listed, with the real id and provenance.

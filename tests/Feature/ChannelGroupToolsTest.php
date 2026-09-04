@@ -35,6 +35,15 @@ class ChannelGroupToolsTest extends TestCase
     public array $tiktokAnswers = [];
     private int $groupSeq = 0;
 
+    /**
+     * The seeded stores. Both channels are store-scoped (the owner 2026-09-05) and
+     * share the one 'store' URL default, so whichever setUp creates last wins
+     * it; a bare route('ext.lazada.*') then fills {store} with the TikTok id
+     * and 404s. Every store-scoped route() call names its own channel's store.
+     */
+    private LazadaSetting $lazadaStore;
+    private TikTokSetting $tiktokStore;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -49,8 +58,8 @@ class ChannelGroupToolsTest extends TestCase
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalogue');
 
-        LazadaSetting::query()->create(['mode' => 'live', 'region' => 'ph', 'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r']);
-        TikTokSetting::create(['mode' => 'production', 'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3)]);
+        $this->lazadaStore = LazadaSetting::query()->create(['mode' => 'live', 'region' => 'ph', 'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r']);
+        $this->tiktokStore = TikTokSetting::create(['mode' => 'production', 'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3)]);
 
         $test = $this;
         $lz = new class($test) extends LazadaClient {
@@ -132,7 +141,7 @@ class ChannelGroupToolsTest extends TestCase
         ]]]];
 
         $r = $this->actingAs($this->manager(['manage_lazada/product_group', 'view_lazada/product_group']))
-            ->post(route('ext.lazada.product-groups.check', $group->id));
+            ->post(route('ext.lazada.product-groups.check', ['store' => $this->lazadaStore->id, 'id' => $group->id]));
 
         $r->assertSessionHas('error');   // a lost link is reported as a problem
         $this->assertStringContainsString('1 linked to the item Lazada holds', session('error'));
@@ -169,15 +178,15 @@ class ChannelGroupToolsTest extends TestCase
         };
 
         $manager = $this->manager(['manage_lazada/product_group', 'view_lazada/product_group']);
-        $this->actingAs($manager)->post(route('ext.lazada.product-groups.check', $group->id), ['ids' => [$chosen]]);
+        $this->actingAs($manager)->post(route('ext.lazada.product-groups.check', ['store' => $this->lazadaStore->id, 'id' => $group->id]), ['ids' => [$chosen]]);
 
         $this->assertContains('GT-PICK', $asked);
         $this->assertNotContains('GT-REST', $asked, 'the unselected product is not asked about');
         $this->assertNull(LazadaProduct::where('product_id', $other)->value('lazada_deleted_at'), 'and is not judged either');
 
         // The bar offers it, the way Shopee's does.
-        $html = $this->actingAs($manager)->get(route('ext.lazada.product-groups.products', $group->id))->assertOk()->getContent();
-        $this->assertSame(2, substr_count($html, route('ext.lazada.product-groups.check', $group->id)), 'the head checks the group, the bar checks the selection');
+        $html = $this->actingAs($manager)->get(route('ext.lazada.product-groups.products', ['store' => $this->lazadaStore->id, 'id' => $group->id]))->assertOk()->getContent();
+        $this->assertSame(2, substr_count($html, route('ext.lazada.product-groups.check', ['store' => $this->lazadaStore->id, 'id' => $group->id])), 'the head checks the group, the bar checks the selection');
     }
 
     public function test_lazada_unlinked_view_lists_what_the_shop_holds_that_nothing_points_at(): void
@@ -191,7 +200,7 @@ class ChannelGroupToolsTest extends TestCase
         ]]]];
 
         $r = $this->actingAs($this->manager(['view_lazada/product_group']))
-            ->get(route('ext.lazada.product-groups.orphans', $group->id));
+            ->get(route('ext.lazada.product-groups.orphans', ['store' => $this->lazadaStore->id, 'id' => $group->id]));
 
         $r->assertOk();
         $r->assertSee('5550002');
@@ -243,7 +252,7 @@ class ChannelGroupToolsTest extends TestCase
         ]]]];
 
         $r = $this->actingAs($this->manager(['manage_lazada/product', 'view_lazada/product']))
-            ->post(route('ext.lazada.products.check'), ['listing_ids' => [$newListing->id, $lostListing->id]]);
+            ->post(route('ext.lazada.products.check', ['store' => $this->lazadaStore->id]), ['listing_ids' => [$newListing->id, $lostListing->id]]);
 
         $r->assertSessionHas('error');
         $this->assertStringContainsString('1 linked to the item Lazada holds', session('error'));
@@ -256,8 +265,8 @@ class ChannelGroupToolsTest extends TestCase
     {
         $this->seedProduct('WB-BTN');
         $html = $this->actingAs($this->manager(['manage_lazada/product', 'view_lazada/product']))
-            ->get(route('ext.lazada.products.index'))->assertOk()->getContent();
-        $this->assertSame(2, substr_count($html, route('ext.lazada.products.check')),
+            ->get(route('ext.lazada.products.index', ['store' => $this->lazadaStore->id]))->assertOk()->getContent();
+        $this->assertSame(2, substr_count($html, route('ext.lazada.products.check', ['store' => $this->lazadaStore->id])),
             'the head checks every linked listing, the bar checks the selection');
     }
 

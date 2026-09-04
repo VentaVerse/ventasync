@@ -428,7 +428,7 @@ class TikTokListingController extends Controller
     /** Credentials for whichever mode the shop runs in, or null. */
     private function creds(): ?array
     {
-        $s = TikTokSetting::query()->first();
+        $s = TikTokSetting::defaultStore();
         if (!$s) {
             return null;
         }

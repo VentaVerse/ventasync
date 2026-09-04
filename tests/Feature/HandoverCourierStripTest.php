@@ -208,7 +208,12 @@ class HandoverCourierStripTest extends TestCase
 
     public function test_tiktoks_ship_names_its_wait(): void
     {
+        // Multi-store (the owner 2026-09-05): the TikTok orders page is now
+        // store-scoped too, so an enabled store names the {store} segment.
+        $tiktokStore = \Extensions\tiktok\Models\TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+
         TikTokOrder::create([
+            'tiktok_setting_id' => $tiktokStore->id,
             'order_id' => 'TT-1',
             'status' => 'AWAITING_SHIPMENT',
             'order_created_at' => '2026-08-01 09:00:00',
@@ -216,7 +221,7 @@ class HandoverCourierStripTest extends TestCase
         ]);
 
         $html = $this->actingAs($this->userWith(['view_tiktok/order', 'manage_tiktok/order']))
-            ->get('/channels/tiktok/orders?tab=TO_SHIP&pending_sub=to_pack')
+            ->get('/channels/tiktok/'.$tiktokStore->id.'/orders?tab=TO_SHIP&pending_sub=to_pack')
             ->assertOk()
             ->getContent();
 

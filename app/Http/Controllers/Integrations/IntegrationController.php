@@ -48,7 +48,7 @@ class IntegrationController extends Controller
      * single-store channel can never be handed a store and a multi-store one
      * can never be rendered without one.
      */
-    private const ORDER_PANEL_STORE_SCOPED = ['venta', 'opencart', 'shopify', 'shopee', 'lazada'];
+    private const ORDER_PANEL_STORE_SCOPED = ['venta', 'opencart', 'shopify', 'shopee', 'lazada', 'tiktok'];
 
     /**
      * Channels whose RETURNS list can also render in place here, keyed the

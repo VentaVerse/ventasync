@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Support\ChannelWorkspace;
 use Extensions\tiktok\Models\TikTokOrder;
 use Extensions\tiktok\Models\TikTokOrderProduct;
+use Extensions\tiktok\Models\TikTokSetting;
 use Extensions\tiktok\TiktokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -27,6 +28,9 @@ use Tests\TestCase;
 class TiktokWorkspaceTest extends TestCase
 {
     use RefreshDatabase;
+
+    /** The store every store-scoped TikTok URL in this file names. */
+    private TikTokSetting $tiktokStore;
 
     /**
      * Holds both real TikTok read permissions and nothing else: a genuine
@@ -98,6 +102,11 @@ class TiktokWorkspaceTest extends TestCase
         $this->app->register(TiktokExtension::class);
 
         $this->app['router']->getRoutes()->refreshNameLookups();
+
+        // Multi-store (the owner 2026-09-05): every TikTok page is store-scoped.
+        // An ENABLED store lets URL::defaults fill {store} on every route()
+        // call, and its id names the store-scoped literal paths below.
+        $this->tiktokStore = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
     private function tiktokCard(): \App\Integrations\IntegrationCard
@@ -115,11 +124,26 @@ class TiktokWorkspaceTest extends TestCase
         $this->fail('TikTok did not register an IntegrationCard.');
     }
 
+    /**
+     * The workspace menu now lives on the per-store StoreLink, not the card
+     * (multi-store, the owner 2026-09-05: the card menu is empty and every
+     * destination carries a {store}). setUp seeds one store, so its menu is
+     * what these assertions read - the same shape ChannelWorkspace::menuFor
+     * resolves for a store-keyed channel.
+     */
+    private function tiktokMenu(): array
+    {
+        $stores = $this->tiktokCard()->stores;
+        $this->assertNotEmpty($stores, 'TikTok card exposed no store link to read a menu from.');
+
+        return $stores[0]->menu;
+    }
+
     public function test_tiktok_menu_covers_every_workspace_destination(): void
     {
         $routes = array_map(
             fn ($i) => $i->routeName,
-            $this->tiktokCard()->menu
+            $this->tiktokMenu()
         );
 
         $this->assertEqualsCanonicalizing([
@@ -136,7 +160,7 @@ class TiktokWorkspaceTest extends TestCase
 
     public function test_every_tiktok_menu_item_declares_a_known_group(): void
     {
-        foreach ($this->tiktokCard()->menu as $item) {
+        foreach ($this->tiktokMenu() as $item) {
             $this->assertContains(
                 $item->group,
                 ['Sell', 'Catalog', 'Channel'],
@@ -148,7 +172,7 @@ class TiktokWorkspaceTest extends TestCase
     public function test_groups_are_ordered_and_bucketed(): void
     {
         $user = $this->tiktokOperator();
-        $groups = app(ChannelWorkspace::class)->groups($this->tiktokCard(), $user);
+        $groups = app(ChannelWorkspace::class)->groups($this->tiktokCard(), $user, 'tiktok:'.$this->tiktokStore->id);
 
         $this->assertSame(
             ['Sell', 'Catalog', 'Channel'],
@@ -172,7 +196,7 @@ class TiktokWorkspaceTest extends TestCase
     public function test_every_destination_is_linkable(): void
     {
         $user = $this->tiktokOperator();
-        $groups = app(ChannelWorkspace::class)->groups($this->tiktokCard(), $user);
+        $groups = app(ChannelWorkspace::class)->groups($this->tiktokCard(), $user, 'tiktok:'.$this->tiktokStore->id);
 
         $urls = [];
 
@@ -197,7 +221,7 @@ class TiktokWorkspaceTest extends TestCase
         $user = $this->tiktokOperator();
 
         $this->actingAs($user)
-            ->get('/channels/tiktok')
+            ->get('/channels/tiktok/'.$this->tiktokStore->id)
             ->assertOk()
             ->assertSee('TikTok')
             ->assertSee('Overview');
@@ -207,7 +231,7 @@ class TiktokWorkspaceTest extends TestCase
     {
         $user = $this->tiktokOrdersOnlyOperator();
 
-        $response = $this->actingAs($user)->get('/channels/tiktok/orders');
+        $response = $this->actingAs($user)->get('/channels/tiktok/'.$this->tiktokStore->id.'/orders');
 
         $response->assertOk();
         $response->assertSee('x-chnav', false);
@@ -223,7 +247,7 @@ class TiktokWorkspaceTest extends TestCase
     {
         $user = $this->tiktokOrdersOnlyOperator();
 
-        $response = $this->actingAs($user)->get('/channels/tiktok/orders');
+        $response = $this->actingAs($user)->get('/channels/tiktok/'.$this->tiktokStore->id.'/orders');
 
         $response->assertOk();
 
@@ -239,17 +263,23 @@ class TiktokWorkspaceTest extends TestCase
 
     public static function tiktokPageProvider(): array
     {
+        // Multi-store (the owner 2026-09-05): each row is the page suffix AFTER
+        // /channels/tiktok/{store}. The store segment is prepended by the
+        // consumer, which can read $this->tiktokStore - a static provider
+        // cannot. Every page is still covered.
         return [
-            'orders' => ['/channels/tiktok/orders'],
-            'product groups' => ['/channels/tiktok/product-groups'],
-            'categories' => ['/channels/tiktok/categories'],
-            'settings' => ['/channels/tiktok/settings'],
+            'orders' => ['orders'],
+            'product groups' => ['product-groups'],
+            'categories' => ['categories'],
+            'settings' => ['settings'],
         ];
     }
 
     #[\PHPUnit\Framework\Attributes\DataProvider('tiktokPageProvider')]
-    public function test_tiktok_pages_render_inside_the_workspace(string $path): void
+    public function test_tiktok_pages_render_inside_the_workspace(string $suffix): void
     {
+        $path = '/channels/tiktok/'.$this->tiktokStore->id.'/'.$suffix;
+
         // tiktokOperator() holds exactly view_tiktok and view_tiktok_orders,
         // which is every permission any of these four routes' perm:
         // middleware demands, so a real read-only operator proves all four
@@ -276,8 +306,10 @@ class TiktokWorkspaceTest extends TestCase
      * the exact bug Shopee's own conversion hit and fixed.
      */
     #[\PHPUnit\Framework\Attributes\DataProvider('tiktokPageProvider')]
-    public function test_the_breadcrumb_trail_is_not_duplicated(string $path): void
+    public function test_the_breadcrumb_trail_is_not_duplicated(string $suffix): void
     {
+        $path = '/channels/tiktok/'.$this->tiktokStore->id.'/'.$suffix;
+
         $html = $this->actingAs($this->tiktokOperator())->get($path)->getContent();
 
         $crumb = preg_match('/<div class="x-topbar__crumb">(.*?)<\/div>/s', $html, $m)
@@ -309,7 +341,7 @@ class TiktokWorkspaceTest extends TestCase
      */
     public function test_the_seller_center_shows_no_other_marketplace(): void
     {
-        $response = $this->actingAs($this->tiktokOperator())->get('/channels/tiktok/categories');
+        $response = $this->actingAs($this->tiktokOperator())->get('/channels/tiktok/'.$this->tiktokStore->id.'/categories');
 
         $response->assertOk();
         $response->assertDontSee('All marketplaces');
@@ -323,7 +355,7 @@ class TiktokWorkspaceTest extends TestCase
      */
     public function test_the_orders_page_shows_no_other_marketplace(): void
     {
-        $response = $this->actingAs($this->tiktokOperator())->get('/channels/tiktok/orders');
+        $response = $this->actingAs($this->tiktokOperator())->get('/channels/tiktok/'.$this->tiktokStore->id.'/orders');
 
         $response->assertOk();
         $response->assertDontSee('All marketplaces');
@@ -450,7 +482,7 @@ class TiktokWorkspaceTest extends TestCase
     {
         $ids = $this->seedOrderPerStatus();
 
-        $response = $this->actingAs($this->tiktokManager())->get('/channels/tiktok/orders?tab=ALL');
+        $response = $this->actingAs($this->tiktokManager())->get('/channels/tiktok/'.$this->tiktokStore->id.'/orders?tab=ALL');
 
         $response->assertOk();
         $response->assertSee('id="btnFetchOrders"', false);
@@ -482,7 +514,7 @@ class TiktokWorkspaceTest extends TestCase
     {
         $ids = $this->seedOrderPerStatus();
 
-        $response = $this->actingAs($this->tiktokOrdersOnlyOperator())->get('/channels/tiktok/orders?tab=ALL');
+        $response = $this->actingAs($this->tiktokOrdersOnlyOperator())->get('/channels/tiktok/'.$this->tiktokStore->id.'/orders?tab=ALL');
 
         $response->assertOk();
         // Guards the premise: the awaiting-shipment row IS on this page, so
@@ -512,7 +544,7 @@ class TiktokWorkspaceTest extends TestCase
     {
         $ids = $this->seedOrderPerStatus();
 
-        $response = $this->actingAs($this->tiktokOrdersOnlyOperator())->get('/channels/tiktok/orders?tab=ALL');
+        $response = $this->actingAs($this->tiktokOrdersOnlyOperator())->get('/channels/tiktok/'.$this->tiktokStore->id.'/orders?tab=ALL');
 
         $response->assertOk();
         $response->assertSee(e(route('ext.tiktok.orders.awb', $ids['AWAITING_COLLECTION'])), false);
@@ -530,7 +562,7 @@ class TiktokWorkspaceTest extends TestCase
     {
         $ids = $this->seedOrderPerStatus();
 
-        $response = $this->actingAs($this->tiktokManager())->get('/channels/tiktok/orders?tab=ALL');
+        $response = $this->actingAs($this->tiktokManager())->get('/channels/tiktok/'.$this->tiktokStore->id.'/orders?tab=ALL');
 
         $response->assertOk();
         foreach (['UNPAID', 'CANCELLED'] as $status) {
@@ -618,7 +650,7 @@ class TiktokWorkspaceTest extends TestCase
     {
         $this->seedOrderPerStatus();
 
-        $response = $this->actingAs($this->tiktokManager())->get('/channels/tiktok/orders?tab=ALL');
+        $response = $this->actingAs($this->tiktokManager())->get('/channels/tiktok/'.$this->tiktokStore->id.'/orders?tab=ALL');
 
         $response->assertOk();
         $response->assertSee('To pack');
@@ -645,12 +677,12 @@ class TiktokWorkspaceTest extends TestCase
 
         $manager = $this->tiktokManager();
 
-        $toPack = $this->actingAs($manager)->get('/channels/tiktok/orders?tab=TO_SHIP&pending_sub=to_pack');
+        $toPack = $this->actingAs($manager)->get('/channels/tiktok/'.$this->tiktokStore->id.'/orders?tab=TO_SHIP&pending_sub=to_pack');
         $toPack->assertOk();
         $toPack->assertSee($packNumber);
         $toPack->assertDontSee($handoverNumber);
 
-        $toHandover = $this->actingAs($manager)->get('/channels/tiktok/orders?tab=TO_SHIP&pending_sub=to_handover');
+        $toHandover = $this->actingAs($manager)->get('/channels/tiktok/'.$this->tiktokStore->id.'/orders?tab=TO_SHIP&pending_sub=to_handover');
         $toHandover->assertOk();
         $toHandover->assertSee($handoverNumber);
         $toHandover->assertDontSee($packNumber);
@@ -668,7 +700,7 @@ class TiktokWorkspaceTest extends TestCase
     {
         $ids = $this->seedOrderPerStatus();
 
-        $response = $this->actingAs($this->tiktokManager())->get('/channels/tiktok/orders?tab=ALL');
+        $response = $this->actingAs($this->tiktokManager())->get('/channels/tiktok/'.$this->tiktokStore->id.'/orders?tab=ALL');
 
         $response->assertOk();
         $response->assertSee(
