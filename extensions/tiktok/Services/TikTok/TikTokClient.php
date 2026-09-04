@@ -32,7 +32,7 @@ class TikTokClient
     {
         $url = self::AUTH_HOST . '/api/v2/token/get';
 
-        $response = Http::timeout(30)->get($url, [
+        $response = Http::timeout(30)->connectTimeout(5)->get($url, [
             'app_key' => $appKey,
             'app_secret' => $appSecret,
             'auth_code' => $authCode,
@@ -52,7 +52,7 @@ class TikTokClient
     {
         $url = self::AUTH_HOST . '/api/v2/token/refresh';
 
-        $response = Http::timeout(30)->get($url, [
+        $response = Http::timeout(30)->connectTimeout(5)->get($url, [
             'app_key' => $appKey,
             'app_secret' => $appSecret,
             'refresh_token' => $refreshToken,
@@ -106,7 +106,7 @@ class TikTokClient
 
         $url = self::BASE_URL . $path;
 
-        $response = Http::timeout(30)
+        $response = Http::timeout(30)->connectTimeout(5)
             ->withHeaders(['x-tts-access-token' => $accessToken])
             ->get($url, $params);
 
@@ -134,7 +134,7 @@ class TikTokClient
 
         $url = self::BASE_URL . $path . '?' . http_build_query($params);
 
-        $response = Http::timeout(30)
+        $response = Http::timeout(30)->connectTimeout(5)
             ->withHeaders([
                 'x-tts-access-token' => $accessToken,
                 'Content-Type' => 'application/json',
@@ -166,7 +166,7 @@ class TikTokClient
 
         $url = self::BASE_URL . $path . '?' . http_build_query($params);
 
-        $response = Http::timeout(30)
+        $response = Http::timeout(30)->connectTimeout(5)
             ->withHeaders([
                 'x-tts-access-token' => $accessToken,
                 'Content-Type' => 'application/json',
@@ -243,7 +243,7 @@ class TikTokClient
 
         $url = self::BASE_URL . $path . '?' . http_build_query($params);
 
-        $response = Http::timeout(30)
+        $response = Http::timeout(30)->connectTimeout(5)
             ->withHeaders([
                 'x-tts-access-token' => $accessToken,
                 'Content-Type' => 'application/json',
@@ -333,7 +333,7 @@ class TikTokClient
 
         $url = self::BASE_URL . '/product/202309/images/upload?' . http_build_query($params);
 
-        $response = Http::timeout(60)
+        $response = Http::timeout(60)->connectTimeout(5)
             ->withHeaders(['x-tts-access-token' => $accessToken])
             ->attach('data', $imageData, 'image.jpg')
             ->post($url);

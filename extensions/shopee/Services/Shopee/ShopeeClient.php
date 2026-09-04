@@ -32,7 +32,14 @@ class ShopeeClient
          * not the handled error each call site already wrote. Connection
          * failures (no response at all) still throw; callers that must
          * stay up through those catch Throwable themselves. */
+        /* connectTimeout: without it a dead edge IP costs curl's long
+         * default PER TRY, and retry() doubles it - Shopee's sandbox host
+         * refused TCP on 2026-09-04 and one stateless fetch froze the
+         * whole single-worker dev server for minutes. Five seconds is
+         * generous for a TCP+TLS handshake to a healthy host; a host that
+         * cannot answer in five was not going to answer in sixty. */
         return Http::timeout(30)
+            ->connectTimeout(5)
             ->retry(2, 300, throw: false)
             ->acceptJson()
             ->asJson();

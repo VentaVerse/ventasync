@@ -18,7 +18,7 @@ class OpenCartClient
 
     private function http(): PendingRequest
     {
-        return Http::timeout(30)
+        return Http::timeout(30)->connectTimeout(5)
             ->retry(2, 300)
             ->withHeaders([
                 'X-ERP-API-Key' => $this->setting->api_key,

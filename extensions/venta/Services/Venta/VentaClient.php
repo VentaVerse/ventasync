@@ -27,7 +27,7 @@ class VentaClient
         // the response it is, body intact, rather than thrown away as an
         // exception whose message is a status code. The refusal's own
         // sentence is what the packer needs to read.
-        return Http::timeout(30)
+        return Http::timeout(30)->connectTimeout(5)
             ->retry(2, 300, function ($exception) {
                 return $exception instanceof ConnectionException
                     || ($exception instanceof RequestException && $exception->response->status() >= 500);

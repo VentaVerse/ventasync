@@ -1601,8 +1601,18 @@ class ShopeeProductController extends Controller
 
         $pfx = (string) config('catalog.prefix');
 
-        $allItemIds = $this->fetchAllShopeeItemIds($client, $auth, 730, 'shopee.products.fetch_unmatched');
-        if (empty($allItemIds)) {
+        /* Plain pagination, NOT fetchAllShopeeItemIds: that helper sweeps
+         * 730 days in 15-day windows x two time-fields x two statuses -
+         * ~196 calls before it has looked at a single product, whatever
+         * the shop holds (the owner's 2-product sandbox paid all 196, into a
+         * flaky sandbox host, and the page hung). A live fetch needs the
+         * CURRENT shop, and get_item_list pages it without time filters:
+         * one call per 100 items per status. */
+        $allItemIds = $this->fetchLiveItemIds($client, $auth);
+        if ($allItemIds === null) {
+            return [null, 'Shopee did not answer the fetch. Check the connection and try again.'];
+        }
+        if ($allItemIds === []) {
             return [null, 'No items found on Shopee.'];
         }
 
@@ -2338,6 +2348,48 @@ class ShopeeProductController extends Controller
      * Fetch all Shopee item IDs across 15-day time windows (API limit).
      * Scans NORMAL + UNLIST statuses, going back $days days.
      */
+    /**
+     * Every item id currently on the shop, by plain offset pagination -
+     * the stateless fetch's read. Null when Shopee never answered (as
+     * distinct from an empty shop, which is []).
+     *
+     * @return ?list<int>
+     */
+    private function fetchLiveItemIds(ShopeeClient $client, array $auth): ?array
+    {
+        $ids = [];
+        foreach (['NORMAL', 'UNLIST'] as $itemStatus) {
+            $offset = 0;
+            while (true) {
+                $result = $client->shopGet(
+                    $auth['mode'],
+                    (int) $auth['partner_id'], (string) $auth['partner_key'],
+                    (string) $auth['access_token'], (int) $auth['shop_id'],
+                    '/api/v2/product/get_item_list',
+                    ['offset' => $offset, 'page_size' => 100, 'item_status' => $itemStatus]
+                );
+
+                if (!($result['ok'] ?? false)) {
+                    // A failed first read is "Shopee is not answering";
+                    // a failure mid-way still surfaces rather than
+                    // presenting half a shop as the whole of it.
+                    return null;
+                }
+
+                $response = ($result['body'] ?? [])['response'] ?? ($result['body'] ?? []);
+                $items = $response['item'] ?? [];
+                foreach ($items as $item) {
+                    if ($id = $item['item_id'] ?? null) $ids[] = (int) $id;
+                }
+
+                if (!($response['has_next_page'] ?? false) || empty($items)) break;
+                $offset = (int) ($response['next_offset'] ?? $offset + 100);
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
     private function fetchAllShopeeItemIds(ShopeeClient $client, array $auth, int $days = 730, ?string $logPack = null): array
     {
         $now = time();
