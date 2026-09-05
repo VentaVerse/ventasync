@@ -141,6 +141,9 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
         // (categories, couriers), answering a plain sentence as JSON for the
         // progress popup on Settings > Connection.
         Route::post('/shopee/{store}/setup/{step}', [ShopeeSettingsController::class, 'setupStep'])->whereIn('step', ['categories', 'couriers'])->name('ext.shopee.setup_step');
+        // Hard delete of a store (the owner, 2026-09-05): the typed name confirms;
+        // everything the store owns goes, core orders stay under its name.
+        Route::post('/shopee/{store}/delete', [ShopeeSettingsController::class, 'destroyStore'])->name('ext.shopee.stores.destroy');
         Route::post('/shopee/{store}/toggle-mode', [ShopeeSettingsController::class, 'toggleMode'])->name('ext.shopee.toggle_mode');
         Route::post('/shopee/{store}/auth-url', [ShopeeSettingsController::class, 'buildAuthUrl'])->name('ext.shopee.auth_url');
         Route::post('/shopee/{store}/token/get', [ShopeeSettingsController::class, 'tokenGet'])->name('ext.shopee.token_get');

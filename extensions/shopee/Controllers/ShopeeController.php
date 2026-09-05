@@ -593,6 +593,34 @@ public function buildAuthUrl(ShopeeClient $client)
         return response()->json($out);
     }
 
+    /**
+     * Hard delete of a store (the owner, 2026-09-05). The store name typed
+     * exactly confirms; one transaction removes everything the store owns;
+     * core orders are untouched and keep the store's name.
+     */
+    public function destroyStore(Request $request, \Extensions\shopee\Services\Shopee\ShopeeStoreDeleter $deleter)
+    {
+        abort_unless($request->user()?->hasPermission('manage_shopee/settings'), 403);
+        $store = ShopeeSetting::defaultStore();
+        abort_if(! $store, 404);
+
+        $request->validate([
+            'confirm_name' => ['required', 'string', function ($attribute, $value, $fail) use ($store) {
+                if ((string) $value !== (string) $store->store_name) {
+                    $fail('Type the store name exactly as it is shown to confirm.');
+                }
+            }],
+        ]);
+
+        $name = (string) $store->store_name;
+        $id = (int) $store->id;
+        $removed = $deleter->delete($store);
+        \App\Services\ActivityLogger::log('shopee.store.deleted', 'shopee_settings', $id, $name, ['removed' => $removed]);
+
+        return redirect()->route('channels.index')
+            ->with('status', "Deleted Shopee store {$name}. Sales already imported keep its name.");
+    }
+
     /** The token exchange and refresh answers belong on the API log, not the page (the owner, 2026-09-05). */
     private function logAuthCall(string $path, array $result): void
     {

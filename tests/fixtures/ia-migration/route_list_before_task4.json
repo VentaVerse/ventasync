@@ -1486,6 +1486,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/shopee/{store}/delete",
+        "name": "ext.shopee.stores.destroy"
+    },
+    {
+        "method": "POST",
         "uri": "channels/shopee/{store}/explorer/run",
         "name": "ext.shopee.explorer_run"
     },

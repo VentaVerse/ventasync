@@ -96,4 +96,50 @@ export function initChannelSetup() {
     if (root.dataset.setupRun === '1') run();
 }
 
-document.addEventListener('DOMContentLoaded', initChannelSetup);
+/*
+ * Deleting a store (the owner, 2026-09-05): the sheet behind "Delete this
+ * store". Hard delete, no restore, so the submit stays off until the typed
+ * name matches the store's exactly. The server checks the same thing; a
+ * refused attempt comes back with the sheet open and the error inside it.
+ */
+export function initChannelDelete() {
+    const root = document.querySelector('[data-channel-delete]');
+    if (!root) return;
+
+    const name = root.querySelector('[data-delete-name]');
+    const submit = root.querySelector('[data-delete-submit]');
+    const expect = name ? (name.dataset.expect || '') : '';
+
+    function check() {
+        submit.disabled = expect === '' || name.value !== expect;
+    }
+
+    function open() {
+        root.classList.add('active');
+        check();
+        if (name) name.focus();
+    }
+
+    function close() {
+        root.classList.remove('active');
+    }
+
+    if (name) name.addEventListener('input', check);
+    document.querySelectorAll('[data-delete-open]').forEach(function (btn) {
+        btn.addEventListener('click', open);
+    });
+    root.querySelectorAll('[data-delete-close]').forEach(function (btn) {
+        btn.addEventListener('click', close);
+    });
+    root.addEventListener('click', function (e) { if (e.target === root) close(); });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && root.classList.contains('active')) close();
+    });
+    check();
+    if (root.dataset.deleteOpenOnLoad === '1') open();
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    initChannelSetup();
+    initChannelDelete();
+});

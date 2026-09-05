@@ -1243,3 +1243,17 @@
 /* The connection note: one line, succeeded or a sentence, and a way to
    the API log for the rest. */
 .cs-result-note .cs-result-note__log { margin-left: 6px; }
+
+/* ── Deleting a store (2026-09-05) ─────────────────────────────────────
+   The confirmation sheet behind "Delete this store": what goes, what
+   stays, the name typed to confirm. The submit stays off until the
+   typed name matches, so the danger colour is only ever on a live
+   button. Rides .modal-backdrop and .co-modal like the setup popup. */
+.cs-delete__sheet { display: flex; flex-direction: column; gap: 12px; }
+.cs-delete__title { margin: 0; font-size: 16px; font-weight: 600; color: var(--bl-ink); }
+.cs-delete__list { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.5; color: var(--bl-ink-2); }
+.cs-delete__foot { display: flex; justify-content: flex-end; gap: 8px; }
+/* The opener sits in the section head beside Set up store, in the danger
+   ink and nothing else: a quiet word, not a red button, on a page whose
+   everyday job is saving keys. */
+.cs-delete__open { color: var(--bl-bad); }

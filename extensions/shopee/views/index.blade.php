@@ -115,6 +115,11 @@
             ['label' => 'Couriers', 'url' => route('ext.shopee.setup_step', ['step' => 'couriers'])],
         ],
     ])
+    @include('partials.channel-delete-store', [
+        'action' => route('ext.shopee.stores.destroy'),
+        'storeName' => $setting->store_name ?? '',
+        'channelLabel' => 'Shopee',
+    ])
 @endif
 
 <div id="sp-tab-connection" class="cs-panel" @if($csSection !== 'connection') hidden @endif>
@@ -165,6 +170,8 @@
                     {{-- Re-runs the setup: the categories and couriers every
                          push needs, fetched again behind the progress popup. --}}
                     <x-ui.button type="button" size="sm" data-setup-open>Set up store</x-ui.button>
+                    {{-- Hard delete, no restore: the sheet asks for the name. --}}
+                    <x-ui.button type="button" size="sm" variant="ghost" class="cs-delete__open" data-delete-open>Delete this store</x-ui.button>
                 </div>
             @endif
         </div>
