@@ -9,6 +9,7 @@ use App\Models\User;
 use Extensions\tiktok\Models\TikTokListing;
 use Extensions\tiktok\Models\TikTokProductGroup;
 use Extensions\tiktok\Models\TikTokProductGroupProduct;
+use Extensions\tiktok\Services\TikTokStoreProducts;
 use Extensions\tiktok\Models\TikTokSetting;
 use Extensions\tiktok\TikTokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -306,16 +307,19 @@ class TiktokAddToStoreTest extends TestCase
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $inGroup, 'sync_status' => 'pending']);
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $other->id, 'product_id' => $elsewhere, 'sync_status' => 'pending']);
 
+        // Option 2 (the owner, 2026-09-05): the main catalogue, minus what the
+        // group already holds, each row saying whether the store carries it.
         $r = $this->actingAs($this->manager())->getJson($this->groupBase($group->id) . '/products/search')->assertOk();
         $byName = collect($r->json('items'))->keyBy('name');
-        $this->assertSame(['On store free', 'Owned elsewhere'], $byName->keys()->sort()->values()->all(), 'only this store\'s products, minus what the group already holds');
+        $this->assertSame(['Catalogue only widget', 'On store free', 'Owned elsewhere'], $byName->keys()->sort()->values()->all());
         $this->assertSame('Gloves', $byName['Owned elsewhere']['elsewhere']);
         $this->assertNull($byName['On store free']['elsewhere']);
+        $this->assertTrue($byName['On store free']['listed']);
+        $this->assertFalse($byName['Catalogue only widget']['listed'], 'the row says the store does not carry it yet');
 
         $all = $this->actingAs($this->manager())->getJson($this->groupBase($group->id) . '/products/search?all=1')->assertOk();
         $allByName = collect($all->json('items'))->keyBy('name');
         $this->assertTrue($allByName['Already grouped']['on_store']);
-        $this->assertArrayNotHasKey('Catalogue only widget', $allByName->all(), 'a product the store does not carry is never offered to a group');
     }
 
     public function test_add_to_group_and_move_here_and_the_store_gate(): void
@@ -337,11 +341,16 @@ class TiktokAddToStoreTest extends TestCase
             ->assertOk()->assertJson(['added' => false]);
         $this->assertSame(1, TikTokProductGroupProduct::query()->where('tiktok_product_group_id', $group->id)->where('product_id', $free)->count());
 
-        // A product the store does not carry: refused, and nothing created.
+        // A product the store does not carry is listed on it as it joins
+        // (option 2, 2026-09-05); an unknown product is refused.
         $this->actingAs($this->manager())
             ->postJson($this->groupBase($group->id) . '/products/' . $off . '/add')
+            ->assertOk()->assertJson(['ok' => true, 'added' => true, 'listed' => true]);
+        $this->assertTrue(TikTokStoreProducts::has($off), 'it is on this store now');
+        $this->assertSame(1, TikTokProductGroupProduct::query()->where('product_id', $off)->count());
+        $this->actingAs($this->manager())
+            ->postJson($this->groupBase($group->id) . '/products/424242/add')
             ->assertNotFound();
-        $this->assertSame(0, TikTokProductGroupProduct::query()->where('product_id', $off)->count());
 
         // The one-group rule: held without Move here, moved with it.
         $this->actingAs($this->manager())

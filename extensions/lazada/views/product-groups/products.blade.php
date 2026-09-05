@@ -544,14 +544,14 @@
         id="lazada-group-add-panel"
         :search-url="route('ext.lazada.product-groups.productSearch', $group->id)"
         :add-url="route('ext.lazada.product-groups.addProduct', ['id' => $group->id, 'productId' => '__PID__'])"
-        :sub="'Search this store\'s products. Each one you add joins ' . $group->name . ' and takes its category, brand and markup on the next push.'"
-        search-label="Search this store's products"
+        :sub="'Search your main catalog. Each product you add joins ' . $group->name . ' and takes its category, brand and markup on the next push; one not on this store yet is listed on it as it joins. A product belongs to one group: adding one that sits in another group moves it here.'"
+        search-label="Search your main catalog"
         toggle-label="Show products already in this group"
         in-label="In this group"
         scope="this group"
-        empty-default="Every product on this store is already in this group."
-        empty-all="This store carries no enabled products yet. Add some on Listings first."
-        list-label="This store's products" />
+        empty-default="Every product in your catalog is already in this group."
+        empty-all="Your catalog has no enabled products yet."
+        list-label="Products" />
 @endif
 
 </div>{{-- /.cc-page --}}
