@@ -230,19 +230,39 @@
                 search.autocomplete = 'off';
                 search.placeholder = 'Type to search Shopee categories';
                 search.setAttribute('aria-label', 'Search Shopee categories');
+                /* The results are a PORTAL: appended to the body and placed at
+                   the search field's screen position. Inside the modal they
+                   sat in .pr-modal__body, which scrolls (overflow-y: auto),
+                   and an overflow container clips everything positioned
+                   inside it at its own edge - the list was cut off, and no
+                   z-index can paint what a container has already clipped
+                   (the owner, 2026-09-05). */
+                document.querySelectorAll('.pr-cat__results').forEach(function (old) { old.remove(); });
                 const results = el('div', 'pr-cat__results');
                 results.setAttribute('role', 'listbox');
                 results.hidden = true;
+                document.body.appendChild(results);
                 const chosen = el('span', 'pr-cat__chosen pr-mut', 'Nothing chosen yet');
                 let chosenId = 0;
                 let timer = null;
+
+                function place() {
+                    const r = search.getBoundingClientRect();
+                    results.style.top = Math.round(r.bottom + 4) + 'px';
+                    results.style.left = Math.round(r.left) + 'px';
+                    results.style.width = Math.round(r.width) + 'px';
+                    // Never taller than the room under the field, so the last option stays reachable.
+                    results.style.maxHeight = Math.max(120, Math.round(window.innerHeight - r.bottom - 16)) + 'px';
+                }
+
+                function hideResults() { results.hidden = true; }
 
                 function pick(cat) {
                     chosenId = cat.category_id;
                     chosen.textContent = cat.name + ' (#' + cat.category_id + ')';
                     chosen.className = 'pr-cat__chosen';
                     search.value = cat.name;
-                    results.hidden = true;
+                    hideResults();
                     apply.disabled = false;
                 }
 
@@ -259,8 +279,22 @@
                         opt.addEventListener('click', function () { pick(cat); });
                         results.appendChild(opt);
                     });
+                    place();
                     results.hidden = false;
                 }
+
+                // The field moves when the modal scrolls or the window changes:
+                // the list follows, or leaves.
+                const body = bulk.querySelector('.pr-modal__body');
+                if (body) body.addEventListener('scroll', function () { if (!results.hidden) place(); });
+                window.addEventListener('resize', function () { if (!results.hidden) place(); });
+                document.addEventListener('click', function (e) {
+                    if (!results.hidden && e.target !== search && !results.contains(e.target)) hideResults();
+                });
+                document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hideResults(); });
+                [scrim].concat(Array.prototype.slice.call(document.querySelectorAll('[data-pr-close]'))).forEach(function (b) {
+                    b.addEventListener('click', hideResults);
+                });
 
                 search.addEventListener('input', function () {
                     chosenId = 0;
@@ -288,7 +322,6 @@
 
                 const field = el('div', 'pr-cat__field');
                 field.appendChild(search);
-                field.appendChild(results);
                 fix.appendChild(field);
                 fix.appendChild(chosen);
                 fix.appendChild(apply);

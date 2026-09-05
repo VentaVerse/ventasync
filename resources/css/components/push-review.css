@@ -138,12 +138,12 @@
     .pr-cat { align-items: flex-start; }
     .pr-cat__field { position: relative; flex: 1 1 240px; min-width: 0; }
     .pr-cat__field .x-input { max-width: none; width: 100%; }
+    /* A portal on the body, placed by the script at the field's screen
+       position: inside the modal's scrolling body an overflow container
+       clipped it at its edge, whatever its z-index. Above the modal (61). */
     .pr-cat__results {
-        position: absolute;
-        z-index: 2;
-        top: calc(100% + 4px);
-        left: 0;
-        right: 0;
+        position: fixed;
+        z-index: 70;
         max-height: 220px;
         overflow-y: auto;
         background: var(--bl-sheet);
