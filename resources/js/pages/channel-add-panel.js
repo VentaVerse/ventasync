@@ -128,6 +128,10 @@ export function initAddPanel() {
         bits.push(item.quantity + ' in stock');
         if (item.price) bits.push(item.price);
         if (item.elsewhere) bits.push('In ' + item.elsewhere);
+        // A group's panel searches the main catalogue (option 2, 2026-09-05):
+        // a product the store does not carry yet says so, and adding it
+        // lists it on the store as it joins the group.
+        if (item.listed === false) bits.push('Not on this store yet');
         body.appendChild(el('span', 'cc-addpanel__meta2', bits.join(' · ')));
         li.appendChild(body);
 

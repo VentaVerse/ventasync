@@ -7,6 +7,7 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\shopee\Models\ShopeeListing;
+use Extensions\shopee\Services\ShopeeStoreProducts;
 use Extensions\shopee\Models\ShopeeProductGroup;
 use Extensions\shopee\Models\ShopeeProductGroupProduct;
 use Extensions\shopee\Models\ShopeeProductLink;
@@ -338,7 +339,14 @@ class ShopeeAddToStoreTest extends TestCase
         $this->assertStringNotContainsString('data-group-manual-add', $html);
     }
 
-    public function test_group_search_offers_only_this_stores_products_not_yet_in_the_group(): void
+    /**
+     * Option 2 (the owner, 2026-09-05): a fresh store has nothing listed, so the
+     * group's panel searches the main catalogue and lists a product on the
+     * store as it joins the group. Before this the empty store answered
+     * "Every product on this store is already in this group", which was
+     * false in every word.
+     */
+    public function test_group_search_offers_the_main_catalogue_and_says_what_the_store_does_not_carry_yet(): void
     {
         $group = $this->group();
         $inGroup = $this->seedProduct('Already grouped', 'G-1');
@@ -350,14 +358,42 @@ class ShopeeAddToStoreTest extends TestCase
 
         $r = $this->actingAs($this->manager())->getJson($this->groupBase($group->id) . '/products/search')->assertOk();
 
-        $names = collect($r->json('items'))->pluck('name')->all();
-        $this->assertSame(['On store free'], $names, 'only this store\'s products, minus what the group already holds');
+        $byName = collect($r->json('items'))->keyBy('name');
+        $this->assertEqualsCanonicalizing(['On store free', 'Catalogue only widget'], $byName->keys()->all(), 'the catalogue, minus what the group already holds');
+        $this->assertTrue($byName['On store free']['listed']);
+        $this->assertFalse($byName['Catalogue only widget']['listed'], 'the row says the store does not carry it yet');
 
         $all = $this->actingAs($this->manager())->getJson($this->groupBase($group->id) . '/products/search?all=1')->assertOk();
         $byName = collect($all->json('items'))->keyBy('name');
         $this->assertTrue($byName['Already grouped']['on_store'], 'the panel\'s "already in" flag means in this group here');
         $this->assertFalse($byName['On store free']['on_store']);
-        $this->assertArrayNotHasKey('Catalogue only widget', $byName->all(), 'a product the store does not carry is never offered to a group');
+    }
+
+    public function test_adding_a_catalogue_product_to_a_group_lists_it_on_the_store_as_it_joins(): void
+    {
+        $group = $this->group();
+        $pid = $this->seedProduct('Catalogue only widget', 'OFF-1');
+        $this->assertFalse(ShopeeStoreProducts::has($pid));
+
+        $this->actingAs($this->manager())
+            ->postJson($this->groupBase($group->id) . '/products/' . $pid . '/add')
+            ->assertOk()->assertJson(['ok' => true, 'added' => true, 'listed' => true]);
+
+        $this->assertTrue(ShopeeStoreProducts::has($pid), 'it is on this store now');
+        $this->assertSame(1, ShopeeProductGroupProduct::query()->where('shopee_product_group_id', $group->id)->where('product_id', $pid)->count());
+
+        // A second add of a product already on the store lists nothing twice.
+        $again = $this->seedProduct('On store already', 'S-2');
+        $this->onStore($again);
+        $this->actingAs($this->manager())
+            ->postJson($this->groupBase($group->id) . '/products/' . $again . '/add')
+            ->assertOk()->assertJson(['ok' => true, 'added' => true, 'listed' => false]);
+        $this->assertSame(1, ShopeeListing::query()->where('product_id', $again)->count());
+
+        // A disabled or unknown catalogue product is refused.
+        $this->actingAs($this->manager())
+            ->postJson($this->groupBase($group->id) . '/products/424242/add')
+            ->assertNotFound();
     }
 
     public function test_group_search_names_the_group_that_owns_a_product_elsewhere(): void
@@ -395,17 +431,9 @@ class ShopeeAddToStoreTest extends TestCase
         $this->assertSame(1, ShopeeProductGroupProduct::query()->where('shopee_product_group_id', $group->id)->where('product_id', $pid)->count());
     }
 
-    public function test_add_to_group_refuses_a_product_the_store_does_not_carry(): void
-    {
-        $group = $this->group();
-        $pid = $this->seedProduct('Catalogue only widget', 'OFF-1');
-
-        $this->actingAs($this->manager())
-            ->postJson($this->groupBase($group->id) . '/products/' . $pid . '/add')
-            ->assertNotFound();
-
-        $this->assertSame(0, ShopeeProductGroupProduct::query()->where('product_id', $pid)->count(), 'a group is a subset of the store\'s list, never a door into the catalogue');
-    }
+    // "Add to group refuses a product the store does not carry" retired with
+    // option 2 (the owner, 2026-09-05): the group lists the product on the store
+    // as it joins. See test_adding_a_catalogue_product_to_a_group_lists_it.
 
     public function test_move_here_takes_the_product_from_the_group_that_owned_it(): void
     {

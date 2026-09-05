@@ -1043,9 +1043,12 @@ class ShopeeProductGroupController extends Controller
             ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
-            // An inner join: only what this store carries is on offer.
-            ->joinSub(ShopeeStoreProducts::query(), 'os', 'os.product_id', '=', 'p.product_id')
-            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.model', 'p.quantity', 'p.price')
+            // The main catalogue, each row flagged with whether this store
+            // carries it (the owner, 2026-09-05, option 2): a fresh store has
+            // nothing listed yet, and a group must not be a dead end there.
+            // Adding a product the store does not carry lists it as it joins.
+            ->leftJoinSub(ShopeeStoreProducts::query(), 'os', 'os.product_id', '=', 'p.product_id')
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.model', 'p.quantity', 'p.price', 'os.product_id as on_store_pid')
             ->where('p.status', 1);
 
         if ($q !== '') {
@@ -1090,6 +1093,8 @@ class ShopeeProductGroupController extends Controller
                 // The panel's "already in" flag: in this group.
                 'on_store' => $inGroup->has($pid),
                 'elsewhere' => $owners->get($pid)?->name,
+                // Whether this store carries it yet; adding lists it if not.
+                'listed' => ! is_null($r->on_store_pid),
             ];
         })->values();
 
@@ -1097,16 +1102,26 @@ class ShopeeProductGroupController extends Controller
     }
 
     /**
-     * Add one of this store's products to the group, in place (#201, Draft
-     * C). Refuses a product the store does not carry: the group is a subset
-     * of the store's list, never a door into the catalogue. The one-group
-     * rule holds - a product owned by another group is held unless the panel
-     * said Move here (`move`), in which case it moves.
+     * Add a catalogue product to the group, in place (#201, Draft C). A
+     * product this store does not carry yet is listed on it as it joins
+     * (the owner, 2026-09-05, option 2): the same blank listing record the
+     * Listings page's Add products creates, so the group is never a dead
+     * end on a fresh store. The one-group rule holds - a product owned by
+     * another group is held unless the panel said Move here (`move`), in
+     * which case it moves.
      */
     public function addProduct(Request $request, int $id, int $productId)
     {
         $group = ShopeeProductGroup::query()->findOrFail($id);
-        abort_unless(ShopeeStoreProducts::has($productId), 404);
+        $inCatalogue = DB::table((string) config('catalog.prefix') . 'product')
+            ->where('product_id', $productId)->where('status', 1)->exists();
+        abort_unless($inCatalogue, 404);
+
+        $listedNow = false;
+        if (! ShopeeStoreProducts::has($productId)) {
+            ShopeeListing::firstOrCreate(['product_id' => $productId]);
+            $listedNow = true;
+        }
 
         $already = $group->groupProducts()->where('product_id', $productId)->exists();
         $added = false;
@@ -1135,13 +1150,13 @@ class ShopeeProductGroupController extends Controller
                 return response()->json(['ok' => false, 'product_id' => $productId, 'message' => trim(\App\Integrations\OneGroupRule::heldClause($held))], 409);
             }
 
-            return response()->json(['ok' => true, 'product_id' => $productId, 'added' => $added, 'moved_from' => $movedFrom]);
+            return response()->json(['ok' => true, 'product_id' => $productId, 'added' => $added, 'moved_from' => $movedFrom, 'listed' => $listedNow]);
         }
 
         $status = $already
             ? "Product #{$productId} is already in this product group."
             : ($added
-                ? "Product #{$productId} added to the product group." . ($movedFrom !== null ? " Moved here from '{$movedFrom}'." : '')
+                ? "Product #{$productId} added to the product group." . ($movedFrom !== null ? " Moved here from '{$movedFrom}'." : '') . ($listedNow ? ' It is on this store now too.' : '')
                 : trim(\App\Integrations\OneGroupRule::heldClause($held)));
 
         return $this->productsRedirect($group->id)->with($added ? 'status' : 'warning', $status);
