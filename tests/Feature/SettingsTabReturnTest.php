@@ -186,15 +186,11 @@ class SettingsTabReturnTest extends TestCase
 
         $html = $this->actingAs($user)->get(route('ext.shopee.settings.show', ['store' => $store->id]))->assertOk()->getContent();
 
-        $storeAt = strpos($html, 'id="sp-store-name"');
-        $liveAt = strpos($html, 'data-cs-env-panel="live"');
-        $this->assertNotFalse($storeAt);
-        $this->assertLessThan($liveAt, $storeAt, 'the store section sits above both environment panels, never inside the hidden one');
-        // And they submit with the sandbox credentials form, the one whose
-        // Save button is on screen: one button for the store and its keys.
-        $this->assertStringContainsString('id="sp-store-name" name="store_name"', $html);
-        $this->assertMatchesRegularExpression('/id="sp-store-name"[^>]*form="sp-save-sandbox"/', $html);
-        $this->assertStringContainsString('id="sp-save-sandbox"', $html);
+        // One form, one Save (audit, 2026-09-05): the store's name and switch
+        // sit inside the sandbox form, the one whose Save is on screen.
+        $this->assertMatchesRegularExpression('/id="sp-save-sandbox"[\s\S]*?id="sp-sb-store-name" name="store_name"[\s\S]*?Save connection/', $html);
+        $this->assertStringContainsString('cs-store-switch', $html);
+        $this->assertStringContainsString('on Shopee, sandbox.', $html, 'the head names the store and its environment');
 
         $this->actingAs($user)->post('/channels/shopee/' . $store->id . '/save', ['env' => 'sandbox', 'store_name' => 'Main store PH', 'enabled' => 1])->assertRedirect();
         $this->assertSame('Main store PH', $store->fresh()->store_name);

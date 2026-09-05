@@ -76,10 +76,39 @@
      data-tab-storage-key="sp-active-tab"
      data-default-tab="">
 
+{{-- The head names the store and how it stands (audit, 2026-09-05, after
+     Venta's page): the environment control and the Active pill live here
+     because every card below answers to them. --}}
 <div class="x-list-head">
     <div>
         <h1 class="x-page-title">Settings</h1>
-        <p class="x-page-sub">Credentials, status mapping and the API record for this Shopee shop.</p>
+        <p class="x-page-sub">{{ ($setting->store_name ?? '') !== '' ? $setting->store_name : 'This store' }} on Shopee, {{ $isSandbox ? 'sandbox' : 'production' }}.</p>
+    </div>
+    <div class="cs-head-state">
+        @if($canManageShopee)
+            {{-- Wire unchanged: one hidden `mode` field posted to toggle-mode. --}}
+            <form method="POST" action="{{ route('ext.shopee.toggle_mode') }}" data-cs-env-form class="cs-head-state__env">
+                @csrf
+                <input type="hidden" name="mode" value="{{ $currentMode }}" data-cs-env-input>
+                <div class="x-segment" role="tablist" aria-label="Shopee environment">
+                    <button type="button" class="x-segment__item {{ $isSandbox ? '' : 'is-active' }}"
+                            role="tab" aria-selected="{{ $isSandbox ? 'false' : 'true' }}"
+                            data-cs-env-option="live">Production</button>
+                    <button type="button" class="x-segment__item {{ $isSandbox ? 'is-active' : '' }}"
+                            role="tab" aria-selected="{{ $isSandbox ? 'true' : 'false' }}"
+                            data-cs-env-option="sandbox">Sandbox</button>
+                </div>
+            </form>
+        @else
+            <span class="cs-env__label">{{ $isSandbox ? 'Sandbox' : 'Production' }}</span>
+        @endif
+        {{-- bl-hint--end: the bubble opens leftward, this sits at the page's right edge. --}}
+        <x-ui.hint class="cs-env__hint bl-hint--end" label="About the environment">Every sync, push and order fetch uses the credentials of the environment selected here. Production and sandbox keep separate credentials and separate tokens.</x-ui.hint>
+        @if($setting->enabled ?? true)
+            <x-ui.badge tone="success">Active</x-ui.badge>
+        @else
+            <x-ui.badge tone="neutral">Paused</x-ui.badge>
+        @endif
     </div>
 </div>
 
@@ -124,96 +153,61 @@
 
 <div id="sp-tab-connection" class="cs-panel" @if($csSection !== 'connection') hidden @endif>
 
+    {{-- Proof of life (audit, 2026-09-05): when the store last pulled and
+         pushed, from its own timestamps, the way Venta's page opens. A
+         paused store has no run to show. --}}
+    @if(($setting->enabled ?? true) && ($setting->id ?? null))
     <section class="fm-section">
         <div class="fm-section__head">
-            <h2 class="fm-section__title">Environment</h2>
+            <h2 class="fm-section__title">Last run</h2>
         </div>
-
-        <div class="cs-env">
-            @if($canManageShopee)
-                {{-- Wire unchanged: one hidden `mode` field posted to
-                     toggle-mode, exactly as the old knob did. What changed is
-                     that the control now names both environments instead of
-                     being an on/off switch you had to read the label to
-                     decode, and it no longer paints itself green and grey
-                     with inline styles. --}}
-                <form method="POST" action="{{ route('ext.shopee.toggle_mode') }}" data-cs-env-form>
-                    @csrf
-                    <input type="hidden" name="mode" value="{{ $currentMode }}" data-cs-env-input>
-                    <div class="x-segment" role="tablist" aria-label="Shopee environment">
-                        <button type="button" class="x-segment__item {{ $isSandbox ? '' : 'is-active' }}"
-                                role="tab" aria-selected="{{ $isSandbox ? 'false' : 'true' }}"
-                                data-cs-env-option="live">Production</button>
-                        <button type="button" class="x-segment__item {{ $isSandbox ? 'is-active' : '' }}"
-                                role="tab" aria-selected="{{ $isSandbox ? 'true' : 'false' }}"
-                                data-cs-env-option="sandbox">Sandbox</button>
-                    </div>
-                </form>
-            @else
-                <span class="cs-env__label">{{ $isSandbox ? 'Sandbox' : 'Production' }}</span>
-            @endif
-
-            <x-ui.hint class="cs-env__hint" label="About the environment">Every sync, push and order fetch uses the credentials of the environment selected here. Production and sandbox keep separate credentials and separate tokens.</x-ui.hint>
-        </div>
-    </section>
-
-    {{-- ---- THIS STORE ---------------------------------------------- --}}
-    {{-- The store's own name and switch (multi-store), outside both
-         environment panels: they belong to the store, not to a set of
-         credentials. The pre-multistore store ran in sandbox and never saw
-         them inside the production panel (the owner, 2026-09-05). --}}
-    <section class="fm-section">
-        <div class="fm-section__head">
-            <h2 class="fm-section__title">This store</h2>
-            @if($canManageShopee)
-                <div class="fm-section__aside">
-                    {{-- Re-runs the setup: the categories and couriers every
-                         push needs, fetched again behind the progress popup. --}}
-                    <x-ui.button type="button" size="sm" data-setup-open>Set up store</x-ui.button>
-                    {{-- Hard delete, no restore: the sheet asks for the name. --}}
-                    <x-ui.button type="button" size="sm" variant="ghost" class="cs-delete__open" data-delete-open>Delete this store</x-ui.button>
+        <div class="cs-stats">
+            @foreach([
+                'Orders pulled' => $setting->last_order_sync_at ?? null,
+                'Stock pushed' => $setting->last_stock_push_at ?? null,
+                'Returns pulled' => $setting->last_return_sync_at ?? null,
+                'Reviews pulled' => $setting->last_review_sync_at ?? null,
+            ] as $label => $at)
+                <div class="cs-stat">
+                    <span class="cs-stat__k">{{ $label }}</span>
+                    <span class="cs-stat__v">{{ $at ? \Carbon\Carbon::parse($at)->diffForHumans() : 'Never' }}</span>
                 </div>
-            @endif
-        </div>
-        {{-- One Save for the store and its credentials (the owner, 2026-09-05):
-             these fields belong to the credentials form of the environment
-             the store stands in, through the form attribute, so the section
-             carries no button of its own. --}}
-        @php $csStoreForm = $isSandbox ? 'sp-save-sandbox' : 'sp-save-live'; @endphp
-        <div class="fm-fields">
-            <x-ui.field label="Store name" for="sp-store-name" name="store_name" :required="true" wide
-                        hint="How this store is named across the ERP - the sidebar, the fulfilment tabs, the channels board.">
-                <x-ui.input id="sp-store-name" name="store_name" type="text" autocomplete="off" :disabled="!$canManageShopee" :form="$csStoreForm"
-                            value="{{ old('store_name', $setting->store_name ?? '') }}" />
-            </x-ui.field>
-
-            {{-- The system's one switch (.fm-switch), not a checkbox with
-                 a caption: the field's label names the state, the track
-                 shows it. --}}
-            <x-ui.field label="Active" for="sp-enabled" name="enabled" wide
-                        hint="An active store syncs on the crons and shows its tabs. Switch off to pause the store without losing anything.">
-                <input type="hidden" name="enabled" value="0" form="{{ $csStoreForm }}">
-                <label class="fm-switch cs-store-switch">
-                    <input type="checkbox" class="fm-switch__input" id="sp-enabled" name="enabled" value="1" form="{{ $csStoreForm }}" @checked((bool) ($setting->enabled ?? true)) @disabled(!$canManageShopee)>
-                    <span class="fm-switch__track" aria-hidden="true"></span>
-                </label>
-            </x-ui.field>
+            @endforeach
         </div>
     </section>
+    @endif
+
 
     {{-- ---- PRODUCTION ---------------------------------------------- --}}
     <div class="cs-grid" data-cs-env-panel="live" @if($isSandbox) hidden @endif>
 
         <section class="fm-section">
             <div class="fm-section__head">
-                <h2 class="fm-section__title">Production credentials</h2>
+                <h2 class="fm-section__title">This store</h2>
             </div>
 
+            {{-- One form, one Save (audit, 2026-09-05): the store's name and
+                 switch sit with the production keys they are saved with. --}}
             <form method="POST" action="{{ route('ext.shopee.save') }}" id="sp-save-live">
                 @csrf
                 <input type="hidden" name="env" value="live">
 
                 <div class="fm-fields">
+                    <x-ui.field label="Store name" for="sp-store-name" name="store_name" :required="true" wide
+                                hint="How this store is named across the ERP - the sidebar, the fulfilment tabs, the channels board.">
+                        <x-ui.input id="sp-store-name" name="store_name" type="text" autocomplete="off" :disabled="!$canManageShopee"
+                                    value="{{ old('store_name', $setting->store_name ?? '') }}" />
+                    </x-ui.field>
+
+                    <x-ui.field label="Active" for="sp-enabled" name="enabled" wide
+                                hint="An active store syncs on the crons and shows its tabs. Switch off to pause the store without losing anything.">
+                        <input type="hidden" name="enabled" value="0">
+                        <label class="fm-switch cs-store-switch">
+                            <input type="checkbox" class="fm-switch__input" id="sp-enabled" name="enabled" value="1" @checked((bool) ($setting->enabled ?? true)) @disabled(!$canManageShopee)>
+                            <span class="fm-switch__track" aria-hidden="true"></span>
+                        </label>
+                    </x-ui.field>
+
                     <x-ui.field label="Partner ID" for="sp-partner-id" name="partner_id" wide
                                 hint="The numeric app identifier from your Shopee Open Platform app. Not a secret, so it is shown in full.">
                         <x-ui.input id="sp-partner-id" name="partner_id" class="fm-input--num" type="text" autocomplete="off" :disabled="!$canManageShopee"
@@ -268,8 +262,7 @@
 
                 @if($canManageShopee)
                 <div class="cs-actions">
-                    <x-ui.button type="submit" variant="primary">Save production settings</x-ui.button>
-                    <span class="cs-actions__note">Leave a masked field untouched to keep what is already stored.</span>
+                    <x-ui.button type="submit" variant="primary">Save connection</x-ui.button>
                 </div>
                 @endif
             </form>
@@ -277,7 +270,7 @@
 
         <section class="fm-section">
             <div class="fm-section__head">
-                <h2 class="fm-section__title">Production authorisation</h2>
+                <h2 class="fm-section__title">Authorisation</h2>
             </div>
 
             <div class="cs-state">
@@ -300,18 +293,17 @@
                 <div class="cs-step">
                     <span class="cs-step__n">1</span>
                     <div class="cs-step__body">
-                        <span class="cs-step__title">Authorise with Shopee</span>
+                        <span class="cs-step__title">Authorise with Shopee <x-ui.hint label="About this step">Opens Shopee sign-in in a new tab. After you grant access Shopee sends you back here with an auth code, and the code is exchanged for a token automatically.</x-ui.hint></span>
                         <div>
                             <x-ui.button size="sm" :href="route('ext.shopee.authorize', ['store' => $setting->id ?? null])" target="_blank" rel="noopener">Open Shopee authorisation</x-ui.button>
                         </div>
-                        <p class="cs-step__note">Opens Shopee sign-in in a new tab. After you grant access Shopee sends you back here with an auth code, and the code is exchanged for a token automatically.</p>
                     </div>
                 </div>
 
                 <div class="cs-step">
                     <span class="cs-step__n">2</span>
                     <div class="cs-step__body">
-                        <span class="cs-step__title">Exchange an auth code by hand</span>
+                        <span class="cs-step__title">Exchange an auth code by hand <x-ui.hint label="About this step">Only needed when the automatic exchange did not run, for example if you copied the redirect URL out of the address bar.</x-ui.hint></span>
                         <form method="POST" action="{{ route('ext.shopee.token_get') }}" class="cs-exchange">
                             @csrf
                             <x-ui.field label="Auth code" for="sp-code" name="code">
@@ -319,21 +311,38 @@
                             </x-ui.field>
                             <x-ui.button type="submit" size="sm">Exchange</x-ui.button>
                         </form>
-                        <p class="cs-step__note">Only needed when the automatic exchange did not run, for example if you copied the redirect URL out of the address bar.</p>
                     </div>
                 </div>
 
                 <div class="cs-step">
                     <span class="cs-step__n">3</span>
                     <div class="cs-step__body">
-                        <span class="cs-step__title">Refresh an expired token</span>
+                        <span class="cs-step__title">Refresh an expired token <x-ui.hint label="About this step">Shopee access tokens last about four hours. The scheduled job renews them every two hours, so this is here for when that job has not run.</x-ui.hint></span>
                         <form method="POST" action="{{ route('ext.shopee.token_refresh') }}">
                             @csrf
                             <x-ui.button type="submit" size="sm">Refresh access token</x-ui.button>
                         </form>
-                        <p class="cs-step__note">Shopee access tokens last about four hours. The scheduled job renews them every two hours, so this is here for when that job has not run.</p>
                     </div>
                 </div>
+
+                <div class="cs-step">
+                    <span class="cs-step__n">4</span>
+                    <div class="cs-step__body">
+                        <span class="cs-step__title">Set up the store <x-ui.hint label="About this step">Reads the categories and couriers every push needs. It runs on its own after an authorisation; press it again to refresh them.</x-ui.hint></span>
+                        <div>
+                            <x-ui.button type="button" size="sm" data-setup-open>Set up store</x-ui.button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {{-- The one irreversible thing on the page sits last, in its own
+                 block, behind the typed-name sheet (audit, 2026-09-05). --}}
+            <div class="cs-danger">
+                <div>
+                    <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in the ERP goes with it: listings, links, groups, couriers, Shopee orders and returns, and its API log. Sales already imported stay under its name. There is no undo.</x-ui.hint></span>
+                </div>
+                <x-ui.button type="button" variant="danger" size="sm" data-delete-open>Delete this store</x-ui.button>
             </div>
             @else
             <p class="cs-step__note">Authorising and refreshing tokens need the Shopee manage permission.</p>
@@ -346,21 +355,38 @@
 
         <section class="fm-section">
             <div class="fm-section__head">
-                <h2 class="fm-section__title">Sandbox credentials</h2>
+                <h2 class="fm-section__title">This store</h2>
                 <div class="fm-section__aside">
                     @if($__hasSandboxCredentials)
-                        <x-ui.badge tone="success">Configured</x-ui.badge>
+                        <x-ui.badge tone="success">Sandbox configured</x-ui.badge>
                     @else
-                        <x-ui.badge tone="neutral">Not configured</x-ui.badge>
+                        <x-ui.badge tone="neutral">Sandbox not configured</x-ui.badge>
                     @endif
                 </div>
             </div>
 
+            {{-- One form, one Save: the store's name and switch sit with the
+                 sandbox keys they are saved with. --}}
             <form method="POST" action="{{ route('ext.shopee.save') }}" id="sp-save-sandbox">
                 @csrf
                 <input type="hidden" name="env" value="sandbox">
 
                 <div class="fm-fields">
+                    <x-ui.field label="Store name" for="sp-sb-store-name" name="store_name" :required="true" wide
+                                hint="How this store is named across the ERP - the sidebar, the fulfilment tabs, the channels board.">
+                        <x-ui.input id="sp-sb-store-name" name="store_name" type="text" autocomplete="off" :disabled="!$canManageShopee"
+                                    value="{{ old('store_name', $setting->store_name ?? '') }}" />
+                    </x-ui.field>
+
+                    <x-ui.field label="Active" for="sp-sb-enabled" name="enabled" wide
+                                hint="An active store syncs on the crons and shows its tabs. Switch off to pause the store without losing anything.">
+                        <input type="hidden" name="enabled" value="0">
+                        <label class="fm-switch cs-store-switch">
+                            <input type="checkbox" class="fm-switch__input" id="sp-sb-enabled" name="enabled" value="1" @checked((bool) ($setting->enabled ?? true)) @disabled(!$canManageShopee)>
+                            <span class="fm-switch__track" aria-hidden="true"></span>
+                        </label>
+                    </x-ui.field>
+
                     <x-ui.field label="Sandbox Partner ID" for="sp-sb-partner-id" name="sandbox_partner_id" wide>
                         <x-ui.input id="sp-sb-partner-id" name="sandbox_partner_id" class="fm-input--num" type="text" autocomplete="off" :disabled="!$canManageShopee"
                                     value="{{ $setting->sandbox_partner_id ?? '' }}" />
@@ -418,8 +444,7 @@
 
                 @if($canManageShopee)
                 <div class="cs-actions">
-                    <x-ui.button type="submit" variant="primary">Save sandbox settings</x-ui.button>
-                    <span class="cs-actions__note">Leave a masked field untouched to keep what is already stored.</span>
+                    <x-ui.button type="submit" variant="primary">Save connection</x-ui.button>
                 </div>
                 @endif
             </form>
@@ -427,7 +452,7 @@
 
         <section class="fm-section">
             <div class="fm-section__head">
-                <h2 class="fm-section__title">Sandbox authorisation</h2>
+                <h2 class="fm-section__title">Authorisation</h2>
             </div>
 
             <div class="cs-state">
@@ -449,11 +474,10 @@
                 <div class="cs-step">
                     <span class="cs-step__n">1</span>
                     <div class="cs-step__body">
-                        <span class="cs-step__title">Authorise with Shopee sandbox</span>
+                        <span class="cs-step__title">Authorise with Shopee sandbox <x-ui.hint label="About this step">Opens the Shopee test environment in a new tab, using the sandbox credentials beside this.</x-ui.hint></span>
                         <div>
                             <x-ui.button size="sm" :href="route('ext.shopee.authorize', ['store' => $setting->id ?? null])" target="_blank" rel="noopener">Open sandbox authorisation</x-ui.button>
                         </div>
-                        <p class="cs-step__note">Opens the Shopee test environment in a new tab, using the sandbox credentials above.</p>
                     </div>
                 </div>
 
@@ -481,6 +505,23 @@
                         </form>
                     </div>
                 </div>
+
+                <div class="cs-step">
+                    <span class="cs-step__n">4</span>
+                    <div class="cs-step__body">
+                        <span class="cs-step__title">Set up the store <x-ui.hint label="About this step">Reads the categories and couriers every push needs. It runs on its own after an authorisation; press it again to refresh them.</x-ui.hint></span>
+                        <div>
+                            <x-ui.button type="button" size="sm" data-setup-open>Set up store</x-ui.button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="cs-danger">
+                <div>
+                    <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in the ERP goes with it: listings, links, groups, couriers, Shopee orders and returns, and its API log. Sales already imported stay under its name. There is no undo.</x-ui.hint></span>
+                </div>
+                <x-ui.button type="button" variant="danger" size="sm" data-delete-open>Delete this store</x-ui.button>
             </div>
             @else
             <p class="cs-step__note">Authorising and refreshing tokens need the Shopee manage permission.</p>

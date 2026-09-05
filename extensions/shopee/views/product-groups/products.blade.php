@@ -612,7 +612,7 @@
         id="shopee-group-add-panel"
         :search-url="route('ext.shopee.product-groups.productSearch', $group->id)"
         :add-url="route('ext.shopee.product-groups.addProduct', ['id' => $group->id, 'productId' => '__PID__'])"
-        :sub="'Search this store\'s products. Each one you add joins ' . $group->name . ' and takes its category, couriers and markup on the next push.'"
+        :sub="'Search this store\'s products. Each one you add joins ' . $group->name . ' and takes its category, couriers and markup on the next push. A product belongs to one group: adding one that sits in another group moves it here.'"
         search-label="Search this store's products"
         toggle-label="Show products already in this group"
         in-label="In this group"

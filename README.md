@@ -196,6 +196,10 @@ Extensions register themselves via the `IntegrationRegistry` and contribute to c
 
 This same architecture supports **third-party developers** building their own integrations, and powers the Plus-tier paid modules.
 
+### Product groups: one product, one group
+
+On every channel a product belongs to at most one product group per store. A group is a preset of settings (category, couriers, markup) that rides a group push, so a product in two groups would be priced by whichever group pushed last, could flip category between pushes (which the marketplace refuses or answers by resetting attributes), would be counted twice in every group verdict, and would need a chain of pushes to explain its price. Adding a product that already sits in another group moves it. Seasonal pricing is a dated price rule on the group, not a second membership.
+
 ---
 
 ## Updates

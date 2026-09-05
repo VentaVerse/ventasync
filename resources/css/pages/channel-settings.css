@@ -1257,3 +1257,21 @@
    ink and nothing else: a quiet word, not a red button, on a page whose
    everyday job is saving keys. */
 .cs-delete__open { color: var(--bl-bad); }
+
+/* ── The head's state cluster (audit, 2026-09-05) ─────────────────────
+   The environment control and the Active pill sit in the page head,
+   beside the title, because every card below answers to them. One row
+   at desktop; wraps under the title on a phone. */
+.cs-head-state {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--bl-space-2) var(--bl-space-3);
+}
+
+.cs-head-state__env { margin: 0; }
+
+/* A step's explanation is a tooltip on its title, not a paragraph under
+   its control (the rule of 2026-09-05). */
+.cs-step__title .bl-hint,
+.cs-danger__title .bl-hint { margin-left: 4px; vertical-align: middle; }
