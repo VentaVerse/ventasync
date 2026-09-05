@@ -108,7 +108,17 @@ final class MarketplaceAnswer
             return null;
         }
 
-        $message = self::firstOf($body, ['message', 'error_msg', 'detail']);
+        // The detail[] list is the message that matters (a broad "E500:
+        // Create product failed" beside "p-100005514: C004: cannot be
+        // blank"); it leads when present.
+        $details = [];
+        foreach ((array) ($body['detail'] ?? []) as $d) {
+            if (is_array($d) && trim((string) ($d['message'] ?? '')) !== '') {
+                $field = trim((string) ($d['field'] ?? ''));
+                $details[] = ($field !== '' ? $field . ': ' : '') . trim((string) $d['message']);
+            }
+        }
+        $message = $details !== [] ? implode('; ', $details) : self::firstOf($body, ['message', 'error_msg']);
         if ($code === '0' || $code === '') {
             return $message;
         }

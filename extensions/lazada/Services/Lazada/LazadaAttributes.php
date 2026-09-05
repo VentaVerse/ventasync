@@ -233,6 +233,33 @@ class LazadaAttributes
         return [];
     }
 
+    /**
+     * A resolver from Lazada's validation field ids to attribute names, for
+     * the words after a refused create: Lazada names the field "p-100005514"
+     * (a product-level attribute id) or "s-…" (SKU level); the template
+     * knows that id as an attribute with a name. Unknown ids answer null.
+     *
+     * @return callable(string): ?string
+     */
+    public function fieldLabeller($templateBody): callable
+    {
+        $byId = [];
+        foreach ($this->extractAttributes($templateBody, false, true) as $attr) {
+            $raw = $attr['raw'] ?? [];
+            $id = $raw['id'] ?? $raw['attribute_id'] ?? null;
+            $name = (string) ($raw['label'] ?? $attr['name'] ?? $attr['key'] ?? '');
+            if (is_scalar($id) && $name !== '') {
+                $byId[(string) $id] = $name;
+            }
+        }
+
+        return function (string $field) use ($byId): ?string {
+            $id = preg_replace('/^[ps]-/i', '', trim($field));
+
+            return $byId[$id] ?? $byId[trim($field)] ?? null;
+        };
+    }
+
     public function normalizeAttributes(array $raw, bool $questionsOnly = true, bool $withRaw = false): array
     {
         $out = [];

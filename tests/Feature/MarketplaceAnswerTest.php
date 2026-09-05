@@ -41,6 +41,18 @@ class MarketplaceAnswerTest extends TestCase
         ]));
     }
 
+    /** the owner, 2026-09-06: the detail is the message that matters; the broad one is a headline. */
+    public function test_lazada_leads_with_the_detail_when_a_create_fails_validation(): void
+    {
+        $this->assertSame(
+            'p-100005514: C004: cannot be blank. Kindly input the information before re-uploading. (4108)',
+            MarketplaceAnswer::error('Lazada', ['ok' => true, 'body' => [
+                'code' => '4108', 'type' => 'ISP', 'message' => 'E500: Create product failed',
+                'detail' => [['field' => 'p-100005514', 'message' => 'C004: cannot be blank. Kindly input the information before re-uploading.', 'code' => 'CHK_BASIC_REQUIRED']],
+            ]])
+        );
+    }
+
     public function test_tiktok_reads_the_per_sku_refusal_inside_an_accepted_call(): void
     {
         $this->assertSame('inventory update partially failed — sku 123 not found', MarketplaceAnswer::error('TikTok Shop', [

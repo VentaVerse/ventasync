@@ -609,34 +609,64 @@ class LazadaPushPayload
             . '</Request>';
     }
 
-public function extractLazadaError(array $result): array
+/**
+ * Lazada's verdict on a call, in words an operator can act on.
+ *
+ * Lazada answers HTTP 200 with the refusal in the body: a code (4108,
+ * E501...), a broad message ("E500: Create product failed") and, when the
+ * product failed validation, a detail[] list naming each field
+ * ("p-100005514": "C004: cannot be blank"). The detail is the message
+ * that matters (the owner, 2026-09-06), so it leads; the broad message stays
+ * as the headline only when there is no detail. $fieldLabel turns a
+ * field id into its attribute's name when the caller knows the category
+ * template.
+ *
+ * @param  null|callable(string): ?string  $fieldLabel
+ * @return array{ok: bool, code: ?string, message: ?string, details: list<string>}
+ */
+public function extractLazadaError(array $result, ?callable $fieldLabel = null): array
 {
     $body = $result['body'] ?? null;
     $code = null;
     $message = null;
+    $details = [];
 
     if (is_array($body)) {
-        // Common Lazada error format: {"type":"ISV","code":"...","message":"..."}
         $code = $body['code'] ?? ($body['error_code'] ?? null);
         $message = $body['message'] ?? ($body['error_message'] ?? null);
+        foreach ((array) ($body['detail'] ?? []) as $d) {
+            if (! is_array($d)) {
+                continue;
+            }
+            $text = trim((string) ($d['message'] ?? ''));
+            if ($text === '') {
+                continue;
+            }
+            $field = trim((string) ($d['field'] ?? ''));
+            $label = $field !== '' ? ($fieldLabel ? $fieldLabel($field) : null) : null;
+            $where = $label ?: $field;
+            $details[] = $where !== '' ? $where . ': ' . $text : $text;
+        }
     }
 
     if ($code === null && is_string($body)) {
         $message = trim($body);
     }
 
-    $codeStr = $code !== null ? trim((string)$code) : null;
-    $msgStr = $message !== null ? trim((string)$message) : null;
+    $codeStr = $code !== null ? trim((string) $code) : null;
+    $msgStr = $message !== null ? trim((string) $message) : null;
 
-    // Determine success. Lazada often returns code "0" for success.
-    $okHttp = (bool)($result['ok'] ?? false);
+    $okHttp = (bool) ($result['ok'] ?? false);
     $okCode = ($codeStr === null) || ($codeStr === '0');
     $ok = $okHttp && $okCode;
+
+    $said = $details !== [] ? implode('; ', $details) : ($msgStr ?: 'Unknown error');
 
     return [
         'ok' => $ok,
         'code' => $ok ? null : ($codeStr ?: 'UNKNOWN'),
-        'message' => $ok ? null : ($msgStr ?: 'Unknown error'),
+        'message' => $ok ? null : $said,
+        'details' => $details,
     ];
 }
 
@@ -676,30 +706,25 @@ public function extractCreatedItemId(array $result): ?string
 }
 
     /**
-     * Provide a short status line for the UI.
+     * The one line the operator reads after a Lazada write. Success or
+     * refusal by Lazada's own verdict, never the HTTP status ("HTTP 200 •
+     * OK • 4108 - E500" read as a success to everyone who saw it). A
+     * refusal leads with the detail Lazada gave, then its code.
+     *
+     * @param  null|callable(string): ?string  $fieldLabel  see extractLazadaError()
      */
-    public function formatLazadaResultMessage(string $actionLabel, array $result): string
+    public function formatLazadaResultMessage(string $actionLabel, array $result, ?callable $fieldLabel = null): string
     {
-        $body = $result['body'] ?? null;
-        $code = '';
-        $msg = '';
-
-        if (is_array($body)) {
-            $code = (string)($body['code'] ?? $body['Code'] ?? $body['error_code'] ?? '');
-            $msg = (string)($body['message'] ?? $body['Message'] ?? $body['error_message'] ?? '');
-        } elseif (is_string($body)) {
-            $msg = $body;
+        $e = $this->extractLazadaError($result, $fieldLabel);
+        if ($e['ok']) {
+            return $actionLabel . ' accepted by Lazada.';
+        }
+        $status = (int) ($result['status'] ?? 0);
+        if ($status === 0) {
+            return $actionLabel . ' did not reach Lazada: ' . ($e['message'] ?: 'no answer.');
         }
 
-        $status = (int)($result['status'] ?? 0);
-        $ok = (bool)($result['ok'] ?? false);
-
-        $suffix = trim(($code !== '' ? $code . ' - ' : '') . $msg);
-        if ($suffix === '') {
-            $suffix = 'No response body.';
-        }
-
-        return $actionLabel . ' request sent. HTTP ' . $status . ' • ' . ($ok ? 'OK' : 'ERROR') . ' • ' . $suffix;
+        return $actionLabel . ' refused by Lazada: ' . $e['message'] . ($e['code'] && $e['code'] !== 'UNKNOWN' ? ' (code ' . $e['code'] . ')' : '');
     }
 
     /**

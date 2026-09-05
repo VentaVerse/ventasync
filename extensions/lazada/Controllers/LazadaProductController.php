@@ -1322,8 +1322,22 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'user_id' => auth()->id(),
         ]);
 
-        return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-            ->with('status', $this->payload()->formatLazadaResultMessage('Upload', $result));
+        // Lazada's verdict in words (the owner, 2026-09-06): the detail it gave,
+        // with the field named by the category template when it can be, as
+        // an error, and kept on the record as this product's latest failure.
+        $template = LazadaCategoryTemplate::query()
+            ->where('region', (string) $setting->region)
+            ->where('primary_category_id', (int) $listing->primary_category_id)
+            ->first();
+        $labeller = $template && $template->template_body ? $this->attrs()->fieldLabeller($template->template_body) : null;
+        $line = $this->payload()->formatLazadaResultMessage('Upload', $result, $labeller);
+        if (! ($e['ok'] ?? false)) {
+            LazadaProduct::recordPushFailure((int) $listing->product_id, $line);
+
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('error', $line);
+        }
+
+        return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('status', $line);
     }
 
     /**
