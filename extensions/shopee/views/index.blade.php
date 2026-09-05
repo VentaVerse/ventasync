@@ -179,7 +179,17 @@
 
 
     {{-- ---- PRODUCTION ---------------------------------------------- --}}
-    <div class="cs-grid" data-cs-env-panel="live" @if($isSandbox) hidden @endif>
+    <div class="cs-env-panel" data-cs-env-panel="live" @if($isSandbox) hidden @endif>
+    @include('ext-shopee::settings.connect-flow', [
+        'envWord' => 'production',
+        'keysOk' => ($setting->partner_id ?? '') !== '' && ($setting->partner_key ?? '') !== '',
+        'hasToken' => $__hasToken,
+        'tokenExpired' => $__tokenExpired,
+        'expiresAt' => $setting->expires_at ?? null,
+        'authLabel' => 'Open Shopee authorisation',
+        'canManage' => $canManageShopee,
+    ])
+    <div class="cs-grid">
 
         <section class="fm-section">
             <div class="fm-section__head">
@@ -206,6 +216,20 @@
                             <input type="checkbox" class="fm-switch__input" id="sp-enabled" name="enabled" value="1" @checked((bool) ($setting->enabled ?? true)) @disabled(!$canManageShopee)>
                             <span class="fm-switch__track" aria-hidden="true"></span>
                         </label>
+                    </x-ui.field>
+
+                    {{-- Region sits with the store, above the keys (the owner, 2026-09-05), as on Lazada. --}}
+                    <x-ui.field label="Region" for="sp-region" name="region" wide
+                                hint="Which Shopee country site this shop trades on.">
+                        <div class="x-select-wrap">
+                            <select id="sp-region" name="region" class="x-input" @disabled(!$canManageShopee)>
+                                <option value="">Not set</option>
+                                @foreach($regions as $code => $name)
+                                    <option value="{{ $code }}" @selected(strtolower((string) ($setting->region ?? '')) === $code)>{{ $name }} ({{ strtoupper($code) }})</option>
+                                @endforeach
+                            </select>
+                            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                        </div>
                     </x-ui.field>
 
                     <x-ui.field label="Partner ID" for="sp-partner-id" name="partner_id" wide
@@ -247,17 +271,6 @@
                         <x-ui.input id="sp-redirect" type="text" readonly value="{{ $defaultRedirect }}" data-select-on-click />
                     </x-ui.field>
 
-                    <x-ui.field label="Region" for="sp-region" name="region" wide>
-                        <div class="x-select-wrap">
-                            <select id="sp-region" name="region" class="x-input" @disabled(!$canManageShopee)>
-                                <option value="">Not set</option>
-                                @foreach($regions as $code => $name)
-                                    <option value="{{ $code }}" @selected(strtolower((string) ($setting->region ?? '')) === $code)>{{ $name }} ({{ strtoupper($code) }})</option>
-                                @endforeach
-                            </select>
-                            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-                        </div>
-                    </x-ui.field>
                 </div>
 
                 @if($canManageShopee)
@@ -270,7 +283,7 @@
 
         <section class="fm-section">
             <div class="fm-section__head">
-                <h2 class="fm-section__title">Authorisation</h2>
+                <h2 class="fm-section__title">By hand</h2>
             </div>
 
             <div class="cs-state">
@@ -291,17 +304,6 @@
             @if($canManageShopee)
             <div class="cs-steps">
                 <div class="cs-step">
-                    <span class="cs-step__n">1</span>
-                    <div class="cs-step__body">
-                        <span class="cs-step__title">Authorise with Shopee <x-ui.hint label="About this step">Opens Shopee sign-in in a new tab. After you grant access Shopee sends you back here with an auth code, and the code is exchanged for a token automatically.</x-ui.hint></span>
-                        <div>
-                            <x-ui.button size="sm" :href="route('ext.shopee.authorize', ['store' => $setting->id ?? null])" target="_blank" rel="noopener">Open Shopee authorisation</x-ui.button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="cs-step">
-                    <span class="cs-step__n">2</span>
                     <div class="cs-step__body">
                         <span class="cs-step__title">Exchange an auth code by hand <x-ui.hint label="About this step">Only needed when the automatic exchange did not run, for example if you copied the redirect URL out of the address bar.</x-ui.hint></span>
                         <form method="POST" action="{{ route('ext.shopee.token_get') }}" class="cs-exchange">
@@ -315,23 +317,12 @@
                 </div>
 
                 <div class="cs-step">
-                    <span class="cs-step__n">3</span>
                     <div class="cs-step__body">
                         <span class="cs-step__title">Refresh an expired token <x-ui.hint label="About this step">Shopee access tokens last about four hours. The scheduled job renews them every two hours, so this is here for when that job has not run.</x-ui.hint></span>
                         <form method="POST" action="{{ route('ext.shopee.token_refresh') }}">
                             @csrf
                             <x-ui.button type="submit" size="sm">Refresh access token</x-ui.button>
                         </form>
-                    </div>
-                </div>
-
-                <div class="cs-step">
-                    <span class="cs-step__n">4</span>
-                    <div class="cs-step__body">
-                        <span class="cs-step__title">Set up the store <x-ui.hint label="About this step">Reads the categories and couriers every push needs. It runs on its own after an authorisation; press it again to refresh them.</x-ui.hint></span>
-                        <div>
-                            <x-ui.button type="button" size="sm" data-setup-open>Set up store</x-ui.button>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -349,9 +340,20 @@
             @endif
         </section>
     </div>
+    </div>
 
     {{-- ---- SANDBOX ------------------------------------------------- --}}
-    <div class="cs-grid" data-cs-env-panel="sandbox" @unless($isSandbox) hidden @endunless>
+    <div class="cs-env-panel" data-cs-env-panel="sandbox" @unless($isSandbox) hidden @endunless>
+    @include('ext-shopee::settings.connect-flow', [
+        'envWord' => 'sandbox',
+        'keysOk' => $__hasSandboxCredentials,
+        'hasToken' => $__hasSandboxToken,
+        'tokenExpired' => $__sandboxTokenExpired,
+        'expiresAt' => $setting->sandbox_expires_at ?? null,
+        'authLabel' => 'Open sandbox authorisation',
+        'canManage' => $canManageShopee,
+    ])
+    <div class="cs-grid">
 
         <section class="fm-section">
             <div class="fm-section__head">
@@ -385,6 +387,20 @@
                             <input type="checkbox" class="fm-switch__input" id="sp-sb-enabled" name="enabled" value="1" @checked((bool) ($setting->enabled ?? true)) @disabled(!$canManageShopee)>
                             <span class="fm-switch__track" aria-hidden="true"></span>
                         </label>
+                    </x-ui.field>
+
+                    {{-- Region sits with the store, above the keys (the owner, 2026-09-05), as on Lazada. --}}
+                    <x-ui.field label="Region" for="sp-sb-region" name="sandbox_region" wide
+                                hint="Which Shopee country site this sandbox shop trades on.">
+                        <div class="x-select-wrap">
+                            <select id="sp-sb-region" name="sandbox_region" class="x-input" @disabled(!$canManageShopee)>
+                                <option value="">Not set</option>
+                                @foreach($regions as $code => $name)
+                                    <option value="{{ $code }}" @selected(strtolower((string) ($setting->sandbox_region ?? '')) === $code)>{{ $name }} ({{ strtoupper($code) }})</option>
+                                @endforeach
+                            </select>
+                            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                        </div>
                     </x-ui.field>
 
                     <x-ui.field label="Sandbox Partner ID" for="sp-sb-partner-id" name="sandbox_partner_id" wide>
@@ -429,17 +445,6 @@
                         <x-ui.input id="sp-sb-redirect" type="text" readonly value="{{ $defaultRedirect }}" data-select-on-click />
                     </x-ui.field>
 
-                    <x-ui.field label="Region" for="sp-sb-region" name="sandbox_region" wide>
-                        <div class="x-select-wrap">
-                            <select id="sp-sb-region" name="sandbox_region" class="x-input" @disabled(!$canManageShopee)>
-                                <option value="">Not set</option>
-                                @foreach($regions as $code => $name)
-                                    <option value="{{ $code }}" @selected(strtolower((string) ($setting->sandbox_region ?? '')) === $code)>{{ $name }} ({{ strtoupper($code) }})</option>
-                                @endforeach
-                            </select>
-                            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-                        </div>
-                    </x-ui.field>
                 </div>
 
                 @if($canManageShopee)
@@ -452,7 +457,7 @@
 
         <section class="fm-section">
             <div class="fm-section__head">
-                <h2 class="fm-section__title">Authorisation</h2>
+                <h2 class="fm-section__title">By hand</h2>
             </div>
 
             <div class="cs-state">
@@ -472,17 +477,6 @@
             @if($canManageShopee)
             <div class="cs-steps">
                 <div class="cs-step">
-                    <span class="cs-step__n">1</span>
-                    <div class="cs-step__body">
-                        <span class="cs-step__title">Authorise with Shopee sandbox <x-ui.hint label="About this step">Opens the Shopee test environment in a new tab, using the sandbox credentials beside this.</x-ui.hint></span>
-                        <div>
-                            <x-ui.button size="sm" :href="route('ext.shopee.authorize', ['store' => $setting->id ?? null])" target="_blank" rel="noopener">Open sandbox authorisation</x-ui.button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="cs-step">
-                    <span class="cs-step__n">2</span>
                     <div class="cs-step__body">
                         <span class="cs-step__title">Exchange an auth code by hand</span>
                         <form method="POST" action="{{ route('ext.shopee.token_get') }}" class="cs-exchange">
@@ -496,23 +490,12 @@
                 </div>
 
                 <div class="cs-step">
-                    <span class="cs-step__n">3</span>
                     <div class="cs-step__body">
                         <span class="cs-step__title">Refresh an expired token</span>
                         <form method="POST" action="{{ route('ext.shopee.token_refresh') }}">
                             @csrf
                             <x-ui.button type="submit" size="sm">Refresh sandbox token</x-ui.button>
                         </form>
-                    </div>
-                </div>
-
-                <div class="cs-step">
-                    <span class="cs-step__n">4</span>
-                    <div class="cs-step__body">
-                        <span class="cs-step__title">Set up the store <x-ui.hint label="About this step">Reads the categories and couriers every push needs. It runs on its own after an authorisation; press it again to refresh them.</x-ui.hint></span>
-                        <div>
-                            <x-ui.button type="button" size="sm" data-setup-open>Set up store</x-ui.button>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -527,6 +510,7 @@
             <p class="cs-step__note">Authorising and refreshing tokens need the Shopee manage permission.</p>
             @endif
         </section>
+    </div>
     </div>
 
     {{-- The Couriers section that stood here (Fetch couriers) is gone

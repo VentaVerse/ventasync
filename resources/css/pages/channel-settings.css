@@ -197,6 +197,9 @@
     flex-wrap: wrap;
     align-items: center;
     gap: var(--bl-space-3);
+    /* Air above the Save row, so it reads as the form's foot and not as
+       the last field's neighbour (the owner, 2026-09-05). */
+    margin-top: var(--bl-space-5);
 }
 
 .cs-actions__note { font-size: 12px; color: var(--bl-ink-3); }
@@ -1275,3 +1278,33 @@
    its control (the rule of 2026-09-05). */
 .cs-step__title .bl-hint,
 .cs-danger__title .bl-hint { margin-left: 4px; vertical-align: middle; }
+
+/* ── Connecting this store (draft C, the owner 2026-09-05) ─────────────────
+   The three steps in a strip above the keys and the by-hand tools: the
+   number, the title, the button where one exists, the state in one
+   line. Three across on a desk; one under another on a phone. A done
+   step's state reads in the good ink, a lapsed token in the bad. */
+.cs-flow {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--bl-space-4);
+}
+
+.cs-flow__step { display: flex; gap: var(--bl-space-3); min-width: 0; }
+
+.cs-flow__body { display: flex; flex-direction: column; gap: var(--bl-space-2); min-width: 0; }
+
+.cs-flow__state { font-size: 12px; color: var(--bl-ink-3); }
+
+.cs-flow__step[data-state="done"] .cs-flow__state { color: var(--bl-good); }
+.cs-flow__step[data-state="failed"] .cs-flow__state { color: var(--bl-bad); }
+
+@media (max-width: 900px) {
+    .cs-flow { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* The by-hand tools carry no numbers: they are alternatives, not a sequence. */
+.cs-env-panel { display: flex; flex-direction: column; gap: var(--bl-space-6); }
