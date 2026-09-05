@@ -144,14 +144,12 @@ class SettingsTabReturnTest extends TestCase
         $this->assertStringContainsString('Store name', $html);
         $this->assertStringContainsString('cs-store-switch', $html, 'the Active switch is the system switch');
 
-        // Its own form and action: not the credential save, which also
-        // rewrites the mode and the region.
-        $this->actingAs($user)->post($base . '/store', ['store_name' => 'Gearshipper PH', 'enabled' => 0])
-            ->assertRedirect(route('ext.lazada.index', ['store' => $store->id, 'tab' => 'connection']));
+        // One Save for the store and its credentials (the owner, 2026-09-05): the
+        // store fields ride the environment's credential form.
+        $this->actingAs($user)->post($base . '/save', ['env' => 'live', 'region' => 'ph', 'store_name' => 'Gearshipper PH', 'enabled' => 0])->assertRedirect();
         $store->refresh();
         $this->assertSame('Gearshipper PH', $store->store_name);
         $this->assertFalse((bool) $store->enabled);
-        $this->assertSame('live', $store->mode, 'the store save leaves the environment alone');
     }
 
     public function test_tiktok_actions_land_on_their_tabs_and_the_store_has_a_name_and_a_switch(): void
@@ -174,12 +172,10 @@ class SettingsTabReturnTest extends TestCase
         $this->assertStringContainsString('Store name', $html);
         $this->assertStringContainsString('cs-store-switch', $html, 'the Active switch is the system switch');
 
-        $this->actingAs($user)->post($base . '/store', ['store_name' => 'TikTok PH', 'enabled' => 0])
-            ->assertRedirect(route('ext.tiktok.index', ['store' => $store->id, 'tab' => 'connection']));
+        $this->actingAs($user)->post($base . '/save', ['env' => 'live', 'store_name' => 'TikTok PH', 'enabled' => 0])->assertRedirect();
         $store->refresh();
         $this->assertSame('TikTok PH', $store->store_name);
         $this->assertFalse((bool) $store->enabled);
-        $this->assertSame('production', $store->mode, 'the store save leaves the environment alone');
     }
 
     /** The bug the owner hit: the pre-multistore Shopee store runs in sandbox, and the controls lived inside the production panel. */
@@ -194,11 +190,15 @@ class SettingsTabReturnTest extends TestCase
         $liveAt = strpos($html, 'data-cs-env-panel="live"');
         $this->assertNotFalse($storeAt);
         $this->assertLessThan($liveAt, $storeAt, 'the store section sits above both environment panels, never inside the hidden one');
+        // And they submit with the sandbox credentials form, the one whose
+        // Save button is on screen: one button for the store and its keys.
+        $this->assertStringContainsString('id="sp-store-name" name="store_name"', $html);
+        $this->assertMatchesRegularExpression('/id="sp-store-name"[^>]*form="sp-save-sandbox"/', $html);
+        $this->assertStringContainsString('id="sp-save-sandbox"', $html);
 
-        $this->actingAs($user)->post('/channels/shopee/' . $store->id . '/store', ['store_name' => 'Main store PH', 'enabled' => 1])
-            ->assertRedirect(route('ext.shopee.settings.show', ['store' => $store->id, 'tab' => 'connection']));
+        $this->actingAs($user)->post('/channels/shopee/' . $store->id . '/save', ['env' => 'sandbox', 'store_name' => 'Main store PH', 'enabled' => 1])->assertRedirect();
         $this->assertSame('Main store PH', $store->fresh()->store_name);
-        $this->assertSame('sandbox', $store->fresh()->mode, 'still in sandbox: the store save is not the credential save');
+        $this->assertSame('sandbox', $store->fresh()->mode, 'still in sandbox');
     }
 
     // ── The tooltip rule ─────────────────────────────────────────────

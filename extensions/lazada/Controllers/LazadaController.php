@@ -930,29 +930,6 @@ class LazadaController extends Controller
         return $result;
     }
 
-    /**
-     * The store's own name and switch (multi-store), on their own form: not
-     * credentials of either environment, so they sit under Environment on
-     * the settings page, visible whichever environment the store stands in
-     * (the owner, 2026-09-05). Deliberately not save(): that one also rewrites
-     * the mode and the region.
-     */
-    public function saveStore(Request $request)
-    {
-        $data = $request->validate([
-            'store_name' => 'required|string|max:128',
-            'enabled' => 'required|boolean',
-        ]);
-        $setting = LazadaSetting::defaultStore();
-        if (!$setting) {
-            return $this->toSettingsTab('connection')->with('error', 'Lazada settings not found.');
-        }
-        $setting->update(['store_name' => $data['store_name'], 'enabled' => (bool) $data['enabled']]);
-
-        return $this->toSettingsTab('connection')
-            ->with('status', $data['store_name'] . ' is ' . ((bool) $data['enabled'] ? 'active.' : 'paused. Nothing syncs until it is switched back on.'));
-    }
-
     public function save(Request $request)
     {
         $data = $request->validate([

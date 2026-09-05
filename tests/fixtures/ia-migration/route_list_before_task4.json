@@ -1021,11 +1021,6 @@
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/{store}/store",
-        "name": "ext.lazada.save_store"
-    },
-    {
-        "method": "POST",
         "uri": "channels/lazada/{store}/toggle-mode",
         "name": "ext.lazada.toggle_mode"
     },
@@ -1941,11 +1936,6 @@
     },
     {
         "method": "POST",
-        "uri": "channels/shopee/{store}/store",
-        "name": "ext.shopee.save_store"
-    },
-    {
-        "method": "POST",
         "uri": "channels/shopee/{store}/toggle-mode",
         "name": "ext.shopee.toggle_mode"
     },
@@ -2448,11 +2438,6 @@
         "method": "POST",
         "uri": "channels/tiktok/{store}/shops",
         "name": "ext.tiktok.shops"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/tiktok/{store}/store",
-        "name": "ext.tiktok.save_store"
     },
     {
         "method": "POST",

@@ -168,33 +168,30 @@
         <div class="fm-section__head">
             <h2 class="fm-section__title">This store</h2>
         </div>
-        <form method="POST" action="{{ route('ext.tiktok.save_store') }}">
-            @csrf
-            <div class="fm-fields">
-                <x-ui.field label="Store name" for="tt-store-name" name="store_name" :required="true" wide
-                            hint="How this store is named across the ERP - the sidebar, the fulfilment tabs, the channels board.">
-                    <x-ui.input id="tt-store-name" name="store_name" type="text" autocomplete="off" :disabled="!$canManageTiktok"
-                                value="{{ old('store_name', $setting->store_name ?? '') }}" />
-                </x-ui.field>
+        {{-- One Save for the store and its credentials (the owner, 2026-09-05):
+             these fields belong to the credentials form of the environment
+             the store stands in, through the form attribute, so the section
+             carries no button of its own. --}}
+        @php $csStoreForm = $isSandbox ? 'tt-save-sandbox' : 'tt-save-live'; @endphp
+        <div class="fm-fields">
+            <x-ui.field label="Store name" for="tt-store-name" name="store_name" :required="true" wide
+                        hint="How this store is named across the ERP - the sidebar, the fulfilment tabs, the channels board.">
+                <x-ui.input id="tt-store-name" name="store_name" type="text" autocomplete="off" :disabled="!$canManageTiktok" :form="$csStoreForm"
+                            value="{{ old('store_name', $setting->store_name ?? '') }}" />
+            </x-ui.field>
 
-                {{-- The system's one switch (.fm-switch), not a checkbox with
-                     a caption: the field's label names the state, the track
-                     shows it. --}}
-                <x-ui.field label="Active" for="tt-enabled" name="enabled" wide
-                            hint="An active store syncs on the crons and shows its tabs. Switch off to pause the store without losing anything.">
-                    <input type="hidden" name="enabled" value="0">
-                    <label class="fm-switch cs-store-switch">
-                        <input type="checkbox" class="fm-switch__input" id="tt-enabled" name="enabled" value="1" @checked((bool) ($setting->enabled ?? true)) @disabled(!$canManageTiktok)>
-                        <span class="fm-switch__track" aria-hidden="true"></span>
-                    </label>
-                </x-ui.field>
-            </div>
-            @if($canManageTiktok)
-                <div class="cs-actions">
-                    <x-ui.button type="submit" variant="primary">Save store</x-ui.button>
-                </div>
-            @endif
-        </form>
+            {{-- The system's one switch (.fm-switch), not a checkbox with
+                 a caption: the field's label names the state, the track
+                 shows it. --}}
+            <x-ui.field label="Active" for="tt-enabled" name="enabled" wide
+                        hint="An active store syncs on the crons and shows its tabs. Switch off to pause the store without losing anything.">
+                <input type="hidden" name="enabled" value="0" form="{{ $csStoreForm }}">
+                <label class="fm-switch cs-store-switch">
+                    <input type="checkbox" class="fm-switch__input" id="tt-enabled" name="enabled" value="1" form="{{ $csStoreForm }}" @checked((bool) ($setting->enabled ?? true)) @disabled(!$canManageTiktok)>
+                    <span class="fm-switch__track" aria-hidden="true"></span>
+                </label>
+            </x-ui.field>
+        </div>
     </section>
 
     {{-- ---- PRODUCTION ---------------------------------------------- --}}
@@ -212,7 +209,7 @@
                 </div>
             </div>
 
-            <form method="POST" action="{{ route('ext.tiktok.save') }}">
+            <form method="POST" action="{{ route('ext.tiktok.save') }}" id="tt-save-live">
                 @csrf
                 <input type="hidden" name="env" value="live">
 
@@ -355,7 +352,7 @@
                 </div>
             </div>
 
-            <form method="POST" action="{{ route('ext.tiktok.save') }}">
+            <form method="POST" action="{{ route('ext.tiktok.save') }}" id="tt-save-sandbox">
                 @csrf
                 <input type="hidden" name="env" value="sandbox">
 
