@@ -102,6 +102,7 @@
 @import './pages/shopify-orders.css' layer(vocabulary);
 @import './pages/print-lists.css' layer(vocabulary);
 @import './pages/opencart-orders.css' layer(vocabulary);
+@import './pages/woocommerce-orders.css' layer(vocabulary);
 @import './pages/pedallion-orders.css' layer(vocabulary);
 @import './pages/marketplace-common.css' layer(vocabulary);
 @import './pages/licenses.css' layer(vocabulary);

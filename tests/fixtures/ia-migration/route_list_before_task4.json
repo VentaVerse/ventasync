@@ -2871,6 +2871,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/woocommerce/{store}/orders/bulk-status",
+        "name": "ext.woocommerce.orders.bulk_status"
+    },
+    {
+        "method": "POST",
         "uri": "channels/woocommerce/{store}/orders/fetch",
         "name": "ext.woocommerce.orders.fetch"
     },
@@ -2881,8 +2886,8 @@
     },
     {
         "method": "POST",
-        "uri": "channels/woocommerce/{store}/orders/{order}/complete",
-        "name": "ext.woocommerce.orders.complete"
+        "uri": "channels/woocommerce/{store}/orders/{order}/status",
+        "name": "ext.woocommerce.orders.status"
     },
     {
         "method": "GET|HEAD",

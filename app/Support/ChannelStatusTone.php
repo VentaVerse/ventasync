@@ -469,10 +469,13 @@ class ChannelStatusTone
          * miniature: every other list in this product spells it with two
          * l's, and an operator scanning two channels should not have to
          * notice which spelling belongs to which. */
+        /* WooCommerce's own words (the owner, 2026-09-06): this page mirrors the
+         * store's orders screen rather than a fulfilment queue, so a status
+         * reads here as it reads there. */
         'woocommerce.orders' => [
-            'PENDING'    => 'Unpaid',
+            'PENDING'    => 'Pending payment',
             'ON-HOLD'    => 'On hold',
-            'PROCESSING' => 'To pack',
+            'PROCESSING' => 'Processing',
             'COMPLETED'  => 'Completed',
             'CANCELLED'  => 'Cancelled',
             'REFUNDED'   => 'Refunded',
