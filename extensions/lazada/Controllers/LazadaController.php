@@ -273,6 +273,34 @@ class LazadaController extends Controller
      * older than N days. The synced order data itself is left intact —
      * only the verbose raw blob is cleared, freeing DB space.
      */
+    /**
+     * Hard delete of a store (the owner, 2026-09-05). The store name typed
+     * exactly confirms; one transaction removes everything the store owns;
+     * core orders are untouched and keep the store's name.
+     */
+    public function destroyStore(Request $request, \Extensions\lazada\Services\Lazada\LazadaStoreDeleter $deleter)
+    {
+        abort_unless($request->user()?->hasPermission('manage_lazada/settings'), 403);
+        $store = \Extensions\lazada\Models\LazadaSetting::defaultStore();
+        abort_if(! $store, 404);
+
+        $request->validate([
+            'confirm_name' => ['required', 'string', function ($attribute, $value, $fail) use ($store) {
+                if ((string) $value !== (string) $store->store_name) {
+                    $fail('Type the store name exactly as it is shown to confirm.');
+                }
+            }],
+        ]);
+
+        $name = (string) $store->store_name;
+        $id = (int) $store->id;
+        $removed = $deleter->delete($store);
+        \App\Services\ActivityLogger::log('lazada.store.deleted', 'lazada_settings', $id, $name, ['removed' => $removed]);
+
+        return redirect()->route('channels.index')
+            ->with('status', "Deleted Lazada store {$name}. Sales already imported keep its name.");
+    }
+
     public function purgeRaw(Request $request)
     {
         // This store's rows only, on every table that carries the store (2026-09-05).

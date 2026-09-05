@@ -541,6 +541,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/lazada/{store}/delete",
+        "name": "ext.lazada.stores.destroy"
+    },
+    {
+        "method": "POST",
         "uri": "channels/lazada/{store}/explorer/run",
         "name": "ext.lazada.explorer_run"
     },
@@ -2113,6 +2118,11 @@
         "method": "POST",
         "uri": "channels/tiktok/{store}/coupons/{couponId}/deactivate",
         "name": "ext.tiktok.coupons.deactivate"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/delete",
+        "name": "ext.tiktok.stores.destroy"
     },
     {
         "method": "POST",

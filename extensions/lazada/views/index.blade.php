@@ -159,7 +159,20 @@
     <section class="fm-section">
         <div class="fm-section__head">
             <h2 class="fm-section__title">This store</h2>
+            @if($canManageLazada)
+                <div class="fm-section__aside">
+                    {{-- Hard delete, no restore: the sheet asks for the name. --}}
+                    <x-ui.button type="button" size="sm" variant="ghost" class="cs-delete__open" data-delete-open>Delete this store</x-ui.button>
+                </div>
+            @endif
         </div>
+        @if($canManageLazada)
+            @include('partials.channel-delete-store', [
+                'action' => route('ext.lazada.stores.destroy'),
+                'storeName' => $setting->store_name ?? '',
+                'channelLabel' => 'Lazada',
+            ])
+        @endif
         {{-- One Save for the store and its credentials (the owner, 2026-09-05):
              these fields belong to the credentials form of the environment
              the store stands in, through the form attribute, so the section

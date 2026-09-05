@@ -97,6 +97,54 @@ class StoreDeleteTest extends TestCase
         $this->assertDatabaseHas('activity_logs', ['action' => 'shopee.store.deleted', 'subject_id' => $gone->id]);
     }
 
+    public function test_deleting_a_lazada_store_leaves_no_row_behind_and_keeps_the_other_store(): void
+    {
+        $gone = \Extensions\lazada\Models\LazadaSetting::create(['mode' => 'live', 'store_name' => 'Laz Outlet', 'region' => 'PH']);
+        $kept = \Extensions\lazada\Models\LazadaSetting::create(['mode' => 'live', 'store_name' => 'Laz Main', 'region' => 'PH']);
+        foreach ([$gone, $kept] as $s) {
+            app()->instance('lazada.route-store', $s);
+            \Extensions\lazada\Models\LazadaOrder::create(['order_id' => 900000 + $s->id, 'region' => 'PH', 'status' => 'pending', 'raw' => []]);
+            \Extensions\lazada\Models\LazadaProduct::create(['product_id' => 1]);
+        }
+        app()->forgetInstance('lazada.route-store');
+
+        $this->actingAs($this->user('manage', 'lazada'))
+            ->post('/channels/lazada/' . $gone->id . '/delete', ['confirm_name' => 'Laz Outlet'])
+            ->assertRedirect(route('channels.index'))
+            ->assertSessionHas('status', fn ($m) => str_contains($m, 'Laz Outlet'));
+
+        $this->assertDatabaseMissing('lazada_settings', ['id' => $gone->id]);
+        $this->assertNoRowsLeft('lazada_setting_id', $gone->id);
+        $this->assertDatabaseHas('lazada_settings', ['id' => $kept->id]);
+        $this->assertSame(1, DB::table('lazada_orders')->where('lazada_setting_id', $kept->id)->count());
+        $this->assertSame(1, DB::table('lazada_products')->where('lazada_setting_id', $kept->id)->count());
+        $this->assertDatabaseHas('activity_logs', ['action' => 'lazada.store.deleted', 'subject_id' => $gone->id]);
+    }
+
+    public function test_deleting_a_tiktok_store_leaves_no_row_behind_and_keeps_the_other_store(): void
+    {
+        $gone = \Extensions\tiktok\Models\TikTokSetting::create(['mode' => 'production', 'store_name' => 'TT Outlet']);
+        $kept = \Extensions\tiktok\Models\TikTokSetting::create(['mode' => 'production', 'store_name' => 'TT Main']);
+        foreach ([$gone, $kept] as $s) {
+            app()->instance('tiktok.route-store', $s);
+            \Extensions\tiktok\Models\TikTokOrder::create(['order_id' => 'TT-' . $s->id, 'region' => 'PH', 'status' => 'AWAITING_SHIPMENT', 'raw' => []]);
+            \Extensions\tiktok\Models\TikTokListing::create(['product_id' => 1]);
+        }
+        app()->forgetInstance('tiktok.route-store');
+
+        $this->actingAs($this->user('manage', 'tiktok'))
+            ->post('/channels/tiktok/' . $gone->id . '/delete', ['confirm_name' => 'TT Outlet'])
+            ->assertRedirect(route('channels.index'))
+            ->assertSessionHas('status', fn ($m) => str_contains($m, 'TT Outlet'));
+
+        $this->assertDatabaseMissing('tiktok_settings', ['id' => $gone->id]);
+        $this->assertNoRowsLeft('tiktok_setting_id', $gone->id);
+        $this->assertDatabaseHas('tiktok_settings', ['id' => $kept->id]);
+        $this->assertSame(1, DB::table('tiktok_orders')->where('tiktok_setting_id', $kept->id)->count());
+        $this->assertSame(1, DB::table('tiktok_listings')->where('tiktok_setting_id', $kept->id)->count());
+        $this->assertDatabaseHas('activity_logs', ['action' => 'tiktok.store.deleted', 'subject_id' => $gone->id]);
+    }
+
     public function test_the_wrong_name_and_the_view_tier_are_refused(): void
     {
         $store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Outlet']);

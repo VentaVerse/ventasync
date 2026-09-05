@@ -36,6 +36,15 @@ final class ShopeeStoreDeleter
     {
         return DB::transaction(function () use ($store) {
             $removed = [];
+
+            // The group pivot has no store column of its own: clear it by
+            // the store's groups before the groups go.
+            if (Schema::hasTable('shopee_product_group_products')) {
+                $groupIds = DB::table('shopee_product_groups')->where('shopee_setting_id', $store->id)->pluck('id');
+                $removed['shopee_product_group_products'] = $groupIds->isEmpty() ? 0
+                    : DB::table('shopee_product_group_products')->whereIn('shopee_product_group_id', $groupIds)->delete();
+            }
+
             foreach (self::TABLES as $table) {
                 if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'shopee_setting_id')) {
                     continue;

@@ -106,6 +106,9 @@ Route::middleware(['auth', \Extensions\tiktok\Http\ResolveTikTokStore::class])
         Route::post('/tiktok/{store}/api-log-mode', [TiktokSettingsController::class, 'setApiLogMode'])->name('ext.tiktok.api_log_mode');
         Route::delete('/tiktok/{store}/api-logs', [TiktokSettingsController::class, 'clearApiLogs'])->name('ext.tiktok.clear_api_logs');
         Route::post('/tiktok/{store}/purge-raw', [TiktokSettingsController::class, 'purgeRaw'])->name('ext.tiktok.purge_raw');
+        // Hard delete of a store (the owner, 2026-09-05): the typed name confirms;
+        // everything the store owns goes, core orders stay under its name.
+        Route::post('/tiktok/{store}/delete', [TiktokSettingsController::class, 'destroyStore'])->name('ext.tiktok.stores.destroy');
 
         // Status-map saves
         Route::post('/tiktok/{store}/order-status-map', [TiktokSettingsController::class, 'saveOrderStatusMap'])->name('ext.tiktok.order_status_map');
