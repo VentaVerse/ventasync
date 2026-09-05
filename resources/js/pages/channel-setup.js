@@ -27,7 +27,7 @@ export function initChannelSetup() {
     let ranOnce = false;
 
     function setProgress(pct) {
-        fill.style.width = pct + '%';
+        fill.style.setProperty('--cs-setup-p', String(pct / 100));
         bar.setAttribute('aria-valuenow', String(pct));
     }
 
