@@ -35,55 +35,52 @@
     <div>
         <h1 class="x-page-title">Listings</h1>
         <p class="x-page-sub">
+            {{-- This store's own list now (#201): the products this store
+                 carries, not the whole catalogue. A filtered count says what
+                 it is counting. --}}
             @if($hasFilters)
                 {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product matches' : 'products match' }}
             @else
-                {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product' : 'products' }} in your catalogue
-                &middot; {{ number_format($listedTotal ?? 0) }} listed on TikTok Shop
+                {{ number_format($catalogueTotal ?? $products->total()) }} {{ ($catalogueTotal ?? $products->total()) === 1 ? 'product' : 'products' }} on this store
+                &middot; {{ number_format($listedTotal ?? 0) }} on TikTok Shop
             @endif
         </p>
     </div>
     @if($canManage)
         <div class="cc-head-actions">
-            {{-- The group page's check, page-wide (Phase F, #184): with no
-                 rows ticked it walks every linked product. --}}
-            <form method="POST" action="{{ route('ext.tiktok.products.check') }}"
-                  data-confirm="Check every linked product against TikTok Shop? Nothing is sent or changed on TikTok Shop; the ERP updates its own records to match what it finds." data-confirm-tone="primary" data-confirm-verb="Check against TikTok Shop">
-                @csrf
-                <x-ui.button type="submit" variant="secondary">Check against TikTok Shop</x-ui.button>
-            </form>
+            {{-- Refresh and Repair links live beside the freshness stamp on
+                 the strip (the Shopee shape): global maintenance, page
+                 furniture. Add products (#201, Draft C - the owner 2026-09-05) is
+                 the one way a main-catalogue product joins this store: a
+                 primary button, sized to how often it happens, opening the
+                 slide-over in place. --}}
+            <x-ui.button type="button" variant="primary" data-add-panel-open>
+                <x-ui.icon name="plus" size="14" /> Add products
+            </x-ui.button>
         </div>
     @endif
 </div>
 
-@if($canManage)
-
-@endif
-
 @if(($liveTabError ?? null) !== null)
     <div class="fm-note fm-note--warn" role="status">
-        <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'TikTok Shop', 'raw' => $liveTabError, 'settingsRoute' => 'ext.tiktok.index']) The live tabs and statuses are unavailable right now; the catalog below is unaffected.</div>
+        <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'TikTok Shop', 'raw' => $liveTabError, 'settingsRoute' => 'ext.tiktok.index']) The live tabs and statuses are unavailable right now; the list below is unaffected.</div>
     </div>
 @elseif(($liveCounts ?? null) !== null)
-    {{-- Two questions on one strip, each named (the owner, 2026-08-28): the
-         catalogue's own total, whether pushed or not, and TikTok's buckets
-         from the mirror. The strip says when the mirror was refreshed. --}}
+    {{-- One strip (the Shopee shape, #201): "All" is this store's own list,
+         the stored view, pushed or not; the rest narrow to what TikTok
+         holds right now, from the mirror. The strip says when the mirror
+         was refreshed, and carries the on-demand refresh and the link
+         audit as page furniture. --}}
     <div class="x-segment-bar">
         <div class="x-segment-groups">
             <div class="x-segment-group">
-                <span class="x-segment-group__k">Your catalogue</span>
-                <nav class="x-segment" aria-label="Catalogue">
+                <nav class="x-segment" aria-label="TikTok Shop listing status">
                     <a href="{{ route('ext.tiktok.products.index', $tabQuery) }}"
                        class="x-segment__item {{ $tiktokTab === 'all' ? 'is-active' : '' }}"
                        @if($tiktokTab === 'all') aria-current="true" @endif>
-                        <span>All products</span>
+                        <span>All</span>
                         <span class="x-segment__count">{{ number_format((int) ($catalogueTotal ?? $products->total())) }}</span>
                     </a>
-                </nav>
-            </div>
-            <div class="x-segment-group">
-                <span class="x-segment-group__k">On TikTok Shop</span>
-                <nav class="x-segment" aria-label="TikTok Shop listing status">
                     @foreach($tabDefs as $tabKey => [$tabLabel, $tabStatus])
                         @continue($tabKey === 'all')
                         @php $isActive = $tiktokTab === $tabKey; @endphp
@@ -102,9 +99,22 @@
                     @endif
                 </span>
                 @if($canManage)
+                    {{-- Icon only, the Shopee shape (the owner, 2026-09-03): the
+                         statuses refresh themselves every 30 minutes; this is
+                         the on-demand twin. The title carries the words. --}}
                     <form method="POST" action="{{ route('ext.tiktok.products.refresh_status') }}" class="x-segment-group__refresh" data-slow-action>
                         @csrf
-                        <x-ui.button type="submit" size="sm">Refresh from TikTok Shop</x-ui.button>
+                        <button type="submit" class="cc-iconbtn" title="Refresh statuses from TikTok Shop now (they refresh themselves every 30 minutes)" aria-label="Refresh statuses from TikTok Shop">
+                            <x-ui.icon name="refresh-cw" size="13" />
+                        </button>
+                    </form>
+                    {{-- The link audit (Phase F, #184), page-wide: with no
+                         rows ticked it walks every linked product, and the
+                         ERP's records follow what it finds. --}}
+                    <form method="POST" action="{{ route('ext.tiktok.products.check') }}" class="cc-repair"
+                          data-confirm="Repair the links against TikTok Shop? Nothing is sent or changed on TikTok Shop; the ERP checks every linked product and updates its own records to match what it finds." data-confirm-tone="primary" data-confirm-verb="Repair links">
+                        @csrf
+                        <button type="submit" class="cc-quiet">Repair links</button>
                     </form>
                 @endif
             </div>
@@ -196,17 +206,28 @@
 @endif
 
 @if($products->count() === 0)
-    <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'No products yet' }}"
+    <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : ($tiktokTab !== 'all' ? 'Nothing holds this status' : 'No products on this store yet') }}"
                 :description="$hasFilters
                     ? 'Try clearing the search, or widening the product group and status filters.'
-                    : 'Every catalog product appears here, ready to list on TikTok Shop. Add your first product and it will be waiting.'">
+                    : ($tiktokTab !== 'all'
+                        ? 'No listing on this store holds this status right now.'
+                        : 'This store carries nothing yet. Add products from your main catalogue and they will land here, ready to configure and push to TikTok Shop.')">
+        {{-- A new store opens here empty (#201): the way forward is Add
+             products, not a dead end. The other two branches keep the reader
+             from being stuck behind a filter with no visible way out. --}}
+        @if($hasFilters)
         <x-slot:action>
-            @if($hasFilters)
-                <x-ui.button :href="route('ext.tiktok.products.index')">Clear filters</x-ui.button>
-            @else
-                <x-ui.button :href="route('products.create')">Add a product</x-ui.button>
-            @endif
+            <x-ui.button :href="route('ext.tiktok.products.index')">Clear filters</x-ui.button>
         </x-slot:action>
+        @elseif($tiktokTab !== 'all')
+        <x-slot:action>
+            <x-ui.button :href="route('ext.tiktok.products.index')">Show every status</x-ui.button>
+        </x-slot:action>
+        @elseif($canManage)
+        <x-slot:action>
+            <x-ui.button variant="primary" type="button" data-add-panel-open>Add products</x-ui.button>
+        </x-slot:action>
+        @endif
     </x-ui.empty>
 @else
 <x-ui.table id="tiktok-listings-table">
@@ -257,6 +278,7 @@
             $rowState = ($listingStates ?? [])[$pid] ?? null;
             $stateClass = \App\Integrations\Listings\ListingState::class;
             $attemptFailed = $attempt && $attempt->sync_status === 'error';
+            $rowLabel = (string) ($p->name ?: ($p->sku ?: 'product ' . $pid));
         @endphp
         <tr>
             @if($canManage)
@@ -413,6 +435,23 @@
                                 <button type="submit" class="x-menu__item x-menu__item--danger">Delete from TikTok Shop</button>
                             </form>
                         @endif
+
+                        {{-- Remove from this store's list (#201) - the inverse
+                             of Add. Deliberately no blocker (the owner,
+                             2026-09-05): it leaves the store and stops syncing
+                             at once. It never touches TikTok Shop - a live
+                             product stays up, still orderable, until removed
+                             there, which the confirm says plainly; Delete from
+                             TikTok Shop above is the door for that. --}}
+                        <div class="x-menu__sep"></div>
+                        <form method="POST" action="{{ route('ext.tiktok.products.remove_from_store', $pid) }}" data-slow-action
+                              data-confirm="{{ $listed
+                                  ? "Remove {$rowLabel} from this store? It leaves this store's list and stops syncing. It is on TikTok Shop (product {$ttId}) and stays up, still orderable, until you remove it there. Use Delete from TikTok Shop for that."
+                                  : "Remove {$rowLabel} from this store? It leaves this store's list and stops syncing. Nothing on TikTok Shop is changed." }}"
+                              data-confirm-verb="Remove from store">
+                            @csrf
+                            <button type="submit" class="x-menu__item x-menu__item--danger">Remove from store</button>
+                        </form>
                     @endif
                 </x-ui.menu>
                 @endif
@@ -437,5 +476,24 @@
     </div>
 </div>
 
-</div>
+{{-- The Add products slide-over (#201, Draft C), manage-gated like its
+     button and every route it calls. Each addition joins this store's list
+     (unpushed, the push workflow unchanged) and lands in the table behind
+     when the panel closes; the full catalogue page is the overflow. --}}
+@if($canManage)
+    <x-channel.add-panel
+        id="tiktok-add-panel"
+        :search-url="route('ext.tiktok.products.catalogue_search')"
+        :add-url="route('ext.tiktok.products.add_to_store', ['productId' => '__PID__'])"
+        sub="Search your main catalogue. Each product you add joins this store's list, ready to configure and push to TikTok Shop."
+        toggle-label="Show products already on this store"
+        in-label="On this store"
+        scope="this store"
+        empty-default="Every enabled product is already on this store."
+        empty-all="Your catalogue has no enabled products."
+        list-label="Catalogue products"
+        :full-url="route('ext.tiktok.products.index', ['list' => 'add'])" />
+@endif
+
+</div>{{-- /.cc-page --}}
 @endsection

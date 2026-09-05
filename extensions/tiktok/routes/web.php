@@ -55,11 +55,16 @@ Route::middleware(['auth', \Extensions\tiktok\Http\ResolveTikTokStore::class])
         // Catalog browsing
         Route::get('/tiktok/{store}/categories', [TikTokProductGroupController::class, 'indexCategories'])->name('ext.tiktok.categories.index');
 
-        // Product groups — static routes first to avoid {id} capture
-        Route::get('/tiktok/{store}/product-groups/search-products', [TikTokProductGroupController::class, 'searchProducts'])->name('ext.tiktok.product-groups.searchProducts');
+        // Product groups. ext.tiktok.product-groups.searchProducts (the
+        // whole-catalogue picker behind the dual list and "Add a product by
+        // name") retired with both on 2026-09-05 (#201): a group only holds
+        // what THIS STORE carries, and the panel search below is that.
         Route::get('/tiktok/{store}/product-groups', [TikTokProductGroupController::class, 'index'])->name('ext.tiktok.product-groups.index');
         Route::get('/tiktok/{store}/product-groups/{id}/edit', [TikTokProductGroupController::class, 'edit'])->name('ext.tiktok.product-groups.edit');
         Route::get('/tiktok/{store}/product-groups/{id}/products', [TikTokProductGroupController::class, 'products'])->name('ext.tiktok.product-groups.products');
+        // The group page's Add products panel search (#201, Draft C): this
+        // store's products, flagged in-group or owned elsewhere. A read.
+        Route::get('/tiktok/{store}/product-groups/{id}/products/search', [TikTokProductGroupController::class, 'productSearch'])->whereNumber('id')->name('ext.tiktok.product-groups.productSearch');
         // Read tier: asks TikTok Shop what it holds and prints the answer, adopting nothing.
         Route::get('/tiktok/{store}/product-groups/{id}/orphans', [TikTokProductGroupController::class, 'orphans'])->whereNumber('id')->name('ext.tiktok.product-groups.orphans');
 
@@ -69,6 +74,9 @@ Route::middleware(['auth', \Extensions\tiktok\Http\ResolveTikTokStore::class])
         // Listings (#156): the index with TikTok's own status on load, the
         // combobox endpoints the listing page reads.
         Route::get('/tiktok/{store}/products', [TikTokProductController::class, 'index'])->name('ext.tiktok.products.index');
+        // The Add products panel's catalogue search (#201, Draft C): a read
+        // that lives beside the adds it feeds, in the read tier.
+        Route::get('/tiktok/{store}/products/catalogue-search', [TikTokProductController::class, 'catalogueSearch'])->name('ext.tiktok.products.catalogue_search');
         Route::get('/tiktok/{store}/products/import', [TikTokProductController::class, 'importPage'])->name('ext.tiktok.products.import');
         Route::get('/tiktok/{store}/products/categories/search', [TikTokProductController::class, 'searchCategories'])->name('ext.tiktok.products.searchCategories');
         Route::get('/tiktok/{store}/products/categories/lookup', [TikTokProductController::class, 'categoryLookup'])->name('ext.tiktok.products.categoryLookup');
@@ -113,7 +121,12 @@ Route::middleware(['auth', \Extensions\tiktok\Http\ResolveTikTokStore::class])
         Route::post('/tiktok/{store}/product-groups', [TikTokProductGroupController::class, 'store'])->name('ext.tiktok.product-groups.store');
         Route::put('/tiktok/{store}/product-groups/{id}', [TikTokProductGroupController::class, 'update'])->name('ext.tiktok.product-groups.update');
         Route::delete('/tiktok/{store}/product-groups/{id}', [TikTokProductGroupController::class, 'destroy'])->name('ext.tiktok.product-groups.destroy');
-        Route::post('/tiktok/{store}/product-groups/{id}/add-products', [TikTokProductGroupController::class, 'addProducts'])->name('ext.tiktok.product-groups.addProducts');
+        // ext.tiktok.product-groups.addProducts (POST ids[] from "Add a
+        // product by name") retired with that section on 2026-09-05 (#201).
+        // The group page's Add products panel (#201, Draft C): one of this
+        // store's products into the group, in place; `move` honours the
+        // one-group rule when another group owns it.
+        Route::post('/tiktok/{store}/product-groups/{id}/products/{productId}/add', [TikTokProductGroupController::class, 'addProduct'])->whereNumber('id')->whereNumber('productId')->name('ext.tiktok.product-groups.addProduct');
         Route::post('/tiktok/{store}/product-groups/{id}/products/{product}/sync-id', [TikTokProductGroupController::class, 'syncId'])->name('ext.tiktok.product-groups.syncId');
         Route::post('/tiktok/{store}/product-groups/{id}/products/{product}/unlink', [TikTokProductGroupController::class, 'unlinkProduct'])->name('ext.tiktok.product-groups.unlinkProduct');
         Route::post('/tiktok/{store}/product-groups/{id}/products/{product}/link', [TikTokProductGroupController::class, 'linkProduct'])->name('ext.tiktok.product-groups.linkProduct');
@@ -134,6 +147,13 @@ Route::middleware(['auth', \Extensions\tiktok\Http\ResolveTikTokStore::class])
         Route::post('/tiktok/{store}/products/import-one', [TikTokProductController::class, 'importOne'])->name('ext.tiktok.products.import_one');
         Route::post('/tiktok/{store}/products/import-selected', [TikTokProductController::class, 'importSelected'])->name('ext.tiktok.products.import_selected');
         Route::post('/tiktok/{store}/products/link-item', [TikTokProductController::class, 'linkItem'])->name('ext.tiktok.products.link_item');
+        // Add products to this store's list (#201): a catalogue product joins
+        // the store, unpushed, ready to configure and push from This store.
+        Route::post('/tiktok/{store}/products/add-to-store', [TikTokProductController::class, 'addToStoreBulk'])->name('ext.tiktok.products.add_to_store_bulk');
+        Route::post('/tiktok/{store}/products/{productId}/add-to-store', [TikTokProductController::class, 'addToStore'])->whereNumber('productId')->name('ext.tiktok.products.add_to_store');
+        // Remove from this store's list (#201): the inverse of Add. No
+        // blocker; it never touches TikTok Shop.
+        Route::post('/tiktok/{store}/products/{productId}/remove-from-store', [TikTokProductController::class, 'removeFromStore'])->whereNumber('productId')->name('ext.tiktok.products.remove_from_store');
         Route::post('/tiktok/{store}/products/check', [TikTokProductController::class, 'checkAgainstTikTok'])->name('ext.tiktok.products.check');
         Route::post('/tiktok/{store}/products/bulk/send', [TikTokProductController::class, 'bulkSend'])->name('ext.tiktok.products.bulk_send');
         // Activate / deactivate the selection, and refresh the status mirror on demand.

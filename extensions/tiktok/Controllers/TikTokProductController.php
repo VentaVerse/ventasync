@@ -15,6 +15,7 @@ use Extensions\tiktok\Services\TikTok\TikTokListingReadiness;
 use Extensions\tiktok\Services\TikTok\TikTokLiveListing;
 use Extensions\tiktok\Services\TikTok\TikTokProductPush;
 use Extensions\tiktok\Services\TikTok\TikTokStockPushService;
+use Extensions\tiktok\Services\TikTokStoreProducts;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -41,6 +42,16 @@ class TikTokProductController extends Controller
         $tiktokTab = (string) $request->get('tiktok_tab', 'all');
         if (!array_key_exists($tiktokTab, TikTokLiveListing::TABS)) {
             $tiktokTab = 'all';
+        }
+
+        /* ── Two surfaces on one workbench (#201, the owner 2026-09-05) ──
+         * THIS STORE is what this store carries and works day to day; ADD
+         * PRODUCTS is the main catalogue, where a product is added into the
+         * store's list - the slide-over is the way in and this full page is
+         * its overflow. It has its own lean flow, so it returns before the
+         * live-status machinery below, which it does not need. */
+        if ($request->query('list') === 'add') {
+            return $this->addCatalogue($request);
         }
 
         /* The seller center's tabs, from the MIRROR on the listing rows
@@ -82,13 +93,20 @@ class TikTokProductController extends Controller
             })
             ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
             ->select('p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as manufacturer_name');
-        /* No scope whereIn: the default view is THE CATALOGUE (Phase D,
-         * #184), as on Shopee and Lazada since Phase C. It used to be
-         * "products in a group, plus products already linked" - the
-         * CedCommerce worldview, where a product only existed for TikTok
-         * once a group claimed it, and a groupless never-pushed product
-         * was invisible even to the not_listed filter. Filtering by a
-         * group still narrows above. */
+        /* THIS STORE (#201, the owner 2026-09-05): the table is this store's own
+         * list, not the catalogue. A product is on the store once it has a
+         * listing record here (Add products, Import, a push) or a pushed
+         * group pivot from before the record carried the truth -
+         * TikTokStoreProducts is the one definition; the rest of the
+         * catalogue waits behind Add products. Phase D (#184) had made this
+         * the whole catalogue so a new user's first product was never
+         * invisible; multi-store is what changes the answer, and the empty
+         * state now leads to Add products instead. Filtering by a group
+         * below still narrows within the store's list. */
+        $query->whereIn('p.product_id', TikTokStoreProducts::query());
+        // The two sets the listed / ready filters below answer from.
+        $listedProductIds = TikTokStoreProducts::listedIds();
+        $scopeIds = DB::query()->fromSub(TikTokStoreProducts::query(), 'os')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
 
         if ($groupFilter !== 'all') {
             $inGroup = TikTokProductGroupProduct::query()->where('tiktok_product_group_id', (int) $groupFilter)->pluck('product_id')->all();
@@ -213,12 +231,9 @@ class TikTokProductController extends Controller
         $listingStates = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)
             ->forProducts($pageIds);
 
-        // How many catalogue products actually stand on TikTok Shop, for
-        // the subtitle - listing rows plus pivot-only legacies, distinct.
-        $listedTotal = count(array_unique(array_merge(
-            TikTokListing::query()->whereNotNull('tiktok_product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all(),
-            TikTokProductGroupProduct::query()->whereNotNull('tiktok_product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all()
-        )));
+        // How many of this store's products actually stand on TikTok Shop,
+        // for the subtitle - listing rows plus pivot-only legacies, distinct.
+        $listedTotal = count($listedProductIds);
 
         return view('ext-tiktok::products.index', [
             'products' => $products,
@@ -242,6 +257,241 @@ class TikTokProductController extends Controller
             'catalogueTotal' => $catalogueTotal,
             'readinessByProductId' => $readinessByProductId,
         ]);
+    }
+
+    /**
+     * The full-catalogue Add products page (#201): the overflow behind the
+     * slide-over, for a big first setup or a bulk pick. Your main catalogue,
+     * each row flagged with whether this store already carries it. A lean
+     * read - no live status, no readiness, no push.
+     */
+    private function addCatalogue(Request $request)
+    {
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $q = trim((string) $request->query('q', ''));
+        $manufacturerFilter = (string) $request->query('manufacturer', 'all');
+        $groupFilter = (string) $request->query('group', 'all');
+        $onStore = (string) $request->query('on_store', 'all'); // all | off (not yet) | on
+
+        $sort = (string) $request->query('sort', 'id');
+        $sortColumns = ['id' => 'p.product_id', 'product' => 'pd.name', 'quantity' => 'p.quantity', 'price' => 'p.price'];
+        if (! array_key_exists($sort, $sortColumns)) {
+            $sort = 'id';
+        }
+        $dir = strtolower((string) $request->query('dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        $query = DB::table($pfx . 'product as p')
+            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+                $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
+            })
+            ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
+            ->leftJoinSub(TikTokStoreProducts::query(), 'os', 'os.product_id', '=', 'p.product_id')
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as manufacturer_name', 'os.product_id as on_store_pid');
+
+        if ($q !== '') {
+            $query->where(function ($sub) use ($q) {
+                $sub->where('pd.name', 'like', '%' . $q . '%')
+                    ->orWhere('p.model', 'like', '%' . $q . '%')
+                    ->orWhere('p.sku', 'like', '%' . $q . '%');
+            });
+        }
+        if ($manufacturerFilter !== 'all') {
+            $query->where('p.manufacturer_id', (int) $manufacturerFilter);
+        }
+        if ($groupFilter === 'none') {
+            $groupedIds = TikTokProductGroupProduct::query()
+                ->whereIn('tiktok_product_group_id', TikTokProductGroup::query()->select('id'))
+                ->pluck('product_id')->unique()->all();
+            if (! empty($groupedIds)) {
+                $query->whereNotIn('p.product_id', $groupedIds);
+            }
+        } elseif ($groupFilter !== 'all') {
+            $specificIds = TikTokProductGroupProduct::query()->where('tiktok_product_group_id', (int) $groupFilter)->pluck('product_id')->all();
+            $query->whereIn('p.product_id', $specificIds ?: [0]);
+        }
+        if ($onStore === 'on') {
+            $query->whereNotNull('os.product_id');
+        } elseif ($onStore === 'off') {
+            $query->whereNull('os.product_id');
+        }
+
+        $query->orderBy($sortColumns[$sort], $dir);
+        if ($sortColumns[$sort] !== 'p.product_id') {
+            $query->orderBy('p.product_id', 'asc');
+        }
+
+        $products = $query->paginate(50)->withQueryString();
+        foreach ($products as $row) {
+            $row->name = html_entity_decode((string) ($row->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        }
+
+        $productThumbsById = $products->mapWithKeys(fn ($r) => [(int) $r->product_id => $this->thumbUrl($r->image ?? null)]);
+
+        return view('ext-tiktok::products.add', [
+            'products' => $products,
+            'paginator' => $products,
+            'productThumbsById' => $productThumbsById,
+            'allManufacturers' => DB::table($pfx . 'manufacturer')->orderBy('name')->pluck('name', 'manufacturer_id'),
+            'allGroups' => TikTokProductGroup::query()->orderBy('name')->pluck('name', 'id'),
+            'q' => $q,
+            'manufacturerFilter' => $manufacturerFilter,
+            'groupFilter' => $groupFilter,
+            'onStore' => $onStore,
+            'sort' => $sort,
+            'dir' => $dir,
+            'catalogueTotal' => (int) DB::table($pfx . 'product')->count(),
+            'onStoreTotal' => TikTokStoreProducts::count(),
+            'listTab' => 'add',
+        ]);
+    }
+
+    /** The same storage path the Listings rows draw their thumbnails from. */
+    private function thumbUrl(?string $image): ?string
+    {
+        $image = trim((string) $image);
+
+        return $image !== '' ? asset('storage/' . ltrim($image, '/')) : null;
+    }
+
+    /**
+     * Add one catalogue product to this store's list (#201): a blank listing
+     * record for this store is the membership. The listing page fills it
+     * in, and readiness reads it as "needs a TikTok category" until then, so
+     * the row lands under This store ready to configure and push through
+     * the unchanged workflow. The BelongsToTikTokStore trait stamps the
+     * store, so firstOrCreate never crosses stores or doubles a row.
+     */
+    public function addToStore(Request $request, int $productId)
+    {
+        $exists = DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $productId)->exists();
+        abort_unless($exists, 404);
+
+        // "Already on the store" includes a product carried by a pushed
+        // pivot alone; the listing record it gains here changes nothing for it.
+        $wasOn = TikTokStoreProducts::has($productId);
+        TikTokListing::firstOrCreate(['product_id' => $productId]);
+
+        // The Add products panel adds in place and asks for JSON (#201,
+        // Draft C); the full catalogue page still posts a form and lands back.
+        if ($request->wantsJson()) {
+            return response()->json(['ok' => true, 'product_id' => $productId, 'added' => ! $wasOn]);
+        }
+
+        return redirect()->back()->with('status', 'Added to this store. Configure and push it from This store whenever you are ready.');
+    }
+
+    /**
+     * The Add products panel's search (#201, Draft C - the owner 2026-09-05): the
+     * main catalogue, each row flagged with whether it is already on this
+     * store. Capped, on purpose: a slide-over cannot list a whole catalogue,
+     * so the operator narrows by searching and the total says how much is
+     * still out of view; the full catalogue page is one link away for a
+     * browse. Defaults to what is NOT yet on the store, since adding is the
+     * panel's one job.
+     */
+    public function catalogueSearch(Request $request)
+    {
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+        $q = trim((string) $request->query('q', ''));
+        $showAll = $request->boolean('all');
+        $limit = 25;
+
+        $query = DB::table($pfx . 'product as p')
+            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+                $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
+            })
+            ->leftJoinSub(TikTokStoreProducts::query(), 'os', 'os.product_id', '=', 'p.product_id')
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.model', 'p.quantity', 'p.price', 'os.product_id as on_store_pid')
+            // A disabled catalogue product is not something to put on a store.
+            ->where('p.status', 1);
+
+        if ($q !== '') {
+            $query->where(function ($sub) use ($q) {
+                $sub->where('pd.name', 'like', '%' . $q . '%')
+                    ->orWhere('p.model', 'like', '%' . $q . '%')
+                    ->orWhere('p.sku', 'like', '%' . $q . '%');
+            });
+        }
+        if (! $showAll) {
+            $query->whereNull('os.product_id');
+        }
+
+        $total = (clone $query)->count();
+        $rows = $query->orderBy('pd.name')->orderBy('p.product_id')->limit($limit)->get();
+
+        $items = $rows->map(fn ($r) => [
+            'id' => (int) $r->product_id,
+            'name' => html_entity_decode((string) ($r->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8') ?: 'Unnamed product',
+            'sku' => (string) ($r->sku ?? ''),
+            'quantity' => (int) ($r->quantity ?? 0),
+            'price' => \App\Support\Money::base((float) ($r->price ?? 0)),
+            'thumb' => $this->thumbUrl($r->image ?? null),
+            'on_store' => ! is_null($r->on_store_pid),
+        ])->values();
+
+        return response()->json(['total' => $total, 'shown' => $items->count(), 'limit' => $limit, 'items' => $items]);
+    }
+
+    /**
+     * Remove a product from this store's list (#201) - the inverse of Add.
+     * This store's group memberships and the listing record go, so the
+     * product leaves This store and STOPS SYNCING at once. Deliberately no
+     * blocker (the owner, 2026-09-05): nobody keeps a product on the marketplace
+     * while stripping it here. It never touches TikTok Shop - a live product
+     * stays up until it is removed there, which the confirm says plainly and
+     * Delete from TikTok Shop already covers. Every query here is
+     * store-scoped, so a product carried only by another store answers 404.
+     */
+    public function removeFromStore(int $productId)
+    {
+        abort_unless(TikTokStoreProducts::has($productId), 404);
+
+        $ttIds = collect([
+            TikTokListing::query()->where('product_id', $productId)->value('tiktok_product_id'),
+        ])->merge(
+            TikTokProductGroupProduct::query()->where('product_id', $productId)
+                ->whereIn('tiktok_product_group_id', TikTokProductGroup::query()->select('id'))
+                ->pluck('tiktok_product_id')
+        )->filter()->unique()->values();
+
+        TikTokProductGroupProduct::query()
+            ->where('product_id', $productId)
+            ->whereIn('tiktok_product_group_id', TikTokProductGroup::query()->select('id'))
+            ->delete();
+        TikTokListing::query()->where('product_id', $productId)->delete();
+
+        $note = $ttIds->isNotEmpty()
+            ? ' It no longer syncs; TikTok Shop product ' . $ttIds->implode(', ') . ' stays up until you remove it there.'
+            : ' It no longer syncs.';
+
+        return redirect()->back()->with('status', "Removed product #{$productId} from this store." . $note);
+    }
+
+    /**
+     * Add the ticked catalogue products to this store's list in one go (#201).
+     */
+    public function addToStoreBulk(Request $request)
+    {
+        $data = $request->validate(['product_ids' => ['required', 'array'], 'product_ids.*' => ['integer']]);
+        $ids = array_values(array_unique(array_map('intval', $data['product_ids'])));
+
+        $valid = DB::table((string) config('catalog.prefix') . 'product')->whereIn('product_id', $ids)->pluck('product_id')->all();
+        $added = 0;
+        foreach ($valid as $pid) {
+            $pid = (int) $pid;
+            $wasOn = TikTokStoreProducts::has($pid);
+            TikTokListing::firstOrCreate(['product_id' => $pid]);
+            if (! $wasOn) {
+                $added++;
+            }
+        }
+
+        return redirect()->back()->with('status', $added === 1
+            ? '1 product added to this store.'
+            : number_format($added) . ' products added to this store.');
     }
 
     /** The Refresh button on the listings strip: the same walk the 30-minute automation runs. */

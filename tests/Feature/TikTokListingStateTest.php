@@ -254,10 +254,18 @@ class TikTokListingStateTest extends TestCase
         $this->assertSame(1, $data['tiktokSyncStatus']->listing_attention);
     }
 
-    /** The whole point of the catalogue-first index: a brand-new product is VISIBLE. */
-    public function test_a_product_with_no_tiktok_row_is_visible_by_default(): void
+    /**
+     * A groupless, never-pushed product the store carries is VISIBLE, and
+     * not_listed finds it. Phase D (#184) made the default view the whole
+     * catalogue so a new user's first product could never be invisible;
+     * #201 (2026-09-05) made the view THIS STORE's own list - so the product
+     * is on the store first, with the blank record Add products leaves, and
+     * a group is still not required for it to show.
+     */
+    public function test_a_product_on_the_store_with_no_push_is_visible_by_default(): void
     {
-        $this->seedProduct('My very first product', 'FIRST-1');
+        $pid = $this->seedProduct('My very first product', 'FIRST-1');
+        TikTokListing::create(['product_id' => $pid]);
 
         $page = $this->actingAs($this->manager())->get(route('ext.tiktok.products.index'))->assertOk();
         $page->assertSee('My very first product');

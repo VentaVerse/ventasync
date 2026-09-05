@@ -157,16 +157,22 @@ class TiktokListingsTest extends TestCase
         TikTokListing::create(['product_id' => $fresh, 'tiktok_product_id' => 'tt-new', 'tiktok_category_id' => 'cat-9']);
         $ready = $this->seedProduct('R');
         TikTokListing::create(['product_id' => $ready, 'tiktok_category_id' => 'cat-9']);
+        // On the store with a blank record (#201): what Add products leaves behind.
         $bare = $this->seedProduct('B');
+        TikTokListing::create(['product_id' => $bare]);
 
         $r = $this->actingAs($this->manager())->get(route('ext.tiktok.products.index'));
 
         $r->assertOk();
-        $r->assertSee('Your catalogue');
-        $r->assertSee('On TikTok Shop');
-        $r->assertSee('All products');
+        // One strip since #201: "All" is this store's own list, then
+        // TikTok's buckets; icon-only refresh and Repair links beside the
+        // freshness stamp (the Shopee shape).
+        $r->assertSee('<span>All</span>', false);
+        $r->assertDontSee('x-segment-group__k', false);
+        $r->assertDontSee('All products');
         $r->assertSee('as of 08:30, Aug 28');
-        $r->assertSee('Refresh from TikTok Shop');
+        $r->assertSee('aria-label="Refresh statuses from TikTok Shop"', false);
+        $r->assertSee('Repair links');
         $r->assertSee('Live');                        // tt-live, from the mirror
         $r->assertSee('Not found on TikTok Shop');    // tt-gone, from the mirror
         $r->assertSee('Not checked yet');             // tt-new, never refreshed

@@ -73,6 +73,13 @@
         <x-ui.button variant="secondary" :href="route('ext.tiktok.product-groups.orphans', $group->id)">Unlinked on TikTok Shop</x-ui.button>
         @if($canManageTiktok)
             <x-ui.button :href="route('ext.tiktok.product-groups.edit', $group->id)">Edit product group</x-ui.button>
+            {{-- Add products (#201, Draft C - the owner 2026-09-05): the one way
+                 a product joins this group, from THIS STORE's list, in place.
+                 It replaced "Add a product by name" at the foot of the page
+                 and the dual list on the edit form. --}}
+            <x-ui.button type="button" variant="primary" data-add-panel-open>
+                <x-ui.icon name="plus" size="14" /> Add products
+            </x-ui.button>
         @endif
     </div>
 </div>
@@ -162,10 +169,10 @@
     <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'No products in this product group' }}"
                 :description="$hasFilters
                     ? 'Try clearing the search, or widening the catalog and push filters.'
-                    : 'Edit the product group to pick products from the catalog, or add them one at a time below.'">
+                    : 'Nothing is in this product group yet. Add products from this store\'s list and they take the group\'s category, attributes and markup on the next push.'">
         @if($canManageTiktok && !$hasFilters)
         <x-slot:action>
-            <x-ui.button variant="primary" :href="route('ext.tiktok.product-groups.edit', $group->id)">Edit product group</x-ui.button>
+            <x-ui.button variant="primary" type="button" data-add-panel-open>Add products</x-ui.button>
         </x-slot:action>
         @endif
     </x-ui.empty>
@@ -489,36 +496,6 @@
 <x-ui.pager :paginator="$products" />
 @endif
 
-@if($canManageTiktok)
-{{-- Add one at a time. Same endpoints as before: a GET to search-products?q=
-     for the results, and one POST to addProducts carrying `ids[]`. The results
-     are built with createElement and textContent only. --}}
-<section class="fm-section cc-unmatched"
-         data-group-manual-add
-         data-group-id="{{ $group->id }}"
-         data-search-url="{{ route('ext.tiktok.product-groups.searchProducts') }}"
-         data-form="tiktok-add-products">
-    <div class="fm-section__head">
-        <h2 class="fm-section__title">Add a product by name</h2>
-    </div>
-    <p class="fm-section__note">For a product the product group's filter does not pick up. Type at least two characters.</p>
-
-    <form id="tiktok-add-products" method="POST" action="{{ route('ext.tiktok.product-groups.addProducts', $group->id) }}">
-        @csrf
-        <input type="hidden" name="_return" value="{{ $returnTo }}">
-    </form>
-
-    <div class="cc-link">
-        <x-ui.input type="search" placeholder="Product name or SKU" aria-label="Search the catalog to add a product"
-                    data-manual-search />
-        <x-ui.button type="button" data-manual-search-go>Search</x-ui.button>
-        <x-ui.button type="submit" variant="primary" form="tiktok-add-products" data-manual-add disabled>Add selected</x-ui.button>
-    </div>
-
-    <div data-manual-results></div>
-</section>
-@endif
-
 {{-- Work-in-progress overlay. A push to TikTok Shop is a multi-second round trip
      and the page has to say so, or the operator clicks again. Rides
      components/modals.css's .modal-backdrop show/hide mechanics, the same
@@ -540,6 +517,26 @@
         </div>
     </div>
 </div>
+
+{{-- The Add products slide-over (#201, Draft C) over THIS STORE's products,
+     manage-gated like its button and both routes it calls. Each addition
+     joins the group in place and lands in the table behind when the panel
+     closes. A product owned by another group shows Move here (the one-group
+     rule), never a refusal after the press. --}}
+@if($canManageTiktok)
+    <x-channel.add-panel
+        id="tiktok-group-add-panel"
+        :search-url="route('ext.tiktok.product-groups.productSearch', $group->id)"
+        :add-url="route('ext.tiktok.product-groups.addProduct', ['id' => $group->id, 'productId' => '__PID__'])"
+        :sub="'Search this store\'s products. Each one you add joins ' . $group->name . ' and takes its category, attributes and markup on the next push.'"
+        search-label="Search this store's products"
+        toggle-label="Show products already in this group"
+        in-label="In this group"
+        scope="this group"
+        empty-default="Every product on this store is already in this group."
+        empty-all="This store carries no enabled products yet. Add some on Listings first."
+        list-label="This store's products" />
+@endif
 
 </div>{{-- /.cc-page --}}
 @endsection

@@ -2215,11 +2215,6 @@
         "name": "ext.tiktok.product-groups.fetchAttributes"
     },
     {
-        "method": "GET|HEAD",
-        "uri": "channels/tiktok/{store}/product-groups/search-products",
-        "name": "ext.tiktok.product-groups.searchProducts"
-    },
-    {
         "method": "DELETE",
         "uri": "channels/tiktok/{store}/product-groups/{id}",
         "name": "ext.tiktok.product-groups.destroy"
@@ -2228,11 +2223,6 @@
         "method": "PUT",
         "uri": "channels/tiktok/{store}/product-groups/{id}",
         "name": "ext.tiktok.product-groups.update"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/tiktok/{store}/product-groups/{id}/add-products",
-        "name": "ext.tiktok.product-groups.addProducts"
     },
     {
         "method": "POST",
@@ -2263,6 +2253,16 @@
         "method": "POST",
         "uri": "channels/tiktok/{store}/product-groups/{id}/products/check",
         "name": "ext.tiktok.product-groups.check"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/products/search",
+        "name": "ext.tiktok.product-groups.productSearch"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/products/{productId}/add",
+        "name": "ext.tiktok.product-groups.addProduct"
     },
     {
         "method": "DELETE",
@@ -2310,6 +2310,11 @@
         "name": "ext.tiktok.products.index"
     },
     {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/products/add-to-store",
+        "name": "ext.tiktok.products.add_to_store_bulk"
+    },
+    {
         "method": "GET|HEAD",
         "uri": "channels/tiktok/{store}/products/brands",
         "name": "ext.tiktok.products.brandsSearch"
@@ -2323,6 +2328,11 @@
         "method": "POST",
         "uri": "channels/tiktok/{store}/products/bulk/toggle",
         "name": "ext.tiktok.products.bulk_toggle"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/products/catalogue-search",
+        "name": "ext.tiktok.products.catalogue_search"
     },
     {
         "method": "GET|HEAD",
@@ -2376,6 +2386,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/tiktok/{store}/products/{productId}/add-to-store",
+        "name": "ext.tiktok.products.add_to_store"
+    },
+    {
+        "method": "POST",
         "uri": "channels/tiktok/{store}/products/{productId}/delete",
         "name": "ext.tiktok.products.delete"
     },
@@ -2393,6 +2408,11 @@
         "method": "POST",
         "uri": "channels/tiktok/{store}/products/{productId}/push-stock",
         "name": "ext.tiktok.products.push_stock"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/products/{productId}/remove-from-store",
+        "name": "ext.tiktok.products.remove_from_store"
     },
     {
         "method": "POST",
