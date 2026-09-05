@@ -36,6 +36,12 @@ class TikTokListingReadiness
         $pfx = (string) config('catalog.prefix');
 
         $listings = TikTokListing::query()->whereIn('product_id', $productIds)->get()->keyBy(fn ($l) => (int) $l->product_id);
+        /* A group is a preset the product inherits (the owner, 2026-09-05): a
+         * blank category on the listing is filled from its group, in memory,
+         * the same way every push fills it now. */
+        $inherit = app(TikTokInheritedSettings::class);
+        $groups = $inherit->forProducts($productIds);
+        $listings = $listings->map(fn ($l) => $inherit->fill($l, $groups[(int) $l->product_id] ?? null)['listing']);
         $images = DB::table($pfx . 'product')->whereIn('product_id', $productIds)->pluck('image', 'product_id');
         $categoryIds = $listings->pluck('tiktok_category_id')->filter()->unique()->values()->all();
         $templates = $categoryIds

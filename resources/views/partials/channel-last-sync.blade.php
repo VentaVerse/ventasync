@@ -1,5 +1,5 @@
-{{-- The Last sync cell, one drawing for the Listings page and every
-     group page (the owner, 2026-09-05): a refusal in red with its full words
+{{-- The Last sync cell, one drawing for every channel's Listings page and
+     group pages (the owner, 2026-09-05): a refusal in red with its full words
      one click away; otherwise when the product last synced and what it
      was; otherwise Never.
 

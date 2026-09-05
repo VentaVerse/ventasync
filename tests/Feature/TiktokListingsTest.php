@@ -177,7 +177,9 @@ class TiktokListingsTest extends TestCase
         $r->assertSee('Not found on TikTok Shop');    // tt-gone, from the mirror
         $r->assertSee('Not checked yet');             // tt-new, never refreshed
         $r->assertSee('Ready to push');
-        $r->assertSee('Missing: a TikTok category');
+        // The bare record inherits its group's category (a group is a preset
+        // the product inherits, 2026-09-05), so nothing here lacks one.
+        $r->assertDontSee('Missing: a TikTok category');
         $r->assertSee('Push to TikTok Shop');
         $r->assertSee('Under review');                // the tab bar exists
         $r->assertSee('Deactivate on TikTok Shop');   // the row verb for a live row

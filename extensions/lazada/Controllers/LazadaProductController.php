@@ -75,6 +75,11 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
     $listing->last_sync_ok = (bool)($e['ok'] ?? false);
     $listing->last_sync_error_code = $e['code'] ?? null;
     $listing->last_sync_error_message = $e['message'] ?? null;
+    if ($e['ok'] ?? false) {
+        // One latest error per product (the owner, 2026-09-05): a success clears the shared refusal.
+        $listing->last_push_error = null;
+        $listing->last_push_failed_at = null;
+    }
 
     /* Provenance (#104, Lazada half): a SUCCESSFUL content push records
      * what went and where its settings came from - 'listing' for pushes
@@ -410,6 +415,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
          * Computed after the blank fill so it reads a filled mirror. */
         $listingStates = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)
             ->forProducts($pageIds);
+        // The Last sync column (the owner, 2026-09-05), one answer shared with the group pages.
+        $lastSync = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)->lastSync($pageIds);
 
         // How many catalogue products actually stand on Lazada, for the
         // page's subtitle - an honest count, not the mapping-row count.
@@ -448,6 +455,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'products' => $products,
             'listingsById' => $listingsById,
             'listingStates' => $listingStates,
+            'lastSync' => $lastSync,
             'productThumbsById' => $productThumbsById,
             'optionRowsByProductId' => $optionRowsByProductId,
             'allGroups' => $allGroups,
@@ -1161,7 +1169,12 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
     public function uploadToLazada(Request $request, int $id, LazadaClient $client)
     {
-        $listing = LazadaProduct::query()->findOrFail($id);
+        $saved = LazadaProduct::query()->findOrFail($id);
+        /* A group is a preset the product inherits (the owner, 2026-09-05): the
+         * payload is built from an in-memory copy whose blank category and
+         * brand are filled from the group. Only $saved is ever written. */
+        $inherit = app(\Extensions\lazada\Services\Lazada\LazadaInheritedSettings::class);
+        $listing = $inherit->fill($saved, $inherit->forProducts([(int) $saved->product_id])[(int) $saved->product_id] ?? null)['listing'];
 
         $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
@@ -1175,7 +1188,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $isUpdate = !empty($listing->lazada_item_id) && empty($listing->lazada_deleted_at);
 
         if (empty($listing->primary_category_id)) {
-            $this->persistProductSyncStatus($listing, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'MISSING_PRIMARY_CATEGORY', 'message' => 'Primary category is required before upload.']]);
+            $this->persistProductSyncStatus($saved, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'MISSING_PRIMARY_CATEGORY', 'message' => 'Primary category is required before upload.']]);
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Upload: Primary Category is required before uploading.');
         }
@@ -1185,7 +1198,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $erpProduct = DB::table($pfx . 'product')->where('product_id', (int) $listing->product_id)->first(['sku', 'model', 'status']);
 
         if ((int) ($erpProduct->status ?? 1) === 0) {
-            $this->persistProductSyncStatus($listing, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'PRODUCT_DISABLED', 'message' => 'ERP product is disabled. Enable it before uploading.']]);
+            $this->persistProductSyncStatus($saved, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'PRODUCT_DISABLED', 'message' => 'ERP product is disabled. Enable it before uploading.']]);
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Upload: ERP product is disabled. Enable it before uploading to Lazada.');
         }
@@ -1195,7 +1208,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             $erpSku = trim((string) ($erpProduct->model ?? ''));
         }
         if ($erpSku === '') {
-            $this->persistProductSyncStatus($listing, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'MISSING_SKU', 'message' => 'Product SKU is required. Please set a SKU (or Model) in the ERP product first.']]);
+            $this->persistProductSyncStatus($saved, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'MISSING_SKU', 'message' => 'Product SKU is required. Please set a SKU (or Model) in the ERP product first.']]);
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Upload: Product SKU is required. Please set a SKU (or Model) in the core product first.');
         }
@@ -1206,7 +1219,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             $productPayload = $this->images()->ensureLazadaInlinkImages($productPayload, $setting, $client);
         } catch (\Illuminate\Validation\ValidationException $e) {
             $msg = collect($e->errors())->flatten()->first() ?: 'Listing mapping is incomplete.';
-            $this->persistProductSyncStatus($listing, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'VALIDATION_ERROR', 'message' => (string)$msg]]);
+            $this->persistProductSyncStatus($saved, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'VALIDATION_ERROR', 'message' => (string)$msg]]);
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('status', 'Upload: ' . $msg);
         }
 
@@ -1241,14 +1254,14 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         $result = $client->post((string) $setting->region, $apiPath, $params);
 
-        $this->persistProductSyncStatus($listing, 'upload_to_lazada', $result, 'listing');
+        $this->persistProductSyncStatus($saved, 'upload_to_lazada', $result, 'listing');
 
         // If successful, store lazada_item_id (create) or refresh variants (update).
         $e = $this->payload()->extractLazadaError($result);
         if (!empty($e['ok'])) {
             if ($isUpdate) {
                 // Refresh variant cache after update
-                $this->itemCache()->refreshListing($listing, $setting, $client);
+                $this->itemCache()->refreshListing($saved, $setting, $client);
                 return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                     ->with('status', 'Product updated on Lazada successfully.');
             }
@@ -1256,15 +1269,15 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             $itemId = $this->payload()->extractCreatedItemId($result);
             try {
                 if ($itemId) {
-                    $listing->lazada_item_id = $itemId;
+                    $saved->lazada_item_id = $itemId;
                 }
-                $listing->lazada_deleted_at = null;
+                $saved->lazada_deleted_at = null;
                 $listing->unlinked_at = null;
                 // A fresh link voids the mirror: whatever status the row wore
                 // belonged to the previous link. Read back below, never guessed.
-                $listing->live_status = null;
-                $listing->live_checked_at = null;
-                $listing->save();
+                $saved->live_status = null;
+                $saved->live_checked_at = null;
+                $saved->save();
                 // Persist Lazada sku_id and shop_sku (returned from /product/create) into variants table.
                 // Also resolve product_option_value_id so push-stock can map SKU → ERP qty.
                 $skuList = data_get($result, 'body.data.sku_list', []);
@@ -1822,9 +1835,17 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         $pfx = (string) config('catalog.prefix');
 
-        foreach ($listings as $listing) {
+        /* A group is a preset the product inherits (the owner, 2026-09-05): the
+         * payload is built from an in-memory copy whose blank category and
+         * brand are filled from the group. The saved row ($saved) keeps its
+         * own blanks; only the sync status is written back to it. */
+        $inherit = app(\Extensions\lazada\Services\Lazada\LazadaInheritedSettings::class);
+        $groups = $inherit->forProducts($listings->pluck('product_id')->map(fn ($v) => (int) $v)->all());
+
+        foreach ($listings as $saved) {
+            $listing = $inherit->fill($saved, $groups[(int) $saved->product_id] ?? null)['listing'];
             if (empty($listing->primary_category_id)) {
-                $this->persistProductSyncStatus($listing, 'bulk_upload_to_lazada', ['ok' => false, 'body' => ['code' => 'MISSING_PRIMARY_CATEGORY', 'message' => 'Primary category is required before upload.']]);
+                $this->persistProductSyncStatus($saved, 'bulk_upload_to_lazada', ['ok' => false, 'body' => ['code' => 'MISSING_PRIMARY_CATEGORY', 'message' => 'Primary category is required before upload.']]);
                 $errCount++;
                 continue;
             }
@@ -1833,7 +1854,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             $erpProduct = DB::table($pfx . 'product')->where('product_id', (int) $listing->product_id)->first(['sku', 'model', 'status']);
 
             if ((int) ($erpProduct->status ?? 1) === 0) {
-                $this->persistProductSyncStatus($listing, 'bulk_upload_to_lazada', ['ok' => false, 'body' => ['code' => 'PRODUCT_DISABLED', 'message' => 'ERP product is disabled (status=0).']]);
+                $this->persistProductSyncStatus($saved, 'bulk_upload_to_lazada', ['ok' => false, 'body' => ['code' => 'PRODUCT_DISABLED', 'message' => 'ERP product is disabled (status=0).']]);
                 $errCount++;
                 continue;
             }
@@ -1843,7 +1864,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 $erpSku = trim((string) ($erpProduct->model ?? ''));
             }
             if ($erpSku === '') {
-                $this->persistProductSyncStatus($listing, 'bulk_upload_to_lazada', ['ok' => false, 'body' => ['code' => 'MISSING_SKU', 'message' => 'Product SKU is required.']]);
+                $this->persistProductSyncStatus($saved, 'bulk_upload_to_lazada', ['ok' => false, 'body' => ['code' => 'MISSING_SKU', 'message' => 'Product SKU is required.']]);
                 $errCount++;
                 continue;
             }
@@ -1853,7 +1874,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 $productPayload = $this->images()->ensureLazadaInlinkImages($productPayload, $setting, $client);
             } catch (\Illuminate\Validation\ValidationException $e) {
                 $msg = collect($e->errors())->flatten()->first() ?: 'Listing mapping is incomplete.';
-                $this->persistProductSyncStatus($listing, 'bulk_upload_to_lazada', ['ok' => false, 'body' => ['code' => 'VALIDATION_ERROR', 'message' => (string)$msg]]);
+                $this->persistProductSyncStatus($saved, 'bulk_upload_to_lazada', ['ok' => false, 'body' => ['code' => 'VALIDATION_ERROR', 'message' => (string)$msg]]);
                 $errCount++;
                 continue;
             }
@@ -1887,7 +1908,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
             $result = $client->post((string) $setting->region, $apiPath, $params);
 
-            $this->persistProductSyncStatus($listing, $isUpdate ? 'bulk_update_on_lazada' : 'bulk_upload_to_lazada', $result, 'listing');
+            $this->persistProductSyncStatus($saved, $isUpdate ? 'bulk_update_on_lazada' : 'bulk_upload_to_lazada', $result, 'listing');
 
             $e = $this->payload()->extractLazadaError($result);
             if (!empty($e['ok'])) {
@@ -1895,17 +1916,17 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 $itemId = $isUpdate ? null : $this->payload()->extractCreatedItemId($result);
                 try {
                     if ($itemId) {
-                        $listing->lazada_item_id = $itemId;
+                        $saved->lazada_item_id = $itemId;
                         // A fresh link voids the mirror; the read-back below
                         // fills it with Lazada's answer, never a guess.
-                        $listing->live_status = null;
-                        $listing->live_checked_at = null;
+                        $saved->live_status = null;
+                        $saved->live_checked_at = null;
                     }
-                    $listing->lazada_deleted_at = null;
-                    $listing->save();
+                    $saved->lazada_deleted_at = null;
+                    $saved->save();
                     // Write-through (#184 C): the mirror learns what this push
                     // did without waiting for the 30-minute sweep.
-                    $this->itemCache()->refreshListing($listing, $setting, $client);
+                    $this->itemCache()->refreshListing($saved, $setting, $client);
                 } catch (\Throwable $ex) {
                     // ignore
                 }
@@ -3443,6 +3464,9 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
     public function pushSample(Request $request, int $id, LazadaClient $client)
     {
         $listing = LazadaProduct::query()->findOrFail($id);
+        // The sample is built the way a push is: blanks filled from the group.
+        $inherit = app(\Extensions\lazada\Services\Lazada\LazadaInheritedSettings::class);
+        $listing = $inherit->fill($listing, $inherit->forProducts([(int) $listing->product_id])[(int) $listing->product_id] ?? null)['listing'];
 
         $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);

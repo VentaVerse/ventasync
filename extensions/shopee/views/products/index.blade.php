@@ -514,7 +514,7 @@
                 {{-- One answer for this column on every page (the owner,
                      2026-09-05): the shared refusal, else the newest
                      successful sync, else never. --}}
-                @include('ext-shopee::products._last-sync', ['sync' => $lastSync[(int) $p->product_id] ?? null])
+                @include('partials.channel-last-sync', ['sync' => $lastSync[(int) $p->product_id] ?? null])
             </td>
 
             <td class="x-td-actions">

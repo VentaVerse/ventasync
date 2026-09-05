@@ -106,10 +106,9 @@ class TiktokOneTruthTest extends TestCase
         // Group B shows the PRODUCT's truth: listed, with the real id and provenance.
         $r->assertSee('tt-990077');
         $r->assertSee('Listed');
-        $r->assertSee('from the Truth group A product group');
         $r->assertDontSee('>Failed<', false);
-        // And its own attempt, scoped in words.
-        $r->assertSee("This product group's last push", false);
-        $r->assertSee('Category attribute missing');
+        // One latest error per product (the owner, 2026-09-05): the shared Last
+        // sync cell, from the listing row, on every group page alike.
+        $r->assertSee('Last sync');
     }
 }

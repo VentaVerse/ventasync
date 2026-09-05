@@ -28,7 +28,7 @@ class ShopeePushStatusTest extends TestCase
 {
     private const VIEW = 'extensions/shopee/views/product-groups/products.blade.php';
     /** The shared Last sync cell (2026-09-05), drawn on the group page and the Listings page. */
-    private const CELL = 'extensions/shopee/views/products/_last-sync.blade.php';
+    private const CELL = 'resources/views/partials/channel-last-sync.blade.php';
     private const CONTROLLER = 'extensions/shopee/Controllers/ShopeeProductGroupController.php';
 
     private function source(string $file): string
@@ -55,7 +55,7 @@ class ShopeePushStatusTest extends TestCase
             'The pivot item id is a private copy that drifts; the page must not display it.');
         // One latest error per product (the owner, 2026-09-05): the failure is
         // told by the shared Last sync cell, drawn from the listing record.
-        $this->assertStringContainsString("@include('ext-shopee::products._last-sync'", $view,
+        $this->assertStringContainsString("@include('partials.channel-last-sync'", $view,
             'The group page must draw the shared Last sync cell.');
         $this->assertStringContainsString("@if(\$sync['tone'] === 'failed')", $this->source(self::CELL),
             'The shared cell must tell a refusal.');

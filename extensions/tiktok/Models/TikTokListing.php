@@ -27,6 +27,7 @@ class TikTokListing extends Model
         'title', 'description', 'markup_percent', 'markup_fixed',
         'sale_percent', 'sale_starts_at', 'sale_ends_at', 'tiktok_activity_id',
         'last_pushed_at', 'last_push_source', 'last_checked_at',
+        'last_push_error', 'last_push_failed_at',
         'live_status', 'live_checked_at',
     ];
 
@@ -38,6 +39,7 @@ class TikTokListing extends Model
         'sale_starts_at' => 'datetime',
         'sale_ends_at' => 'datetime',
         'last_pushed_at' => 'datetime',
+        'last_push_failed_at' => 'datetime',
         'last_checked_at' => 'datetime',
         'live_checked_at' => 'datetime',
     ];
@@ -92,7 +94,33 @@ class TikTokListing extends Model
                 'tiktok_sku_id' => $skuIds,
                 'last_pushed_at' => now(),
                 'last_push_source' => $source,
+                // One latest error per product (the owner, 2026-09-05): a success clears it.
+                'last_push_error' => null,
+                'last_push_failed_at' => null,
             ]
         );
+    }
+
+    /**
+     * One latest push error per product (the owner, 2026-09-05): whichever
+     * surface pushed, the refusal lands here, the row every surface reads,
+     * until a push succeeds. Store-scoped through the global scope.
+     */
+    public static function recordPushFailure(int $productId, string $reason): void
+    {
+        $reason = trim($reason) !== '' ? trim($reason) : 'No reason was recorded.';
+        $values = ['last_push_error' => mb_substr($reason, 0, 480), 'last_push_failed_at' => now()];
+        if (static::query()->where('product_id', $productId)->exists()) {
+            static::query()->where('product_id', $productId)->update($values);
+        } else {
+            static::query()->create(['product_id' => $productId])->forceFill($values)->save();
+        }
+    }
+
+    public static function clearPushFailure(int $productId): void
+    {
+        static::query()->where('product_id', $productId)
+            ->whereNotNull('last_push_error')
+            ->update(['last_push_error' => null, 'last_push_failed_at' => null]);
     }
 }

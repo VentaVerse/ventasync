@@ -196,7 +196,7 @@
             <th scope="col" class="cc-col-chanid">TikTok ID</th>
             <th scope="col" class="cc-col-stat">Catalog</th>
             <th scope="col" class="cc-col-sync">Listing</th>
-            <th scope="col" class="cc-col-err">Last push</th>
+            <th scope="col" class="cc-col-err">Last sync</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
@@ -343,52 +343,11 @@
                 @endif
             </td>
 
-            <td class="cc-col-err" data-label="Last push">
-                {{-- A failure with no saved message still says so. Silence in a
-                     column that only ever fills on failure reads as nothing
-                     wrong, and rendered "Never" - the strongest possible
-                     statement that nothing has ever gone wrong. --}}
-                {{-- Two facts share this column, each named: what actually
-                     went up (derived across every product group) and what THIS GROUP
-                     last tried (its own attempt history). --}}
-                @if($attemptFailed)
-                    @php
-                        $reason = trim((string) ($attemptError ?? ''));
-                        $reason = $reason !== '' ? $reason : 'No reason was recorded.';
-                        $clipped = \Illuminate\Support\Str::limit($reason, 120);
-                    @endphp
-                    <span class="cc-err">This product group's last push{{ $attemptAt ? ' ' . $attemptAt->diffForHumans() : '' }} failed:</span>
-                    @if($clipped === $reason)
-                        <span class="cc-err">{{ $reason }}</span>
-                    @else
-                        {{-- <details>, not a tooltip: a title attribute waits a
-                             second, never appears on a phone, and cannot be
-                             reached from the keyboard. --}}
-                        <details class="cc-reason">
-                            <summary class="cc-reason__summary">
-                                <span class="cc-err cc-reason__clip">{{ $clipped }}</span>
-                                <span class="cc-reason__toggle">
-                                    <x-ui.icon name="chevron-down" size="12" class="cc-reason__chevron" />
-                                    <span class="cc-reason__label">Full reason</span>
-                                </span>
-                            </summary>
-                            <p class="cc-err cc-reason__full">{{ $reason }}</p>
-                        </details>
-                    @endif
-                @endif
-
-                @if($provenanceAt)
-                    <span class="cc-when">Pushed {{ $provenanceAt->diffForHumans() }}{{ $provenanceLabel !== '' ? ' ' . $provenanceLabel : '' }}</span>
-                    @php
-                        $coreMovedAt = ($p->date_modified ?? null)
-                            ? \Illuminate\Support\Carbon::parse($p->date_modified) : null;
-                    @endphp
-                    @if($coreMovedAt && $coreMovedAt->gt($provenanceAt))
-                        <span class="cc-checked cc-checked--stale">Catalog changed since this push</span>
-                    @endif
-                @elseif(! $attemptFailed)
-                    <span class="x-cell-muted">Never</span>
-                @endif
+            <td class="cc-col-err" data-label="Last sync">
+                {{-- One answer for this column on every page (the owner,
+                     2026-09-05): the shared refusal, else the newest
+                     successful sync, else never. --}}
+                @include('partials.channel-last-sync', ['sync' => ($lastSync ?? [])[(int) $p->product_id] ?? null])
             </td>
 
             <td class="x-td-actions">

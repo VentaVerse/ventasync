@@ -40,6 +40,14 @@ class LazadaListingReadiness
         $region = (string) (LazadaSetting::defaultStore()?->region ?? '');
         $attrs = app(LazadaAttributes::class);
 
+        /* A group is a preset the product inherits (the owner, 2026-09-05): a
+         * blank category on the listing is filled from its group, on copies
+         * kept in memory, the same way every push fills it now. The rows the
+         * caller holds are not touched. */
+        $inherit = app(LazadaInheritedSettings::class);
+        $groups = $inherit->forProducts($listings->pluck('product_id')->filter()->map(fn ($v) => (int) $v)->all());
+        $listings = $listings->map(fn ($l) => $inherit->fill($l, $groups[(int) $l->product_id] ?? null)['listing']);
+
         $products = DB::table($pfx . 'product')
             ->whereIn('product_id', $listings->pluck('product_id')->filter()->all())
             ->get(['product_id', 'sku', 'model', 'image'])

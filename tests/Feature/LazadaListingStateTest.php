@@ -347,4 +347,73 @@ class LazadaListingStateTest extends TestCase
         $this->assertNotNull($lazada, 'LazadaExtension must register as a ListingStateSource');
         $this->assertSame(ListingState::LIVE, $lazada->listingStates([$productId])[$productId]->state);
     }
+
+    /**
+     * One latest push error per product (the owner, 2026-09-05): a refusal from
+     * any push lands on the listing row and every surface tells it, until
+     * a push succeeds; the Last sync column is the same answer everywhere.
+     */
+    public function test_the_last_push_refusal_and_the_last_sync_are_one_answer(): void
+    {
+        $pid = $this->seedProduct('Refused one', 'RF-1');
+        \Extensions\lazada\Models\LazadaProduct::query()->create(['product_id' => $pid]);
+
+        \Extensions\lazada\Models\LazadaProduct::recordPushFailure($pid, 'Primary category is required before upload.');
+        $states = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class);
+        $s = $states->forProducts([$pid])[$pid];
+        $this->assertStringContainsString('failed: Primary category is required', implode(' ', $s->reasons));
+        $sync = $states->lastSync([$pid])[$pid];
+        $this->assertSame('failed', $sync['tone']);
+        $this->assertStringContainsString('Last push', $sync['headline']);
+
+        \Extensions\lazada\Models\LazadaProduct::clearPushFailure($pid);
+        \Extensions\lazada\Models\LazadaProduct::query()->where('product_id', $pid)->update(['last_synced_at' => now()->subMinutes(5), 'last_sync_action' => 'bulk_upload_to_lazada', 'last_sync_ok' => true]);
+        $sync = $states->lastSync([$pid])[$pid];
+        $this->assertSame('ok', $sync['tone']);
+        $this->assertStringContainsString('5 minutes ago (listing)', $sync['headline']);
+        $this->assertSame([], $states->forProducts([$pid])[$pid]->reasons);
+
+        $never = $this->seedProduct('Never one', 'NV-1');
+        $this->assertSame('none', $states->lastSync([$never])[$never]['tone']);
+    }
+
+    public function test_a_group_is_a_preset_the_product_inherits(): void
+    {
+        // A group is a preset the product inherits (the owner, 2026-09-05): a
+        // listing with no category of its own is judged, and pushed, with
+        // its group's category and brand. Nothing is written to the row.
+        $pid = $this->seedProduct('Inherits one', 'IN-1');
+        $listing = \Extensions\lazada\Models\LazadaProduct::query()->create(['product_id' => $pid]);
+        $grp = \Extensions\lazada\Models\LazadaProductGroup::create(['name' => 'Preset group', 'lazada_category_id' => 4321, 'brand_name_override' => 'Acme']);
+        \Extensions\lazada\Models\LazadaProductGroupProduct::create([
+            'lazada_product_group_id' => $grp->id, 'product_id' => $pid,
+            'lazada_product_id' => $listing->id, 'sync_status' => 'pending',
+        ]);
+
+        $inherit = app(\Extensions\lazada\Services\Lazada\LazadaInheritedSettings::class);
+        $filled = $inherit->fill($listing, $inherit->forProducts([$pid])[$pid] ?? null);
+        $this->assertSame(4321, (int) $filled['listing']->primary_category_id);
+        $this->assertSame('Acme', $filled['listing']->brand_name_override);
+        $this->assertSame(['category' => 'Preset group', 'brand' => 'Preset group'], $filled['inherited']);
+
+        $codes = array_column(app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class)
+            ->forListings(collect([$listing]))[$listing->id]['gaps'], 'code');
+        $this->assertNotContains(\App\Integrations\Listings\ListingState::GAP_CATEGORY, $codes);
+        $this->assertContains(\App\Integrations\Listings\ListingState::GAP_SHEET, $codes, 'the inherited category is judged like its own: its sheet is still unread');
+
+        // The row keeps its blanks: the group is a preset, not a write.
+        $this->assertNull(\Extensions\lazada\Models\LazadaProduct::query()->find($listing->id)->primary_category_id);
+        $this->assertNull($listing->primary_category_id);
+
+        // A listing with its own category keeps it over the group's.
+        $own = $this->seedProduct('Own one', 'OW-1');
+        $ownListing = \Extensions\lazada\Models\LazadaProduct::query()->create(['product_id' => $own, 'primary_category_id' => 99]);
+        \Extensions\lazada\Models\LazadaProductGroupProduct::create([
+            'lazada_product_group_id' => $grp->id, 'product_id' => $own,
+            'lazada_product_id' => $ownListing->id, 'sync_status' => 'pending',
+        ]);
+        $filled = $inherit->fill($ownListing, $inherit->forProducts([$own])[$own] ?? null);
+        $this->assertSame(99, (int) $filled['listing']->primary_category_id);
+        $this->assertSame(['brand' => 'Preset group'], $filled['inherited']);
+    }
 }

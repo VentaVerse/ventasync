@@ -291,4 +291,68 @@ class TikTokListingStateTest extends TestCase
         $this->assertSame(ListingState::LIVE, $tiktok->listingStates([$productId])[$productId]->state);
         $this->assertSame(route('ext.tiktok.listings.edit', $productId), $tiktok->listingUrls([$productId])[$productId]);
     }
+
+    /**
+     * One latest push error per product (the owner, 2026-09-05): a refusal from
+     * any push lands on the listing row and every surface tells it, until
+     * a push succeeds; the Last sync column is the same answer everywhere.
+     */
+    public function test_the_last_push_refusal_and_the_last_sync_are_one_answer(): void
+    {
+        $pid = $this->seedProduct('Refused one', 'RF-1');
+        \Extensions\tiktok\Models\TikTokListing::query()->create(['product_id' => $pid]);
+
+        \Extensions\tiktok\Models\TikTokListing::recordPushFailure($pid, 'Main image is required.');
+        $states = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class);
+        $s = $states->forProducts([$pid])[$pid];
+        $this->assertStringContainsString('failed: Main image is required', implode(' ', $s->reasons));
+        $sync = $states->lastSync([$pid])[$pid];
+        $this->assertSame('failed', $sync['tone']);
+
+        // A successful push clears it and becomes the sync time.
+        \Extensions\tiktok\Models\TikTokListing::recordPush($pid, 'tt-1', null, 'listing');
+        $sync = $states->lastSync([$pid])[$pid];
+        $this->assertSame('ok', $sync['tone']);
+        $this->assertStringContainsString('(listing)', $sync['headline']);
+        $this->assertNull(\Extensions\tiktok\Models\TikTokListing::query()->where('product_id', $pid)->value('last_push_error'));
+
+        $never = $this->seedProduct('Never one', 'NV-1');
+        $this->assertSame('none', $states->lastSync([$never])[$never]['tone']);
+    }
+
+    public function test_a_group_is_a_preset_the_product_inherits(): void
+    {
+        // A group is a preset the product inherits (the owner, 2026-09-05): a
+        // listing with no category of its own is judged, and pushed, with
+        // its group's category. Nothing is written to the row.
+        $pid = $this->seedProduct('Inherits one', 'IN-1');
+        $listing = TikTokListing::query()->create(['product_id' => $pid]);
+        $grp = TikTokProductGroup::create(['name' => 'Preset group', 'tiktok_category_id' => 'cat-9']);
+        TikTokProductGroupProduct::create([
+            'tiktok_product_group_id' => $grp->id, 'product_id' => $pid,
+            'sync_status' => 'pending',
+        ]);
+
+        $inherit = app(\Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::class);
+        $filled = $inherit->fill($listing, $inherit->forProducts([$pid])[$pid] ?? null);
+        $this->assertSame('cat-9', $filled['listing']->tiktok_category_id);
+        $this->assertSame(['category' => 'Preset group'], $filled['inherited']);
+
+        $codes = array_column(app(\Extensions\tiktok\Services\TikTok\TikTokListingReadiness::class)
+            ->forProducts([$pid])[$pid]['gaps'], 'code');
+        $this->assertNotContains(\App\Integrations\Listings\ListingState::GAP_CATEGORY, $codes);
+        $this->assertContains(\App\Integrations\Listings\ListingState::GAP_SHEET, $codes, 'the inherited category is judged like its own: its sheet is still unread');
+
+        // The row keeps its blanks: the group is a preset, not a write.
+        $this->assertNull(TikTokListing::query()->where('product_id', $pid)->value('tiktok_category_id'));
+        $this->assertNull($listing->tiktok_category_id);
+
+        // A listing with its own category keeps it over the group's.
+        $own = $this->seedProduct('Own one', 'OW-1');
+        $ownListing = TikTokListing::query()->create(['product_id' => $own, 'tiktok_category_id' => 'cat-own']);
+        TikTokProductGroupProduct::create(['tiktok_product_group_id' => $grp->id, 'product_id' => $own, 'sync_status' => 'pending']);
+        $filled = $inherit->fill($ownListing, $inherit->forProducts([$own])[$own] ?? null);
+        $this->assertSame('cat-own', $filled['listing']->tiktok_category_id);
+        $this->assertSame([], $filled['inherited']);
+    }
 }

@@ -674,50 +674,10 @@
             </td>
 
             <td class="cc-col-err" data-label="Last sync">
-                @if($syncFailed)
-                    @php
-                        $reason = trim((string) ($row->last_sync_error_message ?? ''));
-                        // 120, matching the group page: at 80 the actionable
-                        // half of a Lazada validation message was cut off.
-                        $clipped = Str::limit($reason, 120);
-                    @endphp
-
-                    @if($reason === '')
-                        <span class="cc-err">
-                            @if($row->last_sync_error_code)<span class="cc-err__code">{{ $row->last_sync_error_code }}</span> @endif
-                            Failed
-                        </span>
-                    @elseif($clipped === $reason)
-                        <span class="cc-err">
-                            @if($row->last_sync_error_code)<span class="cc-err__code">{{ $row->last_sync_error_code }}</span> @endif
-                            {{ $reason }}
-                        </span>
-                    @else
-                        <details class="cc-reason">
-                            <summary class="cc-reason__summary">
-                                <span class="cc-err cc-reason__clip">
-                                    @if($row->last_sync_error_code)<span class="cc-err__code">{{ $row->last_sync_error_code }}</span> @endif
-                                    {{ $clipped }}
-                                </span>
-                                <span class="cc-reason__toggle">
-                                    <x-ui.icon name="chevron-down" size="12" class="cc-reason__chevron" />
-                                    <span class="cc-reason__label">Full reason</span>
-                                </span>
-                            </summary>
-                            <p class="cc-err cc-reason__full">{{ $reason }}</p>
-                        </details>
-                    @endif
-                    @if($row->last_synced_at)
-                        <span class="cc-when">{{ \Carbon\Carbon::parse($row->last_synced_at)->diffForHumans() }}</span>
-                    @endif
-                @elseif($hasSyncInfo && $row->last_sync_ok)
-                    <span class="x-cell-muted">Succeeded</span>
-                    @if($row->last_synced_at)
-                        <span class="cc-when">{{ \Carbon\Carbon::parse($row->last_synced_at)->diffForHumans() }}</span>
-                    @endif
-                @else
-                    <span class="x-cell-muted">Never</span>
-                @endif
+                {{-- One answer for this column on every page (the owner,
+                     2026-09-05): the shared refusal, else the newest
+                     successful sync, else never. --}}
+                @include('partials.channel-last-sync', ['sync' => ($lastSync ?? [])[(int) $pid] ?? null])
             </td>
 
             <td class="x-td-actions">

@@ -248,7 +248,7 @@
             <th scope="col" class="cc-col-price x-td-num"><a class="x-th-sort x-th-sort--num" href="{{ $sortUrl('price') }}">Price @if($sort === 'price')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif</a></th>
             <th scope="col" class="cc-col-chanid">TikTok ID</th>
             <th scope="col" class="cc-col-sync">Listing</th>
-            <th scope="col" class="cc-col-err">Last push</th>
+            <th scope="col" class="cc-col-err">Last sync</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
@@ -364,19 +364,11 @@
                     @endif
                 @endif
             </td>
-            <td class="cc-col-err" data-label="Last push">
-                @if($attemptFailed)
-                    <span class="cc-err">{{ \Illuminate\Support\Str::limit((string) $attempt->push_error, 120) }}</span>
-                    @if($attempt->last_pushed_at)<span class="cc-when">{{ $attempt->last_pushed_at->diffForHumans() }}</span>@endif
-                @elseif($listing?->last_pushed_at)
-                    <span class="x-cell-muted">Pushed</span>
-                    <span class="cc-when">{{ $listing->last_pushed_at->diffForHumans() }}{{ $listing->last_push_source ? ' from ' . (str_starts_with($listing->last_push_source, 'group:') ? 'the ' . substr($listing->last_push_source, 6) . ' product group' : 'its listing') : '' }}</span>
-                @elseif($attempt?->last_pushed_at)
-                    <span class="x-cell-muted">Pushed</span>
-                    <span class="cc-when">{{ $attempt->last_pushed_at->diffForHumans() }}</span>
-                @else
-                    <span class="x-cell-muted">Never</span>
-                @endif
+            <td class="cc-col-err" data-label="Last sync">
+                {{-- One answer for this column on every page (the owner,
+                     2026-09-05): the shared refusal, else the newest
+                     successful sync, else never. --}}
+                @include('partials.channel-last-sync', ['sync' => ($lastSync ?? [])[(int) $pid] ?? null])
             </td>
             <td class="x-td-actions">
                 @if($canManage || $canEditCatalog)

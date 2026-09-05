@@ -1,0 +1,78 @@
+<?php
+
+namespace Extensions\lazada\Services\Lazada;
+
+use Extensions\lazada\Models\LazadaProduct;
+use Extensions\lazada\Models\LazadaProductGroup;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * A group is a preset the product inherits (the owner, 2026-09-05), the
+ * Shopee shape on Lazada: wherever a listing's own category or brand is
+ * blank, its group's stands in, on every push and in readiness alike.
+ * The price rule is not inherited: a group's markup rides only a group
+ * push.
+ */
+final class LazadaInheritedSettings
+{
+    /**
+     * @param list<int> $productIds
+     * @return array<int, array{group_id:int, group_name:string, category_id:?int, brand_id:?int, brand_name:?string}>
+     */
+    public function forProducts(array $productIds): array
+    {
+        $productIds = array_values(array_unique(array_map('intval', $productIds)));
+        if ($productIds === []) {
+            return [];
+        }
+
+        $rows = DB::table('lazada_product_group_products as pv')
+            ->joinSub(LazadaProductGroup::query()->select(['id', 'name', 'lazada_category_id', 'brand_id', 'brand_name_override']), 'g', 'g.id', '=', 'pv.lazada_product_group_id')
+            ->whereIn('pv.product_id', $productIds)
+            ->orderBy('pv.id')
+            ->get(['pv.product_id', 'g.id as group_id', 'g.name', 'g.lazada_category_id', 'g.brand_id', 'g.brand_name_override']);
+
+        $out = [];
+        foreach ($rows as $row) {
+            $pid = (int) $row->product_id;
+            if (isset($out[$pid])) {
+                continue; // one product, one group; the oldest membership wins
+            }
+            $out[$pid] = [
+                'group_id' => (int) $row->group_id,
+                'group_name' => (string) $row->name,
+                'category_id' => (int) $row->lazada_category_id ?: null,
+                'brand_id' => (int) ($row->brand_id ?? 0) ?: null,
+                'brand_name' => trim((string) ($row->brand_name_override ?? '')) !== '' ? (string) $row->brand_name_override : null,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * The listing with its blanks filled, as an in-memory copy never saved.
+     *
+     * @return array{listing: LazadaProduct, inherited: array<string,string>}
+     */
+    public function fill(LazadaProduct $listing, ?array $group): array
+    {
+        $copy = clone $listing;
+        $inherited = [];
+        if ($group === null) {
+            return ['listing' => $copy, 'inherited' => $inherited];
+        }
+
+        if ((int) ($copy->primary_category_id ?? 0) <= 0 && $group['category_id']) {
+            $copy->primary_category_id = $group['category_id'];
+            $inherited['category'] = $group['group_name'];
+        }
+        if ((int) ($copy->brand_id ?? 0) <= 0 && trim((string) ($copy->brand_name_override ?? '')) === '' && ($group['brand_id'] || $group['brand_name'])) {
+            $copy->brand_id = $group['brand_id'];
+            $copy->brand_name_override = $group['brand_name'];
+            $inherited['brand'] = $group['group_name'];
+        }
+
+        return ['listing' => $copy, 'inherited' => $inherited];
+    }
+}

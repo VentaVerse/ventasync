@@ -230,6 +230,8 @@ class TikTokProductController extends Controller
          * reads a filled mirror. */
         $listingStates = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)
             ->forProducts($pageIds);
+        // The Last sync column (the owner, 2026-09-05), one answer shared with the group pages.
+        $lastSync = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)->lastSync($pageIds);
 
         // How many of this store's products actually stand on TikTok Shop,
         // for the subtitle - listing rows plus pivot-only legacies, distinct.
@@ -238,6 +240,7 @@ class TikTokProductController extends Controller
         return view('ext-tiktok::products.index', [
             'products' => $products,
             'listingStates' => $listingStates,
+            'lastSync' => $lastSync,
             'listedTotal' => $listedTotal,
             'q' => $q, 'sort' => $sort, 'dir' => $dir,
             'syncStatus' => $syncStatus, 'manufacturerFilter' => $manufacturerFilter,
@@ -554,6 +557,9 @@ class TikTokProductController extends Controller
 
         $outcome = app(TikTokProductPush::class)->create($this->erpProduct($productId), $this->listingPushOptions($productId, $c), $c, $client);
         if (!$outcome['ok']) {
+            // One latest error per product (the owner, 2026-09-05).
+            TikTokListing::recordPushFailure($productId, (string) $outcome['message']);
+
             return redirect()->back()->with('error', 'Push failed: ' . $outcome['message']);
         }
         TikTokListing::recordPush($productId, $outcome['product_id'], $outcome['sku_ids'], 'listing');
@@ -829,6 +835,7 @@ class TikTokProductController extends Controller
                     TikTokListing::recordPush($pid, (string) $truth->tiktok_product_id, $outcome['sku_ids'] ?? $truth->tiktok_sku_id, 'listing');
                     $updated++;
                 } else {
+                    TikTokListing::recordPushFailure($pid, (string) $outcome['message']);
                     $errors[] = "#{$pid}: " . $outcome['message'];
                 }
             } else {
@@ -841,6 +848,7 @@ class TikTokProductController extends Controller
                     ]);
                     $created++;
                 } else {
+                    TikTokListing::recordPushFailure($pid, (string) $outcome['message']);
                     $errors[] = "#{$pid}: " . $outcome['message'];
                 }
             }
@@ -1002,6 +1010,12 @@ class TikTokProductController extends Controller
     private function listingPushOptions(int $productId, array $c): array
     {
         $listing = TikTokListing::query()->where('product_id', $productId)->first();
+        /* A group is a preset the product inherits (the owner, 2026-09-05): a
+         * blank category is filled from the group, in memory only. */
+        if ($listing) {
+            $inherit = app(\Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::class);
+            $listing = $inherit->fill($listing, $inherit->forProducts([$productId])[$productId] ?? null)['listing'];
+        }
         $service = app(TikTokAttributes::class);
         $template = $listing && $listing->tiktok_category_id
             ? $service->ensureTemplate((string) $listing->tiktok_category_id, app(TikTokClient::class), $c)

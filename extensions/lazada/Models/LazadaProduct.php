@@ -20,6 +20,7 @@ class LazadaProduct extends Model
         'markup_fixed', 'markup_percent',
         'total_price', 'lazada_item_id', 'unlinked_at', 'live_status', 'live_checked_at',
         'last_pushed_at', 'last_push_source', 'last_push_settings',
+        'last_push_error', 'last_push_failed_at',
         'sale_percent', 'sale_starts_at', 'sale_ends_at', 'sale_pushed_at',
     ];
 
@@ -27,6 +28,7 @@ class LazadaProduct extends Model
         'unlinked_at' => 'datetime',
         'live_checked_at' => 'datetime',
         'last_pushed_at' => 'datetime',
+        'last_push_failed_at' => 'datetime',
         'last_push_settings' => 'array',
         'sale_percent' => 'float',
         'sale_starts_at' => 'datetime',
@@ -72,5 +74,28 @@ class LazadaProduct extends Model
     public function variants()
     {
         return $this->hasMany(LazadaProductVariant::class, 'lazada_product_id');
+    }
+
+    /**
+     * One latest push error per product (the owner, 2026-09-05): whichever
+     * surface pushed, the refusal lands here, the row every surface reads,
+     * until a push succeeds. Store-scoped through the global scope.
+     */
+    public static function recordPushFailure(int $productId, string $reason): void
+    {
+        $reason = trim($reason) !== '' ? trim($reason) : 'No reason was recorded.';
+        $values = ['last_push_error' => mb_substr($reason, 0, 480), 'last_push_failed_at' => now()];
+        if (static::query()->where('product_id', $productId)->exists()) {
+            static::query()->where('product_id', $productId)->update($values);
+        } else {
+            static::query()->create(['product_id' => $productId])->forceFill($values)->save();
+        }
+    }
+
+    public static function clearPushFailure(int $productId): void
+    {
+        static::query()->where('product_id', $productId)
+            ->whereNotNull('last_push_error')
+            ->update(['last_push_error' => null, 'last_push_failed_at' => null]);
     }
 }

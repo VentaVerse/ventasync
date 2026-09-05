@@ -366,9 +366,12 @@ class LazadaListingLiveTest extends TestCase
         $r->assertSee('990077');
         $r->assertSee('Listed');
         $r->assertDontSee('>Failed<', false);
-        $r->assertSee("This product group's last push", false);
-        $r->assertSee('Special characters');
-        $r->assertSee('from its listing');
+        // One latest error per product (the owner, 2026-09-05): the group page
+        // draws the shared Last sync cell from the listing row; this group's
+        // older attempt is not the product's story once the listing pushed.
+        $r->assertSee('Last sync');
+        $r->assertSee('Synced');
+        $r->assertDontSee('Special characters');
     }
 
     /**

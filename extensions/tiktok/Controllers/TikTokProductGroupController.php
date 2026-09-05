@@ -43,6 +43,15 @@ class TikTokProductGroupController extends Controller
             $productId,
             $attributes
         );
+
+        // One latest error per product (the owner, 2026-09-05): the refusal also
+        // lands on the listing row, the one every surface reads; a success
+        // clears it there.
+        if (($attributes['sync_status'] ?? null) === 'error') {
+            \Extensions\tiktok\Models\TikTokListing::recordPushFailure($productId, (string) ($attributes['push_error'] ?? ''));
+        } elseif (($attributes['sync_status'] ?? null) === 'pushed') {
+            \Extensions\tiktok\Models\TikTokListing::clearPushFailure($productId);
+        }
     }
 
     private function productsRedirect(int $id)
@@ -429,6 +438,9 @@ class TikTokProductGroupController extends Controller
              * renders, so badges and menus agree across surfaces. */
             'listingStates'        => app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)
                 ->forProducts(array_map('intval', $pageIds)),
+            // The Last sync column (the owner, 2026-09-05), one answer shared with the Listings page.
+            'lastSync'             => app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)
+                ->lastSync(array_map('intval', $pageIds)),
             'q'                    => $q,
             'syncStatus'           => $syncStatus,
             'erpStatus'            => $erpStatus,

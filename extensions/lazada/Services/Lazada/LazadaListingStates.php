@@ -121,12 +121,21 @@ class LazadaListingStates
             $listing = $chosen[$productId] ?? null;
             $pushedAt = $listing?->last_pushed_at ? Carbon::parse($listing->last_pushed_at) : null;
 
+            // One latest error per product (the owner, 2026-09-05): the last
+            // refusal, from whichever surface pushed, told on every surface.
+            $failure = [];
+            if ($listing && trim((string) ($listing->last_push_error ?? '')) !== '') {
+                $failedAt = $listing->last_push_failed_at ? Carbon::parse($listing->last_push_failed_at) : null;
+                $failure[] = 'Last push' . ($failedAt ? ' ' . $failedAt->diffForHumans() : '') . ' failed: ' . trim((string) $listing->last_push_error);
+            }
+
             if (!$listing || empty($listing->lazada_item_id) || $listing->unlinked_at) {
                 $r = $listing
                     ? ($rowReadiness[(int) $listing->id] ?? ['ready' => false, 'gaps' => []])
                     : ($rowlessReadiness[$productId] ?? ['ready' => false, 'gaps' => []]);
                 $out[$productId] = new ListingState(
                     state: ListingState::NOT_LISTED,
+                    reasons: $failure,
                     ready: (bool) $r['ready'],
                     missing: $r['gaps'] ?? [],
                     pushedAt: $pushedAt,
@@ -140,7 +149,7 @@ class LazadaListingStates
             // Drift is a fact about live and inactive listings; a listing
             // Lazada no longer shows has bigger problems than staleness.
             $inSync = null;
-            $reasons = [];
+            $reasons = $failure;
             if (in_array($raw, ['active', 'inactive'], true) && $pushedAt !== null) {
                 $movedAt = ($modified[$productId] ?? null) ? Carbon::parse($modified[$productId]) : null;
                 $inSync = !($movedAt && $movedAt->gt($pushedAt));
@@ -175,5 +184,73 @@ class LazadaListingStates
         }
 
         return $out;
+    }
+
+    /**
+     * The Last sync column, one answer for the Listings page and every
+     * group page (the owner, 2026-09-05): a refusal wins and is told in full,
+     * whichever surface pushed or synced; otherwise the newest successful
+     * sync and what it was; otherwise never.
+     *
+     * @param list<int> $productIds
+     * @return array<int, array{tone: 'failed'|'ok'|'none', headline: string, detail: ?string, at: ?Carbon}>
+     */
+    public function lastSync(array $productIds): array
+    {
+        $productIds = array_values(array_unique(array_map('intval', $productIds)));
+        if ($productIds === []) {
+            return [];
+        }
+        $modified = DB::table((string) config('catalog.prefix') . 'product')
+            ->whereIn('product_id', $productIds)->pluck('date_modified', 'product_id');
+        $word = fn (?string $action): string => match (true) {
+            $action === null || trim($action) === '' => 'sync',
+            (bool) preg_match('/qty|stock/i', $action) => 'stock',
+            (bool) preg_match('/price/i', $action) => 'price',
+            (bool) preg_match('/upload|push|create|update/i', $action) => 'listing',
+            (bool) preg_match('/_id$/i', $action) => 'link check',
+            (bool) preg_match('/delete/i', $action) => 'delete',
+            default => str_replace('_', ' ', strtolower(trim($action))),
+        };
+
+        $out = [];
+        foreach ($productIds as $pid) {
+            $out[$pid] = $this->lastSyncFor($pid, $word, ($modified[$pid] ?? null) ? Carbon::parse($modified[$pid]) : null);
+        }
+
+        return $out;
+    }
+
+    /** @param \Closure(?string): string $word */
+    private function lastSyncFor(int $pid, \Closure $word, ?Carbon $movedAt): array
+    {
+        $rows = LazadaProduct::query()->where('product_id', $pid)->orderBy('id')->get();
+        $listing = $rows->first(fn ($l) => !empty($l->lazada_item_id) && !$l->unlinked_at) ?? $rows->last();
+
+        if ($listing && trim((string) ($listing->last_push_error ?? '')) !== '') {
+            $at = $listing->last_push_failed_at ? Carbon::parse($listing->last_push_failed_at) : null;
+            return ['tone' => 'failed', 'headline' => 'Last push' . ($at ? ' ' . $at->diffForHumans() : '') . ' failed:', 'detail' => trim((string) $listing->last_push_error), 'at' => $at];
+        }
+        $failedSync = $rows->filter(fn ($r) => $r->last_sync_ok !== null && !$r->last_sync_ok && trim((string) ($r->last_sync_error_message ?? '')) !== '')->sortByDesc('last_synced_at')->first();
+        if ($failedSync) {
+            $at = $failedSync->last_synced_at ? Carbon::parse($failedSync->last_synced_at) : null;
+            return ['tone' => 'failed', 'headline' => ucfirst($word($failedSync->last_sync_action)) . ' sync' . ($at ? ' ' . $at->diffForHumans() : '') . ' failed:', 'detail' => trim((string) $failedSync->last_sync_error_message), 'at' => $at];
+        }
+        $candidates = [];
+        foreach ($rows as $r) {
+            if ($r->last_synced_at && ($r->last_sync_ok === null || (bool) $r->last_sync_ok)) {
+                $candidates[] = [Carbon::parse($r->last_synced_at), $word($r->last_sync_action)];
+            }
+            if ($r->last_pushed_at) {
+                $candidates[] = [Carbon::parse($r->last_pushed_at), 'listing'];
+            }
+        }
+        usort($candidates, fn ($a, $b) => $b[0] <=> $a[0]);
+        if ($candidates === []) {
+            return ['tone' => 'none', 'headline' => 'Never synced', 'detail' => null, 'at' => null];
+        }
+        [$at, $what] = $candidates[0];
+        $stale = $movedAt && $movedAt->gt($at);
+        return ['tone' => 'ok', 'headline' => 'Synced ' . $at->diffForHumans() . ' (' . $what . ')' . ($stale ? ', catalog changed since' : ''), 'detail' => null, 'at' => $at];
     }
 }
