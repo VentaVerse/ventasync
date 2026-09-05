@@ -169,10 +169,16 @@
                                 value="{{ old('store_name', $setting->store_name ?? '') }}" />
                 </x-ui.field>
 
-                <x-ui.field label="Store is active" for="lz-enabled" name="enabled" wide
+                {{-- The system's one switch (.fm-switch), not a checkbox with
+                     a caption: the field's label names the state, the track
+                     shows it. --}}
+                <x-ui.field label="Active" for="lz-enabled" name="enabled" wide
                             hint="An active store syncs on the crons and shows its tabs. Switch off to pause the store without losing anything.">
                     <input type="hidden" name="enabled" value="0">
-                    <label class="fm-check"><input type="checkbox" id="lz-enabled" name="enabled" value="1" @checked((bool) ($setting->enabled ?? true)) @disabled(!$canManageLazada)> Active</label>
+                    <label class="fm-switch cs-store-switch">
+                        <input type="checkbox" class="fm-switch__input" id="lz-enabled" name="enabled" value="1" @checked((bool) ($setting->enabled ?? true)) @disabled(!$canManageLazada)>
+                        <span class="fm-switch__track" aria-hidden="true"></span>
+                    </label>
                 </x-ui.field>
             </div>
             @if($canManageLazada)

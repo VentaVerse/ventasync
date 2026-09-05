@@ -432,7 +432,6 @@ class WorkspaceInteriorsTest extends TestCase
         $settings->assertDontSee(route('ext.shopee.purge_raw'), false);
         $settings->assertDontSee(route('ext.shopee.explorer_run'), false);
         $settings->assertDontSee(route('ext.shopee.clear_api_logs'), false);
-        $settings->assertDontSee(route('ext.shopee.logistics_channels'), false);
         $settings->assertDontSee('Save production settings');
         $settings->assertDontSee('Save order mapping');
 
@@ -500,7 +499,6 @@ class WorkspaceInteriorsTest extends TestCase
             route('ext.shopee.return_status_map'),
             route('ext.shopee.api_log_mode'),
             route('ext.shopee.purge_raw'),
-            route('ext.shopee.logistics_channels'),
             route('ext.shopee.categories.fetch'),
             route('ext.shopee.logistics.fetch'),
             route('ext.shopee.products.bulk_push'),

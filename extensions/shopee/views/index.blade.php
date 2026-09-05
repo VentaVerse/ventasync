@@ -155,10 +155,16 @@
                                 value="{{ old('store_name', $setting->store_name ?? '') }}" />
                 </x-ui.field>
 
-                <x-ui.field label="Store is active" for="sp-enabled" name="enabled" wide
+                {{-- The system's one switch (.fm-switch), not a checkbox with
+                     a caption: the field's label names the state, the track
+                     shows it. --}}
+                <x-ui.field label="Active" for="sp-enabled" name="enabled" wide
                             hint="An active store syncs on the crons and shows its tabs. Switch off to pause the store without losing anything.">
                     <input type="hidden" name="enabled" value="0">
-                    <label class="fm-check"><input type="checkbox" id="sp-enabled" name="enabled" value="1" @checked((bool) ($setting->enabled ?? true)) @disabled(!$canManageShopee)> Active</label>
+                    <label class="fm-switch cs-store-switch">
+                        <input type="checkbox" class="fm-switch__input" id="sp-enabled" name="enabled" value="1" @checked((bool) ($setting->enabled ?? true)) @disabled(!$canManageShopee)>
+                        <span class="fm-switch__track" aria-hidden="true"></span>
+                    </label>
                 </x-ui.field>
             </div>
             @if($canManageShopee)
@@ -456,21 +462,10 @@
         </section>
     </div>
 
-    @if($canManageShopee)
-    <section class="fm-section">
-        <div class="fm-section__head">
-            <h2 class="fm-section__title">Couriers</h2>
-        </div>
-        <p class="fm-section__note">Reads the courier list Shopee has switched on for this shop and caches it. The full list, with weight and size limits, is on the Logistics page.</p>
-        <div class="cs-actions">
-            <form method="POST" action="{{ route('ext.shopee.logistics_channels') }}">
-                @csrf
-                <x-ui.button type="submit">Fetch couriers</x-ui.button>
-            </form>
-            <a class="fm-cancel" href="{{ route('ext.shopee.logistics.index') }}">Open Logistics</a>
-        </div>
-    </section>
-    @endif
+    {{-- The Couriers section that stood here (Fetch couriers) is gone
+         (the owner, 2026-09-05): it read the courier list and only flashed the
+         raw answer, while Catalog > Logistics fetches the same list and
+         caches it. One door: the Logistics page. --}}
 </div>
 
 {{-- ================================================================

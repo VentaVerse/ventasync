@@ -1089,47 +1089,4 @@ public function buildAuthUrl(ShopeeClient $client)
         ]);
     }
 
-    public function logisticsChannels(ShopeeClient $client)
-    {
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
-            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
-            return $this->toSettingsTab('connection')->with('shopee_result', [
-                'ok' => false,
-                'title' => 'Missing settings',
-                'data' => ['message' => "Partner ID, Partner Key, Access Token, and Shop ID for {$modeLabel} mode are required."],
-            ]);
-        }
-
-        $path = '/api/v2/logistics/get_channel_list';
-
-        $result = $client->shopGet(
-            $auth['mode'],
-            (int)$auth['partner_id'],
-            (string)$auth['partner_key'],
-            (string)$auth['access_token'],
-            (int)$auth['shop_id'],
-            $path
-        );
-
-        ShopeeApiLog::safeCreate([
-            'pack' => 'logistics',
-            'method' => 'GET',
-            'api_path' => $path,
-            'auth_required' => true,
-            'request_params' => [],
-            'response_status' => $result['status'] ?? null,
-            'ok' => (bool)($result['ok'] ?? false),
-            'response_body' => $result['body'] ?? null,
-            'user_id' => auth()->id(),
-        ]);
-
-        return $this->toSettingsTab('connection')->with('shopee_result', [
-            'ok' => (bool)$result['ok'],
-            'title' => 'Logistics Channels',
-            'data' => $result,
-        ]);
-    }
-
 }

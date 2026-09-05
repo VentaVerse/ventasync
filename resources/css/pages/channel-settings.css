@@ -1212,3 +1212,7 @@
     gap: var(--bl-space-3);
     margin-top: var(--bl-space-5);
 }
+
+/* This store: the Active switch stands in for an input, so it takes an
+   input's vertical room; without it the Save row crowds the track. */
+.cs-store-switch { padding: 8px 0 6px; }

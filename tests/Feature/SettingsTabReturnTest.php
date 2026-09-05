@@ -142,7 +142,7 @@ class SettingsTabReturnTest extends TestCase
         // had not).
         $html = $this->actingAs($user)->get(route('ext.lazada.index', ['store' => $store->id]))->assertOk()->getContent();
         $this->assertStringContainsString('Store name', $html);
-        $this->assertStringContainsString('Store is active', $html);
+        $this->assertStringContainsString('cs-store-switch', $html, 'the Active switch is the system switch');
 
         // Its own form and action: not the credential save, which also
         // rewrites the mode and the region.
@@ -172,7 +172,7 @@ class SettingsTabReturnTest extends TestCase
 
         $html = $this->actingAs($user)->get(route('ext.tiktok.index', ['store' => $store->id]))->assertOk()->getContent();
         $this->assertStringContainsString('Store name', $html);
-        $this->assertStringContainsString('Store is active', $html);
+        $this->assertStringContainsString('cs-store-switch', $html, 'the Active switch is the system switch');
 
         $this->actingAs($user)->post($base . '/store', ['store_name' => 'TikTok PH', 'enabled' => 0])
             ->assertRedirect(route('ext.tiktok.index', ['store' => $store->id, 'tab' => 'connection']));

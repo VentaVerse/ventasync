@@ -1536,11 +1536,6 @@
     },
     {
         "method": "POST",
-        "uri": "channels/shopee/{store}/logistics/channels",
-        "name": "ext.shopee.logistics_channels"
-    },
-    {
-        "method": "POST",
         "uri": "channels/shopee/{store}/logistics/fetch",
         "name": "ext.shopee.logistics.fetch"
     },

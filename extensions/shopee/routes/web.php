@@ -150,7 +150,9 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
         Route::post('/shopee/{store}/call', [ShopeeApiExplorerController::class, 'callApi'])->name('ext.shopee.call_api');
         Route::post('/shopee/{store}/explorer/run', [ShopeeApiExplorerController::class, 'explorerRun'])->name('ext.shopee.explorer_run');
         Route::post('/shopee/{store}/packs/run', [ShopeeApiExplorerController::class, 'packsRun'])->name('ext.shopee.packs_run');
-        Route::post('/shopee/{store}/logistics/channels', [ShopeeApiExplorerController::class, 'logisticsChannels'])->name('ext.shopee.logistics_channels');
+        // ext.shopee.logistics_channels (the Settings-page "Fetch couriers")
+        // retired 2026-09-05: it only flashed Shopee's raw answer; Catalog >
+        // Logistics (ext.shopee.logistics.fetch) reads and caches the list.
 
         // Status-map saves + sync window saves
         Route::post('/shopee/{store}/order-status-map', [ShopeeSettingsController::class, 'saveOrderStatusMap'])->name('ext.shopee.order_status_map');
