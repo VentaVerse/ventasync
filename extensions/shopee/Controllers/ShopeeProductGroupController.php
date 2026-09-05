@@ -806,6 +806,74 @@ class ShopeeProductGroupController extends Controller
      * Shopee's /api/v2/product/get_brand_list is paginated (100 per page);
      * we walk all pages so a single fetch fully populates the category.
      */
+    /** The cache key that says a category's brand list has been read to its last page. */
+    private function brandsCompleteKey(int $categoryId): string
+    {
+        return 'shopee.brands.complete.' . $categoryId;
+    }
+
+    /**
+     * One page of a category's brand list, stored, with where the next
+     * page starts. Answers `complete` once Shopee says there is no next
+     * page, and at once on a category already read to the end.
+     */
+    private function warmBrands(int $categoryId, int $offset, ShopeeClient $client)
+    {
+        $read = fn () => ShopeeBrand::query()->where('category_id', $categoryId)->count();
+
+        if (\Illuminate\Support\Facades\Cache::get($this->brandsCompleteKey($categoryId))) {
+            return response()->json(['ok' => true, 'complete' => true, 'read' => $read()]);
+        }
+
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            return response()->json(['ok' => false, 'message' => 'This store is not connected yet. Authorise it with Shopee first.'], 412);
+        }
+
+        $pageSize = 100;
+        $result = $client->shopGet(
+            $auth['mode'],
+            (int) $auth['partner_id'], (string) $auth['partner_key'],
+            (string) $auth['access_token'], (int) $auth['shop_id'],
+            '/api/v2/product/get_brand_list',
+            ['category_id' => $categoryId, 'offset' => $offset, 'page_size' => $pageSize, 'status' => 1]
+        );
+
+        if (!($result['ok'] ?? false)) {
+            $body = $result['body'] ?? null;
+            $msg = is_array($body) ? ($body['message'] ?? ($body['error'] ?? 'the call failed')) : 'the call failed';
+
+            return response()->json(['ok' => false, 'message' => 'Shopee did not answer with its brands: ' . $msg], 502);
+        }
+
+        $body = $result['body'] ?? [];
+        $resp = $body['response'] ?? $body;
+        $now = now();
+        foreach ((array) ($resp['brand_list'] ?? []) as $b) {
+            if (!is_array($b)) continue;
+            $bid = (int) ($b['brand_id'] ?? 0);
+            $name = trim((string) ($b['original_brand_name'] ?? $b['display_brand_name'] ?? $b['name'] ?? ''));
+            if ($bid <= 0 || $name === '') continue;
+            ShopeeBrand::updateOrCreate(
+                ['category_id' => $categoryId, 'brand_id' => $bid],
+                ['name' => $name, 'status' => 1, 'raw' => $b, 'updated_at' => $now]
+            );
+        }
+
+        $hasNext = (bool) ($resp['has_next_page'] ?? false) && !empty($resp['brand_list']);
+        if (!$hasNext) {
+            \Illuminate\Support\Facades\Cache::forever($this->brandsCompleteKey($categoryId), true);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'complete' => !$hasNext,
+            'next_offset' => $offset + $pageSize,
+            'read' => $read(),
+        ]);
+    }
+
     public function brandsForCategory(Request $request, ShopeeClient $client)
     {
         $categoryId = (int) $request->query('category_id', 0);
@@ -834,6 +902,15 @@ class ShopeeProductGroupController extends Controller
 
             return $query;
         };
+
+        /* Warming (the owner, 2026-09-05): a category's brand list is read from
+         * Shopee one page per request, so the page can draw progress while
+         * a first-time list of thousands comes in, instead of a search box
+         * that hangs. The combobox warms on category pick; the search below
+         * then answers from the cache. */
+        if ($request->boolean('warm')) {
+            return $this->warmBrands($categoryId, max(0, (int) $request->query('offset', 0)), $client);
+        }
 
         // Serve from cache if we've fetched this category before.
         $cacheHasAny = ShopeeBrand::query()->where('category_id', $categoryId)->exists();

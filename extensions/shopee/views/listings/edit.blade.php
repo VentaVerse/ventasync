@@ -523,7 +523,8 @@
                                  data-combo-search-url="{{ route('ext.shopee.products.brandsForCategory') }}"
                                  data-combo-extra-param="category_id"
                                  data-combo-extra-source="#sl-category-value"
-                                 data-combo-extra-empty="Pick a category first - every brand list belongs to one.">
+                                 data-combo-extra-empty="Pick a category first - every brand list belongs to one."
+                                 data-combo-warm>
                                 <div class="gf-combo__field">
                                     <input type="hidden" name="shopee_brand_id" data-combo-value
                                            value="{{ $slBrandId > 0 ? $slBrandId : '' }}">
@@ -534,6 +535,12 @@
                                                 :disabled="!$canManage" />
                                     <div class="gf-combo__results" data-combo-results role="listbox"
                                          aria-label="Shopee brands" hidden></div>
+                                    {{-- A first-time brand list is read from Shopee a
+                                         page at a time; this says so while it comes in. --}}
+                                    <div class="gf-combo__progress" data-combo-progress role="status" aria-live="polite" hidden>
+                                        <span class="gf-combo__bar" aria-hidden="true"></span>
+                                        <span data-combo-progress-text></span>
+                                    </div>
                                 </div>
                             </div>
                         </x-ui.field>

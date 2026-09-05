@@ -603,3 +603,51 @@
 
 .gf-move:hover,
 .cc-move:hover { color: var(--bl-ink); }
+
+/* Reading a brand list (2026-09-05): a first-time list comes from Shopee
+   a page at a time, and the box is locked until the last page. The bar is
+   indeterminate because Shopee never says how many pages there are; the
+   count beside it is the honest measure. A transform, never a width. */
+.gf-combo__progress {
+    display: flex;
+    align-items: center;
+    gap: var(--bl-space-2);
+    margin-top: var(--bl-space-1);
+    font-size: 12px;
+    color: var(--bl-ink-3);
+}
+
+.gf-combo__progress[hidden] { display: none; }
+
+.gf-combo__bar {
+    position: relative;
+    flex: 0 0 72px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--bl-chrome);
+    overflow: hidden;
+}
+
+.gf-combo__bar::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: 40%;
+    border-radius: 2px;
+    background: var(--bl-brand);
+    transform: translateX(-100%);
+    animation: gf-combo-sweep 1.1s ease-in-out infinite;
+}
+
+.gf-combo__progress[data-state="done"] { color: var(--bl-good); }
+.gf-combo__progress[data-state="done"] .gf-combo__bar::after { animation: none; transform: none; width: 100%; background: var(--bl-good); }
+.gf-combo__progress[data-state="failed"] { color: var(--bl-bad); }
+.gf-combo__progress[data-state="failed"] .gf-combo__bar::after { animation: none; transform: none; width: 100%; background: var(--bl-bad); }
+
+@keyframes gf-combo-sweep {
+    to { transform: translateX(250%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .gf-combo__bar::after { animation: none; transform: none; width: 100%; opacity: .6; }
+}

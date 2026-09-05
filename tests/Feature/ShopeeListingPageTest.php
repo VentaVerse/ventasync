@@ -79,6 +79,50 @@ class ShopeeListingPageTest extends TestCase
         $this->sentPayloads[] = ['path' => $path, 'body' => $body];
     }
 
+    /**
+     * Warming a brand list (the owner, 2026-09-05): a first-time list is read
+     * one page per request so the page can show progress; the search then
+     * answers from the cache, and a category read to the end answers at
+     * once.
+     */
+    public function test_a_brand_list_is_warmed_one_page_at_a_time_and_then_served_from_the_cache(): void
+    {
+        \Illuminate\Support\Facades\Cache::flush();
+        $this->getResponses['/api/v2/product/get_brand_list'] = function (array $q) {
+            $offset = (int) ($q['offset'] ?? 0);
+
+            return ['ok' => true, 'status' => 200, 'body' => ['response' => [
+                'brand_list' => $offset === 0
+                    ? [['brand_id' => 11, 'original_brand_name' => 'Boss'], ['brand_id' => 12, 'original_brand_name' => 'Ibanez']]
+                    : [['brand_id' => 13, 'original_brand_name' => 'Walrus Audio']],
+                'has_next_page' => $offset === 0,
+            ]]];
+        };
+        $user = $this->manager();
+
+        $first = $this->actingAs($user)->getJson(route('ext.shopee.products.brandsForCategory', ['category_id' => 100013, 'warm' => 1, 'offset' => 0]))
+            ->assertOk()->json();
+        $this->assertFalse($first['complete']);
+        $this->assertSame(2, $first['read']);
+        $this->assertSame(100, $first['next_offset']);
+
+        $second = $this->actingAs($user)->getJson(route('ext.shopee.products.brandsForCategory', ['category_id' => 100013, 'warm' => 1, 'offset' => 100]))
+            ->assertOk()->json();
+        $this->assertTrue($second['complete']);
+        $this->assertSame(3, $second['read']);
+
+        // Read to the end: the next warm answers at once, no call to Shopee.
+        $this->getResponses['/api/v2/product/get_brand_list'] = ['ok' => false, 'status' => 500, 'body' => ['message' => 'must not be called']];
+        $again = $this->actingAs($user)->getJson(route('ext.shopee.products.brandsForCategory', ['category_id' => 100013, 'warm' => 1, 'offset' => 0]))
+            ->assertOk()->json();
+        $this->assertTrue($again['complete']);
+
+        $search = $this->actingAs($user)->getJson(route('ext.shopee.products.brandsForCategory', ['category_id' => 100013, 'q' => 'wal', 'limit' => 25]))
+            ->assertOk()->json();
+        $this->assertTrue($search['cached']);
+        $this->assertSame(['Walrus Audio'], array_column($search['brands'], 'name'));
+    }
+
     private int $groupSeq = 0;
 
     private function userWith(array $keys): User

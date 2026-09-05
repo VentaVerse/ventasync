@@ -473,8 +473,77 @@ function initCategoryCombo(root) {
             value.value = '';
             input.value = '';
             hide();
+            warm();
         });
     }
+
+    /* Warming (the owner, 2026-09-05): a first-time brand list is thousands of
+       rows read from Shopee a page at a time, and the search box used to
+       hang until the last page. Now the list is read the moment a category
+       is picked, one request per page, with the count drawn as it grows;
+       the box is locked until the list is in. A category already read to
+       the end answers at once and nothing is shown. */
+    const warmUrl = root.hasAttribute('data-combo-warm') ? searchUrl : null;
+    const progress = root.querySelector('[data-combo-progress]');
+    const progressText = root.querySelector('[data-combo-progress-text]');
+    let warmRun = 0;
+
+    function setProgress(state, text) {
+        if (!progress) return;
+        progress.hidden = state === 'idle';
+        progress.dataset.state = state;
+        if (progressText) progressText.textContent = text || '';
+    }
+
+    function warm() {
+        if (!warmUrl || !extraParam || !extraSource || !extraSource.value) { setProgress('idle'); return; }
+        const run = (warmRun += 1);
+        const category = extraSource.value;
+        const wasDisabled = input.disabled;
+        let offset = 0;
+        let shown = false;
+
+        function step() {
+            const url = new URL(warmUrl, window.location.origin);
+            url.searchParams.set(extraParam, category);
+            url.searchParams.set('warm', '1');
+            url.searchParams.set('offset', String(offset));
+            return fetch(url.toString(), { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (run !== warmRun) return; // the category changed under us
+                    if (!data || !data.ok) {
+                        setProgress('failed', (data && data.message) || 'Could not read the brands. Try again in a moment.');
+                        input.disabled = wasDisabled;
+                        return;
+                    }
+                    if (data.complete) {
+                        input.disabled = wasDisabled;
+                        if (shown) {
+                            setProgress('done', data.read.toLocaleString() + ' brands ready.');
+                            window.setTimeout(function () { if (run === warmRun) setProgress('idle'); }, 2500);
+                        } else {
+                            setProgress('idle');
+                        }
+                        return;
+                    }
+                    shown = true;
+                    input.disabled = true;
+                    setProgress('running', 'Reading brands from Shopee… ' + data.read.toLocaleString() + ' so far');
+                    offset = data.next_offset;
+                    return step();
+                })
+                .catch(function () {
+                    if (run !== warmRun) return;
+                    setProgress('failed', 'Could not reach the server. Try again in a moment.');
+                    input.disabled = wasDisabled;
+                });
+        }
+
+        return step();
+    }
+
+    if (warmUrl) warm();
 
     // The popup is a real listbox and the field that opens it is a real
     // combobox: both roles need the pair of ids that ties them together,
