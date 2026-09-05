@@ -219,11 +219,11 @@
                 <input type="hidden" name="env" value="live">
 
                 <div class="fm-fields">
-                    <x-ui.field label="Region" for="lz-region" name="region" wide
+                    <x-ui.field label="Region" for="lz-region" name="region" wide :required="true"
                                 hint="Which Lazada country site this shop trades on. Production and sandbox share this one setting.">
                         <div class="x-select-wrap">
                             <select id="lz-region" name="region" class="x-input" @disabled(!$canManageLazada)>
-                                <option value="">Not set</option>
+                                <option value="">Choose a region</option>
                                 @foreach($regions as $code => $name)
                                     <option value="{{ $code }}" @selected(strtolower((string) ($setting->region ?? '')) === $code)>{{ $name }} ({{ strtoupper($code) }})</option>
                                 @endforeach
@@ -360,7 +360,7 @@
                                 hint="Shared with production. Choosing here also changes the live form.">
                         <div class="x-select-wrap">
                             <select id="lz-sb-region" name="region" class="x-input" @disabled(!$canManageLazada)>
-                                <option value="">Not set</option>
+                                <option value="">Choose a region</option>
                                 @foreach($regions as $code => $name)
                                     <option value="{{ $code }}" @selected(strtolower((string) ($setting->region ?? '')) === $code)>{{ $name }} ({{ strtoupper($code) }})</option>
                                 @endforeach

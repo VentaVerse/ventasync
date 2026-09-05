@@ -964,7 +964,9 @@ class LazadaController extends Controller
             'store_name' => 'nullable|string|max:128',
             'enabled' => 'nullable|boolean',
             'env' => 'nullable|in:live,sandbox',
-            'region' => 'nullable|in:ph,sg,my,id,th,vn',
+            // Required (the owner, 2026-09-05): every Lazada call is signed against
+            // a region's host, so a store without one cannot be set up.
+            'region' => 'required|in:ph,sg,my,id,th,vn',
             'app_key' => 'nullable|string|max:64',
             'app_secret' => 'nullable|string|max:255',
             'sandbox_app_key' => 'nullable|string|max:64',
