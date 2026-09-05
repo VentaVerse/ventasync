@@ -336,6 +336,12 @@
    Checkboxes say all three things by existing. */
 .rp-more__field--wide { grid-column: span 2; }
 .rp-choices { display: flex; flex-wrap: wrap; gap: var(--bl-space-1) var(--bl-space-4); }
+/* Stores grouped under their channel (per-store reports, 2026-09-05): the
+   heading takes the whole row so the stores under it start a new line. */
+.rp-choices__group { flex-basis: 100%; margin-top: var(--bl-space-1); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--bl-ink-3); }
+.rp-choices__group:first-child { margin-top: 0; }
+/* The store under the channel badge on an order row. */
+.rp-store { display: block; margin-top: 2px; font-size: 11px; color: var(--bl-ink-3); }
 .rp-choice {
     display: inline-flex;
     align-items: center;
