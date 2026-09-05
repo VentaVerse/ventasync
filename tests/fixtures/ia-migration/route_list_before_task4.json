@@ -2821,6 +2821,46 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/listings",
+        "name": "ext.woocommerce.listings.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/listings/bulk-toggle",
+        "name": "ext.woocommerce.listings.bulk_toggle"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/listings/check",
+        "name": "ext.woocommerce.listings.check"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/listings/refresh-status",
+        "name": "ext.woocommerce.listings.refresh_status"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/listings/{productId}",
+        "name": "ext.woocommerce.listings.edit"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/woocommerce/{store}/listings/{productId}",
+        "name": "ext.woocommerce.listings.update"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/listings/{productId}/push",
+        "name": "ext.woocommerce.listings.push"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/listings/{productId}/toggle",
+        "name": "ext.woocommerce.listings.toggle"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "channels/woocommerce/{store}/orders",
         "name": "ext.woocommerce.orders.index"
     },
@@ -2843,6 +2883,116 @@
         "method": "POST",
         "uri": "channels/woocommerce/{store}/orders/{order}/complete",
         "name": "ext.woocommerce.orders.complete"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/product-groups",
+        "name": "ext.woocommerce.product-groups.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups",
+        "name": "ext.woocommerce.product-groups.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/product-groups/create",
+        "name": "ext.woocommerce.product-groups.create"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/product-groups/search-products",
+        "name": "ext.woocommerce.product-groups.searchProducts"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}",
+        "name": "ext.woocommerce.product-groups.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}",
+        "name": "ext.woocommerce.product-groups.update"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/add-products",
+        "name": "ext.woocommerce.product-groups.addProducts"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/check",
+        "name": "ext.woocommerce.product-groups.check"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/delete-from-store",
+        "name": "ext.woocommerce.product-groups.bulk-delete-from-store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/edit",
+        "name": "ext.woocommerce.product-groups.edit"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/mass-remove",
+        "name": "ext.woocommerce.product-groups.mass-remove"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/products",
+        "name": "ext.woocommerce.product-groups.products"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/products/{product}/delete-from-store",
+        "name": "ext.woocommerce.product-groups.deleteFromStore"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/products/{product}/remove",
+        "name": "ext.woocommerce.product-groups.removeProduct"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/products/{product}/unlink",
+        "name": "ext.woocommerce.product-groups.unlink"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/push",
+        "name": "ext.woocommerce.product-groups.push"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/push-prices",
+        "name": "ext.woocommerce.product-groups.push-prices"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/push-stock",
+        "name": "ext.woocommerce.product-groups.push-stock"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/products/add-to-store",
+        "name": "ext.woocommerce.products.add_to_store_bulk"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/products/add-to-store/{productId}",
+        "name": "ext.woocommerce.products.add_to_store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/products/catalogue-search",
+        "name": "ext.woocommerce.products.catalogue_search"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/products/remove-from-store/{productId}",
+        "name": "ext.woocommerce.products.remove_from_store"
     },
     {
         "method": "GET|HEAD",

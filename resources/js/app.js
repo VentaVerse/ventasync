@@ -27,6 +27,7 @@ import './pages/shopee-listings';
 import './pages/lazada-listings';
 import './pages/tiktok-listings';
 import './pages/venta-listings';
+import './pages/woocommerce-listings';
 import './pages/channel-settings';
 import './pages/channel-setup';
 import './pages/store-settings';
