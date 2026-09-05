@@ -110,11 +110,18 @@ class TikTokCatalogOrderSync
                 $rate = (float) $catalogOrder->currency_value;
             }
 
+            // Per-store reports (the owner, 2026-09-05): the core order carries
+            // its store on its own, name included, so reports read by store
+            // and a deleted store's sales keep the name they were sold under.
+            // Written on every resync, so a rename follows.
+            $storeId = (int) $tiktokOrder->tiktok_setting_id;
+            $storeName = mb_substr((string) (\Extensions\tiktok\Models\TikTokSetting::query()->find($storeId)?->store_name ?? ''), 0, 64);
+
             $orderData = [
                 'invoice_no'            => 0,
                 'invoice_prefix'        => '',
-                'store_id'              => 0,
-                'store_name'            => '',
+                'store_id'              => $storeId,
+                'store_name'            => $storeName,
                 'store_url'             => '',
                 'customer_id'           => 0,
                 'customer_group_id'     => 0,
