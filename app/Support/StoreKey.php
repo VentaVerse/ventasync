@@ -16,7 +16,7 @@ namespace App\Support;
 final class StoreKey
 {
     /** Channels whose marketplace_source already carries the store. */
-    private const SOURCE_NAMES_STORE = ['opencart', 'venta', 'shopify'];
+    private const SOURCE_NAMES_STORE = ['opencart', 'venta', 'shopify', 'woocommerce'];
 
     /** @return array{source:string, store_id:?int}|null */
     public static function parse(string $key): ?array

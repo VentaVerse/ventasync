@@ -621,6 +621,10 @@ class IntegrationController extends Controller
                         // is always written by every sync run, so a zero
                         // here is a real "no failures", not an absent metric.
                         $errors24h = DB::table('opencart_sync_log')->where('opencart_setting_id', $row->id)->where('created_at', '>=', $staleAfter)->where('status', 'failed')->count();
+                    } elseif ($row && $baseId === 'woocommerce') {
+                        $errors24h = ((($row->api_log_mode ?? 'off') !== 'off'))
+                            ? DB::table('woocommerce_api_logs')->where('woocommerce_setting_id', $row->id)->where('created_at', '>=', $staleAfter)->where('ok', 0)->count()
+                            : null;
                     } elseif ($row && $baseId === 'pedallion') {
                         $errors24h = ((($row->api_log_mode ?? 'off') !== 'off'))
                             ? DB::table('pedallion_api_logs')->where('created_at', '>=', $staleAfter)->where('status_code', '>=', 400)->count()

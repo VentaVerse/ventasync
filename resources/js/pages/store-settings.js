@@ -220,13 +220,15 @@ function initTest(root, config) {
                     if (shop.name) parts.push(String(shop.name));
                     if (shop.plan_name) parts.push(String(shop.plan_name));
                     if (shop.currency) parts.push(String(shop.currency));
-                    result.textContent = parts.length
-                        ? 'Connected to ' + parts.join(', ') + '.'
-                        : 'Connected.';
+                    // A channel that answers in words (WooCommerce: versions
+                    // and webhook count) is quoted as is.
+                    result.textContent = data.message
+                        ? String(data.message)
+                        : (parts.length ? 'Connected to ' + parts.join(', ') + '.' : 'Connected.');
                     result.classList.add('cs-actions__note--ok');
                 } else {
-                    const reason = (data.body && data.body.error) || data.error || 'no reason given';
-                    result.textContent = 'Could not connect: ' + reason;
+                    const reason = data.message || (data.body && data.body.error) || data.error || 'no reason given';
+                    result.textContent = data.message ? String(data.message) : 'Could not connect: ' + reason;
                     result.classList.add('cs-actions__note--fail');
                 }
             })

@@ -2800,6 +2800,81 @@
         "name": "ext.venta.settings.show"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/settings",
+        "name": "ext.woocommerce.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/stores",
+        "name": "ext.woocommerce.stores.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store?}",
+        "name": "ext.woocommerce.dashboard"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/delete",
+        "name": "ext.woocommerce.stores.destroy"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/settings",
+        "name": "ext.woocommerce.settings.show"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/settings",
+        "name": "ext.woocommerce.save"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/settings/api-log-mode",
+        "name": "ext.woocommerce.api_log_mode"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/settings/clear-api-logs",
+        "name": "ext.woocommerce.clear_api_logs"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/settings/clear-sync-logs",
+        "name": "ext.woocommerce.clear_sync_logs"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/settings/disconnect",
+        "name": "ext.woocommerce.disconnect"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/settings/fetch-categories",
+        "name": "ext.woocommerce.fetch_categories"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/settings/status-map",
+        "name": "ext.woocommerce.save_status_map"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/settings/sync-log-level",
+        "name": "ext.woocommerce.sync_log_level"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/settings/test",
+        "name": "ext.woocommerce.test"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/settings/webhooks",
+        "name": "ext.woocommerce.register_webhooks"
+    },
+    {
         "method": "POST",
         "uri": "channels/{channel}/settings/credential/reveal",
         "name": "channels.credential.reveal"
