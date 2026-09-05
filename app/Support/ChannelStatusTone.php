@@ -244,6 +244,15 @@ class ChannelStatusTone
          * Same philosophy as every other surface here: warning is the
          * operator's move, info is waiting on somebody they cannot chase,
          * success is settled well, danger ended badly. */
+        'woocommerce.orders' => [
+            'PENDING'    => 'info',      // waiting on the buyer to pay
+            'ON-HOLD'    => 'info',      // awaiting payment confirmation
+            'PROCESSING' => 'warning',   // paid: to pack
+            'COMPLETED'  => 'success',
+            'REFUNDED'   => 'success',   // settled, if not happily
+            'CANCELLED'  => 'danger',
+            'FAILED'     => 'danger',
+        ],
         'venta.orders' => [
             'PENDING'              => 'info',      // waiting on the buyer to pay
             'FOR_VERIFICATION'     => 'warning',   // somebody here has to check it
@@ -460,6 +469,15 @@ class ChannelStatusTone
          * miniature: every other list in this product spells it with two
          * l's, and an operator scanning two channels should not have to
          * notice which spelling belongs to which. */
+        'woocommerce.orders' => [
+            'PENDING'    => 'Unpaid',
+            'ON-HOLD'    => 'On hold',
+            'PROCESSING' => 'To pack',
+            'COMPLETED'  => 'Completed',
+            'CANCELLED'  => 'Cancelled',
+            'REFUNDED'   => 'Refunded',
+            'FAILED'     => 'Failed',
+        ],
         'venta.orders' => [
             'PENDING'              => 'Unpaid',
             'FOR_VERIFICATION'     => 'Checking payment',

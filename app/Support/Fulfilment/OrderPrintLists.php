@@ -67,6 +67,12 @@ class OrderPrintLists
             'buyer' => 'customer_name',
             'label' => 'Storefront',
         ],
+        'woocommerce' => [
+            'model' => \Extensions\woocommerce\Models\WooOrder::class,
+            'ref' => 'woo_order_number',
+            'buyer' => 'customer_name',
+            'label' => 'WooCommerce',
+        ],
     ];
 
     public static function supports(string $channel): bool

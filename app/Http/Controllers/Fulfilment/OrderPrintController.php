@@ -37,6 +37,7 @@ class OrderPrintController extends Controller
         'lazada' => 'lazada',
         'tiktok' => 'tiktok',
         'venta' => 'venta',
+        'woocommerce' => 'woocommerce',
     ];
 
     public function pick(Request $request, string $channel)

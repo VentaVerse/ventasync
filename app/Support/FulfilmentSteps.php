@@ -88,6 +88,20 @@ final class FulfilmentSteps
      * into Other, which is visible, rather than being guessed at.
      */
     private const STATUS_STEPS = [
+        /* WooCommerce's seven core statuses (spec 2026-09-05). The store
+         * has no handover or shipping status of its own: an order is paid
+         * (processing) until the seller marks it completed, so To Pack is
+         * where a packer works and Delivered is where it lands. */
+        'woocommerce.orders' => [
+            'PENDING' => 'unpaid',
+            'ON-HOLD' => 'unpaid',
+            'ON_HOLD' => 'unpaid',
+            'PROCESSING' => 'to_pack',
+            'COMPLETED' => 'delivered',
+            'CANCELLED' => 'cancelled',
+            'REFUNDED' => 'cancelled',
+            'FAILED' => 'cancelled',
+        ],
         'venta.orders' => [
             'UNPAID' => 'unpaid',
             'QUOTE_READY_FOR_PAYMENT' => 'unpaid',

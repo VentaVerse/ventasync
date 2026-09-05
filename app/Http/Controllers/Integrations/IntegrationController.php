@@ -39,6 +39,7 @@ class IntegrationController extends Controller
         'opencart' => \Extensions\opencart\Services\OpenCartOrdersPanel::class,
         'shopify'  => \Extensions\shopify\Services\ShopifyOrdersPanel::class,
         'pedallion' => \Extensions\pedallion\Services\PedallionOrdersPanel::class,
+        'woocommerce' => \Extensions\woocommerce\Services\WooOrdersPanel::class,
     ];
 
     /**
@@ -48,7 +49,7 @@ class IntegrationController extends Controller
      * single-store channel can never be handed a store and a multi-store one
      * can never be rendered without one.
      */
-    private const ORDER_PANEL_STORE_SCOPED = ['venta', 'opencart', 'shopify', 'shopee', 'lazada', 'tiktok'];
+    private const ORDER_PANEL_STORE_SCOPED = ['venta', 'opencart', 'shopify', 'shopee', 'lazada', 'tiktok', 'woocommerce'];
 
     /**
      * Channels whose RETURNS list can also render in place here, keyed the

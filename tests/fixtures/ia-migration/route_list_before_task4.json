@@ -2821,6 +2821,31 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/orders",
+        "name": "ext.woocommerce.orders.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/orders/bulk-delete",
+        "name": "ext.woocommerce.orders.bulk_delete"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/orders/fetch",
+        "name": "ext.woocommerce.orders.fetch"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/woocommerce/{store}/orders/{order}",
+        "name": "ext.woocommerce.orders.destroy"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/orders/{order}/complete",
+        "name": "ext.woocommerce.orders.complete"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "channels/woocommerce/{store}/settings",
         "name": "ext.woocommerce.settings.show"
     },

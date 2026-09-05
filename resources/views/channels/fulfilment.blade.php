@@ -476,6 +476,18 @@
                 'panelHiddenParams' => ['channel' => $selectedChannel],
             ])
         </div>
+    @elseif($selectedChannelBase === 'woocommerce')
+        {{-- Same shape as Venta's: a store line, then the channel's own panel. --}}
+        <div class="x-fh-panel co-page" data-desk-scope id="woocommerce-orders-page">
+            <div class="x-fh-panel__scope">
+                <span class="x-fh-panel__scope-label">Store</span>
+                <span class="x-fh-panel__scope-value">{{ $storeLabel }}</span>
+            </div>
+            @include('ext-woocommerce::orders._panel', [
+                'panelBaseUrl' => route('channels.fulfilment'),
+                'panelHiddenParams' => ['channel' => $selectedChannel],
+            ])
+        </div>
     @elseif($selectedChannelBase === 'opencart')
         {{-- Same shape as Venta's. This channel carries no page module of
              its own, but the id is here for the same reason every other
