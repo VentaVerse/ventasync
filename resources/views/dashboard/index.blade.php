@@ -196,7 +196,11 @@
                 {{ now()->format('l, j F') }} &middot; trading since 00:00
             </p>
         </div>
-        <div class="flex gap-1.5">
+        <div class="flex gap-1.5 db-head-actions">
+            {{-- The store control lives in the page head, not with the
+                 charts: it scopes every figure on the page, the facts and
+                 the latest orders above the charts included. --}}
+            @include('dashboard.partials.store-control')
             <a href="{{ route('search') }}" class="bl-btn">
                 <x-ui.icon name="search" size="14" /> Find an order
             </a>
@@ -447,7 +451,7 @@
                          if (on) $el.scrollLeft = on.offsetLeft - ($el.clientWidth - on.offsetWidth) / 2;
                      })">
                     @foreach($ranges as $key => $meta)
-                        <a href="{{ route('dashboard', ['range' => $key]) }}"
+                        <a href="{{ route('dashboard', ['range' => $key, 'store' => $storeKey !== '' ? $storeKey : null]) }}"
                            class="bl-seg__item {{ $range === $key ? 'is-on' : '' }}"
                            @if($range === $key) aria-current="true" @endif>
                             {{ $meta['label'] }}
@@ -606,15 +610,16 @@
 
             @if(!empty($platformSlices))
                 <div class="bl-panel-head">
-                    <h2>Orders by channel</h2>
+                    <h2>Orders by store</h2>
                     <span class="text-[12px] text-ink-3">{{ $rangeHeading }}</span>
                     {{-- This rode on the ring's own heading until the ring moved
                          beside the table and that heading went with the cell.
                          It belongs to the section, not to the cell, so it lives
                          on the section heading now. --}}
-                    <x-ui.hint label="What this ring counts">Orders, not revenue. A channel with one large
+                    <x-ui.hint label="What this ring counts">Orders, not revenue. A store with one large
                         order can hold a small share of the ring and the largest figure in the revenue
-                        column beside it.</x-ui.hint>
+                        column beside it. A store that has been deleted still ranks under the name it
+                        sold under.</x-ui.hint>
                 </div>
                 @php
                     $ringTotal = max(1, collect($platformSlices)->sum('orders'));
@@ -658,7 +663,7 @@
             @endphp
             <circle class="bl-ring__seg {{ $brand ? '' : 'bl-slice-' . ($i % 6) }}"
             data-ring-seg
-            data-ring-label="{{ $slice['label'] }}"
+            data-ring-label="{{ $slice['name'] }}"
             data-ring-count="{{ number_format($slice['orders']) }} {{ Str::plural('order', $slice['orders']) }}"
             data-ring-share="{{ number_format($share * 100, 1) }}% of orders"
             cx="100" cy="100" r="{{ $ringR }}"
@@ -666,7 +671,7 @@
             stroke-dasharray="{{ $dash }} {{ round($ringC, 2) }}"
             stroke-dashoffset="{{ $offset }}"
             transform="rotate(-90 100 100)">
-            <title>{{ $slice['label'] }}: {{ number_format($slice['orders']) }} {{ Str::plural('order', $slice['orders']) }}</title>
+            <title>{{ $slice['name'] }}: {{ number_format($slice['orders']) }} {{ Str::plural('order', $slice['orders']) }}</title>
             </circle>
             @endforeach
             {{-- The middle answers the hover. Idle it is the total; over a
@@ -683,7 +688,7 @@
                     <table class="bl-table">
                         <thead>
                             <tr>
-                                <th scope="col">Channel</th>
+                                <th scope="col">Store</th>
                                 <th scope="col" class="num">Orders</th>
                                 <th scope="col" class="num">Revenue</th>
                                 <th scope="col" class="num">Share</th>
@@ -708,9 +713,14 @@
                                                   @if($brand) fill="{{ $brand }}" @endif></rect>
                                         </svg>
                                         @if($href)
-                                            <a href="{{ $href }}">{{ $slice['label'] }}</a>
+                                            <a href="{{ $href }}">{{ $slice['name'] }}</a>
                                         @else
-                                            {{ $slice['label'] }}
+                                            {{ $slice['name'] }}
+                                        @endif
+                                        {{-- Two stores on one channel: the channel word
+                                             says which colour the swatch borrows. --}}
+                                        @if($slice['name'] !== $slice['label'])
+                                            <span class="db-rank__channel">{{ $slice['label'] }}</span>
                                         @endif
                                     </td>
                                     <td class="num">{{ number_format($slice['orders']) }}</td>

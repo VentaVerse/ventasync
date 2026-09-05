@@ -1,0 +1,47 @@
+/* Dashboard: the store control (per-store reports, the owner, 2026-09-05).
+
+   Sits in the page head beside Find an order, because it scopes every
+   figure on the page: the facts, the latest orders, both trends and the
+   ranking. The head's action row is a flex row, so the select and the
+   button read as one row of page-level controls. */
+
+.db-store {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.db-store .x-select-wrap {
+    min-width: 176px;
+}
+
+.db-store__select {
+    /* The same height as the button beside it, so the two sit as one
+       row and not as a form field beside a button. */
+    min-height: 32px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    font-size: 13px;
+}
+
+/* The ranking: a store's row names the store and, in a smaller hand, the
+   channel it sells on, so two stores on one channel still tell apart and
+   the channel colour beside them has a word to belong to. */
+.db-rank__channel {
+    margin-left: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--bl-ink-3);
+}
+
+@media (max-width: 640px) {
+    .db-head-actions {
+        flex-wrap: wrap;
+        width: 100%;
+    }
+
+    .db-store,
+    .db-store .x-select-wrap {
+        width: 100%;
+    }
+}

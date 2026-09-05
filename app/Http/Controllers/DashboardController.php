@@ -8,6 +8,7 @@ use App\Models\Catalog\Product;
 use App\Models\Catalog\Category;
 use App\Models\Catalog\Manufacturer;
 use App\Models\Catalog\OrderStatus;
+use App\Support\StoreKey;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -96,13 +97,23 @@ class DashboardController extends Controller
             ? (string) $request->query('range')
             : '30d';
 
+        // Per-store reports (the owner, 2026-09-05): one store control scopes
+        // the whole page. ?store= is whitelisted against the stores the
+        // user may read by; anything else is every store. Inventory and
+        // purchasing are not per store and stay as they are.
+        $storeOptions = app(IntegrationRegistry::class)->visibleStoreOptions($request->user());
+        $storeKey = (string) $request->query('store', '');
+        if (! in_array($storeKey, array_column($storeOptions, 'key'), true)) {
+            $storeKey = '';
+        }
+
         // --- Stat cards ---
-        $totalOrders = DB::table($pfx . 'order')->count();
+        $totalOrders = $this->orders($storeKey)->count();
         $revenueStatusIds = OrderStatus::where('add_revenue', 1)->pluck('order_status_id');
-        $totalRevenue = (float) DB::table($pfx . 'order')->whereIn('order_status_id', $revenueStatusIds)->sum('total');
+        $totalRevenue = (float) $this->orders($storeKey)->whereIn('order_status_id', $revenueStatusIds)->sum('total');
 
         // --- Marketplace breakdown ---
-        $ordersBySource = DB::table($pfx . 'order')
+        $ordersBySource = $this->orders($storeKey)
             ->select(
                 'marketplace_source',
                 DB::raw('COUNT(*) as cnt'),
@@ -120,36 +131,36 @@ class DashboardController extends Controller
         $lastWeek7 = now()->subWeek()->startOfWeek(\Carbon\Carbon::MONDAY);
         $lastWeekEnd = $rolling7;
 
-        $todayOrders = DB::table($pfx . 'order')->where('date_added', '>=', $todayStart)->count();
-        $todayRevenue = (float) DB::table($pfx . 'order')->where('date_added', '>=', $todayStart)->whereIn('order_status_id', $revenueStatusIds)->sum('total');
-        $yesterdayOrders = DB::table($pfx . 'order')->where('date_added', '>=', $yesterdayStart)->where('date_added', '<', $yesterdayEnd)->count();
-        $yesterdayRevenue = (float) DB::table($pfx . 'order')->where('date_added', '>=', $yesterdayStart)->where('date_added', '<', $yesterdayEnd)->whereIn('order_status_id', $revenueStatusIds)->sum('total');
-        $weekOrders = DB::table($pfx . 'order')->where('date_added', '>=', $rolling7)->count();
-        $weekRevenue = (float) DB::table($pfx . 'order')->where('date_added', '>=', $rolling7)->whereIn('order_status_id', $revenueStatusIds)->sum('total');
-        $lastWeekOrders = DB::table($pfx . 'order')->where('date_added', '>=', $lastWeek7)->where('date_added', '<', $lastWeekEnd)->count();
-        $lastWeekRevenue = (float) DB::table($pfx . 'order')->where('date_added', '>=', $lastWeek7)->where('date_added', '<', $lastWeekEnd)->whereIn('order_status_id', $revenueStatusIds)->sum('total');
+        $todayOrders = $this->orders($storeKey)->where('date_added', '>=', $todayStart)->count();
+        $todayRevenue = (float) $this->orders($storeKey)->where('date_added', '>=', $todayStart)->whereIn('order_status_id', $revenueStatusIds)->sum('total');
+        $yesterdayOrders = $this->orders($storeKey)->where('date_added', '>=', $yesterdayStart)->where('date_added', '<', $yesterdayEnd)->count();
+        $yesterdayRevenue = (float) $this->orders($storeKey)->where('date_added', '>=', $yesterdayStart)->where('date_added', '<', $yesterdayEnd)->whereIn('order_status_id', $revenueStatusIds)->sum('total');
+        $weekOrders = $this->orders($storeKey)->where('date_added', '>=', $rolling7)->count();
+        $weekRevenue = (float) $this->orders($storeKey)->where('date_added', '>=', $rolling7)->whereIn('order_status_id', $revenueStatusIds)->sum('total');
+        $lastWeekOrders = $this->orders($storeKey)->where('date_added', '>=', $lastWeek7)->where('date_added', '<', $lastWeekEnd)->count();
+        $lastWeekRevenue = (float) $this->orders($storeKey)->where('date_added', '>=', $lastWeek7)->where('date_added', '<', $lastWeekEnd)->whereIn('order_status_id', $revenueStatusIds)->sum('total');
 
         $monthStart = now()->startOfMonth();
         $lastMonthStart = now()->subMonthNoOverflow()->startOfMonth();
         $lastMonthEnd = $monthStart;
-        $monthOrders = DB::table($pfx . 'order')->where('date_added', '>=', $monthStart)->count();
-        $monthRevenue = (float) DB::table($pfx . 'order')->where('date_added', '>=', $monthStart)->whereIn('order_status_id', $revenueStatusIds)->sum('total');
-        $lastMonthOrders = DB::table($pfx . 'order')->where('date_added', '>=', $lastMonthStart)->where('date_added', '<', $lastMonthEnd)->count();
-        $lastMonthRevenue = (float) DB::table($pfx . 'order')->where('date_added', '>=', $lastMonthStart)->where('date_added', '<', $lastMonthEnd)->whereIn('order_status_id', $revenueStatusIds)->sum('total');
+        $monthOrders = $this->orders($storeKey)->where('date_added', '>=', $monthStart)->count();
+        $monthRevenue = (float) $this->orders($storeKey)->where('date_added', '>=', $monthStart)->whereIn('order_status_id', $revenueStatusIds)->sum('total');
+        $lastMonthOrders = $this->orders($storeKey)->where('date_added', '>=', $lastMonthStart)->where('date_added', '<', $lastMonthEnd)->count();
+        $lastMonthRevenue = (float) $this->orders($storeKey)->where('date_added', '>=', $lastMonthStart)->where('date_added', '<', $lastMonthEnd)->whereIn('order_status_id', $revenueStatusIds)->sum('total');
 
         // --- Trend series, built for the requested range ---
         // Both trend charts and the platform ranking are rendered as inline
         // SVG by the view, so every series the page draws is resolved here,
         // in one request, rather than fetched back over AJAX after paint.
-        $chart = $this->buildChartData($range);
+        $chart = $this->buildChartData($range, $storeKey);
         $chartLabels = $chart['labels'];
         $chartRevenue = $chart['revenue'];
         $chartOrders = $chart['orders'];
 
-        $platformSlices = $this->buildPlatformData($range);
+        $platformSlices = $this->buildPlatformData($range, $storeKey);
 
         // --- Recent orders (last 10) ---
-        $recentOrders = DB::table($pfx . 'order as o')
+        $recentOrders = $this->orders($storeKey, 'o')
             ->leftJoin($pfx . 'order_status as os', function ($j) use ($langId) {
                 $j->on('o.order_status_id', '=', 'os.order_status_id')
                     ->where('os.language_id', '=', $langId);
@@ -205,7 +216,7 @@ class DashboardController extends Controller
         $pendingStatusIds = OrderStatus::whereIn('name', ['Pending', 'Processing'])->pluck('order_status_id');
         $pendingBySource = $pendingStatusIds->isEmpty()
             ? []
-            : DB::table($pfx . 'order')
+            : $this->orders($storeKey)
                 ->select('marketplace_source', DB::raw('COUNT(*) as cnt'))
                 ->whereIn('order_status_id', $pendingStatusIds)
                 ->groupBy('marketplace_source')
@@ -254,6 +265,8 @@ class DashboardController extends Controller
             'platformSlices' => $platformSlices,
             'range' => $range,
             'ranges' => self::RANGES,
+            'storeKey' => $storeKey,
+            'storeOptions' => $storeOptions,
             'pendingBySource' => $pendingBySource,
             'recentOrders' => $recentOrders,
             'greeting' => $greeting,
@@ -282,9 +295,25 @@ class DashboardController extends Controller
      * this page depends on telling seven brand colours apart. The key stays
      * on the extension contract for anything else that wants it.
      *
-     * @return list<array{label:string, orders:int, revenue:float}>
+     * @return list<array{label:string, name:string, store:string, orders:int, revenue:float}>
      */
-    private function buildPlatformData(string $range): array
+    /**
+     * The order table, scoped to one store when a store key is set. Every
+     * order query on the page goes through here so the control scopes all
+     * of them alike (per-store reports, the owner, 2026-09-05).
+     */
+    private function orders(string $storeKey, string $alias = ''): \Illuminate\Database\Query\Builder
+    {
+        $table = (string) config('catalog.prefix') . 'order';
+        $q = DB::table($alias !== '' ? $table . ' as ' . $alias : $table);
+        if ($storeKey !== '') {
+            StoreKey::apply($q, [$storeKey], $alias !== '' ? $alias : $table);
+        }
+
+        return $q;
+    }
+
+    private function buildPlatformData(string $range, string $storeKey = ''): array
     {
         $pfx = (string) config('catalog.prefix');
         $revIds = OrderStatus::where('add_revenue', 1)->pluck('order_status_id');
@@ -294,14 +323,16 @@ class DashboardController extends Controller
         // month's heading.
         $window = $this->rangeWindow($range);
 
-        $rows = DB::table($pfx . 'order')
+        $rows = $this->orders($storeKey)
             ->whereBetween('date_added', [$window['start'], $window['end']])
             ->select(
                 'marketplace_source',
+                'store_id',
+                'store_name',
                 DB::raw('COUNT(*) as orders'),
                 DB::raw('SUM(CASE WHEN order_status_id IN (' . ($revIds->isNotEmpty() ? $revIds->implode(',') : '0') . ') THEN total ELSE 0 END) as revenue')
             )
-            ->groupBy('marketplace_source')
+            ->groupBy('marketplace_source', 'store_id', 'store_name')
             ->get();
 
         $sourceOptionsMap = [];
@@ -309,6 +340,12 @@ class DashboardController extends Controller
             $sourceOptionsMap[$opt['value']] = $opt;
         }
 
+        // Per-store reports (the owner, 2026-09-05): one slice per store, not
+        // per channel. `label` stays the channel's name (the brand colour
+        // and the hub link key off it); `name` is what the row shows: the
+        // store's name as stamped on its orders, so a deleted store still
+        // ranks under the name it sold under. A channel with one store on
+        // the page shows the channel's name, as the order tabs do.
         $slices = [];
         foreach ($rows as $row) {
             $src = trim((string) $row->marketplace_source);
@@ -324,19 +361,36 @@ class DashboardController extends Controller
                 $label = ucfirst($src);
             }
 
-            // Merge same-label rows (legacy 'opencart' + 'opencart:1').
-            if (isset($slices[$label])) {
-                $slices[$label]['orders'] += (int) $row->orders;
-                $slices[$label]['revenue'] += round((float) $row->revenue, 2);
+            $store = trim((string) $row->store_name);
+            if ($store === '' && (int) $row->store_id > 0 && ! str_contains($src, ':')) {
+                $store = 'Store #' . (int) $row->store_id;
+            }
+            $key = $label . '|' . $store;
+
+            // Merge same-store rows (legacy 'opencart' + 'opencart:1').
+            if (isset($slices[$key])) {
+                $slices[$key]['orders'] += (int) $row->orders;
+                $slices[$key]['revenue'] += round((float) $row->revenue, 2);
                 continue;
             }
 
-            $slices[$label] = [
+            $slices[$key] = [
                 'label'   => $label,
+                'name'    => $store !== '' ? $store : $label,
+                'store'   => $store,
                 'orders'  => (int) $row->orders,
                 'revenue' => round((float) $row->revenue, 2),
             ];
         }
+
+        // One store on its channel: the channel's name says more.
+        $perChannel = array_count_values(array_column($slices, 'label'));
+        foreach ($slices as &$slice) {
+            if ($perChannel[$slice['label']] === 1 && $slice['store'] !== '') {
+                $slice['name'] = $slice['label'];
+            }
+        }
+        unset($slice);
 
         $slices = array_values($slices);
         usort($slices, fn ($a, $b) => $b['orders'] <=> $a['orders']);
@@ -426,7 +480,7 @@ class DashboardController extends Controller
      * SQL groups by the same expression the loop walks, which is what keeps a
      * period with no orders drawn as a zero instead of dropped from the line.
      */
-    private function buildChartData(string $range): array
+    private function buildChartData(string $range, string $storeKey = ''): array
     {
         $pfx = (string) config('catalog.prefix');
         $revIds = OrderStatus::where('add_revenue', 1)->pluck('order_status_id');
@@ -442,7 +496,7 @@ class DashboardController extends Controller
             ? "DATE_FORMAT(date_added, '%Y-%m')"
             : 'DATE(date_added)';
 
-        $rows = DB::table($pfx . 'order')
+        $rows = $this->orders($storeKey)
             ->select(DB::raw($periodSql . ' as period'), DB::raw($revCase), DB::raw('COUNT(*) as orders'))
             ->whereBetween('date_added', [$window['start'], $window['end']])
             ->groupBy(DB::raw($periodSql))

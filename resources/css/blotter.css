@@ -80,6 +80,7 @@
    remainder comes through here. Every vocabulary that gets re-authored
    properly should be deleted from this list. */
 @import './pages/channel-settings.css' layer(vocabulary);
+@import './pages/dashboard.css' layer(vocabulary);
 @import './pages/channel-catalog.css' layer(vocabulary);
 @import './pages/purchasing.css' layer(vocabulary);
 @import './pages/group-form.css' layer(vocabulary);
