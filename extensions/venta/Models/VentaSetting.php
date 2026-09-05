@@ -36,6 +36,7 @@ class VentaSetting extends Model
         'last_category_sync_at'=> 'datetime',
         'last_stock_push_at'   => 'datetime',
         'last_review_push_at'  => 'datetime',
+        'connected_at'         => 'datetime',
     ];
 
     public function setApiTokenAttribute($value)

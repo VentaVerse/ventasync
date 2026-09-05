@@ -155,29 +155,6 @@
 
 <div id="lz-tab-connection" class="cs-panel" @if($csSection !== 'connection') hidden @endif>
 
-    {{-- Proof of life (audit, 2026-09-05): when the store last pulled and
-         pushed, from its own timestamps, the way Venta's page opens. A
-         paused store has no run to show. --}}
-    @if(($setting->enabled ?? true) && ($setting->id ?? null))
-    <section class="fm-section">
-        <div class="fm-section__head">
-            <h2 class="fm-section__title">Last run</h2>
-        </div>
-        <div class="cs-stats">
-            @foreach([
-                'Orders pulled' => $setting->last_order_sync_at ?? null,
-                'Stock pushed' => $setting->last_stock_push_at ?? null,
-                'Returns pulled' => $setting->last_return_sync_at ?? null,
-                'Reviews pulled' => $setting->last_review_sync_at ?? null,
-            ] as $label => $at)
-                <div class="cs-stat">
-                    <span class="cs-stat__k">{{ $label }}</span>
-                    <span class="cs-stat__v">{{ $at ? \Carbon\Carbon::parse($at)->diffForHumans() : 'Never' }}</span>
-                </div>
-            @endforeach
-        </div>
-    </section>
-    @endif
 
     {{-- ---- PRODUCTION ---------------------------------------------- --}}
     @php $csCategories = \Extensions\lazada\Models\LazadaCategory::query()->count(); @endphp
@@ -197,6 +174,7 @@
              'state' => $csCategories > 0 ? number_format($csCategories) . ' categories on file' : 'Nothing fetched yet'],
         ],
     ])
+    @include('partials.channel-last-run', ['show' => ($setting->enabled ?? true) && ($setting->id ?? null), 'stats' => ['Orders pulled' => $setting->last_order_sync_at ?? null, 'Stock pushed' => $setting->last_stock_push_at ?? null, 'Returns pulled' => $setting->last_return_sync_at ?? null, 'Reviews pulled' => $setting->last_review_sync_at ?? null]])
     <div class="cs-grid">
 
         <section class="fm-section">
@@ -356,6 +334,7 @@
              'state' => $csCategories > 0 ? number_format($csCategories) . ' categories on file' : 'Nothing fetched yet'],
         ],
     ])
+    @include('partials.channel-last-run', ['show' => ($setting->enabled ?? true) && ($setting->id ?? null), 'stats' => ['Orders pulled' => $setting->last_order_sync_at ?? null, 'Stock pushed' => $setting->last_stock_push_at ?? null, 'Returns pulled' => $setting->last_return_sync_at ?? null, 'Reviews pulled' => $setting->last_review_sync_at ?? null]])
     <div class="cs-grid">
 
         <section class="fm-section">

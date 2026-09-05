@@ -2550,6 +2550,11 @@
         "name": "ext.venta.dashboard"
     },
     {
+        "method": "POST",
+        "uri": "channels/venta/{store}/delete",
+        "name": "ext.venta.stores.destroy"
+    },
+    {
         "method": "GET|HEAD",
         "uri": "channels/venta/{store}/listings",
         "name": "ext.venta.listings.index"

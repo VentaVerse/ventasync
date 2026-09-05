@@ -125,35 +125,7 @@
      ================================================================ --}}
 <div id="oc-tab-connection" class="cs-panel" @if($csSection !== 'connection') hidden @endif>
 
-    @if($store->enabled)
-    <section class="fm-section">
-        <div class="fm-section__head">
-            <h2 class="fm-section__title">Last run</h2>
-        </div>
-        <div class="cs-stats">
-            <div class="cs-stat">
-                <span class="cs-stat__k">Orders pulled</span>
-                <span class="cs-stat__v">{{ $store->last_order_sync_at ? $store->last_order_sync_at->diffForHumans() : 'Never' }}</span>
-            </div>
-            <div class="cs-stat">
-                <span class="cs-stat__k">Products pushed</span>
-                <span class="cs-stat__v">{{ $store->last_product_sync_at ? $store->last_product_sync_at->diffForHumans() : 'Never' }}</span>
-            </div>
-            <div class="cs-stat">
-                <span class="cs-stat__k">Categories pulled</span>
-                <span class="cs-stat__v">{{ $store->last_category_sync_at ? $store->last_category_sync_at->diffForHumans() : 'Never' }}</span>
-            </div>
-            <div class="cs-stat">
-                <span class="cs-stat__k">Manufacturers pulled</span>
-                <span class="cs-stat__v">{{ $store->last_manufacturer_sync_at ? $store->last_manufacturer_sync_at->diffForHumans() : 'Never' }}</span>
-            </div>
-            <div class="cs-stat">
-                <span class="cs-stat__k">Reviews pushed</span>
-                <span class="cs-stat__v">{{ $store->last_review_push_at ? $store->last_review_push_at->diffForHumans() : 'Never' }}</span>
-            </div>
-        </div>
-    </section>
-    @endif
+    @include('partials.channel-last-run', ['show' => $store->enabled, 'stats' => ['Orders pulled' => $store->last_order_sync_at, 'Products pushed' => $store->last_product_sync_at, 'Categories pulled' => $store->last_category_sync_at, 'Manufacturers pulled' => $store->last_manufacturer_sync_at, 'Reviews pushed' => $store->last_review_push_at]])
 
     <div class="cs-grid">
         <section class="fm-section">

@@ -63,6 +63,28 @@
 @php
     $csKnown = ['connection', 'status', 'automations', 'logs', 'sync'];
     $csSection = in_array(request('tab'), $csKnown, true) ? request('tab') : ('connection');
+
+    // Connecting this store (draft C, ported from WooCommerce 2026-09-06):
+    // the steps a Venta store goes through, each with its state.
+    $csHasToken = \App\Support\Credentials::length($store->api_token ?? null) > 0 && trim((string) $store->base_url) !== '';
+    $csCategories = \Extensions\venta\Models\VentaCategory::query()->where('venta_setting_id', $store->id)->count();
+    $steps = [
+        ['title' => 'Save the address and token', 'tone' => $csHasToken ? 'done' : 'todo',
+         'hint' => 'The token is issued by the Venta store itself, under its own API settings. It has to allow reading orders and writing products, stock and prices.',
+         'state' => $csHasToken ? 'Address and token saved' : 'Fill in the address and token below and save'],
+        ['title' => 'Check the connection', 'tone' => $store->connected_at ? 'done' : 'todo',
+         'hint' => 'Asks the store for its category list with the saved token. A refusal here means the token or the address is wrong.',
+         'button' => $csHasToken ? ['label' => 'Check connection', 'variant' => $store->connected_at ? 'secondary' : 'primary', 'attr' => 'data-test-connection'] : null,
+         'state' => $store->connected_at ? 'Reached ' . $store->connected_at->diffForHumans() : 'Not checked yet'],
+        ['title' => 'Fetch the categories', 'tone' => $csCategories > 0 ? 'done' : 'todo',
+         'hint' => 'Reads the categories your store already has. A product group picks one of them; nothing is written to the store\'s categories.',
+         'button' => $csHasToken ? ['label' => $csCategories > 0 ? 'Fetch again' : 'Fetch categories', 'variant' => $csCategories > 0 ? 'secondary' : 'primary', 'post' => route('ext.venta.fetch_categories'), 'fields' => ['store_id' => $store->id]] : null,
+         'state' => $csCategories > 0 ? number_format($csCategories) . ' ' . \Illuminate\Support\Str::plural('category', $csCategories) . ' on file' : 'Nothing fetched yet'],
+        ['title' => 'Map statuses', 'tone' => $statusMap->isNotEmpty() ? 'done' : 'todo',
+         'hint' => 'Which sales order status a Venta order lands in. Fetch the store\'s statuses and set them under Status mapping.',
+         'button' => ['label' => 'Status mapping', 'variant' => 'secondary', 'href' => route('ext.venta.settings.show', ['store' => $store->id, 'tab' => 'status'])],
+         'state' => $statusMap->isNotEmpty() ? $statusMap->count() . ' mapped' : 'Not mapped yet'],
+    ];
 @endphp
 <div class="cs-page"
      data-channel-settings
@@ -111,27 +133,9 @@
      ================================================================ --}}
 <div id="vt-tab-connection" class="cs-panel" @if($csSection !== 'connection') hidden @endif>
 
-    @if($store->enabled)
-    <section class="fm-section">
-        <div class="fm-section__head">
-            <h2 class="fm-section__title">Last run</h2>
-        </div>
-        <div class="cs-stats">
-            <div class="cs-stat">
-                <span class="cs-stat__k">Orders pulled</span>
-                <span class="cs-stat__v">{{ $store->last_order_sync_at ? $store->last_order_sync_at->diffForHumans() : 'Never' }}</span>
-            </div>
-            <div class="cs-stat">
-                <span class="cs-stat__k">Products pushed</span>
-                <span class="cs-stat__v">{{ $store->last_product_sync_at ? $store->last_product_sync_at->diffForHumans() : 'Never' }}</span>
-            </div>
-            <div class="cs-stat">
-                <span class="cs-stat__k">Stock pushed</span>
-                <span class="cs-stat__v">{{ $store->last_stock_push_at ? $store->last_stock_push_at->diffForHumans() : 'Never' }}</span>
-            </div>
-        </div>
-    </section>
-    @endif
+    @include('partials.channel-connect-flow', ['canManage' => $canManageVenta, 'steps' => $steps])
+
+    @include('partials.channel-last-run', ['show' => $store->enabled, 'stats' => ['Orders pulled' => $store->last_order_sync_at, 'Products pushed' => $store->last_product_sync_at, 'Categories read' => $store->last_category_sync_at, 'Stock pushed' => $store->last_stock_push_at]])
 
     <div class="cs-grid">
         <section class="fm-section">
@@ -234,7 +238,6 @@
                 @if($canManageVenta)
                 <div class="cs-actions">
                     <x-ui.button type="submit" variant="primary">Save connection</x-ui.button>
-                    <x-ui.button type="button" data-test-connection>Test connection</x-ui.button>
                     <span class="cs-actions__note" data-test-result role="status" aria-live="polite"></span>
                 </div>
                 @endif
@@ -252,28 +255,29 @@
                 <div class="cs-fact"><dt>Store ID</dt><dd class="cs-fact__mono">{{ $store->id }}</dd></div>
                 <div class="cs-fact"><dt>Address</dt><dd class="cs-fact__mono">{{ $store->base_url }}</dd></div>
                 <div class="cs-fact"><dt>Warehouse</dt><dd class="cs-fact__mono">{{ $store->warehouse_id ?: 'Any' }}</dd></div>
+                <div class="cs-fact"><dt>Connected</dt><dd>{{ $store->connected_at ? $store->connected_at->diffForHumans() : 'Not yet' }}</dd></div>
             </dl>
 
             @if($canManageVenta)
-            {{-- Deleting a store is the one irreversible thing on this page, so
-                 it sits at the bottom of its own section behind the shared
-                 confirm dialog, in the transparent danger treatment. It is
-                 never a standing solid red button beside Save. --}}
+            {{-- The one irreversible thing on the page sits last, in its own
+                 block, behind the typed-name sheet (the Shopee shape, #204). --}}
             <div class="cs-danger">
                 <div>
-                    <span class="cs-danger__title">Remove this store</span>
-                    <p class="cs-danger__note">Deletes the connection and every product link belonging to it. Orders already synced into the ERP stay. Nothing on the Venta store is touched.</p>
+                    <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in the ERP goes with it: listings, links, groups, categories, brands, Venta orders and its logs. Sales already imported stay under its name. Nothing on the Venta store is touched. There is no undo.</x-ui.hint></span>
                 </div>
-                <form method="POST" action="{{ route('ext.venta.destroy', $store->id) }}"
-                      data-confirm="Delete {{ $storeName }} and all its product links? This cannot be undone.">
-                    @csrf
-                    @method('DELETE')
-                    <x-ui.button type="submit" variant="danger" size="sm">Delete store</x-ui.button>
-                </form>
+                <x-ui.button type="button" variant="danger" size="sm" data-delete-open>Delete this store</x-ui.button>
             </div>
             @endif
         </section>
     </div>
+
+    @if($canManageVenta)
+    @include('partials.channel-delete-store', [
+        'action' => route('ext.venta.stores.destroy', ['store' => $store->id]),
+        'storeName' => $store->store_name,
+        'channelLabel' => 'Venta',
+    ])
+    @endif
 </div>
 
 {{-- ================================================================

@@ -169,15 +169,39 @@ class VentaController extends Controller
             ->with('status', 'Venta store saved.');
     }
 
-    public function destroy($id)
+    public function destroy($id, \Extensions\venta\Services\Venta\VentaStoreDeleter $deleter)
     {
         $setting = VentaSetting::findOrFail((int) $id);
         $name = $setting->store_name ?? $setting->base_url;
-        $setting->delete();
+        $removed = $deleter->delete($setting);
 
-        ActivityLogger::log('deleted', 'Venta Store', (int) $id, $name);
+        ActivityLogger::log('deleted', 'Venta Store', (int) $id, $name, ['removed' => $removed]);
 
         return redirect()->route('ext.venta.index')->with('status', 'Store deleted.');
+    }
+
+    /**
+     * The typed-name hard delete behind "Delete this store" on Settings >
+     * Connection (the Shopee shape, #204, ported 2026-09-06). Everything the
+     * store owns in the ERP goes with it; sales already imported stay.
+     */
+    public function destroyStore(Request $request, int $store, \Extensions\venta\Services\Venta\VentaStoreDeleter $deleter)
+    {
+        $setting = VentaSetting::findOrFail($store);
+        $request->validate([
+            'confirm_name' => ['required', 'string', function ($attribute, $value, $fail) use ($setting) {
+                if ((string) $value !== (string) $setting->store_name) {
+                    $fail('Type the store name exactly as it is shown to confirm.');
+                }
+            }],
+        ]);
+        $name = (string) $setting->store_name;
+        $id = (int) $setting->id;
+        $removed = $deleter->delete($setting);
+        ActivityLogger::log('venta.store.deleted', 'venta_settings', $id, $name, ['removed' => $removed]);
+
+        return redirect()->route('channels.index')
+            ->with('status', "Deleted Venta store {$name}. Sales already imported keep its name.");
     }
 
     public function testConnection(Request $request)
@@ -204,6 +228,11 @@ class VentaController extends Controller
 
         $client = new VentaClient($setting);
         $result = $client->ping();
+        // The flow's "Check the connection" step remembers that the store
+        // answered, the way WooCommerce's does.
+        if (! empty($result['ok']) && $setting->exists) {
+            $setting->forceFill(['connected_at' => now()])->save();
+        }
 
         return response()->json($result);
     }
@@ -224,7 +253,11 @@ class VentaController extends Controller
         $result = $client->getCategories();
 
         if (!$result['ok']) {
-            return response()->json(['ok' => false, 'error' => 'API call failed: ' . ($result['body']['error'] ?? 'Unknown error')]);
+            $error = 'API call failed: ' . ($result['body']['error'] ?? 'Unknown error');
+
+            return $request->expectsJson()
+                ? response()->json(['ok' => false, 'error' => $error])
+                : back()->with('error', $error);
         }
 
         $categories = $result['body'];
@@ -243,6 +276,13 @@ class VentaController extends Controller
                 'parent_id'         => $c['parent_id'] ?? null,
                 'is_active'         => $c['is_active'] ?? true,
             ]);
+        }
+
+        $setting->forceFill(['last_category_sync_at' => now()])->save();
+        // The flow's "Fetch the categories" button posts a plain form and
+        // comes back to the page; the status-map script asks for JSON.
+        if (! $request->expectsJson()) {
+            return back()->with('status', count($categories) . ' ' . \Illuminate\Support\Str::plural('category', count($categories)) . ' read from ' . ($setting->store_name ?: 'the store') . '.');
         }
 
         return response()->json([

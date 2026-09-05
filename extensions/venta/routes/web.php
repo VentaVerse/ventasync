@@ -78,6 +78,8 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     // Per-store settings writes
     Route::post('/venta/save', [VentaSettingsController::class, 'save'])->name('ext.venta.save');
     Route::delete('/venta/{id}', [VentaSettingsController::class, 'destroy'])->name('ext.venta.destroy');
+    // The typed-name hard delete behind Delete this store (the Shopee shape, ported 2026-09-06).
+    Route::post('/venta/{store}/delete', [VentaSettingsController::class, 'destroyStore'])->whereNumber('store')->name('ext.venta.stores.destroy');
     Route::post('/venta/test', [VentaSettingsController::class, 'testConnection'])->name('ext.venta.test');
     Route::post('/venta/save-status-map', [VentaSettingsController::class, 'saveOrderStatusMap'])->name('ext.venta.save_status_map');
     Route::post('/venta/{id}/api-log-mode', [VentaSettingsController::class, 'setApiLogMode'])->name('ext.venta.api_log_mode');
