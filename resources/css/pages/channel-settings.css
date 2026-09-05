@@ -1227,7 +1227,7 @@
 .cs-setup__bar { height: 6px; border-radius: 3px; background: var(--bl-chrome); overflow: hidden; }
 /* The fill is a full-width strip scaled from the left, so progress is a
    transform (no layout on each step); the script sets --cs-setup-p. */
-.cs-setup__fill { height: 100%; width: 100%; background: var(--bl-brand); transform-origin: left center; transform: scaleX(var(--cs-setup-p, 0)); transition: transform 320ms cubic-bezier(.2, .8, .2, 1); }
+.cs-setup__fill { --cs-setup-p: 0; height: 100%; width: 100%; background: var(--bl-brand); transform-origin: left center; transform: scaleX(var(--cs-setup-p)); transition: transform 320ms cubic-bezier(.2, .8, .2, 1); }
 .cs-setup__steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .cs-setup__step { display: grid; grid-template-columns: 1fr auto; column-gap: 12px; font-size: 13px; color: var(--bl-ink); }
 .cs-setup__state { font-variant-numeric: tabular-nums; color: var(--bl-ink-3); }
