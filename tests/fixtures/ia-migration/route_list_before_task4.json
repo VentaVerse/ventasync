@@ -2805,6 +2805,11 @@
         "name": "ext.venta.settings.show"
     },
     {
+        "method": "POST",
+        "uri": "channels/woocommerce/reviews/{id}/push",
+        "name": "ext.woocommerce.reviews.push"
+    },
+    {
         "method": "GET|HEAD",
         "uri": "channels/woocommerce/settings",
         "name": "ext.woocommerce.index"
@@ -3000,9 +3005,34 @@
         "name": "ext.woocommerce.products.catalogue_search"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/products/import",
+        "name": "ext.woocommerce.products.import"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/products/import-one",
+        "name": "ext.woocommerce.products.import_one"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/products/import-selected",
+        "name": "ext.woocommerce.products.import_selected"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/products/link-item",
+        "name": "ext.woocommerce.products.link_item"
+    },
+    {
         "method": "POST",
         "uri": "channels/woocommerce/{store}/products/remove-from-store/{productId}",
         "name": "ext.woocommerce.products.remove_from_store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/products/search-catalog",
+        "name": "ext.woocommerce.products.search_catalog"
     },
     {
         "method": "GET|HEAD",
