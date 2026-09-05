@@ -31,6 +31,7 @@ class LazadaListingReadiness
      */
     public function forListings(Collection $listings): array
     {
+        $categoryLabel = \Extensions\lazada\Models\LazadaCategory::query()->exists() ? 'a Lazada category' : 'a Lazada category - none have been fetched for this store yet (fetch them on Catalog > Categories)';
         if ($listings->isEmpty()) {
             return [];
         }
@@ -62,8 +63,8 @@ class LazadaListingReadiness
             $product = $products->get((int) $listing->product_id);
 
             if (!$listing->primary_category_id) {
-                $missing[] = 'a Lazada category';
-                $gaps[] = ['code' => ListingState::GAP_CATEGORY, 'label' => 'a Lazada category'];
+                $missing[] = $categoryLabel;
+                $gaps[] = ['code' => ListingState::GAP_CATEGORY, 'label' => $categoryLabel];
             }
 
             /* Brand is not demanded here: the payload builder defaults an
@@ -135,6 +136,7 @@ class LazadaListingReadiness
      */
     public function forProducts(array $productIds): array
     {
+        $categoryLabel = \Extensions\lazada\Models\LazadaCategory::query()->exists() ? 'a Lazada category' : 'a Lazada category - none have been fetched for this store yet (fetch them on Catalog > Categories)';
         $productIds = array_values(array_unique(array_map('intval', $productIds)));
         if ($productIds === []) {
             return [];
@@ -149,8 +151,8 @@ class LazadaListingReadiness
         $out = [];
         foreach ($productIds as $productId) {
             $product = $products->get($productId);
-            $missing = ['a Lazada category'];
-            $gaps = [['code' => ListingState::GAP_CATEGORY, 'label' => 'a Lazada category']];
+            $missing = [$categoryLabel];
+            $gaps = [['code' => ListingState::GAP_CATEGORY, 'label' => $categoryLabel]];
 
             if (!$product || (trim((string) $product->sku) === '' && trim((string) $product->model) === '')) {
                 $missing[] = 'a SKU on the catalog product';

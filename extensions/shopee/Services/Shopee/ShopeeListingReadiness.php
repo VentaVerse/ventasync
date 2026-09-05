@@ -42,6 +42,13 @@ class ShopeeListingReadiness
         $sharedCategory = (int) ($shared['category_id'] ?? 0) ?: null;
         $sharedLogistics = !empty($shared['logistic_ids']) ? array_map('intval', (array) $shared['logistic_ids']) : null;
 
+        /* The fallback (the owner, 2026-09-05): a store that has never fetched
+         * its categories or couriers cannot pick either, and "at least one
+         * courier" would send the operator to an empty picker. Say what
+         * is actually missing and where it comes from. */
+        $categoriesCached = \Extensions\shopee\Models\ShopeeCategory::query()->exists();
+        $couriersCached = \Extensions\shopee\Models\ShopeeLogistic::query()->exists();
+
         $pfx = (string) config('catalog.prefix');
 
         $listings = ShopeeListing::query()
@@ -81,10 +88,10 @@ class ShopeeListingReadiness
             $gaps = [];
 
             if (!$categoryId) {
-                $gaps[] = ['code' => \App\Integrations\Listings\ListingState::GAP_CATEGORY, 'label' => 'a Shopee category'];
+                $gaps[] = ['code' => \App\Integrations\Listings\ListingState::GAP_CATEGORY, 'label' => $categoriesCached ? 'a Shopee category' : 'a Shopee category - none have been fetched for this store yet (Set up store on Settings > Connection, or fetch them on Catalog > Categories)'];
             }
             if (empty($logisticIds)) {
-                $gaps[] = ['code' => \App\Integrations\Listings\ListingState::GAP_COURIERS, 'label' => 'at least one courier'];
+                $gaps[] = ['code' => \App\Integrations\Listings\ListingState::GAP_COURIERS, 'label' => $couriersCached ? 'at least one courier' : 'a courier - none have been fetched for this store yet (Set up store on Settings > Connection, or fetch them on Catalog > Logistics)'];
             }
             if (trim((string) ($images[$productId] ?? '')) === '') {
                 $gaps[] = ['code' => \App\Integrations\Listings\ListingState::GAP_IMAGE, 'label' => 'a product image on the catalog product'];

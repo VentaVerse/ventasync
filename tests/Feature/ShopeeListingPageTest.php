@@ -607,6 +607,9 @@ class ShopeeListingPageTest extends TestCase
         ShopeeProductLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
         ]);
+        // The store has been set up: with nothing fetched the push stops before this (StoreSetupTest).
+        \Extensions\shopee\Models\ShopeeCategory::create(['category_id' => 100013, 'parent_id' => null, 'name' => 'Pedals', 'level' => 0, 'leaf' => true]);
+        \Extensions\shopee\Models\ShopeeLogistic::create(['logistics_channel_id' => 8003, 'logistics_channel_name' => 'J&T Express', 'enabled' => true]);
 
         $r = $this->actingAs($this->manager())->post(route('ext.shopee.products.bulk_push'), [
             'product_ids' => [$productId],
@@ -631,6 +634,7 @@ class ShopeeListingPageTest extends TestCase
             'markup_percent' => 0, 'markup_fixed' => 0,
         ]);
         \Extensions\shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 100013], ['attributes' => []]);
+        \Extensions\shopee\Models\ShopeeCategory::create(['category_id' => 100013, 'parent_id' => null, 'name' => 'Pedals', 'level' => 0, 'leaf' => true]);
         \Extensions\shopee\Models\ShopeeLogistic::create([
             'logistics_channel_id' => 8003, 'logistics_channel_name' => 'J&T Express', 'enabled' => true,
             'cod_enabled' => true, 'force_enable' => false, 'mask_channel_id' => 0,

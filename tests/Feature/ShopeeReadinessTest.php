@@ -133,8 +133,20 @@ class ShopeeReadinessTest extends TestCase
         ]);
     }
 
+    /**
+     * The store has been set up (the owner, 2026-09-05): its categories and
+     * couriers are on file, so a gap is the product's own choice, not
+     * "none have been fetched for this store yet".
+     */
+    private function storeSetUp(): void
+    {
+        \Extensions\shopee\Models\ShopeeCategory::create(['category_id' => 106755, 'parent_id' => null, 'name' => 'Pedals', 'level' => 0, 'leaf' => true]);
+        \Extensions\shopee\Models\ShopeeLogistic::create(['logistics_channel_id' => 41003, 'logistics_channel_name' => 'J&T Express', 'enabled' => true]);
+    }
+
     public function test_the_computation_names_each_missing_thing(): void
     {
+        $this->storeSetUp();
         $ready = $this->seedProduct('Ready one', 'RDY-1');
         $this->readyListing($ready);
 
@@ -211,6 +223,7 @@ class ShopeeReadinessTest extends TestCase
 
     public function test_a_bulk_push_refuses_to_start_when_any_selection_is_not_ready(): void
     {
+        $this->storeSetUp();
         $ready = $this->seedProduct('Ready bulk product', 'RDY-B-1');
         $this->readyListing($ready);
         $bare = $this->seedProduct('Bare bulk product', 'RDY-B-2', '');

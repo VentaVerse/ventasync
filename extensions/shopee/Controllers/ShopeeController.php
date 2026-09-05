@@ -133,6 +133,8 @@ public function index(Request $request = null, ShopeeClient $client = null)
                     $cbCode,
                     (int) $auth['shop_id']
                 );
+                $this->logAuthCall('/api/v2/auth/token/get', $result);
+                $connected = false;
                 if (($result['ok'] ?? false) && is_array($result['body'] ?? null)) {
                     $access = $result['body']['access_token'] ?? null;
                     if ($access) {
@@ -145,12 +147,15 @@ public function index(Request $request = null, ShopeeClient $client = null)
                                 $result['body']['refresh_token'] ?? null,
                                 $result['body']['expire_in'] ?? null
                             );
+                            $connected = true;
                         }
                     }
                 }
                 // Strip the OAuth params from the URL so a refresh doesn't
                 // re-exchange a stale (one-time-use) code. The store whose
-                // grant this was shows the result on ITS settings page.
+                // grant this was shows the result on ITS settings page - and,
+                // freshly connected, sets itself up (categories, couriers)
+                // behind the progress popup that page opens on settings_setup.
                 $landing = ShopeeSetting::defaultStore();
 
                 return ($landing !== null
@@ -158,9 +163,10 @@ public function index(Request $request = null, ShopeeClient $client = null)
                         : redirect()->route('ext.shopee.index'))
                     ->with('shopee_result', [
                         'ok'    => (bool) ($result['ok'] ?? false),
-                        'title' => 'OAuth callback — token exchange',
+                        'title' => 'Authorisation',
                         'data'  => $result,
-                    ]);
+                    ])
+                    ->with('settings_setup', $connected);
             }
         }
 
@@ -563,6 +569,46 @@ public function buildAuthUrl(ShopeeClient $client)
         ]);
     }
 
+    /**
+     * One step of setting the store up (the owner, 2026-09-05): the reads a push
+     * needs, run from the progress popup on Settings > Connection right
+     * after an authorisation, or from Set up store. Answers a plain sentence
+     * as JSON; the payload goes to the API log inside the service.
+     */
+    public function setupStep(string $step, \Extensions\shopee\Services\Shopee\ShopeeStoreSetup $setup)
+    {
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            return response()->json(['ok' => false, 'count' => 0, 'message' => 'This store is not connected yet. Authorise it with Shopee first.'], 422);
+        }
+
+        $out = match ($step) {
+            'categories' => $setup->categories($auth),
+            'couriers' => $setup->couriers($auth),
+            default => null,
+        };
+        abort_if($out === null, 404);
+
+        return response()->json($out);
+    }
+
+    /** The token exchange and refresh answers belong on the API log, not the page (the owner, 2026-09-05). */
+    private function logAuthCall(string $path, array $result): void
+    {
+        ShopeeApiLog::safeCreate([
+            'pack' => 'auth',
+            'method' => 'POST',
+            'api_path' => $path,
+            'auth_required' => false,
+            'request_params' => [],
+            'response_status' => $result['status'] ?? null,
+            'ok' => (bool) ($result['ok'] ?? false),
+            'response_body' => $result['body'] ?? null,
+            'user_id' => auth()->id(),
+        ]);
+    }
+
     public function tokenGet(Request $request, ShopeeClient $client)
     {
         $data = $request->validate([
@@ -587,8 +633,10 @@ public function buildAuthUrl(ShopeeClient $client)
             (string)$data['code'],
             (int)$auth['shop_id']
         );
+        $this->logAuthCall('/api/v2/auth/token/get', $result);
 
         // Persist tokens if present
+        $connected = false;
         if ($result['ok'] && is_array($result['body'])) {
             $access = $result['body']['access_token'] ?? null;
             $refresh = $result['body']['refresh_token'] ?? null;
@@ -597,15 +645,16 @@ public function buildAuthUrl(ShopeeClient $client)
                 $raw = ShopeeSetting::defaultStore();
                 if ($raw) {
                     $this->persistTokens($raw, $auth['mode'], (string)$access, $refresh, $result['body']['expire_in'] ?? null);
+                    $connected = true;
                 }
             }
         }
 
-        return $this->redirectToSettings()->with('shopee_result', [
-            'ok' => (bool)$result['ok'],
-            'title' => 'Token Get',
-            'data' => $result,
-        ]);
+        // A fresh connection sets the store up (categories, couriers) behind
+        // the progress popup the settings page opens on settings_setup.
+        return $this->redirectToSettings()
+            ->with('shopee_result', ['ok' => (bool)$result['ok'], 'title' => 'Token exchange', 'data' => $result])
+            ->with('settings_setup', $connected);
     }
 
     public function tokenRefresh(ShopeeClient $client)
@@ -638,6 +687,7 @@ public function buildAuthUrl(ShopeeClient $client)
         ];
 
         $result = $client->postJson($auth['mode'], $path, $query, $body);
+        $this->logAuthCall($path, $result);
 
         if ($result['ok'] && is_array($result['body'])) {
             $access = $result['body']['access_token'] ?? null;
@@ -657,7 +707,7 @@ public function buildAuthUrl(ShopeeClient $client)
 
         return $this->redirectToSettings()->with('shopee_result', [
             'ok' => (bool)$result['ok'],
-            'title' => 'Token Refresh',
+            'title' => 'Token refresh',
             'data' => $result,
         ]);
     }

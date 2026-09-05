@@ -112,7 +112,16 @@
                         @endforeach
                     </div>
                 @else
-                    <p class="fm-section__note">No couriers on file yet. Each listing's own couriers are used.</p>
+                    {{-- The fallback (the owner, 2026-09-05): nothing fetched means
+                         no listing can have a courier either, so this is a
+                         stop, not a note. --}}
+                    <div class="fm-note fm-note--warn" role="status">
+                        <div class="fm-note__body">
+                            <strong>No couriers have been fetched for this store yet,</strong> so nothing here can be pushed.
+                            Press Set up store on Settings &gt; Connection, or fetch them on Catalog &gt; Logistics, then come back.
+                            <a href="{{ route('ext.shopee.logistics.index') }}">Open Logistics</a>
+                        </div>
+                    </div>
                 @endif
             </section>
         </div>

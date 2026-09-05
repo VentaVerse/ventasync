@@ -1785,6 +1785,11 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
         }
+        // The fallback (the owner, 2026-09-05): with no categories fetched there is no picker to fix.
+        if (! \Extensions\lazada\Models\LazadaCategory::query()->exists()) {
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
+                ->with('error', 'Nothing was pushed: no categories have been fetched for this store yet. Fetch them on Catalog > Categories, then push again.');
+        }
 
         $listings = LazadaProduct::query()->whereIn('id', $ids)->get();
 

@@ -443,6 +443,8 @@ class LazadaListingLiveTest extends TestCase
          * selection refuses to start, naming what each needs. */
         $productId = $this->seedProduct('Unready lazada product', 'LZT-UNREADY');
         $listing = LazadaProduct::query()->create(['product_id' => $productId]);
+        // The store has fetched its categories: the gap is this listing's own (with none fetched the upload stops earlier, StoreSetupTest).
+        \Extensions\lazada\Models\LazadaCategory::create(['category_id' => 222, 'name' => 'Pedals', 'leaf' => true, 'var' => false, 'parent_id' => null, 'level' => 0]);
 
         $r = $this->actingAs($this->manager())->get(route('ext.lazada.products.index'));
         $r->assertOk();

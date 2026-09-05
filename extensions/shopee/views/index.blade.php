@@ -99,7 +99,22 @@
      here, above the panel it came from. An explorer answer is drawn inside
      the Explorer panel instead (the owner, 2026-09-05). --}}
 @if($result && $resultTab !== 'explorer')
-    @include('partials.channel-last-result', ['result' => $result, 'channel' => 'Shopee'])
+    @include('partials.channel-last-result', ['result' => $result, 'channel' => 'Shopee', 'mode' => 'note'])
+@endif
+
+{{-- Setting up the store (the owner, 2026-09-05): categories and couriers
+     fetched behind a progress popup, on its own right after an
+     authorisation and again from the Set up store button. --}}
+@if($canManageShopee)
+    @include('partials.channel-setup', [
+        'channelLabel' => 'Shopee',
+        'storeName' => $setting->store_name ?? '',
+        'run' => (bool) session('settings_setup'),
+        'steps' => [
+            ['label' => 'Categories', 'url' => route('ext.shopee.setup_step', ['step' => 'categories'])],
+            ['label' => 'Couriers', 'url' => route('ext.shopee.setup_step', ['step' => 'couriers'])],
+        ],
+    ])
 @endif
 
 <div id="sp-tab-connection" class="cs-panel" @if($csSection !== 'connection') hidden @endif>
@@ -145,6 +160,13 @@
     <section class="fm-section">
         <div class="fm-section__head">
             <h2 class="fm-section__title">This store</h2>
+            @if($canManageShopee)
+                <div class="fm-section__aside">
+                    {{-- Re-runs the setup: the categories and couriers every
+                         push needs, fetched again behind the progress popup. --}}
+                    <x-ui.button type="button" size="sm" data-setup-open>Set up store</x-ui.button>
+                </div>
+            @endif
         </div>
         {{-- One Save for the store and its credentials (the owner, 2026-09-05):
              these fields belong to the credentials form of the environment

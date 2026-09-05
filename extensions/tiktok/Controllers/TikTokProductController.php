@@ -786,6 +786,10 @@ class TikTokProductController extends Controller
         if (!$c) {
             return redirect()->back()->with('error', 'Missing TikTok settings.');
         }
+        // The fallback (the owner, 2026-09-05): with no categories fetched there is no picker to fix.
+        if (! \Extensions\tiktok\Models\TikTokCategory::query()->exists()) {
+            return redirect()->back()->with('error', 'Nothing was pushed: no categories have been fetched for this store yet. Fetch them on Catalog > Categories, then push again.');
+        }
 
         $truths = [];
         foreach ($productIds as $pid) {

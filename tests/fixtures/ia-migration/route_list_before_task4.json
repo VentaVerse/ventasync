@@ -1936,6 +1936,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/shopee/{store}/setup/{step}",
+        "name": "ext.shopee.setup_step"
+    },
+    {
+        "method": "POST",
         "uri": "channels/shopee/{store}/toggle-mode",
         "name": "ext.shopee.toggle_mode"
     },

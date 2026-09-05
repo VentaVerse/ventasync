@@ -1216,3 +1216,28 @@
 /* This store: the Active switch stands in for an input, so it takes an
    input's vertical room; without it the Save row crowds the track. */
 .cs-store-switch { padding: 8px 0 6px; }
+
+/* ── Setting up the store (2026-09-05) ─────────────────────────────────
+   The progress popup that follows an authorisation: a bar, one row per
+   read, a plain sentence per row. Rides .modal-backdrop's scrim and
+   .co-modal's sheet; only the bar and the rows are its own. */
+.cs-setup__sheet { display: flex; flex-direction: column; gap: 12px; }
+.cs-setup__title { margin: 0; font-size: 16px; font-weight: 600; color: var(--bl-ink); }
+.cs-setup__sub { margin: 0; font-size: 12px; color: var(--bl-ink-3); }
+.cs-setup__bar { height: 6px; border-radius: 3px; background: var(--bl-chrome); overflow: hidden; }
+.cs-setup__fill { height: 100%; width: 0; background: var(--bl-brand); transition: width 320ms cubic-bezier(.2, .8, .2, 1); }
+.cs-setup__steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.cs-setup__step { display: grid; grid-template-columns: 1fr auto; column-gap: 12px; font-size: 13px; color: var(--bl-ink); }
+.cs-setup__state { font-variant-numeric: tabular-nums; color: var(--bl-ink-3); }
+.cs-setup__step[data-state="running"] .cs-setup__state { color: var(--bl-brand); }
+.cs-setup__step[data-state="done"] .cs-setup__state { color: var(--bl-good); }
+.cs-setup__step[data-state="failed"] .cs-setup__state { color: var(--bl-bad); }
+.cs-setup__note { grid-column: 1 / -1; font-size: 12px; color: var(--bl-ink-3); }
+.cs-setup__note:empty { display: none; }
+.cs-setup__status { margin: 0; font-size: 13px; color: var(--bl-ink-2); min-height: 1.2em; }
+.cs-setup__foot { display: flex; justify-content: flex-end; }
+@media (prefers-reduced-motion: reduce) { .cs-setup__fill { transition: none; } }
+
+/* The connection note: one line, succeeded or a sentence, and a way to
+   the API log for the rest. */
+.cs-result-note .cs-result-note__log { margin-left: 6px; }

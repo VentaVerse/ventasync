@@ -50,105 +50,11 @@ class ShopeeCategoryController extends Controller
                 ->with('error', "Missing Shopee {$modeLabel} settings. Please configure Partner ID, Partner Key, Access Token, and Shop ID first.");
         }
 
-        $path = '/api/v2/product/get_category';
-        $language = $auth['region'] ?: 'en';
-
-        $result = $client->shopGet(
-            $auth['mode'],
-            (int)$auth['partner_id'],
-            (string)$auth['partner_key'],
-            (string)$auth['access_token'],
-            (int)$auth['shop_id'],
-            $path,
-            ['language' => $language]
-        );
-
-        ShopeeApiLog::safeCreate([
-            'pack' => 'shopee.categories.fetch',
-            'method' => 'GET',
-            'api_path' => $path,
-            'auth_required' => true,
-            'request_params' => ['language' => $language],
-            'response_status' => $result['status'] ?? null,
-            'ok' => (bool)($result['ok'] ?? false),
-            'response_body' => $result['body'] ?? null,
-            'user_id' => auth()->id(),
-        ]);
-
-        $body = $result['body'] ?? null;
-
-        // Shopee returns { response: { category_list: [...] } }
-        $nodes = [];
-        if (is_array($body)) {
-            $response = $body['response'] ?? $body;
-            if (isset($response['category_list']) && is_array($response['category_list'])) {
-                $nodes = $response['category_list'];
-            }
-        }
-
-        if (!$result['ok'] || empty($nodes)) {
-            $msg = \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
-            return redirect()->route('ext.shopee.categories.index')
-                ->with('error', 'Fetch failed: ' . $msg);
-        }
-
-        // Flatten the category list into rows
-        $rows = [];
-        $this->flattenCategories($nodes, $rows, null, 0);
-
-        if (empty($rows)) {
-            return redirect()->route('ext.shopee.categories.index')
-                ->with('error', 'Fetch returned no categories.');
-        }
-
-        // Assign sequential IDs
-        $i = 1;
-        foreach ($rows as &$r) {
-            $r['id'] = $i++;
-        }
-        unset($r);
-
-        DB::transaction(function () use ($rows) {
-            DB::table('shopee_categories')->delete();
-            $chunks = array_chunk($rows, 1000);
-            foreach ($chunks as $chunk) {
-                DB::table('shopee_categories')->insert($chunk);
-            }
-        });
+        // One read, shared with the setup run on Settings (2026-09-05).
+        $out = app(\Extensions\shopee\Services\Shopee\ShopeeStoreSetup::class)->categories($auth);
 
         return redirect()->route('ext.shopee.categories.index')
-            ->with('status', 'Shopee categories fetched and saved. Total: ' . count($rows));
-    }
-
-    private function flattenCategories(array $nodes, array &$rows, ?int $parentId, int $level): void
-    {
-        foreach ($nodes as $n) {
-            if (!is_array($n)) {
-                continue;
-            }
-
-            $categoryId = isset($n['category_id']) ? (int)$n['category_id'] : null;
-            $name = (string)($n['original_category_name'] ?? $n['display_category_name'] ?? $n['category_name'] ?? '');
-            $hasChildren = (bool)($n['has_children'] ?? false);
-
-            if (!$categoryId || $name === '') {
-                continue;
-            }
-
-            $rows[] = [
-                'category_id' => $categoryId,
-                'parent_id' => $n['parent_category_id'] ?? $parentId,
-                'name' => $name,
-                'level' => $level,
-                'leaf' => !$hasChildren,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ];
-
-            if (!empty($n['children']) && is_array($n['children'])) {
-                $this->flattenCategories($n['children'], $rows, $categoryId, $level + 1);
-            }
-        }
+            ->with($out['ok'] ? 'status' : 'error', $out['message']);
     }
 
 }

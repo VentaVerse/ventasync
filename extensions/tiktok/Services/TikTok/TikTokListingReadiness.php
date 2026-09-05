@@ -29,6 +29,7 @@ class TikTokListingReadiness
      */
     public function forProducts(array $productIds): array
     {
+        $categoryLabel = \Extensions\tiktok\Models\TikTokCategory::query()->exists() ? 'a TikTok category' : 'a TikTok category - none have been fetched for this store yet (fetch them on Catalog > Categories)';
         if (empty($productIds)) {
             return [];
         }
@@ -49,8 +50,8 @@ class TikTokListingReadiness
             $gaps = [];
 
             if (!$listing || !$listing->tiktok_category_id) {
-                $missing[] = 'a TikTok category';
-                $gaps[] = ['code' => ListingState::GAP_CATEGORY, 'label' => 'a TikTok category'];
+                $missing[] = $categoryLabel;
+                $gaps[] = ['code' => ListingState::GAP_CATEGORY, 'label' => $categoryLabel];
             }
             if (trim((string) ($images[$productId] ?? '')) === '') {
                 $missing[] = 'a product image on the catalog product';

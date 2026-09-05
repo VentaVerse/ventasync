@@ -28,6 +28,7 @@ import './pages/lazada-listings';
 import './pages/tiktok-listings';
 import './pages/venta-listings';
 import './pages/channel-settings';
+import './pages/channel-setup';
 import './pages/store-settings';
 import './pages/group-form';
 import './pages/group-products';

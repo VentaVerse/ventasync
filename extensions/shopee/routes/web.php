@@ -137,6 +137,10 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
         // OAuth / token / mode. ext.shopee.authorize is NOT here: it is one of
         // the two exempt OAuth surfaces registered above, outside this prefix.
         Route::post('/shopee/{store}/save', [ShopeeSettingsController::class, 'save'])->name('ext.shopee.save');
+        // Setting up the store (2026-09-05): one step per read a push needs
+        // (categories, couriers), answering a plain sentence as JSON for the
+        // progress popup on Settings > Connection.
+        Route::post('/shopee/{store}/setup/{step}', [ShopeeSettingsController::class, 'setupStep'])->whereIn('step', ['categories', 'couriers'])->name('ext.shopee.setup_step');
         Route::post('/shopee/{store}/toggle-mode', [ShopeeSettingsController::class, 'toggleMode'])->name('ext.shopee.toggle_mode');
         Route::post('/shopee/{store}/auth-url', [ShopeeSettingsController::class, 'buildAuthUrl'])->name('ext.shopee.auth_url');
         Route::post('/shopee/{store}/token/get', [ShopeeSettingsController::class, 'tokenGet'])->name('ext.shopee.token_get');

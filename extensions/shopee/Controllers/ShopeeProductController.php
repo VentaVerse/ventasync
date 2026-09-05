@@ -1263,6 +1263,16 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', "Missing Shopee {$modeLabel} credentials. Configure Shopee settings first.");
         }
 
+        /* The fallback (the owner, 2026-09-05): with nothing fetched there is no
+         * picker to fix, so the push says so before readiness names each
+         * product. Set up store on Settings > Connection does both reads. */
+        if (! \Extensions\shopee\Models\ShopeeLogistic::query()->exists()) {
+            return redirect()->back()->with('error', 'Nothing was pushed: no couriers have been fetched for this store yet. Press Set up store on Settings > Connection, or fetch them on Catalog > Logistics, then push again.');
+        }
+        if (! \Extensions\shopee\Models\ShopeeCategory::query()->exists()) {
+            return redirect()->back()->with('error', 'Nothing was pushed: no categories have been fetched for this store yet. Press Set up store on Settings > Connection, or fetch them on Catalog > Categories, then push again.');
+        }
+
         /* REFUSE TO START rather than half-fail (#101): if any selected
          * product is not ready, nothing is pushed and the unready ones are
          * named with what they need. Already-listed selections are exempt

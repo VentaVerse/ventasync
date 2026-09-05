@@ -113,7 +113,7 @@
      here, above the panel it came from. An explorer answer is drawn inside
      the Explorer panel instead (the owner, 2026-09-05). --}}
 @if($result && $resultTab !== 'explorer')
-    @include('partials.channel-last-result', ['result' => $result, 'channel' => 'Lazada'])
+    @include('partials.channel-last-result', ['result' => $result, 'channel' => 'Lazada', 'mode' => 'note'])
 @endif
 
 <div id="lz-tab-connection" class="cs-panel" @if($csSection !== 'connection') hidden @endif>
