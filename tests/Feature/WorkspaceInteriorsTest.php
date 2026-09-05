@@ -3042,7 +3042,7 @@ class WorkspaceInteriorsTest extends TestCase
         $products->assertSee(route('ext.opencart.product-groups.addProducts', [$one, $group->id]), false);
 
         $settings = $this->actingAs($user)->get(route('ext.opencart.settings.show', ['store' => $one]))->assertOk();
-        $settings->assertSee('action="'.e(route('ext.opencart.destroy', $one)).'"', false);
+        $settings->assertSee('action="'.e(route('ext.opencart.stores.destroy', ['store' => $one])).'"', false);
         foreach ([
             route('ext.opencart.save'),
             route('ext.opencart.test'),

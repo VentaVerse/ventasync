@@ -8,18 +8,22 @@
      $storeName     the name to type
      $channelLabel  'Shopee', 'Lazada', 'TikTok'
      $open          whether to open on load (a refused attempt comes back
-                    with the error inside the sheet) --}}
+                    with the error inside the sheet)
+     $holds         optional: what this channel's store owns, in the
+                    caller's own words (a channel without couriers or
+                    returns must not be told they go with it) --}}
 @php
     $storeName = (string) ($storeName ?? '');
     $channelLabel = $channelLabel ?? 'the channel';
     $open = $open ?? $errors->has('confirm_name');
+    $holds = $holds ?? ('its listings, links, product groups, couriers, ' . $channelLabel . ' orders and returns, and its API log');
 @endphp
 <div class="modal-backdrop cs-delete" data-channel-delete data-delete-open-on-load="{{ $open ? '1' : '0' }}">
     <form method="POST" action="{{ $action }}" class="modal co-modal co-modal--sm cs-delete__sheet" role="dialog" aria-modal="true" aria-labelledby="cs-delete-title">
         @csrf
         <h2 class="cs-delete__title" id="cs-delete-title">Delete {{ $storeName !== '' ? $storeName : 'this store' }}</h2>
         <ul class="cs-delete__list">
-            <li>Its listings, links, product groups, couriers, {{ $channelLabel }} orders and returns, and its API log go with it.</li>
+            <li>{{ ucfirst($holds) }} go with it.</li>
             <li>Sales already imported stay, under the name {{ $storeName !== '' ? $storeName : 'of this store' }}.</li>
             <li>There is no undo.</li>
         </ul>

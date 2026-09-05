@@ -47,6 +47,8 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
 
     Route::post('/opencart/save', [OpenCartSettingsController::class, 'save'])->name('ext.opencart.save');
     Route::delete('/opencart/{id}', [OpenCartSettingsController::class, 'destroy'])->name('ext.opencart.destroy');
+    // The typed-name hard delete behind Delete this store (uniform on every channel, 2026-09-06).
+    Route::post('/opencart/{store}/delete', [OpenCartSettingsController::class, 'destroyStore'])->whereNumber('store')->name('ext.opencart.stores.destroy');
     Route::post('/opencart/test', [OpenCartSettingsController::class, 'testConnection'])->name('ext.opencart.test');
     Route::post('/opencart/sync', [OpenCartSettingsController::class, 'syncNow'])->name('ext.opencart.sync');
     Route::post('/opencart/sync-date', [OpenCartSettingsController::class, 'saveSyncDate'])->name('ext.opencart.sync_date');

@@ -221,25 +221,26 @@
             </dl>
 
             @if($canManageOpencart)
-            {{-- Deleting a store is the one irreversible thing on this page, so
-                 it sits at the bottom of its own section behind the shared
-                 confirm dialog, in the transparent danger treatment. It is
-                 never a standing solid red button beside Save. --}}
+            {{-- The one irreversible thing on the page sits last, in its own
+                 block, behind the typed-name sheet (the Shopee shape, #204). --}}
             <div class="cs-danger">
                 <div>
-                    <span class="cs-danger__title">Remove this store</span>
-                    <p class="cs-danger__note">Deletes the connection and every product link belonging to it. Orders already synced into the ERP stay. Nothing on the OpenCart store is touched.</p>
+                    <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in the ERP goes with it: product links, product groups, the status map and the sync log. Sales already imported stay under its name. Nothing on the OpenCart store is touched. There is no undo.</x-ui.hint></span>
                 </div>
-                <form method="POST" action="{{ route('ext.opencart.destroy', $store->id) }}"
-                      data-confirm="Delete {{ $storeName }} and all its product links? This cannot be undone.">
-                    @csrf
-                    @method('DELETE')
-                    <x-ui.button type="submit" variant="danger" size="sm">Delete store</x-ui.button>
-                </form>
+                <x-ui.button type="button" variant="danger" size="sm" data-delete-open>Delete this store</x-ui.button>
             </div>
             @endif
         </section>
     </div>
+
+    @if($canManageOpencart)
+    @include('partials.channel-delete-store', [
+        'action' => route('ext.opencart.stores.destroy', ['store' => $store->id]),
+        'storeName' => $store->store_name,
+        'channelLabel' => 'OpenCart',
+        'holds' => 'its product links, product groups, status map and sync log',
+    ])
+    @endif
 </div>
 
 {{-- ================================================================

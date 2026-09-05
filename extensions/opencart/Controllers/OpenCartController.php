@@ -191,15 +191,40 @@ class OpenCartController extends Controller
         return redirect()->route('ext.opencart.settings.show', ['store' => $setting->id])->with('status', $msg);
     }
 
-    public function destroy($id)
+    public function destroy($id, \Extensions\opencart\Services\OpenCart\OpenCartStoreDeleter $deleter)
     {
         $setting = OpenCartSetting::findOrFail((int) $id);
         $name = $setting->store_name ?? $setting->base_url;
-        $setting->delete();
+        $removed = $deleter->delete($setting);
 
-        ActivityLogger::log('deleted', 'OpenCart Store', (int) $id, $name);
+        ActivityLogger::log('deleted', 'OpenCart Store', (int) $id, $name, ['removed' => $removed]);
 
         return redirect()->route('ext.opencart.index')->with('status', 'Store deleted.');
+    }
+
+    /**
+     * The typed-name hard delete behind "Delete this store" on Settings >
+     * Connection (the Shopee shape, #204, uniform on every channel from
+     * 2026-09-06). Everything the store owns in the ERP goes with it;
+     * sales already imported stay.
+     */
+    public function destroyStore(Request $request, int $store, \Extensions\opencart\Services\OpenCart\OpenCartStoreDeleter $deleter)
+    {
+        $setting = OpenCartSetting::findOrFail($store);
+        $request->validate([
+            'confirm_name' => ['required', 'string', function ($attribute, $value, $fail) use ($setting) {
+                if ((string) $value !== (string) $setting->store_name) {
+                    $fail('Type the store name exactly as it is shown to confirm.');
+                }
+            }],
+        ]);
+        $name = (string) $setting->store_name;
+        $id = (int) $setting->id;
+        $removed = $deleter->delete($setting);
+        ActivityLogger::log('opencart.store.deleted', 'opencart_settings', $id, $name, ['removed' => $removed]);
+
+        return redirect()->route('channels.index')
+            ->with('status', "Deleted OpenCart store {$name}. Sales already imported keep its name.");
     }
 
     public function testConnection(Request $request)

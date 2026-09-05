@@ -1125,6 +1125,11 @@
         "name": "ext.opencart.dashboard"
     },
     {
+        "method": "POST",
+        "uri": "channels/opencart/{store}/delete",
+        "name": "ext.opencart.stores.destroy"
+    },
+    {
         "method": "GET|HEAD",
         "uri": "channels/opencart/{store}/orders",
         "name": "ext.opencart.orders.index"
@@ -2018,6 +2023,11 @@
         "method": "GET|HEAD",
         "uri": "channels/shopify/{store?}",
         "name": "ext.shopify.dashboard"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopify/{store}/delete",
+        "name": "ext.shopify.stores.destroy"
     },
     {
         "method": "GET|HEAD",

@@ -276,6 +276,7 @@
         'action' => route('ext.venta.stores.destroy', ['store' => $store->id]),
         'storeName' => $store->store_name,
         'channelLabel' => 'Venta',
+        'holds' => 'its listings, links, product groups, categories, brands, Venta orders and both logs',
     ])
     @endif
 </div>
