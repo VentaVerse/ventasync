@@ -61,15 +61,14 @@
     <div>
         <h1 class="x-page-title">Listings</h1>
         <p class="x-page-sub">
-            {{-- The table is the CATALOGUE now (Phase C, #184): every
-                 product appears, listed or not, so the subtitle carries the
-                 two numbers a seller actually asks for. A filtered count
-                 says what it is counting. --}}
+            {{-- This store's own list now (#201): the products this store
+                 carries, not the whole catalogue. A filtered count says what
+                 it is counting. --}}
             @if($hasFilters)
                 {{ number_format($paginator->total()) }} {{ $paginator->total() === 1 ? 'product matches' : 'products match' }}
             @else
-                {{ number_format($catalogueTotal) }} {{ $catalogueTotal === 1 ? 'product' : 'products' }} in your catalogue
-                &middot; {{ number_format($listedTotal) }} listed on Lazada
+                {{ number_format($catalogueTotal) }} {{ $catalogueTotal === 1 ? 'product' : 'products' }} on this store
+                &middot; {{ number_format($listedTotal) }} live on Lazada
             @endif
         </p>
     </div>
@@ -88,7 +87,7 @@
     @endif
 </div>
 
-
+@include('ext-lazada::products._worktabs', ['listTab' => 'store', 'storeCount' => $catalogueTotal])
 
 @php $orphans = $orphanListings ?? collect(); @endphp
 @if($orphans->isNotEmpty())
@@ -218,19 +217,17 @@
     <div class="x-segment-bar">
         <div class="x-segment-groups">
             <div class="x-segment-group">
-                <span class="x-segment-group__k">Your catalogue</span>
-                <nav class="x-segment" aria-label="Catalogue">
+                {{-- This store's own state filter (#201): the "All products"
+                     tab is gone with the catalogue framing - This store IS the
+                     store's list. "All" here means every state, the stored
+                     view; the rest narrow to what Lazada holds right now. --}}
+                <nav class="x-segment" aria-label="Lazada listing status">
                     <a href="{{ route('ext.lazada.products.index', $tabQuery) }}"
                        class="x-segment__item {{ ($lazadaTab ?? 'all') === 'all' ? 'is-active' : '' }}"
                        @if(($lazadaTab ?? 'all') === 'all') aria-current="true" @endif>
-                        <span>All products</span>
+                        <span>All</span>
                         <span class="x-segment__count">{{ number_format((int) ($catalogueTotal ?? $paginator->total())) }}</span>
                     </a>
-                </nav>
-            </div>
-            <div class="x-segment-group">
-                <span class="x-segment-group__k">On Lazada</span>
-                <nav class="x-segment" aria-label="Lazada listing status">
                     @foreach($liveTabDefs as $tabKey => $tabLabel)
                         @php $isActive = ($lazadaTab ?? 'all') === $tabKey; @endphp
                         <a href="{{ route('ext.lazada.products.index', array_merge($tabQuery, ['lazada_tab' => $tabKey])) }}"
@@ -413,27 +410,26 @@
 @endif
 
 @if($products->count() === 0)
-    <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : (($lazadaTab ?? 'all') !== 'all' ? 'Nothing holds this status' : 'No products yet') }}"
+    <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : (($lazadaTab ?? 'all') !== 'all' ? 'Nothing holds this status' : 'No products on this store yet') }}"
                 :description="$hasFilters
                     ? 'Try clearing the search, or widening the product group and status filters.'
                     : ((($lazadaTab ?? 'all') !== 'all')
-                        ? 'No listing on Lazada holds this status right now.'
-                        : 'Every catalog product appears here, ready to list on Lazada. Add your first product and it will be waiting.')">
-        {{-- An empty state that tells you to clear the search and offers no
-             way to do it is a dead end: the only control that clears it was
-             a 30x19px link back up in the filter bar, above the fold on a
-             phone. The way out belongs where the reader already is. --}}
+                        ? 'No listing on this store holds this status right now.'
+                        : 'This store carries nothing yet. Add products from your main catalogue and they will land here, ready to configure and push to Lazada.')">
+        {{-- A new store opens here empty (#201): the way forward is Add
+             products, not a dead end. The other two branches keep the reader
+             from being stuck behind a filter with no visible way out. --}}
         @if($hasFilters)
         <x-slot:action>
             <x-ui.button :href="route('ext.lazada.products.index')">Clear filters</x-ui.button>
         </x-slot:action>
         @elseif(($lazadaTab ?? 'all') !== 'all')
         <x-slot:action>
-            <x-ui.button :href="route('ext.lazada.products.index')">Back to all products</x-ui.button>
+            <x-ui.button :href="route('ext.lazada.products.index')">Show every status</x-ui.button>
         </x-slot:action>
-        @elseif($canEditCatalog)
+        @elseif($canManageLazada)
         <x-slot:action>
-            <x-ui.button variant="primary" :href="route('products.create')">Add a product</x-ui.button>
+            <x-ui.button variant="primary" :href="route('ext.lazada.products.index', ['list' => 'add'])">Add products</x-ui.button>
         </x-slot:action>
         @endif
     </x-ui.empty>

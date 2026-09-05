@@ -287,22 +287,25 @@ class LazadaListingStateTest extends TestCase
         $this->assertSame(1, $data['lazadaSyncStatus']->listing_attention);
     }
 
-    /** The whole point of the catalogue-first index: a brand-new product is VISIBLE. */
-    public function test_a_product_with_no_listing_row_is_visible_on_the_index_by_default(): void
+    /**
+     * Per-store split (#201, the owner 2026-09-05): a product with no listing on
+     * this store is NOT on This store - it lives on Add products, the main
+     * catalogue, where it is added to the store's list. This retires the
+     * catalogue-first index, where a rowless product showed on the one table.
+     */
+    public function test_a_product_with_no_listing_lives_on_add_products_not_this_store(): void
     {
-        $productId = $this->seedProduct('My very first product', 'FIRST-1');
+        $this->seedProduct('My very first product', 'FIRST-1');
 
-        $r = $this->actingAs($this->manager())->get(route('ext.lazada.products.index'));
-        $r->assertOk()->assertSee('My very first product')->assertSee('Not listed');
+        // This store is the store's own list; a rowless product is not on it.
+        $this->actingAs($this->manager())->get(route('ext.lazada.products.index'))
+            ->assertOk()->assertDontSee('My very first product');
 
-        // And the filters that describe it can find it - before Phase C a
-        // product without a mapping row was invisible even to "Not listed".
+        // Add products is the main catalogue - the product is here, ready to
+        // be added to this store.
         $this->actingAs($this->manager())
-            ->get(route('ext.lazada.products.index', ['sync_status' => 'not_uploaded']))
-            ->assertOk()->assertSee('My very first product');
-        $this->actingAs($this->manager())
-            ->get(route('ext.lazada.products.index', ['sync_status' => 'not_ready']))
-            ->assertOk()->assertSee('My very first product');
+            ->get(route('ext.lazada.products.index', ['list' => 'add']))
+            ->assertOk()->assertSee('My very first product')->assertSee('Add to store');
     }
 
     /** The group page offers the toggle the listings page offers (#188, the owner 2026-09-02). */

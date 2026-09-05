@@ -114,6 +114,20 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
+        /* ── Two surfaces on one workbench (#201, the owner 2026-09-05) ──
+         *
+         * THIS STORE is what this store carries and works day to day - its
+         * own listing rows, with the seller-center state tabs. ADD PRODUCTS is
+         * the main catalogue, where a product is added into the store's list.
+         * Multi-store is what earned the split: a store's daily table stops
+         * mirroring the whole catalogue and shows only what it consolidated.
+         * The add surface has its own lean flow, so it returns before all the
+         * live-status machinery below, which it does not need. */
+        $listTab = $request->query('list') === 'add' ? 'add' : 'store';
+        if ($listTab === 'add') {
+            return $this->addCatalogue($request);
+        }
+
         /* ── The seller center's own tabs (Lazada parity, 2026-08-24) ── */
         $tabMap = [
             'active' => 'live',
@@ -217,6 +231,12 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 'lp.last_sync_ok', 'lp.last_synced_at',
                 'lp.last_sync_error_code', 'lp.last_sync_error_message'
             );
+
+        /* THIS STORE is the store's own list (#201): only products that have a
+         * listing row on this store. A catalogue product with none is not on
+         * this store yet - it lives under Add products until it is added. This
+         * is the one line that turns "the whole catalogue" into "this store". */
+        $query->whereNotNull('lp.id');
 
         // Product group filter, through the pivot's denormalised product_id
         if ($groupFilter === 'none') {
@@ -448,7 +468,152 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'liveCheckedAt' => $liveCheckedAt,
             'catalogueTotal' => $catalogueTotal,
             'listedTotal' => $listedTotal,
+            'listTab' => 'store',
         ]);
+    }
+
+    /**
+     * ADD PRODUCTS (#201, the owner 2026-09-05): the main catalogue, each product
+     * shown with whether it is already on this store and, if not, an Add to
+     * store action. This is where a store's list is populated. It is a lean
+     * read - no live-status walk, no readiness engine, no orphan queue - so it
+     * lives apart from index()'s daily table rather than branching through it.
+     */
+    private function addCatalogue(Request $request)
+    {
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $q = trim((string) $request->query('q', ''));
+        $manufacturerFilter = (string) $request->query('manufacturer', 'all');
+        $groupFilter = (string) $request->query('group', 'all');
+        $onStore = (string) $request->query('on_store', 'all'); // all | off (not yet) | on
+
+        $sort = (string) $request->query('sort', 'id');
+        $sortColumns = ['id' => 'p.product_id', 'product' => 'pd.name', 'quantity' => 'p.quantity', 'price' => 'p.price'];
+        if (! array_key_exists($sort, $sortColumns)) {
+            $sort = 'id';
+        }
+        $dir = strtolower((string) $request->query('dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        // One listing row per product for THIS store answers "already on this
+        // store?" - the same store-scoped pick index() builds, kept lean.
+        $lpPick = DB::table('lazada_products')
+            ->selectRaw('product_id, MIN(id) as pick_id')
+            ->whereNotNull('product_id')
+            ->when(app()->bound('lazada.route-store'), fn ($sub) => $sub->where('lazada_setting_id', app('lazada.route-store')->id))
+            ->groupBy('product_id');
+
+        $query = DB::table($pfx . 'product as p')
+            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+                $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
+            })
+            ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
+            ->leftJoinSub($lpPick, 'lps', 'lps.product_id', '=', 'p.product_id')
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as manufacturer_name', 'lps.pick_id as listing_id');
+
+        if ($q !== '') {
+            $query->where(function ($sub) use ($q) {
+                $sub->where('pd.name', 'like', '%' . $q . '%')
+                    ->orWhere('p.model', 'like', '%' . $q . '%')
+                    ->orWhere('p.sku', 'like', '%' . $q . '%');
+            });
+        }
+        if ($manufacturerFilter !== 'all') {
+            $query->where('p.manufacturer_id', (int) $manufacturerFilter);
+        }
+        if ($groupFilter === 'none') {
+            $groupedIds = DB::table('lazada_product_group_products')->whereNotNull('product_id')->pluck('product_id')->unique()->all();
+            if (! empty($groupedIds)) {
+                $query->whereNotIn('p.product_id', $groupedIds);
+            }
+        } elseif ($groupFilter !== 'all') {
+            $specificIds = DB::table('lazada_product_group_products')->where('lazada_product_group_id', (int) $groupFilter)->whereNotNull('product_id')->pluck('product_id')->unique()->all();
+            $query->whereIn('p.product_id', $specificIds ?: [0]);
+        }
+        if ($onStore === 'on') {
+            $query->whereNotNull('lps.pick_id');
+        } elseif ($onStore === 'off') {
+            $query->whereNull('lps.pick_id');
+        }
+
+        $query->orderBy($sortColumns[$sort], $dir);
+        if ($sortColumns[$sort] !== 'p.product_id') {
+            $query->orderBy('p.product_id', 'asc');
+        }
+
+        $products = $query->paginate(50)->withQueryString();
+        foreach ($products as $row) {
+            if (isset($row->name)) {
+                $row->name = html_entity_decode($row->name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            }
+        }
+
+        $productThumbsById = $products->mapWithKeys(fn ($r) => [(int) $r->product_id => $this->images()->toDisplayImageUrl($r->image ?? null)]);
+
+        // The two totals the header names: the whole catalogue, and how much of
+        // it this store already carries.
+        $catalogueTotal = (int) DB::table($pfx . 'product')->count();
+        $onStoreTotal = (int) LazadaProduct::query()->whereNotNull('product_id')->distinct()->count('product_id');
+
+        $allManufacturers = DB::table($pfx . 'manufacturer')->orderBy('name')->pluck('name', 'manufacturer_id');
+        $allGroups = \Extensions\lazada\Models\LazadaProductGroup::query()->orderBy('name')->pluck('name', 'id');
+
+        return view('ext-lazada::products.add', [
+            'products' => $products,
+            'paginator' => $products,
+            'productThumbsById' => $productThumbsById,
+            'allManufacturers' => $allManufacturers,
+            'allGroups' => $allGroups,
+            'q' => $q,
+            'manufacturerFilter' => $manufacturerFilter,
+            'groupFilter' => $groupFilter,
+            'onStore' => $onStore,
+            'sort' => $sort,
+            'dir' => $dir,
+            'catalogueTotal' => $catalogueTotal,
+            'onStoreTotal' => $onStoreTotal,
+            'listTab' => 'add',
+        ]);
+    }
+
+    /**
+     * Add one catalogue product to this store's list (#201): create the store
+     * listing row, unpushed. It then appears under This store, ready to
+     * configure and push through the unchanged workflow. The BelongsToLazada
+     * Store trait stamps the store, so firstOrCreate never crosses stores or
+     * doubles a row.
+     */
+    public function addToStore(Request $request, int $productId)
+    {
+        $exists = DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $productId)->exists();
+        abort_unless($exists, 404);
+
+        LazadaProduct::firstOrCreate(['product_id' => $productId]);
+
+        return redirect()->back()->with('status', 'Added to this store. Configure and push it from This store whenever you are ready.');
+    }
+
+    /**
+     * Add the ticked catalogue products to this store's list in one go (#201).
+     */
+    public function addToStoreBulk(Request $request)
+    {
+        $data = $request->validate(['product_ids' => ['required', 'array'], 'product_ids.*' => ['integer']]);
+        $ids = array_values(array_unique(array_map('intval', $data['product_ids'])));
+
+        $valid = DB::table((string) config('catalog.prefix') . 'product')->whereIn('product_id', $ids)->pluck('product_id')->all();
+        $added = 0;
+        foreach ($valid as $pid) {
+            $row = LazadaProduct::firstOrCreate(['product_id' => (int) $pid]);
+            if ($row->wasRecentlyCreated) {
+                $added++;
+            }
+        }
+
+        return redirect()->back()->with('status', $added === 1
+            ? '1 product added to this store.'
+            : number_format($added) . ' products added to this store.');
     }
 
     /** The Refresh button on the listings strip: the same walk the 30-minute automation runs. */

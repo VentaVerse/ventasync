@@ -169,6 +169,10 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
         Route::post('/lazada/{store}/products/import-one', [LazadaProductController::class, 'importOne'])->name('ext.lazada.products.import_one');
         Route::post('/lazada/{store}/products/import-selected', [LazadaProductController::class, 'importSelected'])->name('ext.lazada.products.import_selected');
         Route::post('/lazada/{store}/products/link-item', [LazadaProductController::class, 'linkItem'])->name('ext.lazada.products.link_item');
+        // Add products to this store's list (#201): a catalogue product joins
+        // the store, unpushed, ready to configure and push from This store.
+        Route::post('/lazada/{store}/products/add-to-store', [LazadaProductController::class, 'addToStoreBulk'])->name('ext.lazada.products.add_to_store_bulk');
+        Route::post('/lazada/{store}/products/{productId}/add-to-store', [LazadaProductController::class, 'addToStore'])->whereNumber('productId')->name('ext.lazada.products.add_to_store');
         Route::post('/lazada/{store}/products/bulk/upload', [LazadaProductController::class, 'bulkUploadToLazada'])->name('ext.lazada.products.bulk_upload');
         Route::post('/lazada/{store}/listings/{id}/toggle', [LazadaProductController::class, 'toggleListing'])->whereNumber('id')->name('ext.lazada.listings.toggle');
         // Activate / deactivate the selection, and refresh the status mirror on demand.

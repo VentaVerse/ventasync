@@ -861,3 +861,83 @@
 /* A page-level note (the marketplace did not answer) keeps its own gap
    above the filter row; it sat flush against the search input. */
 .cc-page > .fm-note { margin-bottom: var(--bl-space-3); }
+
+/* ── The workbench's two surfaces (#201, the owner 2026-09-05) ────────────────
+   This store | Add products. A text-forward primary switch sitting above the
+   filled state segments, so the two levels of control never read as one
+   (the filled pill is the state strip's language, and two filled levels
+   would collide). The active tab is carried by weight and a brand underline.
+   The strip scrolls on its own on a phone rather than widening the page. */
+.cc-worktabs {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--bl-space-5);
+    border-bottom: 1px solid var(--bl-rule);
+    margin-bottom: var(--bl-space-4);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.cc-worktabs::-webkit-scrollbar { display: none; }
+
+.cc-worktab {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--bl-space-2);
+    padding: var(--bl-space-2) 2px;
+    margin-bottom: -1px; /* sit the active underline on the container rule */
+    color: var(--bl-ink-2);
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-decoration: none;
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    transition: color 120ms ease, border-color 120ms ease;
+}
+.cc-worktab:hover { color: var(--bl-ink); }
+.cc-worktab.is-active {
+    color: var(--bl-ink);
+    border-bottom-color: var(--bl-brand);
+}
+.cc-worktab__count {
+    font-variant-numeric: tabular-nums;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--bl-ink-3);
+    background: var(--bl-chrome);
+    padding: 1px 8px;
+    border-radius: var(--bl-r-dot, 999px);
+}
+.cc-worktab.is-active .cc-worktab__count {
+    color: var(--bl-brand);
+    background: color-mix(in srgb, var(--bl-brand) 12%, var(--bl-sheet));
+}
+
+/* Add products: a row already on this store is context, not a target - dim it
+   so the addable rows carry the eye, and name the state in the store's own
+   colour rather than a bare tick. */
+.cc-row--muted td { opacity: 0.6; }
+.cc-onstore {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--bl-good);
+    font-weight: 600;
+    font-size: 0.82rem;
+}
+.cc-onstore-link {
+    font-size: 0.82rem;
+    color: var(--bl-ink-3);
+}
+.cc-onstore-link:hover { color: var(--bl-ink); }
+
+/* Add products: the action column holds a real button, not the 3-dot menu the
+   default .x-td-actions width is sized for. Shrink the column to its content
+   and keep the button on one line, so "Add to store" never wraps to a stack. */
+#lazada-add-table .x-td-actions {
+    width: 1%;
+    white-space: nowrap;
+    padding-left: var(--bl-space-4);
+    text-align: right;
+}
+#lazada-add-table .x-td-actions .x-btn { white-space: nowrap; }

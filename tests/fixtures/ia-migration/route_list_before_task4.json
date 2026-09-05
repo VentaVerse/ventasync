@@ -826,6 +826,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/lazada/{store}/products/add-to-store",
+        "name": "ext.lazada.products.add_to_store_bulk"
+    },
+    {
+        "method": "POST",
         "uri": "channels/lazada/{store}/products/bulk/delete",
         "name": "ext.lazada.products.bulk_delete"
     },
@@ -973,6 +978,11 @@
         "method": "POST",
         "uri": "channels/lazada/{store}/products/{id}/variants",
         "name": "ext.lazada.products.variants_save"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/{productId}/add-to-store",
+        "name": "ext.lazada.products.add_to_store"
     },
     {
         "method": "POST",

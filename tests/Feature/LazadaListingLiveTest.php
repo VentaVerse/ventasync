@@ -175,9 +175,11 @@ class LazadaListingLiveTest extends TestCase
         $r = $this->actingAs($this->manager())->get(route('ext.lazada.products.index'));
 
         $r->assertOk();
-        $r->assertSee('Your catalogue');
-        $r->assertSee('On Lazada');
-        $r->assertSee('All products');
+        // The workbench's two surfaces (#201): This store (here) and Add
+        // products. The "Your catalogue / On Lazada / All products" framing
+        // retired with the per-store split.
+        $r->assertSee('This store');
+        $r->assertSee('Add products');
         $r->assertSee('Pending QC');
         $r->assertSee('as of 08:30, Aug 28');
         $r->assertSee('Refresh from Lazada');
