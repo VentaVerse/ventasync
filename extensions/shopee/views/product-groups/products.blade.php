@@ -240,7 +240,7 @@
             <th scope="col" class="cc-col-chanid">Shopee ID</th>
             <th scope="col" class="cc-col-stat">Catalog</th>
             <th scope="col" class="cc-col-sync">Listing</th>
-            <th scope="col" class="cc-col-err">Last push</th>
+            <th scope="col" class="cc-col-err">Last sync</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
@@ -266,11 +266,16 @@
 
             $syncState = $pivot->sync_status ?? 'pending';
             $isUnlinked = $syncState === 'unlinked' && ! $listed;
-            $attemptFailed = $syncState === 'error';
-            $attemptError = $attemptFailed ? ($pivot->push_error ?? null) : null;
-            $attemptAt = ($pivot->last_pushed_at ?? null)
-                ? \Illuminate\Support\Carbon::parse($pivot->last_pushed_at)
-                : null;
+            // One latest error per product (the owner, 2026-09-05): the listing
+            // record's last refusal, the same one the Listings page shows,
+            // whichever surface pushed. The pivot's own is the fallback for
+            // rows from before the shared column.
+            $sharedError = trim((string) ($rowListing?->last_push_error ?? ''));
+            $attemptFailed = $sharedError !== '' || $syncState === 'error';
+            $attemptError = $sharedError !== '' ? $sharedError : ($attemptFailed ? ($pivot->push_error ?? null) : null);
+            $attemptAt = $sharedError !== '' && ($rowListing?->last_push_failed_at ?? null)
+                ? \Illuminate\Support\Carbon::parse($rowListing->last_push_failed_at)
+                : (($pivot->last_pushed_at ?? null) ? \Illuminate\Support\Carbon::parse($pivot->last_pushed_at) : null);
 
             $provenanceAt = $rowListing?->last_pushed_at;
             $provenanceSource = (string) ($rowListing->last_push_source ?? '');
@@ -424,58 +429,11 @@
                 @endif
             </td>
 
-            <td class="cc-col-err" data-label="Last push">
-                {{-- Two different facts share this column, each named:
-                     what actually went up (the listing record, shared with
-                     every page) and what THIS GROUP last tried (its own
-                     attempt history). The owner's GP-180 showed why both must
-                     speak: this product group's push failed on couriers, then the
-                     product went up through its listing - the truthful row
-                     says both. --}}
-                @if($attemptFailed)
-                    @php
-                        $reason = trim((string) ($attemptError ?? ''));
-                        $reason = $reason !== '' ? $reason : 'No reason was recorded.';
-                        // 120 shown against a column stored at 480: an
-                        // untitled truncation left up to 360 characters of
-                        // what Shopee actually said unreachable.
-                        $clipped = \Illuminate\Support\Str::limit($reason, 120);
-                    @endphp
-                    <span class="cc-err">This product group's last push{{ $attemptAt ? ' ' . $attemptAt->diffForHumans() : '' }} failed:</span>
-                    @if($clipped === $reason)
-                        <span class="cc-err">{{ $reason }}</span>
-                    @else
-                        {{-- <details>, not a tooltip: a title attribute waits
-                             a second, never appears on a phone, and cannot be
-                             reached from the keyboard. --}}
-                        <details class="cc-reason">
-                            <summary class="cc-reason__summary">
-                                <span class="cc-err cc-reason__clip">{{ $clipped }}</span>
-                                <span class="cc-reason__toggle">
-                                    <x-ui.icon name="chevron-down" size="12" class="cc-reason__chevron" />
-                                    <span class="cc-reason__label">Full reason</span>
-                                </span>
-                            </summary>
-                            <p class="cc-err cc-reason__full">{{ $reason }}</p>
-                        </details>
-                    @endif
-                @endif
-
-                @if($provenanceAt)
-                    <span class="cc-when">Pushed {{ $provenanceAt->diffForHumans() }}{{ $provenanceLabel !== '' ? ' ' . $provenanceLabel : '' }}</span>
-                    {{-- "Core has changed" (#100): the catalog moved after
-                         this went up, so the live listing is behind what a
-                         push would send now. --}}
-                    @php
-                        $coreMovedAt = ($p->date_modified ?? null)
-                            ? \Illuminate\Support\Carbon::parse($p->date_modified) : null;
-                    @endphp
-                    @if($coreMovedAt && $coreMovedAt->gt($provenanceAt))
-                        <span class="cc-checked cc-checked--stale">Catalog changed since this push</span>
-                    @endif
-                @elseif(! $attemptFailed)
-                    <span class="x-cell-muted">Never</span>
-                @endif
+            <td class="cc-col-err" data-label="Last sync">
+                {{-- One answer for this column on every page (the owner,
+                     2026-09-05): the shared refusal, else the newest
+                     successful sync, else never. --}}
+                @include('ext-shopee::products._last-sync', ['sync' => $lastSync[(int) $p->product_id] ?? null])
             </td>
 
             <td class="x-td-actions">

@@ -381,6 +381,8 @@ class ShopeeProductController extends Controller
             'liveTabError' => $liveTabError,
             'liveStatuses' => $liveStatuses,
             'listingStates' => $listingStates,
+            // The Last sync column (the owner, 2026-09-05), one answer shared with the group pages.
+            'lastSync' => app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->lastSync(array_map('intval', $pageIds)),
             'catalogueTotal' => $catalogueTotal,
             'listedTotal' => $listedTotal,
             'liveCheckedAt' => $liveCheckedAt,
@@ -1155,6 +1157,10 @@ class ShopeeProductController extends Controller
 
         $added = $create->addItem($client, $auth, $payload, 'shopee.products.add_item.direct');
         if (!$added['ok']) {
+            // One latest error per product (the owner, 2026-09-05): the refusal
+            // lands on the listing record so every surface can show it.
+            ShopeeListing::recordPushFailure($productId, (string) $added['error']);
+
             return redirect()->back()->with('error', 'Push failed: ' . $added['error']);
         }
 
@@ -1174,6 +1180,8 @@ class ShopeeProductController extends Controller
         $listing->forceFill([
             'last_pushed_at' => now(),
             'last_push_source' => 'listing',
+            'last_push_error' => null,
+            'last_push_failed_at' => null,
             'last_push_settings' => [
                 'category_id' => (int) $listing->shopee_category_id,
                 'logistic_ids' => $logisticIds,
@@ -1462,6 +1470,11 @@ class ShopeeProductController extends Controller
             $added = $create->addItem($client, $auth, $payload, 'shopee.products.add_item.bulk');
             $itemId = $added['item_id'];
 
+            if (!$itemId) {
+                // One latest error per product (the owner, 2026-09-05).
+                ShopeeListing::recordPushFailure($productId, (string) ($added['error'] ?? 'Shopee accepted the push but returned no item id.'));
+            }
+
             if ($itemId) {
                 $confirmItemIds[] = (int) $itemId;
                 ShopeeProductLink::create([
@@ -1474,6 +1487,8 @@ class ShopeeProductController extends Controller
                 $saved->forceFill([
                     'last_pushed_at' => now(),
                     'last_push_source' => $hasShared ? 'bulk' : 'listing',
+                    'last_push_error' => null,
+                    'last_push_failed_at' => null,
                     'last_push_settings' => [
                         'category_id' => (int) $listing->shopee_category_id,
                         'logistic_ids' => $listing->logistic_ids ?? [],

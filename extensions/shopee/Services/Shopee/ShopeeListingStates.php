@@ -66,6 +66,97 @@ class ShopeeListingStates
     private const SEVERITY = ['BANNED', 'SHOPEE_DELETE', 'SELLER_DELETE', 'MISSING', 'REVIEWING', 'UNLIST', 'NORMAL'];
 
     /**
+     * The Last sync column, one answer for the Listings page and every
+     * group page (the owner, 2026-09-05): a refusal wins and is told in full,
+     * whichever surface pushed or synced; otherwise the newest successful
+     * sync, stock and price on the link rows or the listing push, with
+     * what it was; otherwise never.
+     *
+     * @param list<int> $productIds
+     * @return array<int, array{tone: 'failed'|'ok'|'none', headline: string, detail: ?string, at: ?Carbon}>
+     */
+    public function lastSync(array $productIds): array
+    {
+        $productIds = array_values(array_unique(array_map('intval', $productIds)));
+        if ($productIds === []) {
+            return [];
+        }
+
+        // The link's action codes, in words.
+        $word = fn (?string $action): string => match (strtolower(trim((string) $action))) {
+            'sync_qty', 'qty', 'stock', 'update_stock' => 'stock',
+            'sync_price', 'price', 'update_price' => 'price',
+            'push', 'listing', 'add_item', 'update_item' => 'listing',
+            '' => 'sync',
+            default => str_replace('_', ' ', strtolower(trim((string) $action))),
+        };
+
+        $listings = ShopeeListing::query()->whereIn('product_id', $productIds)->get()->keyBy('product_id');
+        $links = ShopeeProductLink::query()->whereIn('product_id', $productIds)->get()->groupBy('product_id');
+
+        $out = [];
+        foreach ($productIds as $pid) {
+            $listing = $listings->get($pid);
+            $rows = $links->get($pid) ?? collect();
+
+            // A refused push, from whichever surface.
+            if ($listing && trim((string) ($listing->last_push_error ?? '')) !== '') {
+                $at = $listing->last_push_failed_at ? Carbon::parse($listing->last_push_failed_at) : null;
+                $out[$pid] = [
+                    'tone' => 'failed',
+                    'headline' => 'Last push' . ($at ? ' ' . $at->diffForHumans() : '') . ' failed:',
+                    'detail' => trim((string) $listing->last_push_error),
+                    'at' => $at,
+                ];
+                continue;
+            }
+
+            // A refused stock or price sync on a link row, newest first.
+            $failedSync = $rows->filter(fn ($r) => $r->last_sync_ok === false || (int) $r->last_sync_ok === 0 && $r->last_sync_ok !== null)
+                ->filter(fn ($r) => trim((string) ($r->last_sync_error_message ?? '')) !== '')
+                ->sortByDesc('last_synced_at')->first();
+            if ($failedSync) {
+                $at = $failedSync->last_synced_at ? Carbon::parse($failedSync->last_synced_at) : null;
+                $what = ucfirst($word($failedSync->last_sync_action));
+                $out[$pid] = [
+                    'tone' => 'failed',
+                    'headline' => $what . ' sync' . ($at ? ' ' . $at->diffForHumans() : '') . ' failed:',
+                    'detail' => trim((string) $failedSync->last_sync_error_message),
+                    'at' => $at,
+                ];
+                continue;
+            }
+
+            // The newest success: a link sync (stock, price) or the listing push.
+            $candidates = [];
+            foreach ($rows as $r) {
+                if ($r->last_synced_at && ($r->last_sync_ok === null || (bool) $r->last_sync_ok)) {
+                    $candidates[] = [Carbon::parse($r->last_synced_at), $word($r->last_sync_action)];
+                }
+            }
+            if ($listing?->last_pushed_at) {
+                $candidates[] = [Carbon::parse($listing->last_pushed_at), 'listing'];
+            }
+            usort($candidates, fn ($a, $b) => $b[0] <=> $a[0]);
+
+            if ($candidates === []) {
+                $out[$pid] = ['tone' => 'none', 'headline' => 'Never synced', 'detail' => null, 'at' => null];
+                continue;
+            }
+
+            [$at, $what] = $candidates[0];
+            $out[$pid] = [
+                'tone' => 'ok',
+                'headline' => 'Synced ' . $at->diffForHumans() . ' (' . $what . ')',
+                'detail' => null,
+                'at' => $at,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
      * @param list<int> $productIds
      * @return array<int, ListingState> keyed by product id
      */
@@ -100,10 +191,20 @@ class ShopeeListingStates
             $listing = $listings->get($productId);
             $pushedAt = $listing?->last_pushed_at ? Carbon::parse($listing->last_pushed_at) : null;
 
+            // One latest error per product (the owner, 2026-09-05): the last
+            // refusal, from whichever surface pushed, told as a sentence on
+            // every surface until a push succeeds.
+            $failure = [];
+            if ($listing && trim((string) ($listing->last_push_error ?? '')) !== '') {
+                $failedAt = $listing->last_push_failed_at ? Carbon::parse($listing->last_push_failed_at) : null;
+                $failure[] = 'Last push' . ($failedAt ? ' ' . $failedAt->diffForHumans() : '') . ' failed: ' . trim((string) $listing->last_push_error);
+            }
+
             if (!$links->has($productId)) {
                 $r = $readiness[$productId] ?? ['ready' => false, 'missing' => [], 'gaps' => []];
                 $out[$productId] = new ListingState(
                     state: ListingState::NOT_LISTED,
+                    reasons: $failure,
                     ready: (bool) $r['ready'],
                     missing: $r['gaps'] ?? [],
                     pushedAt: $pushedAt,
@@ -126,7 +227,7 @@ class ShopeeListingStates
             // Drift is a fact about live and inactive listings; a listing
             // Shopee no longer shows has bigger problems than staleness.
             $inSync = null;
-            $reasons = [];
+            $reasons = $failure;
             if (in_array($worst, ['NORMAL', 'UNLIST'], true) && $pushedAt !== null) {
                 $movedAt = ($modified[$productId] ?? null) ? Carbon::parse($modified[$productId]) : null;
                 $inSync = !($movedAt && $movedAt->gt($pushedAt));

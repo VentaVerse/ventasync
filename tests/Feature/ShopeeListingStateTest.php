@@ -123,6 +123,80 @@ class ShopeeListingStateTest extends TestCase
         }
     }
 
+    /**
+     * One latest error per product (the owner, 2026-09-05): a refusal from any
+     * push lands on the listing record and every surface tells it, until
+     * a push succeeds and clears it.
+     */
+    public function test_the_last_push_refusal_is_told_on_every_surface_until_a_push_succeeds(): void
+    {
+        $pid = $this->product('IMG');
+        $this->readyListing($pid);
+
+        ShopeeListing::recordPushFailure($pid, 'The number of product images must be between 1 and 9. Please adjust it.');
+        $s = $this->states([$pid])[$pid];
+        $this->assertSame(ListingState::NOT_LISTED, $s->state);
+        $this->assertTrue($s->ready, 'the refusal is not a readiness gap');
+        $this->assertCount(1, $s->reasons);
+        $this->assertStringContainsString('Last push', $s->reasons[0]);
+        $this->assertStringContainsString('failed: The number of product images must be between 1 and 9', $s->reasons[0]);
+
+        // The workbench draws it on the row, in the shared Last sync column.
+        $group = \App\Models\Admin\UserGroup::create(['name' => 'Shopee push readers']);
+        $group->permissions()->attach(\App\Models\Admin\Permission::whereIn('key', ['view_shopee/product', 'manage_shopee/product'])->pluck('id')->all());
+        $user = \App\Models\User::factory()->create(['user_group_id' => $group->id]);
+        $html = $this->actingAs($user)->get(route('ext.shopee.products.index'))->assertOk()->getContent();
+        $this->assertStringContainsString('Last sync', $html);
+        $this->assertStringContainsString('between 1 and 9', $html);
+
+        // The one answer both pages draw: the refusal wins over any sync time.
+        $sync = app(ShopeeListingStates::class)->lastSync([$pid])[$pid];
+        $this->assertSame('failed', $sync['tone']);
+        $this->assertStringContainsString('Last push', $sync['headline']);
+        $this->assertStringContainsString('between 1 and 9', $sync['detail']);
+
+        // A linked product carries it too, beside its live state.
+        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 777, 'sku' => 'IMG', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        $this->assertStringContainsString('between 1 and 9', implode(' ', $this->states([$pid])[$pid]->reasons));
+
+        ShopeeListing::clearPushFailure($pid);
+        $this->assertSame([], $this->states([$pid])[$pid]->reasons);
+        $this->assertNull(ShopeeListing::query()->where('product_id', $pid)->value('last_push_error'));
+
+        // With no refusal, the column is the last successful sync: the newest
+        // of a stock or price sync on the link and the listing push.
+        ShopeeProductLink::query()->where('product_id', $pid)->update(['last_synced_at' => now()->subMinutes(5), 'last_sync_action' => 'stock', 'last_sync_ok' => true]);
+        ShopeeListing::query()->where('product_id', $pid)->update(['last_pushed_at' => now()->subHours(3)]);
+        $sync = app(ShopeeListingStates::class)->lastSync([$pid])[$pid];
+        $this->assertSame('ok', $sync['tone']);
+        $this->assertStringContainsString('5 minutes ago', $sync['headline']);
+        $this->assertStringContainsString('stock', $sync['headline']);
+
+        // A failed stock sync is told the same way, and a never-synced product says so.
+        ShopeeProductLink::query()->where('product_id', $pid)->update(['last_sync_ok' => false, 'last_sync_error_message' => 'Stock update refused: item is under review.']);
+        $sync = app(ShopeeListingStates::class)->lastSync([$pid])[$pid];
+        $this->assertSame('failed', $sync['tone']);
+        $this->assertStringContainsString('Stock sync', $sync['headline']);
+        $never = $this->product('NEVER');
+        $this->assertSame('none', app(ShopeeListingStates::class)->lastSync([$never])[$never]['tone']);
+    }
+
+    public function test_a_push_sends_at_most_nine_images_main_first(): void
+    {
+        $pid = $this->product('MANY', 'catalog/main.png');
+        $pfx = (string) config('catalog.prefix');
+        for ($i = 1; $i <= 12; $i++) {
+            \Illuminate\Support\Facades\DB::table($pfx . 'product_image')->insert(['product_id' => $pid, 'image' => "catalog/g{$i}.png", 'sort_order' => $i]);
+        }
+        $product = \Illuminate\Support\Facades\DB::table($pfx . 'product')->where('product_id', $pid)->first();
+
+        $paths = app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class)->catalogImagePaths($pfx, $product);
+
+        $this->assertCount(9, $paths, 'Shopee refuses more than nine');
+        $this->assertSame('catalog/main.png', $paths[0], 'the main image leads');
+        $this->assertSame('catalog/g8.png', $paths[8]);
+    }
+
     public function test_live_and_out_of_date_are_different_facts_and_both_are_told(): void
     {
         // Pushed, then the catalogue moved: live, not in sync.

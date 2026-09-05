@@ -510,59 +510,11 @@
                     @endif
                 @endif
             </td>
-
             <td class="cc-col-err" data-label="Last sync">
-                @if($syncFailed)
-                    @php
-                        $reason = trim((string) ($link->last_sync_error_message ?? ''));
-                        // 120, matching the group pages. At 80 the actionable
-                        // half of a marketplace validation message was cut off
-                        // with no way to reach the rest, so the one column
-                        // that only fills when something is wrong could not
-                        // say what was wrong.
-                        $clipped = Str::limit($reason, 120);
-                    @endphp
-
-                    @if($reason === '')
-                        <span class="cc-err">
-                            @if($link->last_sync_error_code)<span class="cc-err__code">{{ $link->last_sync_error_code }}</span> @endif
-                            Failed
-                        </span>
-                    @elseif($clipped === $reason)
-                        <span class="cc-err">
-                            @if($link->last_sync_error_code)<span class="cc-err__code">{{ $link->last_sync_error_code }}</span> @endif
-                            {{ $reason }}
-                        </span>
-                    @else
-                        {{-- <details>, not a tooltip, and the same component the
-                             group pages use: a title attribute waits a second,
-                             never appears on a phone, and cannot be reached
-                             from the keyboard. --}}
-                        <details class="cc-reason">
-                            <summary class="cc-reason__summary">
-                                <span class="cc-err cc-reason__clip">
-                                    @if($link->last_sync_error_code)<span class="cc-err__code">{{ $link->last_sync_error_code }}</span> @endif
-                                    {{ $clipped }}
-                                </span>
-                                <span class="cc-reason__toggle">
-                                    <x-ui.icon name="chevron-down" size="12" class="cc-reason__chevron" />
-                                    <span class="cc-reason__label">Full reason</span>
-                                </span>
-                            </summary>
-                            <p class="cc-err cc-reason__full">{{ $reason }}</p>
-                        </details>
-                    @endif
-                    @if($link->last_synced_at)
-                        <span class="cc-when">{{ $link->last_synced_at->diffForHumans() }}</span>
-                    @endif
-                @elseif($link && $link->last_sync_ok)
-                    <span class="x-cell-muted">Succeeded</span>
-                    @if($link->last_synced_at)
-                        <span class="cc-when">{{ $link->last_synced_at->diffForHumans() }}</span>
-                    @endif
-                @else
-                    <span class="x-cell-muted">Never</span>
-                @endif
+                {{-- One answer for this column on every page (the owner,
+                     2026-09-05): the shared refusal, else the newest
+                     successful sync, else never. --}}
+                @include('ext-shopee::products._last-sync', ['sync' => $lastSync[(int) $p->product_id] ?? null])
             </td>
 
             <td class="x-td-actions">

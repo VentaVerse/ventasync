@@ -400,6 +400,8 @@ class ShopeeProductGroupController extends Controller
 
         return view('ext-shopee::product-groups.products', [
             'listingStates' => $listingStates,
+            // The Last sync column (the owner, 2026-09-05), one answer shared with the Listings page.
+            'lastSync' => app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->lastSync($displayIds),
             'group' => $group,
             'failedCount' => $failedCount,
             'products' => $products,
@@ -2423,6 +2425,15 @@ class ShopeeProductGroupController extends Controller
             $productId,
             $attributes
         );
+
+        // One latest error per product (the owner, 2026-09-05): the refusal
+        // also lands on the listing record, the row every surface reads,
+        // and a success clears it there.
+        if (($attributes['sync_status'] ?? null) === 'error') {
+            ShopeeListing::recordPushFailure($productId, (string) ($attributes['push_error'] ?? ''));
+        } elseif (($attributes['sync_status'] ?? null) === 'pushed') {
+            ShopeeListing::clearPushFailure($productId);
+        }
     }
 
     /**

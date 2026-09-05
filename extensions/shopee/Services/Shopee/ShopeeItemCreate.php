@@ -26,7 +26,14 @@ use Illuminate\Support\Facades\Http;
  */
 class ShopeeItemCreate
 {
-    /** Main image first, then the gallery in its saved order. */
+    /** Shopee takes at most this many images on an item. */
+    public const MAX_IMAGES = 9;
+
+    /**
+     * Main image first, then the gallery in its saved order, capped at
+     * Shopee's nine (the owner, 2026-09-05: a product with more was refused
+     * with "The number of product images must be between 1 and 9").
+     */
     public function catalogImagePaths(string $pfx, object $product): array
     {
         $paths = [];
@@ -34,11 +41,13 @@ class ShopeeItemCreate
             $paths[] = $product->image;
         }
 
-        return array_merge($paths, DB::table($pfx . 'product_image')
+        $all = array_merge($paths, DB::table($pfx . 'product_image')
             ->where('product_id', (int) $product->product_id)
             ->orderBy('sort_order')
             ->pluck('image')
             ->toArray());
+
+        return array_slice(array_values(array_unique($all)), 0, self::MAX_IMAGES);
     }
 
     public function resolveLocalImagePath(string $path): ?string
