@@ -218,11 +218,10 @@ class VentaProductGroupController extends Controller
 
     private function productsRedirect(int $store, int $group)
     {
-        $return = request()->input('_return');
-        if ($return && str_starts_with($return, '/')) {
-            return redirect($return);
-        }
-        return redirect()->route('ext.venta.product-groups.products', [$store, $group]);
+        // Only a local path is followed: '//host' and '/\\host' would leave the site.
+        $fallback = route('ext.venta.product-groups.products', [$store, $group]);
+
+        return redirect(\App\Support\BackTo::safe(request()->input('_return'), $fallback));
     }
 
     // ── Group CRUD ──────────────────────────────────────────

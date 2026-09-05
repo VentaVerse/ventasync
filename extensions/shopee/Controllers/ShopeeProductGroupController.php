@@ -39,11 +39,10 @@ class ShopeeProductGroupController extends Controller
 
     private function productsRedirect(int $id)
     {
-        $return = request()->input('_return');
-        if ($return && str_starts_with($return, '/')) {
-            return redirect($return);
-        }
-        return redirect()->route('ext.shopee.product-groups.products', $id);
+        // Only a local path is followed: '//host' and '/\\host' would leave the site.
+        $fallback = route('ext.shopee.product-groups.products', $id);
+
+        return redirect(\App\Support\BackTo::safe(request()->input('_return'), $fallback));
     }
 
     public function index()
