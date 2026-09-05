@@ -862,56 +862,6 @@
    above the filter row; it sat flush against the search input. */
 .cc-page > .fm-note { margin-bottom: var(--bl-space-3); }
 
-/* ── The workbench's two surfaces (#201, the owner 2026-09-05) ────────────────
-   This store | Add products. A text-forward primary switch sitting above the
-   filled state segments, so the two levels of control never read as one
-   (the filled pill is the state strip's language, and two filled levels
-   would collide). The active tab is carried by weight and a brand underline.
-   The strip scrolls on its own on a phone rather than widening the page. */
-.cc-worktabs {
-    display: flex;
-    align-items: flex-end;
-    gap: var(--bl-space-5);
-    border-bottom: 1px solid var(--bl-rule);
-    margin-bottom: var(--bl-space-4);
-    overflow-x: auto;
-    scrollbar-width: none;
-}
-.cc-worktabs::-webkit-scrollbar { display: none; }
-
-.cc-worktab {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--bl-space-2);
-    padding: var(--bl-space-2) 2px;
-    margin-bottom: -1px; /* sit the active underline on the container rule */
-    color: var(--bl-ink-2);
-    font-size: 1rem;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    text-decoration: none;
-    white-space: nowrap;
-    border-bottom: 2px solid transparent;
-    transition: color 120ms ease, border-color 120ms ease;
-}
-.cc-worktab:hover { color: var(--bl-ink); }
-.cc-worktab.is-active {
-    color: var(--bl-ink);
-    border-bottom-color: var(--bl-brand);
-}
-.cc-worktab__count {
-    font-variant-numeric: tabular-nums;
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--bl-ink-3);
-    background: var(--bl-chrome);
-    padding: 1px 8px;
-    border-radius: var(--bl-r-dot, 999px);
-}
-.cc-worktab.is-active .cc-worktab__count {
-    color: var(--bl-brand);
-    background: color-mix(in srgb, var(--bl-brand) 12%, var(--bl-sheet));
-}
 
 /* Add products: a row already on this store is context, not a target - dim it
    so the addable rows carry the eye, and name the state in the store's own
@@ -941,3 +891,74 @@
     text-align: right;
 }
 #lazada-add-table .x-td-actions .x-btn { white-space: nowrap; }
+
+/* ── The Add products slide-over (#201, Draft C - the owner 2026-09-05) ──────
+   A right-anchored sheet over the Listings table: search your main catalogue
+   and add in place; the additions land in the table behind when the panel
+   closes. Rides .modal-backdrop's fixed scrim and .active show/hide, the
+   mechanism every other dialog uses; only the sheet's anchoring and motion
+   are its own. Results are capped server-side and the meta line says
+   "Showing n of N" - the honest answer to a panel that cannot list a whole
+   catalogue. */
+.cc-addpanel { justify-content: flex-end; align-items: stretch; padding: 0; }
+.cc-addpanel__sheet {
+    width: min(440px, 100vw);
+    height: 100%;
+    margin-left: auto;
+    background: var(--bl-sheet);
+    border-left: 1px solid var(--bl-rule);
+    box-shadow: -24px 0 48px rgba(0, 0, 0, .35);
+    display: flex;
+    flex-direction: column;
+    gap: var(--bl-space-3);
+    padding: var(--bl-space-5) var(--bl-space-5) var(--bl-space-4);
+    transform: translateX(24px);
+    opacity: 0;
+    transition: transform 220ms cubic-bezier(.2, .8, .2, 1), opacity 180ms ease;
+}
+.cc-addpanel.active .cc-addpanel__sheet { transform: none; opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+    .cc-addpanel__sheet { transition: none; transform: none; }
+}
+body.cc-addpanel-open { overflow: hidden; }
+
+.cc-addpanel__head { display: flex; align-items: center; justify-content: space-between; gap: var(--bl-space-3); }
+.cc-addpanel__title { margin: 0; font-size: 1.15rem; font-weight: 800; letter-spacing: -0.02em; }
+.cc-addpanel__close {
+    appearance: none; border: 1px solid var(--bl-rule); background: transparent; color: var(--bl-ink-2);
+    width: 32px; height: 32px; border-radius: var(--bl-r-ctrl); display: inline-flex; align-items: center;
+    justify-content: center; cursor: pointer; flex: 0 0 auto;
+}
+.cc-addpanel__close:hover { color: var(--bl-ink); background: var(--bl-chrome); }
+.cc-addpanel__sub { margin: 0; color: var(--bl-ink-3); font-size: .88rem; line-height: 1.45; }
+.cc-addpanel__search { display: flex; flex-direction: column; gap: var(--bl-space-2); }
+.cc-addpanel__toggle { display: inline-flex; align-items: center; gap: 8px; color: var(--bl-ink-2); font-size: .85rem; cursor: pointer; }
+.cc-addpanel__meta { color: var(--bl-ink-3); font-size: .82rem; min-height: 1.2em; font-variant-numeric: tabular-nums; }
+
+.cc-addpanel__list { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; min-height: 0; border-top: 1px solid var(--bl-rule); }
+.cc-addpanel__row { display: flex; align-items: center; gap: var(--bl-space-3); padding: var(--bl-space-2) 0; border-bottom: 1px solid var(--bl-rule); }
+.cc-addpanel__row.is-on { opacity: .6; }
+.cc-addpanel__thumb {
+    width: 36px; height: 36px; border-radius: 6px; background: var(--bl-chrome); border: 1px solid var(--bl-rule);
+    flex: 0 0 auto; overflow: hidden; display: flex; align-items: center; justify-content: center;
+}
+.cc-addpanel__thumb img { width: 100%; height: 100%; object-fit: cover; }
+.cc-addpanel__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cc-addpanel__name { font-weight: 600; color: var(--bl-ink); font-size: .92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cc-addpanel__meta2 { color: var(--bl-ink-3); font-size: .78rem; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The same teal fill with dark ink the app's primary button uses; teal is a
+   light hue in both themes, so the dark ink holds either way. */
+.cc-addpanel__add {
+    appearance: none; border: 1px solid var(--bl-brand); background: var(--bl-brand); color: #04121a;
+    font: inherit; font-weight: 600; font-size: .82rem; padding: 6px 12px; border-radius: var(--bl-r-ctrl);
+    cursor: pointer; white-space: nowrap; flex: 0 0 auto;
+}
+.cc-addpanel__add:hover { filter: brightness(1.07); }
+.cc-addpanel__add:disabled { opacity: .6; cursor: default; }
+.cc-addpanel__on { display: inline-flex; align-items: center; gap: 4px; color: var(--bl-good); font-weight: 600; font-size: .82rem; white-space: nowrap; flex: 0 0 auto; }
+.cc-addpanel__empty { padding: var(--bl-space-5) 0; color: var(--bl-ink-3); text-align: center; font-size: .9rem; }
+
+.cc-addpanel__foot { display: flex; align-items: center; gap: var(--bl-space-3); padding-top: var(--bl-space-3); border-top: 1px solid var(--bl-rule); }
+.cc-addpanel__added { color: var(--bl-ink-2); font-size: .85rem; font-variant-numeric: tabular-nums; flex: 1; }
+.cc-addpanel__full { color: var(--bl-ink-3); font-size: .82rem; white-space: nowrap; }
+.cc-addpanel__full:hover { color: var(--bl-ink); }

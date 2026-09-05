@@ -589,9 +589,101 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $exists = DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $productId)->exists();
         abort_unless($exists, 404);
 
-        LazadaProduct::firstOrCreate(['product_id' => $productId]);
+        $row = LazadaProduct::firstOrCreate(['product_id' => $productId]);
+
+        // The Add products panel adds in place and asks for JSON (#201,
+        // Draft C); the full catalogue page still posts a form and lands back.
+        if ($request->wantsJson()) {
+            return response()->json(['ok' => true, 'product_id' => $productId, 'added' => (bool) $row->wasRecentlyCreated]);
+        }
 
         return redirect()->back()->with('status', 'Added to this store. Configure and push it from This store whenever you are ready.');
+    }
+
+    /**
+     * The Add products panel's search (#201, Draft C - the owner 2026-09-05): the
+     * main catalogue, each row flagged with whether it is already on this
+     * store. Capped, on purpose: a slide-over cannot list a whole catalogue,
+     * so the operator narrows by searching and the total says how much is
+     * still out of view; the full catalogue page is one link away for a
+     * browse. Defaults to what is NOT yet on the store, since adding is the
+     * panel's one job.
+     */
+    public function catalogueSearch(Request $request)
+    {
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+        $q = trim((string) $request->query('q', ''));
+        $showAll = $request->boolean('all');
+        $limit = 25;
+
+        $lpPick = DB::table('lazada_products')
+            ->selectRaw('product_id, MIN(id) as pick_id')
+            ->whereNotNull('product_id')
+            ->when(app()->bound('lazada.route-store'), fn ($sub) => $sub->where('lazada_setting_id', app('lazada.route-store')->id))
+            ->groupBy('product_id');
+
+        $query = DB::table($pfx . 'product as p')
+            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+                $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
+            })
+            ->leftJoinSub($lpPick, 'lps', 'lps.product_id', '=', 'p.product_id')
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.model', 'p.quantity', 'p.price', 'lps.pick_id as listing_id')
+            // A disabled catalogue product is not something to put on a store.
+            ->where('p.status', 1);
+
+        if ($q !== '') {
+            $query->where(function ($sub) use ($q) {
+                $sub->where('pd.name', 'like', '%' . $q . '%')
+                    ->orWhere('p.model', 'like', '%' . $q . '%')
+                    ->orWhere('p.sku', 'like', '%' . $q . '%');
+            });
+        }
+        if (! $showAll) {
+            $query->whereNull('lps.pick_id');
+        }
+
+        $total = (clone $query)->count();
+        $rows = $query->orderBy('pd.name')->orderBy('p.product_id')->limit($limit)->get();
+
+        $items = $rows->map(fn ($r) => [
+            'id' => (int) $r->product_id,
+            'name' => html_entity_decode((string) ($r->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8') ?: 'Unnamed product',
+            'sku' => (string) ($r->sku ?? ''),
+            'quantity' => (int) ($r->quantity ?? 0),
+            'price' => \App\Support\Money::base((float) ($r->price ?? 0)),
+            'thumb' => $this->images()->toDisplayImageUrl($r->image ?? null),
+            'on_store' => ! is_null($r->listing_id),
+        ])->values();
+
+        return response()->json(['total' => $total, 'shown' => $items->count(), 'limit' => $limit, 'items' => $items]);
+    }
+
+    /**
+     * Remove a product from this store's list (#201) - the inverse of Add.
+     * The listing row goes, variants and group memberships with it, so the
+     * product leaves This store and STOPS SYNCING at once. Deliberately no
+     * blocker (the owner, 2026-09-05): nobody keeps a product on the marketplace
+     * while stripping it here. It never touches Lazada - a live listing stays
+     * up until it is removed there, which the confirm says plainly and Delete
+     * from Lazada already covers. The store-scoped findOrFail means a row on
+     * another store can never be reached from this one.
+     */
+    public function removeFromStore(int $id)
+    {
+        $listing = LazadaProduct::query()->findOrFail($id);
+        $itemId = $listing->lazada_item_id;
+        $productId = $listing->product_id;
+
+        $listing->variants()->delete();
+        $listing->groups()->detach();
+        $listing->delete();
+
+        $note = $itemId
+            ? " It no longer syncs; Lazada item {$itemId} stays up until you remove it there."
+            : ' It no longer syncs.';
+
+        return redirect()->back()->with('status', "Removed product #{$productId} from this store." . $note);
     }
 
     /**

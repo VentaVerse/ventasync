@@ -81,13 +81,18 @@
                 @csrf
                 <x-ui.button type="submit" variant="secondary">Check against Lazada</x-ui.button>
             </form>
-            {{-- "New listing" retired (#196 review): the table below IS the
-                 catalogue, and every unlisted row offers Prepare listing. --}}
+            {{-- Add products (#201, Draft C - the owner 2026-09-05): the one
+                 way a main-catalogue product joins this store. A primary
+                 button, sized to how often it happens, opening the slide-over
+                 in place - not a tab beside the daily table, which gave a
+                 rare act equal billing. "New listing" (#196) stays retired:
+                 the row's Set up on Lazada is the push door. --}}
+            <x-ui.button type="button" variant="primary" data-add-panel-open>
+                <x-ui.icon name="plus" size="14" /> Add products
+            </x-ui.button>
         </div>
     @endif
 </div>
-
-@include('ext-lazada::products._worktabs', ['listTab' => 'store', 'storeCount' => $catalogueTotal])
 
 @php $orphans = $orphanListings ?? collect(); @endphp
 @if($orphans->isNotEmpty())
@@ -429,7 +434,7 @@
         </x-slot:action>
         @elseif($canManageLazada)
         <x-slot:action>
-            <x-ui.button variant="primary" :href="route('ext.lazada.products.index', ['list' => 'add'])">Add products</x-ui.button>
+            <x-ui.button variant="primary" type="button" data-add-panel-open>Add products</x-ui.button>
         </x-slot:action>
         @endif
     </x-ui.empty>
@@ -774,14 +779,23 @@
                             </form>
                         @endif
 
-                        @if($isUnlinked)
-                            <div class="x-menu__sep"></div>
-                            <form method="POST" action="{{ route('ext.lazada.products.remove', $listing->id) }}" data-slow-action
-                                  data-confirm="Remove {{ $rowLabel }} from the local list? Nothing on Lazada is deleted." data-confirm-verb="Remove from list">
-                                @csrf
-                                <button type="submit" class="x-menu__item x-menu__item--danger">Remove from this list</button>
-                            </form>
-                        @endif
+                        {{-- Remove from this store's list (#201) - the inverse
+                             of Add, and it supersedes the old unlinked-only
+                             "Remove from this list". Deliberately no blocker
+                             (the owner, 2026-09-05): it leaves the store and stops
+                             syncing at once. It never touches Lazada - a live
+                             listing stays up, still orderable, until removed
+                             there, which the confirm says plainly; Delete from
+                             Lazada above is the door for that. --}}
+                        <div class="x-menu__sep"></div>
+                        <form method="POST" action="{{ route('ext.lazada.products.remove_from_store', $listing->id) }}" data-slow-action
+                              data-confirm="{{ $hasItemId
+                                  ? "Remove {$rowLabel} from this store? It leaves this store's list and stops syncing. It is live on Lazada (item {$row->lazada_item_id}) and stays up, still orderable, until you remove it there. Use Delete from Lazada for that."
+                                  : "Remove {$rowLabel} from this store? It leaves this store's list and stops syncing. Nothing on Lazada is changed." }}"
+                              data-confirm-verb="Remove from store">
+                            @csrf
+                            <button type="submit" class="x-menu__item x-menu__item--danger">Remove from store</button>
+                        </form>
                     @endif
                 </x-ui.menu>
                 @endif
@@ -816,6 +830,12 @@
         </div>
     </div>
 </div>
+
+{{-- The Add products slide-over (#201, Draft C), manage-gated like its
+     button and every route it calls. --}}
+@if($canManageLazada)
+    @include('ext-lazada::products._add-panel')
+@endif
 
 </div>{{-- /.cc-page --}}
 @endsection

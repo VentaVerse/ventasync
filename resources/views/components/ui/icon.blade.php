@@ -38,6 +38,7 @@
         'trash'    => '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
         'plus'     => '<path d="M12 5v14M5 12h14"/>',
         'check'    => '<path d="M20 6 9 17l-5-5"/>',
+        'x'        => '<path d="M18 6 6 18M6 6l12 12"/>',
         'mail'     => '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 6-10 7L2 6"/>',
         'clock'    => '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
         'building' => '<rect x="4" y="2" width="16" height="20" rx="1"/><path d="M9 22v-4h6v4M9 6h1M14 6h1M9 10h1M14 10h1M9 14h1M14 14h1"/>',

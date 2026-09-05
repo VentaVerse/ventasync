@@ -110,17 +110,4 @@ class DisabledProductsStayOutTest extends TestCase
         $tt = $this->actingAs($user)->get(route('ext.tiktok.products.index', ['store' => $tiktokStore->id]))->assertOk()->getContent();
         $this->assertStringNotContainsString('Disabled tiktok nowhere', $tt);
     }
-
-    public function test_the_all_listings_grid_hides_only_the_nowhere_disabled(): void
-    {
-        $this->seedProduct('DIS-GRID', 'Disabled grid nowhere', 0);
-        $kept = $this->seedProduct('DIS-GRID-KEEP', 'Disabled but listed somewhere', 0);
-        ShopeeProductLink::create(['product_id' => $kept, 'shopee_item_id' => 801, 'live_status' => 'NORMAL']);
-
-        $user = $this->operator();
-        $page = $this->actingAs($user)->get(route('channels.listings'))->assertOk()->getContent();
-
-        $this->assertStringNotContainsString('Disabled grid nowhere', $page);
-        $this->assertStringContainsString('Disabled but listed somewhere', $page);
-    }
 }

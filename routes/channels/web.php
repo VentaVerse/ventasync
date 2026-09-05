@@ -33,7 +33,10 @@ Route::prefix('channels')->group(function () {
 
     // All Listings (Phase D, #184): every product's standing on every
     // channel that can answer, one grid above the per-channel workbenches.
-    Route::get('/listings', [\App\Http\Controllers\Integrations\AllListingsController::class, 'index'])->name('channels.listings');
+    // All Listings (channels.listings) retired 2026-09-05 (#201): it was the
+    // single-store era's "ready to push, per channel" aggregator. With every
+    // live channel multi-store, each store's own Listings answers that in
+    // context, so the page leaves rather than lingering as a dead door.
 
     // The fulfilment hub: every channel's open orders, one working surface.
     // Redirects to the first marketplace tab the user may see; otherwise

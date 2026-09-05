@@ -173,6 +173,15 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
         // the store, unpushed, ready to configure and push from This store.
         Route::post('/lazada/{store}/products/add-to-store', [LazadaProductController::class, 'addToStoreBulk'])->name('ext.lazada.products.add_to_store_bulk');
         Route::post('/lazada/{store}/products/{productId}/add-to-store', [LazadaProductController::class, 'addToStore'])->whereNumber('productId')->name('ext.lazada.products.add_to_store');
+        // The Add products panel's catalogue search (#201, Draft C): a read
+        // that lives beside the adds it feeds; the explicit tier keeps it in
+        // the read tier, like payload-preview above.
+        Route::get('/lazada/{store}/products/catalogue-search', [LazadaProductController::class, 'catalogueSearch'])
+            ->name('ext.lazada.products.catalogue_search')
+            ->defaults('permission_tier', 'view');
+        // Remove from this store's list (#201): the inverse of Add. No
+        // blocker; it never touches Lazada.
+        Route::post('/lazada/{store}/products/{id}/remove-from-store', [LazadaProductController::class, 'removeFromStore'])->whereNumber('id')->name('ext.lazada.products.remove_from_store');
         Route::post('/lazada/{store}/products/bulk/upload', [LazadaProductController::class, 'bulkUploadToLazada'])->name('ext.lazada.products.bulk_upload');
         Route::post('/lazada/{store}/listings/{id}/toggle', [LazadaProductController::class, 'toggleListing'])->whereNumber('id')->name('ext.lazada.listings.toggle');
         // Activate / deactivate the selection, and refresh the status mirror on demand.

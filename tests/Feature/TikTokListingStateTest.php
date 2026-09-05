@@ -283,21 +283,4 @@ class TikTokListingStateTest extends TestCase
         $this->assertSame(ListingState::LIVE, $tiktok->listingStates([$productId])[$productId]->state);
         $this->assertSame(route('ext.tiktok.listings.edit', $productId), $tiktok->listingUrls([$productId])[$productId]);
     }
-
-    /** And the All Listings grid grows a TikTok Shop column with zero core changes. */
-    public function test_the_all_listings_grid_grows_a_tiktok_column(): void
-    {
-        $productId = $this->seedProduct('Grid joiner', 'GJ-1');
-        TikTokListing::create(['product_id' => $productId, 'tiktok_product_id' => 'tt-301', 'live_status' => 'FREEZE', 'live_checked_at' => now()]);
-
-        $group = UserGroup::create(['name' => 'TikTok grid group']);
-        $group->permissions()->attach(Permission::whereIn('key', ['view_tiktok/dashboard'])->pluck('id')->all());
-        $user = User::factory()->create(['user_group_id' => $group->id]);
-
-        $page = $this->actingAs($user)->get(route('channels.listings'))->assertOk();
-        $page->assertSee('TikTok');
-        $page->assertSee('Grid joiner');
-        $page->assertSee('Frozen');
-        $page->assertSee('href="' . e(route('ext.tiktok.listings.edit', $productId)) . '"', false);
-    }
 }

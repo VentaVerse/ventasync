@@ -34,6 +34,7 @@ import './pages/group-products';
 import './pages/channel-listing-form';
 import './pages/channel-import';
 import './pages/channel-add';
+import './pages/channel-add-panel';
 import './pages/purchasing';
 import './pages/product-vendors';
 import './pages/warehousing';

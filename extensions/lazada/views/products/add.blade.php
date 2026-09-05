@@ -25,16 +25,21 @@
         ids: {{ \Illuminate\Support\Js::from(collect($products->items())->filter(fn ($r) => ! $r->listing_id)->pluck('product_id')->map(fn ($v) => (string) $v)->values()) }}
      }">
 
+{{-- The full-catalogue browse (#201): reached from the Add products panel's
+     "Browse the full catalogue" when a slide-over is too small for the job -
+     a big first setup, or a bulk pick. Never a tab and never a nav door; the
+     panel is the way in, and this is its overflow. --}}
 <div class="x-list-head">
     <div>
-        <h1 class="x-page-title">Listings</h1>
+        <h1 class="x-page-title">Add products</h1>
         <p class="x-page-sub">
             Your main catalogue &middot; {{ number_format((int) ($onStoreTotal ?? 0)) }} already on this store
         </p>
     </div>
+    <div class="cc-head-actions">
+        <x-ui.button variant="secondary" :href="route('ext.lazada.products.index')">Back to Listings</x-ui.button>
+    </div>
 </div>
-
-@include('ext-lazada::products._worktabs', ['listTab' => 'add', 'storeCount' => $onStoreTotal ?? 0])
 
 <form method="GET" action="{{ route('ext.lazada.products.index') }}" class="x-filters" id="lazada-add-filter">
     <input type="hidden" name="list" value="add">

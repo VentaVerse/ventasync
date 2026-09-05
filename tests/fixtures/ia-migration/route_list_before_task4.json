@@ -860,6 +860,11 @@
         "name": "ext.lazada.products.bulk_upload"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/products/catalogue-search",
+        "name": "ext.lazada.products.catalogue_search"
+    },
+    {
         "method": "POST",
         "uri": "channels/lazada/{store}/products/check",
         "name": "ext.lazada.products.check"
@@ -943,6 +948,11 @@
         "method": "POST",
         "uri": "channels/lazada/{store}/products/{id}/remove",
         "name": "ext.lazada.products.remove"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/{id}/remove-from-store",
+        "name": "ext.lazada.products.remove_from_store"
     },
     {
         "method": "POST",
@@ -1038,11 +1048,6 @@
         "method": "POST",
         "uri": "channels/lazada/{store}/vouchers/{voucherId}/deactivate",
         "name": "ext.lazada.vouchers.deactivate"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/listings",
-        "name": "channels.listings"
     },
     {
         "method": "GET|HEAD",
