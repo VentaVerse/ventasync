@@ -60,23 +60,29 @@
     <div>
         <h1 class="x-page-title">Listings</h1>
         <p class="x-page-sub">
-            {{-- A filtered total must not wear an unfiltered total's wording:
-                 a search matching nothing rendered "0 products in scope for
-                 Shopee" on a shop with two thousand. --}}
+            {{-- This store's own list now (#201): the products this store
+                 carries, not the whole catalogue. A filtered count says what
+                 it is counting. --}}
             @if($hasFilters)
-                {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product' : 'products' }}
-                {{ $products->total() === 1 ? 'matches' : 'match' }}
+                {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product matches' : 'products match' }}
             @else
-                {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product' : 'products' }} in scope for Shopee
+                {{ number_format($catalogueTotal ?? $products->total()) }} {{ ($catalogueTotal ?? $products->total()) === 1 ? 'product' : 'products' }} on this store
+                &middot; {{ number_format($listedTotal ?? 0) }} on Shopee
             @endif
         </p>
     </div>
     @if($canManageShopee)
         <div class="cc-head-actions">
-            {{-- Repair links moved down beside the freshness stamp
-                 (2026-09-03, the cleanup): both are global maintenance, not
-                 page actions, so they read as page furniture on the ON
-                 SHOPEE strip rather than as header buttons. --}}
+            {{-- Refresh and Repair links live beside the freshness stamp on
+                 the strip (2026-09-03): global maintenance, page furniture.
+                 Add products (#201, Draft C - the owner 2026-09-05) is the one
+                 way a main-catalogue product joins this store: a primary
+                 button, sized to how often it happens, opening the slide-over
+                 in place - not a tab beside the daily table, which gave a
+                 rare act equal billing. --}}
+            <x-ui.button type="button" variant="primary" data-add-panel-open>
+                <x-ui.icon name="plus" size="14" /> Add products
+            </x-ui.button>
         </div>
     @endif
 </div>
@@ -286,20 +292,26 @@
 @endif
 
 @if($products->count() === 0)
-    <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'No products yet' }}"
+    <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : (($shopeeTab ?? 'all') !== 'all' ? 'Nothing holds this status' : 'No products on this store yet') }}"
                 :description="$hasFilters
                     ? 'Try clearing the search, or widening the product group and status filters.'
-                    : 'Every catalog product appears here, ready to list on Shopee. Add your first product and it will be waiting.'">
-        {{-- An empty state that says "try clearing the search" and offers no
-             way to do it is a dead end. The way out belongs where the reader
-             already is. --}}
+                    : ((($shopeeTab ?? 'all') !== 'all')
+                        ? 'No listing on this store holds this status right now.'
+                        : 'This store carries nothing yet. Add products from your main catalogue and they will land here, ready to configure and push to Shopee.')">
+        {{-- A new store opens here empty (#201): the way forward is Add
+             products, not a dead end. The other two branches keep the reader
+             from being stuck behind a filter with no visible way out. --}}
         @if($hasFilters)
         <x-slot:action>
             <x-ui.button :href="route('ext.shopee.products.index')">Clear filters</x-ui.button>
         </x-slot:action>
-        @else
+        @elseif(($shopeeTab ?? 'all') !== 'all')
         <x-slot:action>
-            <x-ui.button :href="route('products.create')">Add a product</x-ui.button>
+            <x-ui.button :href="route('ext.shopee.products.index')">Show every status</x-ui.button>
+        </x-slot:action>
+        @elseif($canManageShopee)
+        <x-slot:action>
+            <x-ui.button variant="primary" type="button" data-add-panel-open>Add products</x-ui.button>
         </x-slot:action>
         @endif
     </x-ui.empty>
@@ -360,6 +372,7 @@
             $thumbSrc = $img !== '' ? asset('storage/' . ltrim($img, '/')) : '';
 
             $syncFailed = $link && !is_null($link->last_sync_ok) && !$link->last_sync_ok;
+            $rowLabel = (string) ($p->name ?: ($p->sku ?: 'product ' . $p->product_id));
         @endphp
         <tr>
             @if($canManageShopee)
@@ -639,6 +652,23 @@
                                 <button type="submit" class="x-menu__item x-menu__item--danger">Delete from Shopee</button>
                             </form>
                         @endif
+
+                        {{-- Remove from this store's list (#201) - the inverse
+                             of Add. Deliberately no blocker (the owner,
+                             2026-09-05): it leaves the store and stops syncing
+                             at once. It never touches Shopee - a live listing
+                             stays up, still orderable, until removed there,
+                             which the confirm says plainly; Delete from Shopee
+                             above is the door for that. --}}
+                        <div class="x-menu__sep"></div>
+                        <form method="POST" action="{{ route('ext.shopee.products.remove_from_store', $p->product_id) }}" data-slow-action
+                              data-confirm="{{ $link
+                                  ? "Remove {$rowLabel} from this store? It leaves this store's list and stops syncing. It is on Shopee (item {$link->shopee_item_id}) and stays up, still orderable, until you remove it there. Use Delete from Shopee for that."
+                                  : "Remove {$rowLabel} from this store? It leaves this store's list and stops syncing. Nothing on Shopee is changed." }}"
+                              data-confirm-verb="Remove from store">
+                            @csrf
+                            <button type="submit" class="x-menu__item x-menu__item--danger">Remove from store</button>
+                        </form>
                     @endif
                 </x-ui.menu>
                 @endif
@@ -673,6 +703,25 @@
         </div>
     </div>
 </div>
+
+{{-- The Add products slide-over (#201, Draft C), manage-gated like its
+     button and every route it calls. Each addition joins this store's list
+     (unpushed, the push workflow unchanged) and lands in the table behind
+     when the panel closes; the full catalogue page is the overflow. --}}
+@if($canManageShopee)
+    <x-channel.add-panel
+        id="shopee-add-panel"
+        :search-url="route('ext.shopee.products.catalogue_search')"
+        :add-url="route('ext.shopee.products.add_to_store', ['productId' => '__PID__'])"
+        sub="Search your main catalogue. Each product you add joins this store's list, ready to configure and push to Shopee."
+        toggle-label="Show products already on this store"
+        in-label="On this store"
+        scope="this store"
+        empty-default="Every enabled product is already on this store."
+        empty-all="Your catalogue has no enabled products."
+        list-label="Catalogue products"
+        :full-url="route('ext.shopee.products.index', ['list' => 'add'])" />
+@endif
 
 </div>{{-- /.cc-page --}}
 

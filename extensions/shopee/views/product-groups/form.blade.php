@@ -14,16 +14,21 @@
      behaviour moved out of an inline <script> into resources/js/pages/
      group-form.js.
 
-     The wire is unchanged in every particular, checked field by field against
+     The wire, checked field by field against
      ShopeeProductGroupController::store()/update():
 
        name, shopee_category_id, shopee_brand_id, logistic_ids[],
-       markup_percent, markup_fixed, attributes[<key>], product_ids[]
+       markup_percent, markup_fixed, attributes[<key>]
 
-     and the five endpoints behind the page (search-categories, category
-     lookup, refresh-categories, brands-for-category, fetch-attributes,
-     search-products) are called with the same verbs, the same parameters and
-     the same headers. --}}
+     and the endpoints behind the page (search-categories, category lookup,
+     refresh-categories, brands-for-category, fetch-attributes) are called
+     with the same verbs, the same parameters and the same headers.
+
+     No product list since #201 (the owner, 2026-09-05): this form is the
+     group's own settings only. Products join and leave the group on its
+     products page, through the Add products panel over THIS STORE's list;
+     the whole-catalogue dual list that used to sit below the attributes
+     went with product_ids[] and search-products. --}}
 @section('content')
 @php
     // The CREATE render is manage-tier, but the EDIT render is registered in
@@ -39,21 +44,6 @@
 
     $selectedLogisticIds = old('logistic_ids', $group->logistic_ids ?? []) ?? [];
     $selectedLogisticIds = array_map('intval', (array) $selectedLogisticIds);
-
-    // The right-hand panel's starting contents. The controller has already
-    // restored these from old('product_ids') when a validation round trip
-    // failed, so this is simply what the server says is in the product group now.
-    $rightItems = $groupProducts->map(fn ($p) => [
-        'product_id' => (int) $p->product_id,
-        'name'       => (string) ($p->name ?? ''),
-        'sku'        => (string) ($p->sku ?: ($p->model ?: '')),
-        'quantity'   => (int) $p->quantity,
-    ])->values();
-
-    // JSON_HEX_TAG is what makes a data island safe: it encodes < and > so a
-    // product literally named "</script>" cannot close the element. Data
-    // only, no behaviour.
-    $jsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
 
     $hasAttributes = $template && !empty($attributes);
 @endphp
@@ -266,144 +256,6 @@
                 </div>
             </section>
 
-            {{-- ------------------------------------------------------------
-                 Products.
-
-                 The same two-panel set builder Venta's product group form uses, and
-                 the same module drives it. The only thing that submits is the
-                 right-hand side, as `product_ids[]`, which is the wire this
-                 page always had.
-                 ------------------------------------------------------------ --}}
-            <section class="fm-section">
-                <div class="fm-section__head">
-                    <h2 class="fm-section__title">Products in this product group</h2>
-                </div>
-
-                @if($canManageShopee)
-                <p class="fm-section__note">Search the catalog on the left, move what belongs into the product group on the right. Only what is on the right is saved.</p>
-
-                <div class="gf-dual"
-                     data-group-product-picker
-                     data-group-id="{{ $group->id ?? 0 }}"
-                     data-search-url="{{ route('ext.shopee.product-groups.searchProducts') }}">
-
-                    <div class="gf-filters">
-                        <x-ui.input type="search" class="gf-filters__search" data-gf-q
-                                    placeholder="Name, SKU or model" aria-label="Search the catalog by name, SKU or model" />
-
-                        <div class="x-select-wrap gf-filters__select">
-                            <select class="x-input" data-gf-category aria-label="Filter by catalog category">
-                                <option value="">All categories</option>
-                                @foreach($catalogCategories as $cat)
-                                    <option value="{{ $cat->category_id }}">{{ $cat->name }}</option>
-                                @endforeach
-                            </select>
-                            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-                        </div>
-
-                        <div class="x-select-wrap gf-filters__select">
-                            <select class="x-input" data-gf-manufacturer aria-label="Filter by manufacturer">
-                                <option value="">All manufacturers</option>
-                                @foreach($manufacturers as $mfg)
-                                    <option value="{{ $mfg->manufacturer_id }}">{{ $mfg->name }}</option>
-                                @endforeach
-                            </select>
-                            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-                        </div>
-
-                        <x-ui.button type="button" variant="secondary" data-gf-search>Search</x-ui.button>
-                    </div>
-
-                    <div class="gf-panes">
-                        <div class="gf-pane">
-                            <div class="gf-pane__head">
-                                <span class="gf-pane__title">Catalog</span>
-                                <span class="gf-pane__count x-num" data-gf-left-count>0</span>
-                            </div>
-                            <div class="gf-pane__body">
-                                <table class="gf-list">
-                                    <thead>
-                                        <tr>
-                                            <th scope="col" class="gf-col-check"><input type="checkbox" class="cc-check" data-gf-left-all aria-label="Select every catalog result"></th>
-                                            <th scope="col" class="gf-col-id">ID</th>
-                                            <th scope="col">Product</th>
-                                            <th scope="col" class="gf-col-qty">Stock</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody data-gf-left></tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <div class="gf-move">
-                            <x-ui.button type="button" size="sm" data-gf-add aria-label="Add the selected catalog products to the product group">
-                                Add <x-ui.icon name="chevron-right" size="14" />
-                            </x-ui.button>
-                            <x-ui.button type="button" size="sm" data-gf-remove aria-label="Take the selected products out of the product group">
-                                <x-ui.icon name="chevron-left" size="14" /> Remove
-                            </x-ui.button>
-                        </div>
-
-                        <div class="gf-pane">
-                            <div class="gf-pane__head">
-                                <span class="gf-pane__title">In this product group</span>
-                                <span class="gf-pane__count x-num" data-gf-right-count>{{ $rightItems->count() }}</span>
-                            </div>
-                            <div class="gf-pane__body">
-                                <table class="gf-list">
-                                    <thead>
-                                        <tr>
-                                            <th scope="col" class="gf-col-check"><input type="checkbox" class="cc-check" data-gf-right-all aria-label="Select every product in the product group"></th>
-                                            <th scope="col" class="gf-col-id">ID</th>
-                                            <th scope="col">Product</th>
-                                            <th scope="col" class="gf-col-qty">Stock</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody data-gf-right></tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- The only part of this control that submits. Rewritten
-                         by the picker on every change; one hidden
-                         `product_ids[]` per row on the right. --}}
-                    <div data-gf-inputs></div>
-
-                    <script type="application/json" data-gf-initial>{!! json_encode($rightItems, $jsonFlags) !!}</script>
-                </div>
-                @else
-                {{-- Read tier. The two-pane control is a builder for this list
-                     and nothing else, so the list itself is what a reader is
-                     shown. Nothing here submits. --}}
-                <p class="fm-section__note">{{ $rightItems->count() }} {{ $rightItems->count() === 1 ? 'product is' : 'products are' }} in this product group.</p>
-
-                @if($rightItems->isEmpty())
-                    <x-ui.empty title="No products in this product group"
-                                description="Someone with the manage tier needs to add them." />
-                @else
-                    <x-ui.table>
-                        <x-slot:head>
-                            <tr>
-                                <th scope="col" class="cc-col-id">ID</th>
-                                <th scope="col">Product</th>
-                                <th scope="col" class="cc-col-qty x-td-num">Stock</th>
-                            </tr>
-                        </x-slot:head>
-                        @foreach($rightItems as $item)
-                            <tr>
-                                <td class="cc-col-id" data-label="ID"><span class="x-num">{{ $item['product_id'] }}</span></td>
-                                <td data-label="Product">
-                                    <span class="co-item__name">{{ $item['name'] !== '' ? $item['name'] : 'Unnamed product' }}</span>
-                                    <span class="co-item__meta">{{ $item['sku'] !== '' ? $item['sku'] : 'No SKU' }}</span>
-                                </td>
-                                <td class="cc-col-qty x-td-num" data-label="Stock"><span class="x-num">{{ number_format($item['quantity']) }}</span></td>
-                            </tr>
-                        @endforeach
-                    </x-ui.table>
-                @endif
-                @endif
-            </section>
         </div>
 
         <div class="fm-col fm-col--side">

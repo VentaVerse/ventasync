@@ -1,9 +1,16 @@
-{{-- The two scope strips (the owner, 2026-08-28), shared since cleanup
-     point 4 (2026-09-04) by the workbench and every group page - "the
-     product group IS the same as All Products, only filtered by group",
-     so both read the same strips over the same mirror. Callers pass
-     $stripRoute (+ $stripParams) so each tab links back to its own page,
-     and member-scoped $catalogueTotal / $liveCounts / $liveCheckedAt. --}}
+{{-- The scope strip (the owner, 2026-08-28), shared since cleanup point 4
+     (2026-09-04) by the workbench and every group page - "the product group
+     IS the same as the store's list, only filtered by group", so both read
+     the same strip over the same mirror. Callers pass $stripRoute (+
+     $stripParams) so each tab links back to its own page, and member-scoped
+     $catalogueTotal / $liveCounts / $liveCheckedAt.
+
+     One group since #201 (2026-09-05): the "Your catalogue / All products"
+     framing went with the catalogue-as-table. "All" is this store's own list,
+     the stored view, pushed or not; the rest narrow to what Shopee holds
+     right now. The bucket counts and every row's chip come from the mirror
+     on the link rows, refreshed every 30 minutes, on demand here, and by
+     every push, unlist and relist. The strip says when. --}}
 @if(($liveCounts ?? null) !== null)
     @php
         $liveTabDefs = [
@@ -14,27 +21,16 @@
         ];
         $tabQuery = request()->except('page', 'shopee_tab');
     @endphp
-    {{-- Two questions on one strip, each named (the owner, 2026-08-28): the
-         catalogue's own total, whether pushed or not, and Shopee's buckets.
-         The bucket counts and every row's chip come from the mirror on
-         the link rows, refreshed every 30 minutes, on demand here, and by
-         every push, unlist and relist. The strip says when. --}}
     <div class="x-segment-bar">
         <div class="x-segment-groups">
             <div class="x-segment-group">
-                <span class="x-segment-group__k">Your catalogue</span>
-                <nav class="x-segment" aria-label="Catalogue">
+                <nav class="x-segment" aria-label="Shopee listing status">
                     <a href="{{ route($stripRoute, array_merge($stripParams ?? [], $tabQuery)) }}"
                        class="x-segment__item {{ ($shopeeTab ?? 'all') === 'all' ? 'is-active' : '' }}"
                        @if(($shopeeTab ?? 'all') === 'all') aria-current="true" @endif>
-                        <span>All products</span>
+                        <span>All</span>
                         <span class="x-segment__count">{{ number_format((int) ($catalogueTotal ?? $products->total())) }}</span>
                     </a>
-                </nav>
-            </div>
-            <div class="x-segment-group">
-                <span class="x-segment-group__k">On Shopee</span>
-                <nav class="x-segment" aria-label="Shopee listing status">
                     @foreach($liveTabDefs as $tabKey => $tabLabel)
                         @php $isActive = ($shopeeTab ?? 'all') === $tabKey; @endphp
                         <a href="{{ route($stripRoute, array_merge($stripParams ?? [], $tabQuery, ['shopee_tab' => $tabKey])) }}"

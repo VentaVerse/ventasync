@@ -1660,11 +1660,6 @@
         "name": "ext.shopee.product-groups.refreshCategories"
     },
     {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/{store}/product-groups/search-products",
-        "name": "ext.shopee.product-groups.searchProducts"
-    },
-    {
         "method": "DELETE",
         "uri": "channels/shopee/{store}/product-groups/{id}",
         "name": "ext.shopee.product-groups.destroy"
@@ -1688,11 +1683,6 @@
         "method": "GET|HEAD",
         "uri": "channels/shopee/{store}/product-groups/{id}/products",
         "name": "ext.shopee.product-groups.products"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/{store}/product-groups/{id}/products/add",
-        "name": "ext.shopee.product-groups.addProducts"
     },
     {
         "method": "POST",
@@ -1725,6 +1715,11 @@
         "name": "ext.shopee.product-groups.pushStock"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/search",
+        "name": "ext.shopee.product-groups.productSearch"
+    },
+    {
         "method": "POST",
         "uri": "channels/shopee/{store}/product-groups/{id}/products/send",
         "name": "ext.shopee.product-groups.send"
@@ -1738,6 +1733,11 @@
         "method": "DELETE",
         "uri": "channels/shopee/{store}/product-groups/{id}/products/{productId}",
         "name": "ext.shopee.product-groups.removeProduct"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/products/{productId}/add",
+        "name": "ext.shopee.product-groups.addProduct"
     },
     {
         "method": "POST",
@@ -1763,6 +1763,11 @@
         "method": "GET|HEAD",
         "uri": "channels/shopee/{store}/products",
         "name": "ext.shopee.products.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/add-to-store",
+        "name": "ext.shopee.products.add_to_store_bulk"
     },
     {
         "method": "GET|HEAD",
@@ -1808,6 +1813,11 @@
         "method": "POST",
         "uri": "channels/shopee/{store}/products/bulk/toggle",
         "name": "ext.shopee.products.bulk_toggle"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/products/catalogue-search",
+        "name": "ext.shopee.products.catalogue_search"
     },
     {
         "method": "GET|HEAD",
@@ -1866,6 +1876,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/shopee/{store}/products/{productId}/add-to-store",
+        "name": "ext.shopee.products.add_to_store"
+    },
+    {
+        "method": "POST",
         "uri": "channels/shopee/{store}/products/{productId}/delete",
         "name": "ext.shopee.products.delete"
     },
@@ -1878,6 +1893,11 @@
         "method": "GET|HEAD",
         "uri": "channels/shopee/{store}/products/{productId}/push-review",
         "name": "ext.shopee.products.push_review"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/products/{productId}/remove-from-store",
+        "name": "ext.shopee.products.remove_from_store"
     },
     {
         "method": "POST",

@@ -69,10 +69,15 @@ class DisabledProductsStayOutTest extends TestCase
 
     public function test_the_default_shopee_view_hides_disabled_unlisted_and_keeps_disabled_listed(): void
     {
-        $this->seedProduct('DIS-HIDE', 'Disabled and nowhere', 0);
+        // Every product here is ON THE STORE (#201): a listing record for the
+        // two never pushed, a link row for the one still on Shopee. The rule
+        // under test is about disabled products the store carries.
+        $hidden = $this->seedProduct('DIS-HIDE', 'Disabled and nowhere', 0);
+        \Extensions\shopee\Models\ShopeeListing::create(['product_id' => $hidden]);
         $listedDisabled = $this->seedProduct('DIS-KEEP', 'Disabled but still on Shopee', 0);
         ShopeeProductLink::create(['product_id' => $listedDisabled, 'shopee_item_id' => 800, 'live_status' => 'NORMAL']);
-        $this->seedProduct('EN-1', 'Enabled and plain', 1);
+        $plain = $this->seedProduct('EN-1', 'Enabled and plain', 1);
+        \Extensions\shopee\Models\ShopeeListing::create(['product_id' => $plain]);
 
         $user = $this->operator();
         $page = $this->actingAs($user)->get(route('ext.shopee.products.index'))->assertOk()->getContent();

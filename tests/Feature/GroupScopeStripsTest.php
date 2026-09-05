@@ -98,8 +98,8 @@ class GroupScopeStripsTest extends TestCase
 
         // The strips are there, counted over the members only: 1 live (the
         // stranger's NORMAL row does not count), 1 unlisted, 2 in catalogue.
-        $this->assertStringContainsString('Your catalogue', $html);
-        $this->assertStringContainsString('On Shopee', $html);
+        $this->assertStringContainsString('<span>All</span>', $html);
+        $this->assertStringNotContainsString('x-segment-group__k', $html, 'the catalogue framing went with #201: the strip is the store\'s own list, no group labels');
         $this->assertMatchesRegularExpression('/>Live<\/span>\s*<span class="x-segment__count">1</', $html,
             'the Live count must be member-scoped: 1, not 2 - the stranger\'s NORMAL row is not this group\'s business');
         $this->assertStringContainsString('shopee_tab=unlisted', $html);

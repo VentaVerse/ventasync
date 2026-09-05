@@ -85,12 +85,18 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
 
         // Product Groups — read-only list + search + edit-form RENDER
         Route::get('/shopee/{store}/product-groups', [ShopeeProductGroupController::class, 'index'])->name('ext.shopee.product-groups.index');
-        Route::get('/shopee/{store}/product-groups/search-products', [ShopeeProductGroupController::class, 'searchProducts'])->name('ext.shopee.product-groups.searchProducts');
+        // ext.shopee.product-groups.searchProducts (the whole-catalogue picker
+        // behind the dual list and "Add a product by name") retired with both
+        // on 2026-09-05 (#201): a group only holds what THIS STORE carries,
+        // and the Add products panel below searches exactly that.
         Route::get('/shopee/{store}/product-groups/brands', [ShopeeProductGroupController::class, 'brandsForCategory'])->name('ext.shopee.product-groups.brandsForCategory');
         Route::get('/shopee/{store}/product-groups/categories/search', [ShopeeProductGroupController::class, 'searchCategories'])->name('ext.shopee.product-groups.searchCategories');
         Route::get('/shopee/{store}/product-groups/categories/lookup', [ShopeeProductGroupController::class, 'categoryLookup'])->name('ext.shopee.product-groups.categoryLookup');
         Route::get('/shopee/{store}/product-groups/{id}/edit', [ShopeeProductGroupController::class, 'edit'])->name('ext.shopee.product-groups.edit');
         Route::get('/shopee/{store}/product-groups/{id}/products', [ShopeeProductGroupController::class, 'products'])->name('ext.shopee.product-groups.products');
+        // The group page's Add products panel search (#201, Draft C): this
+        // store's products, flagged in-group or owned elsewhere. A read.
+        Route::get('/shopee/{store}/product-groups/{id}/products/search', [ShopeeProductGroupController::class, 'productSearch'])->whereNumber('id')->name('ext.shopee.product-groups.productSearch');
         // Read tier, beside the products list it mirrors, NOT with the
         // writes. It asks Shopee what it holds and prints the answer; it
         // adopts nothing and deletes nothing. Noticing that the two sides
@@ -100,6 +106,9 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
         // Products — list, search-catalog, push-form RENDER
         Route::get('/shopee/{store}/products', [ShopeeProductController::class, 'index'])->name('ext.shopee.products.index');
         Route::get('/shopee/{store}/products/search-catalog', [ShopeeProductController::class, 'searchCatalogProducts'])->name('ext.shopee.products.search_catalog');
+        // The Add products panel's catalogue search (#201, Draft C): a read
+        // that lives beside the adds it feeds, in the read tier.
+        Route::get('/shopee/{store}/products/catalogue-search', [ShopeeProductController::class, 'catalogueSearch'])->name('ext.shopee.products.catalogue_search');
         Route::get('/shopee/{store}/products/categories/search', [ShopeeProductController::class, 'searchCategories'])->name('ext.shopee.products.searchCategories');
         Route::get('/shopee/{store}/products/categories/lookup', [ShopeeProductController::class, 'categoryLookup'])->name('ext.shopee.products.categoryLookup');
         Route::get('/shopee/{store}/products/brands', [ShopeeProductController::class, 'brandsForCategory'])->name('ext.shopee.products.brandsForCategory');
@@ -163,7 +172,12 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
         Route::post('/shopee/{store}/product-groups', [ShopeeProductGroupController::class, 'store'])->name('ext.shopee.product-groups.store');
         Route::put('/shopee/{store}/product-groups/{id}', [ShopeeProductGroupController::class, 'update'])->name('ext.shopee.product-groups.update');
         Route::delete('/shopee/{store}/product-groups/{id}', [ShopeeProductGroupController::class, 'destroy'])->name('ext.shopee.product-groups.destroy');
-        Route::post('/shopee/{store}/product-groups/{id}/products/add', [ShopeeProductGroupController::class, 'addProducts'])->name('ext.shopee.product-groups.addProducts');
+        // ext.shopee.product-groups.addProducts (POST ids[] from "Add a
+        // product by name") retired with that section on 2026-09-05 (#201).
+        // The group page's Add products panel (#201, Draft C): one of this
+        // store's products into the group, in place; `move` honours the
+        // one-group rule when another group owns it.
+        Route::post('/shopee/{store}/product-groups/{id}/products/{productId}/add', [ShopeeProductGroupController::class, 'addProduct'])->whereNumber('id')->whereNumber('productId')->name('ext.shopee.product-groups.addProduct');
         // Send reconciles against Shopee and then creates or updates
         // accordingly. push and updateProduct stay because the bulk bar and
         // the scheduler still address them directly; Send is what the row
@@ -207,6 +221,13 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
         Route::post('/shopee/{store}/products/import-one', [ShopeeProductController::class, 'importOne'])->name('ext.shopee.products.import_one');
         Route::post('/shopee/{store}/products/import-selected', [ShopeeProductController::class, 'importSelected'])->name('ext.shopee.products.import_selected');
         Route::post('/shopee/{store}/products/link-item', [ShopeeProductController::class, 'linkItem'])->name('ext.shopee.products.link_item');
+        // Add products to this store's list (#201): a catalogue product joins
+        // the store, unpushed, ready to configure and push from This store.
+        Route::post('/shopee/{store}/products/add-to-store', [ShopeeProductController::class, 'addToStoreBulk'])->name('ext.shopee.products.add_to_store_bulk');
+        Route::post('/shopee/{store}/products/{productId}/add-to-store', [ShopeeProductController::class, 'addToStore'])->whereNumber('productId')->name('ext.shopee.products.add_to_store');
+        // Remove from this store's list (#201): the inverse of Add. No
+        // blocker; it never touches Shopee.
+        Route::post('/shopee/{store}/products/{productId}/remove-from-store', [ShopeeProductController::class, 'removeFromStore'])->whereNumber('productId')->name('ext.shopee.products.remove_from_store');
         Route::post('/shopee/{store}/products/rebuild-cache', [ShopeeProductController::class, 'rebuildCache'])->name('ext.shopee.products.rebuild_cache');
         Route::post('/shopee/{store}/products/{productId}/push-direct', [ShopeeProductController::class, 'pushDirect'])->name('ext.shopee.products.push_direct');
         Route::post('/shopee/{store}/products/{productId}/sync/shopee-id', [ShopeeProductController::class, 'syncSingleProductId'])->name('ext.shopee.products.sync_shopee_id');

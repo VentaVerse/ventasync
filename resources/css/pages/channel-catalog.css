@@ -884,13 +884,13 @@
 /* Add products: the action column holds a real button, not the 3-dot menu the
    default .x-td-actions width is sized for. Shrink the column to its content
    and keep the button on one line, so "Add to store" never wraps to a stack. */
-#lazada-add-table .x-td-actions {
+.cc-add-table .x-td-actions {
     width: 1%;
     white-space: nowrap;
     padding-left: var(--bl-space-4);
     text-align: right;
 }
-#lazada-add-table .x-td-actions .x-btn { white-space: nowrap; }
+.cc-add-table .x-td-actions .x-btn { white-space: nowrap; }
 
 /* ── The Add products slide-over (#201, Draft C - the owner 2026-09-05) ──────
    A right-anchored sheet over the Listings table: search your main catalogue
@@ -955,6 +955,11 @@ body.cc-addpanel-open { overflow: hidden; }
 }
 .cc-addpanel__add:hover { filter: brightness(1.07); }
 .cc-addpanel__add:disabled { opacity: .6; cursor: default; }
+/* Move here (the one-group rule on a group's panel): the same control, but
+   outlined - it takes the product away from another group, so it should not
+   read as the plain Add it sits beside. */
+.cc-addpanel__add--move { background: transparent; color: var(--bl-ink); border-color: var(--bl-rule-2); }
+.cc-addpanel__add--move:hover { filter: none; border-color: var(--bl-brand); color: var(--bl-brand); }
 .cc-addpanel__on { display: inline-flex; align-items: center; gap: 4px; color: var(--bl-good); font-weight: 600; font-size: .82rem; white-space: nowrap; flex: 0 0 auto; }
 .cc-addpanel__empty { padding: var(--bl-space-5) 0; color: var(--bl-ink-3); text-align: center; font-size: .9rem; }
 

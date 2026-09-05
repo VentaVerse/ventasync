@@ -15,6 +15,7 @@ use Extensions\shopee\Models\ShopeeSetting;
 use App\Services\ActivityLogger;
 use Extensions\shopee\Services\Shopee\ShopeeClient;
 use Extensions\shopee\Services\Shopee\ShopeeLiveListing;
+use Extensions\shopee\Services\ShopeeStoreProducts;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -31,14 +32,28 @@ class ShopeeProductController extends Controller
         $groupFilter = (string) $request->get('group', 'all');
         $erpStatus = (string) $request->get('erp_status', 'all');
 
+        /* ── Two surfaces on one workbench (#201, the owner 2026-09-05) ──
+         *
+         * THIS STORE is what this store carries and works day to day - its
+         * own list, with the seller-center state tabs. ADD PRODUCTS is the
+         * main catalogue, where a product is added into the store's list;
+         * the slide-over is the way in and this full page is its overflow.
+         * Multi-store is what earned the split: a store's daily table stops
+         * mirroring the whole catalogue and shows only what it carries. The
+         * add surface has its own lean flow, so it returns before all the
+         * live-status machinery below, which it does not need. */
+        if ($request->query('list') === 'add') {
+            return $this->addCatalogue($request);
+        }
+
         /* ── The seller center's own tabs (quest 1 slice 2, 2026-08-24) ──
          *
          * Live / Unlisted / Violation / Under review, Shopee's own
          * item_status buckets. They were answered by Shopee on every page
          * load until 2026-08-28, when the owner reversed that: the calls had
          * become the cost of the page. They now read the MIRROR on the
-         * link rows (see below); "All products" is the catalogue's own
-         * view, whether pushed or not, and the strip names both. */
+         * link rows (see below); "All" is this store's own list (#201),
+         * pushed or not, and the strip names both. */
         $tabMap = ['live' => 'NORMAL', 'unlisted' => 'UNLIST', 'violation' => 'BANNED', 'reviewing' => 'REVIEWING'];
         $shopeeTab = (string) $request->get('shopee_tab', 'all');
         if (!array_key_exists($shopeeTab, $tabMap)) {
@@ -127,17 +142,16 @@ class ShopeeProductController extends Controller
                 $query->whereIn('p.product_id', $specificIds);
             }
         }
-        /* No else: the default view is THE CATALOGUE (Phase C, #184).
-         *
-         * It used to be "products in a group, plus products already
-         * linked" - the CedCommerce worldview, where a product only
-         * existed for Shopee once a group claimed it. A groupless,
-         * never-pushed product was invisible even under the not_listed
-         * and ready filters (this whereIn intersected them away), which
-         * for a new user meant their very first product rendered an
-         * empty Shopee page. The strip already names the tab "Your
-         * catalogue / All products"; now it tells the truth. Filtering
-         * by a group still narrows to that group above. */
+        /* THIS STORE (#201, the owner 2026-09-05): the table is this store's own
+         * list, not the catalogue. A product is on the store once it has a
+         * listing record here (Add products, Import) or a link row here (a
+         * push or a match) - ShopeeStoreProducts is the one definition; the
+         * rest of the catalogue waits behind Add products. Phase C (#184)
+         * had made this the whole catalogue so a new user's first product
+         * was never invisible; multi-store is what changes the answer, and
+         * the empty state now leads to Add products instead. Filtering by
+         * a group above still narrows within the store's list. */
+        $query->whereIn('p.product_id', ShopeeStoreProducts::query());
 
         // Manufacturer filter
         if ($manufacturerFilter !== 'all') {
@@ -225,6 +239,8 @@ class ShopeeProductController extends Controller
         // The catalogue's own total, before a Shopee tab narrows the table:
         // the "All products" tab wears it so it reads as a total, not a status.
         $catalogueTotal = (clone $query)->count();
+        // The header's second number: how much of this store's list is on Shopee.
+        $listedTotal = (int) ShopeeProductLink::query()->distinct()->count('product_id');
 
         if ($shopeeTab !== 'all' && $liveCounts !== null) {
             $tabProductIds = ShopeeProductLink::query()
@@ -366,8 +382,241 @@ class ShopeeProductController extends Controller
             'liveStatuses' => $liveStatuses,
             'listingStates' => $listingStates,
             'catalogueTotal' => $catalogueTotal,
+            'listedTotal' => $listedTotal,
             'liveCheckedAt' => $liveCheckedAt,
         ]);
+    }
+
+    /**
+     * The full-catalogue Add products page (#201): the overflow behind the
+     * slide-over, for a big first setup or a bulk pick. Your main catalogue,
+     * each row flagged with whether this store already carries it. A lean
+     * read - no live status, no readiness, no push.
+     */
+    private function addCatalogue(Request $request)
+    {
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $q = trim((string) $request->query('q', ''));
+        $manufacturerFilter = (string) $request->query('manufacturer', 'all');
+        $groupFilter = (string) $request->query('group', 'all');
+        $onStore = (string) $request->query('on_store', 'all'); // all | off (not yet) | on
+
+        $sort = (string) $request->query('sort', 'id');
+        $sortColumns = ['id' => 'p.product_id', 'product' => 'pd.name', 'quantity' => 'p.quantity', 'price' => 'p.price'];
+        if (! array_key_exists($sort, $sortColumns)) {
+            $sort = 'id';
+        }
+        $dir = strtolower((string) $request->query('dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        $query = DB::table($pfx . 'product as p')
+            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+                $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
+            })
+            ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
+            ->leftJoinSub(ShopeeStoreProducts::query(), 'os', 'os.product_id', '=', 'p.product_id')
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as manufacturer_name', 'os.product_id as on_store_pid');
+
+        if ($q !== '') {
+            $query->where(function ($sub) use ($q) {
+                $sub->where('pd.name', 'like', '%' . $q . '%')
+                    ->orWhere('p.model', 'like', '%' . $q . '%')
+                    ->orWhere('p.sku', 'like', '%' . $q . '%');
+            });
+        }
+        if ($manufacturerFilter !== 'all') {
+            $query->where('p.manufacturer_id', (int) $manufacturerFilter);
+        }
+        if ($groupFilter === 'none') {
+            $groupedIds = $this->getGroupProductMapping()['ids'] ?? [];
+            if (! empty($groupedIds)) {
+                $query->whereNotIn('p.product_id', $groupedIds);
+            }
+        } elseif ($groupFilter !== 'all') {
+            $query->whereIn('p.product_id', $this->getProductIdsByGroup((int) $groupFilter) ?: [0]);
+        }
+        if ($onStore === 'on') {
+            $query->whereNotNull('os.product_id');
+        } elseif ($onStore === 'off') {
+            $query->whereNull('os.product_id');
+        }
+
+        $query->orderBy($sortColumns[$sort], $dir);
+        if ($sortColumns[$sort] !== 'p.product_id') {
+            $query->orderBy('p.product_id', 'asc');
+        }
+
+        $products = $query->paginate(50)->withQueryString();
+        foreach ($products as $row) {
+            if (isset($row->name)) {
+                $row->name = html_entity_decode($row->name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            }
+        }
+
+        $productThumbsById = $products->mapWithKeys(fn ($r) => [(int) $r->product_id => $this->thumbUrl($r->image ?? null)]);
+
+        return view('ext-shopee::products.add', [
+            'products' => $products,
+            'paginator' => $products,
+            'productThumbsById' => $productThumbsById,
+            'allManufacturers' => DB::table($pfx . 'manufacturer')->orderBy('name')->pluck('name', 'manufacturer_id'),
+            'allGroups' => ShopeeProductGroup::query()->orderBy('name')->pluck('name', 'id'),
+            'q' => $q,
+            'manufacturerFilter' => $manufacturerFilter,
+            'groupFilter' => $groupFilter,
+            'onStore' => $onStore,
+            'sort' => $sort,
+            'dir' => $dir,
+            'catalogueTotal' => (int) DB::table($pfx . 'product')->count(),
+            'onStoreTotal' => ShopeeStoreProducts::count(),
+            'listTab' => 'add',
+        ]);
+    }
+
+    /** The same storage path the Listings rows draw their thumbnails from. */
+    private function thumbUrl(?string $image): ?string
+    {
+        $image = trim((string) $image);
+
+        return $image !== '' ? asset('storage/' . ltrim($image, '/')) : null;
+    }
+
+    /**
+     * Add one catalogue product to this store's list (#201): a blank listing
+     * record for this store is the membership. The listing editor fills it
+     * in, and readiness reads it as "needs a category and couriers" until
+     * then, so the row lands under This store ready to configure and push
+     * through the unchanged workflow. The BelongsToShopeeStore trait stamps
+     * the store, so firstOrCreate never crosses stores or doubles a row.
+     */
+    public function addToStore(Request $request, int $productId)
+    {
+        $exists = DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $productId)->exists();
+        abort_unless($exists, 404);
+
+        // "Already on the store" includes a product carried by a link row
+        // alone; the listing record it gains here changes nothing for it.
+        $wasOn = ShopeeStoreProducts::has($productId);
+        ShopeeListing::firstOrCreate(['product_id' => $productId]);
+
+        // The Add products panel adds in place and asks for JSON (#201,
+        // Draft C); the full catalogue page still posts a form and lands back.
+        if ($request->wantsJson()) {
+            return response()->json(['ok' => true, 'product_id' => $productId, 'added' => ! $wasOn]);
+        }
+
+        return redirect()->back()->with('status', 'Added to this store. Configure and push it from This store whenever you are ready.');
+    }
+
+    /**
+     * The Add products panel's search (#201, Draft C - the owner 2026-09-05): the
+     * main catalogue, each row flagged with whether it is already on this
+     * store. Capped, on purpose: a slide-over cannot list a whole catalogue,
+     * so the operator narrows by searching and the total says how much is
+     * still out of view; the full catalogue page is one link away for a
+     * browse. Defaults to what is NOT yet on the store, since adding is the
+     * panel's one job.
+     */
+    public function catalogueSearch(Request $request)
+    {
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+        $q = trim((string) $request->query('q', ''));
+        $showAll = $request->boolean('all');
+        $limit = 25;
+
+        $query = DB::table($pfx . 'product as p')
+            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+                $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
+            })
+            ->leftJoinSub(ShopeeStoreProducts::query(), 'os', 'os.product_id', '=', 'p.product_id')
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.model', 'p.quantity', 'p.price', 'os.product_id as on_store_pid')
+            // A disabled catalogue product is not something to put on a store.
+            ->where('p.status', 1);
+
+        if ($q !== '') {
+            $query->where(function ($sub) use ($q) {
+                $sub->where('pd.name', 'like', '%' . $q . '%')
+                    ->orWhere('p.model', 'like', '%' . $q . '%')
+                    ->orWhere('p.sku', 'like', '%' . $q . '%');
+            });
+        }
+        if (! $showAll) {
+            $query->whereNull('os.product_id');
+        }
+
+        $total = (clone $query)->count();
+        $rows = $query->orderBy('pd.name')->orderBy('p.product_id')->limit($limit)->get();
+
+        $items = $rows->map(fn ($r) => [
+            'id' => (int) $r->product_id,
+            'name' => html_entity_decode((string) ($r->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8') ?: 'Unnamed product',
+            'sku' => (string) ($r->sku ?? ''),
+            'quantity' => (int) ($r->quantity ?? 0),
+            'price' => \App\Support\Money::base((float) ($r->price ?? 0)),
+            'thumb' => $this->thumbUrl($r->image ?? null),
+            'on_store' => ! is_null($r->on_store_pid),
+        ])->values();
+
+        return response()->json(['total' => $total, 'shown' => $items->count(), 'limit' => $limit, 'items' => $items]);
+    }
+
+    /**
+     * Remove a product from this store's list (#201) - the inverse of Add.
+     * The link rows go through the same door Unlink uses (item cache with
+     * them), this store's group memberships and the listing record follow,
+     * so the product leaves This store and STOPS SYNCING at once.
+     * Deliberately no blocker (the owner, 2026-09-05): nobody keeps a product on
+     * the marketplace while stripping it here. It never touches Shopee - a
+     * live listing stays up until it is removed there, which the confirm
+     * says plainly and Delete from Shopee already covers. Every query here
+     * is store-scoped, so a product carried only by another store answers
+     * 404 from this one.
+     */
+    public function removeFromStore(int $productId)
+    {
+        abort_unless(ShopeeStoreProducts::has($productId), 404);
+
+        $itemIds = ShopeeProductLink::query()->where('product_id', $productId)
+            ->pluck('shopee_item_id')->filter()->unique()->values();
+
+        ShopeeProductLink::unlinkProduct($productId);
+        \Extensions\shopee\Models\ShopeeProductGroupProduct::query()
+            ->where('product_id', $productId)
+            ->whereIn('shopee_product_group_id', ShopeeProductGroup::query()->select('id'))
+            ->delete();
+        ShopeeListing::query()->where('product_id', $productId)->delete();
+
+        $note = $itemIds->isNotEmpty()
+            ? ' It no longer syncs; Shopee item ' . $itemIds->implode(', ') . ' stays up until you remove it there.'
+            : ' It no longer syncs.';
+
+        return redirect()->back()->with('status', "Removed product #{$productId} from this store." . $note);
+    }
+
+    /**
+     * Add the ticked catalogue products to this store's list in one go (#201).
+     */
+    public function addToStoreBulk(Request $request)
+    {
+        $data = $request->validate(['product_ids' => ['required', 'array'], 'product_ids.*' => ['integer']]);
+        $ids = array_values(array_unique(array_map('intval', $data['product_ids'])));
+
+        $valid = DB::table((string) config('catalog.prefix') . 'product')->whereIn('product_id', $ids)->pluck('product_id')->all();
+        $added = 0;
+        foreach ($valid as $pid) {
+            $pid = (int) $pid;
+            $wasOn = ShopeeStoreProducts::has($pid);
+            ShopeeListing::firstOrCreate(['product_id' => $pid]);
+            if (! $wasOn) {
+                $added++;
+            }
+        }
+
+        return redirect()->back()->with('status', $added === 1
+            ? '1 product added to this store.'
+            : number_format($added) . ' products added to this store.');
     }
 
     /** The Refresh button on the listings strip: the same walk the 30-minute automation runs. */

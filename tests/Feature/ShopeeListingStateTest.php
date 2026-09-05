@@ -253,13 +253,15 @@ class ShopeeListingStateTest extends TestCase
     }
 
     /**
-     * The default view is the catalogue (Phase C, #184). It used to be
-     * "products in a group, plus products already linked" - the
-     * CedCommerce worldview - so a groupless, never-pushed product was
-     * invisible even under the not_listed and ready filters, and a new
-     * user's very first product rendered an empty Shopee page.
+     * A groupless, never-pushed product the store carries is visible by
+     * default. Phase C (#184) made the default view the whole catalogue so
+     * a new user's first product could never be invisible (the CedCommerce
+     * worldview had hidden it until a group claimed it); #201 (2026-09-05)
+     * made the view THIS STORE's own list - so the product is on the store
+     * first, with the blank record Add products leaves, and a group is still
+     * not required for it to show or for not_listed to find it.
      */
-    public function test_a_groupless_never_pushed_product_is_visible_by_default(): void
+    public function test_a_groupless_never_pushed_product_on_the_store_is_visible_by_default(): void
     {
         $pid = $this->product('FIRSTEVER');
         $pfx = (string) config('catalog.prefix');
@@ -268,6 +270,7 @@ class ShopeeListingStateTest extends TestCase
             'name' => 'My very first product', 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
+        ShopeeListing::create(['product_id' => $pid]);
 
         $group = \App\Models\Admin\UserGroup::create(['name' => 'Shopee viewers']);
         $group->permissions()->attach(

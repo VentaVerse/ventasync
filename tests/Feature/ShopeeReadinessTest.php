@@ -176,7 +176,9 @@ class ShopeeReadinessTest extends TestCase
         $this->catchAllGroup();
         $ready = $this->seedProduct('Ready index product', 'RDY-IDX-1');
         $this->readyListing($ready);
-        $this->seedProduct('Bare index product', 'RDY-IDX-2', '');
+        $bare = $this->seedProduct('Bare index product', 'RDY-IDX-2', '');
+        // On the store with a blank record (#201): what Add products leaves behind.
+        ShopeeListing::query()->create(['product_id' => $bare]);
 
         $r = $this->actingAs($this->manager())->get(route('ext.shopee.products.index'));
 
@@ -191,7 +193,8 @@ class ShopeeReadinessTest extends TestCase
         $this->catchAllGroup();
         $ready = $this->seedProduct('Ready filter product', 'RDY-F-1');
         $this->readyListing($ready);
-        $this->seedProduct('Bare filter product', 'RDY-F-2', '');
+        $bare = $this->seedProduct('Bare filter product', 'RDY-F-2', '');
+        ShopeeListing::query()->create(['product_id' => $bare]);
 
         $r = $this->actingAs($this->manager())
             ->get(route('ext.shopee.products.index', ['sync_status' => 'ready']));

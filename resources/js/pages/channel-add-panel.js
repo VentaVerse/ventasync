@@ -1,23 +1,30 @@
 /*
  * The Add products slide-over (#201, Draft C - the owner 2026-09-05).
  *
- * Shared across channels: the page owns a [data-add-panel] root carrying
- * every URL as a data- attribute, and this module binds to it. It is inert
- * on any page without that root.
+ * Shared across channels and surfaces: the page renders the
+ * <x-channel.add-panel> component, whose root carries every URL and every
+ * label as a data- attribute, and this module binds to it. It is inert on
+ * any page without that root. The same module serves a store's Listings
+ * (main catalogue into this store) and a product group's page (this
+ * store's products into the group); only the endpoints and the words
+ * differ, and the page owns both.
  *
  * What it does, and no more:
  *   - open on any [data-add-panel-open]; close on ✕, Done, the scrim, or Esc.
- *   - search the main catalogue (debounced, latest-request-wins) and render
- *     the rows with DOM construction, never markup strings.
+ *   - search (debounced, latest-request-wins) and render the rows with DOM
+ *     construction, never markup strings.
  *   - add one product per press over fetch; the row flips to Added and the
- *     session count ticks up.
- *   - when the panel closes after at least one add, reload: the Listings
- *     table behind is server-rendered, and a reload is the one honest way
- *     to show the additions with every state the table already knows how
- *     to draw. Close with nothing added returns focus to the opener.
+ *     session count ticks up. A row the server marks `elsewhere` (owned by
+ *     another group under the one-group rule) offers Move here instead of
+ *     Add, and the POST says so, rather than surprising the operator with
+ *     a refusal after the press.
+ *   - when the panel closes after at least one add, reload: the table
+ *     behind is server-rendered, and a reload is the one honest way to
+ *     show the additions with every state the table already knows how to
+ *     draw. Close with nothing added returns focus to the opener.
  *
  * The results are capped by the server; the meta line says "Showing n of N"
- * so a large catalogue is narrowed by search rather than scrolled.
+ * so a large list is narrowed by search rather than scrolled.
  */
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -46,7 +53,7 @@ function checkIcon() {
     return svg;
 }
 
-function onStoreBadge(label) {
+function inBadge(label) {
     const span = el('span', 'cc-addpanel__on');
     span.appendChild(checkIcon());
     span.appendChild(document.createTextNode(' ' + label));
@@ -59,6 +66,10 @@ export function initAddPanel() {
 
     const searchUrl = panel.dataset.searchUrl;
     const addUrlTemplate = panel.dataset.addUrl; // carries __PID__
+    const inLabel = panel.dataset.inLabel || 'On this store';
+    const scope = panel.dataset.scope || 'this store';
+    const emptyDefault = panel.dataset.emptyDefault || 'Everything is already on ' + scope + '.';
+    const emptyAll = panel.dataset.emptyAll || 'Nothing to show.';
     const input = panel.querySelector('[data-add-panel-search]');
     const showAll = panel.querySelector('[data-add-panel-show-all]');
     const list = panel.querySelector('[data-add-panel-list]');
@@ -116,16 +127,23 @@ export function initAddPanel() {
         if (item.sku) bits.push(item.sku);
         bits.push(item.quantity + ' in stock');
         if (item.price) bits.push(item.price);
+        if (item.elsewhere) bits.push('In ' + item.elsewhere);
         body.appendChild(el('span', 'cc-addpanel__meta2', bits.join(' · ')));
         li.appendChild(body);
 
         if (item.on_store) {
-            li.appendChild(onStoreBadge('On this store'));
+            li.appendChild(inBadge(inLabel));
+        } else if (item.elsewhere) {
+            const btn = el('button', 'cc-addpanel__add cc-addpanel__add--move', 'Move here');
+            btn.type = 'button';
+            btn.setAttribute('aria-label', 'Move ' + item.name + ' here from ' + item.elsewhere);
+            btn.addEventListener('click', function () { add(item, btn, li, true); });
+            li.appendChild(btn);
         } else {
             const btn = el('button', 'cc-addpanel__add', 'Add');
             btn.type = 'button';
-            btn.setAttribute('aria-label', 'Add ' + item.name + ' to this store');
-            btn.addEventListener('click', function () { add(item, btn, li); });
+            btn.setAttribute('aria-label', 'Add ' + item.name + ' to ' + scope);
+            btn.addEventListener('click', function () { add(item, btn, li, false); });
             li.appendChild(btn);
         }
         return li;
@@ -138,9 +156,7 @@ export function initAddPanel() {
             list.appendChild(el('li', 'cc-addpanel__empty',
                 q !== ''
                     ? 'Nothing matches. Try another name, model or SKU.'
-                    : (showAll && showAll.checked
-                        ? 'Your catalogue has no enabled products.'
-                        : 'Every enabled product is already on this store.')));
+                    : (showAll && showAll.checked ? emptyAll : emptyDefault)));
             setMeta('');
             return;
         }
@@ -167,13 +183,14 @@ export function initAddPanel() {
             render(data);
         } catch (err) {
             if (seq !== requestSeq) return;
-            setMeta('Could not reach the catalogue. Try again.');
+            setMeta('Could not load the products. Try again.');
         }
     }
 
-    async function add(item, btn, li) {
+    async function add(item, btn, li, move) {
+        const idle = btn.textContent;
         btn.disabled = true;
-        btn.textContent = 'Adding…';
+        btn.textContent = move ? 'Moving…' : 'Adding…';
         try {
             const res = await fetch(addUrlTemplate.replace('__PID__', String(item.id)), {
                 method: 'POST',
@@ -181,17 +198,19 @@ export function initAddPanel() {
                 headers: {
                     'X-CSRF-TOKEN': token,
                     'Accept': 'application/json',
+                    'Content-Type': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',
                 },
+                body: JSON.stringify(move ? { move: true } : {}),
             });
             if (!res.ok) throw new Error(String(res.status));
             added += 1;
             addedEl.textContent = added === 1 ? '1 added this session' : added + ' added this session';
             li.classList.add('is-on');
-            btn.replaceWith(onStoreBadge('Added'));
+            btn.replaceWith(inBadge(move ? 'Moved' : 'Added'));
         } catch (err) {
             btn.disabled = false;
-            btn.textContent = 'Add';
+            btn.textContent = idle;
             setMeta('Could not add ' + item.name + '. Try again.');
         }
     }

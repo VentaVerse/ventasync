@@ -123,7 +123,7 @@
         @endif
     </x-ui.empty>
 @else
-<x-ui.table id="lazada-add-table">
+<x-ui.table id="lazada-add-table" class="cc-add-table">
     <x-slot:head>
         <tr>
             @if($canManageLazada)

@@ -338,7 +338,10 @@ class WorkspaceInteriorsTest extends TestCase
 
         // M-5: Listings and Settings (log-row) previously had no payload
         // seeded at all, so they proved nothing either way.
-        $this->seedCatalogProduct('<svg onload=alert(4)>', 'CS-XSS-1');
+        $xssProduct = $this->seedCatalogProduct('<svg onload=alert(4)>', 'CS-XSS-1');
+        // Listings is this store's own list since #201: on the store, or the
+        // payload never reaches the page at all.
+        \Extensions\shopee\Models\ShopeeListing::create(['product_id' => $xssProduct]);
         ShopeeApiLog::create([
             'method' => 'GET', 'api_path' => '/api/v2/<i>alert(5)</i>',
             'auth_required' => true, 'status_code' => 200, 'response_time_ms' => 10,
