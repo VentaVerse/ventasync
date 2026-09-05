@@ -432,6 +432,35 @@ class IntegrationRegistry
     }
 
     /**
+     * Stores the user may read by, as filter choices, in provider order
+     * (per-store reports, the owner, 2026-09-05). Live stores only: a deleted
+     * store's orders keep the name stamped on them and stay inside the
+     * channel's totals, but are not offered as a choice.
+     *
+     * @return list<array{key:string, label:string, channel:string, source:string, store_id:?int}>
+     */
+    public function visibleStoreOptions(?User $user): array
+    {
+        $out = [];
+
+        foreach ($this->providers as $id => $provider) {
+            if (! $provider instanceof \App\Integrations\Contracts\StoreOptionsProvider || ! $this->passesGates($id, $user)) {
+                continue;
+            }
+
+            foreach ($provider->availableStoreOptions() as $opt) {
+                if (($opt['permission'] ?? '') !== '' && (! $user || ! $user->hasPermission($opt['permission']))) {
+                    continue;
+                }
+                unset($opt['permission']);
+                $out[] = $opt;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * Enabled gate. Permission is checked per surface (card vs tab) by the
      * visible* methods above so different permissions can apply to each.
      */

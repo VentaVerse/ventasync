@@ -33,7 +33,7 @@ use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Contracts\ListingStateSource;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class ShopeeExtension extends ExtensionProvider implements ListingStateSource, IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, RootRouteHandler, CredentialRevealer, \App\Integrations\Contracts\WebhookReceiver
+class ShopeeExtension extends ExtensionProvider implements ListingStateSource, IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, RootRouteHandler, CredentialRevealer, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -697,6 +697,26 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
     public function resolveSourceLabel(string $source): ?string
     {
         return $source === 'shopee' ? 'Shopee' : null;
+    }
+
+    /**
+     * Per-store reports (the owner, 2026-09-05): every store as a filter
+     * choice, paused ones included. A deleted store is simply gone.
+     */
+    public function availableStoreOptions(): array
+    {
+        if (! Schema::hasTable('shopee_settings')) {
+            return [];
+        }
+
+        return ShopeeSetting::query()->orderBy('id')->get(['id', 'store_name'])->map(fn ($s) => [
+            'key'        => \App\Support\StoreKey::of('shopee', (int) $s->id),
+            'label'      => $s->store_name ?: ('Store #' . $s->id),
+            'channel'    => 'Shopee',
+            'source'     => 'shopee',
+            'store_id'   => (int) $s->id,
+            'permission' => 'view_shopee/order',
+        ])->all();
     }
 
     public function availableSourceOptions(): array

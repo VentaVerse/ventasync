@@ -35,7 +35,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class VentaExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ProductActionContributor
+class VentaExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ProductActionContributor, \App\Integrations\Contracts\StoreOptionsProvider
 {
     protected string $id = 'venta';
 
@@ -423,6 +423,22 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
         }
         $name = VentaSetting::where('id', $storeId)->value('store_name');
         return $name ?: ('Venta #' . $storeId);
+    }
+
+    /**
+     * Per-store reports (the owner, 2026-09-05): the source already names the
+     * store here ("venta:3"), so each source option is a store option.
+     */
+    public function availableStoreOptions(): array
+    {
+        return array_map(fn ($o) => [
+            'key'        => (string) $o['value'],
+            'label'      => (string) $o['label'],
+            'channel'    => 'Venta',
+            'source'     => (string) $o['value'],
+            'store_id'   => null,
+            'permission' => 'view_venta/order',
+        ], $this->availableSourceOptions());
     }
 
     public function availableSourceOptions(): array

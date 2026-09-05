@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, \App\Integrations\Contracts\ListingStateSource, \App\Integrations\Contracts\WebhookReceiver
+class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, \App\Integrations\Contracts\ListingStateSource, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -616,6 +616,26 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
     public function resolveSourceLabel(string $source): ?string
     {
         return $source === 'tiktok' ? 'TikTok' : null;
+    }
+
+    /**
+     * Per-store reports (the owner, 2026-09-05): every store as a filter
+     * choice, paused ones included. A deleted store is simply gone.
+     */
+    public function availableStoreOptions(): array
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('tiktok_settings')) {
+            return [];
+        }
+
+        return \Extensions\tiktok\Models\TikTokSetting::query()->orderBy('id')->get(['id', 'store_name'])->map(fn ($s) => [
+            'key'        => \App\Support\StoreKey::of('tiktok', (int) $s->id),
+            'label'      => $s->store_name ?: ('Store #' . $s->id),
+            'channel'    => 'TikTok',
+            'source'     => 'tiktok',
+            'store_id'   => (int) $s->id,
+            'permission' => 'view_tiktok/order',
+        ])->all();
     }
 
     public function availableSourceOptions(): array

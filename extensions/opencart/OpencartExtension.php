@@ -33,7 +33,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class OpencartExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MarketplaceSourceOptionsProvider, CredentialRevealer
+class OpencartExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, \App\Integrations\Contracts\StoreOptionsProvider
 {
     protected string $id = 'opencart';
 
@@ -427,6 +427,22 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
         }
         $name = OpenCartSetting::where('id', $storeId)->value('store_name');
         return $name ?: ('OpenCart #' . $storeId);
+    }
+
+    /**
+     * Per-store reports (the owner, 2026-09-05): the source already names the
+     * store here ("opencart:1"), so each source option is a store option.
+     */
+    public function availableStoreOptions(): array
+    {
+        return array_map(fn ($o) => [
+            'key'        => (string) $o['value'],
+            'label'      => (string) $o['label'],
+            'channel'    => 'OpenCart',
+            'source'     => (string) $o['value'],
+            'store_id'   => null,
+            'permission' => 'view_opencart/order',
+        ], $this->availableSourceOptions());
     }
 
     public function availableSourceOptions(): array

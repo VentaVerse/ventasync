@@ -33,7 +33,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ListingStateSource
+class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ListingStateSource, \App\Integrations\Contracts\StoreOptionsProvider
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['unpaid'],
@@ -774,6 +774,26 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
     public function resolveSourceLabel(string $source): ?string
     {
         return $source === 'lazada' ? 'Lazada' : null;
+    }
+
+    /**
+     * Per-store reports (the owner, 2026-09-05): every store as a filter
+     * choice, paused ones included. A deleted store is simply gone.
+     */
+    public function availableStoreOptions(): array
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('lazada_settings')) {
+            return [];
+        }
+
+        return \Extensions\lazada\Models\LazadaSetting::query()->orderBy('id')->get(['id', 'store_name'])->map(fn ($s) => [
+            'key'        => \App\Support\StoreKey::of('lazada', (int) $s->id),
+            'label'      => $s->store_name ?: ('Store #' . $s->id),
+            'channel'    => 'Lazada',
+            'source'     => 'lazada',
+            'store_id'   => (int) $s->id,
+            'permission' => 'view_lazada/order',
+        ])->all();
     }
 
     public function availableSourceOptions(): array
