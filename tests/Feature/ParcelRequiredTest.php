@@ -59,8 +59,7 @@ class ParcelRequiredTest extends TestCase
         ]);
 
         $r->assertSessionHasErrors(['weight', 'length', 'width', 'height']);
-        $this->assertStringContainsString('the channels refuse',
-            session('errors')->first('weight'), 'the requirement names WHY, not just that');
+        $this->assertStringContainsString('more than zero', session('errors')->first('weight'));
         $this->assertNull(DB::table((string) config('catalog.prefix') . 'product')->where('price', 100)->first());
     }
 
@@ -102,20 +101,16 @@ class ParcelRequiredTest extends TestCase
         ])->assertSessionHasNoErrors();
     }
 
-    public function test_a_description_shorter_than_the_strictest_bar_is_refused(): void
+    /** The description is optional since 2026-09-06 (the owner): a terse one, or none, is not a refusal here. */
+    public function test_a_terse_description_is_accepted_and_the_parcel_still_rules(): void
     {
-        $r = $this->actingAs($this->manager())->post(route('products.store'), [
+        $r = $this->actingAs($this->manager())->post('/catalog/products', [
             'name' => 'Terse newborn', 'sku' => 'PRT-3', 'price' => '100', 'status' => '1',
             'weight' => '0.5', 'length' => '10', 'width' => '5', 'height' => '3',
             'images_json' => '["catalog/demo.jpg"]',
-            // 26 chars of text in a lot of markup: passes Shopee's 25,
-            // fails TikTok's 80, and the tags must not count.
             'description' => '<p><strong>Nice guitar,</strong> plays well.</p>',
         ]);
 
-        $r->assertSessionHasErrors(['description']);
-        $this->assertStringContainsString('80 characters', session('errors')->first('description'));
-        $this->assertStringContainsString('TikTok', session('errors')->first('description'),
-            'the refusal names WHICH marketplace sets the bar');
+        $r->assertSessionDoesntHaveErrors(['description']);
     }
 }

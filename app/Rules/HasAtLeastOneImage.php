@@ -26,6 +26,6 @@ class HasAtLeastOneImage implements ValidationRule
             }
         }
 
-        $fail('At least one product photo is needed - Shopee, Lazada and TikTok all refuse a listing without one.');
+        $fail('At least one product photo is needed.');
     }
 }

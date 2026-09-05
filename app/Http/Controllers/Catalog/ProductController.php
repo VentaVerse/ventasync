@@ -590,13 +590,12 @@ public function store(Request $request)
             'category_ids.*' => 'integer|min:1',
             'category_id' => 'nullable|integer',
             'category_name' => 'nullable|string|max:1024',
-            /* Required at the strictest marketplace's bar (#198 follow-up,
-             * the owner 2026-09-04): TikTok's listing-quality floor is 80
-             * characters of text, Shopee's hard minimum is about 25,
-             * Lazada publishes none. A product that cannot list on the
-             * channels this catalog exists to feed is not saved half-made
-             * and repaired at push time. */
-            'description' => ['required', 'string', new \App\Rules\MinPlainTextLength(80)],
+            /* Optional by decision (the owner, 2026-09-06), a deliberate exception
+             * to error prevention: the 80-character floor of 2026-09-04 held
+             * every shop to a marketplace it might not use, and named it. A
+             * marketplace with a minimum of its own says so when the listing
+             * is pushed; nothing in the catalog CRUD points at a channel. */
+            'description' => ['nullable', 'string'],
             'images_json' => ['required', 'string', new \App\Rules\HasAtLeastOneImage()],
 
             'options' => 'array',
@@ -615,12 +614,12 @@ public function store(Request $request)
             'options.*.values.*.cost_percentage' => 'nullable|numeric',
             'options.*.values.*.cost_additional' => 'nullable|numeric',
         ], [
-            'sku.required' => 'A SKU is needed - it is how imports, stock pushes and link repair recognise this product, and Lazada refuses a listing without one.',
+            'sku.required' => 'A SKU is needed. Imports, stock pushes and link repair recognise this product by it.',
             'price.required' => 'A price above zero is needed - a listing pushed without one goes live at zero.',
             'price.gt' => 'The price must be more than zero - a listing pushed at zero sells at zero.',
-            'images_json.required' => 'At least one product photo is needed - Shopee, Lazada and TikTok all refuse a listing without one.',
-            'weight.required' => 'A package weight is needed - Shopee, Lazada and TikTok all refuse a push without one.',
-            'weight.gt' => 'The package weight must be more than zero - the channels refuse a weightless package.',
+            'images_json.required' => 'At least one product photo is needed.',
+            'weight.required' => 'A package weight is needed.',
+            'weight.gt' => 'The package weight must be more than zero.',
             'length.required' => 'The package size (L×W×H) is needed - the channels refuse a push without it.',
             'width.required' => 'The package size (L×W×H) is needed - the channels refuse a push without it.',
             'height.required' => 'The package size (L×W×H) is needed - the channels refuse a push without it.',
@@ -714,7 +713,7 @@ public function store(Request $request)
                 // and re-executes it via jQuery .html() on the edit page
                 // (see App\Support\HtmlSanitizer docblock), so hostile
                 // markup must never reach the database in the first place.
-                'description' => HtmlSanitizer::sanitize($request->input('description')),
+                'description' => HtmlSanitizer::sanitize((string) $request->input('description', '')),
                 'meta_title' => (string) $request->name,
                 'meta_description' => '',
                 'meta_keyword' => '',
@@ -1207,13 +1206,12 @@ public function store(Request $request)
             'category_ids.*' => 'integer|min:1',
             'category_id' => 'nullable|integer',
             'category_name' => 'nullable|string|max:1024',
-            /* Required at the strictest marketplace's bar (#198 follow-up,
-             * the owner 2026-09-04): TikTok's listing-quality floor is 80
-             * characters of text, Shopee's hard minimum is about 25,
-             * Lazada publishes none. A product that cannot list on the
-             * channels this catalog exists to feed is not saved half-made
-             * and repaired at push time. */
-            'description' => ['required', 'string', new \App\Rules\MinPlainTextLength(80)],
+            /* Optional by decision (the owner, 2026-09-06), a deliberate exception
+             * to error prevention: the 80-character floor of 2026-09-04 held
+             * every shop to a marketplace it might not use, and named it. A
+             * marketplace with a minimum of its own says so when the listing
+             * is pushed; nothing in the catalog CRUD points at a channel. */
+            'description' => ['nullable', 'string'],
             'images_json' => ['required', 'string', new \App\Rules\HasAtLeastOneImage()],
 
             'options' => 'array',
@@ -1232,12 +1230,12 @@ public function store(Request $request)
             'options.*.values.*.cost_percentage' => 'nullable|numeric',
             'options.*.values.*.cost_additional' => 'nullable|numeric',
         ], [
-            'sku.required' => 'A SKU is needed - it is how imports, stock pushes and link repair recognise this product, and Lazada refuses a listing without one.',
+            'sku.required' => 'A SKU is needed. Imports, stock pushes and link repair recognise this product by it.',
             'price.required' => 'A price above zero is needed - a listing pushed without one goes live at zero.',
             'price.gt' => 'The price must be more than zero - a listing pushed at zero sells at zero.',
-            'images_json.required' => 'At least one product photo is needed - Shopee, Lazada and TikTok all refuse a listing without one.',
-            'weight.required' => 'A package weight is needed - Shopee, Lazada and TikTok all refuse a push without one.',
-            'weight.gt' => 'The package weight must be more than zero - the channels refuse a weightless package.',
+            'images_json.required' => 'At least one product photo is needed.',
+            'weight.required' => 'A package weight is needed.',
+            'weight.gt' => 'The package weight must be more than zero.',
             'length.required' => 'The package size (L×W×H) is needed - the channels refuse a push without it.',
             'width.required' => 'The package size (L×W×H) is needed - the channels refuse a push without it.',
             'height.required' => 'The package size (L×W×H) is needed - the channels refuse a push without it.',
@@ -1355,7 +1353,7 @@ public function store(Request $request)
                     'name' => (string) $request->name,
                     // Sanitised before persistence: see the store() note
                     // above and App\Support\HtmlSanitizer's docblock.
-                    'description' => HtmlSanitizer::sanitize($request->input('description')),
+                    'description' => HtmlSanitizer::sanitize((string) $request->input('description', '')),
                     'meta_title' => (string) $request->name,
                     'meta_description' => (string) ($d->meta_description ?? ''),
                     'meta_keyword' => (string) ($d->meta_keyword ?? ''),

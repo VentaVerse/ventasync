@@ -94,8 +94,8 @@
                         </div>
                     </x-ui.field>
 
-                    <x-ui.field label="Description" name="description" wide :required="true"
-                                hint="At least 80 characters of actual text - the strictest marketplace bar (TikTok), and comfortably past Shopee's 25.">
+                    <x-ui.field label="Description" name="description" wide
+                                hint="Optional here. A marketplace with a minimum of its own says so when the listing is pushed.">
                         {{-- Escaped, not {!! !!}. A textarea's contents are
                              parsed as character data, so escaping is what makes
                              the stored HTML round-trip intact; the raw echo the
@@ -248,7 +248,7 @@
                             <x-ui.input id="f-height" name="height" class="fm-input--num" value="{{ old('height') }}" placeholder="3" required />
                         </x-ui.field>
                     </div>
-                    <div class="fm-hint">Shopee, Lazada and TikTok all refuse a push without a weight and size, so they are set once, here.</div>
+                    <div class="fm-hint">Weight and size are set once, here, and ride every listing.</div>
                 </div>
             </div>
         </div>

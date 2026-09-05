@@ -174,8 +174,8 @@
                         </div>
                     </x-ui.field>
 
-                    <x-ui.field label="Description" name="description" wide :required="true"
-                                hint="At least 80 characters of actual text - the strictest marketplace bar (TikTok), and comfortably past Shopee's 25.">
+                    <x-ui.field label="Description" name="description" wide
+                                hint="Optional here. A marketplace with a minimum of its own says so when the listing is pushed.">
                         {{-- Escaped, not {!! !!}: a textarea's contents are
                              character data, so escaping is what makes stored
                              HTML round-trip intact. The raw echo this view
@@ -332,7 +332,7 @@
                              fields, so this note is the WHY over the refusal
                              the form is about to make. --}}
                         <div class="fm-note fm-note--warn" role="status">
-                            <div class="fm-note__body">This product is missing its weight or size. Shopee, Lazada and TikTok all refuse a push or relist without them - fill these four fields and the channel pages stop flagging it.</div>
+                            <div class="fm-note__body">This product is missing its weight or size. Fill these four fields and the channel pages stop flagging it.</div>
                         </div>
                     @endif
                     <div class="fm-fields fm-fields--2">
@@ -349,7 +349,7 @@
                             <x-ui.input id="f-height" name="height" class="fm-input--num" value="{{ old('height', $trim($product->height ?? '0')) }}" placeholder="3" />
                         </x-ui.field>
                     </div>
-                    <div class="fm-hint">Shopee, Lazada and TikTok all refuse a push without a weight and size.</div>
+                    <div class="fm-hint">Weight and size are set once, here, and ride every listing.</div>
                 </div>
             </div>
         </div>
