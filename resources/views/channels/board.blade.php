@@ -16,8 +16,24 @@
     @endif
 </div>
 
+{{-- The empty state stands alone, centred on the page. Inside the board
+     grid it sat in the first 280px column, off to the left (the owner,
+     2026-09-06). --}}
+@if(empty($channels))
+        <x-ui.empty
+            title="No stores yet"
+            :description="! empty($addable)
+                ? 'Press Add store to connect the first one. A channel appears here once it has a store.'
+                : 'Enable a channel on the Extensions page, then add its first store here.'">
+            @if(!empty($addable))
+                <x-slot:action>
+                    <x-ui.button variant="primary" data-add-store-open><x-ui.icon name="plus" size="14" /> Add store</x-ui.button>
+                </x-slot:action>
+            @endif
+        </x-ui.empty>
+@else
 <div class="x-board">
-    @forelse($channels as $c)
+    @foreach($channels as $c)
         <article class="x-board__card">
             <header class="x-board__head">
                 <div>
@@ -52,20 +68,9 @@
                 @endif
             </footer>
         </article>
-    @empty
-        <x-ui.empty
-            title="No stores yet"
-            :description="! empty($addable)
-                ? 'Press Add store to connect the first one. A channel appears here once it has a store.'
-                : 'Enable a channel on the Extensions page, then add its first store here.'">
-            @if(!empty($addable))
-                <x-slot:action>
-                    <x-ui.button variant="primary" data-add-store-open><x-ui.icon name="plus" size="14" /> Add store</x-ui.button>
-                </x-slot:action>
-            @endif
-        </x-ui.empty>
-    @endforelse
+    @endforeach
 </div>
+@endif
 
 @if(!empty($addable))
     @include('channels._add-store-modal')
