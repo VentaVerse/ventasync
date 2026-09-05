@@ -14,7 +14,16 @@ use Illuminate\Support\Facades\DB;
 
 class ShopeeController extends Controller
 {
-    
+    use \App\Http\Controllers\Concerns\ReturnsToSettingsTab;
+
+    /** The settings page of the store this request stands in, for ReturnsToSettingsTab. */
+    protected function settingsTabRoute(): array
+    {
+        $store = ShopeeSetting::defaultStore();
+
+        return $store ? ['ext.shopee.settings.show', ['store' => $store->id]] : ['ext.shopee.index', []];
+    }
+
 public function root(Request $request, ShopeeClient $client)
 {
     // Shopee may only allow a domain-level redirect URI (the app's public APP_URL).
@@ -668,7 +677,7 @@ public function buildAuthUrl(ShopeeClient $client)
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['partner_id'] || !$auth['partner_key']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
-            return $this->redirectToSettings()->with('shopee_result', [
+            return $this->toSettingsTab('explorer')->with('shopee_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => "Partner ID and Partner Key for {$modeLabel} mode are required."],
@@ -721,7 +730,7 @@ public function buildAuthUrl(ShopeeClient $client)
             ? $client->postJson($setting->mode, $path, $query, $body)
             : $client->get($setting->mode, $path, $query);
 
-        return $this->redirectToSettings()->with('shopee_result', [
+        return $this->toSettingsTab('explorer')->with('shopee_result', [
             'ok' => (bool)$result['ok'],
             'title' => 'API Call Result',
             'data' => $result,
@@ -733,7 +742,7 @@ public function buildAuthUrl(ShopeeClient $client)
         $map = $request->input('map', []);
 
         if (!is_array($map)) {
-            return back()->with('status', 'Invalid mapping data.');
+            return $this->toSettingsTab('status')->with('status', 'Invalid mapping data.');
         }
 
         foreach ($map as $shopeeStatus => $orderStatusId) {
@@ -750,7 +759,7 @@ public function buildAuthUrl(ShopeeClient $client)
             );
         }
 
-        return back()->with('status', 'Order status mapping saved.');
+        return $this->toSettingsTab('status')->with('status', 'Order status mapping saved.');
     }
 
     public function saveReturnStatusMap(Request $request)
@@ -758,7 +767,7 @@ public function buildAuthUrl(ShopeeClient $client)
         $map = $request->input('map', []);
 
         if (!is_array($map)) {
-            return back()->with('status', 'Invalid mapping data.');
+            return $this->toSettingsTab('status')->with('status', 'Invalid mapping data.');
         }
 
         foreach ($map as $shopeeStatus => $orderStatusId) {
@@ -782,7 +791,7 @@ public function buildAuthUrl(ShopeeClient $client)
             );
         }
 
-        return back()->with('status', 'Return status mapping saved.');
+        return $this->toSettingsTab('status')->with('status', 'Return status mapping saved.');
     }
 
     /** The three-way log mode (#200): everything / errors only / off. */
@@ -791,21 +800,23 @@ public function buildAuthUrl(ShopeeClient $client)
         $data = $request->validate(['mode' => 'required|in:' . implode(',', \App\Support\ApiLogMode::MODES)]);
         $setting = ShopeeSetting::defaultStore();
         if (!$setting) {
-            return back()->with('error', 'Shopee settings not found.');
+            return $this->toSettingsTab('logs')->with('error', 'Shopee settings not found.');
         }
 
         $setting->update(['api_log_mode' => $data['mode']]);
 
-        return redirect()->route('ext.shopee.index', ['tab' => 'logs'])
+        return $this->toSettingsTab('logs')
             ->with('status', 'Shopee API log now records: ' . \App\Support\ApiLogMode::labels()[$data['mode']] . '.');
     }
 
     public function clearApiLogs()
     {
-        $count = ShopeeApiLog::count();
-        ShopeeApiLog::truncate();
+        $count = ShopeeApiLog::query()->count();
+        // This store's rows only: the global scope holds the store, and a
+        // truncate would have wiped every store's record (2026-09-05).
+        ShopeeApiLog::query()->delete();
 
-        return redirect()->route('ext.shopee.index', ['tab' => 'logs'])->with('status', "Deleted {$count} Shopee API log entries.");
+        return $this->toSettingsTab('logs')->with('status', "Deleted {$count} Shopee API log entries.");
     }
 
     /**
@@ -819,6 +830,8 @@ public function buildAuthUrl(ShopeeClient $client)
      */
     public function purgeRaw(Request $request)
     {
+        // This store's rows only, on every table that carries the store (2026-09-05).
+        $storeId = app()->bound('shopee.route-store') ? (int) app('shopee.route-store')->id : null;
         $request->validate([
             'days' => ['required', 'integer', 'min:1', 'max:3650'],
         ]);
@@ -833,6 +846,7 @@ public function buildAuthUrl(ShopeeClient $client)
         $total = 0;
         foreach ($tables as $table) {
             $total += DB::table($table)
+                ->when($storeId !== null && \Illuminate\Support\Facades\Schema::hasColumn($table, 'shopee_setting_id'), fn ($q) => $q->where('shopee_setting_id', $storeId))
                 ->whereNotNull('raw')
                 ->where('created_at', '<', $cutoff)
                 ->update(['raw' => null]);
@@ -840,7 +854,7 @@ public function buildAuthUrl(ShopeeClient $client)
 
         \App\Services\ActivityLogger::log('purged', 'ShopeeSetting', null, "Raw data ({$request->days} days)");
 
-        return redirect()->route('ext.shopee.index', ['tab' => 'logs'])
+        return $this->toSettingsTab('logs')
             ->with('status', "Purged raw payloads from {$total} Shopee row" . ($total === 1 ? '' : 's') . " older than {$request->days} days.");
     }
 
@@ -858,7 +872,7 @@ public function buildAuthUrl(ShopeeClient $client)
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['partner_id'] || !$auth['partner_key']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
-            return $this->redirectToSettings()->with('shopee_result', [
+            return $this->toSettingsTab('explorer')->with('shopee_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => "Partner ID and Partner Key for {$modeLabel} mode are required."],
@@ -882,7 +896,7 @@ public function buildAuthUrl(ShopeeClient $client)
                     $customParams = $decoded;
                 }
             } catch (\Throwable $e) {
-                return $this->redirectToSettings()->withInput()->with('shopee_result', [
+                return $this->toSettingsTab('explorer')->withInput()->with('shopee_result', [
                     'ok' => false,
                     'title' => 'Invalid JSON',
                     'data' => ['message' => $e->getMessage()],
@@ -938,7 +952,7 @@ public function buildAuthUrl(ShopeeClient $client)
             'user_id' => auth()->id(),
         ]);
 
-        return $this->redirectToSettings()->with('shopee_result', [
+        return $this->toSettingsTab('explorer')->with('shopee_result', [
             'ok' => (bool)$result['ok'],
             'title' => 'API Explorer',
             'data' => $result,
@@ -955,7 +969,7 @@ public function buildAuthUrl(ShopeeClient $client)
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
-            return $this->redirectToSettings()->with('shopee_result', [
+            return $this->toSettingsTab('explorer')->with('shopee_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => "Partner ID, Partner Key, Access Token, and Shop ID for {$modeLabel} mode are required for preset packs."],
@@ -1044,7 +1058,7 @@ public function buildAuthUrl(ShopeeClient $client)
             ];
         }
 
-        return $this->redirectToSettings()->with('shopee_result', [
+        return $this->toSettingsTab('explorer')->with('shopee_result', [
             'ok' => collect($results)->every(fn($r) => $r['ok']),
             'title' => 'Preset Pack: ' . strtoupper($data['pack']),
             'data' => $results,
@@ -1057,7 +1071,7 @@ public function buildAuthUrl(ShopeeClient $client)
         $auth = ShopeeSetting::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
-            return $this->redirectToSettings()->with('shopee_result', [
+            return $this->toSettingsTab('connection')->with('shopee_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => "Partner ID, Partner Key, Access Token, and Shop ID for {$modeLabel} mode are required."],
@@ -1087,7 +1101,7 @@ public function buildAuthUrl(ShopeeClient $client)
             'user_id' => auth()->id(),
         ]);
 
-        return $this->redirectToSettings()->with('shopee_result', [
+        return $this->toSettingsTab('connection')->with('shopee_result', [
             'ok' => (bool)$result['ok'],
             'title' => 'Logistics Channels',
             'data' => $result,

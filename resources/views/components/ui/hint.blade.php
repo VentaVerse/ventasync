@@ -29,12 +29,15 @@
     // The button's accessible name. Override where "More information" would
     // be ambiguous because several hints sit on one screen.
     'label' => 'More information',
+    // The bubble's id, when a control points at it through aria-describedby
+    // (x-ui.field passes {controlId}-hint). Random otherwise.
+    'bubbleId' => null,
 ])
 
 @php
     // Unique per render: two hints on a page must not share a description id,
     // or aria-describedby resolves both buttons to the first bubble.
-    $hintId = 'hint-' . \Illuminate\Support\Str::random(10);
+    $hintId = $bubbleId ?: 'hint-' . \Illuminate\Support\Str::random(10);
 @endphp
 
 <span {{ $attributes->merge(['class' => 'bl-hint']) }}>

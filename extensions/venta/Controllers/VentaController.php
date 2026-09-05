@@ -449,7 +449,7 @@ class VentaController extends Controller
         $count = VentaApiLog::where('venta_setting_id', $store->id)->count();
         VentaApiLog::where('venta_setting_id', $store->id)->delete();
 
-        return redirect()->route('ext.venta.index')
+        return redirect()->route('ext.venta.settings.show', ['store' => $store->id, 'tab' => 'logs'])
             ->with('status', $count . ' API log(s) deleted for ' . $store->store_name . '.');
     }
 }

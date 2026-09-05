@@ -85,11 +85,12 @@
 @php
     $csKnown = ['connection', 'status', 'logs'];
     if ($canManageTiktok) { $csKnown[] = 'explorer'; $csKnown[] = 'automations'; }
-    // A flashed result (a token fetch, a test, a save) used to force
-    // the Logs tab, teleporting the operator there on any outcome
-    // (the owner, 2026-09-04). The result banner is page-level now, so
-    // the default tab stays Connection where the actions live.
+    // Every action redirects to the tab its form lives on and flashes it
+    // (ReturnsToSettingsTab, 2026-09-05); the result is drawn inside that
+    // section - the explorer's answer in the Explorer panel, a token fetch
+    // on Connection - never on a tab the operator did not press it on.
     $csSection = in_array(request('tab'), $csKnown, true) ? request('tab') : 'connection';
+    $resultTab = in_array(session('settings_tab'), $csKnown, true) ? session('settings_tab') : 'connection';
 @endphp
 <div class="cs-page"
      data-channel-settings
@@ -116,37 +117,12 @@
 {{-- ================================================================
      CONNECTION
      ================================================================ --}}
-{{-- The result of the last action (token fetch, test, save), shown
-     page-level so it is visible on whatever tab the operator is on -
-     it no longer drags them to the Logs tab (the owner, 2026-09-04). --}}
-    @if($result)
-        @php $ok = (bool) ($result['ok'] ?? false); @endphp
-        <section class="fm-section">
-            <div class="fm-section__head">
-                <h2 class="fm-section__title">Last result</h2>
-                <div class="fm-section__aside">
-                    <x-ui.badge :tone="$ok ? 'success' : 'danger'">{{ $ok ? 'Succeeded' : 'Failed' }}</x-ui.badge>
-                </div>
-            </div>
-            <p class="fm-section__note">{{ $result['title'] ?? 'Result' }}</p>
-            {{-- The REASON is the visible text; the payload is one click
-                 away, never the message (the owner, 2026-09-03). A success keeps
-                 its confirmation data in view - that is what was asked for. --}}
-            @if(!$ok)
-                @php
-                    $answerRaw = is_array($result['data'] ?? null) ? $result['data'] : ['body' => ['message' => (string) ($result['data'] ?? '')], 'ok' => false];
-                    $answerText = \App\Support\MarketplaceAnswer::errorText('TikTok Shop', $answerRaw);
-                @endphp
-                <p class="fm-section__note fm-section__note--strong">@include('partials.channel-answer', ['channel' => 'TikTok Shop', 'raw' => $answerText, 'settingsRoute' => null])</p>
-                <details class="fm-note__more">
-                    <summary>Full response</summary>
-                    <pre class="cs-pre">{{ json_encode($result['data'] ?? $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
-                </details>
-            @else
-                <pre class="cs-pre">{{ json_encode($result['data'] ?? $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
-            @endif
-        </section>
-    @endif
+{{-- The result of the last Connection action (token fetch, save): drawn
+     here, above the panel it came from. An explorer answer is drawn inside
+     the Explorer panel instead (the owner, 2026-09-05). --}}
+@if($result && $resultTab !== 'explorer')
+    @include('partials.channel-last-result', ['result' => $result, 'channel' => 'TikTok Shop'])
+@endif
 
 <div id="tt-tab-connection" class="cs-panel" @if($csSection !== 'connection') hidden @endif>
 
@@ -179,9 +155,7 @@
                 <span class="cs-env__label">{{ $isSandbox ? 'Sandbox' : 'Production' }}</span>
             @endif
 
-            <p class="cs-env__note">
-                Every sync, push and order fetch uses the credentials of the environment selected here. It is also what the Authorise button sends, so switch first and authorise second.
-            </p>
+            <x-ui.hint class="cs-env__hint" label="About the environment">Every sync, push and order fetch uses the credentials of the environment selected here. It is also what the Authorise button sends, so switch first and authorise second.</x-ui.hint>
         </div>
     </section>
 
@@ -205,6 +179,21 @@
                 <input type="hidden" name="env" value="live">
 
                 <div class="fm-fields">
+                    {{-- The store's own name and switch (multi-store): the
+                         columns arrived with the TikTok conversion, the
+                         controls did not until the owner noticed (2026-09-05). --}}
+                    <x-ui.field label="Store name" for="tt-store-name" name="store_name" wide
+                                hint="How this store is named across the ERP - the sidebar, the fulfilment tabs, the channels board.">
+                        <x-ui.input id="tt-store-name" name="store_name" type="text" autocomplete="off" :disabled="!$canManageTiktok"
+                                    value="{{ $setting->store_name ?? '' }}" />
+                    </x-ui.field>
+
+                    <x-ui.field label="Store is active" for="tt-enabled" name="enabled" wide
+                                hint="An active store syncs on the crons and shows its tabs. Switch off to pause the store without losing anything.">
+                        <input type="hidden" name="enabled" value="0">
+                        <label class="fm-check"><input type="checkbox" id="tt-enabled" name="enabled" value="1" @checked((bool) ($setting->enabled ?? true)) @disabled(!$canManageTiktok)> Active</label>
+                    </x-ui.field>
+
                     <x-ui.field label="App Key" for="tt-app-key" name="app_key" wide
                                 hint="The app identifier from TikTok Shop Partner Center. Not a secret, so it is shown in full.">
                         <x-ui.input id="tt-app-key" name="app_key" class="fm-input--num" type="text" autocomplete="off" :disabled="!$canManageTiktok"
@@ -636,6 +625,9 @@
                     </div>
                 </div>
 
+                @if($result && $resultTab === 'explorer')
+                    @include('partials.channel-last-result', ['result' => $result, 'channel' => 'TikTok Shop'])
+                @endif
                 <form method="POST" action="{{ route('ext.tiktok.explorer_run') }}" data-cs-ex-form>
                     @csrf
 
@@ -651,12 +643,14 @@
                         </x-ui.field>
 
                         <div class="fm-field">
-                            <span class="fm-label">Send with the request</span>
+                            <div class="fm-label-row">
+                                <span class="fm-label">Send with the request</span>
+                                <x-ui.hint class="fm-label__hint" label="About the access token">Needed for every shop-level endpoint: products, orders, logistics, finance and fulfilment.</x-ui.hint>
+                            </div>
                             <label class="cs-check">
                                 <input type="checkbox" name="auth_required" value="1" @checked(old('auth_required')) data-cs-ex-auth>
                                 Access token
                             </label>
-                            <div class="fm-hint">Needed for every shop-level endpoint: products, orders, logistics, finance and fulfilment.</div>
                         </div>
 
                         <x-ui.field label="API path" for="api-explorer-path" name="api_path" wide
@@ -764,14 +758,16 @@
               data-confirm="Clear the stored API payloads on TikTok rows older than the number of days given? The orders stay, only the raw payloads go, and this cannot be undone.">
             @csrf
             <div class="fm-field">
-                <label class="fm-label" for="tt-purge-days">Clear payloads older than</label>
+                <div class="fm-label-row">
+                    <label class="fm-label" for="tt-purge-days">Clear payloads older than</label>
+                    <x-ui.hint class="fm-label__hint" bubble-id="tt-purge-hint" label="About the days">Anything from 1 to 3650 days.</x-ui.hint>
+                </div>
                 <div class="cs-inline">
                     <x-ui.input id="tt-purge-days" name="days" type="number" value="30" min="1" max="3650" required
                                 class="fm-input--num cs-days" aria-describedby="tt-purge-hint" />
                     <span class="cs-inline__unit">days</span>
                     <x-ui.button type="submit" variant="danger">Clear stored payloads</x-ui.button>
                 </div>
-                <div class="fm-hint" id="tt-purge-hint">Anything from 1 to 3650 days.</div>
                 @error('days')<div class="fm-error">{{ $message }}</div>@enderror
             </div>
         </form>

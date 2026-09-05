@@ -33,8 +33,7 @@
 </div>
 
 @if($groups->count() === 0)
-    <x-ui.empty title="No product groups yet"
-                :description="'Nothing has been grouped for ' . $storeName . ' yet. A product group picks catalog products by category and manufacturer so a whole batch can be pushed at once, instead of one product at a time.'">
+    <x-ui.empty title="No product groups yet">
         @if($canManageOpencart)
         <x-slot:action>
             <x-ui.button variant="primary" :href="route('ext.opencart.product-groups.create', $setting->id)">New product group</x-ui.button>

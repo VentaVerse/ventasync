@@ -63,11 +63,12 @@
 @php
     $csKnown = ['connection', 'status', 'logs'];
     if ($canManageShopee) { $csKnown[] = 'explorer'; $csKnown[] = 'automations'; }
-    // A flashed result (a token fetch, a test, a save) used to force
-    // the Logs tab, teleporting the operator there on any outcome
-    // (the owner, 2026-09-04). The result banner is page-level now, so
-    // the default tab stays Connection where the actions live.
+    // Every action redirects to the tab its form lives on and flashes it
+    // (ReturnsToSettingsTab, 2026-09-05); the result is drawn inside that
+    // section - the explorer's answer in the Explorer panel, a token fetch
+    // on Connection - never on a tab the operator did not press it on.
     $csSection = in_array(request('tab'), $csKnown, true) ? request('tab') : 'connection';
+    $resultTab = in_array(session('settings_tab'), $csKnown, true) ? session('settings_tab') : 'connection';
 @endphp
 <div class="cs-page"
      data-channel-settings
@@ -94,37 +95,12 @@
 {{-- ================================================================
      CONNECTION
      ================================================================ --}}
-{{-- The result of the last action (token fetch, test, save), shown
-     page-level so it is visible on whatever tab the operator is on -
-     it no longer drags them to the Logs tab (the owner, 2026-09-04). --}}
-    @if($result)
-        @php $ok = (bool) ($result['ok'] ?? false); @endphp
-        <section class="fm-section">
-            <div class="fm-section__head">
-                <h2 class="fm-section__title">Last result</h2>
-                <div class="fm-section__aside">
-                    <x-ui.badge :tone="$ok ? 'success' : 'danger'">{{ $ok ? 'Succeeded' : 'Failed' }}</x-ui.badge>
-                </div>
-            </div>
-            <p class="fm-section__note">{{ $result['title'] ?? 'Result' }}</p>
-            {{-- The REASON is the visible text; the payload is one click
-                 away, never the message (the owner, 2026-09-03). A success keeps
-                 its confirmation data in view - that is what was asked for. --}}
-            @if(!$ok)
-                @php
-                    $answerRaw = is_array($result['data'] ?? null) ? $result['data'] : ['body' => ['message' => (string) ($result['data'] ?? '')], 'ok' => false];
-                    $answerText = \App\Support\MarketplaceAnswer::errorText('Shopee', $answerRaw);
-                @endphp
-                <p class="fm-section__note fm-section__note--strong">@include('partials.channel-answer', ['channel' => 'Shopee', 'raw' => $answerText, 'settingsRoute' => null])</p>
-                <details class="fm-note__more">
-                    <summary>Full response</summary>
-                    <pre class="cs-pre">{{ json_encode($result['data'] ?? $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
-                </details>
-            @else
-                <pre class="cs-pre">{{ json_encode($result['data'] ?? $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
-            @endif
-        </section>
-    @endif
+{{-- The result of the last Connection action (token fetch, save): drawn
+     here, above the panel it came from. An explorer answer is drawn inside
+     the Explorer panel instead (the owner, 2026-09-05). --}}
+@if($result && $resultTab !== 'explorer')
+    @include('partials.channel-last-result', ['result' => $result, 'channel' => 'Shopee'])
+@endif
 
 <div id="sp-tab-connection" class="cs-panel" @if($csSection !== 'connection') hidden @endif>
 
@@ -157,9 +133,7 @@
                 <span class="cs-env__label">{{ $isSandbox ? 'Sandbox' : 'Production' }}</span>
             @endif
 
-            <p class="cs-env__note">
-                Every sync, push and order fetch uses the credentials of the environment selected here. Production and sandbox keep separate credentials and separate tokens.
-            </p>
+            <x-ui.hint class="cs-env__hint" label="About the environment">Every sync, push and order fetch uses the credentials of the environment selected here. Production and sandbox keep separate credentials and separate tokens.</x-ui.hint>
         </div>
     </section>
 
@@ -577,6 +551,9 @@
      ================================================================ --}}
 @if($canManageShopee)
 <div id="sp-tab-explorer" class="cs-panel" @if($csSection !== 'explorer') hidden @endif>
+    @if($result && $resultTab === 'explorer')
+        @include('partials.channel-last-result', ['result' => $result, 'channel' => 'Shopee'])
+    @endif
     <section class="fm-section">
         <div class="fm-section__head">
             <h2 class="fm-section__title">API explorer</h2>
@@ -760,14 +737,16 @@
               data-confirm="Clear the stored API payloads on Shopee rows older than the number of days given? The orders and returns stay, only the raw payloads go, and this cannot be undone.">
             @csrf
             <div class="fm-field">
-                <label class="fm-label" for="sp-purge-days">Clear payloads older than</label>
+                <div class="fm-label-row">
+                    <label class="fm-label" for="sp-purge-days">Clear payloads older than</label>
+                    <x-ui.hint class="fm-label__hint" bubble-id="sp-purge-hint" label="About the days">Anything from 1 to 3650 days.</x-ui.hint>
+                </div>
                 <div class="cs-inline">
                     <x-ui.input id="sp-purge-days" name="days" type="number" value="30" min="1" max="3650" required
                                 class="fm-input--num cs-days" aria-describedby="sp-purge-hint" />
                     <span class="cs-inline__unit">days</span>
                     <x-ui.button type="submit" variant="danger">Clear stored payloads</x-ui.button>
                 </div>
-                <div class="fm-hint" id="sp-purge-hint">Anything from 1 to 3650 days.</div>
                 @error('days')<div class="fm-error">{{ $message }}</div>@enderror
             </div>
         </form>

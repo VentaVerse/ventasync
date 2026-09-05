@@ -27,8 +27,7 @@
 </div>
 
 @if($groups->count() === 0)
-    <x-ui.empty title="No product groups yet"
-                description="A product group holds the Lazada category, brand, attributes and price markup a batch of products shares, so a push sets them once instead of per listing.">
+    <x-ui.empty title="No product groups yet">
         @if($canManageLazada)
         <x-slot:action>
             <x-ui.button variant="primary" :href="route('ext.lazada.product-groups.create')">New product group</x-ui.button>

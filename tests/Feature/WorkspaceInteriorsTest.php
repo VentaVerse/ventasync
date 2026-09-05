@@ -654,9 +654,11 @@ class WorkspaceInteriorsTest extends TestCase
         $this->seedSetting(['api_log_mode' => 'all']);
         $user = $this->manager();
 
+        // Back to the Logs tab of THIS store's settings page (2026-09-05),
+        // not the storeless landing that bounced onto Connection.
         $this->actingAs($user)
             ->post(route('ext.shopee.api_log_mode'), ['mode' => 'errors'])
-            ->assertRedirect(route('ext.shopee.index', ['tab' => 'logs']));
+            ->assertRedirect(route('ext.shopee.settings.show', ['store' => ShopeeSetting::query()->first()->id, 'tab' => 'logs']));
 
         $this->assertSame('errors', ShopeeSetting::query()->first()->api_log_mode);
 

@@ -5472,3 +5472,16 @@
     color: var(--bl-ink);
     font-family: var(--font-mono);
 }
+
+/* A field's description is its ? tooltip on the label row (the owner,
+   2026-09-05): the label and the button sit on one line, the control
+   under both. The environment note on a channel's Settings rides the same
+   button beside the environment switch. */
+.fm-label__hint { margin-left: 6px; vertical-align: middle; }
+.fm-label + .fm-label__hint { position: relative; top: -1px; }
+.cs-env__hint { margin-left: 8px; }
+/* The label row: the label and its ? on one line, the control under both.
+   The label keeps its own type; the row only lays the pair out. */
+.fm-label-row { display: flex; align-items: center; gap: 6px; }
+.fm-label-row > .fm-label { margin: 0; }
+.fm-label-row > .fm-label__hint { margin-left: 0; top: 0; }

@@ -68,8 +68,13 @@ class ProductFormAccessibilityTest extends TestCase
     public function test_a_field_publishes_ids_for_its_hint_and_error(): void
     {
         $field = File::get(base_path('resources/views/components/ui/field.blade.php'));
+        $hint = File::get(base_path('resources/views/components/ui/hint.blade.php'));
 
-        $this->assertStringContainsString('id="{{ $controlId }}-hint"', $field);
+        // The hint is the ? tooltip on the label row since 2026-09-05; the
+        // field hands its {controlId}-hint id to the hint component, whose
+        // bubble carries it, so the wiring still finds a stable id.
+        $this->assertStringContainsString(":bubble-id=\"\$controlId ? \$controlId . '-hint' : null\"", $field);
+        $this->assertStringContainsString('id="{{ $hintId }}"', $hint);
         $this->assertStringContainsString('id="{{ $controlId }}-error"', $field);
         $this->assertStringContainsString('data-required-marker', $field,
             'the required pill must be findable, or it stays decorative text');

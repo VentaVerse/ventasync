@@ -29,7 +29,10 @@ function wireField(field) {
 
     const described = [];
 
-    const hint = field.querySelector(':scope > .fm-hint');
+    // The hint is the ? bubble on the label row since 2026-09-05 (a
+    // description is a tooltip); the old paragraph form is kept for callers
+    // that still draw one by hand.
+    const hint = field.querySelector(':scope > .fm-label-row .bl-hint__bubble, :scope > .fm-hint');
     if (hint && hint.id) described.push(hint.id);
 
     const error = field.querySelector(':scope > .fm-error');

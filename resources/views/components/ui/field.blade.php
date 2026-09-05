@@ -20,23 +20,24 @@
 
 <div {{ $attributes->merge(['class' => 'fm-field'.($wide ? ' fm-field--wide' : '')]) }}>
     @if($label)
-        <label class="fm-label" @if($controlId) for="{{ $controlId }}" @endif>
-            {{ $label }}
-            @if($required)<span class="fm-req" data-required-marker aria-hidden="true">*</span><span class="x-sr">(required)</span>@endif
-        </label>
+        {{-- A description is a tooltip, not a paragraph (the owner, 2026-09-05:
+             "anything that is a description, make a tooltip out of it"). The
+             hint rides the label ROW as the ? button - one flex line with the
+             label, never a line of its own; its bubble keeps the
+             {controlId}-hint id so field-a11y.js still points the control at
+             it, and a screen reader still hears it. --}}
+        <div class="fm-label-row">
+            <label class="fm-label" @if($controlId) for="{{ $controlId }}" @endif>
+                {{ $label }}
+                @if($required)<span class="fm-req" data-required-marker aria-hidden="true">*</span><span class="x-sr">(required)</span>@endif
+            </label>
+            @if($hint)<x-ui.hint class="fm-label__hint" :bubble-id="$controlId ? $controlId . '-hint' : null" :label="'About ' . $label">{{ $hint }}</x-ui.hint>@endif
+        </div>
+    @elseif($hint)
+        <x-ui.hint class="fm-label__hint" :bubble-id="$controlId ? $controlId . '-hint' : null">{{ $hint }}</x-ui.hint>
     @endif
 
     {{ $slot }}
-
-    {{-- The hint and the error carry ids so the control can point at them.
-         The wiring itself is done once at runtime by resources/js/field-a11y.js
-         rather than here, because this component receives its control as an
-         opaque slot and cannot reach into it - and the 49 callers pass
-         everything from x-ui.input to a select to hand-rolled markup, so
-         there is no single child component to push the attribute through.
-         The ids are stable and derived from the control id, so the wiring has
-         something deterministic to find. --}}
-    @if($hint)<div class="fm-hint" @if($controlId) id="{{ $controlId }}-hint" @endif>{{ $hint }}</div>@endif
 
     {{-- Same position the old views put @error in: directly under the
          control it belongs to, one message, never a summary at the top. --}}

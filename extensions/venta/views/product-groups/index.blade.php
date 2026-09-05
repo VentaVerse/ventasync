@@ -34,8 +34,7 @@
 </div>
 
 @if($groups->count() === 0)
-    <x-ui.empty title="No product groups yet"
-                :description="'Nothing has been grouped for ' . $storeName . ' yet. A product group is how a batch of catalog products gets its price markup and its push schedule in one place, instead of setting them per product.'">
+    <x-ui.empty title="No product groups yet">
         @if($canManageVenta)
         <x-slot:action>
             <x-ui.button variant="primary" :href="route('ext.venta.product-groups.create', $setting->id)">New product group</x-ui.button>

@@ -27,8 +27,7 @@
 </div>
 
 @if($groups->count() === 0)
-    <x-ui.empty title="No product groups yet"
-                description="A product group holds the Shopee category, attributes, couriers and price markup a batch of products shares, so a push sets them once instead of per listing. The Listings page can also start a push from one.">
+    <x-ui.empty title="No product groups yet">
         @if($canManageShopee)
         <x-slot:action>
             <x-ui.button variant="primary" :href="route('ext.shopee.product-groups.create')">New product group</x-ui.button>

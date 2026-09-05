@@ -21,7 +21,7 @@ class TiktokSettingsController extends TikTokController
     {
         $map = $request->input('map', []);
         if (!is_array($map)) {
-            return back()->with('status', 'Invalid mapping data.');
+            return $this->toSettingsTab('status')->with('status', 'Invalid mapping data.');
         }
         foreach ($map as $tiktokStatus => $orderStatusId) {
             $tiktokStatus = strtoupper(trim((string) $tiktokStatus));
@@ -39,6 +39,6 @@ class TiktokSettingsController extends TikTokController
             );
         }
 
-        return back()->with('status', 'Return status mapping saved.');
+        return $this->toSettingsTab('status')->with('status', 'Return status mapping saved.');
     }
 }

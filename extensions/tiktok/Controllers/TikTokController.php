@@ -13,6 +13,16 @@ use Illuminate\Support\Str;
 
 class TikTokController extends Controller
 {
+    use \App\Http\Controllers\Concerns\ReturnsToSettingsTab;
+
+    /** The settings page of the store this request stands in, for ReturnsToSettingsTab. */
+    protected function settingsTabRoute(): array
+    {
+        $store = TikTokSetting::defaultStore();
+
+        return ['ext.tiktok.index', $store ? ['store' => $store->id] : []];
+    }
+
     // -- Token save helper ------------------------------------------------
 
     private function saveTokenData(TikTokSetting $raw, bool $sandbox, array $tokenData): void
@@ -125,6 +135,8 @@ class TikTokController extends Controller
     public function save(Request $request)
     {
         $data = $request->validate([
+            'store_name' => 'nullable|string|max:128',
+            'enabled' => 'nullable|boolean',
             'env' => 'nullable|in:live,sandbox',
             'app_key' => 'nullable|string|max:64',
             'app_secret' => 'nullable|string|max:255',
@@ -134,6 +146,14 @@ class TikTokController extends Controller
         ]);
 
         $setting = TikTokSetting::defaultStore() ?? new TikTokSetting();
+        // The store's own name and switch (multi-store), saved with the
+        // production credentials form that carries them.
+        if (array_key_exists('store_name', $data) && $data['store_name'] !== null) {
+            $setting->store_name = $data['store_name'];
+        }
+        if (array_key_exists('enabled', $data) && $data['enabled'] !== null) {
+            $setting->enabled = (bool) $data['enabled'];
+        }
 
         $env = $data['env'] ?? 'live';
         $setting->mode = $env;
@@ -414,7 +434,7 @@ class TikTokController extends Controller
         $activeSecret = $sandbox ? ($setting->sandbox_app_secret ?? '') : ($setting->app_secret ?? '');
 
         if (!$setting || !$activeKey || !$activeSecret) {
-            return redirect()->route('ext.tiktok.index')->with('tiktok_result', [
+            return $this->toSettingsTab('connection')->with('tiktok_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => 'App Key and App Secret are required.'],
@@ -443,7 +463,7 @@ class TikTokController extends Controller
             'user_id' => auth()->id(),
         ]);
 
-        return redirect()->route('ext.tiktok.index')->with('tiktok_result', [
+        return $this->toSettingsTab('connection')->with('tiktok_result', [
             'ok' => (bool) $result['ok'],
             'title' => 'Token Get',
             'data' => $result,
@@ -462,7 +482,7 @@ class TikTokController extends Controller
         $activeRefresh = $sandbox ? ($setting->sandbox_refresh_token ?? '') : ($setting->refresh_token ?? '');
 
         if (!$setting || !$activeKey || !$activeSecret || !$activeRefresh) {
-            return redirect()->route('ext.tiktok.index')->with('tiktok_result', [
+            return $this->toSettingsTab('connection')->with('tiktok_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => 'App Key, App Secret, and Refresh Token are required.'],
@@ -490,7 +510,7 @@ class TikTokController extends Controller
             'user_id' => auth()->id(),
         ]);
 
-        return redirect()->route('ext.tiktok.index')->with('tiktok_result', [
+        return $this->toSettingsTab('connection')->with('tiktok_result', [
             'ok' => (bool) $result['ok'],
             'title' => 'Token Refresh',
             'data' => $result,
@@ -509,7 +529,7 @@ class TikTokController extends Controller
         $activeToken = $sandbox ? ($setting->sandbox_access_token ?? '') : ($setting->access_token ?? '');
 
         if (!$setting || !$activeKey || !$activeSecret || !$activeToken) {
-            return redirect()->route('ext.tiktok.index')->with('tiktok_result', [
+            return $this->toSettingsTab('connection')->with('tiktok_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => 'App Key, App Secret, and Access Token are required.'],
@@ -574,7 +594,7 @@ class TikTokController extends Controller
             'user_id' => auth()->id(),
         ]);
 
-        return redirect()->route('ext.tiktok.index')->with('tiktok_result', [
+        return $this->toSettingsTab('connection')->with('tiktok_result', [
             'ok' => (bool) $result['ok'],
             'title' => 'Get Authorized Shops',
             'data' => $result,
@@ -594,7 +614,7 @@ class TikTokController extends Controller
 
         $setting = TikTokSetting::defaultStore()?->decrypted();
         if (!$setting || !$setting->app_key || !$setting->app_secret) {
-            return redirect()->route('ext.tiktok.index')->with('tiktok_result', [
+            return $this->toSettingsTab('explorer')->with('tiktok_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => 'App Key and App Secret are required.'],
@@ -603,7 +623,7 @@ class TikTokController extends Controller
 
         $authRequired = (bool) ($data['auth_required'] ?? false);
         if ($authRequired && !$setting->access_token) {
-            return redirect()->route('ext.tiktok.index')->with('tiktok_result', [
+            return $this->toSettingsTab('explorer')->with('tiktok_result', [
                 'ok' => false,
                 'title' => 'Missing Access Token',
                 'data' => ['message' => 'Access Token is required for auth-required calls. Please authorize first.'],
@@ -624,7 +644,7 @@ class TikTokController extends Controller
                     $customParams = $decoded;
                 }
             } catch (\Throwable $e) {
-                return redirect()->route('ext.tiktok.index')->withInput()->with('tiktok_result', [
+                return $this->toSettingsTab('explorer')->withInput()->with('tiktok_result', [
                     'ok' => false,
                     'title' => 'Invalid JSON',
                     'data' => ['message' => $e->getMessage()],
@@ -686,7 +706,7 @@ class TikTokController extends Controller
             'user_id' => auth()->id(),
         ]);
 
-        return redirect()->route('ext.tiktok.index')->withInput()->with('tiktok_result', [
+        return $this->toSettingsTab('explorer')->withInput()->with('tiktok_result', [
             'ok' => (bool) $result['ok'],
             'title' => 'API Explorer: ' . $method . ' ' . $apiPath,
             'data' => $result,
@@ -703,7 +723,7 @@ class TikTokController extends Controller
 
         $setting = TikTokSetting::defaultStore()?->decrypted();
         if (!$setting || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
-            return redirect()->route('ext.tiktok.index')->with('tiktok_result', [
+            return $this->toSettingsTab('explorer')->with('tiktok_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => 'App Key, App Secret, and Access Token are required for preset packs.'],
@@ -790,7 +810,7 @@ class TikTokController extends Controller
             ];
         }
 
-        return redirect()->route('ext.tiktok.index')->with('tiktok_result', [
+        return $this->toSettingsTab('explorer')->with('tiktok_result', [
             'ok' => collect($results)->every(fn($r) => $r['ok']),
             'title' => 'Preset Pack: ' . strtoupper($data['pack']),
             'data' => $results,
@@ -805,12 +825,12 @@ class TikTokController extends Controller
         $data = $request->validate(['mode' => 'required|in:' . implode(',', \App\Support\ApiLogMode::MODES)]);
         $setting = TikTokSetting::defaultStore();
         if (!$setting) {
-            return back()->with('error', 'TikTok settings not found.');
+            return $this->toSettingsTab('logs')->with('error', 'TikTok settings not found.');
         }
 
         $setting->update(['api_log_mode' => $data['mode']]);
 
-        return redirect()->route('ext.tiktok.index', ['tab' => 'logs'])
+        return $this->toSettingsTab('logs')
             ->with('status', 'TikTok API log now records: ' . \App\Support\ApiLogMode::labels()[$data['mode']] . '.');
     }
 
@@ -821,7 +841,7 @@ class TikTokController extends Controller
         $count = TikTokApiLog::count();
         TikTokApiLog::truncate();
 
-        return back()->with('status', "Deleted {$count} TikTok API log entries.");
+        return $this->toSettingsTab('logs')->with('status', "Deleted {$count} TikTok API log entries.");
     }
 
     /**
@@ -834,6 +854,8 @@ class TikTokController extends Controller
      */
     public function purgeRaw(Request $request)
     {
+        // This store's rows only, on every table that carries the store (2026-09-05).
+        $storeId = app()->bound('tiktok.route-store') ? (int) app('tiktok.route-store')->id : null;
         $request->validate([
             'days' => ['required', 'integer', 'min:1', 'max:3650'],
         ]);
@@ -847,6 +869,7 @@ class TikTokController extends Controller
         $total = 0;
         foreach ($tables as $table) {
             $total += DB::table($table)
+                ->when($storeId !== null && \Illuminate\Support\Facades\Schema::hasColumn($table, 'tiktok_setting_id'), fn ($q) => $q->where('tiktok_setting_id', $storeId))
                 ->whereNotNull('raw')
                 ->where('created_at', '<', $cutoff)
                 ->update(['raw' => null]);
@@ -854,7 +877,7 @@ class TikTokController extends Controller
 
         \App\Services\ActivityLogger::log('purged', 'TikTokSetting', null, "Raw data ({$request->days} days)");
 
-        return back()->with('status', "Purged raw payloads from {$total} TikTok row" . ($total === 1 ? '' : 's') . " older than {$request->days} days.");
+        return $this->toSettingsTab('logs')->with('status', "Purged raw payloads from {$total} TikTok row" . ($total === 1 ? '' : 's') . " older than {$request->days} days.");
     }
 
     // -- Save order tab mapping -------------------------------------------
@@ -877,6 +900,6 @@ class TikTokController extends Controller
             );
         }
 
-        return back()->with('status', 'Order status mapping saved.');
+        return $this->toSettingsTab('status')->with('status', 'Order status mapping saved.');
     }
 }
