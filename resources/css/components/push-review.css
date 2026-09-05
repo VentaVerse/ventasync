@@ -130,5 +130,53 @@
 
     .pr-gap__fix .x-input { max-width: 220px; }
     .pr-gap--hard { background: var(--bl-attn-wash, var(--bl-paper)); }
+
+    /* The category fixer (2026-09-05): a search with its results dropped
+       under it, the chosen category named beside, Apply to all. The
+       products the gap covers are listed under the fix so the one-by-one
+       route stays one click away. */
+    .pr-cat { align-items: flex-start; }
+    .pr-cat__field { position: relative; flex: 1 1 240px; min-width: 0; }
+    .pr-cat__field .x-input { max-width: none; width: 100%; }
+    .pr-cat__results {
+        position: absolute;
+        z-index: 2;
+        top: calc(100% + 4px);
+        left: 0;
+        right: 0;
+        max-height: 220px;
+        overflow-y: auto;
+        background: var(--bl-sheet);
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl, 5px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
+        padding: 4px;
+    }
+    .pr-cat__opt {
+        display: block;
+        width: 100%;
+        text-align: left;
+        padding: 6px 8px;
+        border: 0;
+        border-radius: 4px;
+        background: transparent;
+        color: var(--bl-ink);
+        font: inherit;
+        font-size: 12.5px;
+        cursor: pointer;
+    }
+    .pr-cat__opt:hover,
+    .pr-cat__opt:focus-visible { background: var(--bl-paper); outline: none; }
+    .pr-cat__none { display: block; padding: 6px 8px; font-size: 12.5px; }
+    .pr-cat__chosen { font-size: 12.5px; align-self: center; }
+    .pr-gap__list {
+        margin: 8px 0 0;
+        padding-left: 18px;
+        font-size: 12.5px;
+        color: var(--bl-ink-2);
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
     .pr-check { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; }
 }

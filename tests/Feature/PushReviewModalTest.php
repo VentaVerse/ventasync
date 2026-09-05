@@ -42,7 +42,7 @@ class PushReviewModalTest extends TestCase
             'partner_id' => 1, 'partner_key' => 'k', 'shop_id' => 2,
             'access_token' => 't', 'refresh_token' => 'r', 'region' => 'ph',
         ]);
-        ShopeeCategory::create(['category_id' => 100200, 'parent_id' => null, 'name' => 'Manual Brewers']);
+        ShopeeCategory::create(['category_id' => 100200, 'parent_id' => null, 'name' => 'Manual Brewers', 'level' => 0, 'leaf' => true]);
         ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 100200], ['attributes' => []]);
         ShopeeLogistic::create(['logistics_channel_id' => 8003, 'logistics_channel_name' => 'J&T Express', 'enabled' => true]);
     }
@@ -144,6 +144,44 @@ class PushReviewModalTest extends TestCase
         $this->assertEqualsCanonicalizing([$a, $b], $json['attribute_gaps'][0]['product_ids']);
         $this->assertSame([$c], $json['courier_gap']['product_ids']);
         $this->assertNotEmpty($json['courier_gap']['logistics'], 'the fix control ships with its options');
+    }
+
+    public function test_the_bulk_review_offers_a_category_fixer_and_the_fix_sets_only_the_blank_ones(): void
+    {
+        $manager = $this->manager();
+        // the owner, 2026-09-05: ten enclosures needing a category had only
+        // "Open its listing" each; couriers had a fixer. Now both do.
+        $a = $this->seedProduct('1590B Enclosure', 'EN-1');
+        $b = $this->seedProduct('1590BB Enclosure', 'EN-2');
+        $c = $this->seedProduct('Has a category', 'EN-3');
+        ShopeeListing::create(['product_id' => $a, 'logistic_ids' => [8003]]);
+        ShopeeListing::create(['product_id' => $b, 'logistic_ids' => [8003]]);
+        ShopeeListing::create(['product_id' => $c, 'shopee_category_id' => 100200, 'logistic_ids' => [8003]]);
+
+        $json = $this->actingAs($manager)
+            ->getJson(route('ext.shopee.products.bulk_push_review', ['product_ids' => [$a, $b, $c]]))
+            ->assertOk()->json();
+
+        $this->assertEqualsCanonicalizing([$a, $b], $json['category_gap']['product_ids'], 'one fixer over every product without a category');
+        $this->assertSame(route('ext.shopee.products.searchCategories'), $json['category_gap']['search_url']);
+        $this->assertTrue($json['category_gap']['fetched']);
+        $this->assertCount(2, $json['category_gaps'], 'each product still named with its listing link');
+
+        $this->actingAs($manager)->postJson(route('ext.shopee.products.bulk_fix'), [
+            'kind' => 'category', 'category_id' => 100200, 'product_ids' => [$a, $b, $c],
+        ])->assertOk()->assertJson(['written' => 2]);
+        $this->assertSame(100200, (int) ShopeeListing::query()->where('product_id', $a)->value('shopee_category_id'));
+        $this->assertSame(100200, (int) ShopeeListing::query()->where('product_id', $c)->value('shopee_category_id'), 'a category already chosen is never overwritten');
+
+        $this->actingAs($manager)->postJson(route('ext.shopee.products.bulk_fix'), [
+            'kind' => 'category', 'category_id' => 999999, 'product_ids' => [$a],
+        ])->assertStatus(422);
+
+        $after = $this->actingAs($manager)
+            ->getJson(route('ext.shopee.products.bulk_push_review', ['product_ids' => [$a, $b, $c]]))
+            ->assertOk()->json();
+        $this->assertSame([], $after['category_gaps'], 'the gap closes once the category is set');
+        $this->assertEqualsCanonicalizing([$a, $b, $c], $after['ready']);
     }
 
     public function test_a_bulk_fix_answers_only_the_products_missing_it(): void

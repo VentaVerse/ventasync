@@ -212,21 +212,101 @@
             gaps.appendChild(card);
         }
 
-        data.category_gaps.forEach(function (row) {
-            const card = gapCard((function () {
-                const head = el('div', 'pr-gap__head');
-                head.appendChild(el('strong', null, row.name));
-                head.appendChild(document.createTextNode(' needs ' + row.label));
-                return head;
-            })());
-            card.className = 'pr-gap pr-gap--hard';
-            const fix = el('div', 'pr-gap__fix');
-            const link = el('a', 'cc-quiet', 'Open its listing →');
-            link.href = row.listing_url;
-            fix.appendChild(link);
+        /* The category fixer (the owner, 2026-09-05): one card for every product
+           without a category, with a search over the store's leaf categories
+           and Apply to all, the way couriers are fixed. The products stay
+           listed under it with their listing links, for the one-by-one case. */
+        if (data.category_gaps.length) {
+            const gap = data.category_gap || { product_ids: [], search_url: '', fetched: true };
+            const n = data.category_gaps.length;
+            const card = gapCard(gapHead(n + ' product' + (n === 1 ? '' : 's'), 'a Shopee category'));
+            const fix = el('div', 'pr-gap__fix pr-cat');
+
+            if (!gap.fetched) {
+                fix.appendChild(el('span', 'pr-mut', 'No categories have been fetched for this store yet. Press Set up store on Settings > Connection, then come back.'));
+            } else if (gap.product_ids.length) {
+                const search = el('input', 'x-input pr-cat__search');
+                search.type = 'search';
+                search.autocomplete = 'off';
+                search.placeholder = 'Type to search Shopee categories';
+                search.setAttribute('aria-label', 'Search Shopee categories');
+                const results = el('div', 'pr-cat__results');
+                results.setAttribute('role', 'listbox');
+                results.hidden = true;
+                const chosen = el('span', 'pr-cat__chosen pr-mut', 'Nothing chosen yet');
+                let chosenId = 0;
+                let timer = null;
+
+                function pick(cat) {
+                    chosenId = cat.category_id;
+                    chosen.textContent = cat.name + ' (#' + cat.category_id + ')';
+                    chosen.className = 'pr-cat__chosen';
+                    search.value = cat.name;
+                    results.hidden = true;
+                    apply.disabled = false;
+                }
+
+                function draw(list) {
+                    results.textContent = '';
+                    if (!list.length) {
+                        results.appendChild(el('span', 'pr-mut pr-cat__none', 'No leaf category matches that.'));
+                    }
+                    list.forEach(function (cat) {
+                        const opt = el('button', 'pr-cat__opt', cat.name);
+                        opt.type = 'button';
+                        opt.setAttribute('role', 'option');
+                        opt.appendChild(el('span', 'pr-mut', ' #' + cat.category_id));
+                        opt.addEventListener('click', function () { pick(cat); });
+                        results.appendChild(opt);
+                    });
+                    results.hidden = false;
+                }
+
+                search.addEventListener('input', function () {
+                    chosenId = 0;
+                    apply.disabled = true;
+                    chosen.textContent = 'Nothing chosen yet';
+                    chosen.className = 'pr-cat__chosen pr-mut';
+                    clearTimeout(timer);
+                    const q = search.value.trim();
+                    if (q.length < 2) { results.hidden = true; return; }
+                    timer = setTimeout(function () {
+                        getJson(gap.search_url + '?q=' + encodeURIComponent(q) + '&limit=12')
+                            .then(function (r) { draw((r && r.categories) || []); })
+                            .catch(function () { draw([]); });
+                    }, 180);
+                });
+
+                const apply = el('button', 'x-btn x-btn--secondary x-btn--sm', 'Apply to all ' + gap.product_ids.length);
+                apply.type = 'button';
+                apply.disabled = true;
+                apply.addEventListener('click', function () {
+                    if (!chosenId) { search.focus(); return; }
+                    apply.disabled = true;
+                    postFix({ kind: 'category', category_id: chosenId, product_ids: gap.product_ids });
+                });
+
+                const field = el('div', 'pr-cat__field');
+                field.appendChild(search);
+                field.appendChild(results);
+                fix.appendChild(field);
+                fix.appendChild(chosen);
+                fix.appendChild(apply);
+            }
             card.appendChild(fix);
+
+            const list = el('ul', 'pr-gap__list');
+            data.category_gaps.forEach(function (row) {
+                const item = el('li', null);
+                item.appendChild(el('span', null, row.name + ' needs ' + row.label + ' '));
+                const link = el('a', 'cc-quiet', 'Open its listing →');
+                link.href = row.listing_url;
+                item.appendChild(link);
+                list.appendChild(item);
+            });
+            card.appendChild(list);
             gaps.appendChild(card);
-        });
+        }
 
         data.product_level.forEach(function (row) {
             const card = gapCard((function () {

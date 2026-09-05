@@ -880,6 +880,7 @@ class ShopeeProductController extends Controller
         $byAttribute = [];
         $needCouriers = [];
         $needCategory = [];
+        $noCategory = [];
         $productLevel = [];
         foreach ($readiness as $pid => $r) {
             if ($r['ready']) {
@@ -896,6 +897,13 @@ class ShopeeProductController extends Controller
                     $needCouriers[] = $pid;
                 } elseif ($code === \App\Integrations\Listings\ListingState::GAP_CATEGORY || $code === \App\Integrations\Listings\ListingState::GAP_SHEET) {
                     $needCategory[$pid] = $gap['label'];
+                    // Batch-fixable (the owner, 2026-09-05): a category chosen in
+                    // the modal is set on every listing that has none, the
+                    // way couriers are. A category whose sheet was never read
+                    // is not overwritten; the fix reads its sheet instead.
+                    if ($code === \App\Integrations\Listings\ListingState::GAP_CATEGORY) {
+                        $noCategory[] = $pid;
+                    }
                 } else {
                     // Image and parcel live on the catalog product: honest
                     // about not being batch-fixable.
@@ -927,6 +935,11 @@ class ShopeeProductController extends Controller
                 'product_ids' => array_values(array_unique($pids)),
             ])->values(),
             'courier_gap' => ['product_ids' => array_values(array_unique($needCouriers)), 'logistics' => $logistics],
+            'category_gap' => [
+                'product_ids' => array_values(array_unique(array_merge($noCategory, array_keys($needCategory)))),
+                'search_url' => route('ext.shopee.products.searchCategories'),
+                'fetched' => \Extensions\shopee\Models\ShopeeCategory::query()->exists(),
+            ],
             'category_gaps' => collect($needCategory)->map(fn ($label, $pid) => $productRef($pid) + ['label' => $label])->values(),
             'product_level' => collect($productLevel)->map(fn ($labels, $pid) => $productRef($pid) + ['labels' => $labels])->values(),
             'fix_url' => route('ext.shopee.products.bulk_fix'),
@@ -944,17 +957,44 @@ class ShopeeProductController extends Controller
     public function bulkFix(Request $request)
     {
         $data = $request->validate([
-            'kind' => 'required|in:attribute,couriers',
+            'kind' => 'required|in:attribute,couriers,category',
             'product_ids' => 'required|array|min:1',
             'product_ids.*' => 'integer|min:1',
             'attribute' => 'required_if:kind,attribute|string|max:191',
             'value' => 'required_if:kind,attribute|string|max:500',
             'logistic_ids' => 'required_if:kind,couriers|array',
             'logistic_ids.*' => 'integer|min:1',
+            'category_id' => 'required_if:kind,category|integer|min:1',
         ]);
 
         $ids = array_map('intval', $data['product_ids']);
         $written = 0;
+
+        if ($data['kind'] === 'category') {
+            // The category fixer (the owner, 2026-09-05): one leaf category set on
+            // every listing that has none, exactly what choosing it on the
+            // listing page writes. A listing that already has a category
+            // keeps it; its sheet is read so the gap can close either way.
+            $categoryId = (int) $data['category_id'];
+            if (! \Extensions\shopee\Models\ShopeeCategory::query()->where('category_id', $categoryId)->where('leaf', 1)->exists()) {
+                return response()->json(['ok' => false, 'message' => 'Choose a category from the list.'], 422);
+            }
+            $groups = app(ShopeeProductGroupController::class);
+            $client = app(ShopeeClient::class);
+            $groups->ensureTemplate($categoryId, $client);
+            foreach ($ids as $pid) {
+                $listing = ShopeeListing::query()->firstOrCreate(['product_id' => $pid]);
+                if ((int) ($listing->shopee_category_id ?? 0) > 0) {
+                    $groups->ensureTemplate((int) $listing->shopee_category_id, $client);
+                    continue;
+                }
+                $listing->shopee_category_id = $categoryId;
+                $listing->save();
+                $written++;
+            }
+
+            return response()->json(['ok' => true, 'written' => $written]);
+        }
 
         foreach ($ids as $pid) {
             $listing = ShopeeListing::query()->firstOrCreate(['product_id' => $pid]);
