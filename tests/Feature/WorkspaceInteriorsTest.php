@@ -1129,18 +1129,13 @@ class WorkspaceInteriorsTest extends TestCase
             ->assertOk()
             ->assertSee('Pedals &amp; Effects', false);
 
-        // The listing's catalog product does not exist, which is a real
-        // state on this page (a Lazada row whose ERP product was deleted) and
-        // the branch the rebuilt cells fall through to. It DOES carry a Lazada
-        // item id, so the row's overflow offers the uploaded-listing actions
-        // and not Upload, exactly as the old menu branched.
+        // The listing's catalog product does not exist. Since 2026-09-05 a
+        // catalog delete removes the listing with it, so the page carries no
+        // queue for such rows any more: it renders, and says nothing of them.
         $this->actingAs($user)->get(route('ext.lazada.products.index'))
             ->assertOk()
-            ->assertSee('778899')
-            ->assertSee('No product')
-            ->assertSee('action="'.e(route('ext.lazada.products.sync_quantity', $listing->id)).'"', false)
-            ->assertSee('action="'.e(route('ext.lazada.products.delete_lazada', $listing->id)).'"', false)
-            ->assertDontSee('action="'.e(route('ext.lazada.products.upload', $listing->id)).'"', false);
+            ->assertDontSee('778899')
+            ->assertDontSee('deleted catalog product');
     }
 
     /**

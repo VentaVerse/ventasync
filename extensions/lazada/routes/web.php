@@ -174,7 +174,6 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
         Route::post('/lazada/{store}/products/{id}/upload', [LazadaProductController::class, 'uploadToLazada'])->whereNumber('id')->name('ext.lazada.products.upload');
         Route::post('/lazada/{store}/products/{id}/delete/lazada', [LazadaProductController::class, 'deleteFromLazada'])->whereNumber('id')->name('ext.lazada.products.delete_lazada');
         Route::post('/lazada/{store}/products/{id}/unlink', [LazadaProductController::class, 'unlink'])->whereNumber('id')->name('ext.lazada.products.unlink');
-        Route::post('/lazada/{store}/products/{id}/remove', [LazadaProductController::class, 'removeFromList'])->whereNumber('id')->name('ext.lazada.products.remove');
         Route::post('/lazada/{store}/products/{id}/sync/lazada-id', [LazadaProductController::class, 'syncLazadaId'])->whereNumber('id')->name('ext.lazada.products.sync_lazada_id');
 
         // Lazada Products — bulk writes

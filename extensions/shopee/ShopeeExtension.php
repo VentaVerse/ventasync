@@ -33,7 +33,7 @@ use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Contracts\ListingStateSource;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class ShopeeExtension extends ExtensionProvider implements ListingStateSource, IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, RootRouteHandler, CredentialRevealer, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider
+class ShopeeExtension extends ExtensionProvider implements ListingStateSource, IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, RootRouteHandler, CredentialRevealer, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -928,5 +928,22 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         }
 
         return 'stored; no handler for ' . ($event->event_type ?? 'this shape') . ' yet';
+    }
+
+    // ── A catalog delete reaches this channel (ProductRemover, 2026-09-05) ──
+
+    public function productPresence(array $productIds): array
+    {
+        return app(\Extensions\shopee\Services\Shopee\ShopeeProductRemover::class)->presence($productIds);
+    }
+
+    public function removeProduct(int $productId): array
+    {
+        return app(\Extensions\shopee\Services\Shopee\ShopeeProductRemover::class)->remove($productId);
+    }
+
+    public function strandedProductIds(): array
+    {
+        return app(\Extensions\shopee\Services\Shopee\ShopeeProductRemover::class)->stranded();
     }
 }

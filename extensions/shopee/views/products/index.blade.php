@@ -89,69 +89,6 @@
 
 
 
-@php $shOrphans = $orphanLinks ?? collect(); @endphp
-@if($shOrphans->isNotEmpty())
-{{-- Orphan links (Phase F, #184): the table below is the catalogue, so a
-     link whose catalog product was deleted has no row to live on - but it
-     may still be live on Shopee, taking orders for a product this system
-     no longer knows. The same queue Lazada's index carries. --}}
-<section class="fm-section cc-unmatched">
-    <div class="fm-section__head">
-        <h2 class="fm-section__title">{{ number_format($shOrphans->count()) }} {{ $shOrphans->count() === 1 ? 'listing points' : 'listings point' }} at a deleted catalog product</h2>
-    </div>
-    <p class="fm-section__note">Each of these was linked to a catalog product that no longer exists. If one is still live on Shopee, delete it there or unlink it here.</p>
-
-    <x-ui.table>
-        <x-slot:head>
-            <tr>
-                <th scope="col" class="cc-col-chanid">Shopee item</th>
-                <th scope="col" class="cc-col-link">Catalog product</th>
-                <th scope="col" class="cc-col-sync">Listing</th>
-                <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
-            </tr>
-        </x-slot:head>
-
-        @foreach($shOrphans as $opid => $links)
-            @php
-                $oState = ($orphanStates ?? [])[(int) $opid] ?? null;
-                $oItems = $links->pluck('shopee_item_id')->unique()->values();
-            @endphp
-            <tr>
-                <td class="cc-col-chanid" data-label="Shopee item">
-                    <span class="x-num">{{ $oItems->implode(', ') }}</span>
-                </td>
-                <td class="cc-col-link" data-label="Catalog product">
-                    <span class="x-cell-muted">No product (was #{{ $opid }})</span>
-                </td>
-                <td class="cc-col-sync" data-label="Listing">
-                    @if($oState && $oState->state !== \App\Integrations\Listings\ListingState::UNKNOWN && $oState->state !== \App\Integrations\Listings\ListingState::NOT_LISTED)
-                        <x-ui.badge :tone="$oState->tone()">{{ $oState->label() }}</x-ui.badge>
-                    @else
-                        <x-ui.badge tone="neutral">Not checked yet</x-ui.badge>
-                    @endif
-                </td>
-                <td class="x-td-actions">
-                    @if($canManageShopee)
-                    <x-ui.menu label="Orphan link {{ $oItems->first() }} actions">
-                        <form method="POST" action="{{ route('ext.shopee.products.unlink', $opid) }}" data-slow-action
-                              data-confirm="Unlink Shopee item {{ $oItems->first() }}? Only the link is removed. The Shopee listing stays up and syncing stops." data-confirm-verb="Unlink">
-                            @csrf
-                            <button type="submit" class="x-menu__item x-menu__item--danger">Unlink from Shopee</button>
-                        </form>
-                        <form method="POST" action="{{ route('ext.shopee.products.delete', $opid) }}" data-slow-action
-                              data-confirm="Delete Shopee item {{ $oItems->first() }} from Shopee? The listing is removed at the marketplace and this cannot be undone." data-confirm-verb="Delete from Shopee">
-                            @csrf
-                            <button type="submit" class="x-menu__item x-menu__item--danger">Delete from Shopee</button>
-                        </form>
-                    </x-ui.menu>
-                    @endif
-                </td>
-            </tr>
-        @endforeach
-    </x-ui.table>
-</section>
-@endif
-
 {{-- The seller center's tabs, answered by Shopee on this page load
      (quest 1 slice 2). All is the whole catalog view; the other four
      narrow the table to the items Shopee holds in that status right now.

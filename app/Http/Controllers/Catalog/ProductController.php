@@ -336,7 +336,10 @@ if ($q !== '') {
         $row->option_rows = ($optionRowsByProduct->get((int) $row->product_id) ?? collect())->all();
     }
 
-    return view('catalog.products.index', compact('products', 'q', 'sort', 'dir', 'status'));
+    // What a delete would also remove, per row, for the confirm sheet.
+    $channelNote = app(\App\Services\Catalog\ProductDeleter::class)->notes($pageIds);
+
+    return view('catalog.products.index', compact('products', 'q', 'sort', 'dir', 'status', 'channelNote'));
 }
 
 
@@ -1148,7 +1151,11 @@ public function store(Request $request)
 
         $currencies = \App\Models\Currency::where('status', 1)->orderBy('code')->get();
 
-        return view('catalog.products.edit', compact('product', 'currentCategoryId', 'categoryName', 'currentCategories', 'manufacturerName', 'existingOptions', 'existingCombinations', 'productImages', 'returnUrl', 'currencies'));
+        // What a delete would also remove, for the confirm sheet.
+        $deleter = app(\App\Services\Catalog\ProductDeleter::class);
+        $channelNote = $deleter->note($deleter->presence([(int) $product->product_id])[(int) $product->product_id] ?? []);
+
+        return view('catalog.products.edit', compact('product', 'currentCategoryId', 'categoryName', 'currentCategories', 'manufacturerName', 'existingOptions', 'existingCombinations', 'productImages', 'returnUrl', 'currencies', 'channelNote'));
     }
 
     public function update(Request $request, $id)
@@ -1435,24 +1442,18 @@ public function store(Request $request)
 
     public function destroy($id)
     {
-        $pfx = config('catalog.prefix');
+        /* Channels first, catalog last (the owner, 2026-09-05): the product is
+         * removed from every store that holds it, and a store that refuses
+         * keeps the catalog row too. See App\Services\Catalog\ProductDeleter. */
+        $deleter = app(\App\Services\Catalog\ProductDeleter::class);
+        $result = $deleter->delete([(int) $id]);
+        $flash = $deleter->flash($result, 1);
 
-        $name = DB::table($pfx.'product_description')->where('product_id', (int) $id)->value('name');
+        if ($result['refused'] !== []) {
+            return redirect()->back()->with($flash['tone'], $flash['text']);
+        }
 
-        DB::transaction(function () use ($id, $pfx) {
-            DB::table($pfx.'product_to_category')->where('product_id', (int) $id)->delete();
-            DB::table($pfx.'product_description')->where('product_id', (int) $id)->delete();
-            DB::table($pfx.'product')->where('product_id', (int) $id)->delete();
-
-            // Clean up warehouse inventory
-            if (class_exists(\Extensions\warehousing\Models\WarehouseInventory::class)) {
-                \Extensions\warehousing\Models\WarehouseInventory::where('product_id', (int) $id)->delete();
-            }
-        });
-
-        ActivityLogger::log('deleted', 'Product', (int) $id, $name);
-
-        return redirect()->route('products.index')->with('status','Saved');
+        return redirect()->route('products.index')->with($flash['tone'], $flash['text']);
     }
 
     /**
@@ -1505,18 +1506,11 @@ public function store(Request $request)
         $pfx = config('catalog.prefix');
 
         if ($action === 'delete') {
-            DB::transaction(function () use ($ids, $pfx) {
-                DB::table($pfx.'product_to_category')->whereIn('product_id', $ids)->delete();
-                DB::table($pfx.'product_description')->whereIn('product_id', $ids)->delete();
-                DB::table($pfx.'product')->whereIn('product_id', $ids)->delete();
+            // Channels first, catalog last, per product (the owner, 2026-09-05).
+            $deleter = app(\App\Services\Catalog\ProductDeleter::class);
+            $flash = $deleter->flash($deleter->delete($ids), count($ids));
 
-                // Clean up warehouse inventory
-                if (class_exists(\Extensions\warehousing\Models\WarehouseInventory::class)) {
-                    \Extensions\warehousing\Models\WarehouseInventory::whereIn('product_id', $ids)->delete();
-                }
-            });
-
-            return redirect()->route('products.index')->with('status', 'Deleted selected products.');
+            return redirect()->route('products.index')->with($flash['tone'], $flash['text']);
         }
 
         $newStatus = $action === 'enable' ? 1 : 0;

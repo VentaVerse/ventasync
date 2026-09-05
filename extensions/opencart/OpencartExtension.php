@@ -33,7 +33,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class OpencartExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, \App\Integrations\Contracts\StoreOptionsProvider
+class OpencartExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover
 {
     protected string $id = 'opencart';
 
@@ -491,5 +491,22 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
     public function credentialManagePermission(): string
     {
         return 'manage_opencart/settings';
+    }
+
+    // ── A catalog delete reaches this channel (ProductRemover, 2026-09-05) ──
+
+    public function productPresence(array $productIds): array
+    {
+        return app(\Extensions\opencart\Services\OpenCart\OpenCartProductRemover::class)->presence($productIds);
+    }
+
+    public function removeProduct(int $productId): array
+    {
+        return app(\Extensions\opencart\Services\OpenCart\OpenCartProductRemover::class)->remove($productId);
+    }
+
+    public function strandedProductIds(): array
+    {
+        return app(\Extensions\opencart\Services\OpenCart\OpenCartProductRemover::class)->stranded();
     }
 }

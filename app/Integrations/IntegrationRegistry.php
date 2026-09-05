@@ -491,6 +491,18 @@ class IntegrationRegistry
     }
 
     /**
+     * The channels a catalog delete reaches first (the owner, 2026-09-05):
+     * each removes the product from its stores before the catalog row
+     * goes. A disabled channel is skipped like everywhere else.
+     *
+     * @return \App\Integrations\Contracts\ProductRemover[]
+     */
+    public function productRemovers(): array
+    {
+        return $this->providersImplementing(\App\Integrations\Contracts\ProductRemover::class);
+    }
+
+    /**
      * The channel answering on POST /webhooks/{segment}, or null. Passes
      * the same enable/licence gates as every other contributor: a
      * disabled channel's endpoint answers 404, exactly like its pages.

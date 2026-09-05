@@ -425,24 +425,6 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             ->whereNull('unlinked_at')->whereNotNull('product_id')
             ->distinct()->count('product_id');
 
-        /* Orphan listings (Phase C, #184): rows whose catalog product no
-         * longer exists. The catalogue-first table cannot carry them -
-         * there is no product row to hang them on - and hiding them would
-         * hide money possibly still sitting on Lazada, so they surface as
-         * their own short queue above the table, like unmatched items. */
-        $orphanListings = LazadaProduct::query()
-            ->where(function ($sub) use ($pfx) {
-                $sub->whereNull('product_id')
-                    ->orWhereNotExists(function ($qq) use ($pfx) {
-                        $qq->select(DB::raw(1))
-                            ->from($pfx . 'product as op')
-                            ->whereColumn('op.product_id', 'lazada_products.product_id');
-                    });
-            })
-            ->orderByDesc('id')
-            ->get();
-        $orphanStates = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)
-            ->forProducts($orphanListings->pluck('product_id')->filter()->map(fn ($v) => (int) $v)->all());
 
 
         $allManufacturers = DB::table($pfx . 'manufacturer')
@@ -468,8 +450,6 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'erpStatus' => $erpStatus,
             'groupFilter' => $groupFilter,
             'paginator' => $products,
-            'orphanListings' => $orphanListings,
-            'orphanStates' => $orphanStates,
             'lazadaTab' => $lazadaTab,
             'liveCounts' => $liveCounts,
             'liveTabError' => $liveTabError,
@@ -1027,28 +1007,6 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $label = $itemId ? "Lazada item {$itemId}" : "listing #{$id}";
 
         return redirect()->back()->with('status', "Unlinked ERP product #{$productId} from {$label}.");
-    }
-
-    // ── Remove unlinked listing from local list ─────────────────────
-
-    public function removeFromList(int $id)
-    {
-        $listing = LazadaProduct::query()->findOrFail($id);
-
-        if (!$listing->unlinked_at) {
-            return redirect()->back()->with('error', 'Cannot remove a linked product. Unlink it first.');
-        }
-
-        $itemId = $listing->lazada_item_id;
-
-        // Delete variant mappings and the listing record locally — does NOT touch Lazada
-        $listing->variants()->delete();
-        $listing->groups()->detach();
-        $listing->delete();
-
-        $label = $itemId ? "Lazada item {$itemId}" : "listing #{$id}";
-
-        return redirect()->back()->with('status', "Removed {$label} from the local list. The Lazada listing was not affected.");
     }
 
     /**

@@ -421,24 +421,6 @@ class ShopeeListingStateTest extends TestCase
             ->assertOk()->assertSee('Unlist from Shopee');
     }
 
-    /** A link whose catalog product was deleted surfaces as a queue, never vanishes (Phase F). */
-    public function test_an_orphan_link_is_visible_with_its_own_queue(): void
-    {
-        ShopeeProductLink::create(['product_id' => 424242, 'shopee_item_id' => 999001, 'sku' => 'GONE-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
-
-        $group = \App\Models\Admin\UserGroup::create(['name' => 'Orphan watchers']);
-        $group->permissions()->attach(
-            \App\Models\Admin\Permission::whereIn('key', ['view_shopee/product', 'manage_shopee/product'])->pluck('id')->all()
-        );
-        $user = \App\Models\User::factory()->create(['user_group_id' => $group->id]);
-
-        $page = $this->actingAs($user)->get(route('ext.shopee.products.index'))->assertOk();
-        $page->assertSee('points at a deleted catalog product');
-        $page->assertSee('999001');
-        $page->assertSee('No product (was #424242)');
-        $page->assertSee('action="' . e(route('ext.shopee.products.unlink', 424242)) . '"', false);
-    }
-
     public function test_shopee_answers_the_core_contract_every_channel_will_share(): void
     {
         $pid = $this->product('VIACORE');

@@ -106,7 +106,7 @@
                      overflow menu and the shared confirm dialog, and drives a
                      form that lives outside this one (forms cannot nest). --}}
                 <button type="button" class="x-menu__item x-menu__item--danger"
-                        data-confirm="Delete {{ $product->name }}? This cannot be undone."
+                        data-confirm="Delete {{ $product->name }}? This cannot be undone.{{ ($channelNote ?? '') !== '' ? ' ' . $channelNote : '' }}"
                         data-confirm-submit="product-delete-form">Delete product</button>
             </x-ui.menu>
         </div>

@@ -951,11 +951,6 @@
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/{store}/products/{id}/remove",
-        "name": "ext.lazada.products.remove"
-    },
-    {
-        "method": "POST",
         "uri": "channels/lazada/{store}/products/{id}/remove-from-store",
         "name": "ext.lazada.products.remove_from_store"
     },

@@ -131,7 +131,7 @@
                          with :data-confirm so it follows the selection. --}}
                     <button type="button" class="bl-btn bl-btn-sm x-btn--danger"
                             @click="$refs.bulkAction.value = 'delete'"
-                            :data-confirm="'Delete ' + selected.length + (selected.length === 1 ? ' product' : ' products') + '? This cannot be undone.'"
+                            :data-confirm="'Delete ' + selected.length + (selected.length === 1 ? ' product' : ' products') + '? This cannot be undone. Anything listed on a store is deleted there too.'"
                             data-confirm-submit="product-bulk-form">Delete</button>
                 </div>
             </div>
@@ -273,7 +273,7 @@
                                         @if($canManageProducts)
                                             <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit</a>
                                             <button type="button" class="x-menu__item x-menu__item--danger"
-                                                    data-confirm="Delete {{ $p->name }}? This cannot be undone."
+                                                    data-confirm="Delete {{ $p->name }}? This cannot be undone.{{ (($channelNote ?? [])[(int) $p->product_id] ?? '') !== '' ? ' ' . $channelNote[(int) $p->product_id] : '' }}"
                                                     data-confirm-submit="prod-del-{{ $p->product_id }}">Delete</button>
                                         @endif
                                     </x-ui.menu>

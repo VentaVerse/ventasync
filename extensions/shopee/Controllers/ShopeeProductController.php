@@ -312,22 +312,6 @@ class ShopeeProductController extends Controller
         $listingStates = app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)
             ->forProducts(array_map('intval', $pageIds));
 
-        // Load unmatched items
-        /* Orphan links (Phase F, #184): rows whose catalog product no
-         * longer exists. The catalogue-first table cannot carry them and
-         * hiding them would hide money possibly still sitting on Shopee -
-         * the same queue Lazada's index has had since Phase C. */
-        $orphanLinks = ShopeeProductLink::query()
-            ->whereNotExists(function ($q) use ($pfx) {
-                $q->select(DB::raw(1))
-                    ->from($pfx . 'product as op')
-                    ->whereColumn('op.product_id', 'shopee_product_links.product_id');
-            })
-            ->orderByDesc('id')
-            ->get()
-            ->groupBy(fn ($l) => (int) $l->product_id);
-        $orphanStates = app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)
-            ->forProducts($orphanLinks->keys()->map(fn ($v) => (int) $v)->all());
 
         // Manufacturer list for filter dropdown
         $allManufacturers = DB::table($pfx . 'manufacturer')
@@ -373,8 +357,6 @@ class ShopeeProductController extends Controller
             'allManufacturers' => $allManufacturers,
             'allGroups' => $allGroups,
             'groupsByProductId' => $pageGroupMap,
-            'orphanLinks' => $orphanLinks,
-            'orphanStates' => $orphanStates,
             'optionRowsByProductId' => $optionRowsByProductId,
             'shopeeTab' => $shopeeTab,
             'liveCounts' => $liveCounts,

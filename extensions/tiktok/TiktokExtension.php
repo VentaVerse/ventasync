@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, \App\Integrations\Contracts\ListingStateSource, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider
+class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, \App\Integrations\Contracts\ListingStateSource, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -782,5 +782,22 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
         }
 
         return 'stored; no handler for ' . ($event->event_type ?? 'this shape') . ' yet';
+    }
+
+    // ── A catalog delete reaches this channel (ProductRemover, 2026-09-05) ──
+
+    public function productPresence(array $productIds): array
+    {
+        return app(\Extensions\tiktok\Services\TikTok\TikTokProductRemover::class)->presence($productIds);
+    }
+
+    public function removeProduct(int $productId): array
+    {
+        return app(\Extensions\tiktok\Services\TikTok\TikTokProductRemover::class)->remove($productId);
+    }
+
+    public function strandedProductIds(): array
+    {
+        return app(\Extensions\tiktok\Services\TikTok\TikTokProductRemover::class)->stranded();
     }
 }
