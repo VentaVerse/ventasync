@@ -98,10 +98,39 @@
      data-tab-storage-key="tt-active-tab"
      data-default-tab="">
 
+{{-- The head names the store and how it stands (audit, 2026-09-05, after
+     Venta's page): the environment control and the Active pill live here
+     because every card below answers to them. --}}
 <div class="x-list-head">
     <div>
         <h1 class="x-page-title">Settings</h1>
-        <p class="x-page-sub">Credentials, status mapping and the API record for this TikTok Shop.</p>
+        <p class="x-page-sub">{{ ($setting->store_name ?? '') !== '' ? $setting->store_name : 'This store' }} on TikTok Shop, {{ $isSandbox ? 'sandbox' : 'production' }}.</p>
+    </div>
+    <div class="cs-head-state">
+        @if($canManageTiktok)
+            {{-- Wire unchanged: one hidden `mode` field posted to toggle-mode. --}}
+            <form method="POST" action="{{ route('ext.tiktok.toggle_mode') }}" data-cs-env-form class="cs-head-state__env">
+                @csrf
+                <input type="hidden" name="mode" value="{{ $currentMode }}" data-cs-env-input>
+                <div class="x-segment" role="tablist" aria-label="TikTok environment">
+                    <button type="button" class="x-segment__item {{ $isSandbox ? '' : 'is-active' }}"
+                            role="tab" aria-selected="{{ $isSandbox ? 'false' : 'true' }}"
+                            data-cs-env-option="live">Production</button>
+                    <button type="button" class="x-segment__item {{ $isSandbox ? 'is-active' : '' }}"
+                            role="tab" aria-selected="{{ $isSandbox ? 'true' : 'false' }}"
+                            data-cs-env-option="sandbox">Sandbox</button>
+                </div>
+            </form>
+        @else
+            <span class="cs-env__label">{{ $isSandbox ? 'Sandbox' : 'Production' }}</span>
+        @endif
+        {{-- bl-hint--end: the bubble opens leftward, this sits at the page's right edge. --}}
+        <x-ui.hint class="cs-env__hint bl-hint--end" label="About the environment">Every sync, push and order fetch uses the credentials of the environment selected here. It is also what the Authorise button sends, so switch first and authorise second.</x-ui.hint>
+        @if($setting->enabled ?? true)
+            <x-ui.badge tone="success">Active</x-ui.badge>
+        @else
+            <x-ui.badge tone="neutral">Paused</x-ui.badge>
+        @endif
     </div>
 </div>
 
@@ -124,95 +153,65 @@
     @include('partials.channel-last-result', ['result' => $result, 'channel' => 'TikTok Shop', 'mode' => 'note'])
 @endif
 
+@if($canManageTiktok)
+    @include('partials.channel-delete-store', [
+        'action' => route('ext.tiktok.stores.destroy'),
+        'storeName' => $setting->store_name ?? '',
+        'channelLabel' => 'TikTok',
+    ])
+@endif
+
 <div id="tt-tab-connection" class="cs-panel" @if($csSection !== 'connection') hidden @endif>
 
+    {{-- Proof of life (audit, 2026-09-05): when the store last pulled and
+         pushed, from its own timestamps, the way Venta's page opens. A
+         paused store has no run to show. --}}
+    @if(($setting->enabled ?? true) && ($setting->id ?? null))
     <section class="fm-section">
         <div class="fm-section__head">
-            <h2 class="fm-section__title">Environment</h2>
+            <h2 class="fm-section__title">Last run</h2>
         </div>
-
-        <div class="cs-env">
-            @if($canManageTiktok)
-                {{-- Wire unchanged: one hidden `mode` field posted to
-                     toggle-mode, exactly as the old knob did. What changed is
-                     that the control names both environments instead of being
-                     an on/off switch you had to read the label to decode, and
-                     it no longer paints itself green and grey with inline
-                     styles. --}}
-                <form method="POST" action="{{ route('ext.tiktok.toggle_mode') }}" data-cs-env-form>
-                    @csrf
-                    <input type="hidden" name="mode" value="{{ $currentMode }}" data-cs-env-input>
-                    <div class="x-segment" role="tablist" aria-label="TikTok environment">
-                        <button type="button" class="x-segment__item {{ $isSandbox ? '' : 'is-active' }}"
-                                role="tab" aria-selected="{{ $isSandbox ? 'false' : 'true' }}"
-                                data-cs-env-option="live">Production</button>
-                        <button type="button" class="x-segment__item {{ $isSandbox ? 'is-active' : '' }}"
-                                role="tab" aria-selected="{{ $isSandbox ? 'true' : 'false' }}"
-                                data-cs-env-option="sandbox">Sandbox</button>
-                    </div>
-                </form>
-            @else
-                <span class="cs-env__label">{{ $isSandbox ? 'Sandbox' : 'Production' }}</span>
-            @endif
-
-            <x-ui.hint class="cs-env__hint" label="About the environment">Every sync, push and order fetch uses the credentials of the environment selected here. It is also what the Authorise button sends, so switch first and authorise second.</x-ui.hint>
-        </div>
-    </section>
-
-    {{-- ---- THIS STORE ---------------------------------------------- --}}
-    {{-- The store's own name and switch (multi-store), outside both
-         environment panels: they belong to the store, not to a set of
-         credentials, so they show whichever environment the store stands in
-         (the owner, 2026-09-05). --}}
-    <section class="fm-section">
-        <div class="fm-section__head">
-            <h2 class="fm-section__title">This store</h2>
-            @if($canManageTiktok)
-                <div class="fm-section__aside">
-                    {{-- Hard delete, no restore: the sheet asks for the name. --}}
-                    <x-ui.button type="button" size="sm" variant="ghost" class="cs-delete__open" data-delete-open>Delete this store</x-ui.button>
+        <div class="cs-stats">
+            @foreach([
+                'Orders pulled' => $setting->last_order_sync_at ?? null,
+                'Stock pushed' => $setting->last_stock_push_at ?? null,
+            ] as $label => $at)
+                <div class="cs-stat">
+                    <span class="cs-stat__k">{{ $label }}</span>
+                    <span class="cs-stat__v">{{ $at ? \Carbon\Carbon::parse($at)->diffForHumans() : 'Never' }}</span>
                 </div>
-            @endif
-        </div>
-        @if($canManageTiktok)
-            @include('partials.channel-delete-store', [
-                'action' => route('ext.tiktok.stores.destroy'),
-                'storeName' => $setting->store_name ?? '',
-                'channelLabel' => 'TikTok',
-            ])
-        @endif
-        {{-- One Save for the store and its credentials (the owner, 2026-09-05):
-             these fields belong to the credentials form of the environment
-             the store stands in, through the form attribute, so the section
-             carries no button of its own. --}}
-        @php $csStoreForm = $isSandbox ? 'tt-save-sandbox' : 'tt-save-live'; @endphp
-        <div class="fm-fields">
-            <x-ui.field label="Store name" for="tt-store-name" name="store_name" :required="true" wide
-                        hint="How this store is named across the ERP - the sidebar, the fulfilment tabs, the channels board.">
-                <x-ui.input id="tt-store-name" name="store_name" type="text" autocomplete="off" :disabled="!$canManageTiktok" :form="$csStoreForm"
-                            value="{{ old('store_name', $setting->store_name ?? '') }}" />
-            </x-ui.field>
-
-            {{-- The system's one switch (.fm-switch), not a checkbox with
-                 a caption: the field's label names the state, the track
-                 shows it. --}}
-            <x-ui.field label="Active" for="tt-enabled" name="enabled" wide
-                        hint="An active store syncs on the crons and shows its tabs. Switch off to pause the store without losing anything.">
-                <input type="hidden" name="enabled" value="0" form="{{ $csStoreForm }}">
-                <label class="fm-switch cs-store-switch">
-                    <input type="checkbox" class="fm-switch__input" id="tt-enabled" name="enabled" value="1" form="{{ $csStoreForm }}" @checked((bool) ($setting->enabled ?? true)) @disabled(!$canManageTiktok)>
-                    <span class="fm-switch__track" aria-hidden="true"></span>
-                </label>
-            </x-ui.field>
+            @endforeach
         </div>
     </section>
+    @endif
 
     {{-- ---- PRODUCTION ---------------------------------------------- --}}
-    <div class="cs-grid" data-cs-env-panel="live" @if($isSandbox) hidden @endif>
+    @php $csCategories = \Extensions\tiktok\Models\TikTokCategory::query()->count(); @endphp
+    <div class="cs-env-panel" data-cs-env-panel="live" @if($isSandbox) hidden @endif>
+    @include('partials.channel-connect-flow', [
+        'canManage' => $canManageTiktok,
+        'steps' => [
+            ['title' => 'Save the keys', 'tone' => $hasCredentials ? 'done' : 'todo',
+             'state' => $hasCredentials ? 'Production keys saved' : 'Fill in the production keys below and save'],
+            ['title' => 'Authorise with TikTok Shop', 'tone' => $hasToken && ! $tokenExpired ? 'done' : ($hasToken ? 'failed' : 'todo'),
+             'hint' => 'Opens TikTok Shop sign-in in a new tab, with the keys of the environment selected above. After you grant access TikTok sends you back with an auth code, and the code is exchanged for a token on its own.',
+             'button' => ['label' => 'Open TikTok Shop authorisation', 'newTab' => true, 'variant' => $hasToken && ! $tokenExpired ? 'secondary' : 'primary', 'href' => route('ext.tiktok.authorize', ['store' => $setting->id ?? null])],
+             'state' => $hasToken && ! $tokenExpired ? ('Token active' . (($setting->expires_at ?? null) ? ', expires ' . \Carbon\Carbon::parse($setting->expires_at)->diffForHumans() : '')) : ($hasToken ? 'Token expired: authorise again, or refresh it by hand' : 'No token yet')],
+            ['title' => 'Fetch the shop', 'tone' => $hasShop ? 'done' : 'todo',
+             'hint' => 'Saves the shop cipher, which nearly every TikTok call needs. Without it products and orders will not sync even with a valid token.',
+             'button' => ['label' => 'Fetch shop', 'variant' => $hasShop ? 'secondary' : 'primary', 'post' => route('ext.tiktok.shops')],
+             'state' => $hasShop ? ('Shop ' . ($setting->shop_name ?: ($setting->shop_id ?? 'fetched')) . (($setting->region ?? '') !== '' ? ', ' . strtoupper($setting->region) : '')) : 'No shop fetched yet'],
+            ['title' => 'Fetch the categories', 'tone' => $csCategories > 0 ? 'done' : 'todo',
+             'hint' => 'Every listing needs a TikTok category. The list is read on Catalog > Categories and kept until you fetch it again.',
+             'button' => ['label' => 'Open Categories', 'variant' => $csCategories > 0 ? 'secondary' : 'primary', 'href' => route('ext.tiktok.categories.index')],
+             'state' => $csCategories > 0 ? number_format($csCategories) . ' categories on file' : 'Nothing fetched yet'],
+        ],
+    ])
+    <div class="cs-grid">
 
         <section class="fm-section">
             <div class="fm-section__head">
-                <h2 class="fm-section__title">Production credentials</h2>
+                <h2 class="fm-section__title">This store</h2>
                 <div class="fm-section__aside">
                     @if($hasCredentials)
                         <x-ui.badge tone="success">Configured</x-ui.badge>
@@ -227,6 +226,21 @@
                 <input type="hidden" name="env" value="live">
 
                 <div class="fm-fields">
+                    <x-ui.field label="Store name" for="tt-store-name" name="store_name" :required="true" wide
+                                hint="How this store is named across the ERP - the sidebar, the fulfilment tabs, the channels board.">
+                        <x-ui.input id="tt-store-name" name="store_name" type="text" autocomplete="off" :disabled="!$canManageTiktok"
+                                    value="{{ old('store_name', $setting->store_name ?? '') }}" />
+                    </x-ui.field>
+
+                    <x-ui.field label="Active" for="tt-enabled" name="enabled" wide
+                                hint="An active store syncs on the crons and shows its tabs. Switch off to pause the store without losing anything.">
+                        <input type="hidden" name="enabled" value="0">
+                        <label class="fm-switch cs-store-switch">
+                            <input type="checkbox" class="fm-switch__input" id="tt-enabled" name="enabled" value="1" @checked((bool) ($setting->enabled ?? true)) @disabled(!$canManageTiktok)>
+                            <span class="fm-switch__track" aria-hidden="true"></span>
+                        </label>
+                    </x-ui.field>
+
                     <x-ui.field label="App Key" for="tt-app-key" name="app_key" wide
                                 hint="The app identifier from TikTok Shop Partner Center. Not a secret, so it is shown in full.">
                         <x-ui.input id="tt-app-key" name="app_key" class="fm-input--num" type="text" autocomplete="off" :disabled="!$canManageTiktok"
@@ -254,8 +268,7 @@
 
                 @if($canManageTiktok)
                 <div class="cs-actions">
-                    <x-ui.button type="submit" variant="primary">Save production settings</x-ui.button>
-                    <span class="cs-actions__note">Leave a masked field untouched to keep what is already stored. Saving also switches the shop to production.</span>
+                    <x-ui.button type="submit" variant="primary">Save connection</x-ui.button>
                 </div>
                 @endif
             </form>
@@ -263,7 +276,7 @@
 
         <section class="fm-section">
             <div class="fm-section__head">
-                <h2 class="fm-section__title">Production authorisation</h2>
+                <h2 class="fm-section__title">By hand</h2>
             </div>
 
             <div class="cs-state">
@@ -274,30 +287,19 @@
                     @endif
                 @elseif($hasToken && $tokenExpired)
                     <x-ui.badge tone="danger">Token expired</x-ui.badge>
-                    <span class="cs-state__note">Use step 4 to renew it without authorising again.</span>
+                    <span class="cs-state__note">Refresh it below, or authorise again above.</span>
                 @else
                     <x-ui.badge tone="warning">No token</x-ui.badge>
-                    <span class="cs-state__note">Work through the four steps below.</span>
+                    <span class="cs-state__note">Authorise above.</span>
                 @endif
             </div>
 
             @if($canManageTiktok)
             <div class="cs-steps">
-                <div class="cs-step">
-                    <span class="cs-step__n">1</span>
-                    <div class="cs-step__body">
-                        <span class="cs-step__title">Authorise with TikTok Shop</span>
-                        <div>
-                            <x-ui.button size="sm" :href="route('ext.tiktok.authorize', ['store' => $setting->id ?? null])" target="_blank" rel="noopener">Open TikTok Shop authorisation</x-ui.button>
-                        </div>
-                        <p class="cs-step__note">Opens TikTok Shop sign-in in a new tab, using whichever environment is selected above. After you grant access TikTok sends you back to the callback URL with an auth code, and the code is exchanged for a token automatically.</p>
-                    </div>
-                </div>
 
                 <div class="cs-step">
-                    <span class="cs-step__n">2</span>
                     <div class="cs-step__body">
-                        <span class="cs-step__title">Exchange an auth code by hand</span>
+                        <span class="cs-step__title">Exchange an auth code by hand <x-ui.hint label="About this step">Only needed when the automatic exchange did not run, for example if you copied the redirect URL out of the address bar.</x-ui.hint></span>
                         <form method="POST" action="{{ route('ext.tiktok.token_get') }}" class="cs-exchange">
                             @csrf
                             <x-ui.field label="Auth code" for="tt-code" name="code">
@@ -305,21 +307,13 @@
                             </x-ui.field>
                             <x-ui.button type="submit" size="sm">Exchange</x-ui.button>
                         </form>
-                        <p class="cs-step__note">Only needed when the automatic exchange did not run, for example if you copied the redirect URL out of the address bar.</p>
                     </div>
                 </div>
 
                 <div class="cs-step">
-                    <span class="cs-step__n">3</span>
                     <div class="cs-step__body">
-                        <span class="cs-step__title">Fetch the authorised shop</span>
-                        <form method="POST" action="{{ route('ext.tiktok.shops') }}">
-                            @csrf
-                            <x-ui.button type="submit" size="sm">Fetch shop</x-ui.button>
-                        </form>
-                        <p class="cs-step__note">Saves the shop cipher, which nearly every TikTok API call needs. Without it products and orders will not sync even with a valid token.</p>
-
                         @if($hasShop)
+                        <span class="cs-step__title">Authorised shop</span>
                             <dl class="cs-facts">
                                 <div class="cs-fact"><dt>Shop</dt><dd>{{ $setting->shop_name ?? 'Not named' }}</dd></div>
                                 <div class="cs-fact"><dt>Shop ID</dt><dd class="cs-fact__mono">{{ $setting->shop_id ?? 'Not set' }}</dd></div>
@@ -333,34 +327,62 @@
                 </div>
 
                 <div class="cs-step">
-                    <span class="cs-step__n">4</span>
                     <div class="cs-step__body">
-                        <span class="cs-step__title">Refresh an expired token</span>
+                        <span class="cs-step__title">Refresh an expired token <x-ui.hint label="About this step">TikTok access tokens last about seven days. The scheduled job renews them, so this is here for when that job has not run.</x-ui.hint></span>
                         <form method="POST" action="{{ route('ext.tiktok.token_refresh') }}">
                             @csrf
                             <x-ui.button type="submit" size="sm">Refresh access token</x-ui.button>
                         </form>
-                        <p class="cs-step__note">TikTok access tokens last about seven days. The scheduled job renews them, so this is here for when that job has not run.</p>
                     </div>
                 </div>
+            </div>
+
+            {{-- The one irreversible thing on the page sits last, in its own
+                 block, behind the typed-name sheet (audit, 2026-09-05). --}}
+            <div class="cs-danger">
+                <div>
+                    <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in the ERP goes with it: listings, groups, TikTok orders and returns. Sales already imported stay under its name. There is no undo.</x-ui.hint></span>
+                </div>
+                <x-ui.button type="button" variant="danger" size="sm" data-delete-open>Delete this store</x-ui.button>
             </div>
             @else
             <p class="cs-step__note">Authorising, fetching the shop and refreshing tokens need the TikTok manage permission.</p>
             @endif
         </section>
     </div>
+    </div>
 
     {{-- ---- SANDBOX ------------------------------------------------- --}}
-    <div class="cs-grid" data-cs-env-panel="sandbox" @unless($isSandbox) hidden @endunless>
+    <div class="cs-env-panel" data-cs-env-panel="sandbox" @unless($isSandbox) hidden @endunless>
+    @include('partials.channel-connect-flow', [
+        'canManage' => $canManageTiktok,
+        'steps' => [
+            ['title' => 'Save the keys', 'tone' => $hasSandboxCredentials ? 'done' : 'todo',
+             'state' => $hasSandboxCredentials ? 'Sandbox keys saved' : 'Fill in the sandbox keys below and save'],
+            ['title' => 'Authorise with TikTok Shop', 'tone' => $hasSandboxToken && ! $sandboxTokenExpired ? 'done' : ($hasSandboxToken ? 'failed' : 'todo'),
+             'hint' => 'Opens TikTok Shop sign-in in a new tab, with the keys of the environment selected above. After you grant access TikTok sends you back with an auth code, and the code is exchanged for a token on its own.',
+             'button' => ['label' => 'Open sandbox authorisation', 'newTab' => true, 'variant' => $hasSandboxToken && ! $sandboxTokenExpired ? 'secondary' : 'primary', 'href' => route('ext.tiktok.authorize', ['store' => $setting->id ?? null])],
+             'state' => $hasSandboxToken && ! $sandboxTokenExpired ? ('Token active' . (($setting->sandbox_expires_at ?? null) ? ', expires ' . \Carbon\Carbon::parse($setting->sandbox_expires_at)->diffForHumans() : '')) : ($hasSandboxToken ? 'Token expired: authorise again, or refresh it by hand' : 'No token yet')],
+            ['title' => 'Fetch the shop', 'tone' => $hasShop ? 'done' : 'todo',
+             'hint' => 'Saves the shop cipher, which nearly every TikTok call needs. Without it products and orders will not sync even with a valid token.',
+             'button' => ['label' => 'Fetch shop', 'variant' => $hasShop ? 'secondary' : 'primary', 'post' => route('ext.tiktok.shops')],
+             'state' => $hasShop ? ('Shop ' . ($setting->shop_name ?: ($setting->shop_id ?? 'fetched')) . (($setting->region ?? '') !== '' ? ', ' . strtoupper($setting->region) : '')) : 'No shop fetched yet'],
+            ['title' => 'Fetch the categories', 'tone' => $csCategories > 0 ? 'done' : 'todo',
+             'hint' => 'Every listing needs a TikTok category. The list is read on Catalog > Categories and kept until you fetch it again.',
+             'button' => ['label' => 'Open Categories', 'variant' => $csCategories > 0 ? 'secondary' : 'primary', 'href' => route('ext.tiktok.categories.index')],
+             'state' => $csCategories > 0 ? number_format($csCategories) . ' categories on file' : 'Nothing fetched yet'],
+        ],
+    ])
+    <div class="cs-grid">
 
         <section class="fm-section">
             <div class="fm-section__head">
-                <h2 class="fm-section__title">Sandbox credentials</h2>
+                <h2 class="fm-section__title">This store</h2>
                 <div class="fm-section__aside">
                     @if($hasSandboxCredentials)
-                        <x-ui.badge tone="success">Configured</x-ui.badge>
+                        <x-ui.badge tone="success">Sandbox configured</x-ui.badge>
                     @else
-                        <x-ui.badge tone="neutral">Not configured</x-ui.badge>
+                        <x-ui.badge tone="neutral">Sandbox not configured</x-ui.badge>
                     @endif
                 </div>
             </div>
@@ -370,6 +392,21 @@
                 <input type="hidden" name="env" value="sandbox">
 
                 <div class="fm-fields">
+                    <x-ui.field label="Store name" for="tt-sb-store-name" name="store_name" :required="true" wide
+                                hint="How this store is named across the ERP - the sidebar, the fulfilment tabs, the channels board.">
+                        <x-ui.input id="tt-sb-store-name" name="store_name" type="text" autocomplete="off" :disabled="!$canManageTiktok"
+                                    value="{{ old('store_name', $setting->store_name ?? '') }}" />
+                    </x-ui.field>
+
+                    <x-ui.field label="Active" for="tt-sb-enabled" name="enabled" wide
+                                hint="An active store syncs on the crons and shows its tabs. Switch off to pause the store without losing anything.">
+                        <input type="hidden" name="enabled" value="0">
+                        <label class="fm-switch cs-store-switch">
+                            <input type="checkbox" class="fm-switch__input" id="tt-sb-enabled" name="enabled" value="1" @checked((bool) ($setting->enabled ?? true)) @disabled(!$canManageTiktok)>
+                            <span class="fm-switch__track" aria-hidden="true"></span>
+                        </label>
+                    </x-ui.field>
+
                     <x-ui.field label="Sandbox App Key" for="tt-sb-app-key" name="sandbox_app_key" wide>
                         <x-ui.input id="tt-sb-app-key" name="sandbox_app_key" class="fm-input--num" type="text" autocomplete="off" :disabled="!$canManageTiktok"
                                     value="{{ $setting->sandbox_app_key ?? '' }}" />
@@ -394,8 +431,7 @@
 
                 @if($canManageTiktok)
                 <div class="cs-actions">
-                    <x-ui.button type="submit" variant="primary">Save sandbox settings</x-ui.button>
-                    <span class="cs-actions__note">Leave a masked field untouched to keep what is already stored. Saving also switches the shop to sandbox.</span>
+                    <x-ui.button type="submit" variant="primary">Save connection</x-ui.button>
                 </div>
                 @endif
             </form>
@@ -403,7 +439,7 @@
 
         <section class="fm-section">
             <div class="fm-section__head">
-                <h2 class="fm-section__title">Sandbox authorisation</h2>
+                <h2 class="fm-section__title">By hand</h2>
             </div>
 
             <div class="cs-state">
@@ -416,30 +452,14 @@
                     <x-ui.badge tone="danger">Token expired</x-ui.badge>
                 @else
                     <x-ui.badge tone="warning">No token</x-ui.badge>
-                    <span class="cs-state__note">Fill in the sandbox credentials first, then authorise.</span>
+                    <span class="cs-state__note">Save the sandbox keys, then authorise above.</span>
                 @endif
             </div>
 
             @if($canManageTiktok)
             <div class="cs-steps">
-                <div class="cs-step">
-                    <span class="cs-step__n">1</span>
-                    <div class="cs-step__body">
-                        <span class="cs-step__title">Authorise with the TikTok test environment</span>
-                        <div>
-                            {{-- The same URL as the production button, carrying
-                                 only the store id, not a mode parameter.
-                                 redirectToAuth() reads the stored `mode` column,
-                                 which the segmented control above has already set
-                                 to sandbox by the time this panel is on screen. --}}
-                            <x-ui.button size="sm" :href="route('ext.tiktok.authorize', ['store' => $setting->id ?? null])" target="_blank" rel="noopener">Open sandbox authorisation</x-ui.button>
-                        </div>
-                        <p class="cs-step__note">Opens the TikTok test environment in a new tab, using the sandbox credentials above.</p>
-                    </div>
-                </div>
 
                 <div class="cs-step">
-                    <span class="cs-step__n">2</span>
                     <div class="cs-step__body">
                         <span class="cs-step__title">Exchange an auth code by hand</span>
                         <form method="POST" action="{{ route('ext.tiktok.token_get') }}" class="cs-exchange">
@@ -452,19 +472,8 @@
                     </div>
                 </div>
 
-                <div class="cs-step">
-                    <span class="cs-step__n">3</span>
-                    <div class="cs-step__body">
-                        <span class="cs-step__title">Fetch the sandbox shop</span>
-                        <form method="POST" action="{{ route('ext.tiktok.shops') }}">
-                            @csrf
-                            <x-ui.button type="submit" size="sm">Fetch shop</x-ui.button>
-                        </form>
-                    </div>
-                </div>
 
                 <div class="cs-step">
-                    <span class="cs-step__n">4</span>
                     <div class="cs-step__body">
                         <span class="cs-step__title">Refresh an expired token</span>
                         <form method="POST" action="{{ route('ext.tiktok.token_refresh') }}">
@@ -474,10 +483,20 @@
                     </div>
                 </div>
             </div>
+
+            {{-- The one irreversible thing on the page sits last, in its own
+                 block, behind the typed-name sheet (audit, 2026-09-05). --}}
+            <div class="cs-danger">
+                <div>
+                    <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in the ERP goes with it: listings, groups, TikTok orders and returns. Sales already imported stay under its name. There is no undo.</x-ui.hint></span>
+                </div>
+                <x-ui.button type="button" variant="danger" size="sm" data-delete-open>Delete this store</x-ui.button>
+            </div>
             @else
             <p class="cs-step__note">Authorising, fetching the shop and refreshing tokens need the TikTok manage permission.</p>
             @endif
         </section>
+    </div>
     </div>
 
     {{-- Full width under the split: this is orientation for a first setup, not
@@ -488,9 +507,8 @@
          on one page that must byte-match a console entry is a trap, so the
          step points at the field instead of restating it. --}}
     <section class="fm-section cs-span">
-        <div class="fm-section__head">
-            <h2 class="fm-section__title">Setting this up for the first time</h2>
-        </div>
+        <details class="cs-guide-wrap">
+            <summary class="fm-section__title">First time here?</summary>
         <ol class="cs-guide">
             <li>Register a developer account at <span class="cs-code">partner.tiktokshop.com</span>. This is the seller side. <span class="cs-code">developers.tiktok.com</span> is a different platform and will not sync shops, orders or products.</li>
             <li>Create an app in the Partner Center. It gives you an App Key and an App Secret.</li>
@@ -498,6 +516,7 @@
             <li>Put the App Key and App Secret in the fields above and save.</li>
             <li>Authorise the shop, then fetch the shop so the shop cipher is stored.</li>
         </ol>
+        </details>
     </section>
 </div>
 

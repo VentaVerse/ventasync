@@ -1289,9 +1289,18 @@
     margin: 0;
     padding: 0;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    /* Three steps on Shopee and Lazada, four on TikTok (the shop cipher):
+       the columns follow the count. */
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: var(--bl-space-4);
 }
+
+/* The first-time guide, folded: a disclosure the operator opens once. */
+.cs-guide-wrap > summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: var(--bl-space-2); }
+.cs-guide-wrap > summary::-webkit-details-marker { display: none; }
+.cs-guide-wrap > summary::after { content: ""; width: 8px; height: 8px; border-right: 1.5px solid var(--bl-ink-3); border-bottom: 1.5px solid var(--bl-ink-3); transform: rotate(-45deg); transition: transform 160ms ease; }
+.cs-guide-wrap[open] > summary::after { transform: rotate(45deg); }
+.cs-guide-wrap > .cs-guide { margin-top: var(--bl-space-3); }
 
 .cs-flow__step { display: flex; gap: var(--bl-space-3); min-width: 0; }
 

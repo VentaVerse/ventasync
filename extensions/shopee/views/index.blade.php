@@ -179,15 +179,27 @@
 
 
     {{-- ---- PRODUCTION ---------------------------------------------- --}}
+    @php
+        $csCategories = \Extensions\shopee\Models\ShopeeCategory::query()->count();
+        $csCouriers = \Extensions\shopee\Models\ShopeeLogistic::query()->count();
+        $csSetUp = $csCategories > 0 && $csCouriers > 0;
+        $csLiveKeys = ($setting->partner_id ?? '') !== '' && ($setting->partner_key ?? '') !== '';
+    @endphp
     <div class="cs-env-panel" data-cs-env-panel="live" @if($isSandbox) hidden @endif>
-    @include('ext-shopee::settings.connect-flow', [
-        'envWord' => 'production',
-        'keysOk' => ($setting->partner_id ?? '') !== '' && ($setting->partner_key ?? '') !== '',
-        'hasToken' => $__hasToken,
-        'tokenExpired' => $__tokenExpired,
-        'expiresAt' => $setting->expires_at ?? null,
-        'authLabel' => 'Open Shopee authorisation',
+    @include('partials.channel-connect-flow', [
         'canManage' => $canManageShopee,
+        'steps' => [
+            ['title' => 'Save the keys', 'tone' => $csLiveKeys ? 'done' : 'todo',
+             'state' => $csLiveKeys ? 'Production keys saved' : 'Fill in the production keys below and save'],
+            ['title' => 'Authorise with Shopee', 'tone' => $__hasToken && ! $__tokenExpired ? 'done' : ($__hasToken ? 'failed' : 'todo'),
+             'hint' => 'Opens Shopee sign-in in a new tab, with the production keys saved here. After you grant access Shopee sends you back with an auth code, and the code is exchanged for a token on its own.',
+             'button' => ['label' => 'Open Shopee authorisation', 'newTab' => true, 'variant' => $__hasToken && ! $__tokenExpired ? 'secondary' : 'primary', 'href' => route('ext.shopee.authorize', ['store' => $setting->id ?? null])],
+             'state' => $__hasToken && ! $__tokenExpired ? ('Token active' . (($setting->expires_at ?? null) ? ', expires ' . \Carbon\Carbon::parse($setting->expires_at)->diffForHumans() : '')) : ($__hasToken ? 'Token expired: authorise again, or refresh it by hand' : 'No token yet')],
+            ['title' => 'Set up the store', 'tone' => $csSetUp ? 'done' : 'todo',
+             'hint' => 'Reads the categories and couriers every push needs. It runs on its own after an authorisation; press it again to refresh them.',
+             'button' => ['label' => 'Set up store', 'variant' => $csSetUp ? 'secondary' : 'primary', 'attr' => 'data-setup-open'],
+             'state' => $csSetUp ? number_format($csCategories) . ' categories and ' . number_format($csCouriers) . ' couriers on file' : 'Nothing fetched yet'],
+        ],
     ])
     <div class="cs-grid">
 
@@ -344,14 +356,20 @@
 
     {{-- ---- SANDBOX ------------------------------------------------- --}}
     <div class="cs-env-panel" data-cs-env-panel="sandbox" @unless($isSandbox) hidden @endunless>
-    @include('ext-shopee::settings.connect-flow', [
-        'envWord' => 'sandbox',
-        'keysOk' => $__hasSandboxCredentials,
-        'hasToken' => $__hasSandboxToken,
-        'tokenExpired' => $__sandboxTokenExpired,
-        'expiresAt' => $setting->sandbox_expires_at ?? null,
-        'authLabel' => 'Open sandbox authorisation',
+    @include('partials.channel-connect-flow', [
         'canManage' => $canManageShopee,
+        'steps' => [
+            ['title' => 'Save the keys', 'tone' => $__hasSandboxCredentials ? 'done' : 'todo',
+             'state' => $__hasSandboxCredentials ? 'Sandbox keys saved' : 'Fill in the sandbox keys below and save'],
+            ['title' => 'Authorise with Shopee', 'tone' => $__hasSandboxToken && ! $__sandboxTokenExpired ? 'done' : ($__hasSandboxToken ? 'failed' : 'todo'),
+             'hint' => 'Opens the Shopee test environment in a new tab, with the sandbox keys saved here. After you grant access Shopee sends you back with an auth code, and the code is exchanged for a token on its own.',
+             'button' => ['label' => 'Open sandbox authorisation', 'newTab' => true, 'variant' => $__hasSandboxToken && ! $__sandboxTokenExpired ? 'secondary' : 'primary', 'href' => route('ext.shopee.authorize', ['store' => $setting->id ?? null])],
+             'state' => $__hasSandboxToken && ! $__sandboxTokenExpired ? ('Token active' . (($setting->sandbox_expires_at ?? null) ? ', expires ' . \Carbon\Carbon::parse($setting->sandbox_expires_at)->diffForHumans() : '')) : ($__hasSandboxToken ? 'Token expired: authorise again, or refresh it by hand' : 'No token yet')],
+            ['title' => 'Set up the store', 'tone' => $csSetUp ? 'done' : 'todo',
+             'hint' => 'Reads the categories and couriers every push needs. It runs on its own after an authorisation; press it again to refresh them.',
+             'button' => ['label' => 'Set up store', 'variant' => $csSetUp ? 'secondary' : 'primary', 'attr' => 'data-setup-open'],
+             'state' => $csSetUp ? number_format($csCategories) . ' categories and ' . number_format($csCouriers) . ' couriers on file' : 'Nothing fetched yet'],
+        ],
     ])
     <div class="cs-grid">
 
