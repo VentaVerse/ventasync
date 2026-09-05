@@ -238,8 +238,14 @@ public function getProductImageUrls(int $productId, ?object $productRow): array
             }
         }
 
-        return $images;
+        // Lazada takes at most eight images on a product (its seller guide);
+        // the first eight go, main image first, and the push is never refused
+        // for the rest (the owner, 2026-09-05).
+        return array_slice($images, 0, self::MAX_IMAGES);
     }
+
+    /** How many images Lazada accepts on a product. */
+    public const MAX_IMAGES = 8;
 
     /**
      * Lazada requires "inlink" images for product create/update.

@@ -178,6 +178,8 @@ class ShopeeCoreChangedTest extends TestCase
             ->get(route('ext.shopee.product-groups.products', $group->id));
 
         $r->assertOk();
-        $r->assertSee('Catalog changed since this push');
+        // The shared Last sync cell (2026-09-05) says the catalog moved after
+        // the last successful sync, on the group page and the Listings page alike.
+        $r->assertSee('catalog changed since');
     }
 }

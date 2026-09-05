@@ -844,6 +844,10 @@ class ShopeeProductController extends Controller
             'category' => $categoryName ?: ($listing?->shopee_category_id ? '#' . $listing->shopee_category_id : null),
             'couriers' => $courierNames,
             'images' => $imageCount,
+            // Not a gap: the push goes, with the first nine (the owner, 2026-09-05).
+            'images_note' => $imageCount > \Extensions\shopee\Services\Shopee\ShopeeItemCreate::MAX_IMAGES
+                ? 'Shopee takes at most ' . \Extensions\shopee\Services\Shopee\ShopeeItemCreate::MAX_IMAGES . ', so the first ' . \Extensions\shopee\Services\Shopee\ShopeeItemCreate::MAX_IMAGES . ' go up'
+                : null,
             'variations' => $variationCount,
             'title' => (string) ($listing?->item_name ?: html_entity_decode((string) $product->name, ENT_QUOTES | ENT_HTML5, 'UTF-8')),
             'description' => (string) ($listing?->description ?: trim(strip_tags(html_entity_decode((string) $product->description, ENT_QUOTES | ENT_HTML5, 'UTF-8')))),
@@ -1223,6 +1227,10 @@ class ShopeeProductController extends Controller
         if ($rode['models'] !== null) {
             $flash .= '. ' . $rode['models'] . ' variations went with it.';
         }
+        // More images than Shopee takes is not an error: say what went (the owner, 2026-09-05).
+        if ($imageNote = $create->imageNote($pfx, $product)) {
+            $flash .= ' ' . $imageNote;
+        }
 
         return redirect()->back()->with('status', $flash);
     }
@@ -1449,6 +1457,10 @@ class ShopeeProductController extends Controller
                 $errCount++;
                 continue;
             }
+            // More images than Shopee takes is not an error: say what went (the owner, 2026-09-05).
+            if ($imageNote = $create->imageNote($pfx, $product)) {
+                $imageNotes[] = "#{$productId}: " . $imageNote;
+            }
 
             /* A refused upload refuses the product (the old loop pushed on
              * with the images it had, listing the item half-imaged). */
@@ -1550,6 +1562,7 @@ class ShopeeProductController extends Controller
         if ($skipCount > 0) $summary .= ", {$skipCount} skipped (disabled)";
         if ($errCount > 0) $summary .= ", {$errCount} failed";
         if (!empty($errors)) $summary .= '. Errors: ' . implode('; ', array_slice($errors, 0, 5));
+        if (!empty($imageNotes ?? [])) $summary .= '. ' . implode(' ', array_slice($imageNotes, 0, 5));
 
         return redirect()->back()->with($okCount > 0 ? 'status' : 'error', $summary);
     }
@@ -1732,6 +1745,7 @@ class ShopeeProductController extends Controller
 
         $okCount = 0;
         $errCount = 0;
+        $imageNotes = [];
         $path = '/api/v2/product/delete_item';
 
         foreach ($productIds as $productId) {

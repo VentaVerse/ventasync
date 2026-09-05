@@ -278,10 +278,12 @@ class ShopeeListingTest extends TestCase
         $r->assertSee('Listed');
         $r->assertDontSee('>Failed<', false);
         $r->assertDontSee('Not pushed');
-        // The group's own attempt is still told, scoped in words.
-        $r->assertSee("This product group's last push", false);
-        $r->assertSee('shipping channel');
-        $r->assertSee('from its listing');
+        // One latest error per product (the owner, 2026-09-05): the later push
+        // from the listing succeeded, so the shared Last sync cell tells that
+        // sync, and the group's older refusal is no longer the product's story.
+        $r->assertSee('Last sync');
+        $r->assertSee('Synced 5 minutes ago (listing)');
+        $r->assertDontSee('shipping channel');
     }
 
     public function test_a_group_push_stamps_provenance_but_never_the_listings_own_settings(): void

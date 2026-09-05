@@ -93,6 +93,8 @@ class ShopeeListingStates
 
         $listings = ShopeeListing::query()->whereIn('product_id', $productIds)->get()->keyBy('product_id');
         $links = ShopeeProductLink::query()->whereIn('product_id', $productIds)->get()->groupBy('product_id');
+        $modified = DB::table((string) config('catalog.prefix') . 'product')
+            ->whereIn('product_id', $productIds)->pluck('date_modified', 'product_id');
 
         $out = [];
         foreach ($productIds as $pid) {
@@ -145,9 +147,13 @@ class ShopeeListingStates
             }
 
             [$at, $what] = $candidates[0];
+            // The catalog moved after that sync (#100): the marketplace is
+            // behind what a push would send now. Said here, on both pages.
+            $movedAt = ($modified[$pid] ?? null) ? Carbon::parse($modified[$pid]) : null;
+            $stale = $movedAt && $movedAt->gt($at);
             $out[$pid] = [
                 'tone' => 'ok',
-                'headline' => 'Synced ' . $at->diffForHumans() . ' (' . $what . ')',
+                'headline' => 'Synced ' . $at->diffForHumans() . ' (' . $what . ')' . ($stale ? ', catalog changed since' : ''),
                 'detail' => null,
                 'at' => $at,
             ];

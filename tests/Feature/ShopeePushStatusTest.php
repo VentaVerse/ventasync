@@ -27,6 +27,8 @@ use Tests\TestCase;
 class ShopeePushStatusTest extends TestCase
 {
     private const VIEW = 'extensions/shopee/views/product-groups/products.blade.php';
+    /** The shared Last sync cell (2026-09-05), drawn on the group page and the Listings page. */
+    private const CELL = 'extensions/shopee/views/products/_last-sync.blade.php';
     private const CONTROLLER = 'extensions/shopee/Controllers/ShopeeProductGroupController.php';
 
     private function source(string $file): string
@@ -51,10 +53,12 @@ class ShopeePushStatusTest extends TestCase
             'The Shopee ID column must read the product link, not the pivot copy.');
         $this->assertStringNotContainsString('$pivot->shopee_item_id', $view,
             'The pivot item id is a private copy that drifts; the page must not display it.');
-        $this->assertStringContainsString('@if($attemptFailed)', $view,
-            'The group\'s own failed attempt must still be told.');
-        $this->assertStringContainsString("This product group's last push", $view,
-            'The failure must name itself as this group\'s attempt, not as the product\'s status.');
+        // One latest error per product (the owner, 2026-09-05): the failure is
+        // told by the shared Last sync cell, drawn from the listing record.
+        $this->assertStringContainsString("@include('ext-shopee::products._last-sync'", $view,
+            'The group page must draw the shared Last sync cell.');
+        $this->assertStringContainsString("@if(\$sync['tone'] === 'failed')", $this->source(self::CELL),
+            'The shared cell must tell a refusal.');
     }
 
     public function test_a_failed_push_records_why(): void
@@ -176,7 +180,7 @@ class ShopeePushStatusTest extends TestCase
      */
     public function test_the_full_failure_reason_is_reachable(): void
     {
-        $view = $this->source(self::VIEW);
+        $view = $this->source(self::CELL);
 
         $this->assertStringContainsString('<details class="cc-reason">', $view,
             'A truncated failure reason has no expansion, so the operator cannot read it.');
@@ -206,7 +210,7 @@ class ShopeePushStatusTest extends TestCase
     {
         $this->assertStringContainsString(
             "'No reason was recorded.'",
-            $this->source(self::VIEW),
+            $this->source(self::CELL),
             'A failed push with no recorded message shows an empty reason column.'
         );
     }

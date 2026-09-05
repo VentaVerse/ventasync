@@ -50,6 +50,29 @@ class ShopeeItemCreate
         return array_slice(array_values(array_unique($all)), 0, self::MAX_IMAGES);
     }
 
+    /** How many images the catalog product carries, main image included. */
+    public function catalogImageCount(string $pfx, object $product): int
+    {
+        $gallery = (int) DB::table($pfx . 'product_image')->where('product_id', (int) $product->product_id)->count();
+
+        return $gallery + (trim((string) ($product->image ?? '')) !== '' ? 1 : 0);
+    }
+
+    /**
+     * The sentence a push carries when the catalog holds more images than
+     * Shopee takes (the owner, 2026-09-05: not an error, the push goes, but
+     * say so). Null when nothing was left behind.
+     */
+    public function imageNote(string $pfx, object $product): ?string
+    {
+        $count = $this->catalogImageCount($pfx, $product);
+        if ($count <= self::MAX_IMAGES) {
+            return null;
+        }
+
+        return 'Shopee takes at most ' . self::MAX_IMAGES . ' images, so the first ' . self::MAX_IMAGES . ' of its ' . $count . ' went up.';
+    }
+
     public function resolveLocalImagePath(string $path): ?string
     {
         $try = [
