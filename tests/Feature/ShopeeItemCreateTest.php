@@ -57,6 +57,35 @@ class ShopeeItemCreateTest extends TestCase
         unlink(storage_path('app/public/itemcreate-pin.png'));
     }
 
+    public function test_add_item_treats_a_200_wearing_a_body_error_as_the_refusal_it_is_and_logs_it_so(): void
+    {
+        /* the owner, 2026-09-06: two of thirty pushes came back "Shopee accepted
+         * the push but returned no item id" with nothing in the API log,
+         * because add_item read only the HTTP status. */
+        Http::fake(['*' => Http::response(['error' => 'error_param', 'message' => 'item_sku is duplicated.', 'response' => null], 200)]);
+
+        $r = app(ShopeeItemCreate::class)->addItem(app(ShopeeClient::class), self::AUTH, ['item_name' => 'x'], 'shopee.products.add_item.test');
+
+        $this->assertFalse($r['ok']);
+        $this->assertNull($r['item_id']);
+        $this->assertStringContainsString('item_sku is duplicated', $r['error'], 'the operator reads what Shopee said');
+        $this->assertStringNotContainsString('returned no item id', $r['error']);
+        $this->assertDatabaseHas('shopee_api_logs', ['pack' => 'shopee.products.add_item.test', 'ok' => 0]);
+    }
+
+    public function test_add_item_accepted_without_an_item_id_repeats_what_shopee_did_say(): void
+    {
+        Http::fake(['*' => Http::response(['error' => '', 'message' => '', 'warning' => 'Item pending review.', 'response' => []], 200)]);
+
+        $r = app(ShopeeItemCreate::class)->addItem(app(ShopeeClient::class), self::AUTH, ['item_name' => 'x'], 'shopee.products.add_item.test');
+
+        $this->assertTrue($r['ok']);
+        $this->assertNull($r['item_id']);
+        $this->assertStringContainsString('returned no item id', $r['error']);
+        $this->assertStringContainsString('Item pending review.', $r['error']);
+        $this->assertDatabaseHas('shopee_api_logs', ['pack' => 'shopee.products.add_item.test', 'ok' => 1]);
+    }
+
     public function test_every_upload_is_logged_even_from_the_batch_paths(): void
     {
         /* The bulk and group loops used to upload without writing

@@ -1163,7 +1163,11 @@ class ShopeeProductController extends Controller
 
         $itemId = $added['item_id'];
         if (!$itemId) {
-            return redirect()->back()->with('error', 'Shopee accepted the push but returned no item id, so the link could not be recorded. Run Check against Shopee to adopt the item it created.');
+            // Accepted with no item: addItem() says what Shopee did say, and
+            // the listing record keeps it as this product's latest failure.
+            ShopeeListing::recordPushFailure($productId, (string) $added['error']);
+
+            return redirect()->back()->with('error', (string) $added['error']);
         }
 
         ShopeeProductLink::create([

@@ -247,20 +247,38 @@ class ShopeeItemCreate
             $path, [], $payload
         );
 
+        /* Shopee answers HTTP 200 with the refusal in the body (error beside
+         * an often-empty message). Reading only the HTTP status counted such
+         * a push a success, found no item_id, told the operator "Shopee
+         * accepted the push but returned no item id" and wrote ok=1 to the
+         * API log, so nothing looked wrong anywhere (the owner, 2026-09-06: two
+         * of thirty Lazada-imported products, no error logged). The same
+         * class of bug uploadImages() had. A body error is a refusal. */
+        $body = is_array($result['body'] ?? null) ? $result['body'] : [];
+        $bodyError = trim((string) ($body['error'] ?? ''));
+        $refused = ! ($result['ok'] ?? false) || $bodyError !== '';
+
         ShopeeApiLog::safeCreate([
             'pack' => $logPack, 'method' => 'POST', 'api_path' => $path,
             'auth_required' => true, 'request_params' => $payload,
-            'response_status' => $result['status'] ?? null, 'ok' => (bool) ($result['ok'] ?? false),
+            'response_status' => $result['status'] ?? null, 'ok' => ! $refused,
             'response_body' => $result['body'] ?? null, 'user_id' => auth()->id(),
         ]);
 
-        if (!($result['ok'] ?? false)) {
-            return ['ok' => false, 'item_id' => null, 'error' => MarketplaceAnswer::plain('Shopee', $result)];
+        if ($refused) {
+            return ['ok' => false, 'item_id' => null, 'error' => MarketplaceAnswer::plain('Shopee', ['ok' => false, 'status' => $result['status'] ?? 200, 'body' => $body])];
         }
 
-        $itemId = $result['body']['response']['item_id'] ?? null;
+        $itemId = $body['response']['item_id'] ?? null;
+        if ($itemId === null) {
+            // Accepted with no item: say whatever Shopee did say, so the API
+            // log and the page agree on the reason.
+            $said = trim((string) ($body['message'] ?? '')) ?: trim((string) ($body['warning'] ?? ''));
 
-        return ['ok' => true, 'item_id' => $itemId !== null ? (int) $itemId : null, 'error' => null];
+            return ['ok' => true, 'item_id' => null, 'error' => 'Shopee accepted the push but returned no item id' . ($said !== '' ? ' (it said: ' . $said . ')' : '') . '. Run Check against Shopee to adopt the item it created.'];
+        }
+
+        return ['ok' => true, 'item_id' => (int) $itemId, 'error' => null];
     }
 
     /**

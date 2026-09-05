@@ -186,4 +186,22 @@
         </div>
     </div>
 </form>
+
+{{-- Work-in-progress overlay (the owner, 2026-09-06: the Push button gave no
+     sign the press landed). The same element the listings page carries,
+     under the same id, so shopee-listings.js binds this page's
+     data-slow-action form the way it binds that one and raises "Talking to
+     Shopee" the moment the push really goes out. --}}
+<div id="shopee-listings-progress" class="modal-backdrop">
+    <div class="modal co-modal co-modal--sm" role="dialog" aria-modal="true"
+         aria-labelledby="shopee-listings-progress-title" aria-describedby="shopee-listings-progress-note">
+        <div class="cc-progress" role="status" aria-live="polite">
+            <span class="co-spinner co-spinner--lg" aria-hidden="true"></span>
+            <div>
+                <div class="cc-progress__title" id="shopee-listings-progress-title" data-progress-title>Pushing to Shopee</div>
+                <div class="cc-progress__note" id="shopee-listings-progress-note">Each product is a round trip to Shopee. Please keep this tab open.</div>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
