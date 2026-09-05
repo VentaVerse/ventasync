@@ -74,14 +74,10 @@
     </div>
     @if($canManageLazada)
         <div class="cc-head-actions">
-            {{-- The group page's check, page-wide (Phase F, #184): with no
-                 rows ticked it walks every linked listing, 200 at a time. --}}
-            <form method="POST" action="{{ route('ext.lazada.products.check') }}"
-                  data-confirm="Check every linked listing against Lazada? Nothing is sent or changed on Lazada; the ERP updates its own records to match what it finds, 200 listings at a time." data-confirm-tone="primary" data-confirm-verb="Check against Lazada">
-                @csrf
-                <x-ui.button type="submit" variant="secondary">Check against Lazada</x-ui.button>
-            </form>
-            {{-- Add products (#201, Draft C - the owner 2026-09-05): the one
+            {{-- Refresh and Repair links live beside the freshness stamp on
+                 the strip (the Shopee shape, ported back 2026-09-05): global
+                 maintenance, page furniture, not page actions.
+                 Add products (#201, Draft C - the owner 2026-09-05): the one
                  way a main-catalogue product joins this store. A primary
                  button, sized to how often it happens, opening the slide-over
                  in place - not a tab beside the daily table, which gave a
@@ -251,9 +247,22 @@
                     @endif
                 </span>
                 @if($canManageLazada)
+                    {{-- Icon only, the Shopee shape (the owner, 2026-09-03): the
+                         statuses refresh themselves every 30 minutes; this is
+                         the on-demand twin. The title carries the words. --}}
                     <form method="POST" action="{{ route('ext.lazada.products.refresh_status') }}" class="x-segment-group__refresh" data-slow-action>
                         @csrf
-                        <x-ui.button type="submit" size="sm">Refresh from Lazada</x-ui.button>
+                        <button type="submit" class="cc-iconbtn" title="Refresh statuses from Lazada now (they refresh themselves every 30 minutes)" aria-label="Refresh statuses from Lazada">
+                            <x-ui.icon name="refresh-cw" size="13" />
+                        </button>
+                    </form>
+                    {{-- The link audit (Phase F, #184), page-wide: with no
+                         rows ticked it walks every linked listing, 200 at a
+                         time, and the ERP's records follow what it finds. --}}
+                    <form method="POST" action="{{ route('ext.lazada.products.check') }}" class="cc-repair"
+                          data-confirm="Repair the links against Lazada? Nothing is sent or changed on Lazada; the ERP checks every linked listing and updates its own records to match what it finds, 200 listings at a time." data-confirm-tone="primary" data-confirm-verb="Repair links">
+                        @csrf
+                        <button type="submit" class="cc-quiet">Repair links</button>
                     </form>
                 @endif
             </div>

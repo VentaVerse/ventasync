@@ -710,11 +710,6 @@
         "name": "ext.lazada.product-groups.refreshCategories"
     },
     {
-        "method": "GET|HEAD",
-        "uri": "channels/lazada/{store}/product-groups/search-products",
-        "name": "ext.lazada.product-groups.searchProducts"
-    },
-    {
         "method": "DELETE",
         "uri": "channels/lazada/{store}/product-groups/{id}",
         "name": "ext.lazada.product-groups.destroy"
@@ -738,11 +733,6 @@
         "method": "GET|HEAD",
         "uri": "channels/lazada/{store}/product-groups/{id}/products",
         "name": "ext.lazada.product-groups.products"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/lazada/{store}/product-groups/{id}/products/add",
-        "name": "ext.lazada.product-groups.addProducts"
     },
     {
         "method": "POST",
@@ -775,6 +765,11 @@
         "name": "ext.lazada.product-groups.pushStock"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/search",
+        "name": "ext.lazada.product-groups.productSearch"
+    },
+    {
         "method": "POST",
         "uri": "channels/lazada/{store}/product-groups/{id}/products/update-product",
         "name": "ext.lazada.product-groups.updateProduct"
@@ -783,6 +778,11 @@
         "method": "DELETE",
         "uri": "channels/lazada/{store}/product-groups/{id}/products/{productId}",
         "name": "ext.lazada.product-groups.removeProduct"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/product-groups/{id}/products/{productId}/add",
+        "name": "ext.lazada.product-groups.addProduct"
     },
     {
         "method": "POST",

@@ -73,9 +73,15 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
 
         // Product Groups — read-only list + edit-form RENDER
         Route::get('/lazada/{store}/product-groups', [LazadaProductGroupController::class, 'index'])->name('ext.lazada.product-groups.index');
-        Route::get('/lazada/{store}/product-groups/search-products', [LazadaProductGroupController::class, 'searchProducts'])->name('ext.lazada.product-groups.searchProducts');
+        // ext.lazada.product-groups.searchProducts (the whole-catalogue picker
+        // behind the dual list and "Add a product by name") retired with both
+        // on 2026-09-05 (#201, the Shopee shape ported back): a group only
+        // holds what THIS STORE carries, and the panel search below is that.
         Route::get('/lazada/{store}/product-groups/{id}/edit', [LazadaProductGroupController::class, 'edit'])->whereNumber('id')->name('ext.lazada.product-groups.edit');
         Route::get('/lazada/{store}/product-groups/{id}/products', [LazadaProductGroupController::class, 'products'])->whereNumber('id')->name('ext.lazada.product-groups.products');
+        // The group page's Add products panel search (#201, Draft C): this
+        // store's products, flagged in-group or owned elsewhere. A read.
+        Route::get('/lazada/{store}/product-groups/{id}/products/search', [LazadaProductGroupController::class, 'productSearch'])->whereNumber('id')->name('ext.lazada.product-groups.productSearch');
         // Read tier: asks Lazada what it holds and prints the answer, adopting nothing.
         Route::get('/lazada/{store}/product-groups/{id}/orphans', [LazadaProductGroupController::class, 'orphans'])->whereNumber('id')->name('ext.lazada.product-groups.orphans');
 
@@ -128,7 +134,12 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
         Route::post('/lazada/{store}/product-groups', [LazadaProductGroupController::class, 'store'])->name('ext.lazada.product-groups.store');
         Route::put('/lazada/{store}/product-groups/{id}', [LazadaProductGroupController::class, 'update'])->whereNumber('id')->name('ext.lazada.product-groups.update');
         Route::delete('/lazada/{store}/product-groups/{id}', [LazadaProductGroupController::class, 'destroy'])->whereNumber('id')->name('ext.lazada.product-groups.destroy');
-        Route::post('/lazada/{store}/product-groups/{id}/products/add', [LazadaProductGroupController::class, 'addProducts'])->whereNumber('id')->name('ext.lazada.product-groups.addProducts');
+        // ext.lazada.product-groups.addProducts (POST ids[] from "Add a
+        // product by name") retired with that section on 2026-09-05 (#201).
+        // The group page's Add products panel (#201, Draft C): one of this
+        // store's products into the group, in place; `move` honours the
+        // one-group rule when another group owns it.
+        Route::post('/lazada/{store}/product-groups/{id}/products/{productId}/add', [LazadaProductGroupController::class, 'addProduct'])->whereNumber('id')->whereNumber('productId')->name('ext.lazada.product-groups.addProduct');
         Route::post('/lazada/{store}/product-groups/{id}/products/check', [LazadaProductGroupController::class, 'checkAgainstLazada'])->whereNumber('id')->name('ext.lazada.product-groups.check');
         Route::post('/lazada/{store}/product-groups/{id}/products/push', [LazadaProductGroupController::class, 'push'])->whereNumber('id')->name('ext.lazada.product-groups.push');
         Route::post('/lazada/{store}/product-groups/{id}/products/update-product', [LazadaProductGroupController::class, 'updateProduct'])->whereNumber('id')->name('ext.lazada.product-groups.updateProduct');

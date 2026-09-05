@@ -182,7 +182,10 @@ class LazadaListingLiveTest extends TestCase
         $r->assertSee('Add products');
         $r->assertSee('Pending QC');
         $r->assertSee('as of 08:30, Aug 28');
-        $r->assertSee('Refresh from Lazada');
+        // Icon-only refresh and Repair links on the strip, the Shopee shape
+        // ported back (2026-09-05); the words live in the accessible name.
+        $r->assertSee('aria-label="Refresh statuses from Lazada"', false);
+        $r->assertSee('Repair links');
         $r->assertSee('lazada_tab=active', false);
         $r->assertSee('Activate on Lazada');
         $this->assertSame([], $this->sentPosts);

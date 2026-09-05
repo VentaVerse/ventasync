@@ -109,18 +109,6 @@ class LazadaProductGroupController extends Controller
 
     private function form(LazadaProductGroup $group, string $mode)
     {
-        $pfx = (string) config('catalog.prefix');
-        $langId = (int) config('catalog.default_language_id');
-
-        $catalogCategories = DB::table($pfx . 'category_description')
-            ->where('language_id', $langId)
-            ->orderBy('name')
-            ->get(['category_id', 'name']);
-
-        $manufacturers = DB::table($pfx . 'manufacturer')
-            ->orderBy('name')
-            ->get(['manufacturer_id', 'name']);
-
         $lazadaCategories = LazadaCategory::query()->orderBy('name')->limit(5000)->get();
 
         // Template & attributes
@@ -151,42 +139,20 @@ class LazadaProductGroupController extends Controller
             if ($brand) $selectedBrandName = $brand->name;
         }
 
-        // Load group products for dual-listbox
-        // On validation failure, restore from old('product_ids') so selections aren't lost
-        $oldProductIds = old('product_ids');
-        $groupProducts = collect();
-
-        if (!empty($oldProductIds)) {
-            $productIds = array_filter(array_map('intval', (array) $oldProductIds));
-        } elseif ($group->exists) {
-            $productIds = $group->groupProducts()->whereNotNull('product_id')->pluck('product_id')->toArray();
-        } else {
-            $productIds = [];
-        }
-
-        if (!empty($productIds)) {
-            $groupProducts = DB::table($pfx . 'product as p')
-                ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
-                    $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
-                })
-                ->whereIn('p.product_id', $productIds)
-                ->select('p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.quantity')
-                ->orderBy('pd.name')
-                ->get();
-        }
+        /* No product list here since #201 (the owner, 2026-09-05): this form is
+         * the group's own settings only. Products join and leave the group
+         * on its products page, through the Add products panel over THIS
+         * STORE's list - never a whole-catalogue dual list. */
 
         return view('ext-lazada::product-groups.form', [
             'group' => $group,
             'mode' => $mode,
-            'catalogCategories' => $catalogCategories,
-            'manufacturers' => $manufacturers,
             'lazadaCategories' => $lazadaCategories,
             'template' => $template,
             'attributes' => $attributes,
             'saved' => $saved,
             'selectedBrandName' => $selectedBrandName,
             'erpSourceFields' => LazadaAttributes::ERP_SOURCE_FIELDS,
-            'groupProducts' => $groupProducts,
         ]);
     }
 
@@ -199,8 +165,6 @@ class LazadaProductGroupController extends Controller
             'no_brand' => 'nullable',
             'markup_fixed' => 'nullable|numeric|min:0',
             'markup_percent' => 'nullable|numeric|min:0',
-            'product_ids' => 'nullable|array',
-            'product_ids.*' => 'integer|min:1',
         ]);
 
         $group = LazadaProductGroup::create([
@@ -216,12 +180,10 @@ class LazadaProductGroupController extends Controller
 
         ActivityLogger::log('created', 'Lazada Product group', $group->id, $group->name);
 
-        // Add products from dual-listbox
-        $productIds = array_map('intval', array_filter($data['product_ids'] ?? []));
-        $this->addProductsToGroup($group, $productIds);
-
-        return redirect()->route('ext.lazada.product-groups.edit', $group->id)
-            ->with('status', 'Product group created. ' . count($productIds) . ' product(s) assigned.');
+        // The next thing to do with a new group is put products in it, and
+        // that happens on its products page (#201), so land there.
+        return redirect()->route('ext.lazada.product-groups.products', $group->id)
+            ->with('status', 'Product group created. Add products to it from this store\'s list.');
     }
 
     public function update(Request $request, int $id)
@@ -235,8 +197,6 @@ class LazadaProductGroupController extends Controller
             'no_brand' => 'nullable',
             'markup_fixed' => 'nullable|numeric|min:0',
             'markup_percent' => 'nullable|numeric|min:0',
-            'product_ids' => 'nullable|array',
-            'product_ids.*' => 'integer|min:1',
         ]);
 
         $group->update([
@@ -252,21 +212,8 @@ class LazadaProductGroupController extends Controller
 
         ActivityLogger::log('updated', 'Lazada Product group', $group->id, $group->name);
 
-        // Sync product assignments
-        $newProductIds = array_map('intval', array_filter($data['product_ids'] ?? []));
-        $existingProductIds = $group->groupProducts()->whereNotNull('product_id')->pluck('product_id')->toArray();
-
-        $toAdd = array_diff($newProductIds, $existingProductIds);
-        $toRemove = array_diff($existingProductIds, $newProductIds);
-
-        if (!empty($toAdd)) {
-            $this->addProductsToGroup($group, $toAdd);
-        }
-
-        if (!empty($toRemove)) {
-            $group->groupProducts()->whereIn('product_id', $toRemove)->delete();
-        }
-
+        // Membership is not this form's business since #201: a stray
+        // product_ids[] in the request changes nothing.
         return redirect()->route('ext.lazada.product-groups.edit', $group->id)
             ->with('status', 'Product group saved.');
     }
@@ -418,84 +365,147 @@ class LazadaProductGroupController extends Controller
         ]);
     }
 
-    /**
-     * AJAX search for dual-listbox product picker.
-     */
-    public function searchProducts(Request $request)
+    /** The group that owns this product on this store, other than $group - or null. */
+    private function otherOwnerName(LazadaProductGroup $group, int $productId): ?string
     {
-        $pfx = (string) config('catalog.prefix');
-        $langId = (int) config('catalog.default_language_id');
-
-        $q = trim((string) $request->input('q'));
-        $categoryId = (int) $request->input('category_id', 0);
-        $manufacturerId = (int) $request->input('manufacturer_id', 0);
-
-        // Empty filters return the latest 100 products (the LIMIT below) so
-        // operators can browse everything without first picking a category
-        // or typing a search term.
-
-        $query = DB::table($pfx . 'product as p')
-            ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
-                $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
-            })
-            ->select('p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.price', 'p.quantity');
-
-        if ($categoryId > 0) {
-            $query->join($pfx . 'product_to_category as ptc', 'p.product_id', '=', 'ptc.product_id')
-                ->where('ptc.category_id', $categoryId);
-        }
-
-        if ($manufacturerId > 0) {
-            $query->where('p.manufacturer_id', $manufacturerId);
-        }
-
-        if (strlen($q) >= 2) {
-            $query->where(function ($w) use ($q) {
-                $w->where('pd.name', 'like', "%{$q}%")
-                    ->orWhere('p.sku', 'like', "%{$q}%")
-                    ->orWhere('p.model', 'like', "%{$q}%");
-            });
-        }
-
-        $rows = $query->distinct()->orderBy('p.product_id', 'desc')->limit(100)->get();
-
-        /* One product, one group (cleanup points 2+3): each result names
-         * the group that already owns it, so the picker can show it
-         * read-only with a Move here instead of a surprise refusal. */
-        $owners = DB::table('lazada_product_group_products as pv')
+        return DB::table('lazada_product_group_products as pv')
             ->join('lazada_product_groups as g', 'g.id', '=', 'pv.lazada_product_group_id')
-            ->whereIn('pv.product_id', $rows->pluck('product_id')->all() ?: [0])
-            ->get(['pv.product_id', 'g.id as group_id', 'g.name'])
-            ->keyBy('product_id');
-        $rows = $rows->map(function ($r) use ($owners) {
-            $own = $owners->get($r->product_id);
-            $r->group_id = $own->group_id ?? null;
-            $r->group_name = $own->name ?? null;
-
-            return $r;
-        });
-
-        return response()->json(['items' => $rows->values()]);
+            ->where('pv.product_id', $productId)
+            ->where('g.id', '!=', $group->id)
+            ->when(app()->bound('lazada.route-store'), fn ($w) => $w->where('g.lazada_setting_id', app('lazada.route-store')->id))
+            ->value('g.name');
     }
 
     /**
-     * Add products manually to a group.
+     * The group page's Add products panel search (#201, Draft C - the owner
+     * 2026-09-05, ported back from Shopee): THIS STORE's products, never the
+     * whole catalogue - a group only holds what the store carries, so a
+     * product the store does not have is not offered here; it is added on
+     * Listings first. Each row is flagged with whether it is already in this
+     * group, or owned by another group under the one-group rule (named, so
+     * the panel offers Move here rather than a refusal after the press).
+     * Capped like the Listings panel; defaults to what is NOT yet in this
+     * group.
      */
-    public function addProducts(Request $request, int $id)
+    public function productSearch(Request $request, int $id)
     {
         $group = LazadaProductGroup::query()->findOrFail($id);
 
-        $ids = array_map('intval', array_filter((array) $request->input('ids', [])));
-        if (empty($ids)) {
-            return $this->productsRedirect($group->id)
-                ->with('error', 'No products selected.');
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+        $q = trim((string) $request->query('q', ''));
+        $showAll = $request->boolean('all');
+        $limit = 25;
+
+        $members = LazadaProductGroupProduct::query()
+            ->where('lazada_product_group_id', $group->id)
+            ->whereNotNull('product_id')
+            ->select('product_id');
+
+        // One listing row per product for THIS store is the membership.
+        $lpPick = DB::table('lazada_products')
+            ->selectRaw('product_id, MIN(id) as pick_id')
+            ->whereNotNull('product_id')
+            ->when(app()->bound('lazada.route-store'), fn ($sub) => $sub->where('lazada_setting_id', app('lazada.route-store')->id))
+            ->groupBy('product_id');
+
+        $query = DB::table($pfx . 'product as p')
+            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+                $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
+            })
+            // An inner join: only what this store carries is on offer.
+            ->joinSub($lpPick, 'lps', 'lps.product_id', '=', 'p.product_id')
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.model', 'p.quantity', 'p.price')
+            ->where('p.status', 1);
+
+        if ($q !== '') {
+            $query->where(function ($sub) use ($q) {
+                $sub->where('pd.name', 'like', '%' . $q . '%')
+                    ->orWhere('p.model', 'like', '%' . $q . '%')
+                    ->orWhere('p.sku', 'like', '%' . $q . '%');
+            });
+        }
+        if (! $showAll) {
+            $query->whereNotIn('p.product_id', $members);
         }
 
-        $added = $this->addProductsToGroup($group, $ids, array_map('intval', (array) $request->input('move_ids', [])));
+        $total = (clone $query)->count();
+        $rows = $query->orderBy('pd.name')->orderBy('p.product_id')->limit($limit)->get();
+        $ids = $rows->pluck('product_id')->map(fn ($v) => (int) $v)->all();
 
-        return $this->productsRedirect($group->id)
-            ->with($added > 0 ? 'status' : 'warning', "{$added} product(s) added to the product group."
-                . \App\Integrations\OneGroupRule::heldClause($this->lastHeld));
+        $inGroup = $ids === [] ? collect() : LazadaProductGroupProduct::query()
+            ->where('lazada_product_group_id', $group->id)
+            ->whereIn('product_id', $ids)
+            ->pluck('product_id')->map(fn ($v) => (int) $v)->flip();
+
+        $owners = $ids === [] ? collect() : DB::table('lazada_product_group_products as pv')
+            ->join('lazada_product_groups as g', 'g.id', '=', 'pv.lazada_product_group_id')
+            ->whereIn('pv.product_id', $ids)
+            ->where('g.id', '!=', $group->id)
+            ->when(app()->bound('lazada.route-store'), fn ($w) => $w->where('g.lazada_setting_id', app('lazada.route-store')->id))
+            ->get(['pv.product_id', 'g.name'])
+            ->keyBy('product_id');
+
+        $images = app(\Extensions\lazada\Services\Lazada\LazadaImages::class);
+        $items = $rows->map(function ($r) use ($inGroup, $owners, $images) {
+            $pid = (int) $r->product_id;
+
+            return [
+                'id' => $pid,
+                'name' => html_entity_decode((string) ($r->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8') ?: 'Unnamed product',
+                'sku' => (string) ($r->sku ?? ''),
+                'quantity' => (int) ($r->quantity ?? 0),
+                'price' => \App\Support\Money::base((float) ($r->price ?? 0)),
+                'thumb' => $images->toDisplayImageUrl($r->image ?? null),
+                // The panel's "already in" flag: in this group.
+                'on_store' => $inGroup->has($pid),
+                'elsewhere' => $owners->get($pid)?->name,
+            ];
+        })->values();
+
+        return response()->json(['total' => $total, 'shown' => $items->count(), 'limit' => $limit, 'items' => $items]);
+    }
+
+    /**
+     * Add one of this store's products to the group, in place (#201, Draft
+     * C). Refuses a product the store does not carry: the group is a subset
+     * of the store's list, never a door into the catalogue. The one-group
+     * rule holds - a product owned by another group is held unless the panel
+     * said Move here (`move`), in which case it moves. The pivot rides the
+     * store's existing listing row; addProductsToGroup never creates a new
+     * one here because the row is what "on this store" means.
+     */
+    public function addProduct(Request $request, int $id, int $productId)
+    {
+        $group = LazadaProductGroup::query()->findOrFail($id);
+        abort_unless(LazadaProduct::query()->where('product_id', $productId)->exists(), 404);
+
+        $already = $group->groupProducts()->where('product_id', $productId)->exists();
+        $added = false;
+        $movedFrom = null;
+
+        if (! $already) {
+            $owner = $this->otherOwnerName($group, $productId);
+            $added = $this->addProductsToGroup($group, [$productId], $request->boolean('move') ? [$productId] : []) > 0;
+            $movedFrom = $added ? $owner : null;
+        }
+
+        if ($request->wantsJson()) {
+            if (! $already && ! $added) {
+                // Held by another group and no Move here: say so, do nothing.
+                return response()->json(['ok' => false, 'product_id' => $productId, 'message' => trim(\App\Integrations\OneGroupRule::heldClause($this->lastHeld))], 409);
+            }
+
+            return response()->json(['ok' => true, 'product_id' => $productId, 'added' => $added, 'moved_from' => $movedFrom]);
+        }
+
+        $status = $already
+            ? "Product #{$productId} is already in this product group."
+            : ($added
+                ? "Product #{$productId} added to the product group." . ($movedFrom !== null ? " Moved here from '{$movedFrom}'." : '')
+                : trim(\App\Integrations\OneGroupRule::heldClause($this->lastHeld)));
+
+        return $this->productsRedirect($group->id)->with($added ? 'status' : 'warning', $status);
     }
 
     /**
