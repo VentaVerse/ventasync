@@ -144,6 +144,38 @@ class ShopeeReadinessTest extends TestCase
         \Extensions\shopee\Models\ShopeeLogistic::create(['logistics_channel_id' => 41003, 'logistics_channel_name' => 'J&T Express', 'enabled' => true]);
     }
 
+    /**
+     * A group is a preset the product inherits (the owner, 2026-09-05): a
+     * listing with no category or couriers of its own is ready when its
+     * group carries them, because every push now fills the blanks from
+     * the group.
+     */
+    public function test_a_grouped_product_inherits_the_groups_category_and_couriers(): void
+    {
+        $this->storeSetUp();
+        $group = \Extensions\shopee\Models\ShopeeProductGroup::create([
+            'name' => 'Pedals preset', 'shopee_category_id' => 106755, 'logistic_ids' => [41003],
+        ]);
+        \Extensions\shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 106755], ['attributes' => ['attribute_list' => []]]);
+        $grouped = $this->seedProduct('Grouped bare', 'GRP-1');
+        // No category, no couriers of its own; the sheet's one answer given.
+        ShopeeListing::query()->create(['product_id' => $grouped, 'attribute_values' => ['2000' => '1 year']]);
+        \Extensions\shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $grouped]);
+        $alone = $this->seedProduct('Alone bare', 'ALN-1');
+        ShopeeListing::query()->create(['product_id' => $alone]);
+
+        $out = app(ShopeeListingReadiness::class)->forProducts([$grouped, $alone]);
+
+        $this->assertTrue($out[$grouped]['ready'], implode(' | ', $out[$grouped]['missing']));
+        $this->assertFalse($out[$alone]['ready']);
+        $this->assertContains('a Shopee category', $out[$alone]['missing']);
+
+        // The listing's own choice still wins over the group's.
+        ShopeeListing::query()->where('product_id', $grouped)->update(['shopee_category_id' => 999999]);
+        $out = app(ShopeeListingReadiness::class)->forProducts([$grouped]);
+        $this->assertStringContainsString('attribute sheet', implode(' ', $out[$grouped]['missing']), 'its own unread category, not the group\'s, is what readiness judged');
+    }
+
     public function test_the_computation_names_each_missing_thing(): void
     {
         $this->storeSetUp();

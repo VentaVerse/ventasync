@@ -641,6 +641,34 @@ class ShopeeListingPageTest extends TestCase
             'Match Shopee IDs is back; the check replaced it because it could only fill in blanks, never question an id a row already had');
     }
 
+    /** A group is a preset the product inherits (the owner, 2026-09-05): a workbench push fills a blank listing from its group. */
+    public function test_a_workbench_push_takes_the_groups_category_and_couriers_when_the_listing_has_none(): void
+    {
+        $productId = $this->seedProduct();
+        ShopeeListing::query()->create(['product_id' => $productId]);
+        $group = \Extensions\shopee\Models\ShopeeProductGroup::create(['name' => 'Pedals preset', 'shopee_category_id' => 100013, 'logistic_ids' => [8003]]);
+        \Extensions\shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $productId]);
+        \Extensions\shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 100013], ['attributes' => []]);
+        \Extensions\shopee\Models\ShopeeCategory::create(['category_id' => 100013, 'parent_id' => null, 'name' => 'Pedals', 'level' => 0, 'leaf' => true]);
+        \Extensions\shopee\Models\ShopeeLogistic::create(['logistics_channel_id' => 8003, 'logistics_channel_name' => 'J&T Express', 'enabled' => true]);
+        @mkdir(public_path('image/catalog'), 0777, true);
+        file_put_contents(public_path('image/catalog/__inherit-test.png'), 'png');
+        DB::table(config('catalog.prefix') . 'product')->where('product_id', $productId)->update(['image' => 'catalog/__inherit-test.png']);
+        \Illuminate\Support\Facades\Http::fake(['*' => \Illuminate\Support\Facades\Http::response(['response' => ['image_info' => ['image_id' => 'img-inherit']]], 200)]);
+        $this->getResponses['/api/v2/product/get_item_base_info'] = ['ok' => true, 'status' => 200, 'body' => ['response' => ['item_list' => []]]];
+
+        $this->actingAs($this->manager())->post(route('ext.shopee.products.bulk_push'), ['product_ids' => [$productId]]);
+
+        $add = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/add_item');
+        $this->assertNotNull($add, 'the push went, with the group filling the blanks');
+        $this->assertSame(100013, (int) $add['body']['category_id']);
+        $this->assertSame([8003], array_column($add['body']['logistic_info'], 'logistic_id'));
+
+        $listing = ShopeeListing::query()->where('product_id', $productId)->first();
+        $this->assertNull($listing->shopee_category_id, 'the listing\'s own record stays blank: the group is a preset, not a write');
+        $this->assertSame('Pedals preset', $listing->last_push_settings['inherited_from']['category']);
+    }
+
     public function test_bulk_send_updates_already_listed_selections_instead_of_skipping(): void
     {
         /* Critique P1 (2026-08-25): the index bulk used to skip anything

@@ -69,8 +69,19 @@ class ShopeeListingReadiness
             ->get(['product_id', 'weight', 'length', 'width', 'height'])
             ->keyBy('product_id');
 
+        /* A group is a preset the product inherits (the owner, 2026-09-05):
+         * a blank category or courier list on the listing is filled from
+         * its group, the same way every push fills it now. */
+        $inherited = app(ShopeeInheritedSettings::class)->forProducts($productIds);
+
         $categoryIds = $listings->pluck('shopee_category_id')
             ->filter()->map(fn ($v) => (int) $v)->unique()->values()->all();
+        foreach ($inherited as $g) {
+            if ($g['category_id']) {
+                $categoryIds[] = $g['category_id'];
+            }
+        }
+        $categoryIds = array_values(array_unique($categoryIds));
         if ($sharedCategory) {
             $categoryIds = array_values(array_unique(array_merge($categoryIds, [$sharedCategory])));
         }
@@ -83,8 +94,9 @@ class ShopeeListingReadiness
             $productId = (int) $productId;
             $listing = $listings->get($productId);
 
-            $categoryId = $sharedCategory ?: (int) ($listing->shopee_category_id ?? 0);
-            $logisticIds = $sharedLogistics ?? ($listing->logistic_ids ?? []);
+            $group = $inherited[$productId] ?? null;
+            $categoryId = $sharedCategory ?: ((int) ($listing->shopee_category_id ?? 0) ?: (int) ($group['category_id'] ?? 0));
+            $logisticIds = $sharedLogistics ?? (!empty($listing->logistic_ids) ? $listing->logistic_ids : ($group['logistic_ids'] ?? []));
             $gaps = [];
 
             if (!$categoryId) {

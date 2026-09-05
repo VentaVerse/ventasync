@@ -1088,7 +1088,18 @@ class ShopeeProductController extends Controller
          * wrong price, silently. Now the one-click push runs only on the
          * product's OWN listing settings - saved on its listing page - and
          * says exactly what to do when there are none. */
-        $listing = ShopeeListing::query()->where('product_id', $productId)->first();
+        $saved = ShopeeListing::query()->where('product_id', $productId)->first();
+        /* A group is a preset the product inherits (the owner, 2026-09-05): the
+         * record the push READS has its blanks filled from the group, in
+         * memory; the record SAVED below is the listing itself. */
+        $inheritedFrom = [];
+        $listing = null;
+        if ($saved) {
+            $inherit = app(\Extensions\shopee\Services\Shopee\ShopeeInheritedSettings::class);
+            $filled = $inherit->fill($saved, $inherit->forProducts([$productId])[$productId] ?? null);
+            $listing = $filled['listing'];
+            $inheritedFrom = $filled['inherited'];
+        }
 
         if (!$listing || !$listing->pushable()) {
             return redirect()->back()->with('error',
@@ -1177,7 +1188,7 @@ class ShopeeProductController extends Controller
         ]);
 
         // Provenance (#104): what went, from where, when.
-        $listing->forceFill([
+        $saved->forceFill([
             'last_pushed_at' => now(),
             'last_push_source' => 'listing',
             'last_push_error' => null,
@@ -1186,6 +1197,7 @@ class ShopeeProductController extends Controller
                 'category_id' => (int) $listing->shopee_category_id,
                 'logistic_ids' => $logisticIds,
                 'price' => $sellingPrice,
+                'inherited_from' => $inheritedFrom,
             ],
         ])->save();
 
@@ -1409,6 +1421,12 @@ class ShopeeProductController extends Controller
                 $listing->markup_percent = $sharedPercent;
                 $listing->markup_fixed = $sharedFixed;
             }
+            /* A group is a preset the product inherits (the owner, 2026-09-05):
+             * whatever is still blank is filled from its group, in memory. */
+            $inherit = app(\Extensions\shopee\Services\Shopee\ShopeeInheritedSettings::class);
+            $filled = $inherit->fill($listing, $inherit->forProducts([$productId])[$productId] ?? null);
+            $listing = $filled['listing'];
+            $inheritedFrom = $filled['inherited'];
             if (!$listing->pushable()) {
                 $errors[] = "#{$productId}: no listing settings - open its listing and save them, or push from its group";
                 $errCount++;
@@ -1495,6 +1513,7 @@ class ShopeeProductController extends Controller
                         'price' => $sellingPrice,
                         'markup_percent' => (float) ($listing->markup_percent ?? 0),
                         'markup_fixed' => (float) ($listing->markup_fixed ?? 0),
+                        'inherited_from' => $inheritedFrom,
                     ],
                 ])->save();
                 // Variations ride the push, priced by the listing's rule.
