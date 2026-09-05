@@ -12,9 +12,6 @@
 
     $visibleMenu = collect($card->menu)->filter($allowed)->values();
 
-    $canAdd = $card->addStore
-        && (! $card->addStore->permission || ($user && $user->hasPermission($card->addStore->permission)));
-
     $stores = collect($card->stores);
     $pending = $stores->filter(fn ($s) => ($s->status ?? 'active') === 'setup_pending')->count();
 @endphp
@@ -24,7 +21,7 @@
      is what the rest still land on, so it stays on the same list anatomy
      every other index in the application uses rather than keeping its own
      card grammar. --}}
-<div class="int-mod" x-data="{ addOpen: false }">
+<div class="int-mod">
 
     @include('partials.flash')
 
@@ -33,14 +30,6 @@
             <h1 class="x-page-title">{{ $card->name }}</h1>
             <p class="x-page-sub">{{ $card->tagline }}</p>
         </div>
-        @if($canAdd)
-            {{-- A disclosure, not the action: the panel's Create store is the
-                 only solid fill on this page. --}}
-            <x-ui.button type="button" @click="addOpen = !addOpen"
-                         x-bind:aria-expanded="addOpen ? 'true' : 'false'">
-                <x-ui.icon name="plus" size="14" /> {{ $card->addStore->label }}
-            </x-ui.button>
-        @endif
     </div>
 
     @if($visibleMenu->isNotEmpty())
@@ -54,38 +43,18 @@
         </nav>
     @endif
 
-    @if($canAdd)
-    <form method="POST" action="{{ route($card->addStore->route) }}" class="int-mod__add"
-          x-show="addOpen" x-cloak x-transition.duration.120ms>
-        @csrf
-        <h2 class="int-mod__add-title">{{ $card->addStore->label }}</h2>
-        <p class="int-mod__add-note">
-            Name it and point it at the store's address. The API token and everything else are
-            set on the store's own settings page straight after this.
-        </p>
-        <div class="int-mod__add-fields">
-            <x-ui.field label="Store name" for="int-store-name" name="store_name" :required="true">
-                <x-ui.input id="int-store-name" name="store_name" required
-                            placeholder="{{ $card->name }} main store" />
-            </x-ui.field>
-            <x-ui.field label="Base URL" for="int-store-url" name="base_url" :required="true">
-                <x-ui.input type="url" id="int-store-url" name="base_url" required
-                            placeholder="https://store.example.com" />
-            </x-ui.field>
-        </div>
-        <div class="int-mod__add-bar">
-            <button type="button" class="fm-cancel" @click="addOpen = false">Cancel</button>
-            <x-ui.button variant="primary" type="submit">Create store</x-ui.button>
-        </div>
-    </form>
-    @endif
-
     @if($stores->isEmpty())
         <x-ui.empty
             title="No stores connected"
-            description="{{ $canAdd
-                ? 'Use ' . $card->addStore->label . ' above to connect the first one.'
-                : 'Nobody has connected a ' . $card->name . ' store yet.' }}" />
+            description="{{ $card->addStore
+                ? 'Nobody has connected a ' . $card->name . ' store yet. Add store on the Integrations page connects the first one.'
+                : 'Nobody has connected a ' . $card->name . ' store yet.' }}">
+            @if($card->addStore)
+                <x-slot:action>
+                    <x-ui.button variant="secondary" :href="route('channels.index')">Integrations</x-ui.button>
+                </x-slot:action>
+            @endif
+        </x-ui.empty>
     @else
 
     <p class="x-page-sub int-mod__count">

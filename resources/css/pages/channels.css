@@ -284,40 +284,8 @@
 }
 .int-mod__navlink:hover { color: var(--bl-ink); }
 
-/* The add-store panel. Hidden until the head's primary action opens
-   it, so the resting page is the store list and nothing else. It
-   replaced a .modal-backdrop driven by two inline onclick handlers. */
-.int-mod__add {
-    padding: var(--bl-space-4);
-    margin-bottom: var(--bl-space-4);
-    background: var(--bl-sheet);
-    border: 1px solid var(--bl-rule-2);
-    border-radius: var(--bl-r-ctrl);
-}
-.int-mod__add-title {
-    margin: 0 0 var(--bl-space-1);
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--bl-ink);
-}
-.int-mod__add-note {
-    margin: 0 0 var(--bl-space-4);
-    font-size: 12px;
-    color: var(--bl-ink-2);
-    max-width: 72ch;
-}
-.int-mod__add-fields {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: var(--bl-space-4);
-}
-.int-mod__add-bar {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: var(--bl-space-4);
-    margin-top: var(--bl-space-4);
-}
+/* The module page's own add-store panel went with the owner's 2026-09-06 rule:
+   a store is created from the Integrations board's Add store only. */
 
 .int-mod__count { margin-top: calc(var(--bl-space-2) * -1); }
 

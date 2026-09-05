@@ -216,6 +216,12 @@ class Navigation
             $user = auth()->user();
 
             foreach ($registry->visibleCards($user) as $card) {
+                // A channel that adds stores is listed through its stores
+                // only (the owner, 2026-09-06): enabled but with none yet, it has
+                // no page to send anyone to.
+                if ($card->addStore !== null && $card->stores === []) {
+                    continue;
+                }
                 if ($workspace->hasWorkspace($card)) {
                     // A converted multi-store channel has no storeless page,
                     // so it offers one seller center per store, keyed the way

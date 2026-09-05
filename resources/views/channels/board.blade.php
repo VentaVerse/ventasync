@@ -54,8 +54,16 @@
         </article>
     @empty
         <x-ui.empty
-            title="No integrations available"
-            description="Enable a marketplace integration on the Extensions page to see its health here." />
+            title="No stores yet"
+            :description="! empty($addable)
+                ? 'Press Add store to connect the first one. A channel appears here once it has a store.'
+                : 'Enable a channel on the Extensions page, then add its first store here.'">
+            @if(!empty($addable))
+                <x-slot:action>
+                    <x-ui.button variant="primary" data-add-store-open><x-ui.icon name="plus" size="14" /> Add store</x-ui.button>
+                </x-slot:action>
+            @endif
+        </x-ui.empty>
     @endforelse
 </div>
 

@@ -528,6 +528,15 @@ class IntegrationController extends Controller
             $baseId = $card->id;
             $entries = [];
 
+            // A channel that adds stores appears here only through its
+            // stores (the owner, 2026-09-06). Installing and enabling the
+            // extension is not a store: until Add store creates one there
+            // is nothing to open, so nothing is drawn, and the one way in
+            // is the board's own Add store.
+            if ($card->addStore !== null && $card->stores === []) {
+                continue;
+            }
+
             // Only channels that have actually been converted get a workspace
             // link: a card qualifies when it declares at least one menu item
             // with a group, which is exactly what the conversion does. Today
@@ -588,7 +597,7 @@ class IntegrationController extends Controller
                         'menu' => $store?->menu ?? $card->menu,
                     ];
                 }
-            } elseif (in_array($baseId, ['venta', 'opencart', 'shopify', 'pedallion'], true)) {
+            } elseif (in_array($baseId, ['venta', 'opencart', 'shopify', 'pedallion', 'woocommerce'], true)) {
                 // Multi-store (Venta/OpenCart/Shopify) or single-store
                 // (Pedallion) API-key integrations: no token expiry column
                 // exists on any of these tables, so tokenExpiry always
@@ -599,6 +608,7 @@ class IntegrationController extends Controller
                     'opencart' => 'api_key',
                     'shopify' => 'access_token',
                     'pedallion' => 'api_key',
+                    'woocommerce' => 'consumer_secret',
                 };
                 $stores = $card->stores ?: [null];
 
