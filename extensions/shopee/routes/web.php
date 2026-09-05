@@ -137,6 +137,10 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
         // OAuth / token / mode. ext.shopee.authorize is NOT here: it is one of
         // the two exempt OAuth surfaces registered above, outside this prefix.
         Route::post('/shopee/{store}/save', [ShopeeSettingsController::class, 'save'])->name('ext.shopee.save');
+        // The store's own name and switch (multi-store), saved on their own:
+        // they are not credentials of either environment, and the credential
+        // save also rewrites the mode (2026-09-05).
+        Route::post('/shopee/{store}/store', [ShopeeSettingsController::class, 'saveStore'])->name('ext.shopee.save_store');
         Route::post('/shopee/{store}/toggle-mode', [ShopeeSettingsController::class, 'toggleMode'])->name('ext.shopee.toggle_mode');
         Route::post('/shopee/{store}/auth-url', [ShopeeSettingsController::class, 'buildAuthUrl'])->name('ext.shopee.auth_url');
         Route::post('/shopee/{store}/token/get', [ShopeeSettingsController::class, 'tokenGet'])->name('ext.shopee.token_get');

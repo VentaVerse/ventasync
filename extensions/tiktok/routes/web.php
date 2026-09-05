@@ -93,6 +93,10 @@ Route::middleware(['auth', \Extensions\tiktok\Http\ResolveTikTokStore::class])
         // OAuth / token / mode. ext.tiktok.authorize is NOT here: it is one of
         // the two exempt OAuth surfaces registered above, outside this prefix.
         Route::post('/tiktok/{store}/save', [TiktokSettingsController::class, 'save'])->name('ext.tiktok.save');
+        // The store's own name and switch (multi-store), saved on their own:
+        // they are not credentials of either environment, and the credential
+        // save also rewrites the mode (2026-09-05).
+        Route::post('/tiktok/{store}/store', [TiktokSettingsController::class, 'saveStore'])->name('ext.tiktok.save_store');
         Route::post('/tiktok/{store}/toggle-mode', [TiktokSettingsController::class, 'toggleMode'])->name('ext.tiktok.toggle_mode');
         Route::post('/tiktok/{store}/token/get', [TiktokSettingsController::class, 'tokenGet'])->name('ext.tiktok.token_get');
         Route::post('/tiktok/{store}/token/refresh', [TiktokSettingsController::class, 'tokenRefresh'])->name('ext.tiktok.token_refresh');

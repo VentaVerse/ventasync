@@ -151,6 +151,38 @@
         </div>
     </section>
 
+    {{-- ---- THIS STORE ---------------------------------------------- --}}
+    {{-- The store's own name and switch (multi-store), outside both
+         environment panels: they belong to the store, not to a set of
+         credentials, so they show whichever environment the store stands in
+         (the owner, 2026-09-05). --}}
+    <section class="fm-section">
+        <div class="fm-section__head">
+            <h2 class="fm-section__title">This store</h2>
+        </div>
+        <form method="POST" action="{{ route('ext.lazada.save_store') }}">
+            @csrf
+            <div class="fm-fields">
+                <x-ui.field label="Store name" for="lz-store-name" name="store_name" :required="true" wide
+                            hint="How this store is named across the ERP - the sidebar, the fulfilment tabs, the channels board.">
+                    <x-ui.input id="lz-store-name" name="store_name" type="text" autocomplete="off" :disabled="!$canManageLazada"
+                                value="{{ old('store_name', $setting->store_name ?? '') }}" />
+                </x-ui.field>
+
+                <x-ui.field label="Store is active" for="lz-enabled" name="enabled" wide
+                            hint="An active store syncs on the crons and shows its tabs. Switch off to pause the store without losing anything.">
+                    <input type="hidden" name="enabled" value="0">
+                    <label class="fm-check"><input type="checkbox" id="lz-enabled" name="enabled" value="1" @checked((bool) ($setting->enabled ?? true)) @disabled(!$canManageLazada)> Active</label>
+                </x-ui.field>
+            </div>
+            @if($canManageLazada)
+                <div class="cs-actions">
+                    <x-ui.button type="submit" variant="primary">Save store</x-ui.button>
+                </div>
+            @endif
+        </form>
+    </section>
+
     {{-- ---- PRODUCTION ---------------------------------------------- --}}
     <div class="cs-grid" data-cs-env-panel="live" @if($isSandbox) hidden @endif>
 
@@ -171,21 +203,6 @@
                 <input type="hidden" name="env" value="live">
 
                 <div class="fm-fields">
-                    {{-- The store's own name and switch (multi-store): the
-                         columns arrived with the Lazada conversion, the
-                         controls did not until the owner noticed (2026-09-05). --}}
-                    <x-ui.field label="Store name" for="lz-store-name" name="store_name" wide
-                                hint="How this store is named across the ERP - the sidebar, the fulfilment tabs, the channels board.">
-                        <x-ui.input id="lz-store-name" name="store_name" type="text" autocomplete="off" :disabled="!$canManageLazada"
-                                    value="{{ $setting->store_name ?? '' }}" />
-                    </x-ui.field>
-
-                    <x-ui.field label="Store is active" for="lz-enabled" name="enabled" wide
-                                hint="An active store syncs on the crons and shows its tabs. Switch off to pause the store without losing anything.">
-                        <input type="hidden" name="enabled" value="0">
-                        <label class="fm-check"><input type="checkbox" id="lz-enabled" name="enabled" value="1" @checked((bool) ($setting->enabled ?? true)) @disabled(!$canManageLazada)> Active</label>
-                    </x-ui.field>
-
                     <x-ui.field label="Region" for="lz-region" name="region" wide
                                 hint="Which Lazada country site this shop trades on. Production and sandbox share this one setting.">
                         <div class="x-select-wrap">

@@ -137,6 +137,38 @@
         </div>
     </section>
 
+    {{-- ---- THIS STORE ---------------------------------------------- --}}
+    {{-- The store's own name and switch (multi-store), outside both
+         environment panels: they belong to the store, not to a set of
+         credentials. The pre-multistore store ran in sandbox and never saw
+         them inside the production panel (the owner, 2026-09-05). --}}
+    <section class="fm-section">
+        <div class="fm-section__head">
+            <h2 class="fm-section__title">This store</h2>
+        </div>
+        <form method="POST" action="{{ route('ext.shopee.save_store') }}">
+            @csrf
+            <div class="fm-fields">
+                <x-ui.field label="Store name" for="sp-store-name" name="store_name" :required="true" wide
+                            hint="How this store is named across the ERP - the sidebar, the fulfilment tabs, the channels board.">
+                    <x-ui.input id="sp-store-name" name="store_name" type="text" autocomplete="off" :disabled="!$canManageShopee"
+                                value="{{ old('store_name', $setting->store_name ?? '') }}" />
+                </x-ui.field>
+
+                <x-ui.field label="Store is active" for="sp-enabled" name="enabled" wide
+                            hint="An active store syncs on the crons and shows its tabs. Switch off to pause the store without losing anything.">
+                    <input type="hidden" name="enabled" value="0">
+                    <label class="fm-check"><input type="checkbox" id="sp-enabled" name="enabled" value="1" @checked((bool) ($setting->enabled ?? true)) @disabled(!$canManageShopee)> Active</label>
+                </x-ui.field>
+            </div>
+            @if($canManageShopee)
+                <div class="cs-actions">
+                    <x-ui.button type="submit" variant="primary">Save store</x-ui.button>
+                </div>
+            @endif
+        </form>
+    </section>
+
     {{-- ---- PRODUCTION ---------------------------------------------- --}}
     <div class="cs-grid" data-cs-env-panel="live" @if($isSandbox) hidden @endif>
 
@@ -150,18 +182,6 @@
                 <input type="hidden" name="env" value="live">
 
                 <div class="fm-fields">
-                    <x-ui.field label="Store name" for="sp-store-name-1" name="store_name" wide
-                                hint="How this store is named across the ERP - the sidebar, the fulfilment tabs, the channels board.">
-                        <x-ui.input id="sp-store-name-1" name="store_name" type="text" autocomplete="off" :disabled="!$canManageShopee"
-                                    value="{{ $setting->store_name ?? '' }}" />
-                    </x-ui.field>
-
-                    <x-ui.field label="Store is active" for="sp-enabled-1" name="enabled" wide
-                                hint="An active store syncs on the crons and shows its tabs. Switch off to pause the store without losing anything.">
-                        <input type="hidden" name="enabled" value="0">
-                        <label class="fm-check"><input type="checkbox" id="sp-enabled-1" name="enabled" value="1" @checked((bool) ($setting->enabled ?? true)) @disabled(!$canManageShopee)> Active</label>
-                    </x-ui.field>
-
                     <x-ui.field label="Partner ID" for="sp-partner-id" name="partner_id" wide
                                 hint="The numeric app identifier from your Shopee Open Platform app. Not a secret, so it is shown in full.">
                         <x-ui.input id="sp-partner-id" name="partner_id" class="fm-input--num" type="text" autocomplete="off" :disabled="!$canManageShopee"

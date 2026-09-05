@@ -144,10 +144,14 @@ class SettingsTabReturnTest extends TestCase
         $this->assertStringContainsString('Store name', $html);
         $this->assertStringContainsString('Store is active', $html);
 
-        $this->actingAs($user)->post($base . '/save', ['env' => 'live', 'store_name' => 'Gearshipper PH', 'enabled' => 0])->assertRedirect();
+        // Its own form and action: not the credential save, which also
+        // rewrites the mode and the region.
+        $this->actingAs($user)->post($base . '/store', ['store_name' => 'Gearshipper PH', 'enabled' => 0])
+            ->assertRedirect(route('ext.lazada.index', ['store' => $store->id, 'tab' => 'connection']));
         $store->refresh();
         $this->assertSame('Gearshipper PH', $store->store_name);
         $this->assertFalse((bool) $store->enabled);
+        $this->assertSame('live', $store->mode, 'the store save leaves the environment alone');
     }
 
     public function test_tiktok_actions_land_on_their_tabs_and_the_store_has_a_name_and_a_switch(): void
@@ -170,10 +174,31 @@ class SettingsTabReturnTest extends TestCase
         $this->assertStringContainsString('Store name', $html);
         $this->assertStringContainsString('Store is active', $html);
 
-        $this->actingAs($user)->post($base . '/save', ['env' => 'live', 'store_name' => 'TikTok PH', 'enabled' => 0])->assertRedirect();
+        $this->actingAs($user)->post($base . '/store', ['store_name' => 'TikTok PH', 'enabled' => 0])
+            ->assertRedirect(route('ext.tiktok.index', ['store' => $store->id, 'tab' => 'connection']));
         $store->refresh();
         $this->assertSame('TikTok PH', $store->store_name);
         $this->assertFalse((bool) $store->enabled);
+        $this->assertSame('production', $store->mode, 'the store save leaves the environment alone');
+    }
+
+    /** The bug the owner hit: the pre-multistore Shopee store runs in sandbox, and the controls lived inside the production panel. */
+    public function test_a_store_standing_in_sandbox_still_sees_its_name_and_switch(): void
+    {
+        $store = ShopeeSetting::create(['mode' => 'sandbox', 'store_name' => 'Main store']);
+        $user = $this->manager('shopee');
+
+        $html = $this->actingAs($user)->get(route('ext.shopee.settings.show', ['store' => $store->id]))->assertOk()->getContent();
+
+        $storeAt = strpos($html, 'id="sp-store-name"');
+        $liveAt = strpos($html, 'data-cs-env-panel="live"');
+        $this->assertNotFalse($storeAt);
+        $this->assertLessThan($liveAt, $storeAt, 'the store section sits above both environment panels, never inside the hidden one');
+
+        $this->actingAs($user)->post('/channels/shopee/' . $store->id . '/store', ['store_name' => 'Main store PH', 'enabled' => 1])
+            ->assertRedirect(route('ext.shopee.settings.show', ['store' => $store->id, 'tab' => 'connection']));
+        $this->assertSame('Main store PH', $store->fresh()->store_name);
+        $this->assertSame('sandbox', $store->fresh()->mode, 'still in sandbox: the store save is not the credential save');
     }
 
     // ── The tooltip rule ─────────────────────────────────────────────
@@ -189,7 +214,7 @@ class SettingsTabReturnTest extends TestCase
         // The description still reaches the reader (and the screen reader,
         // through the bubble the control points at) - as a ? beside the label.
         $this->assertStringContainsString('How this store is named across the ERP', $html);
-        $this->assertStringContainsString('id="sp-store-name-1-hint"', $html);
+        $this->assertStringContainsString('id="sp-store-name-hint"', $html);
         $this->assertStringContainsString('class="bl-hint fm-label__hint"', $html);
         $this->assertStringNotContainsString('class="fm-hint"', $html, 'no description paragraph under a control on this page');
         // The environment note rides the same button.

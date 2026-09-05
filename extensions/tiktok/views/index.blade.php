@@ -159,6 +159,38 @@
         </div>
     </section>
 
+    {{-- ---- THIS STORE ---------------------------------------------- --}}
+    {{-- The store's own name and switch (multi-store), outside both
+         environment panels: they belong to the store, not to a set of
+         credentials, so they show whichever environment the store stands in
+         (the owner, 2026-09-05). --}}
+    <section class="fm-section">
+        <div class="fm-section__head">
+            <h2 class="fm-section__title">This store</h2>
+        </div>
+        <form method="POST" action="{{ route('ext.tiktok.save_store') }}">
+            @csrf
+            <div class="fm-fields">
+                <x-ui.field label="Store name" for="tt-store-name" name="store_name" :required="true" wide
+                            hint="How this store is named across the ERP - the sidebar, the fulfilment tabs, the channels board.">
+                    <x-ui.input id="tt-store-name" name="store_name" type="text" autocomplete="off" :disabled="!$canManageTiktok"
+                                value="{{ old('store_name', $setting->store_name ?? '') }}" />
+                </x-ui.field>
+
+                <x-ui.field label="Store is active" for="tt-enabled" name="enabled" wide
+                            hint="An active store syncs on the crons and shows its tabs. Switch off to pause the store without losing anything.">
+                    <input type="hidden" name="enabled" value="0">
+                    <label class="fm-check"><input type="checkbox" id="tt-enabled" name="enabled" value="1" @checked((bool) ($setting->enabled ?? true)) @disabled(!$canManageTiktok)> Active</label>
+                </x-ui.field>
+            </div>
+            @if($canManageTiktok)
+                <div class="cs-actions">
+                    <x-ui.button type="submit" variant="primary">Save store</x-ui.button>
+                </div>
+            @endif
+        </form>
+    </section>
+
     {{-- ---- PRODUCTION ---------------------------------------------- --}}
     <div class="cs-grid" data-cs-env-panel="live" @if($isSandbox) hidden @endif>
 
@@ -179,21 +211,6 @@
                 <input type="hidden" name="env" value="live">
 
                 <div class="fm-fields">
-                    {{-- The store's own name and switch (multi-store): the
-                         columns arrived with the TikTok conversion, the
-                         controls did not until the owner noticed (2026-09-05). --}}
-                    <x-ui.field label="Store name" for="tt-store-name" name="store_name" wide
-                                hint="How this store is named across the ERP - the sidebar, the fulfilment tabs, the channels board.">
-                        <x-ui.input id="tt-store-name" name="store_name" type="text" autocomplete="off" :disabled="!$canManageTiktok"
-                                    value="{{ $setting->store_name ?? '' }}" />
-                    </x-ui.field>
-
-                    <x-ui.field label="Store is active" for="tt-enabled" name="enabled" wide
-                                hint="An active store syncs on the crons and shows its tabs. Switch off to pause the store without losing anything.">
-                        <input type="hidden" name="enabled" value="0">
-                        <label class="fm-check"><input type="checkbox" id="tt-enabled" name="enabled" value="1" @checked((bool) ($setting->enabled ?? true)) @disabled(!$canManageTiktok)> Active</label>
-                    </x-ui.field>
-
                     <x-ui.field label="App Key" for="tt-app-key" name="app_key" wide
                                 hint="The app identifier from TikTok Shop Partner Center. Not a secret, so it is shown in full.">
                         <x-ui.input id="tt-app-key" name="app_key" class="fm-input--num" type="text" autocomplete="off" :disabled="!$canManageTiktok"

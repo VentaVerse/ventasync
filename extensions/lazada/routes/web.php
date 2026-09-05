@@ -98,6 +98,10 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
         // OAuth / token / mode. ext.lazada.authorize is NOT here: it is one of
         // the two exempt OAuth surfaces registered above, outside this prefix.
         Route::post('/lazada/{store}/save', [LazadaSettingsController::class, 'save'])->name('ext.lazada.save');
+        // The store's own name and switch (multi-store), saved on their own:
+        // they are not credentials of either environment, and the credential
+        // save also rewrites the mode (2026-09-05).
+        Route::post('/lazada/{store}/store', [LazadaSettingsController::class, 'saveStore'])->name('ext.lazada.save_store');
         Route::post('/lazada/{store}/toggle-mode', [LazadaSettingsController::class, 'toggleMode'])->name('ext.lazada.toggle_mode');
         Route::post('/lazada/{store}/token/create', [LazadaSettingsController::class, 'tokenCreate'])->name('ext.lazada.token_create');
         Route::post('/lazada/{store}/token/refresh', [LazadaSettingsController::class, 'tokenRefresh'])->name('ext.lazada.token_refresh');
