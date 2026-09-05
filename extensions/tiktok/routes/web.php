@@ -109,6 +109,8 @@ Route::middleware(['auth', \Extensions\tiktok\Http\ResolveTikTokStore::class])
         // Hard delete of a store (the owner, 2026-09-05): the typed name confirms;
         // everything the store owns goes, core orders stay under its name.
         Route::post('/tiktok/{store}/delete', [TiktokSettingsController::class, 'destroyStore'])->name('ext.tiktok.stores.destroy');
+        // Set up the store: the shop then the categories, one step per call, behind the setup popup.
+        Route::post('/tiktok/{store}/setup/{step}', [TiktokSettingsController::class, 'setupStep'])->whereIn('step', ['shop', 'categories'])->name('ext.tiktok.setup_step');
 
         // Status-map saves
         Route::post('/tiktok/{store}/order-status-map', [TiktokSettingsController::class, 'saveOrderStatusMap'])->name('ext.tiktok.order_status_map');

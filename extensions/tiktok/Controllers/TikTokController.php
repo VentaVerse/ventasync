@@ -409,7 +409,7 @@ class TikTokController extends Controller
             $message = 'Auth code received but token exchange may have failed.';
         }
 
-        return redirect()->route('ext.tiktok.index')->with('tiktok_result', [
+        return redirect()->route('ext.tiktok.index')->with('settings_setup', $saved)->with('tiktok_result', [
             'ok' => $saved,
             'title' => 'OAuth Callback',
             'data' => [
@@ -599,6 +599,27 @@ class TikTokController extends Controller
             'title' => 'Get Authorized Shops',
             'data' => $result,
         ]);
+    }
+
+    /**
+     * One step of "Set up the store" (the Shopee shape, 2026-09-06): the
+     * setup popup runs the shop then the categories and reads a sentence back.
+     */
+    public function setupStep(string $step, \Extensions\tiktok\Services\TikTok\TikTokStoreSetup $setup)
+    {
+        $raw = TikTokSetting::defaultStore();
+        $c = $raw ? \Extensions\tiktok\Services\TikTok\TikTokStoreSetup::creds($raw) : null;
+        if (! $raw || ! $c || $c['app_key'] === '' || $c['app_secret'] === '' || $c['token'] === '') {
+            return response()->json(['ok' => false, 'count' => 0, 'message' => 'This store is not connected yet. Authorise it with TikTok Shop first.'], 422);
+        }
+        $out = match ($step) {
+            'shop' => $setup->shop($raw),
+            'categories' => $setup->categories($raw),
+            default => null,
+        };
+        abort_if($out === null, 404);
+
+        return response()->json($out);
     }
 
     // -- API Explorer -----------------------------------------------------

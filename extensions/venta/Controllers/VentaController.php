@@ -164,9 +164,15 @@ class VentaController extends Controller
         // that anything had moved. On a multi-store channel where every store
         // is a live storefront, a save that silently changes which shop you
         // are editing is worse than an inconvenience.
+        // Connected for the first time and nothing fetched yet: the page
+        // sets the store up (categories, brands, statuses) behind the popup.
+        $setUp = trim((string) $setting->api_token) !== ''
+            && ! VentaCategory::query()->where('venta_setting_id', $setting->id)->exists();
+
         return redirect()
             ->route('ext.venta.settings.show', ['store' => $setting->id])
-            ->with('status', 'Venta store saved.');
+            ->with('status', 'Venta store saved.')
+            ->with('settings_setup', $setUp);
     }
 
     public function destroy($id, \Extensions\venta\Services\Venta\VentaStoreDeleter $deleter)
@@ -237,102 +243,67 @@ class VentaController extends Controller
         return response()->json($result);
     }
 
-    public function fetchCategories(Request $request)
+    /**
+     * One step of "Set up the store" (the Shopee shape, 2026-09-06): the
+     * setup popup runs categories, brands and statuses and reads a sentence back.
+     */
+    public function setupStep(int $store, string $step, \Extensions\venta\Services\Venta\VentaStoreSetup $setup)
     {
-        $storeId = $request->input('store_id');
-        if (!$storeId) {
-            return response()->json(['ok' => false, 'error' => 'Store ID is required.'], 422);
+        $setting = VentaSetting::findOrFail($store);
+        if (trim((string) $setting->api_token) === '' || trim((string) $setting->base_url) === '') {
+            return response()->json(['ok' => false, 'count' => 0, 'message' => 'This store is not connected yet. Save its address and API token first.'], 422);
         }
+        $out = match ($step) {
+            'categories' => $setup->categories($setting),
+            'brands' => $setup->brands($setting),
+            'statuses' => $setup->statuses($setting),
+            default => null,
+        };
+        abort_if($out === null, 404);
 
-        $setting = VentaSetting::find((int) $storeId);
-        if (!$setting) {
-            return response()->json(['ok' => false, 'error' => 'Store not found.'], 404);
-        }
-
-        $client = new VentaClient($setting);
-        $result = $client->getCategories();
-
-        if (!$result['ok']) {
-            $error = 'API call failed: ' . ($result['body']['error'] ?? 'Unknown error');
-
-            return $request->expectsJson()
-                ? response()->json(['ok' => false, 'error' => $error])
-                : back()->with('error', $error);
-        }
-
-        $categories = $result['body'];
-        if (!is_array($categories)) {
-            $categories = [];
-        }
-
-        // Truncate and repopulate
-        VentaCategory::where('venta_setting_id', $setting->id)->delete();
-        foreach ($categories as $c) {
-            VentaCategory::create([
-                'venta_setting_id'  => $setting->id,
-                'venta_category_id' => $c['id'],
-                'name'              => $c['name'] ?? '',
-                'slug'              => $c['slug'] ?? null,
-                'parent_id'         => $c['parent_id'] ?? null,
-                'is_active'         => $c['is_active'] ?? true,
-            ]);
-        }
-
-        $setting->forceFill(['last_category_sync_at' => now()])->save();
-        // The flow's "Fetch the categories" button posts a plain form and
-        // comes back to the page; the status-map script asks for JSON.
-        if (! $request->expectsJson()) {
-            return back()->with('status', count($categories) . ' ' . \Illuminate\Support\Str::plural('category', count($categories)) . ' read from ' . ($setting->store_name ?: 'the store') . '.');
-        }
-
-        return response()->json([
-            'ok'         => true,
-            'categories' => $categories,
-            'count'      => count($categories),
-        ]);
+        return response()->json($out);
     }
 
-    public function fetchBrands(Request $request)
+    public function fetchCategories(Request $request, \Extensions\venta\Services\Venta\VentaStoreSetup $setup)
     {
         $storeId = $request->input('store_id');
         if (!$storeId) {
             return response()->json(['ok' => false, 'error' => 'Store ID is required.'], 422);
         }
-
         $setting = VentaSetting::find((int) $storeId);
         if (!$setting) {
             return response()->json(['ok' => false, 'error' => 'Store not found.'], 404);
         }
-
-        $client = new VentaClient($setting);
-        $result = $client->getBrands();
-
-        if (!$result['ok']) {
-            return response()->json(['ok' => false, 'error' => 'API call failed: ' . ($result['body']['error'] ?? 'Unknown error')]);
+        $out = $setup->categories($setting);
+        if (! $out['ok']) {
+            return $request->expectsJson()
+                ? response()->json(['ok' => false, 'error' => $out['message']])
+                : back()->with('error', $out['message']);
+        }
+        // The flow's plain form comes back to the page with a sentence; the
+        // status-map script asks for JSON.
+        if (! $request->expectsJson()) {
+            return back()->with('status', $out['count'] . ' ' . \Illuminate\Support\Str::plural('category', $out['count']) . ' read from ' . ($setting->store_name ?: 'the store') . '.');
         }
 
-        $brands = $result['body'];
-        if (!is_array($brands)) {
-            $brands = [];
-        }
+        return response()->json(['ok' => true, 'count' => $out['count']]);
+    }
 
-        // Truncate and repopulate
-        VentaBrand::where('venta_setting_id', $setting->id)->delete();
-        foreach ($brands as $b) {
-            VentaBrand::create([
-                'venta_setting_id' => $setting->id,
-                'venta_brand_id'   => $b['id'],
-                'name'             => $b['name'] ?? '',
-                'slug'             => $b['slug'] ?? null,
-                'is_active'        => $b['is_active'] ?? true,
-            ]);
+    public function fetchBrands(Request $request, \Extensions\venta\Services\Venta\VentaStoreSetup $setup)
+    {
+        $storeId = $request->input('store_id');
+        if (!$storeId) {
+            return response()->json(['ok' => false, 'error' => 'Store ID is required.'], 422);
         }
+        $setting = VentaSetting::find((int) $storeId);
+        if (!$setting) {
+            return response()->json(['ok' => false, 'error' => 'Store not found.'], 404);
+        }
+        $out = $setup->brands($setting);
 
-        return response()->json([
-            'ok'     => true,
-            'brands' => $brands,
-            'count'  => count($brands),
-        ]);
+        return $out['ok']
+            ? response()->json(['ok' => true, 'count' => $out['count']])
+            : response()->json(['ok' => false, 'error' => $out['message']]);
     }
 
     public function fetchVentaStatuses(Request $request)
@@ -347,45 +318,10 @@ class VentaController extends Controller
             return response()->json(['error' => 'Store not found.'], 404);
         }
 
-        $client = new VentaClient($setting);
-        $result = $client->get('order-statuses');
-
-        if (!$result['ok']) {
-            return response()->json(['error' => 'API call failed: ' . ($result['body']['error'] ?? 'Unknown error')], 500);
+        $out = app(\Extensions\venta\Services\Venta\VentaStoreSetup::class)->statuses($setting);
+        if (! $out['ok']) {
+            return response()->json(['error' => $out['message']], str_contains($out['message'], 'no order statuses') ? 404 : 500);
         }
-
-        // Venta returns a flat array or wrapped in a data key.
-        $statuses = $result['body']['data'] ?? $result['body'] ?? [];
-        if (!is_array($statuses) || empty($statuses)) {
-            return response()->json(['error' => 'No statuses returned from Venta.'], 404);
-        }
-
-        // Delta-merge — preserve existing order_status_id mappings, only update
-        // venta_status_name on rename. Rows whose IDs vanished from the API are
-        // removed; new ones are inserted with order_status_id=0 (awaiting pick).
-        $apiIds = [];
-        foreach ($statuses as $s) {
-            $vid = (int) ($s['id'] ?? $s['order_status_id'] ?? 0);
-            if ($vid <= 0) continue;
-            $name = (string) ($s['name'] ?? $s['label'] ?? '');
-
-            $row = VentaOrderStatusMap::firstOrNew([
-                'venta_setting_id' => $setting->id,
-                'venta_status_id'  => $vid,
-            ]);
-
-            if (!$row->exists) {
-                $row->order_status_id = 0;
-            }
-            $row->venta_status_name = $name;
-            $row->save();
-
-            $apiIds[] = $vid;
-        }
-
-        VentaOrderStatusMap::where('venta_setting_id', $setting->id)
-            ->whereNotIn('venta_status_id', $apiIds ?: [0])
-            ->delete();
 
         // Return persisted rows so the JS can render dropdowns with the
         // current mappings already selected.

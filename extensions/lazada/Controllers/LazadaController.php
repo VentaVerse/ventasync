@@ -278,6 +278,27 @@ class LazadaController extends Controller
      * exactly confirms; one transaction removes everything the store owns;
      * core orders are untouched and keep the store's name.
      */
+    /**
+     * One step of "Set up the store" (the Shopee shape, 2026-09-06): the
+     * setup popup runs categories then brands and reads a sentence back.
+     */
+    public function setupStep(string $step, \Extensions\lazada\Services\Lazada\LazadaStoreSetup $setup)
+    {
+        $setting = LazadaSetting::defaultStore()?->decrypted();
+        $creds = LazadaSetting::activeCredentials($setting);
+        if (! $setting || ! $setting->region || empty($creds['app_key']) || empty($creds['app_secret'])) {
+            return response()->json(['ok' => false, 'count' => 0, 'message' => 'This store is not connected yet. Save the region and the keys, then authorise it with Lazada first.'], 422);
+        }
+        $out = match ($step) {
+            'categories' => $setup->categories($setting, $creds),
+            'brands' => $setup->brands($setting, $creds),
+            default => null,
+        };
+        abort_if($out === null, 404);
+
+        return response()->json($out);
+    }
+
     public function destroyStore(Request $request, \Extensions\lazada\Services\Lazada\LazadaStoreDeleter $deleter)
     {
         abort_unless($request->user()?->hasPermission('manage_lazada/settings'), 403);
@@ -1305,6 +1326,12 @@ class LazadaController extends Controller
             $message = 'Auth code received but could not be saved to the database. Most common cause: migrations not run yet. Save error: ' . $saveError;
         } elseif ($saved) {
             $message = 'Auth code received and saved.';
+        }
+
+        // Freshly authorised: the settings page the operator goes to next
+        // sets the store up (categories, brands) behind the progress popup.
+        if ($saved) {
+            session()->flash('settings_setup', true);
         }
 
         return view('ext-lazada::callback', [

@@ -146,6 +146,15 @@
 @endif
 
 @if($canManageLazada)
+    @include('partials.channel-setup', [
+        'channelLabel' => 'Lazada',
+        'storeName' => $setting->store_name ?? '',
+        'run' => (bool) session('settings_setup'),
+        'steps' => [
+            ['label' => 'Categories', 'url' => route('ext.lazada.setup_step', ['step' => 'categories'])],
+            ['label' => 'Brands', 'url' => route('ext.lazada.setup_step', ['step' => 'brands'])],
+        ],
+    ])
     @include('partials.channel-delete-store', [
         'action' => route('ext.lazada.stores.destroy'),
         'storeName' => $setting->store_name ?? '',
@@ -157,7 +166,14 @@
 
 
     {{-- ---- PRODUCTION ---------------------------------------------- --}}
-    @php $csCategories = \Extensions\lazada\Models\LazadaCategory::query()->count(); @endphp
+    @php
+        $csCategories = \Extensions\lazada\Models\LazadaCategory::query()->count();
+        $csBrands = \Extensions\lazada\Models\LazadaBrand::query()->where('region', (string) ($setting->region ?? ''))->count();
+        $csSetUp = $csCategories > 0 && $csBrands > 0;
+        $csSetupState = $csSetUp || $csCategories > 0 || $csBrands > 0
+            ? number_format($csCategories) . ' ' . \Illuminate\Support\Str::plural('category', $csCategories) . ' and ' . number_format($csBrands) . ' ' . \Illuminate\Support\Str::plural('brand', $csBrands) . ' on file'
+            : 'Nothing fetched yet';
+    @endphp
     <div class="cs-env-panel" data-cs-env-panel="live" @if($isSandbox) hidden @endif>
     @include('partials.channel-connect-flow', [
         'canManage' => $canManageLazada,
@@ -168,10 +184,10 @@
              'hint' => 'Opens Lazada sign-in in a new tab, with the production keys saved here. After you grant access Lazada sends you back with an auth code, and the code is exchanged for a token on its own.',
              'button' => ['label' => 'Open Lazada authorisation', 'newTab' => true, 'variant' => $__hasToken && ! $__tokenExpired ? 'secondary' : 'primary', 'href' => route('ext.lazada.authorize', ['store' => $setting->id ?? null])],
              'state' => $__hasToken && ! $__tokenExpired ? ('Token active' . (($setting->expires_at ?? null) ? ', expires ' . \Carbon\Carbon::parse($setting->expires_at)->diffForHumans() : '')) : ($__hasToken ? 'Token expired: authorise again, or refresh it by hand' : 'No token yet')],
-            ['title' => 'Fetch the categories', 'tone' => $csCategories > 0 ? 'done' : 'todo',
-             'hint' => 'Every listing needs a Lazada category. The list is read on Catalog > Categories and kept until you fetch it again.',
-             'button' => ['label' => 'Open Categories', 'variant' => $csCategories > 0 ? 'secondary' : 'primary', 'href' => route('ext.lazada.categories.index')],
-             'state' => $csCategories > 0 ? number_format($csCategories) . ' categories on file' : 'Nothing fetched yet'],
+            ['title' => 'Set up the store', 'tone' => $csSetUp ? 'done' : 'todo',
+             'hint' => 'Reads the categories and brands every listing needs. It runs on its own after an authorisation; press it again to refresh them.',
+             'button' => ['label' => 'Set up store', 'variant' => $csSetUp ? 'secondary' : 'primary', 'attr' => 'data-setup-open'],
+             'state' => $csSetupState],
         ],
     ])
     @include('partials.channel-last-run', ['show' => ($setting->enabled ?? true) && ($setting->id ?? null), 'stats' => ['Orders pulled' => $setting->last_order_sync_at ?? null, 'Stock pushed' => $setting->last_stock_push_at ?? null, 'Returns pulled' => $setting->last_return_sync_at ?? null, 'Reviews pulled' => $setting->last_review_sync_at ?? null]])
@@ -328,10 +344,10 @@
              'hint' => 'Opens Lazada sign-in in a new tab, with the sandbox keys saved here. After you grant access Lazada sends you back with an auth code, and the code is exchanged for a token on its own.',
              'button' => ['label' => 'Open sandbox authorisation', 'newTab' => true, 'variant' => $__hasSandboxToken && ! $__sandboxTokenExpired ? 'secondary' : 'primary', 'href' => route('ext.lazada.authorize', ['store' => $setting->id ?? null, 'sandbox' => 1])],
              'state' => $__hasSandboxToken && ! $__sandboxTokenExpired ? ('Token active' . (($setting->sandbox_expires_at ?? null) ? ', expires ' . \Carbon\Carbon::parse($setting->sandbox_expires_at)->diffForHumans() : '')) : ($__hasSandboxToken ? 'Token expired: authorise again, or refresh it by hand' : 'No token yet')],
-            ['title' => 'Fetch the categories', 'tone' => $csCategories > 0 ? 'done' : 'todo',
-             'hint' => 'Every listing needs a Lazada category. The list is read on Catalog > Categories and kept until you fetch it again.',
-             'button' => ['label' => 'Open Categories', 'variant' => $csCategories > 0 ? 'secondary' : 'primary', 'href' => route('ext.lazada.categories.index')],
-             'state' => $csCategories > 0 ? number_format($csCategories) . ' categories on file' : 'Nothing fetched yet'],
+            ['title' => 'Set up the store', 'tone' => $csSetUp ? 'done' : 'todo',
+             'hint' => 'Reads the categories and brands every listing needs. It runs on its own after an authorisation; press it again to refresh them.',
+             'button' => ['label' => 'Set up store', 'variant' => $csSetUp ? 'secondary' : 'primary', 'attr' => 'data-setup-open'],
+             'state' => $csSetupState],
         ],
     ])
     @include('partials.channel-last-run', ['show' => ($setting->enabled ?? true) && ($setting->id ?? null), 'stats' => ['Orders pulled' => $setting->last_order_sync_at ?? null, 'Stock pushed' => $setting->last_stock_push_at ?? null, 'Returns pulled' => $setting->last_return_sync_at ?? null, 'Reviews pulled' => $setting->last_review_sync_at ?? null]])

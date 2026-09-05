@@ -68,6 +68,12 @@
     // the steps a Venta store goes through, each with its state.
     $csHasToken = \App\Support\Credentials::length($store->api_token ?? null) > 0 && trim((string) $store->base_url) !== '';
     $csCategories = \Extensions\venta\Models\VentaCategory::query()->where('venta_setting_id', $store->id)->count();
+    $csBrands = \Extensions\venta\Models\VentaBrand::query()->where('venta_setting_id', $store->id)->count();
+    $csStatuses = $statusMap->count();
+    $csSetUp = $csCategories > 0 && $csStatuses > 0;
+    $csSetupState = $csCategories > 0 || $csBrands > 0 || $csStatuses > 0
+        ? number_format($csCategories) . ' ' . \Illuminate\Support\Str::plural('category', $csCategories) . ', ' . number_format($csBrands) . ' ' . \Illuminate\Support\Str::plural('brand', $csBrands) . ' and ' . number_format($csStatuses) . ' ' . \Illuminate\Support\Str::plural('status', $csStatuses) . ' on file'
+        : 'Nothing fetched yet';
     $steps = [
         ['title' => 'Save the address and token', 'tone' => $csHasToken ? 'done' : 'todo',
          'hint' => 'The token is issued by the Venta store itself, under its own API settings. It has to allow reading orders and writing products, stock and prices.',
@@ -76,10 +82,10 @@
          'hint' => 'Asks the store for its category list with the saved token. A refusal here means the token or the address is wrong.',
          'button' => $csHasToken ? ['label' => 'Check connection', 'variant' => $store->connected_at ? 'secondary' : 'primary', 'attr' => 'data-test-connection'] : null,
          'state' => $store->connected_at ? 'Reached ' . $store->connected_at->diffForHumans() : 'Not checked yet'],
-        ['title' => 'Fetch the categories', 'tone' => $csCategories > 0 ? 'done' : 'todo',
-         'hint' => 'Reads the categories your store already has. A product group picks one of them; nothing is written to the store\'s categories.',
-         'button' => $csHasToken ? ['label' => $csCategories > 0 ? 'Fetch again' : 'Fetch categories', 'variant' => $csCategories > 0 ? 'secondary' : 'primary', 'post' => route('ext.venta.fetch_categories'), 'fields' => ['store_id' => $store->id]] : null,
-         'state' => $csCategories > 0 ? number_format($csCategories) . ' ' . \Illuminate\Support\Str::plural('category', $csCategories) . ' on file' : 'Nothing fetched yet'],
+        ['title' => 'Set up the store', 'tone' => $csSetUp ? 'done' : 'todo',
+         'hint' => 'Reads the categories and brands a product group picks from, and the order statuses the mapping needs. It runs on its own the first time the token is saved; press it again to refresh them. Nothing is written to the store.',
+         'button' => $csHasToken ? ['label' => 'Set up store', 'variant' => $csSetUp ? 'secondary' : 'primary', 'attr' => 'data-setup-open'] : null,
+         'state' => $csSetupState],
         ['title' => 'Map statuses', 'tone' => $statusMap->isNotEmpty() ? 'done' : 'todo',
          'hint' => 'Which sales order status a Venta order lands in. Fetch the store\'s statuses and set them under Status mapping.',
          'button' => ['label' => 'Status mapping', 'variant' => 'secondary', 'href' => route('ext.venta.settings.show', ['store' => $store->id, 'tab' => 'status'])],
@@ -131,6 +137,18 @@
 {{-- ================================================================
      CONNECTION
      ================================================================ --}}
+@if($canManageVenta)
+    @include('partials.channel-setup', [
+        'channelLabel' => 'Venta',
+        'storeName' => $store->store_name ?? '',
+        'run' => (bool) session('settings_setup'),
+        'steps' => [
+            ['label' => 'Categories', 'url' => route('ext.venta.setup_step', ['store' => $store->id, 'step' => 'categories'])],
+            ['label' => 'Brands', 'url' => route('ext.venta.setup_step', ['store' => $store->id, 'step' => 'brands'])],
+            ['label' => 'Order statuses', 'url' => route('ext.venta.setup_step', ['store' => $store->id, 'step' => 'statuses'])],
+        ],
+    ])
+@endif
 <div id="vt-tab-connection" class="cs-panel" @if($csSection !== 'connection') hidden @endif>
 
     @include('partials.channel-connect-flow', ['canManage' => $canManageVenta, 'steps' => $steps])

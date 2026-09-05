@@ -154,6 +154,15 @@
 @endif
 
 @if($canManageTiktok)
+    @include('partials.channel-setup', [
+        'channelLabel' => 'TikTok Shop',
+        'storeName' => $setting->store_name ?? '',
+        'run' => (bool) session('settings_setup'),
+        'steps' => [
+            ['label' => 'Shop', 'url' => route('ext.tiktok.setup_step', ['step' => 'shop'])],
+            ['label' => 'Categories', 'url' => route('ext.tiktok.setup_step', ['step' => 'categories'])],
+        ],
+    ])
     @include('partials.channel-delete-store', [
         'action' => route('ext.tiktok.stores.destroy'),
         'storeName' => $setting->store_name ?? '',
@@ -165,7 +174,13 @@
 
 
     {{-- ---- PRODUCTION ---------------------------------------------- --}}
-    @php $csCategories = \Extensions\tiktok\Models\TikTokCategory::query()->count(); @endphp
+    @php
+        $csCategories = \Extensions\tiktok\Models\TikTokCategory::query()->count();
+        $csShopName = (string) ($setting->shop_name ?: ($setting->shop_id ?? ''));
+        $csSetUp = $hasShop && $csCategories > 0;
+        $csSetupState = ($hasShop ? 'Shop ' . ($csShopName !== '' ? $csShopName : 'fetched') : 'No shop yet')
+            . ', ' . ($csCategories > 0 ? number_format($csCategories) . ' ' . \Illuminate\Support\Str::plural('category', $csCategories) . ' on file' : 'no categories yet');
+    @endphp
     <div class="cs-env-panel" data-cs-env-panel="live" @if($isSandbox) hidden @endif>
     @include('partials.channel-connect-flow', [
         'canManage' => $canManageTiktok,
@@ -176,14 +191,10 @@
              'hint' => 'Opens TikTok Shop sign-in in a new tab, with the keys of the environment selected above. After you grant access TikTok sends you back with an auth code, and the code is exchanged for a token on its own.',
              'button' => ['label' => 'Open TikTok Shop authorisation', 'newTab' => true, 'variant' => $hasToken && ! $tokenExpired ? 'secondary' : 'primary', 'href' => route('ext.tiktok.authorize', ['store' => $setting->id ?? null])],
              'state' => $hasToken && ! $tokenExpired ? ('Token active' . (($setting->expires_at ?? null) ? ', expires ' . \Carbon\Carbon::parse($setting->expires_at)->diffForHumans() : '')) : ($hasToken ? 'Token expired: authorise again, or refresh it by hand' : 'No token yet')],
-            ['title' => 'Fetch the shop', 'tone' => $hasShop ? 'done' : 'todo',
-             'hint' => 'Saves the shop cipher, which nearly every TikTok call needs. Without it products and orders will not sync even with a valid token.',
-             'button' => ['label' => 'Fetch shop', 'variant' => $hasShop ? 'secondary' : 'primary', 'post' => route('ext.tiktok.shops')],
-             'state' => $hasShop ? ('Shop ' . ($setting->shop_name ?: ($setting->shop_id ?? 'fetched')) . (($setting->region ?? '') !== '' ? ', ' . strtoupper($setting->region) : '')) : 'No shop fetched yet'],
-            ['title' => 'Fetch the categories', 'tone' => $csCategories > 0 ? 'done' : 'todo',
-             'hint' => 'Every listing needs a TikTok category. The list is read on Catalog > Categories and kept until you fetch it again.',
-             'button' => ['label' => 'Open Categories', 'variant' => $csCategories > 0 ? 'secondary' : 'primary', 'href' => route('ext.tiktok.categories.index')],
-             'state' => $csCategories > 0 ? number_format($csCategories) . ' categories on file' : 'Nothing fetched yet'],
+            ['title' => 'Set up the store', 'tone' => $csSetUp ? 'done' : 'todo',
+             'hint' => 'Reads the shop (its cipher and warehouse, which nearly every call needs) and the categories every listing needs. It runs on its own after an authorisation; press it again to refresh them.',
+             'button' => ['label' => 'Set up store', 'variant' => $csSetUp ? 'secondary' : 'primary', 'attr' => 'data-setup-open'],
+             'state' => $csSetupState],
         ],
     ])
     @include('partials.channel-last-run', ['show' => ($setting->enabled ?? true) && ($setting->id ?? null), 'stats' => ['Orders pulled' => $setting->last_order_sync_at ?? null, 'Stock pushed' => $setting->last_stock_push_at ?? null]])
@@ -343,14 +354,10 @@
              'hint' => 'Opens TikTok Shop sign-in in a new tab, with the keys of the environment selected above. After you grant access TikTok sends you back with an auth code, and the code is exchanged for a token on its own.',
              'button' => ['label' => 'Open sandbox authorisation', 'newTab' => true, 'variant' => $hasSandboxToken && ! $sandboxTokenExpired ? 'secondary' : 'primary', 'href' => route('ext.tiktok.authorize', ['store' => $setting->id ?? null])],
              'state' => $hasSandboxToken && ! $sandboxTokenExpired ? ('Token active' . (($setting->sandbox_expires_at ?? null) ? ', expires ' . \Carbon\Carbon::parse($setting->sandbox_expires_at)->diffForHumans() : '')) : ($hasSandboxToken ? 'Token expired: authorise again, or refresh it by hand' : 'No token yet')],
-            ['title' => 'Fetch the shop', 'tone' => $hasShop ? 'done' : 'todo',
-             'hint' => 'Saves the shop cipher, which nearly every TikTok call needs. Without it products and orders will not sync even with a valid token.',
-             'button' => ['label' => 'Fetch shop', 'variant' => $hasShop ? 'secondary' : 'primary', 'post' => route('ext.tiktok.shops')],
-             'state' => $hasShop ? ('Shop ' . ($setting->shop_name ?: ($setting->shop_id ?? 'fetched')) . (($setting->region ?? '') !== '' ? ', ' . strtoupper($setting->region) : '')) : 'No shop fetched yet'],
-            ['title' => 'Fetch the categories', 'tone' => $csCategories > 0 ? 'done' : 'todo',
-             'hint' => 'Every listing needs a TikTok category. The list is read on Catalog > Categories and kept until you fetch it again.',
-             'button' => ['label' => 'Open Categories', 'variant' => $csCategories > 0 ? 'secondary' : 'primary', 'href' => route('ext.tiktok.categories.index')],
-             'state' => $csCategories > 0 ? number_format($csCategories) . ' categories on file' : 'Nothing fetched yet'],
+            ['title' => 'Set up the store', 'tone' => $csSetUp ? 'done' : 'todo',
+             'hint' => 'Reads the shop (its cipher and warehouse, which nearly every call needs) and the categories every listing needs. It runs on its own after an authorisation; press it again to refresh them.',
+             'button' => ['label' => 'Set up store', 'variant' => $csSetUp ? 'secondary' : 'primary', 'attr' => 'data-setup-open'],
+             'state' => $csSetupState],
         ],
     ])
     @include('partials.channel-last-run', ['show' => ($setting->enabled ?? true) && ($setting->id ?? null), 'stats' => ['Orders pulled' => $setting->last_order_sync_at ?? null, 'Stock pushed' => $setting->last_stock_push_at ?? null]])

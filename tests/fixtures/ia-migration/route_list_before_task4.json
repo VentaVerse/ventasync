@@ -1021,6 +1021,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/lazada/{store}/setup/{step}",
+        "name": "ext.lazada.setup_step"
+    },
+    {
+        "method": "POST",
         "uri": "channels/lazada/{store}/toggle-mode",
         "name": "ext.lazada.toggle_mode"
     },
@@ -2461,6 +2466,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/tiktok/{store}/setup/{step}",
+        "name": "ext.tiktok.setup_step"
+    },
+    {
+        "method": "POST",
         "uri": "channels/tiktok/{store}/shops",
         "name": "ext.tiktok.shops"
     },
@@ -2816,6 +2826,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/venta/{store}/setup/{step}",
+        "name": "ext.venta.setup_step"
+    },
+    {
+        "method": "POST",
         "uri": "channels/woocommerce/reviews/{id}/push",
         "name": "ext.woocommerce.reviews.push"
     },
@@ -3098,6 +3113,11 @@
         "method": "POST",
         "uri": "channels/woocommerce/{store}/settings/webhooks",
         "name": "ext.woocommerce.register_webhooks"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/setup/{step}",
+        "name": "ext.woocommerce.setup_step"
     },
     {
         "method": "POST",

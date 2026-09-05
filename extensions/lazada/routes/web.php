@@ -114,6 +114,8 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
         // Hard delete of a store (the owner, 2026-09-05): the typed name confirms;
         // everything the store owns goes, core orders stay under its name.
         Route::post('/lazada/{store}/delete', [LazadaSettingsController::class, 'destroyStore'])->name('ext.lazada.stores.destroy');
+        // Set up the store: categories then brands, one step per call, behind the setup popup.
+        Route::post('/lazada/{store}/setup/{step}', [LazadaSettingsController::class, 'setupStep'])->whereIn('step', ['categories', 'brands'])->name('ext.lazada.setup_step');
 
         // API Explorer — these call the live Lazada API. Privileged write tool.
         Route::post('/lazada/{store}/call', [LazadaApiExplorerController::class, 'callApi'])->name('ext.lazada.call_api');

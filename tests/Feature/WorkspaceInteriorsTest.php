@@ -2104,7 +2104,9 @@ class WorkspaceInteriorsTest extends TestCase
         $settings = $this->actingAs($user)->get(route('ext.tiktok.index'))->assertOk();
         foreach ([
             'ext.tiktok.toggle_mode', 'ext.tiktok.save', 'ext.tiktok.token_get',
-            'ext.tiktok.token_refresh', 'ext.tiktok.shops', 'ext.tiktok.authorize',
+            // The shop is fetched by the setup popup's step since 2026-09-06
+            // (ext.tiktok.setup_step), not by a Fetch shop button of its own.
+            'ext.tiktok.token_refresh', 'ext.tiktok.authorize',
             'ext.tiktok.explorer_run', 'ext.tiktok.packs_run',
             'ext.tiktok.api_log_mode', 'ext.tiktok.clear_api_logs', 'ext.tiktok.purge_raw',
             'ext.tiktok.order_status_map',
@@ -2202,7 +2204,8 @@ class WorkspaceInteriorsTest extends TestCase
 
         $this->assertStringContainsString(route('ext.tiktok.token_get'), $html);
         $this->assertStringContainsString(route('ext.tiktok.token_refresh'), $html);
-        $this->assertStringContainsString(route('ext.tiktok.shops'), $html);
+        // The shop rides the setup popup (Set up the store) since 2026-09-06.
+        $this->assertStringContainsString('/setup/shop', $html);
     }
 
     /**
