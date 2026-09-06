@@ -271,40 +271,43 @@
 .cc-thumb--sm { width: 36px; height: 36px; }
 
 /* ------------------------------------------------------------------
-   Variation lines under a listing name. One line per variation:
-   value name, sku, quantity. Reuses the co-item__* type grammar from
-   components/channel-orders.css (pure typography, no coupling, same
-   reuse pages/catalog.css already makes) and adds only the stack.
+   Variation rows. A listing's variations are rows of the same table,
+   straight after the product's row, so a variation's stock sits in the
+   Stock column and its price in the Price column (the owner, 2026-09-06: the
+   old stack inside the Product cell carried its own columns that lined
+   up with nothing). The row is quieter than its product: smaller type,
+   the secondary ink, a tighter line, and the product's own rule is held
+   back until the last variation so the group reads as one.
    ------------------------------------------------------------------ */
 
-.cc-vars {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    margin-top: var(--bl-space-2);
-    padding-top: var(--bl-space-2);
-    border-top: 1px solid var(--bl-rule);
-}
-
-.cc-var {
-    /* A grid, not a wrapping flex row: these are three or four figures
-       repeated per variation, and the whole point of mono tabular
-       numerals is lost if the stock column starts at a different x on
-       every line. Thumb first (the variation's OWN image, same rule as
-       the core product list), value name takes the remainder; the rest
-       are fixed and right-aligned so they compare by eye. */
-    display: grid;
-    grid-template-columns: 24px minmax(0, 1fr) auto auto auto;
-    align-items: center;
-    gap: var(--bl-space-1) var(--bl-space-3);
+.cc-page .x-table tbody tr.cc-var-row > td {
+    padding-top: 3px;
+    padding-bottom: 3px;
+    border-bottom: 0;
     font-size: 12px;
     color: var(--bl-ink-2);
 }
 
+/* The product keeps its variations: no rule between them, and the group
+   closes with the ordinary row rule under the last one. */
+.cc-page .x-table tbody tr:has(+ tr.cc-var-row) > td { border-bottom: 0; padding-bottom: var(--bl-space-1); }
+.cc-page .x-table tbody tr.cc-var-row:not(:has(+ tr.cc-var-row)) > td {
+    padding-bottom: var(--bl-space-3);
+    border-bottom: 1px solid var(--bl-rule);
+}
+
+/* Indented to the product's name: past its 96px picture and the gap. */
+.cc-var-row__item {
+    display: flex;
+    align-items: center;
+    gap: var(--bl-space-2);
+    min-width: 0;
+    margin-left: calc(96px + var(--bl-space-3));
+}
+
 /* The variation's own picture. Empty stays an outlined slot rather than
-   collapsing: a missing image is information ("no picture for this one"),
-   and the name column keeps one x across rows either way. */
-.cc-var__thumb {
+   collapsing: a missing image is information, and the names keep one x. */
+.cc-var-row__thumb {
     width: 24px;
     height: 24px;
     flex: none;
@@ -314,30 +317,23 @@
     overflow: hidden;
 }
 
-.cc-var__thumb img {
+.cc-var-row__thumb img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
 }
 
-.cc-var__name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
+/* The name wraps rather than truncates: "11-49 Medium" is the figure a
+   picker reads, and three dots are not a variation. */
+.cc-var-row__name { min-width: 0; color: var(--bl-ink); }
 
-.cc-var__sku,
-.cc-var__qty,
-.cc-var__price {
+.cc-var-row__sku {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     color: var(--bl-ink-3);
     white-space: nowrap;
 }
-
-.cc-var__qty,
-.cc-var__price { text-align: right; }
 
 /* ------------------------------------------------------------------
    Sync error cell. The one place on these pages where --bl-bad is
@@ -782,29 +778,34 @@
     .cc-page .x-table > tbody > tr > td[data-label="Product"]::before { display: none; }
     .cc-page .x-table > tbody > tr > td[data-label="Product"] .order-img-wrap { width: 64px; }
 
-    /* Four columns of nowrap figures do not fit a 328px card, and they were
-       the last thing keeping this table scrolling sideways inside itself.
-       Name and one figure per line; the tabular alignment the desktop grid
-       exists for survives within each column. */
-    /* Two lines per variation, placed by area so the DOM order (thumb,
-       name, sku, qty, price) is untouched: the name and the price share
-       the first line, the SKU and the stock the second, and the thumb
-       spans both. The 24px stock cell and the 50px price cell that the
-       old three-column rule produced put "14 in stock" and "₱21,990.00"
-       on top of each other on a 390px screen, which is the exact figure
-       a picker reads on the warehouse floor. */
-    .cc-var {
-        grid-template-columns: 24px minmax(0, 1fr) auto;
-        grid-template-areas:
-            "thumb name price"
-            "thumb sku qty";
-        row-gap: 2px;
+    /* A variation is a two-line card tucked under its product: the name
+       on the first line, stock and price side by side on the second with
+       their labels inline. The cells the row has nothing for are hidden,
+       so the generic one-cell-per-line grid never draws an empty line. */
+    .cc-page .x-table > tbody > tr.cc-var-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+        padding-top: 6px;
+        padding-bottom: 6px;
+        padding-left: calc(var(--bl-space-3) + var(--bl-space-5));
+        border-bottom: 0;
     }
-    .cc-var__thumb { grid-area: thumb; }
-    .cc-var__name { grid-area: name; min-width: 0; }
-    .cc-var__sku { grid-area: sku; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-    .cc-var__qty { grid-area: qty; }
-    .cc-var__price { grid-area: price; }
+    .cc-page .x-table > tbody > tr:has(+ tr.cc-var-row) { border-bottom: 0; padding-bottom: 2px; }
+    .cc-page .x-table > tbody > tr.cc-var-row:not(:has(+ tr.cc-var-row)) {
+        padding-bottom: var(--bl-space-3);
+        border-bottom: 1px solid var(--bl-rule);
+    }
+    .cc-page .x-table > tbody > tr.cc-var-row > td { padding-bottom: 0; }
+    .cc-page .x-table > tbody > tr.cc-var-row > td.cc-var-row__gap { display: none; }
+    .cc-page .x-table > tbody > tr.cc-var-row > td[data-label="Variation"] { grid-column: 1 / -1; grid-row: 1; }
+    .cc-page .x-table > tbody > tr.cc-var-row > td[data-label="Variation"]::before { content: none; }
+    .cc-page .x-table > tbody > tr.cc-var-row > td.cc-col-qty { grid-column: 1; grid-row: 2; }
+    .cc-page .x-table > tbody > tr.cc-var-row > td.cc-col-price { grid-column: 2; grid-row: 2; justify-self: end; }
+    .cc-page .x-table > tbody > tr.cc-var-row > td.cc-col-qty::before,
+    .cc-page .x-table > tbody > tr.cc-var-row > td.cc-col-price::before {
+        display: inline;
+        margin: 0 var(--bl-space-1) 0 0;
+    }
+    .cc-var-row__item { margin-left: 0; flex-wrap: wrap; }
 
     /* The single-action bar stacks: the sentence above, the button below
        it, both full width. */

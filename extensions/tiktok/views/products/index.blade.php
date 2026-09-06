@@ -303,24 +303,6 @@
                                 <span class="co-item__var" @if(count($pGroups) > 1) title="Product Groups: {{ implode(', ', $pGroups) }}" @endif>Product group{{ count($pGroups) > 1 ? 's' : '' }}: {{ $pGroups[0] }}@if(count($pGroups) > 1) and {{ count($pGroups) - 1 }} more @endif</span>
                             @endif
                         </div>
-                        @if($optRows && count($optRows) > 0)
-                            <div class="cc-vars">
-                                @foreach($optRows as $or)
-                                    @php
-                                        $oimg = trim((string) ($or->option_image ?? ''));
-                                        $osrc = $oimg !== '' ? asset('storage/' . ltrim($oimg, '/')) : '';
-                                        $oprice = (float) ($or->absolute_price ?? 0);
-                                    @endphp
-                                    <div class="cc-var">
-                                        <span class="cc-var__thumb">@if($osrc)<img src="{{ $osrc }}" alt="" loading="lazy" decoding="async">@endif</span>
-                                        <span class="cc-var__name">{{ (string) ($or->option_value_name ?? '') !== '' ? $or->option_value_name : 'Unnamed variation' }}</span>
-                                        <span class="cc-var__sku">{{ (string) ($or->sku ?? '') }}</span>
-                                        <span class="cc-var__qty">{{ (int) ($or->quantity ?? 0) }} in stock</span>
-                                        <span class="cc-var__price">{{ $oprice > 0 ? \App\Support\Money::base($oprice) : '' }}</span>
-                                    </div>
-                                @endforeach
-                            </div>
-                        @endif
                     </div>
                 </div>
             </td>
@@ -449,6 +431,10 @@
                 @endif
             </td>
         </tr>
+        @if($optRows && count($optRows) > 0)
+            {{-- The variations as rows of this table, under the same headers (partials.channel-variation-rows). --}}
+            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManage, 'trail' => ['cc-col-chanid', 'cc-col-sync', 'cc-col-err', 'x-td-actions']])
+        @endif
     @endforeach
 </x-ui.table>
 

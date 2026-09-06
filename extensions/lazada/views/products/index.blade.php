@@ -500,27 +500,6 @@
                             @endif
                         </div>
 
-                        @if($variationCount > 0)
-                            <div class="cc-vars">
-                                @foreach($optRows as $or)
-                                    @php
-                                        $ovn = (string) ($or->option_value_name ?? '');
-                                        $osku = (string) ($or->sku ?? '');
-                                        $oqtyRaw = $or->quantity ?? null;
-                                        $oprice = (float) ($or->absolute_price ?? 0);
-                                        $oimg = trim((string) ($or->option_image ?? ''));
-                                        $osrc = $oimg !== '' ? asset('storage/' . ltrim($oimg, '/')) : '';
-                                    @endphp
-                                    <div class="cc-var">
-                                        <span class="cc-var__thumb">@if($osrc)<img src="{{ $osrc }}" alt="" loading="lazy" decoding="async">@endif</span>
-                                        <span class="cc-var__name">{{ $ovn !== '' ? $ovn : 'Unnamed variation' }}</span>
-                                        <span class="cc-var__sku">{{ $osku !== '' ? $osku : '' }}</span>
-                                        <span class="cc-var__qty">{{ is_null($oqtyRaw) ? '' : ((int) $oqtyRaw) . ' in stock' }}</span>
-                                        <span class="cc-var__price">{{ $oprice > 0 ? \App\Support\Money::base($oprice) : '' }}</span>
-                                    </div>
-                                @endforeach
-                            </div>
-                        @endif
                     </div>
                 </div>
             </td>
@@ -680,6 +659,10 @@
                 @endif
             </td>
         </tr>
+        @if($variationCount > 0)
+            {{-- The variations as rows of this table, under the same headers (partials.channel-variation-rows). --}}
+            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManageLazada, 'trail' => ['cc-col-chanid', 'cc-col-sync', 'cc-col-err', 'x-td-actions']])
+        @endif
     @endforeach
 </x-ui.table>
 

@@ -339,29 +339,6 @@
                              the product name unreadable at 1440. --}}
                         <span class="co-item__meta">{{ $meta }}</span>
 
-                        @if($variationCount > 0)
-                            <div class="cc-vars">
-                                @foreach($optRows as $or)
-                                    @php
-                                        $ovn = (string) ($or->option_value_name ?? '');
-                                        $osku = (string) ($or->sku ?? '');
-                                        $oqty = (int) ($or->quantity ?? 0);
-                                        $oprice = (float) ($or->absolute_price ?? 0);
-                                        $oimg = trim((string) ($or->option_image ?? ''));
-                                        $osrc = $oimg !== '' ? asset('storage/' . ltrim($oimg, '/')) : '';
-                                    @endphp
-                                    <div class="cc-var">
-                                        <span class="cc-var__thumb">@if($osrc)<img src="{{ $osrc }}" alt="" loading="lazy" decoding="async">@endif</span>
-                                        <span class="cc-var__name">{{ $ovn !== '' ? $ovn : 'Unnamed variation' }}</span>
-                                        <span class="cc-var__sku">{{ $osku }}</span>
-                                        <span class="cc-var__qty">{{ $oqty }} in stock</span>
-                                        {{-- Never a hardcoded symbol: App\Support\Money reads the
-                                             default currency off the currencies table. --}}
-                                        <span class="cc-var__price">{{ $oprice > 0 ? \App\Support\Money::base($oprice) : '' }}</span>
-                                    </div>
-                                @endforeach
-                            </div>
-                        @endif
                     </div>
                 </div>
             </td>
@@ -532,6 +509,10 @@
                 @endif
             </td>
         </tr>
+        @if($variationCount > 0)
+            {{-- The variations as rows of this table, under the same headers (partials.channel-variation-rows). --}}
+            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManageShopee, 'trail' => ['cc-col-chanid', 'cc-col-stat', 'cc-col-sync', 'cc-col-err', 'x-td-actions']])
+        @endif
     @endforeach
 </x-ui.table>
 
