@@ -400,15 +400,6 @@
                  S4, #194: shopee:2) - a bare 'shopee' here would drop the
                  store on every self-link and land the next click on
                  Summary. --}}
-            {{-- The store line every store-based channel's panel carries
-                 (parity, the owner 2026-09-06): the card's own store name, so
-                 the panel says which shop it is. --}}
-            @if(!empty($fhOpen['store']))
-                <div class="x-fh-panel__scope">
-                    <span class="x-fh-panel__scope-label">Store</span>
-                    <span class="x-fh-panel__scope-value">{{ $fhOpen['store'] }}</span>
-                </div>
-            @endif
             @if(($selectedView ?? 'orders') === 'returns')
                 @include('ext-shopee::orders._returns_panel', [
                     'panelBaseUrl' => route('channels.fulfilment'),
@@ -435,15 +426,6 @@
              data-awb-template="{{ route('ext.lazada.orders.awb', ['orderId' => '__OID__']) }}"
              data-ship-print-template="{{ route('ext.lazada.orders.ship_print_post', ['orderId' => '__OID__']) }}"
              data-recreate-template="{{ route('ext.lazada.orders.recreate_package', ['orderId' => '__OID__']) }}">
-            {{-- The store line every store-based channel's panel carries
-                 (parity, the owner 2026-09-06): the card's own store name, so
-                 the panel says which shop it is. --}}
-            @if(!empty($fhOpen['store']))
-                <div class="x-fh-panel__scope">
-                    <span class="x-fh-panel__scope-label">Store</span>
-                    <span class="x-fh-panel__scope-value">{{ $fhOpen['store'] }}</span>
-                </div>
-            @endif
             @if(($selectedView ?? 'orders') === 'returns')
                 @include('ext-lazada::orders._returns_panel', [
                     'panelBaseUrl' => route('channels.fulfilment'),
@@ -469,15 +451,6 @@
              seller center. --}}
         <div class="x-fh-panel co-page" data-desk-scope id="{{ ($selectedView ?? 'orders') === 'returns' ? 'tiktok-returns-page' : 'tiktok-orders-page' }}"
              data-awb-url="{{ $last_result['awb_url'] ?? '' }}">
-            {{-- The store line every store-based channel's panel carries
-                 (parity, the owner 2026-09-06): the card's own store name, so
-                 the panel says which shop it is. --}}
-            @if(!empty($fhOpen['store']))
-                <div class="x-fh-panel__scope">
-                    <span class="x-fh-panel__scope-label">Store</span>
-                    <span class="x-fh-panel__scope-value">{{ $fhOpen['store'] }}</span>
-                </div>
-            @endif
             @if(($selectedView ?? 'orders') === 'returns')
                 @include('ext-tiktok::orders._returns_panel', [
                     'panelBaseUrl' => route('channels.fulfilment'),
@@ -505,10 +478,6 @@
              highlighted card. One line, written once for every multi-store
              channel rather than copied into each channel's partial. --}}
         <div class="x-fh-panel co-page" data-desk-scope id="venta-orders-page">
-            <div class="x-fh-panel__scope">
-                <span class="x-fh-panel__scope-label">Store</span>
-                <span class="x-fh-panel__scope-value">{{ $storeLabel }}</span>
-            </div>
             @include('ext-venta::orders._panel', [
                 'panelBaseUrl' => route('channels.fulfilment'),
                 'panelHiddenParams' => ['channel' => $selectedChannel],
@@ -517,10 +486,6 @@
     @elseif($selectedChannelBase === 'woocommerce')
         {{-- Same shape as Venta's: a store line, then the channel's own panel. --}}
         <div class="x-fh-panel co-page" data-desk-scope id="woocommerce-orders-page">
-            <div class="x-fh-panel__scope">
-                <span class="x-fh-panel__scope-label">Store</span>
-                <span class="x-fh-panel__scope-value">{{ $storeLabel }}</span>
-            </div>
             @include('ext-woocommerce::orders._panel', [
                 'panelBaseUrl' => route('channels.fulfilment'),
                 'panelHiddenParams' => ['channel' => $selectedChannel],
@@ -532,10 +497,6 @@
              panel wrapper has one: it is what the page CSS scopes its two
              responsive rules to. --}}
         <div class="x-fh-panel co-page" data-desk-scope id="opencart-orders-page">
-            <div class="x-fh-panel__scope">
-                <span class="x-fh-panel__scope-label">Store</span>
-                <span class="x-fh-panel__scope-value">{{ $storeLabel }}</span>
-            </div>
             @include('ext-opencart::orders._panel', [
                 'panelBaseUrl' => route('channels.fulfilment'),
                 'panelHiddenParams' => ['channel' => $selectedChannel],
@@ -546,10 +507,6 @@
              center carries so resources/js/pages/shopify-orders.js (the raw
              payload dialog) binds here unchanged. --}}
         <div class="x-fh-panel co-page" data-desk-scope id="shopify-orders-page">
-            <div class="x-fh-panel__scope">
-                <span class="x-fh-panel__scope-label">Store</span>
-                <span class="x-fh-panel__scope-value">{{ $storeLabel }}</span>
-            </div>
             @include('ext-shopify::orders._panel', [
                 'panelBaseUrl' => route('channels.fulfilment'),
                 'panelHiddenParams' => ['channel' => $selectedChannel],
