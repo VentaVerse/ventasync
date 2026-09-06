@@ -417,7 +417,6 @@ class WorkspaceInteriorsTest extends TestCase
         $groups->assertDontSee(route('ext.shopee.product-groups.create'), false);
 
         $listings = $this->actingAs($user)->get(route('ext.shopee.products.index'))->assertOk();
-        $listings->assertDontSee(route('ext.shopee.products.bulk_push'), false);
 
         // The settings page is deliberately different from the four lists.
         // A read-tier operator is meant to be able to READ the credentials
@@ -465,8 +464,7 @@ class WorkspaceInteriorsTest extends TestCase
             ->assertOk()->assertSee(route('ext.shopee.product-groups.create'), false);
 
         $this->actingAs($user)->get(route('ext.shopee.products.index'))
-            ->assertOk()
-            ->assertSee(route('ext.shopee.products.bulk_push'), false);
+            ->assertOk();
 
         // The import page is stateless (2026-09-04): blank until Fetch,
         // so what the manage tier is offered here is the Fetch control.
@@ -501,7 +499,6 @@ class WorkspaceInteriorsTest extends TestCase
             route('ext.shopee.purge_raw'),
             route('ext.shopee.categories.fetch'),
             route('ext.shopee.logistics.fetch'),
-            route('ext.shopee.products.bulk_push'),
             route('ext.shopee.products.bulk_delete'),
             route('ext.shopee.products.import_one'),
             route('ext.shopee.products.rebuild_cache'),
@@ -1242,7 +1239,6 @@ class WorkspaceInteriorsTest extends TestCase
         $groups->assertDontSee('Delete group');
 
         $listings = $this->actingAs($user)->get(route('ext.lazada.products.index'))->assertOk();
-        $listings->assertDontSee(route('ext.lazada.products.bulk_upload'), false);
         $listings->assertDontSee(route('ext.lazada.products.bulk_delete'), false);
         $listings->assertDontSee(route('ext.lazada.products.create'), false);
         $listings->assertDontSee(route('ext.lazada.products.import_one'), false);
@@ -1289,8 +1285,7 @@ class WorkspaceInteriorsTest extends TestCase
             ->assertOk()->assertSee(route('ext.lazada.product-groups.create'), false);
 
         $this->actingAs($user)->get(route('ext.lazada.products.index'))
-            ->assertOk()
-            ->assertSee(route('ext.lazada.products.bulk_upload'), false);
+            ->assertOk();
 
         // The import page is stateless (2026-09-04): blank until Fetch.
         $this->actingAs($user)->get(route('ext.lazada.products.import'))
@@ -1326,7 +1321,6 @@ class WorkspaceInteriorsTest extends TestCase
             route('ext.lazada.explorer_run'),
             route('ext.lazada.categories.fetch'),
             route('ext.lazada.brands.fetch'),
-            route('ext.lazada.products.bulk_upload'),
             route('ext.lazada.products.bulk_delete'),
             route('ext.lazada.products.import_one'),
         ];

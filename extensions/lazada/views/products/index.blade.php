@@ -246,15 +246,13 @@
 
 @php
     // Guards check the ext.-prefixed name the route() call actually generates.
-    // They used to check the unprefixed name (lazada.products.bulk_upload
+    // They used to check the unprefixed name (lazada.products.bulk_sync_quantity
     // etc.), which stopped existing when these routes gained their ext.
     // prefix - Route::has() was therefore always false and every button
     // silently fell back to a hardcoded URL that matches no registered route.
     // Caught by RouteNameSweepTest's Route::has() sweep, and kept here
-    // unchanged: these five action URLs are the wire.
-    $bulkUploadUrl = \Illuminate\Support\Facades\Route::has('ext.lazada.products.bulk_upload')
-        ? route('ext.lazada.products.bulk_upload')
-        : url('/channels/lazada/products/bulk/upload');
+    // unchanged: these action URLs are the wire. (The multi-tick push left
+    // on 2026-09-06: many products go up from a product group's page.)
     $bulkSyncQtyUrl = \Illuminate\Support\Facades\Route::has('ext.lazada.products.bulk_sync_quantity')
         ? route('ext.lazada.products.bulk_sync_quantity')
         : url('/channels/lazada/products/bulk/sync/quantity');
@@ -302,11 +300,6 @@
             @csrf
             <input type="hidden" name="action" value="activate">
             <x-ui.button type="submit" size="sm">Activate on Lazada</x-ui.button>
-        </form>
-        <form method="POST" action="{{ $bulkUploadUrl }}" data-bulk-form
-              data-bulk-confirm="Push the selected listings to Lazada? Anything already listed is skipped.">
-            @csrf
-            <x-ui.button type="submit" size="sm">Push to Lazada</x-ui.button>
         </form>
         <form method="POST" action="{{ route('ext.lazada.products.check') }}" data-bulk-form>
             @csrf

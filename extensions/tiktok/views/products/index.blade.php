@@ -174,11 +174,6 @@
 <div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar role="status">
     <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected <span class="cc-bulkbar__note" data-bulk-skipped></span></span>
     <div class="cc-bulkbar__actions">
-        <form method="POST" action="{{ route('ext.tiktok.products.bulk_send') }}" data-bulk-form
-              data-bulk-confirm="Send the selected products to TikTok Shop? New products are created; anything already listed gets its content updated in place.">
-            @csrf
-            <x-ui.button type="submit" size="sm">Push to TikTok Shop</x-ui.button>
-        </form>
         <form method="POST" action="{{ route('ext.tiktok.products.check') }}" data-bulk-form>
             @csrf
             <x-ui.button type="submit" size="sm">Check against TikTok Shop</x-ui.button>

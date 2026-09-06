@@ -252,23 +252,4 @@ class ShopeeReadinessTest extends TestCase
         $r2->assertSee('Bare filter product');
         $r2->assertDontSee('Ready filter product');
     }
-
-    public function test_a_bulk_push_refuses_to_start_when_any_selection_is_not_ready(): void
-    {
-        $this->storeSetUp();
-        $ready = $this->seedProduct('Ready bulk product', 'RDY-B-1');
-        $this->readyListing($ready);
-        $bare = $this->seedProduct('Bare bulk product', 'RDY-B-2', '');
-
-        $r = $this->actingAs($this->manager())->post(route('ext.shopee.products.bulk_push'), [
-            'product_ids' => [$ready, $bare],
-        ]);
-
-        $this->assertNull(collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/add_item'),
-            'Nothing may be pushed when part of the selection is not ready.');
-        $r->assertSessionHas('error');
-        $error = session('error');
-        $this->assertStringContainsString('Nothing was pushed', $error);
-        $this->assertStringContainsString("#{$bare} needs", $error);
-    }
 }

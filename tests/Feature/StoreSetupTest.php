@@ -150,20 +150,6 @@ class StoreSetupTest extends TestCase
         $this->assertContains('at least one courier', $missing);
     }
 
-    public function test_a_bulk_push_with_nothing_fetched_stops_with_a_sentence(): void
-    {
-        $store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main', 'partner_id' => 1, 'shop_id' => 2,
-            'partner_key' => encrypt('k'), 'access_token' => encrypt('t')]);
-        $pid = $this->seedProduct('Bare widget', 'BARE-1');
-        ShopeeListing::create(['product_id' => $pid]);
-
-        $this->actingAs($this->manager('shopee'))
-            ->from(route('ext.shopee.products.index', ['store' => $store->id]))
-            ->post('/channels/shopee/' . $store->id . '/products/bulk/push', ['product_ids' => [$pid]])
-            ->assertRedirect()
-            ->assertSessionHas('error', fn ($m) => str_contains($m, 'no couriers have been fetched for this store yet') && str_contains($m, 'Set up store'));
-    }
-
     public function test_lazada_and_tiktok_readiness_say_when_no_categories_were_fetched(): void
     {
         LazadaSetting::create(['mode' => 'live', 'store_name' => 'Laz']);

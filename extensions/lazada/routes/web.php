@@ -195,7 +195,6 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
         // Remove from this store's list (#201): the inverse of Add. No
         // blocker; it never touches Lazada.
         Route::post('/lazada/{store}/products/{id}/remove-from-store', [LazadaProductController::class, 'removeFromStore'])->whereNumber('id')->name('ext.lazada.products.remove_from_store');
-        Route::post('/lazada/{store}/products/bulk/upload', [LazadaProductController::class, 'bulkUploadToLazada'])->name('ext.lazada.products.bulk_upload');
         Route::post('/lazada/{store}/listings/{id}/toggle', [LazadaProductController::class, 'toggleListing'])->whereNumber('id')->name('ext.lazada.listings.toggle');
         // Activate / deactivate the selection, and refresh the status mirror on demand.
         Route::post('/lazada/{store}/products/bulk/toggle', [LazadaProductController::class, 'bulkToggle'])->name('ext.lazada.products.bulk_toggle');

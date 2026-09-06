@@ -439,7 +439,7 @@ class LazadaListingLiveTest extends TestCase
             "the listing's own attribute value is untouched");
     }
 
-    public function test_readiness_names_gaps_and_the_bulk_upload_refuses_to_start(): void
+    public function test_readiness_names_gaps_on_the_index(): void
     {
         /* #101, Lazada half: the index answers "can this upload succeed"
          * before anything is pressed, and a bulk upload over an unready
@@ -453,13 +453,9 @@ class LazadaListingLiveTest extends TestCase
         $r->assertOk();
         $r->assertSee('Missing:');
         $r->assertSee('a Lazada category');
-
-        $r2 = $this->actingAs($this->manager())->post(route('ext.lazada.products.bulk_upload'), [
-            'listing_ids' => [$listing->id],
-        ]);
-        $r2->assertSessionHas('error');
-        $this->assertStringContainsString('Nothing was uploaded', session('error'));
-        $this->assertStringContainsString("#{$productId} needs", session('error'));
+        // No multi-tick push on the Listings page (the owner, 2026-09-06): many
+        // products go up from a product group's page.
+        $r->assertDontSee('bulk/upload');
     }
 
     public function test_the_toggle_speaks_lazadas_two_verbs(): void

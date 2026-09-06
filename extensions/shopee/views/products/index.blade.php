@@ -178,15 +178,9 @@
 <div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar role="status">
     <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected <span class="cc-bulkbar__note" data-bulk-skipped></span></span>
     <div class="cc-bulkbar__actions">
-        {{-- Opens the combined review form for the selection (#151); the
-             form is the confirmation, so this carries none. --}}
-        {{-- Opens the bulk review modal (cleanup point 9): the verdict
-             leads, blockers group by gap. Without JS this lands on the
-             roster page as before. --}}
-        <form method="GET" action="{{ route('ext.shopee.products.bulk_push_form') }}" data-bulk-form
-              data-bulk-push-review="{{ route('ext.shopee.products.bulk_push_review') }}">
-            <x-ui.button type="submit" size="sm">Push to Shopee</x-ui.button>
-        </form>
+        {{-- No multi-tick push here (the owner, 2026-09-06): many products go
+             up from a product group's page; this bar keeps the verbs that
+             cannot half-fail. --}}
         {{-- Replaces Match Shopee IDs, which could only fill in blanks; the
              repair also verifies the ids the rows already have (Phase F, #184). --}}
         <form method="POST" action="{{ route('ext.shopee.products.check') }}" data-bulk-form>

@@ -319,25 +319,6 @@ class TiktokListingsTest extends TestCase
         $this->assertSame([], $this->callsFor('POST', '/product/202309/products'));
     }
 
-    public function test_send_creates_the_new_and_updates_the_listed_in_place(): void
-    {
-        $new = $this->seedProduct('N');
-        TikTokListing::create(['product_id' => $new, 'tiktok_category_id' => '900009']);
-        $listed = $this->seedProduct('E');
-        TikTokListing::create(['product_id' => $listed, 'tiktok_category_id' => '900009', 'tiktok_product_id' => 'tt-live', 'tiktok_sku_id' => 's1']);
-        $this->callResponses['POST /product/202309/products'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
-            'data' => ['product_id' => 'tt-created', 'skus' => [['id' => 'sku-c', 'seller_sku' => 'TTL-SKU-N']]]]];
-        $this->callResponses['PUT /product/202309/products/tt-live'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success', 'data' => []]];
-
-        $r = $this->actingAs($this->manager())->post(route('ext.tiktok.products.bulk_send'), ['product_ids' => [$new, $listed]]);
-
-        $r->assertSessionHas('status');
-        $this->assertStringContainsString('1 created, 1 already listed and updated in place', session('status'));
-        $this->assertCount(1, $this->callsFor('POST', '/product/202309/products'));
-        $this->assertCount(1, $this->callsFor('PUT', '/product/202309/products/tt-live'));
-        $this->assertSame('s1', $this->callsFor('PUT', '/product/202309/products/tt-live')[0]['body']['skus'][0]['id'] ?? null, 'The update edits the SKU it already has.');
-    }
-
     public function test_activate_and_deactivate_pass_the_product_id_through(): void
     {
         $productId = $this->seedProduct('T');

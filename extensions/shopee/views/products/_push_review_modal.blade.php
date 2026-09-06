@@ -38,21 +38,3 @@
         <button type="button" class="x-btn x-btn--primary" data-pr-push>Push to Shopee</button>
     </div>
 </div>
-
-<div class="pr-modal" data-pr-bulk role="dialog" aria-modal="true" aria-label="Bulk push review" hidden>
-    <div class="pr-modal__head">
-        <h2 class="pr-modal__title" data-pr-bulk-title>Push to Shopee</h2>
-        <button type="button" class="pr-x" data-pr-close aria-label="Close">&times;</button>
-    </div>
-    <div class="pr-modal__body">
-        <div class="pr-verdict" data-pr-verdict></div>
-        <div data-pr-gaps></div>
-        <p class="pr-mut pr-note">Answers given here are saved onto each listing, the same as answering on its page.</p>
-    </div>
-    <div class="pr-modal__foot">
-        <a href="#" class="cc-quiet" data-pr-roster-link>See every product</a>
-        <span class="pr-spring"></span>
-        <button type="button" class="x-btn x-btn--secondary" data-pr-close>Cancel</button>
-        <button type="button" class="x-btn x-btn--primary" data-pr-bulk-push>Push</button>
-    </div>
-</div>
