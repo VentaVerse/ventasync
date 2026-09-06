@@ -176,9 +176,16 @@
     {{-- ---- PRODUCTION ---------------------------------------------- --}}
     @php
         $csCategories = \Extensions\tiktok\Models\TikTokCategory::query()->count();
-        $csShopName = (string) ($setting->shop_name ?: ($setting->shop_id ?? ''));
-        $csSetUp = $hasShop && $csCategories > 0;
-        $csSetupState = ($hasShop ? 'Shop ' . ($csShopName !== '' ? $csShopName : 'fetched') : 'No shop yet')
+        // The shop of the ACTIVE mode: a sandbox store's setup writes the
+        // sandbox_* columns (TikTokStoreSetup::shop), so reading the live
+        // shop_cipher here said "No shop yet" right after a successful
+        // setup (the owner, 2026-09-06).
+        $csHasShop = $isSandbox ? !empty($setting->sandbox_shop_cipher ?? '') : $hasShop;
+        $csShopName = $isSandbox
+            ? (string) (($setting->sandbox_shop_name ?? '') ?: ($setting->sandbox_shop_id ?? ''))
+            : (string) ($setting->shop_name ?: ($setting->shop_id ?? ''));
+        $csSetUp = $csHasShop && $csCategories > 0;
+        $csSetupState = ($csHasShop ? 'Shop ' . ($csShopName !== '' ? $csShopName : 'fetched') : 'No shop yet')
             . ', ' . ($csCategories > 0 ? number_format($csCategories) . ' ' . \Illuminate\Support\Str::plural('category', $csCategories) . ' on file' : 'no categories yet');
     @endphp
     <div class="cs-env-panel" data-cs-env-panel="live" @if($isSandbox) hidden @endif>
