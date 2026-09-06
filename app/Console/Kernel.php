@@ -29,7 +29,7 @@ class Kernel extends ConsoleKernel
             if (Schema::hasTable('scheduled_jobs')) {
                 foreach (ScheduledJob::query()->where('enabled', true)->get() as $job) {
                     $command = (string) $job->command;
-                    $args = is_array($job->options) ? $this->optionsToArgs($job->options) : [];
+                    $args = $this->optionsToArgs($job->commandArguments());
 
                     $event = $schedule->command($command, $args)
                         ->cron($job->cron_expression ?: '*/15 * * * *')
@@ -64,22 +64,18 @@ class Kernel extends ConsoleKernel
      * accepted by `$schedule->command($cmd, $args)`. Known keys map to
      * documented CLI options; everything else is passed as `--key=value`.
      */
-    protected function optionsToArgs(array $options): array
+    protected function optionsToArgs(array $arguments): array
     {
+        // ScheduledJob::commandArguments() is the one place options become
+        // flags; this only reshapes booleans for the scheduler, which wants
+        // a bare `--flag` under a NUMERIC key so Schedule::compileParameters()
+        // emits it without `=1` (Symfony rejects that for VALUE_NONE options).
         $args = [];
-        foreach ($options as $key => $value) {
-            if ($value === null || $value === '' || $value === false) {
-                continue;
-            }
-            $flag = '--' . str_replace('_', '-', $key);
-            // Boolean flags must be passed under a NUMERIC key so
-            // Laravel's Schedule::compileParameters() emits them as
-            // bare `--flag` instead of `--flag=1`. Symfony rejects the
-            // latter for VALUE_NONE options ("does not accept a value").
+        foreach ($arguments as $flag => $value) {
             if ($value === true) {
                 $args[] = $flag;
             } else {
-                $args[$flag] = (string) $value;
+                $args[$flag] = $value;
             }
         }
         return $args;

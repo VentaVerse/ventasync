@@ -70,6 +70,43 @@ class AutomationsController extends Controller
     }
 
     /**
+     * Run one job now, by hand (the owner, 2026-09-06: "a run button for each
+     * one so I can manually run them without running a cron command or
+     * waiting for the cron"). The same command with the same arguments the
+     * scheduler would pass, run inside this request, its outcome stamped on
+     * the row exactly as a scheduled run stamps it, and its first lines
+     * shown back. A long sync takes as long as it takes; the page says so
+     * while it waits.
+     */
+    public function run(int $id)
+    {
+        $job = ScheduledJob::findOrFail($id);
+        if (!self::mayManage((string) $job->integration)) {
+            return back()->with('error', "You don't have permission to do this action.");
+        }
+
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(900);
+        }
+
+        try {
+            $code = \Illuminate\Support\Facades\Artisan::call((string) $job->command, $job->commandArguments());
+            $output = trim((string) \Illuminate\Support\Facades\Artisan::output());
+            $ok = $code === 0;
+        } catch (\Throwable $e) {
+            $output = $e->getMessage();
+            $ok = false;
+        }
+
+        $job->forceFill(['last_run_at' => now(), 'last_run_ok' => $ok])->save();
+
+        $said = \Illuminate\Support\Str::limit(preg_replace('/\s+/', ' ', $output) ?: '', 300);
+        $line = ($ok ? 'Ran ' : 'Run failed: ') . $job->display_name . ($said !== '' ? '. ' . $said : '.');
+
+        return back()->with($ok ? 'status' : 'error', $line);
+    }
+
+    /**
      * Batch update — the jobs list submits all rows in a single form.
      *
      * Per-row buttons made the Automations tab look like 7+ tiny forms

@@ -230,6 +230,11 @@
         "name": "automations.update"
     },
     {
+        "method": "POST",
+        "uri": "automations/{id}/run",
+        "name": "automations.run"
+    },
+    {
         "method": "GET|HEAD",
         "uri": "catalog/categories",
         "name": "categories.index"

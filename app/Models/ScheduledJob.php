@@ -56,6 +56,29 @@ class ScheduledJob extends Model
         );
     }
 
+    /**
+     * The job's options as artisan arguments, one shape for the scheduler
+     * (App\Console\Kernel) and for a run by hand (AutomationsController::run).
+     * A true value is a bare flag; anything else is --key=value.
+     */
+    public function commandArguments(): array
+    {
+        $args = [];
+        foreach ((is_array($this->options) ? $this->options : []) as $key => $value) {
+            if ($value === null || $value === '' || $value === false) {
+                continue;
+            }
+            $flag = '--' . str_replace('_', '-', (string) $key);
+            if ($value === true) {
+                $args[$flag] = true;
+            } else {
+                $args[$flag] = (string) $value;
+            }
+        }
+
+        return $args;
+    }
+
     public function getOption(string $key, $default = null)
     {
         $opts = $this->options ?? [];

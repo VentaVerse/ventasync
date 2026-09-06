@@ -205,4 +205,35 @@ class LiveFixesAugust26Test extends TestCase
 
         return User::factory()->create(['user_group_id' => $group->id]);
     }
+
+    /** the owner, 2026-09-06: Run now on every automation row runs the job inside the request and stamps the row like a scheduled run. */
+    public function test_run_now_runs_the_job_by_hand_and_stamps_the_row(): void
+    {
+        $job = \App\Models\ScheduledJob::create([
+            'integration' => 'shopee', 'display_name' => 'Say something', 'command' => 'inspire',
+            'cadence_value' => 1, 'cadence_unit' => 'hour', 'enabled' => false, 'options' => [],
+        ]);
+        $this->assertNull($job->last_run_at);
+
+        $manager = $this->userWith(['manage_shopee/settings']);
+        $this->actingAs($manager)->from('/channels/shopee/1?tab=automations')
+            ->post(route('automations.run', $job->id))
+            ->assertRedirect('/channels/shopee/1?tab=automations')
+            ->assertSessionHas('status');
+        $this->assertStringStartsWith('Ran Say something.', (string) session('status'));
+        $job->refresh();
+        $this->assertNotNull($job->last_run_at);
+        $this->assertTrue($job->last_run_ok);
+
+        // A command that does not exist is a failed run, said as one.
+        $broken = \App\Models\ScheduledJob::create([
+            'integration' => 'shopee', 'display_name' => 'Broken job', 'command' => 'no:such-command',
+            'cadence_value' => 1, 'cadence_unit' => 'hour', 'enabled' => false, 'options' => [],
+        ]);
+        $this->actingAs($manager)->post(route('automations.run', $broken->id))->assertRedirect()->assertSessionHas('error');
+        $this->assertFalse($broken->fresh()->last_run_ok);
+
+        // The page carries the button and the run form; a viewer is refused.
+        $this->actingAs($this->userWith(['view_shopee/settings']))->post(route('automations.run', $job->id))->assertRedirect()->assertSessionHas('error');
+    }
 }

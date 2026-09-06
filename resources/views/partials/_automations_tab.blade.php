@@ -168,10 +168,13 @@
                             </div>
                         </div>
 
-                        {{-- Right cluster: last-run only. The per-row Save
-                             button was folded into the single Save All
-                             button at the bottom of the list. --}}
+                        {{-- Right cluster: the last run, and Run now (the owner,
+                             2026-09-06). The button belongs to its own form,
+                             rendered after the batch form below, through the
+                             HTML5 form attribute: a form cannot nest. --}}
                         <div class="automation-actions">
+                            <x-ui.button type="submit" size="sm" form="automation-run-{{ $job->id }}"
+                                         title="Run {{ $job->display_name }} now, without waiting for the schedule">Run now</x-ui.button>
                             <span class="automation-lastrun" aria-label="Last run">
                                 @if($job->last_run_at)
                                     <span class="automation-lastrun-prefix">Last run</span>
@@ -196,6 +199,27 @@
                 <button type="submit" class="btn automation-btn-save-all">Save All Automations</button>
             </div>
         </form>
+
+        {{-- One run form per job, outside the batch form. data-busy raises
+             the overlay below while the command runs inside the request
+             (resources/js/busy-overlay.js). --}}
+        @foreach($jobs as $job)
+            <form id="automation-run-{{ $job->id }}" method="POST" action="{{ route('automations.run', $job->id) }}"
+                  data-busy="Running {{ $job->display_name }}">
+                @csrf
+            </form>
+        @endforeach
+        <div class="modal-backdrop" data-busy-overlay>
+            <div class="modal co-modal co-modal--sm" role="dialog" aria-modal="true" aria-live="polite">
+                <div class="cc-progress">
+                    <span class="co-spinner co-spinner--lg" aria-hidden="true"></span>
+                    <div>
+                        <div class="cc-progress__title" data-busy-title>Running</div>
+                        <div class="cc-progress__note">It takes as long as the job takes. Please keep this tab open.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
     @endif
 
     {{-- The one thing every job on this page depends on, and the only thing

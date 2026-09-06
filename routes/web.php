@@ -55,6 +55,10 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/automations/{id}', [\App\Http\Controllers\AutomationsController::class, 'update'])
         ->whereNumber('id')
         ->name('automations.update');
+    // Run one job now, by hand (the owner, 2026-09-06).
+    Route::post('/automations/{id}/run', [\App\Http\Controllers\AutomationsController::class, 'run'])
+        ->whereNumber('id')
+        ->name('automations.run');
     // /dashboard/chart-data and /dashboard/platform-data are gone (Round F,
     // Task 3). They existed only to re-feed a Chart.js canvas after the
     // range toggle changed; the dashboard now renders both trend charts and
