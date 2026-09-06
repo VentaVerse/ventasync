@@ -237,11 +237,12 @@ class Navigation
                             // (ext.{id}.dashboard), so the entry can no
                             // longer point at a channel that has none.
                             //
-                            // One store needs no disambiguating: "Shopee
-                            // Main store" says less than "Shopee" until a
-                            // second store exists and the names must part.
+                            // "{Channel}: {store}" on every store, one or
+                            // many (the owner, 2026-09-06): the same shape the
+                            // fulfilment tabs, the orders list and the
+                            // dashboard use (App\Support\StoreLabel).
                             $storeId = explode(':', $store->id, 2)[1] ?? null;
-                            $items[] = ['label' => count($card->stores) === 1 ? $card->name : $card->name.' '.$store->label,
+                            $items[] = ['label' => \App\Support\StoreLabel::of($card->name, $store->label),
                                         'route' => 'ext.'.$card->id.'.dashboard',
                                         'params' => $storeId === null ? [] : ['store' => $storeId],
                                         'keywords' => [$card->id, $store->label, 'seller center', 'orders', 'store']];
@@ -258,7 +259,7 @@ class Navigation
                     foreach ($card->stores as $store) {
                         foreach ($store->menu as $menuItem) {
                             if ($menuItem->label === 'Orders') {
-                                $items[] = ['label' => count($card->stores) === 1 ? $card->name : $card->name.' '.$store->label,
+                                $items[] = ['label' => \App\Support\StoreLabel::of($card->name, $store->label),
                                             'route' => $menuItem->routeName,
                                             'params' => $menuItem->routeParams,
                                             'keywords' => [$card->id, 'orders', 'store']];

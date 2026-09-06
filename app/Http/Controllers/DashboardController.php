@@ -342,10 +342,10 @@ class DashboardController extends Controller
 
         // Per-store reports (the owner, 2026-09-05): one slice per store, not
         // per channel. `label` stays the channel's name (the brand colour
-        // and the hub link key off it); `name` is what the row shows: the
-        // store's name as stamped on its orders, so a deleted store still
-        // ranks under the name it sold under. A channel with one store on
-        // the page shows the channel's name, as the order tabs do.
+        // and the hub link key off it); `name` is what the row shows:
+        // "{Channel}: {store}" (the owner, 2026-09-06), the store as stamped on
+        // its orders, so a deleted store still ranks under the name it
+        // sold under.
         $slices = [];
         foreach ($rows as $row) {
             $src = trim((string) $row->marketplace_source);
@@ -376,21 +376,12 @@ class DashboardController extends Controller
 
             $slices[$key] = [
                 'label'   => $label,
-                'name'    => $store !== '' ? $store : $label,
+                'name'    => \App\Support\StoreLabel::of($label, $store),
                 'store'   => $store,
                 'orders'  => (int) $row->orders,
                 'revenue' => round((float) $row->revenue, 2),
             ];
         }
-
-        // One store on its channel: the channel's name says more.
-        $perChannel = array_count_values(array_column($slices, 'label'));
-        foreach ($slices as &$slice) {
-            if ($perChannel[$slice['label']] === 1 && $slice['store'] !== '') {
-                $slice['name'] = $slice['label'];
-            }
-        }
-        unset($slice);
 
         $slices = array_values($slices);
         usort($slices, fn ($a, $b) => $b['orders'] <=> $a['orders']);

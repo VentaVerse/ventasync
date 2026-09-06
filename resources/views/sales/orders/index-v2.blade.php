@@ -103,7 +103,14 @@
             $chanKey = $src === '' ? '' : strtok($src, ':');
             $chanTone = $src === '' ? 'neutral' : $chanKey;
             $chanOpt = $src === '' ? null : ($sourceLabelsMap[$src] ?? null);
-            $chanLabel = $src === '' ? 'Manual' : ($chanOpt['label'] ?? ucfirst($chanKey));
+            // "{Channel}: {store}" (the owner, 2026-09-06): the store stamped on
+            // the order, else the source option's own label (which names the
+            // store on the store-keyed channels), else the bare channel.
+            $chanWord = $chanOpt['channel'] ?? ($chanOpt['label'] ?? ucfirst((string) $chanKey));
+            $chanLabel = $src === '' ? 'Manual'
+                : (trim((string) ($o->store_name ?? '')) !== ''
+                    ? \App\Support\StoreLabel::of($chanWord, (string) $o->store_name)
+                    : ($chanOpt['label'] ?? $chanWord));
         @endphp
         <tr>
             <td class="x-col-id" data-label="Order">

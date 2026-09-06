@@ -2,7 +2,7 @@
 
 {{-- Both names in the tab title on a multi-store channel: store names repeat
      across channels, so "Shop A" alone does not identify an open tab. --}}
-@section('title', ($channelStoreLabel ?? null) ? $channelCard->name.' '.$channelStoreLabel : $channelCard->name)
+@section('title', \App\Support\StoreLabel::of($channelCard->name, $channelStoreLabel ?? null))
 
 @section('content')
     <div class="x-overview-head">

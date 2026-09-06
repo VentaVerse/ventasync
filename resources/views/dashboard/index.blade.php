@@ -717,11 +717,6 @@
                                         @else
                                             {{ $slice['name'] }}
                                         @endif
-                                        {{-- Two stores on one channel: the channel word
-                                             says which colour the swatch borrows. --}}
-                                        @if($slice['name'] !== $slice['label'])
-                                            <span class="db-rank__channel">{{ $slice['label'] }}</span>
-                                        @endif
                                     </td>
                                     <td class="num">{{ number_format($slice['orders']) }}</td>
                                     <td class="num">{{ Money::base((float) $slice['revenue']) }}</td>

@@ -75,7 +75,7 @@ class DashboardStoreScopeTest extends TestCase
         $this->coreOrder(['marketplace_source' => 'shopee', 'store_id' => $a->id, 'store_name' => 'Main store']);
 
         $slices = $this->actingAs($this->viewer())->get(route('dashboard'))->assertOk()->viewData('platformSlices');
-        $this->assertSame('Shopee', $slices[0]['name']);
+        $this->assertSame('Shopee: Main store', $slices[0]['name']);
         $this->assertSame('Main store', $slices[0]['store']);
     }
 }

@@ -788,7 +788,7 @@ class MultistoreWorkspaceTest extends TestCase
         $this->assertNotNull($channels, 'The nav has no Channels group.');
 
         foreach ($card->stores as $store) {
-            $label = $card->name.' '.$store->label;
+            $label = \App\Support\StoreLabel::of($card->name, $store->label);
             $entry = collect($channels['items'])->firstWhere('label', $label);
 
             $this->assertNotNull($entry, 'The nav has no entry for '.$label);

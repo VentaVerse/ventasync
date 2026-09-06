@@ -176,7 +176,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
 
         return $stores->map(fn ($store) => $this->buildOrderTab(
             (int) $store->id,
-            $stores->count() > 1 ? ($store->store_name ?: ('Store #' . $store->id)) : 'Lazada'
+            \App\Support\StoreLabel::of('Lazada', $store->store_name ?: ('Store #' . $store->id))
         ))->all();
     }
 
@@ -801,6 +801,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         return [[
             'value'       => 'lazada',
             'label'       => 'Lazada',
+            'channel'     => 'Lazada',
             'badge_class' => 'badge-indigo',
             'chart_color' => '#0F146D',
         ]];

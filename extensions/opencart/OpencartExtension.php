@@ -130,7 +130,7 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
     {
         $tabs = [];
         foreach ($this->enabledStores() as $store) {
-            $tabs[] = $this->buildOrderTab((int) $store->id, $store->store_name);
+            $tabs[] = $this->buildOrderTab((int) $store->id, \App\Support\StoreLabel::of('OpenCart', $store->store_name));
         }
         return $tabs;
     }
@@ -456,7 +456,8 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
         return OpenCartSetting::orderBy('id')->get(['id', 'store_name', 'brand_color'])
             ->map(fn ($s) => [
                 'value'       => 'opencart:' . $s->id,
-                'label'       => $s->store_name ?: ('OpenCart #' . $s->id),
+                'label'       => \App\Support\StoreLabel::of('OpenCart', $s->store_name ?: ('OpenCart #' . $s->id)),
+                'channel'     => 'OpenCart',
                 'badge_class' => 'badge-dark',
                 'chart_color' => $s->brand_color ?: $palette[($s->id - 1) % count($palette)],
             ])->all();

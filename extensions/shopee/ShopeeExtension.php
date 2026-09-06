@@ -183,7 +183,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
 
         return $stores->map(fn ($store) => $this->buildOrderTab(
             (int) $store->id,
-            $stores->count() > 1 ? ($store->store_name ?: ('Store #' . $store->id)) : 'Shopee'
+            \App\Support\StoreLabel::of('Shopee', $store->store_name ?: ('Store #' . $store->id))
         ))->all();
     }
 
@@ -724,6 +724,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         return [[
             'value'       => 'shopee',
             'label'       => 'Shopee',
+            'channel'     => 'Shopee',
             'badge_class' => 'badge-orange',
             'chart_color' => '#ee4d2d',
         ]];

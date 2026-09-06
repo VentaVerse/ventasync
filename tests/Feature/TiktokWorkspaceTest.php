@@ -377,9 +377,9 @@ class TiktokWorkspaceTest extends TestCase
 
         $labels = array_column($channels['items'], 'label');
         $this->assertContains('All channels', $labels);
-        $this->assertContains('TikTok Shop', $labels);
+        $this->assertContains('TikTok Shop: Main store', $labels);
 
-        $tiktok = collect($channels['items'])->firstWhere('label', 'TikTok Shop');
+        $tiktok = collect($channels['items'])->firstWhere('label', 'TikTok Shop: Main store');
         $this->assertSame('ext.tiktok.dashboard', $tiktok['route']);
         $this->assertSame(
             ChannelWorkspace::overviewUrl('tiktok'),

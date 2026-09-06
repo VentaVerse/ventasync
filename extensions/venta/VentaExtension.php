@@ -124,7 +124,7 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
     {
         $tabs = [];
         foreach ($this->enabledStores() as $store) {
-            $tabs[] = $this->buildOrderTab((int) $store->id, $store->store_name);
+            $tabs[] = $this->buildOrderTab((int) $store->id, \App\Support\StoreLabel::of('Venta', $store->store_name));
         }
         return $tabs;
     }
@@ -422,7 +422,7 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
             return null;
         }
         $name = VentaSetting::where('id', $storeId)->value('store_name');
-        return $name ?: ('Venta #' . $storeId);
+        return \App\Support\StoreLabel::of('Venta', $name ?: ('Venta #' . $storeId));
     }
 
     /**
@@ -449,7 +449,8 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
         return VentaSetting::orderBy('id')->get(['id', 'store_name', 'brand_color'])
             ->map(fn ($s) => [
                 'value'       => 'venta:' . $s->id,
-                'label'       => $s->store_name ?: ('Venta #' . $s->id),
+                'label'       => \App\Support\StoreLabel::of('Venta', $s->store_name ?: ('Venta #' . $s->id)),
+                'channel'     => 'Venta',
                 'badge_class' => 'badge-green',
                 'chart_color' => $s->brand_color ?: '#059669',
             ])->all();
