@@ -49,12 +49,13 @@ final class StoreKey
         if ($parsed === []) {
             return;
         }
-        $query->where(function ($q) use ($parsed, $alias) {
+        $col = fn (string $name) => $alias !== '' ? "{$alias}.{$name}" : $name;
+        $query->where(function ($q) use ($parsed, $col) {
             foreach ($parsed as $p) {
-                $q->orWhere(function ($w) use ($p, $alias) {
-                    $w->where("{$alias}.marketplace_source", $p['source']);
+                $q->orWhere(function ($w) use ($p, $col) {
+                    $w->where($col('marketplace_source'), $p['source']);
                     if ($p['store_id'] !== null) {
-                        $w->where("{$alias}.store_id", $p['store_id']);
+                        $w->where($col('store_id'), $p['store_id']);
                     }
                 });
             }

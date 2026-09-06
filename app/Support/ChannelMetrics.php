@@ -15,11 +15,14 @@ use Illuminate\Support\Facades\DB;
  * everything here is filtered to a single marketplace_source and nothing here
  * knows another channel exists.
  *
- * The scope key IS the marketplace_source. A single-store channel writes its
- * card id ('shopee'), a multi-store channel writes id:storeId ('venta:2'),
- * which is the same key ChannelWorkspace and the OrderTab counters already
- * use - so a two-store seller reads one store per page without this class
- * having to learn what a store is.
+ * The scope key is a store key ('shopee:1', 'venta:2'), the same key
+ * ChannelWorkspace and the OrderTab counters use. It is NOT always the
+ * marketplace_source: Venta and the store-based channels write the store
+ * into the source ('venta:2'), but Shopee, Lazada and TikTok write the bare
+ * channel ('shopee') with the store in store_id. App\Support\StoreKey is the
+ * only parser, and StoreKey::apply() narrows an order query the right way
+ * for both shapes. Filtering on marketplace_source alone read every big-3
+ * store as "No sales recorded here yet" (the owner, 2026-09-06, on live).
  *
  * Revenue counts only statuses flagged add_revenue, matching
  * DashboardController exactly. A cancelled order is not income on either
@@ -56,7 +59,7 @@ class ChannelMetrics
             ->selectRaw('DATE(date_added) as period')
             ->selectRaw($revCase)
             ->selectRaw('COUNT(*) as orders')
-            ->where('marketplace_source', $source)
+            ->tap(fn ($q) => StoreKey::apply($q, [$source], ''))
             ->where('date_added', '>=', $prevStart)
             ->groupBy(DB::raw('DATE(date_added)'))
             ->get()
@@ -135,7 +138,7 @@ class ChannelMetrics
             ->selectRaw('MAX(op.model) as model')
             ->selectRaw('SUM(op.quantity) as units')
             ->selectRaw('SUM(op.total) as revenue')
-            ->where('o.marketplace_source', $source)
+            ->tap(fn ($q) => StoreKey::apply($q, [$source], 'o'))
             ->where('o.date_added', '>=', $start)
             ->whereIn('o.order_status_id', $revIds)
             ->groupBy('op.product_id')

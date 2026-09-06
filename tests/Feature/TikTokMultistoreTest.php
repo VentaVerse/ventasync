@@ -205,10 +205,14 @@ class TikTokMultistoreTest extends TestCase
         $one = $this->storeWithCreds('Main store');
 
         $forged = $one->id . '.0.' . str_repeat('a', 24) . '.' . str_repeat('0', 64);
-        $this->get(route('ext.tiktok.callback', ['code' => 'attacker-code', 'state' => $forged]));
+        $r = $this->get(route('ext.tiktok.callback', ['code' => 'attacker-code', 'state' => $forged]));
 
         $this->assertSame('at-old', decrypt($one->fresh()->access_token),
             'a forged state must trigger no token exchange');
+        // And the refusal lands on a TikTok store's own settings, named in
+        // the URL, never on whatever store the global URL default holds
+        // (the owner, 2026-09-06: the return landed on a Shopee store).
+        $r->assertRedirect(route('ext.tiktok.index', ['store' => $one->id]));
     }
 
     private function storeWithCreds(string $name): TikTokSetting

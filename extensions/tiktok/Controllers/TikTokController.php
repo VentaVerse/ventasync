@@ -409,7 +409,10 @@ class TikTokController extends Controller
             $message = 'Auth code received but token exchange may have failed.';
         }
 
-        return redirect()->route('ext.tiktok.index')->with('settings_setup', $saved)->with('tiktok_result', [
+        // Explicit store, never the global URL default: on this storeless
+        // callback that default belongs to whichever channel booted last
+        // (the owner, 2026-09-06: the return landed on a Shopee store).
+        return $this->redirectToSettings()->with('settings_setup', $saved)->with('tiktok_result', [
             'ok' => $saved,
             'title' => 'OAuth Callback',
             'data' => [
