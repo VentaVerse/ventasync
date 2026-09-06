@@ -6,6 +6,18 @@
     $entries = [];
     foreach (\App\Support\Navigation::groups() as $entry) {
         foreach ($entry['items'] ?? [$entry] as $item) {
+            // The third layer (trial, 2026-09-06): a channel's stores flatten
+            // to "Channels / Shopee / Main store" here.
+            if (! isset($item['route']) && ! empty($item['children'])) {
+                foreach ($item['children'] as $child) {
+                    $entries[] = [
+                        'label' => $entry['label'].' / '.$item['label'].' / '.$child['label'],
+                        'url'   => route($child['route'], $child['params'] ?? []),
+                        'hay'   => strtolower($entry['label'].' '.$item['label'].' '.$child['label'].' '.implode(' ', $child['keywords'] ?? [])),
+                    ];
+                }
+                continue;
+            }
             $entries[] = [
                 'label' => ($entry['label'] !== $item['label'] ? $entry['label'].' / ' : '').$item['label'],
                 'url'   => route($item['route'], $item['params'] ?? []),

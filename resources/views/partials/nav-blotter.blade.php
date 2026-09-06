@@ -26,14 +26,24 @@
             'key' => $key,
             'active' => collect($entry['items'])->contains(
                 fn ($item) => \App\Support\Navigation::isActive($item)
+                    || collect($item['children'] ?? [])->contains(fn ($c) => \App\Support\Navigation::isActive($c))
             ),
         ];
     }
     $blOpenGroup = collect($blNavGroups)->firstWhere('active', true)['key'] ?? null;
+    // The third layer (trial, 2026-09-06): which sub-group holds the current page.
+    $blOpenSub = null;
+    foreach ($navGroups as $i => $entry) {
+        foreach ($entry['items'] ?? [] as $j => $item) {
+            if (collect($item['children'] ?? [])->contains(fn ($c) => \App\Support\Navigation::isActive($c))) {
+                $blOpenSub = 'g' . $i . 'i' . $j;
+            }
+        }
+    }
 @endphp
 
 <nav class="x-nav flex flex-col gap-px py-2.5" data-nav aria-label="Main"
-     x-data="{ group: @js($blOpenGroup) }">
+     x-data="{ group: @js($blOpenGroup), sub: @js($blOpenSub) }">
     @foreach($navGroups as $i => $entry)
         @if(isset($entry['route']))
             @php $isActive = \App\Support\Navigation::isActive($entry); @endphp
@@ -113,7 +123,45 @@
                      :class="{ 'is-open': group === '{{ $key }}' }"
                      :inert="group !== '{{ $key }}'">
                     <div class="bl-collapse__inner flex flex-col gap-px">
-                    @foreach($entry['items'] as $item)
+                    @foreach($entry['items'] as $j => $item)
+                        @if(!empty($item['children']))
+                            {{-- The third layer (trial, 2026-09-06): a channel
+                                 under Channels, its stores beneath it. --}}
+                            @php
+                                $subKey = $key . 'i' . $j;
+                                $subActive = collect($item['children'])->contains(fn ($c) => \App\Support\Navigation::isActive($c));
+                            @endphp
+                            <div class="x-nav__sub">
+                                <button type="button"
+                                        @click="sub = (sub === '{{ $subKey }}' ? null : '{{ $subKey }}')"
+                                        :aria-expanded="sub === '{{ $subKey }}' ? 'true' : 'false'"
+                                        class="flex w-full items-center gap-2 py-1.5 pr-4 pl-11 text-left text-[13px]
+                                               {{ $subActive ? 'text-white font-semibold' : 'text-side-ink' }} hover:bg-side-hover hover:text-white">
+                                    <span class="flex-1">{{ $item['label'] }}</span>
+                                    <span class="transition-transform duration-150 {{ $blOpenSub === $subKey ? 'rotate-90' : '' }}"
+                                          :class="{ 'rotate-90': sub === '{{ $subKey }}' }">
+                                        <x-ui.icon name="chevron-right" size="11" />
+                                    </span>
+                                </button>
+                                <div class="bl-collapse {{ $blOpenSub === $subKey ? 'is-open' : '' }}"
+                                     :class="{ 'is-open': sub === '{{ $subKey }}' }"
+                                     :inert="sub !== '{{ $subKey }}'">
+                                    <div class="bl-collapse__inner flex flex-col gap-px">
+                                    @foreach($item['children'] as $child)
+                                        @php $childActive = \App\Support\Navigation::isActive($child); @endphp
+                                        <a class="x-nav__child x-nav__child--3 py-1.5 pr-4 pl-[60px] text-[12.5px] no-underline
+                                                  {{ $childActive
+                                                      ? 'bg-side-active text-white font-semibold'
+                                                      : 'text-side-ink hover:bg-side-hover hover:text-white' }}"
+                                           href="{{ route($child['route'], $child['params'] ?? []) }}"
+                                           @if($childActive) aria-current="page" @endif
+                                        >{{ $child['label'] }}</a>
+                                    @endforeach
+                                    </div>
+                                </div>
+                            </div>
+                            @continue
+                        @endif
                         @php $itemActive = \App\Support\Navigation::isActive($item); @endphp
                         <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
                                   {{ $itemActive

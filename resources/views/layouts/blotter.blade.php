@@ -32,12 +32,12 @@
     FORM: Colour-forward admin, pinned by the owner from CoreUI Pro, Purple React and Devias. User-pinned direction, so no concept roll; session seed a9ccf491.
     FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
 -->
-<div x-data="{ nav: false }" class="lg:grid lg:grid-cols-[216px_minmax(0,1fr)] min-h-screen">
+<div x-data="{ nav: false }" class="lg:grid lg:grid-cols-[248px_minmax(0,1fr)] min-h-screen">
 
     {{-- Sidebar. Off-canvas below lg, permanent above it. --}}
     <aside @keydown.escape.window="nav = false"
            :class="nav && '!flex'"
-           class="fixed inset-y-0 left-0 z-40 hidden w-[216px] flex-col border-r border-side-rule bg-side
+           class="fixed inset-y-0 left-0 z-40 hidden w-[248px] flex-col border-r border-side-rule bg-side
                   lg:static lg:flex">
         <div class="flex items-center gap-2.5 border-b border-side-rule px-4 py-3">
             {{-- The store's own logo, the one uploaded under Settings,

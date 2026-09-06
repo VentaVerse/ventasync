@@ -230,23 +230,21 @@ class Navigation
                     // seller running "Shop A" on both Venta and
                     // OpenCart would otherwise get two identical entries.
                     if ($card->stores !== []) {
+                        // TRIAL (the owner, 2026-09-06): three layers. The channel
+                        // is a sub-group under Channels and its stores are the
+                        // third layer, named by the store alone since the
+                        // channel is the line above. $store->id is the colon
+                        // key (`venta:2`); the dashboard route wants the bare
+                        // store number.
+                        $children = [];
                         foreach ($card->stores as $store) {
-                            // $store->id is the colon key (`venta:2`); the
-                            // dashboard route wants the bare store number.
-                            // Each channel's dashboard is its own route now
-                            // (ext.{id}.dashboard), so the entry can no
-                            // longer point at a channel that has none.
-                            //
-                            // "{Channel}: {store}" on every store, one or
-                            // many (the owner, 2026-09-06): the same shape the
-                            // fulfilment tabs, the orders list and the
-                            // dashboard use (App\Support\StoreLabel).
                             $storeId = explode(':', $store->id, 2)[1] ?? null;
-                            $items[] = ['label' => \App\Support\StoreLabel::of($card->name, $store->label),
-                                        'route' => 'ext.'.$card->id.'.dashboard',
-                                        'params' => $storeId === null ? [] : ['store' => $storeId],
-                                        'keywords' => [$card->id, $store->label, 'seller center', 'orders', 'store']];
+                            $children[] = ['label' => $store->label,
+                                           'route' => 'ext.'.$card->id.'.dashboard',
+                                           'params' => $storeId === null ? [] : ['store' => $storeId],
+                                           'keywords' => [$card->id, $store->label, 'seller center', 'orders', 'store']];
                         }
+                        $items[] = ['label' => $card->name, 'children' => $children, 'keywords' => [$card->id]];
                         continue;
                     }
 
@@ -256,16 +254,20 @@ class Navigation
                 }
 
                 if ($card->stores !== []) {
+                    $children = [];
                     foreach ($card->stores as $store) {
                         foreach ($store->menu as $menuItem) {
                             if ($menuItem->label === 'Orders') {
-                                $items[] = ['label' => \App\Support\StoreLabel::of($card->name, $store->label),
-                                            'route' => $menuItem->routeName,
-                                            'params' => $menuItem->routeParams,
-                                            'keywords' => [$card->id, 'orders', 'store']];
+                                $children[] = ['label' => $store->label,
+                                               'route' => $menuItem->routeName,
+                                               'params' => $menuItem->routeParams,
+                                               'keywords' => [$card->id, 'orders', 'store']];
                                 break;
                             }
                         }
+                    }
+                    if ($children !== []) {
+                        $items[] = ['label' => $card->name, 'children' => $children, 'keywords' => [$card->id]];
                     }
                     continue;
                 }
@@ -367,6 +369,10 @@ class Navigation
 
             foreach ($entry['items'] ?? [] as $item) {
                 $best = self::better($best, $entry, $item, $path);
+                // The third layer (trial, 2026-09-06): a store under its channel.
+                foreach ($item['children'] ?? [] as $child) {
+                    $best = self::better($best, $entry, $child, $path);
+                }
             }
         }
 
@@ -627,10 +633,24 @@ class Navigation
                 continue;
             }
 
-            $items = array_values(array_filter(
-                $entry['items'],
-                fn (array $i) => self::allows($i['route'], $i['params'] ?? []) && self::itemPermissionAllows($i)
-            ));
+            $items = [];
+            foreach ($entry['items'] as $i) {
+                // The third layer (trial, 2026-09-06): a parent with children
+                // has no route of its own; it stays when any child survives.
+                if (! isset($i['route']) && ! empty($i['children'])) {
+                    $children = array_values(array_filter(
+                        $i['children'],
+                        fn (array $c) => self::allows($c['route'], $c['params'] ?? []) && self::itemPermissionAllows($c)
+                    ));
+                    if ($children !== []) {
+                        $items[] = ['children' => $children] + $i;
+                    }
+                    continue;
+                }
+                if (self::allows($i['route'], $i['params'] ?? []) && self::itemPermissionAllows($i)) {
+                    $items[] = $i;
+                }
+            }
 
             if ($items !== []) {
                 $out[] = ['label' => $entry['label'], 'icon' => $entry['icon'], 'items' => $items];

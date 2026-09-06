@@ -4282,7 +4282,7 @@
     .x-sidebar {
         display: flex;
         flex-direction: column;
-        width: 216px;
+        width: 248px;
         flex: none;
         border-right: 1px solid var(--bl-side-rule);
         background: var(--bl-side-bg);
