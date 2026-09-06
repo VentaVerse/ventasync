@@ -201,6 +201,7 @@ class LazadaAttributeAutoFillTest extends TestCase
                 ['id' => 6, 'name' => 'package_weight', 'is_mandatory' => 1, 'input_type' => 'numeric'],
                 ['id' => 7, 'name' => 'SellerSku', 'is_mandatory' => 1, 'input_type' => 'text'],
                 ['id' => 8, 'name' => 'special_from_date', 'is_mandatory' => 0, 'input_type' => 'date'],
+                ['id' => 100005514, 'name' => 'material', 'label' => 'Material', 'is_mandatory' => 0, 'input_type' => 'text'],
             ]]],
         ]);
     }
@@ -325,6 +326,50 @@ class LazadaAttributeAutoFillTest extends TestCase
 
         // The listing itself is untouched by a fetch: the form saves the category.
         $this->assertNull($listing->fresh()->primary_category_id);
+    }
+
+    /** the owner, 2026-09-06: the row-level "required" warning came back; a refusal lands on the row Lazada names, by id or inside the sentence. */
+    public function test_a_blank_required_row_says_so_and_a_refusal_lands_on_the_row_it_names(): void
+    {
+        $this->fullerTemplate();
+        $listing = LazadaProduct::query()->create(['product_id' => $this->seedProduct('Valeton GP-5', 'GP5'), 'primary_category_id' => 7014]);
+        $user = $this->manager();
+
+        $html = $this->actingAs($user)->get(route('ext.lazada.products.edit', $listing->id))->assertOk()->getContent();
+        $this->assertStringContainsString('Required before a push.', $html);
+
+        \Illuminate\Support\Facades\Http::fake([
+            '*/images/migrate*' => \Illuminate\Support\Facades\Http::response(['code' => '0', 'data' => ['images' => [['url' => 'https://ph-live.slatic.net/x.jpg', 'hash_code' => 'h']]]], 200),
+            '*/image/migrate*' => \Illuminate\Support\Facades\Http::response(['code' => '0', 'data' => ['image' => ['url' => 'https://ph-live.slatic.net/x.jpg', 'hash_code' => 'h']]], 200),
+            '*' => \Illuminate\Support\Facades\Http::response(['code' => '4108', 'type' => 'ISP', 'message' => 'E500: Create product failed', 'detail' => [
+                ['field' => 'p-100005514', 'message' => 'C004: cannot be blank.', 'code' => 'CHK_BASIC_REQUIRED'],
+                ['field' => '', 'message' => 'Musical_Instrument_Type is mandatory', 'code' => 'CHK_BASIC_REQUIRED'],
+            ]], 200),
+        ]);
+
+        // Our own refusal first: a required answer is still blank, so nothing
+        // is sent; the header is red and the row is named.
+        $r = $this->actingAs($user)
+            ->from(route('ext.lazada.products.edit', $listing->id))
+            ->put(route('ext.lazada.products.update', $listing->id), ['primary_category_id' => 7014, 'attributes' => ['warranty_type' => 'No Warranty'], 'push' => 1])
+            ->assertRedirect(route('ext.lazada.products.edit', $listing->id));
+        $r->assertSessionHasErrors(['attributes.Musical_Instrument_Type']);
+        $r->assertSessionMissing('status');
+        $this->assertStringContainsString('Musical_Instrument_Type is mandatory', (string) session('error'));
+        \Illuminate\Support\Facades\Http::assertNothingSent();
+        $html = $this->actingAs($user)->withSession(['errors' => session('errors')])->get(route('ext.lazada.products.edit', $listing->id))->assertOk()->getContent();
+        $this->assertStringContainsString('Musical_Instrument_Type is mandatory', $html);
+
+        // Every answer given: Lazada itself refuses, by field id and inside a sentence; both land on their rows.
+        $r = $this->actingAs($user)
+            ->from(route('ext.lazada.products.edit', $listing->id))
+            ->put(route('ext.lazada.products.update', $listing->id), ['primary_category_id' => 7014, 'attributes' => ['warranty_type' => 'No Warranty', 'Musical_Instrument_Type' => 'Guitar'], 'push' => 1])
+            ->assertRedirect(route('ext.lazada.products.edit', $listing->id));
+        $r->assertSessionHasErrors(['attributes.material', 'attributes.Musical_Instrument_Type']);
+        $this->assertStringContainsString('cannot be blank', session('errors')->first('attributes.material'));
+        $html = $this->actingAs($user)->withSession(['errors' => session('errors')])->get(route('ext.lazada.products.edit', $listing->id))->assertOk()->getContent();
+        $this->assertStringContainsString('Lazada: C004: cannot be blank.', $html);
+        $this->assertStringContainsString('Lazada: Musical_Instrument_Type is mandatory', $html);
     }
 
     /** A refused template read comes back as Lazada's own sentence, never a payload, and files nothing. */

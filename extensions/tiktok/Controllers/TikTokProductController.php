@@ -717,7 +717,7 @@ class TikTokProductController extends Controller
             ];
         }
 
-        return [['found' => $found, 'rows' => $rows], null];
+        return [['found' => $found, 'rows' => $rows, 'truncated' => (bool) ($shop['truncated'] ?? false)], null];
     }
 
     /** Import one fetched product, re-read live by its id. */
@@ -737,7 +737,7 @@ class TikTokProductController extends Controller
     /** Import selected: every ticked row, each in its own transaction. */
     public function importSelected(Request $request, \Extensions\tiktok\Services\TikTok\TikTokItemImport $import)
     {
-        $data = $request->validate(['refs' => 'required|array|min:1|max:100', 'refs.*' => 'string|max:64']);
+        $data = $request->validate(['refs' => 'required|array|min:1', 'refs.*' => 'string|max:64']);
         $c = $this->creds();
         if (!$c) {
             return redirect()->back()->with('error', 'Missing TikTok settings.');

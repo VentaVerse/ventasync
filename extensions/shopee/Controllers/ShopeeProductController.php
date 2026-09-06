@@ -2444,7 +2444,7 @@ class ShopeeProductController extends Controller
     /** Import selected: every ticked row, each in its own transaction. */
     public function importSelected(Request $request, \Extensions\shopee\Services\Shopee\ShopeeItemImport $import)
     {
-        $data = $request->validate(['refs' => 'required|array|min:1|max:100', 'refs.*' => 'integer|min:1']);
+        $data = $request->validate(['refs' => 'required|array|min:1', 'refs.*' => 'integer|min:1']);
 
         $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);

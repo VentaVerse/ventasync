@@ -23,6 +23,7 @@
         @if($fetched !== null)
             <p class="x-page-sub">
                 Read {{ number_format($fetched['found']) }} {{ $fetched['found'] === 1 ? 'item' : 'items' }} on the store just now; {{ count($rows) === 0 ? 'all of them match your main catalog.' : number_format(count($rows)) . ' ' . (count($rows) === 1 ? 'is' : 'are') . ' not in your main catalog.' }}
+            @if(!empty($fetched['truncated'])) The store holds more than that; only the first {{ number_format($fetched['found']) }} were read. Import or link some of these, then fetch again for the rest.@endif
             </p>
         @endif
     </div>
@@ -91,7 +92,7 @@
             </x-slot:head>
 
             @foreach($rows as $row)
-                <tr>
+                <tr data-import-row>
                     <td class="cc-col-check" data-label="Select">
                         <input type="checkbox" class="cc-check" form="cc-import-selected" name="refs[]" value="{{ $row['ref'] }}" data-import-check aria-label="Select {{ $row['name'] ?: $row['sku'] }} for import">
                     </td>
@@ -149,6 +150,8 @@
                 </tr>
             @endforeach
         </x-ui.table>
+
+        @include('partials.channel-import-pager')
     @endif
 
 </section>

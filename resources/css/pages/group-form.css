@@ -531,6 +531,14 @@
     font-size: 12px;
 }
 
+/* A required attribute still blank: the attention tone, said before the
+   push rather than only after Lazada refuses it. */
+.gf-attr__need {
+    margin-top: var(--bl-space-2);
+    color: var(--bl-attn);
+    font-size: 12px;
+}
+
 /* ------------------------------------------------------------------
    Phones. The panes are already stacked by the 901px breakpoint above;
    this shortens them so both plus the move buttons plus the save bar

@@ -1138,7 +1138,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-                ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
+                ->with('error', 'Missing Lazada settings (region/app key/app secret/access token).');
         }
 
 
@@ -1148,7 +1148,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         if (empty($listing->primary_category_id)) {
             $this->persistProductSyncStatus($saved, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'MISSING_PRIMARY_CATEGORY', 'message' => 'Primary category is required before upload.']]);
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-                ->with('status', 'Upload: Primary Category is required before uploading.');
+                ->with('error', 'Upload: Primary Category is required before uploading.');
         }
 
         // Validate that the ERP product has a SKU (or model as fallback).
@@ -1158,7 +1158,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         if ((int) ($erpProduct->status ?? 1) === 0) {
             $this->persistProductSyncStatus($saved, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'PRODUCT_DISABLED', 'message' => 'ERP product is disabled. Enable it before uploading.']]);
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-                ->with('status', 'Upload: ERP product is disabled. Enable it before uploading to Lazada.');
+                ->with('error', 'Upload: ERP product is disabled. Enable it before uploading to Lazada.');
         }
 
         $erpSku = trim((string) ($erpProduct->sku ?? ''));
@@ -1168,7 +1168,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         if ($erpSku === '') {
             $this->persistProductSyncStatus($saved, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'MISSING_SKU', 'message' => 'Product SKU is required. Please set a SKU (or Model) in the ERP product first.']]);
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-                ->with('status', 'Upload: Product SKU is required. Please set a SKU (or Model) in the core product first.');
+                ->with('error', 'Upload: Product SKU is required. Please set a SKU (or Model) in the core product first.');
         }
 
         // Build payload from listing mapping. If mapping is incomplete, we do not send an invalid payload.
@@ -1176,9 +1176,19 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             [$productPayload, $preview] = $this->payload()->buildLazadaProductCreatePayload($listing, $setting, $client);
             $productPayload = $this->images()->ensureLazadaInlinkImages($productPayload, $setting, $client);
         } catch (\Illuminate\Validation\ValidationException $e) {
-            $msg = collect($e->errors())->flatten()->first() ?: 'Listing mapping is incomplete.';
+            /* Our own refusal, before anything is sent: every missing answer
+             * named at once, as an ERROR (a refusal is never green), and on
+             * the row it belongs to, since the builder keys its messages
+             * attributes.<key> the way the sheet reads them (the owner, 2026-09-06:
+             * the header alone lost the row-level "required" the sheet had). */
+            $all = collect($e->errors())->flatten()->all();
+            $msg = $all !== [] ? implode(' ', $all) : 'Listing mapping is incomplete.';
             $this->persistProductSyncStatus($saved, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'VALIDATION_ERROR', 'message' => (string)$msg]]);
-            return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('status', 'Upload: ' . $msg);
+            LazadaProduct::recordPushFailure((int) $listing->product_id, 'Upload refused: ' . $msg);
+
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
+                ->with('error', 'Upload refused before anything was sent: ' . $msg)
+                ->withErrors($e->errors());
         }
 
         // For updates, inject ItemId and SkuId so Lazada knows which product/SKUs to update
@@ -1334,7 +1344,17 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         if (! ($e['ok'] ?? false)) {
             LazadaProduct::recordPushFailure((int) $listing->product_id, $line);
 
-            return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('error', $line);
+            /* The refusal on the row it is about (the owner, 2026-09-06: the
+             * sheet used to say "this field is required" under the row; the
+             * header line alone lost that). Lazada names a field by id or
+             * by name in detail[], or only inside the sentence. */
+            $rowErrors = $template && $template->template_body
+                ? $this->attributeRowErrors($template->template_body, $this->payload()->extractLazadaError($result))
+                : [];
+
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
+                ->with('error', $line)
+                ->withErrors($rowErrors);
         }
 
         return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('status', $line);
@@ -2676,6 +2696,36 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         return redirect()->route('ext.lazada.products.edit', $listing->id)->with('status', 'Listing saved.' . $note);
     }
 
+    /**
+     * `attributes.<key>` => Lazada's sentence, for every attribute row a
+     * refusal names. Empty when the refusal is about something else.
+     */
+    private function attributeRowErrors($templateBody, array $answer): array
+    {
+        $keyOf = $this->attrs()->fieldKeyMapper($templateBody);
+        $keys = array_map(fn ($a) => (string) ($a['key'] ?? ''), $this->attrs()->extractAttributes($templateBody));
+        $errors = [];
+        foreach ((array) ($answer['field_errors'] ?? []) as $fe) {
+            $text = (string) ($fe['message'] ?? '');
+            $named = [];
+            if (($fe['field'] ?? '') !== '' && ($key = $keyOf((string) $fe['field'])) !== null) {
+                $named = [$key];
+            } else {
+                $named = LazadaAttributes::keysNamedIn($text, $keys);
+            }
+            foreach ($named as $key) {
+                $errors['attributes.' . $key] = 'Lazada: ' . $text;
+            }
+        }
+        if ($errors === [] && ($answer['message'] ?? '') !== '') {
+            foreach (LazadaAttributes::keysNamedIn((string) $answer['message'], $keys) as $key) {
+                $errors['attributes.' . $key] = 'Lazada: ' . $answer['message'];
+            }
+        }
+
+        return $errors;
+    }
+
     /** Saves the attribute answers as given; an empty answer clears the row. */
     private function storeAttributes(LazadaProduct $listing, array $attrs): void
     {
@@ -3303,7 +3353,8 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ];
         }
 
-        return [['found' => count($allProducts), 'rows' => $rows], null];
+        // 60 pages of 50 is the read's ceiling; past it the page must say so rather than pass 3,000 off as everything.
+        return [['found' => count($allProducts), 'rows' => $rows, 'truncated' => $offset < $totalProducts], null];
     }
 
     /** Import one fetched item, re-read live by its item id. */
@@ -3325,7 +3376,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
     /** Import selected: every ticked row, each in its own transaction. */
     public function importSelected(Request $request, \Extensions\lazada\Services\Lazada\LazadaItemImport $import)
     {
-        $data = $request->validate(['refs' => 'required|array|min:1|max:100', 'refs.*' => 'string|max:64']);
+        $data = $request->validate(['refs' => 'required|array|min:1', 'refs.*' => 'string|max:64']);
 
         $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);

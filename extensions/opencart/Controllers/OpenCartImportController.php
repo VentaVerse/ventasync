@@ -115,7 +115,7 @@ class OpenCartImportController extends Controller
     /** Import selected: every ticked row, each in its own transaction. */
     public function importSelected(Request $request, int $store, OpenCartItemImport $import)
     {
-        $data = $request->validate(['refs' => 'required|array|min:1|max:100', 'refs.*' => 'integer|min:1']);
+        $data = $request->validate(['refs' => 'required|array|min:1', 'refs.*' => 'integer|min:1']);
         $setting = OpenCartSetting::findOrFail($store);
 
         $done = 0;

@@ -155,7 +155,7 @@ class VentaListingController extends Controller
     /** Import selected: every ticked row, each in its own transaction. */
     public function importSelected(Request $request, int $store, \Extensions\venta\Services\Venta\VentaItemImport $import)
     {
-        $data = $request->validate(['refs' => 'required|array|min:1|max:100', 'refs.*' => 'string|max:191']);
+        $data = $request->validate(['refs' => 'required|array|min:1', 'refs.*' => 'string|max:191']);
         $setting = VentaSetting::findOrFail($store);
 
         $done = 0;

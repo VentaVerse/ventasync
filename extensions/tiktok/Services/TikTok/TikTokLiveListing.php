@@ -114,7 +114,8 @@ class TikTokLiveListing
             }
         }
 
-        return ['products' => $out, 'error' => null];
+        // Ten pages of 100 is the walk's ceiling; a token left over means the shop holds more than was read.
+        return ['products' => $out, 'error' => null, 'truncated' => $token !== null];
     }
 
     /**

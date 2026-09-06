@@ -141,8 +141,12 @@
                     <p class="gf-attr__note">The catalog suggests {{ $suggestion }}.</p>
                 @endif
 
-                @if($errors->has('attributes.' . $key))
+                @if(isset($errors) && $errors->has('attributes.' . $key))
+                    {{-- Lazada's own sentence about this row, from the last refused push. --}}
                     <div class="gf-attr__error">{{ $errors->first('attributes.' . $key) }}</div>
+                @elseif(!empty($attribute['required']) && trim((string) $value) === '' && trim((string) $rawSaved) === '')
+                    {{-- Said before the push, not only after Lazada refuses. --}}
+                    <div class="gf-attr__need">Required before a push.</div>
                 @endif
             </div>
         </div>

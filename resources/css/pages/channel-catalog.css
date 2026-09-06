@@ -602,6 +602,11 @@
    which is why the pair used to stack; the cell cannot itself go flex
    without leaving table display, so the wrapper carries the row. */
 .cc-unmatched .x-td-actions { width: 148px; }
+
+/* The Import page's pages are cut in the browser (channel-import.js): a row
+   off the current page is hidden, and must stay hidden under the phone
+   layout too, which gives every tr its own display. */
+.cc-unmatched tr[data-import-row][hidden] { display: none !important; }
 .cc-rowact {
     display: flex;
     align-items: center;

@@ -630,6 +630,7 @@ public function extractLazadaError(array $result, ?callable $fieldLabel = null):
     $code = null;
     $message = null;
     $details = [];
+    $fieldErrors = [];
 
     if (is_array($body)) {
         $code = $body['code'] ?? ($body['error_code'] ?? null);
@@ -646,6 +647,7 @@ public function extractLazadaError(array $result, ?callable $fieldLabel = null):
             $label = $field !== '' ? ($fieldLabel ? $fieldLabel($field) : null) : null;
             $where = $label ?: $field;
             $details[] = $where !== '' ? $where . ': ' . $text : $text;
+            $fieldErrors[] = ['field' => $field, 'message' => $text];
         }
     }
 
@@ -667,6 +669,9 @@ public function extractLazadaError(array $result, ?callable $fieldLabel = null):
         'code' => $ok ? null : ($codeStr ?: 'UNKNOWN'),
         'message' => $ok ? null : $said,
         'details' => $details,
+        // The raw field and text of each detail, for the sheet to put the
+        // refusal on the row it names (the owner, 2026-09-06).
+        'field_errors' => $ok ? [] : $fieldErrors,
     ];
 }
 

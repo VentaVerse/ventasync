@@ -260,6 +260,60 @@ class LazadaAttributes
         };
     }
 
+    /**
+     * Lazada's field reference (`p-100005514`, `system_memory_new`) to the
+     * attribute KEY the sheet posts as attributes[key], so a refusal can be
+     * written under the row it is about. Null when the template does not
+     * know the field.
+     */
+    public function fieldKeyMapper($templateBody): callable
+    {
+        $byId = [];
+        $byName = [];
+        foreach ($this->extractAttributes($templateBody, false, true) as $attr) {
+            $key = (string) ($attr['key'] ?? $attr['name'] ?? '');
+            if ($key === '') {
+                continue;
+            }
+            $raw = $attr['raw'] ?? [];
+            $id = $raw['id'] ?? $raw['attribute_id'] ?? null;
+            if (is_scalar($id)) {
+                $byId[(string) $id] = $key;
+            }
+            $byName[strtolower($key)] = $key;
+            if (!empty($raw['label'])) {
+                $byName[strtolower((string) $raw['label'])] = $key;
+            }
+        }
+
+        return function (string $field) use ($byId, $byName): ?string {
+            $field = trim($field);
+            $id = preg_replace('/^[ps]-/i', '', $field);
+
+            return $byId[$id] ?? $byName[strtolower($field)] ?? null;
+        };
+    }
+
+    /**
+     * The attribute keys a refusal's sentence names when Lazada gives no
+     * field ("system_memory_new is mandatory"): every key that appears in
+     * the text as a whole word.
+     *
+     * @return string[]
+     */
+    public static function keysNamedIn(string $text, array $keys): array
+    {
+        $found = [];
+        foreach ($keys as $key) {
+            $key = (string) $key;
+            if ($key !== '' && preg_match('/(?<![A-Za-z0-9_])' . preg_quote($key, '/') . '(?![A-Za-z0-9_])/i', $text)) {
+                $found[] = $key;
+            }
+        }
+
+        return $found;
+    }
+
     public function normalizeAttributes(array $raw, bool $questionsOnly = true, bool $withRaw = false): array
     {
         $out = [];
