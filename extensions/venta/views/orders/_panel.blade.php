@@ -220,8 +220,8 @@
          reference is often all a caller has. --}}
     <x-ui.input type="search" name="q" class="x-filters__find"
                 value="{{ $vtQ }}"
-                placeholder="Order no, customer, product or tracking"
-                aria-label="Find an order by order number, customer, product or tracking" />
+                placeholder="Order no, buyer, product or tracking"
+                aria-label="Find an order by order number, buyer, product or tracking" />
 
     {{-- Folded, with a count of what is set. Search stays out: it is the
          control used most. A fold that hides an ACTIVE filter would be worse

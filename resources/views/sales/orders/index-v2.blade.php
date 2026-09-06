@@ -20,7 +20,7 @@
 </div>
 
 <form method="GET" action="{{ route('orders.index') }}" class="x-filters" id="orders-filter">
-    <x-ui.input type="search" name="q" value="{{ $q }}" placeholder="Search name, email, order ID" class="x-filters__search" />
+    <x-ui.input type="search" name="q" value="{{ $q }}" placeholder="Order no, buyer, product or tracking" class="x-filters__search" />
     <div class="x-select-wrap x-filters__select">
         <select name="status" class="x-input" data-autosubmit>
             <option value="0">All statuses</option>

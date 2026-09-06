@@ -220,8 +220,8 @@
          a buyer field. --}}
     <x-ui.input type="search" name="q" class="x-filters__find"
                 value="{{ $findFilter }}"
-                placeholder="Order no, buyer or product"
-                aria-label="Find an order by order number, buyer or product" />
+                placeholder="Order no, buyer, product or tracking"
+                aria-label="Find an order by order number, buyer, product or tracking" />
 
     {{-- When the order was placed. This list has never had a date filter of
          any kind - the only dates on the page were the command bar's, which

@@ -48,6 +48,12 @@ class OrderController extends Controller
                         ->orWhere('lastname', 'like', '%' . $q . '%')
                         ->orWhere('email', 'like', '%' . $q . '%')
                         ->orWhere('marketplace_order_id', 'like', '%' . $q . '%')
+                        // Product and tracking, the same four every channel panel searches (2026-09-06).
+                        ->orWhere('tracking_number', 'like', '%' . $q . '%')
+                        ->orWhere('tracking', 'like', '%' . $q . '%')
+                        ->orWhereHas('products', function ($p) use ($q) {
+                            $p->where('name', 'like', '%' . $q . '%')->orWhere('model', 'like', '%' . $q . '%');
+                        })
                         ->orWhere('order_id', '=', (int) $q > 0 ? (int) $q : 0);
                 });
             })

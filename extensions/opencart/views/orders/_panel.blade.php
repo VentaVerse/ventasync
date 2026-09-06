@@ -85,7 +85,7 @@
     <input type="hidden" name="dir" value="{{ $dir }}">
 
     <x-ui.input type="search" name="q" class="x-filters__search"
-                value="{{ $ocQ }}" placeholder="Customer, email or order number" aria-label="Search orders" />
+                value="{{ $ocQ }}" placeholder="Order no, buyer, product or tracking" aria-label="Search orders" />
 
     <div class="x-select-wrap x-filters__select">
         <select name="status" class="x-input" data-autosubmit aria-label="Filter by status">

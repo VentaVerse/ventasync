@@ -281,8 +281,8 @@
          a buyer field. --}}
     <x-ui.input type="search" name="q" class="x-filters__find"
                 value="{{ $findFilter }}"
-                placeholder="Order no, buyer or product"
-                aria-label="Find an order by order number, buyer or product" />
+                placeholder="Order no, buyer, product or tracking"
+                aria-label="Find an order by order number, buyer, product or tracking" />
 
     {{-- WHY A BUYER SEARCH COMES BACK EMPTY HERE.
          Lazada masks the name in the payload itself - it arrives as

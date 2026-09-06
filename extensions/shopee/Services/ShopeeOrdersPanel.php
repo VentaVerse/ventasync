@@ -221,6 +221,12 @@ class ShopeeOrdersPanel
                 $w->where('order_sn', 'like', $like)
                     ->orWhere('raw->buyer_username', 'like', $like)
                     ->orWhere('raw->buyer_user_name', 'like', $like)
+                    // The name on the parcel, which is the one a caller gives;
+                    // the username above is Shopee's masked handle.
+                    ->orWhere('raw->recipient_address->name', 'like', $like)
+                    // The tracking number, where the row's Tracking cell reads it (2026-09-06).
+                    ->orWhere('raw->tracking_no', 'like', $like)
+                    ->orWhere('raw->tracking_number', 'like', $like)
 
                     /* The products are on the order, so this reaches through
                        the relation - the same shape the returns lists use. */

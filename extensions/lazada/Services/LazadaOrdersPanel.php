@@ -233,13 +233,19 @@ class LazadaOrdersPanel
                     ->orWhere('raw->customer_first_name', 'like', $like)
                     ->orWhere('raw->customer_name', 'like', $like)
                     ->orWhere('raw->buyer_name', 'like', $like)
+                    // The tracking number, where the row's Tracking cell reads
+                    // it: the order, its detail, or the first item (2026-09-06).
+                    ->orWhere('raw->tracking_code', 'like', $like)
+                    ->orWhere('raw->tracking_number', 'like', $like)
+                    ->orWhere('raw->_detail->tracking_code', 'like', $like)
 
                     /* The products are on the order, so this reaches through
                        the relation - the same shape the returns lists use. */
                     ->orWhereHas('products', function ($p) use ($like) {
                         $p->where('name', 'like', $like)
                             ->orWhere('sku', 'like', $like)
-                            ->orWhere('variation', 'like', $like);
+                            ->orWhere('variation', 'like', $like)
+                            ->orWhere('raw->tracking_code', 'like', $like);
                     });
             });
         }
