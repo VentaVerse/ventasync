@@ -153,7 +153,9 @@ class ShopeeListingStates
             $stale = $movedAt && $movedAt->gt($at);
             $out[$pid] = [
                 'tone' => 'ok',
-                'headline' => 'Synced ' . $at->diffForHumans() . ' (' . $what . ')' . ($stale ? ', catalog changed since' : ''),
+                'headline' => 'Synced ' . $at->diffForHumans(),
+                'what' => $what,
+                'stale' => $stale,
                 'detail' => null,
                 'at' => $at,
             ];

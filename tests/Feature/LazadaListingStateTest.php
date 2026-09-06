@@ -370,7 +370,8 @@ class LazadaListingStateTest extends TestCase
         \Extensions\lazada\Models\LazadaProduct::query()->where('product_id', $pid)->update(['last_synced_at' => now()->subMinutes(5), 'last_sync_action' => 'bulk_upload_to_lazada', 'last_sync_ok' => true]);
         $sync = $states->lastSync([$pid])[$pid];
         $this->assertSame('ok', $sync['tone']);
-        $this->assertStringContainsString('5 minutes ago (listing)', $sync['headline']);
+        $this->assertStringContainsString('5 minutes ago', $sync['headline']);
+        $this->assertSame('listing', $sync['what']);
         $this->assertSame([], $states->forProducts([$pid])[$pid]->reasons);
 
         $never = $this->seedProduct('Never one', 'NV-1');

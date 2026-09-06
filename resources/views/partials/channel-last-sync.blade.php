@@ -31,7 +31,13 @@
         </details>
     @endif
 @elseif($sync['tone'] === 'ok')
+    {{-- Two short lines instead of one sentence wrapped four deep in a
+         180px column (polish, 2026-09-06): when, then what it was, and
+         the one fact that asks for a person in the attention tone. --}}
     <span class="cc-when" @if($sync['at']) title="{{ $sync['at']->toDayDateTimeString() }}" @endif>{{ $sync['headline'] }}</span>
+    @if(!empty($sync['what']) || !empty($sync['stale']))
+        <span class="cc-when__what">{{ ucfirst((string) ($sync['what'] ?? '')) }}@if(!empty($sync['stale']))<span class="cc-when__stale">{{ !empty($sync['what']) ? ', ' : '' }}catalog changed since</span>@endif</span>
+    @endif
 @else
     <span class="x-cell-muted">Never</span>
 @endif

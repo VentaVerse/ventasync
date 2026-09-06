@@ -170,7 +170,7 @@ class ShopeeListingStateTest extends TestCase
         $sync = app(ShopeeListingStates::class)->lastSync([$pid])[$pid];
         $this->assertSame('ok', $sync['tone']);
         $this->assertStringContainsString('5 minutes ago', $sync['headline']);
-        $this->assertStringContainsString('stock', $sync['headline']);
+        $this->assertSame('stock', $sync['what']);
 
         // A failed stock sync is told the same way, and a never-synced product says so.
         ShopeeProductLink::query()->where('product_id', $pid)->update(['last_sync_ok' => false, 'last_sync_error_message' => 'Stock update refused: item is under review.']);

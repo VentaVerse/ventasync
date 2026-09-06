@@ -509,6 +509,19 @@
     color: var(--bl-ink-3);
 }
 
+/* What the sync was (listing, stock, price), on its own line under the
+   when, so the column holds two short lines instead of one sentence
+   wrapped four deep. "Catalog changed since" is the one fact here that
+   asks for a person, and wears the attention tone. */
+.cc-when__what {
+    display: block;
+    margin-top: 1px;
+    font-size: 11px;
+    color: var(--bl-ink-3);
+}
+
+.cc-when__stale { color: var(--bl-attn); }
+
 /* ------------------------------------------------------------------
    Selection checkbox. Needs its own stacking context for the reason
    pages/catalog.css states for .cat-check: the row is a stretched link

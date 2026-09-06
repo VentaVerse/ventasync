@@ -205,7 +205,7 @@ class LazadaListingStates
             ->whereIn('product_id', $productIds)->pluck('date_modified', 'product_id');
         $word = fn (?string $action): string => match (true) {
             $action === null || trim($action) === '' => 'sync',
-            (bool) preg_match('/qty|stock/i', $action) => 'stock',
+            (bool) preg_match('/qty|quantity|stock/i', $action) => 'stock',
             (bool) preg_match('/price/i', $action) => 'price',
             (bool) preg_match('/upload|push|create|update/i', $action) => 'listing',
             (bool) preg_match('/_id$/i', $action) => 'link check',
@@ -251,6 +251,6 @@ class LazadaListingStates
         }
         [$at, $what] = $candidates[0];
         $stale = $movedAt && $movedAt->gt($at);
-        return ['tone' => 'ok', 'headline' => 'Synced ' . $at->diffForHumans() . ' (' . $what . ')' . ($stale ? ', catalog changed since' : ''), 'detail' => null, 'at' => $at];
+        return ['tone' => 'ok', 'headline' => 'Synced ' . $at->diffForHumans(), 'what' => $what, 'stale' => $stale, 'detail' => null, 'at' => $at];
     }
 }

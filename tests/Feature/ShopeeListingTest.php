@@ -282,7 +282,8 @@ class ShopeeListingTest extends TestCase
         // from the listing succeeded, so the shared Last sync cell tells that
         // sync, and the group's older refusal is no longer the product's story.
         $r->assertSee('Last sync');
-        $r->assertSee('Synced 5 minutes ago (listing)');
+        $r->assertSee('Synced 5 minutes ago');
+        $r->assertSee('cc-when__what', false);
         $r->assertDontSee('shipping channel');
     }
 

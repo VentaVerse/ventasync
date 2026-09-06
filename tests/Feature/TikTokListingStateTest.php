@@ -313,7 +313,7 @@ class TikTokListingStateTest extends TestCase
         \Extensions\tiktok\Models\TikTokListing::recordPush($pid, 'tt-1', null, 'listing');
         $sync = $states->lastSync([$pid])[$pid];
         $this->assertSame('ok', $sync['tone']);
-        $this->assertStringContainsString('(listing)', $sync['headline']);
+        $this->assertSame('listing', $sync['what']);
         $this->assertNull(\Extensions\tiktok\Models\TikTokListing::query()->where('product_id', $pid)->value('last_push_error'));
 
         $never = $this->seedProduct('Never one', 'NV-1');
