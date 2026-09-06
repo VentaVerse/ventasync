@@ -1440,16 +1440,11 @@ public function store(Request $request)
 
     public function destroy($id)
     {
-        /* Channels first, catalog last (the owner, 2026-09-05): the product is
-         * removed from every store that holds it, and a store that refuses
-         * keeps the catalog row too. See App\Services\Catalog\ProductDeleter. */
+        /* The catalog's own act (the owner, 2026-09-07): the product and every
+         * channel's local rows go together; no marketplace is called and
+         * nothing can refuse. See App\Services\Catalog\ProductDeleter. */
         $deleter = app(\App\Services\Catalog\ProductDeleter::class);
-        $result = $deleter->delete([(int) $id]);
-        $flash = $deleter->flash($result, 1);
-
-        if ($result['refused'] !== []) {
-            return redirect()->back()->with($flash['tone'], $flash['text']);
-        }
+        $flash = $deleter->flash($deleter->delete([(int) $id]), 1);
 
         return redirect()->route('products.index')->with($flash['tone'], $flash['text']);
     }

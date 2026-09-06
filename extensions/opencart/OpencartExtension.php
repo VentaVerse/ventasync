@@ -494,7 +494,7 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
         return 'manage_opencart/settings';
     }
 
-    // ── A catalog delete reaches this channel (ProductRemover, 2026-09-05) ──
+    // ── A catalog delete forgets the product on this channel, inside VentaSync only (ProductRemover, 2026-09-07) ──
 
     public function productPresence(array $productIds): array
     {

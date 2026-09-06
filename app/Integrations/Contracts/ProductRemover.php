@@ -3,44 +3,42 @@
 namespace App\Integrations\Contracts;
 
 /**
- * A catalog delete reaches the channels (the owner, 2026-09-05).
+ * A catalog delete forgets the product on every channel (the owner, 2026-09-07).
  *
- * The user deleted the product for a reason. A listing that outlives its
- * product is not a queue to manage, it is a leftover: it keeps selling
- * something this system no longer knows, and every page that shows it
- * asks "why is this here, I deleted it". So the catalog's delete asks
- * every channel to remove the product first, marketplace and local rows
- * alike, and refuses to delete the catalog row while any channel says no.
+ * The delete is the catalog's own act. It removes the product and every
+ * row a channel keeps about it inside VentaSync: links, listings, group
+ * memberships, mirrors, caches. It never calls a marketplace and never
+ * refuses: the item the seller has on Shopee, Lazada or any store stays
+ * there, exactly as it would after a delete in any other tool, and
+ * removing it from the store is the channel's own action on the
+ * channel's own pages. (The 2026-09-05 rule sent delete calls to the
+ * marketplaces and let a refusing store keep the catalog row; the owner:
+ * "that is coupling", and a QA catalog could not even be cleaned.)
  *
- * Presence, one entry per store the product sits on:
+ * Presence, one entry per store the product sits on, for the confirm
+ * sheet and the stranded sweep:
  *   [
- *     'channel'   => 'Shopee',        // the channel's display name
- *     'store'     => 'Main store',    // the store's own name
- *     'item'      => '123456',        // the marketplace's id, '' when none
- *     'live'      => true|false|null, // the mirror: up, gone, never checked
- *     'removable' => true,            // false: the channel has no delete API
+ *     'channel' => 'Shopee',        // the channel's display name
+ *     'store'   => 'Main store',    // the store's own name
+ *     'item'    => '123456',        // the marketplace's id, '' when none
+ *     'live'    => true|false|null, // the mirror: up, gone, never checked
  *   ]
- *
- * Removal, per product:
- *   [
- *     'ok'      => bool,             // false when any store refused
- *     'removed' => ['Shopee (Main store) item 123456', ...],
- *     'kept'    => ['The product stays on Shopify (Store); remove it there.'],
- *     'errors'  => ['Shopee (Main store): access token expired.'],
- *   ]
- * On refusal nothing of the refusing store is cleaned, so a retry sees
- * the same rows; stores that succeeded are cleaned as they succeed.
  */
 interface ProductRemover
 {
     /**
      * @param list<int> $productIds
-     * @return array<int, list<array{channel:string, store:string, item:string, live:?bool, removable:bool}>>
+     * @return array<int, list<array{channel:string, store:string, item:string, live:?bool}>>
      */
     public function productPresence(array $productIds): array;
 
     /**
-     * @return array{ok:bool, removed:list<string>, kept:list<string>, errors:list<string>}
+     * Forget the product on this channel: every local row goes, nothing is
+     * sent. Returns the stores whose marketplace item is still up and now
+     * unknown to VentaSync, as "Channel (Store)" labels, so the flash can
+     * say where the product still lives.
+     *
+     * @return list<string>
      */
     public function removeProduct(int $productId): array;
 

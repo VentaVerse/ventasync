@@ -2,25 +2,20 @@
 
 namespace Extensions\tiktok\Services\TikTok;
 
-use App\Services\ActivityLogger;
-use App\Support\MarketplaceLink;
-use Extensions\tiktok\Models\TikTokApiLog;
 use Extensions\tiktok\Models\TikTokListing;
-use Extensions\tiktok\Models\TikTokProductGroup;
 use Extensions\tiktok\Models\TikTokProductGroupProduct;
 use Extensions\tiktok\Models\TikTokSetting;
 use Illuminate\Support\Facades\DB;
 
 /**
- * TikTok Shop's half of the catalog delete (ProductRemover, 2026-09-05):
- * the product is deleted on every store that holds it, then every local
- * row goes. A store that refuses keeps its rows so the retry sees them.
+ * TikTok Shop's half of the catalog delete (ProductRemover, 2026-09-07):
+ * every local row for the product goes; the product on TikTok Shop
+ * stays. Nothing is sent and nothing can refuse.
  */
 final class TikTokProductRemover
 {
+    /** Mirror statuses that mean the product is already gone there. */
     private const GONE = ['MISSING', 'DELETED', 'PLATFORM_DEACTIVATED', 'FREEZE'];
-
-    public function __construct(private readonly TikTokClient $client) {}
 
     /** @see \App\Integrations\Contracts\ProductRemover::productPresence */
     public function presence(array $productIds): array
@@ -35,7 +30,6 @@ final class TikTokProductRemover
                 'store' => $stores[$h['store_id']],
                 'item' => $h['tiktok_product_id'],
                 'live' => $status === '' ? null : !in_array($status, self::GONE, true),
-                'removable' => true,
             ];
         }
 
@@ -45,57 +39,16 @@ final class TikTokProductRemover
     /** @see \App\Integrations\Contracts\ProductRemover::removeProduct */
     public function remove(int $productId): array
     {
-        $removed = [];
-        $errors = [];
-
+        $stays = [];
         foreach ($this->holdings([$productId]) as $h) {
-            $storeId = $h['store_id'];
-            $label = 'TikTok Shop (' . $this->storeName($storeId) . ')';
-            $ttId = $h['tiktok_product_id'];
-            $gone = in_array(strtoupper((string) $h['live_status']), self::GONE, true);
-
-            if (!$gone) {
-                $c = $this->credentials($storeId);
-                if (!$c) {
-                    $errors[] = $label . ' is not connected, so product ' . $ttId . ' could not be deleted there.';
-                    continue;
-                }
-                try {
-                    $result = $this->client->deleteProducts($c['app_key'], $c['app_secret'], $c['token'], [$ttId], $c['shop_cipher'] ?: null);
-                } catch (\Throwable $e) {
-                    $result = ['ok' => false, 'status' => 0, 'body' => ['message' => \App\Support\TransportError::plain($e, 'TikTok Shop')]];
-                }
-                TikTokApiLog::safeCreate([
-                    'tiktok_setting_id' => $storeId,
-                    'pack' => 'tiktok.listings', 'method' => 'DELETE', 'api_path' => '/product/202309/products', 'auth_required' => true,
-                    'request_params' => ['product_ids' => [$ttId], 'product_id' => $productId],
-                    'response_status' => $result['status'] ?? 0, 'ok' => (bool) ($result['ok'] ?? false),
-                    'response_body' => $result['body'] ?? [], 'user_id' => auth()->id(),
-                ]);
-                $ok = ($result['ok'] ?? false) && (int) ($result['body']['code'] ?? -1) === 0;
-                if (!$ok) {
-                    $text = \App\Support\MarketplaceAnswer::errorText('TikTok Shop', $result);
-                    if (!MarketplaceLink::looksMissingRemotely($text)) {
-                        $errors[] = $label . ': ' . $text;
-                        continue;
-                    }
-                }
-                ActivityLogger::log('deleted', 'TikTok Product', $productId, 'Deleted product ' . $ttId . ' from ' . $label);
-                $removed[] = $label . ' product ' . $ttId;
+            if (!in_array(strtoupper((string) $h['live_status']), self::GONE, true)) {
+                $stays['TikTok Shop (' . $this->storeName($h['store_id']) . ')'] = true;
             }
-
-            TikTokListing::query()->where('product_id', $productId)->where('tiktok_setting_id', $storeId)->delete();
-            TikTokProductGroupProduct::query()->where('product_id', $productId)
-                ->whereIn('tiktok_product_group_id', TikTokProductGroup::query()->where('tiktok_setting_id', $storeId)->select('id'))
-                ->delete();
         }
+        TikTokListing::query()->where('product_id', $productId)->delete();
+        TikTokProductGroupProduct::query()->where('product_id', $productId)->delete();
 
-        if ($errors === []) {
-            TikTokListing::query()->where('product_id', $productId)->delete();
-            TikTokProductGroupProduct::query()->where('product_id', $productId)->delete();
-        }
-
-        return ['ok' => $errors === [], 'removed' => $removed, 'kept' => [], 'errors' => $errors];
+        return array_keys($stays);
     }
 
     /** @see \App\Integrations\Contracts\ProductRemover::strandedProductIds */
@@ -155,24 +108,5 @@ final class TikTokProductRemover
         $s = TikTokSetting::query()->find($storeId);
 
         return (string) ($s?->store_name ?: ($s?->shop_name ?: 'TikTok store #' . $storeId));
-    }
-
-    /** @return array{app_key:string, app_secret:string, token:string, shop_cipher:string}|null */
-    private function credentials(int $storeId): ?array
-    {
-        $s = TikTokSetting::query()->find($storeId);
-        if (!$s) {
-            return null;
-        }
-        $d = $s->decrypted();
-        $sandbox = $s->mode === 'sandbox';
-        $c = [
-            'app_key' => (string) ($sandbox ? ($d->sandbox_app_key ?? '') : ($d->app_key ?? '')),
-            'app_secret' => (string) ($sandbox ? ($d->sandbox_app_secret ?? '') : ($d->app_secret ?? '')),
-            'token' => (string) ($sandbox ? ($d->sandbox_access_token ?? '') : ($d->access_token ?? '')),
-            'shop_cipher' => (string) ($sandbox ? ($s->sandbox_shop_cipher ?? '') : ($s->shop_cipher ?? '')),
-        ];
-
-        return ($c['app_key'] === '' || $c['app_secret'] === '' || $c['token'] === '') ? null : $c;
     }
 }

@@ -10,8 +10,8 @@ use Illuminate\Console\Command;
  * The one-time sweep behind the catalog delete reaching the channels
  * (the owner, 2026-09-05). Products deleted before that rule left listing
  * rows behind on every channel, some still live at the marketplace.
- * This names them, and with --apply removes them the way a delete does
- * now: marketplace first, local rows after, refusals kept and reported.
+ * This names them, and with --apply forgets them the way a delete does
+ * now (2026-09-07): local rows only; the marketplace items stay.
  */
 class PurgeStrandedListings extends Command
 {
@@ -44,39 +44,22 @@ class PurgeStrandedListings extends Command
         }
 
         if (!$this->option('apply')) {
-            $this->line(count($ids) . ' stranded. Run again with --apply to remove them from the marketplaces and this system.');
+            $this->line(count($ids) . ' stranded. Run again with --apply to forget them here; the marketplace items stay where they are.');
 
             return self::SUCCESS;
         }
 
-        $removed = 0;
-        $refused = 0;
+        $forgotten = 0;
         foreach ($ids as $id) {
-            $errors = [];
+            $stays = [];
             foreach ($registry->productRemovers() as $remover) {
-                try {
-                    $r = $remover->removeProduct($id);
-                } catch (\Throwable $e) {
-                    $r = ['ok' => false, 'removed' => [], 'kept' => [], 'errors' => [$e->getMessage()]];
-                }
-                foreach ($r['removed'] as $line) {
-                    $this->line("#{$id}: removed from {$line}");
-                }
-                foreach ($r['kept'] as $line) {
-                    $this->line("#{$id}: {$line}");
-                }
-                if (!$r['ok']) {
-                    array_push($errors, ...$r['errors']);
-                }
+                array_push($stays, ...$remover->removeProduct($id));
             }
-            if ($errors) {
-                $refused++;
-                $this->error("#{$id}: kept. " . implode(' ', $errors));
-            } else {
-                $removed++;
-            }
+            $stays = array_values(array_unique($stays));
+            $this->line("#{$id}: forgotten" . ($stays ? '; still on ' . implode(', ', $stays) : ''));
+            $forgotten++;
         }
-        $this->info("{$removed} purged, {$refused} kept for a retry.");
+        $this->info("{$forgotten} forgotten.");
 
         return $refused > 0 ? self::FAILURE : self::SUCCESS;
     }

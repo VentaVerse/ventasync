@@ -2,9 +2,6 @@
 
 namespace Extensions\lazada\Services\Lazada;
 
-use App\Services\ActivityLogger;
-use App\Support\MarketplaceLink;
-use Extensions\lazada\Models\LazadaApiLog;
 use Extensions\lazada\Models\LazadaProduct;
 use Extensions\lazada\Models\LazadaProductAttribute;
 use Extensions\lazada\Models\LazadaProductGroupProduct;
@@ -13,19 +10,14 @@ use Extensions\lazada\Models\LazadaSetting;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Lazada's half of the catalog delete (ProductRemover, 2026-09-05): the
- * item is removed on every store that holds it, then every local row
- * goes. A store that refuses keeps its rows so the retry sees them.
+ * Lazada's half of the catalog delete (ProductRemover, 2026-09-07): every
+ * local row for the product goes; the item on Lazada stays. Nothing is
+ * sent and nothing can refuse.
  */
 final class LazadaProductRemover
 {
+    /** Mirror statuses that mean the item is already gone there. */
     private const GONE = ['DELETED', 'MISSING', 'NOT_FOUND'];
-
-    public function __construct(
-        private readonly LazadaClient $client,
-        private readonly LazadaItemCache $itemCache,
-        private readonly LazadaPushPayload $payload,
-    ) {}
 
     /** @see \App\Integrations\Contracts\ProductRemover::productPresence */
     public function presence(array $productIds): array
@@ -45,7 +37,6 @@ final class LazadaProductRemover
                 'store' => $stores[(int) $row->lazada_setting_id] ?? 'store #' . (int) $row->lazada_setting_id,
                 'item' => (string) $row->lazada_item_id,
                 'live' => $status === '' ? null : !in_array($status, self::GONE, true),
-                'removable' => true,
             ];
         }
 
@@ -55,46 +46,25 @@ final class LazadaProductRemover
     /** @see \App\Integrations\Contracts\ProductRemover::removeProduct */
     public function remove(int $productId): array
     {
-        $removed = [];
-        $errors = [];
-
         $rows = LazadaProduct::query()->where('product_id', $productId)->get();
         $stores = $this->stores($rows->pluck('lazada_setting_id'));
-
+        $stays = [];
         foreach ($rows as $row) {
             $storeId = (int) $row->lazada_setting_id;
-            $label = 'Lazada (' . ($stores[$storeId] ?? 'store #' . $storeId) . ')';
             $itemId = trim((string) ($row->lazada_item_id ?? ''));
             $onLazada = $itemId !== '' && is_null($row->lazada_deleted_at)
                 && !in_array(strtoupper((string) ($row->live_status ?? '')), self::GONE, true);
-
             if ($onLazada) {
-                $setting = LazadaSetting::query()->find($storeId)?->decrypted();
-                $creds = LazadaSetting::activeCredentials($setting);
-                if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
-                    $errors[] = $label . ' is not connected, so item ' . $itemId . ' could not be removed there.';
-                    continue;
-                }
-                $error = $this->removeAtLazada($row, $productId, $setting, $creds, $itemId, $label);
-                if ($error !== null) {
-                    $errors[] = $error;
-                    continue;
-                }
-                $removed[] = $label . ' item ' . $itemId;
-                ActivityLogger::log('deleted', 'Lazada Product', $productId, 'Removed item ' . $itemId . ' from ' . $label);
+                $stays['Lazada (' . ($stores[$storeId] ?? 'store #' . $storeId) . ')'] = true;
             }
-
             LazadaProductAttribute::query()->where('lazada_product_id', $row->id)->delete();
             LazadaProductVariant::query()->where('lazada_product_id', $row->id)->delete();
             LazadaProductGroupProduct::query()->where('lazada_product_id', $row->id)->delete();
             $row->delete();
         }
+        LazadaProductGroupProduct::query()->where('product_id', $productId)->delete();
 
-        if ($errors === []) {
-            LazadaProductGroupProduct::query()->where('product_id', $productId)->delete();
-        }
-
-        return ['ok' => $errors === [], 'removed' => $removed, 'kept' => [], 'errors' => $errors];
+        return array_keys($stays);
     }
 
     /** @see \App\Integrations\Contracts\ProductRemover::strandedProductIds */
@@ -110,77 +80,6 @@ final class LazadaProductRemover
         }
 
         return array_values(array_unique($ids));
-    }
-
-    /**
-     * POST /product/remove, by sku ids when Lazada can name them, else by
-     * seller SKUs. Returns the refusal in words, or null when the item is
-     * gone (removed now, or already missing there).
-     */
-    private function removeAtLazada(LazadaProduct $row, int $productId, object $setting, array $creds, string $itemId, string $label): ?string
-    {
-        $skuIdList = [];
-        try {
-            $skuIdList = $this->itemCache->fetchSkuIdListByItemId(
-                $this->client, (string) $setting->region, (string) $creds['app_key'],
-                (string) $creds['app_secret'], (string) $creds['access_token'], $itemId
-            );
-        } catch (\Throwable $e) {
-            // Fall through to seller SKUs.
-        }
-
-        $sellerSkus = [];
-        if ($skuIdList === []) {
-            $pfx = (string) config('catalog.prefix');
-            $main = trim((string) (DB::table($pfx . 'product')->where('product_id', $productId)->value('sku') ?? ''));
-            foreach ($this->payload->getErpVariantStockByProductId($productId) as $v) {
-                $s = trim((string) ($v['seller_sku'] ?? ''));
-                if ($s !== '') {
-                    $sellerSkus[] = $s;
-                }
-            }
-            if ($main !== '') {
-                $sellerSkus[] = $main;
-            }
-            $sellerSkus = array_values(array_unique($sellerSkus));
-            if ($sellerSkus === []) {
-                return $label . ': item ' . $itemId . ' has no SKU to remove it by.';
-            }
-        }
-
-        $apiPath = '/product/remove';
-        $params = [
-            'app_key' => (string) $creds['app_key'],
-            'sign_method' => 'sha256',
-            'timestamp' => (string) round(microtime(true) * 1000),
-            'access_token' => (string) $creds['access_token'],
-        ];
-        if ($skuIdList !== []) {
-            $params['sku_id_list'] = json_encode($skuIdList, JSON_UNESCAPED_SLASHES);
-        } else {
-            $params['seller_sku_list'] = json_encode($sellerSkus, JSON_UNESCAPED_SLASHES);
-        }
-        $params['sign'] = $this->client->sign($apiPath, $params, (string) $creds['app_secret']);
-
-        try {
-            $result = $this->client->post((string) $setting->region, $apiPath, $params);
-        } catch (\Throwable $e) {
-            $result = ['ok' => false, 'status' => 0, 'body' => ['code' => 'transport', 'message' => \App\Support\TransportError::plain($e, 'Lazada')]];
-        }
-        LazadaApiLog::safeCreate([
-            'lazada_setting_id' => (int) $setting->id,
-            'pack' => 'lazada.product.remove', 'method' => 'POST', 'api_path' => $apiPath, 'auth_required' => true,
-            'request_params' => $params, 'response_status' => (int) ($result['status'] ?? 0),
-            'ok' => (bool) ($result['ok'] ?? false), 'response_body' => $result['body'] ?? $result, 'user_id' => auth()->id(),
-        ]);
-
-        $e = $this->payload->extractLazadaError($result);
-        if (!empty($e['ok'])) {
-            return null;
-        }
-        $text = \App\Support\MarketplaceAnswer::errorText('Lazada', $result);
-
-        return MarketplaceLink::looksMissingRemotely($text) ? null : $label . ': ' . $text;
     }
 
     /** @return array<int, string> */

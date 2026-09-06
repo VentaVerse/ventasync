@@ -8,10 +8,10 @@ use App\Services\ActivityLogger;
 use Illuminate\Support\Facades\DB;
 
 /**
- * The one way a catalog product is deleted (the owner, 2026-09-05): channels
- * first, catalog last. Every channel that holds the product removes it,
- * marketplace and local rows alike; if any store refuses, the catalog
- * row stays and the refusal is the answer. See ProductRemover.
+ * The one way a catalog product is deleted (the owner, 2026-09-07): the
+ * catalog row and every channel's local rows go together, in one
+ * transaction, and no marketplace is called. The item a store holds
+ * stays there; the flash says where. See ProductRemover.
  */
 final class ProductDeleter
 {
@@ -21,7 +21,7 @@ final class ProductDeleter
      * Where the products sit, merged across channels, keyed by product id.
      *
      * @param list<int> $productIds
-     * @return array<int, list<array{channel:string, store:string, item:string, live:?bool, removable:bool}>>
+     * @return array<int, list<array{channel:string, store:string, item:string, live:?bool}>>
      */
     public function presence(array $productIds): array
     {
@@ -43,36 +43,29 @@ final class ProductDeleter
 
     /**
      * The sentence a delete confirmation carries, or '' when the product
-     * is on no channel: "Also deleted from Shopee (Main store) and Lazada
-     * (PH). Stays on Shopify (Web) until you remove it there."
+     * is on no store: "It stays on Shopee (Main store) and Lazada (PH);
+     * only VentaSync's record of it is removed."
      *
-     * @param list<array{channel:string, store:string, item:string, live:?bool, removable:bool}> $presence
+     * @param list<array{channel:string, store:string, item:string, live:?bool}> $presence
      */
     public function note(array $presence): string
     {
-        $deleted = [];
-        $stays = [];
+        $stores = [];
         foreach ($presence as $row) {
-            $label = $row['channel'] . ' (' . $row['store'] . ')';
-            if ($row['removable']) {
-                $deleted[$label] = true;
-            } else {
-                $stays[$label] = true;
+            if ($row['live'] === false) {
+                continue; // the mirror says the item is already gone there
             }
+            $stores[$row['channel'] . ' (' . $row['store'] . ')'] = true;
         }
-        $parts = [];
-        if ($deleted) {
-            $parts[] = 'Also deleted from ' . $this->join(array_keys($deleted)) . '.';
-        }
-        if ($stays) {
-            $parts[] = 'Stays on ' . $this->join(array_keys($stays)) . ' until you remove it there.';
+        if ($stores === []) {
+            return '';
         }
 
-        return implode(' ', $parts);
+        return 'It stays on ' . $this->join(array_keys($stores)) . '; only VentaSync\'s record of it is removed.';
     }
 
     /**
-     * One note per product id, '' where the product is on no channel.
+     * One note per product id, '' where the product is on no store.
      *
      * @param list<int> $productIds
      * @return array<int, string>
@@ -88,16 +81,12 @@ final class ProductDeleter
     }
 
     /**
-     * Delete the products: channels first, catalog last, per product.
+     * Delete the products: every channel forgets each one, then the
+     * catalog row goes, all in one transaction per product.
      *
      * @param list<int> $productIds
-     * @return array{
-     *   deleted: list<int>,
-     *   refused: array<int, list<string>>,
-     *   removed: list<string>,
-     *   kept: list<string>,
-     *   names: array<int, string>,
-     * }
+     * @return array{deleted: list<int>, stays: list<string>, names: array<int, string>}
+     *         stays: the "Channel (Store)" labels where an item is still up
      */
     public function delete(array $productIds): array
     {
@@ -110,28 +99,15 @@ final class ProductDeleter
             ->map(fn ($n) => html_entity_decode((string) $n, ENT_QUOTES | ENT_HTML5, 'UTF-8'))
             ->all();
 
-        $result = ['deleted' => [], 'refused' => [], 'removed' => [], 'kept' => [], 'names' => $names];
+        $result = ['deleted' => [], 'stays' => [], 'names' => $names];
 
         foreach ($productIds as $id) {
-            $errors = [];
-            foreach ($this->removers() as $remover) {
-                try {
-                    $r = $remover->removeProduct($id);
-                } catch (\Throwable $e) {
-                    $r = ['ok' => false, 'removed' => [], 'kept' => [], 'errors' => [$this->channelName($remover) . ': ' . $e->getMessage()]];
+            $stays = DB::transaction(function () use ($id, $pfx) {
+                $stays = [];
+                foreach ($this->removers() as $remover) {
+                    array_push($stays, ...$remover->removeProduct($id));
                 }
-                array_push($result['removed'], ...$r['removed']);
-                array_push($result['kept'], ...$r['kept']);
-                if (!$r['ok']) {
-                    array_push($errors, ...($r['errors'] ?: [$this->channelName($remover) . ' refused without saying why.']));
-                }
-            }
-            if ($errors) {
-                $result['refused'][$id] = $errors;
-                continue;
-            }
 
-            DB::transaction(function () use ($id, $pfx) {
                 DB::table($pfx . 'product_to_category')->where('product_id', $id)->delete();
                 DB::table($pfx . 'product_description')->where('product_id', $id)->delete();
                 DB::table($pfx . 'product')->where('product_id', $id)->delete();
@@ -139,14 +115,16 @@ final class ProductDeleter
                 if (class_exists(\Extensions\warehousing\Models\WarehouseInventory::class)) {
                     \Extensions\warehousing\Models\WarehouseInventory::where('product_id', $id)->delete();
                 }
+
+                return $stays;
             });
 
             ActivityLogger::log('deleted', 'Product', $id, $names[$id] ?? null);
             $result['deleted'][] = $id;
+            array_push($result['stays'], ...$stays);
         }
 
-        $result['removed'] = array_values(array_unique($result['removed']));
-        $result['kept'] = array_values(array_unique($result['kept']));
+        $result['stays'] = array_values(array_unique($result['stays']));
 
         return $result;
     }
@@ -159,44 +137,19 @@ final class ProductDeleter
     public function flash(array $result, int $asked): array
     {
         $deleted = count($result['deleted']);
-        $refused = $result['refused'];
-        $text = $asked === 1
-            ? ($deleted === 1 ? 'Deleted.' : '')
-            : ($deleted === $asked ? "Deleted {$deleted} products." : "Deleted {$deleted} of {$asked}.");
-        if ($deleted > 0 && $result['removed']) {
-            $text .= ' Also removed from ' . $this->join($result['removed']) . '.';
-        }
-        if ($deleted > 0 && $result['kept']) {
-            $text .= ' ' . implode(' ', $result['kept']);
-        }
-        if ($refused) {
-            $lines = [];
-            foreach ($refused as $pid => $errors) {
-                $name = $result['names'][$pid] ?? ('#' . $pid);
-                $lines[] = $name . ': ' . implode(' ', $errors);
-            }
-            $text = trim($text . ' ' . ($asked === 1 ? 'Not deleted. ' : count($refused) . ' not deleted. ')
-                . implode(' ', $lines) . ' Nothing of ' . (count($refused) === 1 ? 'it' : 'them') . ' was removed from the catalog. Fix that, then delete again.');
+        $text = $asked === 1 ? 'Deleted.' : "Deleted {$deleted} products.";
+        if ($result['stays'] !== []) {
+            $text .= ($asked === 1 ? ' It stays on ' : ' They stay on ') . $this->join($result['stays'])
+                . '; remove ' . ($asked === 1 ? 'it' : 'them') . ' there when you want ' . ($asked === 1 ? 'it' : 'them') . ' gone.';
         }
 
-        return ['tone' => $refused ? 'error' : 'status', 'text' => trim($text)];
+        return ['tone' => 'status', 'text' => $text];
     }
 
     /** @return list<ProductRemover> */
     private function removers(): array
     {
         return $this->registry->productRemovers();
-    }
-
-    private function channelName(ProductRemover $remover): string
-    {
-        if ($remover instanceof \App\Integrations\IntegrationProvider) {
-            $cards = $remover->integrationCards();
-
-            return (string) ((($cards[0] ?? null)?->name) ?: ucfirst($remover->integrationId()));
-        }
-
-        return 'A channel';
     }
 
     /** @param list<string> $items */

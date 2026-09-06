@@ -8,10 +8,8 @@ use Extensions\opencart\Models\OpenCartSetting;
 use Illuminate\Support\Facades\DB;
 
 /**
- * OpenCart's half of the catalog delete (ProductRemover, 2026-09-05).
- * The OpenCart API this system speaks has no product delete, so the
- * link and the group rows go here and the note says the product stays
- * on the OpenCart store until it is removed in its own admin.
+ * OpenCart's half of the catalog delete (ProductRemover, 2026-09-07): the
+ * link and group rows go; the product on OpenCart stays.
  */
 final class OpenCartProductRemover
 {
@@ -27,7 +25,6 @@ final class OpenCartProductRemover
                 'store' => $stores[(int) $link->opencart_setting_id] ?? 'store #' . (int) $link->opencart_setting_id,
                 'item' => (string) $link->oc_product_id,
                 'live' => null,
-                'removable' => false,
             ];
         }
 
@@ -39,14 +36,14 @@ final class OpenCartProductRemover
     {
         $links = OpenCartProductLink::query()->where('product_id', $productId)->get();
         $stores = $this->stores($links->pluck('opencart_setting_id'));
-        $kept = [];
+        $stays = [];
         foreach ($links->pluck('opencart_setting_id')->unique() as $storeId) {
-            $kept[] = 'The product stays on OpenCart (' . ($stores[(int) $storeId] ?? 'store #' . (int) $storeId) . '); remove it there.';
+            $stays['OpenCart (' . ($stores[(int) $storeId] ?? 'store #' . (int) $storeId) . ')'] = true;
         }
         OpenCartProductLink::query()->where('product_id', $productId)->delete();
         OpenCartProductGroupProduct::query()->where('product_id', $productId)->delete();
 
-        return ['ok' => true, 'removed' => [], 'kept' => $kept, 'errors' => []];
+        return array_keys($stays);
     }
 
     /** @see \App\Integrations\Contracts\ProductRemover::strandedProductIds */

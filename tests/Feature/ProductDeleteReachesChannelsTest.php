@@ -24,26 +24,21 @@ use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
- * A catalog delete reaches the channels (the owner, 2026-09-05). The user
- * deleted the product for a reason: it goes from every store that holds
- * it, marketplace first, local rows after, and a store that refuses
- * keeps the catalog row too. The orphan queues that used to collect the
- * leftovers are gone; the sweep command handles what older deletes left.
+ * A catalog delete forgets the product on every channel INSIDE VentaSync
+ * and never calls a marketplace (the owner, 2026-09-07: "when I said delete
+ * product from store, I meant delete it in the channel inside VentaSync,
+ * not via API from the marketplace. That is coupling."). Every client
+ * here is a tripwire: any call recorded fails the test.
  */
 class ProductDeleteReachesChannelsTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @var list<array{channel:string, call:string}> */
     public array $calls = [];
-
-    /** What Shopee answers to delete_item. */
-    public array $shopeeAnswer = ['ok' => true, 'status' => 200, 'body' => ['error' => '', 'message' => '']];
 
     protected function setUp(): void
     {
         parent::setUp();
-
         $manager = $this->app->make(ExtensionManager::class);
         foreach (['shopee', 'lazada', 'tiktok'] as $ext) {
             $manager->install($ext);
@@ -73,22 +68,24 @@ class ProductDeleteReachesChannelsTest extends TestCase
             public function __construct(private $test) {}
             public function shopPost(string $mode, int $partnerId, string $partnerKey, string $accessToken, int $shopId, string $path, array $extraQuery = [], array $body = []): array
             {
-                $this->test->calls[] = ['channel' => 'shopee', 'call' => $path . ' ' . json_encode($body)];
+                $this->test->calls[] = 'shopee ' . $path;
 
-                return $this->test->shopeeAnswer;
+                return ['ok' => true, 'status' => 200, 'body' => ['error' => '', 'message' => '']];
             }
         });
         $this->app->instance(LazadaClient::class, new class($test) extends LazadaClient {
             public function __construct(private $test) {}
             public function post(string $region, string $apiPath, array $params, string $mode = 'live'): array
             {
-                $this->test->calls[] = ['channel' => 'lazada', 'call' => $apiPath . ' ' . ($params['seller_sku_list'] ?? $params['sku_id_list'] ?? '')];
+                $this->test->calls[] = 'lazada ' . $apiPath;
 
                 return ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => []]];
             }
             public function get(string $region, string $apiPath, array $params, string $mode = 'live'): array
             {
-                return ['ok' => false, 'status' => 500, 'body' => ['code' => '500', 'message' => 'unexpected GET ' . $apiPath]];
+                $this->test->calls[] = 'lazada ' . $apiPath;
+
+                return ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => []]];
             }
             public function sign(string $apiPath, array $params, string $appSecret): string
             {
@@ -99,7 +96,7 @@ class ProductDeleteReachesChannelsTest extends TestCase
             public function __construct(private $test) {}
             public function delete(string $appKey, string $appSecret, string $accessToken, string $path, array $queryParams = [], array $body = [], ?string $shopCipher = null): array
             {
-                $this->test->calls[] = ['channel' => 'tiktok', 'call' => $path . ' ' . json_encode($body)];
+                $this->test->calls[] = 'tiktok ' . $path;
 
                 return ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success', 'data' => []]];
             }
@@ -120,7 +117,6 @@ class ProductDeleteReachesChannelsTest extends TestCase
     {
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
-
         $productId = DB::table($pfx . 'product')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => 'catalog/x.png', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
@@ -136,7 +132,6 @@ class ProductDeleteReachesChannelsTest extends TestCase
         return $productId;
     }
 
-    /** On every channel at once, the way a real product is. */
     private function listEverywhere(int $pid, string $sku): void
     {
         ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 111, 'sku' => $sku, 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
@@ -161,7 +156,7 @@ class ProductDeleteReachesChannelsTest extends TestCase
         }
     }
 
-    public function test_a_delete_removes_the_product_from_every_store_first_and_then_the_catalog(): void
+    public function test_a_delete_forgets_the_product_on_every_channel_and_calls_no_marketplace(): void
     {
         $pid = $this->seedProduct('Everywhere', 'EV-1');
         $this->listEverywhere($pid, 'EV-1');
@@ -169,10 +164,7 @@ class ProductDeleteReachesChannelsTest extends TestCase
         $r = $this->actingAs($this->manager())->delete(route('products.destroy', $pid));
         $r->assertRedirect(route('products.index'));
         $flash = (string) session('status');
-        $this->assertStringStartsWith('Deleted. Also removed from ', $flash);
-        $this->assertStringContainsString('Shopee (Main store) item 111', $flash);
-        $this->assertStringContainsString('Lazada (PH store) item LZ1', $flash);
-        $this->assertStringContainsString('TikTok Shop (TT store) product tt-1', $flash);
+        $this->assertSame('Deleted. It stays on Shopee (Main store), Lazada (PH store) and TikTok Shop (TT store); remove it there when you want it gone.', $flash);
 
         $this->assertFalse($this->productExists($pid));
         $this->assertSame(0, ShopeeProductLink::query()->where('product_id', $pid)->count());
@@ -180,66 +172,58 @@ class ProductDeleteReachesChannelsTest extends TestCase
         $this->assertSame(0, ShopeeProductGroupProduct::query()->where('product_id', $pid)->count());
         $this->assertSame(0, LazadaProduct::query()->where('product_id', $pid)->count());
         $this->assertSame(0, TikTokListing::query()->where('product_id', $pid)->count());
+        $this->assertSame([], $this->calls, 'no marketplace was called');
 
-        $calls = array_map(fn ($c) => $c['channel'] . ' ' . $c['call'], $this->calls);
-        $this->assertContains('shopee /api/v2/product/delete_item {"item_id":111}', $calls);
-        $this->assertContains('lazada /product/remove ["EV-1"]', $calls);
-        $this->assertContains('tiktok /product/202309/products {"product_ids":["tt-1"]}', $calls);
+        // The answer is visible on the page the delete returns to.
+        $this->actingAs($this->manager())->withSession(['status' => $flash])->get(route('products.index'))->assertOk()->assertSee('remove it there when you want it gone');
     }
 
-    public function test_a_store_that_refuses_keeps_the_catalog_row_and_its_own_rows(): void
+    public function test_a_disconnected_or_refusing_store_cannot_block_a_delete(): void
     {
-        $pid = $this->seedProduct('Refused', 'RF-1');
-        $this->listEverywhere($pid, 'RF-1');
-        $this->shopeeAnswer = ['ok' => true, 'status' => 200, 'body' => ['error' => 'error_auth', 'message' => 'Invalid access_token.']];
-
-        $r = $this->actingAs($this->manager())->from(route('products.edit', $pid))->delete(route('products.destroy', $pid));
-        $r->assertRedirect(route('products.edit', $pid));
-        $flash = (string) session('error');
-        $this->assertStringContainsString('Not deleted.', $flash);
-        $this->assertStringContainsString('Refused: Shopee (Main store): ', $flash);
-        $this->assertStringContainsString('Nothing of it was removed from the catalog. Fix that, then delete again.', $flash);
-
-        // The catalog row and Shopee's rows stay for the retry.
-        $this->assertTrue($this->productExists($pid));
-        $this->assertSame(1, ShopeeProductLink::query()->where('product_id', $pid)->count());
-        $this->assertSame(1, ShopeeListing::query()->where('product_id', $pid)->count());
-        // The stores that said yes are done; a retry asks only Shopee.
-        $this->assertSame(0, LazadaProduct::query()->where('product_id', $pid)->count());
-        $this->assertSame(0, TikTokListing::query()->where('product_id', $pid)->count());
-    }
-
-    public function test_an_item_already_gone_at_the_marketplace_is_cleaned_without_a_call(): void
-    {
-        $pid = $this->seedProduct('Gone', 'GN-1');
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 222, 'sku' => 'GN-1', 'live_status' => 'SHOPEE_DELETE', 'live_checked_at' => now()]);
+        // The store's auth is gone and the item is not on the sandbox: with
+        // the 2026-09-05 rule this kept the catalog row silently.
+        ShopeeSetting::query()->update(['access_token' => '', 'refresh_token' => '']);
+        $pid = $this->seedProduct('Blocked before', 'BL-1');
+        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 222, 'sku' => 'BL-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
 
         $this->actingAs($this->manager())->delete(route('products.destroy', $pid))->assertRedirect(route('products.index'));
 
         $this->assertFalse($this->productExists($pid));
         $this->assertSame(0, ShopeeProductLink::query()->where('product_id', $pid)->count());
-        $this->assertSame([], array_filter($this->calls, fn ($c) => $c['channel'] === 'shopee'));
+        $this->assertSame([], $this->calls);
+        $this->assertSame('Deleted. It stays on Shopee (Main store); remove it there when you want it gone.', (string) session('status'));
+    }
+
+    public function test_an_item_the_mirror_says_is_gone_is_not_named_as_staying(): void
+    {
+        $pid = $this->seedProduct('Gone already', 'GA-1');
+        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 333, 'sku' => 'GA-1', 'live_status' => 'SELLER_DELETE', 'live_checked_at' => now()]);
+
+        $this->actingAs($this->manager())->delete(route('products.destroy', $pid))->assertRedirect(route('products.index'));
+
+        $this->assertFalse($this->productExists($pid));
+        $this->assertSame(0, ShopeeProductLink::query()->where('product_id', $pid)->count());
         $this->assertSame('Deleted.', (string) session('status'));
     }
 
-    public function test_the_confirm_sheet_says_where_the_product_sits(): void
+    public function test_the_confirm_sheet_says_where_the_product_stays(): void
     {
         $pid = $this->seedProduct('Sits everywhere', 'SE-1');
         $this->listEverywhere($pid, 'SE-1');
         $alone = $this->seedProduct('Sits nowhere', 'SN-1');
 
-        $note = 'Also deleted from Shopee (Main store), Lazada (PH store) and TikTok Shop (TT store).';
+        $note = 'It stays on Shopee (Main store), Lazada (PH store) and TikTok Shop (TT store); only VentaSync&#039;s record of it is removed.';
         $index = $this->actingAs($this->manager())->get(route('products.index'))->assertOk();
-        $index->assertSee('Delete Sits everywhere? This cannot be undone. ' . $note);
+        $index->assertSee('Delete Sits everywhere? This cannot be undone. ' . $note, false);
         $index->assertSee('Delete Sits nowhere? This cannot be undone."', false);
 
         $this->actingAs($this->manager())->get(route('products.edit', $pid))->assertOk()
-            ->assertSee('Delete Sits everywhere? This cannot be undone. ' . $note);
+            ->assertSee('Delete Sits everywhere? This cannot be undone. ' . $note, false);
         $this->actingAs($this->manager())->get(route('products.edit', $alone))->assertOk()
             ->assertSee('Delete Sits nowhere? This cannot be undone."', false);
     }
 
-    public function test_a_bulk_delete_reaches_the_channels_per_product(): void
+    public function test_a_bulk_delete_forgets_each_product(): void
     {
         $a = $this->seedProduct('Bulk A', 'BA-1');
         $this->listEverywhere($a, 'BA-1');
@@ -247,47 +231,41 @@ class ProductDeleteReachesChannelsTest extends TestCase
 
         $r = $this->actingAs($this->manager())->post(route('products.bulk'), ['action' => 'delete', 'ids' => [$a, $b]]);
         $r->assertRedirect(route('products.index'));
-        $this->assertStringStartsWith('Deleted 2 products. Also removed from Shopee (Main store) item 111', (string) session('status'));
+        $this->assertSame('Deleted 2 products. They stay on Shopee (Main store), Lazada (PH store) and TikTok Shop (TT store); remove them there when you want them gone.', (string) session('status'));
         $this->assertFalse($this->productExists($a));
         $this->assertFalse($this->productExists($b));
+        $this->assertSame([], $this->calls);
     }
 
     public function test_the_orphan_queues_are_gone_from_the_listings_pages(): void
     {
-        ShopeeProductLink::create(['product_id' => 424242, 'shopee_item_id' => 999001, 'sku' => 'GONE-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
-        LazadaProduct::query()->create(['product_id' => 424243, 'lazada_item_id' => 'LZ-GONE']);
+        ShopeeProductLink::create(['product_id' => 999001, 'shopee_item_id' => 999001, 'sku' => 'GONE', 'live_status' => 'NORMAL']);
+        LazadaProduct::query()->create(['product_id' => 999002, 'lazada_item_id' => 'LZ-GONE', 'live_status' => 'active']);
 
-        $group = UserGroup::create(['name' => 'Queue watchers']);
-        $group->permissions()->attach(Permission::whereIn('key', ['view_shopee/product', 'manage_shopee/product', 'view_lazada/product', 'manage_lazada/product'])->pluck('id')->all());
+        $group = UserGroup::create(['name' => 'Orphan queue viewer']);
+        $group->permissions()->attach(Permission::whereIn('key', ['view_shopee/product', 'view_lazada/product'])->pluck('id')->all());
         $user = User::factory()->create(['user_group_id' => $group->id]);
 
-        // Explicit stores: one URL default cannot serve two multi-store channels.
         $this->actingAs($user)->get(route('ext.shopee.products.index', ['store' => ShopeeSetting::query()->value('id')]))->assertOk()
             ->assertDontSee('deleted catalog product')->assertDontSee('999001');
         $this->actingAs($user)->get(route('ext.lazada.products.index', ['store' => LazadaSetting::query()->value('id')]))->assertOk()
             ->assertDontSee('deleted catalog product')->assertDontSee('LZ-GONE');
     }
 
-    public function test_the_sweep_names_stranded_rows_and_removes_them_on_apply(): void
+    public function test_the_sweep_names_stranded_rows_and_forgets_them_on_apply(): void
     {
-        ShopeeProductLink::create(['product_id' => 424242, 'shopee_item_id' => 999001, 'sku' => 'GONE-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
-        TikTokListing::create(['product_id' => 424242, 'tiktok_product_id' => 'tt-gone']);
+        ShopeeProductLink::create(['product_id' => 424242, 'shopee_item_id' => 999001, 'sku' => 'STR', 'live_status' => 'NORMAL']);
+        TikTokListing::create(['product_id' => 424242, 'tiktok_product_id' => 'tt-gone', 'tiktok_category_id' => '900009']);
 
-        // One expectation per line: a line satisfies only the first
-        // substring it matches, so two substrings of one line never both pass.
         $this->artisan('catalog:purge-stranded-listings')
             ->expectsOutputToContain('Deleted product #424242: still held on Shopee (Main store) item 999001, live; TikTok Shop (TT store) item tt-gone')
-            ->expectsOutputToContain('1 stranded. Run again with --apply')
+            ->expectsOutputToContain('the marketplace items stay where they are')
             ->assertExitCode(0);
         $this->assertSame(1, ShopeeProductLink::query()->where('product_id', 424242)->count());
 
-        $this->artisan('catalog:purge-stranded-listings', ['--apply' => true])
-            ->expectsOutputToContain('1 purged, 0 kept for a retry.')
-            ->assertExitCode(0);
+        $this->artisan('catalog:purge-stranded-listings --apply')->assertExitCode(0);
         $this->assertSame(0, ShopeeProductLink::query()->where('product_id', 424242)->count());
         $this->assertSame(0, TikTokListing::query()->where('product_id', 424242)->count());
-        $calls = array_map(fn ($c) => $c['channel'] . ' ' . $c['call'], $this->calls);
-        $this->assertContains('shopee /api/v2/product/delete_item {"item_id":999001}', $calls);
-        $this->assertContains('tiktok /product/202309/products {"product_ids":["tt-gone"]}', $calls);
+        $this->assertSame([], $this->calls);
     }
 }

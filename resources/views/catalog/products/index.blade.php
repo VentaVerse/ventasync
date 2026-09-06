@@ -27,6 +27,8 @@
 @endphp
 
 @section('content')
+    {{-- The delete's answer, and every other redirect-with-message, lands here (2026-09-07: a refused delete was invisible). --}}
+    @include('partials.flash')
     {{-- On the shared list anatomy, not a hand-rolled copy of it.
 
          This page had its own head and its own filter row written in raw

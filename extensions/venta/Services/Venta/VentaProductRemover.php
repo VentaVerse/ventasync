@@ -2,7 +2,6 @@
 
 namespace Extensions\venta\Services\Venta;
 
-use App\Services\ActivityLogger;
 use Extensions\venta\Models\VentaListing;
 use Extensions\venta\Models\VentaProductGroupProduct;
 use Extensions\venta\Models\VentaProductLink;
@@ -10,10 +9,9 @@ use Extensions\venta\Models\VentaSetting;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Venta's half of the catalog delete (ProductRemover, 2026-09-05): the
- * product is deleted on every storefront that holds it, then every
- * local row goes. A store that refuses keeps its rows so the retry sees
- * them.
+ * Venta's half of the catalog delete (ProductRemover, 2026-09-07): every
+ * local row for the product goes; the product on the Venta store stays.
+ * Nothing is sent and nothing can refuse.
  */
 final class VentaProductRemover
 {
@@ -36,7 +34,6 @@ final class VentaProductRemover
                 'store' => $stores[(int) $link->venta_setting_id] ?? 'store #' . (int) $link->venta_setting_id,
                 'item' => (string) ($link->venta_product_id ?: $link->sku),
                 'live' => $status === '' ? null : !in_array($status, ['MISSING', 'DELETED'], true),
-                'removable' => true,
             ];
         }
 
@@ -46,48 +43,19 @@ final class VentaProductRemover
     /** @see \App\Integrations\Contracts\ProductRemover::removeProduct */
     public function remove(int $productId): array
     {
-        $removed = [];
-        $errors = [];
-
         $links = VentaProductLink::query()->where('product_id', $productId)->get();
         $stores = $this->stores($links->pluck('venta_setting_id'));
-
+        $stays = [];
         foreach ($links as $link) {
-            $storeId = (int) $link->venta_setting_id;
-            $label = 'Venta (' . ($stores[$storeId] ?? 'store #' . $storeId) . ')';
-            $sku = trim((string) $link->sku);
-            $setting = VentaSetting::query()->find($storeId);
-            if ($sku !== '') {
-                if (!$setting || trim((string) $setting->api_token) === '') {
-                    $errors[] = $label . ' is not connected, so ' . $sku . ' could not be deleted there.';
-                    continue;
-                }
-                try {
-                    $result = (new VentaClient($setting))->delete('products/' . rawurlencode($sku));
-                } catch (\Throwable $e) {
-                    $result = ['ok' => false, 'status' => 0, 'body' => ['error' => \App\Support\TransportError::plain($e, 'Venta')]];
-                }
-                $gone = ($result['ok'] ?? false) || (int) ($result['status'] ?? 0) === 404;
-                if (!$gone) {
-                    $errors[] = $label . ': ' . (string) ($result['body']['error'] ?? $result['body']['message'] ?? 'no answer.');
-                    continue;
-                }
-                ActivityLogger::log('deleted', 'Venta Product', $productId, 'Deleted ' . $sku . ' from ' . $label);
-                $removed[] = $label . ' product ' . $sku;
+            if (trim((string) $link->sku) !== '' || $link->venta_product_id) {
+                $stays['Venta (' . ($stores[(int) $link->venta_setting_id] ?? 'store #' . (int) $link->venta_setting_id) . ')'] = true;
             }
-            VentaListing::query()->where('product_id', $productId)->where('venta_setting_id', $storeId)->delete();
-            VentaProductGroupProduct::query()->where('product_id', $productId)
-                ->whereIn('venta_product_group_id', DB::table('venta_product_groups')->where('venta_setting_id', $storeId)->select('id'))
-                ->delete();
-            $link->delete();
         }
+        VentaProductLink::query()->where('product_id', $productId)->delete();
+        VentaListing::query()->where('product_id', $productId)->delete();
+        VentaProductGroupProduct::query()->where('product_id', $productId)->delete();
 
-        if ($errors === []) {
-            VentaListing::query()->where('product_id', $productId)->delete();
-            VentaProductGroupProduct::query()->where('product_id', $productId)->delete();
-        }
-
-        return ['ok' => $errors === [], 'removed' => $removed, 'kept' => [], 'errors' => $errors];
+        return array_keys($stays);
     }
 
     /** @see \App\Integrations\Contracts\ProductRemover::strandedProductIds */
