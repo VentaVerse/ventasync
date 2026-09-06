@@ -200,18 +200,18 @@
              live status Shopee answered; the count is in the label and the
              rest of the selection is named as skipped beside the count. --}}
         <form method="POST" action="{{ route('ext.shopee.products.bulk_toggle') }}" data-bulk-form
-              data-bulk-verb="unlist" data-verb-codes="NORMAL" data-verb-label="Unlist :n from Shopee"
-              data-bulk-confirm="Unlist the selected items from Shopee? Buyers stop seeing them immediately. They stay here and can be relisted at any time." hidden>
+              data-bulk-verb="unlist" data-verb-codes="NORMAL" data-verb-label="Delist :n from Shopee"
+              data-bulk-confirm="Delist the selected items from Shopee? Buyers stop seeing them immediately. They stay here and can be published again at any time." hidden>
             @csrf
             <input type="hidden" name="action" value="unlist">
-            <x-ui.button type="submit" size="sm">Unlist from Shopee</x-ui.button>
+            <x-ui.button type="submit" size="sm">Delist from Shopee</x-ui.button>
         </form>
         <form method="POST" action="{{ route('ext.shopee.products.bulk_toggle') }}" data-bulk-form
-              data-bulk-verb="list" data-verb-codes="UNLIST" data-verb-label="Relist :n on Shopee"
-              data-bulk-confirm="Relist the selected items on Shopee? Buyers see them again immediately." hidden>
+              data-bulk-verb="list" data-verb-codes="UNLIST" data-verb-label="Publish :n on Shopee"
+              data-bulk-confirm="Publish the selected items on Shopee? Buyers see them again immediately." hidden>
             @csrf
             <input type="hidden" name="action" value="list">
-            <x-ui.button type="submit" size="sm">Relist on Shopee</x-ui.button>
+            <x-ui.button type="submit" size="sm">Publish on Shopee</x-ui.button>
         </form>
         <form method="POST" action="{{ route('ext.shopee.products.bulk_delete') }}" data-bulk-form
               data-bulk-confirm="Delete the selected products from Shopee? The listings are removed at the marketplace and this cannot be undone.">
@@ -478,24 +478,24 @@
                                  with one hidden by raw status. --}}
                             @if($link && $rowState?->state === \App\Integrations\Listings\ListingState::LIVE)
                                 <form method="POST" action="{{ route('ext.shopee.listings.toggle', $p->product_id) }}" data-slow-action
-                                      data-confirm="Unlist this item from Shopee? Buyers stop seeing it immediately. It can be relisted at any time." data-confirm-verb="Unlist">
+                                      data-confirm="Delist this item from Shopee? Buyers stop seeing it immediately. It can be published again at any time." data-confirm-verb="Unlist">
                                     @csrf
                                     <input type="hidden" name="action" value="unlist">
-                                    <button type="submit" class="x-menu__item">Unlist from Shopee</button>
+                                    <button type="submit" class="x-menu__item">Delist from Shopee</button>
                                 </form>
                             @elseif($link && $rowState?->state === \App\Integrations\Listings\ListingState::INACTIVE)
                                 @if(($parcelGaps[$p->product_id] ?? null) !== null)
                                     {{-- The preflight, worn by the row (#191): Shopee
-                                         would refuse this relist for a knowable reason,
+                                         would refuse this publish for a knowable reason,
                                          so the menu offers the FIX, not the failure. --}}
                                     <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}"
-                                       title="Shopee will refuse a relist without {{ $parcelGaps[$p->product_id] }}">Add weight and size, then relist</a>
+                                       title="Shopee will refuse to publish without {{ $parcelGaps[$p->product_id] }}">Add weight and size, then publish</a>
                                 @else
                                 <form method="POST" action="{{ route('ext.shopee.listings.toggle', $p->product_id) }}" data-slow-action
-                                      data-confirm="Relist this item on Shopee? Buyers see it again immediately." data-confirm-tone="primary" data-confirm-verb="Relist">
+                                      data-confirm="Publish this item on Shopee? Buyers see it again immediately." data-confirm-tone="primary" data-confirm-verb="Relist">
                                     @csrf
                                     <input type="hidden" name="action" value="list">
-                                    <button type="submit" class="x-menu__item">Relist on Shopee</button>
+                                    <button type="submit" class="x-menu__item">Publish on Shopee</button>
                                 </form>
                                 @endif
                             @endif

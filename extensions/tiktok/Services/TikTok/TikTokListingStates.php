@@ -172,6 +172,7 @@ class TikTokListingStates
                 pushedAt: $pushedAt,
                 channelStatusRaw: $raw,
                 attentionLabel: $attentionLabel,
+                inactiveLabel: 'Deactivated',
             );
         }
 

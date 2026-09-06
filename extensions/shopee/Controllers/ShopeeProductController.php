@@ -697,7 +697,8 @@ class ShopeeProductController extends Controller
             'product_ids.*' => 'integer',
         ]);
         $unlist = $request->input('action') === 'unlist';
-        $verb = $unlist ? 'Unlisted' : 'Relisted';
+        // Shopee's own words (the owner, 2026-09-06): Delist and Publish.
+        $verb = $unlist ? 'Delisted' : 'Published';
 
         $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
@@ -724,7 +725,7 @@ class ShopeeProductController extends Controller
             }
             if ($links->isEmpty()) {
                 return redirect()->back()->with('error',
-                    'Nothing was relisted: Shopee will refuse ' . (count($heldBack) === 1 ? 'it' : 'all of them') . ' without a parcel. '
+                    'Nothing was published: Shopee will refuse ' . (count($heldBack) === 1 ? 'it' : 'all of them') . ' without a parcel. '
                     . implode('; ', array_slice($heldBack, 0, 5))
                     . (count($heldBack) > 5 ? '; and ' . (count($heldBack) - 5) . ' more' : '')
                     . '. Add weight and size on the catalog products first.');
@@ -736,10 +737,10 @@ class ShopeeProductController extends Controller
         foreach ($links as $l) {
             if (isset($okItems[(int) $l->shopee_item_id])) {
                 ActivityLogger::log(
-                    $unlist ? 'unlisted' : 'relisted',
+                    $unlist ? 'delisted' : 'published',
                     'Shopee Product',
                     (int) $l->product_id,
-                    'Item ' . $l->shopee_item_id . ($unlist ? ' unlisted from' : ' relisted on') . ' Shopee (selection)'
+                    'Item ' . $l->shopee_item_id . ($unlist ? ' delisted from' : ' published on') . ' Shopee (selection)'
                 );
             }
         }
@@ -2981,26 +2982,26 @@ class ShopeeProductController extends Controller
          * fields and where they live, and no request is fired. */
         if (!$unlist && ($parcelGap = $this->parcelGapFor([$productId])[$productId] ?? null)) {
             return redirect()->back()->with('error',
-                'Not relisted: Shopee will refuse it without ' . $parcelGap
-                . '. Add them on the catalog product (Catalog → Products → edit), then relist.');
+                'Not published: Shopee will refuse it without ' . $parcelGap
+                . '. Add them on the catalog product (Catalog, Products, edit), then publish.');
         }
 
         $result = $this->unlistItems($client, $auth, [(int) $link->shopee_item_id], $unlist);
         if ($result['error'] !== null || $result['failed'] !== []) {
             $msg = $result['error'] ?? (string) reset($result['failed']);
-            return redirect()->back()->with('error', ($unlist ? 'Unlist' : 'Relist') . ' failed: ' . $msg);
+            return redirect()->back()->with('error', ($unlist ? 'Delist' : 'Publish') . ' failed: ' . $msg);
         }
 
         ActivityLogger::log(
-            $unlist ? 'unlisted' : 'relisted',
+            $unlist ? 'delisted' : 'published',
             'Shopee Product',
             $productId,
-            'Item ' . $link->shopee_item_id . ($unlist ? ' unlisted from' : ' relisted on') . ' Shopee'
+            'Item ' . $link->shopee_item_id . ($unlist ? ' delisted from' : ' published on') . ' Shopee'
         );
 
         return redirect()->back()->with('status', $unlist
-            ? 'Unlisted. Buyers no longer see this item on Shopee.'
-            : 'Relisted. The item is visible on Shopee again.');
+            ? 'Delisted. Buyers no longer see this item on Shopee.'
+            : 'Published. The item is visible on Shopee again.');
     }
 
 }

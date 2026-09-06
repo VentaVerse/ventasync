@@ -180,6 +180,7 @@ class LazadaListingStates
                 pushedAt: $pushedAt,
                 channelStatusRaw: $raw,
                 attentionLabel: $attentionLabel,
+                inactiveLabel: 'Inactive',
             );
         }
 

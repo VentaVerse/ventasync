@@ -268,6 +268,7 @@ class ShopeeListingStates
                 pushedAt: $pushedAt,
                 channelStatusRaw: $worst,
                 attentionLabel: $attentionLabel,
+                inactiveLabel: 'Unpublished',
             );
         }
 

@@ -106,7 +106,7 @@ class ShopeeListingStateTest extends TestCase
         // The observed statuses, one state each.
         foreach ([
             'NORMAL' => [ListingState::LIVE, 'Live', 'success'],
-            'UNLIST' => [ListingState::INACTIVE, 'Unlisted', 'neutral'],
+            'UNLIST' => [ListingState::INACTIVE, 'Unpublished', 'neutral'],
             'REVIEWING' => [ListingState::REVIEWING, 'Under review', 'warning'],
             'BANNED' => [ListingState::ATTENTION, 'Violation', 'danger'],
             'MISSING' => [ListingState::ATTENTION, 'Not found on Shopee', 'danger'],
@@ -385,12 +385,12 @@ class ShopeeListingStateTest extends TestCase
         // The bulk bar always carries both verbs for the selection, so the
         // assertions pin the row MENU's items specifically.
         $liveRow = $this->actingAs($user)->get(route('ext.shopee.products.index').'?q=TGL-LIVE')->assertOk();
-        $liveRow->assertSee('x-menu__item">Unlist from Shopee', false);
-        $liveRow->assertDontSee('x-menu__item">Relist on Shopee', false);
+        $liveRow->assertSee('x-menu__item">Delist from Shopee', false);
+        $liveRow->assertDontSee('x-menu__item">Publish on Shopee', false);
 
         $offRow = $this->actingAs($user)->get(route('ext.shopee.products.index').'?q=TGL-OFF')->assertOk();
-        $offRow->assertSee('x-menu__item">Relist on Shopee', false);
-        $offRow->assertDontSee('x-menu__item">Unlist from Shopee', false);
+        $offRow->assertSee('x-menu__item">Publish on Shopee', false);
+        $offRow->assertDontSee('x-menu__item">Delist from Shopee', false);
     }
 
     /** The group page offers the toggle the listings page offers (#188, the owner 2026-09-02). */
@@ -418,7 +418,7 @@ class ShopeeListingStateTest extends TestCase
         $user = \App\Models\User::factory()->create(['user_group_id' => $ug->id]);
 
         $this->actingAs($user)->get(route('ext.shopee.product-groups.products', $grp->id))
-            ->assertOk()->assertSee('Unlist from Shopee');
+            ->assertOk()->assertSee('Delist from Shopee');
     }
 
     public function test_shopee_answers_the_core_contract_every_channel_will_share(): void

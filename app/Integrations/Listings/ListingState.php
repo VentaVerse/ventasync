@@ -63,6 +63,10 @@ final class ListingState
      * @param ?string $attentionLabel  the channel's own word for an attention
      *        state ("Violation", "Rejected") - supplied by the channel engine,
      *        because only the channel knows its marketplace's vocabulary.
+     * @param ?string $inactiveLabel  the channel's own word for a listing the
+     *        seller took down (the owner, 2026-09-06: mirror the marketplace -
+     *        Shopee "Unpublished", TikTok "Deactivated", Lazada "Inactive");
+     *        "Unlisted" when the channel has no word of its own.
      */
     public function __construct(
         public readonly string $state,
@@ -74,6 +78,7 @@ final class ListingState
         public readonly ?Carbon $pushedAt = null,
         public readonly ?string $channelStatusRaw = null,
         public readonly ?string $attentionLabel = null,
+        public readonly ?string $inactiveLabel = null,
     ) {
     }
 
@@ -88,7 +93,7 @@ final class ListingState
         return match ($this->state) {
             self::NOT_LISTED => ['Not listed', 'neutral'],
             self::LIVE => ['Live', 'success'],
-            self::INACTIVE => ['Unlisted', 'neutral'],
+            self::INACTIVE => [$this->inactiveLabel ?? 'Unlisted', 'neutral'],
             self::REVIEWING => ['Under review', 'warning'],
             self::ATTENTION => [$this->attentionLabel ?? 'Needs attention', 'danger'],
             default => ['Not checked yet', 'neutral'],

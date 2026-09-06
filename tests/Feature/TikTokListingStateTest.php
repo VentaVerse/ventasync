@@ -91,7 +91,7 @@ class TikTokListingStateTest extends TestCase
     {
         $expected = [
             'ACTIVATE' => [ListingState::LIVE, 'Live'],
-            'SELLER_DEACTIVATED' => [ListingState::INACTIVE, 'Unlisted'],
+            'SELLER_DEACTIVATED' => [ListingState::INACTIVE, 'Deactivated'],
             'IN_REVIEW' => [ListingState::REVIEWING, 'Under review'],
             'PENDING' => [ListingState::REVIEWING, 'Under review'],
             'FAILED' => [ListingState::ATTENTION, 'Failed review'],

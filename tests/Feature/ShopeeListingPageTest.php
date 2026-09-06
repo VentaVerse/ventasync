@@ -234,7 +234,7 @@ class ShopeeListingPageTest extends TestCase
         $r->assertOk();
         $r->assertSee('On Shopee right now');
         $r->assertSee('Live');
-        $r->assertSee('Unlist from Shopee');
+        $r->assertSee('Delist from Shopee');
         // And what it read is written to the mirror, so the lists agree at once.
         $this->assertSame('NORMAL', ShopeeProductLink::query()->where('shopee_item_id', 990077)->value('live_status'));
     }
@@ -253,7 +253,7 @@ class ShopeeListingPageTest extends TestCase
 
         $r->assertOk();
         $r->assertSee('Shopee did not answer');
-        $r->assertDontSee('Unlist from Shopee');
+        $r->assertDontSee('Delist from Shopee');
     }
 
     public function test_the_toggle_reaches_unlist_item_with_the_asked_direction(): void
@@ -331,8 +331,8 @@ class ShopeeListingPageTest extends TestCase
         $r->assertSee('aria-label="Refresh statuses from Shopee"', false);
         $r->assertSee('Repair links');
         $r->assertSee('shopee_tab=unlisted', false);
-        $r->assertSee('Unlisted');
-        $r->assertSee('Relist on Shopee');
+        $r->assertSee('Unpublished');
+        $r->assertSee('Publish on Shopee');
         $this->assertEmpty($this->sentPayloads);
     }
 
@@ -465,7 +465,7 @@ class ShopeeListingPageTest extends TestCase
 
         $r->assertSessionHas('status');
         $flash = (string) session('status');
-        $this->assertStringContainsString('Unlisted 2 items from Shopee', $flash);
+        $this->assertStringContainsString('Delisted 2 items from Shopee', $flash);
         $this->assertStringContainsString('1 skipped, not on Shopee', $flash);
     }
 

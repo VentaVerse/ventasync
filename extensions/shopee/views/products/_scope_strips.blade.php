@@ -10,12 +10,12 @@
      the stored view, pushed or not; the rest narrow to what Shopee holds
      right now. The bucket counts and every row's chip come from the mirror
      on the link rows, refreshed every 30 minutes, on demand here, and by
-     every push, unlist and relist. The strip says when. --}}
+     every push, delist and publish. The strip says when. --}}
 @if(($liveCounts ?? null) !== null)
     @php
         $liveTabDefs = [
             'live' => 'Live',
-            'unlisted' => 'Unlisted',
+            'unlisted' => 'Unpublished',
             'violation' => 'Violation',
             'reviewing' => 'Under review',
         ];

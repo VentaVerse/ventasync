@@ -23,7 +23,7 @@ class TikTokLiveListing
     public const TABS = [
         'all' => ['All', null],
         'live' => ['Live', 'ACTIVATE'],
-        'deactivated' => ['Unlisted', 'SELLER_DEACTIVATED'],
+        'deactivated' => ['Deactivated', 'SELLER_DEACTIVATED'],
         'review' => ['Under review', 'IN_REVIEW'],
         'failed' => ['Failed review', 'FAILED'],
         'frozen' => ['Frozen', 'FREEZE'],

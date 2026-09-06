@@ -134,9 +134,9 @@ class ShopeePreflightTest extends TestCase
         $html = $this->actingAs($this->manager())
             ->get(route('ext.shopee.products.index', ['q' => 'PF-5']))->assertOk()->getContent();
 
-        $this->assertStringContainsString('Add weight and size, then relist', $html);
-        $this->assertStringNotContainsString('x-menu__item">Relist on Shopee', $html,
-            'a row whose relist would certainly be refused must not offer it');
+        $this->assertStringContainsString('Add weight and size, then publish', $html);
+        $this->assertStringNotContainsString('x-menu__item">Publish on Shopee', $html,
+            'a row whose publish would certainly be refused must not offer it');
     }
 
     public function test_a_push_update_without_a_parcel_is_refused_before_the_call(): void

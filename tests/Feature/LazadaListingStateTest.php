@@ -117,7 +117,7 @@ class LazadaListingStateTest extends TestCase
     {
         $expected = [
             'active' => [ListingState::LIVE, 'Live'],
-            'inactive' => [ListingState::INACTIVE, 'Unlisted'],
+            'inactive' => [ListingState::INACTIVE, 'Inactive'],
             'pending' => [ListingState::REVIEWING, 'Under review'],
             'rejected' => [ListingState::ATTENTION, 'Rejected'],
             'sold-out' => [ListingState::ATTENTION, 'Sold out'],

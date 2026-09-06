@@ -460,17 +460,17 @@
                              (#188, the owner 2026-09-02). --}}
                         @if($canToggleListing && $rowState?->state === \App\Integrations\Listings\ListingState::LIVE)
                             <form method="POST" action="{{ route('ext.shopee.listings.toggle', $p->product_id) }}" data-slow-action
-                                  data-confirm="Unlist {{ $pName ?: 'this product' }} from Shopee? Buyers stop seeing it immediately. It can be relisted at any time." data-confirm-verb="Unlist">
+                                  data-confirm="Delist {{ $pName ?: 'this product' }} from Shopee? Buyers stop seeing it immediately. It can be published again at any time." data-confirm-verb="Unlist">
                                 @csrf
                                 <input type="hidden" name="action" value="unlist">
-                                <button type="submit" class="x-menu__item">Unlist from Shopee</button>
+                                <button type="submit" class="x-menu__item">Delist from Shopee</button>
                             </form>
                         @elseif($canToggleListing && $rowState?->state === \App\Integrations\Listings\ListingState::INACTIVE)
                             <form method="POST" action="{{ route('ext.shopee.listings.toggle', $p->product_id) }}" data-slow-action
-                                  data-confirm="Relist {{ $pName ?: 'this product' }} on Shopee? Buyers see it again immediately." data-confirm-tone="primary" data-confirm-verb="Relist">
+                                  data-confirm="Publish {{ $pName ?: 'this product' }} on Shopee? Buyers see it again immediately." data-confirm-tone="primary" data-confirm-verb="Relist">
                                 @csrf
                                 <input type="hidden" name="action" value="list">
-                                <button type="submit" class="x-menu__item">Relist on Shopee</button>
+                                <button type="submit" class="x-menu__item">Publish on Shopee</button>
                             </form>
                         @endif
                     @endif
