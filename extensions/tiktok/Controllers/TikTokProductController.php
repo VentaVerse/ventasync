@@ -624,42 +624,20 @@ class TikTokProductController extends Controller
      * neither linked here nor matched by any catalog SKU - the same
      * scan Shopee and Lazada carry, in TikTok's anatomy.
      */
-    /**
-     * Catalog search for the import queue's Link picker (#196) - the
-     * same JSON shape Shopee's picker reads, so the shared module works
-     * unchanged.
-     */
+    /** The Link picker's catalog search: the shared shape, with the products this store already holds marked (App\Support\CatalogPickerSearch). */
     public function searchCatalogProducts(Request $request)
     {
-        $q = trim((string) $request->get('q', ''));
-        if ($q === '' || strlen($q) < 2) {
-            return response()->json([]);
-        }
+        return response()->json(\App\Support\CatalogPickerSearch::items((string) $request->get('q', ''), function (array $ids) {
+            $out = [];
+            foreach (TikTokListing::query()->whereIn('product_id', $ids)->whereNotNull('tiktok_product_id')->get(['product_id', 'tiktok_product_id']) as $l) {
+                $out[(int) $l->product_id] = 'TikTok product ' . $l->tiktok_product_id;
+            }
+            foreach (TikTokProductGroupProduct::query()->whereIn('product_id', $ids)->whereNotNull('tiktok_product_id')->get(['product_id', 'tiktok_product_id']) as $p) {
+                $out[(int) $p->product_id] ??= 'TikTok product ' . $p->tiktok_product_id;
+            }
 
-        $pfx = (string) config('catalog.prefix');
-        $langId = (int) config('catalog.default_language_id');
-
-        $results = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
-                $j->on('p.product_id', '=', 'pd.product_id')
-                  ->where('pd.language_id', '=', $langId);
-            })
-            ->where(function ($sub) use ($q) {
-                $sub->where('pd.name', 'like', '%' . $q . '%')
-                    ->orWhere('p.model', 'like', '%' . $q . '%')
-                    ->orWhere('p.sku', 'like', '%' . $q . '%');
-            })
-            ->limit(20)
-            ->get(['p.product_id', 'pd.name', 'p.model', 'p.sku', 'p.image']);
-
-        return response()->json($results->map(fn ($r) => [
-            'product_id' => (int) $r->product_id,
-            'name' => (string) ($r->name ?? ''),
-            'model' => (string) ($r->model ?? ''),
-            'sku' => (string) ($r->sku ?? ''),
-            'image' => (string) ($r->image ?? ''),
-            'options' => [],
-        ]));
+            return $out;
+        }));
     }
 
     /**
@@ -719,9 +697,10 @@ class TikTokProductController extends Controller
             $rows[] = [
                 'ref' => (string) $ttId,
                 'sku' => (string) ($skus[0] ?? ''),
+                'skus' => $skus,
                 'channel_id' => (string) $ttId,
                 'name' => (string) ($p['title'] ?? ''),
-                'image_url' => '',
+                'image_url' => (string) ($p['image'] ?? ''),
                 'variants' => count($skus),
             ];
         }
@@ -783,6 +762,20 @@ class TikTokProductController extends Controller
             return redirect()->back()->with('error', 'Catalog product not found.');
         }
 
+        /* One catalog product to one TikTok product per store, both ways
+         * (the owner, 2026-09-07). A second link is refused with what holds
+         * the first; this action used to overwrite the row and wipe its
+         * SKU map, so a wrong pick silently re-pointed every push. */
+        $held = TikTokListing::query()->where('product_id', $productId)->whereNotNull('tiktok_product_id')->value('tiktok_product_id')
+            ?: TikTokProductGroupProduct::query()->where('product_id', $productId)->whereNotNull('tiktok_product_id')->value('tiktok_product_id');
+        if ($held && (string) $held !== (string) $data['ref']) {
+            return redirect()->back()->with('error', 'Catalog product #' . $productId . ' is already linked to TikTok product ' . $held . '. Unlink it first.');
+        }
+        $taken = TikTokListing::query()->where('tiktok_product_id', (string) $data['ref'])->where('product_id', '!=', $productId)->value('product_id')
+            ?: TikTokProductGroupProduct::query()->where('tiktok_product_id', (string) $data['ref'])->where('product_id', '!=', $productId)->value('product_id');
+        if ($taken) {
+            return redirect()->back()->with('error', 'TikTok product ' . $data['ref'] . ' is already linked to catalog product #' . $taken . '. Unlink that product first.');
+        }
         TikTokListing::updateOrCreate(
             ['product_id' => $productId],
             ['tiktok_product_id' => (string) $data['ref'], 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null]

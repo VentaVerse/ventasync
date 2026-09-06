@@ -106,6 +106,8 @@ class TikTokLiveListing
                     'status' => (string) ($p['status'] ?? ''),
                     'title' => (string) ($p['title'] ?? ''),
                     'skus' => $skus,
+                    // The first picture, for the Import page's row (2026-09-07).
+                    'image' => (string) (data_get($p, 'main_images.0.urls.0') ?? data_get($p, 'main_images.0.url') ?? ''),
                 ];
             }
             $token = $r['body']['data']['next_page_token'] ?? null;

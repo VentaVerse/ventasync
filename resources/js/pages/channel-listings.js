@@ -273,6 +273,18 @@ function buildResultButton(item, onPick) {
     meta.textContent = identifiers.join(' / ');
     body.appendChild(meta);
 
+    // One catalog product to one marketplace item per store (2026-09-07):
+    // a product the store already holds is shown, greyed, with what holds
+    // it, and cannot be picked. The server refuses the same link anyway.
+    if (item.linked) {
+        const held = document.createElement('span');
+        held.className = 'cc-ta__held';
+        held.textContent = 'Already linked to ' + item.linked;
+        body.appendChild(held);
+        button.disabled = true;
+        button.classList.add('is-held');
+    }
+
     // Variation lines. "Variation" is the user-facing word across this app
     // and across every marketplace it talks to; the database columns behind
     // it are still option_*.
@@ -290,10 +302,28 @@ function buildResultButton(item, onPick) {
     button.appendChild(row);
 
     button.addEventListener('click', function () {
+        if (item.linked) return;
         onPick(item);
     });
 
     return button;
+}
+
+/* Does the picked catalog product look like the fetched item? A shared SKU
+   (any of the catalog's parent, model, variation or combination SKUs against
+   any of the item's), or a shared word of four letters or more in the two
+   names. Nothing shared is not a refusal, the seller may know better; it
+   is a confirm on the Link button (the owner, 2026-09-07: the same button). */
+function looksAlike(itemName, itemSkus, picked) {
+    const norm = (v) => String(v || '').trim().toLowerCase();
+    const mine = new Set((picked.skus || [picked.sku, picked.model]).map(norm).filter(Boolean));
+    if (itemSkus.map(norm).some((sku) => sku && mine.has(sku))) return true;
+    const words = (name) => new Set(norm(name).replace(/[^a-z0-9]+/g, ' ').split(' ').filter((w) => w.length >= 4));
+    const theirs = words(itemName);
+    for (const w of words(picked.name)) {
+        if (theirs.has(w)) return true;
+    }
+    return false;
 }
 
 /**
@@ -350,6 +380,21 @@ export function initCatalogPicker(form) {
         input.value = (item.name || 'Unnamed product') + ' (ID ' + item.product_id + ')';
         clear();
         if (submit) submit.disabled = false;
+        // The sanity check rides the Link button: when nothing is shared
+        // between the item and the pick, the shared confirm sheet asks first.
+        if (submit && form.dataset.itemName !== undefined) {
+            const itemSkus = (form.dataset.itemSkus || '').split('|').filter(Boolean);
+            if (!looksAlike(form.dataset.itemName, itemSkus, item)) {
+                submit.setAttribute('data-confirm', 'These do not look like the same product: \u201c' + form.dataset.itemName
+                    + '\u201d on the store and \u201c' + (item.name || 'Unnamed product') + '\u201d in your catalog. Link them anyway?');
+                submit.setAttribute('data-confirm-tone', 'primary');
+                submit.setAttribute('data-confirm-verb', 'Link anyway');
+            } else {
+                submit.removeAttribute('data-confirm');
+                submit.removeAttribute('data-confirm-tone');
+                submit.removeAttribute('data-confirm-verb');
+            }
+        }
         // Anything that has to react to the choice (the Continue button on
         // Shopee's add page) listens here rather than reaching into this
         // module. Same event the group form's category combobox fires.

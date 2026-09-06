@@ -123,6 +123,8 @@
                         <form method="POST" action="{{ route('ext.opencart.products.link_item', $store) }}"
                               class="cc-link"
                               data-unmatched-link
+                              data-item-name="{{ $row['name'] ?? '' }}"
+                              data-item-skus="{{ implode('|', $row['skus'] ?? array_filter([$row['sku'] ?? ''])) }}"
                               data-search-url="{{ route('ext.opencart.products.search_catalog', $store) }}">
                             @csrf
                             <input type="hidden" name="ref" value="{{ $row['ref'] }}">

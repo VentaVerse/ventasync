@@ -3189,6 +3189,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             $rows[] = [
                 'ref' => (string) $itemId,
                 'sku' => (string) ($skusForItem[0] ?? ''),
+                'skus' => array_values(array_map('strval', $skusForItem)),
                 'channel_id' => (string) $itemId,
                 'name' => (string) $itemName,
                 'image_url' => (string) ($imageUrl ?? ''),
@@ -3258,14 +3259,26 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             return redirect()->back()->with('error', 'Catalog product not found.');
         }
 
+        /* One catalog product to one Lazada item per store, both ways
+         * (the owner, 2026-09-07). A second link is refused with what holds
+         * the first; this action used to keep the old link and still say
+         * "Linked". */
         $listing = LazadaProduct::query()->where('product_id', $productId)->first();
+        $heldItem = $listing && ! empty($listing->lazada_item_id) && is_null($listing->lazada_deleted_at) && is_null($listing->unlinked_at)
+            ? (string) $listing->lazada_item_id : '';
+        if ($heldItem !== '' && $heldItem !== (string) $data['ref']) {
+            return redirect()->back()->with('error', 'Catalog product #' . $productId . ' is already linked to Lazada item ' . $heldItem . '. Unlink it first.');
+        }
+        $taken = LazadaProduct::query()->where('lazada_item_id', (string) $data['ref'])->where('product_id', '!=', $productId)
+            ->whereNull('lazada_deleted_at')->whereNull('unlinked_at')->first();
+        if ($taken) {
+            return redirect()->back()->with('error', 'Lazada item ' . $data['ref'] . ' is already linked to catalog product #' . $taken->product_id . '. Unlink that product first.');
+        }
         if ($listing) {
-            if (empty($listing->lazada_item_id)) {
-                $listing->lazada_item_id = (string) $data['ref'];
-                $listing->lazada_deleted_at = null;
-                $listing->unlinked_at = null;
-                $listing->save();
-            }
+            $listing->lazada_item_id = (string) $data['ref'];
+            $listing->lazada_deleted_at = null;
+            $listing->unlinked_at = null;
+            $listing->save();
         } else {
             LazadaProduct::create([
                 'product_id' => $productId,
@@ -3276,74 +3289,14 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         return redirect()->back()->with('status', 'Linked Lazada item #' . $data['ref'] . ' to catalog product #' . $productId . '.');
     }
 
+    /** The Link picker's catalog search: the shared shape, with the products this store already holds marked (App\Support\CatalogPickerSearch). */
     public function searchCatalogProducts(Request $request)
     {
-        $q = trim((string) $request->get('q', ''));
-        if ($q === '' || strlen($q) < 2) {
-            return response()->json([]);
-        }
-
-        $pfx = (string) config('catalog.prefix');
-        $langId = (int) config('catalog.default_language_id');
-
-        // Find product IDs matching by option value SKU
-        $optionMatchIds = DB::table($pfx . 'product_option_value')
-            ->where('sku', 'like', '%' . $q . '%')
-            ->whereNotNull('sku')
-            ->where('sku', '!=', '')
-            ->pluck('product_id')
-            ->unique()
-            ->toArray();
-
-        $results = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
-                $j->on('p.product_id', '=', 'pd.product_id')
-                  ->where('pd.language_id', '=', $langId);
-            })
-            ->where(function ($sub) use ($q, $optionMatchIds) {
-                $sub->where('pd.name', 'like', '%' . $q . '%')
-                    ->orWhere('p.model', 'like', '%' . $q . '%')
-                    ->orWhere('p.sku', 'like', '%' . $q . '%');
-                if (!empty($optionMatchIds)) {
-                    $sub->orWhereIn('p.product_id', $optionMatchIds);
-                }
-            })
-            ->limit(20)
-            ->get(['p.product_id', 'pd.name', 'p.model as sku', 'p.image']);
-
-        // Fetch option values for these products
-        $productIds = $results->pluck('product_id')->map(fn($v) => (int) $v)->all();
-        $optionValues = collect();
-        if (!empty($productIds)) {
-            $optionValues = DB::table($pfx . 'product_option_value as pov')
-                ->leftJoin($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                    $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
-                      ->where('ovd.language_id', '=', $langId);
-                })
-                ->whereIn('pov.product_id', $productIds)
-                ->whereNotNull('pov.sku')
-                ->where('pov.sku', '!=', '')
-                ->get(['pov.product_id', 'pov.sku', 'pov.quantity', 'ovd.name as value_name'])
-                ->groupBy('product_id');
-        }
-
-        return response()->json($results->map(function ($r) use ($optionValues) {
-            $opts = $optionValues->get((int) $r->product_id, collect());
-            $optionList = $opts->map(function ($ov) {
-                return [
-                    'sku' => $ov->sku,
-                    'name' => $ov->value_name ?? '',
-                    'qty' => (int) $ov->quantity,
-                ];
-            })->values()->toArray();
-
-            return [
-                'product_id' => (int) $r->product_id,
-                'name' => html_entity_decode($r->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-                'sku' => $r->sku ?? '',
-                'image' => $r->image ? asset('storage/' . ltrim($r->image, '/')) : null,
-                'options' => $optionList,
-            ];
+        return response()->json(\App\Support\CatalogPickerSearch::items((string) $request->get('q', ''), function (array $ids) {
+            return LazadaProduct::query()->whereIn('product_id', $ids)->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '')
+                ->whereNull('lazada_deleted_at')->whereNull('unlinked_at')
+                ->get(['product_id', 'lazada_item_id'])
+                ->mapWithKeys(fn ($l) => [(int) $l->product_id => 'Lazada item ' . $l->lazada_item_id])->all();
         }));
     }
 

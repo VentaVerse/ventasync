@@ -123,6 +123,8 @@
                         <form method="POST" action="{{ route('ext.tiktok.products.link_item') }}"
                               class="cc-link"
                               data-unmatched-link
+                              data-item-name="{{ $row['name'] ?? '' }}"
+                              data-item-skus="{{ implode('|', $row['skus'] ?? array_filter([$row['sku'] ?? ''])) }}"
                               data-search-url="{{ route('ext.tiktok.products.search_catalog') }}">
                             @csrf
                             <input type="hidden" name="ref" value="{{ $row['ref'] }}">

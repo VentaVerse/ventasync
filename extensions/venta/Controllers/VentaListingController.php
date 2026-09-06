@@ -127,6 +127,7 @@ class VentaListingController extends Controller
                 $rows[] = [
                     'ref' => $sku,
                     'sku' => $sku,
+                    'skus' => array_values(array_unique(array_filter(array_merge([$sku], array_map(fn ($v) => trim((string) ($v['sku'] ?? '')), is_array($item['variants'] ?? null) ? $item['variants'] : []))))),
                     'channel_id' => (int) ($item['id'] ?? 0) ?: null,
                     'name' => \Illuminate\Support\Str::limit((string) ($item['name'] ?? ''), 250, ''),
                     'image_url' => (string) (is_array($item['images'] ?? null)
@@ -189,9 +190,21 @@ class VentaListingController extends Controller
             return redirect()->back()->with('error', 'That catalog product does not exist.');
         }
 
+        /* One catalog product to one Venta product per store, both ways (the owner, 2026-09-07). */
+        $ventaId = (int) ($data['channel_id'] ?? 0) ?: null;
+        $held = VentaProductLink::query()->where('venta_setting_id', $store)->where('product_id', (int) $data['product_id'])->whereNotNull('venta_product_id')->first();
+        if ($held && $ventaId !== null && (int) $held->venta_product_id !== $ventaId) {
+            return redirect()->back()->with('error', 'Catalog product #' . $data['product_id'] . ' is already linked to Venta product ' . $held->venta_product_id . '. Unlink it first.');
+        }
+        if ($ventaId !== null) {
+            $taken = VentaProductLink::query()->where('venta_setting_id', $store)->where('venta_product_id', $ventaId)->where('product_id', '!=', (int) $data['product_id'])->first();
+            if ($taken) {
+                return redirect()->back()->with('error', 'Venta product ' . $ventaId . ' is already linked to catalog product #' . $taken->product_id . '. Unlink that product first.');
+            }
+        }
         VentaProductLink::updateOrCreate(
             ['venta_setting_id' => $store, 'product_id' => (int) $data['product_id']],
-            ['venta_product_id' => (int) ($data['channel_id'] ?? 0) ?: null, 'sku' => $data['ref']]
+            ['venta_product_id' => $ventaId, 'sku' => $data['ref']]
         );
 
         return redirect()->back()->with('status', 'Linked "' . $data['ref'] . '" to catalog product #' . $data['product_id'] . '.');
@@ -211,31 +224,16 @@ class VentaListingController extends Controller
             ->flip();
     }
 
-    /** The Link typeahead's catalog search, same JSON the Big 3 serve. */
+    /** The Link picker's catalog search: the shared shape, with the products this store already holds marked (App\Support\CatalogPickerSearch). */
     public function searchCatalog(Request $request, int $store)
     {
         VentaSetting::findOrFail($store);
-        $q = trim((string) $request->query('q', ''));
-        if (strlen($q) < 2) {
-            return response()->json(['items' => []]);
-        }
 
-        $pfx = (string) config('catalog.prefix');
-        $langId = (int) config('catalog.default_language_id');
-        $rows = DB::table($pfx . 'product as p')
-            ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
-                $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
-            })
-            ->where(function ($w) use ($q) {
-                $w->where('pd.name', 'like', "%{$q}%")
-                    ->orWhere('p.sku', 'like', "%{$q}%")
-                    ->orWhere('p.model', 'like', "%{$q}%");
-            })
-            ->orderBy('p.product_id', 'desc')
-            ->limit(20)
-            ->get(['p.product_id', 'pd.name', 'p.sku', 'p.model']);
-
-        return response()->json(['items' => $rows]);
+        return response()->json(\App\Support\CatalogPickerSearch::items((string) $request->query('q', ''), function (array $ids) use ($store) {
+            return VentaProductLink::query()->where('venta_setting_id', $store)->whereIn('product_id', $ids)->whereNotNull('venta_product_id')
+                ->get(['product_id', 'venta_product_id'])
+                ->mapWithKeys(fn ($l) => [(int) $l->product_id => 'Venta product ' . $l->venta_product_id])->all();
+        }));
     }
 
     public function index(Request $request, int $store)

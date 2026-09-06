@@ -1492,9 +1492,11 @@ class ShopeeProductController extends Controller
                     $models = (($modelResult['body'] ?? [])['response'] ?? ($modelResult['body'] ?? []))['model'] ?? [];
 
                     $unplaced = null;
+                    $modelSkus = [];
                     foreach ($models as $model) {
                         $modelId = (int) ($model['model_id'] ?? 0);
                         $modelSku = trim((string) ($model['model_sku'] ?? ''));
+                        if ($modelSku !== '') $modelSkus[] = $modelSku;
                         if (!$modelId) continue;
                         if (isset($linkedSet[$itemId . ':' . $modelId])) continue;
                         if ($modelSku !== '' && isset($erpSkus[strtolower($modelSku)])) continue;
@@ -1506,6 +1508,7 @@ class ShopeeProductController extends Controller
                     $rows[] = [
                         'ref' => $itemId,
                         'sku' => $itemSku !== '' ? $itemSku : (string) $unplaced,
+                        'skus' => array_values(array_unique(array_filter(array_merge([$itemSku], $modelSkus)))),
                         'channel_id' => $itemId,
                         'name' => $itemName,
                         'image_url' => (string) ($imageUrl ?? ''),
@@ -1518,6 +1521,7 @@ class ShopeeProductController extends Controller
                     $rows[] = [
                         'ref' => $itemId,
                         'sku' => $itemSku,
+                        'skus' => $itemSku !== '' ? [$itemSku] : [],
                         'channel_id' => $itemId,
                         'name' => $itemName,
                         'image_url' => (string) ($imageUrl ?? ''),
@@ -1968,11 +1972,20 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', 'Catalog product not found.');
         }
 
-        $exists = ShopeeProductLink::query()
-            ->where('shopee_item_id', (string) $data['ref'])
-            ->whereNull('shopee_model_id')
-            ->exists();
-        if (! $exists) {
+        /* One catalog product to one Shopee item per store, both ways
+         * (the owner, 2026-09-07). A second link is refused with what holds
+         * the first, never written over or quietly skipped. */
+        $storeId = (int) (ShopeeSetting::defaultStore()?->id ?? 0);
+        $scoped = fn () => ShopeeProductLink::query()->whereNull('shopee_model_id')->when($storeId > 0, fn ($q) => $q->where('shopee_setting_id', $storeId));
+        $held = $scoped()->where('product_id', (int) $data['product_id'])->whereNotNull('shopee_item_id')->first();
+        if ($held && (string) $held->shopee_item_id !== (string) $data['ref']) {
+            return redirect()->back()->with('error', 'Catalog product #' . $data['product_id'] . ' is already linked to Shopee item ' . $held->shopee_item_id . '. Unlink it first.');
+        }
+        $taken = $scoped()->where('shopee_item_id', (string) $data['ref'])->where('product_id', '!=', (int) $data['product_id'])->first();
+        if ($taken) {
+            return redirect()->back()->with('error', 'Shopee item ' . $data['ref'] . ' is already linked to catalog product #' . $taken->product_id . '. Unlink that product first.');
+        }
+        if (! $held) {
             ShopeeProductLink::create([
                 'product_id' => (int) $data['product_id'],
                 'shopee_item_id' => (string) $data['ref'],
@@ -1984,75 +1997,16 @@ class ShopeeProductController extends Controller
         return redirect()->back()->with('status', 'Linked Shopee item #' . $data['ref'] . ' to catalog product #' . $data['product_id'] . '.');
     }
 
+    /** The Link picker's catalog search: the shared shape, with the products this store already holds marked (App\Support\CatalogPickerSearch). */
     public function searchCatalogProducts(Request $request)
     {
-        $q = trim((string) $request->get('q', ''));
-        if ($q === '' || strlen($q) < 2) {
-            return response()->json([]);
-        }
+        return response()->json(\App\Support\CatalogPickerSearch::items((string) $request->get('q', ''), function (array $ids) {
+            $storeId = (int) (ShopeeSetting::defaultStore()?->id ?? 0);
 
-        $pfx = (string) config('catalog.prefix');
-        $langId = (int) config('catalog.default_language_id');
-
-        // Find product IDs matching by option value SKU
-        $optionMatchIds = DB::table($pfx . 'product_option_value')
-            ->where('sku', 'like', '%' . $q . '%')
-            ->whereNotNull('sku')
-            ->where('sku', '!=', '')
-            ->pluck('product_id')
-            ->unique()
-            ->toArray();
-
-        $results = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
-                $j->on('p.product_id', '=', 'pd.product_id')
-                  ->where('pd.language_id', '=', $langId);
-            })
-            ->where(function ($sub) use ($q, $optionMatchIds) {
-                $sub->where('pd.name', 'like', '%' . $q . '%')
-                    ->orWhere('p.model', 'like', '%' . $q . '%')
-                    ->orWhere('p.sku', 'like', '%' . $q . '%');
-                if (!empty($optionMatchIds)) {
-                    $sub->orWhereIn('p.product_id', $optionMatchIds);
-                }
-            })
-            ->limit(20)
-            ->get(['p.product_id', 'pd.name', 'p.model', 'p.sku', 'p.image']);
-
-        // Fetch option values for these products
-        $productIds = $results->pluck('product_id')->map(fn($v) => (int) $v)->all();
-        $optionValues = collect();
-        if (!empty($productIds)) {
-            $optionValues = DB::table($pfx . 'product_option_value as pov')
-                ->leftJoin($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                    $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
-                      ->where('ovd.language_id', '=', $langId);
-                })
-                ->whereIn('pov.product_id', $productIds)
-                ->whereNotNull('pov.sku')
-                ->where('pov.sku', '!=', '')
-                ->get(['pov.product_id', 'pov.sku', 'pov.quantity', 'ovd.name as value_name'])
-                ->groupBy('product_id');
-        }
-
-        return response()->json($results->map(function ($r) use ($optionValues) {
-            $opts = $optionValues->get((int) $r->product_id, collect());
-            $optionList = $opts->map(function ($ov) {
-                return [
-                    'sku' => $ov->sku,
-                    'name' => $ov->value_name ?? '',
-                    'qty' => (int) $ov->quantity,
-                ];
-            })->values()->toArray();
-
-            return [
-                'product_id' => (int) $r->product_id,
-                'name' => html_entity_decode($r->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-                'model' => $r->model ?? '',
-                'sku' => $r->sku ?? '',
-                'image' => $r->image ? asset('storage/' . ltrim($r->image, '/')) : null,
-                'options' => $optionList,
-            ];
+            return ShopeeProductLink::query()->whereIn('product_id', $ids)->whereNotNull('shopee_item_id')
+                ->when($storeId > 0, fn ($q) => $q->where('shopee_setting_id', $storeId))
+                ->get(['product_id', 'shopee_item_id'])
+                ->mapWithKeys(fn ($l) => [(int) $l->product_id => 'Shopee item ' . $l->shopee_item_id])->all();
         }));
     }
 
