@@ -363,7 +363,7 @@
                                  (#149), where "Push to TikTok Shop" sits under
                                  what is about to go up. The one-click is gone
                                  from the menu; the route stays for the page. --}}
-                            <a class="x-menu__item" href="{{ route('ext.tiktok.listings.edit', $pid) }}">Push to TikTok Shop</a>
+                            <a class="x-menu__item" href="{{ route('ext.tiktok.listings.edit', [$pid, 'back' => request()->getRequestUri()]) }}">Push to TikTok Shop</a>
                         @else
                             <form method="POST" action="{{ route('ext.tiktok.listings.push_update', $pid) }}" data-slow-action
                                   data-confirm="Push this listing's content and settings onto the live TikTok Shop product? Title, description, package, category, brand and attributes are updated. Price and stock are not touched." data-confirm-tone="primary" data-confirm-verb="Push update">

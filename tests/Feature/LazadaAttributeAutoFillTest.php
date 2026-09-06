@@ -372,6 +372,37 @@ class LazadaAttributeAutoFillTest extends TestCase
         $this->assertStringContainsString('Lazada: Musical_Instrument_Type is mandatory', $html);
     }
 
+    /** the owner, 2026-09-06: after Save and push, back to the Listings page, with the search the operator came from. */
+    public function test_save_and_push_returns_to_the_listings_search_it_came_from(): void
+    {
+        $this->fullerTemplate();
+        $listing = LazadaProduct::query()->create(['product_id' => $this->seedProduct('Valeton GP-5', 'GP5'), 'primary_category_id' => 7014]);
+        \Illuminate\Support\Facades\Http::fake([
+            '*/images/migrate*' => \Illuminate\Support\Facades\Http::response(['code' => '0', 'data' => ['images' => [['url' => 'https://ph-live.slatic.net/x.jpg', 'hash_code' => 'h']]]], 200),
+            '*/image/migrate*' => \Illuminate\Support\Facades\Http::response(['code' => '0', 'data' => ['image' => ['url' => 'https://ph-live.slatic.net/x.jpg', 'hash_code' => 'h']]], 200),
+            '*' => \Illuminate\Support\Facades\Http::response(['code' => '0', 'data' => ['item_id' => 4242, 'sku_list' => []]], 200),
+        ]);
+        $user = $this->manager();
+        $search = '/channels/lazada/' . LazadaSetting::query()->value('id') . '/products?q=valeton&status=all';
+
+        // The Listings page hands its own URL to the listing page, which keeps it on Cancel and on the form.
+        $index = $this->actingAs($user)->get(route('ext.lazada.products.index', ['q' => 'valeton', 'status' => 'all']))->assertOk()->getContent();
+        $this->assertStringContainsString('back=' . urlencode($search), $index);
+        $page = $this->actingAs($user)->get(route('ext.lazada.products.edit', ['id' => $listing->id, 'back' => $search]))->assertOk()->getContent();
+        $this->assertStringContainsString('href="' . e($search) . '"', $page, 'Cancel returns to the search');
+        $this->assertStringContainsString('name="back" value="' . e($search) . '"', $page);
+
+        // Accepted push: back to that search. A forged host is refused and the plain Listings page stands in.
+        $this->actingAs($user)->put(route('ext.lazada.products.update', $listing->id), ['primary_category_id' => 7014, 'attributes' => ['warranty_type' => 'No Warranty', 'Musical_Instrument_Type' => 'Guitar'], 'push' => 1, 'back' => $search])
+            ->assertRedirect($search);
+        $r = $this->actingAs($user)->put(route('ext.lazada.products.update', $listing->id), ['primary_category_id' => 7014, 'attributes' => ['warranty_type' => 'No Warranty', 'Musical_Instrument_Type' => 'Guitar'], 'push' => 1, 'back' => 'https://evil.example/x']);
+        $r->assertRedirect(route('ext.lazada.products.index'));
+
+        // A plain save stays on the page and keeps the way back.
+        $this->actingAs($user)->put(route('ext.lazada.products.update', $listing->id), ['primary_category_id' => 7014, 'back' => $search])
+            ->assertRedirect(route('ext.lazada.products.edit', ['id' => $listing->id, 'back' => $search]));
+    }
+
     /** A refused template read comes back as Lazada's own sentence, never a payload, and files nothing. */
     public function test_a_refused_template_read_is_a_sentence(): void
     {

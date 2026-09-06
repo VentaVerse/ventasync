@@ -462,7 +462,7 @@
                                     <button type="submit" class="x-menu__item">Push to Shopee</button>
                                 </form>
                             @else
-                                <a class="x-menu__item" href="{{ route('ext.shopee.listings.edit', $p->product_id) }}"
+                                <a class="x-menu__item" href="{{ route('ext.shopee.listings.edit', [$p->product_id, 'back' => request()->getRequestUri()]) }}"
                                    title="Not ready yet - the listing page names what is still missing">Push to Shopee</a>
                             @endif
                             <form method="POST" action="{{ route('ext.shopee.products.sync_shopee_id', $p->product_id) }}" data-slow-action>

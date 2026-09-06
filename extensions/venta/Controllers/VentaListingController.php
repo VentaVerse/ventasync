@@ -536,7 +536,9 @@ class VentaListingController extends Controller
             ]
         );
 
-        return redirect()->route('ext.venta.listings.edit', [$store, $productId])
+        $back = \App\Support\BackTo::safe($request->input('back'), '');
+
+        return redirect()->route('ext.venta.listings.edit', $back !== '' ? [$store, $productId, 'back' => $back] : [$store, $productId])
             ->with('status', 'Listing saved. These settings drive the next push to ' . $setting->store_name . '.');
     }
 
@@ -545,7 +547,7 @@ class VentaListingController extends Controller
      * price rule: creates when the store does not have it, updates in
      * place when it does, and says which.
      */
-    public function push(int $store, int $productId)
+    public function push(Request $request, int $store, int $productId)
     {
         $setting = VentaSetting::where('id', $store)->where('enabled', true)->first();
         if (! $setting) {
@@ -592,7 +594,10 @@ class VentaListingController extends Controller
         $sentence = $outcome['message'] . ' ' . VentaProductPush::imagesSentence($outcome['images']);
         $tone = ($outcome['images']['sent'] > 0 && $outcome['images']['stored'] < $outcome['images']['sent']) ? 'warning' : 'status';
 
-        return redirect()->route('ext.venta.listings.edit', [$store, $productId])->with($tone, trim($sentence));
+        // Accepted: back to the Listings page the operator came from, search and all (the owner, 2026-09-06); the page itself when there is none.
+        $back = \App\Support\BackTo::safe($request->input('back'), '');
+
+        return ($back !== '' ? redirect()->to($back) : redirect()->route('ext.venta.listings.edit', [$store, $productId]))->with($tone, trim($sentence));
     }
 
     /** Unlist or relist on the store, in the store's own terms: active or not. */

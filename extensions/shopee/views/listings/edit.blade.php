@@ -318,6 +318,7 @@
                         <form method="POST" action="{{ route('ext.shopee.products.push_direct', $product->product_id) }}" data-slow-action
                               data-push-review="{{ route('ext.shopee.products.push_review', $product->product_id) }}">
                             @csrf
+                            <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
                             <x-ui.button type="submit" variant="primary">Push to Shopee</x-ui.button>
                         </form>
                     </div>
@@ -332,6 +333,7 @@
     @endif
 
     <form id="listing-form" method="POST" action="{{ route('ext.shopee.listings.update', $product->product_id) }}">
+        <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
         @csrf
         <div class="fm-body">
             <div class="fm-col">
@@ -642,7 +644,7 @@
                 ? 'Saving changes this record only. Push update to Shopee sends it onto the live listing.'
                 : 'Saving changes this record only. Shopee sees it when the product is pushed.') }}</span>
         <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ route('ext.shopee.products.index') }}">{{ $canManage ? 'Cancel' : 'Back' }}</a>
+            <a class="fm-cancel" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.shopee.products.index')) }}">{{ $canManage ? 'Cancel' : 'Back' }}</a>
             @if($canManage)
                 @if(!$link)
                     {{-- One trip for the common case: save what was just

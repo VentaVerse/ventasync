@@ -60,6 +60,7 @@
                               data-confirm-tone="primary" data-confirm-verb="Push update"
                               data-busy="Pushing to {{ $storeName }}">
                             @csrf
+                            <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
                             <x-ui.button type="submit">Push update to {{ $storeName }}</x-ui.button>
                         </form>
                         @if($live && $live['status'] === \Extensions\venta\Models\VentaListing::STATUS_ACTIVE)
@@ -160,6 +161,7 @@
                               data-confirm-tone="primary" data-confirm-verb="Push to {{ $storeName }}"
                               data-busy="Pushing to {{ $storeName }}">
                             @csrf
+                            <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
                             <x-ui.button type="submit" variant="primary">Push to {{ $storeName }}</x-ui.button>
                         </form>
                     </div>
@@ -180,6 +182,7 @@
     @endif
 
     <form id="listing-form" method="POST" action="{{ route('ext.venta.listings.update', [$setting->id, $product->product_id]) }}">
+        <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
         @csrf
         @method('PUT')
         <div class="fm-body">
@@ -295,7 +298,7 @@
                 ? 'Saving changes this record only. Push update sends it onto the live product.'
                 : 'Saving changes this record only. ' . $storeName . ' sees it when the product is pushed.') }}</span>
         <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ route('ext.venta.product-groups.index', $setting->id) }}">{{ $canManage ? 'Cancel' : 'Back' }}</a>
+            <a class="fm-cancel" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.venta.listings.index', $setting->id)) }}">{{ $canManage ? 'Cancel' : 'Back' }}</a>
             @if($canManage)
                 <x-ui.button type="submit" form="listing-form" variant="primary">Save listing</x-ui.button>
             @endif

@@ -541,7 +541,7 @@ class TikTokProductController extends Controller
         ]);
     }
 
-    public function pushDirect(int $productId, TikTokClient $client)
+    public function pushDirect(Request $request, int $productId, TikTokClient $client)
     {
         $c = $this->creds();
         if (!$c) {
@@ -568,7 +568,10 @@ class TikTokProductController extends Controller
             'sync_status' => 'pushed', 'last_pushed_at' => now(), 'push_error' => null,
         ]);
 
-        return redirect()->back()->with('status', 'Pushed to TikTok Shop as product ' . $outcome['product_id'] . '. It goes live once TikTok has reviewed it.');
+        // Accepted: back to the Listings page the operator came from, search and all (the owner, 2026-09-06).
+        $done = \App\Support\BackTo::safe($request->input('back'), url()->previous(route('ext.tiktok.products.index')));
+
+        return redirect()->to($done)->with('status', 'Pushed to TikTok Shop as product ' . $outcome['product_id'] . '. It goes live once TikTok has reviewed it.');
     }
 
     /**

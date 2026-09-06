@@ -1218,7 +1218,8 @@ class ShopeeProductController extends Controller
             $flash .= ' ' . $imageNote;
         }
 
-        return redirect()->back()->with('status', $flash);
+        // Accepted: back to the Listings page the operator came from, search and all (the owner, 2026-09-06).
+        return redirect()->to(\App\Support\BackTo::safe($request->input('back'), url()->previous(route('ext.shopee.products.index'))))->with('status', $flash);
     }
 
     // ── Bulk Push to Shopee ───────────────────────────────────────

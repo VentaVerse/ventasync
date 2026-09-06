@@ -156,6 +156,7 @@
                         <form method="POST" action="{{ route('ext.tiktok.products.push_direct', $product->product_id) }}"
                               data-confirm="Push this product to TikTok Shop now? It goes up with the settings and content saved on this page." data-confirm-tone="primary" data-confirm-verb="Push to TikTok Shop">
                             @csrf
+                            <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
                             <x-ui.button type="submit" variant="primary">Push to TikTok Shop</x-ui.button>
                         </form>
                     </div>
@@ -170,6 +171,7 @@
     @endif
 
     <form id="listing-form" method="POST" action="{{ route('ext.tiktok.listings.update', $product->product_id) }}">
+        <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
         @csrf
         @method('PUT')
         <div class="fm-body">
@@ -304,7 +306,7 @@
                 ? 'Saving changes this record only. Push update to TikTok Shop sends it onto the live product.'
                 : 'Saving changes this record only. TikTok Shop sees it when the product is pushed.') }}</span>
         <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ route('ext.tiktok.products.index') }}">{{ $canManage ? 'Cancel' : 'Back' }}</a>
+            <a class="fm-cancel" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.tiktok.products.index')) }}">{{ $canManage ? 'Cancel' : 'Back' }}</a>
             @if($canManage)
                 <x-ui.button type="submit" form="listing-form" variant="primary">Save listing</x-ui.button>
             @endif

@@ -1230,8 +1230,11 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             if ($isUpdate) {
                 // Refresh variant cache after update
                 $this->itemCache()->refreshListing($saved, $setting, $client);
-                return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-                    ->with('status', 'Product updated on Lazada successfully.');
+                // The same way back as a create: the Listings search the operator came from.
+                $done = \App\Support\BackTo::safe($request->input('back'),
+                    $request->boolean('push') ? route('ext.lazada.products.index') : url()->previous(route('ext.lazada.products.index')));
+
+                return redirect()->to($done)->with('status', 'Product updated on Lazada successfully.');
             }
 
             $itemId = $this->payload()->extractCreatedItemId($result);
@@ -1357,7 +1360,14 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 ->withErrors($rowErrors);
         }
 
-        return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('status', $line);
+        /* Accepted: back to the Listings page the operator came from, search
+         * and all (the owner, 2026-09-06). A push from the edit form (push=1) goes
+         * to the Listings page even without a remembered search; a push from
+         * the Listings page itself returns to it as before. */
+        $done = \App\Support\BackTo::safe($request->input('back'),
+            $request->boolean('push') ? route('ext.lazada.products.index') : url()->previous(route('ext.lazada.products.index')));
+
+        return redirect()->to($done)->with('status', $line);
     }
 
     /**
@@ -2693,7 +2703,10 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             $note = $ready && ! $ready['ready'] ? ' Still needed before a push: ' . implode('; ', $ready['missing']) . '.' : '';
         }
 
-        return redirect()->route('ext.lazada.products.edit', $listing->id)->with('status', 'Listing saved.' . $note);
+        // A plain save stays on the page and keeps the way back to the search.
+        $back = \App\Support\BackTo::safe($request->input('back'), '');
+
+        return redirect()->route('ext.lazada.products.edit', $back !== '' ? ['id' => $listing->id, 'back' => $back] : ['id' => $listing->id])->with('status', 'Listing saved.' . $note);
     }
 
     /**

@@ -153,7 +153,9 @@ class TikTokListingController extends Controller
             ]
         );
 
-        return redirect()->route('ext.tiktok.listings.edit', $productId)
+        $back = \App\Support\BackTo::safe($request->input('back'), '');
+
+        return redirect()->route('ext.tiktok.listings.edit', $back !== '' ? [$productId, 'back' => $back] : $productId)
             ->with('status', 'Listing saved. These settings drive the next push and price sync.');
     }
 

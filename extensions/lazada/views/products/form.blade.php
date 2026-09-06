@@ -331,6 +331,9 @@
         @if($mode === 'edit')
             @method('PUT')
         @endif
+        {{-- Where the operator came from (the Listings page with its search),
+             for Save and push and Cancel to return to. --}}
+        <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
 
         <div class="fm-body">
             <div class="fm-col fm-col--main">
@@ -691,7 +694,7 @@
             ? 'Nothing reaches Lazada until you push from the edit screen.'
             : 'Save listing keeps everything on this page. Save and push keeps it and sends the listing to Lazada.' }}</span>
         <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ route('ext.lazada.products.index') }}">Cancel</a>
+            <a class="fm-cancel" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.lazada.products.index')) }}">Cancel</a>
             <x-ui.button type="submit" form="lazada-listing" :variant="$mode === 'edit' ? 'secondary' : 'primary'">{{ $mode === 'create' ? 'Create listing' : 'Save listing' }}</x-ui.button>
             @if($mode === 'edit')
                 <x-ui.button type="submit" form="lazada-listing" name="push" value="1" variant="primary">{{ empty($listing->lazada_item_id) ? 'Save and push to Lazada' : 'Save and push the update' }}</x-ui.button>

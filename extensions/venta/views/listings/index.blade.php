@@ -204,7 +204,7 @@
             <th scope="col" class="cc-col-price x-td-num"><a class="x-th-sort x-th-sort--num" href="{{ $sortUrl('price') }}">Price @if($sort === 'price')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif</a></th>
             <th scope="col" class="cc-col-chanid">Store ID</th>
             <th scope="col" class="cc-col-sync">Listing</th>
-            <th scope="col" class="cc-col-err">Last push</th>
+            <th scope="col" class="cc-col-err">Last sync</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
@@ -224,7 +224,7 @@
                refreshed. Never refreshed reads as exactly that, not as a guess. */
             $rowLiveStatus = $listed ? ($listing?->live_status) : null;
             $attemptFailed = $attempt && in_array($attempt->sync_status, ['error', 'failed'], true);
-            $listingUrl = route('ext.venta.listings.edit', [$setting->id, $pid]);
+            $listingUrl = route('ext.venta.listings.edit', [$setting->id, $pid, 'back' => request()->getRequestUri()]);
         @endphp
         <tr>
             @if($canManage)
@@ -266,19 +266,22 @@
                     <x-ui.badge tone="neutral">Not listed</x-ui.badge>
                 @endif
             </td>
-            <td class="cc-col-err" data-label="Last push">
-                @if($attemptFailed)
-                    <span class="cc-err">{{ \Illuminate\Support\Str::limit((string) $attempt->push_error, 120) }}</span>
-                    @if($attempt->last_pushed_at)<span class="cc-when">{{ $attempt->last_pushed_at->diffForHumans() }}</span>@endif
-                @elseif($listing?->last_pushed_at)
-                    <span class="x-cell-muted">Pushed</span>
-                    <span class="cc-when">{{ $listing->last_pushed_at->diffForHumans() }} from its listing</span>
-                @elseif($attempt?->last_pushed_at)
-                    <span class="x-cell-muted">Pushed</span>
-                    <span class="cc-when">{{ $attempt->last_pushed_at->diffForHumans() }} from a group</span>
-                @else
-                    <span class="x-cell-muted">Never</span>
-                @endif
+            <td class="cc-col-err" data-label="Last sync">
+                {{-- The shared Last sync cell (partials.channel-last-sync), the
+                     drawing every other Listings page uses: when on one line,
+                     what it was on a caption (its listing, or a group push). --}}
+                @php
+                    if ($attemptFailed) {
+                        $ventaSync = ['tone' => 'failed', 'headline' => 'Last push' . ($attempt->last_pushed_at ? ' ' . $attempt->last_pushed_at->diffForHumans() : '') . ' failed:', 'detail' => (string) $attempt->push_error, 'at' => $attempt->last_pushed_at];
+                    } elseif ($listing?->last_pushed_at) {
+                        $ventaSync = ['tone' => 'ok', 'headline' => 'Synced ' . $listing->last_pushed_at->diffForHumans(), 'what' => 'listing', 'stale' => false, 'detail' => null, 'at' => $listing->last_pushed_at];
+                    } elseif ($attempt?->last_pushed_at) {
+                        $ventaSync = ['tone' => 'ok', 'headline' => 'Synced ' . $attempt->last_pushed_at->diffForHumans(), 'what' => 'group push', 'stale' => false, 'detail' => null, 'at' => $attempt->last_pushed_at];
+                    } else {
+                        $ventaSync = ['tone' => 'none', 'headline' => 'Never synced', 'detail' => null, 'at' => null];
+                    }
+                @endphp
+                @include('partials.channel-last-sync', ['sync' => $ventaSync])
             </td>
             <td class="x-td-actions">
                 @if($canManage || $canEditCatalog)

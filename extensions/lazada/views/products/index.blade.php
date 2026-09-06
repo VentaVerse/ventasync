@@ -440,9 +440,12 @@
 
             // A product with no listing row begins at the create form,
             // prefilled; one with a row opens it.
+            // The listing page carries this page's own URL (search, filters,
+            // page) as `back`, so Save and push and Cancel return here
+            // (the owner, 2026-09-06). App\Support\BackTo keeps it on this host.
             $editUrl = $listing
-                ? route('ext.lazada.products.edit', $listing->id)
-                : route('ext.lazada.products.create', ['product_id' => $pid]);
+                ? route('ext.lazada.products.edit', ['id' => $listing->id, 'back' => request()->getRequestUri()])
+                : route('ext.lazada.products.create', ['product_id' => $pid, 'back' => request()->getRequestUri()]);
 
             // What the operator is about to act on, for the confirms below.
             $rowLabel = $pName !== '' ? $pName : ($pSku !== '' ? $pSku : 'product ' . $pid);
