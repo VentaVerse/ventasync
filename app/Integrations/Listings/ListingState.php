@@ -48,7 +48,19 @@ final class ListingState
     public const ATTENTION = 'attention';
     public const UNKNOWN = 'unknown';
 
-    /** Gap codes a not_listed product can carry. Deep-links key on THESE, never on the label text. */
+    /**
+     * Gap codes a product can carry. Deep-links key on THESE, never on the
+     * label text.
+     *
+     * THE HONESTY RULE (the owner, 2026-09-06): "Ready" has to be absolutely
+     * sure. It means every check VentaSync runs before sending passes, and
+     * the push paths refuse through the SAME readiness computation, so a
+     * product that reads Ready can never be turned away by this side. What
+     * only the marketplace knows (a rule it never published, a quota, an
+     * image it dislikes) is not a readiness gap; it arrives as the push's
+     * failure and lives in the Last sync column. Any refusal this side
+     * could have known about and did not is a bug: add the gap.
+     */
     public const GAP_CATEGORY = 'category';
     public const GAP_SKU = 'sku';
     public const GAP_COURIERS = 'couriers';
@@ -56,10 +68,16 @@ final class ListingState
     public const GAP_SHEET = 'sheet';
     public const GAP_PARCEL = 'parcel';
     public const GAP_ATTRIBUTES = 'attributes';
+    public const GAP_DISABLED = 'disabled';
+    public const GAP_NAME = 'name';
+    public const GAP_DESCRIPTION = 'description';
+    public const GAP_PRICE = 'price';
+    public const GAP_VARIATIONS = 'variations';
 
     /**
      * @param list<string> $reasons  plain sentences for attention / drift
-     * @param list<array{code: string, label: string}> $missing  gaps before a push can succeed
+     * @param list<array{code: string, label: string}> $missing  gaps before a push can succeed;
+     *        for a listed product, before an update can (the update's own checklist)
      * @param ?string $attentionLabel  the channel's own word for an attention
      *        state ("Violation", "Rejected") - supplied by the channel engine,
      *        because only the channel knows its marketplace's vocabulary.
@@ -120,5 +138,11 @@ final class ListingState
     public function missingSummary(): string
     {
         return implode(', ', array_map(fn ($gap) => $gap['label'], $this->missing));
+    }
+
+    /** The Ready column's badge: [label, tone]. */
+    public function readyBadge(): array
+    {
+        return $this->ready ? ['Ready', 'success'] : ['Not ready', 'warning'];
     }
 }

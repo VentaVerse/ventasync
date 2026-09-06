@@ -194,6 +194,9 @@ class TikTokListingController extends Controller
             return redirect()->back()->with('error', 'Update failed: this listing still needs ' . implode(', ', $readiness['missing']) . '.');
         }
         $listing = TikTokListing::query()->where('product_id', $productId)->first();
+        // The group's presets fill the blanks, the way readiness judged it.
+        $inherit = app(\Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::class);
+        $listing = $inherit->fill($listing, $inherit->forProducts([$productId])[$productId] ?? null)['listing'];
         $attributes = app(TikTokAttributes::class);
         $template = $attributes->ensureTemplate((string) $listing->tiktok_category_id, $client, $c);
         $opts = [

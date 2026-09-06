@@ -48,13 +48,21 @@ class ShopeeListingStateTest extends TestCase
     {
         $pfx = (string) config('catalog.prefix');
 
-        return (int) DB::table($pfx . 'product')->insertGetId([
+        $id = (int) DB::table($pfx . 'product')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => $image, 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
             'manufacturer_id' => 0,
             'date_added' => now()->subDays(30), 'date_modified' => $modified ?? now()->subDays(30),
             'date_available' => now()->subDays(30),
         ]);
+        // A name and a description: Shopee refuses a push without them, so readiness asks (2026-09-06).
+        DB::table($pfx . 'product_description')->insert([
+            'product_id' => $id, 'language_id' => (int) config('catalog.default_language_id'),
+            'name' => 'Product ' . $sku, 'description' => 'A description.',
+            'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
+        ]);
+
+        return $id;
     }
 
     private function readyListing(int $productId, array $extra = []): ShopeeListing
@@ -339,8 +347,7 @@ class ShopeeListingStateTest extends TestCase
     {
         $pid = $this->product('FIRSTEVER');
         $pfx = (string) config('catalog.prefix');
-        DB::table($pfx . 'product_description')->insert([
-            'product_id' => $pid, 'language_id' => (int) config('catalog.default_language_id'),
+        DB::table($pfx . 'product_description')->where('product_id', $pid)->update([
             'name' => 'My very first product', 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
@@ -397,8 +404,7 @@ class ShopeeListingStateTest extends TestCase
     public function test_the_group_page_offers_the_toggle_the_listing_page_offers(): void
     {
         $pid = $this->product('TGL-GRP');
-        DB::table((string) config('catalog.prefix') . 'product_description')->insert([
-            'product_id' => $pid, 'language_id' => (int) config('catalog.default_language_id'),
+        DB::table((string) config('catalog.prefix') . 'product_description')->where('product_id', $pid)->update([
             'name' => 'Togglable in group', 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);

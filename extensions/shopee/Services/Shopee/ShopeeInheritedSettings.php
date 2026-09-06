@@ -4,6 +4,7 @@ namespace Extensions\shopee\Services\Shopee;
 
 use Extensions\shopee\Models\ShopeeListing;
 use Extensions\shopee\Models\ShopeeProductGroup;
+use Extensions\shopee\Models\ShopeeProductGroupAttribute;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -84,6 +85,22 @@ final class ShopeeInheritedSettings
         if ((int) ($copy->shopee_brand_id ?? 0) <= 0 && $group['brand_id']) {
             $copy->shopee_brand_id = $group['brand_id'];
             $inherited['brand'] = $group['group_name'];
+        }
+        /* The price rule and the attribute answers are presets too
+         * (2026-09-06, the Ready column): a listing with no rule of its own
+         * prices the way its group does, exactly as Lazada's builder has
+         * always done, and a listing's own answer to an attribute wins over
+         * the group's. Readiness and every push read the same filled copy. */
+        if ($copy->markup_percent === null && $copy->markup_fixed === null && ($group['markup_percent'] !== null || $group['markup_fixed'] !== null)) {
+            $copy->markup_percent = $group['markup_percent'];
+            $copy->markup_fixed = $group['markup_fixed'];
+            $inherited['price_rule'] = $group['group_name'];
+        }
+        $own = array_filter((array) ($copy->attribute_values ?? []), fn ($v) => trim((string) (is_array($v) ? implode('', $v) : $v)) !== '');
+        $groupAnswers = array_filter((array) ($group['attributes'] ?? []), fn ($v) => trim((string) $v) !== '');
+        if ($groupAnswers !== [] && array_diff_key($groupAnswers, $own) !== []) {
+            $copy->attribute_values = $own + $groupAnswers;
+            $inherited['attributes'] = $group['group_name'];
         }
 
         return ['listing' => $copy, 'inherited' => $inherited];

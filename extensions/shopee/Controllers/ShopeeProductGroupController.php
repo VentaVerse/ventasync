@@ -548,35 +548,6 @@ class ShopeeProductGroupController extends Controller
     }
 
     /**
-     * Build the `attribute_list` array Shopee's add_item / update_item expects.
-     *
-     * Reads the operator's per-attribute values from shopee_product_group_attributes
-     * (saved when the form is submitted), then resolves each one against the
-     * cached attribute tree in shopee_category_templates to figure out:
-     *   - the numeric attribute_id Shopee wants (template has it; our pivot uses
-     *     a human key);
-     *   - whether the attribute is enum (value_id picked from the template's
-     *     option list, original_value_name omitted) or free-text (value_id=0,
-     *     original_value_name carries the value).
-     *
-     * Skips attributes whose value is blank, Shopee's validation flags the
-     * mandatory ones it actually needs and stays quiet about the optional ones.
-     */
-    private function buildAttributeList(int $groupId, int $categoryId): array
-    {
-        if ($groupId <= 0 || $categoryId <= 0) {
-            return [];
-        }
-
-        $savedByKey = ShopeeProductGroupAttribute::query()
-            ->where('shopee_product_group_id', $groupId)
-            ->pluck('value', 'attribute_key')
-            ->toArray();
-
-        return $this->attributeListFromSaved($savedByKey, $categoryId);
-    }
-
-    /**
      * Resolve saved attribute values against the category's cached template
      * into the attribute_list shape add_item / update_item expect. Shared
      * with the LISTING pushes (#98), which hold their values on
@@ -1699,10 +1670,38 @@ class ShopeeProductGroupController extends Controller
         $errCount = 0;
         $errors = [];
 
+        /* THE GATE (the owner, 2026-09-06): the readiness the Ready column
+         * shows, judged on what THIS push sends - the group's category,
+         * couriers, price rule and attribute answers standing in for each
+         * listing's own - so a product that read Ready is never turned
+         * away here, and one that is not is named with what it needs. */
+        $groupAnswers = ShopeeProductGroupAttribute::query()
+            ->where('shopee_product_group_id', (int) $group->id)
+            ->pluck('value', 'attribute_key')->toArray();
+        $this->ensureTemplate((int) $group->shopee_category_id, $client); // a category never opened is read now
+        $readinessAll = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)->forProducts($productIds, [
+            'category_id' => (int) $group->shopee_category_id ?: null,
+            'logistic_ids' => $logisticIds,
+            'markup_percent' => $group->markup_percent !== null ? (float) $group->markup_percent : null,
+            'markup_fixed' => $group->markup_fixed !== null ? (float) $group->markup_fixed : null,
+            'attributes' => $groupAnswers,
+        ]);
+        $ownAnswers = ShopeeListing::query()->whereIn('product_id', $productIds)->get(['product_id', 'attribute_values'])
+            ->keyBy(fn ($l) => (int) $l->product_id);
+
         foreach ($productIds as $productId) {
             // Skip already linked
             if (ShopeeProductLink::query()->where('product_id', $productId)->exists()) {
                 $skipCount++;
+                continue;
+            }
+
+            $readiness = $readinessAll[$productId] ?? ['ready' => false, 'missing' => []];
+            if (!$readiness['ready']) {
+                $refusal = \App\Integrations\Listings\CatalogGaps::refusal($readiness);
+                $errors[] = "#{$productId}: {$refusal}";
+                $this->writeProductStatus($productId, ['sync_status' => 'error', 'push_error' => $refusal]);
+                $errCount++;
                 continue;
             }
 
@@ -1718,18 +1717,13 @@ class ShopeeProductGroupController extends Controller
                     'p.weight', 'p.length', 'p.width', 'p.height',
                 ]);
 
-            if (!$product || (int) $product->status === 0) {
+            if (!$product) {
                 $skipCount++;
                 continue;
             }
 
             $itemName = html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
             $description = trim(strip_tags(html_entity_decode($product->description ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8')));
-            if (trim($itemName) === '' || trim($description) === '' || (float) $product->price <= 0 || (float) $product->weight <= 0) {
-                $errors[] = "#{$productId}: Missing name/description/price/weight";
-                $errCount++;
-                continue;
-            }
 
             // Upload images
             $imagePaths = [];
@@ -1740,12 +1734,6 @@ class ShopeeProductGroupController extends Controller
                 ->pluck('image')
                 ->toArray();
             $imagePaths = array_merge($imagePaths, $additionalImages);
-
-            if (empty($imagePaths)) {
-                $errors[] = "#{$productId}: No images";
-                $errCount++;
-                continue;
-            }
 
             $imageIds = app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class)
                 ->uploadImages($client, $auth, $imagePaths)['ids'];
@@ -1800,28 +1788,16 @@ class ShopeeProductGroupController extends Controller
             //   3) add_model only for appending later
             // Keep item_sku as the parent SKU for both flavours.
 
-            $attributeList = $this->buildAttributeList(
-                (int) $group->id,
-                (int) $group->shopee_category_id
-            );
+            /* The listing's own attribute answers over the group's, the
+             * same merge readiness judged (2026-09-06). */
+            $own = array_filter((array) ($ownAnswers->get($productId)?->attribute_values ?? []), fn ($v) => trim((string) (is_array($v) ? implode('', $v) : $v)) !== '');
+            $attributeList = $this->attributeListFromSaved($own + $groupAnswers, (int) $group->shopee_category_id);
             if (!empty($attributeList)) {
                 $payload['attribute_list'] = $attributeList;
             }
 
-            /* #192: knowable variation refusals (the 5x price ratio, the
-             * 50-variation cap) stop this product BEFORE its item exists -
-             * a parent that goes up and then loses its variations is a
-             * half-listed item selling the wrong thing (#2062). */
-            $gPct = (float) ($group->markup_percent ?? 0);
-            $gFixed = (float) ($group->markup_fixed ?? 0);
-            $refusal = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)
-                ->refusalFor($productId, fn (float $core) => round($core + ($core * $gPct / 100) + $gFixed, 2));
-            if ($refusal !== null) {
-                $errors[] = "#{$productId}: not pushed - {$refusal}";
-                $this->writeProductStatus($productId, ['sync_status' => 'error', 'push_error' => 'Not pushed - ' . $refusal]);
-                $errCount++;
-                continue;
-            }
+            /* #192's variation refusals are readiness gaps, judged at the
+             * gate above before anything was uploaded. */
 
             $path = '/api/v2/product/add_item';
             $result = $client->shopPost(

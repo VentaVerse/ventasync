@@ -194,6 +194,7 @@
             <th scope="col" class="cc-col-price x-td-num">Price</th>
             <th scope="col" class="cc-col-chanid">Venta ID</th>
             <th scope="col" class="cc-col-stat">Catalog</th>
+            @include('partials.channel-ready-head')
             <th scope="col" class="cc-col-sync">Push</th>
             <th scope="col" class="cc-col-err">Last push</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
@@ -292,6 +293,9 @@
                 @else
                     <span class="x-cell-muted">Disabled</span>
                 @endif
+            </td>
+            <td class="cc-col-ready" data-label="Ready">
+                @include('partials.channel-ready', ['state' => ($listingStates ?? [])[(int) $p->product_id] ?? null])
             </td>
 
             <td class="cc-col-sync" data-label="Push">

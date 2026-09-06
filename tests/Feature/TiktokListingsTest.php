@@ -176,7 +176,7 @@ class TiktokListingsTest extends TestCase
         $r->assertSee('Live');                        // tt-live, from the mirror
         $r->assertSee('Not found on TikTok Shop');    // tt-gone, from the mirror
         $r->assertSee('Not checked yet');             // tt-new, never refreshed
-        $r->assertSee('Ready to push');
+        $r->assertSee('>Ready<', false);
         // The bare record inherits its group's category (a group is a preset
         // the product inherits, 2026-09-05), so nothing here lacks one.
         $r->assertDontSee('Missing: a TikTok category');
@@ -310,12 +310,16 @@ class TiktokListingsTest extends TestCase
 
     public function test_an_unready_push_is_refused_before_any_call(): void
     {
+        // A group is a preset the product inherits, so the seeded group's
+        // category makes a rowless product pushable; a disabled catalog
+        // product is what no push accepts (the Ready column's gate, 2026-09-06).
         $productId = $this->seedProduct('U');
+        DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $productId)->update(['status' => 0]);
 
         $r = $this->actingAs($this->manager())->post(route('ext.tiktok.products.push_direct', $productId));
 
         $r->assertSessionHas('error');
-        $this->assertStringContainsString('a TikTok category', session('error'));
+        $this->assertStringContainsString('the catalog product enabled (it is disabled)', session('error'));
         $this->assertSame([], $this->callsFor('POST', '/product/202309/products'));
     }
 

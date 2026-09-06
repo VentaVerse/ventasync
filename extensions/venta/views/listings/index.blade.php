@@ -208,6 +208,7 @@
             <th scope="col" class="cc-col-qty x-td-num"><a class="x-th-sort x-th-sort--num" href="{{ $sortUrl('quantity') }}">Stock @if($sort === 'quantity')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif</a></th>
             <th scope="col" class="cc-col-price x-td-num"><a class="x-th-sort x-th-sort--num" href="{{ $sortUrl('price') }}">Price @if($sort === 'price')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif</a></th>
             <th scope="col" class="cc-col-chanid">Store ID</th>
+            @include('partials.channel-ready-head')
             <th scope="col" class="cc-col-sync">Listing</th>
             <th scope="col" class="cc-col-err">Last sync</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
@@ -261,6 +262,9 @@
             <td class="cc-col-price x-td-num" data-label="Price"><x-money :php="(float) $p->price" /></td>
             <td class="cc-col-chanid" data-label="Store ID">
                 @if($listed)<span class="x-num">{{ $link->venta_product_id }}</span>@else<span class="x-cell-muted">None</span>@endif
+            </td>
+            <td class="cc-col-ready" data-label="Ready">
+                @include('partials.channel-ready', ['state' => ($listingStates ?? [])[(int) $p->product_id] ?? null])
             </td>
             <td class="cc-col-sync" data-label="Listing">
                 {{-- The engine's one state (partials.channel-listing-state), the

@@ -27,10 +27,10 @@ final class LazadaInheritedSettings
         }
 
         $rows = DB::table('lazada_product_group_products as pv')
-            ->joinSub(LazadaProductGroup::query()->select(['id', 'name', 'lazada_category_id', 'brand_id', 'brand_name_override']), 'g', 'g.id', '=', 'pv.lazada_product_group_id')
+            ->joinSub(LazadaProductGroup::query()->select(['id', 'name', 'lazada_category_id', 'brand_id', 'brand_name_override', 'markup_fixed', 'markup_percent']), 'g', 'g.id', '=', 'pv.lazada_product_group_id')
             ->whereIn('pv.product_id', $productIds)
             ->orderBy('pv.id')
-            ->get(['pv.product_id', 'g.id as group_id', 'g.name', 'g.lazada_category_id', 'g.brand_id', 'g.brand_name_override']);
+            ->get(['pv.product_id', 'g.id as group_id', 'g.name', 'g.lazada_category_id', 'g.brand_id', 'g.brand_name_override', 'g.markup_fixed', 'g.markup_percent']);
 
         $out = [];
         foreach ($rows as $row) {
@@ -44,7 +44,21 @@ final class LazadaInheritedSettings
                 'category_id' => (int) $row->lazada_category_id ?: null,
                 'brand_id' => (int) ($row->brand_id ?? 0) ?: null,
                 'brand_name' => trim((string) ($row->brand_name_override ?? '')) !== '' ? (string) $row->brand_name_override : null,
+                'markup_fixed' => $row->markup_fixed !== null ? (float) $row->markup_fixed : null,
+                'markup_percent' => $row->markup_percent !== null ? (float) $row->markup_percent : null,
+                'attributes' => [],
             ];
+        }
+        /* The group's attribute answers ride along (the owner, 2026-09-06, the
+         * Ready column): the group push sends them over the listing's, so
+         * readiness counts an attribute answered when either has it. */
+        $groupIds = array_values(array_unique(array_map(fn ($g) => $g['group_id'], $out)));
+        if ($groupIds !== []) {
+            $answers = \Extensions\lazada\Models\LazadaProductGroupAttribute::query()->whereIn('lazada_product_group_id', $groupIds)
+                ->get(['lazada_product_group_id', 'attribute_key', 'value'])->groupBy('lazada_product_group_id');
+            foreach ($out as $pid => $g) {
+                $out[$pid]['attributes'] = ($answers->get($g['group_id']) ?? collect())->pluck('value', 'attribute_key')->all();
+            }
         }
 
         return $out;

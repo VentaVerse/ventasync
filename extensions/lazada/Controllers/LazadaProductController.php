@@ -1145,31 +1145,33 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         // Determine create vs update
         $isUpdate = !empty($listing->lazada_item_id) && empty($listing->lazada_deleted_at);
 
-        if (empty($listing->primary_category_id)) {
-            $this->persistProductSyncStatus($saved, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'MISSING_PRIMARY_CATEGORY', 'message' => 'Primary category is required before upload.']]);
-            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-                ->with('error', 'Upload: Primary Category is required before uploading.');
+        /* THE GATE (the owner, 2026-09-06): the one readiness computation the
+         * Ready column shows is the one this upload refuses through, so a
+         * listing that read Ready is never turned away here. The category,
+         * the enabled flag, the SKU, the image, the template's required
+         * attributes and the variation rules are all gaps there; the
+         * builder's own refusals below stay as the last defence and can
+         * only repeat what readiness already said. */
+        // A category never opened is read now, so the gate judges the real sheet.
+        if ($listing->primary_category_id && !\Extensions\lazada\Models\LazadaCategoryTemplate::query()->where('region', (string) $setting->region)->where('primary_category_id', (int) $listing->primary_category_id)->whereNotNull('template_body')->exists()) {
+            $this->readCategoryTemplate((int) $listing->primary_category_id, $client);
         }
+        $readiness = app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$saved]))[(int) $saved->id] ?? ['ready' => false, 'missing' => [], 'gaps' => []];
+        if (!$readiness['ready']) {
+            $refusal = \App\Integrations\Listings\CatalogGaps::refusal($readiness, $isUpdate ? 'update' : 'push');
+            $this->persistProductSyncStatus($saved, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'NOT_READY', 'message' => $refusal]]);
+            LazadaProduct::recordPushFailure((int) $listing->product_id, $refusal);
+            // Each blank required attribute lands on its own row, in the builder's words.
+            $rowErrors = [];
+            foreach ($readiness['gaps'] ?? [] as $gap) {
+                foreach ((array) ($gap['keys'] ?? []) as $key => $name) {
+                    $rowErrors['attributes.' . $key] = $name . ' is mandatory.';
+                }
+            }
 
-        // Validate that the ERP product has a SKU (or model as fallback).
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('error', $refusal)->withErrors($rowErrors);
+        }
         $pfx = (string) config('catalog.prefix');
-        $erpProduct = DB::table($pfx . 'product')->where('product_id', (int) $listing->product_id)->first(['sku', 'model', 'status']);
-
-        if ((int) ($erpProduct->status ?? 1) === 0) {
-            $this->persistProductSyncStatus($saved, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'PRODUCT_DISABLED', 'message' => 'ERP product is disabled. Enable it before uploading.']]);
-            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-                ->with('error', 'Upload: ERP product is disabled. Enable it before uploading to Lazada.');
-        }
-
-        $erpSku = trim((string) ($erpProduct->sku ?? ''));
-        if ($erpSku === '') {
-            $erpSku = trim((string) ($erpProduct->model ?? ''));
-        }
-        if ($erpSku === '') {
-            $this->persistProductSyncStatus($saved, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'MISSING_SKU', 'message' => 'Product SKU is required. Please set a SKU (or Model) in the ERP product first.']]);
-            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-                ->with('error', 'Upload: Product SKU is required. Please set a SKU (or Model) in the core product first.');
-        }
 
         // Build payload from listing mapping. If mapping is incomplete, we do not send an invalid payload.
         try {
@@ -2700,7 +2702,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
      *
      * @return array{ok: bool, template: ?LazadaCategoryTemplate, message: string}
      */
-    private function readCategoryTemplate(int $categoryId, LazadaClient $client): array
+    public function readCategoryTemplate(int $categoryId, LazadaClient $client): array
     {
         $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);

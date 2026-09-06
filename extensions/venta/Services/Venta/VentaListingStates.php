@@ -39,6 +39,7 @@ class VentaListingStates
         $listings = VentaListing::query()->where('venta_setting_id', $this->storeId)->whereIn('product_id', $productIds)->get()->keyBy(fn ($l) => (int) $l->product_id);
         $products = DB::table($pfx . 'product')->whereIn('product_id', $productIds)->get(['product_id', 'sku', 'model', 'image', 'date_modified'])->keyBy('product_id');
         $attempts = $this->latestAttempts($productIds);
+        $readiness = VentaListingReadiness::forProducts($productIds);
 
         $out = [];
         foreach ($productIds as $pid) {
@@ -52,15 +53,11 @@ class VentaListingStates
                 $failedAt = $attempt->last_pushed_at ? Carbon::parse($attempt->last_pushed_at) : null;
                 $failure[] = 'Last push' . ($failedAt ? ' ' . $failedAt->diffForHumans() : '') . ' failed: ' . trim((string) $attempt->push_error);
             }
+            // The Ready column's answer: the push's own checklist, for a
+            // product on the store and one not yet on it alike (2026-09-06).
+            $r = $readiness[$pid] ?? ['ready' => false, 'gaps' => []];
             if (! $link) {
-                $gaps = [];
-                if (! $prod || trim((string) ($prod->sku ?: $prod->model ?: '')) === '') {
-                    $gaps[] = ['code' => ListingState::GAP_SKU, 'label' => 'a SKU on the catalog product'];
-                }
-                if (! $prod || trim((string) $prod->image) === '') {
-                    $gaps[] = ['code' => ListingState::GAP_IMAGE, 'label' => 'a product image on the catalog product'];
-                }
-                $out[$pid] = new ListingState(state: ListingState::NOT_LISTED, reasons: $failure, ready: $gaps === [], missing: $gaps, pushedAt: $pushedAt);
+                $out[$pid] = new ListingState(state: ListingState::NOT_LISTED, reasons: $failure, ready: (bool) $r['ready'], missing: $r['gaps'], pushedAt: $pushedAt);
                 continue;
             }
             $raw = $listing?->live_status !== null ? strtolower((string) $listing->live_status) : null;
@@ -83,7 +80,7 @@ class VentaListingStates
             if ($extra !== null) {
                 $reasons[] = $extra;
             }
-            $out[$pid] = new ListingState(state: $state, inSync: $inSync, reasons: $reasons, checkedAt: $checkedAt, pushedAt: $pushedAt, channelStatusRaw: $raw, attentionLabel: $attentionLabel);
+            $out[$pid] = new ListingState(state: $state, inSync: $inSync, reasons: $reasons, ready: (bool) $r['ready'], missing: $r['gaps'], checkedAt: $checkedAt, pushedAt: $pushedAt, channelStatusRaw: $raw, attentionLabel: $attentionLabel);
         }
 
         return $out;

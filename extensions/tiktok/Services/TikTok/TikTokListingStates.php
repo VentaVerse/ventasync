@@ -101,10 +101,10 @@ class TikTokListingStates
             ->whereIn('product_id', $productIds)
             ->pluck('date_modified', 'product_id');
 
-        $unlinked = array_values(array_filter($productIds, function ($id) use ($listings, $pivotTruth) {
-            return !($listings->get($id)?->tiktok_product_id) && !$pivotTruth->has($id);
-        }));
-        $readiness = $this->readiness->forProducts($unlinked);
+        /* Readiness for every product, linked or not (the owner, 2026-09-06,
+         * the Ready column): a listed product answers the update's own
+         * checklist. */
+        $readiness = $this->readiness->forProducts($productIds);
 
         $out = [];
         foreach ($productIds as $productId) {
@@ -164,10 +164,13 @@ class TikTokListingStates
                 $reasons[] = $extraReason;
             }
 
+            $r = $readiness[$productId] ?? ['ready' => false, 'gaps' => []];
             $out[$productId] = new ListingState(
                 state: $state,
                 inSync: $inSync,
                 reasons: $reasons,
+                ready: (bool) $r['ready'],
+                missing: $r['gaps'] ?? [],
                 checkedAt: $checkedAt,
                 pushedAt: $pushedAt,
                 channelStatusRaw: $raw,

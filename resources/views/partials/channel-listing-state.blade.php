@@ -8,12 +8,7 @@
     <x-ui.badge tone="neutral" title="Press Refresh from the store to read its status">{{ $st->label() }}</x-ui.badge>
 @elseif($st->state === \App\Integrations\Listings\ListingState::NOT_LISTED)
     <x-ui.badge :tone="$st->tone()">{{ $st->label() }}</x-ui.badge>
-    @if($st->ready)
-        <span class="cc-checked">Ready to push</span>
-    @else
-        <span class="cc-checked"><x-ui.badge tone="warning">Not ready</x-ui.badge>
-            <x-ui.hint label="What is missing before a push">Missing: {{ $st->missingSummary() }}</x-ui.hint></span>
-    @endif
+    {{-- Whether a push would pass is the Ready column's (partials.channel-ready). --}}
     @if($st->reasons)
         <x-ui.hint label="What the store said">{{ implode(' ', $st->reasons) }}</x-ui.hint>
     @endif

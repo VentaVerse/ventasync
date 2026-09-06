@@ -107,7 +107,8 @@ class ShopeeReadinessTest extends TestCase
         ]);
         DB::table($pfx . 'product_description')->insert([
             'product_id' => $productId, 'language_id' => $langId,
-            'name' => $name, 'description' => '',
+            // A description: Shopee refuses a push without one, so readiness asks (2026-09-06).
+            'name' => $name, 'description' => 'A description.',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
 
@@ -227,7 +228,7 @@ class ShopeeReadinessTest extends TestCase
         $r = $this->actingAs($this->manager())->get(route('ext.shopee.products.index'));
 
         $r->assertOk();
-        $r->assertSee('Ready to push');
+        $r->assertSee('>Ready<', false);
         $r->assertSee('Missing:');
         $r->assertSee('a Shopee category');
     }

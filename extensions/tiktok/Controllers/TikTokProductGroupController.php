@@ -1007,6 +1007,16 @@ class TikTokProductGroupController extends Controller
         $opts = $this->groupPushOptions($group, $c);
         $pusher = app(TikTokProductPush::class);
 
+        /* THE GATE (the owner, 2026-09-06): the readiness the Ready column
+         * shows is the one this push refuses through, and the attribute
+         * answers it judged (the listing's own over the group's) are the
+         * ones sent. */
+        $attributeService = app(TikTokAttributes::class);
+        $groupRows = $attributeService->rows($attributeService->ensureTemplate((string) $group->tiktok_category_id, $client, $c));
+        $readinessAll = app(\Extensions\tiktok\Services\TikTok\TikTokListingReadiness::class)->forProducts($pivotRows->pluck('product_id')->map(fn ($v) => (int) $v)->all());
+        $groupAnswers = $group->attributes()->pluck('value', 'attribute_key')->all();
+        $ownAnswers = TikTokListing::query()->whereIn('product_id', $pivotRows->pluck('product_id')->all())->get(['product_id', 'attribute_values'])->keyBy(fn ($l) => (int) $l->product_id);
+
         $created = 0;
         $skipped = 0;
         $failed = 0;
@@ -1029,6 +1039,17 @@ class TikTokProductGroupController extends Controller
                 $failed++;
                 continue;
             }
+
+            $readiness = $readinessAll[(int) $pivot->product_id] ?? ['ready' => false, 'missing' => []];
+            if (!$readiness['ready']) {
+                $refusal = \App\Integrations\Listings\CatalogGaps::refusal($readiness);
+                $pivot->update(['sync_status' => 'error', 'push_error' => $refusal]);
+                TikTokListing::recordPushFailure((int) $pivot->product_id, $refusal);
+                $failed++;
+                continue;
+            }
+            $own = array_filter((array) ($ownAnswers->get((int) $pivot->product_id)?->attribute_values ?? []), fn ($v) => trim((string) (is_array($v) ? implode('', $v) : $v)) !== '');
+            $opts['attributes'] = $attributeService->payload($groupRows, $own + $groupAnswers);
 
             $outcome = $pusher->create($erp, $opts, $c, $client);
             if ($outcome['ok']) {

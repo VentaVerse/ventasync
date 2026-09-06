@@ -550,12 +550,14 @@ class TikTokProductController extends Controller
         if ($this->truthFor($productId)) {
             return redirect()->back()->with('error', 'Push failed: this product is already on TikTok Shop. Use Update on TikTok Shop for it.');
         }
+        // The options read the category's sheet first, so the gate judges the real one.
+        $opts = $this->listingPushOptions($productId, $c);
         $readiness = app(TikTokListingReadiness::class)->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => ['a TikTok category']];
         if (!$readiness['ready']) {
-            return redirect()->back()->with('error', 'Push failed: this listing still needs ' . implode(', ', $readiness['missing']) . '. Set what is missing on its listing page and save.');
+            return redirect()->back()->with('error', \App\Integrations\Listings\CatalogGaps::refusal($readiness));
         }
 
-        $outcome = app(TikTokProductPush::class)->create($this->erpProduct($productId), $this->listingPushOptions($productId, $c), $c, $client);
+        $outcome = app(TikTokProductPush::class)->create($this->erpProduct($productId), $opts, $c, $client);
         if (!$outcome['ok']) {
             // One latest error per product (the owner, 2026-09-05).
             TikTokListing::recordPushFailure($productId, (string) $outcome['message']);
@@ -935,13 +937,12 @@ class TikTokProductController extends Controller
     /** The push settings from the product's OWN listing record. */
     private function listingPushOptions(int $productId, array $c): array
     {
-        $listing = TikTokListing::query()->where('product_id', $productId)->first();
         /* A group is a preset the product inherits (the owner, 2026-09-05): a
-         * blank category is filled from the group, in memory only. */
-        if ($listing) {
-            $inherit = app(\Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::class);
-            $listing = $inherit->fill($listing, $inherit->forProducts([$productId])[$productId] ?? null)['listing'];
-        }
+         * blank category is filled from the group, in memory only - for a
+         * product with no row yet as well, the way readiness judges it. */
+        $listing = TikTokListing::query()->where('product_id', $productId)->first() ?? (new TikTokListing())->forceFill(['product_id' => $productId]);
+        $inherit = app(\Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::class);
+        $listing = $inherit->fill($listing, $inherit->forProducts([$productId])[$productId] ?? null)['listing'];
         $service = app(TikTokAttributes::class);
         $template = $listing && $listing->tiktok_category_id
             ? $service->ensureTemplate((string) $listing->tiktok_category_id, app(TikTokClient::class), $c)

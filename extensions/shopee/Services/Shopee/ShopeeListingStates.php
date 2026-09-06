@@ -191,8 +191,11 @@ class ShopeeListingStates
             ->whereIn('product_id', $productIds)
             ->pluck('date_modified', 'product_id');
 
-        $unlinked = array_values(array_filter($productIds, fn ($id) => !$links->has($id)));
-        $readiness = $this->readiness->forProducts($unlinked);
+        /* Readiness for every product, linked or not (the owner, 2026-09-06,
+         * the Ready column): a listed product answers the update's own
+         * checklist, so Ready means the next push, whichever verb, passes
+         * every check this side can run. */
+        $readiness = $this->readiness->forProducts($productIds);
 
         $out = [];
         foreach ($productIds as $productId) {
@@ -260,10 +263,13 @@ class ShopeeListingStates
                 $reasons[] = $extraReason;
             }
 
+            $r = $readiness[$productId] ?? ['ready' => false, 'gaps' => []];
             $out[$productId] = new ListingState(
                 state: $state,
                 inSync: $inSync,
                 reasons: $reasons,
+                ready: (bool) $r['ready'],
+                missing: $r['gaps'] ?? [],
                 checkedAt: $checkedAt,
                 pushedAt: $pushedAt,
                 channelStatusRaw: $worst,

@@ -239,6 +239,7 @@
             <th scope="col" class="cc-col-price x-td-num">Price</th>
             <th scope="col" class="cc-col-chanid">Shopee ID</th>
             <th scope="col" class="cc-col-stat">Catalog</th>
+            @include('partials.channel-ready-head')
             <th scope="col" class="cc-col-sync">Listing</th>
             <th scope="col" class="cc-col-err">Last sync</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
@@ -364,6 +365,9 @@
 
             <td class="cc-col-stat" data-label="Catalog">
                 <x-ui.badge :tone="(int) $p->status === 1 ? 'success' : 'neutral'">{{ (int) $p->status === 1 ? 'Enabled' : 'Disabled' }}</x-ui.badge>
+            </td>
+            <td class="cc-col-ready" data-label="Ready">
+                @include('partials.channel-ready', ['state' => ($listingStates ?? [])[(int) $p->product_id] ?? null])
             </td>
 
             <td class="cc-col-sync" data-label="Listing">

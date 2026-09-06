@@ -44,6 +44,8 @@ class ShopeeVariationPushTest extends TestCase
         $this->app->register(\Extensions\shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
         $this->artisan('permissions:sync-catalogue');
+        // The category's sheet is cached: a push judges it, and refuses without it (2026-09-06).
+        \Extensions\shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 106755], ['attributes' => ['attribute_list' => []], 'fetched_at' => now()]);
 
         ShopeeSetting::query()->create([
             'partner_id' => 1001, 'partner_key' => 'k', 'shop_id' => 2002,

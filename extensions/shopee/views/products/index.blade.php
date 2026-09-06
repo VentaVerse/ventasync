@@ -285,6 +285,7 @@
             </th>
             <th scope="col" class="cc-col-chanid">Shopee ID</th>
             <th scope="col" class="cc-col-stat">Catalog</th>
+            @include('partials.channel-ready-head')
             <th scope="col" class="cc-col-sync">Listing</th>
             <th scope="col" class="cc-col-err">Last sync</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
@@ -374,6 +375,9 @@
             <td class="cc-col-stat" data-label="Catalog">
                 <x-ui.badge :tone="(int) $p->status === 1 ? 'success' : 'neutral'">{{ (int) $p->status === 1 ? 'Enabled' : 'Disabled' }}</x-ui.badge>
             </td>
+            <td class="cc-col-ready" data-label="Ready">
+                @include('partials.channel-ready', ['state' => ($listingStates ?? [])[(int) $p->product_id] ?? null])
+            </td>
 
             <td class="cc-col-sync" data-label="Listing">
                 {{-- ONE state, from the engine (Phase B, #184). This cell
@@ -393,14 +397,7 @@
                     <x-ui.badge tone="neutral" title="Press Refresh from Shopee to read its status">{{ $rowState->label() }}</x-ui.badge>
                 @elseif($rowState->state === \App\Integrations\Listings\ListingState::NOT_LISTED)
                     <x-ui.badge :tone="$rowState->tone()">{{ $rowState->label() }}</x-ui.badge>
-                    {{-- The answer BEFORE the push is pressed (#101), from
-                         the same computation every other surface uses. --}}
-                    @if($rowState->ready)
-                        <span class="cc-checked">Ready to push</span>
-                    @else
-                        <span class="cc-checked"><x-ui.badge tone="warning">Not ready</x-ui.badge>
-                            <x-ui.hint label="What is missing before a push">Missing: {{ $rowState->missingSummary() }}</x-ui.hint></span>
-                    @endif
+                    {{-- Whether a push would pass is the Ready column's. --}}
                 @else
                     {{-- The title rides a wrapping span: Blade cannot compile
                          an @if inside a component tag's attribute list. --}}

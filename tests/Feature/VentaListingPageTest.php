@@ -380,9 +380,9 @@ class VentaListingPageTest extends TestCase
         $this->actingAs($this->manager())->post(route('ext.venta.products.add_to_store', [$store->id, $nowhere]))->assertRedirect();
         $this->assertDatabaseHas('venta_listings', ['venta_setting_id' => $store->id, 'product_id' => $nowhere]);
         $page = $this->actingAs($this->manager())->get(route('ext.venta.listings.index', $store->id))->assertOk();
-        // No image on the catalog product: the engine says so before a push, the way every channel's cell does.
-        $page->assertSee('Not ready');
-        $page->assertSee('a product image on the catalog product');
+        // Enabled with a SKU is all the store's push refuses on, so the Ready column says Ready (2026-09-06); the image is the store's to want.
+        $page->assertSee('>Ready<', false);
+        $page->assertDontSee('a product image on the catalog product');
         $page->assertSee('Remove from this store');
 
         // A linked product reads Live through the shared cell; the core grid's source agrees.

@@ -242,6 +242,7 @@
             <th scope="col" class="cc-col-qty x-td-num"><a class="x-th-sort x-th-sort--num" href="{{ $sortUrl('quantity') }}">Stock @if($sort === 'quantity')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif</a></th>
             <th scope="col" class="cc-col-price x-td-num"><a class="x-th-sort x-th-sort--num" href="{{ $sortUrl('price') }}">Price @if($sort === 'price')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif</a></th>
             <th scope="col" class="cc-col-chanid">TikTok ID</th>
+            @include('partials.channel-ready-head')
             <th scope="col" class="cc-col-sync">Listing</th>
             <th scope="col" class="cc-col-err">Last sync</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
@@ -306,6 +307,9 @@
             <td class="cc-col-chanid" data-label="TikTok ID">
                 @if($listed)<span class="x-num">{{ $ttId }}</span>@else<span class="x-cell-muted">None</span>@endif
             </td>
+            <td class="cc-col-ready" data-label="Ready">
+                @include('partials.channel-ready', ['state' => ($listingStates ?? [])[(int) $p->product_id] ?? null])
+            </td>
             <td class="cc-col-sync" data-label="Listing">
                 {{-- The engine's answer, rendered verbatim. Never checked
                      reads as exactly that, not as a guess. --}}
@@ -319,12 +323,7 @@
                     <x-ui.badge tone="neutral" title="Press Refresh from TikTok Shop to read its status">{{ $rowState->label() }}</x-ui.badge>
                 @elseif($rowState->state === $stateClass::NOT_LISTED)
                     <x-ui.badge :tone="$rowState->tone()">{{ $rowState->label() }}</x-ui.badge>
-                    @if($rowState->ready)
-                        <span class="cc-checked">Ready to push</span>
-                    @else
-                        <span class="cc-checked"><x-ui.badge tone="warning">Not ready</x-ui.badge>
-                            <x-ui.hint label="What is missing before a push">Missing: {{ $rowState->missingSummary() }}</x-ui.hint></span>
-                    @endif
+                    {{-- Whether a push would pass is the Ready column's. --}}
                 @else
                     {{-- The title rides a wrapping span: Blade cannot compile
                          an @if inside a component tag's attribute list. --}}

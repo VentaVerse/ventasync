@@ -388,6 +388,7 @@
                     @if($sort === 'lazada_item_id')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
+            @include('partials.channel-ready-head')
             <th scope="col" class="cc-col-sync">
                 <a class="x-th-sort" href="{{ $sortUrl('lazada_status') }}">
                     Listing
@@ -515,6 +516,9 @@
                     <span class="x-cell-muted">None</span>
                 @endif
             </td>
+            <td class="cc-col-ready" data-label="Ready">
+                @include('partials.channel-ready', ['state' => $rowState])
+            </td>
 
 
             <td class="cc-col-sync" data-label="Listing">
@@ -533,14 +537,7 @@
                     <x-ui.badge tone="neutral" title="Press Refresh from Lazada to read its status">{{ $rowState->label() }}</x-ui.badge>
                 @elseif($rowState->state === $stateClass::NOT_LISTED)
                     <x-ui.badge :tone="$rowState->tone()">{{ $rowState->label() }}</x-ui.badge>
-                    {{-- The answer BEFORE the push is pressed (#101), from
-                         the same computation every other surface uses. --}}
-                    @if($rowState->ready)
-                        <span class="cc-checked">Ready to push</span>
-                    @else
-                        <span class="cc-checked"><x-ui.badge tone="warning">Not ready</x-ui.badge>
-                            <x-ui.hint label="What is missing before a push">Missing: {{ $rowState->missingSummary() }}</x-ui.hint></span>
-                    @endif
+                    {{-- Whether a push would pass is the Ready column's. --}}
                 @else
                     {{-- The title rides a wrapping span: Blade cannot compile
                          an @if inside a component tag's attribute list. --}}

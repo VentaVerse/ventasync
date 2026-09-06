@@ -60,7 +60,7 @@ class LazadaAttributeAutoFillTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    private function seedProduct(string $name, string $sku, string $description = ''): int
+    private function seedProduct(string $name, string $sku, string $description = 'A real description.'): int
     {
         $pfx = (string) config('catalog.prefix');
         $productId = DB::table($pfx . 'product')->insertGetId([
@@ -355,7 +355,7 @@ class LazadaAttributeAutoFillTest extends TestCase
             ->assertRedirect(route('ext.lazada.products.edit', $listing->id));
         $r->assertSessionHasErrors(['attributes.Musical_Instrument_Type']);
         $r->assertSessionMissing('status');
-        $this->assertStringContainsString('Musical_Instrument_Type is mandatory', (string) session('error'));
+        $this->assertStringContainsString('Musical_Instrument_Type', (string) session('error'));
         \Illuminate\Support\Facades\Http::assertNothingSent();
         $html = $this->actingAs($user)->withSession(['errors' => session('errors')])->get(route('ext.lazada.products.edit', $listing->id))->assertOk()->getContent();
         $this->assertStringContainsString('Musical_Instrument_Type is mandatory', $html);

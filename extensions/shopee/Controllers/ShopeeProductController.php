@@ -871,6 +871,24 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', 'Push failed: Product already listed on Shopee (Item ID: ' . $existingLink->shopee_item_id . ').');
         }
 
+        /* THE GATE (the owner, 2026-09-06): the one readiness computation the
+         * Ready column shows is the one this push refuses through, so a
+         * product that read Ready is never turned away here. Every check
+         * this path used to make by hand (disabled, name, description,
+         * price, parcel, images, settings, the variation refusals) is a
+         * gap there now. */
+        $gateInherit = app(\Extensions\shopee\Services\Shopee\ShopeeInheritedSettings::class);
+        $gateRow = ShopeeListing::query()->where('product_id', $productId)->first() ?? (new ShopeeListing())->forceFill(['product_id' => $productId]);
+        $gateCategory = (int) ($gateInherit->fill($gateRow, $gateInherit->forProducts([$productId])[$productId] ?? null)['listing']->shopee_category_id ?? 0);
+        if ($gateCategory > 0) {
+            app(ShopeeProductGroupController::class)->ensureTemplate($gateCategory, $client); // a category never opened is read now
+        }
+        $readiness = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)
+            ->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => []];
+        if (!$readiness['ready']) {
+            return redirect()->back()->with('error', \App\Integrations\Listings\CatalogGaps::refusal($readiness));
+        }
+
         $product = DB::table($pfx . 'product as p')
             ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
@@ -886,10 +904,6 @@ class ShopeeProductController extends Controller
 
         if (!$product) {
             return redirect()->back()->with('error', 'Push failed: Product not found.');
-        }
-
-        if ((int) $product->status === 0) {
-            return redirect()->back()->with('error', 'Push failed: Product is disabled. Enable it first.');
         }
 
         /* REFUSE INSTEAD OF BORROW (#96). This used to take the FIRST
@@ -921,26 +935,13 @@ class ShopeeProductController extends Controller
 
         $logisticIds = $listing->logistic_ids ?? [];
 
-        // Validate required fields
+        // The catalog's words; the listing's own override them in the payload.
         $itemName = html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $description = trim(strip_tags(html_entity_decode($product->description ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8')));
-        if (trim($itemName) === '' || trim($description) === '') {
-            return redirect()->back()->with('error', 'Push failed: Product name or description is empty.');
-        }
-        if ((float) $product->price <= 0) {
-            return redirect()->back()->with('error', 'Push failed: Product price must be greater than 0.');
-        }
-        if ((float) $product->weight <= 0) {
-            return redirect()->back()->with('error', 'Push failed: Product weight must be greater than 0.');
-        }
 
         // Step 1: Upload images
         $create = app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class);
         $imagePaths = $create->catalogImagePaths($pfx, $product);
-
-        if (empty($imagePaths)) {
-            return redirect()->back()->with('error', 'Push failed: Product has no images.');
-        }
 
         $up = $create->uploadImages($client, $auth, $imagePaths);
         if ($up['error'] !== null) {
@@ -957,17 +958,8 @@ class ShopeeProductController extends Controller
          * operator wrote on the listing overrides the catalog's; null
          * means never set, so the catalog value goes. SKU is always the
          * catalog's - reconcile matches by it (card #97). */
-        /* #192: what Shopee will knowably refuse about the variations is
-         * checked BEFORE the item exists. A parent that goes up and then
-         * loses its variations is a half-listed item selling the wrong
-         * thing - the owner's #2062 - so a knowable refusal (the 5x price
-         * ratio, the 50-variation cap) stops the push at the door. */
-        $refusal = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)
-            ->refusalFor($productId, fn (float $core) => $listing->priceFor($core));
-        if ($refusal !== null) {
-            return redirect()->back()->with('error', 'Not pushed: ' . $refusal);
-        }
-
+        /* #192's variation refusals (the 5x price ratio, the 50-variation
+         * cap) are readiness gaps now, judged at the gate above. */
         $sellingPrice = $listing->priceFor((float) $product->price);
 
         // The listing's own content/price/parcel over the catalog's, and
@@ -2675,11 +2667,14 @@ class ShopeeProductController extends Controller
             return ['ok' => false, 'message' => 'This product is not on Shopee yet, so there is nothing to update. Push it first.'];
         }
 
-        /* THE PREFLIGHT (#191): update_item carries the parcel, and Shopee
-         * refuses without one - knowable here, so no request is fired. */
-        if ($gap = $this->parcelGapFor([$productId])[$productId] ?? null) {
-            return ['ok' => false, 'message' => 'Not updated: Shopee will refuse it without ' . $gap
-                . '. Add them on the catalog product (Catalog → Products → edit), then push the update.'];
+        /* THE GATE (#191, and the owner's Ready column, 2026-09-06): update_item
+         * carries the parcel, the name and the description, and Shopee
+         * refuses without them - knowable here, so no request is fired.
+         * The same readiness the Ready column shows for a linked product. */
+        $readiness = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)
+            ->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => []];
+        if (!$readiness['ready']) {
+            return ['ok' => false, 'message' => \App\Integrations\Listings\CatalogGaps::refusal($readiness, 'update')];
         }
 
         $pfx = (string) config('catalog.prefix');

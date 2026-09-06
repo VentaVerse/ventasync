@@ -184,7 +184,7 @@ class ShopeeListingTest extends TestCase
 
         $response->assertRedirect();
         $response->assertSessionHas('error');
-        $this->assertStringContainsString('no Shopee listing settings', session('error'));
+        $this->assertStringContainsString('a Shopee category', session('error'));
 
         // NOTHING was sent to Shopee, and no link exists: the catch-all
         // group's 50% markup priced nothing.

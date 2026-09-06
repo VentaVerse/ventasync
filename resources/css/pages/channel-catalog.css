@@ -109,6 +109,7 @@
 .cc-col-qty     { width: 78px; }
 .cc-col-price   { width: 104px; }
 .cc-col-stat    { width: 104px; }
+.cc-col-ready   { width: 96px; }   /* "Not ready" plus the ? hint, measured */
 .cc-col-sync    { width: 112px; }
 .cc-col-group   { width: 132px; }
 .cc-col-err     { width: 180px; }
@@ -358,6 +359,12 @@
        read as two separate things. A code is one word or it is nothing. */
     white-space: nowrap;
 }
+
+/* ── The Ready column ──────────────────────────────────────────────────
+   The badge and its ? hint sit on one line; the hint carries what is
+   missing, so the cell never grows a second line of prose. */
+.cc-page .x-table td.cc-col-ready { white-space: nowrap; }
+.cc-page .x-table td.cc-col-ready .bl-hint { vertical-align: middle; }
 
 /* ── Belief vs fact, under the push badge ─────────────────────────────
 
@@ -781,9 +788,11 @@
     .cc-page .x-table > tbody > tr > td.cc-col-check { grid-column: 1; grid-row: 1; align-self: center; }
     .cc-page .x-table > tbody > tr > td.cc-col-check::before { display: none; }
 
-    /* Stock and Listing, side by side on one line, each under its label. */
+    /* Stock and Ready side by side on one line, each under its label, then
+       Listing across the next (the Ready column, 2026-09-06). */
     .cc-page .x-table > tbody > tr > td.cc-col-qty { grid-column: 1; }
-    .cc-page .x-table > tbody > tr > td.cc-col-sync { grid-column: 2; }
+    .cc-page .x-table > tbody > tr > td.cc-col-ready { grid-column: 2; }
+    .cc-page .x-table > tbody > tr > td.cc-col-sync { grid-column: 1 / -1; }
 
     /* The product cell needs no "Product" label above a product name, and
        its thumbnail comes down from the desktop 96px: on a 328px card the

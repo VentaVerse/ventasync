@@ -41,7 +41,19 @@ final class TikTokInheritedSettings
                 'group_id' => (int) $row->group_id,
                 'group_name' => (string) $row->name,
                 'category_id' => trim((string) ($row->tiktok_category_id ?? '')) !== '' ? (string) $row->tiktok_category_id : null,
+                'attributes' => [],
             ];
+        }
+        /* The group's attribute answers ride along (the owner, 2026-09-06, the
+         * Ready column): readiness and both push paths count an attribute
+         * answered when the listing or its group has it. */
+        $groupIds = array_values(array_unique(array_map(fn ($g) => $g['group_id'], $out)));
+        if ($groupIds !== []) {
+            $answers = \Extensions\tiktok\Models\TikTokProductGroupAttribute::query()->whereIn('tiktok_product_group_id', $groupIds)
+                ->get(['tiktok_product_group_id', 'attribute_key', 'value'])->groupBy('tiktok_product_group_id');
+            foreach ($out as $pid => $g) {
+                $out[$pid]['attributes'] = ($answers->get($g['group_id']) ?? collect())->pluck('value', 'attribute_key')->all();
+            }
         }
 
         return $out;
@@ -59,6 +71,13 @@ final class TikTokInheritedSettings
         if ($group && trim((string) ($copy->tiktok_category_id ?? '')) === '' && $group['category_id']) {
             $copy->tiktok_category_id = $group['category_id'];
             $inherited['category'] = $group['group_name'];
+        }
+        // The listing's own answer to an attribute wins over the group's.
+        $own = array_filter((array) ($copy->attribute_values ?? []), fn ($v) => trim((string) (is_array($v) ? implode('', $v) : $v)) !== '');
+        $groupAnswers = array_filter((array) ($group['attributes'] ?? []), fn ($v) => trim((string) $v) !== '');
+        if ($groupAnswers !== [] && array_diff_key($groupAnswers, $own) !== []) {
+            $copy->attribute_values = $own + $groupAnswers;
+            $inherited['attributes'] = $group['group_name'];
         }
 
         return ['listing' => $copy, 'inherited' => $inherited];

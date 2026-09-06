@@ -764,6 +764,30 @@ class LazadaProductGroupController extends Controller
                 continue;
             }
 
+            /* THE GATE (the owner, 2026-09-06): the readiness the Ready column
+             * shows, judged on what THIS push sends - the group's category,
+             * price rule and attribute answers over the listing's - so a
+             * product that read Ready is never turned away here. A product
+             * with no listing row yet is judged as the row this push would
+             * create for it. */
+            $gateOverrides = [
+                'settings' => ['primary_category_id' => $group->lazada_category_id, 'markup_fixed' => $group->markup_fixed, 'markup_percent' => $group->markup_percent],
+                'attributes' => LazadaProductGroupAttribute::where('lazada_product_group_id', $group->id)->pluck('value', 'attribute_key')->toArray(),
+            ];
+            $gateRow = $listing ?: (new LazadaProduct())->forceFill(['product_id' => $productId, 'primary_category_id' => $group->lazada_category_id, 'brand_name_override' => 'No Brand']);
+            if ($group->lazada_category_id && !\Extensions\lazada\Models\LazadaCategoryTemplate::query()->where('region', (string) $setting->region)->where('primary_category_id', (int) $group->lazada_category_id)->whereNotNull('template_body')->exists()) {
+                app(\Extensions\lazada\Controllers\LazadaProductController::class)->readCategoryTemplate((int) $group->lazada_category_id, $client);
+            }
+            $readiness = app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$gateRow]), $gateOverrides)[(int) $gateRow->id] ?? ['ready' => false, 'missing' => []];
+            if (!$readiness['ready']) {
+                $refusal = \App\Integrations\Listings\CatalogGaps::refusal($readiness);
+                $errors[] = "#{$productId}: {$refusal}";
+                if ($pivot) $pivot->update(['sync_status' => 'error', 'push_error' => $refusal]);
+                LazadaProduct::recordPushFailure((int) $productId, $refusal);
+                $errCount++;
+                continue;
+            }
+
             // Create listing record if needed
             if (!$listing) {
                 $listing = LazadaProduct::create([
@@ -996,6 +1020,17 @@ class LazadaProductGroupController extends Controller
                 'attributes' => LazadaProductGroupAttribute::where('lazada_product_group_id', $group->id)
                     ->pluck('value', 'attribute_key')->toArray(),
             ];
+
+            // The gate (the owner, 2026-09-06): the Ready column's own answer,
+            // judged on the group's settings this update sends.
+            $readiness = app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$listing]), $groupOverrides)[(int) $listing->id] ?? ['ready' => false, 'missing' => []];
+            if (!$readiness['ready']) {
+                $refusal = \App\Integrations\Listings\CatalogGaps::refusal($readiness, 'update');
+                if ($pivot) $pivot->update(['sync_status' => 'error', 'push_error' => $refusal]);
+                LazadaProduct::recordPushFailure($productId, $refusal);
+
+                return ['ok' => false, 'message' => $refusal];
+            }
 
             // Build payload
             try {

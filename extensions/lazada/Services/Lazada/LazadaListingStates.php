@@ -110,9 +110,11 @@ class LazadaListingStates
             }
         }
 
-        // Readiness: rows that exist but are not on Lazada answer from their
-        // own settings; products with no row at all answer from the catalogue.
-        $rowReadiness = $this->readiness->forListings($notListedRows);
+        // Readiness for every row, on Lazada or not (the owner, 2026-09-06, the
+        // Ready column): a listed row answers the update's checklist, which
+        // on Lazada is the create's; products with no row at all answer
+        // from the catalogue.
+        $rowReadiness = $this->readiness->forListings(collect(array_values($chosen)));
         $rowless = array_values(array_filter($productIds, fn ($id) => !isset($chosen[$id])));
         $rowlessReadiness = $this->readiness->forProducts($rowless);
 
@@ -172,10 +174,13 @@ class LazadaListingStates
                 $reasons[] = $extraReason;
             }
 
+            $r = $rowReadiness[(int) $listing->id] ?? ['ready' => false, 'gaps' => []];
             $out[$productId] = new ListingState(
                 state: $state,
                 inSync: $inSync,
                 reasons: $reasons,
+                ready: (bool) $r['ready'],
+                missing: $r['gaps'] ?? [],
                 checkedAt: $checkedAt,
                 pushedAt: $pushedAt,
                 channelStatusRaw: $raw,

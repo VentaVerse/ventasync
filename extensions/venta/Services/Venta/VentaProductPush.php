@@ -426,10 +426,13 @@ class VentaProductPush
             return self::outcome(false, 'failed', 'The catalog product no longer exists.');
         }
 
-        $sku = self::skuOf($prod);
-        if ($sku === '') {
-            return self::outcome(false, 'failed', 'This product has no SKU, and the store files products by SKU. Give it one in the catalog first.');
+        /* THE GATE (the owner, 2026-09-06): the one readiness computation the
+         * Ready column shows is the one this push refuses through. */
+        $readiness = VentaListingReadiness::forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => []];
+        if (! $readiness['ready']) {
+            return self::outcome(false, 'failed', \App\Integrations\Listings\CatalogGaps::refusal($readiness));
         }
+        $sku = self::skuOf($prod);
 
         $data = $this->payload($prod, $overrides, $priceFor);
 

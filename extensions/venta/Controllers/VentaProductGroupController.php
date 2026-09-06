@@ -507,6 +507,8 @@ class VentaProductGroupController extends Controller
             'group'                => $g,
             'products'             => $products,
             'optionRowsByProductId' => $optionRowsByProductId,
+            // The Ready column reads the engine, the way every page does (2026-09-06).
+            'listingStates'        => \Extensions\venta\Services\Venta\VentaListingStates::for((int) $setting->id)->forProducts(array_map('intval', $paginatedIds)),
             'manualIds'            => $manualIds,
             'q'                    => $q,
             'syncStatus'           => $syncStatus,
@@ -831,12 +833,17 @@ class VentaProductGroupController extends Controller
                 continue;
             }
 
-            $sku = $prod->sku ?: $prod->model;
-            if (!$sku || trim($sku) === '') {
+            /* THE GATE (the owner, 2026-09-06): the readiness the Ready column
+             * shows is the one this push refuses through. */
+            $readiness = \Extensions\venta\Services\Venta\VentaListingReadiness::forProducts([$pid])[$pid] ?? ['ready' => false, 'missing' => []];
+            if (!$readiness['ready']) {
                 $failed++;
-                $errors[] = "Product #{$pid}: No SKU";
+                $refusal = \App\Integrations\Listings\CatalogGaps::refusal($readiness);
+                $errors[] = "Product #{$pid}: {$refusal}";
+                $this->writeProductStatus($g, $pid, ['sync_status' => 'error', 'push_error' => \Illuminate\Support\Str::limit($refusal, 480)]);
                 continue;
             }
+            $sku = $prod->sku ?: $prod->model;
 
             // Build product data payload
             $data = [
