@@ -278,6 +278,13 @@ class LazadaAttributes
                 continue;
             }
             $name = (string)($a['name'] ?? $a['attribute_name'] ?? '');
+            /* Price, quantity, the parcel, SellerSku and the promotion dates
+             * are SKU-level facts the payload fills from the catalog and the
+             * listing's own rule (the owner, 2026-09-06: they kept appearing on
+             * the sheet as questions). They are not asked here. */
+            if ($questionsOnly && $this->isSkuLevelRequiredKey($name)) {
+                continue;
+            }
             $id = $a['id'] ?? $a['attribute_id'] ?? null;
             $required = (bool)($a['is_mandatory'] ?? $a['isMandatory'] ?? $a['mandatory'] ?? $a['is_required'] ?? $a['required'] ?? false);
             $inputType = (string)($a['input_type'] ?? $a['type'] ?? $a['inputType'] ?? 'text');

@@ -186,6 +186,71 @@ class LazadaAttributeAutoFillTest extends TestCase
             ->where('lazada_product_id', $listing->id)->where('attribute_key', 'warranty_type')->value('value'));
     }
 
+    /** A category with two questions of its own plus the SKU-level facts Lazada lists as attributes. */
+    private function fullerTemplate(int $categoryId = 7014): void
+    {
+        LazadaCategoryTemplate::query()->create([
+            'region' => 'ph', 'primary_category_id' => $categoryId, 'fetched_at' => now(),
+            'template_body' => ['data' => ['attributes' => [
+                ['id' => 1, 'name' => 'name', 'is_mandatory' => 1, 'input_type' => 'text'],
+                ['id' => 2, 'name' => 'brand', 'is_mandatory' => 1, 'input_type' => 'options', 'options' => [['name' => 'No Brand']]],
+                ['id' => 3, 'name' => 'warranty_type', 'is_mandatory' => 1, 'input_type' => 'options', 'options' => [['name' => 'No Warranty'], ['name' => 'Local supplier warranty']]],
+                ['id' => 4, 'name' => 'Musical_Instrument_Type', 'label' => 'Musical Instrument Type', 'is_mandatory' => 1, 'input_type' => 'options', 'options' => [['name' => 'Guitar'], ['name' => 'Bass']]],
+                ['id' => 5, 'name' => 'price', 'is_mandatory' => 1, 'input_type' => 'numeric'],
+                ['id' => 6, 'name' => 'package_weight', 'is_mandatory' => 1, 'input_type' => 'numeric'],
+                ['id' => 7, 'name' => 'SellerSku', 'is_mandatory' => 1, 'input_type' => 'text'],
+                ['id' => 8, 'name' => 'special_from_date', 'is_mandatory' => 0, 'input_type' => 'date'],
+            ]]],
+        ]);
+    }
+
+    /** the owner, 2026-09-06: price, the parcel, SellerSku and the promotion dates are not questions; the payload fills them. */
+    public function test_the_sheet_never_asks_the_sku_level_facts_the_payload_fills(): void
+    {
+        $this->fullerTemplate();
+        $listing = LazadaProduct::query()->create(['product_id' => $this->seedProduct('Valeton GP-5', 'GP5'), 'primary_category_id' => 7014]);
+
+        $page = $this->actingAs($this->manager())->get(route('ext.lazada.products.edit', $listing->id))->assertOk();
+        $page->assertSee('name="attributes[Musical_Instrument_Type]"', false)->assertSee('name="attributes[warranty_type]"', false);
+        foreach (['price', 'package_weight', 'SellerSku', 'special_from_date'] as $key) {
+            $page->assertDontSee('name="attributes[' . $key . ']"', false);
+        }
+    }
+
+    /** the owner, 2026-09-06: choosing one dropdown and saving used to be refused because another required attribute was still blank. */
+    public function test_saving_one_answer_is_kept_even_while_another_required_attribute_is_blank_and_the_rest_is_named(): void
+    {
+        $this->fullerTemplate();
+        $listing = LazadaProduct::query()->create(['product_id' => $this->seedProduct('Valeton GP-5', 'GP5'), 'primary_category_id' => 7014]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.lazada.products.attributes_save', $listing->id), ['attributes' => ['Musical_Instrument_Type' => 'Guitar']])
+            ->assertRedirect(route('ext.lazada.products.edit', $listing->id))
+            ->assertSessionHasNoErrors();
+        $this->assertSame('Guitar', LazadaProductAttribute::query()->where('lazada_product_id', $listing->id)->where('attribute_key', 'Musical_Instrument_Type')->value('value'));
+        $status = (string) session('status');
+        $this->assertStringContainsString('Attributes saved.', $status);
+        $this->assertStringContainsString('Still needed before a push', $status);
+        $this->assertStringContainsString('warranty_type', $status);
+        $this->assertStringNotContainsString('price', $status, 'SKU-level facts are never named as missing answers');
+    }
+
+    /** Save and push (the owner, 2026-09-06): one press keeps the answers and sends the listing. */
+    public function test_save_and_push_keeps_the_answers_and_goes_on_to_the_upload(): void
+    {
+        $this->fullerTemplate();
+        $listing = LazadaProduct::query()->create(['product_id' => $this->seedProduct('Valeton GP-5', 'GP5'), 'primary_category_id' => 7014]);
+        \Illuminate\Support\Facades\Http::fake(['*' => \Illuminate\Support\Facades\Http::response(['code' => '0', 'data' => ['item_id' => 4242, 'sku_list' => []]], 200)]);
+
+        $r = $this->actingAs($this->manager())
+            ->from(route('ext.lazada.products.edit', $listing->id))
+            ->post(route('ext.lazada.products.attributes_save', $listing->id), ['attributes' => ['Musical_Instrument_Type' => 'Guitar', 'warranty_type' => 'No Warranty'], 'push' => 1])
+            ->assertRedirect();
+        $this->assertSame('Guitar', LazadaProductAttribute::query()->where('lazada_product_id', $listing->id)->where('attribute_key', 'Musical_Instrument_Type')->value('value'));
+        $this->assertTrue(session()->has('status') || session()->has('error'), "the upload's outcome is what comes back, not the plain 'Attributes saved.'");
+        $this->assertStringNotContainsString('Attributes saved.', (string) session('status'));
+    }
+
     public function test_the_push_payload_carries_the_catalogue_answers_the_operator_never_typed(): void
     {
         $this->template();

@@ -3002,138 +3002,51 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         return redirect()->route('ext.lazada.products.edit', $listing->id)->with('status', 'Category template synced.');
     }
 
-    public function saveAttributes(Request $request, int $id)
+    /**
+     * Save the attribute answers as given (the owner, 2026-09-06). This used to
+     * refuse the whole save while any required attribute was still blank,
+     * which on a Lazada category with a dozen mandatory questions meant the
+     * first dropdown an operator chose never saved, and the refusal sat
+     * under another row. Completeness is the readiness check's job and the
+     * push's, not the save's; the status line says what is still missing.
+     * With push=1 the saved listing goes straight to Lazada (Save and push).
+     */
+    public function saveAttributes(Request $request, int $id, LazadaClient $client)
     {
         $listing = LazadaProduct::query()->findOrFail($id);
 
         $data = $request->validate([
             'attributes' => 'array',
             'attributes.*' => 'nullable|string|max:2000',
+            'push' => 'nullable|boolean',
         ]);
 
-        $attrs = (array)($data['attributes'] ?? []);
-
+        $attrs = (array) ($data['attributes'] ?? []);
         // Brand is handled by the top-level Brand selector (listing.brand_id); ignore any submitted "brand" attribute.
-        if (array_key_exists('brand', $attrs)) {
-            unset($attrs['brand']);
-        }
+        unset($attrs['brand']);
 
-        // Force mapped attributes to always use ERP values based on mappings.
-        $pfx = (string) config('catalog.prefix');
-        $langId = (int) config('catalog.default_language_id');
-        $productRow = DB::table($pfx.'product as p')
-            ->leftJoin($pfx.'product_description as pd', function ($j) use ($langId) {
-                $j->on('p.product_id', '=', 'pd.product_id')
-                    ->where('pd.language_id', '=', $langId);
-            })
-            ->leftJoin($pfx.'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
-            ->where('p.product_id', (int)$listing->product_id)
-            ->first([
-                'p.product_id','p.sku','p.model','p.image','p.price','p.quantity',
-                'p.weight','p.length','p.width','p.height','p.date_modified',
-                'p.upc','p.ean','p.jan','p.isbn','p.mpn',
-                'pd.name','pd.description','pd.meta_title','pd.meta_description',
-                'm.name as manufacturer_name',
-            ]);
-
-        // Images are mandatory for Lazada product creation.
-        $imageUrls = $this->images()->getProductImageUrls((int)$listing->product_id, $productRow);
-        $imageUrls = array_values(array_filter(array_map(fn($u) => $this->images()->normalizeImageUrl((string)$u), $imageUrls)));
-        if (empty($imageUrls)) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'images' => 'At least 1 product image is required. Please upload a main image (and optional additional images) in the core ERP Product page first.'
-            ]);
-        }
-
-        // Validate mandatory (required) attributes from the cached category template.
-        $requiredKeys = [];
-        $requiredNames = [];
-        if ($listing->primary_category_id) {
-            $template = LazadaCategoryTemplate::query()
-                ->where('region', $this->region())
-                ->where('primary_category_id', (int)$listing->primary_category_id)
-                ->first();
-
-            if ($template && $template->template_body) {
-                $templateAttrs = $this->attrs()->extractAttributes($template->template_body);
-
-                foreach ($templateAttrs as $a) {
-                    if (!empty($a['required'])) {
-                        $k = (string)($a['key'] ?? '');
-                        if ($k !== '') {
-                            $requiredKeys[] = $k;
-                            $requiredNames[$k] = (string)($a['name'] ?? $k);
-                        }
-                    }
-                }
-            }
-        }
-
-        if (!empty($requiredKeys)) {
-            // Build a merged map: existing saved values + incoming form values
-            $existing = LazadaProductAttribute::query()
-                ->where('lazada_product_id', $listing->id)
-                ->pluck('value', 'attribute_key')
-                ->toArray();
-
-            $merged = $existing;
-            foreach ($attrs as $k => $v) {
-                $k = trim((string)$k);
-                if ($k === '') continue;
-                $merged[$k] = ($v === '' ? null : $v);
-            }
-
-            $errs = [];
-            foreach ($requiredKeys as $k) {
-                $keyLower = strtolower(trim((string)$k));
-                if ($keyLower === 'brand') {
-                    // Brand is handled by the top-level Brand selector (listing.brand_id).
-                    continue;
-                }
-                if ($this->attrs()->isSkuLevelRequiredKey($k)) {
-                    // Lazada marks some SKU-level fields as mandatory in templates (e.g. SellerSku, price).
-                    // Those are handled in the Variant Mapping section / payload builder.
-                    continue;
-                }
-                if (LazadaAttributes::isAutoFilledAttributeKey($k)) {
-                    // Name, description and friends fill themselves from the
-                    // catalogue at push time; blank here is not a problem.
-                    continue;
-                }
-                $val = $merged[$k] ?? null;
-                if ($val === null || trim((string)$val) === '') {
-                    $label = $requiredNames[$k] ?? $k;
-                    $errs['attributes.'.$k] = $label . ' is mandatory.';
-                }
-            }
-
-            if (!empty($errs)) {
-                return redirect()->route('ext.lazada.products.edit', $listing->id)
-                    ->withErrors($errs)
-                    ->withInput();
-            }
-        }
-
-        $attrFk = 'lazada_product_id';
-        DB::transaction(function () use ($listing, $attrs, $attrFk) {
+        DB::transaction(function () use ($listing, $attrs) {
             foreach ($attrs as $key => $value) {
-                $key = trim((string)$key);
+                $key = trim((string) $key);
                 if ($key === '') {
                     continue;
                 }
                 LazadaProductAttribute::query()->updateOrCreate(
-                    [
-                        $attrFk => $listing->id,
-                        'attribute_key' => $key,
-                    ],
-                    [
-                        'value' => $value === '' ? null : $value,
-                    ]
+                    ['lazada_product_id' => $listing->id, 'attribute_key' => $key],
+                    ['value' => $value === '' ? null : $value]
                 );
             }
         });
 
-        return redirect()->route('ext.lazada.products.edit', $listing->id)->with('status', 'Attributes saved.');
+        if ($request->boolean('push')) {
+            return $this->uploadToLazada($request, $id, $client);
+        }
+
+        // What the category still needs, from the same readiness the push and the Listings page read.
+        $ready = app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$listing->fresh()]))[$listing->id] ?? null;
+        $note = $ready && ! $ready['ready'] ? ' Still needed before a push: ' . implode('; ', $ready['missing']) . '.' : '';
+
+        return redirect()->route('ext.lazada.products.edit', $listing->id)->with('status', 'Attributes saved.' . $note);
     }
 
     public function saveVariants(Request $request, int $id)

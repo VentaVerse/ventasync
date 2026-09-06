@@ -557,7 +557,7 @@
             @else
                 <p class="fm-section__note">Only this category's own questions are asked here. Name, description and model come from the catalog product by themselves, the way a Shopee push takes them. Type a value, or point an attribute at a field on the catalog product so every push reads the current one. Read from Lazada {{ $template->fetched_at ? $template->fetched_at->format('Y-m-d H:i') : 'at an unrecorded time' }}.</p>
 
-                <form id="lazada-attributes" method="POST" action="{{ route('ext.lazada.products.attributes_save', $listing->id) }}">
+                <form id="lazada-attributes" method="POST" action="{{ route('ext.lazada.products.attributes_save', $listing->id) }}" data-slow-action>
                     @csrf
 
                     <div class="gf-attrs">
@@ -869,21 +869,33 @@
     <div class="fm-bar">
         <span class="fm-bar__meta">{{ $mode === 'create'
             ? 'Nothing reaches Lazada until you push from the edit screen.'
-            : 'Saves the category, brand and markup. The sections above each save on their own.' }}</span>
+            : 'Save listing keeps the category, brand and markup. Save and push keeps the attribute answers and sends the listing to Lazada.' }}</span>
         <div class="fm-bar__actions">
             <a class="fm-cancel" href="{{ route('ext.lazada.products.index') }}">Cancel</a>
-            <x-ui.button type="submit" form="lazada-listing" variant="primary">{{ $mode === 'create' ? 'Create listing' : 'Save listing' }}</x-ui.button>
+            <x-ui.button type="submit" form="lazada-listing" :variant="$mode === 'edit' && empty($listing->lazada_item_id) && $template ? 'secondary' : 'primary'">{{ $mode === 'create' ? 'Create listing' : 'Save listing' }}</x-ui.button>
             {{-- The push, from the page that shows what goes up (#149): the
                  index's row menu opens this page rather than uploading on a
                  one-click. Offered once the listing exists and is not yet on
                  Lazada; the upload itself refuses with the reason when the
                  listing is not ready. --}}
+            {{-- Save and push (the owner, 2026-09-06): one press saves the
+                 attribute answers above and sends the listing to Lazada.
+                 The button belongs to the attributes form through the
+                 HTML5 form attribute and carries the push flag; the
+                 category, brand and markup save with Save listing, which
+                 the template read already needed. --}}
             @if($mode === 'edit' && empty($listing->lazada_item_id))
-                <form method="POST" action="{{ route('ext.lazada.products.upload', $listing->id) }}" data-slow-action
-                      data-confirm="Push this listing to Lazada now? It goes up with the content and settings saved on this page." data-confirm-tone="primary" data-confirm-verb="Push to Lazada">
-                    @csrf
-                    <x-ui.button type="submit">Push to Lazada</x-ui.button>
-                </form>
+                @if($template)
+                    <x-ui.button type="submit" form="lazada-attributes" name="push" value="1" variant="primary">Save and push to Lazada</x-ui.button>
+                @else
+                    {{-- No category template yet, so no attribute answers to
+                         save: the push alone, which refuses with the reason. --}}
+                    <form method="POST" action="{{ route('ext.lazada.products.upload', $listing->id) }}" data-slow-action
+                          data-confirm="Push this listing to Lazada now? It goes up with the content and settings saved on this page." data-confirm-tone="primary" data-confirm-verb="Push to Lazada">
+                        @csrf
+                        <x-ui.button type="submit">Push to Lazada</x-ui.button>
+                    </form>
+                @endif
             @endif
         </div>
     </div>
