@@ -155,7 +155,7 @@ class LazadaListingLiveTest extends TestCase
         $index->assertDontSee('Upload to Lazada');
 
         $page = $this->actingAs($this->manager())->get(route('ext.lazada.products.edit', $listing->id))->assertOk();
-        $page->assertSee(route('ext.lazada.products.upload', $listing->id), false);
+        $page->assertSee('Save and push to Lazada');
     }
 
     /**

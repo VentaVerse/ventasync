@@ -90,7 +90,6 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
         Route::post('/lazada/{store}/product/payload-preview', [LazadaApiExplorerController::class, 'productPayloadPreview'])
             ->name('ext.lazada.product_payload_preview')
             ->defaults('permission_tier', 'view');
-        Route::post('/lazada/{store}/products/{id}/payload/build', [LazadaProductController::class, 'buildPayload'])->whereNumber('id')->name('ext.lazada.products.payload_build');
     });
 
     // ── Lazada Settings + Catalog WRITES ────────────────────────
@@ -167,8 +166,7 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
         Route::get('/lazada/{store}/products/{id}/edit', [LazadaProductController::class, 'edit'])->whereNumber('id')->name('ext.lazada.products.edit')
         ->defaults('permission_tier', 'manage');
         Route::put('/lazada/{store}/products/{id}', [LazadaProductController::class, 'update'])->whereNumber('id')->name('ext.lazada.products.update');
-        Route::post('/lazada/{store}/products/{id}/template/sync', [LazadaProductController::class, 'syncTemplate'])->whereNumber('id')->name('ext.lazada.products.template_sync');
-        Route::post('/lazada/{store}/products/{id}/attributes', [LazadaProductController::class, 'saveAttributes'])->whereNumber('id')->name('ext.lazada.products.attributes_save');
+        Route::post('/lazada/{store}/products/{id}/attributes/fetch', [LazadaProductController::class, 'fetchAttributesAjax'])->whereNumber('id')->name('ext.lazada.products.attributes_fetch');
         Route::post('/lazada/{store}/products/{id}/variants', [LazadaProductController::class, 'saveVariants'])->whereNumber('id')->name('ext.lazada.products.variants_save');
         Route::post('/lazada/{store}/products/{id}/brands/sync', [LazadaProductController::class, 'syncBrands'])->whereNumber('id')->name('ext.lazada.products.brands_sync');
         Route::post('/lazada/{store}/products/{id}/sync/quantity', [LazadaProductController::class, 'syncQuantity'])->whereNumber('id')->name('ext.lazada.products.sync_quantity');
@@ -213,8 +211,6 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
         Route::post('/lazada/{store}/products/bulk/sync/lazada-id', [LazadaProductController::class, 'bulkSyncLazadaId'])->name('ext.lazada.products.bulk_sync_lazada_id');
         Route::post('/lazada/{store}/products/bulk/delete', [LazadaProductController::class, 'bulkDeleteFromLazada'])->name('ext.lazada.products.bulk_delete');
 
-        // Lazada Products — sample push, unmatched workflow
-        Route::post('/lazada/{store}/products/{id}/push/sample', [LazadaProductController::class, 'pushSample'])->whereNumber('id')->name('ext.lazada.products.push_sample');
 
         // Brands + Categories — fetches that pull from Lazada and persist locally
         Route::post('/lazada/{store}/brands/sync', [LazadaProductController::class, 'syncBrandsGlobal'])->name('ext.lazada.brands_sync');

@@ -218,8 +218,13 @@ function initBulkForms(config, showProgress) {
 
 function initSlowActions(config, showProgress) {
     document.querySelectorAll('form[data-slow-action]').forEach((form) => {
+        // data-slow-action="push" names the one submit button on a form that
+        // talks to the marketplace; a plain save on the same form is quick
+        // and gets no overlay (the Lazada listing form, 2026-09-06).
+        const only = form.getAttribute('data-slow-action');
         form.addEventListener('submit', function (e) {
             if (e.defaultPrevented) return;
+            if (only && e.submitter && e.submitter.name !== only) return;
             showProgress(config.slowTitle);
         });
     });

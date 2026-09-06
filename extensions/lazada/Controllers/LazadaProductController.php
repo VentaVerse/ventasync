@@ -2508,25 +2508,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             }
         }
 
-        $productOwnSaved = LazadaProductAttribute::query()
-            ->where('lazada_product_id', $listing->id)
-            ->pluck('value', 'attribute_key')
-            ->toArray();
-
-        // Auto-populate from linked product group: group values serve as defaults
-        $groupAttrs = [];
-        $firstGroup = $listing->groups()->first();
-        if ($firstGroup) {
-            $groupAttrs = LazadaProductGroupAttribute::query()
-                ->where('lazada_product_group_id', $firstGroup->id)
-                ->pluck('value', 'attribute_key')
-                ->toArray();
-        }
-
-        // Merge: product's own values take priority over group defaults
-        $saved = array_merge($groupAttrs, $productOwnSaved);
-
-
         // Variants: use OpenCart-style product_option_value rows
         $variants = DB::table($pfx.'product_option_value as pov')
             ->leftJoin($pfx.'option_description as od', function ($j) use ($langId) {
@@ -2557,24 +2538,15 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 return $v->product_option_value_id === null ? 'base' : (string)$v->product_option_value_id;
             });
 
-        // Base product info for payload preview (includes extra fields for mapping)
-        $productRow = DB::table($pfx.'product as p')
-            ->leftJoin($pfx.'product_description as pd', function ($j) use ($langId) {
-                $j->on('p.product_id', '=', 'pd.product_id')
-                    ->where('pd.language_id', '=', $langId);
-            })
-            ->leftJoin($pfx.'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
-            ->where('p.product_id', (int)$listing->product_id)
-            ->first([
-                'p.product_id','p.sku','p.model','p.image','p.price','p.quantity',
-                'p.weight','p.length','p.width','p.height','p.date_modified',
-                'p.upc','p.ean','p.jan','p.isbn','p.mpn',
-                'pd.name','pd.description','pd.meta_title','pd.meta_description',
-                'm.name as manufacturer_name',
-            ]);
-
-        // Resolve __map: values to actual product field values for display
-        $suggested = $this->attrs()->suggestForAttributes($attributes, $productRow, $saved);
+        // The attribute sheet: saved answers, group defaults, the catalogue
+        // row and its suggestions. Shared with fetchAttributesAjax() so the
+        // sheet a category change injects is the sheet a page load renders.
+        $sheet = $this->attributeSheet($listing, $attributes);
+        $productOwnSaved = $sheet['productOwnAttrs'];
+        $groupAttrs = $sheet['groupAttrs'];
+        $saved = $sheet['saved'];
+        $productRow = $sheet['productRow'];
+        $suggested = $sheet['suggested'];
 
         // For display, so browser facing rather than Lazada facing.
         $productImageUrl = $this->images()->toDisplayImageUrl($productRow->image ?? null);
@@ -2619,9 +2591,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'brandSuggestion' => $brandSuggestion,
             'selectedBrandName' => $selectedBrandName,
             'erpSourceFields' => LazadaAttributes::ERP_SOURCE_FIELDS,
-            'payloadPreview' => session('payload_preview_json'),
-            'pushRequest' => session('push_request_json'),
-            'pushResponse' => session('push_response_json'),
             'live' => $live,
             'liveError' => $liveError,
         ]);
@@ -2640,6 +2609,9 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'sale_percent' => 'nullable|numeric|min:1|max:99',
             'sale_starts_at' => 'nullable|date|required_with:sale_percent',
             'sale_ends_at' => 'nullable|date|required_with:sale_percent|after:sale_starts_at',
+            'attributes' => 'nullable|array',
+            'attributes.*' => 'nullable|string|max:2000',
+            'push' => 'nullable|boolean',
         ]);
 
         $noBrand = (bool)($data['no_brand'] ?? false);
@@ -2679,9 +2651,207 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $listing->total_price = LazadaPushPayload::computeFinalPrice($erpPrice, $fixedMarkup, $percentMarkup);
         $listing->save();
 
+        /* The attribute answers ride the same form since 2026-09-06 (the owner:
+         * "Everything should be in Save and Push"). A request without the
+         * key leaves the answers alone; one with it saves them as given.
+         * Brand is the form's own control, never an attribute row. */
+        if ($request->has('attributes')) {
+            $this->storeAttributes($listing, (array) ($data['attributes'] ?? []));
+        }
+
         ActivityLogger::log('updated', 'Lazada Product', $listing->id, 'ERP #' . (int)$listing->product_id);
 
-        return redirect()->route('ext.lazada.products.edit', $listing->id)->with('status', 'Listing updated.');
+        // Save and push: the one press that saves everything above and sends
+        // the listing, as a create or, once linked, as an update.
+        if ($request->boolean('push')) {
+            return $this->uploadToLazada($request, $id, app(LazadaClient::class));
+        }
+
+        $note = '';
+        if ($request->has('attributes')) {
+            $ready = app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$listing->fresh()]))[$listing->id] ?? null;
+            $note = $ready && ! $ready['ready'] ? ' Still needed before a push: ' . implode('; ', $ready['missing']) . '.' : '';
+        }
+
+        return redirect()->route('ext.lazada.products.edit', $listing->id)->with('status', 'Listing saved.' . $note);
+    }
+
+    /** Saves the attribute answers as given; an empty answer clears the row. */
+    private function storeAttributes(LazadaProduct $listing, array $attrs): void
+    {
+        unset($attrs['brand']);
+
+        DB::transaction(function () use ($listing, $attrs) {
+            foreach ($attrs as $key => $value) {
+                $key = trim((string) $key);
+                if ($key === '') {
+                    continue;
+                }
+                LazadaProductAttribute::query()->updateOrCreate(
+                    ['lazada_product_id' => $listing->id, 'attribute_key' => $key],
+                    ['value' => $value === null || $value === '' ? null : (string) $value]
+                );
+            }
+        });
+    }
+
+    /**
+     * The attribute sheet for one listing: its own saved answers over the
+     * group's defaults, the catalogue row, and what the catalogue suggests
+     * for each attribute. One source for the edit page and the sheet an
+     * AJAX category change injects.
+     *
+     * @return array{productOwnAttrs: array, groupAttrs: array, saved: array, productRow: ?object, suggested: array}
+     */
+    private function attributeSheet(LazadaProduct $listing, array $attributes): array
+    {
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $productOwnSaved = LazadaProductAttribute::query()
+            ->where('lazada_product_id', $listing->id)
+            ->pluck('value', 'attribute_key')
+            ->toArray();
+
+        // The linked group's values serve as defaults; the listing's own win.
+        $groupAttrs = [];
+        $firstGroup = $listing->groups()->first();
+        if ($firstGroup) {
+            $groupAttrs = LazadaProductGroupAttribute::query()
+                ->where('lazada_product_group_id', $firstGroup->id)
+                ->pluck('value', 'attribute_key')
+                ->toArray();
+        }
+        $saved = array_merge($groupAttrs, $productOwnSaved);
+
+        $productRow = DB::table($pfx.'product as p')
+            ->leftJoin($pfx.'product_description as pd', function ($j) use ($langId) {
+                $j->on('p.product_id', '=', 'pd.product_id')
+                    ->where('pd.language_id', '=', $langId);
+            })
+            ->leftJoin($pfx.'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
+            ->where('p.product_id', (int)$listing->product_id)
+            ->first([
+                'p.product_id','p.sku','p.model','p.image','p.price','p.quantity',
+                'p.weight','p.length','p.width','p.height','p.date_modified',
+                'p.upc','p.ean','p.jan','p.isbn','p.mpn',
+                'pd.name','pd.description','pd.meta_title','pd.meta_description',
+                'm.name as manufacturer_name',
+            ]);
+
+        return [
+            'productOwnAttrs' => $productOwnSaved,
+            'groupAttrs' => $groupAttrs,
+            'saved' => $saved,
+            'productRow' => $productRow,
+            'suggested' => $this->attrs()->suggestForAttributes($attributes, $productRow, $saved),
+        ];
+    }
+
+    /**
+     * The attribute sheet for a category, as the listing page's category
+     * combo asks for it (the owner, 2026-09-06: "auto fetch attribute while
+     * choosing a category"). A template already on file answers at once;
+     * a category never read, or a re-read, asks Lazada and files it.
+     * Nothing about the listing is saved here: the form does that.
+     */
+    public function fetchAttributesAjax(Request $request, int $id, LazadaClient $client)
+    {
+        $listing = LazadaProduct::query()->findOrFail($id);
+
+        $data = $request->validate([
+            'primary_category_id' => 'required|integer|min:1',
+            'reread' => 'nullable|boolean',
+        ]);
+        $categoryId = (int) $data['primary_category_id'];
+
+        $template = LazadaCategoryTemplate::query()
+            ->where('region', $this->region())
+            ->where('primary_category_id', $categoryId)
+            ->first();
+
+        if (! $template || $request->boolean('reread') || empty($template->template_body)) {
+            $read = $this->readCategoryTemplate($categoryId, $client);
+            if (! $read['ok']) {
+                return response()->json(['ok' => false, 'message' => $read['message']], 422);
+            }
+            $template = $read['template'];
+        }
+
+        $attributes = array_values(array_filter(
+            $this->attrs()->extractAttributes((array) $template->template_body),
+            fn ($a) => strtolower(trim((string) ($a['key'] ?? ''))) !== 'brand'
+        ));
+        $sheet = $this->attributeSheet($listing, $attributes);
+
+        $html = $attributes === [] ? '' : view('ext-lazada::products._attributes', [
+            'template' => $template,
+            'attributes' => $attributes,
+            'saved' => $sheet['saved'],
+            'suggested' => $sheet['suggested'],
+            'groupAttrs' => $sheet['groupAttrs'],
+            'productOwnAttrs' => $sheet['productOwnAttrs'],
+            'erpSourceFields' => LazadaAttributes::ERP_SOURCE_FIELDS,
+        ])->render();
+
+        return response()->json([
+            'ok' => true,
+            'html' => $html,
+            'count' => count($attributes),
+            'fetched_at' => $template->fetched_at ? $template->fetched_at->format('Y-m-d H:i') : null,
+            'message' => $attributes === [] ? 'This category has no attributes to fill in.' : null,
+        ]);
+    }
+
+    /**
+     * Asks Lazada what a category needs and files the answer as the
+     * store's template for that category.
+     *
+     * @return array{ok: bool, template: ?LazadaCategoryTemplate, message: string}
+     */
+    private function readCategoryTemplate(int $categoryId, LazadaClient $client): array
+    {
+        $setting = LazadaSetting::defaultStore()?->decrypted();
+        $creds = LazadaSetting::activeCredentials($setting);
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
+            return ['ok' => false, 'template' => null, 'message' => 'This store is not connected to Lazada yet, so its categories cannot be read.'];
+        }
+
+        $apiPath = '/category/attributes/get';
+        $params = [
+            'app_key' => (string)$creds['app_key'],
+            'sign_method' => 'sha256',
+            'timestamp' => (string)round(microtime(true) * 1000),
+            'primary_category_id' => (string)$categoryId,
+        ];
+        $params['sign'] = $client->sign($apiPath, $params, (string)$creds['app_secret']);
+        $result = $client->get((string)$setting->region, $apiPath, $params);
+
+        LazadaApiLog::safeCreate([
+            'pack' => 'lazada.category.attributes',
+            'method' => 'GET',
+            'api_path' => $apiPath,
+            'auth_required' => false,
+            'request_params' => ['primary_category_id' => $categoryId],
+            'response_status' => (int) ($result['status'] ?? 0),
+            'ok' => (bool) ($result['ok'] ?? false),
+            'response_body' => $result['body'] ?? null,
+            'user_id' => auth()->id(),
+        ]);
+
+        $body = is_array($result['body'] ?? null) ? $result['body'] : [];
+        if (! ($result['ok'] ?? false) || ! \App\Support\MarketplaceVerdict::ok('lazada', true, $body)) {
+            $answer = app(LazadaPushPayload::class)->extractLazadaError($result);
+
+            return ['ok' => false, 'template' => null, 'message' => 'Lazada did not return the attributes for this category: ' . ($answer['message'] ?: 'no answer') . '.'];
+        }
+
+        $template = LazadaCategoryTemplate::query()->updateOrCreate(
+            ['region' => (string)$setting->region, 'primary_category_id' => $categoryId],
+            ['template_body' => $body, 'fetched_at' => now()]
+        );
+
+        return ['ok' => true, 'template' => $template, 'message' => ''];
     }
 
     public function syncBrands(Request $request, int $id, LazadaClient $client)
@@ -2959,96 +3129,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         return null;
     }
 
-    public function syncTemplate(Request $request, int $id, LazadaClient $client)
-    {
-        $listing = LazadaProduct::query()->findOrFail($id);
-
-        $request->validate([
-            'primary_category_id' => 'required|integer|min:1',
-        ]);
-
-        $primaryCategoryId = (int)$request->input('primary_category_id');
-        $listing->primary_category_id = $primaryCategoryId;
-        $listing->save();
-
-        $setting = LazadaSetting::defaultStore()?->decrypted();
-        $creds = LazadaSetting::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
-            return redirect()->route('ext.lazada.products.edit', $listing->id)->with('status', 'Missing Lazada settings.');
-        }
-
-        $apiPath = '/category/attributes/get';
-        $timestamp = (string)round(microtime(true) * 1000);
-        $params = [
-            'app_key' => (string)$creds['app_key'],
-            'sign_method' => 'sha256',
-            'timestamp' => $timestamp,
-            'primary_category_id' => (string)$primaryCategoryId,
-        ];
-        $params['sign'] = $client->sign($apiPath, $params, (string)$creds['app_secret']);
-        $result = $client->get((string)$setting->region, $apiPath, $params);
-
-        LazadaCategoryTemplate::query()->updateOrCreate(
-            [
-                'region' => (string)$setting->region,
-                'primary_category_id' => $primaryCategoryId,
-            ],
-            [
-                'template_body' => $result['body'] ?? null,
-                'fetched_at' => now(),
-            ]
-        );
-
-        return redirect()->route('ext.lazada.products.edit', $listing->id)->with('status', 'Category template synced.');
-    }
-
-    /**
-     * Save the attribute answers as given (the owner, 2026-09-06). This used to
-     * refuse the whole save while any required attribute was still blank,
-     * which on a Lazada category with a dozen mandatory questions meant the
-     * first dropdown an operator chose never saved, and the refusal sat
-     * under another row. Completeness is the readiness check's job and the
-     * push's, not the save's; the status line says what is still missing.
-     * With push=1 the saved listing goes straight to Lazada (Save and push).
-     */
-    public function saveAttributes(Request $request, int $id, LazadaClient $client)
-    {
-        $listing = LazadaProduct::query()->findOrFail($id);
-
-        $data = $request->validate([
-            'attributes' => 'array',
-            'attributes.*' => 'nullable|string|max:2000',
-            'push' => 'nullable|boolean',
-        ]);
-
-        $attrs = (array) ($data['attributes'] ?? []);
-        // Brand is handled by the top-level Brand selector (listing.brand_id); ignore any submitted "brand" attribute.
-        unset($attrs['brand']);
-
-        DB::transaction(function () use ($listing, $attrs) {
-            foreach ($attrs as $key => $value) {
-                $key = trim((string) $key);
-                if ($key === '') {
-                    continue;
-                }
-                LazadaProductAttribute::query()->updateOrCreate(
-                    ['lazada_product_id' => $listing->id, 'attribute_key' => $key],
-                    ['value' => $value === '' ? null : $value]
-                );
-            }
-        });
-
-        if ($request->boolean('push')) {
-            return $this->uploadToLazada($request, $id, $client);
-        }
-
-        // What the category still needs, from the same readiness the push and the Listings page read.
-        $ready = app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$listing->fresh()]))[$listing->id] ?? null;
-        $note = $ready && ! $ready['ready'] ? ' Still needed before a push: ' . implode('; ', $ready['missing']) . '.' : '';
-
-        return redirect()->route('ext.lazada.products.edit', $listing->id)->with('status', 'Attributes saved.' . $note);
-    }
-
     public function saveVariants(Request $request, int $id)
     {
         $listing = LazadaProduct::query()->findOrFail($id);
@@ -3086,340 +3166,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
         return redirect()->route('ext.lazada.products.edit', $listing->id)->with('status', 'Variant mapping saved.');
     }
-
-    public function buildPayload(Request $request, int $id)
-    {
-        $listing = LazadaProduct::query()->findOrFail($id);
-
-        $pfx = (string) config('catalog.prefix');
-        $langId = (int) config('catalog.default_language_id');
-
-        $product = DB::table($pfx.'product as p')
-            ->leftJoin($pfx.'product_description as pd', function ($j) use ($langId) {
-                $j->on('p.product_id', '=', 'pd.product_id')
-                    ->where('pd.language_id', '=', $langId);
-            })
-            ->leftJoin($pfx.'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
-            ->where('p.product_id', (int)$listing->product_id)
-            ->first([
-                'p.product_id','p.sku','p.model','p.image','p.price','p.quantity',
-                'p.weight','p.length','p.width','p.height','p.date_modified',
-                'p.upc','p.ean','p.jan','p.isbn','p.mpn',
-                'pd.name','pd.description','pd.meta_title','pd.meta_description',
-                'm.name as manufacturer_name',
-            ]);
-
-        // Images are mandatory for Lazada product creation.
-        $imageUrls = $this->images()->getProductImageUrls((int)$listing->product_id, $product);
-        $imageUrls = array_values(array_filter(array_map(fn($u) => $this->images()->normalizeImageUrl((string)$u), $imageUrls)));
-        if (empty($imageUrls)) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'images' => 'At least 1 product image is required. Please upload a main image (and optional additional images) in the core ERP Product page first.'
-            ]);
-        }
-
-        $attrs = LazadaProductAttribute::query()
-            ->where('lazada_product_id', $listing->id)
-            ->pluck('value', 'attribute_key')
-            ->toArray();
-
-        // Ensure Brand exists in attributes before validating required template keys.
-        $brandId = (int)($listing->brand_id ?? 0);
-        $brandOverride = trim((string)($listing->brand_name_override ?? ''));
-        $isNoBrand = $brandOverride !== '' && strtolower($brandOverride) === 'no brand';
-
-        if ($isNoBrand) {
-            $attrs['brand'] = 'No Brand';
-            unset($attrs['brand_id']);
-        } elseif ($brandId > 0) {
-            $brandName = LazadaBrand::query()
-                ->where('region', $this->region())
-                ->where('brand_id', $brandId)
-                ->value('name');
-            $attrs['brand'] = $brandName ? (string)$brandName : (string)$brandId;
-            $attrs['brand_id'] = $brandId;
-        } else {
-            $attrs['brand'] = 'No Brand';
-            unset($attrs['brand_id']);
-        }
-
-        // Remove present-but-null values for cleaner preview.
-        $attrs = (array) $this->payload()->compactPayloadValue($attrs);
-
-        // Resolve __map: attribute values to actual product field values for payload.
-        $attrs = $this->attrs()->resolveMapAttributes($attrs, $product);
-        $attrs = $this->attrs()->autoFillBasics($attrs, $product);
-
-        // Validate mandatory attributes before building payload
-        $requiredKeys = [];
-        $requiredNames = [];
-        if ($listing->primary_category_id) {
-            $template = LazadaCategoryTemplate::query()
-                ->where('region', $this->region())
-                ->where('primary_category_id', (int)$listing->primary_category_id)
-                ->first();
-            if ($template && $template->template_body) {
-                $templateAttrs = $this->attrs()->extractAttributes($template->template_body);
-
-                foreach ($templateAttrs as $a) {
-                    if (!empty($a['required'])) {
-                        $k = (string)($a['key'] ?? '');
-                        if ($k !== '') {
-                            $requiredKeys[] = $k;
-                            $requiredNames[$k] = (string)($a['name'] ?? $k);
-                        }
-                    }
-                }
-            }
-        }
-        if (!empty($requiredKeys)) {
-            $errs = [];
-            foreach ($requiredKeys as $k) {
-                if ($this->attrs()->isSkuLevelRequiredKey($k)) {
-                    continue;
-                }
-                $val = $attrs[$k] ?? null;
-                if ($val === null || trim((string)$val) === '') {
-                    $label = $requiredNames[$k] ?? $k;
-                    $errs['attributes.'.$k] = $label . ' is mandatory.';
-                }
-            }
-            if (!empty($errs)) {
-                return redirect()->route('ext.lazada.products.edit', $listing->id)
-                    ->withErrors($errs);
-            }
-        }
-
-        $povRows = DB::table($pfx.'product_option_value')
-            ->where('product_id', (int)$listing->product_id)
-            ->orderBy('product_option_value_id')
-            ->get(['product_option_value_id','sku','quantity','absolute_price']);
-
-        $map = LazadaProductVariant::query()
-            ->where('lazada_product_id', $listing->id)
-            ->get()
-            ->keyBy(function ($v) {
-                return $v->product_option_value_id === null ? 'base' : (string)$v->product_option_value_id;
-            });
-
-        $skus = [];
-        $basePrice = (float)($product->price ?? 0);
-        $usedSellerSkus = [];
-
-        // Effective markup for variant price computation
-        $effectiveFixed = $listing->markup_fixed;
-        $effectivePercent = $listing->markup_percent;
-        if ($effectiveFixed === null && $effectivePercent === null) {
-            $mkGroup = $listing->groups()->first();
-            if ($mkGroup) {
-                $effectiveFixed = $mkGroup->markup_fixed;
-                $effectivePercent = $mkGroup->markup_percent;
-            }
-        }
-
-        // SellerSku fallback: sku then model.
-        $fallbackBaseSku = null;
-        if ($product) {
-            $fallbackBaseSku = trim((string)($product->sku ?? ''));
-            if ($fallbackBaseSku === '') {
-                $fallbackBaseSku = trim((string)($product->model ?? ''));
-            }
-            if ($fallbackBaseSku === '') {
-                $fallbackBaseSku = null;
-            }
-        }
-        if ($povRows->count() > 0) {
-            foreach ($povRows as $r) {
-                $key = (string)$r->product_option_value_id;
-                $m = $map->get($key);
-
-                // SellerSku mapping rule:
-                // 1) Listing variant override
-                // 2) ERP product.sku (single source of truth)
-                // 3) ERP product.model
-                $candidate = trim((string)($m && $m->seller_sku ? $m->seller_sku : ''));
-                if ($candidate === '') {
-                    $candidate = $fallbackBaseSku;
-                }
-                // Ensure uniqueness across variant rows
-                if ($candidate !== null && $candidate !== '') {
-                    if (isset($usedSellerSkus[$candidate])) {
-                        $candidate = $candidate . '-' . (int)$r->product_option_value_id;
-                    }
-                    $usedSellerSkus[$candidate] = true;
-                }
-
-                $erpPrice = (float)($r->absolute_price ?? $basePrice);
-                $finalPrice = $m && $m->price !== null ? (float)$m->price : $erpPrice;
-                $finalPrice = LazadaPushPayload::computeFinalPrice($finalPrice, $effectiveFixed, $effectivePercent);
-                $skus[] = [
-                    'product_option_value_id' => (int)$r->product_option_value_id,
-                    'seller_sku' => $candidate,
-                    'price' => $finalPrice,
-                    'quantity' => $m && $m->quantity !== null ? (int)$m->quantity : (int)$r->quantity,
-                ];
-            }
-        } else {
-            // No variants in ERP; show a single base SKU in preview.
-            // Use stored total_price (base + markup) if available.
-            $singlePrice = $listing->total_price ?? (float)($product->price ?? 0);
-            $skus[] = [
-                'product_option_value_id' => null,
-                'seller_sku' => $fallbackBaseSku,
-                'price' => (float)$singlePrice,
-                'quantity' => (int)($product->quantity ?? 0),
-            ];
-        }
-
-        // Validate SKU-level mandatory fields (SellerSku, price) if Lazada template requires them.
-        if (!empty($requiredKeys)) {
-            $skuErrs = [];
-            $needsSellerSku = false;
-            $needsPrice = false;
-            foreach ($requiredKeys as $k) {
-                $lk = strtolower((string)$k);
-                if ($lk === 'sellersku' || $lk === 'seller_sku') $needsSellerSku = true;
-                if ($lk === 'price') $needsPrice = true;
-            }
-            if ($needsSellerSku) {
-                foreach ($skus as $i => $s) {
-                    if (empty($s['seller_sku'])) {
-                        $skuErrs['variants'] = 'SellerSku is mandatory. Please set SKU in your ERP variants or fill Variant Mapping overrides.';
-                        break;
-                    }
-                }
-            }
-            if ($needsPrice) {
-                foreach ($skus as $i => $s) {
-                    if (!isset($s['price']) || $s['price'] === null || (float)$s['price'] <= 0) {
-                        $skuErrs['variants'] = 'Price is mandatory. Please set product price in ERP (base price) and/or option price adjustments, or fill Variant Mapping overrides.';
-                        break;
-                    }
-                }
-            }
-            if (!empty($skuErrs)) {
-                return redirect()->route('ext.lazada.products.edit', $listing->id)
-                    ->withErrors($skuErrs);
-            }
-        }
-
-        // Brand resolution (preview only)
-        $brandSuggestion = $this->attrs()->suggestBrandFromManufacturer($product?->manufacturer_name ?? null);
-        $effectiveBrandId = $listing->brand_id ?: ($brandSuggestion['brand_id'] ?? null);
-        $effectiveBrandName = $listing->brand_name_override;
-        if ($effectiveBrandName === null || $effectiveBrandName === '') {
-            // If we found a Lazada brand match, leave name null (ID is enough).
-            // Otherwise, use manufacturer name as the text override.
-            $effectiveBrandName = ($brandSuggestion['brand_id'] ?? null) ? null : (string)($product?->manufacturer_name ?? '');
-        }
-
-        $payload = [
-            'region' => $this->region(),
-            'product_id' => $listing->product_id,
-            'primary_category_id' => $listing->primary_category_id,
-            'brand_id' => $listing->brand_id,
-            'brand_name_override' => $listing->brand_name_override,
-            'effective_brand' => [
-                'brand_id' => $effectiveBrandId,
-                'brand_name' => $effectiveBrandName,
-                'source' => $listing->brand_id ? 'listing.brand_id' : ($brandSuggestion['brand_id'] ? 'manufacturer->lazada_brand_match' : 'manufacturer_name'),
-            ],
-            'product' => $product ? [
-                'sku' => $product->sku ?? null,
-                'model' => $product->model ?? null,
-                'name' => $product->name ?? null,
-                'description' => $product->description ?? null,
-                'manufacturer' => $product->manufacturer_name ?? null,
-                'weight' => $product->weight ?? null,
-                'dimensions' => [
-                    'length' => $product->length ?? null,
-                    'width' => $product->width ?? null,
-                    'height' => $product->height ?? null,
-                ],
-            ] : null,
-            'attributes' => $attrFinal ?? $attrs,
-            'skus' => $skus,
-        ];
-
-        return redirect()->route('ext.lazada.products.edit', $listing->id)
-            ->with('status', 'Payload built (preview only).')
-            ->with('payload_preview_json', json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-    }
-
-    public function pushSample(Request $request, int $id, LazadaClient $client)
-    {
-        $listing = LazadaProduct::query()->findOrFail($id);
-        // The sample is built the way a push is: blanks filled from the group.
-        $inherit = app(\Extensions\lazada\Services\Lazada\LazadaInheritedSettings::class);
-        $listing = $inherit->fill($listing, $inherit->forProducts([(int) $listing->product_id])[(int) $listing->product_id] ?? null)['listing'];
-
-        $setting = LazadaSetting::defaultStore()?->decrypted();
-        $creds = LazadaSetting::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
-            return redirect()->route('ext.lazada.products.edit', $listing->id)
-                ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
-        }
-
-        if (empty($listing->primary_category_id)) {
-            return redirect()->route('ext.lazada.products.edit', $listing->id)
-                ->withErrors(['primary_category_id' => 'Primary Category is required before pushing.']);
-        }
-
-        // Build a Lazada-ready product payload (best-effort). We'll learn from QC errors and iterate.
-        try {
-            [$productPayload, $preview] = $this->payload()->buildLazadaProductCreatePayload($listing, $setting, $client);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return redirect()->route('ext.lazada.products.edit', $listing->id)
-                ->withErrors($e->errors())
-                ->withInput();
-        }
-
-        // Lazada QC rejects non-Lazada image URLs (outer links).
-        // Convert ERP/public image URLs to Lazada inlinks before pushing.
-        try {
-            $productPayload = $this->images()->ensureLazadaInlinkImages($productPayload, $setting, $client);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return redirect()->route('ext.lazada.products.edit', $listing->id)
-                ->withErrors($e->errors())
-                ->withInput();
-        }
-
-        // Keep preview aligned with the final payload we are about to send.
-        $preview['images'] = data_get($productPayload, 'Request.Product.Images.Image', []);
-        $preview['payload'] = $productPayload;
-
-        // Lazada product create expects a JSON string payload.
-        $apiPath = '/product/create';
-        $timestamp = (string) round(microtime(true) * 1000);
-        $params = [
-            'app_key' => (string) $creds['app_key'],
-            'sign_method' => 'sha256',
-            'timestamp' => $timestamp,
-            'access_token' => (string) $creds['access_token'],
-            'payload' => json_encode($productPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-        ];
-        $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
-
-        $result = $client->post((string) $setting->region, $apiPath, $params);
-
-        LazadaApiLog::safeCreate([
-            'pack' => 'lazada.product.create',
-            'method' => 'POST',
-            'api_path' => $apiPath,
-            'auth_required' => true,
-            'request_params' => $params,
-            'response_status' => (int)($result['status'] ?? 0),
-            'ok' => (bool)($result['ok'] ?? false),
-            'response_body' => $result['body'] ?? $result,
-            'user_id' => auth()->id(),
-        ]);
-
-        return redirect()->route('ext.lazada.products.edit', $listing->id)
-            ->with('status', 'Sample push sent to Lazada. Review the response below (QC errors will appear there).')
-            ->with('push_request_json', json_encode($preview, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES))
-            ->with('push_response_json', json_encode($result['body'] ?? $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-    }
-
 
     private function region(): string
     {

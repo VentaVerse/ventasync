@@ -25,22 +25,20 @@
      here. Both are the shared picker now, createElement and textContent
      throughout.
 
-     Six forms live on this page and each is a separate operation with its own
-     route. The wire of every one is unchanged, checked against
-     LazadaProductController:
+     Two forms live on this page since 2026-09-06 (the owner: "Everything should
+     be in Save and Push"), each a separate operation with its own route. The
+     wire of each is checked against LazadaProductController:
 
        store/update   product_id (create only), primary_category_id, brand_id,
-                      no_brand, markup_fixed, markup_percent
-       attributes     attributes[<key>], with the __map:<field> prefix intact
-       template sync  primary_category_id
+                      no_brand, markup_fixed, markup_percent, the discount
+                      rule, attributes[<key>] with the __map:<field> prefix
+                      intact, and push=1 when the press is Save and push
        variants       variants[<id>][seller_sku|price|quantity]
-       build payload  nothing but the token
-       push sample    nothing but the token, behind the same confirmation
 
-     The primary Save sits in the page's one sticky bar and reaches its form
-     through the HTML5 `form` attribute, so a page carrying six forms still has
-     exactly one place the main action lives. Every other form's action sits
-     beside its own section heading, which is where its scope is obvious. --}}
+     Picking a category asks products.attributes_fetch for that category's
+     sheet and injects it into the listing form, so the answers submit with
+     Save listing and Save and push alike. The two buttons sit in the page's
+     one sticky bar and reach the form through the HTML5 `form` attribute. --}}
 @section('content')
 @php
     // Every route on this page, including both GET renders, is registered
@@ -327,7 +325,8 @@
     <form id="lazada-listing" method="POST"
           action="{{ $mode === 'create'
             ? route('ext.lazada.products.store')
-            : route('ext.lazada.products.update', $listing->id) }}">
+            : route('ext.lazada.products.update', $listing->id) }}"
+          @if($mode === 'edit') data-slow-action="push" @endif>
         @csrf
         @if($mode === 'edit')
             @method('PUT')
@@ -365,7 +364,7 @@
 
                     <div class="fm-fields">
                         <x-ui.field label="Lazada category" for="lz-category" name="primary_category_id" :required="true" wide
-                                    hint="Set this and save, then read the category's attribute template below.">
+                                    hint="{{ $mode === 'create' ? 'Pick the category; its attributes are filled in on the edit screen.' : 'Pick the category and its attributes appear below.' }}">
                             {{-- The shared searchable combobox instead of a
                                  5,000-option select (the owner, 2026-08-24).
                                  Local mode: the page already carries the
@@ -395,6 +394,17 @@
                                 </div>
                                 <script type="application/json" data-combo-options>{!! json_encode($lzCategoryOptions, $jsonFlags) !!}</script>
                             </div>
+                            @if($mode === 'edit')
+                                {{-- The template read lives beside the category it
+                                     belongs to (the owner, 2026-09-06: it had drifted to
+                                     the bottom of the page in the rebuild). Picking a
+                                     category reads its template by itself; this button
+                                     is for a category Lazada has since changed. --}}
+                                <div class="fm-hint">
+                                    <span data-template-read-at>@if($template && $template->fetched_at) Attributes read from Lazada {{ $template->fetched_at->format('Y-m-d H:i') }}. @elseif($listing->primary_category_id) Attributes not read from Lazada yet. @else Attributes appear once a category is picked. @endif</span>
+                                    <x-ui.button type="button" size="sm" data-attributes-reread :disabled="empty($listing->primary_category_id)">Re-read the template</x-ui.button>
+                                </div>
+                            @endif
                         </x-ui.field>
 
                         <x-ui.field label="Brand" for="lz-brand" name="brand_id" :required="true" wide
@@ -428,6 +438,50 @@
                         </p>
                     @endif
                 </section>
+
+                @if($mode === 'edit')
+                    {{-- The category attributes, INSIDE the listing form since
+                         2026-09-06: one Save and push carries the category, the
+                         brand, the price rule and every answer below. Picking a
+                         category replaces this sheet through
+                         LazadaProductController::fetchAttributesAjax(), which
+                         answers with products/_attributes, the same partial the
+                         page renders here. --}}
+                    <section class="fm-section"
+                             data-attributes-fetch
+                             data-attributes-url="{{ route('ext.lazada.products.attributes_fetch', $listing->id) }}"
+                             data-attributes-field="primary_category_id"
+                             data-attributes-source="#lazada-listing [data-combo-value]"
+                             data-attributes-reread-button="[data-attributes-reread]"
+                             data-attributes-read-at="[data-template-read-at]"
+                             data-attributes-empty="Pick a Lazada category above and its attributes appear here."
+                             @if(!$template && $listing->primary_category_id) data-attributes-autoload @endif>
+                        <div class="fm-section__head">
+                            <h2 class="fm-section__title">Category attributes</h2>
+                        </div>
+                        <div data-attributes-target>
+                            @if(empty($listing->primary_category_id))
+                                <p class="fm-section__note">Pick a Lazada category above and its attributes appear here.</p>
+                            @elseif(!$template)
+                                <p class="fm-section__note">Reading this category's attributes from Lazada.</p>
+                            @else
+                                @include('ext-lazada::products._attributes', [
+                                    'template' => $template,
+                                    'attributes' => $attributes,
+                                    'saved' => $saved,
+                                    'suggested' => $suggested,
+                                    'groupAttrs' => $groupAttrs,
+                                    'productOwnAttrs' => $productOwnAttrs,
+                                    'erpSourceFields' => $erpSourceFields,
+                                ])
+                            @endif
+                        </div>
+                    </section>
+
+                    {{-- Data only, no behaviour. Read by the mapped-attribute
+                         preview in resources/js/pages/group-form.js. --}}
+                    <script type="application/json" data-erp-fields>{!! json_encode($erpFieldValues, $jsonFlags) !!}</script>
+                @endif
 
                 {{-- The Discount card sits in the work column on every channel
                      (critique 2026-08-25). --}}
@@ -525,7 +579,7 @@
                 <div class="fm-card">
                     <div class="fm-card__head"><h2 class="fm-card__title">What happens next</h2></div>
                     <div class="fm-card__body">
-                        <p class="fm-section__note">Creating the listing saves it here only. Nothing reaches Lazada until you read the category template, fill its attributes and push a sample from the edit screen.</p>
+                        <p class="fm-section__note">Creating the listing saves it here only. Nothing reaches Lazada until you fill in the category's attributes and press Save and push on the edit screen.</p>
                     </div>
                 </div>
                 @endif
@@ -538,197 +592,7 @@
 
     @if($mode === 'edit')
         {{-- ============================================================
-             2. Category attributes.
-             ============================================================ --}}
-        <section class="fm-section">
-            <div class="fm-section__head">
-                <h2 class="fm-section__title">Category attributes</h2>
-                @if($template)
-                    <div class="fm-section__aside">
-                        <x-ui.button type="submit" form="lazada-attributes" size="sm">Save attributes</x-ui.button>
-                    </div>
-                @endif
-            </div>
-
-            @if(empty($listing->primary_category_id))
-                <p class="fm-section__note">Set a Lazada category above and save the listing, then read the template below.</p>
-            @elseif(!$template)
-                <p class="fm-section__note">The category template has not been read from Lazada yet. Read it below and the attributes will appear here.</p>
-            @else
-                <p class="fm-section__note">Only this category's own questions are asked here. Name, description and model come from the catalog product by themselves, the way a Shopee push takes them. Type a value, or point an attribute at a field on the catalog product so every push reads the current one. Read from Lazada {{ $template->fetched_at ? $template->fetched_at->format('Y-m-d H:i') : 'at an unrecorded time' }}.</p>
-
-                <form id="lazada-attributes" method="POST" action="{{ route('ext.lazada.products.attributes_save', $listing->id) }}" data-slow-action>
-                    @csrf
-
-                    <div class="gf-attrs">
-                        @foreach($attributes as $attribute)
-                            @php
-                                $key = (string) ($attribute['key'] ?? '');
-                            @endphp
-                            @continue(strtolower(trim($key)) === 'brand')
-                            @php
-                                $suggestion = $suggested[$key] ?? null;
-                                $rawSaved = $saved[$key] ?? '';
-                            @endphp
-                            {{-- A row the catalogue answers by itself is not
-                                 shown as a question. It reappears only when a
-                                 custom value was saved for it, so an override
-                                 someone already typed stays visible and
-                                 editable rather than silently applying. --}}
-                            @continue(\Extensions\lazada\Services\Lazada\LazadaAttributes::isAutoFilledAttributeKey($key)
-                                && (trim((string) $rawSaved) === '' || str_starts_with((string) $rawSaved, '__map:')))
-                            @php
-                                $fromGroup = !array_key_exists($key, ($productOwnAttrs ?? []))
-                                    && array_key_exists($key, ($groupAttrs ?? []));
-
-                                $value = old('attributes.' . $key, $saved[$key] ?? ($suggestion ?? ''));
-                                $options = $attribute['options'] ?? [];
-                                $isSelect = is_array($options) && count($options) > 0;
-                                $controlId = 'lz-attr-' . \Illuminate\Support\Str::slug($key, '-');
-
-                                // A suggestion that is not one of the choices
-                                // would be silently rejected by Lazada, so it
-                                // is not pre-selected.
-                                if ($isSelect && $suggestion !== null) {
-                                    $suggestionIsAChoice = false;
-                                    foreach ($options as $option) {
-                                        $candidate = is_array($option)
-                                            ? (string) ($option['name'] ?? $option['label'] ?? $option['value'] ?? '')
-                                            : (string) $option;
-                                        if ((string) $suggestion === $candidate) { $suggestionIsAChoice = true; break; }
-                                    }
-                                    if (!$suggestionIsAChoice && !isset($saved[$key]) && !old('attributes.' . $key)) {
-                                        $value = '';
-                                    }
-                                }
-
-                                $isMapped = str_starts_with((string) $rawSaved, '__map:');
-                                $mappedField = $isMapped ? substr((string) $rawSaved, 6) : '';
-                                $typedValue = $isMapped ? '' : $value;
-                                $resolvedRaw = ($isMapped && isset($suggested[$key])) ? $suggested[$key] : null;
-                                $resolvedValue = $resolvedRaw !== null
-                                    ? mb_substr(strip_tags(html_entity_decode((string) $resolvedRaw, ENT_QUOTES | ENT_HTML5, 'UTF-8')), 0, 200)
-                                    : '';
-                            @endphp
-                            <div class="gf-attr">
-                                <div class="gf-attr__label">
-                                    <label class="gf-attr__name" for="{{ $controlId }}">
-                                        @php
-                                            /* Lazada's template names some attributes by their
-                                               raw key (__images__, wh_handling). A key is not a
-                                               label: it is spelled out in words for the operator,
-                                               and the raw key stays in the hidden input. */
-                                            $attrName = (string) $attribute['name'];
-                                            $attrWords = preg_match('/^[a-z0-9_]+$/i', $attrName) && str_contains($attrName, '_')
-                                                ? ucfirst(str_replace('_', ' ', trim($attrName, '_')))
-                                                : $attrName;
-                                        @endphp
-                                        {{ $attrWords }}
-                                        @if(!empty($attribute['required']))<span class="gf-attr__req" aria-hidden="true">*</span><span class="x-sr">(required)</span>@endif
-                                    </label>
-                                    <span class="gf-attr__key">{{ $key }}</span>
-                                </div>
-
-                                <div class="gf-attr__control">
-                                    @if($isSelect)
-                                        <div class="x-select-wrap">
-                                            <select id="{{ $controlId }}" name="attributes[{{ $key }}]" class="x-input">
-                                                <option value="">Not set</option>
-                                                @foreach($options as $option)
-                                                    @php
-                                                        $optionValue = is_array($option)
-                                                            ? (string) ($option['name'] ?? $option['label'] ?? $option['value'] ?? '')
-                                                            : (string) $option;
-                                                    @endphp
-                                                    <option value="{{ $optionValue }}" @selected((string) $value === $optionValue)>{{ $optionValue }}</option>
-                                                @endforeach
-                                            </select>
-                                            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-                                        </div>
-                                    @else
-                                        <div class="gf-attr__mode" data-attr-row>
-                                            <div class="x-select-wrap">
-                                                <select class="x-input" data-attr-mode aria-label="How {{ $attribute['name'] }} is filled in">
-                                                    <option value="manual" @selected(!$isMapped)>Type a value</option>
-                                                    <option value="product_field" @selected($isMapped)>Read it off the product</option>
-                                                </select>
-                                                <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-                                            </div>
-
-                                            <div class="gf-attr__value">
-                                                <input id="{{ $controlId }}" class="x-input" data-attr-manual data-attr-manual-box
-                                                       value="{{ $typedValue }}" placeholder="Not set"
-                                                       aria-label="{{ $attribute['name'] }}"
-                                                       @if($isMapped) hidden @endif>
-
-                                                <div class="x-select-wrap" data-attr-field-box @unless($isMapped) hidden @endunless>
-                                                    <select class="x-input" data-attr-field aria-label="Which product field {{ $attribute['name'] }} is read from">
-                                                        <option value="">Pick a product field</option>
-                                                        @foreach($erpSourceFields as $fieldKey => $fieldLabel)
-                                                            <option value="{{ $fieldKey }}" @selected($isMapped && $mappedField === $fieldKey)>{{ $fieldLabel }}</option>
-                                                        @endforeach
-                                                    </select>
-                                                    <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-                                                </div>
-                                            </div>
-
-                                            {{-- The only control in this row that submits. --}}
-                                            <input type="hidden" name="attributes[{{ $key }}]" data-attr-value value="{{ $isMapped ? $rawSaved : $value }}">
-
-                                            <div class="gf-attr__resolved" data-attr-resolved @unless($isMapped) hidden @endunless>
-                                                Currently reads <strong data-attr-resolved-text>{{ $resolvedValue }}</strong>
-                                            </div>
-                                        </div>
-                                    @endif
-
-                                    @if($fromGroup)
-                                        <p class="gf-attr__note">Inherited from the product group. Saving here overrides it for this listing.</p>
-                                    @endif
-
-                                    @if(!$isSelect && !$isMapped && empty($saved[$key] ?? null) && empty(old('attributes.' . $key)) && !empty($suggestion))
-                                        <p class="gf-attr__note">The catalog suggests {{ $suggestion }}.</p>
-                                    @endif
-
-                                    @if($errors->has('attributes.' . $key))
-                                        <div class="gf-attr__error">{{ $errors->first('attributes.' . $key) }}</div>
-                                    @endif
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-                </form>
-
-                {{-- Data only, no behaviour. Read by the mapped-attribute
-                     preview in resources/js/pages/group-form.js. --}}
-                <script type="application/json" data-erp-fields>{!! json_encode($erpFieldValues, $jsonFlags) !!}</script>
-            @endif
-        </section>
-
-        {{-- ============================================================
-             3. The category template.
-             ============================================================ --}}
-        <section class="fm-section">
-            <div class="fm-section__head">
-                <h2 class="fm-section__title">{{ $template ? 'Re-read the category template' : 'Read the category template' }}</h2>
-                <div class="fm-section__aside">
-                    <form method="POST" action="{{ route('ext.lazada.products.template_sync', $listing->id) }}" data-slow-action>
-                        @csrf
-                        <input type="hidden" name="primary_category_id" value="{{ (int) ($listing->primary_category_id ?? 0) }}">
-                        <x-ui.button type="submit" size="sm" :disabled="empty($listing->primary_category_id)">{{ $template ? 'Re-read it' : 'Read it' }}</x-ui.button>
-                    </form>
-                </div>
-            </div>
-            <p class="fm-section__note">
-                @if($template)
-                    Only worth doing when Lazada has changed what this category asks for. If the attributes above are filling in correctly, leave it alone. Last read {{ $template->fetched_at ? $template->fetched_at->format('Y-m-d H:i') : 'at an unrecorded time' }}.
-                @else
-                    This asks Lazada which attributes this category needs, so they can be filled in above.
-                @endif
-            </p>
-        </section>
-
-        {{-- ============================================================
-             4. Variations.
+             2. Variations.
              ============================================================ --}}
         <section class="fm-section">
             <div class="fm-section__head">
@@ -801,54 +665,8 @@
             @endif
         </section>
 
-        {{-- ============================================================
-             5. The payload.
-             ============================================================ --}}
-        <section class="fm-section">
-            <div class="fm-section__head">
-                <h2 class="fm-section__title">The payload</h2>
-                <div class="fm-section__aside">
-                    <form method="POST" action="{{ route('ext.lazada.products.payload_build', $listing->id) }}">
-                        @csrf
-                        <x-ui.button type="submit" size="sm">Build it</x-ui.button>
-                    </form>
-                    <form method="POST" action="{{ route('ext.lazada.products.push_sample', $listing->id) }}" data-slow-action
-                          data-confirm="Send this to Lazada now as a sample push? It reaches the marketplace and may come back with quality-check errors." data-confirm-tone="primary" data-confirm-verb="Send sample push">
-                        @csrf
-                        <x-ui.button type="submit" size="sm">Send a sample push</x-ui.button>
-                    </form>
-                </div>
-            </div>
-            <p class="fm-section__note">Building it changes nothing at Lazada. It assembles exactly what would be sent, from this listing's attributes, the variation mapping and the catalog's weight and dimensions, so you can read it before anything leaves.</p>
-
-            @if(!empty($payloadPreview))
-                <details class="od-disclose" open>
-                    <summary>What would be sent</summary>
-                    <pre class="cl-json">{{ $payloadPreview }}</pre>
-                </details>
-            @endif
-
-            @if(!empty($pushRequest))
-                <details class="od-disclose">
-                    <summary>What was sent last time</summary>
-                    <pre class="cl-json">{{ $pushRequest }}</pre>
-                </details>
-            @endif
-
-            @if(!empty($pushResponse))
-                <details class="od-disclose" open>
-                    <summary>What Lazada said last time</summary>
-                    <pre class="cl-json">{{ $pushResponse }}</pre>
-                </details>
-            @endif
-
-            @if(empty($payloadPreview) && empty($pushRequest) && empty($pushResponse))
-                <p class="fm-section__note">Nothing built yet.</p>
-            @endif
-        </section>
-
-        {{-- Sending a sample to Lazada is a multi-second round trip, so the
-             page says so rather than letting the operator click again. --}}
+        {{-- A push is a multi-second round trip, so the page says so rather
+             than letting the operator click again. --}}
         <div id="lazada-group-progress" class="modal-backdrop" role="dialog" aria-modal="true" aria-live="polite">
             <div class="modal co-modal co-modal--sm">
                 <div class="cc-progress">
@@ -862,40 +680,21 @@
         </div>
     @endif
 
-    {{-- The page's one primary action. It reaches the listing form through the
-         HTML5 `form` attribute, which is the same mechanism the group pages'
-         add-a-product checkboxes use, so a page carrying six forms still has
-         exactly one sticky bar and one obvious Save. --}}
+    {{-- The page's actions, both on the listing form through the HTML5
+         `form` attribute. Save listing keeps everything on the page. Save and
+         push keeps it and sends the listing to Lazada in the same press, as a
+         create or, once the listing is linked, as an update that carries the
+         content, the price rule, the attribute answers and every variation
+         (the owner, 2026-09-06: "Everything should be in Save and Push"). --}}
     <div class="fm-bar">
         <span class="fm-bar__meta">{{ $mode === 'create'
             ? 'Nothing reaches Lazada until you push from the edit screen.'
-            : 'Save listing keeps the category, brand and markup. Save and push keeps the attribute answers and sends the listing to Lazada.' }}</span>
+            : 'Save listing keeps everything on this page. Save and push keeps it and sends the listing to Lazada.' }}</span>
         <div class="fm-bar__actions">
             <a class="fm-cancel" href="{{ route('ext.lazada.products.index') }}">Cancel</a>
-            <x-ui.button type="submit" form="lazada-listing" :variant="$mode === 'edit' && empty($listing->lazada_item_id) && $template ? 'secondary' : 'primary'">{{ $mode === 'create' ? 'Create listing' : 'Save listing' }}</x-ui.button>
-            {{-- The push, from the page that shows what goes up (#149): the
-                 index's row menu opens this page rather than uploading on a
-                 one-click. Offered once the listing exists and is not yet on
-                 Lazada; the upload itself refuses with the reason when the
-                 listing is not ready. --}}
-            {{-- Save and push (the owner, 2026-09-06): one press saves the
-                 attribute answers above and sends the listing to Lazada.
-                 The button belongs to the attributes form through the
-                 HTML5 form attribute and carries the push flag; the
-                 category, brand and markup save with Save listing, which
-                 the template read already needed. --}}
-            @if($mode === 'edit' && empty($listing->lazada_item_id))
-                @if($template)
-                    <x-ui.button type="submit" form="lazada-attributes" name="push" value="1" variant="primary">Save and push to Lazada</x-ui.button>
-                @else
-                    {{-- No category template yet, so no attribute answers to
-                         save: the push alone, which refuses with the reason. --}}
-                    <form method="POST" action="{{ route('ext.lazada.products.upload', $listing->id) }}" data-slow-action
-                          data-confirm="Push this listing to Lazada now? It goes up with the content and settings saved on this page." data-confirm-tone="primary" data-confirm-verb="Push to Lazada">
-                        @csrf
-                        <x-ui.button type="submit">Push to Lazada</x-ui.button>
-                    </form>
-                @endif
+            <x-ui.button type="submit" form="lazada-listing" :variant="$mode === 'edit' ? 'secondary' : 'primary'">{{ $mode === 'create' ? 'Create listing' : 'Save listing' }}</x-ui.button>
+            @if($mode === 'edit')
+                <x-ui.button type="submit" form="lazada-listing" name="push" value="1" variant="primary">{{ empty($listing->lazada_item_id) ? 'Save and push to Lazada' : 'Save and push the update' }}</x-ui.button>
             @endif
         </div>
     </div>

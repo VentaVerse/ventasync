@@ -936,6 +936,18 @@ function initAttributeFetch(root) {
     const target = root.querySelector('[data-attributes-target]');
     if (!url || !field || !source || !target) return;
 
+    /* The listing page (2026-09-06) keeps the section on screen with a
+       sentence when no category is picked, carries a "Re-read the template"
+       button beside the category, and names when the template was read.
+       The group page has none of these and keeps hiding the section. */
+    const emptyText = root.getAttribute('data-attributes-empty');
+    const reread = root.hasAttribute('data-attributes-reread-button')
+        ? document.querySelector(root.getAttribute('data-attributes-reread-button'))
+        : null;
+    const readAt = root.hasAttribute('data-attributes-read-at')
+        ? document.querySelector(root.getAttribute('data-attributes-read-at'))
+        : null;
+
     function say(text) {
         target.textContent = '';
         const note = document.createElement('p');
@@ -944,20 +956,26 @@ function initAttributeFetch(root) {
         target.appendChild(note);
     }
 
-    source.addEventListener('change', function () {
-        const categoryId = source.value;
-
+    function load(categoryId, forceReread) {
         if (!categoryId) {
-            root.hidden = true;
-            target.textContent = '';
+            if (emptyText) {
+                say(emptyText);
+            } else {
+                root.hidden = true;
+                target.textContent = '';
+            }
+            if (reread) reread.disabled = true;
+            if (readAt) readAt.textContent = 'Attributes appear once a category is picked.';
             return;
         }
 
         root.hidden = false;
-        say('Loading the attributes for this category.');
+        if (reread) reread.disabled = true;
+        say(forceReread ? 'Re-reading this category\'s attributes from Lazada.' : 'Loading the attributes for this category.');
 
         const body = new FormData();
         body.append(field, categoryId);
+        if (forceReread) body.append('reread', '1');
 
         fetch(url, {
             method: 'POST',
@@ -970,17 +988,36 @@ function initAttributeFetch(root) {
         })
             .then(function (response) { return response.json(); })
             .then(function (data) {
+                if (reread) reread.disabled = false;
                 if (data && data.ok && data.html) {
                     target.innerHTML = data.html;
                     bindAttributeRows();
+                    if (readAt) readAt.textContent = data.fetched_at ? 'Attributes read from Lazada ' + data.fetched_at + '.' : '';
                     return;
                 }
-                say('This category has no attributes to map.');
+                say((data && data.message) || 'This category has no attributes to map.');
+                if (readAt && data && data.ok) readAt.textContent = data.fetched_at ? 'Attributes read from Lazada ' + data.fetched_at + '.' : '';
             })
             .catch(function () {
+                if (reread) reread.disabled = false;
                 say('Could not reach the marketplace to load the attributes.');
             });
+    }
+
+    source.addEventListener('change', function () {
+        load(source.value, false);
     });
+
+    if (reread) {
+        reread.addEventListener('click', function () {
+            load(source.value, true);
+        });
+    }
+
+    // A category saved before its template was read: read it now.
+    if (root.hasAttribute('data-attributes-autoload') && source.value) {
+        load(source.value, false);
+    }
 }
 
 /* ==================================================================
