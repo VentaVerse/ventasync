@@ -184,6 +184,17 @@
          it must not do. The staleness is a caveat printed under the count,
          never a substitute for it. --}}
     @php $fhIsReturnsViewNav = ($selectedView ?? 'orders') === 'returns'; @endphp
+    {{-- Which card is open, said above the strip (the owner's pick, draft D,
+         2026-09-06): a band in the channel's colour naming the open store,
+         with a marker on the open card's top edge pointing up at it. The
+         ring alone did not read from across the room. --}}
+    @if($fhOpen !== null)
+        <div class="fh-band" style="--ch-deep: {{ \App\Support\ChannelAccent::deep($fhOpen['accent']) }}" aria-hidden="true">
+            <span class="fh-band__k">Open</span>
+            <span class="fh-band__name">{{ $fhOpen['label'] }}</span>
+            @if($fhWork)<span class="fh-band__r">{{ $fhWork }}</span>@endif
+        </div>
+    @endif
     <nav class="fh-grid" aria-label="Fulfilment surfaces">
         @foreach($fhChannels as $fhCard)
             {{-- The view rides with the link. Switching channel from a
