@@ -45,16 +45,15 @@
             @endif
         </p>
     </div>
-    @if(auth()->user()?->hasPermission('manage_venta/listing') ?? false)
+    @if($canManage)
         <div class="cc-head-actions">
-            {{-- The product group page's check, page-wide (#184's one-workbench
-                 rule, now on Venta too): with no rows ticked it walks
-                 every linked product, 200 at a time. --}}
-            <form method="POST" action="{{ route('ext.venta.listings.check', $setting->id) }}"
-                  data-confirm="Check every linked product against {{ $storeName }}? Nothing is sent or changed on {{ $storeName }}; the ERP updates its own records to match what it finds, 200 products at a time." data-confirm-tone="primary" data-confirm-verb="Check">
-                @csrf
-                <x-ui.button type="submit" variant="secondary">Check against {{ $storeName }}</x-ui.button>
-            </form>
+            {{-- The one header action every channel's Listings page carries
+                 (draft C, 2026-09-05): Add products opens the slide-over. The
+                 check moved to the status strip, where the other channels
+                 keep their maintenance. --}}
+            <x-ui.button type="button" variant="primary" data-add-panel-open>
+                <x-ui.icon name="plus" size="14" /> Add products
+            </x-ui.button>
         </div>
     @endif
 </div>
@@ -99,6 +98,15 @@
                 <form method="POST" action="{{ route('ext.venta.listings.refresh_status', $setting->id) }}" class="x-segment-group__refresh" data-slow-action>
                     @csrf
                     <x-ui.button type="submit" size="sm">Refresh from {{ $storeName }}</x-ui.button>
+                </form>
+                {{-- The page-wide check lives beside the freshness stamp with
+                     the refresh, the Shopee and Lazada shape: maintenance is
+                     page furniture, the header holds the one action. With no
+                     rows ticked it walks every linked product, 200 at a time. --}}
+                <form method="POST" action="{{ route('ext.venta.listings.check', $setting->id) }}" class="cc-repair"
+                      data-confirm="Check every linked product against {{ $storeName }}? Nothing is sent or changed on {{ $storeName }}; the ERP updates its own records to match what it finds, 200 products at a time." data-confirm-tone="primary" data-confirm-verb="Check">
+                    @csrf
+                    <x-ui.button type="submit" size="sm">Check against {{ $storeName }}</x-ui.button>
                 </form>
             @endif
         </div>
@@ -173,15 +181,12 @@
 @endif
 
 @if($products->count() === 0)
-    <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'No products in scope yet' }}"
-                :description="$hasFilters
-                    ? 'Try clearing the search, or widening the group and status filters.'
-                    : 'This list shows catalogue products that belong to a product group on ' . $storeName . ', plus anything already on the store. Create a product group to bring products into scope.'">
+    <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'Nothing on this store yet' }}">
         <x-slot:action>
             @if($hasFilters)
                 <x-ui.button :href="$indexUrl()">Clear filters</x-ui.button>
-            @else
-                <x-ui.button :href="route('ext.venta.product-groups.index', $setting->id)">Go to Product Groups</x-ui.button>
+            @elseif($canManage)
+                <x-ui.button variant="primary" type="button" data-add-panel-open>Add products</x-ui.button>
             @endif
         </x-slot:action>
     </x-ui.empty>
@@ -258,10 +263,13 @@
                 @if($listed)<span class="x-num">{{ $link->venta_product_id }}</span>@else<span class="x-cell-muted">None</span>@endif
             </td>
             <td class="cc-col-sync" data-label="Listing">
-                @if($rowLiveStatus !== null && isset($statusMap[$rowLiveStatus]))
-                    <x-ui.badge :tone="$statusMap[$rowLiveStatus][1]">{{ $statusMap[$rowLiveStatus][0] }}</x-ui.badge>
+                {{-- The engine's one state (partials.channel-listing-state), the
+                     cell every other channel draws, since 2026-09-06. --}}
+                @php $state = $listingStates[$pid] ?? null; @endphp
+                @if($state)
+                    @include('partials.channel-listing-state', ['state' => $state, 'listingUrl' => $listingUrl])
                 @elseif($listed)
-                    <x-ui.badge tone="neutral" title="Press Refresh from {{ $storeName }} to read its status">Not checked yet</x-ui.badge>
+                    <x-ui.badge tone="neutral">Not checked yet</x-ui.badge>
                 @else
                     <x-ui.badge tone="neutral">Not listed</x-ui.badge>
                 @endif
@@ -270,18 +278,7 @@
                 {{-- The shared Last sync cell (partials.channel-last-sync), the
                      drawing every other Listings page uses: when on one line,
                      what it was on a caption (its listing, or a group push). --}}
-                @php
-                    if ($attemptFailed) {
-                        $ventaSync = ['tone' => 'failed', 'headline' => 'Last push' . ($attempt->last_pushed_at ? ' ' . $attempt->last_pushed_at->diffForHumans() : '') . ' failed:', 'detail' => (string) $attempt->push_error, 'at' => $attempt->last_pushed_at];
-                    } elseif ($listing?->last_pushed_at) {
-                        $ventaSync = ['tone' => 'ok', 'headline' => 'Synced ' . $listing->last_pushed_at->diffForHumans(), 'what' => 'listing', 'stale' => false, 'detail' => null, 'at' => $listing->last_pushed_at];
-                    } elseif ($attempt?->last_pushed_at) {
-                        $ventaSync = ['tone' => 'ok', 'headline' => 'Synced ' . $attempt->last_pushed_at->diffForHumans(), 'what' => 'group push', 'stale' => false, 'detail' => null, 'at' => $attempt->last_pushed_at];
-                    } else {
-                        $ventaSync = ['tone' => 'none', 'headline' => 'Never synced', 'detail' => null, 'at' => null];
-                    }
-                @endphp
-                @include('partials.channel-last-sync', ['sync' => $ventaSync])
+                @include('partials.channel-last-sync', ['sync' => $lastSync[$pid] ?? null])
             </td>
             <td class="x-td-actions">
                 @if($canManage || $canEditCatalog)
@@ -317,6 +314,14 @@
                             @endif
                         @endif
                     @endif
+                    @if($canManage)
+                        <div class="x-menu__sep" role="separator"></div>
+                        <form method="POST" action="{{ route('ext.venta.products.remove_from_store', [$setting->id, $pid]) }}" data-slow-action
+                              data-confirm="Remove this product from {{ $storeName }}'s list? It leaves this list and its group and stops syncing. Anything already on {{ $storeName }} stays up until you delete it there." data-confirm-verb="Remove from this store">
+                            @csrf
+                            <button type="submit" class="x-menu__item x-menu__item--danger">Remove from this store</button>
+                        </form>
+                    @endif
                 </x-ui.menu>
                 @endif
             </td>
@@ -344,5 +349,18 @@
     </div>
 </div>
 
+@if($canManage)
+    <x-channel.add-panel
+        id="venta-add-panel"
+        :search-url="route('ext.venta.products.catalogue_search', $setting->id)"
+        :add-url="route('ext.venta.products.add_to_store', [$setting->id, '__PID__'])"
+        sub="Search your main catalog. Each product you add joins this store's list, ready to configure and push to {{ $storeName }}."
+        toggle-label="Show products already on this store"
+        in-label="On this store"
+        scope="this store"
+        empty-default="Every enabled product is already on this store."
+        empty-all="Your catalog has no enabled products."
+        list-label="Catalog products" />
+@endif
 </div>
 @endsection

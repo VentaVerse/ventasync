@@ -360,4 +360,43 @@ class VentaListingPageTest extends TestCase
         $this->assertStringContainsString('This store is turned off', $html);
         Http::assertNothingSent();
     }
+
+    /** Venta closes its Listings gaps (2026-09-06): the slide-over, the engine's cell, and the core grid reading Venta. */
+    public function test_add_products_brings_a_product_onto_this_store_and_the_engine_names_its_state(): void
+    {
+        $store = $this->store();
+        $pid = $this->product('GP-200');
+        $nowhere = $this->product('PICK-1');
+
+        // Nothing on the store yet: the page offers Add products, not a group.
+        $page = $this->actingAs($this->manager())->get(route('ext.venta.listings.index', $store->id))->assertOk();
+        $page->assertSee('data-add-panel-open', false);
+        $page->assertSee('venta-add-panel');
+        $page->assertDontSee('Go to Product Groups');
+
+        // The search says what is not on the store; adding one makes a listing row and the row appears.
+        $search = $this->actingAs($this->manager())->getJson(route('ext.venta.products.catalogue_search', [$store->id, 'q' => 'PICK']))->assertOk()->json();
+        $this->assertSame([$nowhere], array_column($search['items'], 'id'));
+        $this->actingAs($this->manager())->post(route('ext.venta.products.add_to_store', [$store->id, $nowhere]))->assertRedirect();
+        $this->assertDatabaseHas('venta_listings', ['venta_setting_id' => $store->id, 'product_id' => $nowhere]);
+        $page = $this->actingAs($this->manager())->get(route('ext.venta.listings.index', $store->id))->assertOk();
+        // No image on the catalog product: the engine says so before a push, the way every channel's cell does.
+        $page->assertSee('Not ready');
+        $page->assertSee('a product image on the catalog product');
+        $page->assertSee('Remove from this store');
+
+        // A linked product reads Live through the shared cell; the core grid's source agrees.
+        \Extensions\venta\Models\VentaProductLink::create(['venta_setting_id' => $store->id, 'venta_product_id' => 9001, 'product_id' => $pid, 'sku' => 'GP-200']);
+        \Extensions\venta\Models\VentaListing::create(['venta_setting_id' => $store->id, 'product_id' => $pid, 'live_status' => 'active', 'live_checked_at' => now(), 'last_pushed_at' => now()]);
+        $states = (new \Extensions\venta\VentaExtension($this->app))->listingStates([$pid, $nowhere]);
+        $this->assertSame(\App\Integrations\Listings\ListingState::LIVE, $states[$pid]->state);
+        $this->assertSame(\App\Integrations\Listings\ListingState::NOT_LISTED, $states[$nowhere]->state);
+        $this->assertContains($pid, (new \Extensions\venta\VentaExtension($this->app))->listedProductIds());
+        $this->assertStringContainsString('/listings/' . $pid, (new \Extensions\venta\VentaExtension($this->app))->listingUrls([$pid])[$pid]);
+
+        // Remove from this store: the row, the link and the group place go; the store is not asked.
+        $this->actingAs($this->manager())->post(route('ext.venta.products.remove_from_store', [$store->id, $nowhere]))->assertRedirect();
+        $this->assertDatabaseMissing('venta_listings', ['venta_setting_id' => $store->id, 'product_id' => $nowhere]);
+        $this->actingAs($this->manager())->get(route('ext.venta.listings.index', $store->id))->assertOk()->assertDontSee('PICK-1');
+    }
 }

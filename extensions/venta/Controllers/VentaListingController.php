@@ -268,7 +268,10 @@ class VentaListingController extends Controller
             ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->all();
         $linkedProductIds = VentaProductLink::where('venta_setting_id', $store)->whereNotNull('venta_product_id')
             ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
-        $scopeIds = array_values(array_unique(array_merge($pivotProductIds, $linkedProductIds)));
+        // "This store's list" (#201): a group's products, anything linked, and
+        // anything Add products brought in (a listing row), one query shape
+        // shared with the slide-over and the state engine.
+        $scopeIds = array_values(array_unique(array_merge($pivotProductIds, $linkedProductIds, \Extensions\venta\Services\Venta\VentaStoreProducts::ids($store))));
 
         $groupsByProductId = DB::table('venta_product_group_products as gp')
             ->join('venta_product_groups as g', 'g.id', '=', 'gp.venta_product_group_id')
@@ -361,11 +364,100 @@ class VentaListingController extends Controller
             'linksByProductId' => $linksByProductId,
             'listingsByProductId' => $listingsByProductId,
             'lastAttempts' => $lastAttempts,
+            'listingStates' => \Extensions\venta\Services\Venta\VentaListingStates::for($store)->forProducts($pageIds),
+            'lastSync' => \Extensions\venta\Services\Venta\VentaListingStates::for($store)->lastSync($pageIds),
             'ventaTab' => $tab,
             'liveCounts' => $liveCounts,
             'liveCheckedAt' => $liveCheckedAt,
             'catalogueTotal' => $catalogueTotal,
         ]);
+    }
+
+    // ── Add products slide-over (#201, on Venta since 2026-09-06) ──────────
+
+    /** The slide-over's search: the catalog, saying what is already on this store. */
+    public function catalogueSearch(Request $request, int $store)
+    {
+        VentaSetting::findOrFail($store);
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+        $q = trim((string) $request->query('q', ''));
+        $showAll = $request->boolean('all');
+        $limit = 25;
+        $query = DB::table($pfx . 'product as p')
+            ->leftJoin($pfx . 'product_description as pd', fn ($j) => $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId))
+            ->leftJoinSub(\Extensions\venta\Services\Venta\VentaStoreProducts::query($store), 'os', 'os.product_id', '=', 'p.product_id')
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.model', 'p.quantity', 'p.price', 'os.product_id as on_store_pid')
+            ->where('p.status', 1);
+        if ($q !== '') {
+            $query->where(fn ($sub) => $sub->where('pd.name', 'like', '%' . $q . '%')->orWhere('p.model', 'like', '%' . $q . '%')->orWhere('p.sku', 'like', '%' . $q . '%'));
+        }
+        if (! $showAll) {
+            $query->whereNull('os.product_id');
+        }
+        $total = (clone $query)->count();
+        $rows = $query->orderBy('pd.name')->orderBy('p.product_id')->limit($limit)->get();
+        $items = $rows->map(fn ($r) => [
+            'id' => (int) $r->product_id,
+            'name' => html_entity_decode((string) ($r->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8') ?: 'Unnamed product',
+            'sku' => (string) ($r->sku ?? ''),
+            'quantity' => (int) ($r->quantity ?? 0),
+            'price' => \App\Support\Money::base((float) ($r->price ?? 0)),
+            'thumb' => trim((string) ($r->image ?? '')) !== '' ? asset('storage/' . ltrim((string) $r->image, '/')) : null,
+            'on_store' => ! is_null($r->on_store_pid),
+        ])->values();
+
+        return response()->json(['total' => $total, 'shown' => $items->count(), 'limit' => $limit, 'items' => $items]);
+    }
+
+    /** Add one product to this store's list: a listing row, nothing sent. */
+    public function addToStore(Request $request, int $store, int $productId)
+    {
+        VentaSetting::findOrFail($store);
+        abort_unless(DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $productId)->exists(), 404);
+        $wasOn = \Extensions\venta\Services\Venta\VentaStoreProducts::has($store, $productId);
+        VentaListing::query()->firstOrCreate(['venta_setting_id' => $store, 'product_id' => $productId]);
+        if ($request->wantsJson()) {
+            return response()->json(['ok' => true, 'product_id' => $productId, 'added' => ! $wasOn]);
+        }
+
+        return redirect()->back()->with('status', 'Added to this store. Configure and push it from Listings whenever you are ready.');
+    }
+
+    /** Add several at once. */
+    public function addToStoreBulk(Request $request, int $store)
+    {
+        VentaSetting::findOrFail($store);
+        $data = $request->validate(['product_ids' => ['required', 'array'], 'product_ids.*' => ['integer']]);
+        $valid = DB::table((string) config('catalog.prefix') . 'product')->whereIn('product_id', array_map('intval', $data['product_ids']))->pluck('product_id')->all();
+        $added = 0;
+        foreach ($valid as $pid) {
+            $wasOn = \Extensions\venta\Services\Venta\VentaStoreProducts::has($store, (int) $pid);
+            VentaListing::query()->firstOrCreate(['venta_setting_id' => $store, 'product_id' => (int) $pid]);
+            $added += $wasOn ? 0 : 1;
+        }
+
+        return redirect()->back()->with('status', number_format($added) . ' ' . \Illuminate\Support\Str::plural('product', $added) . ' added to this store.');
+    }
+
+    /**
+     * Remove a product from this store's list: its listing row, its link
+     * and its place in the store's groups go; the store itself is never
+     * touched (the owner, 2026-09-05: "remove from store" is free).
+     */
+    public function removeFromStore(int $store, int $productId)
+    {
+        VentaSetting::findOrFail($store);
+        abort_unless(\Extensions\venta\Services\Venta\VentaStoreProducts::has($store, $productId), 404);
+        $ventaIds = VentaProductLink::query()->where('venta_setting_id', $store)->where('product_id', $productId)->pluck('venta_product_id')->filter()->unique();
+        VentaProductGroupProduct::query()->where('product_id', $productId)
+            ->whereIn('venta_product_group_id', VentaProductGroup::query()->where('venta_setting_id', $store)->select('id'))->delete();
+        VentaListing::query()->where('venta_setting_id', $store)->where('product_id', $productId)->delete();
+        VentaProductLink::query()->where('venta_setting_id', $store)->where('product_id', $productId)->delete();
+
+        return redirect()->back()->with('status', "Removed product #{$productId} from this store." . ($ventaIds->isNotEmpty()
+            ? ' It no longer syncs; the store product ' . $ventaIds->implode(', ') . ' stays up until you remove it there.'
+            : ' It no longer syncs.'));
     }
 
     /** The Refresh button: one walk of the store's product list onto the mirror. */

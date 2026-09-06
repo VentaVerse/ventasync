@@ -4,6 +4,7 @@ namespace Extensions\venta;
 
 use App\Extensions\ExtensionProvider;
 use App\Integrations\Contracts\DashboardContributor;
+use App\Integrations\Contracts\ListingStateSource;
 use App\Integrations\Contracts\MarketplaceSourceOptionsProvider;
 use App\Integrations\Contracts\ProductActionContributor;
 use App\Integrations\Contracts\SkuSyncContributor;
@@ -35,7 +36,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class VentaExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ProductActionContributor, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover
+class VentaExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ProductActionContributor, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, ListingStateSource
 {
     protected string $id = 'venta';
 
@@ -132,6 +133,69 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
     /**
      * @return iterable<\Extensions\venta\Models\VentaSetting>
      */
+    // ── Listing states for the core grid (ListingStateSource, 2026-09-06) ──
+
+    /**
+     * The contract is store-less; Venta is multi-store. One answer per
+     * product: the first enabled store that holds it, so a product live
+     * on any store reads as live. The store page asks VentaListingStates
+     * for one store directly.
+     */
+    public function listingStates(array $productIds): array
+    {
+        $productIds = array_values(array_unique(array_map('intval', $productIds)));
+        if ($productIds === [] || ! Schema::hasTable('venta_listings')) {
+            return [];
+        }
+        $out = [];
+        foreach ($this->enabledStores() as $store) {
+            $here = array_values(array_intersect($productIds, \Extensions\venta\Services\Venta\VentaStoreProducts::ids((int) $store->id)));
+            $here = array_values(array_diff($here, array_keys($out)));
+            if ($here === []) {
+                continue;
+            }
+            foreach (\Extensions\venta\Services\Venta\VentaListingStates::for((int) $store->id)->forProducts($here) as $pid => $state) {
+                $out[$pid] = $state;
+            }
+        }
+
+        return $out;
+    }
+
+    public function listingUrls(array $productIds): array
+    {
+        $productIds = array_values(array_unique(array_map('intval', $productIds)));
+        $out = array_fill_keys($productIds, null);
+        if ($productIds === [] || ! Schema::hasTable('venta_listings')) {
+            return $out;
+        }
+        $first = null;
+        foreach ($this->enabledStores() as $store) {
+            $first ??= (int) $store->id;
+            foreach (array_intersect($productIds, \Extensions\venta\Services\Venta\VentaStoreProducts::ids((int) $store->id)) as $pid) {
+                $out[$pid] ??= route('ext.venta.listings.edit', [$store->id, $pid]);
+            }
+        }
+        if ($first !== null) {
+            foreach ($out as $pid => $url) {
+                $out[$pid] = $url ?? route('ext.venta.listings.index', $first);
+            }
+        }
+
+        return $out;
+    }
+
+    /** Every catalog product some store has live (a link with a store product id). */
+    public function listedProductIds(): array
+    {
+        if (! Schema::hasTable('venta_product_links')) {
+            return [];
+        }
+
+        return VentaProductLink::query()->whereNotNull('venta_product_id')
+            ->distinct()->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+    }
+
     protected function enabledStores(): iterable
     {
         if (!Schema::hasTable('venta_settings')) {

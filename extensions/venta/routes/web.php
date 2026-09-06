@@ -66,6 +66,12 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::post('/venta/{store}/products/import-one', [VentaListingController::class, 'importOne'])->whereNumber('store')->name('ext.venta.products.import_one');
     Route::post('/venta/{store}/products/import-selected', [VentaListingController::class, 'importSelected'])->whereNumber('store')->name('ext.venta.products.import_selected');
     Route::post('/venta/{store}/products/link-item', [VentaListingController::class, 'linkItem'])->whereNumber('store')->name('ext.venta.products.link_item');
+    // Add products slide-over (#201): the catalog search, add one or several,
+    // remove from this store's list. Nothing here talks to the store.
+    Route::get('/venta/{store}/products/catalogue-search', [VentaListingController::class, 'catalogueSearch'])->whereNumber('store')->name('ext.venta.products.catalogue_search');
+    Route::post('/venta/{store}/products/add-to-store/{productId}', [VentaListingController::class, 'addToStore'])->whereNumber('store')->whereNumber('productId')->name('ext.venta.products.add_to_store');
+    Route::post('/venta/{store}/products/add-to-store', [VentaListingController::class, 'addToStoreBulk'])->whereNumber('store')->name('ext.venta.products.add_to_store_bulk');
+    Route::post('/venta/{store}/products/remove-from-store/{productId}', [VentaListingController::class, 'removeFromStore'])->whereNumber('store')->whereNumber('productId')->name('ext.venta.products.remove_from_store');
     Route::get('/venta/{store}/listings/{productId}', [VentaListingController::class, 'edit'])
         ->whereNumber('productId')->name('ext.venta.listings.edit');
 });

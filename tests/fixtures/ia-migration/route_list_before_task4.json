@@ -2780,6 +2780,21 @@
         "name": "ext.venta.product-groups.push-stock"
     },
     {
+        "method": "POST",
+        "uri": "channels/venta/{store}/products/add-to-store",
+        "name": "ext.venta.products.add_to_store_bulk"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/products/add-to-store/{productId}",
+        "name": "ext.venta.products.add_to_store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/venta/{store}/products/catalogue-search",
+        "name": "ext.venta.products.catalogue_search"
+    },
+    {
         "method": "GET|HEAD",
         "uri": "channels/venta/{store}/products/import",
         "name": "ext.venta.products.import"
@@ -2798,6 +2813,11 @@
         "method": "POST",
         "uri": "channels/venta/{store}/products/link-item",
         "name": "ext.venta.products.link_item"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/products/remove-from-store/{productId}",
+        "name": "ext.venta.products.remove_from_store"
     },
     {
         "method": "GET|HEAD",
