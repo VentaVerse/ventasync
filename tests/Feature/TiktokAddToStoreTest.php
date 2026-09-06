@@ -90,7 +90,7 @@ class TiktokAddToStoreTest extends TestCase
 
     private function group(string $name = 'Helmets'): TikTokProductGroup
     {
-        return TikTokProductGroup::create(['tiktok_setting_id' => $this->store->id, 'name' => $name, 'tiktok_category_id' => 'cat-1']);
+        return TikTokProductGroup::create(['tiktok_setting_id' => $this->store->id, 'name' => $name, 'tiktok_category_id' => '900001']);
     }
 
     private function groupBase(int $groupId): string
@@ -365,8 +365,8 @@ class TiktokAddToStoreTest extends TestCase
 
     public function test_the_edit_form_is_the_groups_settings_only(): void
     {
-        \Extensions\tiktok\Models\TikTokCategory::create(['id' => 'cat-1', 'name' => 'Helmets', 'parent_id' => null, 'is_leaf' => true]);
-        \Extensions\tiktok\Models\TikTokCategoryTemplate::create(['category_id' => 'cat-1', 'attributes' => [], 'fetched_at' => now()]);
+        \Extensions\tiktok\Models\TikTokCategory::create(['id' => '900001', 'name' => 'Helmets', 'parent_id' => null, 'is_leaf' => true]);
+        \Extensions\tiktok\Models\TikTokCategoryTemplate::create(['category_id' => '900001', 'attributes' => [], 'fetched_at' => now()]);
         $group = $this->group();
         $pid = $this->seedProduct('Already grouped', 'G-1');
         $this->onStore($pid);
@@ -379,7 +379,7 @@ class TiktokAddToStoreTest extends TestCase
         $this->assertStringNotContainsString('product_ids', $html);
 
         $this->actingAs($this->manager())
-            ->put($this->groupBase($group->id), ['name' => 'Helmets renamed', 'tiktok_category_id' => 'cat-1', 'product_ids' => []])
+            ->put($this->groupBase($group->id), ['name' => 'Helmets renamed', 'tiktok_category_id' => '900001', 'product_ids' => []])
             ->assertRedirect();
 
         $this->assertSame('Helmets renamed', $group->fresh()->name);

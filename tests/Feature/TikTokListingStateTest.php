@@ -142,7 +142,7 @@ class TikTokListingStateTest extends TestCase
     public function test_a_pivot_only_product_counts_as_linked(): void
     {
         $productId = $this->seedProduct('Pivot legacy', 'PV-1');
-        $grp = TikTokProductGroup::create(['name' => 'Legacy group', 'tiktok_category_id' => 'cat-9']);
+        $grp = TikTokProductGroup::create(['name' => 'Legacy group', 'tiktok_category_id' => '900009']);
         TikTokProductGroupProduct::create([
             'tiktok_product_group_id' => $grp->id, 'product_id' => $productId,
             'tiktok_product_id' => 'tt-legacy', 'sync_status' => 'pushed',
@@ -201,7 +201,7 @@ class TikTokListingStateTest extends TestCase
     {
         $productId = $this->seedProduct('Group cut', 'GC-1');
         TikTokListing::create(['product_id' => $productId, 'tiktok_product_id' => 'tt-702', 'live_status' => 'ACTIVATE', 'live_checked_at' => now()]);
-        $grp = TikTokProductGroup::create(['name' => 'Cutting group', 'tiktok_category_id' => 'cat-9']);
+        $grp = TikTokProductGroup::create(['name' => 'Cutting group', 'tiktok_category_id' => '900009']);
         TikTokProductGroupProduct::create([
             'tiktok_product_group_id' => $grp->id, 'product_id' => $productId,
             'tiktok_product_id' => 'tt-702', 'sync_status' => 'pushed',
@@ -327,7 +327,7 @@ class TikTokListingStateTest extends TestCase
         // its group's category. Nothing is written to the row.
         $pid = $this->seedProduct('Inherits one', 'IN-1');
         $listing = TikTokListing::query()->create(['product_id' => $pid]);
-        $grp = TikTokProductGroup::create(['name' => 'Preset group', 'tiktok_category_id' => 'cat-9']);
+        $grp = TikTokProductGroup::create(['name' => 'Preset group', 'tiktok_category_id' => '900009']);
         TikTokProductGroupProduct::create([
             'tiktok_product_group_id' => $grp->id, 'product_id' => $pid,
             'sync_status' => 'pending',
@@ -335,7 +335,7 @@ class TikTokListingStateTest extends TestCase
 
         $inherit = app(\Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::class);
         $filled = $inherit->fill($listing, $inherit->forProducts([$pid])[$pid] ?? null);
-        $this->assertSame('cat-9', $filled['listing']->tiktok_category_id);
+        $this->assertSame('900009', $filled['listing']->tiktok_category_id);
         $this->assertSame(['category' => 'Preset group'], $filled['inherited']);
 
         $codes = array_column(app(\Extensions\tiktok\Services\TikTok\TikTokListingReadiness::class)
@@ -349,10 +349,10 @@ class TikTokListingStateTest extends TestCase
 
         // A listing with its own category keeps it over the group's.
         $own = $this->seedProduct('Own one', 'OW-1');
-        $ownListing = TikTokListing::query()->create(['product_id' => $own, 'tiktok_category_id' => 'cat-own']);
+        $ownListing = TikTokListing::query()->create(['product_id' => $own, 'tiktok_category_id' => '900777']);
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $grp->id, 'product_id' => $own, 'sync_status' => 'pending']);
         $filled = $inherit->fill($ownListing, $inherit->forProducts([$own])[$own] ?? null);
-        $this->assertSame('cat-own', $filled['listing']->tiktok_category_id);
+        $this->assertSame('900777', $filled['listing']->tiktok_category_id);
         $this->assertSame([], $filled['inherited']);
     }
 }

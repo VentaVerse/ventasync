@@ -144,7 +144,7 @@ class ProductDeleteReachesChannelsTest extends TestCase
         $grp = ShopeeProductGroup::create(['name' => 'Delete reach ' . $pid]);
         ShopeeProductGroupProduct::create(['shopee_product_group_id' => $grp->id, 'product_id' => $pid, 'shopee_item_id' => 111, 'sync_status' => 'pushed']);
         LazadaProduct::query()->create(['product_id' => $pid, 'lazada_item_id' => 'LZ1', 'live_status' => 'active']);
-        TikTokListing::create(['product_id' => $pid, 'tiktok_product_id' => 'tt-1', 'tiktok_category_id' => 'cat-9', 'live_status' => 'ACTIVATE']);
+        TikTokListing::create(['product_id' => $pid, 'tiktok_product_id' => 'tt-1', 'tiktok_category_id' => '900009', 'live_status' => 'ACTIVATE']);
     }
 
     private function productExists(int $pid): bool

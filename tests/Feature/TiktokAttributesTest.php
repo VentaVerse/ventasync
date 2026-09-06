@@ -47,7 +47,7 @@ class TiktokAttributesTest extends TestCase
             'mode' => 'production', 'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3),
         ]);
-        TikTokCategory::create(['id' => 'cat-9', 'name' => 'Guitar Accessories', 'parent_id' => null, 'is_leaf' => true]);
+        TikTokCategory::create(['id' => '900009', 'name' => 'Guitar Accessories', 'parent_id' => null, 'is_leaf' => true]);
 
         $dir = public_path('storage/catalog');
         if (!is_dir($dir)) {
@@ -58,7 +58,7 @@ class TiktokAttributesTest extends TestCase
         imagepng($im, $this->imageFile);
         imagedestroy($im);
 
-        $this->callResponses['GET /product/202309/categories/cat-9/attributes'] = [
+        $this->callResponses['GET /product/202309/categories/900009/attributes'] = [
             'ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success', 'data' => ['attributes' => [
                 ['id' => '100001', 'name' => 'Brand Origin', 'type' => 'PRODUCT_PROPERTY', 'is_requried' => true, 'is_customizable' => false,
                  'values' => [['id' => 'v-ph', 'name' => 'Philippines'], ['id' => 'v-jp', 'name' => 'Japan']]],
@@ -136,7 +136,7 @@ class TiktokAttributesTest extends TestCase
 
     public function test_opening_a_group_reads_and_caches_the_sheet_and_lists_only_product_properties(): void
     {
-        $group = TikTokProductGroup::create(['name' => 'Sheet group', 'tiktok_category_id' => 'cat-9']);
+        $group = TikTokProductGroup::create(['name' => 'Sheet group', 'tiktok_category_id' => '900009']);
 
         $r = $this->actingAs($this->manager())->get(route('ext.tiktok.product-groups.edit', $group->id));
 
@@ -144,22 +144,22 @@ class TiktokAttributesTest extends TestCase
         $r->assertSee('Brand Origin');
         $r->assertSee('Material');
         $r->assertDontSee('TikTok attribute 100003');   // a sales property is a variation axis, not a question
-        $this->assertCount(1, $this->callsFor('GET', '/product/202309/categories/cat-9/attributes'));
-        $this->assertNotNull(TikTokCategoryTemplate::where('category_id', 'cat-9')->first());
+        $this->assertCount(1, $this->callsFor('GET', '/product/202309/categories/900009/attributes'));
+        $this->assertNotNull(TikTokCategoryTemplate::where('category_id', '900009')->first());
 
         // A second open reads the cache, not TikTok.
         $this->actingAs($this->manager())->get(route('ext.tiktok.product-groups.edit', $group->id))->assertOk();
-        $this->assertCount(1, $this->callsFor('GET', '/product/202309/categories/cat-9/attributes'));
+        $this->assertCount(1, $this->callsFor('GET', '/product/202309/categories/900009/attributes'));
     }
 
     public function test_a_groups_answers_ride_the_push_as_product_attributes_and_the_truth_lands_on_the_listing(): void
     {
         $productId = $this->seedProduct();
-        $group = TikTokProductGroup::create(['name' => 'Answer group', 'tiktok_category_id' => 'cat-9']);
+        $group = TikTokProductGroup::create(['name' => 'Answer group', 'tiktok_category_id' => '900009']);
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $productId, 'sync_status' => 'pending']);
 
         $this->actingAs($this->manager())->put(route('ext.tiktok.product-groups.update', $group->id), [
-            'name' => 'Answer group', 'tiktok_category_id' => 'cat-9',
+            'name' => 'Answer group', 'tiktok_category_id' => '900009',
             'product_ids' => [$productId],
             'attributes' => ['100001' => 'v-ph', '100002' => 'Maple'],
         ])->assertSessionHas('status');
@@ -176,7 +176,7 @@ class TiktokAttributesTest extends TestCase
             ['id' => '100001', 'values' => [['id' => 'v-ph', 'name' => 'Philippines']]],
             ['id' => '100002', 'values' => [['name' => 'Maple']]],
         ], $creates[0]['body']['product_attributes']);
-        $this->assertSame('cat-9', $creates[0]['body']['category_id']);
+        $this->assertSame('900009', $creates[0]['body']['category_id']);
         $this->assertStringNotContainsString("\u{2014}", $creates[0]['body']['title'], 'No em dash padding in a title.');
 
         $listing = TikTokListing::where('product_id', $productId)->first();

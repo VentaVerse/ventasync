@@ -87,7 +87,7 @@ class ChannelItemImportTest extends TestCase
                         'status' => 'ACTIVATE',
                         'title' => 'Imported Strap',
                         'description' => '<p>Leather strap.</p>',
-                        'category_chains' => [['id' => 'cat-1', 'is_leaf' => false], ['id' => 'cat-9', 'is_leaf' => true]],
+                        'category_chains' => [['id' => '900001', 'is_leaf' => false], ['id' => '900009', 'is_leaf' => true]],
                         'package_weight' => ['value' => '0.3'],
                         'package_dimensions' => ['length' => '30', 'width' => '10', 'height' => '4'],
                         'main_images' => [['urls' => ['https://p16.tiktokcdn.com/main.jpg']]],
@@ -167,7 +167,7 @@ class ChannelItemImportTest extends TestCase
 
         $listing = TikTokListing::where('product_id', $product->product_id)->first();
         $this->assertSame('tt-imp-1', (string) $listing->tiktok_product_id);
-        $this->assertSame('cat-9', (string) $listing->tiktok_category_id, 'the LEAF of the category chain, not the root');
+        $this->assertSame('900009', (string) $listing->tiktok_category_id, 'the LEAF of the category chain, not the root');
         $this->assertSame('s-1', (string) data_get(json_decode((string) $listing->tiktok_sku_id, true), 'TTI-BLK'),
             'the seller_sku -> id map lands too - stock and price pushes work at once');
 

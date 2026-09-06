@@ -31,6 +31,17 @@ class TikTokProductPush
     {
         $pfx = (string) config('catalog.prefix');
 
+        /* TikTok reads category_id as an Int64: anything else comes back as
+         * "CategoryId is invalid, the value must be convertible to Int64"
+         * after the images were already uploaded (the owner, 2026-09-06). Said
+         * here, first, with the value that was about to go. */
+        $categoryId = trim((string) ($opts['category_id'] ?? ''));
+        if ($categoryId === '' || ! preg_match('/^\d+$/', $categoryId)) {
+            return ['refused' => $categoryId === ''
+                ? 'No TikTok category is set on this listing. Pick one on the listing page and save.'
+                : 'The TikTok category on this listing is "' . $categoryId . '", which is not a category id TikTok can read. Pick the category again on the listing page and save.'];
+        }
+
         $uploadUri = function (string $imgPath) use ($client, $c): ?string {
             $fullPath = public_path('storage/' . ltrim($imgPath, '/'));
             if (!file_exists($fullPath)) {

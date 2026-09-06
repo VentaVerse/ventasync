@@ -214,7 +214,7 @@ class ChannelGroupToolsTest extends TestCase
     {
         $unlisted = $this->seedProduct('TT-NEW');
         $lost = $this->seedProduct('TT-LOST');
-        $group = TikTokProductGroup::create(['name' => 'TikTok tools group', 'tiktok_category_id' => 'cat-1']);
+        $group = TikTokProductGroup::create(['name' => 'TikTok tools group', 'tiktok_category_id' => '900001']);
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $unlisted, 'sync_status' => 'pending']);
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $lost, 'tiktok_product_id' => 'tt-lost', 'sync_status' => 'pushed']);
         TikTokListing::create(['product_id' => $lost, 'tiktok_product_id' => 'tt-lost']);
@@ -303,7 +303,7 @@ class ChannelGroupToolsTest extends TestCase
     {
         $known = $this->seedProduct('TT-KNOWN');
         TikTokListing::create(['product_id' => $known, 'tiktok_product_id' => 'tt-known']);
-        $group = TikTokProductGroup::create(['name' => 'TikTok orphans group', 'tiktok_category_id' => 'cat-1']);
+        $group = TikTokProductGroup::create(['name' => 'TikTok orphans group', 'tiktok_category_id' => '900001']);
         $this->tiktokAnswers['POST /product/202309/products/search'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success', 'data' => ['products' => [
             ['id' => 'tt-known', 'status' => 'ACTIVATE', 'title' => 'Known', 'skus' => [['seller_sku' => 'TT-KNOWN']]],
             ['id' => 'tt-stray', 'status' => 'ACTIVATE', 'title' => 'Made in the seller center', 'skus' => [['seller_sku' => 'STRAY-1']]],

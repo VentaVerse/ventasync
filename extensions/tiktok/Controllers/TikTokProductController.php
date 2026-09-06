@@ -560,7 +560,11 @@ class TikTokProductController extends Controller
             // One latest error per product (the owner, 2026-09-05).
             TikTokListing::recordPushFailure($productId, (string) $outcome['message']);
 
-            return redirect()->back()->with('error', 'Push failed: ' . $outcome['message']);
+            // A refusal about the category lands under the category field on
+            // the listing page as well as in the header (2026-09-06).
+            $fieldErrors = preg_match('/categor/i', (string) $outcome['message']) ? ['tiktok_category_id' => 'TikTok: ' . $outcome['message']] : [];
+
+            return redirect()->back()->with('error', 'Push failed: ' . $outcome['message'])->withErrors($fieldErrors);
         }
         TikTokListing::recordPush($productId, $outcome['product_id'], $outcome['sku_ids'], 'listing');
         TikTokProductGroupProduct::query()->where('product_id', $productId)->update([

@@ -300,6 +300,9 @@
         <div class="fm-bar__actions">
             <a class="fm-cancel" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.venta.listings.index', $setting->id)) }}">{{ $canManage ? 'Cancel' : 'Back' }}</a>
             @if($canManage)
+                @if(!$onStore && $setting->enabled)
+                    <x-ui.button type="submit" form="listing-form" name="push_after" value="1">Save and push to {{ $storeName }}</x-ui.button>
+                @endif
                 <x-ui.button type="submit" form="listing-form" variant="primary">Save listing</x-ui.button>
             @endif
         </div>

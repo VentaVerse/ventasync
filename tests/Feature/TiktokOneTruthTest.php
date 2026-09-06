@@ -86,7 +86,7 @@ class TiktokOneTruthTest extends TestCase
            provenance recorded), while the one group holds a failed try. */
         $productId = $this->seedProduct();
 
-        $groupB = TikTokProductGroup::create(['name' => 'Truth group B', 'tiktok_category_id' => 'cat-1']);
+        $groupB = TikTokProductGroup::create(['name' => 'Truth group B', 'tiktok_category_id' => '900001']);
         TikTokProductGroupProduct::create([
             'tiktok_product_group_id' => $groupB->id, 'product_id' => $productId,
             'sync_status' => 'error', 'push_error' => 'Category attribute missing.',

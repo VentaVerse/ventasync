@@ -155,6 +155,24 @@ class TikTokListingController extends Controller
 
         $back = \App\Support\BackTo::safe($request->input('back'), '');
 
+        /* Save and push (parity with Lazada and Shopee, the owner 2026-09-06):
+         * the save half runs first so a refusal never loses the typing;
+         * readiness is re-read after the save and named, and only a ready,
+         * unlisted product goes on to the push. */
+        if ($request->boolean('push_after')) {
+            if (TikTokListing::query()->where('product_id', $productId)->whereNotNull('tiktok_product_id')->exists()) {
+                return redirect()->route('ext.tiktok.listings.edit', $back !== '' ? [$productId, 'back' => $back] : $productId)
+                    ->with('status', 'Listing saved. It is already on TikTok Shop; use Push update to send these settings onto the live product.');
+            }
+            $readiness = app(TikTokListingReadiness::class)->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => ['its readiness could not be checked']];
+            if (!$readiness['ready']) {
+                return redirect()->route('ext.tiktok.listings.edit', $back !== '' ? [$productId, 'back' => $back] : $productId)
+                    ->with('error', 'Saved, but not pushed: this listing still needs ' . implode(', ', $readiness['missing']) . '. Set what is missing and try again.');
+            }
+
+            return app(TikTokProductController::class)->pushDirect($request, $productId, app(TikTokClient::class));
+        }
+
         return redirect()->route('ext.tiktok.listings.edit', $back !== '' ? [$productId, 'back' => $back] : $productId)
             ->with('status', 'Listing saved. These settings drive the next push and price sync.');
     }

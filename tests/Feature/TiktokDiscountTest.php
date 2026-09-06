@@ -136,7 +136,7 @@ class TiktokDiscountTest extends TestCase
     /** A product listed on TikTok through some group's push. */
     private function seedListed(int $productId, string $tiktokProductId): void
     {
-        $group = TikTokProductGroup::create(['name' => 'Discount group ' . $tiktokProductId, 'tiktok_category_id' => 'cat-1']);
+        $group = TikTokProductGroup::create(['name' => 'Discount group ' . $tiktokProductId, 'tiktok_category_id' => '900001']);
         TikTokProductGroupProduct::create([
             'tiktok_product_group_id' => $group->id, 'product_id' => $productId,
             'tiktok_product_id' => $tiktokProductId, 'sync_status' => 'pushed',

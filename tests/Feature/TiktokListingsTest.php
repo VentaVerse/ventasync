@@ -48,8 +48,8 @@ class TiktokListingsTest extends TestCase
             'mode' => 'production', 'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3),
         ]);
-        TikTokCategory::create(['id' => 'cat-9', 'name' => 'Guitar Accessories', 'parent_id' => null, 'is_leaf' => true]);
-        TikTokCategoryTemplate::create(['category_id' => 'cat-9', 'attributes' => [], 'fetched_at' => now()]);
+        TikTokCategory::create(['id' => '900009', 'name' => 'Guitar Accessories', 'parent_id' => null, 'is_leaf' => true]);
+        TikTokCategoryTemplate::create(['category_id' => '900009', 'attributes' => [], 'fetched_at' => now()]);
 
         $dir = public_path('storage/catalog');
         if (!is_dir($dir)) {
@@ -135,7 +135,7 @@ class TiktokListingsTest extends TestCase
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
         // Every product in scope sits in a group.
-        $group = TikTokProductGroup::firstOrCreate(['name' => 'Scope group'], ['tiktok_category_id' => 'cat-9']);
+        $group = TikTokProductGroup::firstOrCreate(['name' => 'Scope group'], ['tiktok_category_id' => '900009']);
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $productId, 'sync_status' => 'pending']);
 
         return $productId;
@@ -149,14 +149,14 @@ class TiktokListingsTest extends TestCase
     public function test_the_index_reads_the_mirror_and_asks_tiktok_for_nothing(): void
     {
         $live = $this->seedProduct('L');
-        TikTokListing::create(['product_id' => $live, 'tiktok_product_id' => 'tt-live', 'tiktok_sku_id' => 's1', 'tiktok_category_id' => 'cat-9',
+        TikTokListing::create(['product_id' => $live, 'tiktok_product_id' => 'tt-live', 'tiktok_sku_id' => 's1', 'tiktok_category_id' => '900009',
             'last_pushed_at' => now(), 'last_push_source' => 'listing', 'live_status' => 'ACTIVATE', 'live_checked_at' => '2026-08-28 08:30:00']);
         $gone = $this->seedProduct('G');
-        TikTokListing::create(['product_id' => $gone, 'tiktok_product_id' => 'tt-gone', 'tiktok_category_id' => 'cat-9', 'live_status' => 'MISSING', 'live_checked_at' => '2026-08-28 08:30:00']);
+        TikTokListing::create(['product_id' => $gone, 'tiktok_product_id' => 'tt-gone', 'tiktok_category_id' => '900009', 'live_status' => 'MISSING', 'live_checked_at' => '2026-08-28 08:30:00']);
         $fresh = $this->seedProduct('F');
-        TikTokListing::create(['product_id' => $fresh, 'tiktok_product_id' => 'tt-new', 'tiktok_category_id' => 'cat-9']);
+        TikTokListing::create(['product_id' => $fresh, 'tiktok_product_id' => 'tt-new', 'tiktok_category_id' => '900009']);
         $ready = $this->seedProduct('R');
-        TikTokListing::create(['product_id' => $ready, 'tiktok_category_id' => 'cat-9']);
+        TikTokListing::create(['product_id' => $ready, 'tiktok_category_id' => '900009']);
         // On the store with a blank record (#201): what Add products leaves behind.
         $bare = $this->seedProduct('B');
         TikTokListing::create(['product_id' => $bare]);
@@ -190,7 +190,7 @@ class TiktokListingsTest extends TestCase
     public function test_a_listing_never_checked_is_filled_on_first_view_and_only_once(): void
     {
         $fresh = $this->seedProduct('F');
-        TikTokListing::create(['product_id' => $fresh, 'tiktok_product_id' => 'tt-new', 'tiktok_category_id' => 'cat-9']);
+        TikTokListing::create(['product_id' => $fresh, 'tiktok_product_id' => 'tt-new', 'tiktok_category_id' => '900009']);
         $calls = 0;
         $this->callResponses['GET /product/202309/products/tt-new'] = function () use (&$calls) {
             $calls++;
@@ -210,9 +210,9 @@ class TiktokListingsTest extends TestCase
     public function test_refresh_walks_the_shop_and_writes_every_listings_status(): void
     {
         $live = $this->seedProduct('L');
-        TikTokListing::create(['product_id' => $live, 'tiktok_product_id' => 'tt-live', 'tiktok_category_id' => 'cat-9']);
+        TikTokListing::create(['product_id' => $live, 'tiktok_product_id' => 'tt-live', 'tiktok_category_id' => '900009']);
         $gone = $this->seedProduct('G');
-        TikTokListing::create(['product_id' => $gone, 'tiktok_product_id' => 'tt-gone', 'tiktok_category_id' => 'cat-9']);
+        TikTokListing::create(['product_id' => $gone, 'tiktok_product_id' => 'tt-gone', 'tiktok_category_id' => '900009']);
         // On TikTok through a group pivot only: the refresh gives it a listing row.
         $pivotOnly = $this->seedProduct('P');
         TikTokProductGroupProduct::query()->where('product_id', $pivotOnly)->update(['tiktok_product_id' => 'tt-off', 'sync_status' => 'synced']);
@@ -273,12 +273,12 @@ class TiktokListingsTest extends TestCase
         $this->assertSame('ACTIVATE', TikTokListing::query()->where('tiktok_product_id', 'tt-live')->value('live_status'));
 
         $this->actingAs($this->manager())->put(route('ext.tiktok.listings.update', $productId), [
-            'tiktok_category_id' => 'cat-9', 'brand_id' => 'b-1', 'brand_name' => 'Valeton',
+            'tiktok_category_id' => '900009', 'brand_id' => 'b-1', 'brand_name' => 'Valeton',
             'markup_percent' => 10, 'title' => 'My own title', 'attributes' => ['100001' => 'v-ph'],
         ])->assertSessionHas('status');
 
         $listing = TikTokListing::where('product_id', $productId)->first();
-        $this->assertSame('cat-9', $listing->tiktok_category_id);
+        $this->assertSame('900009', $listing->tiktok_category_id);
         $this->assertSame('Valeton', $listing->brand_name);
         $this->assertSame(10.0, $listing->markup_percent);
         $this->assertSame('My own title', $listing->title);
@@ -289,7 +289,7 @@ class TiktokListingsTest extends TestCase
     public function test_the_one_click_push_uses_the_listings_own_settings_and_records_the_truth(): void
     {
         $productId = $this->seedProduct('D', 200);
-        TikTokListing::create(['product_id' => $productId, 'tiktok_category_id' => 'cat-9', 'brand_id' => 'b-1', 'brand_name' => 'Valeton', 'markup_percent' => 50, 'title' => 'A title long enough for TikTok Shop']);
+        TikTokListing::create(['product_id' => $productId, 'tiktok_category_id' => '900009', 'brand_id' => 'b-1', 'brand_name' => 'Valeton', 'markup_percent' => 50, 'title' => 'A title long enough for TikTok Shop']);
         $this->callResponses['POST /product/202309/products'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
             'data' => ['product_id' => 'tt-new', 'skus' => [['id' => 'sku-n', 'seller_sku' => 'TTL-SKU-D']]]]];
 
@@ -298,7 +298,7 @@ class TiktokListingsTest extends TestCase
         $creates = $this->callsFor('POST', '/product/202309/products');
         $this->assertCount(1, $creates);
         $body = $creates[0]['body'];
-        $this->assertSame('cat-9', $body['category_id']);
+        $this->assertSame('900009', $body['category_id']);
         $this->assertSame('b-1', $body['brand_id']);
         $this->assertSame('A title long enough for TikTok Shop', $body['title']);
         $this->assertSame('300', $body['skus'][0]['price']['amount']);   // 200 + 50%
@@ -322,9 +322,9 @@ class TiktokListingsTest extends TestCase
     public function test_send_creates_the_new_and_updates_the_listed_in_place(): void
     {
         $new = $this->seedProduct('N');
-        TikTokListing::create(['product_id' => $new, 'tiktok_category_id' => 'cat-9']);
+        TikTokListing::create(['product_id' => $new, 'tiktok_category_id' => '900009']);
         $listed = $this->seedProduct('E');
-        TikTokListing::create(['product_id' => $listed, 'tiktok_category_id' => 'cat-9', 'tiktok_product_id' => 'tt-live', 'tiktok_sku_id' => 's1']);
+        TikTokListing::create(['product_id' => $listed, 'tiktok_category_id' => '900009', 'tiktok_product_id' => 'tt-live', 'tiktok_sku_id' => 's1']);
         $this->callResponses['POST /product/202309/products'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
             'data' => ['product_id' => 'tt-created', 'skus' => [['id' => 'sku-c', 'seller_sku' => 'TTL-SKU-N']]]]];
         $this->callResponses['PUT /product/202309/products/tt-live'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success', 'data' => []]];

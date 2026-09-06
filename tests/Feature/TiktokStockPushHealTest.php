@@ -245,7 +245,7 @@ class TiktokStockPushHealTest extends TestCase
     public function test_a_failed_group_batch_does_not_flash_green(): void
     {
         $pid = $this->comboProduct(['TT-1' => 5]);
-        $grp = TikTokProductGroup::create(['name' => 'Tone group', 'tiktok_category_id' => 'cat-9']);
+        $grp = TikTokProductGroup::create(['name' => 'Tone group', 'tiktok_category_id' => '900009']);
         $pivot = TikTokProductGroupProduct::create([
             'tiktok_product_group_id' => $grp->id, 'product_id' => $pid,
             'tiktok_product_id' => 'tt-5', 'tiktok_sku_id' => json_encode(['TT-1' => 's1']),

@@ -630,6 +630,17 @@ class VentaListingController extends Controller
 
         $back = \App\Support\BackTo::safe($request->input('back'), '');
 
+        // Save and push (parity, the owner 2026-09-06): the save ran; a product
+        // not yet on the store goes on to the push, which names its own refusal.
+        if ($request->boolean('push_after')) {
+            if (\Extensions\venta\Models\VentaProductLink::query()->where('venta_setting_id', $store)->where('product_id', $productId)->whereNotNull('venta_product_id')->exists()) {
+                return redirect()->route('ext.venta.listings.edit', $back !== '' ? [$store, $productId, 'back' => $back] : [$store, $productId])
+                    ->with('status', 'Listing saved. It is already on ' . $setting->store_name . '; use Push update to send these settings onto the live product.');
+            }
+
+            return $this->push($request, $store, $productId);
+        }
+
         return redirect()->route('ext.venta.listings.edit', $back !== '' ? [$store, $productId, 'back' => $back] : [$store, $productId])
             ->with('status', 'Listing saved. These settings drive the next push to ' . $setting->store_name . '.');
     }

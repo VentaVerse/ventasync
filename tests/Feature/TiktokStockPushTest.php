@@ -188,7 +188,7 @@ class TiktokStockPushTest extends TestCase
     public function test_the_cron_pushes_every_combination_its_own_quantity(): void
     {
         ['product_id' => $productId] = $this->seedTwoAxisProduct();
-        $group = TikTokProductGroup::create(['name' => 'Stock group', 'tiktok_category_id' => 'cat-1']);
+        $group = TikTokProductGroup::create(['name' => 'Stock group', 'tiktok_category_id' => '900001']);
         TikTokProductGroupProduct::create([
             'tiktok_product_group_id' => $group->id, 'product_id' => $productId,
             'tiktok_product_id' => 'tt-1', 'sync_status' => 'pushed', 'last_pushed_at' => now(),
@@ -209,7 +209,7 @@ class TiktokStockPushTest extends TestCase
         // A push from before the seller-sku map: keyed by the Colour axis's
         // option_value_ids only. Red's option row has SKU TTV-RED and 99 in
         // stock; no combination carries that SKU, so the option row answers.
-        $group = TikTokProductGroup::create(['name' => 'Legacy group', 'tiktok_category_id' => 'cat-1']);
+        $group = TikTokProductGroup::create(['name' => 'Legacy group', 'tiktok_category_id' => '900001']);
         TikTokProductGroupProduct::create([
             'tiktok_product_group_id' => $group->id, 'product_id' => $productId,
             'tiktok_product_id' => 'tt-2', 'sync_status' => 'pushed', 'last_pushed_at' => now(),
@@ -227,7 +227,7 @@ class TiktokStockPushTest extends TestCase
     public function test_the_group_page_pushes_stock_through_the_same_resolver(): void
     {
         ['product_id' => $productId] = $this->seedTwoAxisProduct();
-        $group = TikTokProductGroup::create(['name' => 'Page group', 'tiktok_category_id' => 'cat-1']);
+        $group = TikTokProductGroup::create(['name' => 'Page group', 'tiktok_category_id' => '900001']);
         TikTokProductGroupProduct::create([
             'tiktok_product_group_id' => $group->id, 'product_id' => $productId,
             'tiktok_product_id' => 'tt-3', 'sync_status' => 'pushed', 'last_pushed_at' => now(),
@@ -247,7 +247,7 @@ class TiktokStockPushTest extends TestCase
     public function test_a_push_names_every_axis_on_every_sku_and_stores_the_map_by_seller_sku(): void
     {
         ['product_id' => $productId] = $this->seedTwoAxisProduct();
-        $group = TikTokProductGroup::create(['name' => 'Push group', 'tiktok_category_id' => 'cat-1', 'markup_percent' => 0]);
+        $group = TikTokProductGroup::create(['name' => 'Push group', 'tiktok_category_id' => '900001', 'markup_percent' => 0]);
         TikTokProductGroupProduct::create([
             'tiktok_product_group_id' => $group->id, 'product_id' => $productId, 'sync_status' => 'pending',
         ]);

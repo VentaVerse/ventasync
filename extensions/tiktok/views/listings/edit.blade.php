@@ -308,6 +308,11 @@
         <div class="fm-bar__actions">
             <a class="fm-cancel" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.tiktok.products.index')) }}">{{ $canManage ? 'Cancel' : 'Back' }}</a>
             @if($canManage)
+                @if(!$listed)
+                    {{-- One trip for the common case (parity, 2026-09-06): save
+                         what was just typed, then push. --}}
+                    <x-ui.button type="submit" form="listing-form" name="push_after" value="1">Save and push to TikTok Shop</x-ui.button>
+                @endif
                 <x-ui.button type="submit" form="listing-form" variant="primary">Save listing</x-ui.button>
             @endif
         </div>
