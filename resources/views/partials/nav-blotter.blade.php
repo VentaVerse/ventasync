@@ -163,6 +163,25 @@
                             @continue
                         @endif
                         @php $itemActive = \App\Support\Navigation::isActive($item); @endphp
+                        @if($item['route'] === 'channels.index' && \App\Support\Navigation::canAddStore())
+                            {{-- All channels with a plus beside it (the owner,
+                                 2026-09-06): the plus lands on the board with
+                                 the Add store modal already open. --}}
+                            <div class="x-nav__row flex items-stretch">
+                                <a class="x-nav__child flex-1 py-1.5 pl-11 pr-2 text-[13px] no-underline
+                                          {{ $itemActive
+                                              ? 'bg-side-active text-white font-semibold'
+                                              : 'text-side-ink hover:bg-side-hover hover:text-white' }}"
+                                   href="{{ route($item['route'], $item['params'] ?? []) }}"
+                                   @if($itemActive) aria-current="page" @endif
+                                >{{ $item['label'] }}</a>
+                                <a class="x-nav__add {{ $itemActive ? 'bg-side-active text-white' : 'text-side-ink hover:bg-side-hover hover:text-white' }}"
+                                   href="{{ route('channels.index', ['add' => 1]) }}" aria-label="Add store" title="Add store">
+                                    <x-ui.icon name="plus" size="13" />
+                                </a>
+                            </div>
+                            @continue
+                        @endif
                         <a class="x-nav__child py-1.5 pr-4 pl-11 text-[13px] no-underline
                                   {{ $itemActive
                                       ? 'bg-side-active text-white font-semibold'

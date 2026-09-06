@@ -8,7 +8,7 @@
      Logos live in public/images/channels/{id}.png (tracked). Until one is
      uploaded the tile shows the channel's initial; channel-add.js hides a
      broken image so no broken-image glyph ever shows. --}}
-<div class="modal-backdrop" id="add-store-modal" data-add-store-modal>
+<div class="modal-backdrop" id="add-store-modal" data-add-store-modal @if(request()->boolean('add')) data-add-store-auto="1" @endif>
     <div class="modal cs-addmodal" role="dialog" aria-modal="true" aria-labelledby="add-store-title">
         <div class="cs-addmodal__head">
             <h2 class="cs-addmodal__title" id="add-store-title">Add a store</h2>

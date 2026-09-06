@@ -42,6 +42,11 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Arrived from the sidebar's plus (?add=1): the modal is the point of the visit.
+    if (modal.hasAttribute('data-add-store-auto')) {
+        open();
+    }
+
     document.querySelectorAll('[data-add-store-open]').forEach(function (btn) {
         btn.addEventListener('click', open);
     });

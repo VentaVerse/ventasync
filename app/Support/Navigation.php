@@ -200,6 +200,28 @@ class Navigation
      * still checks each destination route's own perm: middleware, so both
      * gates hold here exactly as they do in the workspace sidebar.
      */
+    /**
+     * Whether the viewer may add a store on any channel: the same test the
+     * Channels board runs for its Add store button, so the sidebar's plus
+     * beside "All channels" (the owner, 2026-09-06) and the board never disagree.
+     */
+    public static function canAddStore(): bool
+    {
+        try {
+            $user = auth()->user();
+            foreach (app(\App\Integrations\IntegrationRegistry::class)->visibleCards($user) as $card) {
+                $add = $card->addStore ?? null;
+                if ($add && (! $add->permission || ($user && $user->hasPermission($add->permission)))) {
+                    return true;
+                }
+            }
+        } catch (\Throwable) {
+            // A failed registry must not take the sidebar down.
+        }
+
+        return false;
+    }
+
     protected static function channelEntries(): array
     {
         $items = [

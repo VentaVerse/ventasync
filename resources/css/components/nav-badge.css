@@ -29,4 +29,16 @@
     [data-theme='dark'] .x-nav__badge {
         color: #2c1c02;
     }
+
+    /* The plus beside "All channels" (the owner, 2026-09-06): a square the
+       height of the row, on the row's right edge, that opens the Add
+       store modal on the board. Quiet until hovered, like its row. */
+    .x-nav__add {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        flex: none;
+        text-decoration: none;
+    }
 }
