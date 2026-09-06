@@ -2108,22 +2108,6 @@
     .fh-card.is-open {
         border-color: var(--ch, var(--bl-ink));
         box-shadow: inset 0 0 0 1px var(--ch, var(--bl-ink));
-        /* The open card is the one the page is about (the owner, 2026-09-06):
-           it takes two tracks of the grid and its name and figure step up,
-           so which channel is open reads from across the room, not only
-           from the ring. */
-        grid-column: span 2;
-        padding: 16px 18px 17px;
-    }
-
-    .fh-card.is-open .fh-card__top { margin: -16px -18px 12px; padding: 9px 18px; }
-    .fh-card.is-open .fh-card__name { font-size: 14px; }
-    .fh-card.is-open .fh-card__fig-n { font-size: 34px; }
-
-    /* One track wide: the open card takes the row rather than asking for a
-       second track that is not there. */
-    @media (max-width: 480px) {
-        .fh-card.is-open { grid-column: 1 / -1; }
     }
 
     /* The cap bleeds to the card's edges, so it undoes the card's own padding
