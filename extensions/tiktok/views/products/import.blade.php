@@ -102,6 +102,9 @@
                                 <x-ui.icon name="image" size="15" class="co-item__ph" />
                                 @if($row['image_url'])
                                     <img src="{{ $row['image_url'] }}" alt="" loading="lazy" decoding="async" data-thumb>
+                                @else
+                                    {{-- TikTok's search carries no picture; the row asks for the detail's when it scrolls into view (channel-import.js). --}}
+                                    <img alt="" loading="lazy" decoding="async" data-thumb data-thumb-url="{{ route('ext.tiktok.products.thumb', ['ref' => $row['ref']]) }}" hidden>
                                 @endif
                             </div>
                             <div class="co-item__body">

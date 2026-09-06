@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', function () {
        form through the form="" attribute, so no id injection is needed -
        this only keeps the count honest and the button earned. */
     initPager();
+    initLazyThumbs();
 
     var bulk = document.getElementById('cc-import-selected');
     if (!bulk) return;
@@ -87,6 +88,39 @@ document.addEventListener('DOMContentLoaded', function () {
    wears the x-pager grammar of the Products pages; this fills the count,
    draws the numbers and moves between pages. Hidden below two pages.
    ------------------------------------------------------------------ */
+/* A row whose picture the store's list did not carry asks for it when it
+   scrolls into view (TikTok, 2026-09-07): <img data-thumb-url hidden>, the
+   endpoint answers {url}, the image shows when there is one. */
+function initLazyThumbs() {
+    const imgs = document.querySelectorAll('img[data-thumb-url]');
+    if (!imgs.length) return;
+    const load = (img) => {
+        const url = img.getAttribute('data-thumb-url');
+        img.removeAttribute('data-thumb-url');
+        fetch(url, { headers: { Accept: 'application/json' } })
+            .then((r) => r.json())
+            .then((data) => {
+                if (data && typeof data.url === 'string' && /^https:\/\//i.test(data.url)) {
+                    img.src = data.url;
+                    img.hidden = false;
+                }
+            })
+            .catch(() => {});
+    };
+    if (!('IntersectionObserver' in window)) {
+        imgs.forEach(load);
+        return;
+    }
+    const seen = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            seen.unobserve(entry.target);
+            load(entry.target);
+        });
+    }, { rootMargin: '200px' });
+    imgs.forEach((img) => seen.observe(img));
+}
+
 function initPager() {
     var pager = document.querySelector('[data-import-pager]');
     if (!pager) return;

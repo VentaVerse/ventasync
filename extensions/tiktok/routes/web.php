@@ -150,6 +150,8 @@ Route::middleware(['auth', \Extensions\tiktok\Http\ResolveTikTokStore::class])
         // Stateless import (the owner, 2026-09-04): the page's GET carries ?fetch=1
         // to read the shop live; these act on the values the page carries.
         Route::post('/tiktok/{store}/products/import-one', [TikTokProductController::class, 'importOne'])->name('ext.tiktok.products.import_one');
+        // The Import page's lazy picture: TikTok's product search carries none, the detail does (2026-09-07).
+        Route::get('/tiktok/{store}/products/thumb/{ref}', [TikTokProductController::class, 'thumb'])->name('ext.tiktok.products.thumb');
         Route::post('/tiktok/{store}/products/import-selected', [TikTokProductController::class, 'importSelected'])->name('ext.tiktok.products.import_selected');
         Route::post('/tiktok/{store}/products/link-item', [TikTokProductController::class, 'linkItem'])->name('ext.tiktok.products.link_item');
         // Add products to this store's list (#201): a catalogue product joins

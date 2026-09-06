@@ -709,6 +709,34 @@ class TikTokProductController extends Controller
     }
 
     /** Import one fetched product, re-read live by its id. */
+    /**
+     * The Import page's picture for one TikTok product, read from the product
+     * detail and kept for a day: TikTok's product search answers no pictures
+     * at all, only the detail does (the owner, 2026-09-07: the fetch showed
+     * none while the import saved them). One row asks only when it scrolls
+     * into view, so a page of fifty costs fifty reads once, not every load.
+     */
+    public function thumb(string $ref, TikTokClient $client)
+    {
+        $c = $this->creds();
+        if (!$c || !preg_match('/^[A-Za-z0-9_-]{1,64}$/', $ref)) {
+            return response()->json(['url' => '']);
+        }
+        $key = 'tiktok:thumb:' . (int) (TikTokSetting::defaultStore()?->id ?? 0) . ':' . $ref;
+        $url = \Illuminate\Support\Facades\Cache::remember($key, now()->addDay(), function () use ($ref, $c, $client) {
+            try {
+                $r = $client->getProduct($c['app_key'], $c['app_secret'], $c['token'], $ref, $c['shop_cipher'] ?: null);
+            } catch (\Throwable) {
+                return '';
+            }
+            $url = (string) (data_get($r, 'body.data.main_images.0.urls.0') ?? data_get($r, 'body.data.main_images.0.url') ?? '');
+
+            return preg_match('#^https://#i', $url) ? $url : '';
+        });
+
+        return response()->json(['url' => $url]);
+    }
+
     public function importOne(Request $request, \Extensions\tiktok\Services\TikTok\TikTokItemImport $import)
     {
         $data = $request->validate(['ref' => 'required|string|max:64']);

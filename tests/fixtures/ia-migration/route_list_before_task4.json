@@ -2365,6 +2365,11 @@
         "name": "ext.tiktok.products.search_catalog"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/products/thumb/{ref}",
+        "name": "ext.tiktok.products.thumb"
+    },
+    {
         "method": "POST",
         "uri": "channels/tiktok/{store}/products/{productId}/add-to-store",
         "name": "ext.tiktok.products.add_to_store"
