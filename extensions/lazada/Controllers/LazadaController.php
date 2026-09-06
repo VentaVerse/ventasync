@@ -284,14 +284,18 @@ class LazadaController extends Controller
      */
     public function setupStep(string $step, \Extensions\lazada\Services\Lazada\LazadaStoreSetup $setup)
     {
-        $setting = LazadaSetting::defaultStore()?->decrypted();
+        // The service takes the store MODEL; decrypted() is a plain copy for
+        // the credentials only. Passing the copy threw a TypeError on QA
+        // (the owner, 2026-09-06) that the popup then printed as the step's outcome.
+        $store = LazadaSetting::defaultStore();
+        $setting = $store?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
-        if (! $setting || ! $setting->region || empty($creds['app_key']) || empty($creds['app_secret'])) {
+        if (! $store || ! $setting || ! $setting->region || empty($creds['app_key']) || empty($creds['app_secret'])) {
             return response()->json(['ok' => false, 'count' => 0, 'message' => 'This store is not connected yet. Save the region and the keys, then authorise it with Lazada first.'], 422);
         }
         $out = match ($step) {
-            'categories' => $setup->categories($setting, $creds),
-            'brands' => $setup->brands($setting, $creds),
+            'categories' => $setup->categories($store, $creds),
+            'brands' => $setup->brands($store, $creds),
             default => null,
         };
         abort_if($out === null, 404);
