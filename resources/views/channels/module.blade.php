@@ -47,11 +47,11 @@
         <x-ui.empty
             title="No stores connected"
             description="{{ $card->addStore
-                ? 'Nobody has connected a ' . $card->name . ' store yet. Add store on the Integrations page connects the first one.'
+                ? 'Nobody has connected a ' . $card->name . ' store yet. Add store on the Channels page connects the first one.'
                 : 'Nobody has connected a ' . $card->name . ' store yet.' }}">
             @if($card->addStore)
                 <x-slot:action>
-                    <x-ui.button variant="secondary" :href="route('channels.index')">Integrations</x-ui.button>
+                    <x-ui.button variant="secondary" :href="route('channels.index')">Channels</x-ui.button>
                 </x-slot:action>
             @endif
         </x-ui.empty>

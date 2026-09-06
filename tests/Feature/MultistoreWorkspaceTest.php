@@ -787,9 +787,13 @@ class MultistoreWorkspaceTest extends TestCase
 
         $this->assertNotNull($channels, 'The nav has no Channels group.');
 
+        // Three layers (the owner, 2026-09-06): Channels, the channel, its stores.
+        $channelEntry = collect($channels['items'])->firstWhere('label', $card->name);
+        $this->assertNotNull($channelEntry, 'The nav has no entry for '.$card->name);
+        $this->assertArrayNotHasKey('route', $channelEntry, 'the channel line is a sub-group, not a link');
         foreach ($card->stores as $store) {
-            $label = \App\Support\StoreLabel::of($card->name, $store->label);
-            $entry = collect($channels['items'])->firstWhere('label', $label);
+            $label = $store->label;
+            $entry = collect($channelEntry['children'])->firstWhere('label', $label);
 
             $this->assertNotNull($entry, 'The nav has no entry for '.$label);
             $this->assertSame('ext.'.$card->id.'.dashboard', $entry['route']);
@@ -799,8 +803,8 @@ class MultistoreWorkspaceTest extends TestCase
             );
         }
 
-        // The bare channel is not offered, because it has nowhere to land.
-        $this->assertNull(collect($channels['items'])->firstWhere('label', $card->name));
+        // The channel line is a sub-group with nowhere of its own to land: no route, only its stores.
+        $this->assertArrayNotHasKey('route', collect($channels['items'])->firstWhere('label', $card->name));
     }
 
     #[\PHPUnit\Framework\Attributes\DataProvider('channelProvider')]

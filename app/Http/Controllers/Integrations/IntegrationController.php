@@ -312,6 +312,10 @@ class IntegrationController extends Controller
             $summary['channels'][] = [
                 'id' => $tab->id,
                 'label' => $tab->label,
+                // The store alone, off the "{Channel}: {store}" label
+                // (App\Support\StoreLabel), for the Store line above the
+                // panel that every store-based channel draws (2026-09-06).
+                'store' => str_contains($tab->label, ': ') ? \Illuminate\Support\Str::after($tab->label, ': ') : null,
                 'accent' => $tab->accent,
                 'url' => in_array($tab->id, $inPlace, true)
                     ? route('channels.fulfilment', array_filter([

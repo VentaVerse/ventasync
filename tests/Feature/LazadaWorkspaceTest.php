@@ -378,9 +378,9 @@ class LazadaWorkspaceTest extends TestCase
 
         $labels = array_column($channels['items'], 'label');
         $this->assertContains('All channels', $labels);
-        $this->assertContains('Lazada: Main store', $labels);
+        $this->assertContains('Lazada', $labels);
 
-        $lazada = collect($channels['items'])->firstWhere('label', 'Lazada: Main store');
+        $lazada = collect(collect($channels['items'])->firstWhere('label', 'Lazada')['children'])->firstWhere('label', 'Main store');
         $this->assertSame('ext.lazada.dashboard', $lazada['route']);
         $this->assertSame(
             ChannelWorkspace::overviewUrl('lazada'),

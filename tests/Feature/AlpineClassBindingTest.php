@@ -78,7 +78,8 @@ class AlpineClassBindingTest extends TestCase
     /** One value cannot name two groups, which is what makes this an accordion. */
     public function test_one_group_open_at_a_time_is_held_in_one_place(): void
     {
-        $this->assertStringContainsString('x-data="{ group: @js($blOpenGroup) }"', $this->source(self::NAV),
+        // Two values since the third layer (2026-09-06): one open group, one open channel under it.
+        $this->assertStringContainsString('x-data="{ group: @js($blOpenGroup), sub: @js($blOpenSub) }"', $this->source(self::NAV),
             'The open group is no longer a single value on the nav, so two groups can be open at once.');
     }
 

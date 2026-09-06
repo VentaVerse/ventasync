@@ -1,4 +1,4 @@
-{{-- The Add-store modal on the Integrations board (the owner, 2026-09-04).
+{{-- The Add-store modal on the Channels board (the owner, 2026-09-04; the page was renamed from Integrations on 2026-09-06).
      Pick a channel, answer the fewest questions - a name always, plus
      whatever that channel's row cannot exist without - and a store is
      created; credentials are filled on its settings page afterwards. The

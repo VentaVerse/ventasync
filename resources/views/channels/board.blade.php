@@ -1,10 +1,10 @@
 @extends('layouts.blotter')
-@section('title', 'Integrations')
+@section('title', 'Channels')
 
 @section('content')
 <div class="x-list-head">
     <div>
-        <h1 class="x-page-title">Integrations</h1>
+        <h1 class="x-page-title">Channels</h1>
         <p class="x-page-sub">Connection health across every sales channel.</p>
     </div>
     @if(!empty($addable))
