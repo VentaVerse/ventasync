@@ -75,90 +75,46 @@ class ShopeeListingStates
      * @param list<int> $productIds
      * @return array<int, array{tone: 'failed'|'ok'|'none', headline: string, detail: ?string, at: ?Carbon}>
      */
-    public function lastSync(array $productIds): array
+    /**
+     * The Error column (the owner, 2026-09-07): the message a Shopee listing is
+     * carrying right now, or null when nothing is wrong. One question, one
+     * answer, no rule about how old a failure is: the scheduled refresh
+     * re-runs the link check, and a successful push or sync clears the
+     * message it wrote.
+     *
+     * @param list<int> $productIds
+     * @return array<int, ?string>
+     */
+    public function errors(array $productIds): array
     {
         $productIds = array_values(array_unique(array_map('intval', $productIds)));
         if ($productIds === []) {
             return [];
         }
-
-        // The link's action codes, in words.
-        $word = fn (?string $action): string => match (strtolower(trim((string) $action))) {
-            'sync_qty', 'qty', 'stock', 'update_stock' => 'stock',
-            'sync_price', 'price', 'update_price' => 'price',
-            'push', 'listing', 'add_item', 'update_item' => 'listing',
-            '' => 'sync',
-            default => str_replace('_', ' ', strtolower(trim((string) $action))),
-        };
-
         $listings = ShopeeListing::query()->whereIn('product_id', $productIds)->get()->keyBy('product_id');
         $links = ShopeeProductLink::query()->whereIn('product_id', $productIds)->get()->groupBy('product_id');
-        $modified = DB::table((string) config('catalog.prefix') . 'product')
-            ->whereIn('product_id', $productIds)->pluck('date_modified', 'product_id');
 
         $out = [];
         foreach ($productIds as $pid) {
             $listing = $listings->get($pid);
             $rows = $links->get($pid) ?? collect();
 
-            // A refused push, from whichever surface.
+            // The newest of the two errors a row can carry: a refused push,
+            // and a refused stock, price or link-check sync on a link row.
+            $found = [];
             if ($listing && trim((string) ($listing->last_push_error ?? '')) !== '') {
-                $at = $listing->last_push_failed_at ? Carbon::parse($listing->last_push_failed_at) : null;
-                $out[$pid] = [
-                    'tone' => 'failed',
-                    'headline' => 'Last push' . ($at ? ' ' . $at->diffForHumans() : '') . ' failed:',
-                    'detail' => trim((string) $listing->last_push_error),
-                    'at' => $at,
-                ];
-                continue;
+                $found[] = [$listing->last_push_failed_at ? Carbon::parse($listing->last_push_failed_at) : Carbon::createFromTimestamp(0), trim((string) $listing->last_push_error)];
             }
-
-            // A refused stock or price sync on a link row, newest first.
-            $failedSync = $rows->filter(fn ($r) => $r->last_sync_ok === false || (int) $r->last_sync_ok === 0 && $r->last_sync_ok !== null)
-                ->filter(fn ($r) => trim((string) ($r->last_sync_error_message ?? '')) !== '')
+            // A failure with no saved message still says it failed: blank in
+            // a column that only fills on failure reads as nothing wrong.
+            $failedSync = $rows->filter(fn ($r) => $r->last_sync_ok !== null && ! $r->last_sync_ok)
                 ->sortByDesc('last_synced_at')->first();
             if ($failedSync) {
-                $at = $failedSync->last_synced_at ? Carbon::parse($failedSync->last_synced_at) : null;
-                $what = ucfirst($word($failedSync->last_sync_action));
-                $out[$pid] = [
-                    'tone' => 'failed',
-                    'headline' => $what . ' sync' . ($at ? ' ' . $at->diffForHumans() : '') . ' failed:',
-                    'detail' => trim((string) $failedSync->last_sync_error_message),
-                    'at' => $at,
-                ];
-                continue;
+                $found[] = [$failedSync->last_synced_at ? Carbon::parse($failedSync->last_synced_at) : Carbon::createFromTimestamp(0),
+                    trim((string) $failedSync->last_sync_error_message) ?: \App\Integrations\Push\PushLedger::NO_REASON];
             }
-
-            // The newest success: a link sync (stock, price) or the listing push.
-            $candidates = [];
-            foreach ($rows as $r) {
-                if ($r->last_synced_at && ($r->last_sync_ok === null || (bool) $r->last_sync_ok)) {
-                    $candidates[] = [Carbon::parse($r->last_synced_at), $word($r->last_sync_action)];
-                }
-            }
-            if ($listing?->last_pushed_at) {
-                $candidates[] = [Carbon::parse($listing->last_pushed_at), 'listing'];
-            }
-            usort($candidates, fn ($a, $b) => $b[0] <=> $a[0]);
-
-            if ($candidates === []) {
-                $out[$pid] = ['tone' => 'none', 'headline' => 'Never synced', 'detail' => null, 'at' => null];
-                continue;
-            }
-
-            [$at, $what] = $candidates[0];
-            // The catalog moved after that sync (#100): the marketplace is
-            // behind what a push would send now. Said here, on both pages.
-            $movedAt = ($modified[$pid] ?? null) ? Carbon::parse($modified[$pid]) : null;
-            $stale = $movedAt && $movedAt->gt($at);
-            $out[$pid] = [
-                'tone' => 'ok',
-                'headline' => 'Synced ' . $at->diffForHumans(),
-                'what' => $what,
-                'stale' => $stale,
-                'detail' => null,
-                'at' => $at,
-            ];
+            usort($found, fn ($a, $b) => $b[0] <=> $a[0]);
+            $out[$pid] = $found === [] ? null : $found[0][1];
         }
 
         return $out;

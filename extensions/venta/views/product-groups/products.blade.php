@@ -162,7 +162,7 @@
             <th scope="col" class="cc-col-stat">Catalog</th>
             @include('partials.channel-ready-head')
             <th scope="col" class="cc-col-sync">Push</th>
-            <th scope="col" class="cc-col-err">Last push</th>
+            <th scope="col" class="cc-col-err">Error</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
@@ -302,46 +302,18 @@
                 @endif
             </td>
 
-            <td class="cc-col-err" data-label="Last push">
-                {{-- A failure with no saved message still says so. Silence in a
-                     column that only ever fills on failure reads as nothing
-                     wrong, and rendered "Never" - the strongest possible
-                     statement that nothing has ever gone wrong. --}}
-                @if($failed && ! $hasError)
-                    <span class="cc-err">Push failed. No reason was recorded.</span>
-                @elseif($hasError)
-                    @php
-                        $reason = (string) $p->push_error;
-                        // 120 shown against a column stored at 480: the rest
-                        // was unreachable from the interface entirely.
-                        $clipped = \Illuminate\Support\Str::limit($reason, 120);
-                    @endphp
-
-                    @if($clipped === $reason)
-                        <span class="cc-err">{{ $reason }}</span>
-                    @else
-                        {{-- <details>, not a tooltip: a title attribute waits a
-                             second, never appears on a phone, and cannot be
-                             reached from the keyboard. --}}
-                        <details class="cc-reason">
-                            <summary class="cc-reason__summary">
-                                <span class="cc-err cc-reason__clip">{{ $clipped }}</span>
-                                <span class="cc-reason__toggle">
-                                    <x-ui.icon name="chevron-down" size="12" class="cc-reason__chevron" />
-                                    <span class="cc-reason__label">Full reason</span>
-                                </span>
-                            </summary>
-                            <p class="cc-err cc-reason__full">{{ $reason }}</p>
-                        </details>
-                    @endif
-                    @if($p->last_pushed_at)
-                        <span class="cc-when">{{ \Carbon\Carbon::parse($p->last_pushed_at)->diffForHumans() }}</span>
-                    @endif
-                @elseif($hasVentaId && $p->last_pushed_at)
-                    <span class="cc-when">{{ \Carbon\Carbon::parse($p->last_pushed_at)->diffForHumans() }}</span>
-                @else
-                    <span class="x-cell-muted">Never</span>
-                @endif
+            <td class="cc-col-err" data-label="Error">
+                {{-- The shared Error cell (partials.channel-error), the same
+                     one every channel's Listings and group pages draw: the
+                     message this row is carrying right now, or None. A
+                     failure with no saved message still says so, because
+                     silence in a column that only fills on failure reads as
+                     nothing wrong. --}}
+                @include('partials.channel-error', [
+                    'error' => $hasError
+                        ? (string) $p->push_error
+                        : ($failed ? \App\Integrations\Push\PushLedger::NO_REASON : null),
+                ])
             </td>
 
             <td class="x-td-actions">

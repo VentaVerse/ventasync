@@ -364,7 +364,7 @@ class ShopeeProductController extends Controller
             'liveStatuses' => $liveStatuses,
             'listingStates' => $listingStates,
             // The Last sync column (the owner, 2026-09-05), one answer shared with the group pages.
-            'lastSync' => app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->lastSync(array_map('intval', $pageIds)),
+            'rowErrors' => app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->errors(array_map('intval', $pageIds)),
             'catalogueTotal' => $catalogueTotal,
             'listedTotal' => $listedTotal,
             'liveCheckedAt' => $liveCheckedAt,
@@ -637,10 +637,8 @@ class ShopeeProductController extends Controller
         /* Refresh is the one button (the owner, 2026-09-07): every status is
          * re-read first, then the links are checked against the store, the
          * old Repair links folded in. */
-        $linked = ShopeeProductLink::query()->whereNotNull('shopee_item_id')->distinct()->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
         // The check reads two hundred per run; the list starts after the last one checked, so "run it again" continues.
-        $linked = \App\Integrations\Support\LinkCheckCursor::rotate('shopee:' . (int) $setting->id, $linked);
-        $checked = $linked !== [] ? app(\Extensions\shopee\Services\Shopee\ShopeeLinkCheck::class)->run(app(ShopeeClient::class), $auth, $linked) : null;
+        $checked = app(\Extensions\shopee\Services\Shopee\ShopeeLinkCheck::class)->runNext(app(ShopeeClient::class), $auth, (int) $setting->id);
 
         $labels = ['NORMAL' => 'live', 'UNLIST' => 'unlisted', 'BANNED' => 'in violation', 'REVIEWING' => 'under review',
             'SELLER_DELETE' => 'deleted', 'SHOPEE_DELETE' => 'deleted by Shopee', 'MISSING' => 'not found on Shopee'];

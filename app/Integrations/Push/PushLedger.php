@@ -13,6 +13,13 @@ use Illuminate\Support\Facades\DB;
 final class PushLedger
 {
     /**
+     * What the Error column says when a push or a sync failed and the
+     * channel gave no reason. Blank in a column that only ever fills on
+     * failure reads as nothing wrong, which is the opposite of the truth.
+     */
+    public const NO_REASON = 'The last sync failed. No reason was recorded.';
+
+    /**
      * The honest suffix for a flash message: what was healed and what
      * was skipped, by name.
      *

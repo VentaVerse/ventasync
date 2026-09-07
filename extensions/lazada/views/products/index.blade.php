@@ -218,7 +218,7 @@
             {{-- The reason to open this page. Separated from the three above
                  because they describe where a listing IS and this one
                  describes what happened to it. --}}
-            <option value="error" @selected($syncStatus === 'error')>Last sync failed</option>
+            <option value="error" @selected($syncStatus === 'error')>Has an error</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
@@ -356,7 +356,7 @@
             </th>
             <th scope="col" class="cc-col-err">
                 <a class="x-th-sort" href="{{ $sortUrl('last_sync') }}">
-                    Last sync
+                    Error
                     @if($sort === 'last_sync')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
@@ -513,11 +513,11 @@
                 @endif
             </td>
 
-            <td class="cc-col-err" data-label="Last sync">
+            <td class="cc-col-err" data-label="Error">
                 {{-- One answer for this column on every page (the owner,
                      2026-09-05): the shared refusal, else the newest
                      successful sync, else never. --}}
-                @include('partials.channel-last-sync', ['sync' => ($lastSync ?? [])[(int) $pid] ?? null])
+                @include('partials.channel-error', ['error' => ($rowErrors ?? [])[(int) $pid] ?? null])
             </td>
 
             <td class="x-td-actions">

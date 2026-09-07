@@ -225,12 +225,21 @@ class VentaListingsIndexTest extends TestCase
     {
         $store = $this->store();
         $ids = $this->scope($store);
-        Http::fake([self::BASE . '/api/v1/products*' => Http::response(['data' => [['id' => 12, 'sku' => 'U-1', 'status' => true]], 'last_page' => 1])]);
+        /* The cron re-reads the statuses AND checks the links since
+         * 2026-09-07, so the store is asked for each linked SKU too: A-1 is
+         * gone from the store (404, its link is dropped) and U-1 is there. */
+        Http::fake([
+            self::BASE . '/api/v1/products/A-1' => Http::response(['message' => 'Not found'], 404),
+            self::BASE . '/api/v1/products/U-1' => Http::response(['data' => ['id' => 12, 'sku' => 'U-1', 'status' => true]]),
+            self::BASE . '/api/v1/products*' => Http::response(['data' => [['id' => 12, 'sku' => 'U-1', 'status' => true]], 'last_page' => 1]),
+        ]);
 
         $this->artisan('venta:refresh-listing-status')->assertSuccessful();
 
         $this->assertSame('active', VentaListing::where('product_id', $ids['U-1'])->value('live_status'));
         $this->assertSame('missing', VentaListing::where('product_id', $ids['A-1'])->value('live_status'));
-        $this->assertSame(['active' => 1, 'unlisted' => 0, 'missing' => 1], VentaListingMirror::for($store)->counts());
+        // The check dropped A-1's link, so the mirror counts one live listing.
+        $this->assertSame(['active' => 1, 'unlisted' => 0, 'missing' => 0], VentaListingMirror::for($store)->counts());
+        $this->assertDatabaseMissing('venta_product_links', ['venta_setting_id' => $store->id, 'product_id' => $ids['A-1']]);
     }
 }

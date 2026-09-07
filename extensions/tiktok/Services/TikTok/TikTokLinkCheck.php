@@ -21,6 +21,27 @@ class TikTokLinkCheck
     {
     }
 
+    /**
+     * The next page of this store's links, checked (the owner, 2026-09-07).
+     * Both the Refresh button and the scheduled refresh call this, which is
+     * what stops them from drifting apart: the cron used to re-read statuses
+     * and never re-run the check, so a failed check could not clear itself
+     * and a row kept a six-month-old refusal until somebody pressed the
+     * button. The cursor caps a run at two hundred and continues where the
+     * last one stopped.
+     *
+     * @return ?array the check's own result, or null when nothing is linked
+     */
+    public function runNext(array $c, int $storeId): ?array
+    {
+        $linked = \Extensions\tiktok\Models\TikTokListing::query()->whereNotNull('tiktok_product_id')->pluck('product_id')
+            ->merge(\Extensions\tiktok\Models\TikTokProductGroupProduct::query()->whereNotNull('tiktok_product_id')->pluck('product_id'))
+            ->map(fn ($v) => (int) $v)->unique()->sort()->values()->all();
+        $linked = \App\Integrations\Support\LinkCheckCursor::rotate('tiktok:' . $storeId, $linked);
+
+        return $linked !== [] ? $this->run($c, $linked) : null;
+    }
+
     /** @return array{tone: 'status'|'error', summary: string} */
     public function run(array $c, array $productIds): array
     {

@@ -86,44 +86,41 @@ class VentaListingStates
         return $out;
     }
 
-    /** The shared Last sync cell: the latest failure, else the newest success, else never. */
-    public function lastSync(array $productIds): array
+    /**
+     * The Error column (the owner, 2026-09-07): the message a listing on this store is
+     * carrying right now, or null when nothing is wrong. One question, one
+     * answer, no rule about how old a failure is: the scheduled refresh
+     * re-runs the link check, and a successful push or sync clears the
+     * message it wrote.
+     *
+     * @param list<int> $productIds
+     * @return array<int, ?string>
+     */
+    public function errors(array $productIds): array
     {
         $productIds = array_values(array_unique(array_map('intval', $productIds)));
         if ($productIds === []) {
             return [];
         }
-        $modified = DB::table((string) config('catalog.prefix') . 'product')->whereIn('product_id', $productIds)->pluck('date_modified', 'product_id');
         $listings = VentaListing::query()->where('venta_setting_id', $this->storeId)->whereIn('product_id', $productIds)->get()->keyBy(fn ($l) => (int) $l->product_id);
         $attempts = $this->latestAttempts($productIds);
+
         $out = [];
         foreach ($productIds as $pid) {
             $l = $listings->get($pid);
             $a = $attempts->get($pid);
-            if ($a && in_array((string) $a->sync_status, ['error', 'failed'], true) && trim((string) ($a->push_error ?? '')) !== '') {
-                $at = $a->last_pushed_at ? Carbon::parse($a->last_pushed_at) : null;
-                $out[$pid] = ['tone' => 'failed', 'headline' => 'Last push' . ($at ? ' ' . $at->diffForHumans() : '') . ' failed:', 'detail' => trim((string) $a->push_error), 'at' => $at];
-                continue;
+            $found = [];
+            if ($l && trim((string) ($l->last_push_error ?? '')) !== '') {
+                $found[] = [$l->last_push_failed_at ? Carbon::parse($l->last_push_failed_at) : Carbon::createFromTimestamp(0), trim((string) $l->last_push_error)];
             }
-            $candidates = [];
-            if ($l?->last_pushed_at) {
-                $candidates[] = [Carbon::parse($l->last_pushed_at), 'listing'];
+            // A group push writes its refusal on the pivot row.
+            // A failure with no saved message still says it failed.
+            if ($a && in_array((string) $a->sync_status, ['error', 'failed'], true)) {
+                $found[] = [$a->last_pushed_at ? Carbon::parse($a->last_pushed_at) : Carbon::createFromTimestamp(0),
+                    trim((string) ($a->push_error ?? '')) ?: \App\Integrations\Push\PushLedger::NO_REASON];
             }
-            if ($a?->last_pushed_at) {
-                $candidates[] = [Carbon::parse($a->last_pushed_at), 'group push'];
-            }
-            if ($l?->live_checked_at) {
-                $candidates[] = [Carbon::parse($l->live_checked_at), 'status check'];
-            }
-            usort($candidates, fn ($x, $y) => $y[0] <=> $x[0]);
-            if ($candidates === []) {
-                $out[$pid] = ['tone' => 'none', 'headline' => 'Never synced', 'detail' => null, 'at' => null];
-                continue;
-            }
-            [$at, $what] = $candidates[0];
-            $movedAt = ($modified[$pid] ?? null) ? Carbon::parse($modified[$pid]) : null;
-            $stale = $movedAt && $movedAt->gt($at);
-            $out[$pid] = ['tone' => 'ok', 'headline' => 'Synced ' . $at->diffForHumans(), 'what' => $what, 'stale' => $stale, 'detail' => null, 'at' => $at];
+            usort($found, fn ($x, $y) => $y[0] <=> $x[0]);
+            $out[$pid] = $found === [] ? null : $found[0][1];
         }
 
         return $out;

@@ -183,62 +183,44 @@ class TikTokListingStates
     }
 
     /**
-     * The Last sync column, one answer for the Listings page and every
-     * group page (the owner, 2026-09-05): a refusal wins and is told in full,
-     * whichever surface pushed or synced; otherwise the newest successful
-     * sync and what it was; otherwise never.
+     * The Error column (the owner, 2026-09-07): the message a TikTok Shop listing is
+     * carrying right now, or null when nothing is wrong. One question, one
+     * answer, no rule about how old a failure is: the scheduled refresh
+     * re-runs the link check, and a successful push or sync clears the
+     * message it wrote.
      *
      * @param list<int> $productIds
-     * @return array<int, array{tone: 'failed'|'ok'|'none', headline: string, detail: ?string, at: ?Carbon}>
+     * @return array<int, ?string>
      */
-    public function lastSync(array $productIds): array
+    public function errors(array $productIds): array
     {
         $productIds = array_values(array_unique(array_map('intval', $productIds)));
         if ($productIds === []) {
             return [];
         }
-        $modified = DB::table((string) config('catalog.prefix') . 'product')
-            ->whereIn('product_id', $productIds)->pluck('date_modified', 'product_id');
-        $word = fn (?string $action): string => match (true) {
-            $action === null || trim($action) === '' => 'sync',
-            (bool) preg_match('/qty|quantity|stock/i', $action) => 'stock',
-            (bool) preg_match('/price/i', $action) => 'price',
-            (bool) preg_match('/upload|push|create|update/i', $action) => 'listing',
-            (bool) preg_match('/_id$/i', $action) => 'link check',
-            (bool) preg_match('/delete/i', $action) => 'delete',
-            default => str_replace('_', ' ', strtolower(trim($action))),
-        };
+        $listings = TikTokListing::query()->whereIn('product_id', $productIds)->get()->keyBy(fn ($l) => (int) $l->product_id);
+        $pivots = TikTokProductGroupProduct::query()->whereIn('product_id', $productIds)->get()->groupBy('product_id');
 
         $out = [];
         foreach ($productIds as $pid) {
-            $out[$pid] = $this->lastSyncFor($pid, $word, ($modified[$pid] ?? null) ? Carbon::parse($modified[$pid]) : null);
+            $listing = $listings->get($pid);
+            $found = [];
+            if ($listing && trim((string) ($listing->last_push_error ?? '')) !== '') {
+                $found[] = [$listing->last_push_failed_at ? Carbon::parse($listing->last_push_failed_at) : Carbon::createFromTimestamp(0), trim((string) $listing->last_push_error)];
+            }
+            // A group push writes its refusal on the pivot row.
+            // A failure with no saved message still says it failed.
+            $failed = ($pivots->get($pid) ?? collect())
+                ->filter(fn ($r) => in_array((string) $r->sync_status, ['error', 'failed'], true) || trim((string) ($r->push_error ?? '')) !== '')
+                ->sortByDesc('last_pushed_at')->first();
+            if ($failed) {
+                $found[] = [$failed->last_pushed_at ? Carbon::parse($failed->last_pushed_at) : Carbon::createFromTimestamp(0),
+                    trim((string) $failed->push_error) ?: \App\Integrations\Push\PushLedger::NO_REASON];
+            }
+            usort($found, fn ($a, $b) => $b[0] <=> $a[0]);
+            $out[$pid] = $found === [] ? null : $found[0][1];
         }
 
         return $out;
-    }
-
-    /** @param \Closure(?string): string $word */
-    private function lastSyncFor(int $pid, \Closure $word, ?Carbon $movedAt): array
-    {
-        $listing = TikTokListing::query()->where('product_id', $pid)->first();
-        if ($listing && trim((string) ($listing->last_push_error ?? '')) !== '') {
-            $at = $listing->last_push_failed_at ? Carbon::parse($listing->last_push_failed_at) : null;
-            return ['tone' => 'failed', 'headline' => 'Last push' . ($at ? ' ' . $at->diffForHumans() : '') . ' failed:', 'detail' => trim((string) $listing->last_push_error), 'at' => $at];
-        }
-        $candidates = [];
-        if ($listing?->last_pushed_at) {
-            $candidates[] = [Carbon::parse($listing->last_pushed_at), 'listing'];
-        }
-        $pivotAt = TikTokProductGroupProduct::query()->where('product_id', $pid)->whereNotNull('tiktok_product_id')->max('last_pushed_at');
-        if ($pivotAt) {
-            $candidates[] = [Carbon::parse($pivotAt), 'listing'];
-        }
-        usort($candidates, fn ($a, $b) => $b[0] <=> $a[0]);
-        if ($candidates === []) {
-            return ['tone' => 'none', 'headline' => 'Never synced', 'detail' => null, 'at' => null];
-        }
-        [$at, $what] = $candidates[0];
-        $stale = $movedAt && $movedAt->gt($at);
-        return ['tone' => 'ok', 'headline' => 'Synced ' . $at->diffForHumans(), 'what' => $what, 'stale' => $stale, 'detail' => null, 'at' => $at];
     }
 }

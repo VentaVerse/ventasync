@@ -52,10 +52,19 @@ class TikTokRefreshListingStatus extends Command
             return self::FAILURE;
         }
 
+
+        /* The cron does what the button does (the owner, 2026-09-07): the
+         * statuses are re-read, THEN the links are checked. Before this
+         * the scheduled refresh only re-read statuses, so a failed link
+         * check was never revisited and a row wore a six-month-old
+         * refusal until somebody pressed Refresh by hand. */
+        $checked = app(\Extensions\tiktok\Services\TikTok\TikTokLinkCheck::class)->runNext($c, (int) $store->id);
+
         $this->info(sprintf(
-            'Refreshed %d listing(s): %s.',
+            'Refreshed %d listing(s): %s.%s',
             $result['links'],
-            implode(', ', array_map(fn ($k, $v) => "{$v} {$k}", array_keys($result['counts']), $result['counts'])) ?: 'nothing on TikTok Shop'
+            implode(', ', array_map(fn ($k, $v) => "{$v} {$k}", array_keys($result['counts']), $result['counts'])) ?: 'nothing on TikTok Shop',
+            $checked ? ' ' . $checked['summary'] : ''
         ));
 
         return self::SUCCESS;

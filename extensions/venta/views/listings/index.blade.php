@@ -190,7 +190,7 @@
             <th scope="col" class="cc-col-chanid">Store ID</th>
             @include('partials.channel-ready-head')
             <th scope="col" class="cc-col-sync">Listing</th>
-            <th scope="col" class="cc-col-err">Last sync</th>
+            <th scope="col" class="cc-col-err">Error</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
@@ -258,11 +258,10 @@
                     <x-ui.badge tone="neutral">Not listed</x-ui.badge>
                 @endif
             </td>
-            <td class="cc-col-err" data-label="Last sync">
-                {{-- The shared Last sync cell (partials.channel-last-sync), the
-                     drawing every other Listings page uses: when on one line,
-                     what it was on a caption (its listing, or a group push). --}}
-                @include('partials.channel-last-sync', ['sync' => $lastSync[$pid] ?? null])
+            <td class="cc-col-err" data-label="Error">
+                {{-- The shared Error cell (partials.channel-error): the message this
+                     row is carrying right now, or None. --}}
+                                @include('partials.channel-error', ['error' => $rowErrors[$pid] ?? null])
             </td>
             <td class="x-td-actions">
                 @if($canManage || $canEditCatalog)

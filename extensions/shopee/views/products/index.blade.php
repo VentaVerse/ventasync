@@ -150,7 +150,7 @@
             <option value="not_listed" @selected($syncStatus === 'not_listed')>Not listed</option>
             {{-- Where the two above say where a product IS, this says what
                  happened to it. It is the reason to open this page. --}}
-            <option value="error" @selected($syncStatus === 'error')>Last sync failed</option>
+            <option value="error" @selected($syncStatus === 'error')>Has an error</option>
             {{-- The computed answer (#101): pushable right now, or not. --}}
             <option value="ready" @selected($syncStatus === 'ready')>Ready to push</option>
             <option value="not_ready" @selected($syncStatus === 'not_ready')>Not ready to push</option>
@@ -256,7 +256,7 @@
             <th scope="col" class="cc-col-stat">Catalog</th>
             @include('partials.channel-ready-head')
             <th scope="col" class="cc-col-sync">Listing</th>
-            <th scope="col" class="cc-col-err">Last sync</th>
+            <th scope="col" class="cc-col-err">Error</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
@@ -383,11 +383,11 @@
                     @endif
                 @endif
             </td>
-            <td class="cc-col-err" data-label="Last sync">
+            <td class="cc-col-err" data-label="Error">
                 {{-- One answer for this column on every page (the owner,
                      2026-09-05): the shared refusal, else the newest
                      successful sync, else never. --}}
-                @include('partials.channel-last-sync', ['sync' => $lastSync[(int) $p->product_id] ?? null])
+                @include('partials.channel-error', ['error' => $rowErrors[(int) $p->product_id] ?? null])
             </td>
 
             <td class="x-td-actions">

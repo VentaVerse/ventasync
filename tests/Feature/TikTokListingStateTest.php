@@ -306,18 +306,15 @@ class TikTokListingStateTest extends TestCase
         $states = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class);
         $s = $states->forProducts([$pid])[$pid];
         $this->assertStringContainsString('failed: Main image is required', implode(' ', $s->reasons));
-        $sync = $states->lastSync([$pid])[$pid];
-        $this->assertSame('failed', $sync['tone']);
+        $this->assertStringContainsString('Main image is required', (string) $states->errors([$pid])[$pid]);
 
-        // A successful push clears it and becomes the sync time.
+        // A successful push clears it and the Error column empties.
         \Extensions\tiktok\Models\TikTokListing::recordPush($pid, 'tt-1', null, 'listing');
-        $sync = $states->lastSync([$pid])[$pid];
-        $this->assertSame('ok', $sync['tone']);
-        $this->assertSame('listing', $sync['what']);
+        $this->assertNull($states->errors([$pid])[$pid]);
         $this->assertNull(\Extensions\tiktok\Models\TikTokListing::query()->where('product_id', $pid)->value('last_push_error'));
 
         $never = $this->seedProduct('Never one', 'NV-1');
-        $this->assertSame('none', $states->lastSync([$never])[$never]['tone']);
+        $this->assertNull($states->errors([$never])[$never]);
     }
 
     public function test_a_group_is_a_preset_the_product_inherits(): void

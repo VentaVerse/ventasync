@@ -416,7 +416,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $listingStates = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)
             ->forProducts($pageIds);
         // The Last sync column (the owner, 2026-09-05), one answer shared with the group pages.
-        $lastSync = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)->lastSync($pageIds);
+        $rowErrors = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)->errors($pageIds);
 
         // How many catalogue products actually stand on Lazada, for the
         // page's subtitle - an honest count, not the mapping-row count.
@@ -437,7 +437,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'products' => $products,
             'listingsById' => $listingsById,
             'listingStates' => $listingStates,
-            'lastSync' => $lastSync,
+            'rowErrors' => $rowErrors,
             'productThumbsById' => $productThumbsById,
             'optionRowsByProductId' => $optionRowsByProductId,
             'allGroups' => $allGroups,
@@ -766,11 +766,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         /* Refresh is the one button (the owner, 2026-09-07): every status is
          * re-read first, then the links are checked against the store, the
          * old Repair links folded in. */
-        $linked = LazadaProduct::query()->whereNotNull('lazada_item_id')->whereNull('lazada_deleted_at')
-            ->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
         // The check reads two hundred per run; the list starts after the last one checked, so "run it again" continues.
-        $linked = \App\Integrations\Support\LinkCheckCursor::rotate('lazada:' . (int) $setting->id, $linked);
-        $checked = $linked !== [] ? app(\Extensions\lazada\Services\Lazada\LazadaLinkCheck::class)->run($setting, $creds, $linked) : null;
+        $checked = app(\Extensions\lazada\Services\Lazada\LazadaLinkCheck::class)->runNext($setting, $creds);
 
         // One word per state, the engine's (#184 C): 'rejected', not 'in violation'.
         $labels = ['active' => 'active', 'inactive' => 'inactive', 'pending' => 'pending QC', 'rejected' => 'rejected',

@@ -20,6 +20,26 @@ use Illuminate\Support\Facades\DB;
  */
 class VentaLinkCheck
 {
+    /**
+     * The next page of this store's links, checked (the owner, 2026-09-07).
+     * Both the Refresh button and the scheduled refresh call this, which is
+     * what stops them from drifting apart: the cron used to re-read statuses
+     * and never re-run the check, so a failed check could not clear itself
+     * and a row kept a six-month-old refusal until somebody pressed the
+     * button. The cursor caps a run at two hundred and continues where the
+     * last one stopped.
+     *
+     * @return ?array the check's own result, or null when nothing is linked
+     */
+    public function runNext(VentaSetting $setting): ?array
+    {
+        $linked = \Extensions\venta\Models\VentaProductLink::query()->where('venta_setting_id', $setting->id)
+            ->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+        $linked = \App\Integrations\Support\LinkCheckCursor::rotate('venta:' . (int) $setting->id, $linked);
+
+        return $linked !== [] ? $this->run($setting, $linked) : null;
+    }
+
     /** @return array{tone: 'status'|'warning'|'error', summary: string} */
     public function run(VentaSetting $setting, array $ids): array
     {

@@ -443,7 +443,7 @@ class TikTokProductGroupController extends Controller
                 ->forProducts(array_map('intval', $pageIds)),
             // The Last sync column (the owner, 2026-09-05), one answer shared with the Listings page.
             'lastSync'             => app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)
-                ->lastSync(array_map('intval', $pageIds)),
+                ->errors(array_map('intval', $pageIds)),
             'q'                    => $q,
             'syncStatus'           => $syncStatus,
             'erpStatus'            => $erpStatus,

@@ -362,8 +362,8 @@ class LazadaProductGroupController extends Controller
             'listingStates' => app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)
                 ->forProducts(array_map('intval', $pivotProductIds)),
             // The Last sync column (the owner, 2026-09-05), one answer shared with the Listings page.
-            'lastSync' => app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)
-                ->lastSync(array_map('intval', $pivotProductIds)),
+            'rowErrors' => app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)
+                ->errors(array_map('intval', $pivotProductIds)),
             'optionRowsByProductId' => $optionRowsByProductId,
             // The row menu reaches the product's Lazada listing page, like
             // the Shopee and TikTok group pages do (critique 2026-08-25).

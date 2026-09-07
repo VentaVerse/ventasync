@@ -231,7 +231,7 @@ class TikTokProductController extends Controller
         $listingStates = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)
             ->forProducts($pageIds);
         // The Last sync column (the owner, 2026-09-05), one answer shared with the group pages.
-        $lastSync = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)->lastSync($pageIds);
+        $rowErrors = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)->errors($pageIds);
 
         // How many of this store's products actually stand on TikTok Shop,
         // for the subtitle - listing rows plus pivot-only legacies, distinct.
@@ -240,7 +240,7 @@ class TikTokProductController extends Controller
         return view('ext-tiktok::products.index', [
             'products' => $products,
             'listingStates' => $listingStates,
-            'lastSync' => $lastSync,
+            'rowErrors' => $rowErrors,
             'listedTotal' => $listedTotal,
             'q' => $q, 'sort' => $sort, 'dir' => $dir,
             'syncStatus' => $syncStatus, 'manufacturerFilter' => $manufacturerFilter,
@@ -512,10 +512,8 @@ class TikTokProductController extends Controller
         /* Refresh is the one button (the owner, 2026-09-07): every status is
          * re-read first, then the links are checked against the store, the
          * old Repair links folded in. */
-        $linked = TikTokListing::query()->whereNotNull('tiktok_product_id')->pluck('product_id')
-            ->merge(TikTokProductGroupProduct::query()->whereNotNull('tiktok_product_id')->pluck('product_id'))
-            ->map(fn ($v) => (int) $v)->unique()->sort()->values()->all();
-        $checked = $linked !== [] ? app(\Extensions\tiktok\Services\TikTok\TikTokLinkCheck::class)->run($c, $linked) : null;
+        // The check reads two hundred per run; the list starts after the last one checked, so "run it again" continues.
+        $checked = app(\Extensions\tiktok\Services\TikTok\TikTokLinkCheck::class)->runNext($c, (int) (\Extensions\tiktok\Models\TikTokSetting::defaultStore()?->id ?? 0));
 
         // One word per state, the engine's (#184 D): 'unlisted', not 'deactivated'.
         $labels = ['ACTIVATE' => 'live', 'SELLER_DEACTIVATED' => 'unlisted', 'PLATFORM_DEACTIVATED' => 'deactivated by TikTok',

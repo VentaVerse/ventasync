@@ -286,12 +286,12 @@ class ShopeeListingTest extends TestCase
         $r->assertSee('Listed');
         $r->assertDontSee('>Failed<', false);
         $r->assertDontSee('Not pushed');
-        // One latest error per product (the owner, 2026-09-05): the later push
-        // from the listing succeeded, so the shared Last sync cell tells that
-        // sync, and the group's older refusal is no longer the product's story.
-        $r->assertSee('Last sync');
-        $r->assertSee('Synced 5 minutes ago');
-        $r->assertSee('cc-when__what', false);
+        // One latest error per product (the owner, 2026-09-05, simplified to the
+        // Error column 2026-09-07): the later push from the listing succeeded,
+        // so the row carries no error, and the group's older refusal is no
+        // longer the product's story.
+        $r->assertSee('Error');
+        $r->assertSee('None');
         $r->assertDontSee('shipping channel');
     }
 

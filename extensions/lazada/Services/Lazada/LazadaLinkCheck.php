@@ -24,6 +24,26 @@ class LazadaLinkCheck
     {
     }
 
+    /**
+     * The next page of this store's links, checked (the owner, 2026-09-07).
+     * Both the Refresh button and the scheduled refresh call this, which is
+     * what stops them from drifting apart: the cron used to re-read statuses
+     * and never re-run the check, so a failed check could not clear itself
+     * and a row kept a six-month-old refusal until somebody pressed the
+     * button. The cursor caps a run at two hundred and continues where the
+     * last one stopped.
+     *
+     * @return ?array the check's own result, or null when nothing is linked
+     */
+    public function runNext(object $setting, array $creds): ?array
+    {
+        $linked = \Extensions\lazada\Models\LazadaProduct::query()->whereNotNull('lazada_item_id')->whereNull('lazada_deleted_at')
+            ->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+        $linked = \App\Integrations\Support\LinkCheckCursor::rotate('lazada:' . (int) $setting->id, $linked);
+
+        return $linked !== [] ? $this->run($setting, $creds, $linked) : null;
+    }
+
     /** @return array{tone: 'status'|'error', summary: string} */
     public function run(object $setting, array $creds, array $productIds, ?LazadaProductGroup $group = null): array
     {

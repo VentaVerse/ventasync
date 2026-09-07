@@ -27,8 +27,8 @@ use Tests\TestCase;
 class ShopeePushStatusTest extends TestCase
 {
     private const VIEW = 'extensions/shopee/views/product-groups/products.blade.php';
-    /** The shared Last sync cell (2026-09-05), drawn on the group page and the Listings page. */
-    private const CELL = 'resources/views/partials/channel-last-sync.blade.php';
+    /** The shared Error cell (2026-09-07), drawn on the group page and the Listings page. */
+    private const CELL = 'resources/views/partials/channel-error.blade.php';
     private const CONTROLLER = 'extensions/shopee/Controllers/ShopeeProductGroupController.php';
 
     private function source(string $file): string
@@ -53,12 +53,13 @@ class ShopeePushStatusTest extends TestCase
             'The Shopee ID column must read the product link, not the pivot copy.');
         $this->assertStringNotContainsString('$pivot->shopee_item_id', $view,
             'The pivot item id is a private copy that drifts; the page must not display it.');
-        // One latest error per product (the owner, 2026-09-05): the failure is
-        // told by the shared Last sync cell, drawn from the listing record.
-        $this->assertStringContainsString("@include('partials.channel-last-sync'", $view,
-            'The group page must draw the shared Last sync cell.');
-        $this->assertStringContainsString("@if(\$sync['tone'] === 'failed')", $this->source(self::CELL),
-            'The shared cell must tell a refusal.');
+        // One latest error per product (the owner, 2026-09-05, simplified to the
+        // Error column 2026-09-07): the failure is told by the shared Error
+        // cell, drawn from the listing record.
+        $this->assertStringContainsString("@include('partials.channel-error'", $view,
+            'The group page must draw the shared Error cell.');
+        $this->assertStringContainsString("<span class=\"x-cell-muted\">None</span>", $this->source(self::CELL),
+            'The shared cell must say None when nothing is wrong.');
     }
 
     public function test_a_failed_push_records_why(): void
@@ -184,7 +185,7 @@ class ShopeePushStatusTest extends TestCase
 
         $this->assertStringContainsString('<details class="cc-reason">', $view,
             'A truncated failure reason has no expansion, so the operator cannot read it.');
-        $this->assertStringContainsString('cc-reason__full">{{ $reason }}', $view,
+        $this->assertStringContainsString('cc-reason__full">{{ $error }}', $view,
             'The expansion does not carry the untruncated reason.');
     }
 
@@ -208,10 +209,13 @@ class ShopeePushStatusTest extends TestCase
      */
     public function test_a_failure_without_a_saved_reason_still_says_it_failed(): void
     {
+        // The sentence is the resolver's, not the cell's: the cell is handed
+        // a message or nothing, so the resolver is what must never hand it
+        // nothing after a failure.
         $this->assertStringContainsString(
-            "'No reason was recorded.'",
-            $this->source(self::CELL),
-            'A failed push with no recorded message shows an empty reason column.'
+            'PushLedger::NO_REASON',
+            $this->source('extensions/shopee/Services/Shopee/ShopeeListingStates.php'),
+            'A failed sync with no recorded message shows an empty Error column.'
         );
     }
 }

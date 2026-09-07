@@ -354,10 +354,10 @@ class LazadaListingStateTest extends TestCase
 
     /**
      * One latest push error per product (the owner, 2026-09-05): a refusal from
-     * any push lands on the listing row and every surface tells it, until
-     * a push succeeds; the Last sync column is the same answer everywhere.
+     * any push lands on the listing row and every surface tells it, until a
+     * push succeeds; the Error column is the same answer everywhere.
      */
-    public function test_the_last_push_refusal_and_the_last_sync_are_one_answer(): void
+    public function test_the_last_push_refusal_and_the_error_column_are_one_answer(): void
     {
         $pid = $this->seedProduct('Refused one', 'RF-1');
         \Extensions\lazada\Models\LazadaProduct::query()->create(['product_id' => $pid]);
@@ -366,20 +366,15 @@ class LazadaListingStateTest extends TestCase
         $states = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class);
         $s = $states->forProducts([$pid])[$pid];
         $this->assertStringContainsString('failed: Primary category is required', implode(' ', $s->reasons));
-        $sync = $states->lastSync([$pid])[$pid];
-        $this->assertSame('failed', $sync['tone']);
-        $this->assertStringContainsString('Last push', $sync['headline']);
+        $this->assertStringContainsString('Primary category is required', (string) $states->errors([$pid])[$pid]);
 
         \Extensions\lazada\Models\LazadaProduct::clearPushFailure($pid);
         \Extensions\lazada\Models\LazadaProduct::query()->where('product_id', $pid)->update(['last_synced_at' => now()->subMinutes(5), 'last_sync_action' => 'bulk_upload_to_lazada', 'last_sync_ok' => true]);
-        $sync = $states->lastSync([$pid])[$pid];
-        $this->assertSame('ok', $sync['tone']);
-        $this->assertStringContainsString('5 minutes ago', $sync['headline']);
-        $this->assertSame('listing', $sync['what']);
+        $this->assertNull($states->errors([$pid])[$pid], 'a cleared refusal empties the Error column');
         $this->assertSame([], $states->forProducts([$pid])[$pid]->reasons);
 
         $never = $this->seedProduct('Never one', 'NV-1');
-        $this->assertSame('none', $states->lastSync([$never])[$never]['tone']);
+        $this->assertNull($states->errors([$never])[$never]);
     }
 
     public function test_a_group_is_a_preset_the_product_inherits(): void

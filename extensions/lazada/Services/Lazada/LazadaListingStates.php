@@ -193,70 +193,43 @@ class LazadaListingStates
     }
 
     /**
-     * The Last sync column, one answer for the Listings page and every
-     * group page (the owner, 2026-09-05): a refusal wins and is told in full,
-     * whichever surface pushed or synced; otherwise the newest successful
-     * sync and what it was; otherwise never.
+     * The Error column (the owner, 2026-09-07): the message a Lazada listing is
+     * carrying right now, or null when nothing is wrong. One question, one
+     * answer, no rule about how old a failure is: the scheduled refresh
+     * re-runs the link check, and a successful push or sync clears the
+     * message it wrote.
      *
      * @param list<int> $productIds
-     * @return array<int, array{tone: 'failed'|'ok'|'none', headline: string, detail: ?string, at: ?Carbon}>
+     * @return array<int, ?string>
      */
-    public function lastSync(array $productIds): array
+    public function errors(array $productIds): array
     {
         $productIds = array_values(array_unique(array_map('intval', $productIds)));
         if ($productIds === []) {
             return [];
         }
-        $modified = DB::table((string) config('catalog.prefix') . 'product')
-            ->whereIn('product_id', $productIds)->pluck('date_modified', 'product_id');
-        $word = fn (?string $action): string => match (true) {
-            $action === null || trim($action) === '' => 'sync',
-            (bool) preg_match('/qty|quantity|stock/i', $action) => 'stock',
-            (bool) preg_match('/price/i', $action) => 'price',
-            (bool) preg_match('/upload|push|create|update/i', $action) => 'listing',
-            (bool) preg_match('/_id$/i', $action) => 'link check',
-            (bool) preg_match('/delete/i', $action) => 'delete',
-            default => str_replace('_', ' ', strtolower(trim($action))),
-        };
+        $rowsByProduct = LazadaProduct::query()->whereIn('product_id', $productIds)->orderBy('id')->get()->groupBy('product_id');
 
         $out = [];
         foreach ($productIds as $pid) {
-            $out[$pid] = $this->lastSyncFor($pid, $word, ($modified[$pid] ?? null) ? Carbon::parse($modified[$pid]) : null);
+            $rows = $rowsByProduct->get($pid) ?? collect();
+            $listing = $rows->first(fn ($l) => ! empty($l->lazada_item_id) && ! $l->unlinked_at) ?? $rows->last();
+
+            $found = [];
+            if ($listing && trim((string) ($listing->last_push_error ?? '')) !== '') {
+                $found[] = [$listing->last_push_failed_at ? Carbon::parse($listing->last_push_failed_at) : Carbon::createFromTimestamp(0), trim((string) $listing->last_push_error)];
+            }
+            // A failure with no saved message still says it failed.
+            $failedSync = $rows->filter(fn ($r) => $r->last_sync_ok !== null && ! $r->last_sync_ok)
+                ->sortByDesc('last_synced_at')->first();
+            if ($failedSync) {
+                $found[] = [$failedSync->last_synced_at ? Carbon::parse($failedSync->last_synced_at) : Carbon::createFromTimestamp(0),
+                    trim((string) $failedSync->last_sync_error_message) ?: \App\Integrations\Push\PushLedger::NO_REASON];
+            }
+            usort($found, fn ($a, $b) => $b[0] <=> $a[0]);
+            $out[$pid] = $found === [] ? null : $found[0][1];
         }
 
         return $out;
-    }
-
-    /** @param \Closure(?string): string $word */
-    private function lastSyncFor(int $pid, \Closure $word, ?Carbon $movedAt): array
-    {
-        $rows = LazadaProduct::query()->where('product_id', $pid)->orderBy('id')->get();
-        $listing = $rows->first(fn ($l) => !empty($l->lazada_item_id) && !$l->unlinked_at) ?? $rows->last();
-
-        if ($listing && trim((string) ($listing->last_push_error ?? '')) !== '') {
-            $at = $listing->last_push_failed_at ? Carbon::parse($listing->last_push_failed_at) : null;
-            return ['tone' => 'failed', 'headline' => 'Last push' . ($at ? ' ' . $at->diffForHumans() : '') . ' failed:', 'detail' => trim((string) $listing->last_push_error), 'at' => $at];
-        }
-        $failedSync = $rows->filter(fn ($r) => $r->last_sync_ok !== null && !$r->last_sync_ok && trim((string) ($r->last_sync_error_message ?? '')) !== '')->sortByDesc('last_synced_at')->first();
-        if ($failedSync) {
-            $at = $failedSync->last_synced_at ? Carbon::parse($failedSync->last_synced_at) : null;
-            return ['tone' => 'failed', 'headline' => ucfirst($word($failedSync->last_sync_action)) . ' sync' . ($at ? ' ' . $at->diffForHumans() : '') . ' failed:', 'detail' => trim((string) $failedSync->last_sync_error_message), 'at' => $at];
-        }
-        $candidates = [];
-        foreach ($rows as $r) {
-            if ($r->last_synced_at && ($r->last_sync_ok === null || (bool) $r->last_sync_ok)) {
-                $candidates[] = [Carbon::parse($r->last_synced_at), $word($r->last_sync_action)];
-            }
-            if ($r->last_pushed_at) {
-                $candidates[] = [Carbon::parse($r->last_pushed_at), 'listing'];
-            }
-        }
-        usort($candidates, fn ($a, $b) => $b[0] <=> $a[0]);
-        if ($candidates === []) {
-            return ['tone' => 'none', 'headline' => 'Never synced', 'detail' => null, 'at' => null];
-        }
-        [$at, $what] = $candidates[0];
-        $stale = $movedAt && $movedAt->gt($at);
-        return ['tone' => 'ok', 'headline' => 'Synced ' . $at->diffForHumans(), 'what' => $what, 'stale' => $stale, 'detail' => null, 'at' => $at];
     }
 }

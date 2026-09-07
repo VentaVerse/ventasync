@@ -401,7 +401,7 @@ class ShopeeProductGroupController extends Controller
         return view('ext-shopee::product-groups.products', [
             'listingStates' => $listingStates,
             // The Last sync column (the owner, 2026-09-05), one answer shared with the Listings page.
-            'lastSync' => app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->lastSync($displayIds),
+            'rowErrors' => app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->errors($displayIds),
             'group' => $group,
             'failedCount' => $failedCount,
             'products' => $products,

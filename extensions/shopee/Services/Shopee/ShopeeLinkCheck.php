@@ -27,6 +27,26 @@ class ShopeeLinkCheck
     /** item_id => 'yes'|'no', filled by the batch prefill and single checks. */
     private array $shopeeItemExistence = [];
 
+    /**
+     * The next page of this store's links, checked (the owner, 2026-09-07).
+     * Both the Refresh button and the scheduled refresh call this, which is
+     * what stops them from drifting apart: the cron used to re-read statuses
+     * and never re-run the check, so a failed check could not clear itself
+     * and a row kept a six-month-old refusal until somebody pressed the
+     * button. The cursor caps a run at two hundred and continues where the
+     * last one stopped.
+     *
+     * @return ?array the check's own result, or null when nothing is linked
+     */
+    public function runNext(ShopeeClient $client, array $auth, int $storeId): ?array
+    {
+        $linked = \Extensions\shopee\Models\ShopeeProductLink::query()->whereNotNull('shopee_item_id')
+            ->distinct()->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        $linked = \App\Integrations\Support\LinkCheckCursor::rotate('shopee:' . $storeId, $linked);
+
+        return $linked !== [] ? $this->run($client, $auth, $linked) : null;
+    }
+
     /** @return array{tone: 'status'|'warning'|'error', summary: string} */
     public function run(ShopeeClient $client, array $auth, array $productIds): array
     {

@@ -220,7 +220,7 @@
             <th scope="col" class="cc-col-chanid">TikTok ID</th>
             @include('partials.channel-ready-head')
             <th scope="col" class="cc-col-sync">Listing</th>
-            <th scope="col" class="cc-col-err">Last sync</th>
+            <th scope="col" class="cc-col-err">Error</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
@@ -316,11 +316,11 @@
                     @endif
                 @endif
             </td>
-            <td class="cc-col-err" data-label="Last sync">
+            <td class="cc-col-err" data-label="Error">
                 {{-- One answer for this column on every page (the owner,
                      2026-09-05): the shared refusal, else the newest
                      successful sync, else never. --}}
-                @include('partials.channel-last-sync', ['sync' => ($lastSync ?? [])[(int) $pid] ?? null])
+                @include('partials.channel-error', ['error' => ($rowErrors ?? [])[(int) $pid] ?? null])
             </td>
             <td class="x-td-actions">
                 @if($canManage || $canEditCatalog)

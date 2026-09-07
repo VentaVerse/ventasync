@@ -149,19 +149,17 @@ class ShopeeListingStateTest extends TestCase
         $this->assertStringContainsString('Last push', $s->reasons[0]);
         $this->assertStringContainsString('failed: The number of product images must be between 1 and 9', $s->reasons[0]);
 
-        // The workbench draws it on the row, in the shared Last sync column.
+        // The workbench draws it on the row, in the shared Error column.
         $group = \App\Models\Admin\UserGroup::create(['name' => 'Shopee push readers']);
         $group->permissions()->attach(\App\Models\Admin\Permission::whereIn('key', ['view_shopee/product', 'manage_shopee/product'])->pluck('id')->all());
         $user = \App\Models\User::factory()->create(['user_group_id' => $group->id]);
         $html = $this->actingAs($user)->get(route('ext.shopee.products.index'))->assertOk()->getContent();
-        $this->assertStringContainsString('Last sync', $html);
+        $this->assertStringContainsString('Error', $html);
         $this->assertStringContainsString('between 1 and 9', $html);
 
-        // The one answer both pages draw: the refusal wins over any sync time.
-        $sync = app(ShopeeListingStates::class)->lastSync([$pid])[$pid];
-        $this->assertSame('failed', $sync['tone']);
-        $this->assertStringContainsString('Last push', $sync['headline']);
-        $this->assertStringContainsString('between 1 and 9', $sync['detail']);
+        // The one answer both pages draw (the owner, 2026-09-07): the message the
+        // row is carrying right now, and nothing else.
+        $this->assertStringContainsString('between 1 and 9', (string) app(ShopeeListingStates::class)->errors([$pid])[$pid]);
 
         // A linked product carries it too, beside its live state.
         ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 777, 'sku' => 'IMG', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
@@ -171,22 +169,21 @@ class ShopeeListingStateTest extends TestCase
         $this->assertSame([], $this->states([$pid])[$pid]->reasons);
         $this->assertNull(ShopeeListing::query()->where('product_id', $pid)->value('last_push_error'));
 
-        // With no refusal, the column is the last successful sync: the newest
-        // of a stock or price sync on the link and the listing push.
+        // With no refusal the column is empty, whatever the row has synced.
         ShopeeProductLink::query()->where('product_id', $pid)->update(['last_synced_at' => now()->subMinutes(5), 'last_sync_action' => 'stock', 'last_sync_ok' => true]);
         ShopeeListing::query()->where('product_id', $pid)->update(['last_pushed_at' => now()->subHours(3)]);
-        $sync = app(ShopeeListingStates::class)->lastSync([$pid])[$pid];
-        $this->assertSame('ok', $sync['tone']);
-        $this->assertStringContainsString('5 minutes ago', $sync['headline']);
-        $this->assertSame('stock', $sync['what']);
+        $this->assertNull(app(ShopeeListingStates::class)->errors([$pid])[$pid]);
 
-        // A failed stock sync is told the same way, and a never-synced product says so.
+        // A failed stock sync is told the same way, in the channel's own words.
         ShopeeProductLink::query()->where('product_id', $pid)->update(['last_sync_ok' => false, 'last_sync_error_message' => 'Stock update refused: item is under review.']);
-        $sync = app(ShopeeListingStates::class)->lastSync([$pid])[$pid];
-        $this->assertSame('failed', $sync['tone']);
-        $this->assertStringContainsString('Stock sync', $sync['headline']);
+        $this->assertSame('Stock update refused: item is under review.', app(ShopeeListingStates::class)->errors([$pid])[$pid]);
+
+        // A failure the channel gave no reason for still says something.
+        ShopeeProductLink::query()->where('product_id', $pid)->update(['last_sync_error_message' => null]);
+        $this->assertSame(\App\Integrations\Push\PushLedger::NO_REASON, app(ShopeeListingStates::class)->errors([$pid])[$pid]);
+
         $never = $this->product('NEVER');
-        $this->assertSame('none', app(ShopeeListingStates::class)->lastSync([$never])[$never]['tone']);
+        $this->assertNull(app(ShopeeListingStates::class)->errors([$never])[$never]);
     }
 
     public function test_a_push_sends_at_most_nine_images_main_first(): void

@@ -363,7 +363,7 @@ class VentaListingController extends Controller
             'listingsByProductId' => $listingsByProductId,
             'lastAttempts' => $lastAttempts,
             'listingStates' => \Extensions\venta\Services\Venta\VentaListingStates::for($store)->forProducts($pageIds),
-            'lastSync' => \Extensions\venta\Services\Venta\VentaListingStates::for($store)->lastSync($pageIds),
+            'rowErrors' => \Extensions\venta\Services\Venta\VentaListingStates::for($store)->errors($pageIds),
             'ventaTab' => $tab,
             'liveCounts' => $liveCounts,
             'liveCheckedAt' => $liveCheckedAt,
@@ -473,10 +473,8 @@ class VentaListingController extends Controller
         /* Refresh is the one button (the owner, 2026-09-07): every status is
          * re-read first, then the links are checked against the store, the
          * old Repair links folded in. */
-        $linked = VentaProductLink::query()->where('venta_setting_id', $store)->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
         // The check reads two hundred per run; the list starts after the last one checked, so "run it again" continues.
-        $linked = \App\Integrations\Support\LinkCheckCursor::rotate('venta:' . (int) $store, $linked);
-        $checked = $linked !== [] ? app(\Extensions\venta\Services\Venta\VentaLinkCheck::class)->run($setting, $linked) : null;
+        $checked = app(\Extensions\venta\Services\Venta\VentaLinkCheck::class)->runNext($setting);
 
         $parts = [];
         foreach ($result['counts'] as $status => $n) {
