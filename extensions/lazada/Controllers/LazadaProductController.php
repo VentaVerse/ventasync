@@ -2412,6 +2412,8 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
         return view('ext-lazada::products.form', [
             'coverage' => $coverage,
+            'images' => \App\Support\Catalog\ProductImages::urls((int) $listing->product_id),
+            'groupCard' => $this->groupCardFor($listing),
             'mode' => $listing->exists ? 'edit' : 'create',
             'listing' => $listing,
             'products' => $products,
@@ -2450,6 +2452,14 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'sale_ends_at' => 'nullable|date|required_with:sale_percent|after:sale_starts_at',
             'attributes' => 'nullable|array',
             'attributes.*' => 'nullable|string|max:2000',
+            'item_name' => 'nullable|string|max:255',
+            'description' => 'nullable|string|max:20000',
+            // The variation overrides ride this form since 2026-09-07, so one
+            // Save keeps the whole page rather than needing a second press.
+            'variants' => 'nullable|array',
+            'variants.*.seller_sku' => 'nullable|string|max:64',
+            'variants.*.price' => 'nullable|numeric',
+            'variants.*.quantity' => 'nullable|integer',
             'push' => 'nullable|boolean',
         ]);
 
@@ -2458,6 +2468,9 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             $data['brand_id'] = null;
         }
 
+        $blank = fn ($v) => ($v === null || trim((string) $v) === '') ? null : (string) $v;
+        $listing->item_name = $blank($data['item_name'] ?? null);
+        $listing->description = $blank($data['description'] ?? null);
         $listing->primary_category_id = $data['primary_category_id'] ?? null;
         $listing->brand_id = $data['brand_id'] ?? null;
         $listing->brand_name_override = $noBrand ? 'No Brand' : null;
@@ -2496,6 +2509,9 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
          * Brand is the form's own control, never an attribute row. */
         if ($request->has('attributes')) {
             $this->storeAttributes($listing, (array) ($data['attributes'] ?? []));
+        }
+        if ($request->has('variants')) {
+            $this->storeVariants($listing, (array) ($data['variants'] ?? []));
         }
 
         ActivityLogger::log('updated', 'Lazada Product', $listing->id, 'ERP #' . (int)$listing->product_id);
@@ -3012,31 +3028,79 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'variants.*.quantity' => 'nullable|integer',
         ]);
 
-        $rows = (array)($data['variants'] ?? []);
+        $this->storeVariants($listing, (array) ($data['variants'] ?? []));
 
-        $variantFk = 'lazada_product_id';
-        DB::transaction(function () use ($listing, $rows, $variantFk) {
+        return redirect()->route('ext.lazada.products.edit', $listing->product_id)->with('status', 'Variant mapping saved.');
+    }
+
+    /**
+     * The per-variation overrides, saved as given; an empty box means the
+     * catalog's own value. The listing form carries these since
+     * 2026-09-07, so this is shared with update().
+     *
+     * @param  array<string, array<string, mixed>>  $rows
+     */
+    private function storeVariants(LazadaProduct $listing, array $rows): void
+    {
+        DB::transaction(function () use ($listing, $rows) {
             foreach ($rows as $povId => $row) {
-                $povId = (string)$povId;
-                if ($povId === '' || !is_array($row)) {
+                $povId = (string) $povId;
+                if ($povId === '' || ! is_array($row)) {
                     continue;
                 }
-                $idVal = ctype_digit($povId) ? (int)$povId : null;
                 LazadaProductVariant::query()->updateOrCreate(
                     [
-                        $variantFk => $listing->id,
-                        'product_option_value_id' => $idVal,
+                        'lazada_product_id' => $listing->id,
+                        'product_option_value_id' => ctype_digit($povId) ? (int) $povId : null,
                     ],
                     [
-                        'seller_sku' => isset($row['seller_sku']) && $row['seller_sku'] !== '' ? (string)$row['seller_sku'] : null,
-                        'price' => isset($row['price']) && $row['price'] !== '' ? (float)$row['price'] : null,
-                        'quantity' => isset($row['quantity']) && $row['quantity'] !== '' ? (int)$row['quantity'] : null,
+                        'seller_sku' => isset($row['seller_sku']) && $row['seller_sku'] !== '' ? (string) $row['seller_sku'] : null,
+                        'price' => isset($row['price']) && $row['price'] !== '' ? (float) $row['price'] : null,
+                        'quantity' => isset($row['quantity']) && $row['quantity'] !== '' ? (int) $row['quantity'] : null,
                     ]
                 );
             }
         });
+    }
 
-        return redirect()->route('ext.lazada.products.edit', $listing->product_id)->with('status', 'Variant mapping saved.');
+    /**
+     * The one group this product is in on this store, for the rail's
+     * Product group card (partials/channel-group-card).
+     *
+     * @return ?array{name: string, url: string, lends: list<string>}
+     */
+    private function groupCardFor(LazadaProduct $listing): ?array
+    {
+        $group = $listing->exists ? $listing->groups->first() : null;
+        if (! $group) {
+            return null;
+        }
+        $lends = [];
+        if ($group->lazada_category_id) {
+            $name = LazadaCategory::query()->where('category_id', (int) $group->lazada_category_id)->value('name');
+            $lends[] = 'category ' . ($name ?: '#' . $group->lazada_category_id);
+        }
+        if ($group->brand_id) {
+            $name = LazadaBrand::query()->where('region', $this->region())->where('brand_id', (int) $group->brand_id)->value('name');
+            $lends[] = 'brand ' . ($name ?: '#' . $group->brand_id);
+        }
+        $markup = \App\Support\MarkupWords::of(
+            $group->markup_percent !== null ? (float) $group->markup_percent : null,
+            $group->markup_fixed !== null ? (float) $group->markup_fixed : null
+        );
+        if ($markup !== 'none') {
+            $lends[] = 'markup ' . $markup;
+        }
+        $answers = \Extensions\lazada\Models\LazadaProductGroupAttribute::query()->where('lazada_product_group_id', $group->id)->count();
+        if ($answers > 0) {
+            $lends[] = $answers . ' attribute ' . \Illuminate\Support\Str::plural('answer', $answers);
+        }
+
+        return [
+            'name' => (string) $group->name,
+            'url' => route('ext.lazada.product-groups.products', $group->id),
+            'lends' => $lends,
+        ];
     }
 
     private function region(): string

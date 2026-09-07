@@ -181,6 +181,11 @@
         </section>
     @endif
 
+    {{-- The record, in the one order every channel's listing page keeps
+         (the owner, 2026-09-07, draft B): Content, Category, Price rule, Images,
+         then what only Venta has (the meta fields); the rail only reports,
+         Product group and Last push. No Discount: the storefront has no sale
+         price (card on the board). --}}
     <form id="listing-form" method="POST" action="{{ route('ext.venta.listings.update', [$setting->id, $product->product_id]) }}">
         <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
         @csrf
@@ -189,8 +194,7 @@
             <div class="fm-col">
 
                 <section class="fm-section">
-                    <div class="fm-section__head"><h2 class="fm-section__title">Content on this store</h2></div>
-                    <p class="fm-section__note">A filled field is this listing's own wording and follows nobody. An empty field follows the catalogue product, shown greyed as the placeholder. Clearing a field returns it to the catalogue. Nothing here ever edits the catalogue product itself.</p>
+                    <div class="fm-section__head"><h2 class="fm-section__title">Content on this store <x-ui.hint label="About the content">A filled field is this listing's own wording and follows nobody. An empty field follows the catalogue product, shown greyed as the placeholder. Clearing a field returns it to the catalogue. Nothing here ever edits the catalogue product itself.</x-ui.hint></h2></div>
                     <div class="fm-fields">
                         <x-ui.field label="Name" for="vl-name" name="name" wide>
                             <x-ui.input id="vl-name" name="name" :value="old('name', $listing->name ?? '')" :placeholder="$product->name" maxlength="255" :disabled="!$canManage" />
@@ -198,19 +202,23 @@
                         <x-ui.field label="Description" for="vl-description" name="description" wide>
                             <x-ui.textarea id="vl-description" name="description" rows="6" :placeholder="\Illuminate\Support\Str::limit($coreDescription, 300)" :disabled="!$canManage">{{ old('description', $listing->description ?? '') }}</x-ui.textarea>
                         </x-ui.field>
-                        <x-ui.field label="Meta title" for="vl-meta-title" name="meta_title" hint="What search engines show as the page title on the store.">
-                            <x-ui.input id="vl-meta-title" name="meta_title" :value="old('meta_title', $listing->meta_title ?? '')" :placeholder="$product->meta_title ?? $product->name" maxlength="255" :disabled="!$canManage" />
-                        </x-ui.field>
-                        <x-ui.field label="Meta description" for="vl-meta-description" name="meta_description" hint="The line under the title in search results.">
-                            <x-ui.input id="vl-meta-description" name="meta_description" :value="old('meta_description', $listing->meta_description ?? '')" :placeholder="\Illuminate\Support\Str::limit((string) ($product->meta_description ?? ''), 120)" maxlength="500" :disabled="!$canManage" />
-                        </x-ui.field>
                     </div>
                 </section>
 
+                <section class="fm-section">
+                    <div class="fm-section__head"><h2 class="fm-section__title">Category on {{ $storeName }} <x-ui.hint label="About the category">The store owns its categories. The product's group picks one, and every push sends it; a product in no group goes up under the catalogue's own category names.</x-ui.hint></h2></div>
+                    @if($groupCard && $groupCategory)
+                        <p class="fm-section__note"><strong>{{ $groupCategory }}</strong>, from the group <a href="{{ $groupCard['url'] }}">{{ $groupCard['name'] }}</a>.</p>
+                    @elseif($groupCard)
+                        <p class="fm-section__note">The group <a href="{{ route('ext.venta.product-groups.edit', [$setting->id, $groupCard['id']]) }}">{{ $groupCard['name'] }}</a> has no category yet.</p>
+                    @else
+                        <p class="fm-section__note">In no product group on this store. <a href="{{ route('ext.venta.product-groups.index', $setting->id) }}">Add it to one</a> to give it a category.</p>
+                    @endif
+                </section>
+
                 <div class="fm-card">
-                    <div class="fm-card__head"><h2 class="fm-card__title">Price rule</h2></div>
+                    <div class="fm-card__head"><h2 class="fm-card__title">Price rule <x-ui.hint label="About the price rule">The {{ $storeName }} price is never stored: it is the catalogue price run through this rule at every push and price sync. Variations go through the same rule. Without a rule of its own the listing uses its group's.</x-ui.hint></h2></div>
                     <div class="fm-card__body">
-                        <p class="fm-section__note">The {{ $storeName }} price is never stored: it is the catalogue price run through this rule at every push from this page. Variations go through the same rule. A group push sends the catalogue price as it is.</p>
                         <div class="fm-fields fm-fields--2">
                             <x-ui.field label="Percent added" for="vl-markup-pct" name="markup_percent">
                                 <x-ui.input id="vl-markup-pct" name="markup_percent" type="number" step="0.01" :value="old('markup_percent', $listing->markup_percent ?? '')" placeholder="0" :disabled="!$canManage" />
@@ -226,26 +234,34 @@
                     </div>
                 </div>
 
-                <div class="fm-card">
-                    <div class="fm-card__head"><h2 class="fm-card__title">Images that go up</h2></div>
-                    <div class="fm-card__body">
-                        @if(count($images) === 0)
-                            <p class="fm-section__note">The catalogue product has no images, so none go up. The store keeps whatever it already holds.</p>
-                        @else
-                            <p class="fm-section__note">{{ count($images) }} {{ count($images) === 1 ? 'image' : 'images' }} from the catalogue, main image first. The store fetches them over the web from this ERP's public address; a store that cannot reach that address refuses the push and says so.</p>
-                            <ul class="vl-images">
-                                @foreach($images as $url)
-                                    <li class="vl-images__item"><img src="{{ $url }}" alt="" loading="lazy"></li>
-                                @endforeach
-                            </ul>
-                        @endif
+                @include('partials.channel-images-card', [
+                    'storeName' => $storeName, 'images' => $images, 'limit' => null, 'fetchesOverWeb' => true,
+                ])
+
+                <section class="fm-section" id="vl-only">
+                    <div class="fm-section__head"><h2 class="fm-section__title">Only on {{ $storeName }}</h2></div>
+                    <div class="fm-sub">
+                        <h3 class="fm-sub__title">Search engines <x-ui.hint label="About the meta fields">What search engines show for the product's page on the store. Empty fields follow the catalogue's.</x-ui.hint></h3>
+                        <div class="fm-fields">
+                            <x-ui.field label="Meta title" for="vl-meta-title" name="meta_title" wide>
+                                <x-ui.input id="vl-meta-title" name="meta_title" :value="old('meta_title', $listing->meta_title ?? '')" :placeholder="$product->meta_title ?? $product->name" maxlength="255" :disabled="!$canManage" />
+                            </x-ui.field>
+                            <x-ui.field label="Meta description" for="vl-meta-description" name="meta_description" wide>
+                                <x-ui.input id="vl-meta-description" name="meta_description" :value="old('meta_description', $listing->meta_description ?? '')" :placeholder="\Illuminate\Support\Str::limit((string) ($product->meta_description ?? ''), 120)" maxlength="500" :disabled="!$canManage" />
+                            </x-ui.field>
+                        </div>
                     </div>
-                </div>
+                </section>
             </div>
 
             <div class="fm-col fm-col--side">
+                @include('partials.channel-group-card', [
+                    'storeName' => $storeName, 'group' => $groupCard,
+                    'groupsUrl' => route('ext.venta.product-groups.index', $setting->id),
+                ])
+
                 <div class="fm-card">
-                    <div class="fm-card__head"><h2 class="fm-card__title">Last push from this page</h2></div>
+                    <div class="fm-card__head"><h2 class="fm-card__title">Last push</h2></div>
                     <div class="fm-card__body">
                         @if($listing?->last_pushed_at)
                             @php $sent = $listing->last_push_settings ?? []; @endphp
@@ -265,25 +281,6 @@
                         @endif
                         @if($listing?->live_checked_at)
                             <p class="fm-section__note">Store status last read {{ $listing->live_checked_at->diffForHumans() }}.</p>
-                        @endif
-                    </div>
-                </div>
-
-                <div class="fm-card">
-                    <div class="fm-card__head"><h2 class="fm-card__title">Groups on {{ $storeName }}</h2></div>
-                    <div class="fm-card__body">
-                        @if($groups->isEmpty())
-                            <p class="fm-section__note">In no product group on this store. Group pushes will not touch it; only this page does.</p>
-                        @else
-                            <ul class="vl-groups">
-                                @foreach($groups as $g)
-                                    <li class="vl-groups__item">
-                                        <a href="{{ route('ext.venta.product-groups.products', [$setting->id, $g->id]) }}">{{ $g->name }}</a>
-                                        <span class="vl-groups__meta">{{ $g->last_pushed_at ? 'pushed ' . \Illuminate\Support\Carbon::parse($g->last_pushed_at)->diffForHumans() : 'never pushed' }}</span>
-                                    </li>
-                                @endforeach
-                            </ul>
-                            <p class="fm-section__note">A group push sends the catalogue's content and price; this page's record only goes when pushed from here.</p>
                         @endif
                     </div>
                 </div>

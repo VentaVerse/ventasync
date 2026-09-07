@@ -544,6 +544,27 @@
         color: var(--bl-ink-3);
     }
 
+    /* A named group inside a section: the "Only on Shopee" section on a
+       listing page holds several (Parcel, Couriers), each with a small
+       heading of its own that ranks below the section title. */
+    .fm-sub {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .fm-sub + .fm-sub {
+        padding-top: 14px;
+        border-top: 1px solid var(--bl-rule);
+    }
+
+    .fm-sub__title {
+        margin: 0;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--bl-ink-2);
+    }
+
     .fm-section__aside {
         display: flex;
         align-items: center;

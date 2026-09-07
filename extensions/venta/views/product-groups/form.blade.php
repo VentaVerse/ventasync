@@ -17,31 +17,32 @@
 @section('content')
 @php
     // The create GET is `manage_venta`, but the EDIT GET is registered in the
-    // read product group, so a `view_venta` operator can open this page on an existing
-    // product group. The store and update writes behind it are manage-only, so for
-    // that operator every control is disabled, the two-pane picker is replaced
-    // by the plain list it is a builder for, and the Save button is absent: a
-    // form you can fill in and never submit is worse than a form that says up
-    // front it is a read.
+    // read product group, so a `view_venta` operator can open this page on an
+    // existing product group. The store and update writes behind it are
+    // manage-only, so for that operator every control is disabled and the Save
+    // button is absent: a form you can fill in and never submit is worse than a
+    // form that says up front it is a read.
     $canManageVenta = auth()->user()?->hasPermission('manage_venta/product_group') ?? false;
 
     $storeName = $setting->store_name ?: 'Unnamed store';
 
-    // The right-hand panel's starting contents. VentaProductGroupController
-    // has already restored these from old('product_ids') when a validation
-    // round trip failed, so this is simply what the server says is in the
-    // product group right now.
-    $rightItems = $groupProducts->map(fn ($p) => [
-        'product_id' => (int) $p->product_id,
-        'name'       => (string) ($p->name ?? ''),
-        'sku'        => (string) ($p->sku ?: ($p->model ?: '')),
-        'quantity'   => (int) $p->quantity,
-    ])->values();
-
-    // JSON_HEX_TAG is what makes a data island safe: it encodes < and > so a
-    // product literally named "</script>" cannot close the element. Data only,
-    // no behaviour: the picker lives in resources/js/pages/group-form.js.
-    $jsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
+    // The store's own categories, nested for the picker. The store owns
+    // them; nothing here is ever written back to it.
+    $byParent = $storeCategories->groupBy('parent_id');
+    $categoryOptions = [];
+    $walk = function (int $parent, int $depth) use (&$walk, &$categoryOptions, $byParent) {
+        foreach ($byParent->get($parent, collect()) as $c) {
+            $categoryOptions[] = ['id' => (int) $c->venta_category_id, 'label' => str_repeat('  ', $depth) . $c->name];
+            $walk((int) $c->venta_category_id, $depth + 1);
+        }
+    };
+    $walk(0, 0);
+    $seen = array_column($categoryOptions, 'id');
+    foreach ($storeCategories as $c) {
+        if (! in_array((int) $c->venta_category_id, $seen, true)) {
+            $categoryOptions[] = ['id' => (int) $c->venta_category_id, 'label' => $c->name];
+        }
+    }
 @endphp
 
 <form method="POST" class="fm-page"
@@ -80,11 +81,6 @@
                 @endif
             </div>
         </div>
-        @if($mode === 'edit')
-            <div class="fm-head__actions">
-                <x-ui.button size="sm" :href="route('ext.venta.product-groups.products', [$setting->id, $group->id])">View products</x-ui.button>
-            </div>
-        @endif
     </div>
 
     <div class="fm-body">
@@ -103,149 +99,36 @@
                 </div>
             </section>
 
-            {{-- ------------------------------------------------------------
-                 Products.
-
-                 The same two-panel control the old page had, and for the same
-                 reason: this is a set you build by moving items into it, and
-                 the only thing that submits is the right-hand side, as
-                 `product_ids[]`. What changed is that the panels are drawn on
-                 the token set instead of on inline styles, the numerals are
-                 mono so quantities line up, and the two move buttons say what
-                 they do instead of being chevron glyphs.
-                 ------------------------------------------------------------ --}}
             <section class="fm-section">
                 <div class="fm-section__head">
-                    <h2 class="fm-section__title">Products in this product group</h2>
+                    <h2 class="fm-section__title">Category on {{ $storeName }} <x-ui.hint label="About the category">The store owns its categories; this list is what was fetched from {{ $storeName }} when the store was set up. Every product in this group is pushed into it. Nothing is written to the store's categories.</x-ui.hint></h2>
                 </div>
-                @if($canManageVenta)
-                <p class="fm-section__note">Search the catalog on the left, move what belongs into the product group on the right. Only what is on the right is saved.</p>
-
-                <div class="gf-dual"
-                     data-group-product-picker
-                     data-group-id="{{ $group->id ?? 0 }}"
-                     data-search-url="{{ route('ext.venta.product-groups.searchProducts', $setting->id) }}">
-
-                    <div class="gf-filters">
-                        <x-ui.input type="search" class="gf-filters__search" data-gf-q
-                                    placeholder="Name, SKU or model" aria-label="Search the catalog by name, SKU or model" />
-
-                        <div class="x-select-wrap gf-filters__select">
-                            <select class="x-input" data-gf-category aria-label="Filter by catalog category">
-                                <option value="">All categories</option>
-                                @foreach($catalogCategories as $cat)
-                                    <option value="{{ $cat->category_id }}">{{ $cat->name }}</option>
+                @if($categoryOptions === [])
+                    <p class="fm-section__note">No categories on file for {{ $storeName }} yet. Fetch them on the store's Settings page first; products pushed without one go up under the catalogue's own category names.</p>
+                @endif
+                <div class="fm-fields">
+                    <x-ui.field label="Category" for="pg-category" name="venta_category_id" wide>
+                        <div class="x-select-wrap">
+                            <select id="pg-category" name="venta_category_id" class="x-input" @disabled(!$canManageVenta)>
+                                <option value="">None (the catalogue's own category names)</option>
+                                @foreach($categoryOptions as $opt)
+                                    <option value="{{ $opt['id'] }}" @selected((int) old('venta_category_id', $group->venta_category_id ?? 0) === $opt['id'])>{{ $opt['label'] }}</option>
                                 @endforeach
                             </select>
                             <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
                         </div>
-
-                        <div class="x-select-wrap gf-filters__select">
-                            <select class="x-input" data-gf-manufacturer aria-label="Filter by manufacturer">
-                                <option value="">All manufacturers</option>
-                                @foreach($manufacturers as $mfg)
-                                    <option value="{{ $mfg->manufacturer_id }}">{{ $mfg->name }}</option>
-                                @endforeach
-                            </select>
-                            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-                        </div>
-
-                        <x-ui.button type="button" variant="secondary" data-gf-search>Search</x-ui.button>
-                    </div>
-
-                    <div class="gf-panes">
-                        <div class="gf-pane">
-                            <div class="gf-pane__head">
-                                <span class="gf-pane__title">Catalog</span>
-                                <span class="gf-pane__count x-num" data-gf-left-count>0</span>
-                            </div>
-                            <div class="gf-pane__body">
-                                <table class="gf-list">
-                                    <thead>
-                                        <tr>
-                                            <th scope="col" class="gf-col-check"><input type="checkbox" class="cc-check" data-gf-left-all aria-label="Select every catalog result"></th>
-                                            <th scope="col" class="gf-col-id">ID</th>
-                                            <th scope="col">Product</th>
-                                            <th scope="col" class="gf-col-qty">Stock</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody data-gf-left></tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <div class="gf-move">
-                            <x-ui.button type="button" size="sm" data-gf-add aria-label="Add the selected catalog products to the product group">
-                                Add <x-ui.icon name="chevron-right" size="14" />
-                            </x-ui.button>
-                            <x-ui.button type="button" size="sm" data-gf-remove aria-label="Take the selected products out of the product group">
-                                <x-ui.icon name="chevron-left" size="14" /> Remove
-                            </x-ui.button>
-                        </div>
-
-                        <div class="gf-pane">
-                            <div class="gf-pane__head">
-                                <span class="gf-pane__title">In this product group</span>
-                                <span class="gf-pane__count x-num" data-gf-right-count>{{ $rightItems->count() }}</span>
-                            </div>
-                            <div class="gf-pane__body">
-                                <table class="gf-list">
-                                    <thead>
-                                        <tr>
-                                            <th scope="col" class="gf-col-check"><input type="checkbox" class="cc-check" data-gf-right-all aria-label="Select every product in the product group"></th>
-                                            <th scope="col" class="gf-col-id">ID</th>
-                                            <th scope="col">Product</th>
-                                            <th scope="col" class="gf-col-qty">Stock</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody data-gf-right></tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- The only part of this control that submits. Rewritten
-                         by the picker on every change; one hidden
-                         `product_ids[]` per row on the right. --}}
-                    <div data-gf-inputs></div>
-
-                    <script type="application/json" data-gf-initial>{!! json_encode($rightItems, $jsonFlags) !!}</script>
+                    </x-ui.field>
                 </div>
-                @else
-                {{-- Read tier. The two-pane control is a builder for this list
-                     and nothing else, so the list itself is what a reader is
-                     shown. Nothing here submits. --}}
-                <p class="fm-section__note">{{ $rightItems->count() }} {{ $rightItems->count() === 1 ? 'product is' : 'products are' }} in this product group.</p>
-
-                @if($rightItems->isEmpty())
-                    <x-ui.empty title="No products in this product group"
-                                description="Someone with the manage tier needs to add them." />
-                @else
-                    <x-ui.table>
-                        <x-slot:head>
-                            <tr>
-                                <th scope="col" class="cc-col-id">ID</th>
-                                <th scope="col">Product</th>
-                                <th scope="col" class="cc-col-qty x-td-num">Stock</th>
-                            </tr>
-                        </x-slot:head>
-                        @foreach($rightItems as $item)
-                            <tr>
-                                <td class="cc-col-id" data-label="ID"><span class="x-num">{{ $item['product_id'] }}</span></td>
-                                <td data-label="Product">
-                                    <span class="co-item__name">{{ $item['name'] !== '' ? $item['name'] : 'Unnamed product' }}</span>
-                                    <span class="co-item__meta">{{ $item['sku'] !== '' ? $item['sku'] : 'No SKU' }}</span>
-                                </td>
-                                <td class="cc-col-qty x-td-num" data-label="Stock"><span class="x-num">{{ number_format($item['quantity']) }}</span></td>
-                            </tr>
-                        @endforeach
-                    </x-ui.table>
-                @endif
-                @endif
             </section>
         </div>
 
         <div class="fm-col fm-col--side">
+            @include('partials.channel-group-products-card', [
+                'mode' => $mode,
+                'productCount' => $productCount ?? 0,
+                'productsUrl' => $mode === 'edit' ? route('ext.venta.product-groups.products', [$setting->id, $group->id]) : null,
+            ])
+
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Price markup</h2></div>
                 <div class="fm-card__body">

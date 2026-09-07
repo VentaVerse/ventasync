@@ -65,6 +65,10 @@
         : '';
     $basePrice = isset($productRow->price) ? (float) $productRow->price : null;
 
+    // The catalog's own description, as the Content card's placeholder: the
+    // greyed value an empty field follows.
+    $coreDescription = trim(strip_tags(html_entity_decode((string) ($productRow->description ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+
     // The values a mapped attribute can read off the catalog product. Data
     // only, no behaviour: the preview lives in
     // resources/js/pages/group-form.js. JSON_HEX_TAG encodes < and >, so a
@@ -267,58 +271,6 @@
         </section>
     @endif
 
-    {{-- Provenance (#104, Lazada half): what the last push actually sent
-         and where its settings came from - the same card the Shopee
-         listing page carries. --}}
-    @if($mode === 'edit' && ($listing->last_pushed_at ?? null))
-        @php
-            $lzProvSource = (string) ($listing->last_push_source ?? '');
-            $lzProvLabel = match (true) {
-                $lzProvSource === 'listing' => 'this listing',
-                str_starts_with($lzProvSource, 'group:') => 'the ' . substr($lzProvSource, 6) . ' group',
-                default => $lzProvSource,
-            };
-            $lzSent = $listing->last_push_settings ?? [];
-        @endphp
-        <section class="fm-section">
-            <div class="fm-section__head">
-                <h2 class="fm-section__title">Last push</h2>
-            </div>
-            <div class="fm-stats">
-                <div class="fm-stat">
-                    <span class="fm-stat__k">When</span>
-                    <span class="fm-stat__v">{{ $listing->last_pushed_at->diffForHumans() }}</span>
-                </div>
-                <div class="fm-stat">
-                    <span class="fm-stat__k">Settings from</span>
-                    <span class="fm-stat__v">{{ $lzProvLabel !== '' ? $lzProvLabel : 'unknown' }}</span>
-                </div>
-                @if(!empty($lzSent['category_id']))
-                    <div class="fm-stat">
-                        <span class="fm-stat__k">Category sent</span>
-                        <span class="fm-stat__v">{{ (int) $lzSent['category_id'] }}</span>
-                    </div>
-                @endif
-                @if(isset($lzSent['markup_percent']) || isset($lzSent['markup_fixed']))
-                    <div class="fm-stat">
-                        <span class="fm-stat__k">Rule sent</span>
-                        <span class="fm-stat__v">{{ (float) ($lzSent['markup_percent'] ?? 0) }}% + {{ (float) ($lzSent['markup_fixed'] ?? 0) }}</span>
-                    </div>
-                @endif
-                @php
-                    $lzCoreMoved = ($productRow->date_modified ?? null)
-                        ? \Illuminate\Support\Carbon::parse($productRow->date_modified) : null;
-                @endphp
-                @if($lzCoreMoved && $lzCoreMoved->gt($listing->last_pushed_at))
-                    <div class="fm-stat">
-                        <span class="fm-stat__k">Since then</span>
-                        <span class="fm-stat__v">Catalog changed {{ $lzCoreMoved->diffForHumans() }} - push an update to send the current state</span>
-                    </div>
-                @endif
-            </div>
-        </section>
-    @endif
-
     {{-- ============================================================
          1. The listing itself.
          ============================================================ --}}
@@ -331,6 +283,12 @@
              for Save and push and Cancel to return to. --}}
         <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
 
+        {{-- The record, in the one order every channel's listing page keeps
+             (the owner, 2026-09-07, draft B): the main column is everything you
+             set, Content, Category and brand, Category attributes, Price
+             rule, Discount, Images, then what only Lazada has; the rail only
+             reports, Product group and Last push. The variation overrides
+             ride this form too, so one Save keeps the whole page. --}}
         <div class="fm-body">
             <div class="fm-col fm-col--main">
 
@@ -356,9 +314,28 @@
                 </section>
                 @endif
 
+                @if($mode === 'edit')
                 <section class="fm-section">
                     <div class="fm-section__head">
-                        <h2 class="fm-section__title">Lazada mapping</h2>
+                        <h2 class="fm-section__title">Content on this channel <x-ui.hint label="About the content">A filled field is this listing's own wording and follows nobody. An empty field follows the catalog product, shown greyed as the placeholder. Clearing a field returns it to the catalog. Nothing here ever edits the catalog product itself.</x-ui.hint></h2>
+                    </div>
+                    <div class="fm-fields">
+                        <x-ui.field label="Title" for="lz-item-name" name="item_name" wide>
+                            <x-ui.input id="lz-item-name" name="item_name" maxlength="255"
+                                        :value="old('item_name', $listing->item_name ?? '')"
+                                        placeholder="{{ $productName }}" />
+                        </x-ui.field>
+                        <x-ui.field label="Description" for="lz-description" name="description" wide>
+                            <x-ui.textarea id="lz-description" name="description" rows="6" maxlength="20000"
+                                           placeholder="{{ \Illuminate\Support\Str::limit($coreDescription, 400) }}">{{ old('description', $listing->description ?? '') }}</x-ui.textarea>
+                        </x-ui.field>
+                    </div>
+                </section>
+                @endif
+
+                <section class="fm-section">
+                    <div class="fm-section__head">
+                        <h2 class="fm-section__title">Category and brand</h2>
                     </div>
 
                     <div class="fm-fields">
@@ -482,8 +459,54 @@
                     <script type="application/json" data-erp-fields>{!! json_encode($erpFieldValues, $jsonFlags) !!}</script>
                 @endif
 
-                {{-- The Discount card sits in the work column on every channel
-                     (critique 2026-08-25). --}}
+                <div class="fm-card">
+                    <div class="fm-card__head"><h2 class="fm-card__title">Price rule <x-ui.hint label="About the price rule">The percentage is added to the catalog price first, then the fixed amount on top. The Lazada price is never stored: it is the catalog price run through this rule at every push and price sync. Without a rule of its own the listing uses its group's.</x-ui.hint></h2></div>
+                    <div class="fm-card__body">
+                        <div class="fm-fields fm-fields--2">
+                            <x-ui.field label="Percent added" for="lz-markup-percent" name="markup_percent">
+                                <div class="cs-inline">
+                                    <x-ui.input id="lz-markup-percent" name="markup_percent" type="number" step="0.01" min="0"
+                                                class="fm-input--num cs-days" data-markup-percent
+                                                value="{{ $effectivePercent }}" placeholder="0" />
+                                    <span class="cs-inline__unit">%</span>
+                                </div>
+                            </x-ui.field>
+
+                            <x-ui.field label="Fixed amount added" for="lz-markup-fixed" name="markup_fixed">
+                                <x-ui.input id="lz-markup-fixed" name="markup_fixed" type="number" step="0.01" min="0"
+                                            class="fm-input--num" data-markup-fixed
+                                            value="{{ $effectiveFixed }}" placeholder="0.00" />
+                            </x-ui.field>
+                        </div>
+
+                        @if($basePrice !== null)
+                            {{-- The one figure the two fields above raise a
+                                 question about. The currency is resolved by
+                                 App\Support\Money here in Blade; the script
+                                 only replaces the number, because nothing in
+                                 JavaScript can read the default currency off
+                                 the currencies table. --}}
+                            <div class="cl-total" data-running-total data-base-price="{{ $basePrice }}">
+                                <span class="cl-total__k">Price on Lazada after push</span>
+                                <span class="cl-total__v" data-total-value><x-money :php="(float) $basePrice" /></span>
+                                <span class="cl-total__note">Catalog price <x-money :php="(float) $basePrice" /></span>
+                            </div>
+                        @endif
+
+                        @if($groupMarkup)
+                            @php
+                                $inherited = \App\Support\MarkupWords::of(
+                                    $groupMarkup->markup_percent !== null ? (float) $groupMarkup->markup_percent : null,
+                                    $groupMarkup->markup_fixed !== null ? (float) $groupMarkup->markup_fixed : null
+                                );
+                            @endphp
+                            @if($inherited !== 'none')
+                                <p class="fm-section__note">These started from the {{ $groupMarkup->name }} group ({{ $inherited }}). Changing them here overrides the group for this listing only.</p>
+                            @endif
+                        @endif
+                    </div>
+                </div>
+
                 @php
                     $lzSalePreview = null;
                     if ($listing->sale_percent !== null && $basePrice !== null) {
@@ -517,70 +540,144 @@
                      the push is its own confirmed act. Partial in
                      resources/views/partials/channel-discount-card. --}}
                 @include('partials.channel-discount-card', $discount)
+
+                @if($mode === 'edit')
+                    @include('partials.channel-images-card', [
+                        'storeName' => 'Lazada', 'images' => $images,
+                        'limit' => \Extensions\lazada\Services\Lazada\LazadaImages::MAX_IMAGES, 'fetchesOverWeb' => false,
+                    ])
+
+                    {{-- What only Lazada has, in one place at the end of the
+                         main column: the per-variation overrides. They ride
+                         this form since 2026-09-07, so Save keeps them with
+                         everything else rather than needing a second press. --}}
+                    <section class="fm-section" id="lz-only">
+                        <div class="fm-section__head">
+                            <h2 class="fm-section__title">Only on Lazada</h2>
+                        </div>
+                        <div class="fm-sub">
+                            <h3 class="fm-sub__title">Variation overrides <x-ui.hint label="About the overrides">Lazada gets the catalog's own SKU, price and stock for each variation unless one is overridden here. Anything left empty stays as the catalog has it.</x-ui.hint></h3>
+                            @if(($variants ?? collect())->count() === 0)
+                                <p class="fm-section__note">This product has no variations, so Lazada gets it as a single SKU. Nothing to map.</p>
+                            @else
+                                <div class="fm-vars__scroll">
+                                    <table class="fm-vars__table">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col" class="fm-vcol-name">Variation</th>
+                                                <th scope="col" class="fm-vcol-sku">Catalog SKU</th>
+                                                <th scope="col" class="fm-vcol-price fm-vcol-num">Catalog price</th>
+                                                <th scope="col" class="fm-vcol-qty fm-vcol-num">Catalog stock</th>
+                                                <th scope="col" class="fm-vcol-sku">Lazada SKU</th>
+                                                <th scope="col" class="fm-vcol-price fm-vcol-num">Lazada price</th>
+                                                <th scope="col" class="fm-vcol-qty fm-vcol-num">Lazada stock</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach($variants as $variant)
+                                                @php
+                                                    $variantId = (string) $variant->product_option_value_id;
+                                                    $mapped = $variantMap[$variantId] ?? null;
+                                                    $variantLabel = trim((string) ($variant->option_name ?? '')) !== ''
+                                                        ? ((string) $variant->option_name) . ': ' . ((string) ($variant->option_value_name ?? ''))
+                                                        : 'Variation ' . $variantId;
+                                                @endphp
+                                                <tr>
+                                                    <td class="fm-vcol-name" data-label="Variation">{{ $variantLabel }}</td>
+                                                    <td class="fm-vcol-sku" data-label="Catalog SKU"><span class="x-num">{{ $variant->sku ?: 'None' }}</span></td>
+                                                    <td class="fm-vcol-price fm-num" data-label="Catalog price">{{ number_format((float) ($variant->absolute_price ?? 0), 2) }}</td>
+                                                    <td class="fm-vcol-qty fm-num" data-label="Catalog stock">{{ $variant->quantity }}</td>
+                                                    <td class="fm-vcol-sku" data-label="Lazada SKU">
+                                                        <input class="x-input" name="variants[{{ $variantId }}][seller_sku]"
+                                                               value="{{ old('variants.' . $variantId . '.seller_sku', $mapped?->seller_sku) }}"
+                                                               placeholder="Same as catalog"
+                                                               aria-label="Lazada SKU for {{ $variantLabel }}">
+                                                    </td>
+                                                    <td class="fm-vcol-price fm-vcol-num" data-label="Lazada price">
+                                                        <input class="x-input fm-num" name="variants[{{ $variantId }}][price]"
+                                                               value="{{ old('variants.' . $variantId . '.price', $mapped?->price) }}"
+                                                               placeholder="Same"
+                                                               aria-label="Lazada price for {{ $variantLabel }}">
+                                                    </td>
+                                                    <td class="fm-vcol-qty fm-vcol-num" data-label="Lazada stock">
+                                                        <input class="x-input fm-num" name="variants[{{ $variantId }}][quantity]"
+                                                               value="{{ old('variants.' . $variantId . '.quantity', $mapped?->quantity) }}"
+                                                               placeholder="Same"
+                                                               aria-label="Lazada stock for {{ $variantLabel }}">
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @endif
+                        </div>
+                    </section>
+                @endif
             </div>
 
             <div class="fm-col fm-col--side">
-                <div class="fm-card">
-                    <div class="fm-card__head"><h2 class="fm-card__title">Price rule</h2></div>
-                    <div class="fm-card__body">
-                        <p class="fm-section__note">The percentage is added to the catalog price first, then the fixed amount is added on top.</p>
+                @if($mode === 'edit')
+                    @include('partials.channel-group-card', [
+                        'storeName' => 'Lazada', 'group' => $groupCard,
+                        'groupsUrl' => route('ext.lazada.product-groups.index'),
+                    ])
 
-                        <x-ui.field label="Percent added" for="lz-markup-percent" name="markup_percent"
-                                    hint="5 means the listed price is 5% above the catalog price.">
-                            <div class="cs-inline">
-                                <x-ui.input id="lz-markup-percent" name="markup_percent" type="number" step="0.01" min="0"
-                                            class="fm-input--num cs-days" data-markup-percent
-                                            value="{{ $effectivePercent }}" placeholder="0" />
-                                <span class="cs-inline__unit">%</span>
-                            </div>
-                        </x-ui.field>
-
-                        <x-ui.field label="Fixed amount added" for="lz-markup-fixed" name="markup_fixed"
-                                    hint="Added after the percentage.">
-                            <x-ui.input id="lz-markup-fixed" name="markup_fixed" type="number" step="0.01" min="0"
-                                        class="fm-input--num" data-markup-fixed
-                                        value="{{ $effectiveFixed }}" placeholder="0.00" />
-                        </x-ui.field>
-
-                        @if($basePrice !== null)
-                            {{-- The one figure the two fields above raise a
-                                 question about. The currency is resolved by
-                                 App\Support\Money here in Blade; the script
-                                 only replaces the number, because nothing in
-                                 JavaScript can read the default currency off
-                                 the currencies table. --}}
-                            <div class="cl-total" data-running-total data-base-price="{{ $basePrice }}">
-                                <span class="cl-total__k">Price on Lazada after push</span>
-                                <span class="cl-total__v" data-total-value><x-money :php="(float) $basePrice" /></span>
-                                <span class="cl-total__note">Catalog price <x-money :php="(float) $basePrice" /></span>
-                            </div>
-                        @endif
-
-                        @if($groupMarkup)
-                            @php
-                                $inherited = [];
-                                if (!empty($groupMarkup->markup_percent)) {
-                                    $inherited[] = rtrim(rtrim(number_format((float) $groupMarkup->markup_percent, 2), '0'), '.') . '%';
-                                }
-                                if (!empty($groupMarkup->markup_fixed)) {
-                                    $inherited[] = number_format((float) $groupMarkup->markup_fixed, 2);
-                                }
-                            @endphp
-                            @if(!empty($inherited))
-                                <p class="fm-section__note">These started from the {{ $groupMarkup->name }} group ({{ implode(' then ', $inherited) }}). Changing them here overrides the group for this listing only.</p>
+                    <div class="fm-card">
+                        <div class="fm-card__head"><h2 class="fm-card__title">Last push</h2></div>
+                        <div class="fm-card__body">
+                            @if($listing->last_pushed_at ?? null)
+                                @php
+                                    $lzProvSource = (string) ($listing->last_push_source ?? '');
+                                    $lzProvLabel = match (true) {
+                                        $lzProvSource === 'listing' => 'this listing',
+                                        str_starts_with($lzProvSource, 'group:') => 'the ' . substr($lzProvSource, 6) . ' group',
+                                        default => $lzProvSource,
+                                    };
+                                    $lzSent = $listing->last_push_settings ?? [];
+                                    $lzCoreMoved = ($productRow->date_modified ?? null)
+                                        ? \Illuminate\Support\Carbon::parse($productRow->date_modified) : null;
+                                @endphp
+                                <div class="fm-stats">
+                                    <div class="fm-stat">
+                                        <span class="fm-stat__k">When</span>
+                                        <span class="fm-stat__v">{{ $listing->last_pushed_at->diffForHumans() }}</span>
+                                    </div>
+                                    <div class="fm-stat">
+                                        <span class="fm-stat__k">Settings from</span>
+                                        <span class="fm-stat__v">{{ $lzProvLabel !== '' ? $lzProvLabel : 'unknown' }}</span>
+                                    </div>
+                                    @if(!empty($lzSent['category_id']))
+                                        <div class="fm-stat">
+                                            <span class="fm-stat__k">Category sent</span>
+                                            <span class="fm-stat__v">{{ (int) $lzSent['category_id'] }}</span>
+                                        </div>
+                                    @endif
+                                    @if(isset($lzSent['markup_percent']) || isset($lzSent['markup_fixed']))
+                                        <div class="fm-stat">
+                                            <span class="fm-stat__k">Rule sent</span>
+                                            <span class="fm-stat__v">{{ \App\Support\MarkupWords::of((float) ($lzSent['markup_percent'] ?? 0), (float) ($lzSent['markup_fixed'] ?? 0)) }}</span>
+                                        </div>
+                                    @endif
+                                    @if($lzCoreMoved && $lzCoreMoved->gt($listing->last_pushed_at))
+                                        <div class="fm-stat">
+                                            <span class="fm-stat__k">Since then</span>
+                                            <span class="fm-stat__v">Catalog changed {{ $lzCoreMoved->diffForHumans() }}; push an update to send the current state</span>
+                                        </div>
+                                    @endif
+                                </div>
+                            @else
+                                <p class="fm-section__note">Never pushed from VentaSync.</p>
                             @endif
-                        @endif
+                        </div>
                     </div>
-                </div>
-
-
-                @if($mode === 'create')
-                <div class="fm-card">
-                    <div class="fm-card__head"><h2 class="fm-card__title">What happens next</h2></div>
-                    <div class="fm-card__body">
-                        <p class="fm-section__note">Creating the listing saves it here only. Nothing reaches Lazada until you fill in the category's attributes and press Save and push on the edit screen.</p>
+                @else
+                    <div class="fm-card">
+                        <div class="fm-card__head"><h2 class="fm-card__title">What happens next</h2></div>
+                        <div class="fm-card__body">
+                            <p class="fm-section__note">Creating the listing saves it here only. Nothing reaches Lazada until you fill in the category's attributes and press Save and push on the edit screen.</p>
+                        </div>
                     </div>
-                </div>
                 @endif
             </div>
         </div>
@@ -590,80 +687,6 @@
 
 
     @if($mode === 'edit')
-        {{-- ============================================================
-             2. Variations.
-             ============================================================ --}}
-        <section class="fm-section">
-            <div class="fm-section__head">
-                <h2 class="fm-section__title">Variations</h2>
-                @if(($variants ?? collect())->count() > 0)
-                    <div class="fm-section__aside">
-                        <x-ui.button type="submit" form="lazada-variants" size="sm">Save variations</x-ui.button>
-                    </div>
-                @endif
-            </div>
-
-            @if(($variants ?? collect())->count() === 0)
-                <p class="fm-section__note">This product has no variations, so Lazada gets it as a single SKU. Nothing to map.</p>
-            @else
-                <p class="fm-section__note">Lazada gets the catalog's own values unless you override one here. Anything left empty stays as the catalog has it.</p>
-
-                <form id="lazada-variants" method="POST" action="{{ route('ext.lazada.products.variants_save', $listing->product_id) }}">
-                    @csrf
-                    <div class="fm-vars__scroll">
-                        <table class="fm-vars__table">
-                            <thead>
-                                <tr>
-                                    <th scope="col" class="fm-vcol-name">Variation</th>
-                                    <th scope="col" class="fm-vcol-sku">Catalog SKU</th>
-                                    <th scope="col" class="fm-vcol-price fm-vcol-num">Catalog price</th>
-                                    <th scope="col" class="fm-vcol-qty fm-vcol-num">Catalog stock</th>
-                                    <th scope="col" class="fm-vcol-sku">Lazada SKU</th>
-                                    <th scope="col" class="fm-vcol-price fm-vcol-num">Lazada price</th>
-                                    <th scope="col" class="fm-vcol-qty fm-vcol-num">Lazada stock</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($variants as $variant)
-                                    @php
-                                        $variantId = (string) $variant->product_option_value_id;
-                                        $mapped = $variantMap[$variantId] ?? null;
-                                        $variantLabel = trim((string) ($variant->option_name ?? '')) !== ''
-                                            ? ((string) $variant->option_name) . ': ' . ((string) ($variant->option_value_name ?? ''))
-                                            : 'Variation ' . $variantId;
-                                    @endphp
-                                    <tr>
-                                        <td class="fm-vcol-name" data-label="Variation">{{ $variantLabel }}</td>
-                                        <td class="fm-vcol-sku" data-label="Catalog SKU"><span class="x-num">{{ $variant->sku ?: 'None' }}</span></td>
-                                        <td class="fm-vcol-price fm-num" data-label="Catalog price">{{ number_format((float) ($variant->absolute_price ?? 0), 2) }}</td>
-                                        <td class="fm-vcol-qty fm-num" data-label="Catalog stock">{{ $variant->quantity }}</td>
-                                        <td class="fm-vcol-sku" data-label="Lazada SKU">
-                                            <input class="x-input" name="variants[{{ $variantId }}][seller_sku]"
-                                                   value="{{ old('variants.' . $variantId . '.seller_sku', $mapped?->seller_sku) }}"
-                                                   placeholder="Same as catalog"
-                                                   aria-label="Lazada SKU for {{ $variantLabel }}">
-                                        </td>
-                                        <td class="fm-vcol-price fm-vcol-num" data-label="Lazada price">
-                                            <input class="x-input fm-num" name="variants[{{ $variantId }}][price]"
-                                                   value="{{ old('variants.' . $variantId . '.price', $mapped?->price) }}"
-                                                   placeholder="Same"
-                                                   aria-label="Lazada price for {{ $variantLabel }}">
-                                        </td>
-                                        <td class="fm-vcol-qty fm-vcol-num" data-label="Lazada stock">
-                                            <input class="x-input fm-num" name="variants[{{ $variantId }}][quantity]"
-                                                   value="{{ old('variants.' . $variantId . '.quantity', $mapped?->quantity) }}"
-                                                   placeholder="Same"
-                                                   aria-label="Lazada stock for {{ $variantLabel }}">
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                </form>
-            @endif
-        </section>
-
         {{-- A push is a multi-second round trip, so the page says so rather
              than letting the operator click again. --}}
         <div id="lazada-group-progress" class="modal-backdrop" role="dialog" aria-modal="true" aria-live="polite">

@@ -1,47 +1,32 @@
 /* Product-group form pages: the `gf-` grammar.
    -------------------------------------------------------------------
-   Round C Task 3. Two channels' product-group create/edit forms left
-   the .x-legacy boundary and moved onto the shared fm- form anatomy
-   (components/form-page.css). Nearly all of both pages is that anatomy
-   already: fm-page / fm-head / fm-body / fm-section / fm-fields /
-   x-ui.field / fm-bar. This file carries only the two controls that
-   anatomy has no equivalent for.
-
-   OpenCart's picker needed nothing new at all: it is .fm-tags + .fm-tag
-   + .fm-ta, the same typeahead-into-chips control the catalog's
-   product form already uses, so it is not here.
-
-   What IS here:
+   A group form is nearly all shared form anatomy already (fm-page /
+   fm-head / fm-body / fm-section / fm-fields / x-ui.field / fm-bar).
+   This file carries only the controls that anatomy has no equivalent
+   for:
 
      1. .gf-count, the one figure on OpenCart's side column;
-     2. the whole of Venta's two-pane product picker, which is a set
-        builder and genuinely has no precedent in this system.
-
-   Round F Task 1 brought Shopee's, Lazada's and TikTok's product-group
-   forms onto this same file. The picker above carried them unchanged
-   (identical wire: one hidden `product_ids[]` per row on the right,
-   the same search endpoint and the same three query parameters), so
-   what those three added is only the marketplace-mapping controls the
-   fm- anatomy has no equivalent for:
-
-     3. .gf-combo, the marketplace category combobox. Three channels,
+     2. .gf-combo, the marketplace category combobox. Three channels,
         one control: Shopee searches its leaf categories over AJAX,
         TikTok filters a list already on the page, Lazada uses a plain
         <select>. The first two share this popover.
-     4. .gf-checks, the logistics-channel picker (Shopee only). A flat
+     3. .gf-checks, the delivery-options picker (Shopee only). A flat
         list of checkboxes, not a card each.
-     5. .gf-attrs, the category-attribute mapping rows. These are
+     4. .gf-attrs, the category-attribute mapping rows. These are
         rendered both inline by the form and, on a category change, by
         an AJAX response that returns the same Blade partial, so the
         markup has to look right in both places with no JS restyling.
 
-   The three decisions carried in from the anatomies this builds on:
+   Venta's two-pane product picker used to live here and is gone with
+   the in-form membership (the owner, 2026-09-07, the one group shape): a
+   group form holds only what the group lends, and products join it on
+   its own Products page. The rules it needed went with it.
+
+   The decisions carried in from the anatomies this builds on:
 
      1. Colour has one job. The primary action is the only accent on
-        these pages. The picker is entirely neutral - a selected row is
-        marked by its checkbox, not by a tint.
-     2. Elevation is flat. One bordered pane per side, hairlines
-        between rows, no shadows and no card stack.
+        these pages.
+     2. Elevation is flat. Hairlines between rows, no card stack.
      3. Every numeral is mono with tabular figures: product ids and
         stock counts, which are read down a column.
    ------------------------------------------------------------------- */
@@ -60,213 +45,6 @@
     font-weight: 500;
     line-height: 1.1;
     color: var(--bl-ink);
-}
-
-/* ==================================================================
-   Venta's two-pane product picker.
-
-   The control is a set you build by moving rows into it. Two panes
-   side by side with the move buttons between them is the shape that
-   says so; a single multi-select would hide what is already in the
-   group behind a scroll, which is the question this page exists to
-   answer.
-   ================================================================== */
-
-.gf-dual { display: flex; flex-direction: column; gap: var(--bl-space-4); }
-
-/* ------------------------------------------------------------------
-   The search row above both panes. It searches the catalog, not the
-   group, so it belongs above the pair rather than inside the left one.
-   ------------------------------------------------------------------ */
-
-.gf-filters {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--bl-space-2);
-}
-
-.gf-filters__search { flex: 1 1 220px; min-width: 0; }
-
-.gf-filters__select { flex: 0 1 190px; min-width: 0; }
-
-/* ------------------------------------------------------------------
-   The pair. Equal halves with a fixed gutter for the two move buttons;
-   below 900px the gutter stops being a column and the whole thing
-   stacks, because two 150px panes are two panes nobody can read.
-   ------------------------------------------------------------------ */
-
-.gf-panes {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--bl-space-3);
-    align-items: start;
-}
-
-@media (min-width: 901px) {
-    .gf-panes { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
-}
-
-.gf-pane {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    background: var(--bl-sheet);
-    border: 1px solid var(--bl-rule);
-    border-radius: var(--bl-r-ctrl);
-    overflow: hidden;
-}
-
-.gf-pane__head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--bl-space-3);
-    padding: var(--bl-space-2) var(--bl-space-3);
-    background: var(--bl-chrome);
-    border-bottom: 1px solid var(--bl-rule);
-}
-
-.gf-pane__title { font-size: 12px; font-weight: 500; color: var(--bl-ink); }
-
-.gf-pane__count { font-size: 12px; color: var(--bl-ink-3); }
-
-/* A fixed height, not a growing list: the two panes have to stay the
-   same height as each other for the move buttons between them to keep
-   meaning anything, and a search that returns 500 rows must not push
-   the Save bar off the bottom of the page. */
-.gf-pane__body {
-    height: 380px;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-}
-
-/* ------------------------------------------------------------------
-   The move buttons. Stacked, vertically centred against the panes, and
-   they say Add and Remove rather than being chevron glyphs whose
-   direction you have to work out.
-   ------------------------------------------------------------------ */
-
-.gf-move {
-    display: flex;
-    flex-direction: row;
-    justify-content: center;
-    gap: var(--bl-space-2);
-}
-
-@media (min-width: 901px) {
-    .gf-move {
-        flex-direction: column;
-        /* Level with the first rows rather than with the pane heads. */
-        padding-top: var(--bl-space-8);
-    }
-}
-
-/* ------------------------------------------------------------------
-   The list inside a pane. Not <x-ui.table>: that component brings its
-   own wrapper, its own 640px restack and a fixed row height, none of
-   which are right inside a 380px scroll box that is already inside a
-   form. Hairlines only, no vertical rules, sticky head.
-   ------------------------------------------------------------------ */
-
-.gf-list {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-    font-size: 12px;
-}
-
-/* components/tables.css carried BARE `th, td` element selectors with a 1px
-   right border and an uppercased, letter-spaced `th`, and its bare selectors
-   reached every table on the canvas once the .x-legacy boundary that used to
-   contain them was retired in fix round 5. A vertical rule between every cell
-   is the spreadsheet-export look this design system does not draw, and nothing
-   in it shouts. Caught in the browser, and the two declarations below existed
-   only to out-specify it.
-
-   Round F Task 4 deleted components/tables.css. These are kept rather than
-   dropped: `border-right: 0` is now simply this table's own statement that it
-   draws horizontal hairlines only, which is what every other list in the
-   system says too, and it costs nothing to keep saying it explicitly. */
-.gf-list th,
-.gf-list td { border-right: 0; border-left: 0; }
-
-/* Row hover. This used to arrive from components/tables.css as a hardcoded
-   rgba(59,130,246,.045) blue - which was wrong in dark theme anyway - so
-   deleting that file took the only hover feedback these rows had with it.
-   The picker is a list you point at before you click, so the feedback is
-   restored here on the theme's own token. */
-.gf-list tbody tr { transition: background var(--bl-motion-fast); }
-.gf-list tbody tr:hover { background: var(--bl-chrome-2); }
-
-.gf-list thead th {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    padding: var(--bl-space-2) var(--bl-space-2);
-    background: var(--bl-sheet);
-    border-bottom: 1px solid var(--bl-rule);
-    color: var(--bl-ink-3);
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: normal;
-    text-transform: none;
-    text-align: left;
-    white-space: nowrap;
-}
-
-.gf-list tbody td {
-    padding: var(--bl-space-2);
-    border-bottom: 1px solid var(--bl-rule);
-    vertical-align: middle;
-    color: var(--bl-ink);
-}
-
-.gf-list tbody tr:last-child td { border-bottom: 0; }
-
-.gf-col-check { width: 34px; }
-.gf-col-id    { width: 62px; }
-.gf-col-qty   { width: 62px; text-align: right; }
-
-.gf-list td.gf-col-id,
-.gf-list td.gf-col-qty,
-.gf-list th.gf-col-qty {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-}
-
-.gf-list td.gf-col-qty { text-align: right; }
-
-/* The product cell: name on top, identifier underneath. Both clip
-   rather than wrap, because a wrapping name makes the two panes'
-   rows stop lining up with each other. */
-.gf-name {
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.gf-sku {
-    display: block;
-    margin-top: 1px;
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    font-size: 11px;
-    color: var(--bl-ink-3);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-/* An empty pane says which of the two empty states it is in: nothing
-   searched for yet, everything found already added, or nothing in the
-   group. The message is the JS's; this is only how it sits. */
-.gf-empty {
-    padding: var(--bl-space-6) var(--bl-space-3);
-    color: var(--bl-ink-3);
-    font-size: 12px;
-    text-align: center;
 }
 
 /* ==================================================================

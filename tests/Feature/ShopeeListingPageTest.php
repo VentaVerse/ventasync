@@ -175,6 +175,50 @@ class ShopeeListingPageTest extends TestCase
         return ['ok' => true, 'status' => 200, 'body' => ['response' => ['item_list' => [$item]]]];
     }
 
+    /**
+     * The one listing shape (2026-09-07): every channel's listing page says
+     * which of the catalog's images go up. Shopee takes nine; a tenth is
+     * shown as held back rather than quietly dropped.
+     */
+    public function test_the_page_names_the_images_that_go_up_and_marks_what_stays_behind(): void
+    {
+        $productId = $this->seedProduct();
+        $pfx = (string) config('catalog.prefix');
+        for ($i = 1; $i <= 10; $i++) {
+            DB::table($pfx . 'product_image')->insert([
+                'product_id' => $productId, 'image' => "catalog/extra-{$i}.png", 'sort_order' => $i,
+            ]);
+        }
+
+        $page = $this->actingAs($this->manager())->get(route('ext.shopee.listings.edit', $productId))->assertOk();
+        $page->assertSee('Images that go up');
+        // The main image plus ten gallery images is eleven; Shopee takes nine.
+        $page->assertSee('9 images go up, the first 9 of 11.');
+        $page->assertSee('lc-images__item--held', false);
+    }
+
+    /**
+     * The rail reports where a listing goes: the one group it is in on this
+     * store, and what that group lends a listing with no rule of its own.
+     */
+    public function test_the_rail_names_the_group_and_what_it_lends(): void
+    {
+        $productId = $this->seedProduct();
+        $group = \Extensions\shopee\Models\ShopeeProductGroup::create([
+            'name' => 'Guitar pedals', 'shopee_category_id' => 100013,
+            'logistic_ids' => [8003], 'markup_percent' => 50, 'markup_fixed' => 0,
+        ]);
+        \Extensions\shopee\Models\ShopeeProductGroupProduct::create([
+            'shopee_product_group_id' => $group->id, 'product_id' => $productId,
+        ]);
+
+        $page = $this->actingAs($this->manager())->get(route('ext.shopee.listings.edit', $productId))->assertOk();
+        $page->assertSee('Product group');
+        $page->assertSee('Guitar pedals');
+        $page->assertSee('markup 50%');
+        $page->assertSee('1 courier');
+    }
+
     public function test_an_unpushed_product_shows_readiness_instead_of_a_live_state(): void
     {
         $productId = $this->seedProduct();

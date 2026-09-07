@@ -170,6 +170,11 @@
         </section>
     @endif
 
+    {{-- The record, in the one order every channel's listing page keeps
+         (the owner, 2026-09-07, draft B): the main column is everything you set,
+         Content, Category and brand, Category attributes, Price rule,
+         Discount, Images; the rail only reports, Product group and Last
+         push. TikTok Shop has nothing only it has. --}}
     <form id="listing-form" method="POST" action="{{ route('ext.tiktok.listings.update', $product->product_id) }}">
         <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
         @csrf
@@ -178,8 +183,7 @@
             <div class="fm-col">
 
                 <section class="fm-section">
-                    <div class="fm-section__head"><h2 class="fm-section__title">Content on this channel</h2></div>
-                    <p class="fm-section__note">A filled field is this listing's own wording and follows nobody. An empty field follows the catalog product, shown greyed as the placeholder. Clearing a field returns it to the catalog. Nothing here ever edits the catalog product itself.</p>
+                    <div class="fm-section__head"><h2 class="fm-section__title">Content on this channel <x-ui.hint label="About the content">A filled field is this listing's own wording and follows nobody. An empty field follows the catalog product, shown greyed as the placeholder. Clearing a field returns it to the catalog. Nothing here ever edits the catalog product itself.</x-ui.hint></h2></div>
                     <div class="fm-fields">
                         <x-ui.field label="Title" for="tl-title" name="title" wide>
                             <x-ui.input id="tl-title" name="title" :value="old('title', $listing->title ?? '')" :placeholder="$product->name" maxlength="255" :disabled="!$canManage" />
@@ -190,10 +194,61 @@
                     </div>
                 </section>
 
+                <section class="fm-section" id="tl-category-section">
+                    <div class="fm-section__head"><h2 class="fm-section__title">Category and brand</h2></div>
+                    <div class="fm-fields">
+                        <x-ui.field label="TikTok category" for="tl-category" name="tiktok_category_id" :required="true" wide
+                                    hint="Only leaf categories are listed. TikTok Shop accepts nothing else.">
+                            <div class="gf-combo" data-category-combo data-combo-mode="remote"
+                                 data-combo-search-url="{{ route('ext.tiktok.products.searchCategories') }}"
+                                 data-combo-lookup-url="{{ route('ext.tiktok.products.categoryLookup') }}">
+                                <div class="gf-combo__field">
+                                    <input type="hidden" id="tl-category-value" name="tiktok_category_id" data-combo-value value="{{ old('tiktok_category_id', $listing->tiktok_category_id ?? '') }}">
+                                    <x-ui.input id="tl-category" type="search" autocomplete="off" data-combo-input
+                                                value="{{ $category ? $category->name . ' (' . $category->id . ')' : '' }}"
+                                                placeholder="Type to search TikTok categories" :disabled="!$canManage" />
+                                    <div class="gf-combo__results" data-combo-results role="listbox" aria-label="TikTok leaf categories" hidden></div>
+                                </div>
+                            </div>
+                        </x-ui.field>
+                        <x-ui.field label="Brand" for="tl-brand" name="brand_id" wide hint="TikTok Shop's own brand list, searched by name. Leave it empty for no brand.">
+                            <div class="gf-combo" data-category-combo data-combo-mode="remote" data-combo-plain-label
+                                 data-combo-search-url="{{ route('ext.tiktok.products.brandsSearch') }}"
+                                 data-combo-extra-param="category_id" data-combo-extra-source="#tl-category-value">
+                                <div class="gf-combo__field">
+                                    <input type="hidden" name="brand_id" data-combo-value value="{{ old('brand_id', $listing->brand_id ?? '') }}">
+                                    <input type="hidden" name="brand_name" value="{{ old('brand_name', $listing->brand_name ?? '') }}" data-combo-label-store>
+                                    <x-ui.input id="tl-brand" type="search" autocomplete="off" data-combo-input
+                                                value="{{ old('brand_name', $listing->brand_name ?? '') }}"
+                                                placeholder="Type to search TikTok brands" :disabled="!$canManage" />
+                                    <div class="gf-combo__results" data-combo-results role="listbox" aria-label="TikTok brands" hidden></div>
+                                </div>
+                            </div>
+                        </x-ui.field>
+                    </div>
+                </section>
+
+                {{-- The category's attribute sheet (#156): what TikTok Shop asks
+                     for this category, answered here for this listing. Reloaded
+                     when the category changes, same wire as the group form. --}}
+                <section class="fm-section"
+                         id="tl-attributes"
+                         data-attributes-fetch
+                         data-attributes-url="{{ route('ext.tiktok.products.fetchAttributes') }}"
+                         data-attributes-field="tiktok_category_id"
+                         data-attributes-source="#tl-category-value"
+                         @if(empty($attrRows) && !$attrTemplate) hidden @endif>
+                    <div class="fm-section__head"><h2 class="fm-section__title">Category attributes <x-ui.hint label="About the attributes">What TikTok Shop asks for this category. Answers are saved with the listing and go with every push; TikTok refuses a push without the required ones.</x-ui.hint></h2></div>
+                    <div data-attributes-target>
+                        @include('ext-tiktok::product-groups._attributes', [
+                            'rows' => $attrRows, 'saved' => $savedAttributes, 'template' => $attrTemplate, 'canManage' => $canManage,
+                        ])
+                    </div>
+                </section>
+
                 <div class="fm-card">
-                    <div class="fm-card__head"><h2 class="fm-card__title">Price rule</h2></div>
+                    <div class="fm-card__head"><h2 class="fm-card__title">Price rule <x-ui.hint label="About the price rule">The TikTok Shop price is never stored: it is the catalog price run through this rule at every push and price sync. Without a rule of its own the listing uses its group's.</x-ui.hint></h2></div>
                     <div class="fm-card__body">
-                        <p class="fm-section__note">The TikTok Shop price is never stored: it is the catalog price run through this rule at every push and price sync.</p>
                         <div class="fm-fields fm-fields--2">
                             <x-ui.field label="Percent added" for="tl-markup-pct" name="markup_percent">
                                 <x-ui.input id="tl-markup-pct" name="markup_percent" type="number" step="0.01" :value="old('markup_percent', $listing->markup_percent ?? '')" placeholder="0" :disabled="!$canManage" />
@@ -225,60 +280,17 @@
                 @endphp
                 @include('partials.channel-discount-card', $discount)
 
-                {{-- The category's attribute sheet (#156): what TikTok Shop asks
-                     for this category, answered here for this listing. Reloaded
-                     when the category changes, same wire as the group form. --}}
-                <section class="fm-section"
-                         id="tl-attributes"
-                         data-attributes-fetch
-                         data-attributes-url="{{ route('ext.tiktok.products.fetchAttributes') }}"
-                         data-attributes-field="tiktok_category_id"
-                         data-attributes-source="#tl-category-value"
-                         @if(empty($attrRows) && !$attrTemplate) hidden @endif>
-                    <div class="fm-section__head"><h2 class="fm-section__title">Category attributes</h2></div>
-                    <p class="fm-section__note">What TikTok Shop asks for this category. Answers are saved with the listing and go with every push; TikTok refuses a push without the required ones.</p>
-                    <div data-attributes-target>
-                        @include('ext-tiktok::product-groups._attributes', [
-                            'rows' => $attrRows, 'saved' => $savedAttributes, 'template' => $attrTemplate, 'canManage' => $canManage,
-                        ])
-                    </div>
-                </section>
+                @include('partials.channel-images-card', [
+                    'storeName' => 'TikTok Shop', 'images' => $images,
+                    'limit' => \Extensions\tiktok\Services\TikTok\TikTokProductPush::MAX_IMAGES, 'fetchesOverWeb' => false,
+                ])
             </div>
 
             <div class="fm-col fm-col--side">
-                <div class="fm-card">
-                    <div class="fm-card__head"><h2 class="fm-card__title">Category and brand</h2></div>
-                    <div class="fm-card__body">
-                        <x-ui.field label="TikTok category" for="tl-category" name="tiktok_category_id" :required="true"
-                                    hint="Only leaf categories are listed. TikTok Shop accepts nothing else.">
-                            <div class="gf-combo" data-category-combo data-combo-mode="remote"
-                                 data-combo-search-url="{{ route('ext.tiktok.products.searchCategories') }}"
-                                 data-combo-lookup-url="{{ route('ext.tiktok.products.categoryLookup') }}">
-                                <div class="gf-combo__field">
-                                    <input type="hidden" id="tl-category-value" name="tiktok_category_id" data-combo-value value="{{ old('tiktok_category_id', $listing->tiktok_category_id ?? '') }}">
-                                    <x-ui.input id="tl-category" type="search" autocomplete="off" data-combo-input
-                                                value="{{ $category ? $category->name . ' (' . $category->id . ')' : '' }}"
-                                                placeholder="Type to search TikTok categories" :disabled="!$canManage" />
-                                    <div class="gf-combo__results" data-combo-results role="listbox" aria-label="TikTok leaf categories" hidden></div>
-                                </div>
-                            </div>
-                        </x-ui.field>
-                        <x-ui.field label="Brand" for="tl-brand" name="brand_id" hint="TikTok Shop's own brand list, searched by name. Leave it empty for no brand.">
-                            <div class="gf-combo" data-category-combo data-combo-mode="remote" data-combo-plain-label
-                                 data-combo-search-url="{{ route('ext.tiktok.products.brandsSearch') }}"
-                                 data-combo-extra-param="category_id" data-combo-extra-source="#tl-category-value">
-                                <div class="gf-combo__field">
-                                    <input type="hidden" name="brand_id" data-combo-value value="{{ old('brand_id', $listing->brand_id ?? '') }}">
-                                    <input type="hidden" name="brand_name" value="{{ old('brand_name', $listing->brand_name ?? '') }}" data-combo-label-store>
-                                    <x-ui.input id="tl-brand" type="search" autocomplete="off" data-combo-input
-                                                value="{{ old('brand_name', $listing->brand_name ?? '') }}"
-                                                placeholder="Type to search TikTok brands" :disabled="!$canManage" />
-                                    <div class="gf-combo__results" data-combo-results role="listbox" aria-label="TikTok brands" hidden></div>
-                                </div>
-                            </div>
-                        </x-ui.field>
-                    </div>
-                </div>
+                @include('partials.channel-group-card', [
+                    'storeName' => 'TikTok Shop', 'group' => $groupCard,
+                    'groupsUrl' => route('ext.tiktok.product-groups.index'),
+                ])
 
                 <div class="fm-card">
                     <div class="fm-card__head"><h2 class="fm-card__title">Last push</h2></div>

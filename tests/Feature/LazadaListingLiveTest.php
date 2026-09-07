@@ -143,6 +143,76 @@ class LazadaListingLiveTest extends TestCase
         };
     }
 
+    /**
+     * The one listing shape (2026-09-07): a Lazada listing carries its own
+     * title and description like every other channel. An empty column
+     * follows the catalog product; a filled one wins at push time and the
+     * catalog is never touched.
+     */
+    public function test_the_listing_keeps_its_own_words_and_the_push_sends_them(): void
+    {
+        $productId = $this->seedProduct('Catalog name', 'LZT-WORDS');
+        $listing = LazadaProduct::query()->create(['product_id' => $productId]);
+
+        $page = $this->actingAs($this->manager())->get(route('ext.lazada.products.edit', $productId))->assertOk();
+        $page->assertSee('Content on this channel');
+        // Empty: the catalog's name is the placeholder the field follows.
+        $page->assertSee('placeholder="Catalog name"', false);
+
+        $this->actingAs($this->manager())
+            ->put(route('ext.lazada.products.update', $productId), [
+                'item_name' => 'Lazada name', 'description' => 'Lazada words',
+                'primary_category_id' => 300400, 'brand_id' => 5150,
+            ])->assertSessionHasNoErrors();
+
+        $listing->refresh();
+        $this->assertSame('Lazada name', $listing->item_name);
+        $this->assertSame('Lazada words', $listing->description);
+
+        // The catalog product keeps its own name.
+        $pfx = (string) config('catalog.prefix');
+        $this->assertSame('Catalog name', DB::table($pfx . 'product_description')->where('product_id', $productId)->value('name'));
+
+        // Clearing the field follows the catalog again.
+        $this->actingAs($this->manager())
+            ->put(route('ext.lazada.products.update', $productId), [
+                'item_name' => '', 'description' => '',
+                'primary_category_id' => 300400, 'brand_id' => 5150,
+            ])->assertSessionHasNoErrors();
+        $listing->refresh();
+        $this->assertNull($listing->item_name);
+        $this->assertNull($listing->description);
+    }
+
+    /**
+     * The variation overrides ride the listing form since the one listing
+     * shape (2026-09-07): one Save keeps the whole page.
+     */
+    public function test_one_save_keeps_the_variation_overrides_too(): void
+    {
+        $productId = $this->seedProduct('Variant product', 'LZT-VAR');
+        $listing = LazadaProduct::query()->create(['product_id' => $productId]);
+        $pfx = (string) config('catalog.prefix');
+        $povId = DB::table($pfx . 'product_option_value')->insertGetId([
+            'product_option_id' => 1, 'product_id' => $productId, 'option_id' => 1, 'option_value_id' => 1,
+            'quantity' => 3, 'subtract' => 1, 'price' => 0, 'price_prefix' => '+', 'points' => 0, 'points_prefix' => '+',
+            'weight' => 0, 'weight_prefix' => '+', 'sku' => 'LZT-VAR-RED',
+        ]);
+
+        $this->actingAs($this->manager())
+            ->put(route('ext.lazada.products.update', $productId), [
+                'primary_category_id' => 300400, 'brand_id' => 5150,
+                'variants' => [$povId => ['seller_sku' => 'LZ-RED', 'price' => '199.5', 'quantity' => '7']],
+            ])->assertSessionHasNoErrors();
+
+        $variant = \Extensions\lazada\Models\LazadaProductVariant::query()
+            ->where('lazada_product_id', $listing->id)->where('product_option_value_id', $povId)->first();
+        $this->assertNotNull($variant, 'the listing form saves the variation overrides');
+        $this->assertSame('LZ-RED', $variant->seller_sku);
+        $this->assertEquals(199.5, (float) $variant->price);
+        $this->assertSame(7, (int) $variant->quantity);
+    }
+
     /** #149 (2026-08-26): the row menu opens the listing page, where the push button now lives; no one-click upload from the index. */
     public function test_the_row_menu_push_opens_the_listing_page_and_the_page_carries_the_push(): void
     {

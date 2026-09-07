@@ -15,17 +15,17 @@
  *                                per tag, named `catalog_category_ids[]` /
  *                                `manufacturer_ids[]`.
  *
- *   2. Venta's product picker    a two-pane set builder over a catalog
- *                                search endpoint. What submits is one hidden
- *                                `product_ids[]` per row on the right.
+ *   2. The marketplace category and brand comboboxes, the attribute sheet
+ *      and its mapped-value preview.
  *
- * Both read their data from a <script type="application/json"> island the
+ * The two-pane product picker that used to live here went with the in-form
+ * membership (2026-09-07, the one group shape): a group form holds only what
+ * the group lends, and products join it on its own Products page.
+ *
+ * They read their data from a <script type="application/json"> island the
  * Blade renders with JSON_HEX_TAG, rather than having the payload interpolated
  * into a script literal. Every node is createElement + textContent; a product
  * or category named `<img src=x onerror=...>` is text here, not markup.
- *
- * The wire is unchanged for both: the same field names, the same search
- * endpoint, the same query parameters.
  */
 
 /* ==================================================================
@@ -167,263 +167,6 @@ function initFilterPicker(field) {
             if (tag) tag.remove();
         });
     });
-}
-
-/* ==================================================================
-   2. Venta: the two-pane product picker
-   ================================================================== */
-
-function initProductPicker(root) {
-    const searchUrl = root.getAttribute('data-search-url');
-    const groupId = Number(root.getAttribute('data-group-id') || 0);
-    const leftBody = root.querySelector('[data-gf-left]');
-    const rightBody = root.querySelector('[data-gf-right]');
-    const leftCount = root.querySelector('[data-gf-left-count]');
-    const rightCount = root.querySelector('[data-gf-right-count]');
-    const inputs = root.querySelector('[data-gf-inputs]');
-    if (!searchUrl || !leftBody || !rightBody || !inputs) return;
-
-    const qInput = root.querySelector('[data-gf-q]');
-    const categorySelect = root.querySelector('[data-gf-category]');
-    const manufacturerSelect = root.querySelector('[data-gf-manufacturer]');
-    const searchButton = root.querySelector('[data-gf-search]');
-    const addButton = root.querySelector('[data-gf-add]');
-    const removeButton = root.querySelector('[data-gf-remove]');
-    const leftAll = root.querySelector('[data-gf-left-all]');
-    const rightAll = root.querySelector('[data-gf-right-all]');
-    const island = root.querySelector('[data-gf-initial]');
-
-    let left = [];
-    let right = [];
-    try {
-        const parsed = JSON.parse((island && island.textContent) || '[]');
-        if (Array.isArray(parsed)) right = parsed;
-    } catch (e) {
-        right = [];
-    }
-
-    function inGroup(id) {
-        return right.some(function (item) { return Number(item.product_id) === Number(id); });
-    }
-
-    function emptyRow(message) {
-        const tr = document.createElement('tr');
-        const td = document.createElement('td');
-        td.colSpan = 4;
-        td.className = 'gf-empty';
-        td.textContent = message;
-        tr.appendChild(td);
-        return tr;
-    }
-
-    function row(item, side) {
-        const tr = document.createElement('tr');
-
-        /* One product, one group (cleanup point 3): a result another group
-           already owns is shown, never hidden - read-only, its owner
-           named, with Move here as the deliberate transfer. */
-        const ownedElsewhere = side === 'left' && item.group_id && Number(item.group_id) !== groupId;
-
-        const check = document.createElement('td');
-        check.className = 'gf-col-check';
-        const box = document.createElement('input');
-        box.type = 'checkbox';
-        box.className = 'cc-check';
-        box.value = String(item.product_id);
-        box.setAttribute('data-gf-check', side);
-        box.setAttribute('aria-label', 'Select ' + (item.name || 'product ' + item.product_id));
-        if (ownedElsewhere) {
-            box.disabled = true;
-            box.setAttribute('aria-label', (item.name || 'Product ' + item.product_id) + " is in '" + item.group_name + "'");
-            tr.className = 'gf-row--owned';
-        }
-        check.appendChild(box);
-        tr.appendChild(check);
-
-        const id = document.createElement('td');
-        id.className = 'gf-col-id';
-        id.textContent = String(item.product_id);
-        tr.appendChild(id);
-
-        const product = document.createElement('td');
-        const name = document.createElement('span');
-        name.className = 'gf-name';
-        name.textContent = item.name || 'Unnamed product';
-        product.appendChild(name);
-        if (item.sku) {
-            const sku = document.createElement('span');
-            sku.className = 'gf-sku';
-            sku.textContent = item.sku;
-            product.appendChild(sku);
-        }
-        if (ownedElsewhere) {
-            const owner = document.createElement('span');
-            owner.className = 'gf-owner';
-            owner.textContent = "In: " + item.group_name;
-            product.appendChild(owner);
-
-            const move = document.createElement('button');
-            move.type = 'button';
-            move.className = 'gf-move';
-            move.textContent = 'Move here';
-            move.addEventListener('click', function () {
-                item._move = true;
-                right.push(item);
-                left = left.filter(function (l) { return Number(l.product_id) !== Number(item.product_id); });
-                renderLeft();
-                renderRight();
-            });
-            product.appendChild(move);
-        }
-        if (side === 'right' && item._move) {
-            const owner = document.createElement('span');
-            owner.className = 'gf-owner';
-            owner.textContent = "moves here from '" + item.group_name + "' on save";
-            product.appendChild(owner);
-        }
-        tr.appendChild(product);
-
-        const qty = document.createElement('td');
-        qty.className = 'gf-col-qty';
-        qty.textContent = String(item.quantity);
-        tr.appendChild(qty);
-
-        return tr;
-    }
-
-    function syncInputs() {
-        inputs.textContent = '';
-        right.forEach(function (item) {
-            const hidden = document.createElement('input');
-            hidden.type = 'hidden';
-            hidden.name = 'product_ids[]';
-            hidden.value = String(item.product_id);
-            inputs.appendChild(hidden);
-            if (item._move) {
-                const move = document.createElement('input');
-                move.type = 'hidden';
-                move.name = 'move_ids[]';
-                move.value = String(item.product_id);
-                inputs.appendChild(move);
-            }
-        });
-    }
-
-    function renderLeft() {
-        const visible = left.filter(function (item) { return !inGroup(item.product_id); });
-        if (leftCount) leftCount.textContent = String(visible.length);
-        if (leftAll) { leftAll.checked = false; leftAll.indeterminate = false; }
-
-        leftBody.textContent = '';
-        if (!visible.length) {
-            leftBody.appendChild(emptyRow(
-                left.length ? 'Everything found is already in the group.' : 'Search the catalog to see products here.'
-            ));
-            return;
-        }
-        visible.forEach(function (item) { leftBody.appendChild(row(item, 'left')); });
-    }
-
-    function renderRight() {
-        if (rightCount) rightCount.textContent = String(right.length);
-        if (rightAll) { rightAll.checked = false; rightAll.indeterminate = false; }
-        syncInputs();
-
-        rightBody.textContent = '';
-        if (!right.length) {
-            rightBody.appendChild(emptyRow('Nothing in the group yet.'));
-            return;
-        }
-        right.forEach(function (item) { rightBody.appendChild(row(item, 'right')); });
-    }
-
-    function ticked(side) {
-        const body = side === 'left' ? leftBody : rightBody;
-        return Array.from(body.querySelectorAll('[data-gf-check]'))
-            .filter(function (box) { return box.checked; })
-            .map(function (box) { return Number(box.value); });
-    }
-
-    function search() {
-        const params = new URLSearchParams();
-        const q = qInput ? qInput.value.trim() : '';
-        if (q) params.set('q', q);
-        if (categorySelect && categorySelect.value) params.set('category_id', categorySelect.value);
-        if (manufacturerSelect && manufacturerSelect.value) params.set('manufacturer_id', manufacturerSelect.value);
-
-        const restoreLabel = searchButton ? searchButton.textContent : '';
-        if (searchButton) { searchButton.disabled = true; searchButton.textContent = 'Searching'; }
-
-        fetch(searchUrl + '?' + params.toString(), {
-            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-        })
-            .then(function (response) { return response.json(); })
-            .then(function (data) {
-                left = (Array.isArray(data.items) ? data.items : []).map(function (item) {
-                    return {
-                        product_id: parseInt(item.product_id, 10),
-                        name: String(item.name || ''),
-                        sku: String(item.sku || item.model || ''),
-                        quantity: parseInt(item.quantity, 10) || 0,
-                    };
-                });
-                renderLeft();
-            })
-            .catch(function () {
-                left = [];
-                leftBody.textContent = '';
-                leftBody.appendChild(emptyRow('The search did not come back. Try again.'));
-                if (leftCount) leftCount.textContent = '0';
-            })
-            .finally(function () {
-                if (searchButton) { searchButton.disabled = false; searchButton.textContent = restoreLabel; }
-            });
-    }
-
-    if (searchButton) searchButton.addEventListener('click', search);
-    if (qInput) {
-        qInput.addEventListener('keydown', function (e) {
-            // The picker sits inside the group form, so Enter here would submit
-            // the whole form and save a half-built group.
-            if (e.key === 'Enter') { e.preventDefault(); search(); }
-        });
-    }
-
-    if (addButton) {
-        addButton.addEventListener('click', function () {
-            ticked('left').forEach(function (id) {
-                if (inGroup(id)) return;
-                const item = left.find(function (candidate) { return Number(candidate.product_id) === id; });
-                if (item) right.push(item);
-            });
-            renderLeft();
-            renderRight();
-        });
-    }
-
-    if (removeButton) {
-        removeButton.addEventListener('click', function () {
-            const going = ticked('right');
-            if (!going.length) return;
-            right = right.filter(function (item) { return going.indexOf(Number(item.product_id)) === -1; });
-            renderLeft();
-            renderRight();
-        });
-    }
-
-    if (leftAll) {
-        leftAll.addEventListener('change', function () {
-            leftBody.querySelectorAll('[data-gf-check]').forEach(function (box) { box.checked = leftAll.checked; });
-        });
-    }
-    if (rightAll) {
-        rightAll.addEventListener('change', function () {
-            rightBody.querySelectorAll('[data-gf-check]').forEach(function (box) { box.checked = rightAll.checked; });
-        });
-    }
-
-    renderLeft();
-    renderRight();
 }
 
 /* ==================================================================
@@ -1116,7 +859,6 @@ function bindAttributeRows() {
 
 document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('[data-group-filter-picker] .fm-field').forEach(initFilterPicker);
-    document.querySelectorAll('[data-group-product-picker]').forEach(initProductPicker);
     document.querySelectorAll('[data-category-combo]').forEach(initCategoryCombo);
     document.querySelectorAll('[data-brand-picker]').forEach(initBrandPicker);
     document.querySelectorAll('[data-attributes-fetch]').forEach(initAttributeFetch);

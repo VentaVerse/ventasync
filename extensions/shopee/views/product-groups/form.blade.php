@@ -84,11 +84,6 @@
                 @endif
             </div>
         </div>
-        @if($mode === 'edit')
-            <div class="fm-head__actions">
-                <x-ui.button size="sm" :href="route('ext.shopee.product-groups.products', $group->id)">View products</x-ui.button>
-            </div>
-        @endif
     </div>
 
     <div class="fm-body">
@@ -120,7 +115,7 @@
                  ------------------------------------------------------------ --}}
             <section class="fm-section">
                 <div class="fm-section__head">
-                    <h2 class="fm-section__title">Shopee mapping</h2>
+                    <h2 class="fm-section__title">Category and brand</h2>
                 </div>
 
                 <div class="fm-fields">
@@ -190,46 +185,6 @@
             </section>
 
             {{-- ------------------------------------------------------------
-                 Logistics channels. Required by the controller
-                 (logistic_ids is `required|array`), so the label says so.
-                 ------------------------------------------------------------ --}}
-            <section class="fm-section">
-                <div class="fm-section__head">
-                    <h2 class="fm-section__title">Delivery options</h2>
-                </div>
-                <p class="fm-section__note">Which of Shopee's couriers a product from this product group is offered on. Pick at least one.</p>
-
-                @if($errors->has('logistic_ids'))
-                    <div class="fm-error">{{ $errors->first('logistic_ids') }}</div>
-                @endif
-
-                @if(!empty($logistics))
-                    <div class="gf-checks">
-                        @foreach($logistics as $channel)
-                            @php
-                                $logisticId = (int) ($channel['logistic_id'] ?? 0);
-                                $logisticName = (string) ($channel['logistic_name'] ?? 'Channel ' . $logisticId);
-                            @endphp
-                            <label class="gf-check">
-                                <input type="checkbox" class="cc-check" name="logistic_ids[]" value="{{ $logisticId }}"
-                                       @checked(in_array($logisticId, $selectedLogisticIds, true))
-                                       @disabled(!$canManageShopee)>
-                                <span class="gf-check__name">{{ $logisticName }}</span>
-                                <span class="gf-check__id">{{ $logisticId }}</span>
-                            </label>
-                        @endforeach
-                    </div>
-                @else
-                    <x-ui.empty title="No delivery options cached"
-                                description="Fetch them from the Logistics page first, then come back.">
-                        <x-slot:action>
-                            <x-ui.button :href="route('ext.shopee.logistics.index')">Go to Logistics</x-ui.button>
-                        </x-slot:action>
-                    </x-ui.empty>
-                @endif
-            </section>
-
-            {{-- ------------------------------------------------------------
                  Category attributes.
 
                  Rendered inline when the product group already has a category, and
@@ -263,9 +218,55 @@
                 </div>
             </section>
 
+            {{-- What only Shopee has, in one place at the end of the main
+                 column (the owner, 2026-09-07, the one group shape). --}}
+            <section class="fm-section">
+                <div class="fm-section__head">
+                    <h2 class="fm-section__title">Only on Shopee</h2>
+                </div>
+                <div class="fm-sub">
+                    <h3 class="fm-sub__title">Delivery options <span class="fm-req" aria-hidden="true">*</span><span class="x-sr">(required)</span> <x-ui.hint label="About the delivery options">Which of Shopee's couriers a product from this product group is offered on. Pick at least one.</x-ui.hint></h3>
+
+                    @if($errors->has('logistic_ids'))
+                        <div class="fm-error">{{ $errors->first('logistic_ids') }}</div>
+                    @endif
+
+                    @if(!empty($logistics))
+                        <div class="gf-checks">
+                            @foreach($logistics as $channel)
+                                @php
+                                    $logisticId = (int) ($channel['logistic_id'] ?? 0);
+                                    $logisticName = (string) ($channel['logistic_name'] ?? 'Channel ' . $logisticId);
+                                @endphp
+                                <label class="gf-check">
+                                    <input type="checkbox" class="cc-check" name="logistic_ids[]" value="{{ $logisticId }}"
+                                           @checked(in_array($logisticId, $selectedLogisticIds, true))
+                                           @disabled(!$canManageShopee)>
+                                    <span class="gf-check__name">{{ $logisticName }}</span>
+                                    <span class="gf-check__id">{{ $logisticId }}</span>
+                                </label>
+                            @endforeach
+                        </div>
+                    @else
+                        <x-ui.empty title="No delivery options cached"
+                                    description="Fetch them from the Logistics page first, then come back.">
+                            <x-slot:action>
+                                <x-ui.button :href="route('ext.shopee.logistics.index')">Go to Logistics</x-ui.button>
+                            </x-slot:action>
+                        </x-ui.empty>
+                    @endif
+                </div>
+            </section>
+
         </div>
 
         <div class="fm-col fm-col--side">
+            @include('partials.channel-group-products-card', [
+                'mode' => $mode,
+                'productCount' => $productCount ?? 0,
+                'productsUrl' => $mode === 'edit' ? route('ext.shopee.product-groups.products', $group->id) : null,
+            ])
+
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Price markup</h2></div>
                 <div class="fm-card__body">

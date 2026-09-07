@@ -24,6 +24,9 @@ use Illuminate\Support\Facades\DB;
  */
 class TikTokProductPush
 {
+    /** How many main images TikTok Shop takes on a product; the push sends the first nine and says so. */
+    public const MAX_IMAGES = 9;
+
     public function __construct(private TikTokVariationPush $variations) {}
 
     /** @return array{payload?: array, built?: array, refused?: string} */
@@ -69,7 +72,7 @@ class TikTokProductPush
             }
         }
         $imageUris = [];
-        foreach (array_slice(array_values(array_unique($paths)), 0, 9) as $path) {
+        foreach (array_slice(array_values(array_unique($paths)), 0, self::MAX_IMAGES) as $path) {
             $uri = $uploadUri($path);
             if ($uri) {
                 $imageUris[] = $uri;

@@ -259,50 +259,16 @@ class VentaProductGroupController extends Controller
 
     private function form(VentaSetting $setting, VentaProductGroup $group, string $mode)
     {
-        $pfx = (string) config('catalog.prefix');
-        $langId = (int) config('catalog.default_language_id');
-
-        $catalogCategories = DB::table($pfx . 'category_description')
-            ->where('language_id', $langId)
-            ->orderBy('name')
-            ->get(['category_id', 'name']);
-
-        $manufacturers = DB::table($pfx . 'manufacturer')
-            ->orderBy('name')
-            ->get(['manufacturer_id', 'name']);
-
-        // Load current group products for the dual-listbox
-        // On validation failure, restore from old('product_ids') so selections aren't lost
-        $oldProductIds = old('product_ids');
-        $groupProducts = collect();
-
-        if (!empty($oldProductIds)) {
-            $productIds = array_filter(array_map('intval', (array) $oldProductIds));
-        } elseif ($group->exists) {
-            $productIds = $group->products()->pluck('product_id')->toArray();
-        } else {
-            $productIds = [];
-        }
-
-        if (!empty($productIds)) {
-            $groupProducts = DB::table($pfx . 'product as p')
-                ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
-                    $j->on('p.product_id', '=', 'pd.product_id')
-                        ->where('pd.language_id', '=', $langId);
-                })
-                ->whereIn('p.product_id', $productIds)
-                ->select('p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.quantity')
-                ->orderBy('pd.name')
-                ->get();
-        }
-
+        /* Membership is not this form's business (the one group shape,
+         * 2026-09-07): products join and leave on the group's Products page,
+         * over THIS STORE's list. The form holds only what the group lends. */
         return view('ext-venta::product-groups.form', [
-            'setting'           => $setting,
-            'group'             => $group,
-            'mode'              => $mode,
-            'catalogCategories' => $catalogCategories,
-            'manufacturers'     => $manufacturers,
-            'groupProducts'     => $groupProducts,
+            'setting' => $setting,
+            'group' => $group,
+            'mode' => $mode,
+            'storeCategories' => VentaCategory::query()->where('venta_setting_id', $setting->id)
+                ->orderBy('name')->get(['venta_category_id', 'name', 'parent_id']),
+            'productCount' => $group->exists ? $group->products()->count() : 0,
         ]);
     }
 
@@ -310,13 +276,7 @@ class VentaProductGroupController extends Controller
     {
         $this->store_($store);
 
-        $data = $request->validate([
-            'name'              => 'required|string|max:255',
-            'venta_category_id' => 'nullable|integer',
-            'venta_brand_id'    => 'nullable|integer',
-            'markup_percent'    => 'nullable|numeric|min:0',
-            'markup_fixed'      => 'nullable|numeric|min:0',
-        ]);
+        $data = $request->validate($this->rules($store));
 
         $group = VentaProductGroup::create([
             'venta_setting_id'     => $store,
@@ -327,19 +287,29 @@ class VentaProductGroupController extends Controller
             'markup_fixed'         => $data['markup_fixed'] ?? 0,
         ]);
 
-        // Add products from dual-listbox
-        $productIds = array_filter(array_map('intval', (array) $request->input('product_ids', [])));
-        foreach ($productIds as $pid) {
-            VentaProductGroupProduct::create([
-                'venta_product_group_id' => $group->id,
-                'product_id'             => $pid,
-            ]);
-        }
-
         ActivityLogger::log('created', 'Venta Product Group', $group->id, $group->name);
 
-        return redirect()->route('ext.venta.product-groups.edit', [$store, $group->id])
-            ->with('status', 'Product group created with ' . count($productIds) . ' product(s).');
+        // A new group lands on its products page, which is where Add products
+        // lives (the one group shape, 2026-09-07).
+        return redirect()->route('ext.venta.product-groups.products', [$store, $group->id])
+            ->with('status', 'Product group created. Add products to it here.');
+    }
+
+    /**
+     * The category must be one this store has on file: the store owns its
+     * categories, and a push into an id it no longer lists is refused there.
+     *
+     * @return array<string, mixed>
+     */
+    private function rules(int $store): array
+    {
+        return [
+            'name'              => 'required|string|max:255',
+            'venta_category_id' => ['nullable', 'integer', \Illuminate\Validation\Rule::exists('venta_categories', 'venta_category_id')->where('venta_setting_id', $store)],
+            'venta_brand_id'    => 'nullable|integer',
+            'markup_percent'    => 'nullable|numeric|min:0',
+            'markup_fixed'      => 'nullable|numeric|min:0',
+        ];
     }
 
     public function update(Request $request, int $store, int $group)
@@ -347,40 +317,15 @@ class VentaProductGroupController extends Controller
         $this->store_($store);
         $g = VentaProductGroup::where('venta_setting_id', $store)->findOrFail($group);
 
-        $data = $request->validate([
-            'name'              => 'required|string|max:255',
-            'venta_category_id' => 'nullable|integer',
-            'venta_brand_id'    => 'nullable|integer',
-            'markup_percent'    => 'nullable|numeric|min:0',
-            'markup_fixed'      => 'nullable|numeric|min:0',
-        ]);
+        $data = $request->validate($this->rules($store));
 
         $g->update([
             'name'                 => $data['name'],
-            'venta_category_id'    => $data['venta_category_id'] ?? $g->venta_category_id,
+            'venta_category_id'    => $data['venta_category_id'] ?? null,
             'venta_brand_id'       => $data['venta_brand_id'] ?? $g->venta_brand_id,
             'markup_percent'       => $data['markup_percent'] ?? $g->markup_percent,
             'markup_fixed'         => $data['markup_fixed'] ?? $g->markup_fixed,
         ]);
-
-        // Sync products from dual-listbox
-        $submittedIds = array_filter(array_map('intval', (array) $request->input('product_ids', [])));
-        $existingPivots = $g->products()->get()->keyBy('product_id');
-        $existingIds = $existingPivots->keys()->map(fn($k) => (int) $k)->toArray();
-
-        // Add new products
-        foreach (array_diff($submittedIds, $existingIds) as $pid) {
-            VentaProductGroupProduct::create([
-                'venta_product_group_id' => $g->id,
-                'product_id'             => $pid,
-            ]);
-        }
-
-        // Remove products no longer in the list
-        $toRemove = array_diff($existingIds, $submittedIds);
-        if (!empty($toRemove)) {
-            $g->products()->whereIn('product_id', $toRemove)->delete();
-        }
 
         ActivityLogger::log('updated', 'Venta Product Group', $g->id, $g->name);
 

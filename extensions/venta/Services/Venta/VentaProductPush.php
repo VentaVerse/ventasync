@@ -275,29 +275,10 @@ class VentaProductPush
         return $variants;
     }
 
-    /** @return list<string> absolute image URLs, main image first */
+    /** @return list<string> absolute image URLs, main image first (the one list every channel reads) */
     public function images(int $productId): array
     {
-        $pfx = (string) config('catalog.prefix');
-        $images = [];
-
-        $main = DB::table($pfx . 'product')->where('product_id', $productId)->value('image');
-        if ($main && trim($main) !== '') {
-            $images[] = self::imageUrl($main);
-        }
-
-        $more = DB::table($pfx . 'product_image')
-            ->where('product_id', $productId)
-            ->orderBy('sort_order')
-            ->pluck('image')
-            ->toArray();
-        foreach ($more as $img) {
-            if ($img && trim($img) !== '') {
-                $images[] = self::imageUrl($img);
-            }
-        }
-
-        return $images;
+        return \App\Support\Catalog\ProductImages::urls($productId);
     }
 
     public static function imageUrl(string $path): string

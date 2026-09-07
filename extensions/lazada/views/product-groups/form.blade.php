@@ -93,11 +93,6 @@
                 @endif
             </div>
         </div>
-        @if($mode === 'edit')
-            <div class="fm-head__actions">
-                <x-ui.button size="sm" :href="route('ext.lazada.product-groups.products', $group->id)">View products</x-ui.button>
-            </div>
-        @endif
     </div>
 
     <div class="fm-body">
@@ -131,7 +126,7 @@
                  ------------------------------------------------------------ --}}
             <section class="fm-section">
                 <div class="fm-section__head">
-                    <h2 class="fm-section__title">Lazada mapping</h2>
+                    <h2 class="fm-section__title">Category and brand</h2>
                 </div>
 
                 <div class="fm-fields">
@@ -226,6 +221,12 @@
         </div>
 
         <div class="fm-col fm-col--side">
+            @include('partials.channel-group-products-card', [
+                'mode' => $mode,
+                'productCount' => $productCount ?? 0,
+                'productsUrl' => $mode === 'edit' ? route('ext.lazada.product-groups.products', $group->id) : null,
+            ])
+
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Price markup</h2></div>
                 <div class="fm-card__body">

@@ -105,7 +105,46 @@ class TikTokListingController extends Controller
             'attrRows' => $attributes->rows($template),
             'savedAttributes' => $listing->attribute_values ?? [],
             'readinessMissing' => $readiness['missing'],
+            'images' => \App\Support\Catalog\ProductImages::urls($productId),
+            'groupCard' => $this->groupCardFor($productId),
         ]);
+    }
+
+    /**
+     * The one group this product is in on this store, for the rail's
+     * Product group card (partials/channel-group-card).
+     *
+     * @return ?array{name: string, url: string, lends: list<string>}
+     */
+    private function groupCardFor(int $productId): ?array
+    {
+        $groupId = (int) (\Extensions\tiktok\Models\TikTokProductGroupProduct::query()
+            ->where('product_id', $productId)->orderBy('id')->value('tiktok_product_group_id') ?? 0);
+        $group = $groupId > 0 ? \Extensions\tiktok\Models\TikTokProductGroup::query()->find($groupId) : null;
+        if (! $group) {
+            return null;
+        }
+        $lends = [];
+        if ($group->tiktok_category_id) {
+            $name = TikTokCategory::query()->where('id', $group->tiktok_category_id)->value('name');
+            $lends[] = 'category ' . ($name ?: '#' . $group->tiktok_category_id);
+        }
+        if ($group->markup_percent !== null || $group->markup_fixed !== null) {
+            $words = \App\Support\MarkupWords::of($group->markup_percent !== null ? (float) $group->markup_percent : null, $group->markup_fixed !== null ? (float) $group->markup_fixed : null);
+            if ($words !== 'none') {
+                $lends[] = 'markup ' . $words;
+            }
+        }
+        $answers = \Extensions\tiktok\Models\TikTokProductGroupAttribute::query()->where('tiktok_product_group_id', $group->id)->count();
+        if ($answers > 0) {
+            $lends[] = $answers . ' attribute ' . \Illuminate\Support\Str::plural('answer', $answers);
+        }
+
+        return [
+            'name' => (string) $group->name,
+            'url' => route('ext.tiktok.product-groups.products', $group->id),
+            'lends' => $lends,
+        ];
     }
 
     public function update(Request $request, int $productId)

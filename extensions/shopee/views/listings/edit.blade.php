@@ -332,6 +332,11 @@
         </section>
     @endif
 
+    {{-- The record, in the one order every channel's listing page keeps
+         (the owner, 2026-09-07, draft B): the main column is everything you set,
+         Content, Category and brand, Category attributes, Price rule,
+         Discount, Images, then what only Shopee has; the rail only reports,
+         Product group and Last push. --}}
     <form id="listing-form" method="POST" action="{{ route('ext.shopee.listings.update', $product->product_id) }}">
         <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
         @csrf
@@ -340,9 +345,8 @@
 
                 <section class="fm-section">
                     <div class="fm-section__head">
-                        <h2 class="fm-section__title">Content on this channel</h2>
+                        <h2 class="fm-section__title">Content on this channel <x-ui.hint label="About the content">A filled field is this listing's own wording and follows nobody. An empty field follows the catalog product, shown greyed as the placeholder. Clearing a field returns it to the catalog. Nothing here ever edits the catalog product itself.</x-ui.hint></h2>
                     </div>
-                    <p class="fm-section__note">A filled field is this listing's own wording and follows nobody. An empty field follows the catalog product, shown greyed as the placeholder. Clearing a field returns it to the catalog. Nothing here ever edits the catalog product itself.</p>
                     <div class="fm-fields">
                         <x-ui.field label="Title" for="sl-name" name="item_name" wide>
                             <x-ui.input id="sl-name" name="item_name" maxlength="255"
@@ -364,48 +368,101 @@
                     </div>
                 </section>
 
-                <section class="fm-section">
+                <section class="fm-section" id="sl-category-section">
                     <div class="fm-section__head">
-                        <h2 class="fm-section__title">Parcel</h2>
+                        <h2 class="fm-section__title">Category and brand</h2>
                     </div>
-                    <p class="fm-section__note">What Shopee quotes shipping from. Empty fields follow the catalog's figures.</p>
                     <div class="fm-fields">
-                        <x-ui.field label="Weight in kg" for="sl-weight" name="weight">
-                            <x-ui.input id="sl-weight" name="weight" type="number" step="0.01" min="0.01"
-                                        :value="old('weight', $listing->weight ?? '')"
-                                        placeholder="{{ (float) $product->weight }}"
-                                        :disabled="!$canManage" />
-                            @if($weightDiverges)
-                                <div class="fm-hint">The catalog now says {{ $weightDiverges }} kg. Clearing this field follows it again.</div>
-                            @endif
+                        <x-ui.field label="Shopee category" for="sl-category" name="shopee_category_id" :required="true" wide
+                                    hint="Only leaf categories are listed. Shopee accepts nothing else.">
+                            <div class="gf-combo"
+                                 data-category-combo
+                                 data-combo-mode="remote"
+                                 data-combo-search-url="{{ route('ext.shopee.products.searchCategories') }}"
+                                 data-combo-lookup-url="{{ route('ext.shopee.products.categoryLookup') }}">
+                                <div class="gf-combo__field">
+                                    <input type="hidden" id="sl-category-value" name="shopee_category_id" data-combo-value
+                                           value="{{ $selectedCategoryId > 0 ? $selectedCategoryId : '' }}">
+                                    <x-ui.input id="sl-category" type="search" autocomplete="off"
+                                                data-combo-input
+                                                placeholder="Type to search Shopee categories"
+                                                :disabled="!$canManage" />
+                                    <div class="gf-combo__results" data-combo-results role="listbox"
+                                         aria-label="Shopee leaf categories" hidden></div>
+                                </div>
+                            </div>
                         </x-ui.field>
-                        <x-ui.field label="Length in cm" for="sl-length" name="package_length">
-                            <x-ui.input id="sl-length" name="package_length" type="number" min="1"
-                                        :value="old('package_length', $listing->package_length ?? '')"
-                                        placeholder="{{ (int) $product->length }}"
-                                        :disabled="!$canManage" />
-                        </x-ui.field>
-                        <x-ui.field label="Width in cm" for="sl-width" name="package_width">
-                            <x-ui.input id="sl-width" name="package_width" type="number" min="1"
-                                        :value="old('package_width', $listing->package_width ?? '')"
-                                        placeholder="{{ (int) $product->width }}"
-                                        :disabled="!$canManage" />
-                        </x-ui.field>
-                        <x-ui.field label="Height in cm" for="sl-height" name="package_height">
-                            <x-ui.input id="sl-height" name="package_height" type="number" min="1"
-                                        :value="old('package_height', $listing->package_height ?? '')"
-                                        placeholder="{{ (int) $product->height }}"
-                                        :disabled="!$canManage" />
+                        @php
+                            $slBrandId = (int) ($listing->shopee_brand_id ?? 0);
+                            $slBrandName = $slBrandId > 0
+                                ? (string) (optional($initialBrands->firstWhere('brand_id', $slBrandId))->name ?? '')
+                                : '';
+                        @endphp
+                        <x-ui.field label="Brand" for="sl-brand" name="shopee_brand_id" wide
+                                    hint="Only brands Shopee registers for the chosen category are offered. Leave it empty for No brand.">
+                            {{-- Same searchable combobox as the category,
+                                 dependent on it: the search asks for THIS
+                                 category's brands. --}}
+                            <div class="gf-combo"
+                                 data-category-combo
+                                 data-combo-mode="remote"
+                                 data-combo-plain-label
+                                 data-combo-search-url="{{ route('ext.shopee.products.brandsForCategory') }}"
+                                 data-combo-extra-param="category_id"
+                                 data-combo-extra-source="#sl-category-value"
+                                 data-combo-extra-empty="Pick a category first - every brand list belongs to one."
+                                 data-combo-warm>
+                                <div class="gf-combo__field">
+                                    <input type="hidden" name="shopee_brand_id" data-combo-value
+                                           value="{{ $slBrandId > 0 ? $slBrandId : '' }}">
+                                    <x-ui.input id="sl-brand" type="search" autocomplete="off"
+                                                data-combo-input
+                                                value="{{ $slBrandName }}"
+                                                placeholder="Type to search this category's brands"
+                                                :disabled="!$canManage" />
+                                    <div class="gf-combo__results" data-combo-results role="listbox"
+                                         aria-label="Shopee brands" hidden></div>
+                                    {{-- A first-time brand list is read from Shopee a
+                                         page at a time; this says so while it comes in. --}}
+                                    <div class="gf-combo__progress" data-combo-progress role="status" aria-live="polite" hidden>
+                                        <span class="gf-combo__bar" aria-hidden="true"></span>
+                                        <span data-combo-progress-text></span>
+                                    </div>
+                                </div>
+                            </div>
                         </x-ui.field>
                     </div>
                 </section>
 
-                {{-- The editable money of this page sits in the work column,
-                     not the context rail (critique 2026-08-25). --}}
+                {{-- ── The category's own attribute sheet (#98) ────────
+                     What Shopee's form would ask for this category:
+                     required-ness, option lists and free-text fields read
+                     from the marketplace's published template, never
+                     hardcoded. Same partial and same wire as the group
+                     form; picking a different category above reloads it. --}}
+                <section class="fm-section"
+                         data-attributes-fetch
+                         data-attributes-url="{{ route('ext.shopee.products.fetchAttributes') }}"
+                         data-attributes-field="shopee_category_id"
+                         id="sl-attributes"
+                         data-attributes-source="#sl-category-value"
+                         @if(empty($attrRows) && !$attrTemplate) hidden @endif>
+                    <div class="fm-section__head">
+                        <h2 class="fm-section__title">Category attributes <x-ui.hint label="About the attributes">What Shopee asks for this category. Answers are saved with the listing and go with every push. Required ones block nothing here, but Shopee refuses a push without them.</x-ui.hint></h2>
+                    </div>
+                    <div data-attributes-target>
+                        @include('ext-shopee::product-groups._attributes', [
+                            'attributes' => $attrRows,
+                            'saved' => $savedAttributes,
+                            'template' => $attrTemplate,
+                            'canManage' => $canManage,
+                        ])
+                    </div>
+                </section>
+
                 <div class="fm-card">
-                    <div class="fm-card__head"><h2 class="fm-card__title">Price rule</h2></div>
+                    <div class="fm-card__head"><h2 class="fm-card__title">Price rule <x-ui.hint label="About the price rule">The Shopee price is never stored: it is the catalog price run through this rule at every push and price sync, so catalog price changes carry through on their own. Without a rule of its own the listing uses its group's.</x-ui.hint></h2></div>
                     <div class="fm-card__body">
-                        <p class="fm-section__note">The Shopee price is never stored: it is the catalog price run through this rule at every push and price sync, so catalog price changes carry through on their own.</p>
                         <div class="fm-fields fm-fields--2">
                             <x-ui.field label="Percent added" for="sl-markup-pct" name="markup_percent">
                                 <x-ui.input id="sl-markup-pct" name="markup_percent" type="number" step="0.01"
@@ -454,104 +511,52 @@
                      resources/views/partials/channel-discount-card. --}}
                 @include('partials.channel-discount-card', $discount)
 
-                {{-- ── The category's own attribute sheet (#98) ────────
-                     What Shopee's form would ask for this category:
-                     required-ness, option lists and free-text fields read
-                     from the marketplace's published template, never
-                     hardcoded. Same partial and same wire as the group
-                     form; picking a different category above reloads it. --}}
-                <section class="fm-section"
-                         data-attributes-fetch
-                         data-attributes-url="{{ route('ext.shopee.products.fetchAttributes') }}"
-                         data-attributes-field="shopee_category_id"
-                         id="sl-attributes"
-                         data-attributes-source="#sl-category-value"
-                         @if(empty($attrRows) && !$attrTemplate) hidden @endif>
+                @include('partials.channel-images-card', [
+                    'storeName' => 'Shopee', 'images' => $images,
+                    'limit' => \Extensions\shopee\Services\Shopee\ShopeeItemCreate::MAX_IMAGES, 'fetchesOverWeb' => false,
+                ])
+
+                {{-- What only Shopee has, in one place at the end of the main
+                     column: the parcel Shopee quotes shipping from and the
+                     couriers it is offered on. --}}
+                <section class="fm-section" id="sl-only">
                     <div class="fm-section__head">
-                        <h2 class="fm-section__title">Category attributes</h2>
+                        <h2 class="fm-section__title">Only on Shopee</h2>
                     </div>
-                    <p class="fm-section__note">What Shopee asks for this category. Answers are saved with the listing and go with every push. Required ones block nothing here, but Shopee refuses a push without them.</p>
-                    <div data-attributes-target>
-                        @include('ext-shopee::product-groups._attributes', [
-                            'attributes' => $attrRows,
-                            'saved' => $savedAttributes,
-                            'template' => $attrTemplate,
-                            'canManage' => $canManage,
-                        ])
+                    <div class="fm-sub">
+                        <h3 class="fm-sub__title">Parcel <x-ui.hint label="About the parcel">What Shopee quotes shipping from. Empty fields follow the catalog's figures.</x-ui.hint></h3>
+                        <div class="fm-fields">
+                            <x-ui.field label="Weight in kg" for="sl-weight" name="weight">
+                                <x-ui.input id="sl-weight" name="weight" type="number" step="0.01" min="0.01"
+                                            :value="old('weight', $listing->weight ?? '')"
+                                            placeholder="{{ (float) $product->weight }}"
+                                            :disabled="!$canManage" />
+                                @if($weightDiverges)
+                                    <div class="fm-hint">The catalog now says {{ $weightDiverges }} kg. Clearing this field follows it again.</div>
+                                @endif
+                            </x-ui.field>
+                            <x-ui.field label="Length in cm" for="sl-length" name="package_length">
+                                <x-ui.input id="sl-length" name="package_length" type="number" min="1"
+                                            :value="old('package_length', $listing->package_length ?? '')"
+                                            placeholder="{{ (int) $product->length }}"
+                                            :disabled="!$canManage" />
+                            </x-ui.field>
+                            <x-ui.field label="Width in cm" for="sl-width" name="package_width">
+                                <x-ui.input id="sl-width" name="package_width" type="number" min="1"
+                                            :value="old('package_width', $listing->package_width ?? '')"
+                                            placeholder="{{ (int) $product->width }}"
+                                            :disabled="!$canManage" />
+                            </x-ui.field>
+                            <x-ui.field label="Height in cm" for="sl-height" name="package_height">
+                                <x-ui.input id="sl-height" name="package_height" type="number" min="1"
+                                            :value="old('package_height', $listing->package_height ?? '')"
+                                            placeholder="{{ (int) $product->height }}"
+                                            :disabled="!$canManage" />
+                            </x-ui.field>
+                        </div>
                     </div>
-                </section>
-
-            </div>
-
-            <div class="fm-col fm-col--side">
-
-                <div class="fm-card">
-                    <div class="fm-card__head"><h2 class="fm-card__title">Category and brand</h2></div>
-                    <div class="fm-card__body">
-                        <x-ui.field label="Shopee category" for="sl-category" name="shopee_category_id" :required="true"
-                                    hint="Only leaf categories are listed. Shopee accepts nothing else.">
-                            <div class="gf-combo"
-                                 data-category-combo
-                                 data-combo-mode="remote"
-                                 data-combo-search-url="{{ route('ext.shopee.products.searchCategories') }}"
-                                 data-combo-lookup-url="{{ route('ext.shopee.products.categoryLookup') }}">
-                                <div class="gf-combo__field">
-                                    <input type="hidden" id="sl-category-value" name="shopee_category_id" data-combo-value
-                                           value="{{ $selectedCategoryId > 0 ? $selectedCategoryId : '' }}">
-                                    <x-ui.input id="sl-category" type="search" autocomplete="off"
-                                                data-combo-input
-                                                placeholder="Type to search Shopee categories"
-                                                :disabled="!$canManage" />
-                                    <div class="gf-combo__results" data-combo-results role="listbox"
-                                         aria-label="Shopee leaf categories" hidden></div>
-                                </div>
-                            </div>
-                        </x-ui.field>
-                        @php
-                            $slBrandId = (int) ($listing->shopee_brand_id ?? 0);
-                            $slBrandName = $slBrandId > 0
-                                ? (string) (optional($initialBrands->firstWhere('brand_id', $slBrandId))->name ?? '')
-                                : '';
-                        @endphp
-                        <x-ui.field label="Brand" for="sl-brand" name="shopee_brand_id"
-                                    hint="Only brands Shopee registers for the chosen category are offered. Leave it empty for No brand.">
-                            {{-- Same searchable combobox as the category,
-                                 dependent on it: the search asks for THIS
-                                 category's brands. --}}
-                            <div class="gf-combo"
-                                 data-category-combo
-                                 data-combo-mode="remote"
-                                 data-combo-plain-label
-                                 data-combo-search-url="{{ route('ext.shopee.products.brandsForCategory') }}"
-                                 data-combo-extra-param="category_id"
-                                 data-combo-extra-source="#sl-category-value"
-                                 data-combo-extra-empty="Pick a category first - every brand list belongs to one."
-                                 data-combo-warm>
-                                <div class="gf-combo__field">
-                                    <input type="hidden" name="shopee_brand_id" data-combo-value
-                                           value="{{ $slBrandId > 0 ? $slBrandId : '' }}">
-                                    <x-ui.input id="sl-brand" type="search" autocomplete="off"
-                                                data-combo-input
-                                                value="{{ $slBrandName }}"
-                                                placeholder="Type to search this category's brands"
-                                                :disabled="!$canManage" />
-                                    <div class="gf-combo__results" data-combo-results role="listbox"
-                                         aria-label="Shopee brands" hidden></div>
-                                    {{-- A first-time brand list is read from Shopee a
-                                         page at a time; this says so while it comes in. --}}
-                                    <div class="gf-combo__progress" data-combo-progress role="status" aria-live="polite" hidden>
-                                        <span class="gf-combo__bar" aria-hidden="true"></span>
-                                        <span data-combo-progress-text></span>
-                                    </div>
-                                </div>
-                            </div>
-                        </x-ui.field>
-                    </div>
-                </div>
-
-                <div class="fm-card">
-                    <div class="fm-card__head" id="sl-couriers"><h2 class="fm-card__title">Couriers <span class="fm-req" aria-hidden="true">*</span><span class="x-sr">(required)</span></h2></div>
-                    <div class="fm-card__body">
+                    <div class="fm-sub" id="sl-couriers">
+                        <h3 class="fm-sub__title">Couriers <span class="fm-req" aria-hidden="true">*</span><span class="x-sr">(required)</span> <x-ui.hint label="About the couriers">Which of Shopee's couriers this listing is offered on. Pick at least one.</x-ui.hint></h3>
                         @if($errors->has('logistic_ids'))
                             <div class="fm-error">{{ $errors->first('logistic_ids') }}</div>
                         @endif
@@ -581,7 +586,16 @@
                             </x-ui.empty>
                         @endif
                     </div>
-                </div>
+                </section>
+
+            </div>
+
+            <div class="fm-col fm-col--side">
+
+                @include('partials.channel-group-card', [
+                    'storeName' => 'Shopee', 'group' => $groupCard,
+                    'groupsUrl' => route('ext.shopee.product-groups.index'),
+                ])
 
                 <div class="fm-card">
                     <div class="fm-card__head"><h2 class="fm-card__title">Last push</h2></div>

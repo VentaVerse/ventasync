@@ -220,9 +220,13 @@ class TikTokProductGroupController extends Controller
         $attributeRows = $attributesService->rows($template);
         $savedAttributes = $group->exists ? $group->attributes()->pluck('value', 'attribute_key')->all() : [];
 
+        $productCount = $group->exists
+            ? \Illuminate\Support\Facades\DB::table('tiktok_product_group_products')->where('tiktok_product_group_id', $group->id)->count()
+            : 0;
+
         return view('ext-tiktok::product-groups.form', compact(
             'group', 'mode', 'tiktokCategories',
-            'template', 'attributeRows', 'savedAttributes'
+            'template', 'attributeRows', 'savedAttributes', 'productCount'
         ));
     }
 

@@ -141,6 +141,7 @@ class ShopeeProductGroupController extends Controller
             : collect();
 
         return view('ext-shopee::product-groups.form', [
+            'productCount' => $group->exists ? \Illuminate\Support\Facades\DB::table('shopee_product_group_products')->where('shopee_product_group_id', $group->id)->count() : 0,
             'group' => $group,
             'mode' => $mode,
             'shopeeCategories' => $shopeeCategories,

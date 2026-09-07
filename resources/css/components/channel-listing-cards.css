@@ -1,0 +1,37 @@
+/* The cards every channel's listing page shares since the one-shape
+   rebuild (the owner, 2026-09-07): Images that go up (partials/
+   channel-images-card) and the Product group card (partials/
+   channel-group-card). Drawn on the fm-* anatomy; this file holds only
+   the two shapes it has none for. Tokens: --bl-*. */
+
+.lc-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: var(--bl-space-3) 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.lc-images__item {
+    width: 64px;
+    height: 64px;
+    border: 1px solid var(--bl-rule-2);
+    border-radius: var(--bl-r-ctrl);
+    overflow: hidden;
+    background: var(--bl-chrome);
+}
+
+/* Past the channel's limit: still the catalog's, not going up. Said by
+   the dimming AND by the sentence above the list. */
+.lc-images__item--held {
+    opacity: .38;
+    border-style: dashed;
+}
+
+.lc-images__item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}

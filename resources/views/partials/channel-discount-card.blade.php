@@ -27,18 +27,23 @@
       endClearsRule  bool, whether End also clears the saved rule here
       pushedAt       ?Carbon when an untracked channel last took the push (Lazada)
       liveError      ?string set when the channel did not answer on this load
+      ridesPush      bool, the discount goes up with every push of the product and
+                     the store applies the window itself; no push or end verb of
+                     its own, and the window is optional (WooCommerce)
 --}}
 @php
-    $hasRule = $savedPct !== null && $savedFrom && $savedTo;
+    $ridesPush = (bool) ($ridesPush ?? false);
+    $pushedAt = $pushedAt ?? null;
+    $liveError = $liveError ?? null;
+    $hasRule = $savedPct !== null && ($ridesPush || ($savedFrom && $savedTo));
     $inputPct = old('sale_percent', $savedPct !== null ? ($step === '1' ? (int) $savedPct : $savedPct) : null);
     $inputFrom = old('sale_starts_at', $savedFrom?->format('Y-m-d\TH:i'));
     $inputTo = old('sale_ends_at', $savedTo?->format('Y-m-d\TH:i'));
 
-    $pushedAt = $pushedAt ?? null;
-    $liveError = $liveError ?? null;
-
     if (!$hasRule) {
         $stateWords = 'No discount set.';
+    } elseif ($ridesPush) {
+        $stateWords = 'Goes up with every push. ' . $channel . ' applies the window itself.';
     } elseif ($remoteId) {
         $stateWords = 'On ' . $channel . ' as promotion ' . $remoteId . '. Buyers see the cut price inside the window.';
     } elseif ($pushedAt) {
@@ -64,15 +69,17 @@
         saved: { pct: @js((string) ($inputPct ?? '')), from: @js((string) ($inputFrom ?? '')), to: @js((string) ($inputTo ?? '')) },
         get dirty() { return this.pct !== this.saved.pct || this.from !== this.saved.from || this.to !== this.saved.to; },
         when(v) { if (!v) return ''; var d = new Date(v); return isNaN(d) ? v : d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }); },
+        ridesPush: @js($ridesPush),
         get words() {
             if (!this.pct) return 'Unsaved: the discount is being cleared. Save to confirm.';
-            if (!this.from || !this.to) return 'Unsaved: ' + this.pct + '% off; set the start and the end, then Save.';
-            return 'Unsaved: ' + this.pct + '% off, ' + this.when(this.from) + ' to ' + this.when(this.to) + '. Save, then push.';
+            if (this.ridesPush && !this.from && !this.to) return 'Unsaved: ' + this.pct + '% off, no window. Save; it goes up with the next push.';
+            if (!this.from || !this.to) return this.ridesPush ? 'Unsaved: ' + this.pct + '% off; set both the start and the end, or neither, then Save.' : 'Unsaved: ' + this.pct + '% off; set the start and the end, then Save.';
+            return 'Unsaved: ' + this.pct + '% off, ' + this.when(this.from) + ' to ' + this.when(this.to) + (this.ridesPush ? '. Save; it goes up with the next push.' : '. Save, then push.');
         }
      }">
     <div class="fm-card__head"><h2 class="fm-card__title">Discount</h2></div>
     <div class="fm-card__body">
-        <p class="fm-section__note">Percent off the listed price, for a window.{{ $note !== '' ? ' ' . $note : '' }} Leave the percent empty for no discount.</p>
+        <p class="fm-section__note">Percent off the listed price{{ $ridesPush ? ', with an optional window' : ', for a window' }}.{{ $note !== '' ? ' ' . $note : '' }} Leave the percent empty for no discount.</p>
         <div class="fm-fields fm-fields--3">
             <x-ui.field label="Percent off" for="{{ $prefix }}-sale-percent" name="sale_percent">
                 <x-ui.input id="{{ $prefix }}-sale-percent" name="sale_percent" type="number" :step="$step" min="1" max="99"
@@ -98,7 +105,9 @@
                 </div>
             @endif
         </div>
-        @if($canManage && $onMarketplace)
+        @if($ridesPush)
+            {{-- No verb of its own: the rule rides Save and the next push. --}}
+        @elseif($canManage && $onMarketplace)
             <div class="cc-head-actions">
                 <x-ui.button type="submit" form="{{ $prefix }}-discount-push" :disabled="!$canPush"
                              data-confirm-tone="primary" data-confirm-verb="Push discount">Push discount to {{ $channel }}</x-ui.button>
@@ -111,7 +120,7 @@
             @elseif(!$hasRule)
                 <p class="fm-section__note">Set a percent, a start and an end, then Save. Push turns on once the rule is saved.</p>
             @endif
-        @elseif(!$onMarketplace)
+        @elseif(!$onMarketplace && !$ridesPush)
             <p class="fm-section__note">The discount joins the live listing; push the product to {{ $channel }} first.</p>
         @endif
     </div>

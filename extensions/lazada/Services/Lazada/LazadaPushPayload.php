@@ -67,6 +67,20 @@ class LazadaPushPayload
                 'm.name as manufacturer_name',
             ]);
 
+        /* The listing's own words win over the catalog's, the way every
+         * other channel's Content card works (2026-09-07). An empty column
+         * follows the catalog, which is what every row starts as. The clone
+         * keeps the read-only product row untouched for everything else. */
+        if ($product && (trim((string) ($listing->item_name ?? '')) !== '' || trim((string) ($listing->description ?? '')) !== '')) {
+            $product = clone $product;
+            if (trim((string) ($listing->item_name ?? '')) !== '') {
+                $product->name = (string) $listing->item_name;
+            }
+            if (trim((string) ($listing->description ?? '')) !== '') {
+                $product->description = (string) $listing->description;
+            }
+        }
+
         // Images are mandatory for Lazada product creation.
         // Lazada checks Product.Images.Image (and sometimes Sku.Images.Image) for main image.
         $imageUrls = app(LazadaImages::class)->getProductImageUrls((int)$listing->product_id, $product);

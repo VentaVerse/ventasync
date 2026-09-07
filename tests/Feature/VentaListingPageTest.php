@@ -111,6 +111,45 @@ class VentaListingPageTest extends TestCase
         ], $extra);
     }
 
+    /**
+     * The one group shape (2026-09-07): a Venta group picks the store's own
+     * category, the way WooCommerce's does, and the listing page reports it.
+     * A category this store does not hold is refused.
+     */
+    public function test_a_venta_group_picks_the_stores_own_category_and_the_listing_reports_it(): void
+    {
+        $store = $this->store();
+        $pid = $this->product();
+        \Extensions\venta\Models\VentaCategory::create([
+            'venta_setting_id' => $store->id, 'venta_category_id' => 42, 'name' => 'Pedals', 'parent_id' => 0,
+        ]);
+        $manager = $this->userWith(['view_venta/listing', 'manage_venta/listing', 'view_venta/product_group', 'manage_venta/product_group']);
+
+        $this->actingAs($manager)
+            ->get(route('ext.venta.product-groups.create', $store->id))
+            ->assertOk()->assertSee('Category on Gear Depot')->assertSee('Pedals');
+
+        $this->actingAs($manager)
+            ->post(route('ext.venta.product-groups.store', $store->id), ['name' => 'Pedal group', 'venta_category_id' => 42, 'markup_percent' => 10])
+            ->assertSessionHasNoErrors();
+        $group = \Extensions\venta\Models\VentaProductGroup::query()->where('name', 'Pedal group')->first();
+        $this->assertSame(42, (int) $group->venta_category_id);
+        // Membership is the products page's business, not the form's.
+        $this->assertSame([], $group->products()->pluck('product_id')->all());
+
+        \Extensions\venta\Models\VentaProductGroupProduct::create(['venta_product_group_id' => $group->id, 'product_id' => $pid]);
+        $page = $this->actingAs($manager)->get(route('ext.venta.listings.edit', [$store->id, $pid]))->assertOk();
+        $page->assertSee('Category on Gear Depot');
+        $page->assertSee('Pedals');
+        $page->assertSee('Pedal group');
+
+        // A category the store does not hold is refused.
+        $this->actingAs($manager)
+            ->from(route('ext.venta.product-groups.create', $store->id))
+            ->post(route('ext.venta.product-groups.store', $store->id), ['name' => 'Ghost', 'venta_category_id' => 999])
+            ->assertSessionHasErrors('venta_category_id');
+    }
+
     public function test_the_page_reads_the_store_on_load_and_writes_the_mirror(): void
     {
         $store = $this->store();

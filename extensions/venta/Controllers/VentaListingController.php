@@ -693,12 +693,33 @@ class VentaListingController extends Controller
             }
         }
 
-        $groups = VentaProductGroupProduct::query()
+        // The one group this product is in on this store (one product, one
+        // group), for the rail's Product group card and the Category section.
+        $groupRow = VentaProductGroupProduct::query()
             ->join('venta_product_groups as g', 'g.id', '=', 'venta_product_group_products.venta_product_group_id')
+            ->leftJoin('venta_categories as c', fn ($j) => $j->on('c.venta_category_id', '=', 'g.venta_category_id')->where('c.venta_setting_id', '=', $store))
             ->where('g.venta_setting_id', $store)
             ->where('venta_product_group_products.product_id', $productId)
-            ->orderBy('g.name')
-            ->get(['g.id', 'g.name', 'venta_product_group_products.sync_status', 'venta_product_group_products.last_pushed_at']);
+            ->orderBy('venta_product_group_products.id')
+            ->first(['g.id', 'g.name', 'g.venta_category_id', 'g.markup_percent', 'g.markup_fixed', 'c.name as category_name']);
+        $groupCategory = $groupRow && $groupRow->venta_category_id ? (string) ($groupRow->category_name ?: '#' . $groupRow->venta_category_id) : null;
+        $groupCard = null;
+        if ($groupRow) {
+            $lends = [];
+            if ($groupCategory !== null) {
+                $lends[] = 'category ' . $groupCategory;
+            }
+            $markup = \App\Support\MarkupWords::of($groupRow->markup_percent !== null ? (float) $groupRow->markup_percent : null, $groupRow->markup_fixed !== null ? (float) $groupRow->markup_fixed : null);
+            if ($markup !== 'none') {
+                $lends[] = 'markup ' . $markup;
+            }
+            $groupCard = [
+                'id' => (int) $groupRow->id,
+                'name' => (string) $groupRow->name,
+                'url' => route('ext.venta.product-groups.products', [$store, $groupRow->id]),
+                'lends' => $lends,
+            ];
+        }
 
         return view('ext-venta::listings.edit', [
             'setting' => $setting,
@@ -708,7 +729,8 @@ class VentaListingController extends Controller
             'link' => $link,
             'live' => $live,
             'liveError' => $liveError,
-            'groups' => $groups,
+            'groupCard' => $groupCard,
+            'groupCategory' => $groupCategory,
             'images' => $push->images($productId),
         ]);
     }

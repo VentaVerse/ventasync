@@ -153,6 +153,7 @@ class LazadaProductGroupController extends Controller
          * STORE's list - never a whole-catalogue dual list. */
 
         return view('ext-lazada::product-groups.form', [
+            'productCount' => $group->exists ? \Illuminate\Support\Facades\DB::table('lazada_product_group_products')->where('lazada_product_group_id', $group->id)->count() : 0,
             'group' => $group,
             'mode' => $mode,
             'lazadaCategories' => $lazadaCategories,

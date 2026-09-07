@@ -2402,7 +2402,49 @@ class ShopeeProductController extends Controller
             'savedAttributes' => $savedAttributes,
             'readinessMissing' => $readiness['missing'],
             'logistics' => $this->fetchLogistics(),
+            'images' => \App\Support\Catalog\ProductImages::urls($productId),
+            'groupCard' => $this->groupCardFor($productId),
         ]);
+    }
+
+    /**
+     * The one group this product is in on this store, for the rail's
+     * Product group card (partials/channel-group-card): its name, its
+     * page, and what it lends a listing that has nothing of its own.
+     *
+     * @return ?array{name: string, url: string, lends: list<string>}
+     */
+    private function groupCardFor(int $productId): ?array
+    {
+        $g = app(\Extensions\shopee\Services\Shopee\ShopeeInheritedSettings::class)->forProducts([$productId])[$productId] ?? null;
+        if (! $g) {
+            return null;
+        }
+        $lends = [];
+        if ($g['category_id']) {
+            $name = \Extensions\shopee\Models\ShopeeCategory::query()->where('category_id', $g['category_id'])->value('name');
+            $lends[] = 'category ' . ($name ?: '#' . $g['category_id']);
+        }
+        if ($g['brand_id']) {
+            $name = \Extensions\shopee\Models\ShopeeBrand::query()->where('brand_id', $g['brand_id'])->value('name');
+            $lends[] = 'brand ' . ($name ?: '#' . $g['brand_id']);
+        }
+        if ($g['logistic_ids'] !== []) {
+            $lends[] = count($g['logistic_ids']) . ' ' . \Illuminate\Support\Str::plural('courier', count($g['logistic_ids']));
+        }
+        $markup = \App\Support\MarkupWords::of($g['markup_percent'], $g['markup_fixed']);
+        if ($markup !== 'none') {
+            $lends[] = 'markup ' . $markup;
+        }
+        if ($g['attributes'] !== []) {
+            $lends[] = count($g['attributes']) . ' attribute ' . \Illuminate\Support\Str::plural('answer', count($g['attributes']));
+        }
+
+        return [
+            'name' => $g['group_name'],
+            'url' => route('ext.shopee.product-groups.products', $g['group_id']),
+            'lends' => $lends,
+        ];
     }
 
     /**
