@@ -125,8 +125,8 @@ class TiktokStockPushHealTest extends TestCase
         return array_values(array_filter($this->calls, fn ($c) => $c['method'] === 'inventory'));
     }
 
-    /** The purest deleted-1pc silence, broken: an ERP SKU not in the map is named. */
-    public function test_a_variation_missing_from_the_map_is_named(): void
+    /** A variation the catalogue has and TikTok Shop lacks fails the product whole, by name (the owner, 2026-09-07). */
+    public function test_a_variation_missing_from_the_map_fails_the_product_whole(): void
     {
         $pid = $this->comboProduct(['TT-1' => 5, 'TT-2' => 8]);
         TikTokListing::create(['product_id' => $pid, 'tiktok_product_id' => 'tt-1', 'tiktok_sku_id' => json_encode(['TT-1' => 's1'])]);
@@ -140,16 +140,15 @@ class TiktokStockPushHealTest extends TestCase
             ->post(route('ext.tiktok.products.push_stock', $pid))
             ->assertRedirect();
 
-        $flash = (string) session('status');
-        $this->assertStringContainsString('TT-2 (not on TikTok Shop)', $flash, 'the skip is named, never silent');
-
-        $calls = $this->inventoryCalls();
-        $this->assertCount(1, $calls);
-        $this->assertSame(['s1'], array_column($calls[0]['skus'], 'id'), 'only what TikTok has is sent');
+        $this->assertNull(session('status'));
+        $flash = (string) session('error');
+        $this->assertStringContainsString('Variations do not match TikTok Shop: TT-2 (not on TikTok Shop)', $flash);
+        $this->assertStringContainsString('Nothing was pushed', $flash);
+        $this->assertSame([], $this->inventoryCalls(), 'not even the SKU TikTok has');
     }
 
-    /** An orphan map key pushes nothing - not qty 0, not the base price. */
-    public function test_an_orphan_map_key_is_skipped_not_zeroed(): void
+    /** An orphan map key (on TikTok Shop, gone from the catalogue) fails the product whole - never a zero, never a base price. */
+    public function test_an_orphan_map_key_fails_the_product_whole(): void
     {
         $pid = $this->comboProduct(['TT-1' => 5]);
         TikTokListing::create(['product_id' => $pid, 'tiktok_product_id' => 'tt-2',
@@ -159,13 +158,9 @@ class TiktokStockPushHealTest extends TestCase
             ->post(route('ext.tiktok.products.push_stock', $pid))
             ->assertRedirect();
 
-        $flash = (string) session('status');
+        $flash = (string) session('error');
         $this->assertStringContainsString('TT-GONE (on TikTok Shop but not in the catalogue)', $flash);
-
-        $calls = $this->inventoryCalls();
-        $this->assertCount(1, $calls);
-        $this->assertSame(['s1'], array_column($calls[0]['skus'], 'id'),
-            'the orphan is never sent a zero or a base price');
+        $this->assertSame([], $this->inventoryCalls(), 'nothing is sent: not the orphan, not its twin');
     }
 
     /** The __single__ degradation heals: one read, the real map, per-SKU figures. */

@@ -16,7 +16,7 @@ final class PushLedger
      * The honest suffix for a flash message: what was healed and what
      * was skipped, by name.
      *
-     * @param array{healed_items?: array, healed_products?: array, healed_listings?: array, skipped_variations?: list<array{product_id: int, sku: string, reason: string}>} $results
+     * @param array{healed_items?: array, healed_products?: array, healed_listings?: array, mismatched?: list<array{product_id: int, sku: string, reason: string}>, skipped_variations?: list<array{product_id: int, sku: string, reason: string}>} $results
      */
     public static function clause(array $results, string $channelName): string
     {
@@ -26,6 +26,13 @@ final class PushLedger
             $n = count(array_unique($healed));
             $parts[] = $n . ' ' . ($n === 1 ? 'item' : 'items') . ' re-read from ' . $channelName . ' and repaired mid-push';
         }
+        if (!empty($results['mismatched'])) {
+            $rows = collect($results['mismatched'])->unique(fn ($v) => $v['product_id'] . '|' . strtolower($v['sku']));
+            $products = $rows->pluck('product_id')->unique()->count();
+            $names = $rows->take(5)->map(fn ($v) => $v['sku'] . ' (' . $v['reason'] . ')')->implode(', ');
+            $parts[] = $products . ' product' . ($products === 1 ? '' : 's') . ' not pushed, the variations do not match ' . $channelName . ': '
+                . $names . ($rows->count() > 5 ? ', ...' : '');
+        }
         if (!empty($results['skipped_variations'])) {
             $skips = collect($results['skipped_variations'])->unique(fn ($v) => $v['product_id'] . '|' . $v['sku']);
             $names = $skips->take(5)->map(fn ($v) => ($v['sku'] !== '' ? $v['sku'] : '#' . $v['product_id']) . ' (' . $v['reason'] . ')')->implode(', ');
@@ -34,6 +41,25 @@ final class PushLedger
         }
 
         return $parts ? ' ' . implode('. ', $parts) . '.' : '';
+    }
+
+    /**
+     * The one sentence a product wears when its variations and the channel's
+     * differ (the owner, 2026-09-07): nothing is pushed for it, in either
+     * direction of the difference. A partial push used to send what matched
+     * and name the rest as skipped; the operator could not tell which product
+     * that was, so the product fails whole and says why, and the fix is to
+     * make the catalog and the channel hold the same variations.
+     *
+     * @param list<array{sku:string, reason:string}> $entries
+     */
+    public static function mismatchMessage(array $entries, string $channelName): string
+    {
+        $names = collect($entries)->unique(fn ($e) => strtolower($e['sku']))
+            ->map(fn ($e) => ($e['sku'] !== '' ? $e['sku'] : 'a variation') . ' (' . $e['reason'] . ')')->implode(', ');
+
+        return 'Variations do not match ' . $channelName . ': ' . $names . '. Nothing was pushed; make the catalog and '
+            . $channelName . ' hold the same variations, then push again.';
     }
 
     /**
@@ -52,11 +78,21 @@ final class PushLedger
             ->get(['product_id', 'sku']) as $r) {
             $skus[(int) $r->product_id][trim((string) $r->sku)] = true;
         }
+        /* A product sold in combinations sells its combinations: the axis
+         * values' own SKUs (the single-axis table) are not variations of it
+         * and must not be asked of the channel. Only a product without
+         * combinations sells its option values. */
         foreach (DB::table($pfx . 'product_option_value')
             ->whereIn('product_id', $productIds ?: [0])
             ->whereNotNull('sku')->where('sku', '!=', '')
             ->get(['product_id', 'sku']) as $r) {
-            $skus[(int) $r->product_id][trim((string) $r->sku)] = true;
+            if (isset($skus[(int) $r->product_id])) {
+                continue;
+            }
+            $single[(int) $r->product_id][trim((string) $r->sku)] = true;
+        }
+        foreach ($single ?? [] as $pid => $set) {
+            $skus[$pid] = $set;
         }
 
         return array_map(fn ($set) => array_keys($set), $skus);

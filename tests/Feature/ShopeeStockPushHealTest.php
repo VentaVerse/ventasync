@@ -118,26 +118,53 @@ class ShopeeStockPushHealTest extends TestCase
         return array_values(array_filter($this->sentPosts, fn ($c) => $c['path'] === '/api/v2/product/update_stock'));
     }
 
-    /** The deleted-1pc incident: what Shopee no longer has is skipped BY NAME, never silently. */
-    public function test_a_variation_without_a_link_is_skipped_and_named(): void
+    /**
+     * The deleted-1pc incident, ruled the other way (the owner, 2026-09-07): a
+     * product whose variations differ from Shopee's fails WHOLE and names
+     * the difference, nothing of it is sent, and the operator makes the
+     * catalog and Shopee agree. A partial push named the skip but not the
+     * product, and nobody could find it among two thousand rows.
+     */
+    public function test_a_product_whose_variations_do_not_match_shopee_fails_whole_and_names_them(): void
     {
         $pid = $this->productWithVariations(['PRD-1PC' => 5, 'PRD-5PC' => 6, 'PRD-10PC' => 7]);
         // Shopee holds only two of the three (the 1pc was deleted there).
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 900, 'shopee_model_id' => 52, 'sku' => 'PRD-5PC']);
+        $five = ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 900, 'shopee_model_id' => 52, 'sku' => 'PRD-5PC']);
         ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 900, 'shopee_model_id' => 53, 'sku' => 'PRD-10PC']);
 
-        $r = $this->actingAs($this->manager())
+        $this->actingAs($this->manager())
             ->post(route('ext.shopee.products.sync_quantity', $pid))
             ->assertRedirect();
 
-        $flash = (string) session('status');
-        $this->assertStringContainsString('Stock synced to Shopee (2 model(s))', $flash);
-        $this->assertStringContainsString('PRD-1PC (not on Shopee)', $flash, 'the skip is named, never silent');
+        $this->assertNull(session('status'), 'nothing went up, so no green tick');
+        $flash = (string) session('error');
+        $this->assertStringContainsString('Variations do not match Shopee: PRD-1PC (not on Shopee)', $flash);
+        $this->assertStringContainsString('Nothing was pushed', $flash);
+        $this->assertSame([], $this->stockCalls(), 'not even the two Shopee has');
+
+        $fresh = $five->fresh();
+        $this->assertFalse((bool) $fresh->last_sync_ok, 'every link row of the product wears the verdict, so the error filter finds it');
+        $this->assertSame('VARIATIONS_MISMATCH', $fresh->last_sync_error_code);
+        $this->assertStringContainsString('PRD-1PC (not on Shopee)', (string) $fresh->last_sync_error_message);
+    }
+
+    /** The other direction, and the cron: a model Shopee has that the catalogue lacks fails the product whole too. */
+    public function test_the_cron_fails_a_product_with_a_model_the_catalogue_lacks_and_pushes_the_rest(): void
+    {
+        $gone = $this->productWithVariations(['G-1' => 5]);
+        ShopeeProductLink::create(['product_id' => $gone, 'shopee_item_id' => 910, 'shopee_model_id' => 1, 'sku' => 'G-1']);
+        ShopeeProductLink::create(['product_id' => $gone, 'shopee_item_id' => 910, 'shopee_model_id' => 2, 'sku' => 'G-OLD']);
+        $fine = $this->productWithVariations(['F-1' => 3]);
+        ShopeeProductLink::create(['product_id' => $fine, 'shopee_item_id' => 911, 'shopee_model_id' => 3, 'sku' => 'F-1']);
+
+        $this->artisan('shopee:push-stock')->assertExitCode(1);
 
         $calls = $this->stockCalls();
-        $this->assertCount(1, $calls);
-        $this->assertCount(2, $calls[0]['body']['stock_list'], 'only what Shopee has is sent');
-        $this->assertSame([52, 53], array_column($calls[0]['body']['stock_list'], 'model_id'));
+        $this->assertCount(1, $calls, 'the whole product is held back; the other product still goes up');
+        $this->assertSame(911, (int) $calls[0]['body']['item_id']);
+        $message = (string) ShopeeProductLink::query()->where('product_id', $gone)->value('last_sync_error_message');
+        $this->assertStringContainsString('G-OLD (on Shopee but not in the catalogue)', $message);
+        $this->assertTrue((bool) ShopeeProductLink::query()->where('product_id', $fine)->value('last_sync_ok'));
     }
 
     /** failure_list: each link row wears its OWN model's verdict; a failed model is never a green row. */
@@ -254,11 +281,12 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertStringContainsString('STRANGER', (string) session('status'));
     }
 
-    /** Price keeps the listing's own rule and the same ledger. */
-    public function test_price_push_keeps_the_listing_rule_and_names_skips(): void
+    /** Price keeps the listing's own rule on every model. */
+    public function test_price_push_keeps_the_listing_rule(): void
     {
         $pid = $this->productWithVariations(['D-1' => 5, 'D-2' => 6]);
         ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 904, 'shopee_model_id' => 91, 'sku' => 'D-1']);
+        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 904, 'shopee_model_id' => 92, 'sku' => 'D-2']);
         ShopeeListing::create(['product_id' => $pid, 'markup_percent' => 10, 'markup_fixed' => 0]);
 
         $this->actingAs($this->manager())
@@ -266,12 +294,11 @@ class ShopeeStockPushHealTest extends TestCase
             ->assertRedirect();
 
         $flash = (string) session('status');
-        $this->assertStringContainsString('Price synced to Shopee (1 model(s))', $flash);
-        $this->assertStringContainsString('D-2 (not on Shopee)', $flash);
+        $this->assertStringContainsString('Price synced to Shopee (2 model(s))', $flash);
 
         $priceCalls = array_values(array_filter($this->sentPosts, fn ($c) => $c['path'] === '/api/v2/product/update_price'));
         $this->assertCount(1, $priceCalls);
-        $this->assertSame(110.0, (float) $priceCalls[0]['body']['price_list'][0]['original_price'], 'base 100 + the listing\'s 10%');
+        $this->assertSame([110.0, 110.0], array_map(fn ($m) => (float) $m['original_price'], $priceCalls[0]['body']['price_list']), 'base 100 + the listing\'s 10%');
     }
 
     /** Push Price is its own automation (2026-09-07): the listing's rule, else the group's, else the catalog price. */

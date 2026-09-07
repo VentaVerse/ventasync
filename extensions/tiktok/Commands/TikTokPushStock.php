@@ -90,6 +90,7 @@ class TikTokPushStock extends Command
         ];
         $results = app(\Extensions\tiktok\Services\TikTok\TikTokStockPricePush::class)
             ->push('stock', $c, $pivotRows, $pfx);
+        \Extensions\tiktok\Services\TikTok\TikTokStockPricePush::recordOutcomes('stock', $results['outcomes']);
 
         $totalOk = $results['ok'];
         $totalErr = $results['err'];

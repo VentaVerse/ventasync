@@ -130,8 +130,8 @@ class LazadaStockPushHealTest extends TestCase
         return array_values(array_filter($this->sentPosts, fn ($c) => $c['path'] === '/product/price_quantity/update'));
     }
 
-    /** The anonymous "Success: 2, Error: 1" is dead: the missing SKU is named. */
-    public function test_a_variation_missing_from_lazada_is_named(): void
+    /** A variation the catalogue has and Lazada lacks fails the product whole, by name. */
+    public function test_a_variation_missing_from_lazada_fails_the_product_whole(): void
     {
         $pid = $this->comboProduct(['LZ-1' => 5, 'LZ-2' => 8]);
         $listing = LazadaProduct::create(['product_id' => $pid, 'lazada_item_id' => '900']);
@@ -144,20 +144,22 @@ class LazadaStockPushHealTest extends TestCase
             ->post(route('ext.lazada.products.sync_quantity', $listing->product_id))
             ->assertRedirect();
 
-        $flash = (string) session('status');
-        $this->assertStringContainsString('LZ-2 (not on Lazada)', $flash, 'the skip is named, never an anonymous count');
+        // Ruled the other way on 2026-09-07: the product fails whole and names
+        // the difference; nothing of it is sent.
+        $this->assertNull(session('status'));
+        $flash = (string) session('error');
+        $this->assertStringContainsString('Variations do not match Lazada: LZ-2 (not on Lazada)', $flash);
+        $this->assertStringContainsString('Nothing was pushed', $flash);
+        $this->assertSame([], $this->updateCalls(), 'not even the variant Lazada has');
 
-        $calls = $this->updateCalls();
-        $this->assertCount(1, $calls, 'only the variant Lazada has is sent');
-        $this->assertStringContainsString('<SkuId>11</SkuId>', (string) $calls[0]['params']['payload']);
-
-        // The listing verdict is honest - no synthetic PARTIAL_FAILURE.
-        $this->assertTrue((bool) $listing->fresh()->last_sync_ok);
-        $this->assertNull($listing->fresh()->last_sync_error_code);
+        $fresh = $listing->fresh();
+        $this->assertFalse((bool) $fresh->last_sync_ok);
+        $this->assertSame('VARIATIONS_MISMATCH', $fresh->last_sync_error_code);
+        $this->assertStringContainsString('LZ-2 (not on Lazada)', (string) $fresh->last_sync_error_message);
     }
 
-    /** An orphan variant is skipped by name - never pushed a zero. */
-    public function test_an_orphan_variant_is_skipped_not_zeroed(): void
+    /** An orphan variant (on Lazada, gone from the catalogue) fails the product whole - never a zero, never pushed around. */
+    public function test_an_orphan_variant_fails_the_product_whole(): void
     {
         $pid = $this->comboProduct(['LZ-1' => 5]);
         $listing = LazadaProduct::create(['product_id' => $pid, 'lazada_item_id' => '900']);
@@ -168,13 +170,10 @@ class LazadaStockPushHealTest extends TestCase
             ->post(route('ext.lazada.products.sync_quantity', $listing->product_id))
             ->assertRedirect();
 
-        $flash = (string) session('status');
+        $flash = (string) session('error');
         $this->assertStringContainsString('LZ-GONE (on Lazada but not in the catalogue)', $flash);
-
-        $calls = $this->updateCalls();
-        $this->assertCount(1, $calls);
-        $this->assertStringNotContainsString('<SkuId>12</SkuId>', (string) $calls[0]['params']['payload'],
-            'the orphan is never zeroed');
+        $this->assertSame([], $this->updateCalls(), 'nothing is sent: not the orphan, not its twin');
+        $this->assertSame('VARIATIONS_MISMATCH', $listing->fresh()->last_sync_error_code);
     }
 
     /** A refusal naming the sku heals once and retries once. */

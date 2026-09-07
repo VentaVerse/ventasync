@@ -183,6 +183,10 @@
                                         <span class="badge badge-green">OK</span>
                                     @elseif($job->last_run_ok === false)
                                         <span class="badge badge-red">Failed</span>
+                                        @php($failedUrl = \App\Integrations\Support\PushFailureLink::for($job, $storeId ?? null))
+                                        @if($failedUrl)
+                                            <x-ui.button size="sm" :href="$failedUrl" class="automation-failed-link">See which products failed</x-ui.button>
+                                        @endif
                                     @endif
                                 @else
                                     <span class="automation-lastrun-prefix">Last run</span>

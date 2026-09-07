@@ -24,12 +24,17 @@ use Illuminate\Support\Str;
  *    last_sync_ok = true on their rows and flashed green.
  *
  * Now: the plan is built from the LINK ROWS (what Shopee actually has),
- * every ERP variation without a link is reported by SKU, a link that
- * would provoke the model error triggers the same repair Sync ID runs
- * (one get_model_list, rewire, prune) BEFORE the call, a call that still
- * comes back with a model-level refusal repairs and retries ONCE, and
- * per-model verdicts land on each link row from its own failure_list
- * entry. Nothing is retried silently and nothing is skipped silently.
+ * a link that would provoke the model error triggers the same repair Sync
+ * ID runs (one get_model_list, rewire, prune) BEFORE the call, a call
+ * that still comes back with a model-level refusal repairs and retries
+ * ONCE, and per-model verdicts land on each link row from its own
+ * failure_list entry. Nothing is retried silently.
+ *
+ * And nothing is partial (the owner, 2026-09-07): a product whose variations
+ * differ from Shopee's, in either direction, fails whole and names the
+ * difference, and none of its models is sent. The old skip-by-name push
+ * sent what matched, and the operator could not tell which product the
+ * skipped variation belonged to.
  */
 class ShopeeStockPricePush
 {
@@ -51,6 +56,7 @@ class ShopeeStockPricePush
      * @return array{
      *   ok: int, err: int, last_error: string,
      *   outcomes: array<int, array{ok: bool, error: ?string}>,
+     *   mismatched: list<array{product_id: int, sku: string, reason: string}>,
      *   skipped_variations: list<array{product_id: int, sku: string, reason: string}>,
      *   skipped_products: list<string>,
      *   healed_items: list<int>,
@@ -61,7 +67,7 @@ class ShopeeStockPricePush
         $links = collect($links)->values();
         $out = [
             'ok' => 0, 'err' => 0, 'last_error' => '',
-            'outcomes' => [], 'skipped_variations' => [], 'skipped_products' => [],
+            'outcomes' => [], 'mismatched' => [], 'skipped_variations' => [], 'skipped_products' => [],
             'healed_items' => [],
         ];
         if ($links->isEmpty()) {
@@ -70,21 +76,7 @@ class ShopeeStockPricePush
 
         $productIds = $links->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
 
-        /* The skip ledger's first half: ERP variations whose SKU matches no
-         * link row. They were silently dropped before; now they are named. */
         $erpVariationSkus = $this->erpVariationSkus($productIds, $pfx);
-        $linkSkusByProduct = $links->groupBy(fn ($l) => (int) $l->product_id)
-            ->map(fn ($rows) => $rows->pluck('sku')->map(fn ($s) => strtolower(trim((string) $s)))->filter()->flip());
-        foreach ($erpVariationSkus as $pid => $skus) {
-            foreach ($skus as $sku) {
-                if (!($linkSkusByProduct->get($pid)?->has(strtolower($sku)))) {
-                    $out['skipped_variations'][] = [
-                        'product_id' => $pid, 'sku' => $sku,
-                        'reason' => 'not on Shopee',
-                    ];
-                }
-            }
-        }
 
         /* Pre-call heal: a null-model link on an item the cache knows is
          * model-level WILL be refused - and a null-model link on a product
@@ -111,20 +103,18 @@ class ShopeeStockPricePush
 
         $rows = $this->resolver->resolve($links, $pfx);
 
-        /* Orphan MODEL links: the product HAS ERP variations, but this
-         * model's SKU matches none - pushing the BASE quantity or price to
-         * that model would be wrong for a product sold in variations.
-         * Skipped by name; the repair (or the catalogue) is the fix. An
-         * item-level link still sends the base values - one listing for
-         * the whole product is a legitimate shape. */
+        /* All or nothing per product: a variation the catalogue has and
+         * Shopee lacks, or a model Shopee has and the catalogue lacks, fails
+         * the whole product before any call, and none of its models is
+         * sent. The catalogue (or the repair) is the fix. */
+        $mismatched = $this->mismatches($links, $rows, $erpVariationSkus);
+        foreach ($mismatched as $pid => $entries) {
+            $this->failMismatch($kind, $pid, $entries, $out);
+        }
         $grouped = [];
         foreach ($rows as $row) {
             $pid = (int) $row['link']->product_id;
-            if (!$row['matched'] && !empty($erpVariationSkus[$pid]) && (int) $row['model_id'] !== 0) {
-                $out['skipped_variations'][] = [
-                    'product_id' => $pid, 'sku' => (string) $row['seller_sku'],
-                    'reason' => 'on Shopee but not in the catalogue',
-                ];
+            if (isset($mismatched[$pid])) {
                 continue;
             }
             $grouped[(int) $row['item_id']][] = $row;
@@ -201,17 +191,14 @@ class ShopeeStockPricePush
                     ->where('shopee_item_id', $itemId)
                     ->get();
                 $freshRows = $this->resolver->resolve($fresh, $pfx);
-                // Variations the repair pruned join the skip ledger.
-                $freshSkus = collect($freshRows)->map(fn ($r) => strtolower((string) $r['seller_sku']))->flip();
-                foreach ($rows as $row) {
-                    if (!$freshSkus->has(strtolower((string) $row['seller_sku']))) {
-                        $out['skipped_variations'][] = [
-                            'product_id' => (int) $row['link']->product_id,
-                            'sku' => (string) $row['seller_sku'],
-                            'reason' => 'removed from Shopee - its link was cleared',
-                        ];
-                    }
+                // A product the repair left unmatched (a variation Shopee no
+                // longer has, or one the catalogue never had) fails whole;
+                // the rest retry once.
+                $mismatched = $this->mismatches($fresh, $freshRows, $erpVariationSkus);
+                foreach ($mismatched as $mpid => $entries) {
+                    $this->failMismatch($kind, $mpid, $entries, $out);
                 }
+                $freshRows = array_values(array_filter($freshRows, fn ($r) => !isset($mismatched[(int) $r['link']->product_id])));
                 if (!empty($freshRows)) {
                     $this->pushItem($kind, $auth, $itemId, $freshRows, $pfx, $priceFor, $erpVariationSkus, $out, false);
                 }
@@ -254,6 +241,57 @@ class ShopeeStockPricePush
                 $out['outcomes'][$pid] = ['ok' => false, 'error' => (string) $reason];
             }
         }
+    }
+
+    /**
+     * Where the catalogue and Shopee disagree, per product: an ERP
+     * variation SKU no link carries (not on Shopee), and a model link whose
+     * SKU the catalogue lacks on a product sold in variations (on Shopee but
+     * not in the catalogue). A product without variations matches by
+     * definition.
+     *
+     * @return array<int, list<array{sku: string, reason: string}>>
+     */
+    private function mismatches($links, array $rows, array $erpVariationSkus): array
+    {
+        $linkSkusByProduct = collect($links)->groupBy(fn ($l) => (int) $l->product_id)
+            ->map(fn ($group) => $group->pluck('sku')->map(fn ($s) => strtolower(trim((string) $s)))->filter()->flip());
+        $pids = collect($links)->pluck('product_id')->map(fn ($v) => (int) $v)->unique();
+        $m = [];
+        foreach ($pids as $pid) {
+            foreach ($erpVariationSkus[$pid] ?? [] as $sku) {
+                if (!($linkSkusByProduct->get($pid)?->has(strtolower(trim((string) $sku))))) {
+                    $m[$pid][] = ['sku' => (string) $sku, 'reason' => 'not on Shopee'];
+                }
+            }
+        }
+        foreach ($rows as $row) {
+            $pid = (int) $row['link']->product_id;
+            if (!$row['matched'] && !empty($erpVariationSkus[$pid]) && (int) $row['model_id'] !== 0) {
+                $m[$pid][] = ['sku' => (string) $row['seller_sku'], 'reason' => 'on Shopee but not in the catalogue'];
+            }
+        }
+
+        return $m;
+    }
+
+    /** The product fails whole, every link row wears the sentence, nothing is sent. */
+    private function failMismatch(string $kind, int $pid, array $entries, array &$out): void
+    {
+        $message = \App\Integrations\Push\PushLedger::mismatchMessage($entries, 'Shopee');
+        $out['err']++;
+        $out['last_error'] = $message;
+        $out['outcomes'][$pid] = ['ok' => false, 'error' => Str::limit($message, 255, '')];
+        foreach ($entries as $e) {
+            $out['mismatched'][] = ['product_id' => $pid] + $e;
+        }
+        ShopeeProductLink::query()->where('product_id', $pid)->update([
+            'last_synced_at' => now(),
+            'last_sync_action' => $kind === 'price' ? 'sync_price' : 'sync_qty',
+            'last_sync_ok' => false,
+            'last_sync_error_code' => 'VARIATIONS_MISMATCH',
+            'last_sync_error_message' => Str::limit($message, 255, ''),
+        ]);
     }
 
     /**

@@ -51,6 +51,7 @@ class LazadaStockPricePush
      * @return array{
      *   ok: int, err: int, skipped: int, last_error: string,
      *   outcomes: array<int, array{ok: bool, error: ?string}>,
+     *   mismatched: list<array{product_id: int, sku: string, reason: string}>,
      *   skipped_variations: list<array{product_id: int, sku: string, reason: string}>,
      *   healed_listings: list<int>,
      * }
@@ -60,7 +61,7 @@ class LazadaStockPricePush
         $listings = collect($listings)->values();
         $out = [
             'ok' => 0, 'err' => 0, 'skipped' => 0, 'last_error' => '',
-            'outcomes' => [], 'skipped_variations' => [], 'healed_listings' => [],
+            'outcomes' => [], 'mismatched' => [], 'skipped_variations' => [], 'healed_listings' => [],
         ];
         if ($listings->isEmpty()) {
             return $out;
@@ -109,28 +110,35 @@ class LazadaStockPricePush
         $pid = (int) $listing->product_id;
         $rows = $this->resolver->buildPushItems($listing, $product, $pfx);
 
-        /* The skip ledger, both directions. */
+        /* All or nothing per product (the owner, 2026-09-07): a variant Lazada
+         * has and the catalogue lacks, or a catalogue variation Lazada
+         * lacks, fails the whole listing before any call. */
         $variantSkus = [];
-        $sendRows = [];
+        $entries = [];
         foreach ($rows as $row) {
             $variantSkus[strtolower((string) $row['seller_sku'])] = true;
             if (!($row['matched'] ?? true) && !empty($erpSkus[$pid])) {
-                $out['skipped_variations'][] = [
-                    'product_id' => $pid, 'sku' => (string) $row['seller_sku'],
-                    'reason' => 'on Lazada but not in the catalogue',
-                ];
-                continue;
+                $entries[] = ['sku' => (string) $row['seller_sku'], 'reason' => 'on Lazada but not in the catalogue'];
             }
-            $sendRows[] = $row;
         }
         foreach ($erpSkus[$pid] ?? [] as $erpSku) {
             if (!isset($variantSkus[strtolower($erpSku)])) {
-                $out['skipped_variations'][] = [
-                    'product_id' => $pid, 'sku' => $erpSku,
-                    'reason' => 'not on Lazada',
-                ];
+                $entries[] = ['sku' => $erpSku, 'reason' => 'not on Lazada'];
             }
         }
+        if ($entries !== [] && !empty($rows)) {
+            $message = PushLedger::mismatchMessage($entries, 'Lazada');
+            $out['err']++;
+            $out['last_error'] = $message;
+            $out['outcomes'][$pid] = ['ok' => false, 'error' => Str::limit($message, 255, '')];
+            foreach ($entries as $e) {
+                $out['mismatched'][] = ['product_id' => $pid] + $e;
+            }
+            $this->stamp($listing, $kind, false, 'VARIATIONS_MISMATCH', $message);
+
+            return;
+        }
+        $sendRows = $rows;
 
         if (empty($sendRows)) {
             $reason = empty($rows)

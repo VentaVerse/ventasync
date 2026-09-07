@@ -203,25 +203,36 @@ class TiktokStockPushTest extends TestCase
         $this->assertSame(['s1' => 1, 's2' => 2, 's3' => 3, 's4' => 4], $byId->all());
     }
 
-    public function test_a_legacy_map_keyed_by_option_value_id_still_resolves_to_the_combination(): void
+    /**
+     * A push from before the seller-sku map (keyed by the Colour axis's
+     * option_value_ids) is re-read from the shop and rebuilt by seller SKU
+     * before anything is sent; every combination then pushes its own
+     * figure. It used to push the axis rows' 99s through the legacy keys,
+     * which the all-or-nothing rule (2026-09-07) no longer allows: a map
+     * that cannot prove the sets match is repaired first.
+     */
+    public function test_a_legacy_map_keyed_by_option_value_id_is_rebuilt_by_seller_sku_before_the_push(): void
     {
         ['product_id' => $productId, 'ovIds' => $ovIds] = $this->seedTwoAxisProduct();
-        // A push from before the seller-sku map: keyed by the Colour axis's
-        // option_value_ids only. Red's option row has SKU TTV-RED and 99 in
-        // stock; no combination carries that SKU, so the option row answers.
         $group = TikTokProductGroup::create(['name' => 'Legacy group', 'tiktok_category_id' => '900001']);
-        TikTokProductGroupProduct::create([
+        $pivot = TikTokProductGroupProduct::create([
             'tiktok_product_group_id' => $group->id, 'product_id' => $productId,
             'tiktok_product_id' => 'tt-2', 'sync_status' => 'pushed', 'last_pushed_at' => now(),
             'tiktok_sku_id' => json_encode([$ovIds['Red'] => 'legacy-red', $ovIds['Black'] => 'legacy-black']),
         ]);
+        $this->callResponses['GET /product/202309/products/tt-2'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success', 'data' => [
+            'id' => 'tt-2', 'status' => 'ACTIVATE', 'title' => 'Two axis',
+            'skus' => array_map(fn ($sku, $id) => ['id' => $id, 'seller_sku' => $sku, 'price' => ['sale_price' => '1000'], 'inventory' => [['quantity' => 1]]],
+                ['TTV-Red-S', 'TTV-Red-M', 'TTV-Black-S', 'TTV-Black-M'], ['s1', 's2', 's3', 's4']),
+        ]]];
 
         $this->artisan('tiktok:push-stock')->assertExitCode(0);
 
         $calls = $this->callsFor('POST', '/product/202309/products/tt-2/inventory/update');
         $this->assertCount(1, $calls);
         $byId = collect($calls[0]['body']['skus'])->keyBy('id')->map(fn ($s) => $s['inventory'][0]['quantity']);
-        $this->assertSame(['legacy-red' => 99, 'legacy-black' => 99], $byId->all());
+        $this->assertSame(['s1' => 1, 's2' => 2, 's3' => 3, 's4' => 4], $byId->all());
+        $this->assertSame(['TTV-Red-S' => 's1', 'TTV-Red-M' => 's2', 'TTV-Black-S' => 's3', 'TTV-Black-M' => 's4'], json_decode((string) $pivot->fresh()->tiktok_sku_id, true));
     }
 
     public function test_the_group_page_pushes_stock_through_the_same_resolver(): void
@@ -231,7 +242,7 @@ class TiktokStockPushTest extends TestCase
         TikTokProductGroupProduct::create([
             'tiktok_product_group_id' => $group->id, 'product_id' => $productId,
             'tiktok_product_id' => 'tt-3', 'sync_status' => 'pushed', 'last_pushed_at' => now(),
-            'tiktok_sku_id' => json_encode(['TTV-Red-S' => 's1', 'TTV-Black-M' => 's4']),
+            'tiktok_sku_id' => json_encode(['TTV-Red-S' => 's1', 'TTV-Red-M' => 's2', 'TTV-Black-S' => 's3', 'TTV-Black-M' => 's4']),
         ]);
 
         $this->actingAs($this->manager())
@@ -241,7 +252,7 @@ class TiktokStockPushTest extends TestCase
         $calls = $this->callsFor('POST', '/product/202309/products/tt-3/inventory/update');
         $this->assertCount(1, $calls);
         $byId = collect($calls[0]['body']['skus'])->keyBy('id')->map(fn ($s) => $s['inventory'][0]['quantity']);
-        $this->assertSame(['s1' => 1, 's4' => 4], $byId->all());
+        $this->assertSame(['s1' => 1, 's2' => 2, 's3' => 3, 's4' => 4], $byId->all());
     }
 
     public function test_a_push_names_every_axis_on_every_sku_and_stores_the_map_by_seller_sku(): void
@@ -336,7 +347,9 @@ class TiktokStockPushTest extends TestCase
         }
         $this->callResponses['GET /product/202309/products/tt-7'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success', 'data' => ['id' => 'tt-7', 'status' => 'ACTIVATE', 'title' => 'Wide', 'skus' => $skus]]];
 
-        $this->artisan('tiktok:push-stock')->assertExitCode(0);
+        // The map is repaired and kept whole; then the product fails whole,
+        // because the shop holds eight variations the catalog does not.
+        $this->artisan('tiktok:push-stock')->assertExitCode(1);
 
         $stored = (string) $pivot->fresh()->tiktok_sku_id;
         $this->assertGreaterThan(255, strlen($stored), 'the whole map is kept, not a truncated prefix');
@@ -346,8 +359,8 @@ class TiktokStockPushTest extends TestCase
         $this->assertSame('1729000000000000001', $map['TTV-Red-S']);
         $this->assertSame('1729000000000000012', $map['TTV-Blue-XL']);
 
-        $calls = $this->callsFor('POST', '/product/202309/products/tt-7/inventory/update');
-        $this->assertCount(1, $calls);
-        $this->assertCount(4, $calls[0]['body']['skus'], 'only the catalog\'s four go up; the other eight are skipped by name');
+        $this->assertSame([], $this->callsFor('POST', '/product/202309/products/tt-7/inventory/update'), 'nothing goes up until the catalog and the shop agree');
+        $this->assertStringContainsString('TTV-Red-L (on TikTok Shop but not in the catalogue)', (string) $pivot->fresh()->push_error, 'the cron stamps the pivot, so the error filter finds the product');
+        $this->assertSame('error', $pivot->fresh()->sync_status);
     }
 }

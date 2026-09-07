@@ -4,6 +4,7 @@ namespace Extensions\tiktok\Services\TikTok;
 
 use App\Integrations\Push\PushLedger;
 use Extensions\tiktok\Models\TikTokApiLog;
+use Extensions\tiktok\Models\TikTokProductGroup;
 use Extensions\tiktok\Models\TikTokProductGroupProduct;
 
 /**
@@ -45,6 +46,7 @@ class TikTokStockPricePush
      * @return array{
      *   ok: int, err: int, skipped: int, last_error: string,
      *   outcomes: array<int, array{ok: bool, error: ?string}>,
+     *   mismatched: list<array{product_id: int, sku: string, reason: string}>,
      *   skipped_variations: list<array{product_id: int, sku: string, reason: string}>,
      *   healed_products: list<string>,
      * }
@@ -54,7 +56,7 @@ class TikTokStockPricePush
         $pivots = collect($pivots)->values();
         $out = [
             'ok' => 0, 'err' => 0, 'skipped' => 0, 'last_error' => '',
-            'outcomes' => [], 'skipped_variations' => [], 'healed_products' => [],
+            'outcomes' => [], 'mismatched' => [], 'skipped_variations' => [], 'healed_products' => [],
         ];
         if ($pivots->isEmpty()) {
             return $out;
@@ -103,17 +105,17 @@ class TikTokStockPricePush
             return;
         }
 
-        /* The skip ledger, both directions. */
+        /* All or nothing per product (the owner, 2026-09-07): a SKU the shop
+         * has and the catalogue lacks, or a catalogue variation the shop
+         * lacks, fails the whole product before any call. */
         $sentSkus = [];
         $payload = [];
         $mapSkus = [];
+        $entries = [];
         foreach ($row['skus'] as $sku) {
             $mapSkus[strtolower((string) $sku['seller_sku'])] = true;
             if (!$sku['matched'] && $sku['seller_sku'] !== '' && !empty($erpSkus[$pid])) {
-                $out['skipped_variations'][] = [
-                    'product_id' => $pid, 'sku' => (string) $sku['seller_sku'],
-                    'reason' => 'on TikTok Shop but not in the catalogue',
-                ];
+                $entries[] = ['sku' => (string) $sku['seller_sku'], 'reason' => 'on TikTok Shop but not in the catalogue'];
                 continue;
             }
             $payload[] = $kind === 'price'
@@ -126,11 +128,19 @@ class TikTokStockPricePush
         }
         foreach ($erpSkus[$pid] ?? [] as $erpSku) {
             if (!isset($mapSkus[strtolower($erpSku)])) {
-                $out['skipped_variations'][] = [
-                    'product_id' => $pid, 'sku' => $erpSku,
-                    'reason' => 'not on TikTok Shop',
-                ];
+                $entries[] = ['sku' => $erpSku, 'reason' => 'not on TikTok Shop'];
             }
+        }
+        if ($entries !== [] && !empty($row['skus'])) {
+            $message = PushLedger::mismatchMessage($entries, 'TikTok Shop');
+            $out['err']++;
+            $out['last_error'] = $message;
+            $out['outcomes'][$pid] = ['ok' => false, 'error' => mb_substr($message, 0, 255)];
+            foreach ($entries as $e) {
+                $out['mismatched'][] = ['product_id' => $pid] + $e;
+            }
+
+            return;
         }
         if (empty($payload)) {
             $out['err']++;
@@ -204,6 +214,25 @@ class TikTokStockPricePush
                 : $message;
             $out['last_error'] = $reason;
             $out['outcomes'][$pid] = ['ok' => false, 'error' => mb_substr($reason, 0, 255)];
+        }
+    }
+
+    /**
+     * Each product's verdict onto this store's group pivots, the shape the
+     * group page has always written; the crons wrote nothing here, so a
+     * failed scheduled push left no product to find (2026-09-07).
+     *
+     * @param array<int, array{ok: bool, error: ?string}> $outcomes
+     */
+    public static function recordOutcomes(string $kind, array $outcomes): void
+    {
+        foreach ($outcomes as $pid => $outcome) {
+            TikTokProductGroupProduct::query()
+                ->whereIn('tiktok_product_group_id', TikTokProductGroup::query()->select('id'))
+                ->where('product_id', (int) $pid)
+                ->update($outcome['ok']
+                    ? ['sync_status' => 'pushed', 'push_error' => null, 'last_pushed_at' => now()]
+                    : ['sync_status' => 'error', 'push_error' => mb_substr(($kind === 'price' ? 'Price push: ' : 'Stock push: ') . (string) $outcome['error'], 0, 255)]);
         }
     }
 

@@ -89,6 +89,7 @@ class TikTokPushPrice extends Command
         ];
         $this->info("Pushing prices for {$pivotRows->count()} product(s)...");
         $results = app(TikTokStockPricePush::class)->push('price', $c, $pivotRows, $pfx, self::priceRule($pivotRows));
+        TikTokStockPricePush::recordOutcomes('price', $results['outcomes']);
 
         if ($results['err'] > 0) {
             Log::warning('TikTok push-price: ' . $results['err'] . ' product(s) failed', ['last_error' => $results['last_error']]);
