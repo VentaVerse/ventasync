@@ -19,6 +19,8 @@ use Illuminate\Support\Facades\Hash;
 
 class ShopeeOrderController extends Controller
 {
+    use \App\Http\Controllers\Concerns\DrivesOrderFetchRuns;
+
     public function index(Request $request, ShopeeOrdersPanel $panel)
     {
         return view('ext-shopee::orders.index', $panel->build($request));
@@ -328,17 +330,18 @@ class ShopeeOrderController extends Controller
         ]);
     }
 
+    /**
+     * Fetch orders for a window of dates, as a run of one-page steps
+     * (App\Services\OrderFetchRunner, 2026-09-07): the first pages ride
+     * this request, the page continues the rest one request per page.
+     */
     public function fetch(Request $request, ShopeeClient $client)
     {
-        try { @set_time_limit(0); } catch (\Throwable $e) {}
-
         $data = $request->validate([
             'date_from' => 'required|date',
             'date_to' => 'required|date|after_or_equal:date_from',
             'no_stock' => 'nullable',
         ]);
-
-        $skipStock = !empty($data['no_stock']);
 
         $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
@@ -350,192 +353,145 @@ class ShopeeOrderController extends Controller
             ]);
         }
 
-        $tz = new \DateTimeZone('Asia/Manila');
+        $runner = app(\App\Services\OrderFetchRunner::class);
+        $run = $runner->begin($this->orderFetchIntegration(), $this->orderFetchStoreId($request), $data['date_from'], $data['date_to'], [
+            'no_stock' => ! empty($data['no_stock']),
+        ]);
+        $run = $runner->walk($run, fn (\App\Models\OrderFetchRun $r) => $this->orderFetchStep($r));
 
-        $timeFrom = (new \DateTime($data['date_from'], $tz))->setTime(0, 0, 0)->getTimestamp();
-        $timeTo = (new \DateTime($data['date_to'], $tz))->setTime(23, 59, 59)->getTimestamp();
-        $timeRangeField = 'create_time';
-
-        // Shopee cursor-based pagination with sliding 15-day windows
-        // (Shopee API max window is 15 days per request)
-        $allOrderSns = [];
-        $pageSize = 100;
-        $maxOrders = 5000;
-        $windowSize = 15 * 86400; // 15 days in seconds
-
-        $windowFrom = $timeFrom;
-        while ($windowFrom < $timeTo && count($allOrderSns) < $maxOrders) {
-            $windowTo = min($windowFrom + $windowSize, $timeTo);
-            $cursor = '';
-
-            while (true) {
-                $extraQuery = [
-                    'time_range_field' => $timeRangeField,
-                    'time_from'        => $windowFrom,
-                    'time_to'          => $windowTo,
-                    'page_size'        => $pageSize,
-                ];
-                if ($cursor !== '') {
-                    $extraQuery['cursor'] = $cursor;
-                }
-
-                $res = $client->shopGet(
-                    $auth['mode'],
-                    (int) $auth['partner_id'],
-                    (string) $auth['partner_key'],
-                    (string) $auth['access_token'],
-                    (int) $auth['shop_id'],
-                    '/api/v2/order/get_order_list',
-                    $extraQuery
-                );
-
-                ShopeeApiLog::safeCreate([
-                    'pack'            => 'shopee.order.get_order_list',
-                    'method'          => 'GET',
-                    'api_path'        => '/api/v2/order/get_order_list',
-                    'auth_required'   => true,
-                    'request_params'  => $extraQuery,
-                    'response_status' => (int) ($res['status'] ?? 0),
-                    'ok'              => (bool) ($res['ok'] ?? false),
-                    'response_body'   => $res['body'] ?? null,
-                ]);
-
-                if (!($res['ok'] ?? false)) {
-                    $msg = 'Shopee API error';
-                    $body = $res['body'] ?? [];
-                    if (is_array($body)) {
-                        $msg = (string) ($body['message'] ?? ($body['msg'] ?? $msg));
-                    }
-                    return redirect()->route('ext.shopee.orders.index')->with('shopee_orders_last_result', [
-                        'ok' => false,
-                        'message' => $msg,
-                    ]);
-                }
-
-                $body = $res['body'] ?? [];
-                $respData = $body['response'] ?? $body;
-                $orderList = $respData['order_list'] ?? [];
-                if (!is_array($orderList)) $orderList = [];
-
-                foreach ($orderList as $o) {
-                    $sn = (string) ($o['order_sn'] ?? '');
-                    if ($sn !== '') {
-                        $allOrderSns[] = $sn;
-                    }
-                }
-
-                $more = (bool) ($respData['more'] ?? false);
-                $cursor = (string) ($respData['next_cursor'] ?? '');
-
-                if (!$more || $cursor === '' || count($allOrderSns) >= $maxOrders) {
-                    break;
-                }
-            }
-
-            $windowFrom = $windowTo;
-        }
-
-        if (empty($allOrderSns)) {
-            return redirect()->route('ext.shopee.orders.index')->with('shopee_orders_last_result', [
-                'ok' => true,
-                'message' => 'No orders found in the given time range.',
-            ]);
-        }
-
-        // Fetch order details in batches of 50
-        $saved = 0;
-        $skipped = 0;
-        $errors = 0;
-
-        foreach (array_chunk($allOrderSns, 50) as $chunk) {
-            $detailRes = $client->shopGet(
-                $auth['mode'],
-                (int) $auth['partner_id'],
-                (string) $auth['partner_key'],
-                (string) $auth['access_token'],
-                (int) $auth['shop_id'],
-                '/api/v2/order/get_order_detail',
-                [
-                    'order_sn_list' => implode(',', $chunk),
-                    'response_optional_fields' => 'buyer_username,recipient_address,total_amount,item_list,pay_time,shipping_carrier,tracking_no,payment_method,order_chargeable_weight_gram,note,currency',
-                ]
-            );
-
-            ShopeeApiLog::safeCreate([
-                'pack'            => 'shopee.order.get_order_detail',
-                'method'          => 'GET',
-                'api_path'        => '/api/v2/order/get_order_detail',
-                'auth_required'   => true,
-                'request_params'  => ['order_sn_list' => implode(',', $chunk)],
-                'response_status' => (int) ($detailRes['status'] ?? 0),
-                'ok'              => (bool) ($detailRes['ok'] ?? false),
-                'response_body'   => $detailRes['body'] ?? null,
-            ]);
-
-            if (!($detailRes['ok'] ?? false)) {
-                $errors += count($chunk);
-                continue;
-            }
-
-            $detailBody = $detailRes['body'] ?? [];
-            $detailResp = $detailBody['response'] ?? $detailBody;
-            $detailList = $detailResp['order_list'] ?? [];
-            if (!is_array($detailList)) $detailList = [];
-
-            foreach ($detailList as $o) {
-                if (!is_array($o)) continue;
-
-                $orderSn = (string) ($o['order_sn'] ?? '');
-                if ($orderSn === '') continue;
-
-                $existing = ShopeeOrder::query()
-                    ->where('region', $auth['region'] ?? 'ph')
-                    ->where('order_sn', $orderSn)
-                    ->first();
-
-                if ($existing) {
-                    $skipped++;
-                    continue;
-                }
-
-                $status = (string) ($o['order_status'] ?? '');
-                $createdAt = $this->parseTimestamp($o['create_time'] ?? null);
-                $updatedAt = $this->parseTimestamp($o['update_time'] ?? null);
-
-                try {
-                    $newOrder = ShopeeOrder::query()->create([
-                        'region'           => $auth['region'] ?? 'ph',
-                        'order_sn'         => $orderSn,
-                        'status'           => $status,
-                        'order_created_at' => $createdAt,
-                        'order_updated_at' => $updatedAt,
-                        'raw'              => $o,
-                    ]);
-                    $saved++;
-
-                    // Sync items
-                    try {
-                        $this->syncOrderProductsFromDetail($newOrder, $o);
-                    } catch (\Throwable $e) {}
-
-                    // Sync to catalog
-                    try {
-                        (new ShopeeCatalogOrderSync)->setSkipStockAdjust($skipStock)->sync($newOrder);
-                    } catch (\Throwable $e) {}
-                } catch (\Throwable $e) {
-                    $errors++;
-                }
-            }
-        }
-
-        $finalMessage = ($saved > 0)
-            ? "Fetched {$saved} new order(s)." . ($skipped > 0 ? " {$skipped} existing skipped." : '')
-            : 'No new orders found.' . ($skipped > 0 ? " {$skipped} existing skipped." : '');
+        $message = $run->status === \App\Models\OrderFetchRun::FAILED
+            ? (string) $run->last_error
+            : \App\Services\OrderFetchRunner::outcome($run) . ($run->status === \App\Models\OrderFetchRun::RUNNING ? ' The page continues the rest.' : '');
 
         return redirect()->route('ext.shopee.orders.index')->with('shopee_orders_last_result', [
-            'ok' => true,
-            'message' => $finalMessage,
+            'ok' => $run->status !== \App\Models\OrderFetchRun::FAILED,
+            'message' => $message,
+            'run' => $run->id,
         ]);
+    }
+
+    protected function orderFetchIntegration(): string
+    {
+        return 'shopee';
+    }
+
+    protected function orderFetchStoreId(Request $request): ?int
+    {
+        return ShopeeSetting::defaultStore()?->id;
+    }
+
+    /**
+     * One page of get_order_list inside the current fifteen-day window
+     * (Shopee's largest), then the details of that page's orders in
+     * batches of fifty, saved as they arrive. The cursor is the window and
+     * Shopee's own cursor inside it; the next window begins when Shopee
+     * says there is no more in this one.
+     */
+    public function orderFetchStep(\App\Models\OrderFetchRun $run): array
+    {
+        $client = app(ShopeeClient::class);
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            return ['error' => 'This store is not connected to Shopee.'];
+        }
+        $skipStock = (bool) ($run->options['no_stock'] ?? false);
+        $tz = new \DateTimeZone('Asia/Manila');
+        $timeFrom = (new \DateTime($run->date_from->format('Y-m-d'), $tz))->setTime(0, 0, 0)->getTimestamp();
+        $timeTo = (new \DateTime($run->date_to->format('Y-m-d'), $tz))->setTime(23, 59, 59)->getTimestamp();
+        $windowSize = 15 * 86400;
+
+        $windowFrom = (int) ($run->cursor['window_from'] ?? $timeFrom);
+        $cursor = (string) ($run->cursor['cursor'] ?? '');
+        $windowTo = min($windowFrom + $windowSize, $timeTo);
+
+        $extraQuery = [
+            'time_range_field' => 'create_time',
+            'time_from' => $windowFrom,
+            'time_to' => $windowTo,
+            'page_size' => 100,
+        ];
+        if ($cursor !== '') {
+            $extraQuery['cursor'] = $cursor;
+        }
+        $res = $client->shopGet($auth['mode'], (int) $auth['partner_id'], (string) $auth['partner_key'], (string) $auth['access_token'], (int) $auth['shop_id'], '/api/v2/order/get_order_list', $extraQuery);
+        ShopeeApiLog::safeCreate([
+            'pack' => 'shopee.order.get_order_list', 'method' => 'GET', 'api_path' => '/api/v2/order/get_order_list',
+            'auth_required' => true, 'request_params' => $extraQuery,
+            'response_status' => (int) ($res['status'] ?? 0), 'ok' => (bool) ($res['ok'] ?? false), 'response_body' => $res['body'] ?? null,
+        ]);
+        $body = $res['body'] ?? [];
+        if (!($res['ok'] ?? false) || (is_array($body) && (string) ($body['error'] ?? '') !== '')) {
+            return ['error' => 'Shopee did not answer: ' . (is_array($body) ? (string) ($body['message'] ?? $body['msg'] ?? $body['error'] ?? 'no answer') : 'no answer')];
+        }
+        $respData = $body['response'] ?? $body;
+        $sns = [];
+        foreach ((array) ($respData['order_list'] ?? []) as $o) {
+            $sn = (string) ($o['order_sn'] ?? '');
+            if ($sn !== '') {
+                $sns[] = $sn;
+            }
+        }
+        $more = (bool) ($respData['more'] ?? false);
+        $nextCursor = (string) ($respData['next_cursor'] ?? '');
+
+        $created = 0;
+        $failed = 0;
+        $read = 0;
+        foreach (array_chunk($sns, 50) as $chunk) {
+            $detailRes = $client->shopGet($auth['mode'], (int) $auth['partner_id'], (string) $auth['partner_key'], (string) $auth['access_token'], (int) $auth['shop_id'], '/api/v2/order/get_order_detail', [
+                'order_sn_list' => implode(',', $chunk),
+                'response_optional_fields' => 'buyer_username,recipient_address,total_amount,item_list,pay_time,shipping_carrier,tracking_no,payment_method,order_chargeable_weight_gram,note,currency,actual_shipping_fee,estimated_shipping_fee,invoice_data,buyer_cancel_reason,cancel_by,cancel_reason,fulfillment_flag,pickup_done_time,package_list',
+            ]);
+            ShopeeApiLog::safeCreate([
+                'pack' => 'shopee.order.get_order_detail', 'method' => 'GET', 'api_path' => '/api/v2/order/get_order_detail',
+                'auth_required' => true, 'request_params' => ['order_sn_list' => implode(',', $chunk)],
+                'response_status' => (int) ($detailRes['status'] ?? 0), 'ok' => (bool) ($detailRes['ok'] ?? false), 'response_body' => $detailRes['body'] ?? null,
+            ]);
+            if (!($detailRes['ok'] ?? false)) {
+                $failed += count($chunk);
+                continue;
+            }
+            $detailBody = $detailRes['body'] ?? [];
+            $detailResp = $detailBody['response'] ?? $detailBody;
+            foreach ((array) ($detailResp['order_list'] ?? []) as $o) {
+                if (!is_array($o)) continue;
+                $orderSn = (string) ($o['order_sn'] ?? '');
+                if ($orderSn === '') continue;
+                $read++;
+                if (ShopeeOrder::query()->where('region', $auth['region'] ?? 'ph')->where('order_sn', $orderSn)->exists()) {
+                    continue; // already held: a Fetch never rewrites what Update statuses maintains
+                }
+                try {
+                    $newOrder = ShopeeOrder::query()->create([
+                        'region' => $auth['region'] ?? 'ph',
+                        'order_sn' => $orderSn,
+                        'status' => (string) ($o['order_status'] ?? ''),
+                        'order_created_at' => $this->parseTimestamp($o['create_time'] ?? null),
+                        'order_updated_at' => $this->parseTimestamp($o['update_time'] ?? null),
+                        'raw' => $o,
+                    ]);
+                    $created++;
+                    try { $this->syncOrderProductsFromDetail($newOrder, $o); } catch (\Throwable $e) {}
+                    try { (new ShopeeCatalogOrderSync)->setSkipStockAdjust($skipStock)->sync($newOrder); } catch (\Throwable $e) {}
+                } catch (\Throwable $e) {
+                    $failed++;
+                }
+            }
+        }
+
+        // Where the next page is: the same window with Shopee's cursor, else the next window, else done.
+        if ($more && $nextCursor !== '') {
+            $next = ['window_from' => $windowFrom, 'cursor' => $nextCursor];
+        } elseif ($windowTo < $timeTo) {
+            $next = ['window_from' => $windowTo, 'cursor' => ''];
+        } else {
+            $next = null;
+        }
+        $windows = (int) max(1, ceil(($timeTo - $timeFrom) / $windowSize));
+
+        return ['read' => $read, 'created' => $created, 'updated' => 0, 'failed' => $failed, 'done' => $next === null, 'cursor' => $next,
+            'note' => \App\Services\OrderFetchRunner::pageSentence($read, $created, 0, $failed) . ($windows > 1 ? ' (window ' . ((int) floor(($windowFrom - $timeFrom) / $windowSize) + 1) . ' of ' . $windows . ')' : '')];
     }
 
     public function updateStatuses(Request $request, ShopeeClient $client)

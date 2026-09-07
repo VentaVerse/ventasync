@@ -39,11 +39,15 @@ class VentaOrderSync
     /**
      * Pull orders from Venta into local venta_orders + core catalog tables.
      */
+    /** How many pages the store said it holds on the last pull; the page-driven fetch reads it. */
+    public ?int $lastTotalPages = null;
+
     public function pull(
         ?string $since = null,
         ?callable $onProgress = null,
         bool $full = false,
-        int $maxPages = 0
+        int $maxPages = 0,
+        int $startPage = 1
     ): VentaSyncLog {
         $log = VentaSyncLog::create([
             'venta_setting_id' => $this->setting->id,
@@ -61,7 +65,7 @@ class VentaOrderSync
             $this->refreshPlacements();
 
             $sinceDate = $full ? null : ($since ?? $this->resolveSinceDate());
-            $page = 1;
+            $page = max(1, $startPage);
             $perPage = 100;
             $created = 0;
             $updated = 0;
@@ -71,7 +75,7 @@ class VentaOrderSync
             $statusMap = $this->buildStatusMap();
 
             do {
-                $result = $this->client->getOrders($perPage, $sinceDate);
+                $result = $this->client->getOrders($perPage, $sinceDate, null, $page);
 
                 if (!$result['ok']) {
                     throw new \RuntimeException('API error: ' . json_encode($result['body']));
@@ -79,6 +83,7 @@ class VentaOrderSync
 
                 $orders = $result['body']['data'] ?? [];
                 $lastPage = $result['body']['meta']['last_page'] ?? 1;
+                $this->lastTotalPages = (int) $lastPage;
 
                 foreach ($orders as $raw) {
                     try {
@@ -112,7 +117,7 @@ class VentaOrderSync
 
                 $page++;
                 $hasMore = $page <= $lastPage;
-                if ($maxPages > 0 && ($page - 1) >= $maxPages) {
+                if ($maxPages > 0 && ($page - max(1, $startPage)) >= $maxPages) {
                     $hasMore = false;
                 }
             } while ($hasMore);

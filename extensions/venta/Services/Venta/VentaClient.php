@@ -248,9 +248,9 @@ class VentaClient
 
     // ── Convenience: Orders ──────────────────────────────────
 
-    public function getOrders(int $perPage = 20, ?string $since = null, ?int $statusId = null): array
+    public function getOrders(int $perPage = 20, ?string $since = null, ?int $statusId = null, int $page = 1): array
     {
-        $params = ['per_page' => $perPage];
+        $params = ['per_page' => $perPage, 'page' => max(1, $page)];
         if ($since) $params['since'] = $since;
         if ($statusId) $params['status_id'] = $statusId;
         return $this->get('orders', $params);

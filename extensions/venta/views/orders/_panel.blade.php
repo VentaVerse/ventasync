@@ -279,6 +279,8 @@
                 <x-ui.hint>Fetching pulls the orders this store created between those two dates.</x-ui.hint>
             </div>
         </form>
+        <x-channel.order-fetch integration="venta" :store-id="(int) $storeId" form-id="formFetchVentaOrders" channel-label="Venta"
+            :begin-url="route('ext.venta.orders.fetch_run_begin', ['store' => $storeId])" :step-url="route('ext.venta.orders.fetch_run_step', ['store' => $storeId, 'run' => 0])" :stop-url="route('ext.venta.orders.fetch_run_stop', ['store' => $storeId, 'run' => 0])" :state-url="route('ext.venta.orders.fetch_run_state', ['store' => $storeId, 'run' => 0])" />
         </div>
     </x-ui.foldout>
 @endif

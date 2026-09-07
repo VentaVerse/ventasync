@@ -199,6 +199,11 @@ Route::middleware(['auth', \Extensions\tiktok\Http\ResolveTikTokStore::class])
     // ── TikTok Orders — WRITE (sync, ship) ──────────────────────
     Route::group([], function () {
         Route::post('/tiktok/{store}/orders/fetch', [TikTokOrderController::class, 'fetch'])->name('ext.tiktok.orders.fetch');
+        // The page-driven fetch (2026-09-07): begin, step, stop, state. Same permission as orders.fetch.
+        Route::post('/tiktok/{store}/orders/fetch-runs', [TikTokOrderController::class, 'fetchRunBegin'])->name('ext.tiktok.orders.fetch_run_begin');
+        Route::post('/tiktok/{store}/orders/fetch-runs/{run}/step', [TikTokOrderController::class, 'fetchRunStep'])->whereNumber('run')->name('ext.tiktok.orders.fetch_run_step');
+        Route::post('/tiktok/{store}/orders/fetch-runs/{run}/stop', [TikTokOrderController::class, 'fetchRunStop'])->whereNumber('run')->name('ext.tiktok.orders.fetch_run_stop');
+        Route::get('/tiktok/{store}/orders/fetch-runs/{run}', [TikTokOrderController::class, 'fetchRunState'])->whereNumber('run')->name('ext.tiktok.orders.fetch_run_state');
         Route::post('/tiktok/{store}/orders/returns/fetch', [TikTokOrderController::class, 'fetchReturns'])->name('ext.tiktok.orders.fetch_returns');
         Route::post('/tiktok/{store}/orders/update-statuses', [TikTokOrderController::class, 'updateStatuses'])->name('ext.tiktok.orders.updateStatuses');
         Route::post('/tiktok/{store}/orders/{id}/ship', [TikTokOrderController::class, 'shipOrder'])->name('ext.tiktok.orders.ship');

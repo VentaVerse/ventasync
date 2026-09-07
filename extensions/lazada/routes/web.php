@@ -240,6 +240,11 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
     Route::group([], function () {
         Route::post('/lazada/{store}/orders/returns/fetch', [LazadaOrderController::class, 'fetchReturns'])->name('ext.lazada.orders.fetch_returns');
         Route::post('/lazada/{store}/orders/fetch', [LazadaOrderController::class, 'fetch'])->name('ext.lazada.orders.fetch');
+        // The page-driven fetch (2026-09-07): begin, step, stop, state. Same permission as orders.fetch.
+        Route::post('/lazada/{store}/orders/fetch-runs', [LazadaOrderController::class, 'fetchRunBegin'])->name('ext.lazada.orders.fetch_run_begin');
+        Route::post('/lazada/{store}/orders/fetch-runs/{run}/step', [LazadaOrderController::class, 'fetchRunStep'])->whereNumber('run')->name('ext.lazada.orders.fetch_run_step');
+        Route::post('/lazada/{store}/orders/fetch-runs/{run}/stop', [LazadaOrderController::class, 'fetchRunStop'])->whereNumber('run')->name('ext.lazada.orders.fetch_run_stop');
+        Route::get('/lazada/{store}/orders/fetch-runs/{run}', [LazadaOrderController::class, 'fetchRunState'])->whereNumber('run')->name('ext.lazada.orders.fetch_run_state');
         Route::post('/lazada/{store}/orders/update-statuses', [LazadaOrderController::class, 'updateStatuses'])->name('ext.lazada.orders.update_statuses');
         Route::post('/lazada/{store}/orders/reset', [LazadaOrderController::class, 'reset'])->name('ext.lazada.orders.reset');
         Route::post('/lazada/{store}/orders/{orderId}/pack', [LazadaOrderController::class, 'pack'])->name('ext.lazada.orders.pack');

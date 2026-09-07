@@ -395,6 +395,8 @@
                 <x-ui.hint>Fetch pulls the orders created between these dates. Update statuses uses the same two dates, so both are required.</x-ui.hint>
             </div>
         </form>
+        <x-channel.order-fetch integration="lazada" :store-id="\Extensions\lazada\Models\LazadaSetting::defaultStore()?->id" form-id="formFetchLazadaOrders" channel-label="Lazada"
+            :begin-url="route('ext.lazada.orders.fetch_run_begin')" :step-url="route('ext.lazada.orders.fetch_run_step', ['run' => 0])" :stop-url="route('ext.lazada.orders.fetch_run_stop', ['run' => 0])" :state-url="route('ext.lazada.orders.fetch_run_state', ['run' => 0])" />
         </div>
     </x-ui.foldout>
 @endif

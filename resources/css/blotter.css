@@ -112,6 +112,7 @@
 @import './components/inline-input.css' layer(vocabulary);
 @import './components/currency-dual.css' layer(vocabulary);
 @import './components/currency-rate.css' layer(vocabulary);
+@import './components/order-fetch.css' layer(vocabulary);
 @import './components/typeahead.css' layer(vocabulary);
 @import './components/nav-progress.css' layer(vocabulary);
 @import './components/permission-pill.css' layer(vocabulary);

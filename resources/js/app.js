@@ -5,6 +5,7 @@ import './permission-pill';
 import './credential-mask';
 import './confirm-modal';
 import './busy-overlay';
+import './channel-order-fetch';
 import './thumb-fallback';
 import './plot-readout';
 import './list-filters';

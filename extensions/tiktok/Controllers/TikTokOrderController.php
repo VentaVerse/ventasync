@@ -20,6 +20,8 @@ use Illuminate\Http\Request;
 
 class TikTokOrderController extends Controller
 {
+    use \App\Http\Controllers\Concerns\DrivesOrderFetchRuns;
+
     private function creds(): array
     {
         $s = TikTokSetting::defaultStore();
@@ -146,128 +148,119 @@ class TikTokOrderController extends Controller
         ]);
     }
 
+    /**
+     * Fetch orders for a window of dates, as a run of one-page steps
+     * (App\Services\OrderFetchRunner, 2026-09-07): the first pages ride
+     * this request, the page continues the rest one request per page.
+     */
     public function fetch(Request $request)
     {
-        try { @set_time_limit(0); } catch (\Throwable $e) {}
-
         $data = $request->validate([
             'date_from' => 'required|date',
             'date_to'   => 'required|date|after_or_equal:date_from',
         ]);
 
+        $runner = app(\App\Services\OrderFetchRunner::class);
+        $run = $runner->begin($this->orderFetchIntegration(), $this->orderFetchStoreId($request), $data['date_from'], $data['date_to'], []);
+        $run = $runner->walk($run, fn (\App\Models\OrderFetchRun $r) => $this->orderFetchStep($r));
+
+        $message = $run->status === \App\Models\OrderFetchRun::FAILED
+            ? (string) $run->last_error
+            : \App\Services\OrderFetchRunner::outcome($run) . ($run->status === \App\Models\OrderFetchRun::RUNNING ? ' The page continues the rest.' : '');
+
+        return redirect()->route('ext.tiktok.orders.index')
+            ->with('tiktok_orders_last_result', ['ok' => $run->status !== \App\Models\OrderFetchRun::FAILED, 'message' => $message, 'run' => $run->id]);
+    }
+
+    protected function orderFetchIntegration(): string
+    {
+        return 'tiktok';
+    }
+
+    protected function orderFetchStoreId(Request $request): ?int
+    {
+        return \Extensions\tiktok\Models\TikTokSetting::defaultStore()?->id;
+    }
+
+    /**
+     * One page of the orders search for the run's window (fifty orders,
+     * full detail with line items), saved as it arrives. The cursor is
+     * TikTok's next_page_token.
+     */
+    public function orderFetchStep(\App\Models\OrderFetchRun $run): array
+    {
         $c = $this->creds();
+        if (!$c) {
+            return ['error' => 'This store is not connected to TikTok Shop.'];
+        }
         $client = new TikTokClient();
-
         $tz = new \DateTimeZone('Asia/Manila');
-        $from = (new \DateTime($data['date_from'], $tz))->setTime(0, 0, 0)->getTimestamp();
-        $to = (new \DateTime($data['date_to'], $tz))->setTime(23, 59, 59)->getTimestamp();
+        $from = (new \DateTime($run->date_from->format('Y-m-d'), $tz))->setTime(0, 0, 0)->getTimestamp();
+        $to = (new \DateTime($run->date_to->format('Y-m-d'), $tz))->setTime(23, 59, 59)->getTimestamp();
+        $token = (string) ($run->cursor['token'] ?? '');
 
-        $allOrders = [];
-        $nextToken = '';
-        $pageSize = 50;
-        $pages = 0;
-        $maxPages = 20;
-
-        // Search returns full order details including line items
-        while ($pages < $maxPages) {
-            $body = [
-                'create_time_ge' => $from,
-                'create_time_lt' => $to,
-            ];
-            if ($nextToken !== '') {
-                $body['next_page_token'] = $nextToken;
-            }
-
-            $result = $client->searchOrders($c['app_key'], $c['app_secret'], $c['token'], $pageSize, $body, $c['shop_cipher']);
-            $this->logApi('POST', '/order/202309/orders/search', $result);
-
-            $apiCode = (int) ($result['body']['code'] ?? -1);
-            if ($apiCode !== 0) {
-                $msg = $result['body']['message'] ?? 'Unknown error';
-                return redirect()->route('ext.tiktok.orders.index')
-                    ->with('tiktok_orders_last_result', ['ok' => false, 'message' => 'Search orders failed: ' . $msg]);
-            }
-
-            $orderList = $result['body']['data']['orders'] ?? [];
-            $allOrders = array_merge($allOrders, $orderList);
-
-            $nextToken = $result['body']['data']['next_page_token'] ?? '';
-            if ($nextToken === '' || count($orderList) < $pageSize) {
-                break;
-            }
-            $pages++;
+        $body = ['create_time_ge' => $from, 'create_time_lt' => $to];
+        if ($token !== '') {
+            $body['next_page_token'] = $token;
         }
-
-        if (empty($allOrders)) {
-            return redirect()->route('ext.tiktok.orders.index')
-                ->with('tiktok_orders_last_result', ['ok' => true, 'message' => 'No orders found in date range.']);
+        $result = $client->searchOrders($c['app_key'], $c['app_secret'], $c['token'], 50, $body, $c['shop_cipher']);
+        $this->logApi('POST', '/order/202309/orders/search', $result);
+        if ((int) ($result['body']['code'] ?? -1) !== 0) {
+            return ['error' => 'TikTok Shop did not answer: ' . (string) ($result['body']['message'] ?? 'no answer')];
         }
+        $orders = (array) ($result['body']['data']['orders'] ?? []);
+        $nextToken = (string) ($result['body']['data']['next_page_token'] ?? '');
+        $total = isset($result['body']['data']['total_count']) ? (int) $result['body']['data']['total_count'] : null;
 
-        $saved = 0;
+        $created = 0;
         $updated = 0;
+        $read = 0;
         $catalogSync = new TikTokCatalogOrderSync();
-
-        foreach ($allOrders as $o) {
+        foreach ($orders as $o) {
             $orderId = (string) ($o['id'] ?? '');
             if ($orderId === '') continue;
-
+            $read++;
             $status = $o['status'] ?? null;
-            $createdAt = isset($o['create_time']) ? \Carbon\Carbon::createFromTimestamp((int) $o['create_time']) : null;
-            $updatedAt = isset($o['update_time']) ? \Carbon\Carbon::createFromTimestamp((int) $o['update_time']) : null;
-
-            $buyer = $o['recipient_address']['name'] ?? '';
-
-            $existing = TikTokOrder::where('order_id', $orderId)->first();
-
             $orderData = [
-                'region'           => $c['setting']->region ?? 'PH',
-                'order_id'         => $orderId,
-                'status'           => $status,
-                'order_created_at' => $createdAt,
-                'order_updated_at' => $updatedAt,
-                'raw'              => $o,
-                'buyer_name'       => $buyer,
+                'region' => $c['setting']->region ?? 'PH',
+                'order_id' => $orderId,
+                'status' => $status,
+                'order_created_at' => isset($o['create_time']) ? \Carbon\Carbon::createFromTimestamp((int) $o['create_time']) : null,
+                'order_updated_at' => isset($o['update_time']) ? \Carbon\Carbon::createFromTimestamp((int) $o['update_time']) : null,
+                'raw' => $o,
+                'buyer_name' => $o['recipient_address']['name'] ?? '',
             ];
-
+            $existing = TikTokOrder::where('order_id', $orderId)->first();
             if ($existing) {
                 $existing->update($orderData);
                 $dbOrder = $existing;
                 $updated++;
             } else {
                 $dbOrder = TikTokOrder::create($orderData);
-                $saved++;
+                $created++;
             }
-
-            // Sync line items
-            $lineItems = $o['line_items'] ?? [];
             $existingItemIds = $dbOrder->products()->pluck('order_line_item_id')->toArray();
-
-            foreach ($lineItems as $li) {
+            foreach ((array) ($o['line_items'] ?? []) as $li) {
                 $lineItemId = (string) ($li['id'] ?? '');
                 $itemData = [
-                    'tiktok_order_id'   => $dbOrder->id,
-                    'order_line_item_id'=> $lineItemId,
-                    'sku'               => $li['seller_sku'] ?? $li['sku_id'] ?? '',
-                    'name'              => $li['product_name'] ?? '',
-                    'variation'         => $li['sku_name'] ?? '',
-                    'quantity'          => (int) ($li['quantity'] ?? 1),
-                    'item_price'        => (float) ($li['original_price'] ?? 0),
-                    'sale_price'        => (float) ($li['sale_price'] ?? 0),
-                    'status'            => $li['display_status'] ?? $status,
-                    'image'             => $li['sku_image'] ?? $li['product_image'] ?? '',
-                    'raw'               => $li,
+                    'tiktok_order_id' => $dbOrder->id,
+                    'order_line_item_id' => $lineItemId,
+                    'sku' => $li['seller_sku'] ?? $li['sku_id'] ?? '',
+                    'name' => $li['product_name'] ?? '',
+                    'variation' => $li['sku_name'] ?? '',
+                    'quantity' => (int) ($li['quantity'] ?? 1),
+                    'item_price' => (float) ($li['original_price'] ?? 0),
+                    'sale_price' => (float) ($li['sale_price'] ?? 0),
+                    'status' => $li['display_status'] ?? $status,
+                    'image' => $li['sku_image'] ?? $li['product_image'] ?? '',
+                    'raw' => $li,
                 ];
-
                 if (in_array($lineItemId, $existingItemIds)) {
-                    TikTokOrderProduct::where('tiktok_order_id', $dbOrder->id)
-                        ->where('order_line_item_id', $lineItemId)
-                        ->update($itemData);
+                    TikTokOrderProduct::where('tiktok_order_id', $dbOrder->id)->where('order_line_item_id', $lineItemId)->update($itemData);
                 } else {
                     TikTokOrderProduct::create($itemData);
                 }
             }
-
-            // Sync to core ERP catalog order (stock deduction + FCM + history)
             try {
                 $dbOrder->refresh();
                 $catalogSync->sync($dbOrder);
@@ -275,15 +268,16 @@ class TikTokOrderController extends Controller
                 \Log::warning('TikTok catalog sync failed for order ' . $orderId . ': ' . $e->getMessage());
             }
         }
-
-        // Update last sync timestamp
         $c['setting']->update(['last_order_sync_at' => now()]);
 
-        return redirect()->route('ext.tiktok.orders.index')
-            ->with('tiktok_orders_last_result', [
-                'ok' => true,
-                'message' => "Fetched " . count($allOrders) . " order(s). Saved: {$saved}, Updated: {$updated}.",
-            ]);
+        $done = $nextToken === '' || $orders === [];
+        $answer = ['read' => $read, 'created' => $created, 'updated' => $updated, 'failed' => 0, 'done' => $done, 'cursor' => $done ? null : ['token' => $nextToken]];
+        if ($total !== null) {
+            $answer['total'] = $total;
+            $answer['pages'] = (int) max(1, ceil($total / 50));
+        }
+
+        return $answer;
     }
 
     public function updateStatuses(Request $request)

@@ -174,6 +174,11 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
 // ── Venta Orders — WRITES ───────────────────────────────────────
 Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::post('/venta/{store}/orders/fetch', [VentaOrderController::class, 'fetch'])->name('ext.venta.orders.fetch');
+    // The page-driven fetch (2026-09-07): begin, step, stop, state. Same permission as orders.fetch.
+    Route::post('/venta/{store}/orders/fetch-runs', [VentaOrderController::class, 'fetchRunBegin'])->name('ext.venta.orders.fetch_run_begin');
+    Route::post('/venta/{store}/orders/fetch-runs/{run}/step', [VentaOrderController::class, 'fetchRunStep'])->whereNumber('run')->name('ext.venta.orders.fetch_run_step');
+    Route::post('/venta/{store}/orders/fetch-runs/{run}/stop', [VentaOrderController::class, 'fetchRunStop'])->whereNumber('run')->name('ext.venta.orders.fetch_run_stop');
+    Route::get('/venta/{store}/orders/fetch-runs/{run}', [VentaOrderController::class, 'fetchRunState'])->whereNumber('run')->name('ext.venta.orders.fetch_run_state');
 
     // Courier fulfilment writes (#168). Estimate creates nothing but is a
     // POST carrying the booking options, and quoting a fee is the packer's

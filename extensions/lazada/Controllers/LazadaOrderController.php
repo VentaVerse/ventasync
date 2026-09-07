@@ -24,6 +24,8 @@ use Illuminate\Support\Str;
 
 class LazadaOrderController extends Controller
 {
+    use \App\Http\Controllers\Concerns\DrivesOrderFetchRuns;
+
     public function index(Request $request, LazadaOrdersPanel $panel)
     {
         return view('ext-lazada::orders.index', $panel->build($request));
@@ -1495,11 +1497,15 @@ class LazadaOrderController extends Controller
     }
 
 
+    /**
+     * Fetch orders for a window of dates. Since 2026-09-07 this is a run
+     * of one-page steps (App\Services\OrderFetchRunner): the form post
+     * reads the first few pages here and the page continues the rest, one
+     * request per page, so a fourteen-day fetch on a busy store never
+     * meets the server's limit and every page is saved when it arrives.
+     */
     public function fetch(Request $request, LazadaClient $client)
     {
-        // Long-running network operations (best-effort; may be ignored by host settings)
-        try { @set_time_limit(0); } catch (\Throwable $e) {}
-
         $data = $request->validate([
             'date_from' => 'required|date',
             'date_to' => 'required|date|after_or_equal:date_from',
@@ -1507,10 +1513,6 @@ class LazadaOrderController extends Controller
             'no_stock' => 'nullable',
         ]);
 
-        $skipStock = !empty($data['no_stock']);
-
-        // Decrypt Lazada credentials via model method, then resolve which
-        // credential set (sandbox vs live) the current mode toggle wants.
         $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || empty($creds['complete'])) {
@@ -1521,172 +1523,133 @@ class LazadaOrderController extends Controller
             ]);
         }
 
-        $tz = new \DateTimeZone('Asia/Manila');
+        $runner = app(\App\Services\OrderFetchRunner::class);
+        $run = $runner->begin($this->orderFetchIntegration(), $this->orderFetchStoreId($request), $data['date_from'], $data['date_to'], [
+            'status' => $data['status'] ?? null, 'no_stock' => ! empty($data['no_stock']),
+        ]);
+        $run = $runner->walk($run, fn (\App\Models\OrderFetchRun $r) => $this->orderFetchStep($r));
 
-// Lazada GetOrders is paginated and Limit has a hard maximum of 100.
-$pageLimit = 100;
-$maxOrdersPerRun = 2000;
-
-$baseParams = [
-    'limit' => $pageLimit,
-];
-
-$createdAfter = (new \DateTime($data['date_from'], $tz))
-    ->setTime(0, 0, 0)
-    ->format('Y-m-d\\TH:i:sP');
-$createdBefore = (new \DateTime($data['date_to'], $tz))
-    ->setTime(23, 59, 59)
-    ->format('Y-m-d\\TH:i:sP');
-
-$baseParams['created_after'] = $createdAfter;
-$baseParams['created_before'] = $createdBefore;
+        $redirectParams = ['date_from' => $data['date_from'], 'date_to' => $data['date_to']];
         if (!empty($data['status'])) {
-            $baseParams['status'] = $data['status'];
+            $redirectParams['status'] = $data['status'];
+        }
+        $message = $run->status === \App\Models\OrderFetchRun::FAILED
+            ? (string) $run->last_error
+            : \App\Services\OrderFetchRunner::outcome($run) . ($run->status === \App\Models\OrderFetchRun::RUNNING ? ' The page continues the rest.' : '');
+
+        return redirect()->route('ext.lazada.orders.index', $redirectParams)
+            ->with('lazada_orders_last_result', [
+                'ok' => $run->status !== \App\Models\OrderFetchRun::FAILED,
+                'message' => $message,
+                'saved' => (int) $run->created,
+                'skipped' => 0,
+                'run' => $run->id,
+            ]);
+    }
+
+    protected function orderFetchIntegration(): string
+    {
+        return 'lazada';
+    }
+
+    protected function orderFetchStoreId(Request $request): ?int
+    {
+        return LazadaSetting::defaultStore()?->id;
+    }
+
+    /**
+     * One page of /orders/get for the run's window, saved as it arrives.
+     * Lazada pages by offset with a hard limit of 100; a page shorter than
+     * the limit is the last. The cursor is the offset.
+     */
+    public function orderFetchStep(\App\Models\OrderFetchRun $run): array
+    {
+        $client = app(LazadaClient::class);
+        $setting = LazadaSetting::defaultStore()?->decrypted();
+        $creds = LazadaSetting::activeCredentials($setting);
+        if (!$setting || !$setting->region || empty($creds['complete'])) {
+            return ['error' => 'This store is not connected to Lazada.'];
+        }
+        $skipStock = (bool) ($run->options['no_stock'] ?? false);
+        $tz = new \DateTimeZone('Asia/Manila');
+        $pageLimit = 100;
+        $offset = (int) ($run->cursor['offset'] ?? 0);
+        $params = [
+            'limit' => $pageLimit,
+            'offset' => $offset,
+            'created_after' => (new \DateTime($run->date_from->format('Y-m-d'), $tz))->setTime(0, 0, 0)->format('Y-m-d\\TH:i:sP'),
+            'created_before' => (new \DateTime($run->date_to->format('Y-m-d'), $tz))->setTime(23, 59, 59)->format('Y-m-d\\TH:i:sP'),
+        ];
+        if (!empty($run->options['status'])) {
+            $params['status'] = (string) $run->options['status'];
         }
 
-        // Pull pages until exhausted.
-        $orders = [];
-        $res = null;
-        $hitMaxOrdersCap = false;
-        $offset = 0;
-        while (true) {
-            $params = $baseParams;
-            $params['offset'] = $offset;
-
-            $res = $this->runSignedApiCall(
-                $client,
-                $setting->region,
-                $creds['app_key'],
-                $creds['app_secret'],
-                $creds['access_token'],
-                'GET',
-                '/orders/get',
-                true,
-                $params,
-                'lazada.orders.get'
-            );
-
-            $body = $res['body'] ?? [];
-            $pageOrders = [];
-            if (($res['ok'] ?? false) && is_array($body)) {
-                $dataNode = $body['data'] ?? $body;
-                $pageOrders = $dataNode['orders'] ?? $dataNode['order_list'] ?? $dataNode['orders_list'] ?? $dataNode['data'] ?? [];
-                if (!is_array($pageOrders)) $pageOrders = [];
-            }
-
-            // If the API returned an error, stop paging and bubble the message.
-            if (!($res['ok'] ?? false)) {
-                break;
-            }
-
-            $orders = array_merge($orders, $pageOrders);
-
-            // Safety guard: if there are too many orders in this range, stop and ask user to narrow.
-            if (count($orders) >= $maxOrdersPerRun) {
-                $hitMaxOrdersCap = true;
-                break;
-            }
-
-            // stop if fewer than limit returned
-            if (count($pageOrders) < $pageLimit) {
-                break;
-            }
-
-            $offset += $pageLimit;
-        }
-
+        $res = $this->runSignedApiCall($client, $setting->region, $creds['app_key'], $creds['app_secret'], $creds['access_token'], 'GET', '/orders/get', true, $params, 'lazada.orders.get');
         $body = $res['body'] ?? [];
+        if (!($res['ok'] ?? false)) {
+            return ['error' => 'Lazada did not answer: ' . (is_array($body) ? (string) ($body['message'] ?? $body['msg'] ?? 'no answer') : 'no answer')];
+        }
+        $dataNode = is_array($body) ? ($body['data'] ?? $body) : [];
+        $pageOrders = $dataNode['orders'] ?? $dataNode['order_list'] ?? $dataNode['orders_list'] ?? $dataNode['data'] ?? [];
+        if (!is_array($pageOrders)) {
+            $pageOrders = [];
+        }
+        $total = isset($dataNode['countTotal']) ? (int) $dataNode['countTotal'] : (isset($dataNode['count']) ? (int) $dataNode['count'] : null);
 
-        // Persist orders so they remain after refresh
-        $saved = 0;
+        $created = 0;
         $updated = 0;
-        $skipped = 0;
-
-        foreach ($orders as $o) {
+        $read = 0;
+        foreach ($pageOrders as $o) {
             if (!is_array($o)) continue;
-
-            // IMPORTANT: Lazada item APIs (e.g., /order/items/get) expect the numeric `order_id`.
-            // Prefer `order_id` and fall back to `order_number` only if needed.
-            $orderId = (string)($o['order_id'] ?? $o['orderId'] ?? $o['order_number'] ?? $o['orderNumber'] ?? '');
+            $orderId = (string) ($o['order_id'] ?? $o['orderId'] ?? $o['order_number'] ?? $o['orderNumber'] ?? '');
             if ($orderId === '') continue;
-
+            $read++;
             $statusVal = $o['statuses'] ?? $o['status'] ?? $o['order_status'] ?? null;
             if (is_array($statusVal)) {
                 $statusVal = $statusVal[0] ?? null;
             }
-
-            $createdAt = $o['created_at'] ?? $o['createdAt'] ?? $o['created_time'] ?? null;
-            $updatedAt = $o['updated_at'] ?? $o['updatedAt'] ?? $o['update_time'] ?? null;
-
             $payload = [
                 'region' => $setting->region,
                 'order_id' => $orderId,
                 'status' => is_string($statusVal) ? $statusVal : null,
-                'order_created_at' => $this->parseApiDatetime($createdAt),
-                'order_updated_at' => $this->parseApiDatetime($updatedAt),
+                'order_created_at' => $this->parseApiDatetime($o['created_at'] ?? $o['createdAt'] ?? $o['created_time'] ?? null),
+                'order_updated_at' => $this->parseApiDatetime($o['updated_at'] ?? $o['updatedAt'] ?? $o['update_time'] ?? null),
                 'raw' => $o,
             ];
-
-            $existing = LazadaOrder::query()
-                ->where('region', $setting->region)
-                ->where('order_id', $orderId)
-                ->first();
-
+            $existing = LazadaOrder::query()->where('region', $setting->region)->where('order_id', $orderId)->first();
             if ($existing) {
                 $oldStatus = $existing->status;
                 $existing->fill($payload)->save();
                 $updated++;
-                // Re-sync products when status changed OR shipping data is missing
                 $needsProductSync = ($oldStatus !== $existing->status);
                 if (!$needsProductSync) {
                     $firstProduct = $existing->products()->first();
                     $fpRaw = $firstProduct ? ($firstProduct->raw ?? []) : [];
                     $needsProductSync = !$firstProduct
-                        || trim((string)($fpRaw['shipment_provider'] ?? '')) === ''
-                        || trim((string)($fpRaw['tracking_code'] ?? '')) === '';
+                        || trim((string) ($fpRaw['shipment_provider'] ?? '')) === ''
+                        || trim((string) ($fpRaw['tracking_code'] ?? '')) === '';
                 }
                 if ($needsProductSync) {
                     try { $this->syncOrderProductsFromApi($client, $setting, $existing); } catch (\Throwable $e) {}
                 }
                 try { (new LazadaCatalogOrderSync)->setSkipStockAdjust($skipStock)->sync($existing); } catch (\Throwable $e) {}
                 continue;
-            } else {
-                $newOrder = LazadaOrder::query()->create($payload);
-                $saved++;
-                // Best-effort sync of products for this order.
-                try { $this->syncOrderProductsFromApi($client, $setting, $newOrder); } catch (\Throwable $e) {}
-                // Sync to catalog order tables
-                try { (new LazadaCatalogOrderSync)->setSkipStockAdjust($skipStock)->sync($newOrder); } catch (\Throwable $e) {}
             }
+            $newOrder = LazadaOrder::query()->create($payload);
+            $created++;
+            try { $this->syncOrderProductsFromApi($client, $setting, $newOrder); } catch (\Throwable $e) {}
+            try { (new LazadaCatalogOrderSync)->setSkipStockAdjust($skipStock)->sync($newOrder); } catch (\Throwable $e) {}
         }
 
-        $redirectParams = [];
-if ($hasFrom && $hasTo) {
-    $redirectParams['date_from'] = $data['date_from'];
-    $redirectParams['date_to'] = $data['date_to'];
-}
-if (!empty($data['status'])) {
-    $redirectParams['status'] = $data['status'];
-}
-
-        $finalMessage = ($res['ok'] ?? false)
-            ? (($saved > 0 || $updated > 0) ? "Fetched {$saved} new, updated {$updated} existing order(s)." : 'No new orders found.')
-            : ($body['message'] ?? null);
-
-        if ($hitMaxOrdersCap) {
-            $finalMessage = 'Fetched the maximum ' . $maxOrdersPerRun . ' orders for this request. Please narrow the date range and fetch again to load the remaining orders.';
+        $done = count($pageOrders) < $pageLimit;
+        $answer = ['read' => $read, 'created' => $created, 'updated' => $updated, 'failed' => 0, 'done' => $done, 'cursor' => $done ? null : ['offset' => $offset + $pageLimit]];
+        if ($total !== null) {
+            $answer['total'] = $total;
+            $answer['pages'] = (int) max(1, ceil($total / $pageLimit));
         }
 
-return redirect()->route('ext.lazada.orders.index', $redirectParams)
-            ->with('lazada_orders_last_result', [
-                'ok' => (bool)($res['ok'] ?? false),
-                'message' => $finalMessage,
-                'saved' => $saved,
-                'skipped' => $skipped,
-                'raw' => $res,
-            ]);
+        return $answer;
     }
-
 
 	/**
 	 * Update status/updated_at of existing orders (and add any newly updated orders)
@@ -2717,7 +2680,8 @@ public function reset(Request $request)
 
             $rateKey = 'lazada_api_last_call:' . $region . ':' . $appKey;
             $lockKey = 'lazada_api_lock:' . $region . ':' . $appKey;
-            $minIntervalMs = 1200;
+            // The spacing is Lazada's rate limit, not a test's: a fake client answers at once.
+            $minIntervalMs = app()->runningUnitTests() ? 0 : 1200;
 
             $callOnce = function () use ($client, $region, $apiPath, &$params, $appSecret, $method) {
                 $params['sign'] = $client->sign($apiPath, $params, $appSecret);

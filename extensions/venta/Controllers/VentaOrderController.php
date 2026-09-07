@@ -15,6 +15,8 @@ use Illuminate\Http\Request;
 
 class VentaOrderController extends Controller
 {
+    use \App\Http\Controllers\Concerns\DrivesOrderFetchRuns;
+
     // ── Courier fulfilment (#168) ───────────────────────────────────────
     //
     // These live on the ORDER controller rather than one of their own so
@@ -240,42 +242,63 @@ class VentaOrderController extends Controller
         return view('ext-venta::orders.index', $panel->build($request, $store));
     }
 
+    /**
+     * Fetch orders, as a run of one-page steps (App\Services\OrderFetchRunner,
+     * 2026-09-07): the first pages ride this request, the page continues the
+     * rest one request per page.
+     */
     public function fetch(Request $request, int $store)
     {
         $setting = VentaSetting::where('id', $store)->where('enabled', true)->firstOrFail();
-        $client = new VentaClient($setting);
-        $sync = new VentaOrderSync($client, $setting);
+        $dateFrom = $request->filled('date_from') ? (string) $request->input('date_from') : now()->subDays(15)->format('Y-m-d');
+        $dateTo = $request->filled('date_to') ? (string) $request->input('date_to') : now()->format('Y-m-d');
 
-        if ($request->input('no_stock')) {
+        $runner = app(\App\Services\OrderFetchRunner::class);
+        $run = $runner->begin('venta', (int) $setting->id, $dateFrom, $dateTo, [
+            'no_stock' => (bool) $request->input('no_stock'), 'full' => (bool) $request->input('full', false),
+        ]);
+        $run = $runner->walk($run, fn (\App\Models\OrderFetchRun $r) => $this->orderFetchStep($r));
+
+        if ($run->status === \App\Models\OrderFetchRun::FAILED) {
+            return back()->with('error', 'Order sync failed: ' . ($run->last_error ?? 'Unknown error'));
+        }
+
+        return back()->with('status', \App\Services\OrderFetchRunner::outcome($run) . ($run->status === \App\Models\OrderFetchRun::RUNNING ? ' The page continues the rest.' : ''));
+    }
+
+    protected function orderFetchIntegration(): string
+    {
+        return 'venta';
+    }
+
+    protected function orderFetchStoreId(Request $request): ?int
+    {
+        return (int) $request->route('store');
+    }
+
+    /** One page of the store's orders (a hundred, each with its detail), through the same pull the automation uses. */
+    public function orderFetchStep(\App\Models\OrderFetchRun $run): array
+    {
+        $setting = VentaSetting::where('id', (int) $run->store_id)->where('enabled', true)->first();
+        if (! $setting) {
+            return ['error' => 'This Venta store is not enabled.'];
+        }
+        $sync = new VentaOrderSync(new VentaClient($setting), $setting);
+        if (! empty($run->options['no_stock'])) {
             $sync->setSkipStockAdjust(true);
         }
-
-        // Date range support: if date_from is provided, use it as the 'since' parameter
-        $since = null;
-        if ($request->filled('date_from')) {
-            $since = $request->input('date_from');
-        }
-
-        $log = $sync->pull(
-            since: $since,
-            full: (bool) $request->input('full', false)
-        );
-
+        $page = (int) ($run->cursor['page'] ?? 1);
+        $log = $sync->pull(since: $run->date_from->format('Y-m-d'), full: (bool) ($run->options['full'] ?? false), maxPages: 1, startPage: $page);
         if ($log->status === 'failed') {
-            return back()->with('error', 'Order sync failed: ' . ($log->error_message ?? 'Unknown error'));
+            return ['error' => (string) ($log->error_message ?: 'Venta did not answer.')];
         }
+        $pages = (int) ($sync->lastTotalPages ?? 1);
+        $done = $page >= $pages;
 
-        $parts = [];
-        if ($log->records_created > 0) $parts[] = "{$log->records_created} new";
-        if ($log->records_updated > 0) $parts[] = "{$log->records_updated} updated";
-        if ($log->records_failed > 0)  $parts[] = "{$log->records_failed} failed";
-        $msg = empty($parts) ? 'No new orders found.' : 'Orders synced: ' . implode(', ', $parts);
-
-        if ($since) {
-            $msg .= " (from {$since})";
-        }
-
-        return back()->with('status', $msg);
+        return [
+            'read' => (int) $log->records_processed, 'created' => (int) $log->records_created, 'updated' => (int) $log->records_updated, 'failed' => (int) $log->records_failed,
+            'done' => $done, 'cursor' => $done ? null : ['page' => $page + 1], 'pages' => $pages,
+        ];
     }
 
     public function destroy(int $store, int $order)

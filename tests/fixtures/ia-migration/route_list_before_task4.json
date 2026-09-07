@@ -601,6 +601,26 @@
     },
     {
         "method": "POST",
+        "uri": "channels/lazada/{store}/orders/fetch-runs",
+        "name": "ext.lazada.orders.fetch_run_begin"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/orders/fetch-runs/{run}",
+        "name": "ext.lazada.orders.fetch_run_state"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/orders/fetch-runs/{run}/step",
+        "name": "ext.lazada.orders.fetch_run_step"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/orders/fetch-runs/{run}/stop",
+        "name": "ext.lazada.orders.fetch_run_stop"
+    },
+    {
+        "method": "POST",
         "uri": "channels/lazada/{store}/orders/get",
         "name": "ext.lazada.orders_get"
     },
@@ -1546,6 +1566,26 @@
     },
     {
         "method": "POST",
+        "uri": "channels/shopee/{store}/orders/fetch-runs",
+        "name": "ext.shopee.orders.fetch_run_begin"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/orders/fetch-runs/{run}",
+        "name": "ext.shopee.orders.fetch_run_state"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/orders/fetch-runs/{run}/step",
+        "name": "ext.shopee.orders.fetch_run_step"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/orders/fetch-runs/{run}/stop",
+        "name": "ext.shopee.orders.fetch_run_stop"
+    },
+    {
+        "method": "POST",
         "uri": "channels/shopee/{store}/orders/reset",
         "name": "ext.shopee.orders.reset"
     },
@@ -2140,6 +2180,26 @@
         "name": "ext.tiktok.orders.fetch"
     },
     {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/orders/fetch-runs",
+        "name": "ext.tiktok.orders.fetch_run_begin"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/orders/fetch-runs/{run}",
+        "name": "ext.tiktok.orders.fetch_run_state"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/orders/fetch-runs/{run}/step",
+        "name": "ext.tiktok.orders.fetch_run_step"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/orders/fetch-runs/{run}/stop",
+        "name": "ext.tiktok.orders.fetch_run_stop"
+    },
+    {
         "method": "GET|HEAD",
         "uri": "channels/tiktok/{store}/orders/returns",
         "name": "ext.tiktok.orders.returns"
@@ -2630,6 +2690,26 @@
         "name": "ext.venta.orders.fetch"
     },
     {
+        "method": "POST",
+        "uri": "channels/venta/{store}/orders/fetch-runs",
+        "name": "ext.venta.orders.fetch_run_begin"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/venta/{store}/orders/fetch-runs/{run}",
+        "name": "ext.venta.orders.fetch_run_state"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/orders/fetch-runs/{run}/step",
+        "name": "ext.venta.orders.fetch_run_step"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/orders/fetch-runs/{run}/stop",
+        "name": "ext.venta.orders.fetch_run_stop"
+    },
+    {
         "method": "GET|HEAD",
         "uri": "channels/venta/{store}/orders/pickup-addresses",
         "name": "ext.venta.orders.pickup_addresses"
@@ -2973,6 +3053,26 @@
         "method": "POST",
         "uri": "channels/woocommerce/{store}/orders/fetch",
         "name": "ext.woocommerce.orders.fetch"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/orders/fetch-runs",
+        "name": "ext.woocommerce.orders.fetch_run_begin"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/orders/fetch-runs/{run}",
+        "name": "ext.woocommerce.orders.fetch_run_state"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/orders/fetch-runs/{run}/step",
+        "name": "ext.woocommerce.orders.fetch_run_step"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/orders/fetch-runs/{run}/stop",
+        "name": "ext.woocommerce.orders.fetch_run_stop"
     },
     {
         "method": "DELETE",

@@ -282,6 +282,11 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
     // ── Shopee Orders — WRITE (sync, ship, reset) ──────────────
     Route::group([], function () {
         Route::post('/shopee/{store}/orders/fetch', [ShopeeOrderController::class, 'fetch'])->name('ext.shopee.orders.fetch');
+        // The page-driven fetch (2026-09-07): begin, step, stop, state. Same permission as orders.fetch.
+        Route::post('/shopee/{store}/orders/fetch-runs', [ShopeeOrderController::class, 'fetchRunBegin'])->name('ext.shopee.orders.fetch_run_begin');
+        Route::post('/shopee/{store}/orders/fetch-runs/{run}/step', [ShopeeOrderController::class, 'fetchRunStep'])->whereNumber('run')->name('ext.shopee.orders.fetch_run_step');
+        Route::post('/shopee/{store}/orders/fetch-runs/{run}/stop', [ShopeeOrderController::class, 'fetchRunStop'])->whereNumber('run')->name('ext.shopee.orders.fetch_run_stop');
+        Route::get('/shopee/{store}/orders/fetch-runs/{run}', [ShopeeOrderController::class, 'fetchRunState'])->whereNumber('run')->name('ext.shopee.orders.fetch_run_state');
         Route::post('/shopee/{store}/orders/update-statuses', [ShopeeOrderController::class, 'updateStatuses'])->name('ext.shopee.orders.update_statuses');
         Route::post('/shopee/{store}/orders/reset', [ShopeeOrderController::class, 'reset'])->name('ext.shopee.orders.reset');
         Route::post('/shopee/{store}/orders/{orderSn}/ship', [ShopeeOrderController::class, 'shipOrder'])->name('ext.shopee.orders.ship');
