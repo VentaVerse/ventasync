@@ -1,15 +1,15 @@
-/* Run now in steps (the owner, 2026-09-07).
+/* Run now on the Automations tab (the owner, 2026-09-07): one shape for every
+ * automation. Pressing Run now opens a modal with a loading state; when
+ * the job ends, the modal says one sentence, success or failure, and
+ * offers OK. OK reloads the tab so the row shows its new last run.
  *
- * "Running Push Stock. It takes as long as the job takes. Please keep this
- * tab open." was a spinner over one request that did the whole job. Now
- * the Run now form is intercepted: the page asks the server to begin a run
- * (the first ten units ride that request), then asks for ten more per
- * request until the run is done, drawing "Product 20 of 200" on the strip
- * above the list. A job that cannot be walked in steps still runs whole,
- * and its outcome lands on the same strip. Stop ends the run after the
- * step in flight; everything already pushed stays pushed.
+ * Underneath, a job that can be walked in steps is driven ten units per
+ * request (see App\Services\AutomationRunner), so nothing times out; a
+ * job that cannot runs whole. The user never sees the difference, by
+ * decision: unity over a bar that only some jobs could fill honestly.
+ * Stop ends a stepped run after the step in flight and keeps what it did.
  *
- * Markup: the [data-automation-run] strip in partials/_automations_tab.
+ * Markup: the [data-automation-run] modal in partials/_automations_tab.
  */
 (function () {
     function csrf() {
@@ -25,79 +25,54 @@
             return r.json().then(function (data) { return { ok: r.ok, data: data }; }, function () { return { ok: false, data: null }; });
         });
     }
-    function singular(word) { return word.replace(/s$/, ''); }
     function url(pattern, id) { return pattern.replace(/\/0(\/|$)/, '/' + id + '$1'); }
 
     function init(root) {
         var stepUrl = root.getAttribute('data-step-url');
         var stopUrl = root.getAttribute('data-stop-url');
-        var strip = root.querySelector('[data-of-strip]');
-        var bar = root.querySelector('[data-of-bar]');
-        var fill = root.querySelector('[data-of-fill]');
-        var count = root.querySelector('[data-of-count]');
-        var pct = root.querySelector('[data-of-pct]');
-        var pulse = root.querySelector('[data-of-pulse]');
-        var verdict = root.querySelector('[data-of-verdict]');
-        var title = root.querySelector('[data-of-title]');
-        var stopBtn = root.querySelector('[data-of-stop]');
-        var closeBtn = root.querySelector('[data-of-close]');
+        var modal = root.querySelector('[data-ar-modal]');
+        var spinner = root.querySelector('[data-ar-spinner]');
+        var markDone = root.querySelector('[data-ar-mark-done]');
+        var markFailed = root.querySelector('[data-ar-mark-failed]');
+        var title = root.querySelector('[data-ar-title]');
+        var text = root.querySelector('[data-ar-text]');
+        var stopBtn = root.querySelector('[data-ar-stop]');
+        var okBtn = root.querySelector('[data-ar-ok]');
 
         var run = null;
         var jobName = '';
         var driving = false;
         var stopAsked = false;
 
-        function show() { root.hidden = false; }
-
-        function draw() {
-            show();
-            var state = run ? run.status : 'running';
-            var counted = !!(run && run.total > 0);
-            strip.setAttribute('data-state', state);
-            bar.setAttribute('data-tone', state === 'running' ? '' : state);
-            var p = 0;
-            if (counted) p = Math.min(1, run.done / run.total);
-            if (state === 'done') p = 1;
-            // A run with a count draws the bar; one without shows a pulse and nothing that pretends to measure.
-            bar.hidden = !counted && state === 'running';
-            pulse.hidden = !(state === 'running' && !counted);
-            bar.removeAttribute('data-indeterminate');
-            bar.setAttribute('aria-valuenow', String(Math.round(p * 100)));
-            fill.style.setProperty('--of-p', String(p));
-            title.textContent = (state === 'done' ? 'Ran ' : (state === 'failed' ? 'Run failed: ' : (state === 'stopped' ? 'Stopped: ' : 'Running '))) + jobName;
-            if (counted) {
-                var word = run.total === 1 ? singular(run.label) : run.label;
-                count.textContent = run.done.toLocaleString() + ' of ' + run.total.toLocaleString() + ' ' + word;
-                pct.textContent = Math.round(p * 100) + '%';
-            } else {
-                count.textContent = '';
-                pct.textContent = state === 'done' ? '100%' : '';
-            }
-            var text = state === 'running' ? '' : (root.getAttribute('data-outcome') || '');
-            verdict.textContent = text;
-            verdict.hidden = text === '';
+        function draw(state, sentence) {
+            root.classList.add('active');
+            modal.setAttribute('data-state', state);
+            spinner.hidden = state !== 'running';
+            markDone.hidden = state !== 'done';
+            markFailed.hidden = state !== 'failed';
+            title.textContent = state === 'running' ? 'Running ' + jobName
+                : (state === 'done' ? 'Ran ' + jobName : (state === 'stopped' ? 'Stopped ' + jobName : 'Run failed: ' + jobName));
+            text.textContent = state === 'running' ? 'This can take a while. Stop ends it after the current step.' : (sentence || '');
             stopBtn.hidden = state !== 'running';
-            closeBtn.hidden = state === 'running';
+            okBtn.hidden = state === 'running';
+            if (state !== 'running') okBtn.focus();
         }
 
         function apply(answer) {
             if (!answer || !answer.ok || !answer.data) {
-                run = run || { status: 'failed', done: 0, total: 0, ok: 0, failed: 0, label: 'products' };
-                run.status = 'failed';
-                root.setAttribute('data-outcome', (answer && answer.data && answer.data.message) || 'Could not reach the server. Try again in a moment.');
-                draw();
+                run = null;
+                draw('failed', (answer && answer.data && answer.data.message) || 'Could not reach the server. Try again in a moment.');
                 return;
             }
             if (answer.data.done && !answer.data.run) {
-                // A job that ran whole: its outcome, in one line.
-                run = { status: answer.data.ok ? 'done' : 'failed', done: 0, total: 0, ok: 0, failed: 0, label: 'products' };
-                root.setAttribute('data-outcome', answer.data.message || '');
-                draw();
+                run = null;
+                draw(answer.data.ok ? 'done' : 'failed', answer.data.message || '');
                 return;
             }
             run = answer.data.run;
-            root.setAttribute('data-outcome', answer.data.outcome || '');
-            draw();
+            if (run.status === 'running') { draw('running'); return; }
+            var state = run.status === 'stopped' ? 'stopped' : (run.status === 'failed' || run.failed > 0 ? 'failed' : 'done');
+            draw(state, answer.data.outcome || '');
         }
 
         function drive() {
@@ -113,17 +88,15 @@
             }, function () { driving = false; apply(null); });
         }
 
-        // Every Run now form on the tab begins a run through the page.
         Array.prototype.forEach.call(document.querySelectorAll('form[id^="automation-run-"]'), function (form) {
             form.addEventListener('submit', function (e) {
                 if (e.defaultPrevented) return;
                 e.preventDefault();
                 e.stopImmediatePropagation();
-                var nameAttr = form.getAttribute('data-busy') || '';
-                jobName = nameAttr.replace(/^Running\s+/, '') || 'this job';
+                jobName = form.getAttribute('data-run-name') || 'this job';
                 run = null;
-                root.removeAttribute('data-outcome');
-                draw();
+                stopAsked = false;
+                draw('running');
                 post(form.getAttribute('action'), {}).then(function (answer) {
                     apply(answer);
                     if (run && run.status === 'running') drive();
@@ -134,8 +107,15 @@
         root.addEventListener('click', function (e) {
             var t = e.target.closest('button');
             if (!t) return;
-            if (t.hasAttribute('data-of-stop')) { stopAsked = true; if (!driving && run && run.id) post(url(stopUrl, run.id), {}).then(apply); t.disabled = true; window.setTimeout(function () { t.disabled = false; }, 1500); }
-            else if (t.hasAttribute('data-of-close')) { window.location.reload(); }
+            if (t.hasAttribute('data-ar-stop')) {
+                stopAsked = true;
+                if (!driving && run && run.id) post(url(stopUrl, run.id), {}).then(apply);
+                t.disabled = true;
+                window.setTimeout(function () { t.disabled = false; }, 1500);
+            } else if (t.hasAttribute('data-ar-ok')) {
+                root.classList.remove('active');
+                window.location.reload();
+            }
         });
     }
 

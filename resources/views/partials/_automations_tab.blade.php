@@ -119,22 +119,6 @@
                 </div>
             @endif
 
-            {{-- Run now in steps (the owner, 2026-09-07): the strip the page draws a run
-                 on, "Product 10 of 200", with Stop and the outcome. One per tab;
-                 resources/js/automation-run.js drives it. --}}
-            <div class="of" data-automation-run data-step-url="{{ route('automations.run_step', ['run' => 0]) }}" data-stop-url="{{ route('automations.run_stop', ['run' => 0]) }}" hidden>
-                <div class="of-strip" data-of-strip role="status" aria-live="polite">
-                    <span class="of-strip__title" data-of-title>Running</span>
-                    <span class="of-strip__pulse" data-of-pulse aria-hidden="true"></span>
-                    <div class="of-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-of-bar><div class="of-bar__fill" data-of-fill></div></div>
-                    <span class="of-strip__count" data-of-count></span>
-                    <span class="of-strip__pct" data-of-pct></span>
-                    <button type="button" class="x-btn x-btn--secondary x-btn--sm" data-of-stop>Stop</button>
-                    <button type="button" class="x-btn x-btn--primary x-btn--sm" data-of-close hidden>Close</button>
-                    <span class="of-strip__verdict" data-of-verdict hidden></span>
-                </div>
-            </div>
-
             <div class="automations-list">
                 @foreach($jobs as $job)
                     @php
@@ -225,18 +209,28 @@
              (resources/js/busy-overlay.js). --}}
         @foreach($jobs as $job)
             <form id="automation-run-{{ $job->id }}" method="POST" action="{{ route('automations.run', $job->id) }}"
-                  data-busy="Running {{ $job->display_name }}">
+                  data-run-name="{{ $job->display_name }}">
                 @csrf
             </form>
         @endforeach
-        <div class="modal-backdrop" data-busy-overlay>
-            <div class="modal co-modal co-modal--sm" role="dialog" aria-modal="true" aria-live="polite">
-                <div class="cc-progress">
-                    <span class="co-spinner co-spinner--lg" aria-hidden="true"></span>
+        {{-- Run now (the owner, 2026-09-07): one shape for every automation. A
+             modal with a loading state, then one sentence, success or failure,
+             and OK. resources/js/automation-run.js drives it; the stepping
+             underneath is invisible on purpose. --}}
+        <div class="modal-backdrop" data-automation-run data-step-url="{{ route('automations.run_step', ['run' => 0]) }}" data-stop-url="{{ route('automations.run_stop', ['run' => 0]) }}">
+            <div class="modal co-modal co-modal--sm ar-modal" role="dialog" aria-modal="true" aria-live="polite" aria-labelledby="ar-modal-title" data-ar-modal data-state="running">
+                <div class="ar-modal__body">
+                    <span class="co-spinner co-spinner--lg" aria-hidden="true" data-ar-spinner></span>
+                    <span class="ar-modal__mark ar-modal__mark--done" aria-hidden="true" data-ar-mark-done hidden><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3 3 7-7"/></svg></span>
+                    <span class="ar-modal__mark ar-modal__mark--failed" aria-hidden="true" data-ar-mark-failed hidden><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></span>
                     <div>
-                        <div class="cc-progress__title" data-busy-title>Running</div>
-                        <div class="cc-progress__note">It takes as long as the job takes. Please keep this tab open.</div>
+                        <div class="ar-modal__title" id="ar-modal-title" data-ar-title>Running</div>
+                        <div class="ar-modal__text" data-ar-text></div>
                     </div>
+                </div>
+                <div class="ar-modal__foot">
+                    <button type="button" class="x-btn x-btn--secondary x-btn--sm" data-ar-stop>Stop</button>
+                    <button type="button" class="x-btn x-btn--primary x-btn--sm" data-ar-ok hidden>OK</button>
                 </div>
             </div>
         </div>
