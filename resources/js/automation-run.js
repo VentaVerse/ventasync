@@ -51,7 +51,7 @@
             modal.setAttribute('data-state', state);
             setHidden(spinner, state !== 'running');
             setHidden(markDone, state !== 'done');
-            setHidden(markFailed, state !== 'done' && state !== 'running');
+            setHidden(markFailed, state !== 'failed' && state !== 'stopped');
             title.textContent = state === 'running' ? 'Running ' + jobName
                 : (state === 'done' ? jobName + ' finished' : (state === 'stopped' ? jobName + ' stopped' : 'Run failed: ' + jobName));
             text.textContent = state === 'running' ? '' : (sentence || '');
