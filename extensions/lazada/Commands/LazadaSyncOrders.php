@@ -13,8 +13,10 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
-class LazadaSyncOrders extends Command
+class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\SteppableAutomation
 {
+    use \App\Console\Concerns\StepsOutsideArtisan;
+
     protected $signature = 'lazada:sync-orders
         {--both : Sync orders and returns (default behavior)}
         {--returns : Sync reverse orders (returns/refunds) only}
@@ -750,5 +752,77 @@ class LazadaSyncOrders extends Command
 
         $ts = strtotime($str);
         return $ts === false ? null : date('Y-m-d H:i:s', $ts);
+    }
+
+    /**
+     * Run now walks this sync one phase per request (SteppableAutomation,
+     * 2026-09-07): the bar moves per phase and store, and the page never
+     * shows the console. The job's own options (returns only, no returns)
+     * choose the phases, exactly as the scheduler would.
+     */
+    public function automationUnits(\App\Models\ScheduledJob $job): array
+    {
+        $args = $job->commandArguments();
+        $returnsOnly = ! empty($args['--returns']);
+        $skipReturns = ! empty($args['--no-returns']);
+        $units = [];
+        foreach (\Extensions\lazada\Models\LazadaSetting::enabledStores() as $store) {
+            foreach (array_values(array_filter(['orders', 'fees', 'payouts', 'returns'], fn ($p) => $returnsOnly ? $p === 'returns' : ($p !== 'returns' || ! $skipReturns))) as $phase) {
+                $units[] = $store->id . ':' . $phase;
+            }
+        }
+
+        return ['label' => 'steps', 'units' => $units];
+    }
+
+    public function automationChunk(): int
+    {
+        return 1;
+    }
+
+    public function automationStep(\App\Models\ScheduledJob $job, array $units): array
+    {
+        $this->prepareForStep($job->commandArguments());
+        $client = app(LazadaClient::class);
+        $ok = 0;
+        $failed = 0;
+        $notes = [];
+        foreach ($units as $unit) {
+            [$sid, $phase] = array_pad(explode(':', (string) $unit, 2), 2, '');
+            $store = \Extensions\lazada\Models\LazadaSetting::query()->find((int) $sid);
+            if (! $store) {
+                $failed++;
+                continue;
+            }
+            app()->instance('lazada.route-store', $store);
+            try {
+                $setting = $store->decrypted();
+                $creds = LazadaSetting::activeCredentials($setting);
+                if (! $setting || ! $setting->region || ! $creds['app_key'] || ! $creds['app_secret'] || ! $creds['access_token']) {
+                    return ['error' => 'Store ' . ($store->store_name ?: '#' . $store->id) . ' is not connected to Lazada.'];
+                }
+                if ($paused = Cache::get('lazada_sync_paused')) {
+                    return ['error' => 'Lazada sync is paused after a recent error: ' . $paused . '. It retries on its own in a few minutes.'];
+                }
+                match ($phase) {
+                    'orders' => (function () use ($client, $setting, $store) { $this->syncOrders($client, $setting); $store->forceFill(['last_order_sync_at' => now()])->save(); })(),
+                    'fees' => $this->backfillMissingFees($client, $setting),
+                    'payouts' => $this->syncPayoutStatuses($client, $setting),
+                    'returns' => (function () use ($client, $setting, $store) { $this->syncReturns($client, $setting); $store->forceFill(['last_return_sync_at' => now()])->save(); })(),
+                    default => null,
+                };
+                if ($paused = Cache::get('lazada_sync_paused')) {
+                    return ['error' => 'Lazada refused during ' . $phase . ': ' . $paused];
+                }
+                $ok++;
+            } catch (\Throwable $e) {
+                $failed++;
+                $notes[] = $phase . ': ' . \App\Support\TransportError::plain($e, 'Lazada');
+            } finally {
+                app()->forgetInstance('lazada.route-store');
+            }
+        }
+
+        return ['ok' => $ok, 'failed' => $failed, 'note' => implode('; ', array_slice($notes, 0, 2))];
     }
 }

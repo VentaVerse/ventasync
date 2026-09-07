@@ -35,6 +35,8 @@
         var bar = root.querySelector('[data-of-bar]');
         var fill = root.querySelector('[data-of-fill]');
         var count = root.querySelector('[data-of-count]');
+        var pct = root.querySelector('[data-of-pct]');
+        var pulse = root.querySelector('[data-of-pulse]');
         var verdict = root.querySelector('[data-of-verdict]');
         var title = root.querySelector('[data-of-title]');
         var stopBtn = root.querySelector('[data-of-stop]');
@@ -50,21 +52,26 @@
         function draw() {
             show();
             var state = run ? run.status : 'running';
+            var counted = !!(run && run.total > 0);
             strip.setAttribute('data-state', state);
-            var tone = state === 'running' ? '' : state;
-            bar.setAttribute('data-tone', tone);
+            bar.setAttribute('data-tone', state === 'running' ? '' : state);
             var p = 0;
-            if (run && run.total > 0) p = Math.min(1, run.done / run.total);
+            if (counted) p = Math.min(1, run.done / run.total);
             if (state === 'done') p = 1;
-            if (run && run.total > 0) bar.removeAttribute('data-indeterminate'); else bar.setAttribute('data-indeterminate', '');
+            // A run with a count draws the bar; one without shows a pulse and nothing that pretends to measure.
+            bar.hidden = !counted && state === 'running';
+            pulse.hidden = !(state === 'running' && !counted);
+            bar.removeAttribute('data-indeterminate');
             bar.setAttribute('aria-valuenow', String(Math.round(p * 100)));
             fill.style.setProperty('--of-p', String(p));
             title.textContent = (state === 'done' ? 'Ran ' : (state === 'failed' ? 'Run failed: ' : (state === 'stopped' ? 'Stopped: ' : 'Running '))) + jobName;
-            if (run && run.total > 0) {
-                var word = run.done === 1 ? singular(run.label) : run.label;
-                count.textContent = run.done.toLocaleString() + ' of ' + run.total.toLocaleString() + ' ' + word + (run.failed > 0 ? ', ' + run.failed + ' failed' : '');
+            if (counted) {
+                var word = run.total === 1 ? singular(run.label) : run.label;
+                count.textContent = run.done.toLocaleString() + ' of ' + run.total.toLocaleString() + ' ' + word;
+                pct.textContent = Math.round(p * 100) + '%';
             } else {
-                count.textContent = state === 'running' ? 'working…' : '';
+                count.textContent = '';
+                pct.textContent = state === 'done' ? '100%' : '';
             }
             var text = state === 'running' ? '' : (root.getAttribute('data-outcome') || '');
             verdict.textContent = text;

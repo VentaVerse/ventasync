@@ -13,8 +13,10 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
-class ShopeeSyncOrders extends Command
+class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\SteppableAutomation
 {
+    use \App\Console\Concerns\StepsOutsideArtisan;
+
     protected $signature = 'shopee:sync-orders
         {--both : Sync orders and returns (default behavior)}
         {--returns : Sync return/refund details only}
@@ -772,4 +774,73 @@ class ShopeeSyncOrders extends Command
         return $map;
     }
 
+
+    /**
+     * Run now walks this sync one phase per request (SteppableAutomation,
+     * 2026-09-07): the bar moves per phase and store, and the page never
+     * shows the console. The job's own options (returns only, no returns)
+     * choose the phases, exactly as the scheduler would.
+     */
+    public function automationUnits(\App\Models\ScheduledJob $job): array
+    {
+        $args = $job->commandArguments();
+        $returnsOnly = ! empty($args['--returns']);
+        $skipReturns = ! empty($args['--no-returns']);
+        $units = [];
+        foreach (ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get() as $store) {
+            foreach (array_values(array_filter(['orders', 'fees', 'payouts', 'returns'], fn ($p) => $returnsOnly ? $p === 'returns' : ($p !== 'returns' || ! $skipReturns))) as $phase) {
+                $units[] = $store->id . ':' . $phase;
+            }
+        }
+
+        return ['label' => 'steps', 'units' => $units];
+    }
+
+    public function automationChunk(): int
+    {
+        return 1;
+    }
+
+    public function automationStep(\App\Models\ScheduledJob $job, array $units): array
+    {
+        $this->prepareForStep($job->commandArguments());
+        $client = app(ShopeeClient::class);
+        $ok = 0;
+        $failed = 0;
+        $notes = [];
+        foreach ($units as $unit) {
+            [$sid, $phase] = array_pad(explode(':', (string) $unit, 2), 2, '');
+            $store = ShopeeSetting::query()->find((int) $sid);
+            if (! $store) {
+                $failed++;
+                continue;
+            }
+            $setting = $store->decrypted();
+            $auth = ShopeeSetting::activeAuth($setting);
+            if (! $auth['complete']) {
+                return ['error' => 'Store ' . ($store->store_name ?: '#' . $store->id) . ' is not connected to Shopee.'];
+            }
+            if ($paused = Cache::get('shopee_sync_paused:' . $store->id)) {
+                return ['error' => 'This store is paused after a recent Shopee error: ' . $paused . '. It retries on its own in a few minutes.'];
+            }
+            try {
+                match ($phase) {
+                    'orders' => (function () use ($client, $setting, $auth, $store) { $this->syncOrders($client, $setting, $auth); $store->forceFill(['last_order_sync_at' => now()])->save(); })(),
+                    'fees' => $this->backfillMissingFees($client, $setting, $auth),
+                    'payouts' => $this->syncPayoutStatuses($client, $setting, $auth),
+                    'returns' => (function () use ($client, $setting, $auth, $store) { $this->syncReturns($client, $setting, $auth); $store->forceFill(['last_return_sync_at' => now()])->save(); })(),
+                    default => null,
+                };
+                if ($paused = Cache::get('shopee_sync_paused:' . $store->id)) {
+                    return ['error' => 'Shopee refused during ' . $phase . ': ' . $paused];
+                }
+                $ok++;
+            } catch (\Throwable $e) {
+                $failed++;
+                $notes[] = $phase . ': ' . \App\Support\TransportError::plain($e, 'Shopee');
+            }
+        }
+
+        return ['ok' => $ok, 'failed' => $failed, 'note' => implode('; ', array_slice($notes, 0, 2))];
+    }
 }

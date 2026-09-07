@@ -125,11 +125,13 @@
             <div class="of" data-automation-run data-step-url="{{ route('automations.run_step', ['run' => 0]) }}" data-stop-url="{{ route('automations.run_stop', ['run' => 0]) }}" hidden>
                 <div class="of-strip" data-of-strip role="status" aria-live="polite">
                     <span class="of-strip__title" data-of-title>Running</span>
+                    <span class="of-strip__pulse" data-of-pulse aria-hidden="true"></span>
                     <div class="of-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-of-bar><div class="of-bar__fill" data-of-fill></div></div>
                     <span class="of-strip__count" data-of-count></span>
-                    <span class="of-strip__verdict" data-of-verdict hidden></span>
+                    <span class="of-strip__pct" data-of-pct></span>
                     <button type="button" class="x-btn x-btn--secondary x-btn--sm" data-of-stop>Stop</button>
                     <button type="button" class="x-btn x-btn--primary x-btn--sm" data-of-close hidden>Close</button>
+                    <span class="of-strip__verdict" data-of-verdict hidden></span>
                 </div>
             </div>
 

@@ -442,4 +442,30 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertStringContainsString('data-automation-run', $tab);
         $this->assertStringContainsString("import './automation-run';", (string) file_get_contents(base_path('resources/js/app.js')));
     }
+
+    /** Sync Orders walks its phases one per request, so the bar is real and the console never reaches the page. */
+    public function test_run_now_walks_sync_orders_one_phase_per_request(): void
+    {
+        $this->getResponses['/api/v2/order/get_order_list'] = ['ok' => true, 'status' => 200, 'body' => ['error' => '', 'response' => ['order_list' => [], 'more' => false]]];
+        $this->getResponses['/api/v2/returns/get_return_list'] = ['ok' => true, 'status' => 200, 'body' => ['error' => '', 'response' => ['return' => [], 'more' => false]]];
+        $job = \App\Models\ScheduledJob::create([
+            'integration' => 'shopee', 'display_name' => 'Sync Orders', 'command' => 'shopee:sync-orders',
+            'cadence_value' => 15, 'cadence_unit' => 'minute', 'enabled' => true, 'options' => ['no_returns' => true],
+        ]);
+        $user = $this->automationsManager();
+
+        $first = $this->actingAs($user)->postJson(route('automations.run', $job->id))->assertOk()->json('run');
+        $this->assertSame('steps', $first['label']);
+        $this->assertSame(3, $first['total'], 'orders, fees, payouts; no returns, as the row says');
+        $this->assertSame(1, $first['done'], 'one phase per request');
+        $this->assertSame('running', $first['status']);
+
+        $second = $this->actingAs($user)->postJson(route('automations.run_step', ['run' => $first['id']]))->assertOk()->json('run');
+        $this->assertSame(2, $second['done']);
+        $third = $this->actingAs($user)->postJson(route('automations.run_step', ['run' => $first['id']]))->assertOk();
+        $this->assertSame('done', $third->json('run.status'));
+        $this->assertSame('3 steps: 3 ok.', $third->json('outcome'));
+        $this->assertTrue((bool) $job->fresh()->last_run_ok);
+        $this->assertStringNotContainsString('===', implode(' ', $third->json('run.ledger')), 'the console never reaches the page');
+    }
 }

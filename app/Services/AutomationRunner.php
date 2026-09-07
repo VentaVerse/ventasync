@@ -44,11 +44,13 @@ class AutomationRunner
         return $run;
     }
 
-    public function step(AutomationRun $run, SteppableAutomation $command, int $chunk = self::CHUNK): AutomationRun
+    public function step(AutomationRun $run, SteppableAutomation $command, ?int $chunk = null): AutomationRun
     {
         if ($run->status !== AutomationRun::RUNNING) {
             return $run;
         }
+        // A command whose units are phases, not products, walks one per request.
+        $chunk = $chunk ?? (method_exists($command, 'automationChunk') ? max(1, (int) $command->automationChunk()) : self::CHUNK);
         $job = $run->job;
         $units = array_values((array) $run->units);
         $slice = array_slice($units, (int) $run->done, $chunk);

@@ -11,7 +11,7 @@ use Extensions\opencart\Services\OpenCart\OpenCartOrderSync;
 use Extensions\opencart\Services\OpenCart\OpenCartProductSync;
 use Illuminate\Console\Command;
 
-class OpenCartSync extends Command
+class OpenCartSync extends Command implements \App\Integrations\Contracts\SteppableAutomation
 {
     protected $signature = 'opencart:sync
         {entity : Entity to sync (products|orders|categories|manufacturers|options|all)}
@@ -165,5 +165,53 @@ class OpenCartSync extends Command
         }
 
         return 0;
+    }
+
+    /**
+     * Run now walks this sync one store per request (SteppableAutomation,
+     * 2026-09-07): the bar moves per store, and the page never shows the
+     * console. The job's store (its options) is the only store.
+     */
+    public function automationUnits(\App\Models\ScheduledJob $job): array
+    {
+        $stores = OpenCartSetting::query()->where('enabled', true);
+        if ($job->getOption('store')) {
+            $stores->where('id', (int) $job->getOption('store'));
+        }
+        $units = [];
+        foreach ($stores->orderBy('id')->get() as $store) {
+            $units[] = $store->id . ':orders';
+        }
+
+        return ['label' => 'stores', 'units' => $units];
+    }
+
+    public function automationChunk(): int
+    {
+        return 1;
+    }
+
+    public function automationStep(\App\Models\ScheduledJob $job, array $units): array
+    {
+        $ok = 0;
+        $failed = 0;
+        $notes = [];
+        foreach ($units as $unit) {
+            [$sid] = array_pad(explode(':', (string) $unit, 2), 2, '');
+            $store = OpenCartSetting::query()->where('enabled', true)->find((int) $sid);
+            if (! $store) {
+                $failed++;
+                continue;
+            }
+            $log = (new OpenCartOrderSync(new OpenCartClient($store), $store))->pull();
+            if ($log->status === 'failed') {
+                $failed++;
+                $notes[] = ($store->store_name ?: '#' . $store->id) . ': ' . (string) ($log->error_message ?: 'OpenCart did not answer');
+            } else {
+                $ok++;
+            }
+        }
+
+        return ['ok' => $ok, 'failed' => $failed, 'note' => implode('; ', array_slice($notes, 0, 2))];
     }
 }

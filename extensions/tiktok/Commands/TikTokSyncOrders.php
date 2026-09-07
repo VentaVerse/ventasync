@@ -12,8 +12,10 @@ use Extensions\tiktok\Services\TikTokCatalogOrderSync;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
-class TikTokSyncOrders extends Command
+class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\SteppableAutomation
 {
+    use \App\Console\Concerns\StepsOutsideArtisan;
+
     protected $signature = 'tiktok:sync-orders
         {--days= : Override sync_last_days for this run (passed by the universal scheduler)}
         {--both : Sync orders and returns (default behavior)}
@@ -393,5 +395,67 @@ class TikTokSyncOrders extends Command
         }
 
         $this->info("  Backfilled fees for {$filled}/{$orders->count()} orders.");
+    }
+
+    /**
+     * Run now walks this sync one phase per request (SteppableAutomation,
+     * 2026-09-07): the bar moves per phase and store, and the page never
+     * shows the console. The job's own options (returns only, no returns)
+     * choose the phases, exactly as the scheduler would.
+     */
+    public function automationUnits(\App\Models\ScheduledJob $job): array
+    {
+        $args = $job->commandArguments();
+        $returnsOnly = ! empty($args['--returns']);
+        $skipReturns = ! empty($args['--no-returns']);
+        $units = [];
+        foreach (TikTokSetting::enabledStores() as $store) {
+            foreach (array_values(array_filter(['orders', 'returns'], fn ($p) => $returnsOnly ? $p === 'returns' : ($p !== 'returns' || ! $skipReturns))) as $phase) {
+                $units[] = $store->id . ':' . $phase;
+            }
+        }
+
+        return ['label' => 'steps', 'units' => $units];
+    }
+
+    public function automationChunk(): int
+    {
+        return 1;
+    }
+
+    public function automationStep(\App\Models\ScheduledJob $job, array $units): array
+    {
+        $this->prepareForStep($job->commandArguments());
+        $ok = 0;
+        $failed = 0;
+        $notes = [];
+        foreach ($units as $unit) {
+            [$sid, $phase] = array_pad(explode(':', (string) $unit, 2), 2, '');
+            $store = TikTokSetting::query()->find((int) $sid);
+            if (! $store) {
+                $failed++;
+                continue;
+            }
+            app()->instance('tiktok.route-store', $store);
+            try {
+                if ($phase === 'orders') {
+                    $exit = $this->syncOrders($store);
+                    $exit === 0 ? $ok++ : $failed++;
+                    if ($exit !== 0) {
+                        $notes[] = 'orders: TikTok Shop refused the sync';
+                    }
+                } elseif ($phase === 'returns') {
+                    $this->syncReturns($store);
+                    $ok++;
+                }
+            } catch (\Throwable $e) {
+                $failed++;
+                $notes[] = $phase . ': ' . \App\Support\TransportError::plain($e, 'TikTok Shop');
+            } finally {
+                app()->forgetInstance('tiktok.route-store');
+            }
+        }
+
+        return ['ok' => $ok, 'failed' => $failed, 'note' => implode('; ', array_slice($notes, 0, 2))];
     }
 }
