@@ -759,4 +759,15 @@ class ShopeeListingPageTest extends TestCase
         $this->assertTrue($again['complete']);
         $this->assertSame(2, $calls, 'read to the end, the warm never asks Shopee again');
     }
+
+    /** Both brand pickers (Edit Listing, the group form) warm through the one endpoint, and the page stops on a stalled count too. */
+    public function test_both_brand_pickers_warm_through_the_one_endpoint_and_the_page_guards_a_stall(): void
+    {
+        $this->assertStringContainsString('data-combo-warm', (string) file_get_contents(base_path('extensions/shopee/views/listings/edit.blade.php')));
+        $this->assertStringContainsString('data-combo-warm', (string) file_get_contents(base_path('extensions/shopee/views/product-groups/form.blade.php')));
+        $this->assertStringContainsString('app(ShopeeProductGroupController::class)->brandsForCategory(', (string) file_get_contents(base_path('extensions/shopee/Controllers/ShopeeProductController.php')), 'the listing route delegates to the one warm');
+        $js = (string) file_get_contents(base_path('resources/js/pages/group-form.js'));
+        $this->assertStringContainsString('stalls >= 3', $js);
+        $this->assertStringContainsString('kept sending the same page', $js);
+    }
 }

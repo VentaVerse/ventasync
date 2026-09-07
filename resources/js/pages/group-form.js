@@ -502,7 +502,12 @@ function initCategoryCombo(root) {
         const wasDisabled = input.disabled;
         let offset = 0;
         let shown = false;
-
+        // The stall guard (live, 2026-09-07: "100 so far" never moved). A
+        // page that grows the count by nothing three times in a row is the
+        // end of the list, whatever the server says; the box unlocks and
+        // the brands read so far are the list.
+        let lastRead = -1;
+        let stalls = 0;
         function step() {
             const url = new URL(warmUrl, window.location.origin);
             url.searchParams.set(extraParam, category);
@@ -525,6 +530,14 @@ function initCategoryCombo(root) {
                         } else {
                             setProgress('idle');
                         }
+                        return;
+                    }
+                    stalls = data.read === lastRead ? stalls + 1 : 0;
+                    lastRead = data.read;
+                    if (stalls >= 3) {
+                        input.disabled = wasDisabled;
+                        setProgress('done', data.read.toLocaleString() + ' brands ready (Shopee kept sending the same page).');
+                        window.setTimeout(function () { if (run === warmRun) setProgress('idle'); }, 4000);
                         return;
                     }
                     shown = true;
