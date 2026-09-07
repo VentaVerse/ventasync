@@ -24,13 +24,14 @@ final class VentaStockPricePush
 
     /**
      * @param list<int> $productIds
-     * @return array{ok:int, failed:int, skipped:int, errors:array<int,string>}
+     * @return array{ok:int, failed:int, skipped:int, errors:array<int,string>, outcomes:array<int,?string>}
+     *         outcomes: product id => null when it worked, the failure text when it did not; skipped products are absent
      */
     public function push(array $productIds, bool $stock, bool $price): array
     {
         $pfx = (string) config('catalog.prefix');
         $ids = array_values(array_unique(array_map('intval', $productIds)));
-        $out = ['ok' => 0, 'failed' => 0, 'skipped' => 0, 'errors' => []];
+        $out = ['ok' => 0, 'failed' => 0, 'skipped' => 0, 'errors' => [], 'outcomes' => []];
         if ($ids === []) {
             return $out;
         }
@@ -86,9 +87,11 @@ final class VentaStockPricePush
             }
             if ($fine) {
                 $out['ok']++;
+                $out['outcomes'][$pid] = null;
             } else {
                 $out['failed']++;
                 $out['errors'][$pid] = ($stock && ! $price ? 'Stock push failed: ' : ($price && ! $stock ? 'Price push failed: ' : 'Push failed: ')) . $why;
+                $out['outcomes'][$pid] = $out['errors'][$pid];
             }
         }
 
@@ -106,6 +109,32 @@ final class VentaStockPricePush
         }
 
         return $basePrice;
+    }
+
+    /**
+     * Each product's verdict onto its group pivot for THIS store, where the
+     * group page reads sync_status and push_error; the stock cron has
+     * written them since 2026-08 and the price cron writes the same.
+     *
+     * @param array<int, ?string> $outcomes product id => null when it worked, else the failure text
+     */
+    public static function recordOutcomes(int $settingId, array $outcomes): void
+    {
+        if ($outcomes === []) {
+            return;
+        }
+        $groupIds = DB::table('venta_product_groups')->where('venta_setting_id', $settingId)->pluck('id');
+        if ($groupIds->isEmpty()) {
+            return;
+        }
+        foreach ($outcomes as $productId => $failure) {
+            DB::table('venta_product_group_products')->whereIn('venta_product_group_id', $groupIds)->where('product_id', (int) $productId)
+                ->update([
+                    'sync_status' => $failure === null ? 'pushed' : 'error',
+                    'push_error' => $failure === null ? null : \Illuminate\Support\Str::limit($failure, 480),
+                    'last_pushed_at' => now(),
+                ]);
+        }
     }
 
     /** The one sentence a stock or price push leaves behind. */

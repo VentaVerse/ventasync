@@ -2808,7 +2808,8 @@ class WorkspaceInteriorsTest extends TestCase
         // channel's, so the page shows the job and its cadence and the ERP
         // knows when it last ran.
         $settings->assertSee('Sync Orders');
-        $settings->assertSee('Push Stock &amp; Price', false);
+        $settings->assertSee('Push Stock');
+        $settings->assertSee('Push Price');
         $settings->assertSee('Push Reviews');
 
         // And the one requirement that lives outside the ERP is stated, or a
@@ -3253,7 +3254,8 @@ class WorkspaceInteriorsTest extends TestCase
         // channel's, so the page shows each job and its cadence and the ERP
         // knows when it last ran.
         $settings->assertSee('Sync Orders');
-        $settings->assertSee('Push Stock &amp; Price', false);
+        $settings->assertSee('Push Stock');
+        $settings->assertSee('Push Price');
         $settings->assertSee('Push Reviews');
         $settings->assertSee('schedule:run');
     }

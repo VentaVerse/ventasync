@@ -59,6 +59,7 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
         if ($this->app->runningInConsole()) {
             $this->commands([
                 \Extensions\tiktok\Commands\TikTokPushStock::class,
+                \Extensions\tiktok\Commands\TikTokPushPrice::class,
                 \Extensions\tiktok\Commands\TikTokRefreshListingStatus::class,
                 \Extensions\tiktok\Commands\TikTokRefreshToken::class,
                 \Extensions\tiktok\Commands\TikTokSyncOrders::class,

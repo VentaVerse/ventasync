@@ -1108,6 +1108,133 @@ class OpenCartProductSync
     }
 
     /**
+     * Push only product prices to OpenCart, the "Push Price" automation
+     * (2026-09-07: the old stock-and-price row sent quantities
+     * only; price is its own row now, on every channel). The catalog
+     * price as it is, one bulk update per fifty links; a variation goes
+     * as OpenCart's own +/- on the base, back-calculated from an absolute
+     * price when the catalog carries one, exactly as a full push sends it.
+     */
+    public function pushPrices(): OpenCartSyncLog
+    {
+        $log = OpenCartSyncLog::create([
+            'opencart_setting_id' => $this->setting->id,
+            'entity_type' => 'product_price',
+            'direction'   => 'push',
+            'status'      => 'started',
+            'started_at'  => now(),
+        ]);
+
+        try {
+            $pfx = (string) config('catalog.prefix');
+            $updated = 0;
+            $skipped = 0;
+            $failed = 0;
+            $errors = [];
+
+            $links = OpenCartProductLink::where('opencart_setting_id', $this->setting->id)->get();
+            if ($links->isEmpty()) {
+                $log->update(['status' => 'completed', 'records_processed' => 0, 'completed_at' => now()]);
+
+                return $log;
+            }
+
+            $localProductIds = $links->pluck('product_id')->unique()->toArray();
+            $localPrice = DB::table($pfx . 'product')
+                ->whereIn('product_id', $localProductIds)
+                ->where('status', 1)
+                ->pluck('price', 'product_id')
+                ->toArray();
+
+            $langId = (int) config('catalog.default_language_id');
+            $optionValues = DB::table($pfx . 'product_option_value as pov')
+                ->leftJoin($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+                    $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                        ->where('ovd.language_id', '=', $langId);
+                })
+                ->whereIn('pov.product_id', $localProductIds)
+                ->get(['pov.product_id', 'pov.sku', 'pov.price', 'pov.price_prefix', 'pov.absolute_price', 'ovd.name as option_value_name'])
+                ->groupBy('product_id');
+
+            foreach ($links->chunk(50) as $chunk) {
+                $products = [];
+                foreach ($chunk as $link) {
+                    $pid = (int) $link->product_id;
+                    if (!isset($localPrice[$pid])) {
+                        $skipped++;
+                        continue;
+                    }
+                    $basePrice = (float) $localPrice[$pid];
+                    $payload = [
+                        'product_id' => (int) $link->oc_product_id,
+                        'price'      => number_format($basePrice, 4, '.', ''),
+                    ];
+
+                    $ovRows = $optionValues->get($pid);
+                    if ($ovRows && $ovRows->count() > 0) {
+                        $ovPayload = [];
+                        foreach ($ovRows as $ov) {
+                            $ovName = trim((string) ($ov->option_value_name ?? ''));
+                            $ovSku = trim((string) $ov->sku);
+                            if ($ovName === '' && $ovSku === '') continue;
+
+                            if ((float) ($ov->absolute_price ?? 0) > 0) {
+                                $delta = (float) $ov->absolute_price - $basePrice;
+                                $entry = ['price' => number_format(abs($delta), 4, '.', ''), 'price_prefix' => $delta >= 0 ? '+' : '-'];
+                            } else {
+                                $entry = ['price' => number_format((float) ($ov->price ?? 0), 4, '.', ''), 'price_prefix' => ($ov->price_prefix ?? '+') === '-' ? '-' : '+'];
+                            }
+                            if ($ovName !== '') $entry['name'] = $ovName;
+                            if ($ovSku !== '') $entry['sku'] = $ovSku;
+                            $ovPayload[] = $entry;
+                        }
+                        if (!empty($ovPayload)) {
+                            $payload['option_values'] = $ovPayload;
+                        }
+                    }
+
+                    $products[] = $payload;
+                }
+
+                if (empty($products)) continue;
+
+                try {
+                    $resp = $this->client->bulkUpdateProducts($products);
+                    if (empty($resp['ok'])) {
+                        $failed += count($products);
+                        if (count($errors) < 50) {
+                            $errors[] = ['error' => 'Bulk update failed: ' . json_encode($resp['body'] ?? '')];
+                        }
+                    } else {
+                        foreach (($resp['body']['data'] ?? []) as $r) {
+                            !empty($r['success']) ? $updated++ : $failed++;
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    $failed += count($products);
+                    if (count($errors) < 50) {
+                        $errors[] = ['error' => $e->getMessage()];
+                    }
+                }
+            }
+
+            $log->update([
+                'status'            => 'completed',
+                'records_processed' => $updated + $skipped + $failed,
+                'records_updated'   => $updated,
+                'records_failed'    => $failed,
+                'details'           => $errors ?: null,
+                'completed_at'      => now(),
+            ]);
+        } catch (\Throwable $e) {
+            $log->update(['status' => 'failed', 'error_message' => $e->getMessage(), 'completed_at' => now()]);
+            Log::error('OpenCart price push failed', ['error' => $e->getMessage()]);
+        }
+
+        return $log;
+    }
+
+    /**
      * Pull only product quantities from OpenCart into the ERP.
      * Updates product.quantity and product_option_value.quantity without touching other fields.
      */

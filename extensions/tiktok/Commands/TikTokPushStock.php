@@ -66,7 +66,9 @@ class TikTokPushStock extends Command
         $client = app(TikTokClient::class);
 
         // Get all pivot rows that have been pushed to TikTok
+        // This store's pivots: the group carries the store, the pivot does not.
         $pivotRows = TikTokProductGroupProduct::query()
+            ->whereIn('tiktok_product_group_id', \Extensions\tiktok\Models\TikTokProductGroup::query()->select('id'))
             ->whereNotNull('tiktok_product_id')
             ->where('tiktok_product_id', '!=', '')
             ->get();

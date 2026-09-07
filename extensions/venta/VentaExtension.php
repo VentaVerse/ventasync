@@ -48,6 +48,7 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
             $this->commands([
                 \Extensions\venta\Commands\VentaSync::class,
                 \Extensions\venta\Commands\VentaPushStock::class,
+                \Extensions\venta\Commands\VentaPushPrice::class,
                 \Extensions\venta\Commands\VentaPushReviews::class,
                 \Extensions\venta\Commands\VentaRefreshListingStatus::class,
             ]);

@@ -14,9 +14,9 @@ use Illuminate\Support\Facades\DB;
  * a group push, so the workbench called a grouped product "missing a
  * category" while the group page pushed it fine.
  *
- * Inherited: the category, the couriers and the brand. The price rule is
- * not: a listing at catalog price is a choice a group must not overturn
- * silently, so a group's markup still rides only a group push.
+ * Inherited: the category, the couriers, the brand, the attribute answers
+ * and the price rule (2026-09-06): a listing with no rule of its own
+ * prices the way its group does.
  *
  * One product, one group per store, so there is at most one answer.
  */
@@ -24,7 +24,7 @@ final class ShopeeInheritedSettings
 {
     /**
      * @param list<int> $productIds
-     * @return array<int, array{group_id:int, group_name:string, category_id:?int, logistic_ids:list<int>, brand_id:?int}>
+     * @return array<int, array{group_id:int, group_name:string, category_id:?int, logistic_ids:list<int>, brand_id:?int, markup_fixed:?float, markup_percent:?float, attributes:array<string,string>}>
      */
     public function forProducts(array $productIds): array
     {
@@ -35,10 +35,10 @@ final class ShopeeInheritedSettings
 
         // The store's own groups (the model's global scope), joined to the pivot.
         $rows = DB::table('shopee_product_group_products as pv')
-            ->joinSub(ShopeeProductGroup::query()->select(['id', 'name', 'shopee_category_id', 'shopee_brand_id', 'logistic_ids']), 'g', 'g.id', '=', 'pv.shopee_product_group_id')
+            ->joinSub(ShopeeProductGroup::query()->select(['id', 'name', 'shopee_category_id', 'shopee_brand_id', 'logistic_ids', 'markup_fixed', 'markup_percent']), 'g', 'g.id', '=', 'pv.shopee_product_group_id')
             ->whereIn('pv.product_id', $productIds)
             ->orderBy('pv.id')
-            ->get(['pv.product_id', 'g.id as group_id', 'g.name', 'g.shopee_category_id', 'g.shopee_brand_id', 'g.logistic_ids']);
+            ->get(['pv.product_id', 'g.id as group_id', 'g.name', 'g.shopee_category_id', 'g.shopee_brand_id', 'g.logistic_ids', 'g.markup_fixed', 'g.markup_percent']);
 
         $out = [];
         foreach ($rows as $row) {
@@ -53,7 +53,21 @@ final class ShopeeInheritedSettings
                 'category_id' => (int) $row->shopee_category_id ?: null,
                 'logistic_ids' => array_values(array_map('intval', $logistics)),
                 'brand_id' => (int) ($row->shopee_brand_id ?? 0) ?: null,
+                'markup_fixed' => $row->markup_fixed !== null ? (float) $row->markup_fixed : null,
+                'markup_percent' => $row->markup_percent !== null ? (float) $row->markup_percent : null,
+                'attributes' => [],
             ];
+        }
+        /* The group's attribute answers ride along (the owner, 2026-09-06, the
+         * Ready column), the way Lazada's and TikTok's do; fill() read them
+         * and the markup from a row that never carried either. */
+        $groupIds = array_values(array_unique(array_map(fn ($g) => $g['group_id'], $out)));
+        if ($groupIds !== []) {
+            $answers = ShopeeProductGroupAttribute::query()->whereIn('shopee_product_group_id', $groupIds)
+                ->get(['shopee_product_group_id', 'attribute_key', 'value'])->groupBy('shopee_product_group_id');
+            foreach ($out as $pid => $g) {
+                $out[$pid]['attributes'] = ($answers->get($g['group_id']) ?? collect())->pluck('value', 'attribute_key')->all();
+            }
         }
 
         return $out;

@@ -17,7 +17,8 @@ class OpencartScheduledJobs
     /** command, display name, cadence value, cadence unit. */
     public const JOBS = [
         ['opencart:sync orders', 'Sync Orders', 5, 'minute'],
-        ['opencart:push-qty', 'Push Stock & Price', 15, 'minute'],
+        ['opencart:push-qty', 'Push Stock', 15, 'minute'],
+        ['opencart:push-price', 'Push Price', 30, 'minute'],
         ['opencart:push-reviews', 'Push Reviews', 1, 'day'],
     ];
 

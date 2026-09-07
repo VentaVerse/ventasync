@@ -273,4 +273,27 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertCount(1, $priceCalls);
         $this->assertSame(110.0, (float) $priceCalls[0]['body']['price_list'][0]['original_price'], 'base 100 + the listing\'s 10%');
     }
+
+    /** Push Price is its own automation (2026-09-07): the listing's rule, else the group's, else the catalog price. */
+    public function test_the_price_cron_prices_by_the_listing_rule_then_the_group_then_the_catalog(): void
+    {
+        $a = $this->productWithVariations(['A-1' => 5]);
+        ShopeeProductLink::create(['product_id' => $a, 'shopee_item_id' => 901, 'shopee_model_id' => 1, 'sku' => 'A-1']);
+        ShopeeListing::create(['product_id' => $a, 'markup_percent' => 10, 'markup_fixed' => 0]);
+
+        $b = $this->productWithVariations(['B-1' => 5]);
+        ShopeeProductLink::create(['product_id' => $b, 'shopee_item_id' => 902, 'shopee_model_id' => 2, 'sku' => 'B-1']);
+        $group = \Extensions\shopee\Models\ShopeeProductGroup::create(['name' => 'Grouped', 'shopee_category_id' => 100200, 'markup_percent' => 20, 'markup_fixed' => 0]);
+        \Extensions\shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $b]);
+
+        $c = $this->productWithVariations(['C-1' => 5]);
+        ShopeeProductLink::create(['product_id' => $c, 'shopee_item_id' => 903, 'shopee_model_id' => 3, 'sku' => 'C-1']);
+
+        $this->artisan('shopee:push-price')->assertExitCode(0);
+
+        $prices = collect($this->sentPosts)->where('path', '/api/v2/product/update_price')
+            ->mapWithKeys(fn ($c) => [(int) $c['body']['item_id'] => (float) $c['body']['price_list'][0]['original_price']])->all();
+        $this->assertSame([901 => 110.0, 902 => 120.0, 903 => 100.0], $prices);
+        $this->assertSame([], array_filter($this->sentPosts, fn ($c) => $c['path'] === '/api/v2/product/update_stock'), 'the price row never sends stock');
+    }
 }

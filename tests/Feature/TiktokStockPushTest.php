@@ -284,4 +284,32 @@ class TiktokStockPushTest extends TestCase
             json_decode($pivot->tiktok_sku_id, true)
         );
     }
+
+    /** Push Price is its own automation (2026-09-07): the listing's rule, else the group's, else the catalog price. */
+    public function test_the_price_cron_prices_by_the_listing_rule_then_the_group(): void
+    {
+        ['product_id' => $productId] = $this->seedTwoAxisProduct();
+        $group = TikTokProductGroup::create(['name' => 'Price group', 'tiktok_category_id' => '900001', 'markup_percent' => 10]);
+        TikTokProductGroupProduct::create([
+            'tiktok_product_group_id' => $group->id, 'product_id' => $productId,
+            'tiktok_product_id' => 'tt-9', 'sync_status' => 'pushed', 'last_pushed_at' => now(),
+            'tiktok_sku_id' => json_encode(['TTV-Red-S' => 's1', 'TTV-Red-M' => 's2', 'TTV-Black-S' => 's3', 'TTV-Black-M' => 's4']),
+        ]);
+
+        $this->artisan('tiktok:push-price')->assertExitCode(0);
+
+        $calls = $this->callsFor('POST', '/product/202309/products/tt-9/prices/update');
+        $this->assertCount(1, $calls);
+        $byId = collect($calls[0]['body']['skus'])->keyBy('id')->map(fn ($s) => $s['price']['amount']);
+        $this->assertSame(['s1' => '1210', 's2' => '1320', 's3' => '1430', 's4' => '1540'], $byId->all(), 'the group\'s 10% on each combination');
+        $this->assertSame([], $this->callsFor('POST', '/product/202309/products/tt-9/inventory/update'), 'the price row never sends stock');
+
+        // The listing's own rule wins over the group's.
+        (new \Extensions\tiktok\Models\TikTokListing())->forceFill(['product_id' => $productId, 'markup_percent' => 0, 'markup_fixed' => 50])->save();
+        $this->artisan('tiktok:push-price')->assertExitCode(0);
+        $calls = $this->callsFor('POST', '/product/202309/products/tt-9/prices/update');
+        $this->assertCount(2, $calls);
+        $byId = collect($calls[1]['body']['skus'])->keyBy('id')->map(fn ($s) => $s['price']['amount']);
+        $this->assertSame(['s1' => '1150', 's2' => '1250', 's3' => '1350', 's4' => '1450'], $byId->all());
+    }
 }

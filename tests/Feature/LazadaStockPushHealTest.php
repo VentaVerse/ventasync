@@ -264,4 +264,34 @@ class LazadaStockPushHealTest extends TestCase
         $payloads = implode('', array_map(fn ($c) => (string) $c['params']['payload'], $calls));
         $this->assertStringContainsString('<SkuId>12</SkuId>', $payloads);
     }
+
+    /** Push Price is its own automation (2026-09-07): the listing's rule, else the group's, else the catalog price. */
+    public function test_the_price_cron_prices_by_the_listing_rule_then_the_group_then_the_catalog(): void
+    {
+        $a = $this->comboProduct(['LA-1' => 5]);
+        $la = LazadaProduct::create(['product_id' => $a, 'lazada_item_id' => '901', 'markup_percent' => 10]);
+        LazadaProductVariant::create(['lazada_product_id' => $la->id, 'seller_sku' => 'LA-1', 'sku_id' => 11]);
+
+        $b = $this->comboProduct(['LB-1' => 5]);
+        $lb = LazadaProduct::create(['product_id' => $b, 'lazada_item_id' => '902']);
+        LazadaProductVariant::create(['lazada_product_id' => $lb->id, 'seller_sku' => 'LB-1', 'sku_id' => 12]);
+        $group = \Extensions\lazada\Models\LazadaProductGroup::create(['name' => 'Grouped', 'lazada_category_id' => 4321, 'markup_percent' => 20]);
+        \Extensions\lazada\Models\LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $b, 'lazada_product_id' => $lb->id]);
+
+        $c = $this->comboProduct(['LC-1' => 5]);
+        $lc = LazadaProduct::create(['product_id' => $c, 'lazada_item_id' => '903']);
+        LazadaProductVariant::create(['lazada_product_id' => $lc->id, 'seller_sku' => 'LC-1', 'sku_id' => 13]);
+
+        $this->artisan('lazada:push-price')->assertExitCode(0);
+
+        $calls = $this->updateCalls();
+        $this->assertCount(3, $calls);
+        $payloads = implode(' ', array_map(fn ($c) => (string) $c['params']['payload'], $calls));
+        // The combination's own price (100 + 5) is the base each rule works on.
+        $this->assertMatchesRegularExpression('~<SkuId>11</SkuId>.*?115\.50~s', $payloads, 'the listing\'s 10%');
+        $this->assertMatchesRegularExpression('~<SkuId>12</SkuId>.*?126\.00~s', $payloads, 'the group\'s 20%');
+        $this->assertMatchesRegularExpression('~<SkuId>13</SkuId>.*?105\.00~s', $payloads, 'the catalog price as it is');
+        $this->assertStringNotContainsString('<Quantity>', $payloads, 'the price row never sends stock');
+        $this->assertSame('sync_price', $la->fresh()->last_sync_action);
+    }
 }

@@ -15,7 +15,8 @@ class VentaScheduledJobs
     /** command, display name, cadence value, cadence unit. */
     public const JOBS = [
         ['venta:sync orders', 'Sync Orders', 5, 'minute'],
-        ['venta:push-stock', 'Push Stock & Price', 15, 'minute'],
+        ['venta:push-stock', 'Push Stock', 15, 'minute'],
+        ['venta:push-price', 'Push Price', 30, 'minute'],
         ['venta:push-reviews', 'Push Reviews', 1, 'day'],
         // The listing status mirror (#166 on Venta, #171): the same
         // cadence the three marketplaces refresh theirs on.
