@@ -184,8 +184,8 @@ class LazadaListingLiveTest extends TestCase
         $r->assertSee('as of 08:30, Aug 28');
         // Icon-only refresh and Repair links on the strip, the Shopee shape
         // ported back (2026-09-05); the words live in the accessible name.
-        $r->assertSee('aria-label="Refresh statuses from Lazada"', false);
-        $r->assertSee('Repair links');
+        $r->assertSee('Refresh from Lazada', false);
+        $r->assertSee('Refresh from Lazada');
         $r->assertSee('lazada_tab=active', false);
         $r->assertSee('Activate on Lazada');
         $this->assertSame([], $this->sentPosts);
@@ -252,9 +252,8 @@ class LazadaListingLiveTest extends TestCase
         $ghost = $this->seedProduct('Refresh residue product', 'LZT-GHOST');
         LazadaProduct::query()->create(['product_id' => $ghost, 'lazada_item_id' => '424242']);
         $this->getResponses['/products/get'] = function (array $params) {
-            $products = ($params['filter'] ?? '') === 'all'
-                ? [['item_id' => 111, 'status' => 'active'], ['item_id' => 222, 'status' => 'inactive']]
-                : [];
+            // The refresh walks with filter=all; the check that follows it (one button, 2026-09-07) walks by SKU.
+            $products = [['item_id' => 111, 'status' => 'active', 'skus' => [['SellerSku' => 'LZT-A']]], ['item_id' => 222, 'status' => 'inactive', 'skus' => [['SellerSku' => 'LZT-OTHER']]]];
             return ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => ['total_products' => count($products), 'products' => $products]]];
         };
 

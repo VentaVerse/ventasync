@@ -175,51 +175,20 @@
 {{-- role="status" so the bar arriving is heard, not only seen. aria-live is
      on the COUNT rather than the whole bar: the buttons do not change, and
      re-reading five labels on every tick would be worse than silence. --}}
-<div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar role="status">
-    <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected <span class="cc-bulkbar__note" data-bulk-skipped></span></span>
-    <div class="cc-bulkbar__actions">
-        {{-- No multi-tick push here (the owner, 2026-09-06): many products go
-             up from a product group's page; this bar keeps the verbs that
-             cannot half-fail. --}}
-        {{-- Replaces Match Shopee IDs, which could only fill in blanks; the
-             repair also verifies the ids the rows already have (Phase F, #184). --}}
-        <form method="POST" action="{{ route('ext.shopee.products.check') }}" data-bulk-form>
-            @csrf
-            <x-ui.button type="submit" size="sm">Repair links</x-ui.button>
-        </form>
-        <form method="POST" action="{{ route('ext.shopee.products.bulk_sync_quantity') }}" data-bulk-form>
-            @csrf
-            <x-ui.button type="submit" size="sm">Push stock</x-ui.button>
-        </form>
-        <form method="POST" action="{{ route('ext.shopee.products.bulk_sync_price') }}" data-bulk-form>
-            @csrf
-            <x-ui.button type="submit" size="sm">Push prices</x-ui.button>
-        </form>
-        {{-- Unlist / Relist for the selection (the owner, 2026-08-28). Each
-             form acts only on the ticked rows its verb applies to, per the
-             live status Shopee answered; the count is in the label and the
-             rest of the selection is named as skipped beside the count. --}}
-        <form method="POST" action="{{ route('ext.shopee.products.bulk_toggle') }}" data-bulk-form
-              data-bulk-verb="unlist" data-verb-codes="NORMAL" data-verb-label="Delist :n from Shopee"
-              data-bulk-confirm="Delist the selected items from Shopee? Buyers stop seeing them immediately. They stay here and can be published again at any time." hidden>
-            @csrf
-            <input type="hidden" name="action" value="unlist">
-            <x-ui.button type="submit" size="sm">Delist from Shopee</x-ui.button>
-        </form>
-        <form method="POST" action="{{ route('ext.shopee.products.bulk_toggle') }}" data-bulk-form
-              data-bulk-verb="list" data-verb-codes="UNLIST" data-verb-label="Publish :n on Shopee"
-              data-bulk-confirm="Publish the selected items on Shopee? Buyers see them again immediately." hidden>
-            @csrf
-            <input type="hidden" name="action" value="list">
-            <x-ui.button type="submit" size="sm">Publish on Shopee</x-ui.button>
-        </form>
-        <form method="POST" action="{{ route('ext.shopee.products.bulk_delete') }}" data-bulk-form
-              data-bulk-confirm="Delete the selected products from Shopee? The listings are removed at the marketplace and this cannot be undone.">
-            @csrf
-            <x-ui.button type="submit" variant="danger" size="sm">Delete from Shopee</x-ui.button>
-        </form>
-    </div>
-</div>
+@php
+    $bulk = [
+        'switch' => [
+            ['action' => route('ext.shopee.products.bulk_toggle'), 'verb' => 'unlist', 'codes' => 'NORMAL', 'label' => 'Delist :n from Shopee', 'button' => 'Delist from Shopee', 'fields' => ['action' => 'unlist'], 'confirm' => 'Delist the selected items from Shopee? Buyers stop seeing them immediately. They stay here and can be published again at any time.'],
+            ['action' => route('ext.shopee.products.bulk_toggle'), 'verb' => 'list', 'codes' => 'UNLIST', 'label' => 'Publish :n on Shopee', 'button' => 'Publish on Shopee', 'fields' => ['action' => 'list'], 'confirm' => 'Publish the selected items on Shopee? Buyers see them again immediately.'],
+        ],
+        'stock' => ['action' => route('ext.shopee.products.bulk_sync_quantity')],
+        'prices' => ['action' => route('ext.shopee.products.bulk_sync_price')],
+        'link' => ['action' => route('ext.shopee.products.check'), 'label' => 'Link IDs'],
+        'delete' => ['action' => route('ext.shopee.products.bulk_delete'), 'label' => 'Delete from Shopee', 'confirm' => 'Delete the selected products from Shopee? The listings are removed at the marketplace and this cannot be undone.'],
+        'remove' => ['action' => route('ext.shopee.products.bulk_remove_from_store'), 'label' => 'Remove from this channel', 'confirm' => 'Remove the selected products from this channel? They leave this store\'s list and stop syncing. Anything already on Shopee stays up until you delete it there.'],
+    ];
+@endphp
+@include('partials.channel-bulk-bar', ['bulk' => $bulk])
 @endif
 
 @if($products->count() === 0)
@@ -429,104 +398,42 @@
                      (components/ui-table.css), above the row's stretched-link
                      overlay, so its controls stay clickable. --}}
                 @if($canManageShopee || $canEditCatalog)
-                <x-ui.menu label="Product {{ $p->product_id }} actions">
-                    <a class="x-menu__item" href="{{ route('ext.shopee.listings.edit', $p->product_id) }}">Open listing</a>
-                    @if($canEditCatalog)<a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalog</a>@endif
-
-                    @if($canManageShopee)
-                        @if(!$link)
-                            {{-- The one-editor merge (2026-09-03): a READY
-                                 listing pushes directly, with a confirm that
-                                 names its settings as the source; anything
-                                 incomplete lands in the listing editor, which
-                                 names what is missing. #149's see-before-it-
-                                 goes survives as the editor itself - it shows
-                                 everything that would go up. --}}
-                            @php $rowReady = $pushReady[$p->product_id]['ready'] ?? false; @endphp
-                            @if($rowReady)
-                                {{-- Opens the review modal (cleanup 7+9):
-                                     what goes up, shown before it goes.
-                                     Without JS the form still pushes. --}}
-                                <form method="POST" action="{{ route('ext.shopee.products.push_direct', $p->product_id) }}" data-slow-action
-                                      data-push-review="{{ route('ext.shopee.products.push_review', $p->product_id) }}">
-                                    @csrf
-                                    <button type="submit" class="x-menu__item">Push to Shopee</button>
-                                </form>
-                            @else
-                                <a class="x-menu__item" href="{{ route('ext.shopee.listings.edit', [$p->product_id, 'back' => request()->getRequestUri()]) }}"
-                                   title="Not ready yet - the listing page names what is still missing">Push to Shopee</a>
-                            @endif
-                            <form method="POST" action="{{ route('ext.shopee.products.sync_shopee_id', $p->product_id) }}" data-slow-action>
-                                @csrf
-                                <button type="submit" class="x-menu__item">Match Shopee ID</button>
-                            </form>
-                        @else
-                            <form method="POST" action="{{ route('ext.shopee.products.sync_quantity', $p->product_id) }}" data-slow-action>
-                                @csrf
-                                <button type="submit" class="x-menu__item">Push stock</button>
-                            </form>
-                            <form method="POST" action="{{ route('ext.shopee.products.sync_price', $p->product_id) }}" data-slow-action>
-                                @csrf
-                                <button type="submit" class="x-menu__item">Push price</button>
-                            </form>
-                            {{-- The marketplace's own on/off, from the state
-                                 the badge wears (#188): only the applicable
-                                 toggle exists, where before both were rendered
-                                 with one hidden by raw status. --}}
-                            @if($link && $rowState?->state === \App\Integrations\Listings\ListingState::LIVE)
-                                <form method="POST" action="{{ route('ext.shopee.listings.toggle', $p->product_id) }}" data-slow-action
-                                      data-confirm="Delist this item from Shopee? Buyers stop seeing it immediately. It can be published again at any time." data-confirm-verb="Unlist">
-                                    @csrf
-                                    <input type="hidden" name="action" value="unlist">
-                                    <button type="submit" class="x-menu__item">Delist from Shopee</button>
-                                </form>
-                            @elseif($link && $rowState?->state === \App\Integrations\Listings\ListingState::INACTIVE)
-                                @if(($parcelGaps[$p->product_id] ?? null) !== null)
-                                    {{-- The preflight, worn by the row (#191): Shopee
-                                         would refuse this publish for a knowable reason,
-                                         so the menu offers the FIX, not the failure. --}}
-                                    <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}"
-                                       title="Shopee will refuse to publish without {{ $parcelGaps[$p->product_id] }}">Add weight and size, then publish</a>
-                                @else
-                                <form method="POST" action="{{ route('ext.shopee.listings.toggle', $p->product_id) }}" data-slow-action
-                                      data-confirm="Publish this item on Shopee? Buyers see it again immediately." data-confirm-tone="primary" data-confirm-verb="Relist">
-                                    @csrf
-                                    <input type="hidden" name="action" value="list">
-                                    <button type="submit" class="x-menu__item">Publish on Shopee</button>
-                                </form>
-                                @endif
-                            @endif
-                            <div class="x-menu__sep"></div>
-                            <form method="POST" action="{{ route('ext.shopee.products.unlink', $p->product_id) }}" data-slow-action
-                                  data-confirm="Unlink this product from Shopee? Only the link is removed. The Shopee listing stays up and can be matched again later." data-confirm-verb="Unlink">
-                                @csrf
-                                <button type="submit" class="x-menu__item x-menu__item--danger">Unlink from Shopee</button>
-                            </form>
-                            <form method="POST" action="{{ route('ext.shopee.products.delete', $p->product_id) }}" data-slow-action
-                                  data-confirm="Delete this listing from Shopee? The listing is removed at the marketplace and this cannot be undone." data-confirm-verb="Delete from Shopee">
-                                @csrf
-                                <button type="submit" class="x-menu__item x-menu__item--danger">Delete from Shopee</button>
-                            </form>
-                        @endif
-
-                        {{-- Remove from this store's list (#201) - the inverse
-                             of Add. Deliberately no blocker (the owner,
-                             2026-09-05): it leaves the store and stops syncing
-                             at once. It never touches Shopee - a live listing
-                             stays up, still orderable, until removed there,
-                             which the confirm says plainly; Delete from Shopee
-                             above is the door for that. --}}
-                        <div class="x-menu__sep"></div>
-                        <form method="POST" action="{{ route('ext.shopee.products.remove_from_store', $p->product_id) }}" data-slow-action
-                              data-confirm="{{ $link
-                                  ? "Remove {$rowLabel} from this store? It leaves this store's list and stops syncing. It is on Shopee (item {$link->shopee_item_id}) and stays up, still orderable, until you remove it there. Use Delete from Shopee for that."
-                                  : "Remove {$rowLabel} from this store? It leaves this store's list and stops syncing. Nothing on Shopee is changed." }}"
-                              data-confirm-verb="Remove from store">
-                            @csrf
-                            <button type="submit" class="x-menu__item x-menu__item--danger">Remove from store</button>
-                        </form>
-                    @endif
-                </x-ui.menu>
+                @php
+                    $menu = [
+                        'label' => "Product {$p->product_id} actions",
+                        'store' => 'Shopee',
+                        'edit' => route('ext.shopee.listings.edit', $p->product_id),
+                        'catalog' => $canEditCatalog ? route('products.edit', $p->product_id) : null,
+                    ];
+                    if ($canManageShopee) {
+                        if (!$link) {
+                            // One push, and it opens the listing page first when
+                            // something is missing (#149); ready rows push at once.
+                            $menu['push'] = ($rowState?->ready ?? false)
+                                ? ['action' => route('ext.shopee.products.push_direct', $p->product_id), 'label' => 'Push to Shopee', 'attrs' => ['data-push-review' => route('ext.shopee.products.push_review', $p->product_id)]]
+                                : ['href' => route('ext.shopee.listings.edit', [$p->product_id, 'back' => request()->getRequestUri()]), 'label' => 'Push to Shopee', 'title' => 'Not ready yet - the listing page names what is still missing'];
+                            $menu['link'] = ['action' => route('ext.shopee.products.sync_shopee_id', $p->product_id)];
+                        } else {
+                            $menu['update'] = ['action' => route('ext.shopee.listings.push_update', $p->product_id), 'label' => 'Update on Shopee', 'confirm' => "Push this listing's content and settings onto the live Shopee item? Title, description, package, category, couriers and attributes are updated. Price and stock are not touched.", 'verb' => 'Push update', 'tone' => 'primary'];
+                            $menu['stock'] = route('ext.shopee.products.sync_quantity', $p->product_id);
+                            $menu['price'] = route('ext.shopee.products.sync_price', $p->product_id);
+                            if ($rowState?->state === \App\Integrations\Listings\ListingState::LIVE) {
+                                $menu['switch'] = ['action' => route('ext.shopee.listings.toggle', $p->product_id), 'label' => 'Delist from Shopee', 'fields' => ['action' => 'unlist'], 'confirm' => 'Delist this item from Shopee? Buyers stop seeing it immediately. It can be published again at any time.', 'verb' => 'Delist'];
+                            } elseif ($rowState?->state === \App\Integrations\Listings\ListingState::INACTIVE) {
+                                $menu['switch'] = ($parcelGaps[$p->product_id] ?? null) !== null
+                                    ? ['href' => route('products.edit', $p->product_id), 'label' => 'Add weight and size, then publish', 'title' => 'Shopee will refuse to publish without ' . $parcelGaps[$p->product_id]]
+                                    : ['action' => route('ext.shopee.listings.toggle', $p->product_id), 'label' => 'Publish on Shopee', 'fields' => ['action' => 'list'], 'confirm' => 'Publish this item on Shopee? Buyers see it again immediately.', 'verb' => 'Publish', 'tone' => 'primary'];
+                            }
+                            $menu['check'] = ['action' => route('ext.shopee.products.check'), 'label' => 'Check against Shopee', 'fields' => ['product_ids[]' => $p->product_id]];
+                            $menu['unlink'] = ['action' => route('ext.shopee.products.unlink', $p->product_id), 'confirm' => 'Unlink this product from Shopee? Only the link is removed. The Shopee listing stays up and can be linked again later.'];
+                            $menu['delete'] = ['action' => route('ext.shopee.products.delete', $p->product_id), 'confirm' => 'Delete this listing from Shopee? The listing is removed at the marketplace and this cannot be undone.'];
+                        }
+                        $menu['remove'] = ['action' => route('ext.shopee.products.remove_from_store', $p->product_id), 'label' => 'Remove from this channel', 'verb' => 'Remove', 'confirm' => $link
+                            ? "Remove this product from this channel? It leaves this store's list and stops syncing. It is on Shopee (item {$link->shopee_item_id}) and stays up, still orderable, until you remove it there. Use Delete from Shopee for that."
+                            : "Remove this product from this channel? It leaves this store's list and stops syncing. Nothing on Shopee is changed."];
+                    }
+                @endphp
+                @include('partials.channel-row-menu', ['menu' => $menu])
                 @endif
             </td>
         </tr>

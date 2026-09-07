@@ -274,7 +274,7 @@ class LazadaAddToStoreTest extends TestCase
 
         $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
 
-        $this->assertStringContainsString('Remove from store', $html);
+        $this->assertStringContainsString('Remove from this channel', $html);
         $this->assertStringContainsString('901234', $html);
         $this->assertStringContainsString('stays up, still orderable', $html, 'the confirm says plainly that the marketplace listing is untouched');
         $this->assertStringContainsString('Use Delete from Lazada for that', $html);

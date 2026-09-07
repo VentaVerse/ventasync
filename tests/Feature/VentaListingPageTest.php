@@ -338,7 +338,8 @@ class VentaListingPageTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString(route('ext.venta.listings.edit', [$store->id, $pid]), $html);
+        // No Edit listing on a group page (the owner, 2026-09-07); the row's pushes ride the group's rule and the listing is reached from Listings.
+        $this->assertStringNotContainsString(route('ext.venta.listings.edit', [$store->id, $pid]), $html);
 
         $actions = $this->app->make(VentaExtension::class, ['app' => $this->app])->productActions($pid);
         $this->assertCount(1, $actions);
@@ -383,7 +384,7 @@ class VentaListingPageTest extends TestCase
         // Enabled with a SKU is all the store's push refuses on, so the Ready column says Ready (2026-09-06); the image is the store's to want.
         $page->assertSee('>Ready<', false);
         $page->assertDontSee('a product image on the catalog product');
-        $page->assertSee('Remove from this store');
+        $page->assertSee('Remove from this channel');
 
         // A linked product reads Live through the shared cell; the core grid's source agrees.
         \Extensions\venta\Models\VentaProductLink::create(['venta_setting_id' => $store->id, 'venta_product_id' => 9001, 'product_id' => $pid, 'sku' => 'GP-200']);

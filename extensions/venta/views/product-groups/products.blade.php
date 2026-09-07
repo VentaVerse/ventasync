@@ -112,56 +112,22 @@
 {{-- role="status" so the bar arriving is heard, not only seen. aria-live is
      on the COUNT rather than the whole bar: the buttons do not change, and
      re-reading their labels on every tick would be worse than silence. --}}
-<div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar role="status">
-    <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected</span>
-    <div class="cc-bulkbar__actions">
-        <form method="POST" action="{{ route('ext.venta.product-groups.push', [$setting->id, $group->id]) }}" data-bulk-form
-              data-bulk-confirm="Push the selected products to {{ $storeName }}? Anything already pushed is updated in place.">
-            @csrf
-            <input type="hidden" name="_return" value="{{ $returnTo }}">
-            <x-ui.button type="submit" size="sm">Push to Venta</x-ui.button>
-        </form>
-        <form method="POST" action="{{ route('ext.venta.product-groups.push-prices', [$setting->id, $group->id]) }}" data-bulk-form>
-            @csrf
-            <input type="hidden" name="_return" value="{{ $returnTo }}">
-            <x-ui.button type="submit" size="sm">Push prices</x-ui.button>
-        </form>
-        <form method="POST" action="{{ route('ext.venta.product-groups.push-stock', [$setting->id, $group->id]) }}" data-bulk-form>
-            @csrf
-            <input type="hidden" name="_return" value="{{ $returnTo }}">
-            <x-ui.button type="submit" size="sm">Push stock</x-ui.button>
-        </form>
-        {{-- Was "Match Venta IDs", which only filled in blanks: it skipped any
-             product that already had a link, so the case that matters - a link
-             that has gone stale - was the one thing it would not look at. It
-             now asks about every selected product and says what it found. --}}
-        <form method="POST" action="{{ route('ext.venta.product-groups.check', [$setting->id, $group->id]) }}" data-bulk-form>
-            @csrf
-            <input type="hidden" name="_return" value="{{ $returnTo }}">
-            <x-ui.button type="submit" size="sm">Check against {{ $storeName }}</x-ui.button>
-        </form>
-        {{-- Remove from product group first, then Delete from Venta LAST and alone in
-             the danger fill, matching Shopee, Lazada and TikTok.
-
-             Venta was the only one of the four that could not delete in bulk,
-             so its last slot held Remove from product group in red - the same
-             position and the same colour that means "delete from the
-             marketplace" on the other three. An operator moving between
-             channels reads position before words. --}}
-        <form method="POST" action="{{ route('ext.venta.product-groups.mass-remove', [$setting->id, $group->id]) }}" data-bulk-form
-              data-bulk-confirm="Take the selected products out of this product group? Nothing is deleted from the catalog, and nothing already live on {{ $storeName }} is touched.">
-            @csrf
-            <input type="hidden" name="_return" value="{{ $returnTo }}">
-            <x-ui.button type="submit" size="sm">Remove from product group</x-ui.button>
-        </form>
-        <form method="POST" action="{{ route('ext.venta.product-groups.bulk-delete-from-venta', [$setting->id, $group->id]) }}" data-bulk-form
-              data-bulk-confirm="Delete the selected products from {{ $storeName }}? They are removed at the storefront and this cannot be undone.">
-            @csrf
-            <input type="hidden" name="_return" value="{{ $returnTo }}">
-            <x-ui.button type="submit" variant="danger" size="sm">Delete from Venta</x-ui.button>
-        </form>
-    </div>
-</div>
+@php
+    $gf = ['_return' => $returnTo];
+    $bulk = ['group' => true,
+        'push' => ['action' => route('ext.venta.product-groups.push', [$setting->id, $group->id]), 'label' => 'Push to ' . $storeName, 'fields' => $gf, 'confirm' => "Push the selected products to {$storeName} with this product group's settings? Anything already pushed is updated in place."],
+        'stock' => ['action' => route('ext.venta.product-groups.push-stock', [$setting->id, $group->id]), 'fields' => $gf],
+        'prices' => ['action' => route('ext.venta.product-groups.push-prices', [$setting->id, $group->id]), 'fields' => $gf],
+        'link' => ['action' => route('ext.venta.product-groups.check', [$setting->id, $group->id]), 'label' => 'Link IDs', 'fields' => $gf],
+        'switch' => [
+            ['action' => route('ext.venta.listings.bulk_toggle', $setting->id), 'field' => 'product_ids[]', 'verb' => 'unlist', 'codes' => 'active', 'label' => 'Unlist :n on ' . $storeName, 'button' => 'Unlist on ' . $storeName, 'fields' => ['action' => 'unlist'], 'confirm' => "Unlist the selected products on {$storeName}? Buyers stop seeing them. They can be relisted at any time."],
+            ['action' => route('ext.venta.listings.bulk_toggle', $setting->id), 'field' => 'product_ids[]', 'verb' => 'relist', 'codes' => 'inactive', 'label' => 'Relist :n on ' . $storeName, 'button' => 'Relist on ' . $storeName, 'fields' => ['action' => 'relist'], 'confirm' => "Relist the selected products on {$storeName}? Buyers see them again at once."],
+        ],
+        'delete' => ['action' => route('ext.venta.product-groups.bulk-delete-from-venta', [$setting->id, $group->id]), 'label' => 'Delete from ' . $storeName, 'fields' => $gf, 'confirm' => "Delete the selected products from {$storeName}? They are removed at the storefront and this cannot be undone."],
+        'remove' => ['action' => route('ext.venta.product-groups.mass-remove', [$setting->id, $group->id]), 'label' => 'Remove from product group', 'fields' => $gf, 'confirm' => "Take the selected products out of this product group? Nothing is deleted from the catalog, and nothing already live on {$storeName} is touched."],
+    ];
+@endphp
+@include('partials.channel-bulk-bar', ['bulk' => $bulk])
 @endif
 
 @if($products->count() === 0)
@@ -384,81 +350,32 @@
                      inline styles and its own outside-click handler. Same
                      branching, same routes, same confirm messages; the popup is
                      <x-ui.menu> now, which Alpine drives. --}}
-                <x-ui.menu label="Product {{ $p->product_id }} actions">
-                    {{-- ONE primary action, never gated.
-
-                         It replaced Push, Update on Venta, Match Venta ID,
-                         Link to Venta again and Push as new - five buttons
-                         that existed only to describe which local state the
-                         row happened to be in, shown in mutually exclusive
-                         sets. A product deleted in Venta's admin landed in the
-                         one state that offered none of the useful ones, and
-                         the two it did offer never contacted Venta at all.
-
-                         This asks Venta what is true, then creates, updates,
-                         re-links or recreates accordingly, and says which it
-                         did. There is no state of this page in which the
-                         right action is missing. --}}
-                    <form method="POST" action="{{ route('ext.venta.product-groups.push', [$setting->id, $group->id]) }}" data-slow-action>
-                        @csrf
-                        <input type="hidden" name="_return" value="{{ $returnTo }}">
-                        <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
-                        <button type="submit" class="x-menu__item x-menu__item--primary">Push to {{ $storeName }}</button>
-                    </form>
-
-                    <div class="x-menu__sep" role="separator"></div>
-
-                    {{-- Only meaningful once something is linked. Sending
-                         establishes that, so these follow it rather than
-                         competing with it. --}}
-                    @if($hasVentaId)
-                        <form method="POST" action="{{ route('ext.venta.product-groups.push-stock', [$setting->id, $group->id]) }}" data-slow-action>
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
-                            <button type="submit" class="x-menu__item">Push stock</button>
-                        </form>
-                        <form method="POST" action="{{ route('ext.venta.product-groups.push-prices', [$setting->id, $group->id]) }}" data-slow-action>
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
-                            <button type="submit" class="x-menu__item">Push price</button>
-                        </form>
-                        <div class="x-menu__sep" role="separator"></div>
-                    @endif
-
-                    {{-- The product's own page on this store (#171): its price
-                         rule, its content here, what the store holds right now. --}}
-                    <a class="x-menu__item" href="{{ route('ext.venta.listings.edit', [$setting->id, $p->product_id]) }}">Open listing</a>
-                    <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalog</a>
-
-                    @if($isManual)
-                        <form method="POST" action="{{ route('ext.venta.product-groups.removeProduct', [$setting->id, $group->id, $p->product_id]) }}">
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <button type="submit" class="x-menu__item"
-                                    data-confirm="Take {{ $pName ?: 'this product' }} out of this product group? Nothing is deleted from the catalog, and nothing on {{ $storeName }} is touched."
-                                    data-confirm-tone="primary">Remove from product group</button>
-                        </form>
-                    @endif
-
-                    @if($hasVentaId)
-                        <div class="x-menu__sep" role="separator"></div>
-                        <form method="POST" action="{{ route('ext.venta.product-groups.unlink', [$setting->id, $group->id, $p->product_id]) }}">
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <button type="submit" class="x-menu__item"
-                                    data-confirm="Forget the connection between this product and {{ $storeName }}? Nothing is deleted there. Pushing it again will re-match or create it."
-                                    data-confirm-tone="primary">Unlink</button>
-                        </form>
-                        <form method="POST" action="{{ route('ext.venta.product-groups.deleteFromVenta', [$setting->id, $group->id, $p->product_id]) }}">
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <button type="submit" class="x-menu__item x-menu__item--danger"
-                                    data-confirm="Delete {{ $pName ?: 'this product' }} from {{ $storeName }}? It is removed at the storefront and this cannot be undone.">Delete from {{ $storeName }}</button>
-                        </form>
-                    @endif
-                </x-ui.menu>
+                @php
+                    $gf = ['_return' => $returnTo, 'ids[]' => $p->product_id];
+                    $gRow = ($listingStates ?? [])[(int) $p->product_id] ?? null;
+                    $menu = ['label' => "Product {$p->product_id} actions", 'store' => $storeName, 'catalog' => route('products.edit', $p->product_id)];
+                    // Every push from this page rides the GROUP's rule (the owner, 2026-09-07): Push asks the store first, then creates, updates or re-links.
+                    if (!$hasVentaId) {
+                        $menu['push'] = ['action' => route('ext.venta.product-groups.push', [$setting->id, $group->id]), 'label' => 'Push to ' . $storeName, 'fields' => $gf];
+                        $menu['link'] = ['action' => route('ext.venta.product-groups.link', [$setting->id, $group->id, $p->product_id]), 'fields' => ['_return' => $returnTo]];
+                    } else {
+                        $menu['update'] = ['action' => route('ext.venta.product-groups.push', [$setting->id, $group->id]), 'label' => 'Update on ' . $storeName, 'fields' => $gf];
+                        $menu['stock'] = ['action' => route('ext.venta.product-groups.push-stock', [$setting->id, $group->id]), 'fields' => $gf];
+                        $menu['price'] = ['action' => route('ext.venta.product-groups.push-prices', [$setting->id, $group->id]), 'fields' => $gf];
+                        if ($gRow?->state === \App\Integrations\Listings\ListingState::LIVE) {
+                            $menu['switch'] = ['action' => route('ext.venta.listings.toggle', [$setting->id, $p->product_id]), 'label' => 'Unlist on ' . $storeName, 'fields' => ['action' => 'unlist'], 'confirm' => "Unlist {$pName} on {$storeName}? Buyers stop seeing it. It can be relisted at any time.", 'verb' => 'Unlist'];
+                        } elseif ($gRow?->state === \App\Integrations\Listings\ListingState::INACTIVE) {
+                            $menu['switch'] = ['action' => route('ext.venta.listings.toggle', [$setting->id, $p->product_id]), 'label' => 'Relist on ' . $storeName, 'fields' => ['action' => 'relist'], 'confirm' => "Relist {$pName} on {$storeName}? Buyers see it again at once.", 'verb' => 'Relist', 'tone' => 'primary'];
+                        }
+                        $menu['check'] = ['action' => route('ext.venta.product-groups.check', [$setting->id, $group->id]), 'label' => 'Check against ' . $storeName, 'fields' => $gf];
+                        $menu['unlink'] = ['action' => route('ext.venta.product-groups.unlink', [$setting->id, $group->id, $p->product_id]), 'fields' => ['_return' => $returnTo], 'confirm' => "Unlink {$pName} from {$storeName}? Nothing is deleted there. Pushing it again will re-match or create it."];
+                        $menu['delete'] = ['action' => route('ext.venta.product-groups.deleteFromVenta', [$setting->id, $group->id, $p->product_id]), 'fields' => ['_return' => $returnTo], 'confirm' => "Delete {$pName} from {$storeName}? It is removed at the storefront and this cannot be undone."];
+                    }
+                    if ($isManual) {
+                        $menu['remove'] = ['action' => route('ext.venta.product-groups.removeProduct', [$setting->id, $group->id, $p->product_id]), 'fields' => ['_return' => $returnTo], 'label' => 'Remove from product group', 'verb' => 'Remove', 'tone' => 'primary', 'confirm' => "Take {$pName} out of this product group? Nothing is deleted from the catalog, and nothing on {$storeName} is touched."];
+                    }
+                @endphp
+                @include('partials.channel-row-menu', ['menu' => $menu])
                 @endif
             </td>
         </tr>

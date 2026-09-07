@@ -244,7 +244,7 @@ class TiktokAddToStoreTest extends TestCase
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $pid, 'sync_status' => 'pending']);
 
         $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
-        $this->assertStringContainsString('Remove from store', $html);
+        $this->assertStringContainsString('Remove from this channel', $html);
         $this->assertStringContainsString('tt-901234', $html);
         $this->assertStringContainsString('stays up, still orderable', $html);
         $this->assertStringContainsString('Use Delete from TikTok Shop for that', $html);

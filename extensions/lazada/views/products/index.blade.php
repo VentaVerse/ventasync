@@ -157,22 +157,11 @@
                     @endif
                 </span>
                 @if($canManageLazada)
-                    {{-- Icon only, the Shopee shape (the owner, 2026-09-03): the
-                         statuses refresh themselves every 30 minutes; this is
-                         the on-demand twin. The title carries the words. --}}
+                    {{-- The one button (the owner, 2026-09-07): Refresh checks every link against
+                         the store and re-reads every status, the old Repair links folded in. --}}
                     <form method="POST" action="{{ route('ext.lazada.products.refresh_status') }}" class="x-segment-group__refresh" data-slow-action>
                         @csrf
-                        <button type="submit" class="cc-iconbtn" title="Refresh statuses from Lazada now (they refresh themselves every 30 minutes)" aria-label="Refresh statuses from Lazada">
-                            <x-ui.icon name="refresh-cw" size="13" />
-                        </button>
-                    </form>
-                    {{-- The link audit (Phase F, #184), page-wide: with no
-                         rows ticked it walks every linked listing, 200 at a
-                         time, and the ERP's records follow what it finds. --}}
-                    <form method="POST" action="{{ route('ext.lazada.products.check') }}" class="cc-repair"
-                          data-confirm="Repair the links against Lazada? Nothing is sent or changed on Lazada; the ERP checks every linked listing and updates its own records to match what it finds, 200 listings at a time." data-confirm-tone="primary" data-confirm-verb="Repair links">
-                        @csrf
-                        <button type="submit" class="cc-quiet">Repair links</button>
+                        <x-ui.button type="submit"><x-ui.icon name="refresh-cw" size="14" /> Refresh from Lazada</x-ui.button>
                     </form>
                 @endif
             </div>
@@ -280,50 +269,20 @@
      or that anything had opened. aria-live is on the COUNT rather than the
      whole bar: the buttons do not change, and re-reading five labels on
      every tick would be worse than silence. --}}
-<div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar role="status">
-    <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected <span class="cc-bulkbar__note" data-bulk-skipped></span></span>
-    <div class="cc-bulkbar__actions">
-        {{-- Deactivate / Activate for the selection (the owner, 2026-08-28). Each
-             form acts only on the ticked rows its verb applies to, per the
-             mirrored status; the count is in the label and the rest of the
-             selection is named as skipped beside the count. --}}
-        <form method="POST" action="{{ route('ext.lazada.products.bulk_toggle') }}" data-bulk-form
-              data-bulk-verb="deactivate" data-verb-codes="active" data-verb-label="Deactivate :n on Lazada"
-              data-bulk-confirm="Deactivate the selected items on Lazada? Buyers stop seeing them. They stay here and can be activated again at any time." hidden>
-            @csrf
-            <input type="hidden" name="action" value="deactivate">
-            <x-ui.button type="submit" size="sm">Deactivate on Lazada</x-ui.button>
-        </form>
-        <form method="POST" action="{{ route('ext.lazada.products.bulk_toggle') }}" data-bulk-form
-              data-bulk-verb="activate" data-verb-codes="inactive" data-verb-label="Activate :n on Lazada"
-              data-bulk-confirm="Activate the selected items on Lazada? Buyers see them again once Lazada applies it." hidden>
-            @csrf
-            <input type="hidden" name="action" value="activate">
-            <x-ui.button type="submit" size="sm">Activate on Lazada</x-ui.button>
-        </form>
-        <form method="POST" action="{{ route('ext.lazada.products.check') }}" data-bulk-form>
-            @csrf
-            <x-ui.button type="submit" size="sm">Check against Lazada</x-ui.button>
-        </form>
-        <form method="POST" action="{{ $bulkSyncLazadaIdUrl }}" data-bulk-form>
-            @csrf
-            <x-ui.button type="submit" size="sm">Match Lazada IDs</x-ui.button>
-        </form>
-        <form method="POST" action="{{ $bulkSyncQtyUrl }}" data-bulk-form>
-            @csrf
-            <x-ui.button type="submit" size="sm">Push stock</x-ui.button>
-        </form>
-        <form method="POST" action="{{ $bulkSyncPriceUrl }}" data-bulk-form>
-            @csrf
-            <x-ui.button type="submit" size="sm">Push prices</x-ui.button>
-        </form>
-        <form method="POST" action="{{ $bulkDeleteUrl }}" data-bulk-form
-              data-bulk-confirm="Delete the selected listings from Lazada? The listings are removed at the marketplace and this cannot be undone.">
-            @csrf
-            <x-ui.button type="submit" variant="danger" size="sm">Delete from Lazada</x-ui.button>
-        </form>
-    </div>
-</div>
+@php
+    $bulk = [
+        'switch' => [
+            ['action' => route('ext.lazada.products.bulk_toggle'), 'verb' => 'deactivate', 'codes' => 'active', 'label' => 'Deactivate :n on Lazada', 'button' => 'Deactivate on Lazada', 'fields' => ['action' => 'deactivate'], 'confirm' => 'Deactivate the selected items on Lazada? Buyers stop seeing them. They stay here and can be activated again at any time.'],
+            ['action' => route('ext.lazada.products.bulk_toggle'), 'verb' => 'activate', 'codes' => 'inactive', 'label' => 'Activate :n on Lazada', 'button' => 'Activate on Lazada', 'fields' => ['action' => 'activate'], 'confirm' => 'Activate the selected items on Lazada? Buyers see them again once Lazada applies it.'],
+        ],
+        'stock' => ['action' => route('ext.lazada.products.bulk_sync_quantity')],
+        'prices' => ['action' => route('ext.lazada.products.bulk_sync_price')],
+        'link' => ['action' => route('ext.lazada.products.bulk_sync_lazada_id'), 'label' => 'Link IDs'],
+        'delete' => ['action' => route('ext.lazada.products.bulk_delete'), 'label' => 'Delete from Lazada', 'confirm' => 'Delete the selected listings from Lazada? The listings are removed at the marketplace and this cannot be undone.'],
+        'remove' => ['action' => route('ext.lazada.products.bulk_remove_from_store'), 'label' => 'Remove from this channel', 'confirm' => 'Remove the selected products from this channel? They leave this store\'s list and stop syncing. Anything already on Lazada stays up until you delete it there.'],
+    ];
+@endphp
+@include('partials.channel-bulk-bar', ['bulk' => $bulk])
 @endif
 
 @if($products->count() === 0)
@@ -570,85 +529,41 @@
                      so a row could say one thing and offer the actions of
                      another. Now: what the badge says decides what the
                      menu holds, and only the applicable toggle exists. --}}
-                <x-ui.menu label="{{ $rowLabel }} actions">
-                    @if(!$listing)
-                        {{-- No listing row yet: the one action is to begin.
-                             The create form opens with this product picked. --}}
-                        <a class="x-menu__item x-menu__item--primary" href="{{ $editUrl }}">Set up on Lazada</a>
-                    @else
-                        <a class="x-menu__item x-menu__item--primary" href="{{ $editUrl }}">Edit listing</a>
-
-                        @if(!$hasItemId)
-                            {{-- One push, and it opens the listing page first
-                                 (#149), where the push button sits under what
-                                 is about to go up. --}}
-                            <a class="x-menu__item" href="{{ $editUrl }}">Push to Lazada</a>
-                            <form method="POST" action="{{ route('ext.lazada.products.sync_lazada_id', $listing->id) }}" data-slow-action>
-                                @csrf
-                                <button type="submit" class="x-menu__item">Match Lazada ID</button>
-                            </form>
-                        @endif
-
-                        @if($hasItemId && !$isUnlinked)
-                            <form method="POST" action="{{ route('ext.lazada.products.sync_quantity', $listing->id) }}" data-slow-action>
-                                @csrf
-                                <button type="submit" class="x-menu__item">Push stock</button>
-                            </form>
-                            <form method="POST" action="{{ route('ext.lazada.products.sync_price', $listing->id) }}" data-slow-action>
-                                @csrf
-                                <button type="submit" class="x-menu__item">Push price</button>
-                            </form>
-                            {{-- The marketplace's own on/off, from the state
-                                 the badge already wears: a live listing can
-                                 be deactivated, an unlisted one activated,
-                                 and any other state offers neither. --}}
-                            @if($rowState?->state === $stateClass::LIVE)
-                                <form method="POST" action="{{ route('ext.lazada.listings.toggle', $listing->id) }}" data-slow-action
-                                      data-confirm="Deactivate {{ $rowLabel }} on Lazada? Buyers stop seeing it. It can be activated again at any time." data-confirm-verb="Deactivate">
-                                    @csrf
-                                    <input type="hidden" name="action" value="deactivate">
-                                    <button type="submit" class="x-menu__item">Deactivate on Lazada</button>
-                                </form>
-                            @elseif($rowState?->state === $stateClass::INACTIVE)
-                                <form method="POST" action="{{ route('ext.lazada.listings.toggle', $listing->id) }}" data-slow-action
-                                      data-confirm="Activate {{ $rowLabel }} on Lazada? Buyers see it again once Lazada applies it." data-confirm-tone="primary" data-confirm-verb="Activate">
-                                    @csrf
-                                    <input type="hidden" name="action" value="activate">
-                                    <button type="submit" class="x-menu__item">Activate on Lazada</button>
-                                </form>
-                            @endif
-                            <div class="x-menu__sep"></div>
-                            <form method="POST" action="{{ route('ext.lazada.products.unlink', $listing->id) }}" data-slow-action
-                                  data-confirm="Unlink {{ $rowLabel }} from Lazada? Only the link is removed. The Lazada listing stays up and syncing stops." data-confirm-verb="Unlink">
-                                @csrf
-                                <button type="submit" class="x-menu__item x-menu__item--danger">Unlink from Lazada</button>
-                            </form>
-                            <form method="POST" action="{{ route('ext.lazada.products.delete_lazada', $listing->id) }}" data-slow-action
-                                  data-confirm="Delete {{ $rowLabel }} from Lazada? The listing is removed at the marketplace and this cannot be undone." data-confirm-verb="Delete from Lazada">
-                                @csrf
-                                <button type="submit" class="x-menu__item x-menu__item--danger">Delete from Lazada</button>
-                            </form>
-                        @endif
-
-                        {{-- Remove from this store's list (#201) - the inverse
-                             of Add, and it supersedes the old unlinked-only
-                             "Remove from this list". Deliberately no blocker
-                             (the owner, 2026-09-05): it leaves the store and stops
-                             syncing at once. It never touches Lazada - a live
-                             listing stays up, still orderable, until removed
-                             there, which the confirm says plainly; Delete from
-                             Lazada above is the door for that. --}}
-                        <div class="x-menu__sep"></div>
-                        <form method="POST" action="{{ route('ext.lazada.products.remove_from_store', $listing->id) }}" data-slow-action
-                              data-confirm="{{ $hasItemId
-                                  ? "Remove {$rowLabel} from this store? It leaves this store's list and stops syncing. It is live on Lazada (item {$row->lazada_item_id}) and stays up, still orderable, until you remove it there. Use Delete from Lazada for that."
-                                  : "Remove {$rowLabel} from this store? It leaves this store's list and stops syncing. Nothing on Lazada is changed." }}"
-                              data-confirm-verb="Remove from store">
-                            @csrf
-                            <button type="submit" class="x-menu__item x-menu__item--danger">Remove from store</button>
-                        </form>
-                    @endif
-                </x-ui.menu>
+                @php
+                    $menu = [
+                        'label' => "{$rowLabel} actions",
+                        'store' => 'Lazada',
+                        'edit' => $editUrl,
+                        'catalog' => $canEditCatalog ? route('products.edit', $pid) : null,
+                    ];
+                    if ($canManageLazada) {
+                        if (!$listing || !$hasItemId || $isUnlinked) {
+                            // One push, and it opens the listing page first (#149), where Save and push sits under what is about to go up.
+                            $menu['push'] = ['href' => $editUrl, 'label' => 'Push to Lazada'];
+                            if ($listing) {
+                                $menu['link'] = ['action' => route('ext.lazada.products.sync_lazada_id', $listing->id)];
+                            }
+                        } else {
+                            $menu['update'] = ['action' => route('ext.lazada.products.upload', $listing->id), 'label' => 'Update on Lazada', 'confirm' => "Push this listing's content and settings onto the live Lazada item? Name, description, package, category, brand and attributes are updated. Price and stock are not touched.", 'verb' => 'Push update', 'tone' => 'primary'];
+                            $menu['stock'] = route('ext.lazada.products.sync_quantity', $listing->id);
+                            $menu['price'] = route('ext.lazada.products.sync_price', $listing->id);
+                            if ($rowState?->state === $stateClass::LIVE) {
+                                $menu['switch'] = ['action' => route('ext.lazada.listings.toggle', $listing->id), 'label' => 'Deactivate on Lazada', 'fields' => ['action' => 'deactivate'], 'confirm' => "Deactivate {$rowLabel} on Lazada? Buyers stop seeing it. It can be activated again at any time.", 'verb' => 'Deactivate'];
+                            } elseif ($rowState?->state === $stateClass::INACTIVE) {
+                                $menu['switch'] = ['action' => route('ext.lazada.listings.toggle', $listing->id), 'label' => 'Activate on Lazada', 'fields' => ['action' => 'activate'], 'confirm' => "Activate {$rowLabel} on Lazada? Buyers see it again once Lazada applies it.", 'verb' => 'Activate', 'tone' => 'primary'];
+                            }
+                            $menu['check'] = ['action' => route('ext.lazada.products.check'), 'label' => 'Check against Lazada', 'fields' => ['listing_ids[]' => $listing->id]];
+                            $menu['unlink'] = ['action' => route('ext.lazada.products.unlink', $listing->id), 'confirm' => "Unlink {$rowLabel} from Lazada? Only the link is removed. The Lazada listing stays up and can be linked again later."];
+                            $menu['delete'] = ['action' => route('ext.lazada.products.delete_lazada', $listing->id), 'confirm' => "Delete {$rowLabel} from Lazada? The listing is removed at the marketplace and this cannot be undone."];
+                        }
+                        if ($listing) {
+                            $menu['remove'] = ['action' => route('ext.lazada.products.remove_from_store', $listing->id), 'label' => 'Remove from this channel', 'verb' => 'Remove', 'confirm' => $hasItemId && !$isUnlinked
+                                ? "Remove {$rowLabel} from this channel? It leaves this store's list and stops syncing. It is on Lazada (item {$listing->lazada_item_id}) and stays up, still orderable, until you remove it there. Use Delete from Lazada for that."
+                                : "Remove {$rowLabel} from this channel? It leaves this store's list and stops syncing. Nothing on Lazada is changed."];
+                        }
+                    }
+                @endphp
+                @include('partials.channel-row-menu', ['menu' => $menu])
                 @endif
             </td>
         </tr>

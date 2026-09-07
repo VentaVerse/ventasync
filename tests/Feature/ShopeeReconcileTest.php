@@ -211,15 +211,18 @@ class ShopeeReconcileTest extends TestCase
     {
         $view = $this->source(self::VIEW);
 
-        $this->assertMatchesRegularExpression('/>\s*Push to Shopee\s*<\/button>/', $view,
+        // One row menu on every channel (2026-09-07): the labels sit in the spec, and both the
+        // unlisted row's Push and the listed row's Update post to Send, which asks Shopee first.
+        $this->assertStringContainsString("'label' => 'Push to Shopee'", $view,
             'The row no longer offers Send, which is the only action that works in every state.');
+        $this->assertGreaterThanOrEqual(2, substr_count($view, "route('ext.shopee.product-groups.send', \$group->id), 'label' =>"), 'Push and Update both ride Send');
 
         // The verbs it replaced. Any of them returning means the row can
         // once again present a set of mutually exclusive states and hide the
         // useful one behind the wrong guess. ('Push to Shopee' left this
         // list 2026-09-03: the one action RENAMED to it in the verb
         // unification - same single ungated action, the marketplace verb.)
-        foreach (['Match Shopee ID', 'Link to Shopee again', 'Update on Shopee'] as $gone) {
+        foreach (['Match Shopee ID', 'Link to Shopee again'] as $gone) {
             $this->assertDoesNotMatchRegularExpression(
                 '/>\s*'.preg_quote($gone, '/').'\s*<\/button>/',
                 $view,

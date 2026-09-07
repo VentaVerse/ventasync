@@ -470,13 +470,19 @@ class VentaListingController extends Controller
         if ($result['error'] !== null) {
             return redirect()->back()->with('error', $result['error'] . ' The statuses shown are from the last refresh.');
         }
+        /* Refresh is the one button (the owner, 2026-09-07): every status is
+         * re-read first, then the links are checked against the store, the
+         * old Repair links folded in. */
+        $linked = VentaProductLink::query()->where('venta_setting_id', $store)->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+        $checked = $linked !== [] ? app(\Extensions\venta\Services\Venta\VentaLinkCheck::class)->run($setting, $linked) : null;
 
         $parts = [];
         foreach ($result['counts'] as $status => $n) {
             $parts[] = number_format($n) . ' ' . strtolower(VentaListingMirror::STATUS_MAP[$status][0] ?? $status);
         }
 
-        return redirect()->back()->with('status', 'Refreshed from ' . $setting->store_name . ': ' . ($parts ? implode(', ', $parts) : 'no linked products') . '.');
+        return redirect()->back()->with('status', 'Refreshed from ' . $setting->store_name . ': ' . ($parts ? implode(', ', $parts) : 'no linked products') . '.'
+            . ($checked ? ' ' . $checked['summary'] : ''));
     }
 
     /**
@@ -484,6 +490,116 @@ class VentaListingController extends Controller
      * The storefront has no bulk status endpoint, so this is one PUT per
      * product, written through to the mirror as each one succeeds.
      */
+    // ── The Listings page's missing verbs (parity, 2026-09-07) ──────────
+
+    /** Push stock for one row. */
+    public function pushStock(int $store, int $productId)
+    {
+        return $this->figures($store, [$productId], true, false, 'Stock');
+    }
+
+    /** Push price for one row. */
+    public function pushPrice(int $store, int $productId)
+    {
+        return $this->figures($store, [$productId], false, true, 'Price');
+    }
+
+    public function bulkPushStock(Request $request, int $store)
+    {
+        return $this->figures($store, $this->tickedIds($request), true, false, 'Stock');
+    }
+
+    public function bulkPushPrices(Request $request, int $store)
+    {
+        return $this->figures($store, $this->tickedIds($request), false, true, 'Price');
+    }
+
+    private function figures(int $store, array $ids, bool $stock, bool $price, string $what)
+    {
+        $setting = VentaSetting::where('id', $store)->where('enabled', true)->first();
+        if (! $setting) {
+            return redirect()->back()->with('error', 'That Venta store is turned off, so nothing was sent to it.');
+        }
+        if ($ids === []) {
+            return redirect()->back()->with('error', 'No products selected.');
+        }
+        $r = \Extensions\venta\Services\Venta\VentaStockPricePush::for($setting)->push($ids, $stock, $price);
+        foreach ($r['errors'] as $pid => $text) {
+            VentaListing::query()->updateOrCreate(['venta_setting_id' => $store, 'product_id' => (int) $pid], [])
+                ->forceFill(['last_push_error' => Str::limit($text, 480), 'last_push_failed_at' => now()])->save();
+        }
+
+        return redirect()->back()->with($r['failed'] > 0 ? ($r['ok'] > 0 ? 'warning' : 'error') : 'status',
+            \Extensions\venta\Services\Venta\VentaStockPricePush::sentence($r, $what, (string) $setting->store_name));
+    }
+
+    /** Unlink ID: forget the link only; the store product stays up. */
+    public function unlink(int $store, int $productId)
+    {
+        VentaSetting::findOrFail($store);
+        $removed = VentaProductLink::query()->where('venta_setting_id', $store)->where('product_id', $productId)->delete();
+        VentaListing::query()->where('venta_setting_id', $store)->where('product_id', $productId)->update(['live_status' => null, 'live_checked_at' => null]);
+        VentaProductGroupProduct::query()->where('product_id', $productId)
+            ->whereIn('venta_product_group_id', VentaProductGroup::query()->where('venta_setting_id', $store)->select('id'))
+            ->update(['sync_status' => 'pending', 'push_error' => null]);
+
+        return redirect()->back()->with('status', $removed > 0
+            ? 'Unlinked. The store product stays up; Link ID or a push connects this product again.'
+            : 'That product was not linked, so there was nothing to unlink.');
+    }
+
+    /** Delete from {Store}: removed AT the store, then forgotten here. */
+    public function deleteFromStore(int $store, int $productId)
+    {
+        return $this->deleteOnStore($store, [$productId]);
+    }
+
+    public function bulkDeleteFromStore(Request $request, int $store)
+    {
+        return $this->deleteOnStore($store, $this->tickedIds($request));
+    }
+
+    private function deleteOnStore(int $store, array $ids)
+    {
+        $setting = VentaSetting::where('id', $store)->where('enabled', true)->first();
+        if (! $setting) {
+            return redirect()->back()->with('error', 'That Venta store is turned off, so nothing was sent to it.');
+        }
+        if ($ids === []) {
+            return redirect()->back()->with('error', 'No products selected.');
+        }
+        $r = \Extensions\venta\Services\Venta\VentaStoreDelete::for($setting)->delete($ids);
+
+        return redirect()->back()->with($r['errors'] ? ($r['deleted'] > 0 ? 'warning' : 'error') : 'status',
+            \Extensions\venta\Services\Venta\VentaStoreDelete::sentence($r, (string) $setting->store_name));
+    }
+
+    /** Remove from this channel, for the ticked rows: the single verb, repeated. */
+    public function bulkRemoveFromStore(Request $request, int $store)
+    {
+        VentaSetting::findOrFail($store);
+        $ids = $this->tickedIds($request);
+        $n = 0;
+        foreach ($ids as $pid) {
+            if (! \Extensions\venta\Services\Venta\VentaStoreProducts::has($store, $pid)) {
+                continue;
+            }
+            VentaProductGroupProduct::query()->where('product_id', $pid)
+                ->whereIn('venta_product_group_id', VentaProductGroup::query()->where('venta_setting_id', $store)->select('id'))->delete();
+            VentaListing::query()->where('venta_setting_id', $store)->where('product_id', $pid)->delete();
+            VentaProductLink::query()->where('venta_setting_id', $store)->where('product_id', $pid)->delete();
+            $n++;
+        }
+
+        return redirect()->back()->with('status', "Removed {$n} " . ($n === 1 ? 'product' : 'products') . ' from this channel. Anything already on the store stays up until you delete it there.');
+    }
+
+    /** @return list<int> */
+    private function tickedIds(Request $request): array
+    {
+        return array_values(array_unique(array_filter(array_map('intval', (array) $request->input('product_ids', [])), fn ($v) => $v > 0)));
+    }
+
     public function bulkToggle(Request $request, int $store)
     {
         $request->validate([

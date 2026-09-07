@@ -582,6 +582,24 @@ class ShopeeProductController extends Controller
     /**
      * Add the ticked catalogue products to this store's list in one go (#201).
      */
+    /** Remove from this channel, for the ticked rows: the single verb, repeated (parity, 2026-09-07). */
+    public function bulkRemoveFromStore(Request $request)
+    {
+        $n = 0;
+        foreach ($this->parseProductIds($request) as $pid) {
+            if (!ShopeeStoreProducts::has($pid)) {
+                continue;
+            }
+            ShopeeProductLink::unlinkProduct($pid);
+            \Extensions\shopee\Models\ShopeeProductGroupProduct::query()->where('product_id', $pid)
+                ->whereIn('shopee_product_group_id', ShopeeProductGroup::query()->select('id'))->delete();
+            ShopeeListing::query()->where('product_id', $pid)->delete();
+            $n++;
+        }
+
+        return redirect()->back()->with('status', "Removed {$n} " . ($n === 1 ? 'product' : 'products') . ' from this channel. Anything already on Shopee stays up until you delete it there.');
+    }
+
     public function addToStoreBulk(Request $request)
     {
         $data = $request->validate(['product_ids' => ['required', 'array'], 'product_ids.*' => ['integer']]);
@@ -616,6 +634,11 @@ class ShopeeProductController extends Controller
         if ($result['error'] !== null) {
             return redirect()->back()->with('error', 'Shopee did not answer: ' . $result['error'] . ' The statuses shown are from the last refresh.');
         }
+        /* Refresh is the one button (the owner, 2026-09-07): every status is
+         * re-read first, then the links are checked against the store, the
+         * old Repair links folded in. */
+        $linked = ShopeeProductLink::query()->whereNotNull('shopee_item_id')->distinct()->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        $checked = $linked !== [] ? app(\Extensions\shopee\Services\Shopee\ShopeeLinkCheck::class)->run(app(ShopeeClient::class), $auth, $linked) : null;
 
         $labels = ['NORMAL' => 'live', 'UNLIST' => 'unlisted', 'BANNED' => 'in violation', 'REVIEWING' => 'under review',
             'SELLER_DELETE' => 'deleted', 'SHOPEE_DELETE' => 'deleted by Shopee', 'MISSING' => 'not found on Shopee'];
@@ -624,7 +647,8 @@ class ShopeeProductController extends Controller
             $parts[] = number_format($n) . ' ' . ($labels[$status] ?? strtolower($status));
         }
 
-        return redirect()->back()->with('status', 'Refreshed from Shopee: ' . ($parts ? implode(', ', $parts) : 'no linked items') . '.');
+        return redirect()->back()->with('status', 'Refreshed from Shopee: ' . ($parts ? implode(', ', $parts) : 'no linked items') . '.'
+            . ($checked ? ' ' . $checked['summary'] : ''));
     }
 
     /**

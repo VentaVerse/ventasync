@@ -163,50 +163,22 @@
 {{-- role="status" so the bar arriving is heard, not only seen. aria-live is
      on the COUNT rather than the whole bar: the buttons do not change, and
      re-reading their labels on every tick would be worse than silence. --}}
-<div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar role="status">
-    <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected</span>
-    <div class="cc-bulkbar__actions">
-        {{-- Send, not Push. The old wording promised "anything already pushed
-             is skipped", which was true and was the defect: a product whose
-             listing had been deleted on Shopee kept its link row, so bulk push
-             skipped it forever and the operator had no way to notice. Send
-             checks each product against Shopee first and then creates or
-             updates it. --}}
-        <form method="POST" action="{{ route('ext.shopee.product-groups.send', $group->id) }}" data-bulk-form
-              data-bulk-confirm="Send the selected products to Shopee? Each one is checked against Shopee first, then created or updated to match the catalog.">
-            @csrf
-            <input type="hidden" name="_return" value="{{ $returnTo }}">
-            <x-ui.button type="submit" size="sm">Push to Shopee</x-ui.button>
-        </form>
-        <form method="POST" action="{{ route('ext.shopee.product-groups.pushPrices', $group->id) }}" data-bulk-form>
-            @csrf
-            <input type="hidden" name="_return" value="{{ $returnTo }}">
-            <x-ui.button type="submit" size="sm">Push prices</x-ui.button>
-        </form>
-        <form method="POST" action="{{ route('ext.shopee.product-groups.pushStock', $group->id) }}" data-bulk-form>
-            @csrf
-            <input type="hidden" name="_return" value="{{ $returnTo }}">
-            <x-ui.button type="submit" size="sm">Push stock</x-ui.button>
-        </form>
-        <form method="POST" action="{{ route('ext.shopee.product-groups.check', $group->id) }}" data-bulk-form>
-            @csrf
-            <input type="hidden" name="_return" value="{{ $returnTo }}">
-            <x-ui.button type="submit" size="sm">Check against Shopee</x-ui.button>
-        </form>
-        <form method="POST" action="{{ route('ext.shopee.product-groups.massRemove', $group->id) }}" data-bulk-form
-              data-bulk-confirm="Take the selected products out of this product group? Nothing is deleted from the catalog, and nothing already live on Shopee is touched.">
-            @csrf
-            <input type="hidden" name="_return" value="{{ $returnTo }}">
-            <x-ui.button type="submit" size="sm">Remove from product group</x-ui.button>
-        </form>
-        <form method="POST" action="{{ route('ext.shopee.product-groups.deleteFromShopee', $group->id) }}" data-bulk-form
-              data-bulk-confirm="Delete the selected products from Shopee? They are removed at the marketplace and this cannot be undone.">
-            @csrf
-            <input type="hidden" name="_return" value="{{ $returnTo }}">
-            <x-ui.button type="submit" variant="danger" size="sm">Delete from Shopee</x-ui.button>
-        </form>
-    </div>
-</div>
+@php
+    $gf = ['_return' => $returnTo];
+    $bulk = ['group' => true,
+        'push' => ['action' => route('ext.shopee.product-groups.send', $group->id), 'label' => 'Push to Shopee', 'fields' => $gf, 'confirm' => 'Send the selected products to Shopee? Each one is checked against Shopee first, then created or updated to match the catalog, with this product group\'s settings.'],
+        'stock' => ['action' => route('ext.shopee.product-groups.pushStock', $group->id), 'fields' => $gf],
+        'prices' => ['action' => route('ext.shopee.product-groups.pushPrices', $group->id), 'fields' => $gf],
+        'link' => ['action' => route('ext.shopee.product-groups.check', $group->id), 'label' => 'Link IDs', 'fields' => $gf],
+        'switch' => [
+            ['action' => route('ext.shopee.products.bulk_toggle'), 'field' => 'product_ids[]', 'verb' => 'unlist', 'codes' => 'NORMAL', 'label' => 'Delist :n from Shopee', 'button' => 'Delist from Shopee', 'fields' => ['action' => 'unlist'], 'confirm' => 'Delist the selected items from Shopee? Buyers stop seeing them immediately. They can be published again at any time.'],
+            ['action' => route('ext.shopee.products.bulk_toggle'), 'field' => 'product_ids[]', 'verb' => 'list', 'codes' => 'UNLIST', 'label' => 'Publish :n on Shopee', 'button' => 'Publish on Shopee', 'fields' => ['action' => 'list'], 'confirm' => 'Publish the selected items on Shopee? Buyers see them again immediately.'],
+        ],
+        'delete' => ['action' => route('ext.shopee.product-groups.deleteFromShopee', $group->id), 'label' => 'Delete from Shopee', 'fields' => $gf, 'confirm' => 'Delete the selected products from Shopee? They are removed at the marketplace and this cannot be undone.'],
+        'remove' => ['action' => route('ext.shopee.product-groups.massRemove', $group->id), 'label' => 'Remove from product group', 'fields' => $gf, 'confirm' => 'Take the selected products out of this product group? Nothing is deleted from the catalog, and nothing already live on Shopee is touched.'],
+    ];
+@endphp
+@include('partials.channel-bulk-bar', ['bulk' => $bulk])
 @endif
 
 @if($products->count() === 0)
@@ -419,97 +391,31 @@
 
             <td class="x-td-actions">
                 @if($canManageShopee)
-                <x-ui.menu label="Product {{ $p->product_id }} actions">
-                    {{-- SEND IS ALWAYS PRESENT AND NEVER GATED, and that is the
-                         whole change. This menu used to offer Match Shopee ID,
-                         Push to Shopee, Update on Shopee and Link to Shopee
-                         again - four buttons that were one question asked four
-                         ways, each visible only when the local link row was in
-                         a particular shape.
-
-                         That shape was often wrong, and when it was, the row
-                         offered nothing that could work: delete an item in
-                         Seller Centre and Push stayed hidden because a link
-                         existed, while Update could only answer item_not_found.
-                         Unlink looked like the escape and led straight back to
-                         "Link again", which succeeded against a listing that
-                         was not there.
-
-                         Send asks Shopee first and then creates, updates or
-                         re-links according to the answer. Status is now
-                         informational; it decides nothing. --}}
-                    <form method="POST" action="{{ route('ext.shopee.product-groups.send', $group->id) }}" data-slow-action>
-                        @csrf
-                        <input type="hidden" name="_return" value="{{ $returnTo }}">
-                        <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
-                        <button type="submit" class="x-menu__item">Push to Shopee</button>
-                    </form>
-
-                    @if($listed)
-                        <form method="POST" action="{{ route('ext.shopee.product-groups.pushStock', $group->id) }}" data-slow-action>
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
-                            <button type="submit" class="x-menu__item">Push stock</button>
-                        </form>
-                        <form method="POST" action="{{ route('ext.shopee.product-groups.pushPrices', $group->id) }}" data-slow-action>
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
-                            <button type="submit" class="x-menu__item">Push price</button>
-                        </form>
-                        {{-- The marketplace's own on/off, from the state the
-                             badge wears - the Listings page offers this and
-                             this page did not, though both show the same row
-                             (#188, the owner 2026-09-02). --}}
-                        @if($canToggleListing && $rowState?->state === \App\Integrations\Listings\ListingState::LIVE)
-                            <form method="POST" action="{{ route('ext.shopee.listings.toggle', $p->product_id) }}" data-slow-action
-                                  data-confirm="Delist {{ $pName ?: 'this product' }} from Shopee? Buyers stop seeing it immediately. It can be published again at any time." data-confirm-verb="Unlist">
-                                @csrf
-                                <input type="hidden" name="action" value="unlist">
-                                <button type="submit" class="x-menu__item">Delist from Shopee</button>
-                            </form>
-                        @elseif($canToggleListing && $rowState?->state === \App\Integrations\Listings\ListingState::INACTIVE)
-                            <form method="POST" action="{{ route('ext.shopee.listings.toggle', $p->product_id) }}" data-slow-action
-                                  data-confirm="Publish {{ $pName ?: 'this product' }} on Shopee? Buyers see it again immediately." data-confirm-tone="primary" data-confirm-verb="Relist">
-                                @csrf
-                                <input type="hidden" name="action" value="list">
-                                <button type="submit" class="x-menu__item">Publish on Shopee</button>
-                            </form>
-                        @endif
-                    @endif
-
-                    <a class="x-menu__item" href="{{ route('ext.shopee.listings.edit', $p->product_id) }}">Open listing</a>
-                    @if($canEditCatalog)<a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalog</a>@endif
-
-                    @if($isManual)
-                        <div class="x-menu__sep"></div>
-                        <form method="POST" action="{{ route('ext.shopee.product-groups.removeProduct', [$group->id, $p->product_id]) }}"
-                              data-confirm="Take {{ $pName ?: 'this product' }} out of the product group? Nothing is deleted from the catalog, and nothing already live on Shopee is touched." data-confirm-verb="Remove from product group">
-                            @csrf
-                            @method('DELETE')
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <button type="submit" class="x-menu__item x-menu__item--danger">Remove from product group</button>
-                        </form>
-                    @endif
-
-                    @if($listed)
-                        <div class="x-menu__sep"></div>
-                        <form method="POST" action="{{ route('ext.shopee.product-groups.unlinkProduct', [$group->id, $p->product_id]) }}" data-slow-action
-                              data-confirm="Unlink {{ $pName ?: 'this product' }} from Shopee? The listing stays on Shopee; the ERP just stops tracking it. Push will re-find it." data-confirm-verb="Unlink">
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <button type="submit" class="x-menu__item x-menu__item--danger">Unlink from Shopee</button>
-                        </form>
-                        <form method="POST" action="{{ route('ext.shopee.product-groups.deleteFromShopee', $group->id) }}" data-slow-action
-                              data-confirm="Delete {{ $pName ?: 'this product' }} from Shopee? It is removed at the marketplace and this cannot be undone." data-confirm-verb="Delete from Shopee">
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
-                            <button type="submit" class="x-menu__item x-menu__item--danger">Delete from Shopee</button>
-                        </form>
-                    @endif
-                </x-ui.menu>
+                @php
+                    $gf = ['_return' => $returnTo, 'ids[]' => $p->product_id];
+                    $menu = ['label' => "Product {$p->product_id} actions", 'store' => 'Shopee', 'catalog' => $canEditCatalog ? route('products.edit', $p->product_id) : null];
+                    // Every push from this page rides the GROUP's rule (the owner, 2026-09-07): Send asks Shopee first, then creates or updates with the group's settings.
+                    if (!$listed) {
+                        $menu['push'] = ['action' => route('ext.shopee.product-groups.send', $group->id), 'label' => 'Push to Shopee', 'fields' => $gf];
+                        $menu['link'] = ['action' => route('ext.shopee.products.sync_shopee_id', $p->product_id)];
+                    } else {
+                        $menu['update'] = ['action' => route('ext.shopee.product-groups.send', $group->id), 'label' => 'Update on Shopee', 'fields' => $gf];
+                        $menu['stock'] = ['action' => route('ext.shopee.product-groups.pushStock', $group->id), 'fields' => $gf];
+                        $menu['price'] = ['action' => route('ext.shopee.product-groups.pushPrices', $group->id), 'fields' => $gf];
+                        if ($canToggleListing && $rowState?->state === \App\Integrations\Listings\ListingState::LIVE) {
+                            $menu['switch'] = ['action' => route('ext.shopee.listings.toggle', $p->product_id), 'label' => 'Delist from Shopee', 'fields' => ['action' => 'unlist'], 'confirm' => "Delist {$pName} from Shopee? Buyers stop seeing it immediately. It can be published again at any time.", 'verb' => 'Delist'];
+                        } elseif ($canToggleListing && $rowState?->state === \App\Integrations\Listings\ListingState::INACTIVE) {
+                            $menu['switch'] = ['action' => route('ext.shopee.listings.toggle', $p->product_id), 'label' => 'Publish on Shopee', 'fields' => ['action' => 'list'], 'confirm' => "Publish {$pName} on Shopee? Buyers see it again immediately.", 'verb' => 'Publish', 'tone' => 'primary'];
+                        }
+                        $menu['check'] = ['action' => route('ext.shopee.product-groups.check', $group->id), 'label' => 'Check against Shopee', 'fields' => $gf];
+                        $menu['unlink'] = ['action' => route('ext.shopee.product-groups.unlinkProduct', [$group->id, $p->product_id]), 'fields' => ['_return' => $returnTo], 'confirm' => "Unlink {$pName} from Shopee? The listing stays on Shopee; the ERP just stops tracking it. Push will re-find it."];
+                        $menu['delete'] = ['action' => route('ext.shopee.product-groups.deleteFromShopee', $group->id), 'fields' => $gf, 'confirm' => "Delete {$pName} from Shopee? It is removed at the marketplace and this cannot be undone."];
+                    }
+                    if ($isManual) {
+                        $menu['remove'] = ['action' => route('ext.shopee.product-groups.removeProduct', [$group->id, $p->product_id]), 'method' => 'DELETE', 'fields' => ['_return' => $returnTo], 'label' => 'Remove from product group', 'verb' => 'Remove', 'tone' => 'primary', 'confirm' => "Take {$pName} out of the product group? Nothing is deleted from the catalog, and nothing already live on Shopee is touched."];
+                    }
+                @endphp
+                @include('partials.channel-row-menu', ['menu' => $menu])
                 @endif
             </td>
         </tr>

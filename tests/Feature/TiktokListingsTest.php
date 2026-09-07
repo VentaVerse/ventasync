@@ -171,8 +171,8 @@ class TiktokListingsTest extends TestCase
         $r->assertDontSee('x-segment-group__k', false);
         $r->assertDontSee('All products');
         $r->assertSee('as of 08:30, Aug 28');
-        $r->assertSee('aria-label="Refresh statuses from TikTok Shop"', false);
-        $r->assertSee('Repair links');
+        $r->assertSee('Refresh from TikTok Shop', false);
+        $r->assertSee('Refresh from TikTok Shop');
         $r->assertSee('Live');                        // tt-live, from the mirror
         $r->assertSee('Not found on TikTok Shop');    // tt-gone, from the mirror
         $r->assertSee('Not checked yet');             // tt-new, never refreshed
@@ -223,9 +223,11 @@ class TiktokListingsTest extends TestCase
         $this->assertStringContainsString('1 live', (string) session('status'));
         // 'unlisted', the engine's word - the row badge and the tab say it too (#184 D).
         $this->assertStringContainsString('1 unlisted', (string) session('status'));
-        $this->assertCount(1, $this->callsFor('POST', '/product/202309/products/search'));
+        // Two walks: the refresh's, then the check's (one button, 2026-09-07), which drops the dead link.
+        $this->assertCount(2, $this->callsFor('POST', '/product/202309/products/search'));
         $this->assertSame('ACTIVATE', TikTokListing::where('tiktok_product_id', 'tt-live')->value('live_status'));
-        $this->assertSame('MISSING', TikTokListing::where('tiktok_product_id', 'tt-gone')->value('live_status'));
+        $this->assertNull(TikTokListing::where('product_id', $gone)->value('tiktok_product_id'), 'the dead link was dropped by the check');
+        $this->assertStringContainsString('1 no longer on TikTok Shop', (string) session('status'));
         $this->assertSame('SELLER_DEACTIVATED', TikTokListing::where('product_id', $pivotOnly)->value('live_status'), 'the pivot-only product got a listing row and its status');
         $this->assertNotNull(TikTokListing::where('tiktok_product_id', 'tt-live')->value('live_checked_at'));
     }

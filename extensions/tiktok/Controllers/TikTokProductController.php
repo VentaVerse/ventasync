@@ -509,6 +509,13 @@ class TikTokProductController extends Controller
         if ($result['error'] !== null) {
             return redirect()->back()->with('error', $result['error'] . ' The statuses shown are from the last refresh.');
         }
+        /* Refresh is the one button (the owner, 2026-09-07): every status is
+         * re-read first, then the links are checked against the store, the
+         * old Repair links folded in. */
+        $linked = TikTokListing::query()->whereNotNull('tiktok_product_id')->pluck('product_id')
+            ->merge(TikTokProductGroupProduct::query()->whereNotNull('tiktok_product_id')->pluck('product_id'))
+            ->map(fn ($v) => (int) $v)->unique()->sort()->values()->all();
+        $checked = $linked !== [] ? app(\Extensions\tiktok\Services\TikTok\TikTokLinkCheck::class)->run($c, $linked) : null;
 
         // One word per state, the engine's (#184 D): 'unlisted', not 'deactivated'.
         $labels = ['ACTIVATE' => 'live', 'SELLER_DEACTIVATED' => 'unlisted', 'PLATFORM_DEACTIVATED' => 'deactivated by TikTok',
@@ -519,7 +526,8 @@ class TikTokProductController extends Controller
             $parts[] = number_format($n) . ' ' . ($labels[$status] ?? strtolower((string) $status));
         }
 
-        return redirect()->back()->with('status', 'Refreshed from TikTok Shop: ' . ($parts ? implode(', ', $parts) : 'no linked products') . '.');
+        return redirect()->back()->with('status', 'Refreshed from TikTok Shop: ' . ($parts ? implode(', ', $parts) : 'no linked products') . '.'
+            . ($checked ? ' ' . $checked['summary'] : ''));
     }
 
     /** The one-click push on the product's OWN listing settings (#96). */
@@ -810,6 +818,109 @@ class TikTokProductController extends Controller
         );
 
         return redirect()->back()->with('status', 'Linked TikTok product #' . $data['ref'] . ' to catalog product #' . $productId . '.');
+    }
+
+    // ── The Listings page's bulk verbs (parity, 2026-09-07) ─────────────
+
+    public function bulkPushStock(Request $request, TikTokClient $client)
+    {
+        return $this->bulkFigures($request, $client, 'stock');
+    }
+
+    public function bulkPushPrice(Request $request, TikTokClient $client)
+    {
+        return $this->bulkFigures($request, $client, 'price');
+    }
+
+    private function bulkFigures(Request $request, TikTokClient $client, string $what)
+    {
+        $c = $this->creds();
+        if (!$c) {
+            return redirect()->back()->with('error', 'Missing TikTok settings.');
+        }
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array) $request->input('product_ids', [])), fn ($v) => $v > 0)));
+        if ($ids === []) {
+            return redirect()->back()->with('error', 'No products selected.');
+        }
+        $rows = [];
+        $skipped = 0;
+        $listings = TikTokListing::query()->whereIn('product_id', $ids)->get()->keyBy(fn ($l) => (int) $l->product_id);
+        foreach ($ids as $pid) {
+            $truth = $this->truthFor($pid);
+            if (!$truth) {
+                $skipped++;
+                continue;
+            }
+            $rows[] = (object) ['product_id' => $pid, 'tiktok_product_id' => $truth->tiktok_product_id, 'tiktok_sku_id' => $truth->tiktok_sku_id];
+        }
+        if ($rows === []) {
+            return redirect()->back()->with('error', 'None of the selected products is on TikTok Shop, so there is nothing to push.');
+        }
+        $results = app(\Extensions\tiktok\Services\TikTok\TikTokStockPricePush::class)->push(
+            $what === 'price' ? 'price' : 'stock', $c, $rows, (string) config('catalog.prefix'),
+            fn (float $base, object $p) => ($l = $listings->get((int) $p->product_id)) ? $l->priceFor($base) : $base
+        );
+        $clause = \Extensions\tiktok\Services\TikTok\TikTokStockPricePush::ledgerClause($results);
+        $msg = ucfirst($what) . " pushed to TikTok Shop: {$results['ok']} updated" . ($results['err'] > 0 ? ", {$results['err']} failed" : '') . ($skipped > 0 ? ", {$skipped} skipped (not on TikTok Shop)" : '') . '.' . $clause;
+
+        return redirect()->back()->with($results['err'] > 0 ? ($results['ok'] > 0 ? 'warning' : 'error') : 'status', $msg);
+    }
+
+    /** Delete from TikTok Shop for the ticked rows: the single verb, repeated. */
+    public function bulkDeleteFromTikTok(Request $request, TikTokClient $client)
+    {
+        $c = $this->creds();
+        if (!$c) {
+            return redirect()->back()->with('error', 'Missing TikTok settings.');
+        }
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array) $request->input('product_ids', [])), fn ($v) => $v > 0)));
+        if ($ids === []) {
+            return redirect()->back()->with('error', 'No products selected.');
+        }
+        $deleted = 0;
+        $skipped = 0;
+        $errors = [];
+        foreach ($ids as $pid) {
+            $truth = $this->truthFor($pid);
+            if (!$truth) {
+                $skipped++;
+                continue;
+            }
+            try {
+                $result = $client->deleteProducts($c['app_key'], $c['app_secret'], $c['token'], [(string) $truth->tiktok_product_id], $c['shop_cipher'] ?: null);
+            } catch (\Throwable $e) {
+                $result = ['ok' => false, 'status' => 0, 'body' => ['message' => \App\Support\TransportError::plain($e, 'TikTok Shop')]];
+            }
+            $this->log('DELETE', '/product/202309/products', ['product_ids' => [$truth->tiktok_product_id]], $result);
+            if (!$this->ok($result) && !\App\Support\MarketplaceLink::looksMissingRemotely($this->message($result))) {
+                $errors[] = "#{$pid}: " . $this->message($result);
+                continue;
+            }
+            TikTokListing::query()->where('product_id', $pid)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null]);
+            TikTokProductGroupProduct::query()->where('product_id', $pid)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'sync_status' => 'pending']);
+            $deleted++;
+        }
+        $msg = "Delete from TikTok Shop: {$deleted} deleted" . ($skipped > 0 ? ", {$skipped} skipped (not on TikTok Shop)" : '') . ($errors ? ', ' . count($errors) . ' failed. ' . implode('; ', array_slice($errors, 0, 3)) : '') . '.';
+
+        return redirect()->back()->with($errors ? ($deleted > 0 ? 'warning' : 'error') : 'status', $msg);
+    }
+
+    /** Remove from this channel, for the ticked rows: the single verb, repeated. */
+    public function bulkRemoveFromStore(Request $request)
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array) $request->input('product_ids', [])), fn ($v) => $v > 0)));
+        $n = 0;
+        foreach ($ids as $pid) {
+            if (!TikTokStoreProducts::has($pid)) {
+                continue;
+            }
+            TikTokProductGroupProduct::query()->where('product_id', $pid)
+                ->whereIn('tiktok_product_group_id', TikTokProductGroup::query()->select('id'))->delete();
+            TikTokListing::query()->where('product_id', $pid)->delete();
+            $n++;
+        }
+
+        return redirect()->back()->with('status', "Removed {$n} " . ($n === 1 ? 'product' : 'products') . ' from this channel. Anything already on TikTok Shop stays up until you delete it there.');
     }
 
     public function pushStock(int $productId, TikTokClient $client)

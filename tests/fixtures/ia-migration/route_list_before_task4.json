@@ -846,6 +846,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/lazada/{store}/products/bulk/remove-from-store",
+        "name": "ext.lazada.products.bulk_remove_from_store"
+    },
+    {
+        "method": "POST",
         "uri": "channels/lazada/{store}/products/bulk/sync/lazada-id",
         "name": "ext.lazada.products.bulk_sync_lazada_id"
     },
@@ -1771,6 +1776,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/shopee/{store}/products/bulk/remove-from-store",
+        "name": "ext.shopee.products.bulk_remove_from_store"
+    },
+    {
+        "method": "POST",
         "uri": "channels/shopee/{store}/products/bulk/sync/price",
         "name": "ext.shopee.products.bulk_sync_price"
     },
@@ -2306,6 +2316,26 @@
     },
     {
         "method": "POST",
+        "uri": "channels/tiktok/{store}/products/bulk/delete",
+        "name": "ext.tiktok.products.bulk_delete"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/products/bulk/push-price",
+        "name": "ext.tiktok.products.bulk_push_price"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/products/bulk/push-stock",
+        "name": "ext.tiktok.products.bulk_push_stock"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/products/bulk/remove-from-store",
+        "name": "ext.tiktok.products.bulk_remove_from_store"
+    },
+    {
+        "method": "POST",
         "uri": "channels/tiktok/{store}/products/bulk/toggle",
         "name": "ext.tiktok.products.bulk_toggle"
     },
@@ -2546,6 +2576,16 @@
     },
     {
         "method": "POST",
+        "uri": "channels/venta/{store}/listings/bulk/push-prices",
+        "name": "ext.venta.listings.bulk_push_prices"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/listings/bulk/push-stock",
+        "name": "ext.venta.listings.bulk_push_stock"
+    },
+    {
+        "method": "POST",
         "uri": "channels/venta/{store}/listings/check",
         "name": "ext.venta.listings.check"
     },
@@ -2568,6 +2608,16 @@
         "method": "POST",
         "uri": "channels/venta/{store}/listings/{productId}/push",
         "name": "ext.venta.listings.push"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/listings/{productId}/push-price",
+        "name": "ext.venta.listings.push_price"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/listings/{productId}/push-stock",
+        "name": "ext.venta.listings.push_stock"
     },
     {
         "method": "POST",
@@ -2765,6 +2815,16 @@
         "name": "ext.venta.products.add_to_store"
     },
     {
+        "method": "POST",
+        "uri": "channels/venta/{store}/products/bulk/delete",
+        "name": "ext.venta.products.bulk_delete"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/products/bulk/remove-from-store",
+        "name": "ext.venta.products.bulk_remove_from_store"
+    },
+    {
         "method": "GET|HEAD",
         "uri": "channels/venta/{store}/products/catalogue-search",
         "name": "ext.venta.products.catalogue_search"
@@ -2798,6 +2858,16 @@
         "method": "GET|HEAD",
         "uri": "channels/venta/{store}/products/search-catalog",
         "name": "ext.venta.products.search_catalog"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/products/{productId}/delete",
+        "name": "ext.venta.products.delete"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/products/{productId}/unlink",
+        "name": "ext.venta.products.unlink"
     },
     {
         "method": "GET|HEAD",
@@ -2846,6 +2916,16 @@
     },
     {
         "method": "POST",
+        "uri": "channels/woocommerce/{store}/listings/bulk/push-prices",
+        "name": "ext.woocommerce.listings.bulk_push_prices"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/listings/bulk/push-stock",
+        "name": "ext.woocommerce.listings.bulk_push_stock"
+    },
+    {
+        "method": "POST",
         "uri": "channels/woocommerce/{store}/listings/check",
         "name": "ext.woocommerce.listings.check"
     },
@@ -2868,6 +2948,16 @@
         "method": "POST",
         "uri": "channels/woocommerce/{store}/listings/{productId}/push",
         "name": "ext.woocommerce.listings.push"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/listings/{productId}/push-price",
+        "name": "ext.woocommerce.listings.push_price"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/listings/{productId}/push-stock",
+        "name": "ext.woocommerce.listings.push_stock"
     },
     {
         "method": "POST",
@@ -3005,6 +3095,16 @@
         "name": "ext.woocommerce.products.add_to_store"
     },
     {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/products/bulk/delete",
+        "name": "ext.woocommerce.products.bulk_delete"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/products/bulk/remove-from-store",
+        "name": "ext.woocommerce.products.bulk_remove_from_store"
+    },
+    {
         "method": "GET|HEAD",
         "uri": "channels/woocommerce/{store}/products/catalogue-search",
         "name": "ext.woocommerce.products.catalogue_search"
@@ -3038,6 +3138,16 @@
         "method": "GET|HEAD",
         "uri": "channels/woocommerce/{store}/products/search-catalog",
         "name": "ext.woocommerce.products.search_catalog"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/products/{productId}/delete",
+        "name": "ext.woocommerce.products.delete"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/products/{productId}/unlink",
+        "name": "ext.woocommerce.products.unlink"
     },
     {
         "method": "GET|HEAD",

@@ -130,39 +130,23 @@
 {{-- role="status" so the bar arriving is heard, not only seen. aria-live is
      on the COUNT rather than the whole bar: the buttons do not change, and
      re-reading their labels on every tick would be worse than silence. --}}
-<div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar role="status">
-    <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected</span>
-    <div class="cc-bulkbar__actions">
-        <form method="POST" action="{{ route('ext.tiktok.product-groups.push', $group->id) }}" data-bulk-form
-              data-bulk-confirm="Push the selected products to TikTok Shop? Anything already pushed is skipped.">
-            @csrf
-            <input type="hidden" name="_return" value="{{ $returnTo }}">
-            <x-ui.button type="submit" size="sm">Push to TikTok Shop</x-ui.button>
-        </form>
-        <form method="POST" action="{{ route('ext.tiktok.product-groups.pushPrices', $group->id) }}" data-bulk-form>
-            @csrf
-            <input type="hidden" name="_return" value="{{ $returnTo }}">
-            <x-ui.button type="submit" size="sm">Push prices</x-ui.button>
-        </form>
-        <form method="POST" action="{{ route('ext.tiktok.product-groups.pushStock', $group->id) }}" data-bulk-form>
-            @csrf
-            <input type="hidden" name="_return" value="{{ $returnTo }}">
-            <x-ui.button type="submit" size="sm">Push stock</x-ui.button>
-        </form>
-        <form method="POST" action="{{ route('ext.tiktok.product-groups.massRemove', $group->id) }}" data-bulk-form
-              data-bulk-confirm="Take the selected products out of this product group? Nothing is deleted from the catalog, and nothing already live on TikTok Shop is touched.">
-            @csrf
-            <input type="hidden" name="_return" value="{{ $returnTo }}">
-            <x-ui.button type="submit" size="sm">Remove from product group</x-ui.button>
-        </form>
-        <form method="POST" action="{{ route('ext.tiktok.product-groups.deleteFromTikTok', $group->id) }}" data-bulk-form
-              data-bulk-confirm="Delete the selected products from TikTok Shop? They are removed at the marketplace and this cannot be undone.">
-            @csrf
-            <input type="hidden" name="_return" value="{{ $returnTo }}">
-            <x-ui.button type="submit" variant="danger" size="sm">Delete from TikTok Shop</x-ui.button>
-        </form>
-    </div>
-</div>
+@php
+    $gf = ['_return' => $returnTo];
+    $bulk = ['group' => true,
+        'push' => ['action' => route('ext.tiktok.product-groups.push', $group->id), 'label' => 'Push to TikTok Shop', 'fields' => $gf, 'confirm' => 'Push the selected products to TikTok Shop with this product group\'s settings? Anything already pushed is skipped.'],
+        'update' => ['action' => route('ext.tiktok.product-groups.updateProduct', $group->id), 'label' => 'Update on TikTok Shop', 'fields' => $gf, 'confirm' => 'Update the selected products on TikTok Shop with this product group\'s settings? Anything not yet on TikTok Shop is skipped.'],
+        'stock' => ['action' => route('ext.tiktok.product-groups.pushStock', $group->id), 'fields' => $gf],
+        'prices' => ['action' => route('ext.tiktok.product-groups.pushPrices', $group->id), 'fields' => $gf],
+        'link' => ['action' => route('ext.tiktok.product-groups.check', $group->id), 'label' => 'Link IDs', 'fields' => $gf],
+        'switch' => [
+            ['action' => route('ext.tiktok.products.bulk_toggle'), 'field' => 'product_ids[]', 'verb' => 'deactivate', 'codes' => 'ACTIVATE', 'label' => 'Deactivate :n on TikTok Shop', 'button' => 'Deactivate on TikTok Shop', 'fields' => ['action' => 'deactivate'], 'confirm' => 'Deactivate the selected products on TikTok Shop? Buyers stop seeing them. They can be activated again at any time.'],
+            ['action' => route('ext.tiktok.products.bulk_toggle'), 'field' => 'product_ids[]', 'verb' => 'activate', 'codes' => 'SELLER_DEACTIVATED', 'label' => 'Activate :n on TikTok Shop', 'button' => 'Activate on TikTok Shop', 'fields' => ['action' => 'activate'], 'confirm' => 'Activate the selected products on TikTok Shop? Buyers see them again once TikTok applies it.'],
+        ],
+        'delete' => ['action' => route('ext.tiktok.product-groups.deleteFromTikTok', $group->id), 'label' => 'Delete from TikTok Shop', 'fields' => $gf, 'confirm' => 'Delete the selected products from TikTok Shop? They are removed at the marketplace and this cannot be undone.'],
+        'remove' => ['action' => route('ext.tiktok.product-groups.massRemove', $group->id), 'label' => 'Remove from product group', 'fields' => $gf, 'confirm' => 'Take the selected products out of this product group? Nothing is deleted from the catalog, and nothing already live on TikTok Shop is touched.'],
+    ];
+@endphp
+@include('partials.channel-bulk-bar', ['bulk' => $bulk])
 @endif
 
 @if($products->count() === 0)
@@ -333,100 +317,34 @@
 
             <td class="x-td-actions">
                 @if($canManageTiktok)
-                <x-ui.menu label="Product {{ $p->product_id }} actions">
-                    @if($canEditCatalog)<a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalog</a>@endif
-
-                    {{-- && !$isUnlinked, matching Venta. Without it an unlinked
-                         row offered Push and "Link again" side by side, which are
-                         opposite answers to the same question. --}}
-                    @if(!$listed && !$isUnlinked)
-                        <form method="POST" action="{{ route('ext.tiktok.product-groups.syncId', [$group->id, $p->product_id]) }}" data-slow-action>
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <button type="submit" class="x-menu__item">Match TikTok ID</button>
-                        </form>
-                        <form method="POST" action="{{ route('ext.tiktok.product-groups.push', $group->id) }}" data-slow-action>
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
-                            <button type="submit" class="x-menu__item">Push to TikTok Shop</button>
-                        </form>
-                    @endif
-
-                    @if($listed)
-                        <form method="POST" action="{{ route('ext.tiktok.product-groups.updateProduct', $group->id) }}" data-slow-action>
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
-                            <button type="submit" class="x-menu__item">Update on TikTok Shop</button>
-                        </form>
-                        <form method="POST" action="{{ route('ext.tiktok.product-groups.pushStock', $group->id) }}" data-slow-action>
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
-                            <button type="submit" class="x-menu__item">Push stock</button>
-                        </form>
-                        <form method="POST" action="{{ route('ext.tiktok.product-groups.pushPrices', $group->id) }}" data-slow-action>
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
-                            <button type="submit" class="x-menu__item">Push price</button>
-                        </form>
-                        {{-- The marketplace's own on/off, from the state the
-                             badge wears - the listings page offers this and
-                             this page did not, though both show the same row
-                             (#188, the owner 2026-09-02). --}}
-                        @if($canToggleListing && $rowState?->state === $stateClass::LIVE)
-                            <form method="POST" action="{{ route('ext.tiktok.listings.toggle', $p->product_id) }}" data-slow-action
-                                  data-confirm="Deactivate {{ $pName ?: 'this product' }} on TikTok Shop? Buyers stop seeing it. It can be activated again at any time." data-confirm-verb="Deactivate">
-                                @csrf
-                                <input type="hidden" name="action" value="deactivate">
-                                <button type="submit" class="x-menu__item">Deactivate on TikTok Shop</button>
-                            </form>
-                        @elseif($canToggleListing && $rowState?->state === $stateClass::INACTIVE)
-                            <form method="POST" action="{{ route('ext.tiktok.listings.toggle', $p->product_id) }}" data-slow-action
-                                  data-confirm="Activate {{ $pName ?: 'this product' }} on TikTok Shop? Buyers see it again once TikTok applies it." data-confirm-tone="primary" data-confirm-verb="Activate">
-                                @csrf
-                                <input type="hidden" name="action" value="activate">
-                                <button type="submit" class="x-menu__item">Activate on TikTok Shop</button>
-                            </form>
-                        @endif
-                        <a class="x-menu__item" href="{{ route('ext.tiktok.listings.edit', $p->product_id) }}">Open listing</a>
-                        <div class="x-menu__sep"></div>
-                        <form method="POST" action="{{ route('ext.tiktok.product-groups.unlinkProduct', [$group->id, $p->product_id]) }}" data-slow-action
-                              data-confirm="Unlink {{ $pName ?: 'this product' }} from TikTok Shop? The product stays in the product group but sync will stop." data-confirm-verb="Unlink">
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <button type="submit" class="x-menu__item x-menu__item--danger">Unlink from TikTok Shop</button>
-                        </form>
-                        <form method="POST" action="{{ route('ext.tiktok.product-groups.deleteFromTikTok', $group->id) }}" data-slow-action
-                              data-confirm="Delete {{ $pName ?: 'this product' }} from TikTok Shop? It is removed at the marketplace and this cannot be undone." data-confirm-verb="Delete from TikTok Shop">
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
-                            <button type="submit" class="x-menu__item x-menu__item--danger">Delete from TikTok Shop</button>
-                        </form>
-                    @endif
-
-                    @if($isUnlinked)
-                        <form method="POST" action="{{ route('ext.tiktok.product-groups.linkProduct', [$group->id, $p->product_id]) }}" data-slow-action>
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <button type="submit" class="x-menu__item">Link to TikTok Shop again</button>
-                        </form>
-                    @endif
-
-                    @if($isManual)
-                        <div class="x-menu__sep"></div>
-                        <form method="POST" action="{{ route('ext.tiktok.product-groups.removeProduct', [$group->id, $p->product_id]) }}"
-                              data-confirm="Take {{ $pName ?: 'this product' }} out of the product group? Nothing is deleted from the catalog, and nothing already live on TikTok Shop is touched." data-confirm-verb="Remove from product group">
-                            @csrf
-                            @method('DELETE')
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <button type="submit" class="x-menu__item x-menu__item--danger">Remove from product group</button>
-                        </form>
-                    @endif
-                </x-ui.menu>
+                @php
+                    $gf = ['_return' => $returnTo, 'ids[]' => $p->product_id];
+                    $menu = ['label' => "Product {$p->product_id} actions", 'store' => 'TikTok Shop', 'catalog' => $canEditCatalog ? route('products.edit', $p->product_id) : null];
+                    // Every push from this page rides the GROUP's rule (the owner, 2026-09-07).
+                    if (!$listed && !$isUnlinked) {
+                        $menu['push'] = ['action' => route('ext.tiktok.product-groups.push', $group->id), 'label' => 'Push to TikTok Shop', 'fields' => $gf];
+                        $menu['link'] = ['action' => route('ext.tiktok.product-groups.syncId', [$group->id, $p->product_id]), 'fields' => ['_return' => $returnTo]];
+                    } elseif ($isUnlinked) {
+                        $menu['link'] = ['action' => route('ext.tiktok.product-groups.linkProduct', [$group->id, $p->product_id]), 'fields' => ['_return' => $returnTo]];
+                    }
+                    if ($listed) {
+                        $menu['update'] = ['action' => route('ext.tiktok.product-groups.updateProduct', $group->id), 'label' => 'Update on TikTok Shop', 'fields' => $gf];
+                        $menu['stock'] = ['action' => route('ext.tiktok.product-groups.pushStock', $group->id), 'fields' => $gf];
+                        $menu['price'] = ['action' => route('ext.tiktok.product-groups.pushPrices', $group->id), 'fields' => $gf];
+                        if ($canToggleListing && $rowState?->state === $stateClass::LIVE) {
+                            $menu['switch'] = ['action' => route('ext.tiktok.listings.toggle', $p->product_id), 'label' => 'Deactivate on TikTok Shop', 'fields' => ['action' => 'deactivate'], 'confirm' => "Deactivate {$pName} on TikTok Shop? Buyers stop seeing it. It can be activated again at any time.", 'verb' => 'Deactivate'];
+                        } elseif ($canToggleListing && $rowState?->state === $stateClass::INACTIVE) {
+                            $menu['switch'] = ['action' => route('ext.tiktok.listings.toggle', $p->product_id), 'label' => 'Activate on TikTok Shop', 'fields' => ['action' => 'activate'], 'confirm' => "Activate {$pName} on TikTok Shop? Buyers see it again once TikTok applies it.", 'verb' => 'Activate', 'tone' => 'primary'];
+                        }
+                        $menu['check'] = ['action' => route('ext.tiktok.product-groups.check', $group->id), 'label' => 'Check against TikTok Shop', 'fields' => $gf];
+                        $menu['unlink'] = ['action' => route('ext.tiktok.product-groups.unlinkProduct', [$group->id, $p->product_id]), 'fields' => ['_return' => $returnTo], 'confirm' => "Unlink {$pName} from TikTok Shop? The product stays in the product group but sync will stop."];
+                        $menu['delete'] = ['action' => route('ext.tiktok.product-groups.deleteFromTikTok', $group->id), 'fields' => $gf, 'confirm' => "Delete {$pName} from TikTok Shop? It is removed at the marketplace and this cannot be undone."];
+                    }
+                    if ($isManual) {
+                        $menu['remove'] = ['action' => route('ext.tiktok.product-groups.removeProduct', [$group->id, $p->product_id]), 'method' => 'DELETE', 'fields' => ['_return' => $returnTo], 'label' => 'Remove from product group', 'verb' => 'Remove', 'tone' => 'primary', 'confirm' => "Take {$pName} out of the product group? Nothing is deleted from the catalog, and nothing already live on TikTok Shop is touched."];
+                    }
+                @endphp
+                @include('partials.channel-row-menu', ['menu' => $menu])
                 @endif
             </td>
         </tr>

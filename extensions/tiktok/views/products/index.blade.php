@@ -99,22 +99,11 @@
                     @endif
                 </span>
                 @if($canManage)
-                    {{-- Icon only, the Shopee shape (the owner, 2026-09-03): the
-                         statuses refresh themselves every 30 minutes; this is
-                         the on-demand twin. The title carries the words. --}}
+                    {{-- The one button (the owner, 2026-09-07): Refresh checks every link against
+                         the store and re-reads every status, the old Repair links folded in. --}}
                     <form method="POST" action="{{ route('ext.tiktok.products.refresh_status') }}" class="x-segment-group__refresh" data-slow-action>
                         @csrf
-                        <button type="submit" class="cc-iconbtn" title="Refresh statuses from TikTok Shop now (they refresh themselves every 30 minutes)" aria-label="Refresh statuses from TikTok Shop">
-                            <x-ui.icon name="refresh-cw" size="13" />
-                        </button>
-                    </form>
-                    {{-- The link audit (Phase F, #184), page-wide: with no
-                         rows ticked it walks every linked product, and the
-                         ERP's records follow what it finds. --}}
-                    <form method="POST" action="{{ route('ext.tiktok.products.check') }}" class="cc-repair"
-                          data-confirm="Repair the links against TikTok Shop? Nothing is sent or changed on TikTok Shop; the ERP checks every linked product and updates its own records to match what it finds." data-confirm-tone="primary" data-confirm-verb="Repair links">
-                        @csrf
-                        <button type="submit" class="cc-quiet">Repair links</button>
+                        <x-ui.button type="submit"><x-ui.icon name="refresh-cw" size="14" /> Refresh from TikTok Shop</x-ui.button>
                     </form>
                 @endif
             </div>
@@ -171,33 +160,20 @@
 </form>
 
 @if($canManage)
-<div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar role="status">
-    <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected <span class="cc-bulkbar__note" data-bulk-skipped></span></span>
-    <div class="cc-bulkbar__actions">
-        <form method="POST" action="{{ route('ext.tiktok.products.check') }}" data-bulk-form>
-            @csrf
-            <x-ui.button type="submit" size="sm">Check against TikTok Shop</x-ui.button>
-        </form>
-        {{-- Deactivate / Activate for the selection (the owner, 2026-08-28). Each
-             form acts only on the ticked rows its verb applies to, per the
-             mirrored status; the count is in the label and the rest of the
-             selection is named as skipped beside the count. --}}
-        <form method="POST" action="{{ route('ext.tiktok.products.bulk_toggle') }}" data-bulk-form
-              data-bulk-verb="deactivate" data-verb-codes="ACTIVATE" data-verb-label="Deactivate :n on TikTok Shop"
-              data-bulk-confirm="Deactivate the selected products on TikTok Shop? Buyers stop seeing them. They can be activated again at any time." hidden>
-            @csrf
-            <input type="hidden" name="action" value="deactivate">
-            <x-ui.button type="submit" size="sm">Deactivate on TikTok Shop</x-ui.button>
-        </form>
-        <form method="POST" action="{{ route('ext.tiktok.products.bulk_toggle') }}" data-bulk-form
-              data-bulk-verb="activate" data-verb-codes="SELLER_DEACTIVATED" data-verb-label="Activate :n on TikTok Shop"
-              data-bulk-confirm="Activate the selected products on TikTok Shop? Buyers see them again once TikTok applies it." hidden>
-            @csrf
-            <input type="hidden" name="action" value="activate">
-            <x-ui.button type="submit" size="sm">Activate on TikTok Shop</x-ui.button>
-        </form>
-    </div>
-</div>
+@php
+    $bulk = [
+        'switch' => [
+            ['action' => route('ext.tiktok.products.bulk_toggle'), 'verb' => 'deactivate', 'codes' => 'ACTIVATE', 'label' => 'Deactivate :n on TikTok Shop', 'button' => 'Deactivate on TikTok Shop', 'fields' => ['action' => 'deactivate'], 'confirm' => 'Deactivate the selected products on TikTok Shop? Buyers stop seeing them. They can be activated again at any time.'],
+            ['action' => route('ext.tiktok.products.bulk_toggle'), 'verb' => 'activate', 'codes' => 'SELLER_DEACTIVATED', 'label' => 'Activate :n on TikTok Shop', 'button' => 'Activate on TikTok Shop', 'fields' => ['action' => 'activate'], 'confirm' => 'Activate the selected products on TikTok Shop? Buyers see them again once TikTok applies it.'],
+        ],
+        'stock' => ['action' => route('ext.tiktok.products.bulk_push_stock')],
+        'prices' => ['action' => route('ext.tiktok.products.bulk_push_price')],
+        'link' => ['action' => route('ext.tiktok.products.check'), 'label' => 'Link IDs'],
+        'delete' => ['action' => route('ext.tiktok.products.bulk_delete'), 'label' => 'Delete from TikTok Shop', 'confirm' => 'Delete the selected products from TikTok Shop? They are removed at the marketplace and this cannot be undone.'],
+        'remove' => ['action' => route('ext.tiktok.products.bulk_remove_from_store'), 'label' => 'Remove from this channel', 'confirm' => 'Remove the selected products from this channel? They leave this store\'s list and stop syncing. Anything already on TikTok Shop stays up until you delete it there.'],
+    ];
+@endphp
+@include('partials.channel-bulk-bar', ['bulk' => $bulk])
 @endif
 
 @if($products->count() === 0)
@@ -348,80 +324,36 @@
             </td>
             <td class="x-td-actions">
                 @if($canManage || $canEditCatalog)
-                <x-ui.menu label="Product {{ $pid }} actions">
-                    <a class="x-menu__item" href="{{ route('ext.tiktok.listings.edit', $pid) }}">Open listing</a>
-                    @if($canEditCatalog)<a class="x-menu__item" href="{{ route('products.edit', $pid) }}">Edit in catalog</a>@endif
-                    @if($canManage)
-                        @if(!$listed)
-                            {{-- One push, and it opens the listing page first
-                                 (#149), where "Push to TikTok Shop" sits under
-                                 what is about to go up. The one-click is gone
-                                 from the menu; the route stays for the page. --}}
-                            <a class="x-menu__item" href="{{ route('ext.tiktok.listings.edit', [$pid, 'back' => request()->getRequestUri()]) }}">Push to TikTok Shop</a>
-                        @else
-                            <form method="POST" action="{{ route('ext.tiktok.listings.push_update', $pid) }}" data-slow-action
-                                  data-confirm="Push this listing's content and settings onto the live TikTok Shop product? Title, description, package, category, brand and attributes are updated. Price and stock are not touched." data-confirm-tone="primary" data-confirm-verb="Push update">
-                                @csrf
-                                <button type="submit" class="x-menu__item">Update on TikTok Shop</button>
-                            </form>
-                            <form method="POST" action="{{ route('ext.tiktok.products.push_stock', $pid) }}" data-slow-action>
-                                @csrf
-                                <button type="submit" class="x-menu__item">Push stock</button>
-                            </form>
-                            <form method="POST" action="{{ route('ext.tiktok.products.push_price', $pid) }}" data-slow-action>
-                                @csrf
-                                <button type="submit" class="x-menu__item">Push price</button>
-                            </form>
-                            {{-- The marketplace's own on/off, from the state
-                                 the badge wears (#188) - not the raw string,
-                                 which also went silent whenever the tab strip
-                                 was hidden. --}}
-                            @if($rowState?->state === $stateClass::LIVE)
-                                <form method="POST" action="{{ route('ext.tiktok.listings.toggle', $pid) }}" data-slow-action
-                                      data-confirm="Deactivate this product on TikTok Shop? Buyers stop seeing it. It can be activated again at any time." data-confirm-verb="Deactivate">
-                                    @csrf
-                                    <input type="hidden" name="action" value="deactivate">
-                                    <button type="submit" class="x-menu__item">Deactivate on TikTok Shop</button>
-                                </form>
-                            @elseif($rowState?->state === $stateClass::INACTIVE)
-                                <form method="POST" action="{{ route('ext.tiktok.listings.toggle', $pid) }}" data-slow-action
-                                      data-confirm="Activate this product on TikTok Shop? Buyers see it again once TikTok applies it." data-confirm-tone="primary" data-confirm-verb="Activate">
-                                    @csrf
-                                    <input type="hidden" name="action" value="activate">
-                                    <button type="submit" class="x-menu__item">Activate on TikTok Shop</button>
-                                </form>
-                            @endif
-                            <div class="x-menu__sep"></div>
-                            <form method="POST" action="{{ route('ext.tiktok.products.unlink', $pid) }}" data-slow-action
-                                  data-confirm="Unlink this product from TikTok Shop? Only the link is removed. The TikTok Shop product stays up and can be matched again later." data-confirm-verb="Unlink">
-                                @csrf
-                                <button type="submit" class="x-menu__item x-menu__item--danger">Unlink from TikTok Shop</button>
-                            </form>
-                            <form method="POST" action="{{ route('ext.tiktok.products.delete', $pid) }}" data-slow-action
-                                  data-confirm="Delete this product from TikTok Shop? It is removed at the marketplace and this cannot be undone." data-confirm-verb="Delete from TikTok Shop">
-                                @csrf
-                                <button type="submit" class="x-menu__item x-menu__item--danger">Delete from TikTok Shop</button>
-                            </form>
-                        @endif
-
-                        {{-- Remove from this store's list (#201) - the inverse
-                             of Add. Deliberately no blocker (the owner,
-                             2026-09-05): it leaves the store and stops syncing
-                             at once. It never touches TikTok Shop - a live
-                             product stays up, still orderable, until removed
-                             there, which the confirm says plainly; Delete from
-                             TikTok Shop above is the door for that. --}}
-                        <div class="x-menu__sep"></div>
-                        <form method="POST" action="{{ route('ext.tiktok.products.remove_from_store', $pid) }}" data-slow-action
-                              data-confirm="{{ $listed
-                                  ? "Remove {$rowLabel} from this store? It leaves this store's list and stops syncing. It is on TikTok Shop (product {$ttId}) and stays up, still orderable, until you remove it there. Use Delete from TikTok Shop for that."
-                                  : "Remove {$rowLabel} from this store? It leaves this store's list and stops syncing. Nothing on TikTok Shop is changed." }}"
-                              data-confirm-verb="Remove from store">
-                            @csrf
-                            <button type="submit" class="x-menu__item x-menu__item--danger">Remove from store</button>
-                        </form>
-                    @endif
-                </x-ui.menu>
+                @php
+                    $menu = [
+                        'label' => "Product {$pid} actions",
+                        'store' => 'TikTok Shop',
+                        'edit' => route('ext.tiktok.listings.edit', $pid),
+                        'catalog' => $canEditCatalog ? route('products.edit', $pid) : null,
+                    ];
+                    if ($canManage) {
+                        if (!$listed) {
+                            $menu['push'] = ['href' => route('ext.tiktok.listings.edit', [$pid, 'back' => request()->getRequestUri()]), 'label' => 'Push to TikTok Shop'];
+                            $menu['link'] = ['action' => route('ext.tiktok.products.check'), 'fields' => ['product_ids[]' => $pid]];
+                        } else {
+                            $menu['update'] = ['action' => route('ext.tiktok.listings.push_update', $pid), 'label' => 'Update on TikTok Shop', 'confirm' => "Push this listing's content and settings onto the live TikTok Shop product? Title, description, package, category, brand and attributes are updated. Price and stock are not touched.", 'verb' => 'Push update', 'tone' => 'primary'];
+                            $menu['stock'] = route('ext.tiktok.products.push_stock', $pid);
+                            $menu['price'] = route('ext.tiktok.products.push_price', $pid);
+                            if ($rowState?->state === $stateClass::LIVE) {
+                                $menu['switch'] = ['action' => route('ext.tiktok.listings.toggle', $pid), 'label' => 'Deactivate on TikTok Shop', 'fields' => ['action' => 'deactivate'], 'confirm' => 'Deactivate this product on TikTok Shop? Buyers stop seeing it. It can be activated again at any time.', 'verb' => 'Deactivate'];
+                            } elseif ($rowState?->state === $stateClass::INACTIVE) {
+                                $menu['switch'] = ['action' => route('ext.tiktok.listings.toggle', $pid), 'label' => 'Activate on TikTok Shop', 'fields' => ['action' => 'activate'], 'confirm' => 'Activate this product on TikTok Shop? Buyers see it again once TikTok applies it.', 'verb' => 'Activate', 'tone' => 'primary'];
+                            }
+                            $menu['check'] = ['action' => route('ext.tiktok.products.check'), 'label' => 'Check against TikTok Shop', 'fields' => ['product_ids[]' => $pid]];
+                            $menu['unlink'] = ['action' => route('ext.tiktok.products.unlink', $pid), 'confirm' => 'Unlink this product from TikTok Shop? Only the link is removed. The TikTok Shop product stays up and can be linked again later.'];
+                            $menu['delete'] = ['action' => route('ext.tiktok.products.delete', $pid), 'confirm' => 'Delete this product from TikTok Shop? It is removed at the marketplace and this cannot be undone.'];
+                        }
+                        $menu['remove'] = ['action' => route('ext.tiktok.products.remove_from_store', $pid), 'label' => 'Remove from this channel', 'verb' => 'Remove', 'confirm' => $listed
+                            ? "Remove {$rowLabel} from this channel? It leaves this store's list and stops syncing. It is on TikTok Shop (product {$ttId}) and stays up, still orderable, until you remove it there. Use Delete from TikTok Shop for that."
+                            : "Remove {$rowLabel} from this channel? It leaves this store's list and stops syncing. Nothing on TikTok Shop is changed."];
+                    }
+                @endphp
+                @include('partials.channel-row-menu', ['menu' => $menu])
                 @endif
             </td>
         </tr>

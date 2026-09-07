@@ -58,6 +58,15 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     // TikTok's does, so a listings-only operator can be given exactly this.
     Route::get('/venta/{store}/listings', [VentaListingController::class, 'index'])->name('ext.venta.listings.index');
     Route::post('/venta/{store}/listings/check', [VentaListingController::class, 'checkAgainstVenta'])->name('ext.venta.listings.check');
+    // The Listings page's missing verbs (parity, 2026-09-07): stock, price, unlink, delete at the store, and their bulk forms.
+    Route::post('/venta/{store}/listings/{productId}/push-stock', [VentaListingController::class, 'pushStock'])->whereNumber('store')->whereNumber('productId')->name('ext.venta.listings.push_stock');
+    Route::post('/venta/{store}/listings/{productId}/push-price', [VentaListingController::class, 'pushPrice'])->whereNumber('store')->whereNumber('productId')->name('ext.venta.listings.push_price');
+    Route::post('/venta/{store}/listings/bulk/push-stock', [VentaListingController::class, 'bulkPushStock'])->whereNumber('store')->name('ext.venta.listings.bulk_push_stock');
+    Route::post('/venta/{store}/listings/bulk/push-prices', [VentaListingController::class, 'bulkPushPrices'])->whereNumber('store')->name('ext.venta.listings.bulk_push_prices');
+    Route::post('/venta/{store}/products/{productId}/unlink', [VentaListingController::class, 'unlink'])->whereNumber('store')->whereNumber('productId')->name('ext.venta.products.unlink');
+    Route::post('/venta/{store}/products/{productId}/delete', [VentaListingController::class, 'deleteFromStore'])->whereNumber('store')->whereNumber('productId')->name('ext.venta.products.delete');
+    Route::post('/venta/{store}/products/bulk/delete', [VentaListingController::class, 'bulkDeleteFromStore'])->whereNumber('store')->name('ext.venta.products.bulk_delete');
+    Route::post('/venta/{store}/products/bulk/remove-from-store', [VentaListingController::class, 'bulkRemoveFromStore'])->whereNumber('store')->name('ext.venta.products.bulk_remove_from_store');
     // Stateless import (the owner, 2026-09-04): GET ?fetch=1 reads the store
     // live and renders; import/link act on the values the page carries.
     // Nothing is saved, so there is no queue and nothing to dismiss.

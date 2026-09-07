@@ -95,19 +95,12 @@
                 @endif
             </span>
             @if($canManage && $setting->enabled)
-                <form method="POST" action="{{ route('ext.venta.listings.refresh_status', $setting->id) }}" class="x-segment-group__refresh" data-slow-action>
-                    @csrf
-                    <x-ui.button type="submit" size="sm">Refresh from {{ $storeName }}</x-ui.button>
-                </form>
-                {{-- The page-wide check lives beside the freshness stamp with
-                     the refresh, the Shopee and Lazada shape: maintenance is
-                     page furniture, the header holds the one action. With no
-                     rows ticked it walks every linked product, 200 at a time. --}}
-                <form method="POST" action="{{ route('ext.venta.listings.check', $setting->id) }}" class="cc-repair"
-                      data-confirm="Check every linked product against {{ $storeName }}? Nothing is sent or changed on {{ $storeName }}; the ERP updates its own records to match what it finds, 200 products at a time." data-confirm-tone="primary" data-confirm-verb="Check">
-                    @csrf
-                    <x-ui.button type="submit" size="sm">Check against {{ $storeName }}</x-ui.button>
-                </form>
+                {{-- The one button (the owner, 2026-09-07): Refresh checks every link against
+                         the store and re-reads every status, the old Repair links folded in. --}}
+                    <form method="POST" action="{{ route('ext.venta.listings.refresh_status', $setting->id) }}" class="x-segment-group__refresh" data-slow-action>
+                        @csrf
+                        <x-ui.button type="submit"><x-ui.icon name="refresh-cw" size="14" /> Refresh from {{ $storeName }}</x-ui.button>
+                    </form>
             @endif
         </div>
     </div>
@@ -151,33 +144,20 @@
 </form>
 
 @if($canManage && $setting->enabled)
-<div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar role="status">
-    <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected <span class="cc-bulkbar__note" data-bulk-skipped></span></span>
-    <div class="cc-bulkbar__actions">
-        <form method="POST" action="{{ route('ext.venta.listings.check', $setting->id) }}" data-bulk-form>
-            @csrf
-            <x-ui.button type="submit" size="sm">Check against {{ $storeName }}</x-ui.button>
-        </form>
-        {{-- Unlist / Relist for the selection, in the store's own terms.
-             Each form acts only on the ticked rows its verb applies to, per
-             the mirrored status; the count is in the label and the rest of
-             the selection is named as skipped beside the count. --}}
-        <form method="POST" action="{{ route('ext.venta.listings.bulk_toggle', $setting->id) }}" data-bulk-form
-              data-bulk-verb="unlist" data-verb-codes="active" data-verb-label="Unlist :n on {{ $storeName }}"
-              data-bulk-confirm="Unlist the selected products on {{ $storeName }}? Buyers stop seeing them. They can be relisted at any time." hidden>
-            @csrf
-            <input type="hidden" name="action" value="unlist">
-            <x-ui.button type="submit" size="sm">Unlist on {{ $storeName }}</x-ui.button>
-        </form>
-        <form method="POST" action="{{ route('ext.venta.listings.bulk_toggle', $setting->id) }}" data-bulk-form
-              data-bulk-verb="relist" data-verb-codes="inactive" data-verb-label="Relist :n on {{ $storeName }}"
-              data-bulk-confirm="Relist the selected products on {{ $storeName }}? Buyers see them again at once." hidden>
-            @csrf
-            <input type="hidden" name="action" value="relist">
-            <x-ui.button type="submit" size="sm">Relist on {{ $storeName }}</x-ui.button>
-        </form>
-    </div>
-</div>
+@php
+    $bulk = [
+        'switch' => [
+            ['action' => route('ext.venta.listings.bulk_toggle', $setting->id), 'verb' => 'unlist', 'codes' => 'active', 'label' => 'Unlist :n on ' . $storeName, 'button' => 'Unlist on ' . $storeName, 'fields' => ['action' => 'unlist'], 'confirm' => "Unlist the selected products on {$storeName}? Buyers stop seeing them. They can be relisted at any time."],
+            ['action' => route('ext.venta.listings.bulk_toggle', $setting->id), 'verb' => 'relist', 'codes' => 'inactive', 'label' => 'Relist :n on ' . $storeName, 'button' => 'Relist on ' . $storeName, 'fields' => ['action' => 'relist'], 'confirm' => "Relist the selected products on {$storeName}? Buyers see them again at once."],
+        ],
+        'stock' => ['action' => route('ext.venta.listings.bulk_push_stock', $setting->id)],
+        'prices' => ['action' => route('ext.venta.listings.bulk_push_prices', $setting->id)],
+        'link' => ['action' => route('ext.venta.listings.check', $setting->id), 'label' => 'Link IDs'],
+        'delete' => ['action' => route('ext.venta.products.bulk_delete', $setting->id), 'label' => 'Delete from ' . $storeName, 'confirm' => "Delete the selected products from {$storeName}? They are removed at the storefront and this cannot be undone."],
+        'remove' => ['action' => route('ext.venta.products.bulk_remove_from_store', $setting->id), 'label' => 'Remove from this channel', 'confirm' => "Remove the selected products from this channel? They leave this list and their groups and stop syncing. Anything already on {$storeName} stays up until you delete it there."],
+    ];
+@endphp
+@include('partials.channel-bulk-bar', ['bulk' => $bulk])
 @endif
 
 @if($products->count() === 0)
@@ -286,47 +266,36 @@
             </td>
             <td class="x-td-actions">
                 @if($canManage || $canEditCatalog)
-                <x-ui.menu label="Product {{ $pid }} actions">
-                    <a class="x-menu__item" href="{{ $listingUrl }}">Open listing</a>
-                    @if($canEditCatalog)<a class="x-menu__item" href="{{ route('products.edit', $pid) }}">Edit in catalog</a>@endif
-                    @if($canManage && $setting->enabled)
-                        @if(!$listed)
-                            {{-- One push, and it opens the listing page first
-                                 (#149), where "Push to the store" sits under
-                                 what is about to go up. --}}
-                            <a class="x-menu__item" href="{{ $listingUrl }}">Push to {{ $storeName }}</a>
-                        @else
-                            <form method="POST" action="{{ route('ext.venta.listings.push', [$setting->id, $pid]) }}" data-slow-action
-                                  data-confirm="Push this listing's content and price rule onto the live {{ $storeName }} product? Name, description, price, stock, images and variations are updated in place." data-confirm-tone="primary" data-confirm-verb="Push update">
-                                @csrf
-                                <button type="submit" class="x-menu__item">Update on {{ $storeName }}</button>
-                            </form>
-                            @if($rowLiveStatus === \Extensions\venta\Models\VentaListing::STATUS_ACTIVE)
-                                <form method="POST" action="{{ route('ext.venta.listings.toggle', [$setting->id, $pid]) }}" data-slow-action
-                                      data-confirm="Unlist this product on {{ $storeName }}? Buyers stop seeing it. It can be relisted at any time." data-confirm-verb="Unlist">
-                                    @csrf
-                                    <input type="hidden" name="action" value="unlist">
-                                    <button type="submit" class="x-menu__item">Unlist on {{ $storeName }}</button>
-                                </form>
-                            @elseif($rowLiveStatus === \Extensions\venta\Models\VentaListing::STATUS_INACTIVE)
-                                <form method="POST" action="{{ route('ext.venta.listings.toggle', [$setting->id, $pid]) }}" data-slow-action
-                                      data-confirm="Relist this product on {{ $storeName }}? Buyers see it again at once." data-confirm-tone="primary" data-confirm-verb="Relist">
-                                    @csrf
-                                    <input type="hidden" name="action" value="relist">
-                                    <button type="submit" class="x-menu__item">Relist on {{ $storeName }}</button>
-                                </form>
-                            @endif
-                        @endif
-                    @endif
-                    @if($canManage)
-                        <div class="x-menu__sep" role="separator"></div>
-                        <form method="POST" action="{{ route('ext.venta.products.remove_from_store', [$setting->id, $pid]) }}" data-slow-action
-                              data-confirm="Remove this product from {{ $storeName }}'s list? It leaves this list and its group and stops syncing. Anything already on {{ $storeName }} stays up until you delete it there." data-confirm-verb="Remove from this store">
-                            @csrf
-                            <button type="submit" class="x-menu__item x-menu__item--danger">Remove from this store</button>
-                        </form>
-                    @endif
-                </x-ui.menu>
+                @php
+                    $menu = [
+                        'label' => "Product {$pid} actions",
+                        'store' => $storeName,
+                        'edit' => $listingUrl,
+                        'catalog' => $canEditCatalog ? route('products.edit', $pid) : null,
+                    ];
+                    if ($canManage && $setting->enabled) {
+                        if (!$listed) {
+                            $menu['push'] = ['href' => $listingUrl, 'label' => 'Push to ' . $storeName];
+                            $menu['link'] = ['action' => route('ext.venta.listings.check', $setting->id), 'fields' => ['product_ids[]' => $pid]];
+                        } else {
+                            $menu['update'] = ['action' => route('ext.venta.listings.push', [$setting->id, $pid]), 'label' => 'Update on ' . $storeName, 'confirm' => "Push this listing's content and price rule onto the live {$storeName} product? Name, description, price, stock, images and variations are updated in place.", 'verb' => 'Push update', 'tone' => 'primary'];
+                            $menu['stock'] = route('ext.venta.listings.push_stock', [$setting->id, $pid]);
+                            $menu['price'] = route('ext.venta.listings.push_price', [$setting->id, $pid]);
+                            if ($rowLiveStatus === \Extensions\venta\Models\VentaListing::STATUS_ACTIVE) {
+                                $menu['switch'] = ['action' => route('ext.venta.listings.toggle', [$setting->id, $pid]), 'label' => 'Unlist on ' . $storeName, 'fields' => ['action' => 'unlist'], 'confirm' => "Unlist this product on {$storeName}? Buyers stop seeing it. It can be relisted at any time.", 'verb' => 'Unlist'];
+                            } elseif ($rowLiveStatus === \Extensions\venta\Models\VentaListing::STATUS_INACTIVE) {
+                                $menu['switch'] = ['action' => route('ext.venta.listings.toggle', [$setting->id, $pid]), 'label' => 'Relist on ' . $storeName, 'fields' => ['action' => 'relist'], 'confirm' => "Relist this product on {$storeName}? Buyers see it again at once.", 'verb' => 'Relist', 'tone' => 'primary'];
+                            }
+                            $menu['check'] = ['action' => route('ext.venta.listings.check', $setting->id), 'label' => 'Check against ' . $storeName, 'fields' => ['product_ids[]' => $pid]];
+                            $menu['unlink'] = ['action' => route('ext.venta.products.unlink', [$setting->id, $pid]), 'confirm' => "Unlink this product from {$storeName}? Only the link is removed. The store product stays up and can be linked again later."];
+                            $menu['delete'] = ['action' => route('ext.venta.products.delete', [$setting->id, $pid]), 'confirm' => "Delete this product from {$storeName}? It is removed at the storefront and this cannot be undone."];
+                        }
+                    }
+                    if ($canManage) {
+                        $menu['remove'] = ['action' => route('ext.venta.products.remove_from_store', [$setting->id, $pid]), 'label' => 'Remove from this channel', 'verb' => 'Remove', 'confirm' => "Remove this product from this channel? It leaves this list and its group and stops syncing. Anything already on {$storeName} stays up until you delete it there."];
+                    }
+                @endphp
+                @include('partials.channel-row-menu', ['menu' => $menu])
                 @endif
             </td>
         </tr>

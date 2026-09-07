@@ -1,0 +1,127 @@
+<?php
+
+namespace Extensions\venta\Services\Venta;
+
+use Extensions\venta\Models\VentaProductLink;
+use Extensions\venta\Models\VentaSetting;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * Stock and price onto the store for linked products, one sender for the
+ * Listings page's row and bulk verbs and the group page's (parity,
+ * 2026-09-07: Venta's Listings page had neither Push stock nor Push
+ * price). Combinations first, then single-axis values, then the parent,
+ * the way the group page has always sent them.
+ */
+final class VentaStockPricePush
+{
+    public function __construct(private readonly VentaSetting $setting, private readonly VentaClient $client) {}
+
+    public static function for(VentaSetting $setting): self
+    {
+        return new self($setting, new VentaClient($setting));
+    }
+
+    /**
+     * @param list<int> $productIds
+     * @return array{ok:int, failed:int, skipped:int, errors:array<int,string>}
+     */
+    public function push(array $productIds, bool $stock, bool $price): array
+    {
+        $pfx = (string) config('catalog.prefix');
+        $ids = array_values(array_unique(array_map('intval', $productIds)));
+        $out = ['ok' => 0, 'failed' => 0, 'skipped' => 0, 'errors' => []];
+        if ($ids === []) {
+            return $out;
+        }
+        $links = VentaProductLink::query()->where('venta_setting_id', $this->setting->id)->whereIn('product_id', $ids)->get()->keyBy('product_id');
+        $products = DB::table($pfx . 'product')->whereIn('product_id', $ids)->get(['product_id', 'sku', 'quantity', 'price', 'status'])->keyBy('product_id');
+        $combos = DB::table('product_option_combinations')->whereIn('product_id', $ids)->get(['product_id', 'sku', 'quantity', 'absolute_price'])->groupBy(fn ($r) => (int) $r->product_id);
+        $options = DB::table($pfx . 'product_option_value')->whereIn('product_id', $ids)->whereNotNull('sku')->where('sku', '!=', '')
+            ->get(['product_id', 'sku', 'quantity', 'price', 'price_prefix', 'absolute_price'])->groupBy(fn ($r) => (int) $r->product_id);
+
+        foreach ($ids as $pid) {
+            $link = $links->get($pid);
+            $product = $products->get($pid);
+            if (! $link || ! $product || (int) $product->status === 0 || ! $link->venta_product_id) {
+                $out['skipped']++;
+                continue;
+            }
+            $sku = $link->sku ?: $product->sku;
+            $fine = true;
+            $why = '';
+            $variants = ($combos->get($pid) ?? collect())->isNotEmpty() ? $combos->get($pid) : ($options->get($pid) ?? collect());
+            $basePrice = (float) $product->price;
+
+            if ($stock) {
+                foreach ($variants as $v) {
+                    if (trim((string) ($v->sku ?? '')) === '') {
+                        continue;
+                    }
+                    $r = $this->client->pushVariantStock(trim((string) $v->sku), max(0, (int) $v->quantity));
+                    if (! ($r['ok'] ?? false)) {
+                        $fine = false;
+                        $why = (string) ($r['body']['error'] ?? $r['body']['message'] ?? 'no answer');
+                    }
+                }
+                $r = $this->client->pushStock($sku, max(0, (int) $product->quantity));
+                if (! ($r['ok'] ?? false)) {
+                    $fine = false;
+                    $why = (string) ($r['body']['error'] ?? $r['body']['message'] ?? 'no answer');
+                }
+            }
+            if ($price) {
+                $r = $this->client->updateProduct($sku, ['price' => $basePrice]);
+                if (! ($r['ok'] ?? false)) {
+                    $fine = false;
+                    $why = (string) ($r['body']['error'] ?? $r['body']['message'] ?? 'no answer');
+                } else {
+                    foreach ($variants as $v) {
+                        if (trim((string) ($v->sku ?? '')) === '') {
+                            continue;
+                        }
+                        $this->client->updateVariant(trim((string) $v->sku), ['price' => self::variantPrice($v, $basePrice)]);
+                    }
+                }
+            }
+            if ($fine) {
+                $out['ok']++;
+            } else {
+                $out['failed']++;
+                $out['errors'][$pid] = ($stock && ! $price ? 'Stock push failed: ' : ($price && ! $stock ? 'Price push failed: ' : 'Push failed: ')) . $why;
+            }
+        }
+
+        return $out;
+    }
+
+    /** A combination carries its own price; a single-axis value its own or an adjustment on the base. */
+    public static function variantPrice(object $v, float $basePrice): float
+    {
+        if ((float) ($v->absolute_price ?? 0) > 0) {
+            return (float) $v->absolute_price;
+        }
+        if (isset($v->price) && (float) $v->price != 0.0) {
+            return ($v->price_prefix ?? '+') === '-' ? $basePrice - (float) $v->price : $basePrice + (float) $v->price;
+        }
+
+        return $basePrice;
+    }
+
+    /** The one sentence a stock or price push leaves behind. */
+    public static function sentence(array $r, string $what, string $storeName): string
+    {
+        $msg = "{$what} pushed to {$storeName}: {$r['ok']} updated";
+        if ($r['failed'] > 0) {
+            $msg .= ", {$r['failed']} failed";
+        }
+        if ($r['skipped'] > 0) {
+            $msg .= ", {$r['skipped']} skipped (not linked or disabled)";
+        }
+        if ($r['errors']) {
+            $msg .= '. ' . implode('; ', array_slice(array_map(fn ($pid, $t) => "#{$pid}: {$t}", array_keys($r['errors']), $r['errors']), 0, 3));
+        }
+
+        return $msg . '.';
+    }
+}

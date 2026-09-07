@@ -677,6 +677,21 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
     /**
      * Add the ticked catalogue products to this store's list in one go (#201).
      */
+    /** Remove from this channel, for the ticked rows: the single verb, repeated (parity, 2026-09-07). */
+    public function bulkRemoveFromStore(Request $request)
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array) $request->input('listing_ids', [])), fn ($v) => $v > 0)));
+        $n = 0;
+        foreach (LazadaProduct::query()->whereIn('id', $ids)->get() as $listing) {
+            $listing->variants()->delete();
+            $listing->groups()->detach();
+            $listing->delete();
+            $n++;
+        }
+
+        return redirect()->back()->with('status', "Removed {$n} " . ($n === 1 ? 'product' : 'products') . ' from this channel. Anything already on Lazada stays up until you delete it there.');
+    }
+
     public function addToStoreBulk(Request $request)
     {
         $data = $request->validate(['product_ids' => ['required', 'array'], 'product_ids.*' => ['integer']]);
@@ -709,6 +724,12 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         if ($result['error'] !== null) {
             return redirect()->back()->with('error', 'Lazada did not answer: ' . $result['error'] . ' The statuses shown are from the last refresh.');
         }
+        /* Refresh is the one button (the owner, 2026-09-07): every status is
+         * re-read first, then the links are checked against the store, the
+         * old Repair links folded in. */
+        $linked = LazadaProduct::query()->whereNotNull('lazada_item_id')->whereNull('lazada_deleted_at')
+            ->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+        $checked = $linked !== [] ? app(\Extensions\lazada\Services\Lazada\LazadaLinkCheck::class)->run($setting, $creds, $linked) : null;
 
         // One word per state, the engine's (#184 C): 'rejected', not 'in violation'.
         $labels = ['active' => 'active', 'inactive' => 'inactive', 'pending' => 'pending QC', 'rejected' => 'rejected',
@@ -718,7 +739,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             $parts[] = number_format($n) . ' ' . ($labels[$status] ?? $status);
         }
 
-        return redirect()->back()->with('status', 'Refreshed from Lazada: ' . ($parts ? implode(', ', $parts) : 'no uploaded listings') . '.');
+        return redirect()->back()->with('status', 'Refreshed from Lazada: ' . ($parts ? implode(', ', $parts) : 'no uploaded listings') . '.'
+            . ($checked ? ' ' . $checked['summary'] : ''));
     }
 
     /**

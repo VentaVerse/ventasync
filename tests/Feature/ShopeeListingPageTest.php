@@ -328,8 +328,8 @@ class ShopeeListingPageTest extends TestCase
         $r->assertSee('as of 08:30, Aug 28');
         // Icon-only since the cleanup (2026-09-03); the words live in the
         // accessible name.
-        $r->assertSee('aria-label="Refresh statuses from Shopee"', false);
-        $r->assertSee('Repair links');
+        $r->assertSee('Refresh from Shopee', false);
+        $r->assertSee('Refresh from Shopee');
         $r->assertSee('shopee_tab=unlisted', false);
         $r->assertSee('Unpublished');
         $r->assertSee('Publish on Shopee');
@@ -635,8 +635,10 @@ class ShopeeListingPageTest extends TestCase
         $this->seedProduct();
         $html = $this->actingAs($this->manager())
             ->get(route('ext.shopee.products.index'))->assertOk()->getContent();
-        $this->assertSame(2, substr_count($html, route('ext.shopee.products.check')),
-            'the head checks every linked product, the bar checks the selection');
+        // Refresh folds the check in (2026-09-07); the bar offers Link IDs through the same route.
+        $this->assertStringContainsString('Link IDs', $html);
+        $this->assertStringContainsString('Refresh from Shopee', $html);
+        $this->assertStringNotContainsString('Repair links', $html);
         $this->assertStringNotContainsString('Match Shopee IDs', $html,
             'Match Shopee IDs is back; the check replaced it because it could only fill in blanks, never question an id a row already had');
     }

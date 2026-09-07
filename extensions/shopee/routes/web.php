@@ -220,6 +220,7 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
         Route::post('/shopee/{store}/products/refresh-status', [ShopeeProductController::class, 'refreshStatus'])->name('ext.shopee.products.refresh_status');
         Route::post('/shopee/{store}/products/bulk/sync/price', [ShopeeProductController::class, 'bulkSyncPrice'])->name('ext.shopee.products.bulk_sync_price');
         Route::post('/shopee/{store}/products/bulk/delete', [ShopeeProductController::class, 'bulkDeleteFromShopee'])->name('ext.shopee.products.bulk_delete');
+        Route::post('/shopee/{store}/products/bulk/remove-from-store', [ShopeeProductController::class, 'bulkRemoveFromStore'])->name('ext.shopee.products.bulk_remove_from_store');
         // Stateless import (the owner, 2026-09-04): the page's GET carries
         // ?fetch=1 to read the shop live; these act on the values the
         // rendered page carries. Nothing is saved - nothing to dismiss.

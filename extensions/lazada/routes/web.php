@@ -209,6 +209,7 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
         Route::post('/lazada/{store}/products/bulk/sync/price', [LazadaProductController::class, 'bulkSyncPrice'])->name('ext.lazada.products.bulk_sync_price');
         Route::post('/lazada/{store}/products/bulk/sync/lazada-id', [LazadaProductController::class, 'bulkSyncLazadaId'])->name('ext.lazada.products.bulk_sync_lazada_id');
         Route::post('/lazada/{store}/products/bulk/delete', [LazadaProductController::class, 'bulkDeleteFromLazada'])->name('ext.lazada.products.bulk_delete');
+        Route::post('/lazada/{store}/products/bulk/remove-from-store', [LazadaProductController::class, 'bulkRemoveFromStore'])->name('ext.lazada.products.bulk_remove_from_store');
 
 
         // Brands + Categories — fetches that pull from Lazada and persist locally

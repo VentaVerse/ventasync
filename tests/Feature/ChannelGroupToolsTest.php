@@ -186,7 +186,9 @@ class ChannelGroupToolsTest extends TestCase
 
         // The bar offers it, the way Shopee's does.
         $html = $this->actingAs($manager)->get(route('ext.lazada.product-groups.products', ['store' => $this->lazadaStore->id, 'id' => $group->id]))->assertOk()->getContent();
-        $this->assertSame(2, substr_count($html, route('ext.lazada.product-groups.check', ['store' => $this->lazadaStore->id, 'id' => $group->id])), 'the head checks the group, the bar checks the selection');
+        // The bar offers it as Link IDs, and every listed row as Check against Lazada (one row menu on every channel, 2026-09-07).
+        $this->assertStringContainsString('Link IDs', $html);
+        $this->assertGreaterThanOrEqual(1, substr_count($html, route('ext.lazada.product-groups.check', ['store' => $this->lazadaStore->id, 'id' => $group->id])));
     }
 
     public function test_lazada_unlinked_view_lists_what_the_shop_holds_that_nothing_points_at(): void
@@ -266,8 +268,9 @@ class ChannelGroupToolsTest extends TestCase
         $this->seedProduct('WB-BTN');
         $html = $this->actingAs($this->manager(['manage_lazada/product', 'view_lazada/product']))
             ->get(route('ext.lazada.products.index', ['store' => $this->lazadaStore->id]))->assertOk()->getContent();
-        $this->assertSame(2, substr_count($html, route('ext.lazada.products.check', ['store' => $this->lazadaStore->id])),
-            'the head checks every linked listing, the bar checks the selection');
+        // Refresh folds the check in (2026-09-07); the bar offers Link IDs.
+        $this->assertStringContainsString('Link IDs', $html);
+        $this->assertStringContainsString('Refresh from Lazada', $html);
     }
 
     public function test_the_tiktok_workbench_check_needs_no_group(): void
@@ -295,8 +298,9 @@ class ChannelGroupToolsTest extends TestCase
         $this->seedProduct('WBT-BTN');
         $html = $this->actingAs($this->manager(['manage_tiktok/product', 'view_tiktok/product']))
             ->get(route('ext.tiktok.products.index'))->assertOk()->getContent();
-        $this->assertSame(2, substr_count($html, route('ext.tiktok.products.check')),
-            'the head checks every linked product, the bar checks the selection');
+        // Refresh folds the check in (2026-09-07); the bar offers Link IDs.
+        $this->assertStringContainsString('Link IDs', $html);
+        $this->assertStringContainsString('Refresh from TikTok Shop', $html);
     }
 
     public function test_tiktok_unlinked_view_lists_the_shops_unknown_products(): void

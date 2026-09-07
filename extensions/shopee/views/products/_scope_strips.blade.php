@@ -49,23 +49,11 @@
                     @endif
                 </span>
                 @if($canManageShopee)
-                    {{-- Icon only (the owner, 2026-09-03): the statuses refresh
-                         themselves every 30 minutes (Automations); this is
-                         the on-demand twin, page furniture rather than a
-                         page action. The title carries the words. --}}
+                    {{-- The one button (the owner, 2026-09-07): Refresh checks every link against
+                         the store and re-reads every status, the old Repair links folded in. --}}
                     <form method="POST" action="{{ route('ext.shopee.products.refresh_status') }}" class="x-segment-group__refresh" data-slow-action>
                         @csrf
-                        <button type="submit" class="cc-iconbtn" title="Refresh statuses from Shopee now (they refresh themselves every 30 minutes)" aria-label="Refresh statuses from Shopee">
-                            <x-ui.icon name="refresh-cw" size="13" />
-                        </button>
-                    </form>
-                    {{-- The link audit, renamed from Check against Shopee:
-                         confirms every linked item still exists, adopts
-                         strays by SKU, drops dead links. --}}
-                    <form method="POST" action="{{ route('ext.shopee.products.check') }}" class="cc-repair"
-                          data-confirm="Repair the links against Shopee? Nothing is sent or changed on Shopee; the ERP confirms every linked item still exists, adopts strays by SKU and drops dead links, 200 products at a time." data-confirm-tone="primary" data-confirm-verb="Repair links">
-                        @csrf
-                        <button type="submit" class="cc-quiet">Repair links</button>
+                        <x-ui.button type="submit"><x-ui.icon name="refresh-cw" size="14" /> Refresh from Shopee</x-ui.button>
                     </form>
                 @endif
             </div>
