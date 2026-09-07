@@ -312,4 +312,42 @@ class TiktokStockPushTest extends TestCase
         $byId = collect($calls[1]['body']['skus'])->keyBy('id')->map(fn ($s) => $s['price']['amount']);
         $this->assertSame(['s1' => '1150', 's2' => '1250', 's3' => '1350', 's4' => '1450'], $byId->all());
     }
+
+    /**
+     * Live, 2026-09-07: "Data too long for column 'tiktok_sku_id'" stopped
+     * every TikTok stock push. The map repair writes every seller SKU TikTok
+     * holds (nineteen-digit ids), and the group pivot's column was a
+     * varchar(255) while the listing's was TEXT. The pivot keeps the whole
+     * map now, however many SKUs the shop holds.
+     */
+    public function test_the_heal_keeps_a_sku_map_longer_than_255_characters_on_the_group_pivot(): void
+    {
+        ['product_id' => $productId] = $this->seedTwoAxisProduct();
+        $group = TikTokProductGroup::create(['name' => 'Wide group', 'tiktok_category_id' => '900001']);
+        $pivot = TikTokProductGroupProduct::create([
+            'tiktok_product_group_id' => $group->id, 'product_id' => $productId,
+            'tiktok_product_id' => 'tt-7', 'sync_status' => 'pushed', 'last_pushed_at' => now(),
+            'tiktok_sku_id' => null, // an empty map: the push reads the product first
+        ]);
+        // The shop holds the four catalog SKUs and eight more the catalog never had.
+        $skus = [];
+        foreach (['TTV-Red-S', 'TTV-Red-M', 'TTV-Black-S', 'TTV-Black-M', 'TTV-Red-L', 'TTV-Red-XL', 'TTV-Black-L', 'TTV-Black-XL', 'TTV-Blue-S', 'TTV-Blue-M', 'TTV-Blue-L', 'TTV-Blue-XL'] as $i => $sellerSku) {
+            $skus[] = ['id' => '17290000000000' . str_pad((string) ($i + 1), 5, '0', STR_PAD_LEFT), 'seller_sku' => $sellerSku, 'price' => ['sale_price' => '1000'], 'inventory' => [['quantity' => 1]]];
+        }
+        $this->callResponses['GET /product/202309/products/tt-7'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success', 'data' => ['id' => 'tt-7', 'status' => 'ACTIVATE', 'title' => 'Wide', 'skus' => $skus]]];
+
+        $this->artisan('tiktok:push-stock')->assertExitCode(0);
+
+        $stored = (string) $pivot->fresh()->tiktok_sku_id;
+        $this->assertGreaterThan(255, strlen($stored), 'the whole map is kept, not a truncated prefix');
+        $map = json_decode($stored, true);
+        $this->assertIsArray($map, 'the stored map still parses');
+        $this->assertCount(12, $map);
+        $this->assertSame('1729000000000000001', $map['TTV-Red-S']);
+        $this->assertSame('1729000000000000012', $map['TTV-Blue-XL']);
+
+        $calls = $this->callsFor('POST', '/product/202309/products/tt-7/inventory/update');
+        $this->assertCount(1, $calls);
+        $this->assertCount(4, $calls[0]['body']['skus'], 'only the catalog\'s four go up; the other eight are skipped by name');
+    }
 }
