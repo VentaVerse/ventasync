@@ -80,6 +80,28 @@ final class ProductDeleter
         return $out;
     }
 
+    /** The per-product tables a delete must empty, besides description, category and the row itself. */
+    public const OWNED_TABLES = ['product_option_value', 'product_option', 'product_image', 'product_special', 'product_vendors'];
+
+    /**
+     * The rows a product owns: its variations (option rows and values,
+     * combinations and their values), images, specials, vendors. Shared by
+     * the delete and the orphan purge (catalog:purge-orphan-rows).
+     */
+    public static function forgetOwnedRows(string $pfx, int $productId): void
+    {
+        $comboIds = DB::table('product_option_combinations')->where('product_id', $productId)->pluck('id')->all();
+        if ($comboIds !== []) {
+            DB::table('product_option_combination_values')->whereIn('combination_id', $comboIds)->delete();
+            DB::table('product_option_combinations')->whereIn('id', $comboIds)->delete();
+        }
+        foreach (self::OWNED_TABLES as $table) {
+            if (\Illuminate\Support\Facades\Schema::hasTable($pfx . $table)) {
+                DB::table($pfx . $table)->where('product_id', $productId)->delete();
+            }
+        }
+    }
+
     /**
      * Delete the products: every channel forgets each one, then the
      * catalog row goes, all in one transaction per product.
@@ -108,6 +130,13 @@ final class ProductDeleter
                     array_push($stays, ...$remover->removeProduct($id));
                 }
 
+                /* Everything the product owns goes with it (live, 2026-09-07:
+                 * the variations, images and specials stayed behind, and the
+                 * SKU rule read the orphaned variation rows as a product still
+                 * holding those SKUs, so a re-import of the same item was
+                 * refused as "already used by a variation of product #2767",
+                 * a product that no longer existed). */
+                self::forgetOwnedRows($pfx, $id);
                 DB::table($pfx . 'product_to_category')->where('product_id', $id)->delete();
                 DB::table($pfx . 'product_description')->where('product_id', $id)->delete();
                 DB::table($pfx . 'product')->where('product_id', $id)->delete();

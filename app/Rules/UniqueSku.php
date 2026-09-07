@@ -35,23 +35,29 @@ class UniqueSku implements ValidationRule
             return;
         }
 
-        // Check product_option_value.sku
-        $optionQuery = DB::table($p . 'product_option_value')->where('sku', $sku);
+        // Check product_option_value.sku. A variation row whose product no
+        // longer exists holds nothing (a delete used to leave them behind,
+        // 2026-09-07); only a living product's variation counts.
+        $optionQuery = DB::table($p . 'product_option_value as pov')
+            ->join($p . 'product as pp', 'pp.product_id', '=', 'pov.product_id')
+            ->where('pov.sku', $sku);
         if ($this->excludeProductId) {
-            $optionQuery->where('product_id', '!=', $this->excludeProductId);
+            $optionQuery->where('pov.product_id', '!=', $this->excludeProductId);
         }
-        if ($optionHolderId = $optionQuery->value('product_id')) {
+        if ($optionHolderId = $optionQuery->value('pov.product_id')) {
             $fail("The SKU \"{$sku}\" is already used by a variation of " . $this->productName((int) $optionHolderId) . '.');
             return;
         }
 
         // Check product_option_combinations.sku - the third place a SKU
         // lives, and the one the old rule never looked at.
-        $comboQuery = DB::table('product_option_combinations')->where('sku', $sku);
+        $comboQuery = DB::table('product_option_combinations as c')
+            ->join($p . 'product as cp', 'cp.product_id', '=', 'c.product_id')
+            ->where('c.sku', $sku);
         if ($this->excludeProductId) {
-            $comboQuery->where('product_id', '!=', $this->excludeProductId);
+            $comboQuery->where('c.product_id', '!=', $this->excludeProductId);
         }
-        if ($comboHolderId = $comboQuery->value('product_id')) {
+        if ($comboHolderId = $comboQuery->value('c.product_id')) {
             $fail("The SKU \"{$sku}\" is already used by a variation of " . $this->productName((int) $comboHolderId) . '.');
             return;
         }

@@ -268,4 +268,90 @@ class ProductDeleteReachesChannelsTest extends TestCase
         $this->assertSame(0, TikTokListing::query()->where('product_id', 424242)->count());
         $this->assertSame([], $this->calls);
     }
+
+    /** A product with two variations, a combination, an image and a special. */
+    private function furnishedProduct(string $sku): int
+    {
+        $pfx = (string) config('catalog.prefix');
+        $pid = (int) DB::table($pfx . 'product')->insertGetId([
+            'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100, 'status' => 1, 'image' => 'catalog/x.png',
+            'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'manufacturer_id' => 0,
+            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+        ]);
+        DB::table($pfx . 'product_description')->insert([
+            'product_id' => $pid, 'language_id' => (int) config('catalog.default_language_id'),
+            'name' => 'Furnished ' . $sku, 'description' => '', 'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
+        ]);
+        $po = (int) DB::table($pfx . 'product_option')->insertGetId(['product_id' => $pid, 'option_id' => 1, 'value' => '', 'required' => 0]);
+        foreach ([$sku . '-red', $sku . '-blue'] as $i => $vsku) {
+            DB::table($pfx . 'product_option_value')->insert([
+                'product_id' => $pid, 'product_option_id' => $po, 'option_id' => 1, 'option_value_id' => $i + 1,
+                'sku' => $vsku, 'quantity' => 2, 'subtract' => 1, 'price' => 0, 'price_prefix' => '+',
+                'points' => 0, 'points_prefix' => '+', 'weight' => 0, 'weight_prefix' => '+',
+            ]);
+        }
+        $combo = (int) DB::table('product_option_combinations')->insertGetId([
+            'product_id' => $pid, 'sku' => $sku . '-combo', 'quantity' => 1, 'absolute_price' => 120, 'image' => null, 'status' => 1,
+            'sort_order' => 0, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('product_option_combination_values')->insert(['combination_id' => $combo, 'product_option_value_id' => (int) DB::table($pfx . 'product_option_value')->where('product_id', $pid)->value('product_option_value_id')]);
+        DB::table($pfx . 'product_image')->insert(['product_id' => $pid, 'image' => 'catalog/x-2.png', 'sort_order' => 1]);
+        if (\Illuminate\Support\Facades\Schema::hasTable($pfx . 'product_special')) {
+            DB::table($pfx . 'product_special')->insert(['product_id' => $pid, 'customer_group_id' => 1, 'priority' => 1, 'price' => 90, 'date_start' => '2026-01-01', 'date_end' => '2026-12-31']);
+        }
+
+        return $pid;
+    }
+
+    /**
+     * Live, 2026-09-07: a deleted product's variations stayed behind, and
+     * the SKU rule refused a re-import as "already used by a variation of
+     * product #2767" when #2767 no longer existed. Everything the product
+     * owns goes with it now, and a stranded row never speaks for a product
+     * that is gone.
+     */
+    public function test_a_delete_takes_the_variations_images_and_specials_with_it_and_a_stranded_row_holds_no_sku(): void
+    {
+        $pfx = (string) config('catalog.prefix');
+        $pid = $this->furnishedProduct('SX');
+
+        app(\App\Services\Catalog\ProductDeleter::class)->delete([$pid]);
+
+        $this->assertSame(0, DB::table($pfx . 'product_option')->where('product_id', $pid)->count());
+        $this->assertSame(0, DB::table($pfx . 'product_option_value')->where('product_id', $pid)->count());
+        $this->assertSame(0, DB::table('product_option_combinations')->where('product_id', $pid)->count());
+        $this->assertSame(0, DB::table('product_option_combination_values')->count());
+        $this->assertSame(0, DB::table($pfx . 'product_image')->where('product_id', $pid)->count());
+
+        // A row a delete from before left behind: the SKU rule ignores it.
+        DB::table($pfx . 'product_option_value')->insert([
+            'product_id' => 999999, 'product_option_id' => 1, 'option_id' => 1, 'option_value_id' => 1,
+            'sku' => 'GHOST-1', 'quantity' => 2, 'subtract' => 1, 'price' => 0, 'price_prefix' => '+',
+            'points' => 0, 'points_prefix' => '+', 'weight' => 0, 'weight_prefix' => '+',
+        ]);
+        DB::table('product_option_combinations')->insert([
+            'product_id' => 999999, 'sku' => 'GHOST-2', 'quantity' => 1, 'absolute_price' => 120, 'image' => null, 'status' => 1,
+            'sort_order' => 0, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $failures = [];
+        foreach (['GHOST-1', 'GHOST-2'] as $sku) {
+            (new \App\Rules\UniqueSku())->validate('sku', $sku, function ($m) use (&$failures) { $failures[] = $m; });
+        }
+        $this->assertSame([], $failures, 'a variation of a product that no longer exists holds no SKU');
+
+        // A living product's variation still does.
+        $alive = $this->furnishedProduct('LIVE');
+        (new \App\Rules\UniqueSku())->validate('sku', 'LIVE-red', function ($m) use (&$failures) { $failures[] = $m; });
+        $this->assertCount(1, $failures);
+        $this->assertStringContainsString('already used by a variation of "Furnished LIVE"', $failures[0]);
+
+        // The purge names the stranded rows, then removes them with --apply, and touches the living product not at all.
+        $this->artisan('catalog:purge-orphan-rows')->expectsOutputToContain('#999999')->assertExitCode(0);
+        $this->assertSame(1, DB::table($pfx . 'product_option_value')->where('product_id', 999999)->count());
+        $this->artisan('catalog:purge-orphan-rows', ['--apply' => true])->expectsOutputToContain('Removed the rows of 1 deleted product(s).')->assertExitCode(0);
+        $this->assertSame(0, DB::table($pfx . 'product_option_value')->where('product_id', 999999)->count());
+        $this->assertSame(0, DB::table('product_option_combinations')->where('product_id', 999999)->count());
+        $this->assertSame(2, DB::table($pfx . 'product_option_value')->where('product_id', $alive)->count());
+        $this->artisan('catalog:purge-orphan-rows')->expectsOutputToContain('No orphan rows')->assertExitCode(0);
+    }
 }
