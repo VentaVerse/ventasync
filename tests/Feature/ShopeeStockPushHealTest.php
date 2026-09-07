@@ -466,7 +466,7 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertSame(2, $second['done']);
         $third = $this->actingAs($user)->postJson(route('automations.run_step', ['run' => $first['id']]))->assertOk();
         $this->assertSame('done', $third->json('run.status'));
-        $this->assertSame('3 steps: 3 ok.', $third->json('outcome'));
+        $this->assertSame('', $third->json('outcome'), 'finished is the whole sentence; users do not know the steps');
         $this->assertTrue((bool) $job->fresh()->last_run_ok);
         $this->assertStringNotContainsString('===', implode(' ', $third->json('run.ledger')), 'the console never reaches the page');
     }

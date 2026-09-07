@@ -136,7 +136,7 @@ class AutomationsController extends Controller
             $plain = array_values(array_filter(array_map('trim', explode("\n", (string) $output)), fn ($l) => $l !== '' && ! preg_match('/^[=\-\s]+/', $l) && ! str_starts_with($l, '===')));
             $reason = $ok ? '' : ' ' . \Illuminate\Support\Str::limit((string) (end($plain) ?: ''), 160);
 
-            return response()->json(['ok' => $ok, 'done' => true, 'message' => ($ok ? 'Ran ' : 'Run failed: ') . $job->display_name . '.' . $reason]);
+            return response()->json(['ok' => $ok, 'done' => true, 'message' => $ok ? '' : trim($reason)]);
         }
 
         return back()->with($ok ? 'status' : 'error', $line);

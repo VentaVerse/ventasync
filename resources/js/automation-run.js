@@ -51,8 +51,8 @@
             markDone.hidden = state !== 'done';
             markFailed.hidden = state !== 'failed';
             title.textContent = state === 'running' ? 'Running ' + jobName
-                : (state === 'done' ? 'Ran ' + jobName : (state === 'stopped' ? 'Stopped ' + jobName : 'Run failed: ' + jobName));
-            text.textContent = state === 'running' ? 'This can take a while. Stop ends it after the current step.' : (sentence || '');
+                : (state === 'done' ? jobName + ' finished' : (state === 'stopped' ? jobName + ' stopped' : 'Run failed: ' + jobName));
+            text.textContent = state === 'running' ? '' : (sentence || '');
             stopBtn.hidden = state !== 'running';
             okBtn.hidden = state === 'running';
             if (state !== 'running') okBtn.focus();

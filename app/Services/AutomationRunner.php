@@ -98,11 +98,26 @@ class AutomationRunner
         return $run;
     }
 
-    /** "200 products: 197 ok, 3 failed." */
+    /**
+     * "200 products: 197 ok, 3 failed." A run whose units are phases or
+     * stores says nothing about them (the owner, 2026-09-07: "users won't know
+     * what the steps are"): finished is the whole sentence, and a failure
+     * says how much did not finish.
+     */
     public static function outcome(AutomationRun $run): string
     {
         if ($run->status === AutomationRun::FAILED) {
             return (string) $run->last_error;
+        }
+        if ((string) $run->label !== 'products') {
+            if ((int) $run->failed > 0) {
+                return (int) $run->failed . ' of ' . (int) $run->total . ' did not finish.';
+            }
+            if ($run->status === AutomationRun::STOPPED) {
+                return 'Stopped before it finished.';
+            }
+
+            return '';
         }
         $n = (int) $run->done;
         $s = ($run->status === AutomationRun::STOPPED ? 'Stopped after ' : '') . $n . ' ' . ($n === 1 ? Str::singular((string) $run->label) : (string) $run->label);
