@@ -177,7 +177,11 @@ class TikTokController extends Controller
         $setting->save();
 
         $label = $env === 'sandbox' ? 'Sandbox' : 'Production';
-        return redirect()->route('ext.tiktok.index')->with('status', "{$label} settings saved.");
+
+        // Back to THIS store's page (the owner, live 2026-09-07): a bare index
+        // route filled its {store} from URL::defaults, which the save itself
+        // had just re-pointed at the first store.
+        return $this->redirectToSettings()->with('status', "{$label} settings saved.");
     }
 
     // -- Toggle mode ------------------------------------------------------
@@ -190,7 +194,8 @@ class TikTokController extends Controller
         $setting->save();
 
         $label = $data['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
-        return redirect()->route('ext.tiktok.index')->with('status', "Switched to {$label} mode.");
+
+        return $this->redirectToSettings()->with('status', "Switched to {$label} mode.");
     }
 
     // -- Redirect to TikTok auth ------------------------------------------

@@ -215,6 +215,37 @@ class TikTokMultistoreTest extends TestCase
         $r->assertRedirect(route('ext.tiktok.index', ['store' => $one->id]));
     }
 
+    /**
+     * the owner, live 2026-09-07: with two stores, toggling the second store's
+     * production/sandbox switch, and saving its settings, both landed on the
+     * FIRST store's page. Every settings write is a write for the store in
+     * the URL, and it comes back to that store's page.
+     */
+    public function test_a_settings_write_acts_for_the_store_in_the_url_and_returns_to_it(): void
+    {
+        $this->artisan('permissions:sync-catalogue');
+        $g = \App\Models\Admin\UserGroup::create(['name' => 'TT settings']);
+        $g->permissions()->attach(\App\Models\Admin\Permission::whereIn('key', ['view_tiktok/settings', 'manage_tiktok/settings'])->pluck('id')->all());
+        $u = \App\Models\User::factory()->create(['user_group_id' => $g->id]);
+
+        $one = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $two = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Outlet']);
+
+        $this->actingAs($u)
+            ->post(route('ext.tiktok.toggle_mode', ['store' => $two->id]), ['mode' => 'sandbox'])
+            ->assertRedirect(route('ext.tiktok.index', ['store' => $two->id]));
+
+        $this->assertSame('sandbox', $two->fresh()->mode, "the second store's toggle must switch the second store");
+        $this->assertSame('live', $one->fresh()->mode, "the second store's toggle must not touch the first store");
+
+        $this->actingAs($u)
+            ->post(route('ext.tiktok.save', ['store' => $two->id]), ['env' => 'live', 'store_name' => 'Outlet renamed', 'app_key' => 'k2'])
+            ->assertRedirect(route('ext.tiktok.index', ['store' => $two->id]));
+
+        $this->assertSame('Outlet renamed', $two->fresh()->store_name);
+        $this->assertSame('Main store', $one->fresh()->store_name, "the second store's save must not touch the first store");
+    }
+
     private function storeWithCreds(string $name): TikTokSetting
     {
         return TikTokSetting::create([

@@ -89,6 +89,16 @@ class ShopeeSetting extends Model
      */
     public static function syncUrlDefault(): void
     {
+        /* Never clobber the store this request is acting for (the owner, live
+         * 2026-09-07). This runs on every created/updated/deleted, so
+         * SAVING the second store's settings re-pointed URL generation at
+         * the FIRST enabled store, and the redirect that followed landed on
+         * store one. The bound store is the request's truth; this fallback
+         * exists only for pages built outside a store request. */
+        if (app()->bound('shopee.route-store')) {
+            return;
+        }
+
         try {
             $id = static::query()->where('enabled', true)->orderBy('id')->value('id');
         } catch (\Throwable $e) {

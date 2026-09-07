@@ -258,4 +258,37 @@ class LazadaMultistoreTest extends TestCase
             'expires_at' => now()->addDay(),
         ]);
     }
+    /**
+     * the owner, live 2026-09-07: with two stores, toggling the second store's
+     * production/sandbox switch, and saving its settings, both landed on the
+     * FIRST store's page. The settings model re-points URL generation at the
+     * first enabled store on every write, and the redirect that followed
+     * filled its {store} from that. Every settings write is a write for the
+     * store in the URL, and it comes back to that store's page.
+     */
+    public function test_a_settings_write_acts_for_the_store_in_the_url_and_returns_to_it(): void
+    {
+        $this->artisan('permissions:sync-catalogue');
+        $g = \App\Models\Admin\UserGroup::create(['name' => 'lazada settings walker']);
+        $g->permissions()->attach(\App\Models\Admin\Permission::whereIn('key', ['view_lazada/settings', 'manage_lazada/settings'])->pluck('id')->all());
+        $u = \App\Models\User::factory()->create(['user_group_id' => $g->id]);
+
+        $one = LazadaSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $two = LazadaSetting::create(['mode' => 'live', 'store_name' => 'Outlet']);
+
+        $this->actingAs($u)
+            ->post(route('ext.lazada.toggle_mode', ['store' => $two->id]), ['mode' => 'sandbox'])
+            ->assertRedirect(route('ext.lazada.index', ['store' => $two->id]));
+
+        $this->assertSame('sandbox', $two->fresh()->mode, "the second store's toggle must switch the second store");
+        $this->assertSame('live', $one->fresh()->mode, "the second store's toggle must not touch the first store");
+
+        $this->actingAs($u)
+            ->post(route('ext.lazada.save', ['store' => $two->id]), ['env' => 'live', 'region' => 'ph', 'store_name' => 'Outlet renamed'])
+            ->assertRedirect(route('ext.lazada.index', ['store' => $two->id]));
+
+        $this->assertSame('Outlet renamed', $two->fresh()->store_name);
+        $this->assertSame('Main store', $one->fresh()->store_name, "the second store's save must not touch the first store");
+    }
+
 }

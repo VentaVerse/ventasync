@@ -1028,7 +1028,8 @@ class LazadaController extends Controller
 
         $setting->save();
 
-        return redirect()->route('ext.lazada.index')->with('status', ($env === 'sandbox' ? 'Sandbox' : 'Production') . ' settings saved.');
+        // Back to THIS store's page (the owner, live 2026-09-07).
+        return $this->redirectToSettings()->with('status', ($env === 'sandbox' ? 'Sandbox' : 'Production') . ' settings saved.');
     }
 
     public function toggleMode(Request $request)
@@ -1038,7 +1039,7 @@ class LazadaController extends Controller
         $setting->mode = $data['mode'];
         $setting->save();
 
-        return redirect()->route('ext.lazada.index')->with('status', 'Switched to ' . ($data['mode'] === 'sandbox' ? 'Sandbox' : 'Production') . ' mode.');
+        return $this->redirectToSettings()->with('status', 'Switched to ' . ($data['mode'] === 'sandbox' ? 'Sandbox' : 'Production') . ' mode.');
     }
 
     public function redirectToAuth(Request $request, LazadaClient $client)
