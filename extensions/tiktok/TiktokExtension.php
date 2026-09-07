@@ -56,15 +56,15 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
         // callback view, test code). The route-store binding overrides per-request.
         TikTokSetting::syncUrlDefault();
 
-        if ($this->app->runningInConsole()) {
-            $this->commands([
-                \Extensions\tiktok\Commands\TikTokPushStock::class,
-                \Extensions\tiktok\Commands\TikTokPushPrice::class,
-                \Extensions\tiktok\Commands\TikTokRefreshListingStatus::class,
-                \Extensions\tiktok\Commands\TikTokRefreshToken::class,
-                \Extensions\tiktok\Commands\TikTokSyncOrders::class,
-            ]);
-        }
+        // Registered in every runtime, not only the console: the Automations
+        // tab's Run now calls Artisan inside a web request (live, 2026-09-07).
+        $this->commands([
+            \Extensions\tiktok\Commands\TikTokPushStock::class,
+            \Extensions\tiktok\Commands\TikTokPushPrice::class,
+            \Extensions\tiktok\Commands\TikTokRefreshListingStatus::class,
+            \Extensions\tiktok\Commands\TikTokRefreshToken::class,
+            \Extensions\tiktok\Commands\TikTokSyncOrders::class,
+        ]);
 
         $this->app->make(IntegrationRegistry::class)->register($this);
     }

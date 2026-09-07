@@ -41,20 +41,18 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
     {
         parent::boot();
 
-        if ($this->app->runningInConsole()) {
-            $this->commands([
-                \Extensions\opencart\Commands\OpenCartSync::class,
-                \Extensions\opencart\Commands\OpenCartPush::class,
-                \Extensions\opencart\Commands\OpenCartPushQty::class,
-                \Extensions\opencart\Commands\OpenCartPushPrice::class,
-                \Extensions\opencart\Commands\OpenCartPullQty::class,
-                \Extensions\opencart\Commands\OpenCartImportOrders::class,
-                \Extensions\opencart\Commands\OpenCartReclassifyOrders::class,
-                \Extensions\opencart\Commands\ShopeeSyncReviews::class,
-                \Extensions\opencart\Commands\LazadaSyncReviews::class,
-                \Extensions\opencart\Commands\OpenCartPushReviews::class,
-            ]);
-        }
+        // Registered in every runtime, not only the console: the Automations
+        // tab's Run now calls Artisan inside a web request (live, 2026-09-07).
+        $this->commands([
+            \Extensions\opencart\Commands\OpenCartSync::class,
+            \Extensions\opencart\Commands\OpenCartPush::class,
+            \Extensions\opencart\Commands\OpenCartPushQty::class,
+            \Extensions\opencart\Commands\OpenCartPushPrice::class,
+            \Extensions\opencart\Commands\OpenCartPullQty::class,
+            \Extensions\opencart\Commands\OpenCartImportOrders::class,
+            \Extensions\opencart\Commands\OpenCartReclassifyOrders::class,
+            \Extensions\opencart\Commands\OpenCartPushReviews::class,
+        ]);
 
         $this->app->make(IntegrationRegistry::class)->register($this);
     }

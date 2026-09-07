@@ -61,15 +61,16 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         // callback view, test code). ResolveLazadaStore overrides per-request.
         LazadaSetting::syncUrlDefault();
 
-        if ($this->app->runningInConsole()) {
-            $this->commands([
-                \Extensions\lazada\Commands\LazadaPushStock::class,
-                \Extensions\lazada\Commands\LazadaPushPrice::class,
-                \Extensions\lazada\Commands\LazadaRefreshListingStatus::class,
-                \Extensions\lazada\Commands\LazadaRefreshToken::class,
-                \Extensions\lazada\Commands\LazadaSyncOrders::class,
-            ]);
-        }
+        // Registered in every runtime, not only the console: the Automations
+        // tab's Run now calls Artisan inside a web request (live, 2026-09-07).
+        $this->commands([
+            \Extensions\lazada\Commands\LazadaPushStock::class,
+            \Extensions\lazada\Commands\LazadaPushPrice::class,
+            \Extensions\lazada\Commands\LazadaRefreshListingStatus::class,
+            \Extensions\lazada\Commands\LazadaRefreshToken::class,
+            \Extensions\lazada\Commands\LazadaSyncOrders::class,
+            \Extensions\lazada\Commands\LazadaSyncReviews::class,
+        ]);
 
         $this->app->make(IntegrationRegistry::class)->register($this);
     }

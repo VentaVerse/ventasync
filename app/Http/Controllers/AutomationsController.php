@@ -89,8 +89,21 @@ class AutomationsController extends Controller
             @set_time_limit(900);
         }
 
+        // A command nobody registered (its extension is disabled, or the row
+        // is stale) is refused in one plain sentence, never a stack trace. A
+        // row may carry a positional argument ("venta:sync orders"); the
+        // command is the first word.
+        $commandName = (string) strtok(trim((string) $job->command), ' ');
+        if (! array_key_exists($commandName, \Illuminate\Support\Facades\Artisan::all())) {
+            $job->forceFill(['last_run_at' => now(), 'last_run_ok' => false])->save();
+
+            return back()->with('error', 'Run failed: ' . $job->display_name . '. The command ' . $job->command . ' is not installed. Enable the extension that provides it, or remove this row.');
+        }
+
         try {
-            $code = \Illuminate\Support\Facades\Artisan::call((string) $job->command, $job->commandArguments());
+            // One command line, the shape the scheduler runs, so a positional
+            // argument and the row's options both reach the command.
+            $code = \Illuminate\Support\Facades\Artisan::call(self::commandLine($job));
             $output = trim((string) \Illuminate\Support\Facades\Artisan::output());
             $ok = $code === 0;
         } catch (\Throwable $e) {
@@ -104,6 +117,21 @@ class AutomationsController extends Controller
         $line = ($ok ? 'Ran ' : 'Run failed: ') . $job->display_name . ($said !== '' ? '. ' . $said : '.');
 
         return back()->with($ok ? 'status' : 'error', $line);
+    }
+
+    /**
+     * The row as one artisan line: "venta:sync orders --store=3", the same
+     * shape App\Console\Kernel hands the scheduler. Values are quoted so a
+     * date or a name with a space survives the parse.
+     */
+    public static function commandLine(ScheduledJob $job): string
+    {
+        $line = trim((string) $job->command);
+        foreach ($job->commandArguments() as $flag => $value) {
+            $line .= ' ' . $flag . ($value === true ? '' : '="' . addcslashes((string) $value, '"\\') . '"');
+        }
+
+        return $line;
     }
 
     /**

@@ -44,15 +44,15 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
     {
         parent::boot();
 
-        if ($this->app->runningInConsole()) {
-            $this->commands([
-                \Extensions\venta\Commands\VentaSync::class,
-                \Extensions\venta\Commands\VentaPushStock::class,
-                \Extensions\venta\Commands\VentaPushPrice::class,
-                \Extensions\venta\Commands\VentaPushReviews::class,
-                \Extensions\venta\Commands\VentaRefreshListingStatus::class,
-            ]);
-        }
+        // Registered in every runtime, not only the console: the Automations
+        // tab's Run now calls Artisan inside a web request (live, 2026-09-07).
+        $this->commands([
+            \Extensions\venta\Commands\VentaSync::class,
+            \Extensions\venta\Commands\VentaPushStock::class,
+            \Extensions\venta\Commands\VentaPushPrice::class,
+            \Extensions\venta\Commands\VentaPushReviews::class,
+            \Extensions\venta\Commands\VentaRefreshListingStatus::class,
+        ]);
 
         $this->app->make(IntegrationRegistry::class)->register($this);
     }

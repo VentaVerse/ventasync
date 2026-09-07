@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\opencart\Commands;
+namespace Extensions\lazada\Commands;
 
 use Extensions\lazada\Models\LazadaApiLog;
 use Extensions\lazada\Models\LazadaProduct;
@@ -21,7 +21,7 @@ class LazadaSyncReviews extends Command
 
     public function handle(LazadaClient $client): int
     {
-        $setting = LazadaSetting::query()->first()?->decrypted();
+        $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$creds['complete'] || empty($creds['region']) || empty($creds['access_token'])) {
             $modeLabel = ($creds['mode'] ?? 'live') === 'sandbox' ? 'Sandbox' : 'Production';
@@ -76,7 +76,7 @@ class LazadaSyncReviews extends Command
 
         if ($lazadaProducts->isEmpty()) {
             $this->info('  No Lazada products found.');
-            LazadaSetting::query()->update(['last_review_sync_at' => now()]);
+            LazadaSetting::defaultStore()?->forceFill(['last_review_sync_at' => now()])->save(); // this store's stamp, not every store's
             return 0;
         }
 
@@ -190,7 +190,7 @@ class LazadaSyncReviews extends Command
             // No extra delay -- rate limiting handled in runSignedApiCall
         }
 
-        LazadaSetting::query()->update(['last_review_sync_at' => now()]);
+        LazadaSetting::defaultStore()?->forceFill(['last_review_sync_at' => now()])->save(); // this store's stamp, not every store's
 
         $this->info("  Checked {$itemsChecked} item(s). Reviews: {$created} new, {$updated} updated" . ($errors > 0 ? ", {$errors} error(s)" : ''));
         $this->info('Done.');

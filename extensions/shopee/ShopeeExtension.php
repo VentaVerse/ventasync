@@ -60,15 +60,16 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         // outside a Shopee page (hub, fulfilment tabs, test code).
         \Extensions\shopee\Models\ShopeeSetting::syncUrlDefault();
 
-        if ($this->app->runningInConsole()) {
-            $this->commands([
-                \Extensions\shopee\Commands\ShopeePushStock::class,
-                \Extensions\shopee\Commands\ShopeePushPrice::class,
-                \Extensions\shopee\Commands\ShopeeRefreshListingStatus::class,
-                \Extensions\shopee\Commands\ShopeeRefreshToken::class,
-                \Extensions\shopee\Commands\ShopeeSyncOrders::class,
-            ]);
-        }
+        // Registered in every runtime, not only the console: the Automations
+        // tab's Run now calls Artisan inside a web request (live, 2026-09-07).
+        $this->commands([
+            \Extensions\shopee\Commands\ShopeePushStock::class,
+            \Extensions\shopee\Commands\ShopeePushPrice::class,
+            \Extensions\shopee\Commands\ShopeeRefreshListingStatus::class,
+            \Extensions\shopee\Commands\ShopeeRefreshToken::class,
+            \Extensions\shopee\Commands\ShopeeSyncOrders::class,
+            \Extensions\shopee\Commands\ShopeeSyncReviews::class,
+        ]);
 
         $this->app->make(IntegrationRegistry::class)->register($this);
     }

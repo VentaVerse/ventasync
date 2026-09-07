@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\opencart\Commands;
+namespace Extensions\shopee\Commands;
 
 use Extensions\opencart\Models\MarketplaceReview;
 use Extensions\shopee\Models\ShopeeApiLog;
@@ -81,7 +81,7 @@ class ShopeeSyncReviews extends Command
             usleep(200000); // 200ms rate limit between items
         }
 
-        ShopeeSetting::query()->update(['last_review_sync_at' => now()]);
+        $store->forceFill(['last_review_sync_at' => now()])->save(); // this store's stamp, not every store's
 
         $this->info("  Reviews: {$created} new, {$updated} updated" . ($errors > 0 ? ", {$errors} item error(s)" : ''));
         $this->info('Done.');
