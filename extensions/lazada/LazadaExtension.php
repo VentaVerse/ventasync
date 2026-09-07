@@ -33,7 +33,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ListingStateSource, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover
+class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ListingStateSource, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['unpaid'],
@@ -73,6 +73,12 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         ]);
 
         $this->app->make(IntegrationRegistry::class)->register($this);
+    }
+
+    /** A deleted catalog variation is forgotten here too (VariationForgetter, 2026-09-07). */
+    public function forgetVariations(int $productId, array $skus): void
+    {
+        \Extensions\lazada\Services\Lazada\LazadaVariationForgetter::forget($productId, $skus);
     }
 
     public function integrationId(): string

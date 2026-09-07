@@ -1273,7 +1273,9 @@ public function store(Request $request)
         $skuChanges = ['product_sku' => null, 'option_skus' => []];
         $originalAttrs = null;
         $updatedAttrs = null;
-
+        // The variation SKUs before the save; the ones the save removes are
+        // forgotten on every channel after it commits (VariationForgetService).
+        $variationsBefore = \App\Services\VariationForgetService::snapshot((int) $id);
         DB::transaction(function () use ($request, $id, $langId, $pfx, $resolvedManufacturerId, $categoryIds, $forcedQty, &$skuChanges, &$originalAttrs, &$updatedAttrs) {
             /** @var Product $p */
             $p = Product::where('product_id', (int) $id)->firstOrFail();
@@ -1397,7 +1399,10 @@ public function store(Request $request)
                 $status .= ' | SKU synced: ' . implode(' | ', $syncMessages);
             }
         }
-
+        $forgotten = (new \App\Services\VariationForgetService())->reconcile((int) $id, $variationsBefore);
+        if ($forgotten !== []) {
+            $status .= ' | Forgotten on every channel: ' . implode(', ', $forgotten);
+        }
         $changes = $originalAttrs && $updatedAttrs
             ? ActivityLogger::diff($originalAttrs, $updatedAttrs, ['sku', 'price', 'quantity', 'status', 'model', 'manufacturer_id'])
             : null;

@@ -768,6 +768,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
          * old Repair links folded in. */
         $linked = LazadaProduct::query()->whereNotNull('lazada_item_id')->whereNull('lazada_deleted_at')
             ->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+        // The check reads two hundred per run; the list starts after the last one checked, so "run it again" continues.
+        $linked = \App\Integrations\Support\LinkCheckCursor::rotate('lazada:' . (int) $setting->id, $linked);
         $checked = $linked !== [] ? app(\Extensions\lazada\Services\Lazada\LazadaLinkCheck::class)->run($setting, $creds, $linked) : null;
 
         // One word per state, the engine's (#184 C): 'rejected', not 'in violation'.

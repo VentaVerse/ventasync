@@ -474,6 +474,8 @@ class VentaListingController extends Controller
          * re-read first, then the links are checked against the store, the
          * old Repair links folded in. */
         $linked = VentaProductLink::query()->where('venta_setting_id', $store)->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+        // The check reads two hundred per run; the list starts after the last one checked, so "run it again" continues.
+        $linked = \App\Integrations\Support\LinkCheckCursor::rotate('venta:' . (int) $store, $linked);
         $checked = $linked !== [] ? app(\Extensions\venta\Services\Venta\VentaLinkCheck::class)->run($setting, $linked) : null;
 
         $parts = [];

@@ -503,6 +503,17 @@ class IntegrationRegistry
     }
 
     /**
+     * Providers that forget a deleted catalog variation (the delete rule
+     * one level down, 2026-09-07).
+     *
+     * @return \App\Integrations\Contracts\VariationForgetter[]
+     */
+    public function variationForgetters(): array
+    {
+        return $this->providersImplementing(\App\Integrations\Contracts\VariationForgetter::class);
+    }
+
+    /**
      * The channel answering on POST /webhooks/{segment}, or null. Passes
      * the same enable/licence gates as every other contributor: a
      * disabled channel's endpoint answers 404, exactly like its pages.

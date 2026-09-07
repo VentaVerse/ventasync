@@ -638,6 +638,8 @@ class ShopeeProductController extends Controller
          * re-read first, then the links are checked against the store, the
          * old Repair links folded in. */
         $linked = ShopeeProductLink::query()->whereNotNull('shopee_item_id')->distinct()->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        // The check reads two hundred per run; the list starts after the last one checked, so "run it again" continues.
+        $linked = \App\Integrations\Support\LinkCheckCursor::rotate('shopee:' . (int) $setting->id, $linked);
         $checked = $linked !== [] ? app(\Extensions\shopee\Services\Shopee\ShopeeLinkCheck::class)->run(app(ShopeeClient::class), $auth, $linked) : null;
 
         $labels = ['NORMAL' => 'live', 'UNLIST' => 'unlisted', 'BANNED' => 'in violation', 'REVIEWING' => 'under review',

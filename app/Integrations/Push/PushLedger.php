@@ -55,11 +55,21 @@ final class PushLedger
      */
     public static function mismatchMessage(array $entries, string $channelName): string
     {
-        $names = collect($entries)->unique(fn ($e) => strtolower($e['sku']))
-            ->map(fn ($e) => ($e['sku'] !== '' ? $e['sku'] : 'a variation') . ' (' . $e['reason'] . ')')->implode(', ');
+        $rows = collect($entries)->unique(fn ($e) => strtolower($e['sku']));
+        $names = $rows->map(fn ($e) => ($e['sku'] !== '' ? $e['sku'] : 'a variation') . ' (' . $e['reason'] . ')')->implode(', ');
+        /* The fix, by direction, naming what exists: Push update can add a
+         * missing variation (Shopee refuses it past its price ratio, and
+         * says so), and a variation the catalog lacks is removed on the
+         * store, then Refresh reads the store again. */
+        $fixes = [];
+        if ($rows->contains(fn ($e) => str_starts_with((string) $e['reason'], 'not on'))) {
+            $fixes[] = 'Not on ' . $channelName . ': add it with Push update, or delete it from the catalog.';
+        }
+        if ($rows->contains(fn ($e) => str_starts_with((string) $e['reason'], 'on '))) {
+            $fixes[] = 'On ' . $channelName . ' but not in the catalogue: delete it on ' . $channelName . ', then Refresh from ' . $channelName . '.';
+        }
 
-        return 'Variations do not match ' . $channelName . ': ' . $names . '. Nothing was pushed; make the catalog and '
-            . $channelName . ' hold the same variations, then push again.';
+        return 'Variations do not match ' . $channelName . ': ' . $names . '. Nothing was pushed. ' . implode(' ', $fixes);
     }
 
     /**

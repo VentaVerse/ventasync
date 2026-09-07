@@ -47,6 +47,9 @@ class ShopeeStockPricePush
 
     private const MODEL_ERROR = '/model_id is mandatory|model level|model_id.*(?:not|doesn\'?t).*exist|invalid model/i';
 
+    /** A per-model refusal that says the model is gone from Shopee (the seller deleted the variation there). */
+    private const DEAD_MODEL = '/model.*(?:not|no|doesn\'?t|does not).*(?:exist|found)|invalid model|no such model|model.*deleted/i';
+
     /**
      * @param 'stock'|'price' $kind
      * @param iterable $links ShopeeProductLink rows
@@ -215,9 +218,31 @@ class ShopeeStockPricePush
         }
 
         $action = $kind === 'price' ? 'sync_price' : 'sync_qty';
+
+        /* A model Shopee says is gone (the seller deleted that variation in
+         * the seller centre, 2026-09-07) is not a push failure to retry
+         * every run: its link is dropped, and the product fails whole with
+         * the variation named, so the operator deletes it from the catalog
+         * or adds it back on Shopee. */
+        $deadByProduct = [];
+        foreach ($sentRows as $row) {
+            $reason = $failures[(int) $row['model_id']] ?? null;
+            if ($reason !== null && (int) $row['model_id'] !== 0 && preg_match(self::DEAD_MODEL, $reason)) {
+                $pid = (int) $row['link']->product_id;
+                $deadByProduct[$pid][] = ['sku' => (string) $row['seller_sku'], 'reason' => 'not on Shopee'];
+                $row['link']->delete();
+            }
+        }
+        foreach ($deadByProduct as $pid => $entries) {
+            $this->failMismatch($kind, $pid, $entries, $out);
+        }
+
         foreach ($sentRows as $row) {
             $link = $row['link'];
             $pid = (int) $link->product_id;
+            if (isset($deadByProduct[$pid])) {
+                continue; // the product's verdict is the mismatch sentence, on every row it still has
+            }
             $modelFailure = $failures[(int) $row['model_id']] ?? null;
             $rowOk = $callOk && $modelFailure === null;
             $reason = $rowOk ? null : ($modelFailure ?? ($message !== '' ? $message : ($topError !== '' ? $topError : 'Unknown error')));

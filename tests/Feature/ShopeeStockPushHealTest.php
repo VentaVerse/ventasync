@@ -164,6 +164,7 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertSame(911, (int) $calls[0]['body']['item_id']);
         $message = (string) ShopeeProductLink::query()->where('product_id', $gone)->value('last_sync_error_message');
         $this->assertStringContainsString('G-OLD (on Shopee but not in the catalogue)', $message);
+        $this->assertStringContainsString('delete it on Shopee, then Refresh from Shopee', $message, 'the fix for this direction is named');
         $this->assertTrue((bool) ShopeeProductLink::query()->where('product_id', $fine)->value('last_sync_ok'));
     }
 
@@ -322,5 +323,36 @@ class ShopeeStockPushHealTest extends TestCase
             ->mapWithKeys(fn ($c) => [(int) $c['body']['item_id'] => (float) $c['body']['price_list'][0]['original_price']])->all();
         $this->assertSame([901 => 110.0, 902 => 120.0, 903 => 100.0], $prices);
         $this->assertSame([], array_filter($this->sentPosts, fn ($c) => $c['path'] === '/api/v2/product/update_stock'), 'the price row never sends stock');
+    }
+
+    /**
+     * The live case (the owner, 2026-09-07): a variation deleted in the seller
+     * centre left a link Shopee refused on every run. Shopee's per-model
+     * "does not exist" now drops that link and fails the product whole, by
+     * name, so the next run tells the operator which variation to delete.
+     */
+    public function test_a_model_shopee_says_is_gone_is_dropped_and_the_product_fails_whole_by_name(): void
+    {
+        $pid = $this->productWithVariations(['E-1' => 5, 'E-2' => 6]);
+        $alive = ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 905, 'shopee_model_id' => 71, 'sku' => 'E-1']);
+        $dead = ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 905, 'shopee_model_id' => 72, 'sku' => 'E-2']);
+        $this->postResponses['/api/v2/product/update_stock'] = ['ok' => true, 'status' => 200, 'body' => [
+            'error' => '', 'message' => '',
+            'response' => ['failure_list' => [['model_id' => 72, 'failed_reason' => 'model_id does not exist']]],
+        ]];
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.products.sync_quantity', $pid))
+            ->assertRedirect();
+
+        $this->assertNull($dead->fresh(), 'the dead link is dropped, not retried every run');
+        $fresh = $alive->fresh();
+        $this->assertFalse((bool) $fresh->last_sync_ok);
+        $this->assertSame('VARIATIONS_MISMATCH', $fresh->last_sync_error_code);
+        $this->assertStringContainsString('E-2 (not on Shopee)', (string) $fresh->last_sync_error_message);
+        $flash = (string) session('error');
+        $this->assertStringContainsString('E-2 (not on Shopee)', $flash);
+        $this->assertStringContainsString('add it with Push update, or delete it from the catalog', $flash, 'the fix for this direction is named');
+        $this->assertStringNotContainsString('Refresh from Shopee', $flash, 'the other direction\'s fix is not');
     }
 }

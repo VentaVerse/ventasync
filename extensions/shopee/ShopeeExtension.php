@@ -33,7 +33,7 @@ use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Contracts\ListingStateSource;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class ShopeeExtension extends ExtensionProvider implements ListingStateSource, IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, RootRouteHandler, CredentialRevealer, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover
+class ShopeeExtension extends ExtensionProvider implements ListingStateSource, IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, RootRouteHandler, CredentialRevealer, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -72,6 +72,12 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         ]);
 
         $this->app->make(IntegrationRegistry::class)->register($this);
+    }
+
+    /** A deleted catalog variation is forgotten here too (VariationForgetter, 2026-09-07). */
+    public function forgetVariations(int $productId, array $skus): void
+    {
+        \Extensions\shopee\Services\Shopee\ShopeeVariationForgetter::forget($productId, $skus);
     }
 
     public function integrationId(): string

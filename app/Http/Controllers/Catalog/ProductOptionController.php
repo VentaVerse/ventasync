@@ -90,6 +90,9 @@ class ProductOptionController extends Controller
             throw \Illuminate\Validation\ValidationException::withMessages(['option_sku' => $skuErrors]);
         }
         $skuChanges = ['product_sku' => null, 'option_skus' => []];
+        // The variation SKUs before the save; the ones the save removes are
+        // forgotten on every channel after it commits (VariationForgetService).
+        $variationsBefore = \App\Services\VariationForgetService::snapshot($id);
 
         DB::transaction(function () use ($p, $id, $langId, $optionName, $values, $basePrice, &$skuChanges) {
             $optionId = $this->resolveOptionId($p, $langId, $optionName);
@@ -259,7 +262,10 @@ class ProductOptionController extends Controller
                 $status .= ' | SKU synced: ' . implode(' | ', $syncMessages);
             }
         }
-
+        $forgotten = (new \App\Services\VariationForgetService())->reconcile($id, $variationsBefore);
+        if ($forgotten !== []) {
+            $status .= ' | Forgotten on every channel: ' . implode(', ', $forgotten);
+        }
         ActivityLogger::log('updated', 'Product Options', $id, 'Product #' . $id);
 
         return redirect()->route('products.options.edit', $id)->with('status', $status);
