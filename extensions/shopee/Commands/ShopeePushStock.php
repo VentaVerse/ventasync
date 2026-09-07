@@ -10,7 +10,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class ShopeePushStock extends Command
+class ShopeePushStock extends Command implements \App\Integrations\Contracts\SteppableAutomation
 {
     protected $signature = 'shopee:push-stock';
 
@@ -91,4 +91,15 @@ class ShopeePushStock extends Command
         return $totalErr > 0 ? 1 : 0;
     }
 
+
+    /** Run now walks this push ten products per request (SteppableAutomation, 2026-09-07). */
+    public function automationUnits(\App\Models\ScheduledJob $job): array
+    {
+        return ['label' => 'products', 'units' => \Extensions\shopee\Services\Shopee\ShopeePushSteps::units()];
+    }
+
+    public function automationStep(\App\Models\ScheduledJob $job, array $units): array
+    {
+        return \Extensions\shopee\Services\Shopee\ShopeePushSteps::step('stock', $units);
+    }
 }

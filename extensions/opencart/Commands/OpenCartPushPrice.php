@@ -12,7 +12,7 @@ use Illuminate\Console\Command;
  * stock-and-price row sent quantities only; price is its own row now, on
  * every channel.
  */
-class OpenCartPushPrice extends Command
+class OpenCartPushPrice extends Command implements \App\Integrations\Contracts\SteppableAutomation
 {
     protected $signature = 'opencart:push-price
         {--store= : Store ID (opencart_settings.id). Omit to push to all enabled stores}';
@@ -57,5 +57,16 @@ class OpenCartPushPrice extends Command
         $this->info('Done.');
 
         return 0;
+    }
+
+    /** Run now walks this push ten products per request (SteppableAutomation, 2026-09-07). */
+    public function automationUnits(\App\Models\ScheduledJob $job): array
+    {
+        return ['label' => 'products', 'units' => \Extensions\opencart\Services\OpenCart\OpenCartPushSteps::units($job)];
+    }
+
+    public function automationStep(\App\Models\ScheduledJob $job, array $units): array
+    {
+        return \Extensions\opencart\Services\OpenCart\OpenCartPushSteps::step('price', $units);
     }
 }

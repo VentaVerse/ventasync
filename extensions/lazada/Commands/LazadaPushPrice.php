@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Log;
  * enabled store goes up through the rule the buttons use: the listing's
  * own markup, else its group's, else the catalog price as it is.
  */
-class LazadaPushPrice extends Command
+class LazadaPushPrice extends Command implements \App\Integrations\Contracts\SteppableAutomation
 {
     protected $signature = 'lazada:push-price';
 
@@ -112,5 +112,16 @@ class LazadaPushPrice extends Command
 
             return LazadaPushPayload::computeFinalPrice($base, (float) ($fixed ?? 0), (float) ($pct ?? 0));
         };
+    }
+
+    /** Run now walks this push ten products per request (SteppableAutomation, 2026-09-07). */
+    public function automationUnits(\App\Models\ScheduledJob $job): array
+    {
+        return ['label' => 'products', 'units' => \Extensions\lazada\Services\Lazada\LazadaPushSteps::units()];
+    }
+
+    public function automationStep(\App\Models\ScheduledJob $job, array $units): array
+    {
+        return \Extensions\lazada\Services\Lazada\LazadaPushSteps::step('price', $units);
     }
 }

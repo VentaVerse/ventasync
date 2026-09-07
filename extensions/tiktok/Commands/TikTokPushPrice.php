@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Log;
  * goes up through the rule the buttons use: the listing's own markup,
  * else its group's, else the catalog price as it is.
  */
-class TikTokPushPrice extends Command
+class TikTokPushPrice extends Command implements \App\Integrations\Contracts\SteppableAutomation
 {
     protected $signature = 'tiktok:push-price';
 
@@ -121,5 +121,16 @@ class TikTokPushPrice extends Command
 
             return $group ? $group->applyMarkup($base) : $base;
         };
+    }
+
+    /** Run now walks this push ten products per request (SteppableAutomation, 2026-09-07). */
+    public function automationUnits(\App\Models\ScheduledJob $job): array
+    {
+        return ['label' => 'products', 'units' => \Extensions\tiktok\Services\TikTok\TikTokPushSteps::units()];
+    }
+
+    public function automationStep(\App\Models\ScheduledJob $job, array $units): array
+    {
+        return \Extensions\tiktok\Services\TikTok\TikTokPushSteps::step('price', $units);
     }
 }

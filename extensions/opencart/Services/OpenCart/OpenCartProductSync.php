@@ -972,7 +972,8 @@ class OpenCartProductSync
      * Push only product quantities from the ERP to OpenCart.
      * Sends quantity + option_value quantities via bulk_update without touching other fields.
      */
-    public function pushQuantities(): OpenCartSyncLog
+    /** @param list<int> $onlyProductIds a subset of the store's links, for a step; empty means every link */
+    public function pushQuantities(array $onlyProductIds = []): OpenCartSyncLog
     {
         $log = OpenCartSyncLog::create([
             'opencart_setting_id' => $this->setting->id,
@@ -991,6 +992,7 @@ class OpenCartProductSync
 
             // Get all product links for this store
             $links = OpenCartProductLink::where('opencart_setting_id', $this->setting->id)
+                ->when($onlyProductIds !== [], fn ($q) => $q->whereIn('product_id', $onlyProductIds))
                 ->get();
 
             if ($links->isEmpty()) {
@@ -1115,7 +1117,8 @@ class OpenCartProductSync
      * as OpenCart's own +/- on the base, back-calculated from an absolute
      * price when the catalog carries one, exactly as a full push sends it.
      */
-    public function pushPrices(): OpenCartSyncLog
+    /** @param list<int> $onlyProductIds a subset of the store's links, for a step; empty means every link */
+    public function pushPrices(array $onlyProductIds = []): OpenCartSyncLog
     {
         $log = OpenCartSyncLog::create([
             'opencart_setting_id' => $this->setting->id,
@@ -1132,7 +1135,9 @@ class OpenCartProductSync
             $failed = 0;
             $errors = [];
 
-            $links = OpenCartProductLink::where('opencart_setting_id', $this->setting->id)->get();
+            $links = OpenCartProductLink::where('opencart_setting_id', $this->setting->id)
+                ->when($onlyProductIds !== [], fn ($q) => $q->whereIn('product_id', $onlyProductIds))
+                ->get();
             if ($links->isEmpty()) {
                 $log->update(['status' => 'completed', 'records_processed' => 0, 'completed_at' => now()]);
 

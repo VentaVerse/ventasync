@@ -355,4 +355,91 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertStringContainsString('add it with Push update, or delete it from the catalog', $flash, 'the fix for this direction is named');
         $this->assertStringNotContainsString('Refresh from Shopee', $flash, 'the other direction\'s fix is not');
     }
+
+    private function automationsManager(): User
+    {
+        $group = UserGroup::create(['name' => 'Shopee automations ' . (++$this->seq)]);
+        $group->permissions()->attach(Permission::whereIn('key', ['manage_shopee/settings', 'view_shopee/settings'])->pluck('id')->all());
+
+        return User::factory()->create(['user_group_id' => $group->id]);
+    }
+
+    /**
+     * Run now in steps (the owner, 2026-09-07): Push Stock walks its products ten
+     * per request, the page draws "Product 10 of 12", the job row is stamped
+     * when the run ends, and Stop keeps what was pushed.
+     */
+    public function test_run_now_walks_push_stock_ten_products_per_step_and_stamps_the_job(): void
+    {
+        $pids = [];
+        for ($i = 1; $i <= 12; $i++) {
+            $pid = $this->productWithVariations(["RN-{$i}" => $i]);
+            ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 1000 + $i, 'shopee_model_id' => 500 + $i, 'sku' => "RN-{$i}"]);
+            $pids[] = $pid;
+        }
+        $job = \App\Models\ScheduledJob::create([
+            'integration' => 'shopee', 'display_name' => 'Push Stock', 'command' => 'shopee:push-stock',
+            'cadence_value' => 30, 'cadence_unit' => 'minute', 'enabled' => true, 'options' => [],
+        ]);
+        $user = $this->automationsManager();
+
+        $first = $this->actingAs($user)->postJson(route('automations.run', $job->id))->assertOk();
+        $run = $first->json('run');
+        $this->assertSame('running', $run['status']);
+        $this->assertSame('products', $run['label']);
+        $this->assertSame(12, $run['total']);
+        $this->assertSame(10, $run['done']);
+        $this->assertSame(10, $run['ok']);
+        $this->assertCount(10, $this->stockCalls(), 'ten products, one call each, inside the first request');
+        $this->assertNull($job->fresh()->last_run_at, 'not stamped until the run ends');
+
+        $second = $this->actingAs($user)->postJson(route('automations.run_step', ['run' => $run['id']]))->assertOk();
+        $this->assertSame('done', $second->json('run.status'));
+        $this->assertSame(12, $second->json('run.done'));
+        $this->assertSame('12 products: 12 ok.', $second->json('outcome'));
+        $this->assertCount(12, $this->stockCalls());
+        $this->assertTrue((bool) $job->fresh()->last_run_ok);
+        $this->assertNotNull($job->fresh()->last_run_at);
+
+        // A refused model counts as a failed product and the job ends red.
+        $this->postResponses['/api/v2/product/update_stock'] = ['ok' => true, 'status' => 200, 'body' => ['error' => 'error_auth', 'message' => 'Invalid access token']];
+        $again = $this->actingAs($user)->postJson(route('automations.run', $job->id))->assertOk()->json('run');
+        $this->assertSame(10, $again['failed']);
+        $this->actingAs($user)->postJson(route('automations.run_step', ['run' => $again['id']]))->assertOk()->assertJsonPath('run.status', 'done')->assertJsonPath('run.failed', 12);
+        $this->assertFalse((bool) $job->fresh()->last_run_ok);
+
+        // Stop keeps what was pushed and stamps the job.
+        $this->postResponses['/api/v2/product/update_stock'] = null;
+        $third = $this->actingAs($user)->postJson(route('automations.run', $job->id))->assertOk()->json('run');
+        $this->actingAs($user)->postJson(route('automations.run_stop', ['run' => $third['id']]))->assertOk()->assertJsonPath('run.status', 'stopped');
+        $this->assertSame('Stopped after 10 products of 12: 10 ok.', \App\Services\AutomationRunner::outcome(\App\Models\AutomationRun::find($third['id'])));
+
+        // A job nobody can walk in steps runs whole and answers its outcome in one line.
+        $whole = \App\Models\ScheduledJob::create([
+            'integration' => 'shopee', 'display_name' => 'Say something', 'command' => 'inspire',
+            'cadence_value' => 1, 'cadence_unit' => 'hour', 'enabled' => false, 'options' => [],
+        ]);
+        $this->actingAs($user)->postJson(route('automations.run', $whole->id))->assertOk()->assertJsonPath('done', true)->assertJsonPath('ok', true);
+
+        // Someone who cannot manage the channel cannot step its run.
+        $this->actingAs($this->manager())->postJson(route('automations.run_step', ['run' => $third['id']]))->assertForbidden();
+    }
+
+    /** Every push command on every channel can be walked, and the tab carries the strip. */
+    public function test_every_push_command_is_steppable_and_the_tab_carries_the_strip(): void
+    {
+        foreach ([
+            'shopee/Commands/ShopeePushStock', 'shopee/Commands/ShopeePushPrice',
+            'lazada/Commands/LazadaPushStock', 'lazada/Commands/LazadaPushPrice',
+            'tiktok/Commands/TikTokPushStock', 'tiktok/Commands/TikTokPushPrice',
+            'venta/Commands/VentaPushStock', 'venta/Commands/VentaPushPrice',
+            'woocommerce/Commands/WoocommercePushStock', 'woocommerce/Commands/WoocommercePushPrice',
+            'opencart/Commands/OpenCartPushQty', 'opencart/Commands/OpenCartPushPrice',
+        ] as $file) {
+            $this->assertStringContainsString('SteppableAutomation', (string) file_get_contents(base_path("extensions/{$file}.php")), $file);
+        }
+        $tab = (string) file_get_contents(base_path('resources/views/partials/_automations_tab.blade.php'));
+        $this->assertStringContainsString('data-automation-run', $tab);
+        $this->assertStringContainsString("import './automation-run';", (string) file_get_contents(base_path('resources/js/app.js')));
+    }
 }

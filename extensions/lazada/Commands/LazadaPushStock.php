@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class LazadaPushStock extends Command
+class LazadaPushStock extends Command implements \App\Integrations\Contracts\SteppableAutomation
 {
     protected $signature = 'lazada:push-stock
         {--product-ids= : Comma-separated Lazada listing IDs to push (lazada_products.id)}';
@@ -349,4 +349,15 @@ class LazadaPushStock extends Command
         return $result;
     }
 
+
+    /** Run now walks this push ten products per request (SteppableAutomation, 2026-09-07). */
+    public function automationUnits(\App\Models\ScheduledJob $job): array
+    {
+        return ['label' => 'products', 'units' => \Extensions\lazada\Services\Lazada\LazadaPushSteps::units()];
+    }
+
+    public function automationStep(\App\Models\ScheduledJob $job, array $units): array
+    {
+        return \Extensions\lazada\Services\Lazada\LazadaPushSteps::step('stock', $units);
+    }
 }

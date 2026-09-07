@@ -6,6 +6,7 @@ import './credential-mask';
 import './confirm-modal';
 import './busy-overlay';
 import './channel-order-fetch';
+import './automation-run';
 import './thumb-fallback';
 import './plot-readout';
 import './list-filters';

@@ -78,7 +78,7 @@ class AutomationsController extends Controller
      * shown back. A long sync takes as long as it takes; the page says so
      * while it waits.
      */
-    public function run(int $id)
+    public function run(Request $request, int $id)
     {
         $job = ScheduledJob::findOrFail($id);
         if (!self::mayManage((string) $job->integration)) {
@@ -100,6 +100,19 @@ class AutomationsController extends Controller
             return back()->with('error', 'Run failed: ' . $job->display_name . '. The command ' . $job->command . ' is not installed. Enable the extension that provides it, or remove this row.');
         }
 
+        /* Run now in steps (the owner, 2026-09-07): a command that names its units
+         * is walked ten at a time by the page, which draws "Product 10/200";
+         * the first step rides this request. Any other command runs whole,
+         * as before, and the page shows its outcome the same way. */
+        $command = \Illuminate\Support\Facades\Artisan::all()[$commandName];
+        if ($request->expectsJson() && $command instanceof \App\Integrations\Contracts\SteppableAutomation) {
+            $runner = app(\App\Services\AutomationRunner::class);
+            $run = $runner->begin($job, $command);
+            $run = $runner->step($run, $command);
+
+            return $this->runJson($run);
+        }
+
         try {
             // One command line, the shape the scheduler runs, so a positional
             // argument and the row's options both reach the command.
@@ -116,7 +129,49 @@ class AutomationsController extends Controller
         $said = \Illuminate\Support\Str::limit(preg_replace('/\s+/', ' ', $output) ?: '', 300);
         $line = ($ok ? 'Ran ' : 'Run failed: ') . $job->display_name . ($said !== '' ? '. ' . $said : '.');
 
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => $ok, 'done' => true, 'message' => $line]);
+        }
+
         return back()->with($ok ? 'status' : 'error', $line);
+    }
+
+    /** One more handful of units of a run the page is driving. */
+    public function runStep(Request $request)
+    {
+        $run = $this->runFor($request);
+        $commandName = (string) strtok(trim((string) $run->job?->command), ' ');
+        $command = \Illuminate\Support\Facades\Artisan::all()[$commandName] ?? null;
+        if (! $command instanceof \App\Integrations\Contracts\SteppableAutomation) {
+            return response()->json(['ok' => false, 'message' => 'This job cannot be walked in steps.'], 422);
+        }
+        $run = app(\App\Services\AutomationRunner::class)->step($run, $command);
+
+        return $this->runJson($run);
+    }
+
+    public function runStop(Request $request)
+    {
+        return $this->runJson(app(\App\Services\AutomationRunner::class)->stop($this->runFor($request)));
+    }
+
+    public function runState(Request $request)
+    {
+        return $this->runJson($this->runFor($request));
+    }
+
+    /** The run named in the route, for someone who may manage its integration. Read by name: a scalar parameter would take the first route value. */
+    private function runFor(Request $request): \App\Models\AutomationRun
+    {
+        $run = \App\Models\AutomationRun::query()->findOrFail((int) $request->route('run'));
+        abort_unless(self::mayManage((string) $run->integration), 403);
+
+        return $run;
+    }
+
+    private function runJson(\App\Models\AutomationRun $run)
+    {
+        return response()->json(['ok' => true, 'run' => $run->toState(), 'outcome' => \App\Services\AutomationRunner::outcome($run)]);
     }
 
     /**

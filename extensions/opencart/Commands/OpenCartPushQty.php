@@ -7,7 +7,7 @@ use Extensions\opencart\Services\OpenCart\OpenCartClient;
 use Extensions\opencart\Services\OpenCart\OpenCartProductSync;
 use Illuminate\Console\Command;
 
-class OpenCartPushQty extends Command
+class OpenCartPushQty extends Command implements \App\Integrations\Contracts\SteppableAutomation
 {
     protected $signature = 'opencart:push-qty
         {--store= : Store ID (opencart_settings.id). Omit to push to all enabled stores}';
@@ -67,5 +67,16 @@ class OpenCartPushQty extends Command
         $this->info('Done.');
 
         return 0;
+    }
+
+    /** Run now walks this push ten products per request (SteppableAutomation, 2026-09-07). */
+    public function automationUnits(\App\Models\ScheduledJob $job): array
+    {
+        return ['label' => 'products', 'units' => \Extensions\opencart\Services\OpenCart\OpenCartPushSteps::units($job)];
+    }
+
+    public function automationStep(\App\Models\ScheduledJob $job, array $units): array
+    {
+        return \Extensions\opencart\Services\OpenCart\OpenCartPushSteps::step('stock', $units);
     }
 }

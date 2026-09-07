@@ -11,7 +11,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class TikTokPushStock extends Command
+class TikTokPushStock extends Command implements \App\Integrations\Contracts\SteppableAutomation
 {
     protected $signature = 'tiktok:push-stock';
 
@@ -106,4 +106,15 @@ class TikTokPushStock extends Command
         return $totalErr > 0 ? 1 : 0;
     }
 
+
+    /** Run now walks this push ten products per request (SteppableAutomation, 2026-09-07). */
+    public function automationUnits(\App\Models\ScheduledJob $job): array
+    {
+        return ['label' => 'products', 'units' => \Extensions\tiktok\Services\TikTok\TikTokPushSteps::units()];
+    }
+
+    public function automationStep(\App\Models\ScheduledJob $job, array $units): array
+    {
+        return \Extensions\tiktok\Services\TikTok\TikTokPushSteps::step('stock', $units);
+    }
 }

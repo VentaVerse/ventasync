@@ -225,6 +225,21 @@
         "name": "automations.batch_update"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "automations/runs/{run}",
+        "name": "automations.run_state"
+    },
+    {
+        "method": "POST",
+        "uri": "automations/runs/{run}/step",
+        "name": "automations.run_step"
+    },
+    {
+        "method": "POST",
+        "uri": "automations/runs/{run}/stop",
+        "name": "automations.run_stop"
+    },
+    {
         "method": "POST",
         "uri": "automations/{id}",
         "name": "automations.update"

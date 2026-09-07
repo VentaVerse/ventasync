@@ -13,7 +13,7 @@ use Illuminate\Console\Command;
  * channel. Every linked product on the store, or on every enabled store,
  * through the same sender the Push price button uses.
  */
-class VentaPushPrice extends Command
+class VentaPushPrice extends Command implements \App\Integrations\Contracts\SteppableAutomation
 {
     protected $signature = 'venta:push-price
         {--store= : Store ID (venta_settings.id). Omit to push for all enabled stores}';
@@ -47,5 +47,16 @@ class VentaPushPrice extends Command
         }
 
         return 0;
+    }
+
+    /** Run now walks this push ten products per request (SteppableAutomation, 2026-09-07). */
+    public function automationUnits(\App\Models\ScheduledJob $job): array
+    {
+        return ['label' => 'products', 'units' => \Extensions\venta\Services\Venta\VentaPushSteps::units($job)];
+    }
+
+    public function automationStep(\App\Models\ScheduledJob $job, array $units): array
+    {
+        return \Extensions\venta\Services\Venta\VentaPushSteps::step('price', $units);
     }
 }

@@ -9,7 +9,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-class VentaPushStock extends Command
+class VentaPushStock extends Command implements \App\Integrations\Contracts\SteppableAutomation
 {
     protected $signature = 'venta:push-stock
         {--store= : Store ID (venta_settings.id). Omit to push for all enabled stores}';
@@ -195,5 +195,16 @@ class VentaPushStock extends Command
                     'last_pushed_at' => now(),
                 ]);
         }
+    }
+
+    /** Run now walks this push ten products per request (SteppableAutomation, 2026-09-07). */
+    public function automationUnits(\App\Models\ScheduledJob $job): array
+    {
+        return ['label' => 'products', 'units' => \Extensions\venta\Services\Venta\VentaPushSteps::units($job)];
+    }
+
+    public function automationStep(\App\Models\ScheduledJob $job, array $units): array
+    {
+        return \Extensions\venta\Services\Venta\VentaPushSteps::step('stock', $units);
     }
 }

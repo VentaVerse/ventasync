@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\Log;
  * the rule the buttons use: the listing's own markup, else its group's,
  * else the catalog price as it is.
  */
-class ShopeePushPrice extends Command
+class ShopeePushPrice extends Command implements \App\Integrations\Contracts\SteppableAutomation
 {
     protected $signature = 'shopee:push-price';
 
@@ -107,5 +107,16 @@ class ShopeePushPrice extends Command
 
             return (float) $filled->priceFor($base);
         };
+    }
+
+    /** Run now walks this push ten products per request (SteppableAutomation, 2026-09-07). */
+    public function automationUnits(\App\Models\ScheduledJob $job): array
+    {
+        return ['label' => 'products', 'units' => \Extensions\shopee\Services\Shopee\ShopeePushSteps::units()];
+    }
+
+    public function automationStep(\App\Models\ScheduledJob $job, array $units): array
+    {
+        return \Extensions\shopee\Services\Shopee\ShopeePushSteps::step('price', $units);
     }
 }

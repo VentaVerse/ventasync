@@ -59,6 +59,10 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/automations/{id}/run', [\App\Http\Controllers\AutomationsController::class, 'run'])
         ->whereNumber('id')
         ->name('automations.run');
+    // Run now in steps (2026-09-07): the page drives a run ten units per request.
+    Route::post('/automations/runs/{run}/step', [\App\Http\Controllers\AutomationsController::class, 'runStep'])->whereNumber('run')->name('automations.run_step');
+    Route::post('/automations/runs/{run}/stop', [\App\Http\Controllers\AutomationsController::class, 'runStop'])->whereNumber('run')->name('automations.run_stop');
+    Route::get('/automations/runs/{run}', [\App\Http\Controllers\AutomationsController::class, 'runState'])->whereNumber('run')->name('automations.run_state');
     // /dashboard/chart-data and /dashboard/platform-data are gone (Round F,
     // Task 3). They existed only to re-feed a Chart.js canvas after the
     // range toggle changed; the dashboard now renders both trend charts and
