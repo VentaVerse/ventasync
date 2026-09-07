@@ -258,4 +258,22 @@ class TiktokStockPushHealTest extends TestCase
         $this->assertSame('error', $pivot->fresh()->sync_status);
         $this->assertStringContainsString('internal error', (string) $pivot->fresh()->push_error);
     }
+
+    /** The one price rule on the button too (2026-09-07): no listing rule means the group's, never the bare catalog price. */
+    public function test_the_price_button_prices_a_product_without_a_listing_rule_by_its_group(): void
+    {
+        $pid = $this->comboProduct(['TP-1' => 5]);
+        $grp = TikTokProductGroup::create(['name' => 'Priced group', 'tiktok_category_id' => '900009', 'markup_percent' => 20]);
+        TikTokProductGroupProduct::create([
+            'tiktok_product_group_id' => $grp->id, 'product_id' => $pid,
+            'tiktok_product_id' => 'tt-9', 'tiktok_sku_id' => json_encode(['TP-1' => 's1']), 'sync_status' => 'pushed',
+        ]);
+
+        $this->actingAs($this->manager())->post(route('ext.tiktok.products.push_price', $pid))->assertRedirect();
+
+        $calls = array_values(array_filter($this->calls, fn ($c) => $c['method'] === 'price'));
+        $this->assertCount(1, $calls);
+        // The combination's own price (100 + 5) through the group's 20%.
+        $this->assertSame('126', (string) $calls[0]['skus'][0]['price']['amount']);
+    }
 }

@@ -470,4 +470,23 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertTrue((bool) $job->fresh()->last_run_ok);
         $this->assertStringNotContainsString('===', implode(' ', $third->json('run.ledger')), 'the console never reaches the page');
     }
+
+    /** The one price rule on the button too (2026-09-07): no listing rule means the group's, never a skip. */
+    public function test_the_price_button_prices_a_listing_without_a_rule_by_its_group(): void
+    {
+        $pid = $this->productWithVariations(['G-1' => 5]);
+        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 920, 'shopee_model_id' => 1, 'sku' => 'G-1']);
+        $group = \Extensions\shopee\Models\ShopeeProductGroup::create(['name' => 'Priced group', 'shopee_category_id' => 100200, 'markup_percent' => 25, 'markup_fixed' => 0]);
+        \Extensions\shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $pid]);
+
+        $this->actingAs($this->manager())->post(route('ext.shopee.products.sync_price', $pid))->assertRedirect();
+
+        $this->assertStringNotContainsString('no listing price rule', (string) session('status') . (string) session('error'));
+        $calls = array_values(array_filter($this->sentPosts, fn ($c) => $c['path'] === '/api/v2/product/update_price'));
+        $this->assertCount(1, $calls);
+        $this->assertSame(125.0, (float) $calls[0]['body']['price_list'][0]['original_price'], 'base 100 + the group\'s 25%');
+
+        $bulk = $this->actingAs($this->manager())->post(route('ext.shopee.products.bulk_sync_price'), ['product_ids' => [$pid]])->assertRedirect();
+        $this->assertStringNotContainsString('without a listing price rule', (string) session('status') . (string) session('error'));
+    }
 }

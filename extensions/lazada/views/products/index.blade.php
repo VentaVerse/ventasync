@@ -412,7 +412,7 @@
                      the bulk toggle's verb filter; it is a wire, the
                      rendered words come from the engine. --}}
                 @if($listing)
-                <input type="checkbox" class="cc-check" data-row-check value="{{ (string) $listing->id }}"
+                <input type="checkbox" class="cc-check" data-row-check value="{{ (string) $pid }}"
                        data-live="{{ $hasItemId ? (string) ($listing->live_status ?? '') : 'NOT_LISTED' }}"
                        x-model="selected" aria-label="Select {{ $rowLabel }}">
                 @endif

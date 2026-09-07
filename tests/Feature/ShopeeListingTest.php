@@ -216,28 +216,36 @@ class ShopeeListingTest extends TestCase
         $this->assertSame(370.0, (float) $listing->last_push_settings['price']);
     }
 
-    public function test_price_sync_skips_by_name_instead_of_borrowing_a_markup(): void
+    /**
+     * The one price rule (2026-09-07): a listing with no rule of its own
+     * prices the way its group does, and its own rule wins once it has one.
+     * The old refusal ("no listing price rule") is gone: a product in a
+     * group always has a rule.
+     */
+    public function test_price_sync_prices_by_the_group_without_a_listing_rule_and_by_the_listing_with_one(): void
     {
         $productId = $this->seedProduct(300.0);
-        $this->seedCatchAllGroup();
+        $group = $this->seedCatchAllGroup();
+        \Extensions\shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $productId]);
 
         ShopeeProductLink::create([
             'product_id' => $productId, 'shopee_item_id' => 555, 'shopee_model_id' => null, 'sku' => 'LST-SKU-1',
         ]);
 
-        // No listing at all: the sync must refuse, naming the product.
-        $response = $this->actingAs($this->manager())
+        // No listing at all: the group's 50% prices it.
+        $this->actingAs($this->manager())
             ->from(route('ext.shopee.products.index'))
-            ->post(route('ext.shopee.products.sync_price', $productId));
+            ->post(route('ext.shopee.products.sync_price', $productId))
+            ->assertSessionMissing('error');
+        $update = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/update_price');
+        $this->assertNotNull($update);
+        $this->assertSame(450.0, (float) $update['body']['price_list'][0]['original_price'], 'base 300 + the group\'s 50%');
 
-        $response->assertSessionHas('error');
-        $this->assertStringContainsString('no listing price rule', session('error'));
-        $this->assertSame([], collect($this->sentPayloads)->where('path', '/api/v2/product/update_price')->all());
-
-        // With a rule, the sync prices by it.
+        // With a rule of its own, the listing's rule wins over the group's.
         ShopeeListing::create([
             'product_id' => $productId, 'markup_percent' => 0, 'markup_fixed' => 70,
         ]);
+        $this->sentPayloads = [];
 
         $this->actingAs($this->manager())->post(route('ext.shopee.products.sync_price', $productId));
 

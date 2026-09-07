@@ -109,15 +109,21 @@ class TikTokPushPrice extends Command implements \App\Integrations\Contracts\Ste
     public static function priceRule(iterable $pivots): \Closure
     {
         $pivots = collect($pivots);
-        $listings = TikTokListing::query()->whereIn('product_id', $pivots->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->all() ?: [0])->get()->keyBy('product_id');
-        $groups = TikTokProductGroup::query()->whereIn('id', $pivots->pluck('tiktok_product_group_id')->filter()->unique()->all() ?: [0])->get()->keyBy('id');
+        $pids = $pivots->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+        $listings = TikTokListing::query()->whereIn('product_id', $pids ?: [0])->get()->keyBy('product_id');
+        // The group by product too, for a row that carries no group id (the Listings page's rows).
+        $groupByProduct = TikTokProductGroupProduct::query()->whereIn('product_id', $pids ?: [0])->orderBy('id')->get()
+            ->groupBy('product_id')->map(fn ($rows) => (int) $rows->first()->tiktok_product_group_id);
+        $groupIds = $pivots->pluck('tiktok_product_group_id')->filter()->merge($groupByProduct->values())->unique()->all();
+        $groups = TikTokProductGroup::query()->whereIn('id', $groupIds ?: [0])->get()->keyBy('id');
 
-        return function (float $base, object $pivot) use ($listings, $groups): float {
-            $listing = $listings->get((int) $pivot->product_id);
+        return function (float $base, object $pivot) use ($listings, $groups, $groupByProduct): float {
+            $pid = (int) $pivot->product_id;
+            $listing = $listings->get($pid);
             if ($listing && ($listing->markup_percent !== null || $listing->markup_fixed !== null)) {
                 return $listing->priceFor($base);
             }
-            $group = $groups->get((int) ($pivot->tiktok_product_group_id ?? 0));
+            $group = $groups->get((int) ($pivot->tiktok_product_group_id ?? 0)) ?? $groups->get((int) ($groupByProduct->get($pid) ?? 0));
 
             return $group ? $group->applyMarkup($base) : $base;
         };

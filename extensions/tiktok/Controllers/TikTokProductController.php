@@ -856,9 +856,10 @@ class TikTokProductController extends Controller
         if ($rows === []) {
             return redirect()->back()->with('error', 'None of the selected products is on TikTok Shop, so there is nothing to push.');
         }
+        // The one price rule (2026-09-07): the listing's own, else its group's, else the catalog price.
         $results = app(\Extensions\tiktok\Services\TikTok\TikTokStockPricePush::class)->push(
             $what === 'price' ? 'price' : 'stock', $c, $rows, (string) config('catalog.prefix'),
-            fn (float $base, object $p) => ($l = $listings->get((int) $p->product_id)) ? $l->priceFor($base) : $base
+            \Extensions\tiktok\Commands\TikTokPushPrice::priceRule($rows)
         );
         $clause = \Extensions\tiktok\Services\TikTok\TikTokStockPricePush::ledgerClause($results);
         $msg = ucfirst($what) . " pushed to TikTok Shop: {$results['ok']} updated" . ($results['err'] > 0 ? ", {$results['err']} failed" : '') . ($skipped > 0 ? ", {$skipped} skipped (not on TikTok Shop)" : '') . '.' . $clause;
@@ -946,9 +947,10 @@ class TikTokProductController extends Controller
 
         /* The shared sender (Phase F, #184): skip ledger, per-SKU verdicts,
          * the one-shot map repair, the shared tone. */
+        // The one price rule (2026-09-07): the listing's own, else its group's, else the catalog price.
         $results = app(\Extensions\tiktok\Services\TikTok\TikTokStockPricePush::class)->push(
             $what === 'price' ? 'price' : 'stock', $c, [$pseudo], (string) config('catalog.prefix'),
-            fn (float $base, object $p) => $listing ? $listing->priceFor($base) : $base
+            \Extensions\tiktok\Commands\TikTokPushPrice::priceRule([$pseudo])
         );
         $clause = \Extensions\tiktok\Services\TikTok\TikTokStockPricePush::ledgerClause($results);
 

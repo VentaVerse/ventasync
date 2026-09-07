@@ -1067,22 +1067,6 @@ class ShopeeProductController extends Controller
 
     // ── Bulk Push to Shopee ───────────────────────────────────────
 
-    private function listingPriceFor(): callable
-    {
-        $cache = [];
-
-        return function (int $productId, float $price) use (&$cache): ?float {
-            if (!array_key_exists($productId, $cache)) {
-                $cache[$productId] = ShopeeListing::query()->where('product_id', $productId)->first();
-            }
-            $listing = $cache[$productId];
-            if (!$listing || ($listing->markup_percent === null && $listing->markup_fixed === null)) {
-                return null;
-            }
-
-            return (float) $listing->priceFor($price);
-        };
-    }
 
     public function syncQuantity(int $productId, ShopeeClient $client)
     {
@@ -1134,8 +1118,9 @@ class ShopeeProductController extends Controller
         }
 
         $pfx = (string) config('catalog.prefix');
+        // The one price rule (2026-09-07): the listing's own, else its group's, else the catalog price.
         $results = app(\Extensions\shopee\Services\Shopee\ShopeeStockPricePush::class)
-            ->push('price', $auth, $links, $pfx, $this->listingPriceFor());
+            ->push('price', $auth, $links, $pfx, \Extensions\shopee\Commands\ShopeePushPrice::priceRule([$productId]));
         $clause = \Extensions\shopee\Services\Shopee\ShopeeStockPricePush::ledgerClause($results);
 
         if (!empty($results['skipped_products']) && $results['ok'] === 0) {
@@ -1654,8 +1639,9 @@ class ShopeeProductController extends Controller
 
         $skip = count($ids) - $links->pluck('product_id')->unique()->count();
 
+        // The one price rule (2026-09-07): the listing's own, else its group's, else the catalog price.
         $results = app(\Extensions\shopee\Services\Shopee\ShopeeStockPricePush::class)
-            ->push('price', $auth, $links, $pfx, $this->listingPriceFor());
+            ->push('price', $auth, $links, $pfx, \Extensions\shopee\Commands\ShopeePushPrice::priceRule($ids));
 
         $summary = "Bulk Sync Price: {$results['ok']} success, {$results['err']} error, {$skip} skipped (not linked).";
 
