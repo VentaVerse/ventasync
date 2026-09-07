@@ -38,21 +38,8 @@
         var text = root.querySelector('[data-ar-text]');
         var stopBtn = root.querySelector('[data-ar-stop]');
         var okBtn = root.querySelector('[data-ar-ok]');
-        var where = root.querySelector('[data-ar-where]');
-        var clock = root.querySelector('[data-ar-clock]');
-        var channel = root.getAttribute('data-channel') || '';
-        var startedAt = 0;
-        var ticker = null;
-
-        function seconds(ms) {
-            var s = Math.max(0, Math.round(ms / 1000));
-            if (s < 60) return s + ' s';
-            var m = Math.floor(s / 60);
-            return m + ' min ' + (s - m * 60) + ' s';
-        }
-        function tick() { if (clock && startedAt) clock.textContent = seconds(Date.now() - startedAt); }
-        function startClock() { startedAt = Date.now(); tick(); if (ticker) window.clearInterval(ticker); ticker = window.setInterval(tick, 1000); }
-        function stopClock() { if (ticker) { window.clearInterval(ticker); ticker = null; } if (clock && startedAt) clock.textContent = 'Took ' + seconds(Date.now() - startedAt); }
+        // An SVG element has no `hidden` property, so the marks are toggled by attribute.
+        function setHidden(el, hidden) { if (!el) return; if (hidden) el.setAttribute('hidden', ''); else el.removeAttribute('hidden'); }
 
         var run = null;
         var jobName = '';
@@ -62,14 +49,12 @@
         function draw(state, sentence) {
             root.classList.add('active');
             modal.setAttribute('data-state', state);
-            spinner.hidden = state !== 'running';
-            markDone.hidden = state !== 'done';
-            markFailed.hidden = state !== 'failed';
+            setHidden(spinner, state !== 'running');
+            setHidden(markDone, state !== 'done');
+            setHidden(markFailed, state !== 'done' && state !== 'running');
             title.textContent = state === 'running' ? 'Running ' + jobName
                 : (state === 'done' ? jobName + ' finished' : (state === 'stopped' ? jobName + ' stopped' : 'Run failed: ' + jobName));
             text.textContent = state === 'running' ? '' : (sentence || '');
-            if (where) where.textContent = channel;
-            if (state === 'running') { if (!ticker) startClock(); } else { stopClock(); }
             stopBtn.hidden = state !== 'running';
             okBtn.hidden = state === 'running';
             if (state !== 'running') okBtn.focus();
@@ -113,8 +98,6 @@
                 jobName = form.getAttribute('data-run-name') || 'this job';
                 run = null;
                 stopAsked = false;
-                if (ticker) { window.clearInterval(ticker); ticker = null; }
-                startedAt = 0;
                 draw('running');
                 post(form.getAttribute('action'), {}).then(function (answer) {
                     apply(answer);

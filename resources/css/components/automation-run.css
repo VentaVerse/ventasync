@@ -2,8 +2,8 @@
    automation. A card with a loading state, then one sentence, success or
    failure, and OK. The card is the moment: a large mark that turns from
    a ring into a check or a cross, the job's name as the headline, the
-   store and a clock while it runs, how long it took when it ends. The
-   stepping underneath is invisible on purpose. Tokens: --bl-*. */
+   one sentence and OK. The stepping underneath is invisible on purpose.
+   Tokens: --bl-*. */
 
 .ar-modal { padding: 28px 28px 24px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 
@@ -30,18 +30,11 @@
 .ar-modal[data-state="done"] .ar-modal__title { color: var(--bl-good); }
 .ar-modal[data-state="failed"] .ar-modal__title { color: var(--bl-bad); }
 
-/* Where and how long: the store's name and a clock while it runs, "Took 42 s" when it ends. */
-.ar-modal__where { display: flex; align-items: baseline; gap: 10px; font-size: 13px; color: var(--bl-ink-3); }
-.ar-modal__where:has(> :empty:first-child):has(> :empty:last-child) { display: none; }
-.ar-modal__clock { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-.ar-modal__clock:empty { display: none; }
-.ar-modal__where > span:first-child:empty { display: none; }
-
 .ar-modal__text { margin-top: 6px; max-width: 34ch; font-size: 14px; line-height: 1.5; color: var(--bl-ink-2); overflow-wrap: anywhere; }
 .ar-modal__text:empty { display: none; }
 
 .ar-modal__foot { display: flex; justify-content: center; gap: 8px; margin-top: 18px; width: 100%; }
-.ar-modal__foot .x-btn { min-width: 112px; }
+.ar-modal__foot .x-btn { justify-content: center; padding-left: 28px; padding-right: 28px; }
 
 @media (prefers-reduced-motion: reduce) {
     .ar-modal__ring { animation: none; border-top-color: var(--bl-brand); }
