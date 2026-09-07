@@ -141,7 +141,7 @@ class LazadaStockPushHealTest extends TestCase
         $this->fakeItem(['LZ-1' => 11]);
 
         $this->actingAs($this->manager())
-            ->post(route('ext.lazada.products.sync_quantity', $listing->id))
+            ->post(route('ext.lazada.products.sync_quantity', $listing->product_id))
             ->assertRedirect();
 
         $flash = (string) session('status');
@@ -165,7 +165,7 @@ class LazadaStockPushHealTest extends TestCase
         LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-GONE', 'sku_id' => 12]);
 
         $this->actingAs($this->manager())
-            ->post(route('ext.lazada.products.sync_quantity', $listing->id))
+            ->post(route('ext.lazada.products.sync_quantity', $listing->product_id))
             ->assertRedirect();
 
         $flash = (string) session('status');
@@ -196,7 +196,7 @@ class LazadaStockPushHealTest extends TestCase
         };
 
         $this->actingAs($this->manager())
-            ->post(route('ext.lazada.products.sync_quantity', $listing->id))
+            ->post(route('ext.lazada.products.sync_quantity', $listing->product_id))
             ->assertRedirect();
 
         $this->assertStringContainsString('repaired mid-push', (string) session('status'));
@@ -217,7 +217,7 @@ class LazadaStockPushHealTest extends TestCase
             'body' => ['code' => '901', 'message' => 'Quota exceeded for this API']];
 
         $this->actingAs($this->manager())
-            ->post(route('ext.lazada.products.sync_quantity', $listing->id))
+            ->post(route('ext.lazada.products.sync_quantity', $listing->product_id))
             ->assertRedirect();
 
         $this->assertNull(session('status'), 'a failure must not wear the green tick');
@@ -238,7 +238,7 @@ class LazadaStockPushHealTest extends TestCase
         $this->fakeItem(['LZ-1' => 11]);
 
         $page = $this->actingAs($this->manager())
-            ->get(route('ext.lazada.products.edit', $listing->id))->assertOk();
+            ->get(route('ext.lazada.products.edit', $listing->product_id))->assertOk();
 
         $page->assertSee('1 of 2 variations');
         $page->assertSee('LZ-2');
@@ -256,7 +256,7 @@ class LazadaStockPushHealTest extends TestCase
         $this->fakeItem(['LZ-1' => 11, 'LZ-NEW' => 12]);
 
         $this->actingAs($this->manager())
-            ->post(route('ext.lazada.products.sync_quantity', $listing->id))
+            ->post(route('ext.lazada.products.sync_quantity', $listing->product_id))
             ->assertRedirect();
 
         $calls = $this->updateCalls();

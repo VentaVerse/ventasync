@@ -133,7 +133,7 @@ class LazadaAttributeAutoFillTest extends TestCase
             'primary_category_id' => 7013,
         ]);
 
-        $page = $this->actingAs($this->manager())->get(route('ext.lazada.products.edit', $listing->id))->assertOk();
+        $page = $this->actingAs($this->manager())->get(route('ext.lazada.products.edit', $listing->product_id))->assertOk();
 
         $page->assertSee('name="attributes[warranty_type]"', false);
         $page->assertDontSee('name="attributes[name]"', false);
@@ -158,7 +158,7 @@ class LazadaAttributeAutoFillTest extends TestCase
         ]);
 
         // Visible, so an override never applies silently.
-        $this->actingAs($this->manager())->get(route('ext.lazada.products.edit', $listing->id))
+        $this->actingAs($this->manager())->get(route('ext.lazada.products.edit', $listing->product_id))
             ->assertOk()
             ->assertSee('name="attributes[name]"', false)
             ->assertSee('Hand-written Lazada title');
@@ -176,11 +176,11 @@ class LazadaAttributeAutoFillTest extends TestCase
         // stay blank and that is fine, because push fills them. Before #175
         // this came back "name is mandatory. description is mandatory."
         $this->actingAs($this->manager())
-            ->put(route('ext.lazada.products.update', $listing->id), [
+            ->put(route('ext.lazada.products.update', $listing->product_id), [
                 'primary_category_id' => 7013,
                 'attributes' => ['warranty_type' => 'No Warranty'],
             ])
-            ->assertRedirect(route('ext.lazada.products.edit', $listing->id))
+            ->assertRedirect(route('ext.lazada.products.edit', $listing->product_id))
             ->assertSessionHasNoErrors();
 
         $this->assertSame('No Warranty', LazadaProductAttribute::query()
@@ -212,7 +212,7 @@ class LazadaAttributeAutoFillTest extends TestCase
         $this->fullerTemplate();
         $listing = LazadaProduct::query()->create(['product_id' => $this->seedProduct('Valeton GP-5', 'GP5'), 'primary_category_id' => 7014]);
 
-        $page = $this->actingAs($this->manager())->get(route('ext.lazada.products.edit', $listing->id))->assertOk();
+        $page = $this->actingAs($this->manager())->get(route('ext.lazada.products.edit', $listing->product_id))->assertOk();
         $page->assertSee('name="attributes[Musical_Instrument_Type]"', false)->assertSee('name="attributes[warranty_type]"', false);
         foreach (['price', 'package_weight', 'SellerSku', 'special_from_date'] as $key) {
             $page->assertDontSee('name="attributes[' . $key . ']"', false);
@@ -226,8 +226,8 @@ class LazadaAttributeAutoFillTest extends TestCase
         $listing = LazadaProduct::query()->create(['product_id' => $this->seedProduct('Valeton GP-5', 'GP5'), 'primary_category_id' => 7014]);
 
         $this->actingAs($this->manager())
-            ->put(route('ext.lazada.products.update', $listing->id), ['primary_category_id' => 7014, 'attributes' => ['Musical_Instrument_Type' => 'Guitar']])
-            ->assertRedirect(route('ext.lazada.products.edit', $listing->id))
+            ->put(route('ext.lazada.products.update', $listing->product_id), ['primary_category_id' => 7014, 'attributes' => ['Musical_Instrument_Type' => 'Guitar']])
+            ->assertRedirect(route('ext.lazada.products.edit', $listing->product_id))
             ->assertSessionHasNoErrors();
         $this->assertSame('Guitar', LazadaProductAttribute::query()->where('lazada_product_id', $listing->id)->where('attribute_key', 'Musical_Instrument_Type')->value('value'));
         $status = (string) session('status');
@@ -249,8 +249,8 @@ class LazadaAttributeAutoFillTest extends TestCase
         ]);
 
         $r = $this->actingAs($this->manager())
-            ->from(route('ext.lazada.products.edit', $listing->id))
-            ->put(route('ext.lazada.products.update', $listing->id), ['primary_category_id' => 7014, 'attributes' => ['Musical_Instrument_Type' => 'Guitar', 'warranty_type' => 'No Warranty'], 'push' => 1])
+            ->from(route('ext.lazada.products.edit', $listing->product_id))
+            ->put(route('ext.lazada.products.update', $listing->product_id), ['primary_category_id' => 7014, 'attributes' => ['Musical_Instrument_Type' => 'Guitar', 'warranty_type' => 'No Warranty'], 'push' => 1])
             ->assertRedirect();
         $this->assertSame('Guitar', LazadaProductAttribute::query()->where('lazada_product_id', $listing->id)->where('attribute_key', 'Musical_Instrument_Type')->value('value'));
         $this->assertTrue(session()->has('status') || session()->has('error'), "the upload's outcome is what comes back, not the plain 'Listing saved.'");
@@ -270,14 +270,14 @@ class LazadaAttributeAutoFillTest extends TestCase
         $listing = LazadaProduct::query()->create(['product_id' => $this->seedProduct('Valeton GP-5', 'GP5'), 'primary_category_id' => 7013]);
 
         $user = $this->manager();
-        $html = $this->actingAs($user)->get(route('ext.lazada.products.edit', $listing->id))->assertOk()->getContent();
+        $html = $this->actingAs($user)->get(route('ext.lazada.products.edit', $listing->product_id))->assertOk()->getContent();
         $this->assertStringNotContainsString('Save attributes', $html);
         $this->assertStringNotContainsString('id="lazada-attributes"', $html);
         $this->assertStringNotContainsString('The payload', $html);
         $this->assertStringNotContainsString('Send a sample push', $html);
         $this->assertStringContainsString('Save and push to Lazada', $html);
         $this->assertStringContainsString('Re-read the template', $html);
-        $this->assertStringContainsString(route('ext.lazada.products.attributes_fetch', $listing->id), $html);
+        $this->assertStringContainsString(route('ext.lazada.products.attributes_fetch', $listing->product_id), $html);
         // The sheet's rows are inside the listing form: the form opens before them and closes after them.
         $form = strpos($html, 'id="lazada-listing"');
         $sheet = strpos($html, 'name="attributes[warranty_type]"');
@@ -287,7 +287,7 @@ class LazadaAttributeAutoFillTest extends TestCase
         $this->assertStringContainsString('data-slow-action="push"', $html, 'only the push shows the talking-to-Lazada overlay');
 
         $listing->update(['lazada_item_id' => '777']);
-        $this->actingAs($user)->get(route('ext.lazada.products.edit', $listing->id))->assertOk()
+        $this->actingAs($user)->get(route('ext.lazada.products.edit', $listing->product_id))->assertOk()
             ->assertSee('Save and push the update');
     }
 
@@ -306,21 +306,21 @@ class LazadaAttributeAutoFillTest extends TestCase
         ]);
 
         // On file: no call to Lazada, the saved answer is pre-selected.
-        $r = $this->actingAs($user)->postJson(route('ext.lazada.products.attributes_fetch', $listing->id), ['primary_category_id' => 7013])
+        $r = $this->actingAs($user)->postJson(route('ext.lazada.products.attributes_fetch', $listing->product_id), ['primary_category_id' => 7013])
             ->assertOk()->assertJson(['ok' => true]);
         $this->assertStringContainsString('name="attributes[warranty_type]"', $r->json('html'));
         $this->assertStringContainsString('value="Local supplier warranty" selected', $r->json('html'));
         \Illuminate\Support\Facades\Http::assertNothingSent();
 
         // A category never read asks Lazada and files the template.
-        $r = $this->actingAs($user)->postJson(route('ext.lazada.products.attributes_fetch', $listing->id), ['primary_category_id' => 7099])
+        $r = $this->actingAs($user)->postJson(route('ext.lazada.products.attributes_fetch', $listing->product_id), ['primary_category_id' => 7099])
             ->assertOk()->assertJson(['ok' => true, 'count' => 2]);
         $this->assertStringContainsString('name="attributes[material]"', $r->json('html'));
         $this->assertSame(1, LazadaCategoryTemplate::query()->where('primary_category_id', 7099)->count());
         \Illuminate\Support\Facades\Http::assertSentCount(1);
 
         // Re-read: asks Lazada even though the template is on file.
-        $this->actingAs($user)->postJson(route('ext.lazada.products.attributes_fetch', $listing->id), ['primary_category_id' => 7013, 'reread' => 1])->assertOk();
+        $this->actingAs($user)->postJson(route('ext.lazada.products.attributes_fetch', $listing->product_id), ['primary_category_id' => 7013, 'reread' => 1])->assertOk();
         \Illuminate\Support\Facades\Http::assertSentCount(2);
         $this->assertArrayHasKey('material', collect(LazadaCategoryTemplate::query()->where('primary_category_id', 7013)->value('template_body')['data']['attributes'])->keyBy('name')->all(), 'the re-read replaced the template on file');
 
@@ -335,7 +335,7 @@ class LazadaAttributeAutoFillTest extends TestCase
         $listing = LazadaProduct::query()->create(['product_id' => $this->seedProduct('Valeton GP-5', 'GP5'), 'primary_category_id' => 7014]);
         $user = $this->manager();
 
-        $html = $this->actingAs($user)->get(route('ext.lazada.products.edit', $listing->id))->assertOk()->getContent();
+        $html = $this->actingAs($user)->get(route('ext.lazada.products.edit', $listing->product_id))->assertOk()->getContent();
         $this->assertStringContainsString('Required before a push.', $html);
 
         \Illuminate\Support\Facades\Http::fake([
@@ -350,24 +350,24 @@ class LazadaAttributeAutoFillTest extends TestCase
         // Our own refusal first: a required answer is still blank, so nothing
         // is sent; the header is red and the row is named.
         $r = $this->actingAs($user)
-            ->from(route('ext.lazada.products.edit', $listing->id))
-            ->put(route('ext.lazada.products.update', $listing->id), ['primary_category_id' => 7014, 'attributes' => ['warranty_type' => 'No Warranty'], 'push' => 1])
-            ->assertRedirect(route('ext.lazada.products.edit', $listing->id));
+            ->from(route('ext.lazada.products.edit', $listing->product_id))
+            ->put(route('ext.lazada.products.update', $listing->product_id), ['primary_category_id' => 7014, 'attributes' => ['warranty_type' => 'No Warranty'], 'push' => 1])
+            ->assertRedirect(route('ext.lazada.products.edit', $listing->product_id));
         $r->assertSessionHasErrors(['attributes.Musical_Instrument_Type']);
         $r->assertSessionMissing('status');
         $this->assertStringContainsString('Musical_Instrument_Type', (string) session('error'));
         \Illuminate\Support\Facades\Http::assertNothingSent();
-        $html = $this->actingAs($user)->withSession(['errors' => session('errors')])->get(route('ext.lazada.products.edit', $listing->id))->assertOk()->getContent();
+        $html = $this->actingAs($user)->withSession(['errors' => session('errors')])->get(route('ext.lazada.products.edit', $listing->product_id))->assertOk()->getContent();
         $this->assertStringContainsString('Musical_Instrument_Type is mandatory', $html);
 
         // Every answer given: Lazada itself refuses, by field id and inside a sentence; both land on their rows.
         $r = $this->actingAs($user)
-            ->from(route('ext.lazada.products.edit', $listing->id))
-            ->put(route('ext.lazada.products.update', $listing->id), ['primary_category_id' => 7014, 'attributes' => ['warranty_type' => 'No Warranty', 'Musical_Instrument_Type' => 'Guitar'], 'push' => 1])
-            ->assertRedirect(route('ext.lazada.products.edit', $listing->id));
+            ->from(route('ext.lazada.products.edit', $listing->product_id))
+            ->put(route('ext.lazada.products.update', $listing->product_id), ['primary_category_id' => 7014, 'attributes' => ['warranty_type' => 'No Warranty', 'Musical_Instrument_Type' => 'Guitar'], 'push' => 1])
+            ->assertRedirect(route('ext.lazada.products.edit', $listing->product_id));
         $r->assertSessionHasErrors(['attributes.material', 'attributes.Musical_Instrument_Type']);
         $this->assertStringContainsString('cannot be blank', session('errors')->first('attributes.material'));
-        $html = $this->actingAs($user)->withSession(['errors' => session('errors')])->get(route('ext.lazada.products.edit', $listing->id))->assertOk()->getContent();
+        $html = $this->actingAs($user)->withSession(['errors' => session('errors')])->get(route('ext.lazada.products.edit', $listing->product_id))->assertOk()->getContent();
         $this->assertStringContainsString('Lazada: C004: cannot be blank.', $html);
         $this->assertStringContainsString('Lazada: Musical_Instrument_Type is mandatory', $html);
     }
@@ -388,19 +388,19 @@ class LazadaAttributeAutoFillTest extends TestCase
         // The Listings page hands its own URL to the listing page, which keeps it on Cancel and on the form.
         $index = $this->actingAs($user)->get(route('ext.lazada.products.index', ['q' => 'valeton', 'status' => 'all']))->assertOk()->getContent();
         $this->assertStringContainsString('back=' . urlencode($search), $index);
-        $page = $this->actingAs($user)->get(route('ext.lazada.products.edit', ['id' => $listing->id, 'back' => $search]))->assertOk()->getContent();
+        $page = $this->actingAs($user)->get(route('ext.lazada.products.edit', ['productId' => $listing->product_id, 'back' => $search]))->assertOk()->getContent();
         $this->assertStringContainsString('href="' . e($search) . '"', $page, 'Cancel returns to the search');
         $this->assertStringContainsString('name="back" value="' . e($search) . '"', $page);
 
         // Accepted push: back to that search. A forged host is refused and the plain Listings page stands in.
-        $this->actingAs($user)->put(route('ext.lazada.products.update', $listing->id), ['primary_category_id' => 7014, 'attributes' => ['warranty_type' => 'No Warranty', 'Musical_Instrument_Type' => 'Guitar'], 'push' => 1, 'back' => $search])
+        $this->actingAs($user)->put(route('ext.lazada.products.update', $listing->product_id), ['primary_category_id' => 7014, 'attributes' => ['warranty_type' => 'No Warranty', 'Musical_Instrument_Type' => 'Guitar'], 'push' => 1, 'back' => $search])
             ->assertRedirect($search);
-        $r = $this->actingAs($user)->put(route('ext.lazada.products.update', $listing->id), ['primary_category_id' => 7014, 'attributes' => ['warranty_type' => 'No Warranty', 'Musical_Instrument_Type' => 'Guitar'], 'push' => 1, 'back' => 'https://evil.example/x']);
+        $r = $this->actingAs($user)->put(route('ext.lazada.products.update', $listing->product_id), ['primary_category_id' => 7014, 'attributes' => ['warranty_type' => 'No Warranty', 'Musical_Instrument_Type' => 'Guitar'], 'push' => 1, 'back' => 'https://evil.example/x']);
         $r->assertRedirect(route('ext.lazada.products.index'));
 
         // A plain save stays on the page and keeps the way back.
-        $this->actingAs($user)->put(route('ext.lazada.products.update', $listing->id), ['primary_category_id' => 7014, 'back' => $search])
-            ->assertRedirect(route('ext.lazada.products.edit', ['id' => $listing->id, 'back' => $search]));
+        $this->actingAs($user)->put(route('ext.lazada.products.update', $listing->product_id), ['primary_category_id' => 7014, 'back' => $search])
+            ->assertRedirect(route('ext.lazada.products.edit', ['productId' => $listing->product_id, 'back' => $search]));
     }
 
     /** A refused template read comes back as Lazada's own sentence, never a payload, and files nothing. */
@@ -409,7 +409,7 @@ class LazadaAttributeAutoFillTest extends TestCase
         $listing = LazadaProduct::query()->create(['product_id' => $this->seedProduct('Valeton GP-5', 'GP5')]);
         \Illuminate\Support\Facades\Http::fake(['*' => \Illuminate\Support\Facades\Http::response(['code' => 'IllegalAccessToken', 'message' => 'The access token is invalid'], 200)]);
 
-        $r = $this->actingAs($this->manager())->postJson(route('ext.lazada.products.attributes_fetch', $listing->id), ['primary_category_id' => 7100])->assertStatus(422);
+        $r = $this->actingAs($this->manager())->postJson(route('ext.lazada.products.attributes_fetch', $listing->product_id), ['primary_category_id' => 7100])->assertStatus(422);
         $this->assertStringContainsString('The access token is invalid', $r->json('message'));
         $this->assertStringNotContainsString('{', $r->json('message'));
         $this->assertSame(0, LazadaCategoryTemplate::query()->where('primary_category_id', 7100)->count());

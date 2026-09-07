@@ -138,6 +138,10 @@
         'stock' => ['action' => route('ext.lazada.product-groups.pushStock', $group->id), 'fields' => $gf],
         'prices' => ['action' => route('ext.lazada.product-groups.pushPrices', $group->id), 'fields' => $gf],
         'link' => ['action' => route('ext.lazada.product-groups.check', $group->id), 'label' => 'Link IDs', 'fields' => $gf],
+        'switch' => [
+            ['action' => route('ext.lazada.products.bulk_toggle'), 'field' => 'product_ids[]', 'verb' => 'deactivate', 'codes' => 'active', 'label' => 'Deactivate :n on Lazada', 'button' => 'Deactivate on Lazada', 'fields' => ['action' => 'deactivate'], 'confirm' => 'Deactivate the selected items on Lazada? Buyers stop seeing them. They can be activated again at any time.'],
+            ['action' => route('ext.lazada.products.bulk_toggle'), 'field' => 'product_ids[]', 'verb' => 'activate', 'codes' => 'inactive', 'label' => 'Activate :n on Lazada', 'button' => 'Activate on Lazada', 'fields' => ['action' => 'activate'], 'confirm' => 'Activate the selected items on Lazada? Buyers see them again once Lazada applies it.'],
+        ],
         'delete' => ['action' => route('ext.lazada.product-groups.deleteFromLazada', $group->id), 'label' => 'Delete from Lazada', 'fields' => $gf, 'confirm' => 'Delete the selected products from Lazada? They are removed at the marketplace and this cannot be undone.'],
         'remove' => ['action' => route('ext.lazada.product-groups.massRemove', $group->id), 'label' => 'Remove from product group', 'fields' => $gf, 'confirm' => 'Take the selected products out of this product group? Nothing is deleted from the catalog, and nothing already live on Lazada is touched.'],
     ];
@@ -333,9 +337,9 @@
                         $menu['stock'] = ['action' => route('ext.lazada.product-groups.pushStock', $group->id), 'fields' => $gf];
                         $menu['price'] = ['action' => route('ext.lazada.product-groups.pushPrices', $group->id), 'fields' => $gf];
                         if ($canToggleListing && $lzId && $rowState?->state === $stateClass::LIVE) {
-                            $menu['switch'] = ['action' => route('ext.lazada.listings.toggle', $lzId), 'label' => 'Deactivate on Lazada', 'fields' => ['action' => 'deactivate'], 'confirm' => "Deactivate {$pName} on Lazada? Buyers stop seeing it. It can be activated again at any time.", 'verb' => 'Deactivate'];
+                            $menu['switch'] = ['action' => route('ext.lazada.listings.toggle', $p->product_id), 'label' => 'Deactivate on Lazada', 'fields' => ['action' => 'deactivate'], 'confirm' => "Deactivate {$pName} on Lazada? Buyers stop seeing it. It can be activated again at any time.", 'verb' => 'Deactivate'];
                         } elseif ($canToggleListing && $lzId && $rowState?->state === $stateClass::INACTIVE) {
-                            $menu['switch'] = ['action' => route('ext.lazada.listings.toggle', $lzId), 'label' => 'Activate on Lazada', 'fields' => ['action' => 'activate'], 'confirm' => "Activate {$pName} on Lazada? Buyers see it again once Lazada applies it.", 'verb' => 'Activate', 'tone' => 'primary'];
+                            $menu['switch'] = ['action' => route('ext.lazada.listings.toggle', $p->product_id), 'label' => 'Activate on Lazada', 'fields' => ['action' => 'activate'], 'confirm' => "Activate {$pName} on Lazada? Buyers see it again once Lazada applies it.", 'verb' => 'Activate', 'tone' => 'primary'];
                         }
                         $menu['check'] = ['action' => route('ext.lazada.product-groups.check', $group->id), 'label' => 'Check against Lazada', 'fields' => $gf];
                         $menu['unlink'] = ['action' => route('ext.lazada.product-groups.unlinkProduct', [$group->id, $p->product_id]), 'fields' => ['_return' => $returnTo], 'confirm' => "Unlink {$pName} from Lazada? The product stays in the product group but sync will stop."];

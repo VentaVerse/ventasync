@@ -256,7 +256,7 @@ class LazadaAddToStoreTest extends TestCase
         // Live on Lazada, in a group - and still no blocker (the owner, 2026-09-05).
         $this->actingAs($this->manager())
             ->from($this->base())
-            ->post($this->base() . '/' . $listing->id . '/remove-from-store')
+            ->post($this->base() . '/' . $pid . '/remove-from-store')
             ->assertRedirect($this->base())->assertSessionHas('status');
 
         $this->assertSame(0, LazadaProduct::withoutGlobalScope('lazadaStore')->where('id', $listing->id)->count(), 'the listing row is gone, so nothing is left to sync');
@@ -288,7 +288,7 @@ class LazadaAddToStoreTest extends TestCase
 
         // Standing in Gearshipper, the other store's row is not findable.
         $this->actingAs($this->manager())
-            ->post($this->base() . '/' . $theirs->id . '/remove-from-store')
+            ->post($this->base() . '/' . $pid . '/remove-from-store')
             ->assertNotFound();
 
         $this->assertSame(1, LazadaProduct::withoutGlobalScope('lazadaStore')->where('id', $theirs->id)->count());

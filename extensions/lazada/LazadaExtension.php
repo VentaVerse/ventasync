@@ -873,9 +873,8 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
 
         $out = [];
         foreach ($productIds as $pid) {
-            $out[$pid] = $rows->has($pid)
-                ? route('ext.lazada.products.edit', $rows->get($pid))
-                : route('ext.lazada.products.create', ['product_id' => $pid]);
+            // The product id is the key (2026-09-07): one page whether a row exists yet or not.
+            $out[$pid] = route('ext.lazada.products.edit', $pid);
         }
 
         return $out;

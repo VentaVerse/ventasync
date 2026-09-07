@@ -14,7 +14,7 @@
  *   - the overlay element's id (each page has its own),
  *   - the name of the array field the bulk forms post (Shopee posts
  *     `product_ids[]` and keys on catalog product ids; Lazada posts
- *     `listing_ids[]` and keys on its own listing rows),
+ *     `product_ids[]` too since 2026-09-07; the field is per page config),
  *   - the wording of the overlay and the empty-selection message.
  *
  * Everything else is identical, including the parts that matter most:

@@ -1240,7 +1240,7 @@ class WorkspaceInteriorsTest extends TestCase
 
         $listings = $this->actingAs($user)->get(route('ext.lazada.products.index'))->assertOk();
         $listings->assertDontSee(route('ext.lazada.products.bulk_delete'), false);
-        $listings->assertDontSee(route('ext.lazada.products.create'), false);
+        $listings->assertDontSee(route('ext.lazada.products.edit', ['productId' => 1]), false);
         $listings->assertDontSee(route('ext.lazada.products.import_one'), false);
 
         // The settings page is deliberately different from the four lists. A
@@ -1331,7 +1331,7 @@ class WorkspaceInteriorsTest extends TestCase
 
         $this->assertDenied($this->actingAs($user)->delete(route('ext.lazada.clear_api_logs')), 'clear logs');
         $this->assertDenied($this->actingAs($user)->get(route('ext.lazada.product-groups.create')), 'group create');
-        $this->assertDenied($this->actingAs($user)->get(route('ext.lazada.products.create')), 'listing create');
+        $this->assertDenied($this->actingAs($user)->get(route('ext.lazada.products.edit', ['productId' => 1])), 'listing create');
         // The authorize link is the one write surface that lives outside the
         // /channels prefix, so it is asserted separately.
         $this->assertDenied($this->actingAs($user)->get(route('ext.lazada.authorize')), 'authorize');

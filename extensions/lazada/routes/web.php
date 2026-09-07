@@ -160,21 +160,19 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
         Route::post('/lazada/{store}/product-groups/fetch-attributes', [LazadaProductGroupController::class, 'fetchAttributesAjax'])->name('ext.lazada.product-groups.fetchAttributes');
 
         // Lazada Products — writes
-        Route::get('/lazada/{store}/products/create', [LazadaProductController::class, 'create'])->name('ext.lazada.products.create')
+        // Every product route takes the CATALOG product id, the Shopee shape (the owner, 2026-09-07); the listing row is resolved from it, created on first save.
+        Route::get('/lazada/{store}/products/{productId}/edit', [LazadaProductController::class, 'edit'])->whereNumber('productId')->name('ext.lazada.products.edit')
         ->defaults('permission_tier', 'manage');
-        Route::post('/lazada/{store}/products', [LazadaProductController::class, 'store'])->name('ext.lazada.products.store');
-        Route::get('/lazada/{store}/products/{id}/edit', [LazadaProductController::class, 'edit'])->whereNumber('id')->name('ext.lazada.products.edit')
-        ->defaults('permission_tier', 'manage');
-        Route::put('/lazada/{store}/products/{id}', [LazadaProductController::class, 'update'])->whereNumber('id')->name('ext.lazada.products.update');
-        Route::post('/lazada/{store}/products/{id}/attributes/fetch', [LazadaProductController::class, 'fetchAttributesAjax'])->whereNumber('id')->name('ext.lazada.products.attributes_fetch');
-        Route::post('/lazada/{store}/products/{id}/variants', [LazadaProductController::class, 'saveVariants'])->whereNumber('id')->name('ext.lazada.products.variants_save');
-        Route::post('/lazada/{store}/products/{id}/brands/sync', [LazadaProductController::class, 'syncBrands'])->whereNumber('id')->name('ext.lazada.products.brands_sync');
-        Route::post('/lazada/{store}/products/{id}/sync/quantity', [LazadaProductController::class, 'syncQuantity'])->whereNumber('id')->name('ext.lazada.products.sync_quantity');
-        Route::post('/lazada/{store}/products/{id}/sync/price', [LazadaProductController::class, 'syncPrice'])->whereNumber('id')->name('ext.lazada.products.sync_price');
-        Route::post('/lazada/{store}/products/{id}/upload', [LazadaProductController::class, 'uploadToLazada'])->whereNumber('id')->name('ext.lazada.products.upload');
-        Route::post('/lazada/{store}/products/{id}/delete/lazada', [LazadaProductController::class, 'deleteFromLazada'])->whereNumber('id')->name('ext.lazada.products.delete_lazada');
-        Route::post('/lazada/{store}/products/{id}/unlink', [LazadaProductController::class, 'unlink'])->whereNumber('id')->name('ext.lazada.products.unlink');
-        Route::post('/lazada/{store}/products/{id}/sync/lazada-id', [LazadaProductController::class, 'syncLazadaId'])->whereNumber('id')->name('ext.lazada.products.sync_lazada_id');
+        Route::put('/lazada/{store}/products/{productId}', [LazadaProductController::class, 'update'])->whereNumber('productId')->name('ext.lazada.products.update');
+        Route::post('/lazada/{store}/products/{productId}/attributes/fetch', [LazadaProductController::class, 'fetchAttributesAjax'])->whereNumber('productId')->name('ext.lazada.products.attributes_fetch');
+        Route::post('/lazada/{store}/products/{productId}/variants', [LazadaProductController::class, 'saveVariants'])->whereNumber('productId')->name('ext.lazada.products.variants_save');
+        Route::post('/lazada/{store}/products/{productId}/brands/sync', [LazadaProductController::class, 'syncBrands'])->whereNumber('productId')->name('ext.lazada.products.brands_sync');
+        Route::post('/lazada/{store}/products/{productId}/sync/quantity', [LazadaProductController::class, 'syncQuantity'])->whereNumber('productId')->name('ext.lazada.products.sync_quantity');
+        Route::post('/lazada/{store}/products/{productId}/sync/price', [LazadaProductController::class, 'syncPrice'])->whereNumber('productId')->name('ext.lazada.products.sync_price');
+        Route::post('/lazada/{store}/products/{productId}/upload', [LazadaProductController::class, 'uploadToLazada'])->whereNumber('productId')->name('ext.lazada.products.upload');
+        Route::post('/lazada/{store}/products/{productId}/delete/lazada', [LazadaProductController::class, 'deleteFromLazada'])->whereNumber('productId')->name('ext.lazada.products.delete_lazada');
+        Route::post('/lazada/{store}/products/{productId}/unlink', [LazadaProductController::class, 'unlink'])->whereNumber('productId')->name('ext.lazada.products.unlink');
+        Route::post('/lazada/{store}/products/{productId}/sync/lazada-id', [LazadaProductController::class, 'syncLazadaId'])->whereNumber('productId')->name('ext.lazada.products.sync_lazada_id');
 
         // Lazada Products — bulk writes
         // Stateless import (the owner, 2026-09-04): the page's GET carries ?fetch=1
@@ -194,12 +192,12 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
             ->defaults('permission_tier', 'view');
         // Remove from this store's list (#201): the inverse of Add. No
         // blocker; it never touches Lazada.
-        Route::post('/lazada/{store}/products/{id}/remove-from-store', [LazadaProductController::class, 'removeFromStore'])->whereNumber('id')->name('ext.lazada.products.remove_from_store');
-        Route::post('/lazada/{store}/listings/{id}/toggle', [LazadaProductController::class, 'toggleListing'])->whereNumber('id')->name('ext.lazada.listings.toggle');
+        Route::post('/lazada/{store}/products/{productId}/remove-from-store', [LazadaProductController::class, 'removeFromStore'])->whereNumber('productId')->name('ext.lazada.products.remove_from_store');
+        Route::post('/lazada/{store}/listings/{productId}/toggle', [LazadaProductController::class, 'toggleListing'])->whereNumber('productId')->name('ext.lazada.listings.toggle');
         // Activate / deactivate the selection, and refresh the status mirror on demand.
         Route::post('/lazada/{store}/products/bulk/toggle', [LazadaProductController::class, 'bulkToggle'])->name('ext.lazada.products.bulk_toggle');
         Route::post('/lazada/{store}/products/refresh-status', [LazadaProductController::class, 'refreshStatus'])->name('ext.lazada.products.refresh_status');
-        Route::post('/lazada/{store}/listings/{id}/push-discount', [LazadaProductController::class, 'pushDiscount'])->whereNumber('id')->name('ext.lazada.listings.push_discount');
+        Route::post('/lazada/{store}/listings/{productId}/push-discount', [LazadaProductController::class, 'pushDiscount'])->whereNumber('productId')->name('ext.lazada.listings.push_discount');
 
         // Voucher writes (#153): create, deactivate. Pass-throughs; Lazada owns the object.
         Route::post('/lazada/{store}/vouchers', [\Extensions\lazada\Controllers\LazadaVoucherController::class, 'store'])->name('ext.lazada.vouchers.store');

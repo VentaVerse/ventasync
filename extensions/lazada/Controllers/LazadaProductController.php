@@ -657,9 +657,48 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
      * from Lazada already covers. The store-scoped findOrFail means a row on
      * another store can never be reached from this one.
      */
-    public function removeFromStore(int $id)
+    /**
+     * Every product route takes the CATALOG product id, the Shopee shape
+     * (the owner, 2026-09-07). The store's listing row is resolved from it here:
+     * it must exist for an action on a listing, it is a blank in memory for
+     * the edit page, and it is made on the first save.
+     */
+    private function listingFor(int $productId): LazadaProduct
     {
-        $listing = LazadaProduct::query()->findOrFail($id);
+        return LazadaProduct::query()->where('product_id', $productId)
+            ->orderByRaw("(lazada_item_id IS NOT NULL AND lazada_item_id <> '' AND unlinked_at IS NULL) desc")
+            ->orderByDesc('id')->firstOrFail();
+    }
+
+    private function listingOrBlank(int $productId): LazadaProduct
+    {
+        return LazadaProduct::query()->where('product_id', $productId)
+            ->orderByRaw("(lazada_item_id IS NOT NULL AND lazada_item_id <> '' AND unlinked_at IS NULL) desc")
+            ->orderByDesc('id')->first() ?? (new LazadaProduct())->forceFill(['product_id' => $productId]);
+    }
+
+    private function listingRowFor(int $productId): LazadaProduct
+    {
+        $row = $this->listingOrBlank($productId);
+        if (! $row->exists) {
+            $row->save();
+            ActivityLogger::log('created', 'Lazada Product', $row->id, 'ERP #' . $productId);
+        }
+
+        return $row;
+    }
+
+    /** The bulk forms post product_ids[]; the actions work on the store's listing rows. @return list<int> */
+    private function listingIdsFor(array $productIds): array
+    {
+        $productIds = array_values(array_unique(array_filter(array_map('intval', $productIds), fn ($v) => $v > 0)));
+
+        return $productIds === [] ? [] : LazadaProduct::query()->whereIn('product_id', $productIds)->pluck('id')->map(fn ($v) => (int) $v)->all();
+    }
+
+    public function removeFromStore(int $productId)
+    {
+        $listing = $this->listingFor($productId);
         $itemId = $listing->lazada_item_id;
         $productId = $listing->product_id;
 
@@ -680,9 +719,9 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
     /** Remove from this channel, for the ticked rows: the single verb, repeated (parity, 2026-09-07). */
     public function bulkRemoveFromStore(Request $request)
     {
-        $ids = array_values(array_unique(array_filter(array_map('intval', (array) $request->input('listing_ids', [])), fn ($v) => $v > 0)));
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array) $request->input('product_ids', [])), fn ($v) => $v > 0)));
         $n = 0;
-        foreach (LazadaProduct::query()->whereIn('id', $ids)->get() as $listing) {
+        foreach (LazadaProduct::query()->whereIn('product_id', $ids)->get() as $listing) {
             $listing->variants()->delete();
             $listing->groups()->detach();
             $listing->delete();
@@ -747,9 +786,9 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
      * Sync ERP product quantity to Lazada using Seller SKU.
      * NOTE: Your app may not have permission for this API yet — we still call it so you can see the exact error.
      */
-    public function syncQuantity(Request $request, int $id, LazadaClient $client)
+    public function syncQuantity(Request $request, int $productId, LazadaClient $client)
     {
-        $listing = LazadaProduct::query()->findOrFail($id);
+        $listing = $this->listingFor($productId);
 
         $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
@@ -796,9 +835,9 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
      * Sync ERP product price to Lazada using Seller SKU.
      * NOTE: Your app may not have permission for this API yet — we still call it so you can see the exact error.
      */
-    public function syncPrice(Request $request, int $id, LazadaClient $client)
+    public function syncPrice(Request $request, int $productId, LazadaClient $client)
     {
-        $listing = LazadaProduct::query()->findOrFail($id);
+        $listing = $this->listingFor($productId);
 
         $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
@@ -858,9 +897,9 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
      * API Path: /product/remove
      * NOTE: Your app may not have permission for this API yet — we still call it so you can see the exact error.
      */
-    public function deleteFromLazada(Request $request, int $id, LazadaClient $client)
+    public function deleteFromLazada(Request $request, int $productId, LazadaClient $client)
     {
-        $listing = LazadaProduct::query()->findOrFail($id);
+        $listing = $this->listingFor($productId);
 
         $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
@@ -1008,9 +1047,9 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
     // ── Unlink Product from Lazada ──────────────────────────────────
 
-    public function unlink(int $id)
+    public function unlink(int $productId)
     {
-        $listing = LazadaProduct::query()->findOrFail($id);
+        $listing = $this->listingFor($productId);
 
         $productId = $listing->product_id;
         $itemId = $listing->lazada_item_id;
@@ -1026,7 +1065,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         // Remove cached Lazada variants so sync jobs skip this listing
         $listing->variants()->delete();
 
-        $label = $itemId ? "Lazada item {$itemId}" : "listing #{$id}";
+        $label = $itemId ? "Lazada item {$itemId}" : "product #{$productId}";
 
         return redirect()->back()->with('status', "Unlinked ERP product #{$productId} from {$label}.");
     }
@@ -1041,9 +1080,9 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
      * Use case: product exists on Lazada already (manual upload / migrated catalog), but ERP has no lazada_item_id yet.
      * Only allowed when lazada_item_id is NULL to avoid accidental relinking.
      */
-    public function syncLazadaId(Request $request, int $id, LazadaClient $client)
+    public function syncLazadaId(Request $request, int $productId, LazadaClient $client)
     {
-        $listing = LazadaProduct::query()->findOrFail($id);
+        $listing = $this->listingFor($productId);
 
         if (!empty($listing->lazada_item_id) && !$listing->unlinked_at) {
             // Already linked and not unlinked — full cache refresh
@@ -1147,9 +1186,9 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             ->with('status', 'Sync Lazada ID: no Lazada product found for SKUs: ' . implode(', ', $allSkus));
     }
 
-    public function uploadToLazada(Request $request, int $id, LazadaClient $client)
+    public function uploadToLazada(Request $request, int $productId, LazadaClient $client)
     {
-        $saved = LazadaProduct::query()->findOrFail($id);
+        $saved = $this->listingFor($productId);
         /* A group is a preset the product inherits (the owner, 2026-09-05): the
          * payload is built from an in-memory copy whose blank category and
          * brand are filled from the group. Only $saved is ever written. */
@@ -1408,12 +1447,12 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
      * price change moves the discount with it. Ending sends SalePrice 0,
      * which clears the special price on Lazada's side.
      */
-    public function pushDiscount(Request $request, int $id, LazadaClient $client)
+    public function pushDiscount(Request $request, int $productId, LazadaClient $client)
     {
         $request->validate(['action' => 'required|in:push,end']);
         $ending = $request->input('action') === 'end';
 
-        $listing = LazadaProduct::query()->findOrFail($id);
+        $listing = $this->listingFor($productId);
         if (empty($listing->lazada_item_id)) {
             return redirect()->back()->with('error', 'This listing is not on Lazada, so there is no price to discount.');
         }
@@ -1552,11 +1591,11 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             : "Discount pushed: {$ok} SKU(s) at {$pct}% off from {$saleStart} to {$saleEnd}.");
     }
 
-    public function toggleListing(Request $request, int $id, LazadaClient $client)
+    public function toggleListing(Request $request, int $productId, LazadaClient $client)
     {
         $request->validate(['action' => 'required|in:activate,deactivate']);
         $deactivate = $request->input('action') === 'deactivate';
-        $listing = LazadaProduct::query()->findOrFail($id);
+        $listing = $this->listingFor($productId);
         if (empty($listing->lazada_item_id)) {
             return redirect()->back()->with('error', 'This listing is not on Lazada, so there is nothing to ' . ($deactivate ? 'deactivate' : 'activate') . '.');
         }
@@ -1761,8 +1800,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
     {
         $request->validate([
             'action' => 'required|in:activate,deactivate',
-            'listing_ids' => 'required|array|min:1',
-            'listing_ids.*' => 'integer',
+            'product_ids' => 'required|array|min:1',
+            'product_ids.*' => 'integer',
         ]);
         $deactivate = $request->input('action') === 'deactivate';
         $verb = $deactivate ? 'Deactivated' : 'Activated';
@@ -1773,7 +1812,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             return redirect()->back()->with('error', 'Missing Lazada settings.');
         }
 
-        $ids = array_values(array_unique(array_map('intval', (array) $request->input('listing_ids'))));
+        $ids = $this->listingIdsFor((array) $request->input('product_ids'));
         $listings = LazadaProduct::query()->whereIn('id', $ids)->get();
         $onLazada = $listings->filter(fn ($l) => !empty($l->lazada_item_id));
         $notOnLazada = count($ids) - $onLazada->count();
@@ -1808,11 +1847,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
     public function bulkSyncLazadaId(Request $request, LazadaClient $client)
     {
-        $ids = $request->input('listing_ids', []);
-        if (!is_array($ids)) {
-            $ids = [];
-        }
-        $ids = array_values(array_unique(array_filter(array_map(fn($v) => (int)$v, $ids), fn($v) => $v > 0)));
+        $ids = $this->listingIdsFor((array) $request->input('product_ids', []));
 
         if (empty($ids)) {
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('status', 'Bulk Sync Lazada ID: no products selected.');
@@ -1968,7 +2003,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
     /**
      * Ask Lazada whether the links this page believes in are still true
      * (Phase F, #184): the group page's check, on the workbench, via the
-     * shared LazadaLinkCheck. The bulk bar posts listing_ids[]; with
+     * shared LazadaLinkCheck. The bulk bar posts product_ids[]; with
      * none it checks every linked listing, 200 at a time. No group here
      * means adoption creates a bare listing for the workbench to dress.
      */
@@ -1983,9 +2018,9 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 ->with('error', 'Missing Lazada settings (region/app key/app secret/access token).');
         }
 
-        $listingIds = array_values(array_unique(array_filter(array_map(fn ($v) => (int) $v, (array) $request->input('listing_ids', [])), fn ($v) => $v > 0)));
-        $productIds = $listingIds !== []
-            ? LazadaProduct::query()->whereIn('id', $listingIds)->pluck('product_id')->map(fn ($v) => (int) $v)->all()
+        $productIds = array_values(array_unique(array_filter(array_map(fn ($v) => (int) $v, (array) $request->input('product_ids', [])), fn ($v) => $v > 0)));
+        $productIds = $productIds !== []
+            ? $productIds
             : LazadaProduct::query()->whereNotNull('lazada_item_id')->whereNull('lazada_deleted_at')
                 ->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
         if (empty($productIds)) {
@@ -2000,11 +2035,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
 public function bulkSyncQuantity(Request $request, LazadaClient $client)
 {
-    $ids = $request->input('listing_ids', []);
-    if (!is_array($ids)) {
-        $ids = [];
-    }
-    $ids = array_values(array_unique(array_filter(array_map(fn($v) => (int)$v, $ids), fn($v) => $v > 0)));
+    $ids = $this->listingIdsFor((array) $request->input('product_ids', []));
 
     if (empty($ids)) {
         return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('status', 'Bulk Sync Qty: no listings selected.');
@@ -2034,11 +2065,7 @@ public function bulkSyncQuantity(Request $request, LazadaClient $client)
 
 public function bulkSyncPrice(Request $request, LazadaClient $client)
 {
-    $ids = $request->input('listing_ids', []);
-    if (!is_array($ids)) {
-        $ids = [];
-    }
-    $ids = array_values(array_unique(array_filter(array_map(fn($v) => (int)$v, $ids), fn($v) => $v > 0)));
+    $ids = $this->listingIdsFor((array) $request->input('product_ids', []));
 
     if (empty($ids)) {
         return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('status', 'Bulk Sync Price: no listings selected.');
@@ -2086,11 +2113,7 @@ public function bulkSyncPrice(Request $request, LazadaClient $client)
 
 public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 {
-    $ids = $request->input('listing_ids', []);
-    if (!is_array($ids)) {
-        $ids = [];
-    }
-    $ids = array_values(array_unique(array_filter(array_map(fn($v) => (int)$v, $ids), fn($v) => $v > 0)));
+    $ids = $this->listingIdsFor((array) $request->input('product_ids', []));
 
     if (empty($ids)) {
         return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('status', 'Bulk Delete: no listings selected.');
@@ -2249,77 +2272,9 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         ]);
     }
 
-    public function create(Request $request)
+    public function edit(int $productId, \Extensions\lazada\Services\Lazada\LazadaLiveListing $liveListing)
     {
-        // Cached Lazada categories for dropdown selection
-        $categories = LazadaCategory::query()
-            ->orderBy('name')
-            ->limit(5000)
-            ->get(['category_id', 'name']);
-
-        // Brand search is handled by AJAX autocomplete; no need to preload all brands.
-        // Product selection is handled by AJAX search (searchCatalogProducts endpoint).
-
-        $blank = new LazadaProduct([
-            'product_id' => $request->input('product_id'),
-        ]);
-
-        return view('ext-lazada::products.form', [
-            'mode' => 'create',
-            'listing' => $blank,
-            'categories' => $categories,
-            'template' => null,
-            'attributes' => [],
-            'saved' => [],
-            'suggested' => [],
-            'groupAttrs' => [],
-            'productOwnAttrs' => [],
-            'productImageUrl' => null,
-            'brands' => collect(),
-            'brandSuggestion' => ['brand_id' => null, 'brand_name' => null],
-            'selectedBrandName' => '',
-            'erpSourceFields' => LazadaAttributes::ERP_SOURCE_FIELDS,
-        ]);
-    }
-
-    public function store(Request $request)
-    {
-        $data = $request->validate([
-            'product_id' => 'required|integer|min:1',
-            'primary_category_id' => 'nullable|integer|min:1',
-            'brand_id' => 'nullable|integer|min:1',
-            'no_brand' => 'nullable|boolean',
-            'markup_fixed' => 'nullable|numeric|min:0',
-            'markup_percent' => 'nullable|numeric|min:0',
-            'sale_percent' => 'nullable|numeric|min:1|max:99',
-            'sale_starts_at' => 'nullable|date|required_with:sale_percent',
-            'sale_ends_at' => 'nullable|date|required_with:sale_percent|after:sale_starts_at',
-        ]);
-
-        $noBrand = (bool)($data['no_brand'] ?? false);
-        if ($noBrand) {
-            $data['brand_id'] = null;
-        }
-
-        $listing = LazadaProduct::query()->create([
-            'product_id' => (int)$data['product_id'],
-            'primary_category_id' => $data['primary_category_id'] ?? null,
-            'brand_id' => $data['brand_id'] ?? null,
-            'brand_name_override' => $noBrand ? 'No Brand' : null,
-            'markup_fixed' => $data['markup_fixed'] ?? null,
-            'markup_percent' => $data['markup_percent'] ?? null,
-        ]);
-
-        ActivityLogger::log('created', 'Lazada Product', $listing->id, 'ERP #' . (int)$data['product_id']);
-
-        return redirect()->route('ext.lazada.products.edit', $listing->id)
-            ->with('status', 'Listing settings saved.');
-    }
-
-
-    public function edit(int $id, \Extensions\lazada\Services\Lazada\LazadaLiveListing $liveListing)
-    {
-        $listing = LazadaProduct::query()->findOrFail($id);
+        $listing = $this->listingOrBlank($productId);
 
         /* The live half (Lazada parity with the Shopee listing page,
          * 2026-08-24): what Lazada says about this item RIGHT NOW, fetched
@@ -2455,7 +2410,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
         return view('ext-lazada::products.form', [
             'coverage' => $coverage,
-            'mode' => 'edit',
+            'mode' => $listing->exists ? 'edit' : 'create',
             'listing' => $listing,
             'products' => $products,
             'categories' => $categories,
@@ -2478,9 +2433,9 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         ]);
     }
 
-    public function update(Request $request, int $id)
+    public function update(Request $request, int $productId)
     {
-        $listing = LazadaProduct::query()->findOrFail($id);
+        $listing = $this->listingRowFor($productId);
 
         $data = $request->validate([
             'primary_category_id' => 'nullable|integer|min:1',
@@ -2546,7 +2501,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         // Save and push: the one press that saves everything above and sends
         // the listing, as a create or, once linked, as an update.
         if ($request->boolean('push')) {
-            return $this->uploadToLazada($request, $id, app(LazadaClient::class));
+            return $this->uploadToLazada($request, $productId, app(LazadaClient::class));
         }
 
         $note = '';
@@ -2558,7 +2513,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         // A plain save stays on the page and keeps the way back to the search.
         $back = \App\Support\BackTo::safe($request->input('back'), '');
 
-        return redirect()->route('ext.lazada.products.edit', $back !== '' ? ['id' => $listing->id, 'back' => $back] : ['id' => $listing->id])->with('status', 'Listing saved.' . $note);
+        return redirect()->route('ext.lazada.products.edit', $back !== '' ? ['productId' => $listing->product_id, 'back' => $back] : ['productId' => $listing->product_id])->with('status', 'Listing saved.' . $note);
     }
 
     /**
@@ -2670,9 +2625,9 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
      * a category never read, or a re-read, asks Lazada and files it.
      * Nothing about the listing is saved here: the form does that.
      */
-    public function fetchAttributesAjax(Request $request, int $id, LazadaClient $client)
+    public function fetchAttributesAjax(Request $request, int $productId, LazadaClient $client)
     {
-        $listing = LazadaProduct::query()->findOrFail($id);
+        $listing = $this->listingRowFor($productId);
 
         $data = $request->validate([
             'primary_category_id' => 'required|integer|min:1',
@@ -2769,9 +2724,9 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         return ['ok' => true, 'template' => $template, 'message' => ''];
     }
 
-    public function syncBrands(Request $request, int $id, LazadaClient $client)
+    public function syncBrands(Request $request, int $productId, LazadaClient $client)
     {
-        $listing = LazadaProduct::query()->findOrFail($id);
+        $listing = $this->listingRowFor($productId);
 
         $req = $request->validate([
             'max_pages' => 'nullable|integer|min:1|max:200',
@@ -2789,7 +2744,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
-            return redirect()->route('ext.lazada.products.edit', $listing->id)
+            return redirect()->route('ext.lazada.products.edit', $listing->product_id)
                 ->with('status', 'Missing Lazada settings (region/app key/app secret).');
         }
 
@@ -2861,7 +2816,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             });
         }
 
-        return redirect()->route('ext.lazada.products.edit', $listing->id)
+        return redirect()->route('ext.lazada.products.edit', $listing->product_id)
             ->with('status', 'Brands synced. Saved/updated: ' . $totalSaved);
     }
 
@@ -3044,9 +2999,9 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         return null;
     }
 
-    public function saveVariants(Request $request, int $id)
+    public function saveVariants(Request $request, int $productId)
     {
-        $listing = LazadaProduct::query()->findOrFail($id);
+        $listing = $this->listingRowFor($productId);
 
         $data = $request->validate([
             'variants' => 'array',
@@ -3079,7 +3034,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             }
         });
 
-        return redirect()->route('ext.lazada.products.edit', $listing->id)->with('status', 'Variant mapping saved.');
+        return redirect()->route('ext.lazada.products.edit', $listing->product_id)->with('status', 'Variant mapping saved.');
     }
 
     private function region(): string

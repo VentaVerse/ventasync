@@ -20,9 +20,9 @@
  *     only the part Alpine cannot do: injecting the ticked ids into whichever
  *     bulk form was submitted.
  *
- * Lazada's bulk forms post `listing_ids[]`, keyed on the lazada_products row
- * id, not on the catalog product id. That is the pre-redesign wire and the
- * reason this file exists separately from Shopee's.
+ * Lazada's bulk forms post `product_ids[]` like every other channel's since
+ * 2026-09-07 (they posted the lazada_products row id before, the reason this
+ * file exists separately from Shopee's; only the wording differs now).
  *
  * Everything else is unchanged at the wire: the same five bulk routes, the
  * same `product_id` on the unmatched link form, the same GET to
@@ -35,7 +35,7 @@ import { initChannelListings } from './channel-listings';
 document.addEventListener('DOMContentLoaded', function () {
     initChannelListings({
         overlaySelector: '#lazada-listings-progress',
-        bulkField: 'listing_ids[]',
+        bulkField: 'product_ids[]',
         slowTitle: 'Talking to Lazada',
         bulkTitle: (count) => 'Working on ' + count + (count === 1 ? ' listing' : ' listings'),
         emptyMessage: 'Select at least one listing first.',

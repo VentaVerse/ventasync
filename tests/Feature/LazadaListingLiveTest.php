@@ -154,7 +154,7 @@ class LazadaListingLiveTest extends TestCase
         $index->assertSee('Push to Lazada');
         $index->assertDontSee('Upload to Lazada');
 
-        $page = $this->actingAs($this->manager())->get(route('ext.lazada.products.edit', $listing->id))->assertOk();
+        $page = $this->actingAs($this->manager())->get(route('ext.lazada.products.edit', $listing->product_id))->assertOk();
         $page->assertSee('Save and push to Lazada');
     }
 
@@ -295,7 +295,7 @@ class LazadaListingLiveTest extends TestCase
         $listing = LazadaProduct::query()->create(['product_id' => $productId, 'lazada_item_id' => '990077', 'live_status' => 'active']);
 
         $this->actingAs($this->manager())
-            ->post(route('ext.lazada.listings.toggle', $listing->id), ['action' => 'deactivate']);
+            ->post(route('ext.lazada.listings.toggle', $listing->product_id), ['action' => 'deactivate']);
 
         $this->assertSame('inactive', $listing->fresh()->live_status);
     }
@@ -311,7 +311,7 @@ class LazadaListingLiveTest extends TestCase
         $lc = LazadaProduct::query()->create(['product_id' => $c]);
 
         $r = $this->actingAs($this->manager())
-            ->post(route('ext.lazada.products.bulk_toggle'), ['action' => 'deactivate', 'listing_ids' => [$la->id, $lb->id, $lc->id]]);
+            ->post(route('ext.lazada.products.bulk_toggle'), ['action' => 'deactivate', 'product_ids' => [$la->product_id, $lb->product_id, $lc->product_id]]);
 
         $sent = collect($this->sentPosts)->where('path', '/product/deactivate');
         $this->assertCount(2, $sent, 'Lazada deactivates one ItemId per call');
@@ -332,7 +332,7 @@ class LazadaListingLiveTest extends TestCase
         $lc = LazadaProduct::query()->create(['product_id' => $c]);
 
         $this->actingAs($this->manager())
-            ->post(route('ext.lazada.products.bulk_toggle'), ['action' => 'activate', 'listing_ids' => [$lc->id]])
+            ->post(route('ext.lazada.products.bulk_toggle'), ['action' => 'activate', 'product_ids' => [$lc->product_id]])
             ->assertSessionHas('error');
         $this->assertSame([], $this->sentPosts);
     }
@@ -464,7 +464,7 @@ class LazadaListingLiveTest extends TestCase
 
         // Deactivate: the documented endpoint, ItemId mandatory.
         $r = $this->actingAs($this->manager())
-            ->post(route('ext.lazada.listings.toggle', $listing->id), ['action' => 'deactivate']);
+            ->post(route('ext.lazada.listings.toggle', $listing->product_id), ['action' => 'deactivate']);
         $sent = collect($this->sentPosts)->firstWhere('path', '/product/deactivate');
         $this->assertNotNull($sent, 'Deactivate must reach /product/deactivate.');
         $payload = json_decode($sent['params']['payload'], true);
@@ -483,7 +483,7 @@ class LazadaListingLiveTest extends TestCase
         ]]];
 
         $this->actingAs($this->manager())
-            ->post(route('ext.lazada.listings.toggle', $listing->id), ['action' => 'activate']);
+            ->post(route('ext.lazada.listings.toggle', $listing->product_id), ['action' => 'activate']);
         $sent = collect($this->sentPosts)->firstWhere('path', '/product/update');
         $this->assertNotNull($sent, 'Activate must reach /product/update.');
         $payload = json_decode($sent['params']['payload'], true);
@@ -511,7 +511,7 @@ class LazadaListingLiveTest extends TestCase
         ]);
 
         $r = $this->actingAs($this->manager())
-            ->post(route('ext.lazada.listings.push_discount', $listing->id), ['action' => 'push']);
+            ->post(route('ext.lazada.listings.push_discount', $listing->product_id), ['action' => 'push']);
 
         $sent = collect($this->sentPosts)->firstWhere('path', '/product/price_quantity/update');
         $this->assertNotNull($sent, 'The discount must ride the price update.');
@@ -526,7 +526,7 @@ class LazadaListingLiveTest extends TestCase
         // Ending sends SalePrice 0 and clears the rule.
         $this->sentPosts = [];
         $this->actingAs($this->manager())
-            ->post(route('ext.lazada.listings.push_discount', $listing->id), ['action' => 'end']);
+            ->post(route('ext.lazada.listings.push_discount', $listing->product_id), ['action' => 'end']);
         $sent = collect($this->sentPosts)->firstWhere('path', '/product/price_quantity/update');
         $this->assertStringContainsString('<SalePrice>0</SalePrice>', $sent['params']['payload']);
         $this->assertNull($listing->fresh()->sale_percent, 'Ending clears the stored rule.');
@@ -540,7 +540,7 @@ class LazadaListingLiveTest extends TestCase
         ]);
 
         $r = $this->actingAs($this->manager())
-            ->post(route('ext.lazada.listings.push_discount', $listing->id), ['action' => 'push']);
+            ->post(route('ext.lazada.listings.push_discount', $listing->product_id), ['action' => 'push']);
 
         $this->assertSame([], $this->sentPosts, 'Nothing may be sent without a saved rule.');
         $r->assertSessionHas('error');
@@ -562,7 +562,7 @@ class LazadaListingLiveTest extends TestCase
         ]]];
 
         $r = $this->actingAs($this->manager())
-            ->get(route('ext.lazada.products.edit', $listing->id));
+            ->get(route('ext.lazada.products.edit', $listing->product_id));
 
         $r->assertOk();
         $r->assertSee('On Lazada right now');
@@ -578,7 +578,7 @@ class LazadaListingLiveTest extends TestCase
         // No /product/item/get response registered: the fake answers ok=false.
 
         $r = $this->actingAs($this->manager())
-            ->get(route('ext.lazada.products.edit', $listing->id));
+            ->get(route('ext.lazada.products.edit', $listing->product_id));
 
         $r->assertOk();
         $r->assertSee('Lazada did not answer');
@@ -620,7 +620,7 @@ class LazadaListingLiveTest extends TestCase
         ]]];
 
         $this->actingAs($this->manager())
-            ->post(route('ext.lazada.listings.toggle', $listing->id), ['action' => 'activate'])
+            ->post(route('ext.lazada.listings.toggle', $listing->product_id), ['action' => 'activate'])
             ->assertRedirect();
 
         $update = collect($this->sentPosts)->firstWhere('path', '/product/update');
@@ -661,7 +661,7 @@ class LazadaListingLiveTest extends TestCase
         ]];
 
         $this->actingAs($this->manager())
-            ->post(route('ext.lazada.listings.toggle', $listing->id), ['action' => 'activate'])
+            ->post(route('ext.lazada.listings.toggle', $listing->product_id), ['action' => 'activate'])
             ->assertRedirect()
             ->assertSessionHas('error');
 
@@ -678,7 +678,7 @@ class LazadaListingLiveTest extends TestCase
         ]);
 
         $this->actingAs($this->manager())
-            ->post(route('ext.lazada.listings.toggle', $listing->id), ['action' => 'deactivate'])
+            ->post(route('ext.lazada.listings.toggle', $listing->product_id), ['action' => 'deactivate'])
             ->assertRedirect();
 
         $call = collect($this->sentPosts)->firstWhere('path', '/product/deactivate');

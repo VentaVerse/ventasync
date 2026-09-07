@@ -165,14 +165,14 @@
                 @if(($live ?? null) !== null)
                     <div class="fm-section__aside">
                         @if(($live['status'] ?? '') === 'active')
-                            <form method="POST" action="{{ route('ext.lazada.listings.toggle', $listing->id) }}"
+                            <form method="POST" action="{{ route('ext.lazada.listings.toggle', $listing->product_id) }}"
                                   data-confirm="Deactivate this item on Lazada? Buyers stop seeing it immediately. It stays here and can be activated again." data-confirm-verb="Deactivate">
                                 @csrf
                                 <input type="hidden" name="action" value="deactivate">
                                 <x-ui.button type="submit">Deactivate on Lazada</x-ui.button>
                             </form>
                         @elseif(($live['status'] ?? '') === 'inactive')
-                            <form method="POST" action="{{ route('ext.lazada.listings.toggle', $listing->id) }}"
+                            <form method="POST" action="{{ route('ext.lazada.listings.toggle', $listing->product_id) }}"
                                   data-confirm="Activate this item on Lazada? Buyers see it again once Lazada applies it." data-confirm-tone="primary" data-confirm-verb="Activate">
                                 @csrf
                                 <input type="hidden" name="action" value="activate">
@@ -323,14 +323,10 @@
          1. The listing itself.
          ============================================================ --}}
     <form id="lazada-listing" method="POST"
-          action="{{ $mode === 'create'
-            ? route('ext.lazada.products.store')
-            : route('ext.lazada.products.update', $listing->id) }}"
-          @if($mode === 'edit') data-slow-action="push" @endif>
+          action="{{ route('ext.lazada.products.update', $listing->product_id) }}"
+          data-slow-action="push">
         @csrf
-        @if($mode === 'edit')
-            @method('PUT')
-        @endif
+        @method('PUT')
         {{-- Where the operator came from (the Listings page with its search),
              for Save and push and Cancel to return to. --}}
         <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
@@ -452,7 +448,7 @@
                          page renders here. --}}
                     <section class="fm-section"
                              data-attributes-fetch
-                             data-attributes-url="{{ route('ext.lazada.products.attributes_fetch', $listing->id) }}"
+                             data-attributes-url="{{ route('ext.lazada.products.attributes_fetch', $listing->product_id) }}"
                              data-attributes-field="primary_category_id"
                              data-attributes-source="#lazada-listing [data-combo-value]"
                              data-attributes-reread-button="[data-attributes-reread]"
@@ -514,7 +510,7 @@
                         'endClearsRule' => true,
                         'pushedAt' => $listing->sale_pushed_at ?? null,
                         'liveError' => $mode === 'edit' && !empty($listing->lazada_item_id) ? ($liveError ?? null) : null,
-                        'action' => $mode === 'edit' ? route('ext.lazada.listings.push_discount', $listing->id) : '',
+                        'action' => $mode === 'edit' ? route('ext.lazada.listings.push_discount', $listing->product_id) : '',
                     ];
                 @endphp
                 {{-- The shared Discount card (#146): the rule rides Save,
@@ -612,7 +608,7 @@
             @else
                 <p class="fm-section__note">Lazada gets the catalog's own values unless you override one here. Anything left empty stays as the catalog has it.</p>
 
-                <form id="lazada-variants" method="POST" action="{{ route('ext.lazada.products.variants_save', $listing->id) }}">
+                <form id="lazada-variants" method="POST" action="{{ route('ext.lazada.products.variants_save', $listing->product_id) }}">
                     @csrf
                     <div class="fm-vars__scroll">
                         <table class="fm-vars__table">

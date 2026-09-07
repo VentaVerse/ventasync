@@ -54,7 +54,7 @@
 <div class="cc-page"
      x-data="{
         selected: [],
-        ids: {{ \Illuminate\Support\Js::from(collect($products->items())->filter(fn ($r) => $r->listing_id)->pluck('listing_id')->map(fn ($v) => (string) $v)->values()) }}
+        ids: {{ \Illuminate\Support\Js::from(collect($products->items())->pluck('product_id')->map(fn ($v) => (string) $v)->values()) }}
      }">
 
 <div class="x-list-head">
@@ -259,7 +259,7 @@
 @if($canManageLazada)
 {{-- Bulk bar. It exists only once at least one row is ticked, which is the
      whole reason the pre-redesign page's standing accent-tinted strip of five
-     buttons is gone. Each action is still its own form posting listing_ids[]
+     buttons is gone. Each action is still its own form posting product_ids[]
      to its own route, exactly as before; the module injects the ticked ids
      into whichever form is submitted. Delete keeps the transparent danger
      treatment, not a solid red fill. --}}
@@ -396,9 +396,8 @@
             // The listing page carries this page's own URL (search, filters,
             // page) as `back`, so Save and push and Cancel return here
             // (the owner, 2026-09-06). App\Support\BackTo keeps it on this host.
-            $editUrl = $listing
-                ? route('ext.lazada.products.edit', ['id' => $listing->id, 'back' => request()->getRequestUri()])
-                : route('ext.lazada.products.create', ['product_id' => $pid, 'back' => request()->getRequestUri()]);
+            // The product id is the key on every route (2026-09-07); a product with no row yet opens the same page.
+            $editUrl = route('ext.lazada.products.edit', ['productId' => $pid, 'back' => request()->getRequestUri()]);
 
             // What the operator is about to act on, for the confirms below.
             $rowLabel = $pName !== '' ? $pName : ($pSku !== '' ? $pSku : 'product ' . $pid);
@@ -406,7 +405,7 @@
         <tr>
             @if($canManageLazada)
             <td class="cc-col-check">
-                {{-- Bulk actions post listing_ids[], so only a product that
+                {{-- Bulk actions post product_ids[]; a product without a row is skipped by the action, so only a product that
                      HAS a listing row can be ticked. No name attribute: the
                      module injects the ticked ids into whichever bulk form
                      is submitted. data-live carries the raw mirror word for
@@ -541,23 +540,23 @@
                             // One push, and it opens the listing page first (#149), where Save and push sits under what is about to go up.
                             $menu['push'] = ['href' => $editUrl, 'label' => 'Push to Lazada'];
                             if ($listing) {
-                                $menu['link'] = ['action' => route('ext.lazada.products.sync_lazada_id', $listing->id)];
+                                $menu['link'] = ['action' => route('ext.lazada.products.sync_lazada_id', $pid)];
                             }
                         } else {
-                            $menu['update'] = ['action' => route('ext.lazada.products.upload', $listing->id), 'label' => 'Update on Lazada', 'confirm' => "Push this listing's content and settings onto the live Lazada item? Name, description, package, category, brand and attributes are updated. Price and stock are not touched.", 'verb' => 'Push update', 'tone' => 'primary'];
-                            $menu['stock'] = route('ext.lazada.products.sync_quantity', $listing->id);
-                            $menu['price'] = route('ext.lazada.products.sync_price', $listing->id);
+                            $menu['update'] = ['action' => route('ext.lazada.products.upload', $pid), 'label' => 'Update on Lazada', 'confirm' => "Push this listing's content and settings onto the live Lazada item? Name, description, package, category, brand and attributes are updated. Price and stock are not touched.", 'verb' => 'Push update', 'tone' => 'primary'];
+                            $menu['stock'] = route('ext.lazada.products.sync_quantity', $pid);
+                            $menu['price'] = route('ext.lazada.products.sync_price', $pid);
                             if ($rowState?->state === $stateClass::LIVE) {
-                                $menu['switch'] = ['action' => route('ext.lazada.listings.toggle', $listing->id), 'label' => 'Deactivate on Lazada', 'fields' => ['action' => 'deactivate'], 'confirm' => "Deactivate {$rowLabel} on Lazada? Buyers stop seeing it. It can be activated again at any time.", 'verb' => 'Deactivate'];
+                                $menu['switch'] = ['action' => route('ext.lazada.listings.toggle', $pid), 'label' => 'Deactivate on Lazada', 'fields' => ['action' => 'deactivate'], 'confirm' => "Deactivate {$rowLabel} on Lazada? Buyers stop seeing it. It can be activated again at any time.", 'verb' => 'Deactivate'];
                             } elseif ($rowState?->state === $stateClass::INACTIVE) {
-                                $menu['switch'] = ['action' => route('ext.lazada.listings.toggle', $listing->id), 'label' => 'Activate on Lazada', 'fields' => ['action' => 'activate'], 'confirm' => "Activate {$rowLabel} on Lazada? Buyers see it again once Lazada applies it.", 'verb' => 'Activate', 'tone' => 'primary'];
+                                $menu['switch'] = ['action' => route('ext.lazada.listings.toggle', $pid), 'label' => 'Activate on Lazada', 'fields' => ['action' => 'activate'], 'confirm' => "Activate {$rowLabel} on Lazada? Buyers see it again once Lazada applies it.", 'verb' => 'Activate', 'tone' => 'primary'];
                             }
-                            $menu['check'] = ['action' => route('ext.lazada.products.check'), 'label' => 'Check against Lazada', 'fields' => ['listing_ids[]' => $listing->id]];
-                            $menu['unlink'] = ['action' => route('ext.lazada.products.unlink', $listing->id), 'confirm' => "Unlink {$rowLabel} from Lazada? Only the link is removed. The Lazada listing stays up and can be linked again later."];
-                            $menu['delete'] = ['action' => route('ext.lazada.products.delete_lazada', $listing->id), 'confirm' => "Delete {$rowLabel} from Lazada? The listing is removed at the marketplace and this cannot be undone."];
+                            $menu['check'] = ['action' => route('ext.lazada.products.check'), 'label' => 'Check against Lazada', 'fields' => ['product_ids[]' => $pid]];
+                            $menu['unlink'] = ['action' => route('ext.lazada.products.unlink', $pid), 'confirm' => "Unlink {$rowLabel} from Lazada? Only the link is removed. The Lazada listing stays up and can be linked again later."];
+                            $menu['delete'] = ['action' => route('ext.lazada.products.delete_lazada', $pid), 'confirm' => "Delete {$rowLabel} from Lazada? The listing is removed at the marketplace and this cannot be undone."];
                         }
                         if ($listing) {
-                            $menu['remove'] = ['action' => route('ext.lazada.products.remove_from_store', $listing->id), 'label' => 'Remove from this channel', 'verb' => 'Remove', 'confirm' => $hasItemId && !$isUnlinked
+                            $menu['remove'] = ['action' => route('ext.lazada.products.remove_from_store', $pid), 'label' => 'Remove from this channel', 'verb' => 'Remove', 'confirm' => $hasItemId && !$isUnlinked
                                 ? "Remove {$rowLabel} from this channel? It leaves this store's list and stops syncing. It is on Lazada (item {$listing->lazada_item_id}) and stays up, still orderable, until you remove it there. Use Delete from Lazada for that."
                                 : "Remove {$rowLabel} from this channel? It leaves this store's list and stops syncing. Nothing on Lazada is changed."];
                         }

@@ -254,7 +254,7 @@ class ChannelGroupToolsTest extends TestCase
         ]]]];
 
         $r = $this->actingAs($this->manager(['manage_lazada/product', 'view_lazada/product']))
-            ->post(route('ext.lazada.products.check', ['store' => $this->lazadaStore->id]), ['listing_ids' => [$newListing->id, $lostListing->id]]);
+            ->post(route('ext.lazada.products.check', ['store' => $this->lazadaStore->id]), ['product_ids' => [$newListing->product_id, $lostListing->product_id]]);
 
         $r->assertSessionHas('error');
         $this->assertStringContainsString('1 linked to the item Lazada holds', session('error'));

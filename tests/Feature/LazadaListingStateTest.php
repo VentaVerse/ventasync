@@ -221,7 +221,7 @@ class LazadaListingStateTest extends TestCase
         ]);
 
         $this->actingAs($this->manager())
-            ->post(route('ext.lazada.products.delete_lazada', $listing->id))
+            ->post(route('ext.lazada.products.delete_lazada', $listing->product_id))
             ->assertRedirect();
 
         $listing->refresh();
@@ -240,7 +240,7 @@ class LazadaListingStateTest extends TestCase
         ]);
 
         $this->actingAs($this->manager())
-            ->post(route('ext.lazada.products.unlink', $listing->id))
+            ->post(route('ext.lazada.products.unlink', $listing->product_id))
             ->assertRedirect();
 
         $listing->refresh();
@@ -331,8 +331,12 @@ class LazadaListingStateTest extends TestCase
         $user = \App\Models\User::factory()->create(['user_group_id' => $ug->id]);
 
         $page = $this->actingAs($user)->get(route('ext.lazada.product-groups.products', $grp->id))->assertOk();
+        // The row offers the one verb this inactive listing can take; the
+        // bulk bar carries both (hidden until ticked rows say which applies).
         $page->assertSee('Activate on Lazada');
-        $page->assertDontSee('Deactivate on Lazada');
+        $page->assertSee('data-bulk-verb="deactivate"', false);
+        $page->assertSee('data-bulk-verb="activate"', false);
+        $page->assertSee('data-bulk-field="product_ids[]"', false);
     }
 
     /** Core reaches Lazada's states through the same contract Shopee registered in Phase B. */
