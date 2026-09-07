@@ -730,4 +730,33 @@ class ShopeeListingPageTest extends TestCase
         $r->assertDontSee('Push to Shopee');
         $r->assertDontSee('Save listing');
     }
+
+    /** Live, 2026-09-07: "Reading brands from Shopee... 100 so far" never moved. A page that adds nothing ends the warm. */
+    public function test_a_page_that_repeats_the_brands_already_read_ends_the_warm(): void
+    {
+        \Illuminate\Support\Facades\Cache::flush();
+        $calls = 0;
+        $this->getResponses['/api/v2/product/get_brand_list'] = function (array $q) use (&$calls) {
+            $calls++;
+
+            return ['ok' => true, 'status' => 200, 'body' => ['response' => [
+                'brand_list' => [['brand_id' => 21, 'original_brand_name' => 'Boss'], ['brand_id' => 22, 'original_brand_name' => 'Ibanez']],
+                'has_next_page' => true, // Shopee keeps saying so, whatever the offset
+                'next_offset' => (int) ($q['offset'] ?? 0) + 100,
+            ]]];
+        };
+        $user = $this->manager();
+
+        $first = $this->actingAs($user)->getJson(route('ext.shopee.products.brandsForCategory', ['category_id' => 100014, 'warm' => 1, 'offset' => 0]))->assertOk()->json();
+        $this->assertFalse($first['complete']);
+        $this->assertSame(2, $first['read']);
+
+        $second = $this->actingAs($user)->getJson(route('ext.shopee.products.brandsForCategory', ['category_id' => 100014, 'warm' => 1, 'offset' => 100]))->assertOk()->json();
+        $this->assertTrue($second['complete'], 'a page that grew the list by nothing is the end, whatever has_next_page says');
+        $this->assertSame(2, $second['read']);
+
+        $again = $this->actingAs($user)->getJson(route('ext.shopee.products.brandsForCategory', ['category_id' => 100014, 'warm' => 1, 'offset' => 200]))->assertOk()->json();
+        $this->assertTrue($again['complete']);
+        $this->assertSame(2, $calls, 'read to the end, the warm never asks Shopee again');
+    }
 }

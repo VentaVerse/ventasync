@@ -156,18 +156,36 @@ class HtmlSanitizer
         // <html><body> or a DOCTYPE around the fragment, so $dom's direct
         // children below are exactly the input's top-level nodes, nothing
         // synthesised.
+        /* The fragment rides inside one wrapper element. Without it, text
+         * that stands at the top level with no tag around it ("A warm
+         * overdrive.", the shape every marketplace description takes) was
+         * not among the document's element children and came out as an
+         * empty string: every imported plain-text description was lost
+         * (found 2026-09-07, the import-is-ready work). The wrapper is
+         * never part of the output. */
         $dom->loadHTML(
-            '<?xml encoding="UTF-8">' . $html,
+            '<?xml encoding="UTF-8"><div>' . $html . '</div>',
             LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
         );
 
         libxml_clear_errors();
         libxml_use_internal_errors($priorState);
 
-        self::sanitizeChildren($dom, $dom);
+        $wrapper = null;
+        foreach (iterator_to_array($dom->childNodes) as $node) {
+            if ($node instanceof DOMElement && strtolower($node->tagName) === 'div') {
+                $wrapper = $node;
+                break;
+            }
+        }
+        if (! $wrapper) {
+            return '';
+        }
+
+        self::sanitizeChildren($dom, $wrapper);
 
         $out = '';
-        foreach (iterator_to_array($dom->childNodes) as $node) {
+        foreach (iterator_to_array($wrapper->childNodes) as $node) {
             $out .= $dom->saveHTML($node);
         }
 

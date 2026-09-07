@@ -55,6 +55,17 @@ class LazadaItemImport
         $langId = (int) config('catalog.default_language_id');
 
         try {
+            /* Ready the moment it lands (the owner, 2026-09-07): the category's
+             * attribute template is read now, so readiness can check the answers
+             * the item brought. A template Lazada will not hand over changes nothing. */
+            $categoryId = (int) ($data['primary_category'] ?? 0);
+            if ($categoryId > 0 && ! \Extensions\lazada\Models\LazadaCategoryTemplate::query()->where('primary_category_id', $categoryId)->exists()) {
+                try {
+                    app(\Extensions\lazada\Controllers\LazadaProductController::class)->readCategoryTemplate($categoryId, $this->client);
+                } catch (\Throwable) {
+                }
+            }
+
             $productId = DB::transaction(function () use ($pfx, $langId, $data, $attrs, $skus, $first, $name, $sku, $price, $qty, $itemId, $axes, $hasVariations, $setting, $creds) {
                 $productId = DB::table($pfx . 'product')->insertGetId([
                     'model' => ($hasVariations ? '' : $sku) ?: ('LZD-' . $itemId),

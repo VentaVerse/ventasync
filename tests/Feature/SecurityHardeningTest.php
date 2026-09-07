@@ -564,4 +564,19 @@ class SecurityHardeningTest extends TestCase
             ->value('description');
         $this->assertSame($this->xssAndLegitPayload(), $rawStored);
     }
+
+    /**
+     * Found 2026-09-07: text with no tag around it came out empty, so every
+     * imported plain-text description was lost. The sanitiser keeps
+     * top-level text, still drops what it always dropped, and keeps text
+     * after the last element.
+     */
+    public function test_the_sanitiser_keeps_plain_text_and_text_after_the_last_element(): void
+    {
+        $this->assertSame("A warm overdrive.\nTwo lines", \App\Support\HtmlSanitizer::sanitize("A warm overdrive.\nTwo lines"));
+        $this->assertSame('<p>Hi <b>there</b></p> tail', \App\Support\HtmlSanitizer::sanitize('<p>Hi <script>x()</script><b>there</b></p> tail'));
+        $this->assertSame('Fish &amp; chips &lt;3', \App\Support\HtmlSanitizer::sanitize('Fish & chips <3'));
+        $this->assertSame('', \App\Support\HtmlSanitizer::sanitize("  \n "));
+        $this->assertStringNotContainsString('<div>', \App\Support\HtmlSanitizer::sanitize('plain'), 'the wrapper never leaks');
+    }
 }

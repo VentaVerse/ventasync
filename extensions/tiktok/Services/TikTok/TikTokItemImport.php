@@ -52,6 +52,16 @@ class TikTokItemImport
         $langId = (int) config('catalog.default_language_id');
 
         try {
+            /* Ready the moment it lands (the owner, 2026-09-07): the category's
+             * attribute sheet is read now, so readiness can check the answers
+             * the product brought. A sheet TikTok will not hand over changes nothing. */
+            if ($categoryId !== '') {
+                try {
+                    app(TikTokAttributes::class)->ensureTemplate($categoryId, $this->client, $c);
+                } catch (\Throwable) {
+                }
+            }
+
             $productId = DB::transaction(function () use ($pfx, $langId, $d, $skus, $name, $price, $qty, $sellerSku, $hasVariations, $tiktokProductId, $categoryId) {
                 $productId = DB::table($pfx . 'product')->insertGetId([
                     'model' => ($hasVariations ? '' : $sellerSku) ?: ('TTS-' . $tiktokProductId),
@@ -113,6 +123,16 @@ class TikTokItemImport
                         'tiktok_product_id' => $tiktokProductId,
                         'tiktok_sku_id' => $skuMap !== [] ? json_encode($skuMap) : null,
                         'tiktok_category_id' => $categoryId !== '' ? $categoryId : null,
+                        // The brand and the attribute answers the product carries, keyed the
+                        // way the sheet keys them (attribute id => value name), so the listing
+                        // is ready at once and the next Update sends them back unchanged.
+                        'brand_id' => trim((string) data_get($d, 'brand.id', '')) ?: null,
+                        'brand_name' => trim((string) data_get($d, 'brand.name', '')) ?: null,
+                        'attribute_values' => collect((array) ($d['product_attributes'] ?? []))
+                            ->filter(fn ($a) => is_array($a) && trim((string) ($a['id'] ?? '')) !== '')
+                            ->mapWithKeys(fn ($a) => [(string) $a['id'] => trim((string) (data_get($a, 'values.0.name') ?? ''))])
+                            ->filter(fn ($v) => $v !== '')
+                            ->toArray() ?: null,
                         'title' => Str::limit($name, 250, ''),
                         'live_status' => strtoupper((string) ($d['status'] ?? '')) ?: null,
                         'live_checked_at' => now(),

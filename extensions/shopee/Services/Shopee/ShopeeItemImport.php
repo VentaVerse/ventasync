@@ -57,6 +57,15 @@ class ShopeeItemImport
         $qty = (int) (data_get($item, 'stock_info_v2.summary_info.total_available_stock') ?? 0);
 
         try {
+            /* Ready the moment it lands (the owner, 2026-09-07): the category's
+             * attribute sheet is read now, so readiness can check the answers
+             * the item brought, instead of asking for the listing page to be
+             * opened once. A sheet Shopee will not hand over changes nothing. */
+            try {
+                app(\Extensions\shopee\Controllers\ShopeeProductGroupController::class)->ensureTemplate((int) ($item['category_id'] ?? 0), $this->client);
+            } catch (\Throwable) {
+            }
+
             $productId = DB::transaction(function () use ($pfx, $langId, $item, $models, $name, $sku, $price, $qty, $itemId, $auth) {
                 $productId = DB::table($pfx . 'product')->insertGetId([
                     'model' => $sku !== '' ? $sku : ('SHP-' . $itemId),
@@ -80,7 +89,10 @@ class ShopeeItemImport
                     'product_id' => $productId,
                     'language_id' => $langId,
                     'name' => Str::limit($name, 250, ''),
-                    'description' => \App\Support\HtmlSanitizer::sanitize((string) ($item['description'] ?? '')),
+                    // A plain-text description (Shopee's usual shape) keeps its line breaks.
+                    'description' => \App\Support\HtmlSanitizer::sanitize(
+                        str_contains((string) ($item['description'] ?? ''), '<') ? (string) $item['description'] : nl2br((string) ($item['description'] ?? ''))
+                    ),
                     'meta_title' => Str::limit($name, 250, ''),
                     'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
                 ]);
@@ -108,6 +120,10 @@ class ShopeeItemImport
                     [
                         'shopee_category_id' => (int) ($item['category_id'] ?? 0) ?: null,
                         'shopee_brand_id' => (int) data_get($item, 'brand.brand_id', 0) ?: null,
+                        // The couriers the item ships with, so the listing is ready at once.
+                        'logistic_ids' => collect((array) ($item['logistic_info'] ?? []))
+                            ->filter(fn ($l) => is_array($l) && ! empty($l['enabled']) && (int) ($l['logistic_id'] ?? 0) > 0)
+                            ->map(fn ($l) => (int) $l['logistic_id'])->values()->all() ?: null,
                         'attribute_values' => collect((array) data_get($item, 'attribute_list', []))
                             ->mapWithKeys(fn ($a) => [(string) ($a['attribute_id'] ?? '') => (string) (data_get($a, 'attribute_value_list.0.original_value_name') ?? '')])
                             ->filter(fn ($v, $k) => $k !== '' && $v !== '')

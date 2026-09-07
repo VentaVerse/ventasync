@@ -71,6 +71,13 @@ class ChannelItemImportTest extends TestCase
                         ],
                     ]]];
                 }
+                if ($apiPath === '/category/attributes/get') {
+                    // The category's template: one plain attribute and one variation axis.
+                    return ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => [
+                        ['name' => 'material', 'label' => 'Material', 'is_mandatory' => 0, 'input_type' => 'text', 'attribute_type' => 'normal'],
+                        ['name' => 'Length', 'label' => 'Length', 'is_mandatory' => 0, 'is_sale_prop' => 1, 'input_type' => 'text', 'attribute_type' => 'sku'],
+                    ]]];
+                }
                 return ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => []]];
             }
             public function sign(string $apiPath, array $params, string $appSecret): string { return 'sign'; }
@@ -87,6 +94,8 @@ class ChannelItemImportTest extends TestCase
                         'status' => 'ACTIVATE',
                         'title' => 'Imported Strap',
                         'description' => '<p>Leather strap.</p>',
+                        'brand' => ['id' => 'b-77', 'name' => 'Strapco'],
+                        'product_attributes' => [['id' => '100392', 'name' => 'Material', 'values' => [['id' => 'v1', 'name' => 'Leather']]]],
                         'category_chains' => [['id' => '900001', 'is_leaf' => false], ['id' => '900009', 'is_leaf' => true]],
                         'package_weight' => ['value' => '0.3'],
                         'package_dimensions' => ['length' => '30', 'width' => '10', 'height' => '4'],
@@ -146,6 +155,10 @@ class ChannelItemImportTest extends TestCase
         $this->assertSame('Nylon', LazadaProductAttribute::where('lazada_product_id', $listing->id)->where('attribute_key', 'material')->value('value'),
             'a Lazada-only field the core has no column for rides the listing record, not the floor');
 
+        // Ready the moment it lands (the owner, 2026-09-07): the template was read during the import.
+        $this->assertTrue(\Extensions\lazada\Models\LazadaCategoryTemplate::query()->where('primary_category_id', 10099)->exists());
+        $ready = app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$listing]))[$listing->id];
+        $this->assertTrue($ready['ready'], 'not ready: ' . implode('; ', $ready['missing']));
     }
 
     public function test_a_tiktok_product_lands_whole_and_the_listing_row_is_the_link(): void
@@ -171,6 +184,13 @@ class ChannelItemImportTest extends TestCase
         $this->assertSame('s-1', (string) data_get(json_decode((string) $listing->tiktok_sku_id, true), 'TTI-BLK'),
             'the seller_sku -> id map lands too - stock and price pushes work at once');
 
+        // Ready the moment it lands (the owner, 2026-09-07): brand, answers and the sheet arrive with the product.
+        $this->assertSame('b-77', (string) $listing->brand_id);
+        $this->assertSame('Strapco', (string) $listing->brand_name);
+        $this->assertSame(['100392' => 'Leather'], $listing->attribute_values, 'keyed the way the sheet keys them');
+        $this->assertTrue(\Extensions\tiktok\Models\TikTokCategoryTemplate::query()->where('category_id', '900009')->exists(), 'the sheet was read during the import');
+        $ready = app(\Extensions\tiktok\Services\TikTok\TikTokListingReadiness::class)->forProducts([$product->product_id])[$product->product_id];
+        $this->assertTrue($ready['ready'], 'not ready: ' . implode('; ', $ready['missing']));
     }
 
     public function test_the_tiktok_fetch_renders_the_live_diff_and_saves_none_of_it(): void

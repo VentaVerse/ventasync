@@ -822,6 +822,7 @@ class ShopeeProductGroupController extends Controller
         $body = $result['body'] ?? [];
         $resp = $body['response'] ?? $body;
         $now = now();
+        $before = $read();
         foreach ((array) ($resp['brand_list'] ?? []) as $b) {
             if (!is_array($b)) continue;
             $bid = (int) ($b['brand_id'] ?? 0);
@@ -833,7 +834,19 @@ class ShopeeProductGroupController extends Controller
             );
         }
 
-        $hasNext = (bool) ($resp['has_next_page'] ?? false) && !empty($resp['brand_list']);
+        /* The end of the list is what Shopee says AND what the page grew
+         * by (live, 2026-09-07: "Reading brands from Shopee... 100 so far"
+         * never moved). A page that repeats brands already read, a page
+         * with none, or an offset past twenty thousand ends the warm, so
+         * the popup can never loop on a shop that keeps answering the same
+         * page with has_next_page set. Shopee's own next_offset is used
+         * when it gives one. */
+        $after = $read();
+        $nextOffset = (int) ($resp['next_offset'] ?? 0);
+        if ($nextOffset <= $offset) {
+            $nextOffset = $offset + $pageSize;
+        }
+        $hasNext = (bool) ($resp['has_next_page'] ?? false) && !empty($resp['brand_list']) && $after > $before && $nextOffset < 20000;
         if (!$hasNext) {
             \Illuminate\Support\Facades\Cache::forever($this->brandsCompleteKey($categoryId), true);
         }
@@ -841,8 +854,8 @@ class ShopeeProductGroupController extends Controller
         return response()->json([
             'ok' => true,
             'complete' => !$hasNext,
-            'next_offset' => $offset + $pageSize,
-            'read' => $read(),
+            'next_offset' => $nextOffset,
+            'read' => $after,
         ]);
     }
 

@@ -59,6 +59,7 @@ class ShopeeItemImportTest extends TestCase
                         'image' => ['image_url_list' => ['https://cf.shopee.ph/img/main.jpg', 'https://cf.shopee.ph/img/side.jpg']],
                         'category_id' => 101988,
                         'brand' => ['brand_id' => 55],
+                        'logistic_info' => [['logistic_id' => 90001, 'enabled' => true], ['logistic_id' => 90002, 'enabled' => false]],
                         'attribute_list' => [['attribute_id' => 1000, 'attribute_value_list' => [['original_value_name' => 'Alloy']]]],
                     ]]]]];
                 }
@@ -156,5 +157,20 @@ class ShopeeItemImportTest extends TestCase
         $this->assertStringNotContainsString('Scan Shopee for new items', $workbench,
             'the workbench grew the import card back');
         $this->assertStringNotContainsString('New listing</x-ui.button>', $workbench, 'the picker page retired - every unlisted row offers its own push');
+    }
+
+    /** Ready the moment it lands (the owner, 2026-09-07): category, couriers, the sheet and the answers all arrive with the item. */
+    public function test_an_imported_item_is_ready_at_once(): void
+    {
+        $this->actingAs($this->manager())->post(route('ext.shopee.products.import_one'), ['ref' => 990001])->assertSessionHas('status');
+        $pfx = (string) config('catalog.prefix');
+        $pid = (int) DB::table($pfx . 'product')->where('sku', 'IMP-OD1')->value('product_id');
+
+        $listing = ShopeeListing::where('product_id', $pid)->first();
+        $this->assertSame([90001], $listing->logistic_ids, 'only the couriers the item ships with');
+        $this->assertTrue(\Extensions\shopee\Models\ShopeeCategoryTemplate::query()->where('category_id', 101988)->exists(), 'the sheet was read during the import');
+
+        $ready = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)->forProducts([$pid])[$pid];
+        $this->assertTrue($ready['ready'], 'not ready: ' . implode('; ', $ready['missing']));
     }
 }
