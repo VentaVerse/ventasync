@@ -342,10 +342,25 @@ class DashboardController extends Controller
                 'store_id',
                 'store_name',
                 DB::raw('COUNT(*) as orders'),
+                DB::raw('MAX(date_added) as last_order'),
                 DB::raw('SUM(CASE WHEN order_status_id IN (' . ($revIds->isNotEmpty() ? $revIds->implode(',') : '0') . ') THEN total ELSE 0 END) as revenue')
             )
             ->groupBy('marketplace_source', 'store_id', 'store_name')
             ->get();
+
+        /* The store's name NOW, keyed by the id its orders carry. A rename
+           used to split a store in two: the slices were keyed by the name
+           stamped on each order, so orders sold before the rename ranked
+           under the old name for ever (the owner, 2026-09-09, whose Lazada was
+           three slices - Shop A, Shop B and the current name).
+           The stamp is still the fallback, and still the answer for a store
+           that has been deleted, which is what it was put there for. */
+        $liveNames = [];
+        foreach (app(IntegrationRegistry::class)->visibleStoreOptions(auth()->user()) as $opt) {
+            if (($opt['store_id'] ?? 0) > 0 && ($opt['source'] ?? '') !== '') {
+                $liveNames[$opt['source'] . ':' . (int) $opt['store_id']] = (string) $opt['label'];
+            }
+        }
 
         $sourceOptionsMap = [];
         foreach (app(IntegrationRegistry::class)->availableMarketplaceSourceOptions() as $opt) {
@@ -373,16 +388,36 @@ class DashboardController extends Controller
                 $label = ucfirst($src);
             }
 
-            $store = trim((string) $row->store_name);
-            if ($store === '' && (int) $row->store_id > 0 && ! str_contains($src, ':')) {
-                $store = 'Store #' . (int) $row->store_id;
-            }
-            $key = $label . '|' . $store;
+            $storeId = (int) $row->store_id;
+            $stamped = trim((string) $row->store_name);
 
-            // Merge same-store rows (legacy 'opencart' + 'opencart:1').
+            /* ONE SLICE PER STORE, NOT PER NAME A STORE HAS HAD.
+             *
+             * Keyed by the id when there is one, so a rename folds together
+             * and the slice takes the name the store answers to today. An
+             * order from before multi-store carries id 0 and no store can be
+             * named for it, so those rank under the channel alone rather
+             * than under whatever the shop was called that week. */
+            $live = $storeId > 0 ? ($liveNames[explode(':', $src)[0] . ':' . $storeId] ?? null) : null;
+            $store = $live ?? $stamped;
+            if ($store === '' && $storeId > 0 && ! str_contains($src, ':')) {
+                $store = 'Store #' . $storeId;
+            }
+            $key = $storeId > 0 ? $label . '|#' . $storeId : $label . '|';
+
+            // Merge same-store rows (legacy 'opencart' + 'opencart:1', and
+            // every name a renamed store used to carry).
             if (isset($slices[$key])) {
                 $slices[$key]['orders'] += (int) $row->orders;
                 $slices[$key]['revenue'] += round((float) $row->revenue, 2);
+                /* A DELETED store has no live name, so the stamp decides -
+                   and the stamp to trust is the one on its most recent
+                   order, which is the last name it trades under. */
+                if ($live === null && $store !== '' && (string) $row->last_order > (string) $slices[$key]['last_order']) {
+                    $slices[$key]['store'] = $store;
+                    $slices[$key]['name'] = \App\Support\StoreLabel::of($label, $store);
+                    $slices[$key]['last_order'] = (string) $row->last_order;
+                }
                 continue;
             }
 
@@ -392,6 +427,7 @@ class DashboardController extends Controller
                 'store'   => $store,
                 'orders'  => (int) $row->orders,
                 'revenue' => round((float) $row->revenue, 2),
+                'last_order' => (string) $row->last_order,
             ];
         }
 
