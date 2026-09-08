@@ -267,7 +267,10 @@ class TiktokListingsTest extends TestCase
 
         $r = $this->actingAs($this->manager())->get(route('ext.tiktok.listings.edit', $productId));
         $r->assertOk();
-        $r->assertSee('Fetched from TikTok Shop as this page loaded.');
+        /* The provenance line went with the strip (the owner, 2026-09-08): the
+           bar is titled by the channel and carries the live figures, so a
+           sentence saying when it was read earned nothing. */
+        $r->assertSee('On TikTok Shop right now', false);
         $r->assertSee('Live on TikTok');
         $r->assertSee('LIVE-SKU');
         $r->assertSee('Deactivate on TikTok Shop');

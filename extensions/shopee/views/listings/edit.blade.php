@@ -138,6 +138,11 @@
             if (($coverage['total'] ?? 0) > 0) {
                 $stripFigures[] = ['k' => 'On Shopee', 'v' => $coverage['linked'] . ' of ' . $coverage['total'] . ' variations'];
             }
+            // Only when it differs; clipped, so one long title cannot
+            // stretch the bar.
+            if (($live['item_name'] ?? '') !== '' && $live['item_name'] !== $product->name) {
+                $stripFigures[] = ['k' => 'Title on Shopee', 'v' => \Illuminate\Support\Str::limit($live['item_name'], 40)];
+            }
         }
 
         $stripState = $link
@@ -587,35 +592,6 @@
                 'groupsUrl' => route('ext.shopee.product-groups.index'),
                 ])
 
-                @if($listing && ($listing->last_push_settings ?? []) !== [])
-                {{-- What the last push actually SENT. The WHEN and the
-                     WHERE FROM are on the strip now (the owner, 2026-09-08);
-                     this is the provenance that only matters once you
-                     are already asking why. --}}
-                <section class="fm-section">
-                    <div class="fm-section__head"><h2 class="fm-section__title">Last push sent</h2></div>
-                    @php $sent = $listing->last_push_settings ?? []; @endphp
-                    <div class="fm-stats">
-                        @if(!empty($sent['category_id']))
-                            <div class="fm-stat">
-                                <span class="fm-stat__k">Category</span>
-                                <span class="fm-stat__v">{{ (int) $sent['category_id'] }}</span>
-                            </div>
-                        @endif
-                        @if(isset($sent['price']))
-                            <div class="fm-stat">
-                                <span class="fm-stat__k">Price</span>
-                                <span class="fm-stat__v"><x-money :php="(float) $sent['price']" /></span>
-                            </div>
-                        @elseif(isset($sent['markup_percent']) || isset($sent['markup_fixed']))
-                            <div class="fm-stat">
-                                <span class="fm-stat__k">Rule</span>
-                                <span class="fm-stat__v">{{ \App\Support\MarkupWords::of((float) ($sent['markup_percent'] ?? 0), (float) ($sent['markup_fixed'] ?? 0)) }}</span>
-                            </div>
-                        @endif
-                    </div>
-                </section>
-                @endif
             </x-slot:rail>
         </x-channel.listing-body>
     </form>

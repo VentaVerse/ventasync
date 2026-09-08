@@ -124,12 +124,11 @@
                 <x-ui.button type="submit" form="{{ $prefix }}-discount-end" data-confirm-verb="End discount">End discount now</x-ui.button>
             @endif
         </div>
-        @if($liveError !== null)
-            <p class="fm-section__note">Push waits until {{ $channel }} answers; see the live section above.</p>
-        @elseif(!$hasRule)
-            <p class="fm-section__note">Set a percent, a start and an end, then Save. Push turns on once the rule is saved.</p>
-        @endif
-    @elseif(!$onMarketplace && !$ridesPush)
-        <p class="fm-section__note">The discount joins the live listing; push the product to {{ $channel }} first.</p>
     @endif
+
+    {{-- NO INSTRUCTIONS UNDER A CONTROL (the owner, 2026-09-09). Three
+         sentences used to sit here: push waits until the channel answers,
+         set a percent then Save, and push the product first. Each described
+         a button that is already disabled or already absent, which is the
+         state saying it for itself. "Its not really pretty to look at." --}}
 </section>

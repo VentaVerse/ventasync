@@ -202,7 +202,8 @@ class ShopeeListingPageTest extends TestCase
         $page = $this->actingAs($this->manager())->get(route('ext.shopee.listings.edit', $productId))->assertOk();
         $page->assertSee('Images that go up');
         // The main image plus ten gallery images is eleven; Shopee takes nine.
-        $page->assertSee('9 images go up, the first 9 of 11.');
+        // The channel's allowance is in the sentence (the owner, 2026-09-09).
+        $page->assertSee('9 of 9 images go up, 2 held back.');
         $page->assertSee('lc-images__item--held', false);
     }
 
@@ -323,7 +324,7 @@ class ShopeeListingPageTest extends TestCase
         ]);
 
         $page = $this->actingAs($this->manager())->get(route('ext.shopee.listings.edit', $productId))->assertOk();
-        $page->assertSee('9 images go up, the first 9 of 11.');
+        $page->assertSee('9 of 9 images go up, 2 held back.');
         $page->assertSee('data-listing-images', false);
         $page->assertSee('Add from library');
         $page->assertSee('data-path="' . end($paths) . '"', false);

@@ -233,7 +233,7 @@ class TiktokStockPushHealTest extends TestCase
 
         $page->assertSee('1 of 2 variations');
         $page->assertSee('TT-2');
-        $page->assertSee('Push update - it carries every catalogue variation');
+        $page->assertSee('carries every catalogue variation, missing ones included');
     }
 
     /** A failed group batch can no longer flash green. */

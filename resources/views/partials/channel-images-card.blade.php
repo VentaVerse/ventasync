@@ -38,10 +38,17 @@
     // before it is not a directive at all, it is printed.
     $imageWords = $imageCount === 0
         ? ($editable
-            ? 'Nothing goes up yet. Add a picture from the library, or put one on the catalog product.'
+            ? 'No pictures yet.'
             : 'The catalog product has no images, so none go up.')
-        : $sent . ' ' . ($sent === 1 ? 'image goes' : 'images go') . ' up'
-            . ($sent < $imageCount ? ', the first ' . $sent . ' of ' . $imageCount : '') . '.'
+        /* The channel's allowance is always in the sentence (the owner,
+           2026-09-09): "2 images go up" told an operator nothing about
+           whether there was room for more, and the room is different on
+           every channel - Shopee and TikTok take 9, Lazada 8, WooCommerce
+           20, a storefront all of them. */
+        : ($limit !== null
+            ? $sent . ' of ' . (int) $limit . ' ' . ($limit === 1 ? 'image goes' : 'images go') . ' up'
+                . ($sent < $imageCount ? ', ' . ($imageCount - $sent) . ' held back' : '')
+            : $imageCount . ' ' . ($imageCount === 1 ? 'image goes' : 'images go') . ' up') . '.'
             /* The one fact the tiles cannot show for themselves: a store
                that fetches the pictures from this ERP's address needs that
                address to be reachable from it. True on Venta and
@@ -59,12 +66,6 @@
     $catalogPaths = array_column($catalogTiles ?? [], 'path');
     $arrangement = $editable && $ownPaths !== $catalogPaths ? json_encode($ownPaths) : '';
 
-    /* Said in the same voice the Title and Description fields use when the
-       catalog moves under them (critique 2026-09-08). An arrangement is the
-       one override with no value to look at - a reorder changes no number
-       and no sentence - so without this line the page cannot tell you it
-       has stopped following the catalog product. */
-    $missingFromCatalog = count(array_diff($catalogPaths, $ownPaths));
 @endphp
 <section class="fm-section"
          @if(!empty($anchor)) id="{{ $anchor }}" @endif
@@ -89,7 +90,6 @@
     <p class="fm-section__note" data-images-words>{{ $imageWords }}</p>
 
     @if($editable)
-        <div class="fm-hint" data-images-own @if($arrangement === '') hidden @endif>These pictures are in this listing's own order.<span data-images-behind>@if($missingFromCatalog > 0) Your main catalog has {{ $missingFromCatalog }} {{ $missingFromCatalog === 1 ? 'picture' : 'pictures' }} this listing does not send.@endif</span></div>
         <input type="hidden" name="image_order" value="{{ $arrangement }}" data-images-input>
         <ul class="lc-images lc-images--arrange" data-images-list
             aria-label="The pictures this listing sends, in order"

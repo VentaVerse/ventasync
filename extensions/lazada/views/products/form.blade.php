@@ -158,106 +158,103 @@
         </div>
     @endif
 
-    {{-- ── On Lazada right now (parity with the Shopee listing page,
-         2026-08-24): the live state fetched from Lazada on this page
-         load. Only an uploaded listing has one; when Lazada does not
-         answer, the section says so and nothing stale stands in. --}}
-    @if($mode === 'edit' && !empty($listing->lazada_item_id))
-        <section class="fm-section">
-            <div class="fm-section__head">
-                <h2 class="fm-section__title">On Lazada right now</h2>
-                @if(($live ?? null) !== null)
-                    <div class="fm-section__aside">
-                        @if(($live['status'] ?? '') === 'active')
-                            <form method="POST" action="{{ route('ext.lazada.listings.toggle', $listing->product_id) }}"
-                                  data-confirm="Deactivate this item on Lazada? Buyers stop seeing it immediately. It stays here and can be activated again." data-confirm-verb="Deactivate">
-                                @csrf
-                                <input type="hidden" name="action" value="deactivate">
-                                <x-ui.button type="submit">Deactivate on Lazada</x-ui.button>
-                            </form>
-                        @elseif(($live['status'] ?? '') === 'inactive')
-                            <form method="POST" action="{{ route('ext.lazada.listings.toggle', $listing->product_id) }}"
-                                  data-confirm="Activate this item on Lazada? Buyers see it again once Lazada applies it." data-confirm-tone="primary" data-confirm-verb="Activate">
-                                @csrf
-                                <input type="hidden" name="action" value="activate">
-                                <x-ui.button type="submit" variant="primary">Activate on Lazada</x-ui.button>
-                            </form>
-                        @endif
+    {{-- ── The strip: what Lazada says right now ──────────────────
+         The template every channel's listing page uses (the owner, 2026-09-08,
+         draft C): the live state, this channel's own figures, the last push
+         and the verbs that act on the live item. What only Lazada has - the
+         SKU table it holds, the variation overrides - stays in Lazada's own
+         sections below. --}}
+    @php
+        $lzLinked = $mode === 'edit' && !empty($listing->lazada_item_id);
+        $lzSkus = $live['skus'] ?? [];
+
+        $stripFigures = [];
+        if ($lzLinked && ($live ?? null) !== null) {
+            /* One SKU: its price and stock are the item's, so they go on the
+               strip the way Shopee's do. Several, and the SKU table below is
+               the honest answer; the strip says how many. */
+            if (count($lzSkus) === 1) {
+                $one = $lzSkus[0];
+                $stripFigures[] = ['k' => 'Price on Lazada', 'v' => ($one['price'] ?? null) !== null
+                    ? \App\Support\Money::base((float) ($one['special_price'] ?: $one['price']))
+                    : 'unknown'];
+                $stripFigures[] = ['k' => 'Stock on Lazada', 'v' => ($one['quantity'] ?? null) !== null ? (string) $one['quantity'] : 'unknown'];
+            } elseif (count($lzSkus) > 1) {
+                $stripFigures[] = ['k' => 'SKUs on Lazada', 'v' => (string) count($lzSkus)];
+            }
+            if (($live['sub_status'] ?? '') !== '') {
+                $stripFigures[] = ['k' => 'Detail', 'v' => $live['sub_status']];
+            }
+            if (($coverage['total'] ?? 0) > 0) {
+                $stripFigures[] = ['k' => 'On Lazada', 'v' => $coverage['linked'] . ' of ' . $coverage['total'] . ' variations'];
+            }
+            // Only when it differs; clipped, so one long title cannot
+            // stretch the bar.
+            if (($live['item_name'] ?? '') !== '' && $live['item_name'] !== $productName) {
+                $stripFigures[] = ['k' => 'Title on Lazada', 'v' => \Illuminate\Support\Str::limit($live['item_name'], 40)];
+            }
+        }
+
+        $stripState = $lzLinked
+            ? ['label' => ($listingState ?? null) ? $listingState->label() : (($liveError ?? null) !== null ? 'Lazada did not answer' : 'Unknown'),
+               'tone' => ($listingState ?? null) ? $listingState->tone() : 'neutral']
+            : ['label' => 'Not on Lazada', 'tone' => 'neutral'];
+
+        $lzPushedAt = $listing->last_pushed_at ?? null;
+        $lzSource = (string) ($listing->last_push_source ?? '');
+        $stripLastPush = $lzPushedAt
+            ? ['when' => $lzPushedAt->diffForHumans(), 'from' => match (true) {
+                $lzSource === 'listing' => 'this listing',
+                str_starts_with($lzSource, 'group:') => 'the ' . substr($lzSource, 6) . ' group',
+                default => null,
+            }]
+            : null;
+
+        $lzCoreMoved = ($productRow->date_modified ?? null)
+            ? \Illuminate\Support\Carbon::parse($productRow->date_modified) : null;
+    @endphp
+
+    @if($mode === 'edit')
+        <x-channel.listing-strip channel="Lazada" :state="$stripState" :figures="$stripFigures"
+                                 :lastPush="$stripLastPush" :linked="$lzLinked">
+            @if($lzLinked && ($live ?? null) !== null)
+                <x-slot:verbs>
+                    @if(($live['status'] ?? '') === 'active')
+                        <form method="POST" action="{{ route('ext.lazada.listings.toggle', $listing->product_id) }}"
+                              data-guard-stale data-confirm="Deactivate this item on Lazada? Buyers stop seeing it immediately. It stays here and can be activated again." data-confirm-verb="Deactivate">
+                            @csrf
+                            <input type="hidden" name="action" value="deactivate">
+                            <x-ui.button type="submit" size="sm">Deactivate on Lazada</x-ui.button>
+                        </form>
+                    @elseif(($live['status'] ?? '') === 'inactive')
+                        <form method="POST" action="{{ route('ext.lazada.listings.toggle', $listing->product_id) }}"
+                              data-guard-stale data-confirm="Activate this item on Lazada? Buyers see it again once Lazada applies it." data-confirm-tone="primary" data-confirm-verb="Activate">
+                            @csrf
+                            <input type="hidden" name="action" value="activate">
+                            <x-ui.button type="submit" variant="oncolor" size="sm">Activate on Lazada</x-ui.button>
+                        </form>
+                    @endif
+                </x-slot:verbs>
+            @endif
+
+            <x-slot:notes>
+                @if(($liveError ?? null) !== null)
+                    <div class="fm-note fm-note--fail">
+                        <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'Lazada', 'raw' => $liveError, 'settingsRoute' => 'ext.lazada.index']) Nothing below is stale data standing in for it: the live state is simply unknown until Lazada answers.</div>
                     </div>
                 @endif
-            </div>
-            @if(($liveError ?? null) !== null)
-                <div class="fm-note fm-note--fail">
-                    <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'Lazada', 'raw' => $liveError, 'settingsRoute' => 'ext.lazada.index']) Nothing below is stale data standing in for it: the live state is simply unknown until Lazada answers.</div>
-                </div>
-            @elseif(($live ?? null) !== null)
-                {{-- No "fetched as this page loaded" line, and no Status of
-                     its own (the owner, 2026-09-08): the section is titled "On
-                     Lazada right now", which says when it was read, and the
-                     SKU table below carries the same Active word this stat
-                     repeated. --}}
-                <div class="fm-stats">
-                    @if($live['sub_status'] !== '')
-                        <div class="fm-stat">
-                            <span class="fm-stat__k">Detail</span>
-                            <span class="fm-stat__v">{{ $live['sub_status'] }}</span>
-                        </div>
-                    @endif
-                    @if($live['item_name'] !== '' && $live['item_name'] !== $productName)
-                        <div class="fm-stat">
-                            <span class="fm-stat__k">Title on Lazada</span>
-                            <span class="fm-stat__v">{{ $live['item_name'] }}</span>
-                        </div>
-                    @endif
-                    {{-- Variation coverage (Phase F, #184): the fact whose
-                         absence made unlink-and-resync feel necessary. The
-                         update payload carries every catalogue variation, so
-                         UPDATE ON LAZADA is the add-variation verb - this
-                         line finally says so. --}}
-                    @if(($coverage['total'] ?? 0) > 0)
-                        <div class="fm-stat">
-                            <span class="fm-stat__k">On Lazada</span>
-                            <span class="fm-stat__v">
-                                {{ $coverage['linked'] }} of {{ $coverage['total'] }} variations
-                                @if(!empty($coverage['missing']))
-                                    <x-ui.hint label="What is not on Lazada">In the catalogue but not on Lazada: {{ implode(', ', $coverage['missing']) }}. Stock and price pushes skip these and say so. Press Update on Lazada - the update carries every catalogue variation, missing ones included.</x-ui.hint>
-                                @endif
-                            </span>
-                        </div>
-                    @endif
-                </div>
-                @if(!empty($live['skus']))
-                    <x-ui.table caption="This item's SKUs as Lazada holds them right now">
-                        <thead>
-                            <tr>
-                                <th>Seller SKU</th>
-                                <th class="x-num">Price</th>
-                                <th class="x-num">Stock</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($live['skus'] as $lsku)
-                                <tr>
-                                    <td>{{ $lsku['seller_sku'] !== '' ? $lsku['seller_sku'] : 'none' }}</td>
-                                    <td class="x-num">
-                                        @if($lsku['special_price'] !== null && $lsku['price'] !== null && $lsku['special_price'] < $lsku['price'])
-                                            <x-money :php="$lsku['special_price']" /> <s><x-money :php="$lsku['price']" /></s>
-                                        @elseif($lsku['price'] !== null)
-                                            <x-money :php="$lsku['price']" />
-                                        @else
-                                            unknown
-                                        @endif
-                                    </td>
-                                    <td class="x-num">{{ $lsku['quantity'] !== null ? $lsku['quantity'] : 'unknown' }}</td>
-                                    <td>{{ $lsku['status'] !== '' ? ucfirst($lsku['status']) : 'unknown' }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </x-ui.table>
+                @if($lzLinked && !empty($coverage['missing']))
+                    <div class="fm-note">
+                        <div class="fm-note__body">In the catalogue but not on Lazada: {{ implode(', ', $coverage['missing']) }}. Stock and price pushes skip these and say so. Save and push the update carries every catalogue variation, missing ones included.</div>
+                    </div>
                 @endif
-            @endif
-        </section>
+                @if($lzPushedAt && $lzCoreMoved && $lzCoreMoved->gt($lzPushedAt))
+                    <div class="fm-note fm-note--warn" role="status">
+                        <div class="fm-note__body">The catalog product changed {{ $lzCoreMoved->diffInSeconds() < 60 ? 'just now' : $lzCoreMoved->diffForHumans() }} - after the last push {{ $lzPushedAt->diffForHumans() }}. Fields without their own wording follow the catalog automatically; Save and push sends the current state to Lazada.</div>
+                    </div>
+                @endif
+            </x-slot:notes>
+        </x-channel.listing-strip>
     @endif
 
     {{-- ============================================================
@@ -272,14 +269,13 @@
              for Save and push and Cancel to return to. --}}
         <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
 
-        {{-- The record, in the one order every channel's listing page keeps
-             (the owner, 2026-09-07, draft B): the main column is everything you
-             set, Content, Category and brand, Category attributes, Price
-             rule, Discount, Images, then what only Lazada has; the rail only
-             reports, Product group and Last push. The variation overrides
+        {{-- The one template every channel's listing page uses (the owner,
+             2026-09-08, draft C): main is what the listing SAYS - Content,
+             Category and brand, Category attributes, Images, then what only
+             Lazada has - and rail is what it COSTS. The variation overrides
              ride this form too, so one Save keeps the whole page. --}}
-        <div class="fm-body">
-            <div class="fm-col fm-col--main">
+        <x-channel.listing-body>
+            <x-slot:main>
 
                 @if($mode === 'create')
                 <section class="fm-section">
@@ -456,54 +452,6 @@
                     <script type="application/json" data-erp-fields>{!! json_encode($erpFieldValues, $jsonFlags) !!}</script>
                 @endif
 
-                <div class="fm-card">
-                    <div class="fm-card__head"><h2 class="fm-card__title">Price rule <x-ui.hint label="About the price rule">The percentage is added to the catalog price first, then the fixed amount on top. The Lazada price is never stored: it is the catalog price run through this rule at every push and price sync. Without a rule of its own the listing uses its group's.</x-ui.hint></h2></div>
-                    <div class="fm-card__body">
-                        <div class="fm-fields fm-fields--2">
-                            <x-ui.field label="Percent added" for="lz-markup-percent" name="markup_percent">
-                                <div class="cs-inline">
-                                    <x-ui.input id="lz-markup-percent" name="markup_percent" type="number" step="0.01" min="0"
-                                                class="fm-input--num cs-days" data-markup-percent
-                                                value="{{ $effectivePercent }}" placeholder="0" />
-                                    <span class="cs-inline__unit">%</span>
-                                </div>
-                            </x-ui.field>
-
-                            <x-ui.field label="Fixed amount added" for="lz-markup-fixed" name="markup_fixed">
-                                <x-ui.input id="lz-markup-fixed" name="markup_fixed" type="number" step="0.01" min="0"
-                                            class="fm-input--num" data-markup-fixed
-                                            value="{{ $effectiveFixed }}" placeholder="0.00" />
-                            </x-ui.field>
-                        </div>
-
-                        @if($basePrice !== null)
-                            {{-- The one figure the two fields above raise a
-                                 question about. The currency is resolved by
-                                 App\Support\Money here in Blade; the script
-                                 only replaces the number, because nothing in
-                                 JavaScript can read the default currency off
-                                 the currencies table. --}}
-                            <div class="cl-total" data-running-total data-base-price="{{ $basePrice }}">
-                                <span class="cl-total__k">Price on Lazada after push</span>
-                                <span class="cl-total__v" data-total-value><x-money :php="(float) $basePrice" /></span>
-                                <span class="cl-total__note">Catalog price <x-money :php="(float) $basePrice" /></span>
-                            </div>
-                        @endif
-
-                        @if($groupMarkup)
-                            @php
-                                $inherited = \App\Support\MarkupWords::of(
-                                    $groupMarkup->markup_percent !== null ? (float) $groupMarkup->markup_percent : null,
-                                    $groupMarkup->markup_fixed !== null ? (float) $groupMarkup->markup_fixed : null
-                                );
-                            @endphp
-                            @if($inherited !== 'none')
-                                <p class="fm-section__note">These started from the {{ $groupMarkup->name }} group ({{ $inherited }}). Changing them here overrides the group for this listing only.</p>
-                            @endif
-                        @endif
-                    </div>
-                </div>
-
                 @php
                     $lzSalePreview = null;
                     if ($listing->sale_percent !== null && $basePrice !== null) {
@@ -533,11 +481,6 @@
                         'action' => $mode === 'edit' ? route('ext.lazada.listings.push_discount', $listing->product_id) : '',
                     ];
                 @endphp
-                {{-- The shared Discount card (#146): the rule rides Save,
-                     the push is its own confirmed act. Partial in
-                     resources/views/partials/channel-discount-card. --}}
-                @include('partials.channel-discount-card', $discount)
-
                 @if($mode === 'edit')
                     @include('partials.channel-images-card', [
                         'storeName' => 'Lazada', 'images' => $images,
@@ -611,73 +554,76 @@
                         </div>
                     </section>
                 @endif
-            </div>
+            </x-slot:main>
 
-            <div class="fm-col fm-col--side">
+            <x-slot:rail>
+                <section class="fm-section">
+                    <div class="fm-section__head">
+                        <h2 class="fm-section__title">Price rule</h2>
+                        <x-ui.hint label="About the price rule">The percentage is added to the catalog price first, then the fixed amount on top. The Lazada price is never stored: it is the catalog price run through this rule at every push and price sync. Without a rule of its own the listing uses its group's.</x-ui.hint>
+                    </div>
+                        <div class="fm-fields fm-fields--2">
+                            <x-ui.field label="Percent added" for="lz-markup-percent" name="markup_percent">
+                                <div class="cs-inline">
+                                    <x-ui.input id="lz-markup-percent" name="markup_percent" type="number" step="0.01" min="0"
+                                                class="fm-input--num cs-days" data-markup-percent
+                                                value="{{ $effectivePercent }}" placeholder="0" />
+                                    <span class="cs-inline__unit">%</span>
+                                </div>
+                            </x-ui.field>
+
+                            <x-ui.field label="Fixed amount added" for="lz-markup-fixed" name="markup_fixed">
+                                <x-ui.input id="lz-markup-fixed" name="markup_fixed" type="number" step="0.01" min="0"
+                                            class="fm-input--num" data-markup-fixed
+                                            value="{{ $effectiveFixed }}" placeholder="0.00" />
+                            </x-ui.field>
+                        </div>
+
+                        @if($basePrice !== null)
+                            {{-- The one figure the two fields above raise a
+                                 question about. The currency is resolved by
+                                 App\Support\Money here in Blade; the script
+                                 only replaces the number, because nothing in
+                                 JavaScript can read the default currency off
+                                 the currencies table. --}}
+                            <div class="cl-total" data-running-total data-base-price="{{ $basePrice }}">
+                                <span class="cl-total__k">Price on Lazada after push</span>
+                                <span class="cl-total__v" data-total-value><x-money :php="(float) $basePrice" /></span>
+                                <span class="cl-total__note">Catalog price <x-money :php="(float) $basePrice" /></span>
+                            </div>
+                        @endif
+
+                        @if($groupMarkup)
+                            @php
+                                $inherited = \App\Support\MarkupWords::of(
+                                    $groupMarkup->markup_percent !== null ? (float) $groupMarkup->markup_percent : null,
+                                    $groupMarkup->markup_fixed !== null ? (float) $groupMarkup->markup_fixed : null
+                                );
+                            @endphp
+                            @if($inherited !== 'none')
+                                <p class="fm-section__note">These started from the {{ $groupMarkup->name }} group ({{ $inherited }}). Changing them here overrides the group for this listing only.</p>
+                            @endif
+                        @endif
+                </section>
+
+                {{-- The shared Discount card (#146): the rule rides Save,
+                     the push is its own confirmed act. --}}
+                @include('partials.channel-discount-card', $discount)
+
                 @if($mode === 'edit')
                     @include('partials.channel-group-card', [
                         'storeName' => 'Lazada', 'group' => $groupCard,
                         'groupsUrl' => route('ext.lazada.product-groups.index'),
                     ])
 
-                    <div class="fm-card">
-                        <div class="fm-card__head"><h2 class="fm-card__title">Last push</h2></div>
-                        <div class="fm-card__body">
-                            @if($listing->last_pushed_at ?? null)
-                                @php
-                                    $lzProvSource = (string) ($listing->last_push_source ?? '');
-                                    $lzProvLabel = match (true) {
-                                        $lzProvSource === 'listing' => 'this listing',
-                                        str_starts_with($lzProvSource, 'group:') => 'the ' . substr($lzProvSource, 6) . ' group',
-                                        default => $lzProvSource,
-                                    };
-                                    $lzSent = $listing->last_push_settings ?? [];
-                                    $lzCoreMoved = ($productRow->date_modified ?? null)
-                                        ? \Illuminate\Support\Carbon::parse($productRow->date_modified) : null;
-                                @endphp
-                                <div class="fm-stats">
-                                    <div class="fm-stat">
-                                        <span class="fm-stat__k">When</span>
-                                        <span class="fm-stat__v">{{ $listing->last_pushed_at->diffForHumans() }}</span>
-                                    </div>
-                                    <div class="fm-stat">
-                                        <span class="fm-stat__k">Settings from</span>
-                                        <span class="fm-stat__v">{{ $lzProvLabel !== '' ? $lzProvLabel : 'unknown' }}</span>
-                                    </div>
-                                    @if(!empty($lzSent['category_id']))
-                                        <div class="fm-stat">
-                                            <span class="fm-stat__k">Category sent</span>
-                                            <span class="fm-stat__v">{{ (int) $lzSent['category_id'] }}</span>
-                                        </div>
-                                    @endif
-                                    @if(isset($lzSent['markup_percent']) || isset($lzSent['markup_fixed']))
-                                        <div class="fm-stat">
-                                            <span class="fm-stat__k">Rule sent</span>
-                                            <span class="fm-stat__v">{{ \App\Support\MarkupWords::of((float) ($lzSent['markup_percent'] ?? 0), (float) ($lzSent['markup_fixed'] ?? 0)) }}</span>
-                                        </div>
-                                    @endif
-                                    @if($lzCoreMoved && $lzCoreMoved->gt($listing->last_pushed_at))
-                                        <div class="fm-stat">
-                                            <span class="fm-stat__k">Since then</span>
-                                            <span class="fm-stat__v">Catalog changed {{ $lzCoreMoved->diffForHumans() }}; push an update to send the current state</span>
-                                        </div>
-                                    @endif
-                                </div>
-                            @else
-                                <p class="fm-section__note">Never pushed from VentaSync.</p>
-                            @endif
-                        </div>
-                    </div>
                 @else
-                    <div class="fm-card">
-                        <div class="fm-card__head"><h2 class="fm-card__title">What happens next</h2></div>
-                        <div class="fm-card__body">
-                            <p class="fm-section__note">Creating the listing saves it here only. Nothing reaches Lazada until you fill in the category's attributes and press Save and push on the edit screen.</p>
-                        </div>
-                    </div>
+                    <section class="fm-section">
+                        <div class="fm-section__head"><h2 class="fm-section__title">What happens next</h2></div>
+                        <p class="fm-section__note">Creating the listing saves it here only. Nothing reaches Lazada until you fill in the category's attributes and press Save and push on the edit screen.</p>
+                    </section>
                 @endif
-            </div>
-        </div>
+            </x-slot:rail>
+        </x-channel.listing-body>
     </form>
 
     @include('partials.channel-discount-forms', $discount)

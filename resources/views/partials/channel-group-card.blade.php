@@ -32,6 +32,14 @@
             </div>
         </div>
     @else
-        <p class="fm-section__note">In no product group on {{ $storeName }}. <a href="{{ $groupsUrl }}">Add it to one</a> to lend it the group's settings.</p>
+        {{-- "None", not a sentence telling the operator to go and fix it
+             (the owner, 2026-09-09). The card answers which group this listing
+             is in; when the answer is none, that is the answer. --}}
+        <div class="fm-stats">
+            <div class="fm-stat">
+                <span class="fm-stat__k">In</span>
+                <span class="fm-stat__v">None</span>
+            </div>
+        </div>
     @endif
 </section>

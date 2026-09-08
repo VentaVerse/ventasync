@@ -53,42 +53,75 @@
         </div>
     </div>
 
-    {{-- ── The live half ─────────────────────────────────────── --}}
-    @if($onStore)
-        <section class="fm-section">
-            <div class="fm-section__head">
-                <h2 class="fm-section__title">On {{ $storeName }} right now</h2>
-                @if($canManage && $setting->enabled)
-                    <div class="fm-section__aside">
-                        <form method="POST" action="{{ route('ext.venta.listings.push', [$setting->id, $product->product_id]) }}"
-                              data-confirm="Push this listing's content and price rule onto the live {{ $storeName }} product? Name, description, price, stock, images and variations are updated in place."
-                              data-confirm-tone="primary" data-confirm-verb="Push update"
-                              data-busy="Pushing to {{ $storeName }}">
-                            @csrf
-                            <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
-                            <x-ui.button type="submit">Push update to {{ $storeName }}</x-ui.button>
-                        </form>
-                        @if($live && $live['status'] === \Extensions\venta\Models\VentaListing::STATUS_ACTIVE)
-                            <form method="POST" action="{{ route('ext.venta.listings.toggle', [$setting->id, $product->product_id]) }}"
-                                  data-confirm="Unlist this product on {{ $storeName }}? Buyers stop seeing it. It can be relisted at any time."
-                                  data-confirm-verb="Unlist" data-busy="Unlisting on {{ $storeName }}">
-                                @csrf
-                                <input type="hidden" name="action" value="unlist">
-                                <x-ui.button type="submit">Unlist on {{ $storeName }}</x-ui.button>
-                            </form>
-                        @elseif($live && $live['status'] === \Extensions\venta\Models\VentaListing::STATUS_INACTIVE)
-                            <form method="POST" action="{{ route('ext.venta.listings.toggle', [$setting->id, $product->product_id]) }}"
-                                  data-confirm="Relist this product on {{ $storeName }}? Buyers see it again at once."
-                                  data-confirm-tone="primary" data-confirm-verb="Relist" data-busy="Relisting on {{ $storeName }}">
-                                @csrf
-                                <input type="hidden" name="action" value="relist">
-                                <x-ui.button type="submit" variant="primary">Relist on {{ $storeName }}</x-ui.button>
-                            </form>
-                        @endif
-                    </div>
-                @endif
-            </div>
+    {{-- ── The strip: what the store says right now ───────────────
+         The one template (the owner, 2026-09-08, draft C). What only this store
+         has - the variations it holds, its meta fields - stays in its own
+         sections below. --}}
+    @php
+        $found = $onStore && $live && $live['state'] === 'found';
 
+        $stripFigures = [];
+        if ($found) {
+            $stripFigures[] = ['k' => 'Price on ' . $storeName, 'v' => $live['price'] !== null ? \App\Support\Money::base((float) $live['price']) : 'none'];
+            $stripFigures[] = ['k' => 'Stock on ' . $storeName, 'v' => (string) ($live['quantity'] ?? 'none')];
+            $stripFigures[] = ['k' => 'Images on ' . $storeName, 'v' => (string) $live['images']];
+            if (($live['name'] ?? '') !== '' && $live['name'] !== $product->name) {
+                $stripFigures[] = ['k' => 'Name on ' . $storeName, 'v' => \Illuminate\Support\Str::limit($live['name'], 40)];
+            }
+        }
+
+        $stripState = $onStore
+            ? ['label' => $found ? ($statusLabel ?? 'Unknown') : (!$setting->enabled ? 'Store turned off' : ($liveError ? $storeName . ' did not answer' : 'Not found on ' . $storeName)),
+               'tone' => $found ? ($statusTone ?? 'neutral') : ($liveError ? 'danger' : 'warning')]
+            : ['label' => 'Not on ' . $storeName, 'tone' => 'neutral'];
+
+        $vtPushedAt = $listing?->last_pushed_at;
+        $vtSource = (string) ($listing->last_push_source ?? '');
+        $stripLastPush = $vtPushedAt
+            ? ['when' => $vtPushedAt->diffForHumans(), 'from' => match (true) {
+                $vtSource === 'listing' => 'this listing',
+                str_starts_with($vtSource, 'group:') => 'the ' . substr($vtSource, 6) . ' group',
+                default => null,
+            }]
+            : null;
+    @endphp
+
+    <x-channel.listing-strip :channel="$storeName" :state="$stripState" :figures="$stripFigures"
+                             :lastPush="$stripLastPush" :linked="(bool) $onStore">
+        @if($canManage && $setting->enabled && ($onStore || !$noSku))
+            <x-slot:verbs>
+                <form method="POST" action="{{ route('ext.venta.listings.push', [$setting->id, $product->product_id]) }}"
+                      data-guard-stale
+                      data-confirm="{{ $onStore
+                          ? 'Push this listing\'s content and price rule onto the live ' . $storeName . ' product? Name, description, price, stock, images and variations are updated in place.'
+                          : 'Push this product to ' . $storeName . ' now? It goes up with the price rule and content saved on this page.' }}"
+                      data-confirm-tone="primary" data-confirm-verb="{{ $onStore ? 'Push update' : 'Push to ' . $storeName }}"
+                      data-busy="Pushing to {{ $storeName }}">
+                    @csrf
+                    <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
+                    <x-ui.button type="submit" variant="oncolor" size="sm">{{ $onStore ? 'Push update to ' . $storeName : 'Push to ' . $storeName }}</x-ui.button>
+                </form>
+                @if($found && $live['status'] === \Extensions\venta\Models\VentaListing::STATUS_ACTIVE)
+                    <form method="POST" action="{{ route('ext.venta.listings.toggle', [$setting->id, $product->product_id]) }}"
+                          data-guard-stale data-confirm="Unlist this product on {{ $storeName }}? Buyers stop seeing it. It can be relisted at any time."
+                          data-confirm-verb="Unlist" data-busy="Unlisting on {{ $storeName }}">
+                        @csrf
+                        <input type="hidden" name="action" value="unlist">
+                        <x-ui.button type="submit" size="sm">Unlist on {{ $storeName }}</x-ui.button>
+                    </form>
+                @elseif($found && $live['status'] === \Extensions\venta\Models\VentaListing::STATUS_INACTIVE)
+                    <form method="POST" action="{{ route('ext.venta.listings.toggle', [$setting->id, $product->product_id]) }}"
+                          data-guard-stale data-confirm="Relist this product on {{ $storeName }}? Buyers see it again at once."
+                          data-confirm-tone="primary" data-confirm-verb="Relist" data-busy="Relisting on {{ $storeName }}">
+                        @csrf
+                        <input type="hidden" name="action" value="relist">
+                        <x-ui.button type="submit" variant="oncolor" size="sm">Relist on {{ $storeName }}</x-ui.button>
+                    </form>
+                @endif
+            </x-slot:verbs>
+        @endif
+
+        <x-slot:notes>
             @if(!$setting->enabled)
                 <div class="fm-note">
                     <div class="fm-note__body">This store is turned off, so it was not asked. The record below can still be edited; enable the store in its settings to push or to read what it holds.</div>
@@ -98,105 +131,29 @@
                     <div class="fm-note__body">@include('partials.channel-answer', ['channel' => $storeName, 'raw' => $liveError, 'settingsRoute' => null]) Nothing below is stale data standing in for it: the live state is simply unknown until the store answers.</div>
                 </div>
             @endif
-
-            @if($live && $live['state'] === 'found')
-                <p class="fm-section__note">Read from {{ $storeName }} as this page loaded.</p>
-                <div class="fm-stats">
-                    <div class="fm-stat">
-                        <span class="fm-stat__k">Status</span>
-                        <span class="fm-stat__v"><x-ui.badge :tone="$statusTone">{{ $statusLabel }}</x-ui.badge></span>
-                    </div>
-                    <div class="fm-stat">
-                        <span class="fm-stat__k">Price on {{ $storeName }}</span>
-                        <span class="fm-stat__v">@if($live['price'] !== null)<x-money :php="$live['price']" />@else none @endif</span>
-                    </div>
-                    <div class="fm-stat">
-                        <span class="fm-stat__k">Stock on {{ $storeName }}</span>
-                        <span class="fm-stat__v">{{ $live['quantity'] ?? 'none' }}</span>
-                    </div>
-                    <div class="fm-stat">
-                        <span class="fm-stat__k">Images on {{ $storeName }}</span>
-                        <span class="fm-stat__v">{{ $live['images'] }}</span>
-                    </div>
-                    @if($live['name'] !== '')
-                        <div class="fm-stat">
-                            <span class="fm-stat__k">Name on {{ $storeName }}</span>
-                            <span class="fm-stat__v">{{ $live['name'] }}</span>
-                        </div>
-                    @endif
+            @if($noSku)
+                <div class="fm-note">
+                    <div class="fm-note__body">This product has no SKU, and {{ $storeName }} files products by SKU. Give it one in the catalogue before pushing.</div>
                 </div>
-                @if(count($live['variants']) > 0)
-                    <x-ui.table caption="This product's variations as {{ $storeName }} holds them right now">
-                        <thead>
-                            <tr>
-                                <th>Variation</th>
-                                <th>SKU</th>
-                                <th class="x-num">Price</th>
-                                <th class="x-num">Stock</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($live['variants'] as $v)
-                                <tr>
-                                    <td>{{ $v['name'] !== '' ? $v['name'] : 'Variation' }}</td>
-                                    <td>{{ $v['sku'] !== '' ? $v['sku'] : 'none' }}</td>
-                                    <td class="x-num">@if($v['price'] !== null)<x-money :php="$v['price']" />@else none @endif</td>
-                                    <td class="x-num">{{ $v['quantity'] ?? 'none' }}</td>
-                                    <td><x-ui.badge :tone="$v['active'] ? 'success' : 'warning'">{{ $v['active'] ? 'Active' : 'Unlisted' }}</x-ui.badge></td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </x-ui.table>
-                @endif
-            @elseif($live && $live['state'] === 'missing')
+            @endif
+            @if($onStore && $live && $live['state'] === 'missing')
                 <div class="fm-note">
                     <div class="fm-note__body">{{ $storeName }} no longer has a product with this SKU. The link the ERP held has been dropped; Push creates it again.</div>
                 </div>
             @endif
-        </section>
-    @else
-        <section class="fm-section">
-            <div class="fm-section__head">
-                <h2 class="fm-section__title">Not on {{ $storeName }} yet</h2>
-                @if($canManage && $setting->enabled && !$noSku)
-                    <div class="fm-section__aside">
-                        <form method="POST" action="{{ route('ext.venta.listings.push', [$setting->id, $product->product_id]) }}"
-                              data-confirm="Push this product to {{ $storeName }} now? It goes up with the price rule and content saved on this page."
-                              data-confirm-tone="primary" data-confirm-verb="Push to {{ $storeName }}"
-                              data-busy="Pushing to {{ $storeName }}">
-                            @csrf
-                            <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
-                            <x-ui.button type="submit" variant="primary">Push to {{ $storeName }}</x-ui.button>
-                        </form>
-                    </div>
-                @endif
-            </div>
-            @if($noSku)
-                <p class="fm-section__note">This product has no SKU, and {{ $storeName }} files products by SKU. Give it one in the catalogue before pushing.</p>
-            @elseif(!$setting->enabled)
-                <p class="fm-section__note">This store is turned off. Enable it in its settings to push.</p>
-            @elseif($liveError)
-                <div class="fm-note fm-note--fail">
-                    <div class="fm-note__body">@include('partials.channel-answer', ['channel' => $storeName, 'raw' => $liveError, 'settingsRoute' => null]) Whether the store already holds this SKU is unknown until it answers; Push asks again before it creates anything.</div>
-                </div>
-            @else
-                <p class="fm-section__note">Everything the push needs is set. The one-click push uses the price rule and content below, and creates the product on the store with its variations and images.</p>
-            @endif
-        </section>
-    @endif
+        </x-slot:notes>
+    </x-channel.listing-strip>
 
-    {{-- The record, in the one order every channel's listing page keeps
-         (the owner, 2026-09-07, draft B): Content, Category, Price rule, Images,
-         then what only Venta has (the meta fields); the rail only reports,
-         Product group and Last push. No Discount: the storefront has no sale
-         price (card on the board). --}}
+    {{-- The one template (the owner, 2026-09-08, draft C): main is what the
+         listing SAYS - Content, Category, Images, then what only this store
+         has - and rail is what it COSTS. No Discount: the storefront has no
+         sale price (card on the board). --}}
     <form id="listing-form" method="POST" action="{{ route('ext.venta.listings.update', [$setting->id, $product->product_id]) }}">
         <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
         @csrf
         @method('PUT')
-        <div class="fm-body">
-            <div class="fm-col">
+        <x-channel.listing-body>
+            <x-slot:main>
 
                 <section class="fm-section">
                     <div class="fm-section__head"><h2 class="fm-section__title">Content on this store <x-ui.hint label="About the content">A filled field is this listing's own wording and follows nobody. An empty field follows the catalogue product, shown greyed as the placeholder. Clearing a field returns it to the catalogue. Nothing here ever edits the catalogue product itself.</x-ui.hint></h2></div>
@@ -231,23 +188,38 @@
                     @endif
                 </section>
 
-                <div class="fm-card">
-                    <div class="fm-card__head"><h2 class="fm-card__title">Price rule <x-ui.hint label="About the price rule">The {{ $storeName }} price is never stored: it is the catalogue price run through this rule at every push and price sync. Variations go through the same rule. Without a rule of its own the listing uses its group's.</x-ui.hint></h2></div>
-                    <div class="fm-card__body">
-                        <div class="fm-fields fm-fields--2">
-                            <x-ui.field label="Percent added" for="vl-markup-pct" name="markup_percent">
-                                <x-ui.input id="vl-markup-pct" name="markup_percent" type="number" step="0.01" :value="old('markup_percent', $listing->markup_percent ?? '')" placeholder="0" :disabled="!$canManage" />
-                            </x-ui.field>
-                            <x-ui.field label="Fixed amount added" for="vl-markup-fixed" name="markup_fixed">
-                                <x-ui.input id="vl-markup-fixed" name="markup_fixed" type="number" step="0.01" :value="old('markup_fixed', $listing->markup_fixed ?? '')" placeholder="0" :disabled="!$canManage" />
-                            </x-ui.field>
+                @if($found && count($live['variants']) > 0)
+                    {{-- What only this store has: the variations it holds
+                         right now. The strip is the shape every channel
+                         shares; this is not. --}}
+                    <section class="fm-section">
+                        <div class="fm-section__head">
+                            <h2 class="fm-section__title">Variations on {{ $storeName }}</h2>
                         </div>
-                        <div class="fm-stats">
-                            <div class="fm-stat"><span class="fm-stat__k">Catalogue price</span><span class="fm-stat__v"><x-money :php="$corePrice" /></span></div>
-                            <div class="fm-stat"><span class="fm-stat__k">Price on {{ $storeName }} after push</span><span class="fm-stat__v"><x-money :php="$hasRule ? $nextPrice : $corePrice" /></span></div>
-                        </div>
-                    </div>
-                </div>
+                    <x-ui.table caption="This product's variations as {{ $storeName }} holds them right now">
+                        <thead>
+                            <tr>
+                                <th>Variation</th>
+                                <th>SKU</th>
+                                <th class="x-num">Price</th>
+                                <th class="x-num">Stock</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($live['variants'] as $v)
+                                <tr>
+                                    <td>{{ $v['name'] !== '' ? $v['name'] : 'Variation' }}</td>
+                                    <td>{{ $v['sku'] !== '' ? $v['sku'] : 'none' }}</td>
+                                    <td class="x-num">@if($v['price'] !== null)<x-money :php="$v['price']" />@else none @endif</td>
+                                    <td class="x-num">{{ $v['quantity'] ?? 'none' }}</td>
+                                    <td><x-ui.badge :tone="$v['active'] ? 'success' : 'warning'">{{ $v['active'] ? 'Active' : 'Unlisted' }}</x-ui.badge></td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </x-ui.table>
+                    </section>
+                @endif
 
                 @include('partials.channel-images-card', [
                     'storeName' => $storeName, 'images' => $images, 'limit' => null, 'fetchesOverWeb' => true,
@@ -267,40 +239,43 @@
                         </div>
                     </div>
                 </section>
-            </div>
+            </x-slot:main>
 
-            <div class="fm-col fm-col--side">
+            <x-slot:rail>
+                <section class="fm-section">
+                    <div class="fm-section__head">
+                        <h2 class="fm-section__title">Price rule</h2>
+                        <x-ui.hint label="About the price rule">The {{ $storeName }} price is never stored: it is the catalogue price run through this rule at every push and price sync. Variations go through the same rule. Without a rule of its own the listing uses its group's.</x-ui.hint>
+                    </div>
+                        <div class="fm-fields fm-fields--2">
+                            <x-ui.field label="Percent added" for="vl-markup-pct" name="markup_percent">
+                                <x-ui.input id="vl-markup-pct" name="markup_percent" type="number" step="0.01" :value="old('markup_percent', $listing->markup_percent ?? '')" placeholder="0" :disabled="!$canManage" />
+                            </x-ui.field>
+                            <x-ui.field label="Fixed amount added" for="vl-markup-fixed" name="markup_fixed">
+                                <x-ui.input id="vl-markup-fixed" name="markup_fixed" type="number" step="0.01" :value="old('markup_fixed', $listing->markup_fixed ?? '')" placeholder="0" :disabled="!$canManage" />
+                            </x-ui.field>
+                        </div>
+                        <div class="fm-stats">
+                            <div class="fm-stat"><span class="fm-stat__k">Catalogue price</span><span class="fm-stat__v"><x-money :php="$corePrice" /></span></div>
+                            <div class="fm-stat"><span class="fm-stat__k">Price on {{ $storeName }} after push</span><span class="fm-stat__v"><x-money :php="$hasRule ? $nextPrice : $corePrice" /></span></div>
+                        </div>
+                </section>
+
                 @include('partials.channel-group-card', [
                     'storeName' => $storeName, 'group' => $groupCard,
                     'groupsUrl' => route('ext.venta.product-groups.index', $setting->id),
                 ])
 
-                <div class="fm-card">
-                    <div class="fm-card__head"><h2 class="fm-card__title">Last push</h2></div>
-                    <div class="fm-card__body">
-                        @if($listing?->last_pushed_at)
-                            @php $sent = $listing->last_push_settings ?? []; @endphp
-                            <div class="fm-stats">
-                                <div class="fm-stat"><span class="fm-stat__k">When</span><span class="fm-stat__v">{{ $listing->last_pushed_at->diffForHumans() }}</span></div>
-                                <div class="fm-stat"><span class="fm-stat__k">What happened</span><span class="fm-stat__v">{{ ucfirst((string) ($sent['state'] ?? 'pushed')) }}</span></div>
-                                @if(isset($sent['price']))
-                                    <div class="fm-stat"><span class="fm-stat__k">Price sent</span><span class="fm-stat__v"><x-money :php="(float) $sent['price']" /></span></div>
-                                @endif
-                                <div class="fm-stat"><span class="fm-stat__k">Content sent</span><span class="fm-stat__v">{{ !empty($sent['overrides']) ? 'This page\'s ' . implode(', ', array_map(fn ($k) => str_replace('_', ' ', $k), $sent['overrides'])) : 'The catalogue\'s' }}</span></div>
-                                @if(isset($sent['variants']))
-                                    <div class="fm-stat"><span class="fm-stat__k">Variations sent</span><span class="fm-stat__v">{{ (int) $sent['variants'] }}</span></div>
-                                @endif
-                            </div>
-                        @else
-                            <p class="fm-section__note">Never pushed from this page.</p>
-                        @endif
-                        @if($listing?->live_checked_at)
-                            <p class="fm-section__note">Store status last read {{ $listing->live_checked_at->diffForHumans() }}.</p>
-                        @endif
-                    </div>
-                </div>
-            </div>
-        </div>
+                @if($listing?->live_checked_at)
+                    {{-- Last push sent went with the owner's read on 2026-09-09;
+                         when and where from are figures on the strip, and
+                         what it sent is detail nobody was asking for here.
+                         When the store was last READ is not on the strip,
+                         so it stays. --}}
+                    <p class="fm-section__note">Store status last read {{ $listing->live_checked_at->diffForHumans() }}.</p>
+                @endif
+            </x-slot:rail>
+        </x-channel.listing-body>
     </form>
 
     <div class="fm-bar">

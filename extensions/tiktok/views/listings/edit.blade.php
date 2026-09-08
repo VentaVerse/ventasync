@@ -50,39 +50,74 @@
         </div>
     </div>
 
-    {{-- ── The live half ─────────────────────────────────────── --}}
-    @if($listed)
-        <section class="fm-section">
-            <div class="fm-section__head">
-                <h2 class="fm-section__title">On TikTok Shop right now</h2>
-                @if($canManage)
-                    <div class="fm-section__aside">
-                        @if(!$liveError && empty($missing))
-                        <form method="POST" action="{{ route('ext.tiktok.listings.push_update', $product->product_id) }}"
-                              data-confirm="Push this listing's content and settings onto the live TikTok Shop product? Title, description, package, category, brand and attributes are updated. Price and stock are not touched." data-confirm-tone="primary" data-confirm-verb="Push update">
-                            @csrf
-                            <x-ui.button type="submit">Push update to TikTok Shop</x-ui.button>
-                        </form>
-                        @endif
-                        @if($live && $live['status'] === 'ACTIVATE')
-                            <form method="POST" action="{{ route('ext.tiktok.listings.toggle', $product->product_id) }}"
-                                  data-confirm="Deactivate this product on TikTok Shop? Buyers stop seeing it. It can be activated again at any time." data-confirm-verb="Deactivate">
-                                @csrf
-                                <input type="hidden" name="action" value="deactivate">
-                                <x-ui.button type="submit">Deactivate on TikTok Shop</x-ui.button>
-                            </form>
-                        @elseif($live && $live['status'] === 'SELLER_DEACTIVATED')
-                            <form method="POST" action="{{ route('ext.tiktok.listings.toggle', $product->product_id) }}"
-                                  data-confirm="Activate this product on TikTok Shop? Buyers see it again once TikTok applies it." data-confirm-tone="primary" data-confirm-verb="Activate">
-                                @csrf
-                                <input type="hidden" name="action" value="activate">
-                                <x-ui.button type="submit" variant="primary">Activate on TikTok Shop</x-ui.button>
-                            </form>
-                        @endif
-                    </div>
-                @endif
-            </div>
+    {{-- ── The strip: what TikTok Shop says right now ─────────────
+         The one template (the owner, 2026-09-08, draft C). What only TikTok has
+         - the variations it holds - stays in its own section below. --}}
+    @php
+        $stripFigures = [];
+        if ($listed && $live) {
+            $stripFigures[] = ['k' => 'Stock on TikTok Shop', 'v' => (string) $live['stock']];
+            if (($coverage['total'] ?? 0) > 0) {
+                $stripFigures[] = ['k' => 'On TikTok Shop', 'v' => $coverage['linked'] . ' of ' . $coverage['total'] . ' variations'];
+            }
+            /* Only when it DIFFERS: a title that matches what you have is
+               not news, and the strip is where the news goes. Clipped, so
+               one long title cannot stretch the bar. */
+            if (($live['title'] ?? '') !== '' && $live['title'] !== $product->name) {
+                $stripFigures[] = ['k' => 'Title on TikTok Shop', 'v' => \Illuminate\Support\Str::limit($live['title'], 40)];
+            }
+        }
 
+        $stripState = $listed
+            ? ['label' => $statusLabel ?? ($liveError ? 'TikTok Shop did not answer' : 'Unknown'), 'tone' => $statusTone ?? 'neutral']
+            : ['label' => 'Not on TikTok Shop', 'tone' => 'neutral'];
+
+        $ttPushedAt = ($truth->last_pushed_at ?? null) ? \Illuminate\Support\Carbon::parse($truth->last_pushed_at) : null;
+        $stripLastPush = $ttPushedAt
+            ? ['when' => $ttPushedAt->diffForHumans(),
+               'from' => ($truth->group_name ?? null) ? 'the ' . $truth->group_name . ' group' : 'this listing']
+            : null;
+    @endphp
+
+    <x-channel.listing-strip channel="TikTok Shop" :state="$stripState" :figures="$stripFigures"
+                             :lastPush="$stripLastPush" :linked="(bool) $listed">
+        @if($canManage)
+            <x-slot:verbs>
+                @if($listed)
+                    @if(!$liveError && empty($missing))
+                        <form method="POST" action="{{ route('ext.tiktok.listings.push_update', $product->product_id) }}"
+                              data-guard-stale data-confirm="Push this listing's content and settings onto the live TikTok Shop product? Title, description, package, category, brand and attributes are updated. Price and stock are not touched." data-confirm-tone="primary" data-confirm-verb="Push update">
+                            @csrf
+                            <x-ui.button type="submit" variant="oncolor" size="sm">Push update to TikTok Shop</x-ui.button>
+                        </form>
+                    @endif
+                    @if($live && $live['status'] === 'ACTIVATE')
+                        <form method="POST" action="{{ route('ext.tiktok.listings.toggle', $product->product_id) }}"
+                              data-guard-stale data-confirm="Deactivate this product on TikTok Shop? Buyers stop seeing it. It can be activated again at any time." data-confirm-verb="Deactivate">
+                            @csrf
+                            <input type="hidden" name="action" value="deactivate">
+                            <x-ui.button type="submit" size="sm">Deactivate on TikTok Shop</x-ui.button>
+                        </form>
+                    @elseif($live && $live['status'] === 'SELLER_DEACTIVATED')
+                        <form method="POST" action="{{ route('ext.tiktok.listings.toggle', $product->product_id) }}"
+                              data-guard-stale data-confirm="Activate this product on TikTok Shop? Buyers see it again once TikTok applies it." data-confirm-tone="primary" data-confirm-verb="Activate">
+                            @csrf
+                            <input type="hidden" name="action" value="activate">
+                            <x-ui.button type="submit" variant="oncolor" size="sm">Activate on TikTok Shop</x-ui.button>
+                        </form>
+                    @endif
+                @elseif(empty($missing))
+                    <form method="POST" action="{{ route('ext.tiktok.products.push_direct', $product->product_id) }}"
+                          data-guard-stale data-confirm="Push this product to TikTok Shop now? It goes up with the settings and content saved on this page." data-confirm-tone="primary" data-confirm-verb="Push to TikTok Shop">
+                        @csrf
+                        <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
+                        <x-ui.button type="submit" variant="oncolor" size="sm">Push to TikTok Shop</x-ui.button>
+                    </form>
+                @endif
+            </x-slot:verbs>
+        @endif
+
+        <x-slot:notes>
             @if($liveError)
                 <div class="fm-note fm-note--fail">
                     <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'TikTok Shop', 'raw' => $liveError, 'settingsRoute' => 'ext.tiktok.index']) Nothing below is stale data standing in for it: the live state is simply unknown until TikTok Shop answers.</div>
@@ -90,102 +125,28 @@
             @endif
             @if(!empty($missing))
                 <div class="fm-note">
-                    <div class="fm-note__body">Push update needs {{ implode(', ', $missing) }} before it can run. Set what is missing and save.</div>
+                    <div class="fm-note__body">{{ $listed ? 'Push update needs' : 'Before it can go to TikTok Shop, this listing still needs' }} {{ implode(', ', $missing) }} before it can run. Set what is missing and save.</div>
                 </div>
             @endif
-            @if($live)
-                <p class="fm-section__note">Fetched from TikTok Shop as this page loaded.</p>
-                <div class="fm-stats">
-                    <div class="fm-stat">
-                        <span class="fm-stat__k">Status</span>
-                        <span class="fm-stat__v"><x-ui.badge :tone="$statusTone">{{ $statusLabel }}</x-ui.badge></span>
-                    </div>
-                    {{-- Variation coverage (Phase F, #184): Push update
-                         carries every catalogue variation, so it IS the
-                         add-variation verb - said here at last. --}}
-                    @if(($coverage['total'] ?? 0) > 0)
-                        <div class="fm-stat">
-                            <span class="fm-stat__k">On TikTok Shop</span>
-                            <span class="fm-stat__v">
-                                {{ $coverage['linked'] }} of {{ $coverage['total'] }} variations
-                                @if(!empty($coverage['missing']))
-                                    <x-ui.hint label="What is not on TikTok Shop">In the catalogue but not on TikTok Shop: {{ implode(', ', $coverage['missing']) }}. Stock and price pushes skip these and say so. Press Push update - it carries every catalogue variation, missing ones included.</x-ui.hint>
-                                @endif
-                            </span>
-                        </div>
-                    @endif
-                    <div class="fm-stat">
-                        <span class="fm-stat__k">Stock on TikTok Shop</span>
-                        <span class="fm-stat__v">{{ $live['stock'] }}</span>
-                    </div>
-                    @if($live['title'] !== '')
-                        <div class="fm-stat">
-                            <span class="fm-stat__k">Title on TikTok Shop</span>
-                            <span class="fm-stat__v">{{ $live['title'] }}</span>
-                        </div>
-                    @endif
+            @if($listed && !empty($coverage['missing']))
+                <div class="fm-note">
+                    <div class="fm-note__body">In the catalogue but not on TikTok Shop: {{ implode(', ', $coverage['missing']) }}. Stock and price pushes skip these and say so. Push update carries every catalogue variation, missing ones included.</div>
                 </div>
-                @if(count($live['skus']) > 0)
-                    <x-ui.table caption="This product's variations as TikTok Shop holds them right now">
-                        <thead>
-                            <tr>
-                                <th>Variation</th>
-                                <th>SKU</th>
-                                <th class="x-num">Price</th>
-                                <th class="x-num">Stock</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($live['skus'] as $sku)
-                                <tr>
-                                    <td>{{ $sku['name'] !== '' ? $sku['name'] : 'SKU ' . $sku['id'] }}</td>
-                                    <td>{{ $sku['seller_sku'] !== '' ? $sku['seller_sku'] : 'none' }}</td>
-                                    <td class="x-num"><x-money :php="$sku['price']" /></td>
-                                    <td class="x-num">{{ $sku['stock'] }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </x-ui.table>
-                @endif
             @endif
-            @if($truth->last_pushed_at ?? null)
-                <p class="fm-section__note">Pushed {{ \Illuminate\Support\Carbon::parse($truth->last_pushed_at)->diffForHumans() }}{{ ($truth->group_name ?? null) ? ' from the ' . $truth->group_name . ' product group' : ' from this listing' }}.</p>
-            @endif
-        </section>
-    @else
-        <section class="fm-section">
-            <div class="fm-section__head">
-                <h2 class="fm-section__title">Not on TikTok Shop yet</h2>
-                @if($canManage && empty($missing))
-                    <div class="fm-section__aside">
-                        <form method="POST" action="{{ route('ext.tiktok.products.push_direct', $product->product_id) }}"
-                              data-confirm="Push this product to TikTok Shop now? It goes up with the settings and content saved on this page." data-confirm-tone="primary" data-confirm-verb="Push to TikTok Shop">
-                            @csrf
-                            <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
-                            <x-ui.button type="submit" variant="primary">Push to TikTok Shop</x-ui.button>
-                        </form>
-                    </div>
-                @endif
-            </div>
-            @if(empty($missing))
-                <p class="fm-section__note">Everything the push needs is set. The one-click push uses the settings and content below.</p>
-            @else
-                <p class="fm-section__note">Before the one-click push can run, this listing still needs {{ implode(', ', $missing) }}. Set what is missing below and save, or push it from one of its product groups.</p>
-            @endif
-        </section>
-    @endif
+        </x-slot:notes>
+    </x-channel.listing-strip>
 
-    {{-- The record, in the one order every channel's listing page keeps
-         (the owner, 2026-09-07, draft B): the main column is everything you set,
-         Content, Category and brand, Category attributes, Price rule,
+    {{-- The one template (the owner, 2026-09-08, draft C): main is what the
+         listing SAYS, rail is what it COSTS. Kept from draft B:
+         Content, Category and brand, Category attributes,
          Discount, Images; the rail only reports, Product group and Last
          push. TikTok Shop has nothing only it has. --}}
     <form id="listing-form" method="POST" action="{{ route('ext.tiktok.listings.update', $product->product_id) }}">
         <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
         @csrf
         @method('PUT')
-        <div class="fm-body">
-            <div class="fm-col">
+        <x-channel.listing-body>
+            <x-slot:main>
 
                 <section class="fm-section">
                     <div class="fm-section__head"><h2 class="fm-section__title">Content on this channel <x-ui.hint label="About the content">A filled field is this listing's own wording and follows nobody. An empty field follows the catalog product, shown greyed as the placeholder. Clearing a field returns it to the catalog. Nothing here ever edits the catalog product itself.</x-ui.hint></h2></div>
@@ -261,24 +222,6 @@
                     </div>
                 </section>
 
-                <div class="fm-card">
-                    <div class="fm-card__head"><h2 class="fm-card__title">Price rule <x-ui.hint label="About the price rule">The TikTok Shop price is never stored: it is the catalog price run through this rule at every push and price sync. Without a rule of its own the listing uses its group's.</x-ui.hint></h2></div>
-                    <div class="fm-card__body">
-                        <div class="fm-fields fm-fields--2">
-                            <x-ui.field label="Percent added" for="tl-markup-pct" name="markup_percent">
-                                <x-ui.input id="tl-markup-pct" name="markup_percent" type="number" step="0.01" :value="old('markup_percent', $listing->markup_percent ?? '')" placeholder="0" :disabled="!$canManage" />
-                            </x-ui.field>
-                            <x-ui.field label="Fixed amount added" for="tl-markup-fixed" name="markup_fixed">
-                                <x-ui.input id="tl-markup-fixed" name="markup_fixed" type="number" step="0.01" :value="old('markup_fixed', $listing->markup_fixed ?? '')" placeholder="0" :disabled="!$canManage" />
-                            </x-ui.field>
-                        </div>
-                        <div class="fm-stats">
-                            <div class="fm-stat"><span class="fm-stat__k">Catalog price</span><span class="fm-stat__v"><x-money :php="$corePrice" /></span></div>
-                            <div class="fm-stat"><span class="fm-stat__k">Price on TikTok Shop after push</span><span class="fm-stat__v"><x-money :php="$hasRule ? $nextPrice : $corePrice" /></span></div>
-                        </div>
-                    </div>
-                </div>
-
                 @php
                     $discount = [
                         'channel' => 'TikTok Shop', 'prefix' => 'tt',
@@ -293,35 +236,76 @@
                         'action' => route('ext.tiktok.listings.push_discount', $product->product_id),
                     ];
                 @endphp
-                @include('partials.channel-discount-card', $discount)
+
+                @if($listed && $live && count($live['skus']) > 0)
+                    {{-- What only TikTok has: the variations it holds right
+                         now. A channel supplies its own sections; the strip
+                         is the shape they share. --}}
+                    <section class="fm-section">
+                        <div class="fm-section__head">
+                            <h2 class="fm-section__title">Variations on TikTok Shop</h2>
+                        </div>
+                <x-ui.table caption="This product's variations as TikTok Shop holds them right now">
+                    <thead>
+                        <tr>
+                            <th>Variation</th>
+                            <th>SKU</th>
+                            <th class="x-num">Price</th>
+                            <th class="x-num">Stock</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($live['skus'] as $sku)
+                            <tr>
+                                <td>{{ $sku['name'] !== '' ? $sku['name'] : 'SKU ' . $sku['id'] }}</td>
+                                <td>{{ $sku['seller_sku'] !== '' ? $sku['seller_sku'] : 'none' }}</td>
+                                <td class="x-num"><x-money :php="$sku['price']" /></td>
+                                <td class="x-num">{{ $sku['stock'] }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </x-ui.table>
+                    </section>
+                @endif
 
                 @include('partials.channel-images-card', [
                     'storeName' => 'TikTok Shop', 'images' => $images,
                     'limit' => \Extensions\tiktok\Services\TikTok\TikTokProductPush::MAX_IMAGES, 'fetchesOverWeb' => false,
                 ])
-            </div>
+            </x-slot:main>
 
-            <div class="fm-col fm-col--side">
+            <x-slot:rail>
+                <section class="fm-section">
+                    <div class="fm-section__head">
+                        <h2 class="fm-section__title">Price rule</h2>
+                        <x-ui.hint label="About the price rule">The TikTok Shop price is never stored: it is the catalog price run through this rule at every push and price sync. Without a rule of its own the listing uses its group's.</x-ui.hint>
+                    </div>
+                        <div class="fm-fields fm-fields--2">
+                            <x-ui.field label="Percent added" for="tl-markup-pct" name="markup_percent">
+                                <x-ui.input id="tl-markup-pct" name="markup_percent" type="number" step="0.01" :value="old('markup_percent', $listing->markup_percent ?? '')" placeholder="0" :disabled="!$canManage" />
+                            </x-ui.field>
+                            <x-ui.field label="Fixed amount added" for="tl-markup-fixed" name="markup_fixed">
+                                <x-ui.input id="tl-markup-fixed" name="markup_fixed" type="number" step="0.01" :value="old('markup_fixed', $listing->markup_fixed ?? '')" placeholder="0" :disabled="!$canManage" />
+                            </x-ui.field>
+                        </div>
+                        <div class="fm-stats">
+                            <div class="fm-stat"><span class="fm-stat__k">Catalog price</span><span class="fm-stat__v"><x-money :php="$corePrice" /></span></div>
+                            <div class="fm-stat"><span class="fm-stat__k">Price on TikTok Shop after push</span><span class="fm-stat__v"><x-money :php="$hasRule ? $nextPrice : $corePrice" /></span></div>
+                        </div>
+                </section>
+
+                @include('partials.channel-discount-card', $discount)
+
                 @include('partials.channel-group-card', [
                     'storeName' => 'TikTok Shop', 'group' => $groupCard,
                     'groupsUrl' => route('ext.tiktok.product-groups.index'),
                 ])
 
-                <div class="fm-card">
-                    <div class="fm-card__head"><h2 class="fm-card__title">Last push</h2></div>
-                    <div class="fm-card__body">
-                        @if($listing?->last_pushed_at)
-                            <div class="fm-stats">
-                                <div class="fm-stat"><span class="fm-stat__k">When</span><span class="fm-stat__v">{{ $listing->last_pushed_at->diffForHumans() }}</span></div>
-                                <div class="fm-stat"><span class="fm-stat__k">From</span><span class="fm-stat__v">{{ str_starts_with((string) $listing->last_push_source, 'group:') ? 'the ' . substr($listing->last_push_source, 6) . ' product group' : 'this listing' }}</span></div>
-                            </div>
-                        @else
-                            <p class="fm-section__note">Never pushed from VentaSync.</p>
-                        @endif
-                    </div>
-                </div>
-            </div>
-        </div>
+                {{-- When and where from are figures on the strip now
+                     (the owner, 2026-09-08); what the push SENT would live here,
+                     and TikTok does not record it yet. --}}
+            </x-slot:rail>
+        </x-channel.listing-body>
     </form>
 
     @include('partials.channel-discount-forms', $discount)

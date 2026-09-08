@@ -23,8 +23,6 @@
     var words = null;
     var say = null;
     var resetBtn = null;
-    var own = null;
-    var behind = null;
     var limit = 0;
     var catalog = [];
 
@@ -42,13 +40,20 @@
         return true;
     }
 
+    /* The same sentence the server writes (partials/channel-images-card).
+       Two copies is one copy too many, but the card must keep answering as
+       tiles move without a round trip, and the page must not flash a
+       different sentence on load - so when one changes, both change. */
     function sentence(count) {
         if (count === 0) {
-            return "Nothing chosen, so this listing follows the catalog product's own pictures again.";
+            return 'No pictures yet.';
         }
         var sent = limit > 0 ? Math.min(count, limit) : count;
-        var s = sent + (sent === 1 ? ' image goes up' : ' images go up');
-        if (sent < count) s += ', the first ' + sent + ' of ' + count;
+        if (limit <= 0) {
+            return count + (count === 1 ? ' image goes up.' : ' images go up.');
+        }
+        var s = sent + ' of ' + limit + (limit === 1 ? ' image goes up' : ' images go up');
+        if (sent < count) s += ', ' + (count - sent) + ' held back';
         return s + '.';
     }
 
@@ -82,17 +87,11 @@
                without a word. */
             input.dispatchEvent(new Event('input', { bubbles: true }));
         }
+        /* The Follow the catalog button appearing is the whole signal that
+           this listing has an order of its own; it used to be a sentence as
+           well, and the owner took it out (2026-09-09) on both the card and the
+           template, so no channel inherits it. */
         if (resetBtn) resetBtn.hidden = input.value === '';
-        if (own) {
-            own.hidden = input.value === '';
-            if (behind) {
-                var missing = catalog.filter(function (t) { return paths.indexOf(t.path) === -1; }).length;
-                behind.textContent = missing === 0
-                    ? ''
-                    : ' The catalog product has ' + missing + (missing === 1 ? ' picture' : ' pictures')
-                        + ' this listing does not send.';
-            }
-        }
     }
 
     function announce(text) {
@@ -551,8 +550,6 @@
         words = card.querySelector('[data-images-words]');
         say = card.querySelector('[data-images-say]');
         resetBtn = card.querySelector('[data-images-reset]');
-        own = card.querySelector('[data-images-own]');
-        behind = card.querySelector('[data-images-behind]');
         if (!list || !input || !words) return;
 
         limit = parseInt(card.getAttribute('data-limit') || '0', 10) || 0;

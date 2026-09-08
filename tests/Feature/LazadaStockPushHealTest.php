@@ -241,7 +241,11 @@ class LazadaStockPushHealTest extends TestCase
 
         $page->assertSee('1 of 2 variations');
         $page->assertSee('LZ-2');
-        $page->assertSee('Update on Lazada - the update carries every catalogue variation');
+        /* The sentence moved from a hint inside the live card to a note
+           under the strip when Lazada took the template (2026-09-09). What
+           it says is unchanged: the update carries every catalogue
+           variation, so there is no unlink-and-resync ritual. */
+        $page->assertSee('carries every catalogue variation, missing ones included');
     }
 
     /** A combination added in the catalogue triggers the staleness refetch at last. */

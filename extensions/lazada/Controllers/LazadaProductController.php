@@ -2407,7 +2407,17 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'missing' => array_values(array_filter($covSkus, fn ($sku) => !$covVariantSkus->has(strtolower($sku)))),
         ];
 
+        /* The strip's state word comes from the engine, the same one the
+           Listings page reads (the one vocabulary, #184 Phase B), so this
+           page cannot drift into a second set of words for the same
+           condition. */
+        $listingState = $listing->exists
+            ? (app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)
+                ->forProducts([(int) $listing->product_id])[(int) $listing->product_id] ?? null)
+            : null;
+
         return view('ext-lazada::products.form', [
+            'listingState' => $listingState,
             'coverage' => $coverage,
             'images' => \App\Support\Catalog\ProductImages::urls((int) $listing->product_id),
             'groupCard' => $this->groupCardFor($listing),
