@@ -43,7 +43,12 @@
        price, the way every marketplace shows one, and then the Discount
        card needs no sentence describing itself. */
     $pushPrice = $hasRule ? $nextPrice : $corePrice;
-    $salePreview = ($listing?->sale_percent ?? null) !== null
+    // A window that has closed cuts nothing, so it strikes nothing. One
+    // that has not opened yet still does: the figure says "after push",
+    // and the card's badge says when.
+    $saleStands = ($listing?->sale_percent ?? null) !== null
+        && (($listing?->sale_ends_at ?? null) === null || $listing->sale_ends_at->isFuture());
+    $salePreview = $saleStands
         ? max(0.01, round($pushPrice * (1 - (float) $listing->sale_percent / 100), 2))
         : null;
 

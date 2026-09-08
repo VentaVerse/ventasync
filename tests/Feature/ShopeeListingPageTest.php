@@ -208,6 +208,86 @@ class ShopeeListingPageTest extends TestCase
     }
 
     /**
+     * A saved discount comes back into its own fields (the owner, 2026-09-09:
+     * "The date refreshes to nothing after saving"). The window is a
+     * datetime-local input, which accepts exactly one shape and silently
+     * shows nothing for any other, so the format is pinned here.
+     */
+    public function test_a_saved_discount_comes_back_into_its_fields(): void
+    {
+        $productId = $this->seedProduct();
+        $starts = now()->addHours(3)->startOfMinute();
+        $ends = now()->addDays(4)->startOfMinute();
+        ShopeeProductLink::create(['product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'SKU-1']);
+        ShopeeListing::create([
+            'product_id' => $productId, 'shopee_category_id' => 100001, 'logistic_ids' => [8000],
+            'sale_percent' => 15, 'sale_starts_at' => $starts, 'sale_ends_at' => $ends,
+        ]);
+
+        $html = $this->actingAs($this->manager())
+            ->get(route('ext.shopee.listings.edit', $productId))->assertOk()->getContent();
+
+        $this->assertStringContainsString('value="' . $starts->format('Y-m-d\TH:i') . '"', $html);
+        $this->assertStringContainsString('value="' . $ends->format('Y-m-d\TH:i') . '"', $html);
+    }
+
+    /**
+     * The window's own state, in one word (the owner, 2026-09-09: "For discount
+     * visibility like current and upcoming. How are we handling it?"). The
+     * card says nothing in sentences, so the badge is where "did that save"
+     * and "is it running yet" are answered.
+     */
+    public function test_the_discount_badge_names_the_windows_state(): void
+    {
+        $cases = [
+            // [starts, ends, promotion id, the word expected]
+            'not pushed' => [now()->addHours(3), now()->addDays(4), null, 'Not pushed'],
+            'upcoming' => [now()->addDays(2), now()->addDays(4), 660011, 'Starts ' . now()->addDays(2)->format('M j')],
+            'running' => [now()->subHour(), now()->addDays(4), 660011, 'Running'],
+            'ended' => [now()->subDays(4), now()->subHour(), 660011, 'Ended'],
+        ];
+
+        foreach ($cases as $name => [$starts, $ends, $promo, $word]) {
+            $productId = $this->seedProduct();
+            ShopeeProductLink::create(['product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'SKU-' . $productId]);
+            ShopeeListing::create([
+                'product_id' => $productId, 'shopee_category_id' => 100001, 'logistic_ids' => [8000],
+                'sale_percent' => 15, 'sale_starts_at' => $starts, 'sale_ends_at' => $ends,
+                'shopee_discount_id' => $promo,
+            ]);
+
+            $this->actingAs($this->manager())
+                ->get(route('ext.shopee.listings.edit', $productId))->assertOk()
+                ->assertSee($word, false);
+        }
+    }
+
+    /**
+     * A closed window cuts nothing, so the price it would have cut is not
+     * struck through; an open or a scheduled one is.
+     */
+    public function test_only_a_window_that_still_stands_strikes_the_price(): void
+    {
+        $open = $this->seedProduct();
+        ShopeeListing::create([
+            'product_id' => $open, 'shopee_category_id' => 100001, 'logistic_ids' => [8000],
+            'sale_percent' => 15, 'sale_starts_at' => now()->subHour(), 'sale_ends_at' => now()->addDays(4),
+        ]);
+        $this->actingAs($this->manager())
+            ->get(route('ext.shopee.listings.edit', $open))->assertOk()
+            ->assertSee('fm-stat__was', false);
+
+        $closed = $this->seedProduct();
+        ShopeeListing::create([
+            'product_id' => $closed, 'shopee_category_id' => 100001, 'logistic_ids' => [8000],
+            'sale_percent' => 15, 'sale_starts_at' => now()->subDays(4), 'sale_ends_at' => now()->subHour(),
+        ]);
+        $this->actingAs($this->manager())
+            ->get(route('ext.shopee.listings.edit', $closed))->assertOk()
+            ->assertDontSee('fm-stat__was', false);
+    }
+
+    /**
      * The rail reports where a listing goes: the one group it is in on this
      * store, and what that group lends a listing with no rule of its own.
      */

@@ -78,6 +78,32 @@
     $canPush = $canManage && $onMarketplace && $hasRule && $liveError === null;
     $canEnd = $canManage && $onMarketplace && ($remoteId || $pushedAt) && $liveError === null;
     $canSaveAndPush = $canManage && $onMarketplace && $saveAndPush && $liveError === null;
+
+    /* ONE WORD FOR THE WINDOW (the owner, 2026-09-09: "For discount visibility
+     * like current and upcoming. How are we handling it?"). A window is two
+     * datetimes, and whether it covers today is arithmetic nobody should be
+     * asked to do in their head - nor should "did that save?" be a guess.
+     * A badge in the heading, in the same grammar as every other state in
+     * the house: a square and a word. Never a sentence, which is what the
+     * old Status line was and why it went. */
+    $badge = null;
+    if ($hasRule) {
+        if (!$onMarketplace) {
+            $badge = ['Saved', 'neutral'];
+        } elseif ($ridesPush && (!$savedFrom || !$savedTo)) {
+            $badge = ['Saved', 'neutral'];
+        } elseif (!$ridesPush && !$remoteId && !$pushedAt) {
+            // Saved here and the channel has never been told. The one
+            // state that wants a second press, so the one that is amber.
+            $badge = ['Not pushed', 'warning'];
+        } elseif ($savedTo && $savedTo->isPast()) {
+            $badge = ['Ended', 'neutral'];
+        } elseif ($savedFrom && $savedFrom->isFuture()) {
+            $badge = ['Starts ' . $savedFrom->format('M j'), 'info'];
+        } else {
+            $badge = ['Running', 'success'];
+        }
+    }
 @endphp
 {{-- The Alpine scope compares what is typed against what is SAVED - not
      against what was posted back, which is why the snapshot comes from the
@@ -110,6 +136,10 @@
     <div class="fm-section__head">
         <h2 class="fm-section__title">Discount</h2>
         <x-ui.hint label="About the discount">Percent off the listed price{{ $ridesPush ? ', with an optional window' : ', for a window' }}.{{ $note !== '' ? ' ' . $note : '' }} Leave the percent empty for no discount.</x-ui.hint>
+        @if($badge)
+            <x-ui.badge :tone="$badge[1]" x-show="!dirty">{{ $badge[0] }}</x-ui.badge>
+        @endif
+        <x-ui.badge tone="neutral" x-show="dirty" x-cloak>Not saved</x-ui.badge>
     </div>
     <div class="fm-fields fm-fields--3">
         <x-ui.field label="Percent off" for="{{ $prefix }}-sale-percent" name="sale_percent">
