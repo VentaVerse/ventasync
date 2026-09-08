@@ -2409,6 +2409,10 @@ class ShopeeProductController extends Controller
             'attrRows' => $sheet['attributes'],
             'savedAttributes' => $savedAttributes,
             'readinessMissing' => $readiness['missing'],
+            /* The gaps themselves, not only their words: the strip's notes
+               link each one at the field that fills it, and a view that had
+               only the sentences was silently linking nothing. */
+            'readiness' => $readiness,
             'logistics' => $this->fetchLogistics(),
             /* The pictures this listing sends, in its own order when it
                has one (the owner, 2026-09-08). A refused save hands back what

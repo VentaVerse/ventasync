@@ -26,8 +26,10 @@
       canManage      bool  (optional) required with $editable
       catalogTiles   list<array{path,url}>  (optional) the catalog's own list, for the reset
       browseUrl      string (optional) the image library's browse endpoint
+      anchor         string (optional) an id, for a readiness gap to link at
 --}}
 @php
+    $anchor = $anchor ?? null;
     $tiles = $tiles ?? array_map(fn ($url) => ['path' => '', 'url' => $url], $images ?? []);
     $editable = ($editable ?? false) && ($canManage ?? false);
     $imageCount = count($tiles);
@@ -76,6 +78,7 @@
     $missingFromCatalog = count(array_diff($catalogPaths, $ownPaths));
 @endphp
 <section class="fm-section"
+         @if(!empty($anchor)) id="{{ $anchor }}" @endif
          @if($editable)
              data-listing-images
              data-limit="{{ $limit !== null ? (int) $limit : '' }}"

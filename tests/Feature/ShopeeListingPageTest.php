@@ -443,9 +443,13 @@ class ShopeeListingPageTest extends TestCase
             ->get(route('ext.shopee.listings.edit', $productId));
 
         $r->assertOk();
-        $r->assertSee('Not on Shopee yet');
+        /* One strip in both states (the owner, 2026-09-08, draft C): a product
+           that is not on the channel says so on the same bar that carries
+           the live figures for one that is, and the gaps sit under it. */
+        $r->assertSee('Not on Shopee');
         $r->assertSee('a Shopee category');
-        $r->assertDontSee('On Shopee right now');
+        $r->assertSee('Never');
+        $r->assertDontSee('Stock on Shopee');
     }
 
     public function test_saving_stores_settings_and_blank_content_follows_the_catalog(): void

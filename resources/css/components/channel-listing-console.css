@@ -1,0 +1,293 @@
+/* THE LISTING PAGE'S ONE LAYOUT (the owner, 2026-09-08, draft C).
+ *
+ * Every channel's listing page is a strip and a body. The strip is the
+ * spine: the live state, the figures, the last push and the verbs that act
+ * on the live item, in the channel's own colour. The body is quiet: one
+ * sheet of ruled sections for what the listing says, and a labelled column
+ * for what it costs. Only what you can operate carries an edge.
+ *
+ * The channel accent arrives on <body> from layouts/channel as --ch and
+ * --ch-deep (App\Support\ChannelAccent computes --ch-deep against the text
+ * that actually sits on it), so nothing here writes a colour per channel.
+ *
+ * Tokens: --bl-*. Anatomy: the fm-* classes still draw the fields inside;
+ * this file only takes their containers away.
+ */
+
+/* ── The strip ──────────────────────────────────────────────────── */
+
+.cl-strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 28px;
+    padding: 12px 18px;
+    margin-bottom: var(--bl-space-4);
+    border-radius: var(--bl-r-panel);
+    background: var(--ch-deep, var(--bl-ink));
+    color: var(--bl-paper);
+    box-shadow: var(--bl-lift);
+}
+
+/* Pinned where there is room for two bars. On a phone the save bar is
+   already fixed to the bottom and a second pinned strip would take a
+   quarter of the screen, so there the strip sits at the top of the page
+   and scrolls with it.
+
+   The notes are a SIBLING of this element, not a child, because a sticky
+   element only travels inside its own parent: a bar wrapped together with
+   its notes stayed put exactly as long as the notes were on screen. */
+@media (min-width: 1001px) {
+    .cl-strip {
+        position: sticky;
+        top: var(--bl-page-gutter);
+        z-index: 3;
+    }
+}
+
+/* Refusals, gaps and staleness sit under the strip in the page's own
+   voice, not on the coloured bar: a red note on an orange strip is two
+   alarms arguing. */
+.cl-notes {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: var(--bl-space-5);
+}
+
+.cl-strip__state {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 11px 4px 9px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .17);
+    font-size: 13px;
+    font-weight: 650;
+    white-space: nowrap;
+}
+
+.cl-strip__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+/* The three states that are not "fine" carry their own fill, because a
+   white pill on a coloured strip cannot say "this listing is in trouble".
+   Dark ink on them, since these are light fills. */
+.cl-strip__state--warning,
+.cl-strip__state--danger,
+.cl-strip__state--success {
+    color: var(--bl-ink);
+}
+
+.cl-strip__state--success { background: #9fe6c6; }
+.cl-strip__state--warning { background: #f4cf8a; }
+.cl-strip__state--danger { background: #ffb3a8; }
+
+.cl-strip__figures {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 26px;
+    margin: 0;
+}
+
+.cl-fig {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.cl-fig dt {
+    font-size: var(--bl-lab-size);
+    font-stretch: var(--bl-lab-stretch);
+    font-weight: var(--bl-lab-weight);
+    letter-spacing: var(--bl-lab-track);
+    text-transform: var(--bl-lab-case);
+    color: rgba(255, 255, 255, .72);
+}
+
+.cl-fig dd {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 640;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.01em;
+}
+
+.cl-fig__from {
+    margin-left: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, .78);
+}
+
+.cl-strip__verbs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+/* The verbs are drawn on the strip, so they take the strip's own contrast
+   rather than the page's: outlined in the strip's own light, not in the
+   page's rule colour. */
+.cl-strip__verbs .x-btn {
+    border-color: rgba(255, 255, 255, .38);
+    background: transparent;
+    color: var(--bl-paper);
+}
+
+.cl-strip__verbs .x-btn:hover {
+    border-color: var(--bl-paper);
+    background: rgba(255, 255, 255, .12);
+    color: var(--bl-paper);
+}
+
+/* The primary verb keeps the channel's own CTA colour, which
+   ChannelAccent computes to be distinguishable from the alert red. It is
+   not this file's to reverse: a dark pill on the channel's strip is
+   already the only filled thing on a filled bar. */
+
+.cl-strip__verbs .x-btn:focus-visible {
+    outline: 2px solid var(--bl-paper);
+    outline-offset: 2px;
+}
+
+.cl-strip__verbs form {
+    margin: 0;
+}
+
+/* ── The body ───────────────────────────────────────────────────── */
+
+/* An anchor jump lands under a pinned strip unless the target says how
+   tall the strip is. Every section the readiness gaps link at is in here. */
+.cl-main > *,
+.cl-rail > * {
+    scroll-margin-top: 96px;
+}
+
+.cl-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+    align-items: start;
+}
+
+@media (min-width: 1001px) {
+    .cl-body {
+        grid-template-columns: minmax(0, 1fr) 300px;
+    }
+}
+
+/* The work: one sheet, sections told apart by a rule and by air. */
+.cl-main {
+    display: flex;
+    flex-direction: column;
+    gap: 26px;
+    min-width: 0;
+    padding: 22px 24px 26px;
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-panel);
+    background: var(--bl-sheet);
+    box-shadow: var(--bl-lift);
+}
+
+/* A card dropped in here is a section of this sheet, not a sheet of its
+   own. The shared partials keep their markup and lose their container, the
+   same way blotter.css already flattens a sheet inside a sheet. */
+.cl-main > .fm-section,
+.cl-main > .fm-card,
+.cl-rail > .fm-section,
+.cl-rail > .fm-card {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    overflow: visible;
+}
+
+.cl-main > * + * {
+    padding-top: 26px;
+    border-top: 1px solid var(--bl-rule);
+}
+
+/* A section hidden by its own [hidden] must not leave its rule behind. */
+.cl-main > [hidden] {
+    display: none !important;
+}
+
+/* The rail: a labelled column. No boxes, because a box beside a sheet
+   reads as a second sheet, and the rail is not a second page. */
+.cl-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    min-width: 0;
+}
+
+.cl-rail > * + * {
+    padding-top: 22px;
+    border-top: 1px solid var(--bl-rule-2);
+}
+
+/* The rail's own titles ride the label vocabulary rather than the sheet's
+   heading, so the work keeps the page's only headings. */
+.cl-rail .fm-section__head {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+.cl-rail .fm-section__title,
+.cl-rail .fm-card__title {
+    font-size: var(--bl-lab-size);
+    font-stretch: var(--bl-lab-stretch);
+    font-weight: var(--bl-lab-weight);
+    letter-spacing: var(--bl-lab-track);
+    text-transform: var(--bl-lab-case);
+    color: var(--bl-ink-3);
+}
+
+/* In a 300px rail a pair of fields shares no row. */
+@media (min-width: 1001px) {
+    .cl-rail .fm-fields--2,
+    .cl-rail .fm-fields--3 {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* The figures inside the rail are figures, not framed panels: the frame
+   was doing the job the label now does. */
+.cl-rail .fm-stats {
+    padding: 0;
+    border: 0;
+    background: none;
+}
+
+/* A 300px rail sits against the right edge, so a hint that opens rightward
+   opens off the page and the document scrolls sideways. Same answer the
+   command bar already uses (.bl-hint--end), applied by position rather
+   than by asking every shared partial to know where it was dropped. */
+@media (min-width: 901px) {
+    .cl-rail .bl-hint__bubble {
+        right: 0;
+        left: auto;
+    }
+}
+
+@media (max-width: 1000px) {
+    .cl-strip__verbs {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .cl-main {
+        padding: 18px 16px 20px;
+    }
+}

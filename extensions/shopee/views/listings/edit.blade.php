@@ -117,56 +117,110 @@
         </div>
     </div>
 
-    {{-- ── The live half: what Shopee says right now ─────────────── --}}
-    @if($link)
-        <section class="fm-section">
-            <div class="fm-section__head">
-                <h2 class="fm-section__title">On Shopee right now</h2>
-                @if($canManage)
-                    <div class="fm-section__aside">
-                        {{-- The other half of Save: the record drives the
-                             NEXT push, and this sends it onto the LIVE item
-                             now. Offered only when Shopee answered and the
-                             record has what a push needs; the note beneath
-                             says which is missing otherwise, so the button
-                             never leads to a refusal it could have named. --}}
-                        @if(!$liveError && empty($missing))
+    {{-- ── The strip: what Shopee says right now ─────────────────
+         One shape on every channel (the owner, 2026-09-08, draft C): the live
+         state, the channel's own figures, the last push and the verbs that
+         act on the live item, in one line in the channel's colour. What
+         only Shopee has - the variation table, the couriers - stays below
+         in Shopee's own sections. --}}
+    @php
+        /* The figures this channel puts on the strip, in its own words.
+           The template holds the arrangement; the channel holds the facts. */
+        $stripFigures = [];
+        if ($link && $live) {
+            if (!$live['has_model']) {
+                $stripFigures[] = ['k' => 'Price on Shopee', 'v' => $live['price']['original'] !== null
+                    ? \App\Support\Money::base((float) ($live['price']['current'] ?? $live['price']['original']))
+                    : 'unknown'];
+            }
+            $stripFigures[] = ['k' => 'Stock on Shopee', 'v' => $live['stock'] !== null ? (string) $live['stock'] : 'unknown'];
+            $stripFigures[] = ['k' => 'Promotion', 'v' => $live['has_promotion'] ? 'Running' : 'None'];
+            if (($coverage['total'] ?? 0) > 0) {
+                $stripFigures[] = ['k' => 'On Shopee', 'v' => $coverage['linked'] . ' of ' . $coverage['total'] . ' variations'];
+            }
+        }
+
+        $stripState = $link
+            ? ['label' => $statusLabel ?? ($liveError ? 'Shopee did not answer' : 'Unknown'), 'tone' => $statusTone ?? 'neutral']
+            : ['label' => 'Not on Shopee', 'tone' => 'neutral'];
+
+        $stripLastPush = ($listing && $listing->last_pushed_at)
+            ? ['when' => $listing->last_pushed_at->diffForHumans(), 'from' => match (true) {
+                (string) $listing->last_push_source === 'form' => 'the push form',
+                (string) $listing->last_push_source === 'listing' => 'this listing',
+                str_starts_with((string) $listing->last_push_source, 'group:') => 'the ' . substr((string) $listing->last_push_source, 6) . ' group',
+                default => null,
+            }]
+            : null;
+    @endphp
+
+    <x-channel.listing-strip channel="Shopee" :state="$stripState" :figures="$stripFigures"
+                             :lastPush="$stripLastPush" :linked="(bool) $link">
+        @if($canManage)
+            <x-slot:verbs>
+                @if($link)
+                    {{-- The other half of Save: the record drives the NEXT
+                         push, and this sends it onto the LIVE item now.
+                         Offered only when Shopee answered and the record has
+                         what a push needs; the note beneath says which is
+                         missing otherwise, so the button never leads to a
+                         refusal it could have named. --}}
+                    @if(!$liveError && empty($missing))
                         <form method="POST" action="{{ route('ext.shopee.listings.push_update', $product->product_id) }}"
                               data-confirm="Push this listing's content and settings onto the live Shopee item? Title, description, pictures, weight and size, category and couriers are updated. Price and stock are not touched - they have their own syncs." data-confirm-tone="primary" data-confirm-verb="Push update">
                             @csrf
-                            <x-ui.button type="submit">Push update to Shopee</x-ui.button>
+                            <x-ui.button type="submit" variant="primary" size="sm">Push update to Shopee</x-ui.button>
                         </form>
-                        @endif
-                        @if($live && $live['item_status'] === 'NORMAL')
-                            <form method="POST" action="{{ route('ext.shopee.listings.toggle', $product->product_id) }}"
-                                  data-confirm="Delist this item from Shopee? Buyers stop seeing it immediately. It stays here and can be published again at any time." data-confirm-verb="Unlist">
-                                @csrf
-                                <input type="hidden" name="action" value="unlist">
-                                {{-- Quieter than Push update beside it: one is
-                                     routine, the other stops buyers seeing the
-                                     item, and at equal weight the pair invited
-                                     the mistake the confirm then had to catch
-                                     (critique 2026-09-08). --}}
-                                <x-ui.button type="submit" variant="ghost">Delist from Shopee</x-ui.button>
-                            </form>
-                        @elseif($live && $live['item_status'] === 'UNLIST')
-                            <form method="POST" action="{{ route('ext.shopee.listings.toggle', $product->product_id) }}"
-                                  data-confirm="Publish this item on Shopee? Buyers see it again immediately." data-confirm-tone="primary" data-confirm-verb="Relist">
-                                @csrf
-                                <input type="hidden" name="action" value="list">
-                                <x-ui.button type="submit" variant="primary">Publish on Shopee</x-ui.button>
-                            </form>
-                        @endif
-                    </div>
+                    @endif
+                    @if($live && $live['item_status'] === 'NORMAL')
+                        <form method="POST" action="{{ route('ext.shopee.listings.toggle', $product->product_id) }}"
+                              data-confirm="Delist this item from Shopee? Buyers stop seeing it immediately. It stays here and can be published again at any time." data-confirm-verb="Unlist">
+                            @csrf
+                            <input type="hidden" name="action" value="unlist">
+                            <x-ui.button type="submit" size="sm">Delist from Shopee</x-ui.button>
+                        </form>
+                    @elseif($live && $live['item_status'] === 'UNLIST')
+                        <form method="POST" action="{{ route('ext.shopee.listings.toggle', $product->product_id) }}"
+                              data-confirm="Publish this item on Shopee? Buyers see it again immediately." data-confirm-tone="primary" data-confirm-verb="Relist">
+                            @csrf
+                            <input type="hidden" name="action" value="list">
+                            <x-ui.button type="submit" variant="primary" size="sm">Publish on Shopee</x-ui.button>
+                        </form>
+                    @endif
+                    @if(($coverage['missing'] ?? collect())->isNotEmpty())
+                        {{-- Phase F (#184): the loop that used to be unlink,
+                             re-match and hope is one push. --}}
+                        <form method="POST" action="{{ route('ext.shopee.listings.push_missing_variations', $product->product_id) }}" data-slow-action
+                              data-confirm="Add the missing variations to the live Shopee listing? What is already live is not touched; new tier options are appended and the new variations go up priced by this listing's rule." data-confirm-tone="primary" data-confirm-verb="Add variations">
+                            @csrf
+                            <x-ui.button type="submit" size="sm">Push missing variations</x-ui.button>
+                        </form>
+                    @endif
+                    <form method="POST" action="{{ route('ext.shopee.listings.reread_variations', $product->product_id) }}" data-slow-action>
+                        @csrf
+                        <x-ui.button type="submit" size="sm">Re-read variations from Shopee</x-ui.button>
+                    </form>
+                @elseif(empty($missing))
+                    {{-- Push is a verb on THIS page (2026-09-03, the
+                         one-editor merge). #149's see-before-it-goes holds:
+                         this page IS what goes up. --}}
+                    <form method="POST" action="{{ route('ext.shopee.products.push_direct', $product->product_id) }}" data-slow-action
+                          data-push-review="{{ route('ext.shopee.products.push_review', $product->product_id) }}">
+                        @csrf
+                        <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
+                        <x-ui.button type="submit" variant="primary" size="sm">Push to Shopee</x-ui.button>
+                    </form>
                 @endif
-            </div>
+            </x-slot:verbs>
+        @endif
 
+        <x-slot:notes>
             @if($liveError)
                 <div class="fm-note fm-note--fail">
                     <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'Shopee', 'raw' => $liveError, 'settingsRoute' => 'ext.shopee.index']) Nothing below is stale data standing in for it: the live state is simply unknown until Shopee answers.</div>
                 </div>
             @endif
-            @if($link && !empty($missing))
+            @if(!empty($missing))
                 <div class="fm-note">
                     @php
                         /* Each gap links to the exact field that fills it;
@@ -177,7 +231,7 @@
                         $gapHrefs = [
                             \App\Integrations\Listings\ListingState::GAP_CATEGORY => '#sl-category',
                             \App\Integrations\Listings\ListingState::GAP_COURIERS => '#sl-couriers',
-                            \App\Integrations\Listings\ListingState::GAP_IMAGE => route('products.edit', $product->product_id),
+                            \App\Integrations\Listings\ListingState::GAP_IMAGE => '#sl-images',
                             \App\Integrations\Listings\ListingState::GAP_SHEET => '#sl-attributes',
                             \App\Integrations\Listings\ListingState::GAP_ATTRIBUTES => '#sl-attributes',
                         ];
@@ -189,156 +243,21 @@
                             ? implode(', ', array_slice($gapLinks, 0, -1)) . ' and ' . end($gapLinks)
                             : ($gapLinks[0] ?? '');
                     @endphp
-                    <div class="fm-note__body">Push update needs {!! $gapWords !!} before it can run. Set what is missing and save.</div>
+                    <div class="fm-note__body">{{ $link ? 'Push update needs' : 'Before it can go to Shopee, this listing still needs' }} {!! $gapWords !!} before it can run. Set what is missing and save.</div>
                 </div>
             @endif
-            @if($live)
-                @if($staleSincePush)
-                    <div class="fm-note fm-note--warn" role="status">
-                        <div class="fm-note__body">The catalog product changed {{ $coreChangedAt->diffForHumans() }} - after the last push {{ $listing->last_pushed_at->diffForHumans() }}. Fields without their own wording follow the catalog automatically; Push update to Shopee sends the current state to the live listing.</div>
-                    </div>
-                @endif
-                <div class="fm-stats">
-                    <div class="fm-stat">
-                        <span class="fm-stat__k">Status</span>
-                        <span class="fm-stat__v"><x-ui.badge :tone="$statusTone">{{ $statusLabel }}</x-ui.badge></span>
-                    </div>
-                    @if(!$live['has_model'])
-                        <div class="fm-stat">
-                            <span class="fm-stat__k">Price on Shopee</span>
-                            <span class="fm-stat__v">
-                                @if($live['price']['current'] !== null && $live['price']['original'] !== null && $live['price']['current'] < $live['price']['original'])
-                                    <x-money :php="$live['price']['current']" /> <s><x-money :php="$live['price']['original']" /></s>
-                                @elseif($live['price']['original'] !== null)
-                                    <x-money :php="$live['price']['original']" />
-                                @else
-                                    unknown
-                                @endif
-                            </span>
-                        </div>
-                    @endif
-                    <div class="fm-stat">
-                        <span class="fm-stat__k">Stock on Shopee</span>
-                        <span class="fm-stat__v">{{ $live['stock'] !== null ? $live['stock'] : 'unknown' }}</span>
-                    </div>
-                    <div class="fm-stat">
-                        <span class="fm-stat__k">Promotion</span>
-                        <span class="fm-stat__v">{{ $live['has_promotion'] ? 'Running' : 'None' }}</span>
-                    </div>
-                    @if($live['item_name'] !== '' && $live['item_name'] !== $product->name)
-                        <div class="fm-stat">
-                            <span class="fm-stat__k">Title on Shopee</span>
-                            <span class="fm-stat__v">{{ $live['item_name'] }}</span>
-                        </div>
-                    @endif
+            @if($live && $staleSincePush)
+                <div class="fm-note fm-note--warn" role="status">
+                    <div class="fm-note__body">The catalog product changed {{ $coreChangedAt->diffForHumans() }} - after the last push {{ $listing->last_pushed_at->diffForHumans() }}. Fields without their own wording follow the catalog automatically; Push update to Shopee sends the current state to the live listing.</div>
                 </div>
-
-                {{-- Variation coverage (Phase E, #184, #190): the fact the
-                     deleted-1pc incident had no surface for. One line says
-                     how much of the catalogue actually stands on Shopee,
-                     the missing side is named, and the repair the pushes
-                     run mid-flight is offered as a button - before this, a
-                     linked product had no verb that could re-read models,
-                     and the way out of a stale link was Unlink. --}}
-                @if(($coverage['total'] ?? 0) > 0)
-                    <div class="fm-stat">
-                        <span class="fm-stat__k">On Shopee</span>
-                        <span class="fm-stat__v">
-                            {{ $coverage['linked'] }} of {{ $coverage['total'] }} variations
-                            @if($coverage['missing']->isNotEmpty())
-                                <x-ui.hint label="What is not on Shopee">In the catalogue but not on Shopee: {{ $coverage['missing']->map(fn ($v) => $v['sku'] !== '' ? $v['sku'] : $v['name'])->implode(', ') }}. Stock and price pushes skip these and say so. Push missing variations sends them up without touching what is already live.</x-ui.hint>
-                            @endif
-                        </span>
-                    </div>
-                @endif
-                @if($canManage)
-                    <div class="fm-actions-row">
-                        @if(($coverage['missing'] ?? collect())->isNotEmpty())
-                            {{-- Phase F (#184): the loop that used to be
-                                 unlink, re-match and hope is one push. --}}
-                            <form method="POST" action="{{ route('ext.shopee.listings.push_missing_variations', $product->product_id) }}" data-slow-action
-                                  data-confirm="Add the missing variations to the live Shopee listing? What is already live is not touched; new tier options are appended and the new variations go up priced by this listing's rule." data-confirm-tone="primary" data-confirm-verb="Add variations">
-                                @csrf
-                                <x-ui.button type="submit" variant="primary" size="sm">Push missing variations</x-ui.button>
-                            </form>
-                        @endif
-                        <form method="POST" action="{{ route('ext.shopee.listings.reread_variations', $product->product_id) }}" data-slow-action>
-                            @csrf
-                            <x-ui.button type="submit" size="sm">Re-read variations from Shopee</x-ui.button>
-                        </form>
-                    </div>
-                @endif
-
-                @if(!empty($live['models']))
-                    <x-ui.table caption="This item's variations as Shopee holds them right now">
-                        <thead>
-                            <tr>
-                                <th>Variation</th>
-                                <th>SKU</th>
-                                <th class="x-num">Price</th>
-                                <th class="x-num">Stock</th>
-                                <th>In the catalog</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($live['models'] as $m)
-                                <tr>
-                                    <td>{{ $m['name'] !== '' ? $m['name'] : 'Model ' . $m['model_id'] }}</td>
-                                    <td>{{ $m['model_sku'] !== '' ? $m['model_sku'] : 'none' }}</td>
-                                    <td class="x-num">
-                                        @if($m['price']['original'] !== null)
-                                            <x-money :php="$m['price']['current'] ?? $m['price']['original']" />
-                                        @else
-                                            unknown
-                                        @endif
-                                    </td>
-                                    <td class="x-num">{{ $m['stock'] !== null ? $m['stock'] : 'unknown' }}</td>
-                                    <td>
-                                        {{-- Linked = a link row carries this model, so
-                                             pushes reach it. Anything else is a model
-                                             Shopee holds that the ERP is not tracking. --}}
-                                        @if(($linkedModelIds ?? collect())->has((int) $m['model_id']))
-                                            <x-ui.badge tone="success">Linked</x-ui.badge>
-                                        @else
-                                            <span @if($canManage) title="Press Re-read variations to link it by SKU" @endif>
-                                                <x-ui.badge tone="warning">Not linked</x-ui.badge>
-                                            </span>
-                                        @endif
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </x-ui.table>
-                @endif
             @endif
-        </section>
-    @else
-        {{-- ── Not on Shopee yet: readiness instead of live state ──── --}}
-        <section class="fm-section">
-            <div class="fm-section__head">
-                <h2 class="fm-section__title">Not on Shopee yet</h2>
-                @if($canManage && empty($missing))
-                    <div class="fm-section__aside">
-                        {{-- Push is a verb on THIS page now (2026-09-03, the
-                             one-editor merge; the separate push form is
-                             gone). #149's see-before-it-goes holds: this
-                             page IS what goes up. --}}
-                        <form method="POST" action="{{ route('ext.shopee.products.push_direct', $product->product_id) }}" data-slow-action
-                              data-push-review="{{ route('ext.shopee.products.push_review', $product->product_id) }}">
-                            @csrf
-                            <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
-                            <x-ui.button type="submit" variant="primary">Push to Shopee</x-ui.button>
-                        </form>
-                    </div>
-                @endif
-            </div>
-            @if(empty($missing))
-                <p class="fm-section__note">Everything the push needs is set. Push to Shopee sends it up using the settings and content below.</p>
-            @else
-                <p class="fm-section__note">Before it can go to Shopee, this listing still needs {{ implode(', ', $missing) }}. Set what is missing below and save; the push button appears when nothing is left.</p>
+            @if($live && ($coverage['missing'] ?? collect())->isNotEmpty())
+                <div class="fm-note">
+                    <div class="fm-note__body">In the catalogue but not on Shopee: {{ $coverage['missing']->map(fn ($v) => $v['sku'] !== '' ? $v['sku'] : $v['name'])->implode(', ') }}. Stock and price pushes skip these and say so. Push missing variations sends them up without touching what is already live.</div>
+                </div>
             @endif
-        </section>
-    @endif
+        </x-slot:notes>
+    </x-channel.listing-strip>
 
     {{-- The record, in the one order this page keeps (the owner, 2026-09-07,
          draft B, amended 2026-09-08): the main column is what the listing
@@ -352,8 +271,8 @@
     <form id="listing-form" method="POST" action="{{ route('ext.shopee.listings.update', $product->product_id) }}" data-guard-unsaved>
         <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
         @csrf
-        <div class="fm-body">
-            <div class="fm-col">
+        <x-channel.listing-body>
+            <x-slot:main>
 
                 <section class="fm-section">
                     <div class="fm-section__head">
@@ -481,10 +400,59 @@
                 </section>
 
                 @include('partials.channel-images-card', [
-                    'storeName' => 'Shopee', 'tiles' => $tiles, 'catalogTiles' => $catalogTiles,
+                    'anchor' => 'sl-images', 'storeName' => 'Shopee', 'tiles' => $tiles, 'catalogTiles' => $catalogTiles,
                     'limit' => \Extensions\shopee\Services\Shopee\ShopeeItemCreate::MAX_IMAGES, 'fetchesOverWeb' => false,
                     'editable' => true, 'canManage' => $canManage, 'browseUrl' => $browseUrl,
                 ])
+
+                @if($live && !empty($live['models']))
+                    {{-- What only Shopee has, part one: the models it holds
+                         right now. It sits in the main column as a Shopee
+                         section, not on the strip, because the strip is the
+                         shape every channel shares and this table is not. --}}
+                    <section class="fm-section">
+                        <div class="fm-section__head">
+                            <h2 class="fm-section__title">Variations on Shopee</h2>
+                        </div>
+                        <x-ui.table caption="This item's variations as Shopee holds them right now">
+                            <thead>
+                                <tr>
+                                    <th>Variation</th>
+                                    <th>SKU</th>
+                                    <th class="x-num">Price</th>
+                                    <th class="x-num">Stock</th>
+                                    <th>In the catalog</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($live['models'] as $m)
+                                    <tr>
+                                        <td>{{ $m['name'] !== '' ? $m['name'] : 'Model ' . $m['model_id'] }}</td>
+                                        <td>{{ $m['model_sku'] !== '' ? $m['model_sku'] : 'none' }}</td>
+                                        <td class="x-num">
+                                            @if($m['price']['original'] !== null)
+                                                <x-money :php="$m['price']['current'] ?? $m['price']['original']" />
+                                            @else
+                                                unknown
+                                            @endif
+                                        </td>
+                                        <td class="x-num">{{ $m['stock'] !== null ? $m['stock'] : 'unknown' }}</td>
+                                        <td>
+                                            {{-- Linked = a link row carries this model, so
+                                                 pushes reach it. Anything else is a model
+                                                 Shopee holds that the ERP is not tracking. --}}
+                                            @if(($linkedModelIds ?? collect())->has((int) $m['model_id']))
+                                                <x-ui.badge tone="success">Linked</x-ui.badge>
+                                            @else
+                                                <x-ui.badge tone="warning">Not linked</x-ui.badge>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </x-ui.table>
+                    </section>
+                @endif
 
                 {{-- What only Shopee has, in one place at the end of the main
                      column: the parcel Shopee quotes shipping from and the
@@ -558,121 +526,97 @@
                     </div>
                 </section>
 
-            </div>
+            </x-slot:main>
 
-            {{-- The rail scrolls with the page, and the two settings stay
-                 pinned inside it (critique 2026-09-08): a rail that holds
-                 four cards is taller than the screen, and the sticky box
-                 was hiding Product group and Last push at every scroll
-                 position with nothing to say they were there. --}}
-            <div class="fm-col fm-col--side fm-col--side--flow">
-
-                <div class="fm-pin">
-                    <section class="fm-section">
-                        <div class="fm-section__head">
-                            <h2 class="fm-section__title">Price rule</h2>
-                            <x-ui.hint label="About the price rule">The Shopee price is never stored: it is the catalog price run through this rule at every push and price sync, so catalog price changes carry through on their own. Without a rule of its own the listing uses its group's.</x-ui.hint>
-                        </div>
-                        <div class="fm-fields fm-fields--2">
-                            <x-ui.field label="Percent added" for="sl-markup-pct" name="markup_percent">
-                                <x-ui.input id="sl-markup-pct" name="markup_percent" type="number" step="0.01"
-                                            :value="old('markup_percent', $listing->markup_percent ?? '')"
-                                            placeholder="0"
-                                            :disabled="!$canManage" />
-                            </x-ui.field>
-                            <x-ui.field label="Fixed amount added" for="sl-markup-fixed" name="markup_fixed">
-                                <x-ui.input id="sl-markup-fixed" name="markup_fixed" type="number" step="0.01"
-                                            :value="old('markup_fixed', $listing->markup_fixed ?? '')"
-                                            placeholder="0"
-                                            :disabled="!$canManage" />
-                            </x-ui.field>
-                        </div>
-                        <div class="fm-stats">
-                            <div class="fm-stat">
-                                <span class="fm-stat__k">Catalog price</span>
-                                <span class="fm-stat__v"><x-money :php="$corePrice" /></span>
-                            </div>
-                            <div class="fm-stat">
-                                <span class="fm-stat__k">Price on Shopee after push</span>
-                                <span class="fm-stat__v"><x-money :php="$hasRule ? $nextPrice : $corePrice" /></span>
-                            </div>
-                        </div>
-                    </section>
-
-                    @php
-                        $discount = [
-                            'channel' => 'Shopee', 'prefix' => 'sl',
-                            'canManage' => $canManage, 'onMarketplace' => (bool) $link,
-                            'step' => '0.01', 'note' => 'Shopee needs the start at least an hour ahead.',
-                            'savedPct' => $listing?->sale_percent,
-                            'savedFrom' => $listing?->sale_starts_at, 'savedTo' => $listing?->sale_ends_at,
-                            'salePreview' => ($listing?->sale_percent ?? null) !== null
-                                ? max(0.01, round(($hasRule ? $nextPrice : $corePrice) * (1 - (float) $listing->sale_percent / 100), 2))
-                                : null,
-                            'remoteId' => $listing?->shopee_discount_id ? (string) $listing->shopee_discount_id : null,
-                            'tracked' => true, 'endClearsRule' => false,
-                            'liveError' => $link ? ($liveError ?? null) : null,
-                            'action' => route('ext.shopee.listings.push_discount', $product->product_id),
-                        ];
-                    @endphp
-                    {{-- The shared Discount card (#146): the rule rides Save,
-                         the push is its own confirmed act. Partial in
-                         resources/views/partials/channel-discount-card. --}}
-                    @include('partials.channel-discount-card', $discount)
-                </div>
-
-                @include('partials.channel-group-card', [
-                    'storeName' => 'Shopee', 'group' => $groupCard,
-                    'groupsUrl' => route('ext.shopee.product-groups.index'),
-                ])
-
+            <x-slot:rail>
                 <section class="fm-section">
-                    <div class="fm-section__head"><h2 class="fm-section__title">Last push</h2></div>
-                    @if($listing && $listing->last_pushed_at)
-                        @php
-                            $source = (string) $listing->last_push_source;
-                            $sourceLabel = match (true) {
-                                $source === 'form' => 'the push form',
-                                $source === 'listing' => 'this listing',
-                                str_starts_with($source, 'group:') => 'the ' . substr($source, 6) . ' group',
-                                default => $source,
-                            };
-                            $sent = $listing->last_push_settings ?? [];
-                        @endphp
-                        <div class="fm-stats">
-                            <div class="fm-stat">
-                                <span class="fm-stat__k">When</span>
-                                <span class="fm-stat__v">{{ $listing->last_pushed_at->diffForHumans() }}</span>
-                            </div>
-                            <div class="fm-stat">
-                                <span class="fm-stat__k">Settings from</span>
-                                <span class="fm-stat__v">{{ $sourceLabel }}</span>
-                            </div>
-                            @if(!empty($sent['category_id']))
-                                <div class="fm-stat">
-                                    <span class="fm-stat__k">Category sent</span>
-                                    <span class="fm-stat__v">{{ (int) $sent['category_id'] }}</span>
-                                </div>
-                            @endif
-                            @if(isset($sent['price']))
-                                <div class="fm-stat">
-                                    <span class="fm-stat__k">Price sent</span>
-                                    <span class="fm-stat__v"><x-money :php="(float) $sent['price']" /></span>
-                                </div>
-                            @elseif(isset($sent['markup_percent']) || isset($sent['markup_fixed']))
-                                <div class="fm-stat">
-                                    <span class="fm-stat__k">Rule sent</span>
-                                    <span class="fm-stat__v">{{ (float) ($sent['markup_percent'] ?? 0) }}% + {{ (float) ($sent['markup_fixed'] ?? 0) }}</span>
-                                </div>
-                            @endif
+                    <div class="fm-section__head">
+                        <h2 class="fm-section__title">Price rule</h2>
+                        <x-ui.hint label="About the price rule">The Shopee price is never stored: it is the catalog price run through this rule at every push and price sync, so catalog price changes carry through on their own. Without a rule of its own the listing uses its group's.</x-ui.hint>
+                    </div>
+                    <div class="fm-fields fm-fields--2">
+                        <x-ui.field label="Percent added" for="sl-markup-pct" name="markup_percent">
+                            <x-ui.input id="sl-markup-pct" name="markup_percent" type="number" step="0.01"
+                                        :value="old('markup_percent', $listing->markup_percent ?? '')"
+                                        placeholder="0"
+                                        :disabled="!$canManage" />
+                        </x-ui.field>
+                        <x-ui.field label="Fixed amount added" for="sl-markup-fixed" name="markup_fixed">
+                            <x-ui.input id="sl-markup-fixed" name="markup_fixed" type="number" step="0.01"
+                                        :value="old('markup_fixed', $listing->markup_fixed ?? '')"
+                                        placeholder="0"
+                                        :disabled="!$canManage" />
+                        </x-ui.field>
+                    </div>
+                    <div class="fm-stats">
+                        <div class="fm-stat">
+                            <span class="fm-stat__k">Catalog price</span>
+                            <span class="fm-stat__v"><x-money :php="$corePrice" /></span>
                         </div>
-                    @else
-                        <p class="fm-section__note">Never pushed from VentaSync.</p>
-                    @endif
+                        <div class="fm-stat">
+                            <span class="fm-stat__k">Price on Shopee after push</span>
+                            <span class="fm-stat__v"><x-money :php="$hasRule ? $nextPrice : $corePrice" /></span>
+                        </div>
+                    </div>
                 </section>
 
-            </div>
-        </div>
+                @php
+                    $discount = [
+                        'channel' => 'Shopee', 'prefix' => 'sl',
+                        'canManage' => $canManage, 'onMarketplace' => (bool) $link,
+                        'step' => '0.01', 'note' => 'Shopee needs the start at least an hour ahead.',
+                        'savedPct' => $listing?->sale_percent,
+                        'savedFrom' => $listing?->sale_starts_at, 'savedTo' => $listing?->sale_ends_at,
+                        'salePreview' => ($listing?->sale_percent ?? null) !== null
+                            ? max(0.01, round(($hasRule ? $nextPrice : $corePrice) * (1 - (float) $listing->sale_percent / 100), 2))
+                            : null,
+                        'remoteId' => $listing?->shopee_discount_id ? (string) $listing->shopee_discount_id : null,
+                        'tracked' => true, 'endClearsRule' => false,
+                        'liveError' => $link ? ($liveError ?? null) : null,
+                        'action' => route('ext.shopee.listings.push_discount', $product->product_id),
+                    ];
+                @endphp
+                {{-- The shared Discount card (#146): the rule rides Save,
+                     the push is its own confirmed act. Partial in
+                     resources/views/partials/channel-discount-card. --}}
+                @include('partials.channel-discount-card', $discount)
+
+                @include('partials.channel-group-card', [
+                'storeName' => 'Shopee', 'group' => $groupCard,
+                'groupsUrl' => route('ext.shopee.product-groups.index'),
+                ])
+
+                @if($listing && ($listing->last_push_settings ?? []) !== [])
+                {{-- What the last push actually SENT. The WHEN and the
+                     WHERE FROM are on the strip now (the owner, 2026-09-08);
+                     this is the provenance that only matters once you
+                     are already asking why. --}}
+                <section class="fm-section">
+                    <div class="fm-section__head"><h2 class="fm-section__title">Last push sent</h2></div>
+                    @php $sent = $listing->last_push_settings ?? []; @endphp
+                    <div class="fm-stats">
+                        @if(!empty($sent['category_id']))
+                            <div class="fm-stat">
+                                <span class="fm-stat__k">Category</span>
+                                <span class="fm-stat__v">{{ (int) $sent['category_id'] }}</span>
+                            </div>
+                        @endif
+                        @if(isset($sent['price']))
+                            <div class="fm-stat">
+                                <span class="fm-stat__k">Price</span>
+                                <span class="fm-stat__v"><x-money :php="(float) $sent['price']" /></span>
+                            </div>
+                        @elseif(isset($sent['markup_percent']) || isset($sent['markup_fixed']))
+                            <div class="fm-stat">
+                                <span class="fm-stat__k">Rule</span>
+                                <span class="fm-stat__v">{{ \App\Support\MarkupWords::of((float) ($sent['markup_percent'] ?? 0), (float) ($sent['markup_fixed'] ?? 0)) }}</span>
+                            </div>
+                        @endif
+                    </div>
+                </section>
+                @endif
+            </x-slot:rail>
+        </x-channel.listing-body>
     </form>
 
     @include('partials.channel-discount-forms', $discount)
