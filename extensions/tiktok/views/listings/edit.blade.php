@@ -186,7 +186,7 @@
                     <div class="fm-section__head"><h2 class="fm-section__title">Content on this channel <x-ui.hint label="About the content">A filled field is this listing's own wording and follows nobody. An empty field follows the catalog product, shown greyed as the placeholder. Clearing a field returns it to the catalog. Nothing here ever edits the catalog product itself.</x-ui.hint></h2></div>
                     <div class="fm-fields">
                         <x-ui.field label="Title" for="tl-title" name="title" wide>
-                            <x-ui.input id="tl-title" name="title" :value="old('title', $listing->title ?? '')" :placeholder="$product->name" maxlength="255" :disabled="!$canManage" />
+                            <x-ui.input id="tl-title" name="title" :value="old('title', \App\Integrations\Listings\ListingContent::editable($listing->title ?? null, (string) $product->name))" maxlength="255" :disabled="!$canManage" />
                         </x-ui.field>
                         @include('partials.channel-description-pick', [
                             'id' => 'tl-prefix', 'label' => 'Prefix description', 'name' => 'description_prefix_id',
@@ -194,7 +194,7 @@
                             'options' => $descriptionTemplates, 'canManage' => $canManage,
                         ])
                         <x-ui.field label="Description" for="tl-description" name="description" wide>
-                            <x-ui.textarea id="tl-description" name="description" rows="6" :placeholder="\Illuminate\Support\Str::limit($coreDescription, 300)" :disabled="!$canManage">{{ old('description', $listing->description ?? '') }}</x-ui.textarea>
+                            <x-ui.textarea id="tl-description" name="description" rows="6" :disabled="!$canManage">{{ old('description', \App\Integrations\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription)) }}</x-ui.textarea>
                         </x-ui.field>
                         @include('partials.channel-description-pick', [
                             'id' => 'tl-suffix', 'label' => 'Suffix description', 'name' => 'description_suffix_id',

@@ -739,6 +739,7 @@ class VentaListingController extends Controller
     {
         $setting = VentaSetting::findOrFail($store);
         abort_unless((bool) VentaProductPush::for($setting)->product($productId), 404);
+        $coreWords = \App\Support\Catalog\CoreWords::of($productId);
 
         $data = $request->validate([
             'markup_percent' => 'nullable|numeric|min:-100|max:1000',
@@ -761,10 +762,13 @@ class VentaListingController extends Controller
             [
                 'markup_percent' => $blank($data['markup_percent'] ?? null),
                 'markup_fixed' => $blank($data['markup_fixed'] ?? null),
-                'name' => $blank($data['name'] ?? null),
+                /* The Content boxes are pre-filled with the catalog's words
+                 * (the owner, 2026-09-07); text still equal to them is stored as
+                 * null, so pre-filling never freezes a listing into a copy. */
+                'name' => \App\Integrations\Listings\ListingContent::overrideOrNull($data['name'] ?? null, $coreWords['title']),
                 'description_prefix_id' => ((int) ($data['description_prefix_id'] ?? 0)) ?: null,
                 'description_suffix_id' => ((int) ($data['description_suffix_id'] ?? 0)) ?: null,
-                'description' => $blank($data['description'] ?? null),
+                'description' => \App\Integrations\Listings\ListingContent::overrideOrNull($data['description'] ?? null, $coreWords['description']),
                 'meta_title' => $blank($data['meta_title'] ?? null),
                 'meta_description' => $blank($data['meta_description'] ?? null),
             ]

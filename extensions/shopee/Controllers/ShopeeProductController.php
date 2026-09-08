@@ -2550,6 +2550,8 @@ class ShopeeProductController extends Controller
     {
         $pfx = (string) config('catalog.prefix');
         $exists = DB::table($pfx . 'product')->where('product_id', $productId)->exists();
+        // The catalog's words, shaped exactly as the page pre-filled them.
+        $coreWords = \App\Support\Catalog\CoreWords::of($productId);
         if (!$exists) {
             abort(404, 'Product not found.');
         }
@@ -2598,8 +2600,13 @@ class ShopeeProductController extends Controller
                 'sale_percent' => $blank($data['sale_percent'] ?? null),
                 'sale_starts_at' => ($data['sale_percent'] ?? null) !== null ? ($data['sale_starts_at'] ?? null) : null,
                 'sale_ends_at' => ($data['sale_percent'] ?? null) !== null ? ($data['sale_ends_at'] ?? null) : null,
-                'item_name' => $blank($data['item_name'] ?? null),
-                'description' => $blank($data['description'] ?? null),
+                /* The Content boxes are pre-filled with the catalog's words so
+                 * a few can be changed without retyping the rest (the owner,
+                 * 2026-09-07). Text still equal to the catalog's is stored as
+                 * null, which is what "follow the catalog" is, so pre-filling
+                 * never freezes a listing into a copy. */
+                'item_name' => \App\Integrations\Listings\ListingContent::overrideOrNull($data['item_name'] ?? null, $coreWords['title']),
+                'description' => \App\Integrations\Listings\ListingContent::overrideOrNull($data['description'] ?? null, $coreWords['description']),
                 'weight' => $blank($data['weight'] ?? null),
                 'package_length' => $blank($data['package_length'] ?? null),
                 'package_width' => $blank($data['package_width'] ?? null),

@@ -2470,10 +2470,14 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         }
 
         $blank = fn ($v) => ($v === null || trim((string) $v) === '') ? null : (string) $v;
-        $listing->item_name = $blank($data['item_name'] ?? null);
+        /* The Content boxes are pre-filled with the catalog's words (the owner,
+         * 2026-09-07); text still equal to them is stored as null, so
+         * pre-filling never freezes a listing into a copy. */
+        $coreWords = \App\Support\Catalog\CoreWords::of((int) $listing->product_id);
+        $listing->item_name = \App\Integrations\Listings\ListingContent::overrideOrNull($data['item_name'] ?? null, $coreWords['title']);
+        $listing->description = \App\Integrations\Listings\ListingContent::overrideOrNull($data['description'] ?? null, $coreWords['description']);
         $listing->description_prefix_id = ((int) ($data['description_prefix_id'] ?? 0)) ?: null;
         $listing->description_suffix_id = ((int) ($data['description_suffix_id'] ?? 0)) ?: null;
-        $listing->description = $blank($data['description'] ?? null);
         $listing->primary_category_id = $data['primary_category_id'] ?? null;
         $listing->brand_id = $data['brand_id'] ?? null;
         $listing->brand_name_override = $noBrand ? 'No Brand' : null;

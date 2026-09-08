@@ -322,8 +322,7 @@
                     <div class="fm-fields">
                         <x-ui.field label="Title" for="lz-item-name" name="item_name" wide>
                             <x-ui.input id="lz-item-name" name="item_name" maxlength="255"
-                                        :value="old('item_name', $listing->item_name ?? '')"
-                                        placeholder="{{ $productName }}" />
+                                        :value="old('item_name', \App\Integrations\Listings\ListingContent::editable($listing->item_name ?? null, (string) $productName))" />
                         </x-ui.field>
                         @include('partials.channel-description-pick', [
                             'id' => 'lz-prefix', 'label' => 'Prefix description', 'name' => 'description_prefix_id',
@@ -331,8 +330,7 @@
                             'options' => $descriptionTemplates, 'canManage' => true,
                         ])
                         <x-ui.field label="Description" for="lz-description" name="description" wide>
-                            <x-ui.textarea id="lz-description" name="description" rows="6" maxlength="20000"
-                                           placeholder="{{ \Illuminate\Support\Str::limit($coreDescription, 400) }}">{{ old('description', $listing->description ?? '') }}</x-ui.textarea>
+                            <x-ui.textarea id="lz-description" name="description" rows="6" maxlength="20000">{{ old('description', \App\Integrations\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription)) }}</x-ui.textarea>
                         </x-ui.field>
                         @include('partials.channel-description-pick', [
                             'id' => 'lz-suffix', 'label' => 'Suffix description', 'name' => 'description_suffix_id',

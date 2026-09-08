@@ -152,6 +152,7 @@ class TikTokListingController extends Controller
     public function update(Request $request, int $productId)
     {
         $this->productOrFail($productId);
+        $coreWords = \App\Support\Catalog\CoreWords::of($productId);
 
         $data = $request->validate([
             'tiktok_category_id' => 'nullable|string|max:64|exists:tiktok_categories,id',
@@ -184,10 +185,13 @@ class TikTokListingController extends Controller
                 'brand_name' => $blank($data['brand_id'] ?? null) ? $blank($data['brand_name'] ?? null) : null,
                 'markup_percent' => $blank($data['markup_percent'] ?? null),
                 'markup_fixed' => $blank($data['markup_fixed'] ?? null),
-                'title' => $blank($data['title'] ?? null),
+                /* The Content boxes are pre-filled with the catalog's words
+                 * (the owner, 2026-09-07); text still equal to them is stored as
+                 * null, so pre-filling never freezes a listing into a copy. */
+                'title' => \App\Integrations\Listings\ListingContent::overrideOrNull($data['title'] ?? null, $coreWords['title']),
                 'description_prefix_id' => ((int) ($data['description_prefix_id'] ?? 0)) ?: null,
                 'description_suffix_id' => ((int) ($data['description_suffix_id'] ?? 0)) ?: null,
-                'description' => $blank($data['description'] ?? null),
+                'description' => \App\Integrations\Listings\ListingContent::overrideOrNull($data['description'] ?? null, $coreWords['description']),
                 'attribute_values' => array_filter(
                     array_map(fn ($v) => trim((string) $v), $data['attributes'] ?? []),
                     fn ($v) => $v !== ''

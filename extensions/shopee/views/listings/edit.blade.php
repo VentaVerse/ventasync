@@ -350,8 +350,7 @@
                     <div class="fm-fields">
                         <x-ui.field label="Title" for="sl-name" name="item_name" wide>
                             <x-ui.input id="sl-name" name="item_name" maxlength="255"
-                                        :value="old('item_name', $listing->item_name ?? '')"
-                                        placeholder="{{ $product->name }}"
+                                        :value="old('item_name', \App\Integrations\Listings\ListingContent::editable($listing->item_name ?? null, (string) $product->name))"
                                         :disabled="!$canManage" />
                             @if($nameDiverges)
                                 <div class="fm-hint">The catalog now says "{{ $nameDiverges }}". Clearing this field follows it again; keeping your wording is fine too.</div>
@@ -364,8 +363,7 @@
                         ])
                         <x-ui.field label="Description" for="sl-description" name="description" wide>
                             <x-ui.textarea id="sl-description" name="description" rows="6" maxlength="5000"
-                                           placeholder="{{ \Illuminate\Support\Str::limit($coreDescription, 400) }}"
-                                           :disabled="!$canManage">{{ old('description', $listing->description ?? '') }}</x-ui.textarea>
+                                           :disabled="!$canManage">{{ old('description', \App\Integrations\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription)) }}</x-ui.textarea>
                             @if($descriptionDiverges)
                                 <div class="fm-hint">The catalog's description now differs from this listing's own. Clearing this field follows the catalog again; keeping your wording is fine too.</div>
                             @endif

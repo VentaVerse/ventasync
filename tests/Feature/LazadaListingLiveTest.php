@@ -156,8 +156,10 @@ class LazadaListingLiveTest extends TestCase
 
         $page = $this->actingAs($this->manager())->get(route('ext.lazada.products.edit', $productId))->assertOk();
         $page->assertSee('Content on this channel');
-        // Empty: the catalog's name is the placeholder the field follows.
-        $page->assertSee('placeholder="Catalog name"', false);
+        /* The box is FILLED with the catalog's words now, not shown as a
+           greyed placeholder (the owner, 2026-09-07), so a few words can be
+           changed without retyping the rest. */
+        $page->assertSee('value="Catalog name"', false);
 
         $this->actingAs($this->manager())
             ->put(route('ext.lazada.products.update', $productId), [
@@ -182,6 +184,15 @@ class LazadaListingLiveTest extends TestCase
         $listing->refresh();
         $this->assertNull($listing->item_name);
         $this->assertNull($listing->description);
+
+        /* And saving the pre-filled box UNCHANGED keeps it following, rather
+           than freezing the catalog's words onto the listing as a copy. */
+        $this->actingAs($this->manager())
+            ->put(route('ext.lazada.products.update', $productId), [
+                'item_name' => 'Catalog name', 'description' => '',
+                'primary_category_id' => 300400, 'brand_id' => 5150,
+            ])->assertSessionHasNoErrors();
+        $this->assertNull($listing->fresh()->item_name, 'unchanged text is not an override');
     }
 
     /**

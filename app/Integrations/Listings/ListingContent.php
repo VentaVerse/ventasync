@@ -90,6 +90,30 @@ class ListingContent
         return ($value === null || (int) $value <= 0) ? null : (int) $value;
     }
 
+    /**
+     * What to SAVE for a field the operator edited (the owner, 2026-09-07).
+     *
+     * The box is pre-filled with the catalog's words so a few of them can be
+     * changed without retyping the rest. That must not turn every listing
+     * into a frozen copy: text that still matches the catalog is stored as
+     * null, which is what "follow the catalog" is. Only a real edit is kept.
+     */
+    public static function overrideOrNull(?string $submitted, string $core): ?string
+    {
+        $submitted = trim((string) $submitted);
+        if ($submitted === '' || $submitted === trim($core)) {
+            return null;
+        }
+
+        return $submitted;
+    }
+
+    /** What to SHOW in the box: the listing's own words, else the catalog's. */
+    public static function editable(?string $own, string $core): string
+    {
+        return ($own !== null && trim($own) !== '') ? $own : $core;
+    }
+
     /** A blank override is not an override. */
     private static function pick(?string $own, string $core): string
     {
