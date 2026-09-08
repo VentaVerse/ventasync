@@ -65,6 +65,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         $this->commands([
             \Extensions\shopee\Commands\ShopeePushStock::class,
             \Extensions\shopee\Commands\ShopeePushPrice::class,
+            \Extensions\shopee\Commands\ShopeeFindDuplicates::class,
             \Extensions\shopee\Commands\ShopeeRefreshListingStatus::class,
             \Extensions\shopee\Commands\ShopeeRefreshToken::class,
             \Extensions\shopee\Commands\ShopeeSyncOrders::class,
