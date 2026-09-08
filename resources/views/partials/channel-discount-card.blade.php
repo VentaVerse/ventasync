@@ -11,6 +11,11 @@
     and end forms live outside it (nested forms are illegal HTML); see
     channel-discount-forms, which takes the same $discount array.
 
+    A section, like every other panel on a listing page (the owner,
+    2026-09-08). It was an .fm-card, the lighter container meant for the
+    inside of a section, and standing beside real sections it read as a
+    fragment of the one above it.
+
     Expected keys of $discount:
       channel        'Shopee' | 'Lazada' | 'TikTok Shop'
       prefix         id prefix: 'sl' | 'lz' | 'tt'
@@ -61,7 +66,7 @@
      turns into "Unsaved: 15% off, Aug 26 10:00 to Sep 2 23:59. Save,
      then push." the moment a field differs from what is saved, so the
      round trip to Save is never a mystery. --}}
-<div class="fm-card"
+<section class="fm-section"
      x-data="{
         pct: @js((string) ($inputPct ?? '')),
         from: @js((string) ($inputFrom ?? '')),
@@ -77,51 +82,54 @@
             return 'Unsaved: ' + this.pct + '% off, ' + this.when(this.from) + ' to ' + this.when(this.to) + (this.ridesPush ? '. Save; it goes up with the next push.' : '. Save, then push.');
         }
      }">
-    <div class="fm-card__head"><h2 class="fm-card__title">Discount</h2></div>
-    <div class="fm-card__body">
-        <p class="fm-section__note">Percent off the listed price{{ $ridesPush ? ', with an optional window' : ', for a window' }}.{{ $note !== '' ? ' ' . $note : '' }} Leave the percent empty for no discount.</p>
-        <div class="fm-fields fm-fields--3">
-            <x-ui.field label="Percent off" for="{{ $prefix }}-sale-percent" name="sale_percent">
-                <x-ui.input id="{{ $prefix }}-sale-percent" name="sale_percent" type="number" :step="$step" min="1" max="99"
-                            :value="$inputPct" x-model="pct" :disabled="!$canManage" />
-            </x-ui.field>
-            <x-ui.field label="From" for="{{ $prefix }}-sale-from" name="sale_starts_at">
-                <x-ui.input id="{{ $prefix }}-sale-from" name="sale_starts_at" type="datetime-local" :value="$inputFrom" x-model="from" :disabled="!$canManage" />
-            </x-ui.field>
-            <x-ui.field label="To" for="{{ $prefix }}-sale-to" name="sale_ends_at">
-                <x-ui.input id="{{ $prefix }}-sale-to" name="sale_ends_at" type="datetime-local" :value="$inputTo" :min="$inputFrom" x-model="to" :disabled="!$canManage" />
-            </x-ui.field>
+    {{-- What the card is stays in a tooltip, not in a paragraph above the
+         fields: an explanation under a control is a hint here (the owner), and
+         in a 320px rail a four-line paragraph is most of the card. --}}
+    <div class="fm-section__head">
+        <h2 class="fm-section__title">Discount</h2>
+        <x-ui.hint label="About the discount">Percent off the listed price{{ $ridesPush ? ', with an optional window' : ', for a window' }}.{{ $note !== '' ? ' ' . $note : '' }} Leave the percent empty for no discount.</x-ui.hint>
+    </div>
+    <div class="fm-fields fm-fields--3">
+        <x-ui.field label="Percent off" for="{{ $prefix }}-sale-percent" name="sale_percent">
+            <x-ui.input id="{{ $prefix }}-sale-percent" name="sale_percent" type="number" :step="$step" min="1" max="99"
+                        :value="$inputPct" x-model="pct" :disabled="!$canManage" />
+        </x-ui.field>
+        <x-ui.field label="From" for="{{ $prefix }}-sale-from" name="sale_starts_at">
+            <x-ui.input id="{{ $prefix }}-sale-from" name="sale_starts_at" type="datetime-local" :value="$inputFrom" x-model="from" :disabled="!$canManage" />
+        </x-ui.field>
+        <x-ui.field label="To" for="{{ $prefix }}-sale-to" name="sale_ends_at">
+            <x-ui.input id="{{ $prefix }}-sale-to" name="sale_ends_at" type="datetime-local" :value="$inputTo" :min="$inputFrom" x-model="to" :disabled="!$canManage" />
+        </x-ui.field>
+    </div>
+    <div class="fm-stats">
+        <div class="fm-stat">
+            <span class="fm-stat__k">Status</span>
+            <span class="fm-stat__v" x-show="!dirty">{{ $stateWords }}</span>
+            <span class="fm-stat__v" x-show="dirty" x-cloak x-text="words"></span>
         </div>
-        <div class="fm-stats">
+        @if($hasRule && $salePreview !== null)
             <div class="fm-stat">
-                <span class="fm-stat__k">Status</span>
-                <span class="fm-stat__v" x-show="!dirty">{{ $stateWords }}</span>
-                <span class="fm-stat__v" x-show="dirty" x-cloak x-text="words"></span>
+                <span class="fm-stat__k">Sale price</span>
+                <span class="fm-stat__v"><x-money :php="$salePreview" /></span>
             </div>
-            @if($hasRule && $salePreview !== null)
-                <div class="fm-stat">
-                    <span class="fm-stat__k">Sale price</span>
-                    <span class="fm-stat__v"><x-money :php="$salePreview" /></span>
-                </div>
-            @endif
-        </div>
-        @if($ridesPush)
-            {{-- No verb of its own: the rule rides Save and the next push. --}}
-        @elseif($canManage && $onMarketplace)
-            <div class="cc-head-actions">
-                <x-ui.button type="submit" form="{{ $prefix }}-discount-push" :disabled="!$canPush"
-                             data-confirm-tone="primary" data-confirm-verb="Push discount">Push discount to {{ $channel }}</x-ui.button>
-                @if($canEnd)
-                    <x-ui.button type="submit" form="{{ $prefix }}-discount-end" data-confirm-verb="End discount">End discount now</x-ui.button>
-                @endif
-            </div>
-            @if($liveError !== null)
-                <p class="fm-section__note">Push waits until {{ $channel }} answers; see the live section above.</p>
-            @elseif(!$hasRule)
-                <p class="fm-section__note">Set a percent, a start and an end, then Save. Push turns on once the rule is saved.</p>
-            @endif
-        @elseif(!$onMarketplace && !$ridesPush)
-            <p class="fm-section__note">The discount joins the live listing; push the product to {{ $channel }} first.</p>
         @endif
     </div>
-</div>
+    @if($ridesPush)
+        {{-- No verb of its own: the rule rides Save and the next push. --}}
+    @elseif($canManage && $onMarketplace)
+        <div class="cc-head-actions">
+            <x-ui.button type="submit" form="{{ $prefix }}-discount-push" :disabled="!$canPush"
+                         data-confirm-tone="primary" data-confirm-verb="Push discount">Push discount to {{ $channel }}</x-ui.button>
+            @if($canEnd)
+                <x-ui.button type="submit" form="{{ $prefix }}-discount-end" data-confirm-verb="End discount">End discount now</x-ui.button>
+            @endif
+        </div>
+        @if($liveError !== null)
+            <p class="fm-section__note">Push waits until {{ $channel }} answers; see the live section above.</p>
+        @elseif(!$hasRule)
+            <p class="fm-section__note">Set a percent, a start and an end, then Save. Push turns on once the rule is saved.</p>
+        @endif
+    @elseif(!$onMarketplace && !$ridesPush)
+        <p class="fm-section__note">The discount joins the live listing; push the product to {{ $channel }} first.</p>
+    @endif
+</section>

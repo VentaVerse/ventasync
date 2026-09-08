@@ -195,7 +195,7 @@ class ShopeeListingStateTest extends TestCase
         }
         $product = \Illuminate\Support\Facades\DB::table($pfx . 'product')->where('product_id', $pid)->first();
 
-        $paths = app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class)->catalogImagePaths($pfx, $product);
+        $paths = app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class)->catalogImagePaths($product);
 
         $this->assertCount(9, $paths, 'Shopee refuses more than nine');
         $this->assertSame('catalog/main.png', $paths[0], 'the main image leads');

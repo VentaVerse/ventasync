@@ -22,7 +22,7 @@ class ShopeeListing extends Model
         'shopee_category_id', 'shopee_brand_id', 'logistic_ids',
         'markup_percent', 'markup_fixed',
         'sale_percent', 'sale_starts_at', 'sale_ends_at', 'shopee_discount_id',
-        'item_name', 'description', 'attribute_values', 'weight',
+        'item_name', 'description', 'attribute_values', 'image_order', 'weight',
         'package_length', 'package_width', 'package_height',
         'last_pushed_at', 'last_push_source', 'last_push_settings', 'last_checked_at',
         'last_push_error', 'last_push_failed_at',
@@ -31,6 +31,7 @@ class ShopeeListing extends Model
     protected $casts = [
         'logistic_ids' => 'array',
         'attribute_values' => 'array',
+        'image_order' => 'array',
         'last_push_settings' => 'array',
         'last_pushed_at' => 'datetime',
         'last_checked_at' => 'datetime',

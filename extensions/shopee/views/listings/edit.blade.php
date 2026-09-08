@@ -184,7 +184,6 @@
                 </div>
             @endif
             @if($live)
-                <p class="fm-section__note">Fetched from Shopee as this page loaded.</p>
                 @if($staleSincePush)
                     <div class="fm-note fm-note--warn" role="status">
                         <div class="fm-note__body">The catalog product changed {{ $coreChangedAt->diffForHumans() }} - after the last push {{ $listing->last_pushed_at->diffForHumans() }}. Fields without their own wording follow the catalog automatically; Push update to Shopee sends the current state to the live listing.</div>
@@ -332,11 +331,15 @@
         </section>
     @endif
 
-    {{-- The record, in the one order every channel's listing page keeps
-         (the owner, 2026-09-07, draft B): the main column is everything you set,
-         Content, Category and brand, Category attributes, Price rule,
-         Discount, Images, then what only Shopee has; the rail only reports,
-         Product group and Last push. --}}
+    {{-- The record, in the one order this page keeps (the owner, 2026-09-07,
+         draft B, amended 2026-09-08): the main column is what the listing
+         SAYS - Content, Category and brand, Category attributes, Images,
+         then what only Shopee has. The rail is what it COSTS and what it
+         came from - Price rule, Discount, Product group, Last push.
+
+         Price rule and Discount moved to the rail on the owner's word; the
+         other four channels follow, and until they do the gap is written
+         into extensions/CHANNEL-CONTRACT.md. --}}
     <form id="listing-form" method="POST" action="{{ route('ext.shopee.listings.update', $product->product_id) }}">
         <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
         @csrf
@@ -468,60 +471,10 @@
                     </div>
                 </section>
 
-                <div class="fm-card">
-                    <div class="fm-card__head"><h2 class="fm-card__title">Price rule <x-ui.hint label="About the price rule">The Shopee price is never stored: it is the catalog price run through this rule at every push and price sync, so catalog price changes carry through on their own. Without a rule of its own the listing uses its group's.</x-ui.hint></h2></div>
-                    <div class="fm-card__body">
-                        <div class="fm-fields fm-fields--2">
-                            <x-ui.field label="Percent added" for="sl-markup-pct" name="markup_percent">
-                                <x-ui.input id="sl-markup-pct" name="markup_percent" type="number" step="0.01"
-                                            :value="old('markup_percent', $listing->markup_percent ?? '')"
-                                            placeholder="0"
-                                            :disabled="!$canManage" />
-                            </x-ui.field>
-                            <x-ui.field label="Fixed amount added" for="sl-markup-fixed" name="markup_fixed">
-                                <x-ui.input id="sl-markup-fixed" name="markup_fixed" type="number" step="0.01"
-                                            :value="old('markup_fixed', $listing->markup_fixed ?? '')"
-                                            placeholder="0"
-                                            :disabled="!$canManage" />
-                            </x-ui.field>
-                        </div>
-                        <div class="fm-stats">
-                            <div class="fm-stat">
-                                <span class="fm-stat__k">Catalog price</span>
-                                <span class="fm-stat__v"><x-money :php="$corePrice" /></span>
-                            </div>
-                            <div class="fm-stat">
-                                <span class="fm-stat__k">Price on Shopee after push</span>
-                                <span class="fm-stat__v"><x-money :php="$hasRule ? $nextPrice : $corePrice" /></span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                @php
-                    $discount = [
-                        'channel' => 'Shopee', 'prefix' => 'sl',
-                        'canManage' => $canManage, 'onMarketplace' => (bool) $link,
-                        'step' => '0.01', 'note' => 'Shopee needs the start at least an hour ahead.',
-                        'savedPct' => $listing?->sale_percent,
-                        'savedFrom' => $listing?->sale_starts_at, 'savedTo' => $listing?->sale_ends_at,
-                        'salePreview' => ($listing?->sale_percent ?? null) !== null
-                            ? max(0.01, round(($hasRule ? $nextPrice : $corePrice) * (1 - (float) $listing->sale_percent / 100), 2))
-                            : null,
-                        'remoteId' => $listing?->shopee_discount_id ? (string) $listing->shopee_discount_id : null,
-                        'tracked' => true, 'endClearsRule' => false,
-                        'liveError' => $link ? ($liveError ?? null) : null,
-                        'action' => route('ext.shopee.listings.push_discount', $product->product_id),
-                    ];
-                @endphp
-                {{-- The shared Discount card (#146): the rule rides Save,
-                     the push is its own confirmed act. Partial in
-                     resources/views/partials/channel-discount-card. --}}
-                @include('partials.channel-discount-card', $discount)
-
                 @include('partials.channel-images-card', [
-                    'storeName' => 'Shopee', 'images' => $images,
+                    'storeName' => 'Shopee', 'tiles' => $tiles, 'catalogTiles' => $catalogTiles,
                     'limit' => \Extensions\shopee\Services\Shopee\ShopeeItemCreate::MAX_IMAGES, 'fetchesOverWeb' => false,
+                    'editable' => true, 'canManage' => $canManage, 'browseUrl' => $browseUrl,
                 ])
 
                 {{-- What only Shopee has, in one place at the end of the main
@@ -600,57 +553,104 @@
 
             <div class="fm-col fm-col--side">
 
+                <section class="fm-section">
+                    <div class="fm-section__head"><h2 class="fm-section__title">Price rule <x-ui.hint label="About the price rule">The Shopee price is never stored: it is the catalog price run through this rule at every push and price sync, so catalog price changes carry through on their own. Without a rule of its own the listing uses its group's.</x-ui.hint></h2></div>
+                    <div class="fm-fields fm-fields--2">
+                        <x-ui.field label="Percent added" for="sl-markup-pct" name="markup_percent">
+                            <x-ui.input id="sl-markup-pct" name="markup_percent" type="number" step="0.01"
+                                        :value="old('markup_percent', $listing->markup_percent ?? '')"
+                                        placeholder="0"
+                                        :disabled="!$canManage" />
+                        </x-ui.field>
+                        <x-ui.field label="Fixed amount added" for="sl-markup-fixed" name="markup_fixed">
+                            <x-ui.input id="sl-markup-fixed" name="markup_fixed" type="number" step="0.01"
+                                        :value="old('markup_fixed', $listing->markup_fixed ?? '')"
+                                        placeholder="0"
+                                        :disabled="!$canManage" />
+                        </x-ui.field>
+                    </div>
+                    <div class="fm-stats">
+                        <div class="fm-stat">
+                            <span class="fm-stat__k">Catalog price</span>
+                            <span class="fm-stat__v"><x-money :php="$corePrice" /></span>
+                        </div>
+                        <div class="fm-stat">
+                            <span class="fm-stat__k">Price on Shopee after push</span>
+                            <span class="fm-stat__v"><x-money :php="$hasRule ? $nextPrice : $corePrice" /></span>
+                        </div>
+                    </div>
+                </section>
+
+                @php
+                    $discount = [
+                        'channel' => 'Shopee', 'prefix' => 'sl',
+                        'canManage' => $canManage, 'onMarketplace' => (bool) $link,
+                        'step' => '0.01', 'note' => 'Shopee needs the start at least an hour ahead.',
+                        'savedPct' => $listing?->sale_percent,
+                        'savedFrom' => $listing?->sale_starts_at, 'savedTo' => $listing?->sale_ends_at,
+                        'salePreview' => ($listing?->sale_percent ?? null) !== null
+                            ? max(0.01, round(($hasRule ? $nextPrice : $corePrice) * (1 - (float) $listing->sale_percent / 100), 2))
+                            : null,
+                        'remoteId' => $listing?->shopee_discount_id ? (string) $listing->shopee_discount_id : null,
+                        'tracked' => true, 'endClearsRule' => false,
+                        'liveError' => $link ? ($liveError ?? null) : null,
+                        'action' => route('ext.shopee.listings.push_discount', $product->product_id),
+                    ];
+                @endphp
+                {{-- The shared Discount card (#146): the rule rides Save,
+                     the push is its own confirmed act. Partial in
+                     resources/views/partials/channel-discount-card. --}}
+                @include('partials.channel-discount-card', $discount)
+
                 @include('partials.channel-group-card', [
                     'storeName' => 'Shopee', 'group' => $groupCard,
                     'groupsUrl' => route('ext.shopee.product-groups.index'),
                 ])
 
-                <div class="fm-card">
-                    <div class="fm-card__head"><h2 class="fm-card__title">Last push</h2></div>
-                    <div class="fm-card__body">
-                        @if($listing && $listing->last_pushed_at)
-                            @php
-                                $source = (string) $listing->last_push_source;
-                                $sourceLabel = match (true) {
-                                    $source === 'form' => 'the push form',
-                                    $source === 'listing' => 'this listing',
-                                    str_starts_with($source, 'group:') => 'the ' . substr($source, 6) . ' group',
-                                    default => $source,
-                                };
-                                $sent = $listing->last_push_settings ?? [];
-                            @endphp
-                            <div class="fm-stats">
-                                <div class="fm-stat">
-                                    <span class="fm-stat__k">When</span>
-                                    <span class="fm-stat__v">{{ $listing->last_pushed_at->diffForHumans() }}</span>
-                                </div>
-                                <div class="fm-stat">
-                                    <span class="fm-stat__k">Settings from</span>
-                                    <span class="fm-stat__v">{{ $sourceLabel }}</span>
-                                </div>
-                                @if(!empty($sent['category_id']))
-                                    <div class="fm-stat">
-                                        <span class="fm-stat__k">Category sent</span>
-                                        <span class="fm-stat__v">{{ (int) $sent['category_id'] }}</span>
-                                    </div>
-                                @endif
-                                @if(isset($sent['price']))
-                                    <div class="fm-stat">
-                                        <span class="fm-stat__k">Price sent</span>
-                                        <span class="fm-stat__v"><x-money :php="(float) $sent['price']" /></span>
-                                    </div>
-                                @elseif(isset($sent['markup_percent']) || isset($sent['markup_fixed']))
-                                    <div class="fm-stat">
-                                        <span class="fm-stat__k">Rule sent</span>
-                                        <span class="fm-stat__v">{{ (float) ($sent['markup_percent'] ?? 0) }}% + {{ (float) ($sent['markup_fixed'] ?? 0) }}</span>
-                                    </div>
-                                @endif
+                <section class="fm-section">
+                    <div class="fm-section__head"><h2 class="fm-section__title">Last push</h2></div>
+                    @if($listing && $listing->last_pushed_at)
+                        @php
+                            $source = (string) $listing->last_push_source;
+                            $sourceLabel = match (true) {
+                                $source === 'form' => 'the push form',
+                                $source === 'listing' => 'this listing',
+                                str_starts_with($source, 'group:') => 'the ' . substr($source, 6) . ' group',
+                                default => $source,
+                            };
+                            $sent = $listing->last_push_settings ?? [];
+                        @endphp
+                        <div class="fm-stats">
+                            <div class="fm-stat">
+                                <span class="fm-stat__k">When</span>
+                                <span class="fm-stat__v">{{ $listing->last_pushed_at->diffForHumans() }}</span>
                             </div>
-                        @else
-                            <p class="fm-section__note">Never pushed from VentaSync.</p>
-                        @endif
-                    </div>
-                </div>
+                            <div class="fm-stat">
+                                <span class="fm-stat__k">Settings from</span>
+                                <span class="fm-stat__v">{{ $sourceLabel }}</span>
+                            </div>
+                            @if(!empty($sent['category_id']))
+                                <div class="fm-stat">
+                                    <span class="fm-stat__k">Category sent</span>
+                                    <span class="fm-stat__v">{{ (int) $sent['category_id'] }}</span>
+                                </div>
+                            @endif
+                            @if(isset($sent['price']))
+                                <div class="fm-stat">
+                                    <span class="fm-stat__k">Price sent</span>
+                                    <span class="fm-stat__v"><x-money :php="(float) $sent['price']" /></span>
+                                </div>
+                            @elseif(isset($sent['markup_percent']) || isset($sent['markup_fixed']))
+                                <div class="fm-stat">
+                                    <span class="fm-stat__k">Rule sent</span>
+                                    <span class="fm-stat__v">{{ (float) ($sent['markup_percent'] ?? 0) }}% + {{ (float) ($sent['markup_fixed'] ?? 0) }}</span>
+                                </div>
+                            @endif
+                        </div>
+                    @else
+                        <p class="fm-section__note">Never pushed from VentaSync.</p>
+                    @endif
+                </section>
 
             </div>
         </div>
@@ -688,5 +688,9 @@
 @endif
 
 @include('partials.channel-description-pick-modal', ['storeUrl' => route('ext.shopee.description-templates.store', ['store' => $storeId])])
+
+@if($canManage)
+    @include('partials.image-library-pick', ['browseUrl' => $browseUrl])
+@endif
 
 @endsection

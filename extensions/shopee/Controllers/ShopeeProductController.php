@@ -827,8 +827,10 @@ class ShopeeProductController extends Controller
         $courierNames = !empty($listing?->logistic_ids)
             ? \Extensions\shopee\Models\ShopeeLogistic::query()->whereIn('logistics_channel_id', $listing->logistic_ids)->pluck('logistics_channel_name')->all()
             : [];
-        $imageCount = (int) DB::table($pfx . 'product_image')->where('product_id', $productId)->count()
-            + (trim((string) $product->image) !== '' ? 1 : 0);
+        /* What THIS listing sends, not what the catalog holds: a listing
+           with its own arrangement sends its own pictures, and a review
+           that counted the catalog's would promise the wrong number. */
+        $imageCount = count(\App\Support\Catalog\ProductImages::paths($productId, $listing?->image_order));
         $variationCount = DB::table('product_option_combinations')->where('product_id', $productId)->count();
 
         $corePrice = (float) $product->price;
@@ -965,7 +967,7 @@ class ShopeeProductController extends Controller
 
         // Step 1: Upload images
         $create = app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class);
-        $imagePaths = $create->catalogImagePaths($pfx, $product);
+        $imagePaths = $create->catalogImagePaths($product, $listing);
 
         $up = $create->uploadImages($client, $auth, $imagePaths);
         if ($up['error'] !== null) {
@@ -1055,7 +1057,7 @@ class ShopeeProductController extends Controller
             $flash .= '. ' . $rode['models'] . ' variations went with it.';
         }
         // More images than Shopee takes is not an error: say what went (the owner, 2026-09-05).
-        if ($imageNote = $create->imageNote($pfx, $product)) {
+        if ($imageNote = $create->imageNote($product, $listing)) {
             $flash .= ' ' . $imageNote;
         }
 
@@ -2384,6 +2386,14 @@ class ShopeeProductController extends Controller
                 ->get(['brand_id', 'name'])
             : collect();
 
+        /* old('image_order') is a JSON string, not an array: it comes back
+           from a refused save exactly as the hidden input submitted it. */
+        $submittedOrder = null;
+        if (old('image_order') !== null && trim((string) old('image_order')) !== '') {
+            $decoded = json_decode((string) old('image_order'), true);
+            $submittedOrder = is_array($decoded) ? $decoded : null;
+        }
+
         return view('ext-shopee::listings.edit', [
             'listingState' => $listingState,
             'product' => $product,
@@ -2400,7 +2410,13 @@ class ShopeeProductController extends Controller
             'savedAttributes' => $savedAttributes,
             'readinessMissing' => $readiness['missing'],
             'logistics' => $this->fetchLogistics(),
-            'images' => \App\Support\Catalog\ProductImages::urls($productId),
+            /* The pictures this listing sends, in its own order when it
+               has one (the owner, 2026-09-08). A refused save hands back what
+               was arranged rather than what is stored, the same way the
+               Content fields do. */
+            'tiles' => \App\Support\Catalog\ProductImages::tiles($productId, $submittedOrder ?? ($listing->image_order ?? null)),
+            'catalogTiles' => \App\Support\Catalog\ProductImages::tiles($productId),
+            'browseUrl' => route('products.images.browse'),
             'groupCard' => $this->groupCardFor($productId),
             'storeId' => (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0),
             'descriptionTemplates' => \App\Models\DescriptionTemplate::forStore('shopee', (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0)),
@@ -2576,7 +2592,28 @@ class ShopeeProductController extends Controller
             'package_height' => 'nullable|integer|min:1|max:1000000',
             'attributes' => 'nullable|array',
             'attributes.*' => 'nullable|string|max:500',
+            'image_order' => 'nullable|string|max:20000',
         ]);
+
+        /* The pictures this listing sends, in the order the card arranged
+         * them (the owner, 2026-09-08). One hidden input, JSON, holding the
+         * library paths. Empty is the Content model's empty: the listing
+         * follows the catalog product. So is a list that says exactly what
+         * the catalog already says, and so is a list of nothing - there is
+         * no such thing as a listing with no pictures, only a push that is
+         * refused for having none.
+         *
+         * Every path is checked against the library on disk before it is
+         * stored: a hidden input is client input, and this one ends up in
+         * a file read at push time. */
+        $imageOrder = null;
+        $submittedImages = json_decode((string) ($data['image_order'] ?? ''), true);
+        if (is_array($submittedImages)) {
+            $accepted = \App\Support\Catalog\ProductImages::acceptable($submittedImages);
+            if ($accepted !== [] && ! \App\Support\Catalog\ProductImages::followsCatalog($productId, $accepted)) {
+                $imageOrder = $accepted;
+            }
+        }
 
         /* Content fields are OVERRIDES: an emptied field returns to null,
          * which means "follows the catalog". That is the whole model -
@@ -2584,41 +2621,47 @@ class ShopeeProductController extends Controller
          * is how a divergence is deliberately ended. */
         $blank = fn ($v) => ($v === null || trim((string) $v) === '') ? null : $v;
 
-        ShopeeListing::query()->updateOrCreate(
-            ['product_id' => $productId],
-            [
-                'shopee_category_id' => $data['shopee_category_id'] ?? null,
-                'description_prefix_id' => ((int) ($data['description_prefix_id'] ?? 0)) ?: null,
-                'description_suffix_id' => ((int) ($data['description_suffix_id'] ?? 0)) ?: null,
-                'shopee_brand_id' => ((int) ($data['shopee_brand_id'] ?? 0)) > 0 ? (int) $data['shopee_brand_id'] : null,
-                'logistic_ids' => array_map('intval', $data['logistic_ids'] ?? []),
-                'markup_percent' => $blank($data['markup_percent'] ?? null),
-                'markup_fixed' => $blank($data['markup_fixed'] ?? null),
-                // The discount RULE (#146): percent off with a window;
-                // the promo price is computed at push time. Clearing the
-                // percent clears the rule.
-                'sale_percent' => $blank($data['sale_percent'] ?? null),
-                'sale_starts_at' => ($data['sale_percent'] ?? null) !== null ? ($data['sale_starts_at'] ?? null) : null,
-                'sale_ends_at' => ($data['sale_percent'] ?? null) !== null ? ($data['sale_ends_at'] ?? null) : null,
-                /* The Content boxes are pre-filled with the catalog's words so
-                 * a few can be changed without retyping the rest (the owner,
-                 * 2026-09-07). Text still equal to the catalog's is stored as
-                 * null, which is what "follow the catalog" is, so pre-filling
-                 * never freezes a listing into a copy. */
-                'item_name' => \App\Integrations\Listings\ListingContent::overrideOrNull($data['item_name'] ?? null, $coreWords['title']),
-                'description' => \App\Integrations\Listings\ListingContent::overrideOrNull($data['description'] ?? null, $coreWords['description']),
-                'weight' => $blank($data['weight'] ?? null),
-                'package_length' => $blank($data['package_length'] ?? null),
-                'package_width' => $blank($data['package_width'] ?? null),
-                'package_height' => $blank($data['package_height'] ?? null),
-                // Only answered attributes are kept; an emptied field is
-                // simply no longer an answer.
-                'attribute_values' => array_filter(
-                    array_map(fn ($v) => trim((string) $v), $data['attributes'] ?? []),
-                    fn ($v) => $v !== ''
-                ) ?: null,
-            ]
-        );
+        $fields = [
+            'shopee_category_id' => $data['shopee_category_id'] ?? null,
+            'description_prefix_id' => ((int) ($data['description_prefix_id'] ?? 0)) ?: null,
+            'description_suffix_id' => ((int) ($data['description_suffix_id'] ?? 0)) ?: null,
+            'shopee_brand_id' => ((int) ($data['shopee_brand_id'] ?? 0)) > 0 ? (int) $data['shopee_brand_id'] : null,
+            'logistic_ids' => array_map('intval', $data['logistic_ids'] ?? []),
+            'markup_percent' => $blank($data['markup_percent'] ?? null),
+            'markup_fixed' => $blank($data['markup_fixed'] ?? null),
+            // The discount RULE (#146): percent off with a window;
+            // the promo price is computed at push time. Clearing the
+            // percent clears the rule.
+            'sale_percent' => $blank($data['sale_percent'] ?? null),
+            'sale_starts_at' => ($data['sale_percent'] ?? null) !== null ? ($data['sale_starts_at'] ?? null) : null,
+            'sale_ends_at' => ($data['sale_percent'] ?? null) !== null ? ($data['sale_ends_at'] ?? null) : null,
+            /* The Content boxes are pre-filled with the catalog's words so
+             * a few can be changed without retyping the rest (the owner,
+             * 2026-09-07). Text still equal to the catalog's is stored as
+             * null, which is what "follow the catalog" is, so pre-filling
+             * never freezes a listing into a copy. */
+            'item_name' => \App\Integrations\Listings\ListingContent::overrideOrNull($data['item_name'] ?? null, $coreWords['title']),
+            'description' => \App\Integrations\Listings\ListingContent::overrideOrNull($data['description'] ?? null, $coreWords['description']),
+            'weight' => $blank($data['weight'] ?? null),
+            'package_length' => $blank($data['package_length'] ?? null),
+            'package_width' => $blank($data['package_width'] ?? null),
+            'package_height' => $blank($data['package_height'] ?? null),
+            // Only answered attributes are kept; an emptied field is
+            // simply no longer an answer.
+            'attribute_values' => array_filter(
+                array_map(fn ($v) => trim((string) $v), $data['attributes'] ?? []),
+                fn ($v) => $v !== ''
+            ) ?: null,
+        ];
+
+        /* Only a save that CARRIED the arrangement may change it. The input
+         * is invisible, so a caller that does not send it must not be read
+         * as one that cleared it. */
+        if ($request->has('image_order')) {
+            $fields['image_order'] = $imageOrder;
+        }
+
+        ShopeeListing::query()->updateOrCreate(['product_id' => $productId], $fields);
 
         /* Save and push (2026-09-03, the one-editor merge): the save half
          * has already landed, so a refusal below never loses the typing.

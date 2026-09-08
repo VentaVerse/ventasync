@@ -142,8 +142,10 @@ class LazadaAttributeAutoFillTest extends TestCase
         // plumbing key was never a question at all.
         $page->assertDontSee('name="attributes[color_family]"', false);
         $page->assertDontSee('__images__');
-        // The note tells the operator where the basics come from.
-        $page->assertSee('come from the catalog product');
+        /* And no paragraph explaining any of it: The owner removed that sentence
+           on 2026-09-08 ("remove this"). What a control is stays in its
+           tooltip; the sheet is a sheet of questions. */
+        $page->assertDontSee('come from the catalog product');
     }
 
     public function test_a_custom_value_someone_already_typed_stays_visible_and_wins(): void

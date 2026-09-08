@@ -1,35 +1,126 @@
 {{--
-    "Images that go up": the catalog product's images as the next push
+    "Images that go up": the pictures the next push sends, in the order it
     sends them, on every channel's listing page (the owner, 2026-09-07: one
-    card order on all five). Read-only; the images are the catalog's.
+    card order on all five).
+
+    Two cards in one, told apart by $editable:
+
+      read-only  the catalog product's images, main image first. What four
+                 of the five channels still show.
+      editable   the listing arranges its own order, drops what it does not
+                 want and adds from the image library (the owner, 2026-09-08).
+                 An untouched listing follows the catalog, exactly as an
+                 empty Content field does; Follow the catalog again returns
+                 it. Shopee first; the rest follow, see
+                 extensions/CHANNEL-CONTRACT.md.
 
     Expected keys:
       storeName      the channel or store's name, for the words
-      images         list<string>  public URLs, main image first
+      tiles          list<array{path: string, url: string}>  what goes up, in order.
+                     A channel that has not taken the arrangeable card yet may
+                     pass `images`, a plain list of URLs, instead; the read-only
+                     card needs nothing more.
       limit          ?int  how many the channel takes; null means all of them
       fetchesOverWeb bool  the store fetches them from this ERP's address (Venta, WooCommerce)
+      editable       bool  (optional) the card arranges the order
+      canManage      bool  (optional) required with $editable
+      catalogTiles   list<array{path,url}>  (optional) the catalog's own list, for the reset
+      browseUrl      string (optional) the image library's browse endpoint
 --}}
 @php
-    $imageCount = count($images);
+    $tiles = $tiles ?? array_map(fn ($url) => ['path' => '', 'url' => $url], $images ?? []);
+    $editable = ($editable ?? false) && ($canManage ?? false);
+    $imageCount = count($tiles);
     $sent = $limit !== null ? min($imageCount, (int) $limit) : $imageCount;
     // Built here rather than inline: a Blade directive glued to the word
     // before it is not a directive at all, it is printed.
-    $imageWords = $sent . ' ' . ($sent === 1 ? 'image goes' : 'images go') . ' up'
-        . ($sent < $imageCount ? ', the first ' . $sent . ' of ' . $imageCount : '') . '.';
+    $imageWords = $imageCount === 0
+        ? ($editable
+            ? 'Nothing goes up yet. Add a picture from the library, or put one on the catalog product.'
+            : 'The catalog product has no images, so none go up.')
+        : $sent . ' ' . ($sent === 1 ? 'image goes' : 'images go') . ' up'
+            . ($sent < $imageCount ? ', the first ' . $sent . ' of ' . $imageCount : '') . '.';
+
+    /* Built here for the same reason the sentence above is: a directive
+       glued to the word before it - @endif@if - is not a directive at
+       all, it is printed. */
+    $hintWords = [];
+    if ($editable) {
+        $hintWords[] = 'Drag a picture to move it; the first one is the cover.';
+    }
+    if ($limit !== null) {
+        $hintWords[] = $storeName . ' takes ' . (int) $limit . ' at most; the rest stay behind and the push says so.';
+    }
+    if ($fetchesOverWeb) {
+        $hintWords[] = $storeName . ' fetches them over the web from this ERP\'s address, so that address must be reachable from the store.';
+    }
+    $hintWords[] = $editable
+        ? 'An untouched listing follows the catalog product\'s own images.'
+        : 'Change the pictures on the catalog product.';
+
+    /* The input is filled by the server, not only by the script: a page
+       whose JavaScript never arrived would otherwise submit an empty
+       arrangement and quietly hand the listing back to the catalog. Empty
+       here means the same thing it means everywhere else - this listing
+       follows the catalog - so it is only filled when the arrangement
+       differs from the catalog's own. */
+    $ownPaths = array_column($tiles, 'path');
+    $arrangement = $editable && $ownPaths !== array_column($catalogTiles ?? [], 'path')
+        ? json_encode($ownPaths)
+        : '';
 @endphp
-<div class="fm-card">
-    <div class="fm-card__head"><h2 class="fm-card__title">Images that go up
-        <x-ui.hint label="About the images">The catalog product's images, main image first.@if($limit !== null) {{ $storeName }} takes {{ (int) $limit }} at most; the rest stay behind and the push says so.@endif @if($fetchesOverWeb) {{ $storeName }} fetches them over the web from this ERP's address, so that address must be reachable from the store.@endif Change the pictures on the catalog product.</x-ui.hint></h2></div>
-    <div class="fm-card__body">
-        @if($imageCount === 0)
-            <p class="fm-section__note">The catalog product has no images, so none go up.</p>
-        @else
-            <p class="fm-section__note">{{ $imageWords }}</p>
-            <ul class="lc-images">
-                @foreach($images as $i => $url)
-                    <li class="lc-images__item{{ $i >= $sent ? ' lc-images__item--held' : '' }}"><img src="{{ $url }}" alt="" loading="lazy"></li>
-                @endforeach
-            </ul>
+<section class="fm-section"
+         @if($editable)
+             data-listing-images
+             data-limit="{{ $limit !== null ? (int) $limit : '' }}"
+             data-browse-url="{{ $browseUrl }}"
+             data-catalog="{{ json_encode(array_values($catalogTiles ?? [])) }}"
+         @endif>
+    <div class="fm-section__head">
+        <h2 class="fm-section__title">Images that go up</h2>
+        <x-ui.hint label="About the images">{{ implode(' ', $hintWords) }}</x-ui.hint>
+        @if($editable)
+            <div class="fm-section__aside">
+                <x-ui.button type="button" size="sm" data-images-add>
+                    <x-ui.icon name="image" size="14" /> Add from library
+                </x-ui.button>
+                <x-ui.button type="button" size="sm" data-images-reset hidden>Follow the catalog</x-ui.button>
+            </div>
         @endif
     </div>
-</div>
+
+    <p class="fm-section__note" data-images-words>{{ $imageWords }}</p>
+
+    @if($editable)
+        <input type="hidden" name="image_order" value="{{ $arrangement }}" data-images-input>
+        <ul class="lc-images lc-images--arrange" data-images-list
+            aria-label="The pictures this listing sends, in order"
+            aria-describedby="lc-images-help">
+            @foreach($tiles as $i => $tile)
+                <li class="lc-images__item{{ $limit !== null && $i >= $sent ? ' lc-images__item--held' : '' }}"
+                    data-path="{{ $tile['path'] }}" tabindex="0"
+                    aria-label="Picture {{ $i + 1 }} of {{ $imageCount }}">
+                    <img src="{{ $tile['url'] }}" alt="" loading="lazy" draggable="false">
+                    <span class="lc-images__rank">{{ $i + 1 }}</span>
+                    <span class="lc-images__held">Held back</span>
+                    <button type="button" class="lc-images__drop" data-images-drop
+                            aria-label="Remove picture {{ $i + 1 }} from this listing">
+                        <x-ui.icon name="x" size="12" />
+                    </button>
+                </li>
+            @endforeach
+        </ul>
+        {{-- The keyboard route to the same arrangement, and the running
+             commentary a screen reader hears while it is used. Not a
+             paragraph on the page: an explanation under a control is a
+             tooltip here, and the pointer gesture is told by the cursor. --}}
+        <p class="x-sr" id="lc-images-help">Drag a picture to move it, or focus one, press the space bar, and use the arrow keys.</p>
+        <p class="x-sr" role="status" aria-live="polite" data-images-say></p>
+    @elseif($imageCount > 0)
+        <ul class="lc-images">
+            @foreach($tiles as $i => $tile)
+                <li class="lc-images__item{{ $limit !== null && $i >= $sent ? ' lc-images__item--held' : '' }}"><img src="{{ $tile['url'] }}" alt="" loading="lazy"></li>
+            @endforeach
+        </ul>
+    @endif
+</section>

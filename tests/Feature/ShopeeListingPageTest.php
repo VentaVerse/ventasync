@@ -219,6 +219,138 @@ class ShopeeListingPageTest extends TestCase
         $page->assertSee('1 courier');
     }
 
+    /**
+     * The listing arranges its own pictures (the owner, 2026-09-08). The rules
+     * are the Content fields' rules: an arrangement that says what the
+     * catalog already says is not an arrangement, and an emptied one goes
+     * back to following the catalog.
+     */
+    public function test_the_listing_keeps_its_own_arrangement_and_an_untouched_one_follows_the_catalog(): void
+    {
+        $productId = $this->seedProduct();
+        $pfx = (string) config('catalog.prefix');
+        $paths = $this->seedRealImages($productId, 3);
+        $user = $this->manager();
+
+        // Saving the catalog's own order back is not an arrangement.
+        $this->actingAs($user)->post(route('ext.shopee.listings.update', $productId), [
+            'shopee_category_id' => 100013, 'logistic_ids' => [8003],
+            'image_order' => json_encode($paths),
+        ]);
+        $listing = ShopeeListing::query()->where('product_id', $productId)->firstOrFail();
+        $this->assertNull($listing->image_order, 'The catalog\'s own order means: follows the catalog.');
+
+        // A different order is the listing's own, and the push reads it.
+        $reversed = array_reverse($paths);
+        $this->actingAs($user)->post(route('ext.shopee.listings.update', $productId), [
+            'shopee_category_id' => 100013, 'logistic_ids' => [8003],
+            'image_order' => json_encode($reversed),
+        ]);
+        $this->assertSame($reversed, $listing->fresh()->image_order);
+        $this->assertSame(
+            $reversed,
+            app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class)
+                ->catalogImagePaths((object) ['product_id' => $productId], $listing->fresh()),
+            'The push sends the arrangement, not the catalog order.'
+        );
+
+        // A save that does not carry the field at all leaves it alone: the
+        // input is invisible, so silence is not an instruction to clear it.
+        $this->actingAs($user)->post(route('ext.shopee.listings.update', $productId), [
+            'shopee_category_id' => 100013, 'logistic_ids' => [8003],
+        ]);
+        $this->assertSame($reversed, $listing->fresh()->image_order);
+
+        // And the page hands the arrangement back in the input, so a save
+        // from a page whose script never arrived keeps it too.
+        $this->actingAs($user)->get(route('ext.shopee.listings.edit', $productId))
+            ->assertSee('name="image_order" value="' . e(json_encode($reversed)), false);
+
+        // Emptying it returns the listing to the catalog, the way clearing
+        // a Content field does.
+        $this->actingAs($user)->post(route('ext.shopee.listings.update', $productId), [
+            'shopee_category_id' => 100013, 'logistic_ids' => [8003],
+            'image_order' => '[]',
+        ]);
+        $this->assertNull($listing->fresh()->image_order);
+    }
+
+    /** A hidden input is client input, and this one ends in a file read. */
+    public function test_an_arrangement_takes_only_paths_the_library_actually_holds(): void
+    {
+        $productId = $this->seedProduct();
+        $paths = $this->seedRealImages($productId, 2);
+        $user = $this->manager();
+
+        $this->actingAs($user)->post(route('ext.shopee.listings.update', $productId), [
+            'shopee_category_id' => 100013, 'logistic_ids' => [8003],
+            'image_order' => json_encode([
+                '../../../.env',
+                'catalog/../../.env',
+                '/etc/passwd',
+                'storage/logs/laravel.log',
+                'catalog/does-not-exist-anywhere.png',
+                $paths[1],
+            ]),
+        ]);
+
+        $this->assertSame(
+            [$paths[1]],
+            ShopeeListing::query()->where('product_id', $productId)->value('image_order'),
+            'Only a path the image library holds may reach a marketplace.'
+        );
+    }
+
+    /** The page shows the arrangement, ranked, with what stays behind said. */
+    public function test_the_page_draws_the_arrangement_and_offers_the_library(): void
+    {
+        $productId = $this->seedProduct();
+        $paths = $this->seedRealImages($productId, 11);
+        ShopeeListing::query()->create([
+            'product_id' => $productId,
+            'shopee_category_id' => 100013,
+            'logistic_ids' => [8003],
+            'image_order' => array_reverse($paths),
+        ]);
+
+        $page = $this->actingAs($this->manager())->get(route('ext.shopee.listings.edit', $productId))->assertOk();
+        $page->assertSee('9 images go up, the first 9 of 11.');
+        $page->assertSee('data-listing-images', false);
+        $page->assertSee('Add from library');
+        $page->assertSee('data-path="' . end($paths) . '"', false);
+        $page->assertSee('lc-images__item--held', false);
+    }
+
+    /**
+     * Seeds images the library actually holds - acceptable() asks the disk,
+     * so a made-up path is not a fixture, it is a rejection.
+     *
+     * @return list<string>
+     */
+    private function seedRealImages(int $productId, int $count): array
+    {
+        $pfx = (string) config('catalog.prefix');
+        /* A fake disk, because acceptable() asks the disk whether the
+           library holds the path: a real one would leave test pictures in
+           the developer's own catalog folder. */
+        $disk = \Illuminate\Support\Facades\Storage::fake('public');
+        $paths = [];
+        for ($i = 1; $i <= $count; $i++) {
+            $path = "catalog/test-images/pic-{$i}.png";
+            $disk->put($path, 'not really a png');
+            $paths[] = $path;
+        }
+
+        DB::table($pfx . 'product')->where('product_id', $productId)->update(['image' => $paths[0]]);
+        foreach (array_slice($paths, 1) as $i => $path) {
+            DB::table($pfx . 'product_image')->insert([
+                'product_id' => $productId, 'image' => $path, 'sort_order' => $i + 1,
+            ]);
+        }
+
+        return $paths;
+    }
+
     public function test_an_unpushed_product_shows_readiness_instead_of_a_live_state(): void
     {
         $productId = $this->seedProduct();

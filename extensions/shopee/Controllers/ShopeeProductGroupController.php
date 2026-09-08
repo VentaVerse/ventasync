@@ -1740,8 +1740,9 @@ class ShopeeProductGroupController extends Controller
              * the one reader every push path shares (2026-09-07). This site
              * used to send the CATALOG's title while the listing's own sat
              * saved and unused. */
+            $ownListing = ShopeeListing::query()->where('product_id', (int) $productId)->first();
             $content = \App\Integrations\Listings\ListingContent::of(
-                ShopeeListing::query()->where('product_id', (int) $productId)->first(),
+                $ownListing,
                 html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                 trim(strip_tags(html_entity_decode($product->description ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'))),
                 'shopee',
@@ -1750,18 +1751,14 @@ class ShopeeProductGroupController extends Controller
             $itemName = $content['title'];
             $description = $content['description'];
 
-            // Upload images
-            $imagePaths = [];
-            if (!empty($product->image)) $imagePaths[] = $product->image;
-            $additionalImages = DB::table($pfx . 'product_image')
-                ->where('product_id', $productId)
-                ->orderBy('sort_order')
-                ->pluck('image')
-                ->toArray();
-            $imagePaths = array_merge($imagePaths, $additionalImages);
+            /* The listing's own pictures, in its own order, through the
+               one reader every push path shares (2026-09-08). This copy
+               read the catalog directly and, unlike the listing push,
+               forgot Shopee's nine-image cap. */
+            $create = app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class);
+            $imagePaths = $create->catalogImagePaths($product, $ownListing);
 
-            $imageIds = app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class)
-                ->uploadImages($client, $auth, $imagePaths)['ids'];
+            $imageIds = $create->uploadImages($client, $auth, $imagePaths)['ids'];
 
             if (empty($imageIds)) {
                 $errors[] = "#{$productId}: Image upload failed";
@@ -2068,8 +2065,9 @@ class ShopeeProductGroupController extends Controller
              * the one reader every push path shares (2026-09-07). This site
              * used to send the CATALOG's title while the listing's own sat
              * saved and unused. */
+            $ownListing = ShopeeListing::query()->where('product_id', (int) $productId)->first();
             $content = \App\Integrations\Listings\ListingContent::of(
-                ShopeeListing::query()->where('product_id', (int) $productId)->first(),
+                $ownListing,
                 html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                 trim(strip_tags(html_entity_decode($product->description ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'))),
                 'shopee',
@@ -2083,18 +2081,14 @@ class ShopeeProductGroupController extends Controller
                 continue;
             }
 
-            // Upload images
-            $imagePaths = [];
-            if (!empty($product->image)) $imagePaths[] = $product->image;
-            $additionalImages = DB::table($pfx . 'product_image')
-                ->where('product_id', $productId)
-                ->orderBy('sort_order')
-                ->pluck('image')
-                ->toArray();
-            $imagePaths = array_merge($imagePaths, $additionalImages);
+            /* The listing's own pictures, in its own order, through the
+               one reader every push path shares (2026-09-08). This copy
+               read the catalog directly and, unlike the listing push,
+               forgot Shopee's nine-image cap. */
+            $create = app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class);
+            $imagePaths = $create->catalogImagePaths($product, $ownListing);
 
-            $imageIds = app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class)
-                ->uploadImages($client, $auth, $imagePaths)['ids'];
+            $imageIds = $create->uploadImages($client, $auth, $imagePaths)['ids'];
 
             // Build update payload
             $payload = [

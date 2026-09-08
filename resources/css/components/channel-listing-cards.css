@@ -35,3 +35,122 @@
     object-fit: cover;
     display: block;
 }
+
+/* ------------------------------------------------------------------
+   The arrangeable list (the owner, 2026-09-08: "make this draggable to
+   arrange"). Same tiles, bigger, with the rank the push will use, a way
+   out for each picture, and the held-back state recomputed as the
+   arrangement changes rather than only at page load.
+   ------------------------------------------------------------------ */
+
+.lc-images--arrange .lc-images__item {
+    position: relative;
+    width: 84px;
+    height: 84px;
+    cursor: grab;
+    /* The browser keeps vertical panning, we take the horizontal drag:
+       a grid of 84px tiles must not become a place a phone cannot
+       scroll past. */
+    touch-action: pan-y;
+    transition: transform .12s ease-out, opacity .12s ease-out, border-color .12s ease-out;
+}
+
+.lc-images--arrange .lc-images__item:focus-visible {
+    outline: 2px solid var(--bl-brand-deep);
+    outline-offset: 2px;
+}
+
+.lc-images--arrange .lc-images__item.is-dragging {
+    cursor: grabbing;
+    opacity: .55;
+    transform: scale(.96);
+}
+
+/* Picked up from the keyboard: the same state a pointer drag shows,
+   said with a ring because there is no pointer to follow. */
+.lc-images--arrange .lc-images__item.is-grabbed {
+    border-color: var(--bl-brand-deep);
+    box-shadow: 0 0 0 2px var(--bl-brand-deep) inset;
+    transform: scale(.96);
+}
+
+.lc-images__rank {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    min-width: 17px;
+    padding: 0 4px;
+    border-radius: var(--bl-r-ctrl);
+    background: color-mix(in srgb, var(--bl-ink) 78%, transparent);
+    color: var(--bl-sheet);
+    font-size: 11px;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    line-height: 17px;
+}
+
+/* Said in words on the tile as well as by the dimming: a dimmed picture
+   with no label is a picture that looks broken. Only the held ones
+   carry it. */
+.lc-images__held {
+    position: absolute;
+    inset: auto 0 0 0;
+    padding: 2px 4px;
+    background: color-mix(in srgb, var(--bl-ink) 78%, transparent);
+    color: var(--bl-sheet);
+    font-size: 10px;
+    font-weight: 600;
+    text-align: center;
+    display: none;
+}
+
+.lc-images__item--held .lc-images__held { display: block; }
+
+.lc-images__drop {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    display: grid;
+    place-items: center;
+    width: 19px;
+    height: 19px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--bl-r-ctrl);
+    background: color-mix(in srgb, var(--bl-ink) 78%, transparent);
+    color: var(--bl-sheet);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity .12s ease-out, background .12s ease-out;
+}
+
+.lc-images__item:hover .lc-images__drop,
+.lc-images__item:focus-within .lc-images__drop,
+.lc-images__drop:focus-visible {
+    opacity: 1;
+}
+
+.lc-images__drop:hover { background: var(--bl-bad); }
+
+/* A phone has no hover, so a control that appears on hover does not exist
+   there. On a coarse pointer the way out is always drawn. */
+@media (hover: none) {
+    .lc-images--arrange .lc-images__drop { opacity: 1; }
+}
+
+.lc-images__drop:focus-visible {
+    outline: 2px solid var(--bl-sheet);
+    outline-offset: -2px;
+}
+
+/* A held-back picture is dimmed, but its own controls are not: the rank,
+   the label and the way out stay readable so it can be arranged back. */
+.lc-images__item--held img { opacity: .45; }
+.lc-images--arrange .lc-images__item--held { opacity: 1; }
+
+/* The library picker's tick (partials/image-library-pick). */
+.fm-pick__item.is-picked {
+    border-color: var(--bl-brand-deep);
+    box-shadow: 0 0 0 2px var(--bl-brand-deep) inset;
+}

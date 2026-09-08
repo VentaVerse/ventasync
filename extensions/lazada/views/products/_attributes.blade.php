@@ -10,7 +10,6 @@
      Rows keyed `brand` are skipped: the brand is the form's own control. Rows
      the catalogue answers by itself (name, description, model) are asked only
      when a custom value was saved for them. --}}
-<p class="fm-section__note">Only this category's own questions are asked here. Name, description and model come from the catalog product by themselves. Type a value, or point an attribute at a field on the catalog product so every push reads the current one.</p>
 
 <div class="gf-attrs">
     @foreach($attributes as $attribute)

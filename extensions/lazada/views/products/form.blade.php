@@ -191,23 +191,12 @@
                     <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'Lazada', 'raw' => $liveError, 'settingsRoute' => 'ext.lazada.index']) Nothing below is stale data standing in for it: the live state is simply unknown until Lazada answers.</div>
                 </div>
             @elseif(($live ?? null) !== null)
-                @php
-                    $lzStatusMap = [
-                        'active' => ['Active', 'success'],
-                        'inactive' => ['Inactive', 'neutral'],
-                        'pending' => ['Pending QC', 'warning'],
-                        'rejected' => ['Violation', 'danger'],
-                        'sold-out' => ['Sold out', 'warning'],
-                        'deleted' => ['Deleted on Lazada', 'danger'],
-                    ];
-                    [$lzLabel, $lzTone] = $lzStatusMap[$live['status']] ?? [ucfirst($live['status'] ?: 'Unknown'), 'neutral'];
-                @endphp
-                <p class="fm-section__note">Fetched from Lazada as this page loaded.</p>
+                {{-- No "fetched as this page loaded" line, and no Status of
+                     its own (the owner, 2026-09-08): the section is titled "On
+                     Lazada right now", which says when it was read, and the
+                     SKU table below carries the same Active word this stat
+                     repeated. --}}
                 <div class="fm-stats">
-                    <div class="fm-stat">
-                        <span class="fm-stat__k">Status</span>
-                        <span class="fm-stat__v"><x-ui.badge :tone="$lzTone">{{ $lzLabel }}</x-ui.badge></span>
-                    </div>
                     @if($live['sub_status'] !== '')
                         <div class="fm-stat">
                             <span class="fm-stat__k">Detail</span>

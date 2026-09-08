@@ -501,6 +501,17 @@
         gap: 16px;
     }
 
+    /* The rail is 320px. A field pair that shares a row across an 800px
+       main column has to stack in it, or a datetime control ends up
+       120px wide and unreadable. The owner moved Price rule and Discount
+       into the rail on 2026-09-08; this is what the move costs. */
+    @media (min-width: 1001px) {
+        .fm-col--side .fm-fields--2,
+        .fm-col--side .fm-fields--3 {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
+
     /* A form section is a card, like every other data container in v2.3.
     
        It was not, which is the same defect the order page's .od-section had:
@@ -851,6 +862,15 @@
         border: 1px solid var(--bl-rule-2);
         border-radius: var(--bl-r-ctrl);
         background: var(--bl-chrome);
+    }
+
+    /* A box of figures with no figure in it is a box of nothing. It can
+       happen wherever every stat is conditional, and Blade's whitespace
+       means :empty never fires - the question has to be asked about the
+       children. */
+    .fm-metrics:not(:has(.fm-metric)),
+    .fm-stats:not(:has(.fm-stat)) {
+        display: none;
     }
 
     .fm-metric,

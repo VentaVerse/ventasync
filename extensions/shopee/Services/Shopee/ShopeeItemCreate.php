@@ -30,42 +30,39 @@ class ShopeeItemCreate
     public const MAX_IMAGES = 9;
 
     /**
-     * Main image first, then the gallery in its saved order, capped at
-     * Shopee's nine (the owner, 2026-09-05: a product with more was refused
-     * with "The number of product images must be between 1 and 9").
+     * The pictures that go up, capped at Shopee's nine (the owner, 2026-09-05:
+     * a product with more was refused with "The number of product images
+     * must be between 1 and 9").
+     *
+     * The listing's own arrangement when it has one, the catalog product's
+     * own images when it does not - one reader for both, so the "Images
+     * that go up" card and the push can never disagree. Before this, three
+     * copies of the same query lived here and in the group controller, and
+     * two of them forgot the cap.
      */
-    public function catalogImagePaths(string $pfx, object $product): array
+    public function catalogImagePaths(object $product, ?ShopeeListing $listing = null): array
     {
-        $paths = [];
-        if (!empty($product->image)) {
-            $paths[] = $product->image;
-        }
-
-        $all = array_merge($paths, DB::table($pfx . 'product_image')
-            ->where('product_id', (int) $product->product_id)
-            ->orderBy('sort_order')
-            ->pluck('image')
-            ->toArray());
-
-        return array_slice(array_values(array_unique($all)), 0, self::MAX_IMAGES);
+        return array_slice(
+            \App\Support\Catalog\ProductImages::paths((int) $product->product_id, $listing?->image_order),
+            0,
+            self::MAX_IMAGES
+        );
     }
 
-    /** How many images the catalog product carries, main image included. */
-    public function catalogImageCount(string $pfx, object $product): int
+    /** How many pictures this listing has, before the cap. */
+    public function catalogImageCount(object $product, ?ShopeeListing $listing = null): int
     {
-        $gallery = (int) DB::table($pfx . 'product_image')->where('product_id', (int) $product->product_id)->count();
-
-        return $gallery + (trim((string) ($product->image ?? '')) !== '' ? 1 : 0);
+        return count(\App\Support\Catalog\ProductImages::paths((int) $product->product_id, $listing?->image_order));
     }
 
     /**
-     * The sentence a push carries when the catalog holds more images than
-     * Shopee takes (the owner, 2026-09-05: not an error, the push goes, but
-     * say so). Null when nothing was left behind.
+     * The sentence a push carries when there are more pictures than Shopee
+     * takes (the owner, 2026-09-05: not an error, the push goes, but say so).
+     * Null when nothing was left behind.
      */
-    public function imageNote(string $pfx, object $product): ?string
+    public function imageNote(object $product, ?ShopeeListing $listing = null): ?string
     {
-        $count = $this->catalogImageCount($pfx, $product);
+        $count = $this->catalogImageCount($product, $listing);
         if ($count <= self::MAX_IMAGES) {
             return null;
         }
