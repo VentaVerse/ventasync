@@ -342,6 +342,12 @@ class ShopeeProductController extends Controller
 
         return view('ext-shopee::products.index', [
             'products' => $products,
+            /* Which rows are on sale RIGHT NOW, so the price cell can strike
+             * itself (the owner, 2026-09-09). Shopee's promotion id is what
+             * proves the marketplace was told. */
+            'runningSales' => \App\Support\Channels\RunningSale::map(
+                ShopeeListing::query(), array_map('intval', $pageIds), 'shopee_discount_id'
+            ),
             /* The relist preflight's page-side half (#191): a row whose
              * Relist would certainly be refused offers the fix instead. */
             'parcelGaps' => $this->parcelGapFor($products->pluck('product_id')->map(fn ($v) => (int) $v)->all()),

@@ -223,13 +223,25 @@
                 </section>
 
                 @php
+                    /* A window that has closed cuts nothing, so it strikes
+                       nothing; one that has not opened yet still does,
+                       because the figure says "after push" and the card's
+                       badge says when. */
+                    $ttPushPrice = $hasRule ? $nextPrice : $corePrice;
+                    $ttSaleStands = ($listing?->sale_percent ?? null) !== null
+                        && (($listing?->sale_ends_at ?? null) === null || $listing->sale_ends_at->isFuture());
+                    $ttSalePreview = $ttSaleStands
+                        ? max(0.01, round($ttPushPrice * (1 - (float) $listing->sale_percent / 100), 2))
+                        : null;
                     $discount = [
                         'channel' => 'TikTok Shop', 'prefix' => 'tt',
                         'canManage' => $canManage, 'onMarketplace' => $listed,
                         'step' => '1', 'note' => 'Whole percents only; TikTok cuts the live price by this percent while the window is open.',
                         'savedPct' => $listing?->sale_percent,
                         'savedFrom' => $listing?->sale_starts_at, 'savedTo' => $listing?->sale_ends_at,
-                        'salePreview' => null,
+                        'salePreview' => $ttSalePreview,
+                        // The save handler honours push_discount_after.
+                        'saveAndPush' => true,
                         'remoteId' => $listing?->tiktok_activity_id ?: null,
                         'tracked' => true, 'endClearsRule' => false,
                         'liveError' => $listed ? $liveError : null,
@@ -290,7 +302,7 @@
                         </div>
                         <div class="fm-stats">
                             <div class="fm-stat"><span class="fm-stat__k">Catalog price</span><span class="fm-stat__v"><x-money :php="$corePrice" /></span></div>
-                            <div class="fm-stat"><span class="fm-stat__k">Price on TikTok Shop after push</span><span class="fm-stat__v"><x-money :php="$hasRule ? $nextPrice : $corePrice" /></span></div>
+                            <div class="fm-stat"><span class="fm-stat__k">Price on TikTok Shop after push</span><span class="fm-stat__v">@if($ttSalePreview !== null)<span class="fm-price"><s class="fm-price__was"><x-money :php="$ttPushPrice" /></s><x-money :php="$ttSalePreview" /></span>@else<x-money :php="$ttPushPrice" />@endif</span></div>
                         </div>
                 </section>
 

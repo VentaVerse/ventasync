@@ -204,6 +204,15 @@ class TikTokListingController extends Controller
 
         $back = \App\Support\BackTo::safe($request->input('back'), '');
 
+        /* Save and push the DISCOUNT in one press (the owner, 2026-09-09).
+         * The discount push acts on the saved rule, so a rule typed and
+         * not yet saved met a button that did nothing at all. The button
+         * carries the save with it instead; the rule has just landed, so
+         * the push reads what was meant. */
+        if ($request->boolean('push_discount_after')) {
+            return $this->pushDiscount($request->merge(['action' => 'push']), $productId, app(TikTokClient::class));
+        }
+
         /* Save and push (parity with Lazada and Shopee, the owner 2026-09-06):
          * the save half runs first so a refusal never loses the typing;
          * readiness is re-read after the save and named, and only a ready,

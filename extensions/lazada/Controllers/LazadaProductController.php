@@ -435,6 +435,12 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         return view('ext-lazada::products.index', [
             'products' => $products,
+            /* Which rows are on sale RIGHT NOW, so the price cell can strike
+             * itself (the owner, 2026-09-09). Lazada reports no promotion id
+             * back, so the pushed-at stamp is what proves it was told. */
+            'runningSales' => \App\Support\Channels\RunningSale::map(
+                LazadaProduct::query(), $pageIds, 'sale_pushed_at'
+            ),
             'listingsById' => $listingsById,
             'listingStates' => $listingStates,
             'rowErrors' => $rowErrors,
@@ -2532,6 +2538,15 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         }
 
         ActivityLogger::log('updated', 'Lazada Product', $listing->id, 'ERP #' . (int)$listing->product_id);
+
+        /* Save and push the DISCOUNT in one press (the owner, 2026-09-09).
+         * The discount push acts on the saved rule, so a rule typed and
+         * not yet saved met a button that did nothing at all. The button
+         * carries the save with it instead; the rule has just landed, so
+         * the push reads what was meant. */
+        if ($request->boolean('push_discount_after')) {
+            return $this->pushDiscount($request->merge(['action' => 'push']), $productId, app(LazadaClient::class));
+        }
 
         // Save and push: the one press that saves everything above and sends
         // the listing, as a create or, once linked, as an update.

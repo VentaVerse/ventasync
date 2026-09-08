@@ -330,6 +330,46 @@
     background: none;
 }
 
+/* A CUT PRICE, IN THE MARKETPLACE'S OWN VOCABULARY.
+   The price that would have gone up, struck, and beside it what stands
+   instead: the cut price on a listing page, the percent off in a channel's
+   table (where the column is the catalog price and a peso figure would be
+   a number no buyer pays). Two things force the row: <x-money> renders .money-primary as a
+   BLOCK (components/currency-dual.css, vocabulary layer, so a components
+   rule cannot answer it), which put the two figures on two lines with a
+   gap between them (the owner on QA, 2026-09-09: "The discounted price is
+   just too far. It has spaces on top."); and an inline <s> wrapping a
+   block box breaks the line whatever else is done. So the pair is its own
+   inline flex row, and the money inside it is inline again. */
+.fm-price {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.fm-price .money-primary {
+    display: inline;
+}
+
+.fm-price__was {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--bl-ink-3);
+    text-decoration-thickness: 1px;
+}
+
+.fm-price__was .money-primary {
+    font-weight: 500;
+}
+
+.fm-price__off {
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--bl-good);
+}
+
 /* A 300px rail sits against the right edge, so a hint that opens rightward
    opens off the page and the document scrolls sideways. Same answer the
    command bar already uses (.bl-hint--end), applied by position rather

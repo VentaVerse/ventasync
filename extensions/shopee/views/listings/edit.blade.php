@@ -577,7 +577,7 @@
                             <span class="fm-stat__k">Price on Shopee after push</span>
                             <span class="fm-stat__v">
                                 @if($salePreview !== null)
-                                    <s class="fm-stat__was"><x-money :php="$pushPrice" /></s><x-money :php="$salePreview" />
+                                    <span class="fm-price"><s class="fm-price__was"><x-money :php="$pushPrice" /></s><x-money :php="$salePreview" /></span>
                                 @else
                                     <x-money :php="$pushPrice" />
                                 @endif

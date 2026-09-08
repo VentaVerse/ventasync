@@ -275,7 +275,7 @@ class ShopeeListingPageTest extends TestCase
         ]);
         $this->actingAs($this->manager())
             ->get(route('ext.shopee.listings.edit', $open))->assertOk()
-            ->assertSee('fm-stat__was', false);
+            ->assertSee('fm-price__was', false);
 
         $closed = $this->seedProduct();
         ShopeeListing::create([
@@ -284,7 +284,7 @@ class ShopeeListingPageTest extends TestCase
         ]);
         $this->actingAs($this->manager())
             ->get(route('ext.shopee.listings.edit', $closed))->assertOk()
-            ->assertDontSee('fm-stat__was', false);
+            ->assertDontSee('fm-price__was', false);
     }
 
     /**

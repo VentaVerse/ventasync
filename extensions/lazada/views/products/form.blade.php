@@ -453,13 +453,22 @@
                 @endif
 
                 @php
-                    $lzSalePreview = null;
-                    if ($listing->sale_percent !== null && $basePrice !== null) {
-                        $lzSaleBase = \Extensions\lazada\Services\Lazada\LazadaPushPayload::computeFinalPrice(
+                    /* The price this listing would go up at, and - while a
+                       saved window still stands - the price it would go up
+                       at with the discount on. A window that has closed
+                       cuts nothing, so it strikes nothing; one that has not
+                       opened yet still does, because the figure says "after
+                       push" and the card's badge says when. */
+                    $lzPushPrice = $basePrice !== null
+                        ? \Extensions\lazada\Services\Lazada\LazadaPushPayload::computeFinalPrice(
                             (float) $basePrice, $effectiveFixed, $effectivePercent
-                        );
-                        $lzSalePreview = round($lzSaleBase * (1 - (float) $listing->sale_percent / 100), 2);
-                    }
+                        )
+                        : null;
+                    $lzSaleStands = $listing->sale_percent !== null && $lzPushPrice !== null
+                        && ($listing->sale_ends_at === null || $listing->sale_ends_at->isFuture());
+                    $lzSalePreview = $lzSaleStands
+                        ? max(0.01, round($lzPushPrice * (1 - (float) $listing->sale_percent / 100), 2))
+                        : null;
                     $discount = [
                         'channel' => 'Lazada', 'prefix' => 'lz',
                         'canManage' => true, 'onMarketplace' => $mode === 'edit' && !empty($listing->lazada_item_id),
@@ -467,6 +476,8 @@
                         'savedPct' => $listing->sale_percent,
                         'savedFrom' => $listing->sale_starts_at, 'savedTo' => $listing->sale_ends_at,
                         'salePreview' => $lzSalePreview,
+                        // The save handler honours push_discount_after.
+                        'saveAndPush' => true,
                         'remoteId' => null,
                         // Lazada holds the sale on each SKU and reports no
                         // promotion id back, so this record cannot say
@@ -586,9 +597,16 @@
                                  only replaces the number, because nothing in
                                  JavaScript can read the default currency off
                                  the currencies table. --}}
-                            <div class="cl-total" data-running-total data-base-price="{{ $basePrice }}">
+                            <div class="cl-total" data-running-total data-base-price="{{ $basePrice }}"
+                                 @if($lzSalePreview !== null) data-sale-percent="{{ (float) $listing->sale_percent }}" @endif>
                                 <span class="cl-total__k">Price on Lazada after push</span>
-                                <span class="cl-total__v" data-total-value><x-money :php="(float) $basePrice" /></span>
+                                <span class="cl-total__v">
+                                    @if($lzSalePreview !== null)
+                                        <span class="fm-price"><s class="fm-price__was" data-total-value><x-money :php="(float) $lzPushPrice" /></s><span data-total-sale><x-money :php="(float) $lzSalePreview" /></span></span>
+                                    @else
+                                        <span data-total-value><x-money :php="(float) ($lzPushPrice ?? $basePrice)" /></span>
+                                    @endif
+                                </span>
                                 <span class="cl-total__note">Catalog price <x-money :php="(float) $basePrice" /></span>
                             </div>
                         @endif
