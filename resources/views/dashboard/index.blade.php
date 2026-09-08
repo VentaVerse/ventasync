@@ -104,6 +104,14 @@
         }
     }
 
+    /* Per-store figures (#194, 2026-09-07): a multi-store channel keys its
+       own contribution by tab id (shopee:2), so two stores of one channel
+       stop sharing one blended row. A channel that contributes none keeps
+       the channel-level keys above, which the lookup already falls back to. */
+    foreach ((array) ($channelSyncStatuses ?? []) as $key => $status) {
+        $syncFor[$key] = $status;
+    }
+
     // The waiting count has TWO legitimate sources and the contributor wins.
     //
     // DashboardContributor lets an extension inject shopeePending and its
@@ -122,6 +130,10 @@
         if (isset($store->id) && isset($store->pending_count)) {
             $pendingFor['opencart:' . $store->id] = (int) $store->pending_count;
         }
+    }
+
+    foreach ((array) ($channelPending ?? []) as $key => $count) {
+        $pendingFor[$key] = (int) $count;
     }
 
     $channels = [];

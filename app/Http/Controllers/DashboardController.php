@@ -202,9 +202,21 @@ class DashboardController extends Controller
 
         $registry = app(IntegrationRegistry::class);
 
+        /* Two keys are MAPS every channel adds to, not values one channel
+         * owns: the per-store figures a multi-store channel reports under
+         * its own tab ids (#194, 2026-09-07). A plain array_merge would let
+         * the last contributor's map replace every earlier one. */
+        $merged = ['channelSyncStatuses' => [], 'channelPending' => []];
         foreach ($registry->dashboardContributors() as $contributor) {
-            $extensionDashboardData = array_merge($extensionDashboardData, $contributor->dashboardData());
+            $data = $contributor->dashboardData();
+            foreach (array_keys($merged) as $mapKey) {
+                // Last contributor wins on a shared key, as it does for every other.
+                $merged[$mapKey] = array_merge($merged[$mapKey], (array) ($data[$mapKey] ?? []));
+                unset($data[$mapKey]);
+            }
+            $extensionDashboardData = array_merge($extensionDashboardData, $data);
         }
+        $extensionDashboardData = array_merge($extensionDashboardData, $merged);
 
         // Pending order count per marketplace_source, straight off the core
         // order table. Core owns that table and the two statuses, so this is

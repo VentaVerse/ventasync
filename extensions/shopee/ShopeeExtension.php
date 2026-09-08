@@ -493,7 +493,76 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             }
         }
 
+
+        // Per-store figures ride alongside the channel-level ones.
+        $data += $this->perStoreDashboardFigures();
+
         return $data;
+    }
+
+    /**
+     * Per-store dashboard figures (#194, 2026-09-07): with two stores of one
+     * channel the strip used to show one blended row on both, because the
+     * contribution was keyed by channel. Each store now reports its own
+     * waiting count and its own freshness under its tab id ("shopee:2"),
+     * which the dashboard prefers over the channel-level key.
+     *
+     * @return array{channelPending: array<string, int>, channelSyncStatuses: array<string, object>}
+     */
+    private function perStoreDashboardFigures(): array
+    {
+        $pending = [];
+        $statuses = [];
+        if (! Schema::hasTable('shopee_settings')) {
+            return ['channelPending' => $pending, 'channelSyncStatuses' => $statuses];
+        }
+
+        foreach (ShopeeSetting::query()->orderBy('id')->get() as $store) {
+            $key = \App\Support\StoreKey::of('shopee', (int) $store->id);
+            if (Schema::hasTable('shopee_orders')) {
+                $pending[$key] = (int) DB::table('shopee_orders')
+                    ->where('shopee_setting_id', $store->id)
+                    ->whereIn('status', ['READY_TO_SHIP'])
+                    ->count();
+            }
+            /* The listing engine scopes to the bound store, so each store's
+             * flags are its own; a failure must not take the strip down. */
+            $flags = null;
+            $attention = 0;
+            $previous = app()->bound('shopee.route-store') ? app('shopee.route-store') : null;
+            try {
+                app()->instance('shopee.route-store', $store);
+                $sum = app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->summary();
+                $attention = (int) $sum['attention'];
+                $parts = [];
+                if ($sum['attention'] > 0) {
+                    $parts[] = $sum['attention'] . ' listing' . ($sum['attention'] === 1 ? ' needs' : 's need') . ' attention';
+                }
+                if ($sum['drift'] > 0) {
+                    $parts[] = $sum['drift'] . ' behind the catalogue';
+                }
+                $flags = $parts ? implode(' · ', $parts) : null;
+            } catch (\Throwable) {
+                // this store's chip simply carries no flags line
+            } finally {
+                if ($previous !== null) {
+                    app()->instance('shopee.route-store', $previous);
+                } else {
+                    app()->forgetInstance('shopee.route-store');
+                }
+            }
+
+            $statuses[$key] = (object) [
+                'order_sync_at' => $store->last_order_sync_at,
+                'push_stock_at' => $store->last_stock_push_at,
+                'return_sync_at' => $store->last_return_sync_at ?? null,
+                'expires_at' => $store->expires_at,
+                'listing_flags' => $flags,
+                'listing_attention' => $attention,
+            ];
+        }
+
+        return ['channelPending' => $pending, 'channelSyncStatuses' => $statuses];
     }
 
     /**

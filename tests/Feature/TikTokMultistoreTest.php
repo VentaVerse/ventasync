@@ -246,6 +246,27 @@ class TikTokMultistoreTest extends TestCase
         $this->assertSame('Main store', $one->fresh()->store_name, "the second store's save must not touch the first store");
     }
 
+    /**
+     * Per-store dashboard figures (#194's last edge, 2026-09-07): with two
+     * stores the strip used to show one blended row on both, because the
+     * contribution was keyed by channel. Each store now reports its own
+     * waiting count under its own tab id.
+     */
+    public function test_each_store_reports_its_own_waiting_count_to_the_dashboard(): void
+    {
+        $one = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $two = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Outlet']);
+        TikTokOrder::create(['tiktok_setting_id' => $one->id, 'region' => 'PH', 'order_id' => 'W-1', 'status' => 'AWAITING_SHIPMENT']);
+        TikTokOrder::create(['tiktok_setting_id' => $two->id, 'region' => 'PH', 'order_id' => 'W-2', 'status' => 'AWAITING_SHIPMENT']);
+        TikTokOrder::create(['tiktok_setting_id' => $two->id, 'region' => 'PH', 'order_id' => 'W-3', 'status' => 'AWAITING_SHIPMENT']);
+
+        $data = $this->app->make(\Extensions\tiktok\TiktokExtension::class, ['app' => $this->app])->dashboardData();
+
+        $this->assertSame(1, $data['channelPending']['tiktok:' . $one->id] ?? null, "the first store reports its own waiting count");
+        $this->assertSame(2, $data['channelPending']['tiktok:' . $two->id] ?? null, "the second store reports its own");
+        $this->assertArrayHasKey('tiktok:' . $two->id, $data['channelSyncStatuses'], 'each store carries its own freshness');
+    }
+
     private function storeWithCreds(string $name): TikTokSetting
     {
         return TikTokSetting::create([
