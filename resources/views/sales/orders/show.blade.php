@@ -74,6 +74,8 @@
 
     $mktFeeTotal = (float) ($marketplaceFees['total'] ?? 0);
     $mktFeeItems = $marketplaceFees['items'] ?? [];
+    // The marketplace claimed this order and has not reported its fees yet.
+    $mktFeePending = (bool) ($marketplaceFees['pending'] ?? false);
     $shippingCost = (float) ($order->shipping_cost ?? 0);
 
     // Margin tone. There is no green "healthy" state on this page: colour
@@ -148,21 +150,19 @@
                                 : 'Take over this order\'s status' }}">
                     </button>
                     <div class="od-override__body">
-                        {{-- The label names the CONSEQUENCE, not the switch's own
-                             state. "Sync override off" is true and tells an
-                             operator nothing: they have to infer that off means
-                             the marketplace decides. Say which of the two is in
-                             charge, and the sentence below explains the rest. --}}
-                        <div class="od-override__title">
-                            {{ $order->sync_override
-                                ? 'You set this order\'s status'
-                                : 'The marketplace sets this order\'s status' }}
-                        </div>
+                        {{-- One name for the switch and one sentence for what
+                             it does (the owner, 2026-09-08). It used to name a
+                             use case - "turn on before finalizing a return" -
+                             which is one of many and reads as the only one.
+                             What the switch actually does is the same in
+                             every case: the status stops coming from the
+                             marketplace. --}}
+                        <div class="od-override__title">Status override</div>
                         <div class="od-override__note">
                             @if($order->sync_override)
-                                Manually controlled. Marketplace syncs will not change this order's status or stock.
+                                On. This order's status no longer syncs from the marketplace, and syncs will not change its stock.
                             @else
-                                The marketplace sync manages this order's status. Turn on before finalizing a return, then set the status.
+                                Off. Turning it on stops syncing this order's status from the marketplace.
                             @endif
                         </div>
                     </div>
@@ -645,6 +645,19 @@
                         </span>
                     </div>
                     @endforeach
+
+                    @if($mktFeePending)
+                        {{-- Lazada's own seller centre says "Payment
+                             information is pending until order is
+                             delivered", and the rest behave the same way.
+                             An empty fee list without this line reads as an
+                             order that cost nothing to sell (the owner,
+                             2026-09-08). --}}
+                        <div class="od-ledger__row">
+                            <span class="od-ledger__k od-ledger__k--note">Marketplace fees</span>
+                            <span class="od-ledger__v od-ledger__v--note">Pending until the marketplace reports them</span>
+                        </div>
+                    @endif
 
                     @if($canManageOrders)
                     {{-- Delete forms live outside the ledger rows: a <form>

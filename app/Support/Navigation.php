@@ -679,7 +679,46 @@ class Navigation
             }
         }
 
-        return self::mergeGroupsByLabel($out);
+        return self::flattenSingles(self::mergeGroupsByLabel($out));
+    }
+
+    /**
+     * A group with one item is not a group, it is a link (the owner,
+     * 2026-09-08: "Activity log only has 1 sub menu on the nav. So no need
+     * to have dropdown on the Nav").
+     *
+     * The fold runs AFTER the merge, so a group two sources each
+     * contribute one item to stays a group. The link keeps the group's
+     * icon, because that is the picture the operator recognises, and takes
+     * the item's label, route and permission, because that is the thing it
+     * actually opens. An item that has children of its own is a real
+     * submenu and is left alone.
+     *
+     * Here rather than in the sidebar, so the palette and search fold it
+     * too: three consumers, one rule.
+     *
+     * @param  array<int, array<string, mixed>>  $groups
+     * @return array<int, array<string, mixed>>
+     */
+    private static function flattenSingles(array $groups): array
+    {
+        return array_map(function (array $entry) {
+            if (isset($entry['route']) || count($entry['items'] ?? []) !== 1) {
+                return $entry;
+            }
+
+            $item = $entry['items'][0];
+            if (! isset($item['route'])) {
+                return $entry;
+            }
+
+            /* The ITEM, with the group's picture on it. Everything the item
+               declares travels: its badge, its `add` affordance, its params.
+               An allowlist of keys here quietly dropped the plus beside "All
+               channels" the first time this ran, because the fold decided
+               what a nav item is allowed to be. */
+            return $item + ['icon' => $entry['icon'] ?? null];
+        }, $groups);
     }
 
     /**

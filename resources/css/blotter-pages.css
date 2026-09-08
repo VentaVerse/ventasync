@@ -440,6 +440,18 @@
 
     .od-ledger__k { min-width: 0; font-size: 13px; }
 
+    /* A ledger line that carries no money: the marketplace's fees have not
+       arrived yet, and saying so is worth a row, but it must not read as a
+       figure of zero. */
+    .od-ledger__k--note,
+    .od-ledger__v--note {
+        color: var(--bl-ink-3);
+        font-style: normal;
+        font-weight: 500;
+    }
+
+    .od-ledger__v--note { font-size: 12.5px; }
+
     .od-ledger__v {
         text-align: right;
         font-family: var(--font-mono);

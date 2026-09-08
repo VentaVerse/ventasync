@@ -1130,13 +1130,24 @@ class OrderController extends Controller
                 'total'  => round($manualTotal, 2),
                 'items'  => $manualItems,
                 'source' => $source ?: 'manual',
+                'pending' => false,
             ];
         }
 
+        /* PENDING, NOT FREE (the owner, 2026-09-08). A contributor that claimed
+         * the order and returned no items is saying "this order is mine and
+         * the marketplace has not told me its fees yet" - Lazada publishes
+         * them at delivery, and its own seller centre says as much. Without
+         * this the page showed an empty fee list, which reads as an order
+         * that cost nothing to sell.
+         *
+         * An order no contributor claims (Venta, a direct sale) is never
+         * pending: nobody is going to send fees for it. */
         return [
             'total'  => round(((float) ($marketplaceFees['total'] ?? 0)) + $manualTotal, 2),
             'items'  => array_merge($marketplaceFees['items'] ?? [], $manualItems),
             'source' => $marketplaceFees['source'] ?? $source,
+            'pending' => ($marketplaceFees['items'] ?? []) === [],
         ];
     }
 

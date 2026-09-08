@@ -329,17 +329,129 @@
 .rp-more__field .x-input,
 .rp-more__field .x-select-wrap { width: 100%; }
 
-/* Checkbox groups inside the disclosure. A native <select multiple> is
-   what these replaced: it needs a ctrl-click nobody discovers, it renders
-   as a raw scrolling list box that no amount of CSS makes belong on this
-   filter row, and it gives no hint that more than one value is allowed.
-   Checkboxes say all three things by existing. */
+/* THE FILTER THAT DOES NOT GROW.
+ *
+ * Checkboxes replaced a <select multiple>, which needs a ctrl-click nobody
+ * discovers and gives no hint that more than one value is allowed. Then
+ * multi-store arrived and the row of checkboxes grew with the store list,
+ * which is unbounded, until it pushed the other filters off the screen
+ * (the owner, 2026-09-08). So the checkboxes moved into a dropdown: the same
+ * control, one fixed footprint, and every filter on the row now the same
+ * size and aligned with the plain text fields beside them.
+ *
+ * .rp-more__field--wide is kept for anything that still wants two columns;
+ * neither of these filters needs it any more. */
 .rp-more__field--wide { grid-column: span 2; }
-.rp-choices { display: flex; flex-wrap: wrap; gap: var(--bl-space-1) var(--bl-space-4); }
-/* Stores grouped under their channel (per-store reports, 2026-09-05): the
-   heading takes the whole row so the stores under it start a new line. */
-.rp-choices__group { flex-basis: 100%; margin-top: var(--bl-space-1); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--bl-ink-3); }
-.rp-choices__group:first-child { margin-top: 0; }
+
+.rp-pick { position: relative; }
+
+.rp-pick__trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--bl-space-2);
+    width: 100%;
+    /* The height and the edge of a text input, because it sits in a row of
+       them and a filter that is a control should look like the controls
+       beside it. */
+    padding: 7px 11px;
+    border: 1px solid var(--bl-field-edge);
+    border-radius: var(--bl-r-ctrl);
+    background: var(--bl-sheet);
+    color: var(--bl-ink);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.rp-pick__trigger:hover { border-color: var(--bl-ink-3); }
+
+.rp-pick__trigger:focus-visible {
+    outline: 2px solid var(--bl-brand-deep);
+    outline-offset: 1px;
+}
+
+.rp-pick__value {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rp-pick__mark { flex: none; color: var(--bl-ink-3); }
+.rp-pick__trigger[aria-expanded='true'] .rp-pick__mark { transform: rotate(180deg); }
+
+.rp-pick__panel {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 5px);
+    left: 0;
+    min-width: 100%;
+    /* Wider than its trigger when the labels need it - "Shopee: Gearshipper"
+       does - but never wider than the filter row it opens over. */
+    max-width: 320px;
+    border: 1px solid var(--bl-rule-2);
+    border-radius: var(--bl-r-panel);
+    background: var(--bl-sheet);
+    box-shadow: var(--bl-lift);
+    overflow: hidden;
+}
+
+.rp-pick__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--bl-space-1);
+    /* The whole point: eleven stores or two, the control is this tall. */
+    max-height: 264px;
+    overflow-y: auto;
+    padding: var(--bl-space-3);
+    scrollbar-width: thin;
+}
+
+/* Stores grouped under their channel (per-store reports, 2026-09-05). */
+.rp-pick__group {
+    margin-top: var(--bl-space-2);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--bl-ink-3);
+}
+
+.rp-pick__group:first-child { margin-top: 0; }
+
+.rp-pick__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--bl-space-2);
+    padding: var(--bl-space-2) var(--bl-space-3);
+    border-top: 1px solid var(--bl-rule);
+    background: var(--bl-chrome);
+}
+
+.rp-pick__clear,
+.rp-pick__done {
+    border: 0;
+    background: none;
+    padding: 2px 4px;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.rp-pick__clear { color: var(--bl-ink-3); }
+.rp-pick__clear:hover { color: var(--bl-bad); }
+.rp-pick__done { margin-left: auto; color: var(--bl-brand-deep); font-weight: 600; }
+.rp-pick__done:hover { color: var(--bl-ink); }
+
+.rp-pick__clear:focus-visible,
+.rp-pick__done:focus-visible {
+    outline: 2px solid var(--bl-brand-deep);
+    outline-offset: 2px;
+    border-radius: var(--bl-r-ctrl);
+}
 /* The store under the channel badge on an order row. */
 .rp-store { display: block; margin-top: 2px; font-size: 11px; color: var(--bl-ink-3); }
 .rp-choice {

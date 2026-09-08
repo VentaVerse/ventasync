@@ -47,6 +47,30 @@
     @foreach($navGroups as $i => $entry)
         @if(isset($entry['route']))
             @php $isActive = \App\Support\Navigation::isActive($entry); @endphp
+            @if($entry['route'] === 'channels.index' && \App\Support\Navigation::canAddStore())
+                {{-- All channels with a plus beside it, the same pair the
+                     group branch below draws. A one-item group folds into a
+                     flat row (Navigation::flattenSingles), and the row it
+                     folds into has to keep everything the child had - this
+                     is the affordance that discovered it. --}}
+                <div class="x-nav__row flex items-stretch">
+                    <a class="x-nav__item flex flex-1 items-center gap-2.5 px-4 py-1.5 text-[13.5px] font-medium no-underline
+                              {{ $isActive
+                                  ? 'bg-side-active text-white font-semibold'
+                                  : 'text-side-ink hover:bg-side-hover hover:text-white' }}"
+                       href="{{ route($entry['route'], $entry['params'] ?? []) }}"
+                       @if($isActive) aria-current="page" @endif
+                    >
+                        <x-ui.icon :name="$entry['icon']" size="15" />
+                        <span>{{ $entry['label'] }}</span>
+                    </a>
+                    <a class="x-nav__add {{ $isActive ? 'bg-side-active text-white' : 'text-side-ink hover:bg-side-hover hover:text-white' }}"
+                       href="{{ route('channels.index', ['add' => 1]) }}" aria-label="Add store" title="Add store">
+                        <x-ui.icon name="plus" size="13" />
+                    </a>
+                </div>
+                @continue
+            @endif
             <a class="x-nav__item flex items-center gap-2.5 px-4 py-1.5 text-[13.5px] font-medium no-underline
                       {{ $isActive
                           ? 'bg-side-active text-white font-semibold'
