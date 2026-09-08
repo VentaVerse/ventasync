@@ -2667,6 +2667,17 @@ class ShopeeProductController extends Controller
 
         ShopeeListing::query()->updateOrCreate(['product_id' => $productId], $fields);
 
+        /* Save and push the DISCOUNT in one press (the owner, 2026-09-09).
+         * The discount push acts on the saved rule, so a rule typed and
+         * not yet saved met a button that did nothing at all. Neither an
+         * error telling the operator to save first nor a button that
+         * disappears as they type: the button carries the save with it.
+         * The rule has just landed above, so the push reads what was
+         * meant, and every refusal below is the push's own. */
+        if ($request->boolean('push_discount_after')) {
+            return $this->pushListingDiscount($request->merge(['action' => 'push']), $productId, $client);
+        }
+
         /* Save and push (2026-09-03, the one-editor merge): the save half
          * has already landed, so a refusal below never loses the typing.
          * Readiness is re-checked on what was JUST saved and every gap is

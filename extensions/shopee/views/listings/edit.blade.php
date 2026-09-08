@@ -38,6 +38,15 @@
     $hasRule = $pct !== null || $fixed !== null;
     $nextPrice = round($corePrice + ($corePrice * (float) ($pct ?? 0) / 100) + (float) ($fixed ?? 0), 2);
 
+    /* The saved discount, as money. "Price on Shopee after push" strikes
+       through with it (the owner, 2026-09-09): a discount shows as a cut
+       price, the way every marketplace shows one, and then the Discount
+       card needs no sentence describing itself. */
+    $pushPrice = $hasRule ? $nextPrice : $corePrice;
+    $salePreview = ($listing?->sale_percent ?? null) !== null
+        ? max(0.01, round($pushPrice * (1 - (float) $listing->sale_percent / 100), 2))
+        : null;
+
     $selectedCategoryId = (int) old('shopee_category_id', $listing->shopee_category_id ?? 0);
     $oldLogisticIds = old('logistic_ids');
     $savedLogisticIds = array_map('intval', $listing->logistic_ids ?? []);
@@ -561,7 +570,13 @@
                         </div>
                         <div class="fm-stat">
                             <span class="fm-stat__k">Price on Shopee after push</span>
-                            <span class="fm-stat__v"><x-money :php="$hasRule ? $nextPrice : $corePrice" /></span>
+                            <span class="fm-stat__v">
+                                @if($salePreview !== null)
+                                    <s class="fm-stat__was"><x-money :php="$pushPrice" /></s><x-money :php="$salePreview" />
+                                @else
+                                    <x-money :php="$pushPrice" />
+                                @endif
+                            </span>
                         </div>
                     </div>
                 </section>
@@ -573,9 +588,10 @@
                         'step' => '0.01', 'note' => 'Shopee needs the start at least an hour ahead.',
                         'savedPct' => $listing?->sale_percent,
                         'savedFrom' => $listing?->sale_starts_at, 'savedTo' => $listing?->sale_ends_at,
-                        'salePreview' => ($listing?->sale_percent ?? null) !== null
-                            ? max(0.01, round(($hasRule ? $nextPrice : $corePrice) * (1 - (float) $listing->sale_percent / 100), 2))
-                            : null,
+                        'salePreview' => $salePreview,
+                        // The save handler honours push_discount_after, so a
+                        // typed rule can be saved and pushed in one press.
+                        'saveAndPush' => true,
                         'remoteId' => $listing?->shopee_discount_id ? (string) $listing->shopee_discount_id : null,
                         'tracked' => true, 'endClearsRule' => false,
                         'liveError' => $link ? ($liveError ?? null) : null,

@@ -899,6 +899,19 @@
         letter-spacing: -0.02em;
     }
 
+    /* A price the buyer will not pay. A saved discount is shown by
+       striking the price that would otherwise go up, in the marketplace's
+       own vocabulary, rather than by a sentence describing it (the owner,
+       2026-09-09). <s> already draws the line; this only makes the struck
+       figure recede behind the one that stands. */
+    .fm-stat__was {
+        margin-right: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--bl-ink-3);
+        text-decoration-thickness: 1px;
+    }
+
     /* ------------------------------------------------------------
        Images
        ------------------------------------------------------------ */

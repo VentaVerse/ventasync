@@ -2,19 +2,32 @@
     The Discount card, shared by every marketplace listing page (#146,
     critique 2026-08-25). One rule shape everywhere: a percent off and a
     window, saved on the channel's own record and pushed as a deliberate,
-    confirmed act. The card names its own state in words, previews the
-    sale price where the channel lets us compute it, and only offers the
-    verb the state allows: Push is disabled until a rule is saved; End
-    appears once the channel holds the discount.
+    confirmed act.
 
-    Rendered INSIDE the page's main form (the fields ride Save). The push
-    and end forms live outside it (nested forms are illegal HTML); see
-    channel-discount-forms, which takes the same $discount array.
+    THE CARD SAYS NOTHING ABOUT ITS STATE (the owner, 2026-09-09). It used to
+    carry a Status line - "On Shopee as promotion 508423095844913. Buyers
+    see the cut price inside the window." - set at 16px in a 300px rail,
+    where it wrapped to four lines and shouted louder than the price it
+    described. Every fact in it is already on screen somewhere it belongs:
 
-    A section, like every other panel on a listing page (the owner,
-    2026-09-08). It was an .fm-card, the lighter container meant for the
-    inside of a section, and standing beside real sections it read as a
-    fragment of the one above it.
+      is a promotion running   the strip's Promotion figure, live from the channel
+      what buyers will pay     the price rule's "after push" figure, struck
+      is it saved yet          the button, which reads "Save and push discount"
+      which promotion          the End confirm, which names the id it ends
+
+    SAVE AND PUSH IS ONE PRESS. The push acts on the SAVED rule, so a rule
+    typed and not yet saved made the button do nothing at all - a dead
+    control with no explanation, since an explanation under a control is
+    banned here for good reason. The fix is neither an error telling the
+    operator to save first nor a button that vanishes as they type: while
+    the rule differs from what is saved, the button carries the save with
+    it. Clearing the percent shows no push verb at all - there is nothing
+    to send, and the page's own Save is the whole act.
+
+    Rendered INSIDE the page's main form (the fields ride Save, and so
+    does Save and push discount). The plain push and end forms live
+    outside it (nested forms are illegal HTML); see channel-discount-forms,
+    which takes the same $discount array.
 
     Expected keys of $discount:
       channel        'Shopee' | 'Lazada' | 'TikTok Shop'
@@ -26,12 +39,14 @@
       savedPct       ?float  the saved rule
       savedFrom      ?Carbon
       savedTo        ?Carbon
-      salePreview    ?float  computed sale price, null when the channel cuts the price itself
+      salePreview    ?float  computed sale price; the channel's own price
+                     figure strikes through with it. Not printed here.
       remoteId       ?string the channel's promotion id once pushed
       tracked        bool, whether the channel gives us a promotion id at all
       endClearsRule  bool, whether End also clears the saved rule here
       pushedAt       ?Carbon when an untracked channel last took the push (Lazada)
       liveError      ?string set when the channel did not answer on this load
+      saveAndPush    bool, the channel's save handler honours push_discount_after
       ridesPush      bool, the discount goes up with every push of the product and
                      the store applies the window itself; no push or end verb of
                      its own, and the window is optional (WooCommerce)
@@ -40,46 +55,53 @@
     $ridesPush = (bool) ($ridesPush ?? false);
     $pushedAt = $pushedAt ?? null;
     $liveError = $liveError ?? null;
+    $saveAndPush = (bool) ($saveAndPush ?? false);
     $hasRule = $savedPct !== null && ($ridesPush || ($savedFrom && $savedTo));
-    $inputPct = old('sale_percent', $savedPct !== null ? ($step === '1' ? (int) $savedPct : $savedPct) : null);
-    $inputFrom = old('sale_starts_at', $savedFrom?->format('Y-m-d\TH:i'));
-    $inputTo = old('sale_ends_at', $savedTo?->format('Y-m-d\TH:i'));
 
-    if (!$hasRule) {
-        $stateWords = 'No discount set.';
-    } elseif ($ridesPush) {
-        $stateWords = 'Goes up with every push. ' . $channel . ' applies the window itself.';
-    } elseif ($remoteId) {
-        $stateWords = 'On ' . $channel . ' as promotion ' . $remoteId . '. Buyers see the cut price inside the window.';
-    } elseif ($pushedAt) {
-        $stateWords = 'Pushed to ' . $channel . ' ' . $pushedAt->diffForHumans() . '. Buyers see the cut price inside the window.';
-    } else {
-        $stateWords = 'Saved here, not pushed to ' . $channel . ' yet.';
-    }
+    /* The typed values and the SAVED values are formatted by the same
+     * hand, because the card compares them: 15 against 15.00 would read
+     * as an edit the moment the page loaded. */
+    $pctText = fn ($v) => ($v === null || $v === '')
+        ? ''
+        : ($step === '1' ? (string) (int) $v : rtrim(rtrim(number_format((float) $v, 2, '.', ''), '0'), '.'));
+
+    $savedPctText = $pctText($savedPct);
+    $savedFromText = $savedFrom?->format('Y-m-d\TH:i') ?? '';
+    $savedToText = $savedTo?->format('Y-m-d\TH:i') ?? '';
+
+    $inputPct = old('sale_percent', $savedPctText !== '' ? $savedPctText : null);
+    $inputFrom = old('sale_starts_at', $savedFromText !== '' ? $savedFromText : null);
+    $inputTo = old('sale_ends_at', $savedToText !== '' ? $savedToText : null);
 
     // Nothing goes out while the channel is not answering: a push into
     // silence would report its own failure a moment later.
     $canPush = $canManage && $onMarketplace && $hasRule && $liveError === null;
     $canEnd = $canManage && $onMarketplace && ($remoteId || $pushedAt) && $liveError === null;
+    $canSaveAndPush = $canManage && $onMarketplace && $saveAndPush && $liveError === null;
 @endphp
-{{-- The Alpine scope answers while the operator types: the Status line
-     turns into "Unsaved: 15% off, Aug 26 10:00 to Sep 2 23:59. Save,
-     then push." the moment a field differs from what is saved, so the
-     round trip to Save is never a mystery. --}}
+{{-- The Alpine scope compares what is typed against what is SAVED - not
+     against what was posted back, which is why the snapshot comes from the
+     record and not from old(). After a refused save the fields hold the
+     typing and the record still holds the old rule, and that is exactly
+     when pushing the saved rule would be the wrong act. --}}
 <section class="fm-section"
      x-data="{
+        ch: @js($channel),
+        sap: @js($canSaveAndPush),
         pct: @js((string) ($inputPct ?? '')),
         from: @js((string) ($inputFrom ?? '')),
         to: @js((string) ($inputTo ?? '')),
-        saved: { pct: @js((string) ($inputPct ?? '')), from: @js((string) ($inputFrom ?? '')), to: @js((string) ($inputTo ?? '')) },
+        saved: { pct: @js($savedPctText), from: @js($savedFromText), to: @js($savedToText) },
         get dirty() { return this.pct !== this.saved.pct || this.from !== this.saved.from || this.to !== this.saved.to; },
+        get mode() {
+            if (!this.sap || !this.dirty) return 'push';
+            return this.pct ? 'both' : 'none';
+        },
         when(v) { if (!v) return ''; var d = new Date(v); return isNaN(d) ? v : d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }); },
-        ridesPush: @js($ridesPush),
-        get words() {
-            if (!this.pct) return 'Unsaved: the discount is being cleared. Save to confirm.';
-            if (this.ridesPush && !this.from && !this.to) return 'Unsaved: ' + this.pct + '% off, no window. Save; it goes up with the next push.';
-            if (!this.from || !this.to) return this.ridesPush ? 'Unsaved: ' + this.pct + '% off; set both the start and the end, or neither, then Save.' : 'Unsaved: ' + this.pct + '% off; set the start and the end, then Save.';
-            return 'Unsaved: ' + this.pct + '% off, ' + this.when(this.from) + ' to ' + this.when(this.to) + (this.ridesPush ? '. Save; it goes up with the next push.' : '. Save, then push.');
+        get confirmWords() {
+            var w = 'Save this listing, then push the discount to ' + this.ch + '? ' + this.pct + '% off';
+            if (this.from && this.to) { w += ', ' + this.when(this.from) + ' to ' + this.when(this.to); }
+            return w + '. Buyers see the cut price once the window opens.';
         }
      }">
     {{-- What the card is stays in a tooltip, not in a paragraph above the
@@ -101,25 +123,22 @@
             <x-ui.input id="{{ $prefix }}-sale-to" name="sale_ends_at" type="datetime-local" :value="$inputTo" :min="$inputFrom" x-model="to" :disabled="!$canManage" />
         </x-ui.field>
     </div>
-    <div class="fm-stats">
-        <div class="fm-stat">
-            <span class="fm-stat__k">Status</span>
-            <span class="fm-stat__v" x-show="!dirty">{{ $stateWords }}</span>
-            <span class="fm-stat__v" x-show="dirty" x-cloak x-text="words"></span>
-        </div>
-        @if($hasRule && $salePreview !== null)
-            <div class="fm-stat">
-                <span class="fm-stat__k">Sale price</span>
-                <span class="fm-stat__v"><x-money :php="$salePreview" /></span>
-            </div>
-        @endif
-    </div>
     @if($ridesPush)
         {{-- No verb of its own: the rule rides Save and the next push. --}}
     @elseif($canManage && $onMarketplace)
         <div class="cc-head-actions">
-            <x-ui.button type="submit" form="{{ $prefix }}-discount-push" :disabled="!$canPush"
+            {{-- One slot, one verb at a time, so nothing jumps as it is
+                 typed into. This button is inside the page's own form and
+                 carries its own name: the save runs, then the push. --}}
+            <x-ui.button type="submit" x-show="mode === 'push'"
+                         form="{{ $prefix }}-discount-push" :disabled="!$canPush"
                          data-confirm-tone="primary" data-confirm-verb="Push discount">Push discount to {{ $channel }}</x-ui.button>
+            @if($canSaveAndPush)
+                <x-ui.button type="submit" x-show="mode === 'both'" x-cloak
+                             name="push_discount_after" value="1"
+                             x-bind:data-confirm="confirmWords"
+                             data-confirm-tone="primary" data-confirm-verb="Save and push">Save and push discount</x-ui.button>
+            @endif
             @if($canEnd)
                 <x-ui.button type="submit" form="{{ $prefix }}-discount-end" data-confirm-verb="End discount">End discount now</x-ui.button>
             @endif

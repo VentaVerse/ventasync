@@ -285,4 +285,62 @@ class ShopeeDiscountTest extends TestCase
         $this->assertStringContainsString('at least an hour from now', session('error'));
         $this->assertSame([], $this->sentPayloads);
     }
+
+    /* Save and push in one press (the owner, 2026-09-09). The push reads the
+     * SAVED rule, so a rule typed and not yet saved met a dead button.
+     * The button now carries the save with it, and these two pin both
+     * halves: the press that asks for it saves and then pushes, and a
+     * plain save still pushes nothing. */
+    public function test_a_typed_rule_is_saved_and_pushed_in_one_press(): void
+    {
+        $productId = $this->seedProduct(300.0);
+        $starts = now()->addHours(2)->startOfMinute();
+        $ends = now()->addDays(3)->startOfMinute();
+        // Linked, +50% price rule, and NO discount rule saved yet.
+        $this->seedListedWithRule($productId, 990077, ['markup_percent' => 50]);
+
+        $r = $this->actingAs($this->manager())
+            ->post(route('ext.shopee.listings.update', $productId), [
+                'shopee_category_id' => 100001,
+                'logistic_ids' => [8000],
+                'markup_percent' => 50,
+                'sale_percent' => 10,
+                'sale_starts_at' => $starts->format('Y-m-d\TH:i'),
+                'sale_ends_at' => $ends->format('Y-m-d\TH:i'),
+                'push_discount_after' => 1,
+            ]);
+
+        $r->assertSessionHas('status');
+
+        $listing = ShopeeListing::where('product_id', $productId)->first();
+        $this->assertEqualsWithDelta(10.0, (float) $listing->sale_percent, 0.001);
+        $this->assertSame(660011, (int) $listing->shopee_discount_id);
+
+        // 300 + 50% = 450 listed, 10% off = 405: the rule that was just
+        // typed, not one left over from before.
+        $items = $this->payloadsFor('/api/v2/discount/add_discount_item');
+        $this->assertCount(1, $items);
+        $this->assertEqualsWithDelta(405.0, $items[0]['body']['item_list'][0]['item_promotion_price'], 0.001);
+    }
+
+    public function test_a_plain_save_stores_the_rule_and_sends_nothing(): void
+    {
+        $productId = $this->seedProduct(300.0);
+        $starts = now()->addHours(2)->startOfMinute();
+        $ends = now()->addDays(3)->startOfMinute();
+        $this->seedListedWithRule($productId, 990077);
+
+        $r = $this->actingAs($this->manager())
+            ->post(route('ext.shopee.listings.update', $productId), [
+                'shopee_category_id' => 100001,
+                'logistic_ids' => [8000],
+                'sale_percent' => 10,
+                'sale_starts_at' => $starts->format('Y-m-d\TH:i'),
+                'sale_ends_at' => $ends->format('Y-m-d\TH:i'),
+            ]);
+
+        $r->assertSessionHas('status');
+        $this->assertEqualsWithDelta(10.0, (float) ShopeeListing::where('product_id', $productId)->value('sale_percent'), 0.001);
+        $this->assertSame([], $this->sentPayloads);
+    }
 }

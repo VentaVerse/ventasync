@@ -16,7 +16,11 @@
             . ', from ' . $savedFrom->format('M j, Y H:i') . ' to ' . $savedTo->format('M j, Y H:i')
             . '. Buyers see the cut price once the window opens.'
         : 'Set and save the discount first.';
-    $endWords = 'End this discount on ' . $channel . ' now? Buyers pay the full price again'
+    /* The promotion id lives here now, not in a status line on the card:
+       the one moment it matters is the moment you end that promotion. */
+    $endWords = 'End this discount on ' . $channel . ' now?'
+        . ($remoteId ? ' Promotion ' . $remoteId . '.' : '')
+        . ' Buyers pay the full price again'
         . ($endClearsRule ? ', and the saved rule here is cleared.' : '.');
 @endphp
 @if($canManage && $onMarketplace && ($liveError ?? null) === null)
