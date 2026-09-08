@@ -728,6 +728,8 @@ class VentaListingController extends Controller
             'live' => $live,
             'liveError' => $liveError,
             'groupCard' => $groupCard,
+            'storeId' => (int) $store,
+            'descriptionTemplates' => \App\Models\DescriptionTemplate::forStore('venta', (int) $store),
             'groupCategory' => $groupCategory,
             'images' => $push->images($productId),
         ]);
@@ -743,6 +745,8 @@ class VentaListingController extends Controller
             'markup_fixed' => 'nullable|numeric|min:-1000000|max:1000000',
             'name' => 'nullable|string|max:255',
             'description' => 'nullable|string|max:20000',
+            'description_prefix_id' => 'nullable|integer',
+            'description_suffix_id' => 'nullable|integer',
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:500',
         ]);
@@ -758,6 +762,8 @@ class VentaListingController extends Controller
                 'markup_percent' => $blank($data['markup_percent'] ?? null),
                 'markup_fixed' => $blank($data['markup_fixed'] ?? null),
                 'name' => $blank($data['name'] ?? null),
+                'description_prefix_id' => ((int) ($data['description_prefix_id'] ?? 0)) ?: null,
+                'description_suffix_id' => ((int) ($data['description_suffix_id'] ?? 0)) ?: null,
                 'description' => $blank($data['description'] ?? null),
                 'meta_title' => $blank($data['meta_title'] ?? null),
                 'meta_description' => $blank($data['meta_description'] ?? null),

@@ -87,6 +87,7 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
                     ]),
                     new MenuItem('Listings', 'ext.venta.listings.index', 'view_venta/listing', null, ['store' => $store->id], 'Catalog'),
                     new MenuItem('Product Groups', 'ext.venta.product-groups.index', 'view_venta/product_group', null, ['store' => $store->id], 'Catalog'),
+                    new MenuItem('Description Templates', 'ext.venta.description-templates.index', 'view_venta/description_template', null, ['store' => $store->id], 'Catalog'),
                     new MenuItem('Import', 'ext.venta.products.import', 'view_venta/listing', null, ['store' => $store->id], 'Catalog'),
                     new MenuItem('Orders', 'ext.venta.orders.index', 'view_venta/order', null, ['store' => $store->id], 'Sell'),
                 ],

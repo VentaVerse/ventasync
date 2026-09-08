@@ -1,5 +1,6 @@
 <?php
 
+use Extensions\tiktok\Controllers\TikTokDescriptionTemplateController;
 use Extensions\tiktok\Controllers\TiktokSettingsController;
 use Extensions\tiktok\Controllers\TiktokApiExplorerController;
 use Extensions\tiktok\Controllers\TikTokOrderController;
@@ -60,6 +61,14 @@ Route::middleware(['auth', \Extensions\tiktok\Http\ResolveTikTokStore::class])
         // name") retired with both on 2026-09-05 (#201): a group only holds
         // what THIS STORE carries, and the panel search below is that.
         Route::get('/tiktok/{store}/product-groups', [TikTokProductGroupController::class, 'index'])->name('ext.tiktok.product-groups.index');
+        
+        /* Description templates (the owner, 2026-09-07): the store's own words a
+           listing puts above or below the product description. Read on the view
+           tier; the writes are manage. The + on a listing page posts to store. */
+        Route::get('/tiktok/{store}/description-templates', [TikTokDescriptionTemplateController::class, 'index'])->name('ext.tiktok.description-templates.index');
+        Route::post('/tiktok/{store}/description-templates', [TikTokDescriptionTemplateController::class, 'store'])->name('ext.tiktok.description-templates.store')->defaults('permission_tier', 'manage');
+        Route::put('/tiktok/{store}/description-templates/{template}', [TikTokDescriptionTemplateController::class, 'update'])->whereNumber('template')->name('ext.tiktok.description-templates.update')->defaults('permission_tier', 'manage');
+        Route::delete('/tiktok/{store}/description-templates/{template}', [TikTokDescriptionTemplateController::class, 'destroy'])->whereNumber('template')->name('ext.tiktok.description-templates.destroy')->defaults('permission_tier', 'manage');
         Route::get('/tiktok/{store}/product-groups/{id}/edit', [TikTokProductGroupController::class, 'edit'])->name('ext.tiktok.product-groups.edit');
         Route::get('/tiktok/{store}/product-groups/{id}/products', [TikTokProductGroupController::class, 'products'])->name('ext.tiktok.product-groups.products');
         // The group page's Add products panel search (#201, Draft C): this

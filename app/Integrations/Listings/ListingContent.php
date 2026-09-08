@@ -2,6 +2,8 @@
 
 namespace App\Integrations\Listings;
 
+use App\Models\DescriptionTemplate;
+
 /**
  * What title and description go up for one product on one store.
  *
@@ -24,18 +26,68 @@ class ListingContent
 {
     /**
      * @param  ?object  $listing  the store's listing row, or null when it has none yet
+     * @param  ?string  $integration  the channel, when the store's description
+     *                  templates should wrap the result (2026-09-07)
+     * @param  ?int  $storeId  that channel's store
      * @return array{title: string, description: string}
      */
-    public static function of(?object $listing, string $coreTitle, string $coreDescription): array
+    public static function of(?object $listing, string $coreTitle, string $coreDescription, ?string $integration = null, ?int $storeId = null): array
     {
         $own = ($listing !== null && method_exists($listing, 'contentOverrides'))
             ? $listing->contentOverrides()
             : [];
 
+        $description = self::pick($own['description'] ?? null, $coreDescription);
+
+        /* The store's own words above and below (the owner, 2026-09-07): a
+         * returns policy or a warranty note written once and carried by
+         * every listing that points at it. It wraps whichever description
+         * won above, so a listing with its own wording keeps the policy too. */
+        if ($integration !== null && $storeId !== null && $listing !== null) {
+            $description = self::wrap(
+                $description,
+                DescriptionTemplate::bodyOf(self::intOrNull($listing->description_prefix_id ?? null), $integration, $storeId),
+                DescriptionTemplate::bodyOf(self::intOrNull($listing->description_suffix_id ?? null), $integration, $storeId)
+            );
+        }
+
         return [
             'title' => self::pick($own['title'] ?? null, $coreTitle),
-            'description' => self::pick($own['description'] ?? null, $coreDescription),
+            'description' => $description,
         ];
+    }
+
+    /**
+     * The store's templates around a description that has already been
+     * resolved elsewhere. Every channel's payload builder calls this, so a
+     * push from any door carries the store's policy text.
+     */
+    public static function wrapDescription(string $description, string $integration, int $storeId, ?object $listing): string
+    {
+        if ($listing === null || $storeId <= 0) {
+            return $description;
+        }
+
+        return self::wrap(
+            $description,
+            DescriptionTemplate::bodyOf(self::intOrNull($listing->description_prefix_id ?? null), $integration, $storeId),
+            DescriptionTemplate::bodyOf(self::intOrNull($listing->description_suffix_id ?? null), $integration, $storeId)
+        );
+    }
+
+    /** Prefix, then the description, then suffix; blanks simply do not appear. */
+    private static function wrap(string $description, string $prefix, string $suffix): string
+    {
+        return implode("\n\n", array_filter([
+            $prefix,
+            trim($description),
+            $suffix,
+        ], fn ($part) => trim((string) $part) !== ''));
+    }
+
+    private static function intOrNull($value): ?int
+    {
+        return ($value === null || (int) $value <= 0) ? null : (int) $value;
     }
 
     /** A blank override is not an override. */

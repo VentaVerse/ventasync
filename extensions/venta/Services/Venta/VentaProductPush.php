@@ -122,7 +122,12 @@ class VentaProductPush
             'width'       => (float) ($prod->width ?? 0),
             'height'      => (float) ($prod->height ?? 0),
             'status'      => (bool) $prod->status,
-            'description' => $overrides['description'] ?? ($prod->description ?? ''),
+            'description' => \App\Integrations\Listings\ListingContent::wrapDescription(
+                (string) ($overrides['description'] ?? ($prod->description ?? '')),
+                'venta',
+                (int) $this->setting->id,
+                \Extensions\venta\Models\VentaListing::query()->where('venta_setting_id', $this->setting->id)->where('product_id', $pid)->first()
+            ),
         ];
 
         foreach (['meta_title', 'meta_description'] as $meta) {

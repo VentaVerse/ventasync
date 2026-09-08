@@ -106,6 +106,14 @@ class TikTokProductPush
         if ($desc === '') {
             $desc = $title;
         }
+
+        /* The store's prefix and suffix templates (2026-09-07): its own words
+         * above and below whatever description won. */
+        $ttListing = \Extensions\tiktok\Models\TikTokListing::query()->where('product_id', (int) $erp->product_id)->first();
+        $desc = \App\Integrations\Listings\ListingContent::wrapDescription(
+            $desc, 'tiktok', (int) ($ttListing->tiktok_setting_id ?? 0), $ttListing
+        );
+
         $desc = mb_substr($desc, 0, 10000);
 
         $payload = [

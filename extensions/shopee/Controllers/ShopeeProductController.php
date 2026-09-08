@@ -2402,6 +2402,8 @@ class ShopeeProductController extends Controller
             'logistics' => $this->fetchLogistics(),
             'images' => \App\Support\Catalog\ProductImages::urls($productId),
             'groupCard' => $this->groupCardFor($productId),
+            'storeId' => (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0),
+            'descriptionTemplates' => \App\Models\DescriptionTemplate::forStore('shopee', (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0)),
         ]);
     }
 
@@ -2565,6 +2567,8 @@ class ShopeeProductController extends Controller
             'item_name' => 'nullable|string|max:255',
             'description' => 'nullable|string|max:5000',
             'weight' => 'nullable|numeric|min:0.01',
+            'description_prefix_id' => 'nullable|integer',
+            'description_suffix_id' => 'nullable|integer',
             'package_length' => 'nullable|integer|min:1|max:1000000',
             'package_width' => 'nullable|integer|min:1|max:1000000',
             'package_height' => 'nullable|integer|min:1|max:1000000',
@@ -2582,6 +2586,8 @@ class ShopeeProductController extends Controller
             ['product_id' => $productId],
             [
                 'shopee_category_id' => $data['shopee_category_id'] ?? null,
+                'description_prefix_id' => ((int) ($data['description_prefix_id'] ?? 0)) ?: null,
+                'description_suffix_id' => ((int) ($data['description_suffix_id'] ?? 0)) ?: null,
                 'shopee_brand_id' => ((int) ($data['shopee_brand_id'] ?? 0)) > 0 ? (int) $data['shopee_brand_id'] : null,
                 'logistic_ids' => array_map('intval', $data['logistic_ids'] ?? []),
                 'markup_percent' => $blank($data['markup_percent'] ?? null),

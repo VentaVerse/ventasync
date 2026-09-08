@@ -34,6 +34,7 @@ import './pages/channel-settings';
 import './pages/channel-setup';
 import './pages/store-settings';
 import './pages/group-form';
+import './pages/description-template';
 import './pages/group-products';
 import './pages/channel-listing-form';
 import './pages/channel-import';

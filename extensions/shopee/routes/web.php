@@ -1,5 +1,6 @@
 <?php
 
+use Extensions\shopee\Controllers\ShopeeDescriptionTemplateController;
 use Extensions\shopee\Controllers\ShopeeSettingsController;
 use Extensions\shopee\Controllers\ShopeeApiExplorerController;
 use Extensions\shopee\Controllers\ShopeeOrderController;
@@ -85,6 +86,14 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
 
         // Product Groups — read-only list + search + edit-form RENDER
         Route::get('/shopee/{store}/product-groups', [ShopeeProductGroupController::class, 'index'])->name('ext.shopee.product-groups.index');
+        
+        /* Description templates (the owner, 2026-09-07): the store's own words a
+           listing puts above or below the product description. Read on the view
+           tier; the writes are manage. The + on a listing page posts to store. */
+        Route::get('/shopee/{store}/description-templates', [ShopeeDescriptionTemplateController::class, 'index'])->name('ext.shopee.description-templates.index');
+        Route::post('/shopee/{store}/description-templates', [ShopeeDescriptionTemplateController::class, 'store'])->name('ext.shopee.description-templates.store')->defaults('permission_tier', 'manage');
+        Route::put('/shopee/{store}/description-templates/{template}', [ShopeeDescriptionTemplateController::class, 'update'])->whereNumber('template')->name('ext.shopee.description-templates.update')->defaults('permission_tier', 'manage');
+        Route::delete('/shopee/{store}/description-templates/{template}', [ShopeeDescriptionTemplateController::class, 'destroy'])->whereNumber('template')->name('ext.shopee.description-templates.destroy')->defaults('permission_tier', 'manage');
         // ext.shopee.product-groups.searchProducts (the whole-catalogue picker
         // behind the dual list and "Add a product by name") retired with both
         // on 2026-09-05 (#201): a group only holds what THIS STORE carries,

@@ -565,6 +565,26 @@
         "name": "ext.lazada.stores.destroy"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "channels/lazada/{store}/description-templates",
+        "name": "ext.lazada.description-templates.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/description-templates",
+        "name": "ext.lazada.description-templates.store"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/lazada/{store}/description-templates/{template}",
+        "name": "ext.lazada.description-templates.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/lazada/{store}/description-templates/{template}",
+        "name": "ext.lazada.description-templates.update"
+    },
+    {
         "method": "POST",
         "uri": "channels/lazada/{store}/explorer/run",
         "name": "ext.lazada.explorer_run"
@@ -1510,6 +1530,26 @@
         "name": "ext.shopee.stores.destroy"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "channels/shopee/{store}/description-templates",
+        "name": "ext.shopee.description-templates.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/description-templates",
+        "name": "ext.shopee.description-templates.store"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/shopee/{store}/description-templates/{template}",
+        "name": "ext.shopee.description-templates.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/shopee/{store}/description-templates/{template}",
+        "name": "ext.shopee.description-templates.update"
+    },
+    {
         "method": "POST",
         "uri": "channels/shopee/{store}/explorer/run",
         "name": "ext.shopee.explorer_run"
@@ -2150,6 +2190,26 @@
         "name": "ext.tiktok.stores.destroy"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "channels/tiktok/{store}/description-templates",
+        "name": "ext.tiktok.description-templates.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/description-templates",
+        "name": "ext.tiktok.description-templates.store"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/tiktok/{store}/description-templates/{template}",
+        "name": "ext.tiktok.description-templates.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/tiktok/{store}/description-templates/{template}",
+        "name": "ext.tiktok.description-templates.update"
+    },
+    {
         "method": "POST",
         "uri": "channels/tiktok/{store}/explorer/run",
         "name": "ext.tiktok.explorer_run"
@@ -2631,6 +2691,26 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "channels/venta/{store}/description-templates",
+        "name": "ext.venta.description-templates.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/description-templates",
+        "name": "ext.venta.description-templates.store"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/venta/{store}/description-templates/{template}",
+        "name": "ext.venta.description-templates.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/venta/{store}/description-templates/{template}",
+        "name": "ext.venta.description-templates.update"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "channels/venta/{store}/listings",
         "name": "ext.venta.listings.index"
     },
@@ -2988,6 +3068,26 @@
         "method": "POST",
         "uri": "channels/woocommerce/{store}/delete",
         "name": "ext.woocommerce.stores.destroy"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/woocommerce/{store}/description-templates",
+        "name": "ext.woocommerce.description-templates.index"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/description-templates",
+        "name": "ext.woocommerce.description-templates.store"
+    },
+    {
+        "method": "DELETE",
+        "uri": "channels/woocommerce/{store}/description-templates/{template}",
+        "name": "ext.woocommerce.description-templates.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "channels/woocommerce/{store}/description-templates/{template}",
+        "name": "ext.woocommerce.description-templates.update"
     },
     {
         "method": "GET|HEAD",

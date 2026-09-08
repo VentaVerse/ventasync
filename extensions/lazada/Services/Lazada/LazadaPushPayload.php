@@ -71,14 +71,17 @@ class LazadaPushPayload
          * other channel's Content card works (2026-09-07). An empty column
          * follows the catalog, which is what every row starts as. The clone
          * keeps the read-only product row untouched for everything else. */
-        if ($product && (trim((string) ($listing->item_name ?? '')) !== '' || trim((string) ($listing->description ?? '')) !== '')) {
+        if ($product) {
+            $content = \App\Integrations\Listings\ListingContent::of(
+                $listing,
+                (string) ($product->name ?? ''),
+                (string) ($product->description ?? ''),
+                'lazada',
+                (int) ($listing->lazada_setting_id ?? 0)
+            );
             $product = clone $product;
-            if (trim((string) ($listing->item_name ?? '')) !== '') {
-                $product->name = (string) $listing->item_name;
-            }
-            if (trim((string) ($listing->description ?? '')) !== '') {
-                $product->description = (string) $listing->description;
-            }
+            $product->name = $content['title'];
+            $product->description = $content['description'];
         }
 
         // Images are mandatory for Lazada product creation.

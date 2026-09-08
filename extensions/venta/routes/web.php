@@ -1,5 +1,6 @@
 <?php
 
+use Extensions\venta\Controllers\VentaDescriptionTemplateController;
 use Extensions\venta\Controllers\VentaListingController;
 use Extensions\venta\Controllers\VentaSettingsController;
 use Extensions\venta\Controllers\VentaProductGroupController;
@@ -38,6 +39,14 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
 
     // Product Groups — read-only list + edit-form RENDER (GETs)
     Route::get('/venta/{store}/product-groups', [VentaProductGroupController::class, 'index'])->name('ext.venta.product-groups.index');
+    
+    /* Description templates (the owner, 2026-09-07): the store's own words a
+       listing puts above or below the product description. Read on the view
+       tier; the writes are manage. The + on a listing page posts to store. */
+    Route::get('/venta/{store}/description-templates', [VentaDescriptionTemplateController::class, 'index'])->name('ext.venta.description-templates.index');
+    Route::post('/venta/{store}/description-templates', [VentaDescriptionTemplateController::class, 'store'])->name('ext.venta.description-templates.store')->defaults('permission_tier', 'manage');
+    Route::put('/venta/{store}/description-templates/{template}', [VentaDescriptionTemplateController::class, 'update'])->whereNumber('template')->name('ext.venta.description-templates.update')->defaults('permission_tier', 'manage');
+    Route::delete('/venta/{store}/description-templates/{template}', [VentaDescriptionTemplateController::class, 'destroy'])->whereNumber('template')->name('ext.venta.description-templates.destroy')->defaults('permission_tier', 'manage');
     Route::get('/venta/{store}/product-groups/{group}/edit', [VentaProductGroupController::class, 'edit'])->name('ext.venta.product-groups.edit');
     Route::get('/venta/{store}/product-groups/{group}/products', [VentaProductGroupController::class, 'products'])->name('ext.venta.product-groups.products');
     // Read tier, beside the products list it mirrors, NOT with the writes.

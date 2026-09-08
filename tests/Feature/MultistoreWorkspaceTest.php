@@ -261,6 +261,12 @@ class MultistoreWorkspaceTest extends TestCase
             $rows[] = ['Catalog', 'Listings', route('ext.venta.listings.index', ['store' => $storeId])];
         }
         $rows[] = ['Catalog', 'Product Groups', route('ext.'.$channel.'.product-groups.index', ['store' => $storeId])];
+        /* Joined 2026-09-07: the store's own words above and below a
+           description. Only the channels that carry listings have it, so
+           OpenCart and Shopify are not expected to. */
+        if (\Illuminate\Support\Facades\Route::has('ext.'.$channel.'.description-templates.index')) {
+            $rows[] = ['Catalog', 'Description Templates', route('ext.'.$channel.'.description-templates.index', ['store' => $storeId])];
+        }
         // Import joined 2026-09-04 (cleanup point 11) - every channel has it.
         $rows[] = ['Catalog', 'Import', route('ext.'.$channel.'.products.import', ['store' => $storeId])];
         $rows[] = ['Channel', 'Settings', route('ext.'.$channel.'.settings.show', ['store' => $storeId])];

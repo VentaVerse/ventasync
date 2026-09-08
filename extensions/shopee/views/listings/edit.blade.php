@@ -357,6 +357,11 @@
                                 <div class="fm-hint">The catalog now says "{{ $nameDiverges }}". Clearing this field follows it again; keeping your wording is fine too.</div>
                             @endif
                         </x-ui.field>
+                        @include('partials.channel-description-pick', [
+                            'id' => 'sl-prefix', 'label' => 'Prefix description', 'name' => 'description_prefix_id',
+                            'selected' => (int) old('description_prefix_id', $listing->description_prefix_id ?? 0),
+                            'options' => $descriptionTemplates, 'canManage' => $canManage,
+                        ])
                         <x-ui.field label="Description" for="sl-description" name="description" wide>
                             <x-ui.textarea id="sl-description" name="description" rows="6" maxlength="5000"
                                            placeholder="{{ \Illuminate\Support\Str::limit($coreDescription, 400) }}"
@@ -365,6 +370,11 @@
                                 <div class="fm-hint">The catalog's description now differs from this listing's own. Clearing this field follows the catalog again; keeping your wording is fine too.</div>
                             @endif
                         </x-ui.field>
+                        @include('partials.channel-description-pick', [
+                            'id' => 'sl-suffix', 'label' => 'Suffix description', 'name' => 'description_suffix_id',
+                            'selected' => (int) old('description_suffix_id', $listing->description_suffix_id ?? 0),
+                            'options' => $descriptionTemplates, 'canManage' => $canManage,
+                        ])
                     </div>
                 </section>
 
@@ -678,5 +688,7 @@
 @if($canManage)
     @include('ext-shopee::products._push_review_modal')
 @endif
+
+@include('partials.channel-description-pick-modal', ['storeUrl' => route('ext.shopee.description-templates.store', ['store' => $storeId])])
 
 @endsection

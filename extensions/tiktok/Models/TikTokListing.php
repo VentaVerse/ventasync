@@ -22,6 +22,7 @@ class TikTokListing extends Model
 
     protected $fillable = [
         'tiktok_setting_id', 'product_id',
+        'description_prefix_id', 'description_suffix_id',
         'tiktok_product_id', 'tiktok_sku_id',
         'tiktok_category_id', 'brand_id', 'brand_name', 'attribute_values',
         'title', 'description', 'markup_percent', 'markup_fixed',

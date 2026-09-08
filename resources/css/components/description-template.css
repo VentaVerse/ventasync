@@ -1,0 +1,27 @@
+/* The description template modal (the owner, 2026-09-07): the store's own words
+   above or below a product's description. The dialog itself is the app's
+   .modal-backdrop / .modal / .modal-header; only its body and foot are new,
+   because a form modal has never existed here. Tokens: --bl-*. */
+
+.dt-modal__body {
+    padding: var(--bl-space-5);
+}
+
+.dt-modal__foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--bl-space-2);
+    padding: 0 var(--bl-space-5) var(--bl-space-5);
+}
+
+/* The dropdown pair on a listing page: the select and its + on one line. */
+.dt-pick {
+    display: flex;
+    align-items: center;
+    gap: var(--bl-space-2);
+}
+
+.dt-pick .x-select-wrap {
+    flex: 1 1 auto;
+    min-width: 0;
+}

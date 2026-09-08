@@ -188,9 +188,19 @@
                         <x-ui.field label="Title" for="tl-title" name="title" wide>
                             <x-ui.input id="tl-title" name="title" :value="old('title', $listing->title ?? '')" :placeholder="$product->name" maxlength="255" :disabled="!$canManage" />
                         </x-ui.field>
+                        @include('partials.channel-description-pick', [
+                            'id' => 'tl-prefix', 'label' => 'Prefix description', 'name' => 'description_prefix_id',
+                            'selected' => (int) old('description_prefix_id', $listing->description_prefix_id ?? 0),
+                            'options' => $descriptionTemplates, 'canManage' => $canManage,
+                        ])
                         <x-ui.field label="Description" for="tl-description" name="description" wide>
                             <x-ui.textarea id="tl-description" name="description" rows="6" :placeholder="\Illuminate\Support\Str::limit($coreDescription, 300)" :disabled="!$canManage">{{ old('description', $listing->description ?? '') }}</x-ui.textarea>
                         </x-ui.field>
+                        @include('partials.channel-description-pick', [
+                            'id' => 'tl-suffix', 'label' => 'Suffix description', 'name' => 'description_suffix_id',
+                            'selected' => (int) old('description_suffix_id', $listing->description_suffix_id ?? 0),
+                            'options' => $descriptionTemplates, 'canManage' => $canManage,
+                        ])
                     </div>
                 </section>
 
@@ -331,4 +341,6 @@
     </div>
 
 </div>
+@include('partials.channel-description-pick-modal', ['storeUrl' => route('ext.tiktok.description-templates.store', ['store' => $storeId])])
+
 @endsection

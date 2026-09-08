@@ -1743,7 +1743,9 @@ class ShopeeProductGroupController extends Controller
             $content = \App\Integrations\Listings\ListingContent::of(
                 ShopeeListing::query()->where('product_id', (int) $productId)->first(),
                 html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-                trim(strip_tags(html_entity_decode($product->description ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8')))
+                trim(strip_tags(html_entity_decode($product->description ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'))),
+                'shopee',
+                (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0)
             );
             $itemName = $content['title'];
             $description = $content['description'];
@@ -2069,7 +2071,9 @@ class ShopeeProductGroupController extends Controller
             $content = \App\Integrations\Listings\ListingContent::of(
                 ShopeeListing::query()->where('product_id', (int) $productId)->first(),
                 html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-                trim(strip_tags(html_entity_decode($product->description ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8')))
+                trim(strip_tags(html_entity_decode($product->description ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'))),
+                'shopee',
+                (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0)
             );
             $itemName = $content['title'];
             $description = $content['description'];

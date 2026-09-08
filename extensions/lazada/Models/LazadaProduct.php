@@ -14,6 +14,7 @@ class LazadaProduct extends Model
 
     protected $fillable = [
         'lazada_setting_id', 'product_id', 'item_name', 'description',
+        'description_prefix_id', 'description_suffix_id',
         'primary_category_id', 'brand_id', 'brand_name_override',
         // The markups were missing here, and every create() that passed them
         // dropped them SILENTLY - the same disease 0af64cea documented on

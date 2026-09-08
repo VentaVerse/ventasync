@@ -325,10 +325,20 @@
                                         :value="old('item_name', $listing->item_name ?? '')"
                                         placeholder="{{ $productName }}" />
                         </x-ui.field>
+                        @include('partials.channel-description-pick', [
+                            'id' => 'lz-prefix', 'label' => 'Prefix description', 'name' => 'description_prefix_id',
+                            'selected' => (int) old('description_prefix_id', $listing->description_prefix_id ?? 0),
+                            'options' => $descriptionTemplates, 'canManage' => true,
+                        ])
                         <x-ui.field label="Description" for="lz-description" name="description" wide>
                             <x-ui.textarea id="lz-description" name="description" rows="6" maxlength="20000"
                                            placeholder="{{ \Illuminate\Support\Str::limit($coreDescription, 400) }}">{{ old('description', $listing->description ?? '') }}</x-ui.textarea>
                         </x-ui.field>
+                        @include('partials.channel-description-pick', [
+                            'id' => 'lz-suffix', 'label' => 'Suffix description', 'name' => 'description_suffix_id',
+                            'selected' => (int) old('description_suffix_id', $listing->description_suffix_id ?? 0),
+                            'options' => $descriptionTemplates, 'canManage' => true,
+                        ])
                     </div>
                 </section>
                 @endif
@@ -721,4 +731,6 @@
         </div>
     </div>
 </div>
+@include('partials.channel-description-pick-modal', ['storeUrl' => route('ext.lazada.description-templates.store', ['store' => $storeId])])
+
 @endsection

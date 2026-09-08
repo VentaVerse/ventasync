@@ -199,9 +199,19 @@
                         <x-ui.field label="Name" for="vl-name" name="name" wide>
                             <x-ui.input id="vl-name" name="name" :value="old('name', $listing->name ?? '')" :placeholder="$product->name" maxlength="255" :disabled="!$canManage" />
                         </x-ui.field>
+                        @include('partials.channel-description-pick', [
+                            'id' => 'vl-prefix', 'label' => 'Prefix description', 'name' => 'description_prefix_id',
+                            'selected' => (int) old('description_prefix_id', $listing->description_prefix_id ?? 0),
+                            'options' => $descriptionTemplates, 'canManage' => $canManage,
+                        ])
                         <x-ui.field label="Description" for="vl-description" name="description" wide>
                             <x-ui.textarea id="vl-description" name="description" rows="6" :placeholder="\Illuminate\Support\Str::limit($coreDescription, 300)" :disabled="!$canManage">{{ old('description', $listing->description ?? '') }}</x-ui.textarea>
                         </x-ui.field>
+                        @include('partials.channel-description-pick', [
+                            'id' => 'vl-suffix', 'label' => 'Suffix description', 'name' => 'description_suffix_id',
+                            'selected' => (int) old('description_suffix_id', $listing->description_suffix_id ?? 0),
+                            'options' => $descriptionTemplates, 'canManage' => $canManage,
+                        ])
                     </div>
                 </section>
 
@@ -320,4 +330,6 @@
         </div>
     </div>
 </div>
+@include('partials.channel-description-pick-modal', ['storeUrl' => route('ext.venta.description-templates.store', ['store' => $setting->id])])
+
 @endsection

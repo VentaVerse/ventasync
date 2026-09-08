@@ -153,6 +153,7 @@ class TiktokWorkspaceTest extends TestCase
             'ext.tiktok.products.index',  // joined 2026-08-26 (#156, parity)
             'ext.tiktok.products.import', // joined 2026-09-03 (cleanup point 10)
             'ext.tiktok.product-groups.index',
+            'ext.tiktok.description-templates.index', // joined 2026-09-07
             'ext.tiktok.categories.index',
             'ext.tiktok.index',
         ], $routes);

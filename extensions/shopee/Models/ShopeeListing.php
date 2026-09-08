@@ -17,6 +17,7 @@ class ShopeeListing extends Model
 
     protected $fillable = [
         'shopee_setting_id',
+        'description_prefix_id', 'description_suffix_id',
         'product_id',
         'shopee_category_id', 'shopee_brand_id', 'logistic_ids',
         'markup_percent', 'markup_fixed',

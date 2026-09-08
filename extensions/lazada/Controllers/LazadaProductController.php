@@ -2411,6 +2411,8 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'coverage' => $coverage,
             'images' => \App\Support\Catalog\ProductImages::urls((int) $listing->product_id),
             'groupCard' => $this->groupCardFor($listing),
+            'storeId' => (int) (LazadaSetting::defaultStore()?->id ?? 0),
+            'descriptionTemplates' => \App\Models\DescriptionTemplate::forStore('lazada', (int) (LazadaSetting::defaultStore()?->id ?? 0)),
             'mode' => $listing->exists ? 'edit' : 'create',
             'listing' => $listing,
             'products' => $products,
@@ -2451,6 +2453,8 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'attributes.*' => 'nullable|string|max:2000',
             'item_name' => 'nullable|string|max:255',
             'description' => 'nullable|string|max:20000',
+            'description_prefix_id' => 'nullable|integer',
+            'description_suffix_id' => 'nullable|integer',
             // The variation overrides ride this form since 2026-09-07, so one
             // Save keeps the whole page rather than needing a second press.
             'variants' => 'nullable|array',
@@ -2467,6 +2471,8 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
         $blank = fn ($v) => ($v === null || trim((string) $v) === '') ? null : (string) $v;
         $listing->item_name = $blank($data['item_name'] ?? null);
+        $listing->description_prefix_id = ((int) ($data['description_prefix_id'] ?? 0)) ?: null;
+        $listing->description_suffix_id = ((int) ($data['description_suffix_id'] ?? 0)) ?: null;
         $listing->description = $blank($data['description'] ?? null);
         $listing->primary_category_id = $data['primary_category_id'] ?? null;
         $listing->brand_id = $data['brand_id'] ?? null;

@@ -360,4 +360,56 @@ class ShopeeListingTest extends TestCase
         $this->assertSame('Shopee only title', $add['body']['item_name']);
         $this->assertSame('Shopee only description.', $add['body']['description']);
     }
+
+    /**
+     * Description templates (the owner, 2026-09-07): the store's own words above
+     * and below whichever description won, written once and pointed at from
+     * the listing. They ride every push, from any door.
+     */
+    public function test_the_stores_description_templates_wrap_the_description_on_a_push(): void
+    {
+        $productId = $this->seedProduct(300.0);
+        $group = $this->seedCatchAllGroup();
+        DB::table('shopee_product_group_products')->insert([
+            'shopee_product_group_id' => $group->id, 'product_id' => $productId,
+        ]);
+        $storeId = (int) \Extensions\shopee\Models\ShopeeSetting::query()->orderBy('id')->value('id');
+        $prefix = \App\Models\DescriptionTemplate::create([
+            'integration' => 'shopee', 'store_id' => $storeId,
+            'name' => 'Warranty', 'body' => 'One year warranty.',
+        ]);
+        $suffix = \App\Models\DescriptionTemplate::create([
+            'integration' => 'shopee', 'store_id' => $storeId,
+            'name' => 'Returns', 'body' => 'Returns within 7 days.',
+        ]);
+        ShopeeListing::create([
+            'product_id' => $productId,
+            'description' => 'The listing\'s own words.',
+            'description_prefix_id' => $prefix->id,
+            'description_suffix_id' => $suffix->id,
+        ]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.product-groups.push', $group->id), ['ids' => [$productId]]);
+
+        $add = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/add_item');
+        $this->assertNotNull($add);
+        $this->assertSame(
+            "One year warranty.\n\nThe listing's own words.\n\nReturns within 7 days.",
+            $add['body']['description'],
+            'the store\'s templates wrap whichever description won'
+        );
+
+        // A template belonging to another store is never borrowed.
+        $other = \App\Models\DescriptionTemplate::create([
+            'integration' => 'shopee', 'store_id' => $storeId + 99,
+            'name' => 'Someone else', 'body' => 'Not ours.',
+        ]);
+        ShopeeListing::query()->where('product_id', $productId)->update(['description_prefix_id' => $other->id]);
+        $this->sentPayloads = [];
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.product-groups.push', $group->id), ['ids' => [$productId]]);
+        $add = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/add_item');
+        $this->assertStringNotContainsString('Not ours.', (string) ($add['body']['description'] ?? ''));
+    }
 }

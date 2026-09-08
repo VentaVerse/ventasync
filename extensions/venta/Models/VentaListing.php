@@ -21,6 +21,7 @@ class VentaListing extends Model
 
     protected $fillable = [
         'venta_setting_id', 'product_id',
+        'description_prefix_id', 'description_suffix_id',
         'markup_percent', 'markup_fixed',
         'name', 'description', 'meta_title', 'meta_description',
         'live_status', 'live_checked_at', 'live_price', 'live_quantity',

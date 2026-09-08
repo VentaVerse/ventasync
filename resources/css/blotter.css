@@ -115,6 +115,7 @@
 @import './components/order-fetch.css' layer(vocabulary);
 @import './components/automation-run.css' layer(vocabulary);
 @import './components/channel-listing-cards.css' layer(vocabulary);
+@import './components/description-template.css' layer(vocabulary);
 @import './components/typeahead.css' layer(vocabulary);
 @import './components/nav-progress.css' layer(vocabulary);
 @import './components/permission-pill.css' layer(vocabulary);

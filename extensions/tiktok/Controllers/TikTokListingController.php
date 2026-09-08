@@ -107,6 +107,8 @@ class TikTokListingController extends Controller
             'readinessMissing' => $readiness['missing'],
             'images' => \App\Support\Catalog\ProductImages::urls($productId),
             'groupCard' => $this->groupCardFor($productId),
+            'storeId' => (int) (TikTokSetting::defaultStore()?->id ?? 0),
+            'descriptionTemplates' => \App\Models\DescriptionTemplate::forStore('tiktok', (int) (TikTokSetting::defaultStore()?->id ?? 0)),
         ]);
     }
 
@@ -159,6 +161,8 @@ class TikTokListingController extends Controller
             'markup_fixed' => 'nullable|numeric|min:-1000000|max:1000000',
             'title' => 'nullable|string|max:255',
             'description' => 'nullable|string|max:10000',
+            'description_prefix_id' => 'nullable|integer',
+            'description_suffix_id' => 'nullable|integer',
             'attributes' => 'nullable|array',
             'attributes.*' => 'nullable|string|max:500',
             // TikTok takes the percent itself and only whole percents.
@@ -181,6 +185,8 @@ class TikTokListingController extends Controller
                 'markup_percent' => $blank($data['markup_percent'] ?? null),
                 'markup_fixed' => $blank($data['markup_fixed'] ?? null),
                 'title' => $blank($data['title'] ?? null),
+                'description_prefix_id' => ((int) ($data['description_prefix_id'] ?? 0)) ?: null,
+                'description_suffix_id' => ((int) ($data['description_suffix_id'] ?? 0)) ?: null,
                 'description' => $blank($data['description'] ?? null),
                 'attribute_values' => array_filter(
                     array_map(fn ($v) => trim((string) $v), $data['attributes'] ?? []),

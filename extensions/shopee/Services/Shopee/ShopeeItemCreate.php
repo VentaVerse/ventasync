@@ -202,10 +202,16 @@ class ShopeeItemCreate
             $logisticInfo[] = ['logistic_id' => (int) $lid, 'enabled' => true];
         }
 
+        /* The one reader (2026-09-07): the listing's own words win, and the
+         * store's prefix and suffix templates wrap whichever won. */
+        $content = \App\Integrations\Listings\ListingContent::of(
+            $listing, $itemName, $description, 'shopee', (int) ($listing->shopee_setting_id ?? 0)
+        );
+
         $payload = [
             'original_price' => $listing->priceFor((float) $product->price),
-            'description' => mb_substr(($listing->description !== null && trim($listing->description) !== '') ? $listing->description : $description, 0, 5000),
-            'item_name' => mb_substr(($listing->item_name !== null && trim($listing->item_name) !== '') ? $listing->item_name : $itemName, 0, 255),
+            'description' => mb_substr($content['description'], 0, 5000),
+            'item_name' => mb_substr($content['title'], 0, 255),
             'seller_stock' => [['stock' => max(0, (int) $product->quantity)]],
             'item_sku' => (string) ($product->sku ?? ''),
             'weight' => (float) ($listing->weight ?? $product->weight),

@@ -1,5 +1,6 @@
 <?php
 
+use Extensions\lazada\Controllers\LazadaDescriptionTemplateController;
 use Extensions\lazada\Controllers\LazadaSettingsController;
 use Extensions\lazada\Controllers\LazadaApiExplorerController;
 use Extensions\lazada\Controllers\LazadaProductController;
@@ -73,6 +74,14 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
 
         // Product Groups — read-only list + edit-form RENDER
         Route::get('/lazada/{store}/product-groups', [LazadaProductGroupController::class, 'index'])->name('ext.lazada.product-groups.index');
+        
+        /* Description templates (the owner, 2026-09-07): the store's own words a
+           listing puts above or below the product description. Read on the view
+           tier; the writes are manage. The + on a listing page posts to store. */
+        Route::get('/lazada/{store}/description-templates', [LazadaDescriptionTemplateController::class, 'index'])->name('ext.lazada.description-templates.index');
+        Route::post('/lazada/{store}/description-templates', [LazadaDescriptionTemplateController::class, 'store'])->name('ext.lazada.description-templates.store')->defaults('permission_tier', 'manage');
+        Route::put('/lazada/{store}/description-templates/{template}', [LazadaDescriptionTemplateController::class, 'update'])->whereNumber('template')->name('ext.lazada.description-templates.update')->defaults('permission_tier', 'manage');
+        Route::delete('/lazada/{store}/description-templates/{template}', [LazadaDescriptionTemplateController::class, 'destroy'])->whereNumber('template')->name('ext.lazada.description-templates.destroy')->defaults('permission_tier', 'manage');
         // ext.lazada.product-groups.searchProducts (the whole-catalogue picker
         // behind the dual list and "Add a product by name") retired with both
         // on 2026-09-05 (#201, the Shopee shape ported back): a group only
