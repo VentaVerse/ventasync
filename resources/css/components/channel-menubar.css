@@ -12,6 +12,12 @@
 
    Sticky, so the menu rides along on every page of the channel.
    ============================================================ */
+/* How tall the band is, published for anything that pins UNDER it. The
+   listing strip does, and without this it pinned into the band's own
+   13px and was covered by it (critique 2026-09-08). Kept beside the
+   min-height it measures so the two cannot drift. */
+:root { --bl-chband-h: 43px; }
+
 @layer components {
     .x-chband {
         position: sticky;

@@ -14,6 +14,13 @@
  * this file only takes their containers away.
  */
 
+/* How tall the strip is. Declared here with the one-line height as its
+   value, and overwritten by resources/js/pages/listing-strip.js with what
+   the strip actually measures - a fourth verb or a longer status wraps it
+   taller. Declared rather than left to a var() fallback so the stylesheet
+   says what it depends on and FoundationTest can see it. */
+:root { --cl-strip-h: 63px; }
+
 /* ── The strip ──────────────────────────────────────────────────── */
 
 .cl-strip {
@@ -40,7 +47,10 @@
 @media (min-width: 1001px) {
     .cl-strip {
         position: sticky;
-        top: var(--bl-page-gutter);
+        /* UNDER the channel menubar, which is sticky at 0 and 43px tall.
+           At the page gutter alone the strip pinned into it and lost its
+           top 13px behind it. */
+        top: calc(var(--bl-chband-h, 43px) + 10px);
         z-index: 3;
     }
 }
@@ -76,11 +86,16 @@
 
 /* The three states that are not "fine" carry their own fill, because a
    white pill on a coloured strip cannot say "this listing is in trouble".
-   Dark ink on them, since these are light fills. */
+
+   The text is a FIXED dark, not var(--bl-ink): the fills are hardcoded
+   light, and in the dark theme --bl-ink is #eef1f7, which put pale text on
+   a mint pill at 1.27:1 - the one word the strip exists to say, unreadable
+   for anyone on the dark theme (critique 2026-09-08). A fill that does not
+   follow the theme cannot borrow text that does. */
 .cl-strip__state--warning,
 .cl-strip__state--danger,
 .cl-strip__state--success {
-    color: var(--bl-ink);
+    color: #16202e;
 }
 
 .cl-strip__state--success { background: #9fe6c6; }
@@ -108,7 +123,11 @@
     font-weight: var(--bl-lab-weight);
     letter-spacing: var(--bl-lab-track);
     text-transform: var(--bl-lab-case);
-    color: rgba(255, 255, 255, .72);
+    /* Full strength, not a faded white: --ch-deep is computed to clear
+       4.5:1 against --bl-paper and nothing else, so an alpha on top of it
+       drops a label to 3.4:1 (critique 2026-09-08). The label is told from
+       the figure by size, weight and case, which cost no contrast. */
+    color: var(--bl-paper);
 }
 
 .cl-fig dd {
@@ -123,7 +142,7 @@
     margin-left: 6px;
     font-size: 12px;
     font-weight: 500;
-    color: rgba(255, 255, 255, .78);
+    color: var(--bl-paper);
 }
 
 .cl-strip__verbs {
@@ -149,10 +168,36 @@
     color: var(--bl-paper);
 }
 
-/* The primary verb keeps the channel's own CTA colour, which
-   ChannelAccent computes to be distinguishable from the alert red. It is
-   not this file's to reverse: a dark pill on the channel's strip is
-   already the only filled thing on a filled bar. */
+/* THE PRIMARY VERB IS AN INVERTED PILL, NOT THE CHANNEL'S CTA.
+ *
+ * It used to keep var(--ch-cta), on the reasoning that a dark pill on
+ * Shopee's orange is the only filled thing on a filled bar. True for
+ * Shopee, and false for everyone else: cta() only walks a colour when it
+ * is too near the alert red, so on Lazada, TikTok, Venta and WooCommerce
+ * --ch-cta IS --ch-deep, and the primary button became a pill of the bar's
+ * own colour on the bar - 1:1, the only verb with no edge, while the
+ * secondaries kept their white outlines (critique 2026-09-08).
+ *
+ * Paper on the accent is the one contrast ChannelAccent actually
+ * guarantees (deep() is computed against --bl-paper), so using it in
+ * reverse is guaranteed on every channel by construction.
+ *
+ * Its own variant rather than x-btn--primary: the channel primary rule is
+ * unlayered and would win over this file's layer whatever its specificity.
+ */
+.cl-strip__verbs .x-btn--oncolor {
+    border-color: transparent;
+    background: var(--bl-paper);
+    color: var(--ch-deep, var(--bl-ink));
+    font-weight: 600;
+}
+
+.cl-strip__verbs .x-btn--oncolor:hover {
+    border-color: transparent;
+    background: #fff;
+    color: var(--ch-deep, var(--bl-ink));
+}
+
 
 .cl-strip__verbs .x-btn:focus-visible {
     outline: 2px solid var(--bl-paper);
@@ -166,10 +211,13 @@
 /* ── The body ───────────────────────────────────────────────────── */
 
 /* An anchor jump lands under a pinned strip unless the target says how
-   tall the strip is. Every section the readiness gaps link at is in here. */
+   tall the strip is - and the strip's height is content, not a constant:
+   a fourth verb or a longer status wraps it taller. resources/js/pages/
+   listing-strip.js measures it into --cl-strip-h; the fallback is the
+   one-line height. */
 .cl-main > *,
 .cl-rail > * {
-    scroll-margin-top: 96px;
+    scroll-margin-top: calc(var(--bl-chband-h) + var(--cl-strip-h) + 24px);
 }
 
 .cl-body {
@@ -285,6 +333,14 @@
     .cl-strip__verbs {
         margin-left: 0;
         width: 100%;
+    }
+
+    /* The rail sits under the strip, not at the end of the document. On a
+       phone the page is 3,300px and the rail began at 2,384 - the price
+       rule, the one thing a phone check is FOR, was the last thing on the
+       page, behind eleven pictures and a parcel form. */
+    .cl-rail {
+        order: -1;
     }
 
     .cl-main {

@@ -167,9 +167,9 @@
                          refusal it could have named. --}}
                     @if(!$liveError && empty($missing))
                         <form method="POST" action="{{ route('ext.shopee.listings.push_update', $product->product_id) }}"
-                              data-confirm="Push this listing's content and settings onto the live Shopee item? Title, description, pictures, weight and size, category and couriers are updated. Price and stock are not touched - they have their own syncs." data-confirm-tone="primary" data-confirm-verb="Push update">
+                              data-guard-stale data-confirm="Push this listing's content and settings onto the live Shopee item? Title, description, pictures, weight and size, category and couriers are updated. Price and stock are not touched - they have their own syncs." data-confirm-tone="primary" data-confirm-verb="Push update">
                             @csrf
-                            <x-ui.button type="submit" variant="primary" size="sm">Push update to Shopee</x-ui.button>
+                            <x-ui.button type="submit" variant="oncolor" size="sm">Push update to Shopee</x-ui.button>
                         </form>
                     @endif
                     @if($live && $live['item_status'] === 'NORMAL')
@@ -184,14 +184,14 @@
                               data-confirm="Publish this item on Shopee? Buyers see it again immediately." data-confirm-tone="primary" data-confirm-verb="Relist">
                             @csrf
                             <input type="hidden" name="action" value="list">
-                            <x-ui.button type="submit" variant="primary" size="sm">Publish on Shopee</x-ui.button>
+                            <x-ui.button type="submit" variant="oncolor" size="sm">Publish on Shopee</x-ui.button>
                         </form>
                     @endif
                     @if(($coverage['missing'] ?? collect())->isNotEmpty())
                         {{-- Phase F (#184): the loop that used to be unlink,
                              re-match and hope is one push. --}}
                         <form method="POST" action="{{ route('ext.shopee.listings.push_missing_variations', $product->product_id) }}" data-slow-action
-                              data-confirm="Add the missing variations to the live Shopee listing? What is already live is not touched; new tier options are appended and the new variations go up priced by this listing's rule." data-confirm-tone="primary" data-confirm-verb="Add variations">
+                              data-guard-stale data-confirm="Add the missing variations to the live Shopee listing? What is already live is not touched; new tier options are appended and the new variations go up priced by this listing's rule." data-confirm-tone="primary" data-confirm-verb="Add variations">
                             @csrf
                             <x-ui.button type="submit" size="sm">Push missing variations</x-ui.button>
                         </form>
@@ -205,10 +205,11 @@
                          one-editor merge). #149's see-before-it-goes holds:
                          this page IS what goes up. --}}
                     <form method="POST" action="{{ route('ext.shopee.products.push_direct', $product->product_id) }}" data-slow-action
+                          data-guard-stale data-confirm-tone="primary" data-confirm-verb="Push"
                           data-push-review="{{ route('ext.shopee.products.push_review', $product->product_id) }}">
                         @csrf
                         <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
-                        <x-ui.button type="submit" variant="primary" size="sm">Push to Shopee</x-ui.button>
+                        <x-ui.button type="submit" variant="oncolor" size="sm">Push to Shopee</x-ui.button>
                     </form>
                 @endif
             </x-slot:verbs>
@@ -248,7 +249,7 @@
             @endif
             @if($live && $staleSincePush)
                 <div class="fm-note fm-note--warn" role="status">
-                    <div class="fm-note__body">The catalog product changed {{ $coreChangedAt->diffForHumans() }} - after the last push {{ $listing->last_pushed_at->diffForHumans() }}. Fields without their own wording follow the catalog automatically; Push update to Shopee sends the current state to the live listing.</div>
+                    <div class="fm-note__body">The catalog product changed {{ $coreChangedAt->diffInSeconds() < 60 ? 'just now' : $coreChangedAt->diffForHumans() }} - after the last push {{ $listing->last_pushed_at->diffForHumans() }}. Fields without their own wording follow the catalog automatically; Push update to Shopee sends the current state to the live listing.</div>
                 </div>
             @endif
             @if($live && ($coverage['missing'] ?? collect())->isNotEmpty())
