@@ -2796,6 +2796,30 @@ class ShopeeProductController extends Controller
         $payload['brand'] = app(ShopeeProductGroupController::class)
             ->buildBrandPayload((int) ($listing?->shopee_category_id ?? 0), (int) ($listing?->shopee_brand_id ?? 0));
 
+        /* The pictures, in this listing's own order (critique 2026-09-08).
+         * Until now this payload carried no image block at all, so the
+         * arrangement made on the listing page went up when a GROUP pushed
+         * the product and was silently dropped when the page's own Push
+         * update ran - under a green flash saying it had gone. The group
+         * path has always sent them; this is the same call.
+         *
+         * An upload that answers with nothing leaves the block out rather
+         * than sending an empty list: Shopee reads an empty image_id_list
+         * as "remove every picture", and a network hiccup must never strip
+         * a live listing. */
+        $create = app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class);
+        $up = $create->uploadImages($client, $auth, $create->catalogImagePaths($product, $listing));
+        if ($up['error'] !== null) {
+            /* A HALF-UPLOADED LIST IS WORSE THAN NO UPDATE. image_id_list
+               replaces what the live item holds, so sending the three that
+               got through would delete the other six from the listing. The
+               whole update stands down and says why. */
+            return ['ok' => false, 'message' => 'Update failed: ' . $up['error']];
+        }
+        if (!empty($up['ids'])) {
+            $payload['image'] = ['image_id_list' => $up['ids']];
+        }
+
         $path = '/api/v2/product/update_item';
         try {
             $result = $client->shopPost(

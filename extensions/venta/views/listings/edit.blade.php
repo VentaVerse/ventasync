@@ -8,6 +8,11 @@
      which the next push from here uses; and provenance. Saving never writes
      the catalogue product. Minus what the storefront has no notion of: no
      category attribute tree, no courier list, no promotion object. --}}
+{{-- This page shows its own "Nothing was saved" note and marks the
+     offending fields, so the legacy bullet list stands down (critique
+     2026-09-08: one event was drawing two red boxes). --}}
+@section('own-errors', true)
+
 @section('content')
 @php
     $canManage = auth()->user()?->hasPermission('manage_venta/listing') ?? false;

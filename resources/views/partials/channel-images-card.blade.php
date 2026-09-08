@@ -46,7 +46,7 @@
        all, it is printed. */
     $hintWords = [];
     if ($editable) {
-        $hintWords[] = 'Drag a picture to move it; the first one is the cover.';
+        $hintWords[] = 'Drag a picture to move it, or press Cover to send it to the front; the first one is the cover. From the keyboard, the arrow keys move between pictures, the space bar picks one up, C makes it the cover and Delete removes it.';
     }
     if ($limit !== null) {
         $hintWords[] = $storeName . ' takes ' . (int) $limit . ' at most; the rest stay behind and the push says so.';
@@ -65,9 +65,15 @@
        follows the catalog - so it is only filled when the arrangement
        differs from the catalog's own. */
     $ownPaths = array_column($tiles, 'path');
-    $arrangement = $editable && $ownPaths !== array_column($catalogTiles ?? [], 'path')
-        ? json_encode($ownPaths)
-        : '';
+    $catalogPaths = array_column($catalogTiles ?? [], 'path');
+    $arrangement = $editable && $ownPaths !== $catalogPaths ? json_encode($ownPaths) : '';
+
+    /* Said in the same voice the Title and Description fields use when the
+       catalog moves under them (critique 2026-09-08). An arrangement is the
+       one override with no value to look at - a reorder changes no number
+       and no sentence - so without this line the page cannot tell you it
+       has stopped following the catalog product. */
+    $missingFromCatalog = count(array_diff($catalogPaths, $ownPaths));
 @endphp
 <section class="fm-section"
          @if($editable)
@@ -92,21 +98,31 @@
     <p class="fm-section__note" data-images-words>{{ $imageWords }}</p>
 
     @if($editable)
+        <div class="fm-hint" data-images-own @if($arrangement === '') hidden @endif>This listing arranges its own pictures.<span data-images-behind>@if($missingFromCatalog > 0) The catalog product has {{ $missingFromCatalog }} {{ $missingFromCatalog === 1 ? 'picture' : 'pictures' }} this listing does not send.@endif</span> Follow the catalog returns it to the catalog product's own.</div>
         <input type="hidden" name="image_order" value="{{ $arrangement }}" data-images-input>
         <ul class="lc-images lc-images--arrange" data-images-list
             aria-label="The pictures this listing sends, in order"
             aria-describedby="lc-images-help">
             @foreach($tiles as $i => $tile)
+                {{-- One tab stop for the whole list, not two per picture:
+                     tabbing past this card used to cost two dozen presses.
+                     Focus moves between tiles with the arrow keys, and the
+                     tile's own verbs answer to keys as well as to a press,
+                     so nothing here needs a pointer. --}}
                 <li class="lc-images__item{{ $limit !== null && $i >= $sent ? ' lc-images__item--held' : '' }}"
-                    data-path="{{ $tile['path'] }}" tabindex="0"
+                    data-path="{{ $tile['path'] }}" tabindex="{{ $i === 0 ? 0 : -1 }}"
                     aria-label="Picture {{ $i + 1 }} of {{ $imageCount }}">
                     <img src="{{ $tile['url'] }}" alt="" loading="lazy" draggable="false">
                     <span class="lc-images__rank">{{ $i + 1 }}</span>
                     <span class="lc-images__held">Held back</span>
-                    <button type="button" class="lc-images__drop" data-images-drop
-                            aria-label="Remove picture {{ $i + 1 }} from this listing">
-                        <x-ui.icon name="x" size="12" />
-                    </button>
+                    <span class="lc-images__verbs">
+                        <button type="button" class="lc-images__verb" data-images-cover tabindex="-1"
+                                aria-label="Make picture {{ $i + 1 }} the cover">Cover</button>
+                        <button type="button" class="lc-images__verb lc-images__verb--drop" data-images-drop tabindex="-1"
+                                aria-label="Remove picture {{ $i + 1 }} from this listing">
+                            <x-ui.icon name="x" size="12" />
+                        </button>
+                    </span>
                 </li>
             @endforeach
         </ul>
@@ -114,7 +130,7 @@
              commentary a screen reader hears while it is used. Not a
              paragraph on the page: an explanation under a control is a
              tooltip here, and the pointer gesture is told by the cursor. --}}
-        <p class="x-sr" id="lc-images-help">Drag a picture to move it, or focus one, press the space bar, and use the arrow keys.</p>
+        <p class="x-sr" id="lc-images-help">Drag a picture to move it. From the keyboard: the arrow keys move between pictures, the space bar picks one up and the arrow keys then move it, C makes the focused picture the cover, and Delete removes it.</p>
         <p class="x-sr" role="status" aria-live="polite" data-images-say></p>
     @elseif($imageCount > 0)
         <ul class="lc-images">

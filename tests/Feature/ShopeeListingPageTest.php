@@ -25,6 +25,9 @@ class ShopeeListingPageTest extends TestCase
 {
     use RefreshDatabase;
 
+    /** Where a test's pictures live on the public disk, and what tearDown removes. */
+    private const TEST_IMAGE_DIR = 'catalog/__shopee-listing-page-test';
+
     /** @var array<int, array{path: string, body: array}> */
     private array $sentPayloads = [];
 
@@ -72,6 +75,12 @@ class ShopeeListingPageTest extends TestCase
             }
         };
         $this->app->instance(ShopeeClient::class, $fake);
+    }
+
+    protected function tearDown(): void
+    {
+        \Illuminate\Support\Facades\Storage::disk('public')->deleteDirectory(self::TEST_IMAGE_DIR);
+        parent::tearDown();
     }
 
     public function recordPayload(string $path, array $body): void
@@ -322,6 +331,78 @@ class ShopeeListingPageTest extends TestCase
     }
 
     /**
+     * The picture the operator arranged is the picture that goes up
+     * (critique 2026-09-08). Push update carried every other field and no
+     * image block at all, so an arrangement made on this page went up from
+     * a GROUP push and was dropped by the page's own push, under a green
+     * flash saying it had gone.
+     */
+    public function test_push_update_sends_the_listings_own_pictures_in_its_own_order(): void
+    {
+        $productId = $this->seedProduct();
+        $paths = $this->seedRealImages($productId, 3);
+        ShopeeProductLink::query()->create([
+            'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
+        ]);
+        ShopeeListing::query()->create([
+            'product_id' => $productId, 'shopee_category_id' => 100013, 'logistic_ids' => [8003],
+            'image_order' => array_reverse($paths),
+        ]);
+        $this->getResponses['/api/v2/product/get_item_base_info'] = $this->baseInfoAnswer();
+
+        /* The uploader is the real one; it answers with an id per file it
+           can read, so the payload proves the ORDER as well as the count. */
+        $seen = [];
+        \Illuminate\Support\Facades\Http::fake(function ($request) use (&$seen) {
+            $seen[] = $request->url();
+
+            return \Illuminate\Support\Facades\Http::response([
+                'response' => ['image_info' => ['image_id' => 'img-' . count($seen)]],
+            ], 200);
+        });
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.listings.push_update', $productId))
+            ->assertRedirect();
+
+        $sent = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/update_item');
+        $this->assertNotNull($sent, 'The update must reach update_item.');
+        $this->assertSame(
+            ['img-1', 'img-2', 'img-3'],
+            $sent['body']['image']['image_id_list'] ?? [],
+            'One id per picture, in the arrangement\'s order.'
+        );
+        $this->assertCount(3, $seen, 'Every picture is uploaded before the update names it.');
+    }
+
+    /**
+     * A listing that carries its own pictures answers the image gap itself.
+     * It used to be told it needed "a product image on the catalog product"
+     * with nine pictures on screen above the sentence.
+     */
+    public function test_a_listing_with_its_own_pictures_is_not_asked_for_a_catalog_image(): void
+    {
+        $productId = $this->seedProduct();
+        $pfx = (string) config('catalog.prefix');
+        $paths = $this->seedRealImages($productId, 2);
+        // The catalog product itself carries none.
+        DB::table($pfx . 'product')->where('product_id', $productId)->update(['image' => '']);
+
+        $readiness = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class);
+        $before = $readiness->forProducts([$productId])[$productId]['missing'] ?? [];
+        $this->assertContains('a product image on the catalog product', $before);
+
+        ShopeeListing::query()->updateOrCreate(
+            ['product_id' => $productId],
+            ['shopee_category_id' => 100013, 'logistic_ids' => [8003], 'image_order' => $paths]
+        );
+
+        $after = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)
+            ->forProducts([$productId])[$productId]['missing'] ?? [];
+        $this->assertNotContains('a product image on the catalog product', $after);
+    }
+
+    /**
      * Seeds images the library actually holds - acceptable() asks the disk,
      * so a made-up path is not a fixture, it is a rejection.
      *
@@ -330,13 +411,16 @@ class ShopeeListingPageTest extends TestCase
     private function seedRealImages(int $productId, int $count): array
     {
         $pfx = (string) config('catalog.prefix');
-        /* A fake disk, because acceptable() asks the disk whether the
-           library holds the path: a real one would leave test pictures in
-           the developer's own catalog folder. */
-        $disk = \Illuminate\Support\Facades\Storage::fake('public');
+        /* Real files on the real public disk, not a faked one: two things
+           read them and they read them differently. acceptable() asks
+           Storage, and the uploader resolves storage_path() and opens the
+           file. A fake disk satisfies the first and silently fails the
+           second, which is exactly the bug this fixture has to be able to
+           catch. tearDown takes the folder away again. */
+        $disk = \Illuminate\Support\Facades\Storage::disk('public');
         $paths = [];
         for ($i = 1; $i <= $count; $i++) {
-            $path = "catalog/test-images/pic-{$i}.png";
+            $path = self::TEST_IMAGE_DIR . "/pic-{$i}.png";
             $disk->put($path, 'not really a png');
             $paths[] = $path;
         }

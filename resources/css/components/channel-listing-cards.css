@@ -93,56 +93,90 @@
 /* Said in words on the tile as well as by the dimming: a dimmed picture
    with no label is a picture that looks broken. Only the held ones
    carry it. */
+/* A corner chip, not a band across the picture: the full-width strip
+   covered a third of an 84px tile and landed on the product itself. At
+   11px it also clears the type floor the detector holds. */
 .lc-images__held {
     position: absolute;
-    inset: auto 0 0 0;
-    padding: 2px 4px;
-    background: color-mix(in srgb, var(--bl-ink) 78%, transparent);
+    right: 3px;
+    bottom: 3px;
+    padding: 1px 5px;
+    border-radius: var(--bl-r-ctrl);
+    background: color-mix(in srgb, var(--bl-ink) 80%, transparent);
     color: var(--bl-sheet);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
-    text-align: center;
+    line-height: 1.4;
     display: none;
 }
 
 .lc-images__item--held .lc-images__held { display: block; }
 
-.lc-images__drop {
+/* The tile's own verbs. Cover is the edit this card exists for, and it is
+   the one a drag does worst on a phone: three tiles to a row means moving
+   a picture to the front is a cross-row drag, which the browser takes for
+   a scroll. One press does it instead, from a pointer or from the C key.
+
+   Both verbs are drawn on a coarse pointer and on focus, and both carry a
+   44px hit area through a ::before, so the control is 24px of paint and a
+   thumb's worth of target. */
+.lc-images__verbs {
     position: absolute;
     top: 3px;
     right: 3px;
-    display: grid;
-    place-items: center;
-    width: 19px;
-    height: 19px;
-    padding: 0;
-    border: 0;
-    border-radius: var(--bl-r-ctrl);
-    background: color-mix(in srgb, var(--bl-ink) 78%, transparent);
-    color: var(--bl-sheet);
-    cursor: pointer;
+    display: flex;
+    gap: 3px;
     opacity: 0;
-    transition: opacity .12s ease-out, background .12s ease-out;
+    transition: opacity .12s ease-out;
 }
 
-.lc-images__item:hover .lc-images__drop,
-.lc-images__item:focus-within .lc-images__drop,
-.lc-images__drop:focus-visible {
+.lc-images__item:hover .lc-images__verbs,
+.lc-images__item:focus-within .lc-images__verbs,
+.lc-images__item:focus-visible .lc-images__verbs {
     opacity: 1;
 }
 
-.lc-images__drop:hover { background: var(--bl-bad); }
-
-/* A phone has no hover, so a control that appears on hover does not exist
-   there. On a coarse pointer the way out is always drawn. */
 @media (hover: none) {
-    .lc-images--arrange .lc-images__drop { opacity: 1; }
+    .lc-images--arrange .lc-images__verbs { opacity: 1; }
 }
 
-.lc-images__drop:focus-visible {
+.lc-images__verb {
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 5px;
+    border: 0;
+    border-radius: var(--bl-r-ctrl);
+    background: color-mix(in srgb, var(--bl-ink) 80%, transparent);
+    color: var(--bl-sheet);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+}
+
+/* The target, not the paint: 44px centred on a 24px control. */
+.lc-images__verb::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+}
+
+.lc-images__verb:hover { background: var(--bl-ink); }
+.lc-images__verb--drop:hover { background: var(--bl-bad); }
+
+.lc-images__verb:focus-visible {
     outline: 2px solid var(--bl-sheet);
     outline-offset: -2px;
 }
+
+.lc-images__verb[hidden] { display: none; }
 
 /* A held-back picture is dimmed, but its own controls are not: the rank,
    the label and the way out stay readable so it can be arranged back. */

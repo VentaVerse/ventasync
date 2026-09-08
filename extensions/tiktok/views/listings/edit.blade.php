@@ -7,6 +7,11 @@
      load; the record beneath it (category, brand, attribute answers, price
      rule, content overrides, discount), which the next push uses; and
      provenance. Saving never writes the catalog product. --}}
+{{-- This page shows its own "Nothing was saved" note and marks the
+     offending fields, so the legacy bullet list stands down (critique
+     2026-09-08: one event was drawing two red boxes). --}}
+@section('own-errors', true)
+
 @section('content')
 @php
     $canManage = auth()->user()?->hasPermission('manage_tiktok/listing') ?? false;

@@ -84,9 +84,16 @@ class ShopeeListingReadiness
             ->get(['product_id', 'weight', 'length', 'width', 'height'])
             ->keyBy('product_id');
 
+        /* A listing that arranges its own pictures answers the image gap
+           itself (critique 2026-09-08); it is read off the listings already
+           in hand, so this costs no query. */
+        $ownPictures = $listings
+            ->filter(fn ($l) => ! empty($l->image_order))
+            ->keys()->all();
+
         $catalog = CatalogGaps::forProducts($productIds, [
             CatalogGaps::ENABLED, CatalogGaps::NAME, CatalogGaps::DESCRIPTION, CatalogGaps::PRICE, CatalogGaps::IMAGE,
-        ]);
+        ], $ownPictures);
 
         /* A group is a preset the product inherits (the owner, 2026-09-05):
          * a blank category, courier list, price rule or attribute answer

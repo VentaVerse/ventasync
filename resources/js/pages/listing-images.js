@@ -23,6 +23,8 @@
     var words = null;
     var say = null;
     var resetBtn = null;
+    var own = null;
+    var behind = null;
     var limit = 0;
     var catalog = [];
 
@@ -54,20 +56,48 @@
        function answers for all of them and nothing can drift apart. */
     function refresh() {
         var items = Array.prototype.slice.call(list.children);
+        var focused = document.activeElement && document.activeElement.closest
+            ? document.activeElement.closest('.lc-images__item')
+            : null;
         items.forEach(function (li, i) {
             var rank = li.querySelector('.lc-images__rank');
             if (rank) rank.textContent = String(i + 1);
             var held = limit > 0 && i >= limit;
             li.classList.toggle('lc-images__item--held', held);
             li.setAttribute('aria-label', 'Picture ' + (i + 1) + ' of ' + items.length + (held ? ', held back' : ''));
+            // One tab stop for the list: the focused tile, or the first.
+            li.setAttribute('tabindex', li === (focused || items[0]) ? '0' : '-1');
             var drop = li.querySelector('[data-images-drop]');
             if (drop) drop.setAttribute('aria-label', 'Remove picture ' + (i + 1) + ' from this listing');
+            var cover = li.querySelector('[data-images-cover]');
+            if (cover) {
+                cover.setAttribute('aria-label', 'Make picture ' + (i + 1) + ' the cover');
+                cover.hidden = i === 0;
+            }
         });
 
         var paths = pathsNow();
         words.textContent = sentence(items.length);
-        input.value = paths.length === 0 || sameAsCatalog(paths) ? '' : JSON.stringify(paths);
+        var next = paths.length === 0 || sameAsCatalog(paths) ? '' : JSON.stringify(paths);
+        if (next !== input.value) {
+            input.value = next;
+            /* A value a script writes fires nothing on its own, and the
+               page's unsaved-changes guard is listening. Without this, an
+               arrangement made entirely from the keyboard left the page
+               without a word. */
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
         if (resetBtn) resetBtn.hidden = input.value === '';
+        if (own) {
+            own.hidden = input.value === '';
+            if (behind) {
+                var missing = catalog.filter(function (t) { return paths.indexOf(t.path) === -1; }).length;
+                behind.textContent = missing === 0
+                    ? ''
+                    : ' The catalog product has ' + missing + (missing === 1 ? ' picture' : ' pictures')
+                        + ' this listing does not send.';
+            }
+        }
     }
 
     function announce(text) {
@@ -86,7 +116,8 @@
     function onPointerDown(e) {
         var li = e.target.closest ? e.target.closest('.lc-images__item') : null;
         if (!li || li.parentNode !== list) return;
-        if (e.target.closest('[data-images-drop]')) return;
+        // A press on a verb is a press, never the start of a drag.
+        if (e.target.closest('[data-images-drop], [data-images-cover]')) return;
         if (e.pointerType === 'mouse' && e.button !== 0) return;
         dragged = li;
         li.classList.add('is-dragging');
@@ -119,14 +150,15 @@
     function onKeyDown(e) {
         var li = e.target.closest ? e.target.closest('.lc-images__item') : null;
         if (!li || li.parentNode !== list) return;
+        if (e.target.closest('[data-images-drop], [data-images-cover]')) return;
+
+        var back = e.key === 'ArrowLeft' || e.key === 'ArrowUp';
+        var forward = e.key === 'ArrowRight' || e.key === 'ArrowDown';
 
         if (e.key === ' ' || e.key === 'Spacebar' || e.key === 'Enter') {
-            if (e.target.closest('[data-images-drop]')) return;
             e.preventDefault();
             if (grabbed === li) {
-                grabbed = null;
-                li.classList.remove('is-grabbed');
-                announce('Picture dropped in position ' + (index(li) + 1) + '.');
+                release(li, 'Picture dropped in position ' + (index(li) + 1) + '.');
             } else {
                 if (grabbed) grabbed.classList.remove('is-grabbed');
                 grabbed = li;
@@ -137,22 +169,69 @@
         }
 
         if (e.key === 'Escape' && grabbed) {
-            grabbed.classList.remove('is-grabbed');
-            grabbed = null;
-            announce('Left where it is.');
+            release(grabbed, 'Left where it is.');
             return;
         }
 
-        if (grabbed !== li) return;
-        var back = e.key === 'ArrowLeft' || e.key === 'ArrowUp';
-        var forward = e.key === 'ArrowRight' || e.key === 'ArrowDown';
+        // C sends the focused picture to the front, which is the one edit
+        // this card exists for and the one a drag does worst on a phone.
+        if (e.key === 'c' || e.key === 'C') {
+            e.preventDefault();
+            cover(li);
+            return;
+        }
+
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            e.preventDefault();
+            remove(li);
+            return;
+        }
+
         if (!back && !forward) return;
         e.preventDefault();
+
+        // Grabbed: the arrows move the PICTURE. Otherwise they move FOCUS,
+        // which is what a one-tab-stop list owes the keyboard.
         var sibling = back ? li.previousElementSibling : li.nextElementSibling;
         if (!sibling) return;
-        moveTo(li, sibling, back);
+        if (grabbed === li) {
+            moveTo(li, sibling, back);
+            li.focus();
+            announce('Now in position ' + (index(li) + 1) + ' of ' + list.children.length + '.');
+        } else {
+            sibling.setAttribute('tabindex', '0');
+            li.setAttribute('tabindex', '-1');
+            sibling.focus();
+        }
+    }
+
+    function release(li, words) {
+        li.classList.remove('is-grabbed');
+        grabbed = null;
+        announce(words);
+    }
+
+    function cover(li) {
+        if (li === list.firstElementChild) {
+            announce('That picture is already the cover.');
+            return;
+        }
+        list.insertBefore(li, list.firstElementChild);
+        refresh();
         li.focus();
-        announce('Now in position ' + (index(li) + 1) + ' of ' + list.children.length + '.');
+        announce('That picture is the cover now. ' + words.textContent);
+    }
+
+    function remove(li) {
+        var next = li.nextElementSibling || li.previousElementSibling;
+        if (grabbed === li) grabbed = null;
+        li.remove();
+        refresh();
+        announce('Picture removed. ' + words.textContent);
+        if (next) {
+            next.setAttribute('tabindex', '0');
+            next.focus();
+        }
     }
 
     function index(li) {
@@ -164,7 +243,7 @@
         var li = document.createElement('li');
         li.className = 'lc-images__item';
         li.setAttribute('data-path', path);
-        li.setAttribute('tabindex', '0');
+        li.setAttribute('tabindex', '-1');
 
         var img = document.createElement('img');
         img.src = url;
@@ -182,14 +261,28 @@
         held.textContent = 'Held back';
         li.appendChild(held);
 
+        var verbs = document.createElement('span');
+        verbs.className = 'lc-images__verbs';
+
+        var cover = document.createElement('button');
+        cover.type = 'button';
+        cover.className = 'lc-images__verb';
+        cover.setAttribute('data-images-cover', '');
+        cover.setAttribute('tabindex', '-1');
+        cover.textContent = 'Cover';
+        verbs.appendChild(cover);
+
         var drop = document.createElement('button');
         drop.type = 'button';
-        drop.className = 'lc-images__drop';
+        drop.className = 'lc-images__verb lc-images__verb--drop';
         drop.setAttribute('data-images-drop', '');
+        drop.setAttribute('tabindex', '-1');
         drop.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"'
             + ' stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
             + '<path d="M18 6 6 18M6 6l12 12"/></svg>';
-        li.appendChild(drop);
+        verbs.appendChild(drop);
+
+        li.appendChild(verbs);
 
         return li;
     }
@@ -366,6 +459,8 @@
         words = card.querySelector('[data-images-words]');
         say = card.querySelector('[data-images-say]');
         resetBtn = card.querySelector('[data-images-reset]');
+        own = card.querySelector('[data-images-own]');
+        behind = card.querySelector('[data-images-behind]');
         if (!list || !input || !words) return;
 
         limit = parseInt(card.getAttribute('data-limit') || '0', 10) || 0;
@@ -381,14 +476,14 @@
         list.addEventListener('pointercancel', onPointerUp);
         list.addEventListener('keydown', onKeyDown);
         list.addEventListener('click', function (e) {
-            var drop = e.target.closest('[data-images-drop]');
-            if (!drop) return;
-            var li = drop.closest('.lc-images__item');
-            var next = li.nextElementSibling || li.previousElementSibling;
-            li.remove();
-            refresh();
-            announce('Picture removed. ' + words.textContent);
-            if (next) next.focus();
+            var verb = e.target.closest('[data-images-drop], [data-images-cover]');
+            if (!verb) return;
+            var li = verb.closest('.lc-images__item');
+            if (verb.hasAttribute('data-images-cover')) {
+                cover(li);
+            } else {
+                remove(li);
+            }
         });
 
         if (resetBtn) {

@@ -1,6 +1,10 @@
 @extends('layouts.channel')
 @section('title', 'Shopee Listing')
 @section('breadcrumb', $product->name !== '' ? $product->name : 'Listing')
+{{-- This page shows its own "Nothing was saved" note and marks the
+     offending fields, so the legacy bullet list stands down (critique
+     2026-09-08: one event was drawing two red boxes). --}}
+@section('own-errors', true)
 
 {{-- The individual listing page (quest 1, 2026-08-24). One catalog
      product on Shopee, presented the way the seller center presents it:
@@ -85,7 +89,7 @@
 
     <div class="fm-head">
         <div class="fm-head__main">
-            <a class="fm-back" href="{{ route('ext.shopee.products.index') }}">
+            <a class="fm-back" href="{{ route('ext.shopee.products.index') }}" data-guard-leave>
                 <x-ui.icon name="chevron-left" size="14" /> Listings
             </a>
             <h1 class="fm-title">{{ $product->name !== '' ? $product->name : 'Product ' . $product->product_id }}</h1>
@@ -128,7 +132,7 @@
                              never leads to a refusal it could have named. --}}
                         @if(!$liveError && empty($missing))
                         <form method="POST" action="{{ route('ext.shopee.listings.push_update', $product->product_id) }}"
-                              data-confirm="Push this listing's content and settings onto the live Shopee item? Title, description, weight and size, category and couriers are updated. Price and stock are not touched - they have their own syncs." data-confirm-tone="primary" data-confirm-verb="Push update">
+                              data-confirm="Push this listing's content and settings onto the live Shopee item? Title, description, pictures, weight and size, category and couriers are updated. Price and stock are not touched - they have their own syncs." data-confirm-tone="primary" data-confirm-verb="Push update">
                             @csrf
                             <x-ui.button type="submit">Push update to Shopee</x-ui.button>
                         </form>
@@ -138,7 +142,12 @@
                                   data-confirm="Delist this item from Shopee? Buyers stop seeing it immediately. It stays here and can be published again at any time." data-confirm-verb="Unlist">
                                 @csrf
                                 <input type="hidden" name="action" value="unlist">
-                                <x-ui.button type="submit">Delist from Shopee</x-ui.button>
+                                {{-- Quieter than Push update beside it: one is
+                                     routine, the other stops buyers seeing the
+                                     item, and at equal weight the pair invited
+                                     the mistake the confirm then had to catch
+                                     (critique 2026-09-08). --}}
+                                <x-ui.button type="submit" variant="ghost">Delist from Shopee</x-ui.button>
                             </form>
                         @elseif($live && $live['item_status'] === 'UNLIST')
                             <form method="POST" action="{{ route('ext.shopee.listings.toggle', $product->product_id) }}"
@@ -340,7 +349,7 @@
          Price rule and Discount moved to the rail on the owner's word; the
          other four channels follow, and until they do the gap is written
          into extensions/CHANNEL-CONTRACT.md. --}}
-    <form id="listing-form" method="POST" action="{{ route('ext.shopee.listings.update', $product->product_id) }}">
+    <form id="listing-form" method="POST" action="{{ route('ext.shopee.listings.update', $product->product_id) }}" data-guard-unsaved>
         <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
         @csrf
         <div class="fm-body">
@@ -551,56 +560,66 @@
 
             </div>
 
-            <div class="fm-col fm-col--side">
+            {{-- The rail scrolls with the page, and the two settings stay
+                 pinned inside it (critique 2026-09-08): a rail that holds
+                 four cards is taller than the screen, and the sticky box
+                 was hiding Product group and Last push at every scroll
+                 position with nothing to say they were there. --}}
+            <div class="fm-col fm-col--side fm-col--side--flow">
 
-                <section class="fm-section">
-                    <div class="fm-section__head"><h2 class="fm-section__title">Price rule <x-ui.hint label="About the price rule">The Shopee price is never stored: it is the catalog price run through this rule at every push and price sync, so catalog price changes carry through on their own. Without a rule of its own the listing uses its group's.</x-ui.hint></h2></div>
-                    <div class="fm-fields fm-fields--2">
-                        <x-ui.field label="Percent added" for="sl-markup-pct" name="markup_percent">
-                            <x-ui.input id="sl-markup-pct" name="markup_percent" type="number" step="0.01"
-                                        :value="old('markup_percent', $listing->markup_percent ?? '')"
-                                        placeholder="0"
-                                        :disabled="!$canManage" />
-                        </x-ui.field>
-                        <x-ui.field label="Fixed amount added" for="sl-markup-fixed" name="markup_fixed">
-                            <x-ui.input id="sl-markup-fixed" name="markup_fixed" type="number" step="0.01"
-                                        :value="old('markup_fixed', $listing->markup_fixed ?? '')"
-                                        placeholder="0"
-                                        :disabled="!$canManage" />
-                        </x-ui.field>
-                    </div>
-                    <div class="fm-stats">
-                        <div class="fm-stat">
-                            <span class="fm-stat__k">Catalog price</span>
-                            <span class="fm-stat__v"><x-money :php="$corePrice" /></span>
+                <div class="fm-pin">
+                    <section class="fm-section">
+                        <div class="fm-section__head">
+                            <h2 class="fm-section__title">Price rule</h2>
+                            <x-ui.hint label="About the price rule">The Shopee price is never stored: it is the catalog price run through this rule at every push and price sync, so catalog price changes carry through on their own. Without a rule of its own the listing uses its group's.</x-ui.hint>
                         </div>
-                        <div class="fm-stat">
-                            <span class="fm-stat__k">Price on Shopee after push</span>
-                            <span class="fm-stat__v"><x-money :php="$hasRule ? $nextPrice : $corePrice" /></span>
+                        <div class="fm-fields fm-fields--2">
+                            <x-ui.field label="Percent added" for="sl-markup-pct" name="markup_percent">
+                                <x-ui.input id="sl-markup-pct" name="markup_percent" type="number" step="0.01"
+                                            :value="old('markup_percent', $listing->markup_percent ?? '')"
+                                            placeholder="0"
+                                            :disabled="!$canManage" />
+                            </x-ui.field>
+                            <x-ui.field label="Fixed amount added" for="sl-markup-fixed" name="markup_fixed">
+                                <x-ui.input id="sl-markup-fixed" name="markup_fixed" type="number" step="0.01"
+                                            :value="old('markup_fixed', $listing->markup_fixed ?? '')"
+                                            placeholder="0"
+                                            :disabled="!$canManage" />
+                            </x-ui.field>
                         </div>
-                    </div>
-                </section>
+                        <div class="fm-stats">
+                            <div class="fm-stat">
+                                <span class="fm-stat__k">Catalog price</span>
+                                <span class="fm-stat__v"><x-money :php="$corePrice" /></span>
+                            </div>
+                            <div class="fm-stat">
+                                <span class="fm-stat__k">Price on Shopee after push</span>
+                                <span class="fm-stat__v"><x-money :php="$hasRule ? $nextPrice : $corePrice" /></span>
+                            </div>
+                        </div>
+                    </section>
 
-                @php
-                    $discount = [
-                        'channel' => 'Shopee', 'prefix' => 'sl',
-                        'canManage' => $canManage, 'onMarketplace' => (bool) $link,
-                        'step' => '0.01', 'note' => 'Shopee needs the start at least an hour ahead.',
-                        'savedPct' => $listing?->sale_percent,
-                        'savedFrom' => $listing?->sale_starts_at, 'savedTo' => $listing?->sale_ends_at,
-                        'salePreview' => ($listing?->sale_percent ?? null) !== null
-                            ? max(0.01, round(($hasRule ? $nextPrice : $corePrice) * (1 - (float) $listing->sale_percent / 100), 2))
-                            : null,
-                        'remoteId' => $listing?->shopee_discount_id ? (string) $listing->shopee_discount_id : null,
-                        'tracked' => true, 'endClearsRule' => false,
-                        'liveError' => $link ? ($liveError ?? null) : null,
-                        'action' => route('ext.shopee.listings.push_discount', $product->product_id),
-                    ];
-                @endphp
-                {{-- The shared Discount card (#146): the rule rides Save,
-                     the push is its own confirmed act. Partial in
-                     resources/views/partials/channel-discount-card. --}}
-                @include('partials.channel-discount-card', $discount)
+                    @php
+                        $discount = [
+                            'channel' => 'Shopee', 'prefix' => 'sl',
+                            'canManage' => $canManage, 'onMarketplace' => (bool) $link,
+                            'step' => '0.01', 'note' => 'Shopee needs the start at least an hour ahead.',
+                            'savedPct' => $listing?->sale_percent,
+                            'savedFrom' => $listing?->sale_starts_at, 'savedTo' => $listing?->sale_ends_at,
+                            'salePreview' => ($listing?->sale_percent ?? null) !== null
+                                ? max(0.01, round(($hasRule ? $nextPrice : $corePrice) * (1 - (float) $listing->sale_percent / 100), 2))
+                                : null,
+                            'remoteId' => $listing?->shopee_discount_id ? (string) $listing->shopee_discount_id : null,
+                            'tracked' => true, 'endClearsRule' => false,
+                            'liveError' => $link ? ($liveError ?? null) : null,
+                            'action' => route('ext.shopee.listings.push_discount', $product->product_id),
+                        ];
+                    @endphp
+                    {{-- The shared Discount card (#146): the rule rides Save,
+                         the push is its own confirmed act. Partial in
+                         resources/views/partials/channel-discount-card. --}}
+                    @include('partials.channel-discount-card', $discount)
+                </div>
 
                 @include('partials.channel-group-card', [
                     'storeName' => 'Shopee', 'group' => $groupCard,
@@ -666,7 +685,7 @@
                 ? 'Saving changes this record only. Push update to Shopee sends it onto the live listing.'
                 : 'Saving changes this record only. Shopee sees it when the product is pushed.') }}</span>
         <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.shopee.products.index')) }}">{{ $canManage ? 'Cancel' : 'Back' }}</a>
+            <a class="fm-cancel" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.shopee.products.index')) }}" data-guard-leave>{{ $canManage ? 'Cancel' : 'Back' }}</a>
             @if($canManage)
                 @if(!$link)
                     {{-- One trip for the common case: save what was just

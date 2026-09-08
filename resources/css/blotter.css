@@ -2659,6 +2659,34 @@
         .od-body,
         .fm-body,
         .cw-body { align-items: start; }
+
+        /* A RAIL THAT SETS AS WELL AS REPORTS IS TOO TALL TO HOLD IN ONE BOX.
+
+           The rule above gives a tall rail its own scroll, which is right
+           while the rail is context you glance at. Once it carries settings
+           too - Shopee's Price rule and Discount moved into it on
+           2026-09-08 - its content passes 1100px, the box is capped near
+           940px, and the cards at the bottom (Product group, Last push) sit
+           below the clip at EVERY page scroll position, with no scrollbar
+           gutter, no fade and nothing to say they exist. Last push is the
+           answer to "why did this listing go up like this", so hiding it is
+           expensive exactly when it is needed.
+
+           So: this rail scrolls with the page, and only the group that is
+           worth following stays pinned. .fm-pin marks that group. */
+        .fm-col--side--flow {
+            position: static;
+            max-height: none;
+            overflow: visible;
+        }
+
+        .fm-col--side--flow > .fm-pin {
+            position: sticky;
+            top: var(--bl-page-gutter);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
     }
 }
 

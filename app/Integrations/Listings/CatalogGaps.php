@@ -29,10 +29,13 @@ final class CatalogGaps
     /**
      * @param list<int> $productIds
      * @param list<string> $checks  the self::* checks the channel's push refuses on
+     * @param list<int> $withOwnPictures  products whose listing carries its own pictures, so the
+     *                                    catalog product's own image column is not what goes up
      * @return array<int, list<array{code: string, label: string}>> keyed by product id; a product that no longer exists carries every gap asked for
      */
-    public static function forProducts(array $productIds, array $checks): array
+    public static function forProducts(array $productIds, array $checks, array $withOwnPictures = []): array
     {
+        $ownPictures = array_flip(array_map('intval', $withOwnPictures));
         $productIds = array_values(array_unique(array_map('intval', $productIds)));
         if ($productIds === [] || $checks === []) {
             return array_fill_keys($productIds, []);
@@ -64,7 +67,14 @@ final class CatalogGaps
                         ? ['code' => ListingState::GAP_PRICE, 'label' => 'a price above zero on the catalog product'] : null,
                     self::SKU => (! $p || trim((string) ($p->sku ?: $p->model ?: '')) === '')
                         ? ['code' => ListingState::GAP_SKU, 'label' => 'a SKU on the catalog product'] : null,
-                    self::IMAGE => (! $p || trim((string) $p->image) === '')
+                    /* A listing that arranges its own pictures answers this
+                       itself (critique 2026-09-08). Without the exception the
+                       page told an operator it needed "a product image on the
+                       catalog product" while nine pictures sat on screen above
+                       the sentence, and sent them to a different page to fix
+                       it. Passed in as a set of ids so a page of a hundred
+                       products still costs one query. */
+                    self::IMAGE => (! $p || (trim((string) $p->image) === '' && ! isset($ownPictures[$pid])))
                         ? ['code' => ListingState::GAP_IMAGE, 'label' => 'a product image on the catalog product'] : null,
                     self::PARCEL => (! $p || (float) $p->weight <= 0 || (float) $p->length <= 0 || (float) $p->width <= 0 || (float) $p->height <= 0)
                         ? ['code' => ListingState::GAP_PARCEL, 'label' => 'a package weight and size (L×W×H) on the catalog product'] : null,
