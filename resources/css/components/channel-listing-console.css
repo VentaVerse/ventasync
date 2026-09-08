@@ -271,13 +271,25 @@
     display: none !important;
 }
 
-/* The rail: a labelled column. No boxes, because a box beside a sheet
-   reads as a second sheet, and the rail is not a second page. */
+/* The rail is the same white sheet as the work beside it (the owner,
+   2026-09-08). It was a labelled column standing on the page ground, on
+   the reasoning that a box beside a sheet reads as a second sheet. What it
+   actually read as was the settings being left outside: one white panel
+   with the fields in it, and the price rule sitting on the grey next to it.
+
+   Same material, told apart by width and by what is inside: the work has
+   headings, the rail has labels. The ground is now the only thing on the
+   page that is not a surface you can touch. */
 .cl-rail {
     display: flex;
     flex-direction: column;
     gap: 22px;
     min-width: 0;
+    padding: 20px 20px 22px;
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-panel);
+    background: var(--bl-sheet);
+    box-shadow: var(--bl-lift);
 }
 
 .cl-rail > * + * {
@@ -343,7 +355,8 @@
         order: -1;
     }
 
-    .cl-main {
+    .cl-main,
+    .cl-rail {
         padding: 18px 16px 20px;
     }
 }
