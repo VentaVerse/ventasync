@@ -41,24 +41,13 @@
             ? 'Nothing goes up yet. Add a picture from the library, or put one on the catalog product.'
             : 'The catalog product has no images, so none go up.')
         : $sent . ' ' . ($sent === 1 ? 'image goes' : 'images go') . ' up'
-            . ($sent < $imageCount ? ', the first ' . $sent . ' of ' . $imageCount : '') . '.';
-
-    /* Built here for the same reason the sentence above is: a directive
-       glued to the word before it - @endif@if - is not a directive at
-       all, it is printed. */
-    $hintWords = [];
-    if ($editable) {
-        $hintWords[] = 'Drag a picture to move it, or press Cover to send it to the front; the first one is the cover. From the keyboard, the arrow keys move between pictures, the space bar picks one up, C makes it the cover and Delete removes it.';
-    }
-    if ($limit !== null) {
-        $hintWords[] = $storeName . ' takes ' . (int) $limit . ' at most; the rest stay behind and the push says so.';
-    }
-    if ($fetchesOverWeb) {
-        $hintWords[] = $storeName . ' fetches them over the web from this ERP\'s address, so that address must be reachable from the store.';
-    }
-    $hintWords[] = $editable
-        ? 'An untouched listing follows the catalog product\'s own images.'
-        : 'Change the pictures on the catalog product.';
+            . ($sent < $imageCount ? ', the first ' . $sent . ' of ' . $imageCount : '') . '.'
+            /* The one fact the tiles cannot show for themselves: a store
+               that fetches the pictures from this ERP's address needs that
+               address to be reachable from it. True on Venta and
+               WooCommerce, said nowhere else, so it rides the sentence
+               rather than a tooltip. */
+            . ($fetchesOverWeb ? ' ' . $storeName . ' fetches them from this ERP\'s address.' : '');
 
     /* The input is filled by the server, not only by the script: a page
        whose JavaScript never arrived would otherwise submit an empty
@@ -87,7 +76,6 @@
          @endif>
     <div class="fm-section__head">
         <h2 class="fm-section__title">Images that go up</h2>
-        <x-ui.hint label="About the images">{{ implode(' ', $hintWords) }}</x-ui.hint>
         @if($editable)
             <div class="fm-section__aside">
                 <x-ui.button type="button" size="sm" data-images-add>
@@ -101,7 +89,7 @@
     <p class="fm-section__note" data-images-words>{{ $imageWords }}</p>
 
     @if($editable)
-        <div class="fm-hint" data-images-own @if($arrangement === '') hidden @endif>This listing arranges its own pictures.<span data-images-behind>@if($missingFromCatalog > 0) The catalog product has {{ $missingFromCatalog }} {{ $missingFromCatalog === 1 ? 'picture' : 'pictures' }} this listing does not send.@endif</span> Follow the catalog returns it to the catalog product's own.</div>
+        <div class="fm-hint" data-images-own @if($arrangement === '') hidden @endif>These pictures are in this listing's own order.<span data-images-behind>@if($missingFromCatalog > 0) Your main catalog has {{ $missingFromCatalog }} {{ $missingFromCatalog === 1 ? 'picture' : 'pictures' }} this listing does not send.@endif</span></div>
         <input type="hidden" name="image_order" value="{{ $arrangement }}" data-images-input>
         <ul class="lc-images lc-images--arrange" data-images-list
             aria-label="The pictures this listing sends, in order"
@@ -119,8 +107,6 @@
                     <span class="lc-images__rank">{{ $i + 1 }}</span>
                     <span class="lc-images__held">Held back</span>
                     <span class="lc-images__verbs">
-                        <button type="button" class="lc-images__verb" data-images-cover tabindex="-1"
-                                aria-label="Make picture {{ $i + 1 }} the cover">Cover</button>
                         <button type="button" class="lc-images__verb lc-images__verb--drop" data-images-drop tabindex="-1"
                                 aria-label="Remove picture {{ $i + 1 }} from this listing">
                             <x-ui.icon name="x" size="12" />
@@ -133,7 +119,7 @@
              commentary a screen reader hears while it is used. Not a
              paragraph on the page: an explanation under a control is a
              tooltip here, and the pointer gesture is told by the cursor. --}}
-        <p class="x-sr" id="lc-images-help">Drag a picture to move it. From the keyboard: the arrow keys move between pictures, the space bar picks one up and the arrow keys then move it, C makes the focused picture the cover, and Delete removes it.</p>
+        <p class="x-sr" id="lc-images-help">Hold a picture and drag it where you want it. From the keyboard: the arrow keys move between pictures, the space bar picks one up and the arrow keys then move it, and Delete removes it.</p>
         <p class="x-sr" role="status" aria-live="polite" data-images-say></p>
     @elseif($imageCount > 0)
         <ul class="lc-images">

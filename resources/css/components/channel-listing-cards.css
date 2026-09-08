@@ -48,22 +48,51 @@
     width: 84px;
     height: 84px;
     cursor: grab;
-    /* The browser keeps vertical panning, we take the horizontal drag:
-       a grid of 84px tiles must not become a place a phone cannot
-       scroll past. */
-    touch-action: pan-y;
-    transition: transform .12s ease-out, opacity .12s ease-out, border-color .12s ease-out;
+    /* The gesture is the drag, so the tile owns the touch. The page still
+       scrolls everywhere around these eleven small squares, and a drag
+       begins only after a still hold, so a tap is never a move. It used to
+       leave vertical panning to the browser, which meant a cross-row drag
+       on a phone scrolled the page instead of moving the picture. */
+    touch-action: none;
+    /* The scooch. Every tile that is not the one in your hand travels to
+       the slot it would occupy, and this is the travel. */
+    transition: transform .19s cubic-bezier(.2, .8, .2, 1), opacity .12s ease-out, border-color .12s ease-out;
+}
+
+/* THE PICKED-UP PICTURE.
+ *
+ * It follows the pointer exactly, so it can carry no transition of its
+ * own: a transition here would make it lag behind the cursor by the
+ * duration, which reads as the page being slow rather than as easing.
+ * The lift is said with a shadow and a scale instead, and the shadow is
+ * the only part that animates. */
+.lc-images--arrange .lc-images__item.is-dragging {
+    transition: box-shadow .16s ease-out;
+    cursor: grabbing;
+    z-index: 5;
+    box-shadow: 0 14px 28px color-mix(in srgb, var(--bl-ink) 28%, transparent);
+    border-color: var(--bl-brand-deep);
+}
+
+/* While a picture is in hand nothing else responds to the pointer: the
+   hit test that matters is the dragged tile's own box against the slots. */
+.lc-images--arrange.is-arranging .lc-images__item {
+    pointer-events: none;
+}
+
+.lc-images--arrange.is-arranging {
+    cursor: grabbing;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .lc-images--arrange .lc-images__item {
+        transition: none;
+    }
 }
 
 .lc-images--arrange .lc-images__item:focus-visible {
     outline: 2px solid var(--bl-brand-deep);
     outline-offset: 2px;
-}
-
-.lc-images--arrange .lc-images__item.is-dragging {
-    cursor: grabbing;
-    opacity: .55;
-    transform: scale(.96);
 }
 
 /* Picked up from the keyboard: the same state a pointer drag shows,

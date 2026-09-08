@@ -69,11 +69,6 @@
             li.setAttribute('tabindex', li === (focused || items[0]) ? '0' : '-1');
             var drop = li.querySelector('[data-images-drop]');
             if (drop) drop.setAttribute('aria-label', 'Remove picture ' + (i + 1) + ' from this listing');
-            var cover = li.querySelector('[data-images-cover]');
-            if (cover) {
-                cover.setAttribute('aria-label', 'Make picture ' + (i + 1) + ' the cover');
-                cover.hidden = i === 0;
-            }
         });
 
         var paths = pathsNow();
@@ -104,44 +99,168 @@
         if (say) say.textContent = text;
     }
 
-    /* ── Arranging with a pointer ───────────────────────────────────── */
-    var dragged = null;
+    /* ── Arranging with a pointer ─────────────────────────────────────
+     *
+     * Hold a picture and it lifts under the cursor; the rest of the line
+     * scooches to open a gap where it will land. Nothing SWAPS - a picture
+     * dragged from ninth place to second pushes everything between them
+     * along by one, which is what the operator means by moving it there
+     * (the owner, 2026-09-08).
+     *
+     * Nothing is reordered in the DOM until the drop. During the drag every
+     * tile is where it always was and is only TRANSFORMED to the slot it
+     * would occupy, measured once when the drag begins. So there is no
+     * reflow mid-gesture, the arithmetic is the same on a wrapped grid as
+     * on one row, and letting go is the only moment the list actually
+     * changes.
+     */
+    var drag = null;
+    var HOLD_MS = 220;
+    var hold = null;
 
-    function moveTo(li, target, before) {
-        if (!target || target === li) return;
-        list.insertBefore(li, before ? target : target.nextSibling);
-        refresh();
+    function slotsNow() {
+        return Array.prototype.map.call(list.children, function (li) {
+            var r = li.getBoundingClientRect();
+            return { x: r.left, y: r.top, w: r.width, h: r.height };
+        });
+    }
+
+    /* Where a tile sits once the dragged one has been pulled out of place
+       and dropped back in at `to`: everything between the two closes up
+       behind it. */
+    function slotFor(i, from, to) {
+        if (i === from) return to;
+        if (from < to && i > from && i <= to) return i - 1;
+        if (from > to && i >= to && i < from) return i + 1;
+        return i;
+    }
+
+    function layout() {
+        var items = drag.items;
+        for (var i = 0; i < items.length; i++) {
+            if (items[i] === drag.li) continue;
+            var target = drag.slots[slotFor(i, drag.from, drag.to)];
+            items[i].style.transform = 'translate(' + (target.x - drag.slots[i].x) + 'px, '
+                + (target.y - drag.slots[i].y) + 'px)';
+        }
+    }
+
+    /* The slot the dragged picture is over. Its own centre against the slot
+       boxes: by the time the centre is inside a neighbour the two pictures
+       overlap by more than half, which is the point where a person has
+       decided. Pure border contact fires after eight pixels of travel and
+       makes the whole line flicker. */
+    function slotUnder(cx, cy) {
+        for (var i = 0; i < drag.slots.length; i++) {
+            var s = drag.slots[i];
+            if (cx >= s.x && cx <= s.x + s.w && cy >= s.y && cy <= s.y + s.h) return i;
+        }
+        return null;
+    }
+
+    function begin(li, e) {
+        var items = Array.prototype.slice.call(list.children);
+        drag = {
+            li: li,
+            items: items,
+            slots: slotsNow(),
+            from: items.indexOf(li),
+            pointerId: e.pointerId,
+            startX: e.clientX,
+            startY: e.clientY,
+        };
+        drag.to = drag.from;
+        var r = drag.slots[drag.from];
+        drag.grabX = e.clientX - r.x;
+        drag.grabY = e.clientY - r.y;
+
+        list.classList.add('is-arranging');
+        li.classList.add('is-dragging');
+        try { li.setPointerCapture(e.pointerId); } catch (err) { /* older engines */ }
+        announce('Picture ' + (drag.from + 1) + ' picked up.');
+    }
+
+    function follow(e) {
+        var r = drag.slots[drag.from];
+        var dx = (e.clientX - drag.grabX) - r.x;
+        var dy = (e.clientY - drag.grabY) - r.y;
+        drag.li.style.transform = 'translate(' + dx + 'px, ' + dy + 'px) scale(1.06)';
+
+        var to = slotUnder(r.x + dx + r.w / 2, r.y + dy + r.h / 2);
+        if (to !== null && to !== drag.to) {
+            drag.to = to;
+            layout();
+        }
+    }
+
+    function end() {
+        if (!drag) return;
+        var d = drag;
+        drag = null;
+
+        d.items.forEach(function (li) { li.style.transform = ''; });
+        d.li.classList.remove('is-dragging');
+        list.classList.remove('is-arranging');
+
+        if (d.to !== d.from) {
+            // The only moment the list itself changes.
+            var after = d.items[d.to > d.from ? d.to : d.to - 1] || null;
+            list.insertBefore(d.li, d.to > d.from ? (after ? after.nextSibling : null) : d.items[d.to]);
+            refresh();
+            announce('Moved to position ' + (index(d.li) + 1) + ' of ' + list.children.length + '.');
+        } else {
+            announce('Left where it was.');
+        }
+        d.li.focus();
     }
 
     function onPointerDown(e) {
         var li = e.target.closest ? e.target.closest('.lc-images__item') : null;
         if (!li || li.parentNode !== list) return;
         // A press on a verb is a press, never the start of a drag.
-        if (e.target.closest('[data-images-drop], [data-images-cover]')) return;
+        if (e.target.closest('[data-images-drop]')) return;
         if (e.pointerType === 'mouse' && e.button !== 0) return;
-        dragged = li;
-        li.classList.add('is-dragging');
-        try { li.setPointerCapture(e.pointerId); } catch (err) { /* older engines */ }
+
+        if (e.pointerType === 'mouse') {
+            begin(li, e);
+            return;
+        }
+
+        /* On touch the browser owns the gesture until we know it is a drag
+           and not a scroll: a hold with the finger still. Moving first is a
+           scroll and this bows out. */
+        hold = {
+            li: li, e: { clientX: e.clientX, clientY: e.clientY, pointerId: e.pointerId, pointerType: e.pointerType },
+            timer: window.setTimeout(function () {
+                hold = null;
+                begin(li, { clientX: e.clientX, clientY: e.clientY, pointerId: e.pointerId });
+            }, HOLD_MS),
+        };
+    }
+
+    function cancelHold() {
+        if (hold) {
+            window.clearTimeout(hold.timer);
+            hold = null;
+        }
     }
 
     function onPointerMove(e) {
-        if (!dragged) return;
-        // The captured tile is under the pointer itself; lift it out of the
-        // hit test for one call so the tile BEHIND it is the answer.
-        dragged.style.pointerEvents = 'none';
-        var under = document.elementFromPoint(e.clientX, e.clientY);
-        dragged.style.pointerEvents = '';
-        var target = under && under.closest ? under.closest('.lc-images__item') : null;
-        if (!target || target === dragged || target.parentNode !== list) return;
-        var box = target.getBoundingClientRect();
-        moveTo(dragged, target, e.clientX < box.left + box.width / 2);
+        if (hold) {
+            if (Math.abs(e.clientX - hold.e.clientX) > 6 || Math.abs(e.clientY - hold.e.clientY) > 6) {
+                cancelHold();
+            }
+            return;
+        }
+        if (!drag) return;
+        // The page must not pan while a picture is being carried across it.
+        if (e.cancelable) e.preventDefault();
+        follow(e);
     }
 
     function onPointerUp() {
-        if (!dragged) return;
-        dragged.classList.remove('is-dragging');
-        dragged = null;
-        refresh();
+        cancelHold();
+        end();
     }
 
     /* ── Arranging from the keyboard ────────────────────────────────── */
@@ -150,7 +269,7 @@
     function onKeyDown(e) {
         var li = e.target.closest ? e.target.closest('.lc-images__item') : null;
         if (!li || li.parentNode !== list) return;
-        if (e.target.closest('[data-images-drop], [data-images-cover]')) return;
+        if (e.target.closest('[data-images-drop]')) return;
 
         var back = e.key === 'ArrowLeft' || e.key === 'ArrowUp';
         var forward = e.key === 'ArrowRight' || e.key === 'ArrowDown';
@@ -170,14 +289,6 @@
 
         if (e.key === 'Escape' && grabbed) {
             release(grabbed, 'Left where it is.');
-            return;
-        }
-
-        // C sends the focused picture to the front, which is the one edit
-        // this card exists for and the one a drag does worst on a phone.
-        if (e.key === 'c' || e.key === 'C') {
-            e.preventDefault();
-            cover(li);
             return;
         }
 
@@ -209,17 +320,6 @@
         li.classList.remove('is-grabbed');
         grabbed = null;
         announce(words);
-    }
-
-    function cover(li) {
-        if (li === list.firstElementChild) {
-            announce('That picture is already the cover.');
-            return;
-        }
-        list.insertBefore(li, list.firstElementChild);
-        refresh();
-        li.focus();
-        announce('That picture is the cover now. ' + words.textContent);
     }
 
     function remove(li) {
@@ -263,14 +363,6 @@
 
         var verbs = document.createElement('span');
         verbs.className = 'lc-images__verbs';
-
-        var cover = document.createElement('button');
-        cover.type = 'button';
-        cover.className = 'lc-images__verb';
-        cover.setAttribute('data-images-cover', '');
-        cover.setAttribute('tabindex', '-1');
-        cover.textContent = 'Cover';
-        verbs.appendChild(cover);
 
         var drop = document.createElement('button');
         drop.type = 'button';
@@ -476,14 +568,9 @@
         list.addEventListener('pointercancel', onPointerUp);
         list.addEventListener('keydown', onKeyDown);
         list.addEventListener('click', function (e) {
-            var verb = e.target.closest('[data-images-drop], [data-images-cover]');
-            if (!verb) return;
-            var li = verb.closest('.lc-images__item');
-            if (verb.hasAttribute('data-images-cover')) {
-                cover(li);
-            } else {
-                remove(li);
-            }
+            var drop = e.target.closest('[data-images-drop]');
+            if (!drop) return;
+            remove(drop.closest('.lc-images__item'));
         });
 
         if (resetBtn) {
