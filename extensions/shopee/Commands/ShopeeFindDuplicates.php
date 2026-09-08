@@ -75,7 +75,9 @@ class ShopeeFindDuplicates extends Command
             $this->reportRepeats($items, 'SKU', fn ($i) => $i['skus']);
             $this->reportRepeats($items, 'name', fn ($i) => $i['name'] !== '' ? [$i['name']] : []);
             $this->reportOrphans($items, (int) $store->id);
+            $this->reportLinks((int) $store->id);
             $this->reportSkuless((int) $store->id);
+            $this->reportPushLog((int) $store->id);
         }
 
         return self::SUCCESS;
@@ -238,6 +240,90 @@ class ShopeeFindDuplicates extends Command
         }
     }
 
+    /**
+     * What the ERP itself holds. An item can read as an orphan for two very
+     * different reasons - no link row was ever written, or one was written
+     * and stamped to another store, where the read fence hides it from the
+     * push guard - and only this tells them apart.
+     */
+    private function reportLinks(int $storeId): void
+    {
+        $rows = ShopeeProductLink::query()
+            ->withoutGlobalScope('shopeeStore')
+            ->orderBy('product_id')
+            ->get(['product_id', 'shopee_item_id', 'shopee_model_id', 'shopee_setting_id', 'sku', 'live_status']);
+
+        $this->line('');
+        $this->line('Link rows in this ERP (every store): ' . $rows->count());
+
+        $byStore = $rows->groupBy(fn ($r) => (string) ($r->shopee_setting_id ?? 'NULL'));
+        foreach ($byStore as $sid => $group) {
+            $mark = (string) $sid === (string) $storeId ? '' : '   <- NOT this store';
+            $this->line(sprintf('  store %s: %d row(s)%s', $sid, $group->count(), $mark));
+        }
+
+        foreach ($rows as $row) {
+            $this->line(sprintf(
+                '  product #%d -> item %s%s  sku=%s  status=%s  store=%s',
+                $row->product_id,
+                $row->shopee_item_id ?: 'none',
+                $row->shopee_model_id ? ' model ' . $row->shopee_model_id : '',
+                $row->sku === '' || $row->sku === null ? 'none' : $row->sku,
+                $row->live_status ?: 'not checked',
+                $row->shopee_setting_id ?? 'NULL'
+            ));
+        }
+    }
+
+    /**
+     * What the pushes actually did, from the API log: every create, every
+     * variation init, and every undo delete. This is where a create that
+     * Shopee accepted without returning an item id shows up, and where an
+     * undo that answered ok while the item stayed up shows up too.
+     */
+    private function reportPushLog(int $storeId): void
+    {
+        $packs = [
+            'shopee.products.add_item.direct',
+            'shopee.products.add_item.group',
+            'shopee.products.init_tier_variation.group',
+            'shopee.products.delete_item.undo_half_create',
+            'shopee.product.delete_item',
+            'shopee.product.delete_item.bulk',
+        ];
+
+        $rows = \Extensions\shopee\Models\ShopeeApiLog::query()
+            ->whereIn('pack', $packs)
+            ->orderByDesc('id')
+            ->limit(60)
+            ->get(['id', 'pack', 'ok', 'response_status', 'request_params', 'response_body', 'created_at']);
+
+        $this->line('');
+        if ($rows->isEmpty()) {
+            $this->line('No create, variation or delete calls in the API log.');
+
+            return;
+        }
+
+        $this->line('The last ' . $rows->count() . ' create / variation / delete call(s), newest first:');
+        foreach ($rows as $row) {
+            $req = is_array($row->request_params) ? $row->request_params : [];
+            $body = is_array($row->response_body) ? $row->response_body : [];
+            $err = trim((string) ($body['error'] ?? ''));
+            $msg = trim((string) ($body['message'] ?? ''));
+            $itemId = $body['response']['item_id'] ?? ($req['item_id'] ?? null);
+
+            $this->line(sprintf(
+                '  %s  %-44s %-3s item=%-12s %s',
+                $row->created_at?->format('Y-m-d H:i:s') ?? '',
+                str_replace('shopee.product', '', (string) $row->pack),
+                $row->ok ? 'ok' : 'ERR',
+                $itemId !== null ? (string) $itemId : 'none',
+                $err !== '' || $msg !== '' ? trim($err . ' ' . $msg) : ''
+            ));
+        }
+    }
+
     /** This store's products that carry no SKU and no model: unadoptable. */
     private function reportSkuless(int $storeId): void
     {
@@ -248,7 +334,7 @@ class ShopeeFindDuplicates extends Command
             ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
-            ->whereIn('p.product_id', \Extensions\shopee\Models\ShopeeStoreProducts::query())
+            ->whereIn('p.product_id', \Extensions\shopee\Services\ShopeeStoreProducts::query())
             ->where(fn ($q) => $q->whereNull('p.sku')->orWhere('p.sku', ''))
             ->where(fn ($q) => $q->whereNull('p.model')->orWhere('p.model', ''))
             ->orderBy('p.product_id')
