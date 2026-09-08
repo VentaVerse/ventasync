@@ -189,7 +189,6 @@ Route::middleware(['auth', \Extensions\tiktok\Http\ResolveTikTokStore::class])
 
         // Per-product discount rule + its push (#146)
         Route::put('/tiktok/{store}/listings/{productId}', [TikTokListingController::class, 'update'])->whereNumber('productId')->name('ext.tiktok.listings.update');
-        Route::post('/tiktok/{store}/listings/{productId}/push-discount', [TikTokListingController::class, 'pushDiscount'])->whereNumber('productId')->name('ext.tiktok.listings.push_discount');
 
         // Coupon writes (#153): create, deactivate. Pass-throughs; TikTok owns the object.
         Route::post('/tiktok/{store}/coupons', [TikTokCouponController::class, 'store'])->name('ext.tiktok.coupons.store');

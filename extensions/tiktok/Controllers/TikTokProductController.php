@@ -239,12 +239,6 @@ class TikTokProductController extends Controller
 
         return view('ext-tiktok::products.index', [
             'products' => $products,
-            /* Which rows are on sale RIGHT NOW, so the price cell can strike
-             * itself (the owner, 2026-09-09). The activity id is what proves
-             * TikTok Shop was told. */
-            'runningSales' => \App\Support\Channels\RunningSale::map(
-                TikTokListing::query(), $pageIds, 'tiktok_activity_id'
-            ),
             'listingStates' => $listingStates,
             'rowErrors' => $rowErrors,
             'listedTotal' => $listedTotal,

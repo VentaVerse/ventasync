@@ -92,12 +92,6 @@ function initRunningTotal(root) {
     const out = root.querySelector('[data-total-value]');
     const percentInput = document.querySelector('[data-markup-percent]');
     const fixedInput = document.querySelector('[data-markup-fixed]');
-    // A saved discount strikes the total and prints the cut price beside
-    // it. Both figures answer to the markup fields, so both are recomputed
-    // here; leaving the cut one to the server would let it drift the
-    // moment a markup was typed.
-    const sale = root.querySelector('[data-total-sale]');
-    const salePercent = parseFloat(root.getAttribute('data-sale-percent'));
     if (!out || Number.isNaN(base)) return;
 
     /* Only the digits are replaced, never the currency: the figure was
@@ -126,10 +120,6 @@ function initRunningTotal(root) {
         // posts two decimals, so a total computed from the unrounded
         // figure would disagree with what the server stores by a cent.
         write(out, total);
-
-        if (sale && !Number.isNaN(salePercent)) {
-            write(sale, Math.max(0.01, total * (1 - salePercent / 100)));
-        }
     }
 
     if (percentInput) percentInput.addEventListener('input', recalc);

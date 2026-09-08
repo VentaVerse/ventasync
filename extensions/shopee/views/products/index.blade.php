@@ -324,12 +324,7 @@
 
             <td class="cc-col-qty x-td-num" data-label="Stock"><span class="x-num">{{ (int) $p->quantity }}</span></td>
 
-            <td class="cc-col-price x-td-num" data-label="Price">
-                @include('partials.channel-price-cell', [
-                    'price' => (float) $p->price,
-                    'salePercent' => $runningSales[$p->product_id] ?? null,
-                ])
-            </td>
+            <td class="cc-col-price x-td-num" data-label="Price"><x-money :php="(float) $p->price" /></td>
 
             <td class="cc-col-chanid" data-label="Shopee ID">
                 @if($link)

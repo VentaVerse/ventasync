@@ -342,12 +342,6 @@ class ShopeeProductController extends Controller
 
         return view('ext-shopee::products.index', [
             'products' => $products,
-            /* Which rows are on sale RIGHT NOW, so the price cell can strike
-             * itself (the owner, 2026-09-09). Shopee's promotion id is what
-             * proves the marketplace was told. */
-            'runningSales' => \App\Support\Channels\RunningSale::map(
-                ShopeeListing::query(), array_map('intval', $pageIds), 'shopee_discount_id'
-            ),
             /* The relist preflight's page-side half (#191): a row whose
              * Relist would certainly be refused offers the fix instead. */
             'parcelGaps' => $this->parcelGapFor($products->pluck('product_id')->map(fn ($v) => (int) $v)->all()),
@@ -2589,9 +2583,6 @@ class ShopeeProductController extends Controller
             'logistic_ids.*' => 'integer|min:1',
             'markup_percent' => 'nullable|numeric|min:-100|max:1000',
             'markup_fixed' => 'nullable|numeric|min:-1000000|max:1000000',
-            'sale_percent' => 'nullable|numeric|min:1|max:99',
-            'sale_starts_at' => 'nullable|date|required_with:sale_percent',
-            'sale_ends_at' => 'nullable|date|required_with:sale_percent|after:sale_starts_at',
             'item_name' => 'nullable|string|max:255',
             'description' => 'nullable|string|max:5000',
             'weight' => 'nullable|numeric|min:0.01',
@@ -2639,12 +2630,6 @@ class ShopeeProductController extends Controller
             'logistic_ids' => array_map('intval', $data['logistic_ids'] ?? []),
             'markup_percent' => $blank($data['markup_percent'] ?? null),
             'markup_fixed' => $blank($data['markup_fixed'] ?? null),
-            // The discount RULE (#146): percent off with a window;
-            // the promo price is computed at push time. Clearing the
-            // percent clears the rule.
-            'sale_percent' => $blank($data['sale_percent'] ?? null),
-            'sale_starts_at' => ($data['sale_percent'] ?? null) !== null ? ($data['sale_starts_at'] ?? null) : null,
-            'sale_ends_at' => ($data['sale_percent'] ?? null) !== null ? ($data['sale_ends_at'] ?? null) : null,
             /* The Content boxes are pre-filled with the catalog's words so
              * a few can be changed without retyping the rest (the owner,
              * 2026-09-07). Text still equal to the catalog's is stored as
@@ -2672,17 +2657,6 @@ class ShopeeProductController extends Controller
         }
 
         ShopeeListing::query()->updateOrCreate(['product_id' => $productId], $fields);
-
-        /* Save and push the DISCOUNT in one press (the owner, 2026-09-09).
-         * The discount push acts on the saved rule, so a rule typed and
-         * not yet saved met a button that did nothing at all. Neither an
-         * error telling the operator to save first nor a button that
-         * disappears as they type: the button carries the save with it.
-         * The rule has just landed above, so the push reads what was
-         * meant, and every refusal below is the push's own. */
-        if ($request->boolean('push_discount_after')) {
-            return $this->pushListingDiscount($request->merge(['action' => 'push']), $productId, $client);
-        }
 
         /* Save and push (2026-09-03, the one-editor merge): the save half
          * has already landed, so a refusal below never loses the typing.
@@ -2900,164 +2874,6 @@ class ShopeeProductController extends Controller
         );
 
         return ['ok' => true, 'message' => 'Update pushed. Shopee now shows this listing\'s content. Price and stock were not touched - they have their own syncs.'];
-    }
-
-    /**
-     * Push (or end) the listing's discount on Shopee (#146). Shopee wants
-     * a NAMED promotion object with a server-side window, so VentaSync
-     * manages one object per window and listings JOIN it - ten listings
-     * on one sale share one object. The promo price is computed here from
-     * the listing's own price rule, never stored.
-     */
-    public function pushListingDiscount(Request $request, int $productId, ShopeeClient $client)
-    {
-        $request->validate(['action' => 'required|in:push,end']);
-        $ending = $request->input('action') === 'end';
-
-        $links = ShopeeProductLink::query()->where('product_id', $productId)->get();
-        $link = $links->first();
-        if (!$link) {
-            return redirect()->back()->with('error', 'This product is not on Shopee, so there is no price to discount.');
-        }
-        $itemId = (int) $link->shopee_item_id;
-
-        $listing = ShopeeListing::query()->where('product_id', $productId)->first();
-
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
-            return redirect()->back()->with('error', 'Missing Shopee settings.');
-        }
-
-        if ($ending) {
-            if (!$listing || !$listing->shopee_discount_id) {
-                return redirect()->back()->with('error', 'No Shopee discount is recorded for this listing.');
-            }
-
-            $result = $this->shopeeDiscountCall($client, $auth, '/api/v2/discount/delete_discount_item', [
-                'discount_id' => (int) $listing->shopee_discount_id,
-                'item_id' => $itemId,
-                'model_id' => 0,
-            ]);
-            $apiError = is_array($result['body'] ?? null) ? (string) ($result['body']['error'] ?? '') : 'no_body';
-            if (!($result['ok'] ?? false) || $apiError !== '') {
-                $msg = is_array($result['body'] ?? null)
-                    ? (string) ($result['body']['message'] ?? ($result['body']['error'] ?? 'no response'))
-                    : 'no response';
-                return redirect()->back()->with('error', 'End discount failed: ' . $msg);
-            }
-
-            $listing->forceFill([
-                'sale_percent' => null, 'sale_starts_at' => null,
-                'sale_ends_at' => null, 'shopee_discount_id' => null,
-            ])->save();
-
-            return redirect()->back()->with('status', 'Discount ended. Buyers pay the full price again.');
-        }
-
-        if (!$listing || $listing->sale_percent === null || !$listing->sale_starts_at || !$listing->sale_ends_at) {
-            return redirect()->back()->with('error', 'Set the discount first: a percent off, a start and an end. Save, then push it.');
-        }
-        if ($listing->sale_starts_at->lt(now()->addHour())) {
-            return redirect()->back()->with('error', 'Shopee requires a discount to start at least an hour from now. Move the start later and save first.');
-        }
-
-        $pfx = (string) config('catalog.prefix');
-        $corePrice = (float) DB::table($pfx . 'product')->where('product_id', $productId)->value('price');
-        $pct = (float) $listing->sale_percent;
-
-        /* One object per window, shared. Another listing already holding a
-         * Shopee discount for this exact window donates its object;
-         * otherwise a new one is created and named after the window. */
-        $discountId = (int) (ShopeeListing::query()
-            ->where('sale_starts_at', $listing->sale_starts_at)
-            ->where('sale_ends_at', $listing->sale_ends_at)
-            ->whereNotNull('shopee_discount_id')
-            ->value('shopee_discount_id') ?? 0);
-
-        if ($discountId <= 0) {
-            $result = $this->shopeeDiscountCall($client, $auth, '/api/v2/discount/add_discount', [
-                'discount_name' => mb_substr('VentaSync ' . $listing->sale_starts_at->format('M j') . ' to ' . $listing->sale_ends_at->format('M j'), 0, 25),
-                'start_time' => $listing->sale_starts_at->timestamp,
-                'end_time' => $listing->sale_ends_at->timestamp,
-            ]);
-            $apiError = is_array($result['body'] ?? null) ? (string) ($result['body']['error'] ?? '') : 'no_body';
-            $discountId = (int) (($result['body']['response']['discount_id'] ?? 0));
-            if (!($result['ok'] ?? false) || $apiError !== '' || $discountId <= 0) {
-                $msg = is_array($result['body'] ?? null)
-                    ? (string) ($result['body']['message'] ?? ($result['body']['error'] ?? 'no response'))
-                    : 'no response';
-                return redirect()->back()->with('error', 'Discount push failed creating the promotion: ' . $msg);
-            }
-        }
-
-        // The item joins the object at its computed promo price(s): the
-        // listing's own price rule, then the percent off.
-        $modelLinks = $links->filter(fn ($l) => !empty($l->shopee_model_id));
-        $item = ['item_id' => $itemId, 'purchase_limit' => 0];
-        if ($modelLinks->isNotEmpty()) {
-            $combosBySku = DB::table('product_option_combinations')
-                ->where('product_id', $productId)
-                ->get(['sku', 'absolute_price'])
-                ->keyBy(fn ($c) => strtolower(trim((string) $c->sku)));
-            $item['model_list'] = $modelLinks->map(function ($l) use ($combosBySku, $listing, $corePrice, $pct) {
-                $combo = $combosBySku->get(strtolower(trim((string) $l->sku)));
-                $base = $combo && (float) $combo->absolute_price > 0 ? (float) $combo->absolute_price : $corePrice;
-                return [
-                    'model_id' => (int) $l->shopee_model_id,
-                    'model_promotion_price' => max(0.01, round($listing->priceFor($base) * (1 - $pct / 100), 2)),
-                ];
-            })->values()->all();
-        } else {
-            $item['item_promotion_price'] = max(0.01, round($listing->priceFor($corePrice) * (1 - $pct / 100), 2));
-        }
-
-        $result = $this->shopeeDiscountCall($client, $auth, '/api/v2/discount/add_discount_item', [
-            'discount_id' => $discountId,
-            'item_list' => [$item],
-        ]);
-        $apiError = is_array($result['body'] ?? null) ? (string) ($result['body']['error'] ?? '') : 'no_body';
-        $itemErrors = $result['body']['response']['error_list'] ?? [];
-        if (!($result['ok'] ?? false) || $apiError !== '' || !empty($itemErrors)) {
-            $msg = !empty($itemErrors)
-                ? (string) ($itemErrors[0]['fail_message'] ?? ($itemErrors[0]['fail_error'] ?? 'item rejected'))
-                : (is_array($result['body'] ?? null)
-                    ? (string) ($result['body']['message'] ?? ($result['body']['error'] ?? 'no response'))
-                    : 'no response');
-            return redirect()->back()->with('error', 'Discount push failed adding the item: ' . $msg);
-        }
-
-        $listing->forceFill(['shopee_discount_id' => $discountId])->save();
-
-        return redirect()->back()->with('status',
-            "Discount pushed: {$pct}% off from " . $listing->sale_starts_at->format('M j') . ' to ' . $listing->sale_ends_at->format('M j')
-            . '. Shopee shows the cut price once the window opens.');
-    }
-
-    /** One signed discount call, logged. */
-    private function shopeeDiscountCall(ShopeeClient $client, array $auth, string $path, array $body): array
-    {
-        try {
-            $result = $client->shopPost(
-                $auth['mode'],
-                (int) $auth['partner_id'], (string) $auth['partner_key'],
-                (string) $auth['access_token'], (int) $auth['shop_id'],
-                $path, [], $body
-            );
-        } catch (\Throwable $e) {
-            $result = ['ok' => false, 'status' => 0, 'body' => ['error' => 'network', 'message' => \App\Support\TransportError::plain($e, 'Shopee')]];
-        }
-
-        ShopeeApiLog::safeCreate([
-            'pack' => 'shopee.listings.discount', 'method' => 'POST',
-            'api_path' => $path, 'auth_required' => true,
-            'request_params' => $body,
-            'response_status' => $result['status'] ?? null,
-            'ok' => (bool) ($result['ok'] ?? false),
-            'response_body' => $result['body'] ?? null, 'user_id' => auth()->id(),
-        ]);
-
-        return $result;
     }
 
     public function toggleListing(Request $request, int $productId, ShopeeClient $client)

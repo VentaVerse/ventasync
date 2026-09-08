@@ -591,11 +591,6 @@
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/{store}/listings/{productId}/push-discount",
-        "name": "ext.lazada.listings.push_discount"
-    },
-    {
-        "method": "POST",
         "uri": "channels/lazada/{store}/listings/{productId}/toggle",
         "name": "ext.lazada.listings.toggle"
     },
@@ -1566,11 +1561,6 @@
     },
     {
         "method": "POST",
-        "uri": "channels/shopee/{store}/listings/{productId}/push-discount",
-        "name": "ext.shopee.listings.push_discount"
-    },
-    {
-        "method": "POST",
         "uri": "channels/shopee/{store}/listings/{productId}/push-missing-variations",
         "name": "ext.shopee.listings.push_missing_variations"
     },
@@ -2223,11 +2213,6 @@
         "method": "PUT",
         "uri": "channels/tiktok/{store}/listings/{productId}",
         "name": "ext.tiktok.listings.update"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/tiktok/{store}/listings/{productId}/push-discount",
-        "name": "ext.tiktok.listings.push_discount"
     },
     {
         "method": "POST",

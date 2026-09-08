@@ -206,7 +206,6 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
         // Activate / deactivate the selection, and refresh the status mirror on demand.
         Route::post('/lazada/{store}/products/bulk/toggle', [LazadaProductController::class, 'bulkToggle'])->name('ext.lazada.products.bulk_toggle');
         Route::post('/lazada/{store}/products/refresh-status', [LazadaProductController::class, 'refreshStatus'])->name('ext.lazada.products.refresh_status');
-        Route::post('/lazada/{store}/listings/{productId}/push-discount', [LazadaProductController::class, 'pushDiscount'])->whereNumber('productId')->name('ext.lazada.listings.push_discount');
 
         // Voucher writes (#153): create, deactivate. Pass-throughs; Lazada owns the object.
         Route::post('/lazada/{store}/vouchers', [\Extensions\lazada\Controllers\LazadaVoucherController::class, 'store'])->name('ext.lazada.vouchers.store');

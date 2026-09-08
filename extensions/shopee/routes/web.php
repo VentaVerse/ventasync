@@ -256,7 +256,6 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
         Route::post('/shopee/{store}/listings/{productId}/push-missing-variations', [ShopeeProductController::class, 'pushMissingVariations'])->whereNumber('productId')->name('ext.shopee.listings.push_missing_variations');
         Route::post('/shopee/{store}/listings/{productId}/push-update', [ShopeeProductController::class, 'pushListingUpdate'])->whereNumber('productId')->name('ext.shopee.listings.push_update');
         Route::post('/shopee/{store}/products/fetch-attributes', [ShopeeProductController::class, 'fetchAttributes'])->name('ext.shopee.products.fetchAttributes');
-        Route::post('/shopee/{store}/listings/{productId}/push-discount', [ShopeeProductController::class, 'pushListingDiscount'])->whereNumber('productId')->name('ext.shopee.listings.push_discount');
 
         // Voucher writes (#153): create, end an ongoing one, delete an
         // upcoming one. All pass-throughs; Shopee owns the object.

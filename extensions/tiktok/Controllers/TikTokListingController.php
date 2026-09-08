@@ -167,16 +167,12 @@ class TikTokListingController extends Controller
             'attributes' => 'nullable|array',
             'attributes.*' => 'nullable|string|max:500',
             // TikTok takes the percent itself and only whole percents.
-            'sale_percent' => 'nullable|integer|min:1|max:99',
-            'sale_starts_at' => 'nullable|date|required_with:sale_percent',
-            'sale_ends_at' => 'nullable|date|required_with:sale_percent|after:sale_starts_at',
         ]);
 
         /* Content fields are OVERRIDES: an emptied field returns to null,
          * which means "follows the catalog". Saving here never writes the
          * core product. */
         $blank = fn ($v) => ($v === null || trim((string) $v) === '') ? null : $v;
-        $hasRule = ($data['sale_percent'] ?? null) !== null;
         TikTokListing::query()->updateOrCreate(
             ['product_id' => $productId],
             [
@@ -196,22 +192,10 @@ class TikTokListingController extends Controller
                     array_map(fn ($v) => trim((string) $v), $data['attributes'] ?? []),
                     fn ($v) => $v !== ''
                 ) ?: null,
-                'sale_percent' => $hasRule ? $data['sale_percent'] : null,
-                'sale_starts_at' => $hasRule ? ($data['sale_starts_at'] ?? null) : null,
-                'sale_ends_at' => $hasRule ? ($data['sale_ends_at'] ?? null) : null,
             ]
         );
 
         $back = \App\Support\BackTo::safe($request->input('back'), '');
-
-        /* Save and push the DISCOUNT in one press (the owner, 2026-09-09).
-         * The discount push acts on the saved rule, so a rule typed and
-         * not yet saved met a button that did nothing at all. The button
-         * carries the save with it instead; the rule has just landed, so
-         * the push reads what was meant. */
-        if ($request->boolean('push_discount_after')) {
-            return $this->pushDiscount($request->merge(['action' => 'push']), $productId, app(TikTokClient::class));
-        }
 
         /* Save and push (parity with Lazada and Shopee, the owner 2026-09-06):
          * the save half runs first so a refusal never loses the typing;
@@ -372,93 +356,6 @@ class TikTokListingController extends Controller
         $tone = $result['ok'] === [] ? 'error' : 'status';
 
         return redirect()->back()->with($tone, implode(' ', $parts));
-    }
-
-    public function pushDiscount(Request $request, int $productId, TikTokClient $client)
-    {
-        $request->validate(['action' => 'required|in:push,end']);
-        $ending = $request->input('action') === 'end';
-
-        $truth = $this->derivedTruth($productId);
-        if (!$truth) {
-            return redirect()->back()->with('error', 'This product is not on TikTok Shop, so there is no price to discount.');
-        }
-        $tiktokProductId = (string) $truth->tiktok_product_id;
-
-        $listing = TikTokListing::query()->where('product_id', $productId)->first();
-
-        $c = $this->creds();
-        if (!$c) {
-            return redirect()->back()->with('error', 'Missing TikTok settings.');
-        }
-
-        if ($ending) {
-            if (!$listing || !$listing->tiktok_activity_id) {
-                return redirect()->back()->with('error', 'No TikTok discount is recorded for this listing.');
-            }
-
-            $path = '/promotion/202309/activities/' . $listing->tiktok_activity_id . '/products';
-            $result = $this->call($client, $c, 'DELETE', $path, ['product_ids' => [$tiktokProductId]]);
-            if (!$this->callOk($result)) {
-                return redirect()->back()->with('error', 'End discount failed: ' . $this->callMessage($result));
-            }
-
-            $listing->forceFill([
-                'sale_percent' => null, 'sale_starts_at' => null,
-                'sale_ends_at' => null, 'tiktok_activity_id' => null,
-            ])->save();
-
-            return redirect()->back()->with('status', 'Discount ended. Buyers pay the full price again.');
-        }
-
-        if (!$listing || $listing->sale_percent === null || !$listing->sale_starts_at || !$listing->sale_ends_at) {
-            return redirect()->back()->with('error', 'Set the discount first: a percent off, a start and an end. Save, then push it.');
-        }
-        if (!$listing->sale_starts_at->isFuture()) {
-            return redirect()->back()->with('error', 'The start time has passed. Move the start into the future and save first.');
-        }
-
-        /* One activity per window, shared: a product already holding an
-         * activity for this exact window donates its object; otherwise
-         * a new one is created and named after the window. */
-        $activityId = (string) (TikTokListing::query()
-            ->where('sale_starts_at', $listing->sale_starts_at)
-            ->where('sale_ends_at', $listing->sale_ends_at)
-            ->whereNotNull('tiktok_activity_id')
-            ->value('tiktok_activity_id') ?? '');
-
-        if ($activityId === '') {
-            $result = $this->call($client, $c, 'POST', '/promotion/202309/activities', [
-                'title' => mb_substr('VentaSync ' . $listing->sale_starts_at->format('M j') . ' to ' . $listing->sale_ends_at->format('M j'), 0, 40),
-                'activity_type' => 'DIRECT_DISCOUNT',
-                'begin_time' => $listing->sale_starts_at->timestamp,
-                'end_time' => $listing->sale_ends_at->timestamp,
-                'product_level' => 'PRODUCT',
-            ]);
-            $activityId = (string) ($result['body']['data']['activity_id'] ?? '');
-            if (!$this->callOk($result) || $activityId === '') {
-                return redirect()->back()->with('error', 'Discount push failed creating the promotion: ' . $this->callMessage($result));
-            }
-        }
-
-        $result = $this->call($client, $c, 'PUT', '/promotion/202309/activities/' . $activityId . '/products', [
-            'products' => [[
-                'id' => $tiktokProductId,
-                'discount' => (string) (int) $listing->sale_percent,
-                'quantity_limit' => -1,
-                'quantity_per_user' => -1,
-            ]],
-        ]);
-        if (!$this->callOk($result)) {
-            return redirect()->back()->with('error', 'Discount push failed adding the product: ' . $this->callMessage($result));
-        }
-
-        $listing->forceFill(['tiktok_activity_id' => $activityId])->save();
-
-        return redirect()->back()->with('status',
-            'Discount pushed: ' . (int) $listing->sale_percent . '% off from '
-            . $listing->sale_starts_at->format('M j') . ' to ' . $listing->sale_ends_at->format('M j')
-            . '. TikTok cuts the live price once the window opens.');
     }
 
     // ── Helpers ──────────────────────────────────────────────────

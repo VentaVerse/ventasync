@@ -435,12 +435,6 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         return view('ext-lazada::products.index', [
             'products' => $products,
-            /* Which rows are on sale RIGHT NOW, so the price cell can strike
-             * itself (the owner, 2026-09-09). Lazada reports no promotion id
-             * back, so the pushed-at stamp is what proves it was told. */
-            'runningSales' => \App\Support\Channels\RunningSale::map(
-                LazadaProduct::query(), $pageIds, 'sale_pushed_at'
-            ),
             'listingsById' => $listingsById,
             'listingStates' => $listingStates,
             'rowErrors' => $rowErrors,
@@ -1445,157 +1439,6 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
      * with SKU-level Status 'active', which is how its own payload schema
      * expresses it; whatever the marketplace answers is reported verbatim.
      */
-    /**
-     * Push (or end) the listing's discount on Lazada (#146). The rule is
-     * a percent off with a window; each SKU's SalePrice is computed HERE
-     * from the same final price a price sync would send, so a catalog
-     * price change moves the discount with it. Ending sends SalePrice 0,
-     * which clears the special price on Lazada's side.
-     */
-    public function pushDiscount(Request $request, int $productId, LazadaClient $client)
-    {
-        $request->validate(['action' => 'required|in:push,end']);
-        $ending = $request->input('action') === 'end';
-
-        $listing = $this->listingFor($productId);
-        if (empty($listing->lazada_item_id)) {
-            return redirect()->back()->with('error', 'This listing is not on Lazada, so there is no price to discount.');
-        }
-        if (!$ending) {
-            if ($listing->sale_percent === null || !$listing->sale_starts_at || !$listing->sale_ends_at) {
-                return redirect()->back()->with('error', 'Set the discount first: a percent off, a start and an end. Save, then push it.');
-            }
-            if ($listing->sale_ends_at->isPast()) {
-                return redirect()->back()->with('error', 'This discount\'s window has already ended. Set new dates and save first.');
-            }
-        }
-
-        $setting = LazadaSetting::defaultStore()?->decrypted();
-        $creds = LazadaSetting::activeCredentials($setting);
-        if (!$setting || !$creds['complete']) {
-            return redirect()->back()->with('error', 'Missing Lazada settings.');
-        }
-
-        $pfx = (string) config('catalog.prefix');
-        $product = DB::table($pfx.'product as p')
-            ->where('p.product_id', (int) $listing->product_id)
-            ->first(['p.product_id', 'p.sku', 'p.price']);
-        if (!$product) {
-            return redirect()->back()->with('error', 'The catalog product behind this listing is gone.');
-        }
-        $basePrice = max(0.0, (float) ($product->price ?? 0));
-
-        $fixedMarkup = $listing->markup_fixed;
-        $percentMarkup = $listing->markup_percent;
-        if ($fixedMarkup === null && $percentMarkup === null) {
-            $mkGroup = $listing->groups()->first();
-            if ($mkGroup) {
-                $fixedMarkup = $mkGroup->markup_fixed;
-                $percentMarkup = $mkGroup->markup_percent;
-            }
-        }
-
-        $skuIdMap = $this->itemCache()->resolveSkuIds($listing, $setting, $client);
-        if (empty($skuIdMap)) {
-            return redirect()->back()->with('error', 'Could not resolve this listing\'s Lazada SKU ids. Open the listing to refresh its variants, then try again.');
-        }
-
-        $variantPrices = $this->payload()->getErpVariantPricesByProductId((int) $listing->product_id, $basePrice);
-        if (empty($variantPrices)) {
-            $sku = trim((string) ($product->sku ?? ''));
-            if ($sku === '') {
-                return redirect()->back()->with('error', 'The catalog product has no SKU.');
-            }
-            $variantPrices = [['seller_sku' => $sku, 'price' => $basePrice]];
-        }
-
-        $saleStart = $listing->sale_starts_at?->format('Y-m-d');
-        $saleEnd = $listing->sale_ends_at?->format('Y-m-d');
-        $pct = (float) ($listing->sale_percent ?? 0);
-
-        $apiPath = '/product/price_quantity/update';
-        $ok = 0;
-        $err = 0;
-        $lastMessage = null;
-
-        foreach ($variantPrices as $v) {
-            $sku = trim((string) ($v['seller_sku'] ?? ''));
-            $skuId = $sku !== '' ? ($skuIdMap[$sku] ?? null) : null;
-            if ($skuId === null) {
-                $err++;
-                continue;
-            }
-
-            $price = LazadaPushPayload::computeFinalPrice((float) ($v['price'] ?? 0), $fixedMarkup, $percentMarkup);
-            $priceStr = number_format(max(0, $price), 2, '.', '');
-            $saleStr = $ending
-                ? '0'
-                : number_format(max(0.01, round($price * (1 - $pct / 100), 2)), 2, '.', '');
-
-            $payloadXml = $this->payload()->buildPriceUpdateXml(
-                (int) $skuId,
-                $priceStr,
-                $saleStr,
-                $ending ? null : $saleStart,
-                $ending ? null : $saleEnd
-            );
-
-            $timestamp = (string) round(microtime(true) * 1000);
-            $params = [
-                'app_key' => (string) $creds['app_key'],
-                'sign_method' => 'sha256',
-                'timestamp' => $timestamp,
-                'access_token' => (string) $creds['access_token'],
-                'payload' => $payloadXml,
-            ];
-            $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
-
-            try {
-                $result = $client->post((string) $setting->region, $apiPath, $params);
-            } catch (\Throwable $e) {
-                $err++;
-                $lastMessage = \App\Support\TransportError::plain($e, 'Lazada');
-                continue;
-            }
-
-            LazadaApiLog::safeCreate([
-                'pack' => 'lazada.listings.discount', 'method' => 'POST',
-                'api_path' => $apiPath, 'auth_required' => true,
-                'request_params' => $params,
-                'response_status' => (int) ($result['status'] ?? 0),
-                'ok' => (bool) ($result['ok'] ?? false),
-                'response_body' => $result['body'] ?? $result,
-                'user_id' => auth()->id(),
-            ]);
-
-            $e = $this->payload()->extractLazadaError($result);
-            if ($e['ok']) {
-                $ok++;
-            } else {
-                $err++;
-                $lastMessage = $e['message'] ?? 'Unknown error';
-            }
-        }
-
-        if ($ending && $err === 0) {
-            $listing->forceFill(['sale_percent' => null, 'sale_starts_at' => null, 'sale_ends_at' => null, 'sale_pushed_at' => null])->save();
-        } elseif (!$ending && $err === 0) {
-            // Lazada reports no promotion id back; the stamp is how the
-            // record knows its rule reached the marketplace at all.
-            $listing->forceFill(['sale_pushed_at' => now()])->save();
-        }
-
-        if ($err > 0) {
-            return redirect()->back()->with('error',
-                ($ending ? 'End discount' : 'Discount push') . ": {$ok} SKU(s) ok, {$err} failed"
-                . ($lastMessage ? ' - ' . $lastMessage : '') . '.');
-        }
-
-        return redirect()->back()->with('status', $ending
-            ? 'Discount ended. Lazada sells at the full price again.'
-            : "Discount pushed: {$ok} SKU(s) at {$pct}% off from {$saleStart} to {$saleEnd}.");
-    }
-
     public function toggleListing(Request $request, int $productId, LazadaClient $client)
     {
         $request->validate(['action' => 'required|in:activate,deactivate']);
@@ -2462,9 +2305,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'no_brand' => 'nullable|boolean',
             'markup_fixed' => 'nullable|numeric|min:0',
             'markup_percent' => 'nullable|numeric|min:0',
-            'sale_percent' => 'nullable|numeric|min:1|max:99',
-            'sale_starts_at' => 'nullable|date|required_with:sale_percent',
-            'sale_ends_at' => 'nullable|date|required_with:sale_percent|after:sale_starts_at',
             'attributes' => 'nullable|array',
             'attributes.*' => 'nullable|string|max:2000',
             'item_name' => 'nullable|string|max:255',
@@ -2503,9 +2343,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         /* The discount RULE (#146): percent off with a window; the sale
          * price itself is never stored - it is computed from the final
          * price at push time. Clearing the percent clears the rule. */
-        $listing->sale_percent = ($data['sale_percent'] ?? null) !== null ? (float) $data['sale_percent'] : null;
-        $listing->sale_starts_at = $listing->sale_percent !== null ? ($data['sale_starts_at'] ?? null) : null;
-        $listing->sale_ends_at = $listing->sale_percent !== null ? ($data['sale_ends_at'] ?? null) : null;
 
         // Compute total_price from ERP base price + effective markup
         $pfx = (string) config('catalog.prefix');
@@ -2538,15 +2375,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         }
 
         ActivityLogger::log('updated', 'Lazada Product', $listing->id, 'ERP #' . (int)$listing->product_id);
-
-        /* Save and push the DISCOUNT in one press (the owner, 2026-09-09).
-         * The discount push acts on the saved rule, so a rule typed and
-         * not yet saved met a button that did nothing at all. The button
-         * carries the save with it instead; the rule has just landed, so
-         * the push reads what was meant. */
-        if ($request->boolean('push_discount_after')) {
-            return $this->pushDiscount($request->merge(['action' => 'push']), $productId, app(LazadaClient::class));
-        }
 
         // Save and push: the one press that saves everything above and sends
         // the listing, as a create or, once linked, as an update.

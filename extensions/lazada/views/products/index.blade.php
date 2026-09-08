@@ -464,10 +464,7 @@
             </td>
 
             <td class="cc-col-price x-td-num" data-label="Price">
-                @include('partials.channel-price-cell', [
-                    'price' => (float) $row->price,
-                    'salePercent' => $runningSales[$row->product_id] ?? null,
-                ])
+                <x-money :php="(float) $row->price" />
             </td>
 
             <td class="cc-col-chanid" data-label="Lazada ID">

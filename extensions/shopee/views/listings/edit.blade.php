@@ -38,19 +38,7 @@
     $hasRule = $pct !== null || $fixed !== null;
     $nextPrice = round($corePrice + ($corePrice * (float) ($pct ?? 0) / 100) + (float) ($fixed ?? 0), 2);
 
-    /* The saved discount, as money. "Price on Shopee after push" strikes
-       through with it (the owner, 2026-09-09): a discount shows as a cut
-       price, the way every marketplace shows one, and then the Discount
-       card needs no sentence describing itself. */
     $pushPrice = $hasRule ? $nextPrice : $corePrice;
-    // A window that has closed cuts nothing, so it strikes nothing. One
-    // that has not opened yet still does: the figure says "after push",
-    // and the card's badge says when.
-    $saleStands = ($listing?->sale_percent ?? null) !== null
-        && (($listing?->sale_ends_at ?? null) === null || $listing->sale_ends_at->isFuture());
-    $salePreview = $saleStands
-        ? max(0.01, round($pushPrice * (1 - (float) $listing->sale_percent / 100), 2))
-        : null;
 
     $selectedCategoryId = (int) old('shopee_category_id', $listing->shopee_category_id ?? 0);
     $oldLogisticIds = old('logistic_ids');
@@ -575,38 +563,11 @@
                         </div>
                         <div class="fm-stat">
                             <span class="fm-stat__k">Price on Shopee after push</span>
-                            <span class="fm-stat__v">
-                                @if($salePreview !== null)
-                                    <span class="fm-price"><s class="fm-price__was"><x-money :php="$pushPrice" /></s><x-money :php="$salePreview" /></span>
-                                @else
-                                    <x-money :php="$pushPrice" />
-                                @endif
-                            </span>
+                            <span class="fm-stat__v"><x-money :php="$pushPrice" /></span>
                         </div>
                     </div>
                 </section>
 
-                @php
-                    $discount = [
-                        'channel' => 'Shopee', 'prefix' => 'sl',
-                        'canManage' => $canManage, 'onMarketplace' => (bool) $link,
-                        'step' => '0.01', 'note' => 'Shopee needs the start at least an hour ahead.',
-                        'savedPct' => $listing?->sale_percent,
-                        'savedFrom' => $listing?->sale_starts_at, 'savedTo' => $listing?->sale_ends_at,
-                        'salePreview' => $salePreview,
-                        // The save handler honours push_discount_after, so a
-                        // typed rule can be saved and pushed in one press.
-                        'saveAndPush' => true,
-                        'remoteId' => $listing?->shopee_discount_id ? (string) $listing->shopee_discount_id : null,
-                        'tracked' => true, 'endClearsRule' => false,
-                        'liveError' => $link ? ($liveError ?? null) : null,
-                        'action' => route('ext.shopee.listings.push_discount', $product->product_id),
-                    ];
-                @endphp
-                {{-- The shared Discount card (#146): the rule rides Save,
-                     the push is its own confirmed act. Partial in
-                     resources/views/partials/channel-discount-card. --}}
-                @include('partials.channel-discount-card', $discount)
 
                 @include('partials.channel-group-card', [
                 'storeName' => 'Shopee', 'group' => $groupCard,
@@ -617,7 +578,6 @@
         </x-channel.listing-body>
     </form>
 
-    @include('partials.channel-discount-forms', $discount)
 
 
     <div class="fm-bar">
