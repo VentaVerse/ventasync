@@ -78,4 +78,16 @@ class ShopeeListing extends Model
     {
         return $this->shopee_category_id !== null && ! empty($this->logistic_ids);
     }
+
+    /**
+     * What this listing holds of its own (App\Integrations\Listings\ListingContent):
+     * a blank column means "follow the catalog product".
+     *
+     * @return array{title: ?string, description: ?string}
+     */
+    public function contentOverrides(): array
+    {
+        return ['title' => $this->item_name, 'description' => $this->description];
+    }
+
 }

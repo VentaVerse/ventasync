@@ -900,6 +900,22 @@ class TikTokProductGroupController extends Controller
     }
 
     /** The push settings a group gives every product in it. */
+    /**
+     * The store listing's own title and description for one product, in the
+     * shape TikTokProductPush takes (2026-09-07). A group push used to carry
+     * neither, so the builder fell back to the catalog and the listing's own
+     * words, saved and shown on its page, were never sent.
+     *
+     * @return array{title: ?string, description: ?string}
+     */
+    private function ownWords(int $productId): array
+    {
+        $own = TikTokListing::query()->where('product_id', $productId)->first()?->contentOverrides() ?? [];
+        $filled = fn (?string $v) => ($v !== null && trim($v) !== '') ? $v : null;
+
+        return ['title' => $filled($own['title'] ?? null), 'description' => $filled($own['description'] ?? null)];
+    }
+
     private function groupPushOptions(TikTokProductGroup $group, array $c): array
     {
         $service = app(TikTokAttributes::class);
@@ -1055,7 +1071,8 @@ class TikTokProductGroupController extends Controller
             $own = array_filter((array) ($ownAnswers->get((int) $pivot->product_id)?->attribute_values ?? []), fn ($v) => trim((string) (is_array($v) ? implode('', $v) : $v)) !== '');
             $opts['attributes'] = $attributeService->payload($groupRows, $own + $groupAnswers);
 
-            $outcome = $pusher->create($erp, $opts, $c, $client);
+            // The listing's own words, per product (2026-09-07).
+            $outcome = $pusher->create($erp, array_merge($opts, $this->ownWords((int) $erp->product_id)), $c, $client);
             if ($outcome['ok']) {
                 $pivot->update([
                     'tiktok_product_id' => $outcome['product_id'],
@@ -1128,7 +1145,7 @@ class TikTokProductGroupController extends Controller
             }
 
             $existingRaw = $pivot->tiktok_sku_id ?: ($listing?->tiktok_sku_id);
-            $outcome = $pusher->edit($erp, (string) $ttId, $existingRaw, $opts, $c, $client);
+            $outcome = $pusher->edit($erp, (string) $ttId, $existingRaw, array_merge($opts, $this->ownWords((int) $erp->product_id)), $c, $client);
             if ($outcome['ok']) {
                 $pivot->update(array_filter([
                     'tiktok_product_id' => $ttId,

@@ -123,4 +123,16 @@ class TikTokListing extends Model
             ->whereNotNull('last_push_error')
             ->update(['last_push_error' => null, 'last_push_failed_at' => null]);
     }
+
+    /**
+     * What this listing holds of its own (App\Integrations\Listings\ListingContent):
+     * a blank column means "follow the catalog product".
+     *
+     * @return array{title: ?string, description: ?string}
+     */
+    public function contentOverrides(): array
+    {
+        return ['title' => $this->title, 'description' => $this->description];
+    }
+
 }

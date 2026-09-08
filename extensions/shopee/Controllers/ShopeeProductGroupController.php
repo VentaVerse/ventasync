@@ -1736,8 +1736,17 @@ class ShopeeProductGroupController extends Controller
                 continue;
             }
 
-            $itemName = html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            $description = trim(strip_tags(html_entity_decode($product->description ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+            /* The store listing's own words win over the catalog's, through
+             * the one reader every push path shares (2026-09-07). This site
+             * used to send the CATALOG's title while the listing's own sat
+             * saved and unused. */
+            $content = \App\Integrations\Listings\ListingContent::of(
+                ShopeeListing::query()->where('product_id', (int) $productId)->first(),
+                html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                trim(strip_tags(html_entity_decode($product->description ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8')))
+            );
+            $itemName = $content['title'];
+            $description = $content['description'];
 
             // Upload images
             $imagePaths = [];
@@ -2053,8 +2062,17 @@ class ShopeeProductGroupController extends Controller
                 continue;
             }
 
-            $itemName = html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            $description = trim(strip_tags(html_entity_decode($product->description ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+            /* The store listing's own words win over the catalog's, through
+             * the one reader every push path shares (2026-09-07). This site
+             * used to send the CATALOG's title while the listing's own sat
+             * saved and unused. */
+            $content = \App\Integrations\Listings\ListingContent::of(
+                ShopeeListing::query()->where('product_id', (int) $productId)->first(),
+                html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                trim(strip_tags(html_entity_decode($product->description ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8')))
+            );
+            $itemName = $content['title'];
+            $description = $content['description'];
             if (trim($itemName) === '' || trim($description) === '' || (float) $product->weight <= 0) {
                 $errors[] = "#{$productId}: Missing name/description/weight";
                 $errCount++;

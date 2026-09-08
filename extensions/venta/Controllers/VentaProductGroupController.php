@@ -790,9 +790,19 @@ class VentaProductGroupController extends Controller
             }
             $sku = $prod->sku ?: $prod->model;
 
+            /* The store listing's own words win over the catalogue's, through
+             * the one reader every push path shares (2026-09-07). This payload
+             * was built straight from the catalogue, so a group push sent the
+             * catalogue's name while the listing's own sat saved and unused. */
+            $ownWords = \App\Integrations\Listings\ListingContent::of(
+                \Extensions\venta\Models\VentaListing::query()->where('venta_setting_id', $store)->where('product_id', $pid)->first(),
+                (string) ($prod->name ?? ''),
+                (string) ($prod->description ?? '')
+            );
+
             // Build product data payload
             $data = [
-                'name'        => $prod->name,
+                'name'        => $ownWords['title'],
                 'sku'         => $sku,
                 'price'       => (float) $prod->price,
                 'cost'        => (float) ($prod->cost ?? 0),
@@ -802,7 +812,7 @@ class VentaProductGroupController extends Controller
                 'width'       => (float) ($prod->width ?? 0),
                 'height'      => (float) ($prod->height ?? 0),
                 'status'      => (bool) $prod->status,
-                'description' => $prod->description ?? '',
+                'description' => $ownWords['description'],
             ];
 
             // Send brand as name — Venta API will find-or-create

@@ -85,4 +85,15 @@ class VentaListing extends Model
             'live_quantity' => $quantity,
         ])->save();
     }
+    /**
+     * The title and description half of overrides(), in the shape every
+     * channel answers in (App\Integrations\Listings\ListingContent).
+     *
+     * @return array{title: ?string, description: ?string}
+     */
+    public function contentOverrides(): array
+    {
+        return ['title' => $this->name, 'description' => $this->description];
+    }
+
 }

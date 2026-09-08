@@ -331,4 +331,33 @@ class ShopeeListingTest extends TestCase
         $this->assertNull($listing->markup_fixed);
         $this->assertNull($listing->item_name);
     }
+
+    /**
+     * the owner, 2026-09-07: a store listing's own title and description are
+     * saved per store and must go up from EVERY door. The group push built
+     * its payload straight from the catalog, so a Shopee-only title sat
+     * saved and unused while Shopee received the catalog's. One reader now
+     * answers for every push path (App\Integrations\Listings\ListingContent).
+     */
+    public function test_a_group_push_sends_the_listings_own_words_not_the_catalogs(): void
+    {
+        $productId = $this->seedProduct(300.0);
+        $group = $this->seedCatchAllGroup();
+        DB::table('shopee_product_group_products')->insert([
+            'shopee_product_group_id' => $group->id, 'product_id' => $productId,
+        ]);
+        ShopeeListing::create([
+            'product_id' => $productId,
+            'item_name' => 'Shopee only title',
+            'description' => 'Shopee only description.',
+        ]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.product-groups.push', $group->id), ['ids' => [$productId]]);
+
+        $add = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/add_item');
+        $this->assertNotNull($add, 'The group push must reach add_item.');
+        $this->assertSame('Shopee only title', $add['body']['item_name']);
+        $this->assertSame('Shopee only description.', $add['body']['description']);
+    }
 }

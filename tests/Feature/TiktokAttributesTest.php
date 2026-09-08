@@ -185,4 +185,38 @@ class TiktokAttributesTest extends TestCase
         $this->assertSame('group:Answer group', $listing->last_push_source);
         $this->assertSame('tt-777', TikTokProductGroupProduct::where('product_id', $productId)->value('tiktok_product_id'));
     }
+
+    /**
+     * the owner, 2026-09-07: a store listing's own title and description are
+     * saved per store and must go up from EVERY door. The group push carried
+     * neither, so the builder fell back to the catalog and the listing's own
+     * words, saved and shown on its page, were never sent.
+     */
+    public function test_a_group_push_sends_the_listings_own_words_not_the_catalogs(): void
+    {
+        $productId = $this->seedProduct();
+        $group = TikTokProductGroup::create(['name' => 'Words group', 'tiktok_category_id' => '900009']);
+        TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $productId, 'sync_status' => 'pending']);
+        // The category's required answers, so readiness lets the push run.
+        $this->actingAs($this->manager())->put(route('ext.tiktok.product-groups.update', $group->id), [
+            'name' => 'Words group', 'tiktok_category_id' => '900009',
+            'attributes' => ['100001' => 'v-ph', '100002' => 'Maple'],
+        ]);
+        TikTokListing::query()->updateOrCreate(
+            ['product_id' => $productId],
+            ['title' => 'TikTok only title', 'description' => 'TikTok only description.']
+        );
+
+        $this->callResponses['POST /product/202309/products'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
+            'data' => ['product_id' => 'tt-778', 'skus' => [['id' => 'sku-2', 'seller_sku' => 'TTA-SKU']]]]];
+
+        $this->actingAs($this->manager())->post(route('ext.tiktok.product-groups.push', $group->id), ['ids' => [$productId]]);
+
+        $creates = $this->callsFor('POST', '/product/202309/products');
+        $this->assertCount(1, $creates);
+        // TikTok pads a short title with the SKU, so the listing's words are
+        // what the title is BUILT from rather than the whole of it.
+        $this->assertStringStartsWith('TikTok only title', $creates[0]['body']['title']);
+        $this->assertSame('TikTok only description.', $creates[0]['body']['description']);
+    }
 }

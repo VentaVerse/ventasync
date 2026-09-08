@@ -250,6 +250,45 @@ class VentaListingPageTest extends TestCase
         $this->assertSame('Guitar Pedal 200', DB::table($pfx . 'product_description')->where('product_id', $pid)->value('name'));
     }
 
+    /**
+     * the owner, 2026-09-07: a store listing's own name and description are saved
+     * per store and must go up from EVERY door. The group push built its
+     * payload straight from the catalogue, so it sent the catalogue's name
+     * while the listing's own sat saved and unused.
+     */
+    public function test_a_group_push_sends_the_listings_own_words_not_the_catalogues(): void
+    {
+        $store = $this->store();
+        $pid = $this->product();
+        VentaListing::create([
+            'venta_setting_id' => $store->id, 'product_id' => $pid,
+            'name' => 'Store only name', 'description' => 'Store only description.',
+        ]);
+        $group = \Extensions\venta\Models\VentaProductGroup::create(['venta_setting_id' => $store->id, 'name' => 'Pedals']);
+        \Extensions\venta\Models\VentaProductGroupProduct::create(['venta_product_group_id' => $group->id, 'product_id' => $pid]);
+
+        Http::fake([
+            self::BASE . '/api/v1/products/GP-200' => Http::response(['error' => 'Product not found'], 404),
+            self::BASE . '/api/v1/products' => Http::response(['id' => 9101, 'sku' => 'GP-200', 'images' => [], 'images_failed' => []], 201),
+        ]);
+
+        // The group push is a product_group write, not a listing write.
+        $pusher = $this->userWith(['view_venta/listing', 'manage_venta/listing', 'view_venta/product_group', 'manage_venta/product_group']);
+        $this->actingAs($pusher)
+            ->post(route('ext.venta.product-groups.push', [$store->id, $group->id]), ['ids' => [$pid]])
+            ->assertRedirect();
+
+        Http::assertSent(function ($request) {
+            if ($request->method() !== 'POST' || ! str_ends_with($request->url(), '/api/v1/products')) {
+                return false;
+            }
+            $body = $request->data();
+
+            return $body['name'] === 'Store only name'
+                && $body['description'] === 'Store only description.';
+        });
+    }
+
     public function test_pushing_from_the_page_sends_the_records_content_and_price_and_creates_when_the_store_has_none(): void
     {
         $store = $this->store();
