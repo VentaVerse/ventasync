@@ -389,7 +389,12 @@
 
                         <x-ui.field label="Brand" for="lz-brand" name="brand_id" :required="true" wide
                                     hint="Start typing and pick a match, or say there is no brand. Lazada rejects a name it does not know.">
-                            <div data-brand-picker data-brand-url="{{ route('ext.lazada.brands.autocomplete') }}">
+                            {{-- Required, but satisfied two ways: a matched
+                                 brand id, or No brand pressed. --}}
+                            <div data-brand-picker data-brand-url="{{ route('ext.lazada.brands.autocomplete') }}"
+                                 data-must-pick="Pick a brand from the list, or press No brand."
+                                 data-must-pick-value="[data-brand-id]"
+                                 data-must-pick-unless="[data-brand-none-flag]">
                                 <input type="hidden" name="brand_id" data-brand-id value="{{ $brandId }}">
                                 <input type="hidden" name="no_brand" data-brand-none-flag value="{{ $noBrand ? 1 : 0 }}">
 
@@ -630,10 +635,12 @@
             : 'Save listing keeps everything on this page. Save and push keeps it and sends the listing to Lazada.' }}</span>
         <div class="fm-bar__actions">
             <a class="fm-cancel" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.lazada.products.index')) }}" data-guard-leave>Cancel</a>
-            {{-- Save keeps a half-finished listing on purpose, so it
-                 stands the browser's constraints down; Save and push is the
-                 press the category is required for. --}}
-            <x-ui.button type="submit" form="lazada-listing" :variant="$mode === 'edit' ? 'secondary' : 'primary'" formnovalidate>{{ $mode === 'create' ? 'Create listing' : 'Save listing' }}</x-ui.button>
+            {{-- Required means required on BOTH presses (the owner,
+                 2026-09-09: "Anything that is required = null should not save
+                 as well"). Save carried formnovalidate for half a day; a
+                 field the page marks with an asterisk and then saves without
+                 teaches that the asterisk means nothing. --}}
+            <x-ui.button type="submit" form="lazada-listing" :variant="$mode === 'edit' ? 'secondary' : 'primary'">{{ $mode === 'create' ? 'Create listing' : 'Save listing' }}</x-ui.button>
             @if($mode === 'edit')
                 <x-ui.button type="submit" form="lazada-listing" name="push" value="1" variant="primary">{{ empty($listing->lazada_item_id) ? 'Save and push to Lazada' : 'Save and push the update' }}</x-ui.button>
             @endif

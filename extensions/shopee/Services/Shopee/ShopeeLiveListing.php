@@ -62,7 +62,6 @@ class ShopeeLiveListing
             'item_name' => (string) ($item['item_name'] ?? ''),
             'item_sku' => (string) ($item['item_sku'] ?? ''),
             'has_model' => (bool) ($item['has_model'] ?? false),
-            'has_promotion' => (bool) ($item['has_promotion'] ?? false),
             'update_time' => (int) ($item['update_time'] ?? 0),
             'image_url' => (string) (($item['image']['image_url_list'] ?? [])[0] ?? ''),
             'price' => $this->priceOf($item['price_info'] ?? []),

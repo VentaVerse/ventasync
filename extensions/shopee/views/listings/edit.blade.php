@@ -136,7 +136,6 @@
                     : 'unknown'];
             }
             $stripFigures[] = ['k' => 'Stock on Shopee', 'v' => $live['stock'] !== null ? (string) $live['stock'] : 'unknown'];
-            $stripFigures[] = ['k' => 'Promotion', 'v' => $live['has_promotion'] ? 'Running' : 'None'];
             if (($coverage['total'] ?? 0) > 0) {
                 $stripFigures[] = ['k' => 'On Shopee', 'v' => $coverage['linked'] . ' of ' . $coverage['total'] . ' variations'];
             }
@@ -496,7 +495,9 @@
                             <div class="fm-error">{{ $errors->first('logistic_ids') }}</div>
                         @endif
                         @if(!empty($logistics))
-                            <div class="gf-checks">
+                            {{-- At least one, enforced the way the category is:
+                                 the browser's own bubble on a control it can focus. --}}
+                            <div class="gf-checks" data-must-pick="Pick at least one courier.">
                                 @foreach($logistics as $channel)
                                     @php
                                         $logisticId = (int) ($channel['logistic_id'] ?? 0);
@@ -586,10 +587,12 @@
                          still missing instead of pushing blind. --}}
                     <x-ui.button type="submit" form="listing-form" name="push_after" value="1">Save and push to Shopee</x-ui.button>
                 @endif
-                {{-- Save keeps a half-finished listing on purpose, so it
-                     stands the browser's constraints down; Save and push is
-                     the press the category is required for. --}}
-                <x-ui.button type="submit" form="listing-form" variant="primary" formnovalidate>Save listing</x-ui.button>
+                {{-- Required means required on BOTH presses (the owner,
+                     2026-09-09: "Anything that is required = null should not
+                     save as well"). Save carried formnovalidate for half a
+                     day; a field the page marks with an asterisk and then
+                     saves without teaches that the asterisk means nothing. --}}
+                <x-ui.button type="submit" form="listing-form" variant="primary">Save listing</x-ui.button>
             @endif
         </div>
     </div>
