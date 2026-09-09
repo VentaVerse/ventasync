@@ -220,6 +220,54 @@ class FoundationTest extends TestCase
      *
      * @return array<string, string>
      */
+    /**
+     * VentaSync's OWN tables carry no catalog prefix.
+     *
+     * `product_option_combinations` and its pivot are created by this
+     * application's own migrations, unprefixed, and every reader in the
+     * app writes them that way - except three lines in the mobile app's
+     * quantity endpoint, which asked for `{prefix}product_option_...`.
+     * On a development database the prefix is empty, so those lines
+     * worked and the mistake was invisible; live runs on `0012_`, where
+     * the table does not exist and the mobile app therefore could not set
+     * the quantity of any product with variations (found 2026-09-09).
+     *
+     * A test is the only thing that catches this class of bug, because the
+     * environment that reveals it is not the one it is written in.
+     */
+    public function test_no_query_prefixes_a_table_this_application_owns(): void
+    {
+        // Tables created by database/migrations, not inherited from the
+        // catalog schema. A prefix on any of these is always a mistake.
+        $ownTables = [
+            'product_option_combinations',
+            'product_option_combination_values',
+        ];
+
+        $offenders = [];
+        foreach ([app_path(), base_path('extensions')] as $root) {
+            if (! File::isDirectory($root)) {
+                continue;
+            }
+            foreach (File::allFiles($root) as $file) {
+                if ($file->getExtension() !== 'php') {
+                    continue;
+                }
+                $src = (string) file_get_contents($file->getPathname());
+                foreach ($ownTables as $table) {
+                    // $p . 'table', $pfx . 'table', config(...) . 'table'
+                    if (preg_match('/(\$\w+|\))\s*\.\s*[\'"]' . preg_quote($table, '/') . '/', $src)) {
+                        $offenders[] = str_replace(base_path() . '/', '', $file->getPathname()) . ' -> ' . $table;
+                    }
+                }
+            }
+        }
+
+        $this->assertSame([], $offenders,
+            "These queries put the catalog prefix on a table this application owns. It works only where the "
+            . "prefix is empty, and silently queries a table that does not exist on live:\n" . implode("\n", $offenders));
+    }
+
     private function shellViews(): array
     {
         $views = [];
