@@ -394,6 +394,14 @@ class TikTokCatalogOrderSync
             // --- Save catalog_order_id back ---
             $tiktokOrder->catalog_order_id = $catalogOrder->order_id;
             $tiktokOrder->saveQuietly();
+
+            /* The channel's fees land on the CORE order here, in the four
+               codes every report reads (MarketplaceFeeNormalizer). Inside
+               the transaction, so an order and its fees arrive together or
+               not at all; idempotent, so the re-sync on every status change
+               replaces the rows rather than adding to them. */
+            app(\App\Services\Orders\MarketplaceFeeNormalizer::class)->forOrder((int) $catalogOrder->order_id);
+
         });
     }
 

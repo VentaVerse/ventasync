@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, \App\Integrations\Contracts\ListingStateSource, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter
+class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, \App\Integrations\Contracts\ListingStateSource, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -510,6 +510,36 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
      * TikTok fees come from tiktok_orders.fees (commission, transaction fee,
      * shipping fee).
      */
+    /**
+     * What TikTok Shop charged for this order, in core's four buckets. Its
+     * delivery charge is shipping_fee, which sat in the Fees column until
+     * 2026-09-08; it publishes no payment-side deduction.
+     */
+    public function feeBucketsForOrder(int $coreOrderId): ?array
+    {
+        if (! Schema::hasTable('tiktok_orders')) {
+            return null;
+        }
+
+        $row = \Extensions\tiktok\Models\TikTokOrder::query()->withoutGlobalScope('tiktokStore')
+            ->where('catalog_order_id', $coreOrderId)->first();
+        if (! $row) {
+            return null;
+        }
+
+        $payload = \App\Integrations\Orders\FeePayload::decode($row->fees);
+        if (\App\Integrations\Orders\FeePayload::isEmpty($payload)) {
+            return null;
+        }
+
+        return [
+            'commission' => \App\Integrations\Orders\FeePayload::amount($payload, 'commission'),
+            'payment' => 0.0,
+            'shipping' => \App\Integrations\Orders\FeePayload::amount($payload, 'shipping_fee'),
+            'other' => \App\Integrations\Orders\FeePayload::amount($payload, 'transaction_fee'),
+        ];
+    }
+
     public function feesForOrder(Order $order): ?array
     {
         if ((string) $order->marketplace_source !== 'tiktok') {

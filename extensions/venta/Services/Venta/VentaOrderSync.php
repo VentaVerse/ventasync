@@ -607,7 +607,14 @@ class VentaOrderSync
 
             // Sync order totals. order_total has no foreign_* column - it
             // always holds the default-currency figure, matching order.total.
-            DB::table($pfx . 'order_total')->where('order_id', $coreOrderId)->delete();
+            /* Only the totals THIS sync owns. A blanket delete took the
+               normalized marketplace fee rows with it
+               (App\Services\Orders\MarketplaceFeeNormalizer), so a re-sync
+               silently emptied the Fees column on every report until the
+               next backfill. A writer clears its own codes and nothing
+               else's. */
+            DB::table($pfx . 'order_total')->where('order_id', $coreOrderId)
+                ->whereIn('code', ['sub_total', 'shipping', 'total', 'handling', 'tax', 'voucher', 'discount', 'credit'])->delete();
             $sortOrder = 1;
 
             DB::table($pfx . 'order_total')->insert([
@@ -652,6 +659,11 @@ class VentaOrderSync
 
             // Save catalog_order_id back to venta_orders
             $ventaOrder->update(['catalog_order_id' => $coreOrderId]);
+
+            /* The storefront's own fees land on the CORE order here, in the
+               four codes every report reads (MarketplaceFeeNormalizer).
+               After the totals above, which clear only their own codes. */
+            app(\App\Services\Orders\MarketplaceFeeNormalizer::class)->forOrder($coreOrderId);
         });
 
         // Post-transaction: activity log, FCM, stock

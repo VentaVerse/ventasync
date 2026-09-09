@@ -33,7 +33,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ListingStateSource, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter
+class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ListingStateSource, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['unpaid'],
@@ -654,6 +654,45 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
      * commission / payment fee / shipping cost / negative other_fees as a
      * structured breakdown.
      */
+    /**
+     * What Lazada charged for this order, in core's four buckets. Its
+     * delivery charge is shipping_service_cost, which sat in the Fees
+     * column until 2026-09-08; other_fees is a map and only its NEGATIVE
+     * entries are charges - the positives are rebates and were never
+     * counted.
+     */
+    public function feeBucketsForOrder(int $coreOrderId): ?array
+    {
+        if (! Schema::hasTable('lazada_orders')) {
+            return null;
+        }
+
+        $row = \Extensions\lazada\Models\LazadaOrder::query()->withoutGlobalScope('lazadaStore')
+            ->where('catalog_order_id', $coreOrderId)->first();
+        if (! $row) {
+            return null;
+        }
+
+        $payload = \App\Integrations\Orders\FeePayload::decode($row->fees);
+        if (\App\Integrations\Orders\FeePayload::isEmpty($payload)) {
+            return null;
+        }
+
+        $other = 0.0;
+        foreach ((array) ($payload['other_fees'] ?? []) as $amount) {
+            if ((float) $amount < 0) {
+                $other += abs((float) $amount);
+            }
+        }
+
+        return [
+            'commission' => \App\Integrations\Orders\FeePayload::amount($payload, 'commission'),
+            'payment' => \App\Integrations\Orders\FeePayload::amount($payload, 'payment_fee'),
+            'shipping' => \App\Integrations\Orders\FeePayload::amount($payload, 'shipping_service_cost'),
+            'other' => $other,
+        ];
+    }
+
     public function feesForOrder(Order $order): ?array
     {
         if ((string) $order->marketplace_source !== 'lazada') {

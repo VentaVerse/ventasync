@@ -409,6 +409,15 @@ class ShopeeCatalogOrderSync
             // --- Save catalog_order_id back ---
             $shopeeOrder->catalog_order_id = $catalogOrder->order_id;
             $shopeeOrder->saveQuietly();
+
+            /* The channel's fees land on the CORE order here, in the four
+               codes every report reads (MarketplaceFeeNormalizer). Outside
+               the transaction would be a second write to chase on failure;
+               inside it, an order and its fees arrive together or not at
+               all. Idempotent, so the re-sync on every status change
+               replaces the rows rather than adding to them. */
+            app(\App\Services\Orders\MarketplaceFeeNormalizer::class)->forOrder((int) $catalogOrder->order_id);
+
         });
     }
 

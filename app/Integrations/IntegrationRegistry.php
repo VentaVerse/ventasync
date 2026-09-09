@@ -212,6 +212,18 @@ class IntegrationRegistry
     }
 
     /**
+     * Channels that can say what they charged for an order, in the four
+     * buckets core normalizes onto it. The reports read the ORDER, never
+     * these - see App\Services\Orders\MarketplaceFeeNormalizer.
+     *
+     * @return \App\Integrations\Contracts\MarketplaceFeeSource[]
+     */
+    public function marketplaceFeeSources(): array
+    {
+        return $this->providersImplementing(\App\Integrations\Contracts\MarketplaceFeeSource::class);
+    }
+
+    /**
      * Find the MobileMarketplaceProvider whose platform slug matches the
      * given identifier (e.g. 'lazada', 'shopee'). Returns null if no
      * matching provider is enabled+licensed.

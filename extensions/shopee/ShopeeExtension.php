@@ -33,7 +33,7 @@ use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Contracts\ListingStateSource;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class ShopeeExtension extends ExtensionProvider implements ListingStateSource, IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, RootRouteHandler, CredentialRevealer, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter
+class ShopeeExtension extends ExtensionProvider implements ListingStateSource, IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, RootRouteHandler, CredentialRevealer, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -577,6 +577,54 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
      * Shopee escrow detail API. Returns commission / service / transaction
      * fee / withholding tax as a structured breakdown.
      */
+    /**
+     * What Shopee charged for this order, in core's four buckets.
+     *
+     * The itemisation matches what the Fee Analysis report has always
+     * shown, so normalizing changes no figure: commission on its own, the
+     * service and seller transaction fees together as "other", and
+     * withholding tax as the payment-side deduction.
+     *
+     * DELIVERY IS WHAT THE SELLER BORE, not what the courier charged.
+     * Shopee's payload carries both plus the rebate, and over 1,691 real
+     * orders the courier charged 99,261 while the seller bore 79. Counting
+     * the courier's price would understate net profit by about 99,340 on
+     * that sample alone.
+     */
+    public function feeBucketsForOrder(int $coreOrderId): ?array
+    {
+        if (! Schema::hasTable('shopee_orders')) {
+            return null;
+        }
+
+        $row = ShopeeOrder::query()->withoutGlobalScope('shopeeStore')
+            ->where('catalog_order_id', $coreOrderId)->first();
+        if (! $row) {
+            return null;
+        }
+
+        $payload = \App\Integrations\Orders\FeePayload::decode($row->fees);
+        $income = is_array($payload['order_income'] ?? null) ? $payload['order_income'] : $payload;
+        if (\App\Integrations\Orders\FeePayload::isEmpty($income)) {
+            return null;
+        }
+
+        $amount = fn (string $k) => \App\Integrations\Orders\FeePayload::amount($income, $k);
+
+        $borne = $amount('actual_shipping_fee')
+            - $amount('shopee_shipping_rebate')
+            - $amount('buyer_paid_shipping_fee')
+            - $amount('shipping_fee_discount_from_3pl')
+            - $amount('seller_shipping_discount');
+
+        return [
+            'commission' => $amount('commission_fee'),
+            'payment' => $amount('withholding_tax'),
+            'shipping' => max(0.0, round($borne, 2)),
+            'other' => $amount('service_fee') + $amount('seller_transaction_fee'),
+        ];
+    }
+
     public function feesForOrder(Order $order): ?array
     {
         if ((string) $order->marketplace_source !== 'shopee') {

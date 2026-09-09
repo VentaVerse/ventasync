@@ -36,7 +36,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class VentaExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ProductActionContributor, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, ListingStateSource
+class VentaExtension extends ExtensionProvider implements \App\Integrations\Contracts\MarketplaceFeeSource, IntegrationProvider, SkuSyncContributor, DashboardContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ProductActionContributor, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, ListingStateSource
 {
     protected string $id = 'venta';
 
@@ -464,6 +464,75 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
                 'permission' => 'view_venta/listing',
             ])
             ->all();
+    }
+
+    /**
+     * WHAT THE STOREFRONT CHARGED FOR THIS ORDER (VENT2-73, VENT2-74).
+     *
+     * Venta records a payment fee and a delivery fee of its own since
+     * 2026-09-10; before that the ERP wrote a literal zero into
+     * payment_cost and the reports had no Venta join at all, so a Venta
+     * order read as costing nothing to take payment for and nothing to
+     * deliver. Profit on this channel was overstated by exactly those two
+     * numbers.
+     *
+     * Read from the order's stored payload rather than the API, so the
+     * live sync and the backfill agree and neither needs the storefront to
+     * be reachable.
+     *
+     * THE KEYS ARE READ DEFENSIVELY, and deliberately: the storefront's
+     * own naming is confirmed against a real payload before this is
+     * trusted (asked of the owner 2026-09-10). Anything absent reads as
+     * nothing recorded, and the normalizer then writes nothing at all
+     * rather than stamping an order with zeroes it cannot vouch for.
+     *
+     * THE DELIVERY FEE HERE IS WHAT THE SELLER BORE. It is NOT the
+     * storefront's shipping line: that is what the buyer was charged, it
+     * already lands on the core order as shipping_cost, and adding the two
+     * would charge the seller twice for one parcel.
+     */
+    public function feeBucketsForOrder(int $coreOrderId): ?array
+    {
+        if (! Schema::hasTable('venta_orders')) {
+            return null;
+        }
+
+        $row = DB::table('venta_orders')->where('catalog_order_id', $coreOrderId)->first(['raw']);
+        if (! $row) {
+            return null;
+        }
+
+        $raw = \App\Integrations\Orders\FeePayload::decode($row->raw ?? null);
+        /* The storefront may report them beside the totals or in a fees
+           object of their own; both shapes are read, neither is invented. */
+        $fees = \App\Integrations\Orders\FeePayload::decode($raw['fees'] ?? []);
+        $totals = \App\Integrations\Orders\FeePayload::decode($raw['totals'] ?? []);
+        $where = $fees !== [] ? $fees : $totals;
+
+        $first = function (array $keys) use ($where): ?float {
+            foreach ($keys as $key) {
+                if (array_key_exists($key, $where) && $where[$key] !== null && $where[$key] !== '') {
+                    return abs((float) $where[$key]);
+                }
+            }
+
+            return null;
+        };
+
+        $payment = $first(['payment_fee', 'payment_charge', 'gateway_fee']);
+        $delivery = $first(['delivery_fee', 'shipping_fee', 'courier_fee', 'seller_shipping_fee']);
+
+        // Nothing recorded is not the same fact as nothing charged.
+        if ($payment === null && $delivery === null) {
+            return null;
+        }
+
+        return [
+            'commission' => 0.0,
+            'payment' => $payment ?? 0.0,
+            'shipping' => $delivery ?? 0.0,
+            'other' => 0.0,
+        ];
     }
 
     public function dashboardData(): array
