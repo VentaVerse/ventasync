@@ -465,14 +465,22 @@ class ShopeeReconcileTest extends TestCase
      * whole shop: roughly forty calls. Per product that is ruinous on a group
      * of any size; memoised it is a fixed cost paid once and only when
      * something actually needs looking up.
+     *
+     * PER SHOP, though, not per process. One instance served every store in
+     * the scheduled refresh on 2026-09-09, so the second store was searched
+     * against the first store's shop and had every good link dropped. The
+     * behaviour is pinned in ShopeeMultistoreTest; this pins that the memo
+     * is still there at all, and that it is keyed.
      */
-    public function test_the_shop_is_scanned_once_per_request(): void
+    public function test_the_shop_is_scanned_once_per_shop(): void
     {
         $body = $this->methodBody('skuIndex');
 
-        $this->assertStringContainsString('if ($this->shopeeSkuIndex !== null)', $body,
+        $this->assertStringContainsString('isset($this->shopeeSkuIndex[$shopId])', $body,
             'The shop-wide scan is no longer memoised, so a group of 137 products would page the '
             .'entire shop 137 times.');
+        $this->assertStringContainsString("\$shopId = (int) (\$auth['shop_id']", $body,
+            'The memo is not keyed by shop, so one store can be answered from another store\'s shop.');
     }
 
     /**

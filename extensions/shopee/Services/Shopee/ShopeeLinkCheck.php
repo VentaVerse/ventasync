@@ -22,9 +22,22 @@ use Illuminate\Support\Str;
 class ShopeeLinkCheck
 {
     /** Memoised shop-wide SKU index; see skuIndex(). */
-    private ?array $shopeeSkuIndex = null;
+    /* MEMOISED PER SHOP, never per process.
+     *
+     * One instance serves a whole batch so the shop is paged once instead
+     * of once per product - and on 2026-09-09 that instance became scoped
+     * to the request, which made it serve SEVERAL SHOPS. The scheduled
+     * refresh walks every enabled store in one process, so store two was
+     * searched against store one's index, found nothing, judged the shop
+     * completely read, and DROPPED EVERY GOOD LINK IT HAD. The owner watched
+     * two links vanish with nothing touched.
+     *
+     * Keyed by shop id, both of them, so no answer about one shop can ever
+     * be read as an answer about another. */
+    private array $shopeeSkuIndex = [];
 
     /** item_id => 'yes'|'no', filled by the batch prefill and single checks. */
+    /** @var array<int, array<int, string>> shop id => item id => yes|no */
     private array $shopeeItemExistence = [];
 
     /**
@@ -128,7 +141,7 @@ class ShopeeLinkCheck
             foreach (($body['response']['item_list'] ?? []) as $item) {
                 $iid = (int) ($item['item_id'] ?? 0);
                 if ($iid > 0) {
-                    $this->shopeeItemExistence[$iid]
+                    $this->shopeeItemExistence[(int) $auth['shop_id']][$iid]
                         = strtoupper((string) ($item['item_status'] ?? '')) === 'DELETED' ? 'no' : 'yes';
                     $answered[$iid] = true;
                 }
@@ -137,7 +150,7 @@ class ShopeeLinkCheck
             // exactly as the single-item check reads it.
             foreach ($chunk as $iid) {
                 if (!isset($answered[(int) $iid])) {
-                    $this->shopeeItemExistence[(int) $iid] = 'no';
+                    $this->shopeeItemExistence[(int) $auth['shop_id']][(int) $iid] = 'no';
                 }
             }
         }
@@ -308,8 +321,9 @@ class ShopeeLinkCheck
     {
         // Answered already by the batch prefill: fifty items a call instead
         // of one. Only definitive answers are cached - 'unknown' is retried.
-        if (isset($this->shopeeItemExistence[$itemId])) {
-            return $this->shopeeItemExistence[$itemId];
+        $shopId = (int) ($auth['shop_id'] ?? 0);
+        if (isset($this->shopeeItemExistence[$shopId][$itemId])) {
+            return $this->shopeeItemExistence[$shopId][$itemId];
         }
 
         try {
@@ -349,11 +363,11 @@ class ShopeeLinkCheck
             // DELETED is the only status that means gone. UNLIST and BANNED
             // items are still there - treating them as missing would delete a
             // good link and then create a duplicate beside the original.
-            return $this->shopeeItemExistence[$itemId]
+            return $this->shopeeItemExistence[$shopId][$itemId]
                 = strtoupper((string) ($item['item_status'] ?? '')) === 'DELETED' ? 'no' : 'yes';
         }
 
-        return $this->shopeeItemExistence[$itemId] = 'no';
+        return $this->shopeeItemExistence[$shopId][$itemId] = 'no';
     }
 
     /**
@@ -370,8 +384,9 @@ class ShopeeLinkCheck
      */
     public function skuIndex(ShopeeClient $client, array $auth): array
     {
-        if ($this->shopeeSkuIndex !== null) {
-            return $this->shopeeSkuIndex;
+        $shopId = (int) ($auth['shop_id'] ?? 0);
+        if (isset($this->shopeeSkuIndex[$shopId])) {
+            return $this->shopeeSkuIndex[$shopId];
         }
 
         $map = [];
@@ -486,7 +501,7 @@ class ShopeeLinkCheck
             }
         }
 
-        return $this->shopeeSkuIndex = ['skus' => $map, 'complete' => $complete];
+        return $this->shopeeSkuIndex[$shopId] = ['skus' => $map, 'complete' => $complete];
     }
 
     /**
@@ -607,6 +622,12 @@ class ShopeeLinkCheck
             }
 
             if ($knownId > 0) {
+                /* DROPPING A LINK IS DESTRUCTIVE, so it happens only on an
+                 * answer about THIS shop. The index and the existence memo
+                 * are keyed by shop id for the same reason: on 2026-09-09
+                 * one shared instance served every store in the scheduled
+                 * refresh, so the second store was judged against the
+                 * first's shop and had every good link dropped. */
                 // Gone from Shopee. Dropping the link is what lets Send create
                 // instead of sending an update that can only answer
                 // item_not_found. This also clears the item cache, which is
