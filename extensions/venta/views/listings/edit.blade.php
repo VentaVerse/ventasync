@@ -188,6 +188,10 @@
                     @endif
                 </section>
 
+                @include('partials.channel-images-card', [
+                    'storeName' => $storeName, 'images' => $images, 'limit' => null, 'fetchesOverWeb' => true,
+                ])
+
                 @if($found && count($live['variants']) > 0)
                     {{-- What only this store has: the variations it holds
                          right now. The strip is the shape every channel
@@ -220,10 +224,6 @@
                     </x-ui.table>
                     </section>
                 @endif
-
-                @include('partials.channel-images-card', [
-                    'storeName' => $storeName, 'images' => $images, 'limit' => null, 'fetchesOverWeb' => true,
-                ])
 
                 <section class="fm-section" id="vl-only">
                     <div class="fm-section__head"><h2 class="fm-section__title">Only on {{ $storeName }}</h2></div>

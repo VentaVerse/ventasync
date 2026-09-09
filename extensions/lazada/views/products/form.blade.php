@@ -583,11 +583,6 @@
                         'groupsUrl' => route('ext.lazada.product-groups.index'),
                     ])
 
-                @else
-                    <section class="fm-section">
-                        <div class="fm-section__head"><h2 class="fm-section__title">What happens next</h2></div>
-                        <p class="fm-section__note">Creating the listing saves it here only. Nothing reaches Lazada until you fill in the category's attributes and press Save and push on the edit screen.</p>
-                    </section>
                 @endif
             </x-slot:rail>
         </x-channel.listing-body>

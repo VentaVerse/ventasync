@@ -223,6 +223,11 @@
                 </section>
 
 
+                @include('partials.channel-images-card', [
+                    'storeName' => 'TikTok Shop', 'images' => $images,
+                    'limit' => \Extensions\tiktok\Services\TikTok\TikTokProductPush::MAX_IMAGES, 'fetchesOverWeb' => false,
+                ])
+
                 @if($listed && $live && count($live['skus']) > 0)
                     {{-- What only TikTok has: the variations it holds right
                          now. A channel supplies its own sections; the strip
@@ -253,11 +258,6 @@
                 </x-ui.table>
                     </section>
                 @endif
-
-                @include('partials.channel-images-card', [
-                    'storeName' => 'TikTok Shop', 'images' => $images,
-                    'limit' => \Extensions\tiktok\Services\TikTok\TikTokProductPush::MAX_IMAGES, 'fetchesOverWeb' => false,
-                ])
             </x-slot:main>
 
             <x-slot:rail>
