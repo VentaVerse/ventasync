@@ -164,6 +164,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             $liveCheckedAt = LazadaProduct::query()->max('live_checked_at');
             $liveCheckedAt = $liveCheckedAt ? \Illuminate\Support\Carbon::parse($liveCheckedAt) : null;
         } else {
+            // Same silence Shopee had: the note existed and nothing set it.
+            $liveTabError = 'Missing Lazada settings.';
             $lazadaTab = 'all';
         }
 

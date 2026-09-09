@@ -219,7 +219,14 @@ class ShopeeLiveListing
      * @param  \Illuminate\Support\Collection<int, \Extensions\shopee\Models\ShopeeProductLink>  $links
      * @return bool  whether anything was written
      */
-    public function fillBlanks(array $auth, $links): bool
+    /**
+     * @param  string|null  $error  filled with WHY nothing was filled, when
+     *        Shopee refused. It used to be swallowed, so a refusal left
+     *        every row reading "not checked yet" with nothing on the page
+     *        to say why - which is what "it just went unsynced" looks like
+     *        from the operator's chair (the owner, 2026-09-09).
+     */
+    public function fillBlanks(array $auth, $links, ?string &$error = null): bool
     {
         $blank = $links->filter(fn ($l) => $l->live_status === null && (int) $l->shopee_item_id > 0);
         if ($blank->isEmpty()) {
@@ -227,7 +234,9 @@ class ShopeeLiveListing
         }
         try {
             $statuses = $this->statusesFor($auth, $blank->pluck('shopee_item_id')->all());
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            $error = \App\Support\TransportError::plain($e, 'Shopee');
+
             return false;
         }
         $now = now();

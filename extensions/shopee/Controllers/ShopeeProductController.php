@@ -77,6 +77,13 @@ class ShopeeProductController extends Controller
             $liveCheckedAt = ShopeeProductLink::query()->max('live_checked_at');
             $liveCheckedAt = $liveCheckedAt ? \Illuminate\Support\Carbon::parse($liveCheckedAt) : null;
         } else {
+            /* The page has carried this note since it was built and nothing
+               ever set it, so the one state it exists to explain - the
+               credentials being incomplete, which is what an expired token
+               looks like until the refresh cron runs - showed as every row
+               reading "not checked yet" and no reason anywhere (the owner,
+               2026-09-09: "Thats weird"). TikTok has always said it. */
+            $liveTabError = 'Missing Shopee settings.';
             $shopeeTab = 'all';
         }
 
@@ -297,8 +304,18 @@ class ShopeeProductController extends Controller
          * like every other row. A shop whose links are all checked pays
          * nothing here. */
         if ($liveCounts !== null && $shopeeLinks->isNotEmpty()) {
+            /* A refusal here is reported, not swallowed - but NOT through
+               $liveTabError, which means "the store cannot be asked at all"
+               and correctly takes the tab bar down with it. The counts are
+               real when the fill fails, so the tabs stay and the refusal
+               rides the page's own flash instead. */
+            $fillError = null;
             $filled = app(\Extensions\shopee\Services\Shopee\ShopeeLiveListing::class)
-                ->fillBlanks($auth, $shopeeLinks->flatten());
+                ->fillBlanks($auth, $shopeeLinks->flatten(), $fillError);
+            if ($fillError !== null) {
+                session()->now('error', 'Shopee did not answer for the listings whose status is not shown yet: '
+                    . $fillError . ' Press Refresh from Shopee, or wait for the scheduled refresh.');
+            }
             if ($filled) {
                 $liveCounts = ShopeeProductLink::mirrorCounts($tabMap);
                 $liveCheckedAt = $liveCheckedAt ?? now();
