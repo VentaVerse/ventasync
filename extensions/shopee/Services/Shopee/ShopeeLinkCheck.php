@@ -86,9 +86,42 @@ class ShopeeLinkCheck
             ->map(fn ($v) => (int) $v)->filter()->unique()->sort()->values()->all();
     }
 
+    /**
+     * THE STORE THIS WALK IS FOR.
+     *
+     * The read fence in BelongsToShopeeStore is up inside a store request
+     * and deliberately DOWN in the console, where the scheduled check
+     * runs - so every read and write in this service has to name its store
+     * itself. It did not, and the consequences were not theoretical
+     * (the owner's QA, 2026-09-09): with the same product in two stores' lists
+     * and one link between them, the SECOND store's check picked up the
+     * FIRST store's link id, asked its own shop about it, was told no, and
+     * dropped a link belonging to a shop it had never asked.
+     */
+    private int $actingStore = 0;
+
+    /** Fence a query to the store this walk is for, request or console alike. */
+    private function ofThisStore(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $this->actingStore > 0
+            ? $query->withoutGlobalScope('shopeeStore')->where($query->qualifyColumn('shopee_setting_id'), $this->actingStore)
+            : $query;
+    }
+
+    /** This store's groups, for a pivot write that must not reach another shop's. */
+    private function myGroupIds(): ?array
+    {
+        return $this->actingStore > 0
+            ? \Extensions\shopee\Models\ShopeeProductGroup::query()->withoutGlobalScope('shopeeStore')
+                ->where('shopee_setting_id', $this->actingStore)->pluck('id')->map(fn ($v) => (int) $v)->all()
+            : null;
+    }
+
     /** @return array{tone: 'status'|'warning'|'error', summary: string} */
     public function run(ShopeeClient $client, array $auth, array $productIds): array
     {
+        $this->actingStore = (int) ($auth['store_id'] ?? 0);
+
         // A ceiling, reported rather than applied quietly: a check that looked
         // at the first 200 of 500 and said nothing would leave the other 300
         // appearing confirmed.
@@ -105,7 +138,7 @@ class ShopeeLinkCheck
          * ask once per fifty, remember, and the per-item check below
          * becomes a memo read. Logged per chunk, so the check finally
          * leaves a trace in the API logs. */
-        $knownItemIds = ShopeeProductLink::query()
+        $knownItemIds = $this->ofThisStore(ShopeeProductLink::query())
             ->whereIn('product_id', $productIds)
             ->whereNotNull('shopee_item_id')
             ->pluck('shopee_item_id')
@@ -179,7 +212,9 @@ class ShopeeLinkCheck
              * that group's pivot, so the same product read "checked" here
              * and "not checked since the push" one group over. */
             ShopeeListing::query()->updateOrCreate(
-                ['product_id' => (int) $productId],
+                $this->actingStore > 0
+                    ? ['product_id' => (int) $productId, 'shopee_setting_id' => $this->actingStore]
+                    : ['product_id' => (int) $productId],
                 ['last_checked_at' => now()]
             );
 
@@ -567,7 +602,12 @@ class ShopeeLinkCheck
      */
     public function reconcile(ShopeeClient $client, array $auth, int $productId, string $pfx): array
     {
-        $link = ShopeeProductLink::query()
+        $this->actingStore = (int) ($auth['store_id'] ?? 0);
+
+        /* THIS store's link, never whichever row sorts first. Unscoped,
+           this read handed one shop's item id to another shop's check,
+           which then dropped a link it had no business judging. */
+        $link = $this->ofThisStore(ShopeeProductLink::query())
             ->where('product_id', $productId)
             ->whereNotNull('shopee_item_id')
             ->first();
@@ -665,7 +705,7 @@ class ShopeeLinkCheck
             return ['state' => 'new', 'item_id' => null, 'message' => null];
         }
 
-        $otherHolder = ShopeeProductLink::query()
+        $otherHolder = $this->ofThisStore(ShopeeProductLink::query())
             ->where('shopee_item_id', $found)
             ->where('product_id', '!=', $productId)
             ->value('product_id');
@@ -695,10 +735,14 @@ class ShopeeLinkCheck
 
     private function writeProductStatus(int $productId, array $attributes): void
     {
+        /* This store's groups. ChannelProductStatus says it in its own
+           docblock: "A multi-store channel MUST pass its store's groups: a
+           failure against one shop says nothing about another." This
+           passed null, which means every group of the channel. */
         \App\Support\ChannelProductStatus::write(
             'shopee_product_group_products',
             'shopee_product_group_id',
-            null,
+            $this->myGroupIds(),
             $productId,
             $attributes
         );
