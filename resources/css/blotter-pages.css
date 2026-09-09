@@ -95,9 +95,21 @@
         padding: 18px var(--bl-pad) 40px;
     }
 
+    /* The link is the words, not the row (the owner, 2026-09-09: "The
+       clickable hit box is just too long. Almost the entire header can be
+       clicked"). .od-page is a flex column, and a flex item stretches
+       across its cross axis by default - which blockified this inline-flex
+       anchor to the full page width, so anywhere on that line was Back.
+       align-self shrinks it back to "< Orders". */
     .od-back {
         display: inline-flex;
+        align-self: flex-start;
         align-items: center;
+        /* A 45x18 target is under the floor for a thumb. The padding
+           is cancelled by an equal negative margin, so the words stay
+           exactly where they were drawn and only the hitbox grows. */
+        padding: 4px 0;
+        margin: -4px 0;
         gap: 5px;
         font-size: 12.5px;
         color: var(--bl-ink-2);
