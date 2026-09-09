@@ -76,6 +76,8 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             \Extensions\shopee\Commands\ShopeePushPrice::class,
             \Extensions\shopee\Commands\ShopeeFindDuplicates::class,
             \Extensions\shopee\Commands\ShopeeRefreshListingStatus::class,
+            // TEMPORARY, delete with the command it names.
+            \Extensions\shopee\Commands\ShopeeWhyUnsynced::class,
             \Extensions\shopee\Commands\ShopeeRefreshToken::class,
             \Extensions\shopee\Commands\ShopeeSyncOrders::class,
             \Extensions\shopee\Commands\ShopeeSyncReviews::class,
