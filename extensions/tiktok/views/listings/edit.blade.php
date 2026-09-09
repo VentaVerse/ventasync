@@ -123,27 +123,18 @@
                     <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'TikTok Shop', 'raw' => $liveError, 'settingsRoute' => 'ext.tiktok.index']) Nothing below is stale data standing in for it: the live state is simply unknown until TikTok Shop answers.</div>
                 </div>
             @endif
-            @if(!empty($missing))
-                @php
-                    /* The gap anchors this page can answer itself. Keyed on
-                       the gap's CODE, never on its English, which is how a
-                       reworded label silently breaks a link. */
-                    $gapAnchors = [
-                            \App\Integrations\Listings\ListingState::GAP_CATEGORY => '#tt-category',
-                            \App\Integrations\Listings\ListingState::GAP_SHEET => '#tt-attributes',
-                            \App\Integrations\Listings\ListingState::GAP_ATTRIBUTES => '#tt-attributes',
-                        ];
-                    $gapAction = \App\Integrations\Listings\GapLinks::action($readiness['gaps'] ?? [], (int) $product->product_id, $gapAnchors);
-                @endphp
-                {{-- A blocker looks like one, and the way out is a BUTTON
-                     (the owner, 2026-09-09). The sentence names what is missing
-                     and stops; it carries no links, because half of what it
-                     names is not on this page and nothing in prose tells you
-                     which words are the door. --}}
-                <div class="fm-note fm-note--warn" role="status">
-                    <div class="fm-note__body">{{ \App\Integrations\Listings\GapLinks::sentence($readiness['gaps'] ?? [], 'TikTok Shop', (bool) $listed) }}@if($gapAction)<a class="x-btn x-btn--primary x-btn--sm fm-note__act" href="{{ $gapAction['href'] }}">{{ $gapAction['label'] }}</a>@endif</div>
-                </div>
-            @endif
+            {{-- The anchors this page can answer itself, keyed on the
+                 gap's CODE and never on its English, which is how a
+                 reworded label silently breaks a link. --}}
+            @include('partials.channel-gap-note', [
+                'gaps' => $readiness['gaps'] ?? [], 'channel' => 'TikTok Shop', 'isLive' => (bool) $listed,
+                'productId' => (int) $product->product_id,
+                'anchors' => [
+                    \App\Integrations\Listings\ListingState::GAP_CATEGORY => '#tt-category',
+                    \App\Integrations\Listings\ListingState::GAP_SHEET => '#tt-attributes',
+                    \App\Integrations\Listings\ListingState::GAP_ATTRIBUTES => '#tt-attributes',
+                ],
+            ])
             @if($listed && !empty($coverage['missing']))
                 <div class="fm-note">
                     <div class="fm-note__body">In the catalogue but not on TikTok Shop: {{ implode(', ', $coverage['missing']) }}. Stock and price pushes skip these and say so. Push update carries every catalogue variation, missing ones included.</div>

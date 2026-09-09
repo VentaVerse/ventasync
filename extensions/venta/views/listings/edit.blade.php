@@ -131,11 +131,16 @@
                     <div class="fm-note__body">@include('partials.channel-answer', ['channel' => $storeName, 'raw' => $liveError, 'settingsRoute' => null]) Nothing below is stale data standing in for it: the live state is simply unknown until the store answers.</div>
                 </div>
             @endif
-            @if($noSku)
-                <div class="fm-note">
-                    <div class="fm-note__body">This product has no SKU, and {{ $storeName }} files products by SKU. Give it one in the catalogue before pushing.</div>
-                </div>
-            @endif
+            {{-- What this listing still needs, as a warning with one
+                 button to where it is fixed - the same note on all five
+                 (VENT2-131). It replaced a hand-written no-SKU line that
+                 said what was wrong and left the operator to find the
+                 catalog product themselves. Every gap here is the catalog
+                 product's, so there are no anchors on this page. --}}
+            @include('partials.channel-gap-note', [
+                'gaps' => $readiness['gaps'] ?? [], 'channel' => $storeName, 'isLive' => (bool) $onStore,
+                'productId' => (int) $product->product_id,
+            ])
             @if($onStore && $live && $live['state'] === 'missing')
                 <div class="fm-note">
                     <div class="fm-note__body">{{ $storeName }} no longer has a product with this SKU. The link the ERP held has been dropped; Push creates it again.</div>

@@ -39,6 +39,19 @@ class VentaSetting extends Model
         'connected_at'         => 'datetime',
     ];
 
+    /**
+     * Can this store be asked anything? An address and a token, which is
+     * the pair every Venta call needs (VentaClient builds nothing without
+     * both). The name is the contract's - every channel's settings model
+     * answers isConnected(), and Venta's was the one that did not, so a
+     * page wanting to say "Missing settings" had to invent its own test.
+     */
+    public function isConnected(): bool
+    {
+        return trim((string) ($this->base_url ?? '')) !== ''
+            && trim((string) ($this->api_token ?? '')) !== '';
+    }
+
     public function setApiTokenAttribute($value)
     {
         $this->attributes['api_token'] = encrypt($value);

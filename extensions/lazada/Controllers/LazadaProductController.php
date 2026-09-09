@@ -2310,7 +2310,16 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 ->forProducts([(int) $listing->product_id])[(int) $listing->product_id] ?? null)
             : null;
 
+        /* What this listing still needs before Lazada would take it, by
+           the same computation the Ready column and the upload gate read,
+           so the page cannot promise what the push refuses. A listing with
+           no row yet is judged as the blank row a push would make. */
+        $readiness = $listing->exists
+            ? (app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$listing]))[(int) $listing->id] ?? null)
+            : null;
+
         return view('ext-lazada::products.form', \App\Integrations\Listings\ListingImages::cardData((int) $listing->product_id, $listing->image_order ?? null) + [
+            'readiness' => $readiness,
             'listingState' => $listingState,
             'coverage' => $coverage,
             'groupCard' => $this->groupCardFor($listing),

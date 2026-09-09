@@ -259,6 +259,13 @@ class VentaListingController extends Controller
         $liveCounts = $mirror->counts();
         $liveCheckedAt = $mirror->checkedAt();
 
+        /* A store that cannot be asked says so, once, at the top (parity
+           with Shopee, Lazada and TikTok since 2026-09-09). Without it the
+           one state this explains - the store turned off or its keys
+           incomplete, which is what an expired token looks like - showed
+           as every row reading "not checked yet" with no reason anywhere. */
+        $liveTabError = ($setting->enabled && $setting->isConnected()) ? null : 'Missing ' . $setting->store_name . ' settings.';
+
         // Scope: every product a group on this store holds, plus anything
         // already linked to this store.
         $groupIds = VentaProductGroup::where('venta_setting_id', $store)->pluck('id')->all();
@@ -367,6 +374,7 @@ class VentaListingController extends Controller
             'ventaTab' => $tab,
             'liveCounts' => $liveCounts,
             'liveCheckedAt' => $liveCheckedAt,
+            'liveTabError' => $liveTabError,
             'catalogueTotal' => $catalogueTotal,
         ]);
     }
@@ -720,6 +728,10 @@ class VentaListingController extends Controller
         }
 
         return view('ext-venta::listings.edit', \App\Integrations\Listings\ListingImages::cardData($productId, $listing->image_order ?? null) + [
+            /* What this listing still needs before the store would take
+               it, by the same computation the Ready column reads, so the
+               page cannot promise what the push refuses. */
+            'readiness' => \Extensions\venta\Services\Venta\VentaListingReadiness::forProducts([$productId])[$productId] ?? null,
             'setting' => $setting,
             'product' => $product,
             'sku' => VentaProductPush::skuOf($product),

@@ -58,6 +58,16 @@
     @endif
 </div>
 
+{{-- A store that cannot be asked says so, once, at the top (parity,
+     2026-09-09). The buckets below are the mirror's last word, not a live
+     read, so they stay - what would otherwise be missing is any reason for
+     every row reading "not checked yet". --}}
+@if(($liveTabError ?? null) !== null)
+    <div class="fm-note fm-note--warn" role="status">
+        <div class="fm-note__body">@include('partials.channel-answer', ['channel' => $storeName, 'raw' => $liveTabError, 'settingsRoute' => null])</div>
+    </div>
+@endif
+
 {{-- Two questions on one strip, each named (the owner, 2026-08-28): the
      catalogue's own total, whether pushed or not, and the store's buckets
      from the mirror. The strip says when the mirror was refreshed. --}}

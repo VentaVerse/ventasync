@@ -248,6 +248,17 @@
                         <div class="fm-note__body">In the catalogue but not on Lazada: {{ implode(', ', $coverage['missing']) }}. Stock and price pushes skip these and say so. Save and push the update carries every catalogue variation, missing ones included.</div>
                     </div>
                 @endif
+                {{-- The anchors this page can answer itself, keyed on the
+                     gap's CODE and never on its English. --}}
+                @include('partials.channel-gap-note', [
+                    'gaps' => $readiness['gaps'] ?? [], 'channel' => 'Lazada', 'isLive' => (bool) $lzLinked,
+                    'productId' => (int) $listing->product_id,
+                    'anchors' => [
+                        \App\Integrations\Listings\ListingState::GAP_CATEGORY => '#lz-category',
+                        \App\Integrations\Listings\ListingState::GAP_SHEET => '#lz-attributes',
+                        \App\Integrations\Listings\ListingState::GAP_ATTRIBUTES => '#lz-attributes',
+                    ],
+                ])
                 @if($lzPushedAt && $lzCoreMoved && $lzCoreMoved->gt($lzPushedAt))
                     <div class="fm-note fm-note--warn" role="status">
                         <div class="fm-note__body">The catalog product changed {{ $lzCoreMoved->diffInSeconds() < 60 ? 'just now' : $lzCoreMoved->diffForHumans() }} - after the last push {{ $lzPushedAt->diffForHumans() }}. Fields without their own wording follow the catalog automatically; Save and push sends the current state to Lazada.</div>
@@ -417,6 +428,7 @@
                          answers with products/_attributes, the same partial the
                          page renders here. --}}
                     <section class="fm-section"
+                             id="lz-attributes"
                              data-attributes-fetch
                              data-attributes-url="{{ route('ext.lazada.products.attributes_fetch', $listing->product_id) }}"
                              data-attributes-field="primary_category_id"
