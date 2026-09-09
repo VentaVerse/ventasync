@@ -91,6 +91,13 @@ Route::prefix('v1')->middleware(['auth:sanctum', 'api.audit'])->group(function (
         Route::get('/products/{id}', [\App\Http\Controllers\Api\V1\ProductController::class, 'show']);
     });
 
+    /* The write half (#177). A separate scope, granted only to an
+       application ticked for it on the AI Tools page, so a read key can
+       never reach this route. */
+    Route::middleware('scope:products:write')->group(function () {
+        Route::put('/products/{id}/price', [\App\Http\Controllers\Api\V1\ProductController::class, 'updatePrice'])->whereNumber('id');
+    });
+
     // NOTE: reports endpoints live in the reports extension
     // (extensions/reports/routes/api.php) — core no longer owns them.
 

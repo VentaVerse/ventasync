@@ -58,6 +58,19 @@
 }
 .ai-chip--on { color: var(--bl-good); background: color-mix(in srgb, var(--bl-good) 12%, var(--bl-sheet)); }
 .ai-chip--on::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+/* An assistant that can CHANGE something wears it, in the colour the rest
+   of the app uses for a thing to be aware of rather than a thing that is
+   wrong. Only drawn when there is something to say (#177). */
+.ai-chip--write { color: var(--bl-attn); background: color-mix(in srgb, var(--bl-attn-fill) 14%, var(--bl-sheet)); }
+
+/* The write ticks stand apart from the read ticks: reading is the ordinary
+   case and changing is a decision, so the two groups never read as one
+   long list of equal boxes. */
+.ai-reads--write {
+    padding-top: 6px;
+    border-top: 1px dashed var(--bl-rule-2);
+}
 .ai-conn__act { display: flex; gap: var(--bl-space-1); align-items: center; }
 .ai-conn__act form { display: contents; }
 
