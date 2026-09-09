@@ -109,13 +109,20 @@ class OpenCartItemImport
             return ['ok' => false, 'message' => 'Not imported: ' . implode(' ', collect($e->errors())->flatten()->take(3)->all())];
         }
 
+        /* A product this application holds always has a code
+         * (the owner, 2026-09-09). The store is free to have none;
+         * the SKU is what every push sends and every link check
+         * searches by, so a blank one is minted from the
+         * product's own id and said out loud below. */
+        $minted = \App\Support\Catalog\SkuFallback::fill((int) $productId);
+
         return [
             'ok' => true,
             'product_id' => $productId,
             'message' => "Imported \"{$name}\" as catalog product #{$productId}"
                 . ($optionValues !== [] && ! $multiOption ? ' with ' . count($optionValues) . ' variations' : '')
                 . ($multiOption ? ' (its ' . count($optionNames) . ' independent option sets could not be carried; set variations up by hand)' : '')
-                . ', linked to ' . ($setting->store_name ?: 'OpenCart') . '.',
+                . ', linked to ' . ($setting->store_name ?: 'OpenCart') . '.' . (\App\Support\Catalog\SkuFallback::note($minted) !== '' ? ' ' . \App\Support\Catalog\SkuFallback::note($minted) : ''),
         ];
     }
 

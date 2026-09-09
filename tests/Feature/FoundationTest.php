@@ -268,6 +268,40 @@ class FoundationTest extends TestCase
             . "prefix is empty, and silently queries a table that does not exist on live:\n" . implode("\n", $offenders));
     }
 
+    /**
+     * NO IMPORT MAY LEAVE A PRODUCT WITHOUT A CODE.
+     *
+     * Creating a product by hand requires a SKU, unique and validated.
+     * Creating one by import did not - Lazada's importer wrote an empty SKU
+     * for any product with variations, whatever the source carried - and
+     * the SKU is the identity every channel keys on: what a push sends,
+     * what a link check searches by, and the only way a listing is matched
+     * back when its link is lost. A product with no code cannot be found,
+     * so the next push builds a second listing beside the first, which
+     * happened to the owner twice on 2026-09-09.
+     *
+     * Every importer therefore calls SkuFallback, which fills a blank from
+     * the product's own id and never rewrites a code that exists.
+     */
+    public function test_every_import_gives_the_product_a_code(): void
+    {
+        $importers = glob(base_path('extensions/*/Services/*/*ItemImport.php'));
+
+        $this->assertGreaterThan(4, count($importers), 'The importers moved; this guard is looking in the wrong place.');
+
+        $missing = [];
+        foreach ($importers as $file) {
+            $src = (string) file_get_contents($file);
+            if (! str_contains($src, 'SkuFallback::fill')) {
+                $missing[] = str_replace(base_path() . '/', '', $file);
+            }
+        }
+
+        $this->assertSame([], $missing,
+            "These importers can create a catalog product with no SKU. A product with no code cannot be "
+            . "matched back to its listing, so the next push creates a duplicate:\n" . implode("\n", $missing));
+    }
+
     private function shellViews(): array
     {
         $views = [];

@@ -107,12 +107,19 @@ class VentaItemImport
         }
 
 
+        /* A product this application holds always has a code
+         * (the owner, 2026-09-09). The store is free to have none;
+         * the SKU is what every push sends and every link check
+         * searches by, so a blank one is minted from the
+         * product's own id and said out loud below. */
+        $minted = \App\Support\Catalog\SkuFallback::fill((int) $productId);
+
         return [
             'ok' => true,
             'product_id' => $productId,
             'message' => "Imported \"{$name}\" as catalog product #{$productId}"
                 . ($variants !== [] ? ' with ' . count($variants) . ' variations' : '')
-                . ', linked to ' . ($setting->store_name ?: 'Venta') . '.',
+                . ', linked to ' . ($setting->store_name ?: 'Venta') . '.' . (\App\Support\Catalog\SkuFallback::note($minted) !== '' ? ' ' . \App\Support\Catalog\SkuFallback::note($minted) : ''),
         ];
     }
 
