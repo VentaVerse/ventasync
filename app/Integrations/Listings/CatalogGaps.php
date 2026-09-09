@@ -87,7 +87,7 @@ final class CatalogGaps
                        id when the store gives none (SkuFallback), so this
                        is satisfiable everywhere. */
                     self::SKU, self::ANY_SKU => (! $p || trim((string) ($p->sku ?? '')) === '')
-                        ? ['code' => ListingState::GAP_SKU, 'label' => 'a SKU on the catalog product'] : null,
+                        ? ['code' => ListingState::GAP_SKU, 'label' => 'an SKU on the catalog product'] : null,
                     /* A listing that arranges its own pictures answers this
                        itself (critique 2026-09-08). Without the exception the
                        page told an operator it needed "a product image on the

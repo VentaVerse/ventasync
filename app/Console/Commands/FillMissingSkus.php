@@ -21,7 +21,7 @@ class FillMissingSkus extends Command
 {
     protected $signature = 'catalog:fill-missing-skus {--apply : write the codes, instead of listing what is missing}';
 
-    protected $description = 'Give a SKU to every catalog product that has none, from its own product id';
+    protected $description = 'Give an SKU to every catalog product that has none, from its own product id';
 
     public function handle(): int
     {
@@ -37,7 +37,7 @@ class FillMissingSkus extends Command
             ->get(['p.product_id', 'pd.name']);
 
         if ($rows->isEmpty()) {
-            $this->info('Every product carries a SKU.');
+            $this->info('Every product carries an SKU.');
 
             return self::SUCCESS;
         }

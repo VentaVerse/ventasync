@@ -1467,8 +1467,8 @@ if (form) {
         if ($tbody.querySelectorAll('.js-sku.input-error').length > 0 && !errors.some(e => e.includes('SKU'))) {
             const missing = $tbody.querySelectorAll('.js-sku.input-error').length;
             errors.push(missing === 1
-                ? 'One new variation needs a SKU.'
-                : missing + ' new variations need a SKU.');
+                ? 'One new variation needs an SKU.'
+                : missing + ' new variations need an SKU.');
         }
 
         if (errors.length > 0) {

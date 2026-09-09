@@ -224,7 +224,7 @@ class ShopeeListingPageTest extends TestCase
         $html = $this->actingAs($this->manager())
             ->get(route('ext.shopee.listings.edit', $productId))->assertOk()->getContent();
 
-        $this->assertStringContainsString('a SKU on the catalog product', $html);
+        $this->assertStringContainsString('an SKU on the catalog product', $html);
 
         // It LOOKS like a blocker.
         $this->assertStringContainsString('fm-note fm-note--warn', $html,
@@ -236,7 +236,7 @@ class ShopeeListingPageTest extends TestCase
             $html,
             'A gap the catalog owns must carry the operator there by a control with weight and shape.'
         );
-        $this->assertStringNotContainsString('">a SKU on the catalog product</a>', $html,
+        $this->assertStringNotContainsString('">an SKU on the catalog product</a>', $html,
             'The sentence carries no links: nothing in prose says which words are the door.');
 
         // And the sentence stopped apologising.

@@ -352,12 +352,12 @@ class ShopeeFindDuplicates extends Command
 
         $this->line('');
         if ($rows->isEmpty()) {
-            $this->line('Every product on this store carries a SKU or a model.');
+            $this->line('Every product on this store carries an SKU or a model.');
 
             return;
         }
 
-        $this->warn($rows->count() . ' product(s) on this store carry neither a SKU nor a model.');
+        $this->warn($rows->count() . ' product(s) on this store carry neither an SKU nor a model.');
         $this->line('A push of one of these cannot be matched back to its Shopee item, so a lost link');
         $this->line('can never be recovered and the next push creates a second item.');
         foreach ($rows as $row) {

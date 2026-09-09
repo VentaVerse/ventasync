@@ -215,7 +215,7 @@ class LazadaListingReadiness
                 }
                 $blank = $combos->filter(fn ($c) => trim((string) ($c->sku ?? '')) === '')->count();
                 if ($blank > 0) {
-                    $gaps[] = ['code' => ListingState::GAP_VARIATIONS, 'label' => 'a SKU on every variation (' . $blank . ' without one)'];
+                    $gaps[] = ['code' => ListingState::GAP_VARIATIONS, 'label' => 'an SKU on every variation (' . $blank . ' without one)'];
                 }
                 foreach ($combos as $c) {
                     $prices[] = $priceOf($c->absolute_price !== null ? (float) $c->absolute_price : null);
@@ -229,7 +229,7 @@ class LazadaListingReadiness
                     return $own === '' && trim((string) ($r->sku ?? '')) === '';
                 })->count();
                 if ($blank > 0) {
-                    $gaps[] = ['code' => ListingState::GAP_VARIATIONS, 'label' => 'a SKU on every variation (' . $blank . ' without one)'];
+                    $gaps[] = ['code' => ListingState::GAP_VARIATIONS, 'label' => 'an SKU on every variation (' . $blank . ' without one)'];
                 }
                 foreach ($povRows as $r) {
                     $prices[] = $priceOf($r->absolute_price !== null ? (float) $r->absolute_price : null);

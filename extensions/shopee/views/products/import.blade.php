@@ -58,7 +58,7 @@
         </x-ui.empty>
     @elseif(count($rows) === 0)
         <x-ui.empty title="Everything matches"
-                    description="Every item on Shopee already maps to a SKU in your main catalog. Nothing to import." />
+                    description="Every item on Shopee already maps to an SKU in your main catalog. Nothing to import." />
     @else
         <p class="fm-section__note">These items exist on Shopee but not in your main catalog. <x-ui.hint label="How importing works">Import one, or tick several and import them together, to create the real product in your main catalog - details, variations and images included. Or link it to a catalog product it already is.</x-ui.hint></p>
 
