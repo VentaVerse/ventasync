@@ -835,8 +835,10 @@ class VentaProductGroupController extends Controller
                 $data['category_names'] = $catNames;
             }
 
-            // Add images
-            $images = $this->getProductImages($pfx, $pid);
+            // Add images, in the order the LISTING arranged them for this
+            // store. A group push sends the listing's pictures, not the
+            // catalog's, exactly as it sends the listing's words.
+            $images = $this->getProductImages($setting, $pid);
             if (!empty($images)) {
                 $data['images'] = $images;
             }
@@ -1683,9 +1685,9 @@ class VentaProductGroupController extends Controller
             : [];
     }
 
-    private function getProductImages(string $pfx, int $productId): array
+    private function getProductImages(VentaSetting $setting, int $productId): array
     {
-        return VentaProductPush::for(new VentaSetting())->images($productId);
+        return VentaProductPush::for($setting)->images($productId);
     }
 
     /**

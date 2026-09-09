@@ -3,7 +3,6 @@
 namespace Extensions\tiktok\Services\TikTok;
 
 use Extensions\tiktok\Models\TikTokApiLog;
-use Illuminate\Support\Facades\DB;
 
 /**
  * The one builder of a TikTok product payload (#156): the group push,
@@ -32,8 +31,6 @@ class TikTokProductPush
     /** @return array{payload?: array, built?: array, refused?: string} */
     public function build(object $erp, array $opts, array $c, TikTokClient $client, ?array $existingIds = null): array
     {
-        $pfx = (string) config('catalog.prefix');
-
         /* TikTok reads category_id as an Int64: anything else comes back as
          * "CategoryId is invalid, the value must be convertible to Int64"
          * after the images were already uploaded (the owner, 2026-09-06). Said
@@ -61,18 +58,21 @@ class TikTokProductPush
             return ($imgResult['ok'] ?? false) ? ($imgResult['body']['data']['uri'] ?? null) : null;
         };
 
-        // Main images: the product's, then the gallery, nine at most.
-        $paths = [];
-        if (trim((string) ($erp->image ?? '')) !== '') {
-            $paths[] = trim((string) $erp->image);
-        }
-        foreach (DB::table($pfx . 'product_image')->where('product_id', $erp->product_id)->orderBy('sort_order')->pluck('image') as $img) {
-            if (trim((string) $img) !== '') {
-                $paths[] = trim((string) $img);
-            }
-        }
+        /* The pictures, in the order this listing sends them: its own
+         * arrangement when it has one, the catalog product's gallery when
+         * it does not. The order is decided in one place for every channel
+         * (App\Support\Catalog\ProductImages) since VENT2-131; only the
+         * upload is TikTok's own, because TikTok is handed bytes.
+         *
+         * A group push carries no listing, so the product's own row is
+         * read for it - the arrangement belongs to the listing whatever
+         * pressed the button. */
+        $own = array_key_exists('image_order', $opts)
+            ? $opts['image_order']
+            : \Extensions\tiktok\Models\TikTokListing::query()->where('product_id', (int) $erp->product_id)->value('image_order');
+        $paths = \App\Support\Catalog\ProductImages::paths((int) $erp->product_id, $own);
         $imageUris = [];
-        foreach (array_slice(array_values(array_unique($paths)), 0, self::MAX_IMAGES) as $path) {
+        foreach (array_slice($paths, 0, self::MAX_IMAGES) as $path) {
             $uri = $uploadUri($path);
             if ($uri) {
                 $imageUris[] = $uri;

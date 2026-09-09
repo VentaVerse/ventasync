@@ -111,7 +111,7 @@
 
     <div class="fm-head">
         <div class="fm-head__main">
-            <a class="fm-back" href="{{ route('ext.lazada.products.index') }}">
+            <a class="fm-back" href="{{ route('ext.lazada.products.index') }}" data-guard-leave>
                 <x-ui.icon name="chevron-left" size="14" /> Listings
             </a>
             <h1 class="fm-title">{{ $mode === 'create' ? 'New Lazada listing' : ($productName !== '' ? $productName : 'Listing ' . $listing->id) }}</h1>
@@ -262,7 +262,7 @@
          ============================================================ --}}
     <form id="lazada-listing" method="POST"
           action="{{ route('ext.lazada.products.update', $listing->product_id) }}"
-          data-slow-action="push">
+          data-slow-action="push" data-guard-unsaved>
         @csrf
         @method('PUT')
         {{-- Where the operator came from (the Listings page with its search),
@@ -454,8 +454,9 @@
 
                 @if($mode === 'edit')
                     @include('partials.channel-images-card', [
-                        'storeName' => 'Lazada', 'images' => $images,
+                        'anchor' => 'lz-images', 'storeName' => 'Lazada', 'tiles' => $tiles, 'catalogTiles' => $catalogTiles,
                         'limit' => \Extensions\lazada\Services\Lazada\LazadaImages::MAX_IMAGES, 'fetchesOverWeb' => false,
+                        'editable' => true, 'canManage' => true, 'browseUrl' => $browseUrl,
                     ])
 
                     {{-- What only Lazada has, in one place at the end of the
@@ -616,7 +617,7 @@
             ? 'Nothing reaches Lazada until you push from the edit screen.'
             : 'Save listing keeps everything on this page. Save and push keeps it and sends the listing to Lazada.' }}</span>
         <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.lazada.products.index')) }}">Cancel</a>
+            <a class="fm-cancel" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.lazada.products.index')) }}" data-guard-leave>Cancel</a>
             <x-ui.button type="submit" form="lazada-listing" :variant="$mode === 'edit' ? 'secondary' : 'primary'">{{ $mode === 'create' ? 'Create listing' : 'Save listing' }}</x-ui.button>
             @if($mode === 'edit')
                 <x-ui.button type="submit" form="lazada-listing" name="push" value="1" variant="primary">{{ empty($listing->lazada_item_id) ? 'Save and push to Lazada' : 'Save and push the update' }}</x-ui.button>
@@ -625,5 +626,7 @@
     </div>
 </div>
 @include('partials.channel-description-pick-modal', ['storeUrl' => route('ext.lazada.description-templates.store', ['store' => $storeId])])
+
+@include('partials.image-library-pick', ['browseUrl' => $browseUrl])
 
 @endsection

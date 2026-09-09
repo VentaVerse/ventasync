@@ -66,7 +66,13 @@ class TikTokListingReadiness
         /* ANY_SKU: TikTok takes no parent SKU either, so a product with
            only variation codes is fine and one with none is not - see the
            Shopee engine's note for why. */
-        $catalog = CatalogGaps::forProducts($productIds, [CatalogGaps::ENABLED, CatalogGaps::IMAGE, CatalogGaps::ANY_SKU]);
+        /* A listing that arranges its own pictures answers the image gap
+           itself: it is read off the listings already in hand, so this
+           costs no query. Shopee's rule since 2026-09-08, every channel's
+           since VENT2-131. */
+        $ownPictures = $listings->filter(fn ($l) => ! empty($l->image_order))->pluck('product_id')
+            ->map(fn ($v) => (int) $v)->all();
+        $catalog = CatalogGaps::forProducts($productIds, [CatalogGaps::ENABLED, CatalogGaps::IMAGE, CatalogGaps::ANY_SKU], $ownPictures);
         $categoryIds = $listings->pluck('tiktok_category_id')->filter()->unique()->values()->all();
         $templates = $categoryIds
             ? TikTokCategoryTemplate::query()->whereIn('category_id', $categoryIds)->get()->keyBy('category_id')

@@ -75,7 +75,13 @@ class LazadaListingReadiness
             ->whereIn('p.product_id', $productIds)
             ->get(['p.product_id', 'p.sku', 'p.model', 'p.image', 'p.price', 'pd.name', 'pd.description'])
             ->keyBy('product_id');
-        $catalog = CatalogGaps::forProducts($productIds, [CatalogGaps::ENABLED, CatalogGaps::SKU, CatalogGaps::IMAGE]);
+        /* A listing that arranges its own pictures answers the image gap
+           itself: it is read off the listings already in hand, so this
+           costs no query. Shopee's rule since 2026-09-08, every channel's
+           since VENT2-131. */
+        $ownPictures = $listings->filter(fn ($l) => ! empty($l->image_order))->pluck('product_id')
+            ->map(fn ($v) => (int) $v)->all();
+        $catalog = CatalogGaps::forProducts($productIds, [CatalogGaps::ENABLED, CatalogGaps::SKU, CatalogGaps::IMAGE], $ownPictures);
 
         $templates = LazadaCategoryTemplate::query()
             ->where('region', $region)

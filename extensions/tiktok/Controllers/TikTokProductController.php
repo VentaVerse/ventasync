@@ -1099,6 +1099,7 @@ class TikTokProductController extends Controller
             'warehouse_id' => $c['warehouse_id'] ?: null,
             'title' => $listing->title ?? null,
             'description' => $listing->description ?? null,
+            'image_order' => $listing->image_order ?? null,
         ];
     }
 

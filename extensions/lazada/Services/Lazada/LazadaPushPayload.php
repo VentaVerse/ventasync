@@ -86,7 +86,7 @@ class LazadaPushPayload
 
         // Images are mandatory for Lazada product creation.
         // Lazada checks Product.Images.Image (and sometimes Sku.Images.Image) for main image.
-        $imageUrls = app(LazadaImages::class)->getProductImageUrls((int)$listing->product_id, $product);
+        $imageUrls = app(LazadaImages::class)->getProductImageUrls((int)$listing->product_id, $product, $listing->image_order ?? null);
         $imageUrls = array_values(array_filter(array_map(fn($u) => app(LazadaImages::class)->normalizeImageUrl((string)$u), $imageUrls)));
         if (empty($imageUrls)) {
             throw \Illuminate\Validation\ValidationException::withMessages([

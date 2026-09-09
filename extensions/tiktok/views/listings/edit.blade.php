@@ -36,7 +36,7 @@
 
     <div class="fm-head">
         <div class="fm-head__main">
-            <a class="fm-back" href="{{ route('ext.tiktok.products.index') }}">
+            <a class="fm-back" href="{{ route('ext.tiktok.products.index') }}" data-guard-leave>
                 <x-ui.icon name="chevron-left" size="14" /> Listings
             </a>
             <h1 class="fm-title">{{ ($product->name ?? '') !== '' ? $product->name : 'Product ' . $product->product_id }}</h1>
@@ -157,7 +157,7 @@
          Content, Category and brand, Category attributes,
          Discount, Images; the rail only reports, Product group and Last
          push. TikTok Shop has nothing only it has. --}}
-    <form id="listing-form" method="POST" action="{{ route('ext.tiktok.listings.update', $product->product_id) }}">
+    <form id="listing-form" method="POST" action="{{ route('ext.tiktok.listings.update', $product->product_id) }}" data-guard-unsaved>
         <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
         @csrf
         @method('PUT')
@@ -240,8 +240,9 @@
 
 
                 @include('partials.channel-images-card', [
-                    'storeName' => 'TikTok Shop', 'images' => $images,
+                    'anchor' => 'tl-images', 'storeName' => 'TikTok Shop', 'tiles' => $tiles, 'catalogTiles' => $catalogTiles,
                     'limit' => \Extensions\tiktok\Services\TikTok\TikTokProductPush::MAX_IMAGES, 'fetchesOverWeb' => false,
+                    'editable' => true, 'canManage' => $canManage, 'browseUrl' => $browseUrl,
                 ])
 
                 @if($listed && $live && count($live['skus']) > 0)
@@ -315,7 +316,7 @@
                 ? 'Saving changes this record only. Push update to TikTok Shop sends it onto the live product.'
                 : 'Saving changes this record only. TikTok Shop sees it when the product is pushed.') }}</span>
         <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.tiktok.products.index')) }}">{{ $canManage ? 'Cancel' : 'Back' }}</a>
+            <a class="fm-cancel" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.tiktok.products.index')) }}" data-guard-leave>{{ $canManage ? 'Cancel' : 'Back' }}</a>
             @if($canManage)
                 @if(!$listed)
                     {{-- One trip for the common case (parity, 2026-09-06): save
@@ -329,5 +330,9 @@
 
 </div>
 @include('partials.channel-description-pick-modal', ['storeUrl' => route('ext.tiktok.description-templates.store', ['store' => $storeId])])
+
+@if($canManage)
+    @include('partials.image-library-pick', ['browseUrl' => $browseUrl])
+@endif
 
 @endsection

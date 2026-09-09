@@ -5,7 +5,6 @@ namespace Extensions\lazada\Services\Lazada;
 use Extensions\lazada\Models\LazadaApiLog;
 use Extensions\lazada\Models\LazadaImageLink;
 use Extensions\lazada\Models\LazadaSetting;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -215,25 +214,25 @@ class LazadaImages
         return $this->toPublicImageUrl($urlOrPath);
     }
 
-public function getProductImageUrls(int $productId, ?object $productRow): array
+/**
+     * The pictures this listing sends, in the order it sends them.
+     *
+     * The ORDER is decided in one place for every channel
+     * (App\Support\Catalog\ProductImages): the listing's own arrangement
+     * when it has one, the catalog product's gallery when it does not.
+     * Only the URL is Lazada's own, because Lazada is handed addresses it
+     * must be able to fetch, not bytes, so they are built from the public
+     * catalog URL rather than this ERP's.
+     *
+     * @param  ?array<int, mixed>  $own  the listing's own arrangement, or null to follow the catalog
+     * @return list<string>
+     */
+    public function getProductImageUrls(int $productId, ?object $productRow, ?array $own = null): array
     {
-        $pfx = (string) config('catalog.prefix');
-
         $images = [];
-        $main = $this->normalizeImageUrl((string)($productRow?->image ?? ''));
-        if ($main) {
-            $images[] = $main;
-        }
-
-        $additional = DB::table($pfx.'product_image')
-            ->where('product_id', $productId)
-            ->orderBy('sort_order')
-            ->pluck('image')
-            ->toArray();
-
-        foreach ($additional as $img) {
-            $url = $this->normalizeImageUrl((string) $img);
-            if ($url && !in_array($url, $images, true)) {
+        foreach (\App\Support\Catalog\ProductImages::paths($productId, $own) as $path) {
+            $url = $this->normalizeImageUrl($path);
+            if ($url && ! in_array($url, $images, true)) {
                 $images[] = $url;
             }
         }

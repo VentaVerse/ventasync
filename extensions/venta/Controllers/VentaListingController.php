@@ -719,7 +719,7 @@ class VentaListingController extends Controller
             ];
         }
 
-        return view('ext-venta::listings.edit', [
+        return view('ext-venta::listings.edit', \App\Integrations\Listings\ListingImages::cardData($productId, $listing->image_order ?? null) + [
             'setting' => $setting,
             'product' => $product,
             'sku' => VentaProductPush::skuOf($product),
@@ -731,7 +731,6 @@ class VentaListingController extends Controller
             'storeId' => (int) $store,
             'descriptionTemplates' => \App\Models\DescriptionTemplate::forStore('venta', (int) $store),
             'groupCategory' => $groupCategory,
-            'images' => $push->images($productId),
         ]);
     }
 
@@ -750,7 +749,16 @@ class VentaListingController extends Controller
             'description_suffix_id' => 'nullable|integer',
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:500',
+            'image_order' => 'nullable|string|max:20000',
         ]);
+
+        /* The pictures this listing sends, in the order the card arranged
+         * them. Only a save that CARRIED the arrangement may change it:
+         * the input is invisible, so a caller that does not send it must
+         * not be read as one that cleared it. */
+        $images = $request->has('image_order')
+            ? ['image_order' => \App\Integrations\Listings\ListingImages::submitted($productId, $data['image_order'] ?? null)]
+            : [];
 
         // Content fields are OVERRIDES: an emptied field returns to null,
         // which means "follows the catalogue". Saving here never writes the
@@ -759,7 +767,7 @@ class VentaListingController extends Controller
 
         VentaListing::query()->updateOrCreate(
             ['venta_setting_id' => $store, 'product_id' => $productId],
-            [
+            $images + [
                 'markup_percent' => $blank($data['markup_percent'] ?? null),
                 'markup_fixed' => $blank($data['markup_fixed'] ?? null),
                 /* The Content boxes are pre-filled with the catalog's words

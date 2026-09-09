@@ -24,7 +24,7 @@ class TikTokListing extends Model
         'tiktok_setting_id', 'product_id',
         'description_prefix_id', 'description_suffix_id',
         'tiktok_product_id', 'tiktok_sku_id',
-        'tiktok_category_id', 'brand_id', 'brand_name', 'attribute_values',
+        'tiktok_category_id', 'brand_id', 'brand_name', 'attribute_values', 'image_order',
         'title', 'description', 'markup_percent', 'markup_fixed',
         'sale_percent', 'sale_starts_at', 'sale_ends_at', 'tiktok_activity_id',
         'last_pushed_at', 'last_push_source', 'last_checked_at',
@@ -34,6 +34,7 @@ class TikTokListing extends Model
 
     protected $casts = [
         'attribute_values' => 'array',
+        'image_order' => 'array',
         'markup_percent' => 'float',
         'markup_fixed' => 'float',
         'sale_percent' => 'float',

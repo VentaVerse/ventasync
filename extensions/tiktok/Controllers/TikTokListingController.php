@@ -92,7 +92,7 @@ class TikTokListingController extends Controller
             'missing' => array_values(array_filter($covSkus, fn ($sku) => !isset($covKeys[strtolower($sku)]))),
         ];
 
-        return view('ext-tiktok::listings.edit', [
+        return view('ext-tiktok::listings.edit', \App\Integrations\Listings\ListingImages::cardData($productId, $listing->image_order ?? null) + [
             'coverage' => $coverage,
             'listingState' => $listingState,
             'product' => $product,
@@ -107,7 +107,6 @@ class TikTokListingController extends Controller
             'readinessMissing' => $readiness['missing'],
             // The gaps by CODE, so the page can link each one to where it is fixed.
             'readiness' => $readiness,
-            'images' => \App\Support\Catalog\ProductImages::urls($productId),
             'groupCard' => $this->groupCardFor($productId),
             'storeId' => (int) (TikTokSetting::defaultStore()?->id ?? 0),
             'descriptionTemplates' => \App\Models\DescriptionTemplate::forStore('tiktok', (int) (TikTokSetting::defaultStore()?->id ?? 0)),
@@ -168,8 +167,17 @@ class TikTokListingController extends Controller
             'description_suffix_id' => 'nullable|integer',
             'attributes' => 'nullable|array',
             'attributes.*' => 'nullable|string|max:500',
+            'image_order' => 'nullable|string|max:20000',
             // TikTok takes the percent itself and only whole percents.
         ]);
+
+        /* The pictures this listing sends, in the order the card arranged
+         * them. Only a save that CARRIED the arrangement may change it:
+         * the input is invisible, so a caller that does not send it must
+         * not be read as one that cleared it. */
+        $images = $request->has('image_order')
+            ? ['image_order' => \App\Integrations\Listings\ListingImages::submitted($productId, $data['image_order'] ?? null)]
+            : [];
 
         /* Content fields are OVERRIDES: an emptied field returns to null,
          * which means "follows the catalog". Saving here never writes the
@@ -177,7 +185,7 @@ class TikTokListingController extends Controller
         $blank = fn ($v) => ($v === null || trim((string) $v) === '') ? null : $v;
         TikTokListing::query()->updateOrCreate(
             ['product_id' => $productId],
-            [
+            $images + [
                 'tiktok_category_id' => $blank($data['tiktok_category_id'] ?? null),
                 'brand_id' => $blank($data['brand_id'] ?? null),
                 'brand_name' => $blank($data['brand_id'] ?? null) ? $blank($data['brand_name'] ?? null) : null,
@@ -250,6 +258,7 @@ class TikTokListingController extends Controller
             'priceFor' => fn (float $base) => $listing->priceFor($base),
             'warehouse_id' => $c['warehouse_id'] ?: null,
             'title' => $listing->title, 'description' => $listing->description,
+            'image_order' => $listing->image_order,
         ];
         $erp = DB::table((string) config('catalog.prefix') . 'product as p')
             ->leftJoin((string) config('catalog.prefix') . 'product_description as pd', function ($j) {

@@ -15,7 +15,7 @@ class LazadaProduct extends Model
     protected $fillable = [
         'lazada_setting_id', 'product_id', 'item_name', 'description',
         'description_prefix_id', 'description_suffix_id',
-        'primary_category_id', 'brand_id', 'brand_name_override',
+        'primary_category_id', 'brand_id', 'brand_name_override', 'image_order',
         // The markups were missing here, and every create() that passed them
         // dropped them SILENTLY - the same disease 0af64cea documented on
         // the group dance's update(). Found again by #195's save-as pin.
@@ -32,6 +32,7 @@ class LazadaProduct extends Model
         'last_pushed_at' => 'datetime',
         'last_push_failed_at' => 'datetime',
         'last_push_settings' => 'array',
+        'image_order' => 'array',
         'sale_percent' => 'float',
         'sale_starts_at' => 'datetime',
         'sale_ends_at' => 'datetime',

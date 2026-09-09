@@ -23,7 +23,7 @@ class VentaListing extends Model
         'venta_setting_id', 'product_id',
         'description_prefix_id', 'description_suffix_id',
         'markup_percent', 'markup_fixed',
-        'name', 'description', 'meta_title', 'meta_description',
+        'name', 'description', 'meta_title', 'meta_description', 'image_order',
         'live_status', 'live_checked_at', 'live_price', 'live_quantity',
         'last_pushed_at', 'last_push_source', 'last_push_settings',
     ];
@@ -36,6 +36,7 @@ class VentaListing extends Model
         'live_checked_at' => 'datetime',
         'last_pushed_at' => 'datetime',
         'last_push_settings' => 'array',
+        'image_order' => 'array',
     ];
 
     public function setting(): BelongsTo

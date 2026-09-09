@@ -2552,15 +2552,7 @@ class ShopeeProductController extends Controller
                 ->get(['brand_id', 'name'])
             : collect();
 
-        /* old('image_order') is a JSON string, not an array: it comes back
-           from a refused save exactly as the hidden input submitted it. */
-        $submittedOrder = null;
-        if (old('image_order') !== null && trim((string) old('image_order')) !== '') {
-            $decoded = json_decode((string) old('image_order'), true);
-            $submittedOrder = is_array($decoded) ? $decoded : null;
-        }
-
-        return view('ext-shopee::listings.edit', [
+        return view('ext-shopee::listings.edit', \App\Integrations\Listings\ListingImages::cardData($productId, $listing->image_order ?? null) + [
             'listingState' => $listingState,
             'product' => $product,
             'listing' => $listing,
@@ -2580,13 +2572,6 @@ class ShopeeProductController extends Controller
                only the sentences was silently linking nothing. */
             'readiness' => $readiness,
             'logistics' => $this->fetchLogistics(),
-            /* The pictures this listing sends, in its own order when it
-               has one (the owner, 2026-09-08). A refused save hands back what
-               was arranged rather than what is stored, the same way the
-               Content fields do. */
-            'tiles' => \App\Support\Catalog\ProductImages::tiles($productId, $submittedOrder ?? ($listing->image_order ?? null)),
-            'catalogTiles' => \App\Support\Catalog\ProductImages::tiles($productId),
-            'browseUrl' => route('products.images.browse'),
             'groupCard' => $this->groupCardFor($productId),
             'storeId' => (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0),
             'descriptionTemplates' => \App\Models\DescriptionTemplate::forStore('shopee', (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0)),
@@ -2763,24 +2748,10 @@ class ShopeeProductController extends Controller
         ]);
 
         /* The pictures this listing sends, in the order the card arranged
-         * them (the owner, 2026-09-08). One hidden input, JSON, holding the
-         * library paths. Empty is the Content model's empty: the listing
-         * follows the catalog product. So is a list that says exactly what
-         * the catalog already says, and so is a list of nothing - there is
-         * no such thing as a listing with no pictures, only a push that is
-         * refused for having none.
-         *
-         * Every path is checked against the library on disk before it is
-         * stored: a hidden input is client input, and this one ends up in
-         * a file read at push time. */
-        $imageOrder = null;
-        $submittedImages = json_decode((string) ($data['image_order'] ?? ''), true);
-        if (is_array($submittedImages)) {
-            $accepted = \App\Support\Catalog\ProductImages::acceptable($submittedImages);
-            if ($accepted !== [] && ! \App\Support\Catalog\ProductImages::followsCatalog($productId, $accepted)) {
-                $imageOrder = $accepted;
-            }
-        }
+         * them (the owner, 2026-09-08; every channel since VENT2-131). One
+         * hidden input, JSON, holding the library paths; the rules for
+         * reading it are ListingImages'. */
+        $imageOrder = \App\Integrations\Listings\ListingImages::submitted($productId, $data['image_order'] ?? null);
 
         /* Content fields are OVERRIDES: an emptied field returns to null,
          * which means "follows the catalog". That is the whole model -

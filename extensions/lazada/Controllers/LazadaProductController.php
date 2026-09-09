@@ -2278,10 +2278,9 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 ->forProducts([(int) $listing->product_id])[(int) $listing->product_id] ?? null)
             : null;
 
-        return view('ext-lazada::products.form', [
+        return view('ext-lazada::products.form', \App\Integrations\Listings\ListingImages::cardData((int) $listing->product_id, $listing->image_order ?? null) + [
             'listingState' => $listingState,
             'coverage' => $coverage,
-            'images' => \App\Support\Catalog\ProductImages::urls((int) $listing->product_id),
             'groupCard' => $this->groupCardFor($listing),
             'storeId' => (int) (LazadaSetting::defaultStore()?->id ?? 0),
             'descriptionTemplates' => \App\Models\DescriptionTemplate::forStore('lazada', (int) (LazadaSetting::defaultStore()?->id ?? 0)),
@@ -2330,6 +2329,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'variants.*.seller_sku' => 'nullable|string|max:64',
             'variants.*.price' => 'nullable|numeric',
             'variants.*.quantity' => 'nullable|integer',
+            'image_order' => 'nullable|string|max:20000',
             'push' => 'nullable|boolean',
         ]);
 
@@ -2352,6 +2352,17 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $listing->brand_name_override = $noBrand ? 'No Brand' : null;
         $listing->markup_fixed = $data['markup_fixed'] ?? null;
         $listing->markup_percent = $data['markup_percent'] ?? null;
+
+        /* The pictures this listing sends, in the order the card arranged
+         * them. Only a save that CARRIED the arrangement may change it:
+         * the input is invisible, so a caller that does not send it must
+         * not be read as one that cleared it. */
+        if ($request->has('image_order')) {
+            $listing->image_order = \App\Integrations\Listings\ListingImages::submitted(
+                (int) $listing->product_id,
+                $data['image_order'] ?? null
+            );
+        }
 
         /* The discount RULE (#146): percent off with a window; the sale
          * price itself is never stored - it is computed from the final

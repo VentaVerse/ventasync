@@ -280,10 +280,29 @@ class VentaProductPush
         return $variants;
     }
 
-    /** @return list<string> absolute image URLs, main image first (the one list every channel reads) */
+    /**
+     * The pictures this store is sent, in the order it is sent them.
+     *
+     * The listing's OWN arrangement wins when it has one, and the catalog
+     * product's gallery stands in when it does not - the same rule the
+     * Content fields keep, and the same rule on all five channels since
+     * VENT2-131. The listing is read for THIS store, never the first one
+     * found, because two stores of the same channel arrange their own.
+     *
+     * @return list<string> absolute image URLs, main image first (the one list every channel reads)
+     */
     public function images(int $productId): array
     {
-        return \App\Support\Catalog\ProductImages::urls($productId);
+        return \App\Support\Catalog\ProductImages::urls($productId, $this->ownImageOrder($productId));
+    }
+
+    /** @return ?array<int, mixed> this store's listing's own arrangement, or null to follow the catalog */
+    private function ownImageOrder(int $productId): ?array
+    {
+        return VentaListing::query()
+            ->where('venta_setting_id', $this->setting->id)
+            ->where('product_id', $productId)
+            ->value('image_order');
     }
 
     public static function imageUrl(string $path): string

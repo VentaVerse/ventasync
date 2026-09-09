@@ -39,7 +39,7 @@
 
     <div class="fm-head">
         <div class="fm-head__main">
-            <a class="fm-back" href="{{ route('ext.venta.product-groups.index', $setting->id) }}">
+            <a class="fm-back" href="{{ route('ext.venta.product-groups.index', $setting->id) }}" data-guard-leave>
                 <x-ui.icon name="chevron-left" size="14" /> Product groups
             </a>
             <h1 class="fm-title">{{ ($product->name ?? '') !== '' ? $product->name : 'Product ' . $product->product_id }}</h1>
@@ -148,7 +148,7 @@
          listing SAYS - Content, Category, Images, then what only this store
          has - and rail is what it COSTS. No Discount: the storefront has no
          sale price (card on the board). --}}
-    <form id="listing-form" method="POST" action="{{ route('ext.venta.listings.update', [$setting->id, $product->product_id]) }}">
+    <form id="listing-form" method="POST" action="{{ route('ext.venta.listings.update', [$setting->id, $product->product_id]) }}" data-guard-unsaved>
         <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
         @csrf
         @method('PUT')
@@ -189,7 +189,9 @@
                 </section>
 
                 @include('partials.channel-images-card', [
-                    'storeName' => $storeName, 'images' => $images, 'limit' => null, 'fetchesOverWeb' => true,
+                    'anchor' => 'vl-images', 'storeName' => $storeName, 'tiles' => $tiles, 'catalogTiles' => $catalogTiles,
+                    'limit' => null, 'fetchesOverWeb' => true,
+                    'editable' => true, 'canManage' => $canManage, 'browseUrl' => $browseUrl,
                 ])
 
                 @if($found && count($live['variants']) > 0)
@@ -285,7 +287,7 @@
                 ? 'Saving changes this record only. Push update sends it onto the live product.'
                 : 'Saving changes this record only. ' . $storeName . ' sees it when the product is pushed.') }}</span>
         <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.venta.listings.index', $setting->id)) }}">{{ $canManage ? 'Cancel' : 'Back' }}</a>
+            <a class="fm-cancel" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.venta.listings.index', $setting->id)) }}" data-guard-leave>{{ $canManage ? 'Cancel' : 'Back' }}</a>
             @if($canManage)
                 @if(!$onStore && $setting->enabled)
                     <x-ui.button type="submit" form="listing-form" name="push_after" value="1">Save and push to {{ $storeName }}</x-ui.button>
@@ -311,5 +313,9 @@
     </div>
 </div>
 @include('partials.channel-description-pick-modal', ['storeUrl' => route('ext.venta.description-templates.store', ['store' => $setting->id])])
+
+@if($canManage)
+    @include('partials.image-library-pick', ['browseUrl' => $browseUrl])
+@endif
 
 @endsection
