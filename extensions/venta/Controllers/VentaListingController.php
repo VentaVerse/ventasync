@@ -343,11 +343,18 @@ class VentaListingController extends Controller
         $linksByProductId = VentaProductLink::where('venta_setting_id', $store)->whereIn('product_id', $pageIds ?: [0])
             ->whereNotNull('venta_product_id')->get()->keyBy(fn ($l) => (int) $l->product_id);
 
-        // The mirror fills its own blanks (#166): linked rows never
-        // checked are asked about once, up to ten a view.
-        if ($setting->enabled && $linksByProductId->isNotEmpty() && $mirror->fillBlanks($linksByProductId) > 0) {
+        /* The mirror fills its own blanks (#166): linked rows never
+           checked are asked about once, up to ten a view. A refusal is
+           reported rather than swallowed - but NOT as liveTabError, which
+           means the store cannot be asked at all; the counts are real when
+           a fill fails, so the tabs stay and this rides the flash. */
+        $fillError = null;
+        if ($setting->enabled && $linksByProductId->isNotEmpty() && $mirror->fillBlanks($linksByProductId, 10, $fillError) > 0) {
             $liveCounts = $mirror->counts();
             $liveCheckedAt = $mirror->checkedAt();
+        }
+        if ($fillError !== null) {
+            session()->now('error', \App\Integrations\Listings\BlankFillRefusal::sentence((string) $setting->store_name, $fillError));
         }
 
         $listingsByProductId = VentaListing::query()->where('venta_setting_id', $store)

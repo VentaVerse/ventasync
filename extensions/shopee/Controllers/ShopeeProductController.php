@@ -313,8 +313,7 @@ class ShopeeProductController extends Controller
             $filled = app(\Extensions\shopee\Services\Shopee\ShopeeLiveListing::class)
                 ->fillBlanks($auth, $shopeeLinks->flatten(), $fillError);
             if ($fillError !== null) {
-                session()->now('error', 'Shopee did not answer for the listings whose status is not shown yet: '
-                    . $fillError . ' Press Refresh from Shopee, or wait for the scheduled refresh.');
+                session()->now('error', \App\Integrations\Listings\BlankFillRefusal::sentence('Shopee', $fillError));
             }
             if ($filled) {
                 $liveCounts = ShopeeProductLink::mirrorCounts($tabMap);

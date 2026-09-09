@@ -407,7 +407,12 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                         $status = 'missing';
                     }
                     if ($status === null) {
-                        break; // Lazada is not answering; leave the rest blank rather than guessed
+                        /* Lazada is not answering: leave the rest blank
+                           rather than guessed, and SAY so - a swallowed
+                           refusal reads as rows that went unsynced by
+                           themselves (the owner, 2026-09-09). */
+                        session()->now('error', \App\Integrations\Listings\BlankFillRefusal::sentence('Lazada', $answer['error'] ?? null));
+                        break;
                     }
                     LazadaProduct::query()->where('id', $l->id)
                         ->update(['live_status' => $status, 'live_checked_at' => now()]);

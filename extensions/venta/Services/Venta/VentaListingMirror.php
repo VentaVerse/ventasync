@@ -141,9 +141,13 @@ class VentaListingMirror
      * store that is down leaves the rest blank rather than guessed.
      *
      * @param  Collection<int, VentaProductLink>  $links  the page's links, keyed by product id
+     * @param  ?string  $error  filled with WHY it stopped, when the store
+     *        refused. It used to be swallowed, so a refusal left every row
+     *        reading "not checked yet" with nothing on the page to say why
+     *        (the owner, 2026-09-09).
      * @return int how many were filled
      */
-    public function fillBlanks(Collection $links, int $limit = 10): int
+    public function fillBlanks(Collection $links, int $limit = 10, ?string &$error = null): int
     {
         $store = (int) $this->setting->id;
         $ids = $links->keys()->all();
@@ -164,6 +168,7 @@ class VentaListingMirror
 
             $live = $push->read((int) $productId);
             if ($live['state'] === 'unreachable') {
+                $error = (string) ($live['message'] ?? '');
                 break;
             }
 

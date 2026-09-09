@@ -212,7 +212,12 @@ class TikTokProductController extends Controller
                     $answer = $live->fetch((string) $l->tiktok_product_id, $c);
                     $status = $answer['live']['status'] ?? null;
                     if ($status === null || $status === '') {
-                        break; // TikTok is not answering; leave the rest blank rather than guessed
+                        /* TikTok is not answering: leave the rest blank
+                           rather than guessed, and SAY so - a swallowed
+                           refusal reads as rows that went unsynced by
+                           themselves (the owner, 2026-09-09). */
+                        session()->now('error', \App\Integrations\Listings\BlankFillRefusal::sentence('TikTok Shop', $answer['error'] ?? null));
+                        break;
                     }
                     TikTokListing::query()->whereKey($l->id)->update(['live_status' => $status, 'live_checked_at' => now()]);
                     $l->live_status = $status;
