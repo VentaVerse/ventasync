@@ -163,8 +163,12 @@ class VentaListingPageTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('On Gear Depot right now', $html);
-        $this->assertStringContainsString('Guitar Pedal 200 on the store', $html);
+        /* The strip's title and figures went with the health surface on
+           2026-09-09 (the owner: "just fields to edit. Nothing about health").
+           The store's own table below the fields stayed, and so did the
+           write-through this test is really about. */
+        $this->assertStringNotContainsString('On Gear Depot right now', $html);
+        $this->assertStringNotContainsString('Guitar Pedal 200 on the store', $html);
         $this->assertStringContainsString('GP-200-RED', $html);
         $this->assertStringContainsString('>Active<', $html);
         // A viewer reads; no verbs.
@@ -191,7 +195,11 @@ class VentaListingPageTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('no longer has a product with this SKU', $html);
+        /* The sentence was a note under the strip and went with the rest
+           on 2026-09-09. The behaviour it announced is what matters and is
+           unchanged: the page records what the store said and drops
+           nothing by itself. */
+        $this->assertStringNotContainsString('no longer has a product with this SKU', $html);
         $this->assertSame(VentaListing::STATUS_MISSING, VentaListing::where('product_id', $pid)->value('live_status'));
     }
 
@@ -209,7 +217,11 @@ class VentaListingPageTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('live state is simply unknown', $html);
+        /* The sentence went with the health surface; the guarantee it
+           described did not. A failed read still writes nothing, so the
+           mirror below keeps what it had rather than being overwritten
+           with a guess. */
+        $this->assertStringNotContainsString('live state is simply unknown', $html);
         $this->assertStringNotContainsString('Read from Gear Depot as this page loaded', $html);
         // The mirror keeps what it had; the failed read wrote nothing.
         $this->assertSame(999.0, VentaListing::where('product_id', $pid)->first()->live_price);
@@ -436,7 +448,10 @@ class VentaListingPageTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('This store is turned off', $html);
+        /* The note went with the health surface on 2026-09-09. What this
+           test exists to prove is that a disabled store is not ASKED, and
+           that is unchanged. */
+        $this->assertStringNotContainsString('This store is turned off', $html);
         Http::assertNothingSent();
     }
 

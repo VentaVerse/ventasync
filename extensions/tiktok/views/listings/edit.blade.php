@@ -34,6 +34,19 @@
 
 <div class="fm-page">
 
+    {{-- The one thing a refused save must not do is refuse in silence. The
+         page marks the offending fields inline (x-ui.field draws each
+         message under its own control); this is the summary that says a
+         save was refused at all, and it is the surface the owner asked to keep
+         when the rest of the notes came off (2026-09-09). --}}
+    <div class="fm-flash" role="status" aria-live="polite">
+        @if($errors->any())
+            <div class="fm-note fm-note--fail">
+                <div class="fm-note__body">Nothing was saved. Check the fields marked below.</div>
+            </div>
+        @endif
+    </div>
+
     <div class="fm-head">
         <div class="fm-head__main">
             <a class="fm-back" href="{{ route('ext.tiktok.products.index') }}" data-guard-leave>
@@ -79,8 +92,20 @@
             : null;
     @endphp
 
-    <x-channel.listing-strip channel="TikTok Shop" :state="$stripState" :figures="$stripFigures"
-                             :lastPush="$stripLastPush" :linked="(bool) $listed">
+    {{-- HEALTH OFF (the owner, 2026-09-09): "What I want to see right
+         now are just fields to edit. Nothing about health." The state
+         word, the live figures, Last push and the accent are gone, and the
+         bar keeps only the verbs - what you can DO here, which is not a
+         report about the item. The notes went with them.
+
+         What survives is the required-field handling: the validation
+         summary above, the browser's own bubble on the required fields,
+         and the inline field errors.
+
+         Nothing was deleted from the system: the engine still computes
+         every one of these facts and the Listings index still shows them.
+         This page takes them back by passing health again. --}}
+    <x-channel.listing-strip channel="TikTok Shop" :health="false" :linked="(bool) $listed">
         @if($canManage)
             <x-slot:verbs>
                 @if($listed)
@@ -117,30 +142,6 @@
             </x-slot:verbs>
         @endif
 
-        <x-slot:notes>
-            @if($liveError)
-                <div class="fm-note fm-note--fail">
-                    <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'TikTok Shop', 'raw' => $liveError, 'settingsRoute' => 'ext.tiktok.index']) Nothing below is stale data standing in for it: the live state is simply unknown until TikTok Shop answers.</div>
-                </div>
-            @endif
-            {{-- The anchors this page can answer itself, keyed on the
-                 gap's CODE and never on its English, which is how a
-                 reworded label silently breaks a link. --}}
-            @include('partials.channel-gap-note', [
-                'gaps' => $readiness['gaps'] ?? [], 'channel' => 'TikTok Shop', 'isLive' => (bool) $listed,
-                'productId' => (int) $product->product_id,
-                'anchors' => [
-                    \App\Integrations\Listings\ListingState::GAP_CATEGORY => '#tl-category-section',
-                    \App\Integrations\Listings\ListingState::GAP_SHEET => '#tl-attributes',
-                    \App\Integrations\Listings\ListingState::GAP_ATTRIBUTES => '#tl-attributes',
-                ],
-            ])
-            @if($listed && !empty($coverage['missing']))
-                <div class="fm-note">
-                    <div class="fm-note__body">In the catalogue but not on TikTok Shop: {{ implode(', ', $coverage['missing']) }}. Stock and price pushes skip these and say so. Push update carries every catalogue variation, missing ones included.</div>
-                </div>
-            @endif
-        </x-slot:notes>
     </x-channel.listing-strip>
 
     {{-- The one template (the owner, 2026-09-08, draft C): main is what the

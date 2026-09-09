@@ -26,14 +26,20 @@
       verbs     slot  the forms that act on the live item
       notes     slot  refusals, gaps and staleness, drawn under the strip
 
-    HEALTH CAN BE TURNED OFF, and on Shopee it is (the owner, 2026-09-09):
-    "What I want to see right now are just fields to edit. Nothing about
-    health... We focus on the product edit." Everything the strip knows
-    about the live item goes quiet and the bar keeps only the verbs, which
-    are how you act rather than what you are told. The accent goes with it:
-    a bar in the channel's colour reads as a status banner even when it is
-    saying nothing. Written into extensions/CHANNEL-CONTRACT.md as a
-    deliberate, temporary divergence rather than a gap to close.
+    HEALTH IS OFF ON EVERY CHANNEL (the owner, 2026-09-09): "What I want to see
+    right now are just fields to edit. Nothing about health... We focus on
+    the product edit." Shopee first, then "Update the template. Then push
+    to all channels."
+
+    Everything the strip knows about the live item goes quiet and the bar
+    keeps only the verbs, which are how you act rather than what you are
+    told. The accent goes with it: a bar in the channel's colour reads as a
+    status banner even when it is saying nothing.
+
+    The state, figures and lastPush props are kept rather than deleted -
+    the facts are still computed and still shown on the Listings index, and
+    a page takes them back by passing health again. It is "for now" in his
+    words, so the way back is one argument, not a rebuild.
 --}}
 @props([
     'channel',

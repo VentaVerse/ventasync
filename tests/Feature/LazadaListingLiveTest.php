@@ -592,13 +592,24 @@ class LazadaListingLiveTest extends TestCase
             ->get(route('ext.lazada.products.edit', $listing->product_id));
 
         $r->assertOk();
-        $r->assertSee('On Lazada right now');
+        /* The strip used to head the page with "On Lazada right now" and
+           the live figures. Health came off every listing page on
+           2026-09-09 (the owner: "just fields to edit. Nothing about health"),
+           so what is pinned here is what the page is FOR - the record it
+           edits - and the read still writing through to the mirror, which
+           is what the Listings index shows. */
+        $r->assertDontSee('On Lazada right now');
         $r->assertSee('LZT-LIVE');
-        // And what it read is written to the mirror, so the lists agree at once.
         $this->assertSame('active', LazadaProduct::query()->where('lazada_item_id', '990077')->value('live_status'));
     }
 
-    public function test_the_edit_page_says_so_when_lazada_does_not_answer(): void
+    /**
+     * The sentence went with the health surface on 2026-09-09. The
+     * BEHAVIOUR it existed to guarantee did not: a page that could not
+     * read the item opens on the record anyway and substitutes nothing for
+     * what it does not know.
+     */
+    public function test_the_edit_page_opens_on_the_record_when_lazada_does_not_answer(): void
     {
         $productId = $this->seedProduct('Unreachable product', 'LZT-DOWN');
         $listing = LazadaProduct::query()->create(['product_id' => $productId, 'lazada_item_id' => '990077']);
@@ -608,7 +619,9 @@ class LazadaListingLiveTest extends TestCase
             ->get(route('ext.lazada.products.edit', $listing->product_id));
 
         $r->assertOk();
-        $r->assertSee('Lazada did not answer');
+        $r->assertDontSee('Lazada did not answer');
+        // Nothing was invented in place of the answer it never got.
+        $this->assertNull(LazadaProduct::query()->where('lazada_item_id', '990077')->value('live_status'));
     }
 
     /**

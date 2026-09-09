@@ -37,6 +37,19 @@
 
 <div class="fm-page">
 
+    {{-- The one thing a refused save must not do is refuse in silence. The
+         page marks the offending fields inline (x-ui.field draws each
+         message under its own control); this is the summary that says a
+         save was refused at all, and it is the surface the owner asked to keep
+         when the rest of the notes came off (2026-09-09). --}}
+    <div class="fm-flash" role="status" aria-live="polite">
+        @if($errors->any())
+            <div class="fm-note fm-note--fail">
+                <div class="fm-note__body">Nothing was saved. Check the fields marked below.</div>
+            </div>
+        @endif
+    </div>
+
     <div class="fm-head">
         <div class="fm-head__main">
             <a class="fm-back" href="{{ route('ext.venta.product-groups.index', $setting->id) }}" data-guard-leave>
@@ -86,8 +99,20 @@
             : null;
     @endphp
 
-    <x-channel.listing-strip :channel="$storeName" :state="$stripState" :figures="$stripFigures"
-                             :lastPush="$stripLastPush" :linked="(bool) $onStore">
+    {{-- HEALTH OFF (the owner, 2026-09-09): "What I want to see right
+         now are just fields to edit. Nothing about health." The state
+         word, the live figures, Last push and the accent are gone, and the
+         bar keeps only the verbs - what you can DO here, which is not a
+         report about the item. The notes went with them.
+
+         What survives is the required-field handling: the validation
+         summary above, the browser's own bubble on the required fields,
+         and the inline field errors.
+
+         Nothing was deleted from the system: the engine still computes
+         every one of these facts and the Listings index still shows them.
+         This page takes them back by passing health again. --}}
+    <x-channel.listing-strip :channel="$storeName" :health="false" :linked="(bool) $onStore">
         @if($canManage && $setting->enabled && ($onStore || !$noSku))
             <x-slot:verbs>
                 <form method="POST" action="{{ route('ext.venta.listings.push', [$setting->id, $product->product_id]) }}"
@@ -121,32 +146,6 @@
             </x-slot:verbs>
         @endif
 
-        <x-slot:notes>
-            @if(!$setting->enabled)
-                <div class="fm-note">
-                    <div class="fm-note__body">This store is turned off, so it was not asked. The record below can still be edited; enable the store in its settings to push or to read what it holds.</div>
-                </div>
-            @elseif($liveError)
-                <div class="fm-note fm-note--fail">
-                    <div class="fm-note__body">@include('partials.channel-answer', ['channel' => $storeName, 'raw' => $liveError, 'settingsRoute' => null]) Nothing below is stale data standing in for it: the live state is simply unknown until the store answers.</div>
-                </div>
-            @endif
-            {{-- What this listing still needs, as a warning with one
-                 button to where it is fixed - the same note on all five
-                 (VENT2-131). It replaced a hand-written no-SKU line that
-                 said what was wrong and left the operator to find the
-                 catalog product themselves. Every gap here is the catalog
-                 product's, so there are no anchors on this page. --}}
-            @include('partials.channel-gap-note', [
-                'gaps' => $readiness['gaps'] ?? [], 'channel' => $storeName, 'isLive' => (bool) $onStore,
-                'productId' => (int) $product->product_id,
-            ])
-            @if($onStore && $live && $live['state'] === 'missing')
-                <div class="fm-note">
-                    <div class="fm-note__body">{{ $storeName }} no longer has a product with this SKU. The link the ERP held has been dropped; Push creates it again.</div>
-                </div>
-            @endif
-        </x-slot:notes>
     </x-channel.listing-strip>
 
     {{-- The one template (the owner, 2026-09-08, draft C): main is what the

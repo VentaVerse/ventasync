@@ -239,13 +239,14 @@ class LazadaStockPushHealTest extends TestCase
         $page = $this->actingAs($this->manager())
             ->get(route('ext.lazada.products.edit', $listing->product_id))->assertOk();
 
-        $page->assertSee('1 of 2 variations');
-        $page->assertSee('LZ-2');
-        /* The sentence moved from a hint inside the live card to a note
-           under the strip when Lazada took the template (2026-09-09). What
-           it says is unchanged: the update carries every catalogue
-           variation, so there is no unlink-and-resync ritual. */
-        $page->assertSee('carries every catalogue variation, missing ones included');
+        /* The coverage figure and the sentence about it were both reports
+           on the live item, and both left the listing page with the rest
+           of the health surface on 2026-09-09 (the owner: "Nothing about
+           health"). The push behaviour they described is unchanged - an
+           update still carries every catalogue variation - and the heal
+           tests below are where that is actually proven. */
+        $page->assertDontSee('1 of 2 variations');
+        $page->assertDontSee('carries every catalogue variation, missing ones included');
     }
 
     /** A combination added in the catalogue triggers the staleness refetch at last. */

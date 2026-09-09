@@ -231,9 +231,14 @@ class TiktokStockPushHealTest extends TestCase
         $page = $this->actingAs($this->manager())
             ->get(route('ext.tiktok.listings.edit', $pid))->assertOk();
 
-        $page->assertSee('1 of 2 variations');
-        $page->assertSee('TT-2');
-        $page->assertSee('carries every catalogue variation, missing ones included');
+        /* The coverage figure and the sentence about it were both reports
+           on the live item, and both left the listing page with the rest
+           of the health surface on 2026-09-09 (the owner: "Nothing about
+           health"). The push behaviour they described is unchanged - an
+           update still carries every catalogue variation - and the heal
+           tests below are where that is actually proven. */
+        $page->assertDontSee('1 of 2 variations');
+        $page->assertDontSee('carries every catalogue variation, missing ones included');
     }
 
     /** A failed group batch can no longer flash green. */
