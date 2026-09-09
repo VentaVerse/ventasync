@@ -183,6 +183,10 @@
      re-reading five labels on every tick would be worse than silence. --}}
 @php
     $bulk = [
+        /* Multi-tick push, back on 2026-09-09: each ticked product goes up
+           on its own settings and reports for itself. */
+        'push' => ['action' => route('ext.shopee.products.bulk_push'), 'label' => 'Push to Shopee',
+            'confirm' => 'Push the selected products to Shopee? Each goes up on its own settings, and anything not ready is named rather than sent.'],
         'switch' => [
             ['action' => route('ext.shopee.products.bulk_toggle'), 'verb' => 'unlist', 'codes' => 'NORMAL', 'label' => 'Delist :n from Shopee', 'button' => 'Delist from Shopee', 'fields' => ['action' => 'unlist'], 'confirm' => 'Delist the selected items from Shopee? Buyers stop seeing them immediately. They stay here and can be published again at any time.'],
             ['action' => route('ext.shopee.products.bulk_toggle'), 'verb' => 'list', 'codes' => 'UNLIST', 'label' => 'Publish :n on Shopee', 'button' => 'Publish on Shopee', 'fields' => ['action' => 'list'], 'confirm' => 'Publish the selected items on Shopee? Buyers see them again immediately.'],

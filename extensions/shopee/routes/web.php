@@ -225,6 +225,12 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
         Route::post('/shopee/{store}/products/bulk/sync/quantity', [ShopeeProductController::class, 'bulkSyncQuantity'])->name('ext.shopee.products.bulk_sync_quantity');
         // Unlist / relist the selection in one call (the owner, 2026-08-28).
         Route::post('/shopee/{store}/products/bulk/toggle', [ShopeeProductController::class, 'bulkToggle'])->name('ext.shopee.products.bulk_toggle');
+        /* Multi-tick push, back on the Listings page (the owner, 2026-09-09):
+           each ticked product goes up on its own settings and reports for
+           itself. It left on 2026-09-06 because a batch needed a combined
+           settings form and a bar could not describe ten different
+           refusals; neither is true any more. */
+        Route::post('/shopee/{store}/products/bulk/push', [ShopeeProductController::class, 'bulkPush'])->name('ext.shopee.products.bulk_push');
         // Refresh the listing status mirror on demand (the automation does the same every 30 minutes).
         Route::post('/shopee/{store}/products/refresh-status', [ShopeeProductController::class, 'refreshStatus'])->name('ext.shopee.products.refresh_status');
         Route::post('/shopee/{store}/products/bulk/sync/price', [ShopeeProductController::class, 'bulkSyncPrice'])->name('ext.shopee.products.bulk_sync_price');

@@ -879,9 +879,6 @@ class ShopeeProductController extends Controller
 
     public function pushDirect(Request $request, int $productId, ShopeeClient $client)
     {
-        $pfx = (string) config('catalog.prefix');
-        $langId = (int) config('catalog.default_language_id');
-
         /* The review modal's two editable fields (cleanup 7+9): edits are
          * saved as the listing's own wording FIRST, then the push runs on
          * what was just saved - the same order Save and push uses, so a
@@ -904,9 +901,36 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', "Push failed: Missing Shopee {$modeLabel} settings.");
         }
 
+        $answer = $this->pushOne($productId, $auth, $client);
+
+        if (! $answer['ok']) {
+            return redirect()->back()->with('error', $answer['message']);
+        }
+
+        // Accepted: back to the Listings page the operator came from, search and all (the owner, 2026-09-06).
+        return redirect()->to(\App\Support\BackTo::safe($request->input('back'), url()->previous(route('ext.shopee.products.index'))))->with('status', $answer['message']);
+    }
+
+    /**
+     * PUSH ONE PRODUCT, AND SAY WHAT HAPPENED.
+     *
+     * The whole create, refusals and all, with no opinion about where the
+     * answer is drawn. pushDirect turns it into a redirect for the one
+     * product an operator pressed; bulkPush calls it once per ticked
+     * product and reports each on its own line - which is the only honest
+     * shape for a batch, because ten creates can be refused for ten
+     * different reasons (the owner, 2026-09-09).
+     *
+     * @return array{ok: bool, message: string}
+     */
+    private function pushOne(int $productId, array $auth, ShopeeClient $client): array
+    {
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
         $existingLink = ShopeeProductLink::query()->where('product_id', $productId)->first();
         if ($existingLink) {
-            return redirect()->back()->with('error', 'Push failed: Product already listed on Shopee (Item ID: ' . $existingLink->shopee_item_id . ').');
+            return ['ok' => false, 'message' => 'Push failed: Product already listed on Shopee (Item ID: ' . $existingLink->shopee_item_id . ').'];
         }
 
         /* THE GATE (the owner, 2026-09-06): the one readiness computation the
@@ -924,7 +948,7 @@ class ShopeeProductController extends Controller
         $readiness = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)
             ->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => []];
         if (!$readiness['ready']) {
-            return redirect()->back()->with('error', \App\Integrations\Listings\CatalogGaps::refusal($readiness));
+            return ['ok' => false, 'message' => \App\Integrations\Listings\CatalogGaps::refusal($readiness)];
         }
 
         /* ASK SHOPEE, NOT ONLY OURSELVES (the owner, 2026-09-09).
@@ -949,12 +973,11 @@ class ShopeeProductController extends Controller
             ->reconcile($client, $auth, $productId, $pfx);
 
         if (in_array($verdict['state'], ['confirmed', 'adopted', 'repointed'], true)) {
-            return redirect()->back()->with('error',
-                'Not pushed: Shopee already holds this product as item ' . $verdict['item_id']
-                . '. It is linked here now, so use Push update to send these settings onto it.');
+            return ['ok' => false, 'message' => 'Not pushed: Shopee already holds this product as item ' . $verdict['item_id']
+                . '. It is linked here now, so use Push update to send these settings onto it.'];
         }
         if ($verdict['state'] === 'taken' || $verdict['state'] === 'unreachable') {
-            return redirect()->back()->with('error', 'Not pushed: ' . $verdict['message']);
+            return ['ok' => false, 'message' => 'Not pushed: ' . $verdict['message']];
         }
 
         $product = DB::table($pfx . 'product as p')
@@ -971,7 +994,7 @@ class ShopeeProductController extends Controller
             ]);
 
         if (!$product) {
-            return redirect()->back()->with('error', 'Push failed: Product not found.');
+            return ['ok' => false, 'message' => 'Push failed: Product not found.'];
         }
 
         /* REFUSE INSTEAD OF BORROW (#96). This used to take the FIRST
@@ -995,10 +1018,9 @@ class ShopeeProductController extends Controller
         }
 
         if (!$listing || !$listing->pushable()) {
-            return redirect()->back()->with('error',
-                'Push failed: this product has no Shopee listing settings yet. '
+            return ['ok' => false, 'message' => 'Push failed: this product has no Shopee listing settings yet. '
                 . 'Open its listing (Listings → Open listing) and save its category, couriers and price rule, '
-                . 'or push it from its product group.');
+                . 'or push it from its product group.'];
         }
 
         $logisticIds = $listing->logistic_ids ?? [];
@@ -1013,12 +1035,12 @@ class ShopeeProductController extends Controller
 
         $up = $create->uploadImages($client, $auth, $imagePaths);
         if ($up['error'] !== null) {
-            return redirect()->back()->with('error', 'Push failed: ' . $up['error']);
+            return ['ok' => false, 'message' => 'Push failed: ' . $up['error']];
         }
         $imageIds = $up['ids'];
 
         if (empty($imageIds)) {
-            return redirect()->back()->with('error', 'Push failed: No images were uploaded successfully.');
+            return ['ok' => false, 'message' => 'Push failed: No images were uploaded successfully.'];
         }
 
         /* The listing's own price rule; price itself is never stored, so
@@ -1043,7 +1065,7 @@ class ShopeeProductController extends Controller
             // lands on the listing record so every surface can show it.
             ShopeeListing::recordPushFailure($productId, (string) $added['error']);
 
-            return redirect()->back()->with('error', 'Push failed: ' . $added['error']);
+            return ['ok' => false, 'message' => 'Push failed: ' . $added['error']];
         }
 
         $itemId = $added['item_id'];
@@ -1052,7 +1074,7 @@ class ShopeeProductController extends Controller
             // the listing record keeps it as this product's latest failure.
             ShopeeListing::recordPushFailure($productId, (string) $added['error']);
 
-            return redirect()->back()->with('error', (string) $added['error']);
+            return ['ok' => false, 'message' => (string) $added['error']];
         }
 
         ShopeeProductLink::create([
@@ -1087,11 +1109,11 @@ class ShopeeProductController extends Controller
 
         if (!$rode['ok']) {
             // #192: see push() - never leave a half-listed item standing.
-            return redirect()->back()->with('error', $rode['undone']
+            return ['ok' => false, 'message' => $rode['undone']
                 ? 'Not pushed: the variations were refused - ' . $rode['message']
                     . ' The item was removed from Shopee again, so nothing half-listed stays up.'
                 : 'The variations were refused - ' . $rode['message']
-                    . ' Shopee also refused to remove the half-created item (ID ' . $itemId . '). Delete it in Seller Centre, then push again.');
+                    . ' Shopee also refused to remove the half-created item (ID ' . $itemId . '). Delete it in Seller Centre, then push again.'];
         }
 
         $flash = 'Product pushed to Shopee. Item ID: ' . $itemId;
@@ -1104,11 +1126,92 @@ class ShopeeProductController extends Controller
         }
 
         // Accepted: back to the Listings page the operator came from, search and all (the owner, 2026-09-06).
-        return redirect()->to(\App\Support\BackTo::safe($request->input('back'), url()->previous(route('ext.shopee.products.index'))))->with('status', $flash);
+
+        return ['ok' => true, 'message' => $flash];
     }
+
 
     // ── Bulk Push to Shopee ───────────────────────────────────────
 
+    /**
+     * PUSH THE TICKED PRODUCTS, AND REPORT EACH ONE.
+     *
+     * Multi-tick push came off the Listings page on 2026-09-06 for a
+     * reason that has since expired twice over: a batch needed a combined
+     * form for couriers, category and markup, so it belonged on a group
+     * page; and a bar reporting one outcome cannot describe ten creates
+     * refused for ten different reasons.
+     *
+     * Neither holds now. Every listing takes its own price rule, else its
+     * group's, so there is nothing shared left to ask for. And the answer
+     * below is per product, by name, with the marketplace's own words -
+     * which is what the old bar could not say (the owner, 2026-09-09).
+     *
+     * Not ready is not a failure and does not stop the batch: those
+     * products are named with what they still need, and everything ready
+     * goes up. One shop scan serves the whole batch, because the link
+     * check is one instance for the request.
+     */
+    public function bulkPush(Request $request, ShopeeClient $client)
+    {
+        $productIds = array_values(array_unique(array_map('intval', $this->parseProductIds($request))));
+        if ($productIds === []) {
+            return redirect()->back()->with('error', 'No products selected.');
+        }
+
+        $setting = ShopeeSetting::defaultStore()?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+
+            return redirect()->back()->with('error', "Push failed: Missing Shopee {$modeLabel} settings.");
+        }
+
+        /* A ceiling, said out loud rather than applied quietly: each push
+         * uploads images and creates an item, so a selection of hundreds
+         * would outlive the request. The rest are named, not dropped. */
+        $limit = 25;
+        $overflow = array_slice($productIds, $limit);
+        $productIds = array_slice($productIds, 0, $limit);
+
+        $pushed = [];
+        $refused = [];
+        foreach ($productIds as $productId) {
+            $answer = $this->pushOne($productId, $auth, $client);
+            $name = $this->productLabel($productId);
+            if ($answer['ok']) {
+                $pushed[] = $name;
+            } else {
+                $refused[] = $name . ': ' . $answer['message'];
+            }
+        }
+
+        $parts = [];
+        if ($pushed !== []) {
+            $parts[] = count($pushed) . ' pushed to Shopee.';
+        }
+        if ($refused !== []) {
+            $parts[] = count($refused) . ' not pushed. ' . implode(' ', $refused);
+        }
+        if ($overflow !== []) {
+            $parts[] = count($overflow) . ' left for a second press: ' . $limit . ' go up at a time.';
+        }
+
+        return redirect()->back()->with($pushed === [] ? 'error' : 'status', implode(' ', $parts));
+    }
+
+    /** A product by the name an operator would recognise, for a ledger line. */
+    private function productLabel(int $productId): string
+    {
+        $pfx = (string) config('catalog.prefix');
+        $name = DB::table($pfx . 'product_description')
+            ->where('product_id', $productId)
+            ->where('language_id', (int) config('catalog.default_language_id'))
+            ->value('name');
+        $name = trim(html_entity_decode((string) $name, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+
+        return $name !== '' ? $name : 'Product #' . $productId;
+    }
 
     public function syncQuantity(int $productId, ShopeeClient $client)
     {

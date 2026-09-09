@@ -129,12 +129,26 @@ class ShopeeReconcileTest extends TestCase
      * and this ERP held not one link row. Four separate teeth had to be
      * missing at once for that, and each one is pinned here. */
 
-    /** The one-click push asks the marketplace, not only our own table. */
-    public function test_the_one_click_push_reconciles_before_it_creates(): void
+    /**
+     * Every create asks the marketplace, not only our own table.
+     *
+     * The guard lives in pushOne, which is the ONE create path: the
+     * one-click push and the multi-tick bulk push both go through it
+     * (2026-09-09), so neither can grow its own way in.
+     */
+    public function test_every_push_reconciles_before_it_creates(): void
     {
-        $body = $this->methodBody('pushDirect', 'extensions/shopee/Controllers/ShopeeProductController.php');
+        $controller = 'extensions/shopee/Controllers/ShopeeProductController.php';
+        $src = $this->source($controller);
 
-        $this->assertNotSame('', $body, 'pushDirect is gone.');
+        foreach (['pushDirect', 'bulkPush'] as $entry) {
+            $this->assertStringContainsString('$this->pushOne(', $this->methodBody($entry, $controller),
+                "{$entry} creates without going through the one guarded create path.");
+        }
+
+        $body = $this->methodBody('pushOne', $controller);
+
+        $this->assertNotSame('', $body, 'pushOne is gone.');
         $this->assertStringContainsString('reconcile(', $body,
             'The one-click push decides create-or-not from the local link row alone. A store deleted '
             .'here, or a database restored, takes every link while the shop keeps every item - and the '

@@ -1861,6 +1861,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/shopee/{store}/products/bulk/push",
+        "name": "ext.shopee.products.bulk_push"
+    },
+    {
+        "method": "POST",
         "uri": "channels/shopee/{store}/products/bulk/remove-from-store",
         "name": "ext.shopee.products.bulk_remove_from_store"
     },

@@ -60,6 +60,15 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
         // outside a Shopee page (hub, fulfilment tabs, test code).
         \Extensions\shopee\Models\ShopeeSetting::syncUrlDefault();
 
+        /* ONE LINK CHECK PER REQUEST (the owner, 2026-09-09). Its shop scan is
+         * memoised on the instance, and Shopee publishes no get-item-by-SKU,
+         * so the scan is about forty calls. A push of twenty ticked products
+         * resolving twenty instances would page the whole shop twenty times;
+         * one instance pages it once and every product after the first reads
+         * the memo. The batch check has always shared an instance this way -
+         * this is what makes the bulk push able to afford the guard too. */
+        $this->app->scoped(\Extensions\shopee\Services\Shopee\ShopeeLinkCheck::class);
+
         // Registered in every runtime, not only the console: the Automations
         // tab's Run now calls Artisan inside a web request (live, 2026-09-07).
         $this->commands([

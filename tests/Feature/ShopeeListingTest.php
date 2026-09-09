@@ -192,6 +192,53 @@ class ShopeeListingTest extends TestCase
         $this->assertSame(0, ShopeeProductLink::query()->where('product_id', $productId)->count());
     }
 
+    /**
+     * MULTI-TICK PUSH, BACK ON THE LISTINGS PAGE (the owner, 2026-09-09).
+     *
+     * The shape the old bar could not manage: ten creates refused for ten
+     * different reasons. Each product answers for itself, by name, and one
+     * that is not ready does not stop the ones that are.
+     */
+    public function test_a_bulk_push_sends_what_is_ready_and_names_what_is_not(): void
+    {
+        $ready = $this->seedProduct(300.0);
+        ShopeeListing::create([
+            'product_id' => $ready, 'shopee_category_id' => 100200,
+            'logistic_ids' => [8003], 'markup_percent' => 0, 'markup_fixed' => 70,
+        ]);
+
+        // No listing settings at all: not ready, and it must not stop the other.
+        $notReady = $this->seedProduct(300.0);
+
+        $response = $this->actingAs($this->manager())
+            ->from(route('ext.shopee.products.index'))
+            ->post(route('ext.shopee.products.bulk_push'), ['product_ids' => [$ready, $notReady]]);
+
+        $response->assertRedirect();
+
+        $adds = collect($this->sentPayloads)->where('path', '/api/v2/product/add_item');
+        $this->assertCount(1, $adds, 'The ready product went up; the unready one did not.');
+
+        $said = (string) session('status');
+        $this->assertStringContainsString('1 pushed to Shopee', $said);
+        $this->assertStringContainsString('1 not pushed', $said,
+            'A batch that half-succeeds must say so; one outcome for ten products is the thing this replaced.');
+
+        $this->assertSame(1, ShopeeProductLink::query()->where('product_id', $ready)->count());
+        $this->assertSame(0, ShopeeProductLink::query()->where('product_id', $notReady)->count());
+    }
+
+    public function test_a_bulk_push_with_nothing_ticked_is_refused(): void
+    {
+        $this->actingAs($this->manager())
+            ->from(route('ext.shopee.products.index'))
+            ->post(route('ext.shopee.products.bulk_push'), ['product_ids' => []])
+            ->assertRedirect();
+
+        $this->assertSame('No products selected.', session('error'));
+        $this->assertSame([], $this->sentPayloads);
+    }
+
     public function test_one_click_push_runs_on_the_listings_own_settings(): void
     {
         $productId = $this->seedProduct(300.0);

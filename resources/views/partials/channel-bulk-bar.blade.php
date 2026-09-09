@@ -2,12 +2,13 @@
      2026-09-07). The order never varies; a page draws only the verbs it
      fills. Listings page:
 
-       1  the store's own switch pair   (data-bulk-verb forms, shown per the ticked rows' states)
-       2  Push stock
-       3  Push prices
-       4  Link IDs
-       5  Delete from {Store}
-       6  Remove from this channel
+       1  Push to the store             (where the channel offers it)
+       2  the store's own switch pair   (data-bulk-verb forms, shown per the ticked rows' states)
+       3  Push stock
+       4  Push prices
+       5  Link IDs
+       6  Delete from {Store}
+       7  Remove from this channel
 
      Group page, the same with the group's own verbs in front and its exit
      at the end: Push, Update, Push stock, Push prices, Link IDs, the switch
@@ -15,8 +16,16 @@
 
      Every form carries data-bulk-form: channel-listings.js fills the ticked
      ids into it (the page's own field name) and names what the selection
-     skips. No multi-tick push on a Listings page (the owner, 2026-09-06): many
-     products go up from a product group's page.
+     skips.
+
+     PUSH IS BACK ON THE LISTINGS PAGE (the owner, 2026-09-09), first in the
+     bar wherever it appears. It left on 2026-09-06 for two reasons that
+     have both expired: a batch needed a combined form for couriers,
+     category and markup, which the group page owned - and every listing
+     now takes its own price rule, else its group's, so there is nothing
+     shared left to ask for; and a bar reporting one outcome could not
+     describe ten creates refused for ten different reasons - and the push
+     answers per product, by name, in the marketplace's own words.
 
      Spec keys:
        switch   list of ['action', 'verb', 'codes', 'label' (with :n), 'button', 'confirm', 'fields' => [...]]
@@ -57,8 +66,9 @@
 <div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar role="status">
     <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected <span class="cc-bulkbar__note" data-bulk-skipped></span></span>
     <div class="cc-bulkbar__actions">
+        {{-- Push leads wherever it is offered, group page or Listings. --}}
+        @if(! empty($b['push'])){!! $bulkForm($b['push'], $b['push']['label'] ?? 'Push') !!}@endif
         @if($isGroup)
-            @if(! empty($b['push'])){!! $bulkForm($b['push'], $b['push']['label'] ?? 'Push') !!}@endif
             @if(! empty($b['update'])){!! $bulkForm($b['update'], $b['update']['label'] ?? 'Update') !!}@endif
         @else
             {!! $switches !!}
