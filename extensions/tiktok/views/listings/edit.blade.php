@@ -124,15 +124,24 @@
                 </div>
             @endif
             @if(!empty($missing))
-                <div class="fm-note">
-                    {{-- Every gap is a link; what the catalog owns leads to
-                         the catalog product. See the note on Shopee's. --}}
-                    <div class="fm-note__body">{!! \App\Integrations\Listings\GapLinks::sentence(
-                        $readiness['gaps'] ?? [], (int) $product->product_id, 'TikTok Shop', (bool) $listed, [
+                @php
+                    /* The gap anchors this page can answer itself. Keyed on
+                       the gap's CODE, never on its English, which is how a
+                       reworded label silently breaks a link. */
+                    $gapAnchors = [
                             \App\Integrations\Listings\ListingState::GAP_CATEGORY => '#tt-category',
                             \App\Integrations\Listings\ListingState::GAP_SHEET => '#tt-attributes',
                             \App\Integrations\Listings\ListingState::GAP_ATTRIBUTES => '#tt-attributes',
-                        ]) !!}</div>
+                        ];
+                    $gapAction = \App\Integrations\Listings\GapLinks::action($readiness['gaps'] ?? [], (int) $product->product_id, $gapAnchors);
+                @endphp
+                {{-- A blocker looks like one, and the way out is a BUTTON
+                     (the owner, 2026-09-09). The sentence names what is missing
+                     and stops; it carries no links, because half of what it
+                     names is not on this page and nothing in prose tells you
+                     which words are the door. --}}
+                <div class="fm-note fm-note--warn" role="status">
+                    <div class="fm-note__body">{{ \App\Integrations\Listings\GapLinks::sentence($readiness['gaps'] ?? [], 'TikTok Shop', (bool) $listed) }}@if($gapAction)<a class="x-btn x-btn--primary x-btn--sm fm-note__act" href="{{ $gapAction['href'] }}">{{ $gapAction['label'] }}</a>@endif</div>
                 </div>
             @endif
             @if($listed && !empty($coverage['missing']))

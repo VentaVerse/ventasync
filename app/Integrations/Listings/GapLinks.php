@@ -22,9 +22,17 @@ namespace App\Integrations\Listings;
  * told to "save" a field that is not on screen teaches nothing. Those had
  * no link at all, so they read as an apology.
  *
- * So every gap is a link now. A gap this page can fix links to the field;
- * a gap the catalog owns links to the catalog product. And the sentence
- * says the one thing it is for - what is missing - and stops.
+ * So the sentence names what is missing and nothing else, and the way out
+ * is a BUTTON, not a link inside the prose. The owner again, on the first
+ * attempt: "It is clickable. But it doesnt look like a button... Create a
+ * dedicated button that screams click me." A control has weight and shape;
+ * an underlined phrase in a sentence has neither, and half of what the
+ * sentence names is not clickable anyway, so nothing tells you which words
+ * are the door.
+ *
+ * One button, because there is one place to go: the catalog product when
+ * the catalog owns any of the gaps, or the field on this page when they
+ * are all here.
  */
 final class GapLinks
 {
@@ -46,38 +54,28 @@ final class GapLinks
     ];
 
     /**
-     * The gaps as one readable, linked phrase.
+     * What is missing, as plain words. No links: the button below is the
+     * way out, and an underlined phrase mid-sentence reads as prose.
      *
      * @param  list<array{code: string, label: string}>  $gaps
-     * @param  array<string, string>  $anchors  gap code => an anchor on THIS page
-     * @return string  HTML, already escaped
      */
-    public static function words(array $gaps, int $productId, array $anchors = []): string
+    public static function words(array $gaps): string
     {
-        $catalogUrl = route('products.edit', $productId);
-
-        $links = [];
+        $labels = [];
         foreach ($gaps as $gap) {
-            $code = (string) ($gap['code'] ?? '');
-            $label = (string) ($gap['label'] ?? '');
-            if ($label === '') {
-                continue;
+            $label = trim((string) ($gap['label'] ?? ''));
+            if ($label !== '') {
+                $labels[] = $label;
             }
-
-            $href = $anchors[$code] ?? (in_array($code, self::CATALOG_OWNED, true) ? $catalogUrl : null);
-
-            $links[] = $href !== null
-                ? '<a href="' . e($href) . '">' . e($label) . '</a>'
-                : e($label);
         }
 
-        if ($links === []) {
+        if ($labels === []) {
             return '';
         }
 
-        return count($links) > 1
-            ? implode(', ', array_slice($links, 0, -1)) . ' and ' . end($links)
-            : $links[0];
+        return count($labels) > 1
+            ? implode(', ', array_slice($labels, 0, -1)) . ' and ' . end($labels)
+            : $labels[0];
     }
 
     /**
@@ -85,15 +83,40 @@ final class GapLinks
      * situations: a listing that has never gone up, and a live one whose
      * update would be refused.
      */
-    public static function sentence(array $gaps, int $productId, string $channel, bool $isLive, array $anchors = []): string
+    public static function sentence(array $gaps, string $channel, bool $isLive): string
     {
-        $words = self::words($gaps, $productId, $anchors);
+        $words = self::words($gaps);
         if ($words === '') {
             return '';
         }
 
         return $isLive
             ? 'Push update needs ' . $words . '.'
-            : 'Not ready for ' . e($channel) . ': it needs ' . $words . '.';
+            : 'Not ready for ' . $channel . ': it needs ' . $words . '.';
+    }
+
+    /**
+     * The one way out, as a button.
+     *
+     * The catalog product wins when it owns ANY of the gaps, because that
+     * is the page this one cannot reach. When every gap is on this page
+     * the button jumps to the first of them.
+     *
+     * @param  list<array{code: string, label: string}>  $gaps
+     * @param  array<string, string>  $anchors  gap code => an anchor on THIS page
+     * @return array{href: string, label: string}|null
+     */
+    public static function action(array $gaps, int $productId, array $anchors = []): ?array
+    {
+        $onPage = null;
+        foreach ($gaps as $gap) {
+            $code = (string) ($gap['code'] ?? '');
+            if (in_array($code, self::CATALOG_OWNED, true) && ! isset($anchors[$code])) {
+                return ['href' => route('products.edit', $productId), 'label' => 'Open the catalog product'];
+            }
+            $onPage = $onPage ?? ($anchors[$code] ?? null);
+        }
+
+        return $onPage !== null ? ['href' => $onPage, 'label' => 'Go to what is missing'] : null;
     }
 }

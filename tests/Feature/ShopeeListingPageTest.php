@@ -225,12 +225,19 @@ class ShopeeListingPageTest extends TestCase
             ->get(route('ext.shopee.listings.edit', $productId))->assertOk()->getContent();
 
         $this->assertStringContainsString('a SKU on the catalog product', $html);
+
+        // It LOOKS like a blocker.
+        $this->assertStringContainsString('fm-note fm-note--warn', $html,
+            'A listing that cannot be pushed must read as a blocker, not as a stray reminder.');
+
+        // And the way out is a button, not an underlined phrase in prose.
         $this->assertStringContainsString(
-            '<a href="' . e(route('products.edit', $productId)) . '">a SKU on the catalog product</a>',
+            '<a class="x-btn x-btn--primary x-btn--sm fm-note__act" href="' . e(route('products.edit', $productId)) . '">Open the catalog product</a>',
             $html,
-            'A gap the catalog owns must carry the operator to the catalog product; naming a field that is '
-            . 'not on this page teaches nothing.'
+            'A gap the catalog owns must carry the operator there by a control with weight and shape.'
         );
+        $this->assertStringNotContainsString('">a SKU on the catalog product</a>', $html,
+            'The sentence carries no links: nothing in prose says which words are the door.');
 
         // And the sentence stopped apologising.
         $this->assertStringNotContainsString('before it can run', $html);

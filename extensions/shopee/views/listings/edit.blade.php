@@ -229,24 +229,26 @@
                 </div>
             @endif
             @if(!empty($missing))
-                <div class="fm-note">
-                    {{-- Every gap is a link, and the sentence says the one
-                         thing it is for. What this page can fix links to the
-                         field; what the CATALOG owns - a SKU, a name, a
-                         price, a parcel - links to the catalog product,
-                         because telling somebody to "save" a field that is
-                         not on screen teaches them nothing (the owner,
-                         2026-09-09). Keyed on the gap's CODE, never on its
-                         English, which is how a reworded label silently
-                         breaks a link. --}}
-                    <div class="fm-note__body">{!! \App\Integrations\Listings\GapLinks::sentence(
-                        $readiness['gaps'] ?? [], (int) $product->product_id, 'Shopee', (bool) $link, [
+                @php
+                    /* The gap anchors this page can answer itself. Keyed on
+                       the gap's CODE, never on its English, which is how a
+                       reworded label silently breaks a link. */
+                    $gapAnchors = [
                             \App\Integrations\Listings\ListingState::GAP_CATEGORY => '#sl-category',
                             \App\Integrations\Listings\ListingState::GAP_COURIERS => '#sl-couriers',
                             \App\Integrations\Listings\ListingState::GAP_IMAGE => '#sl-images',
                             \App\Integrations\Listings\ListingState::GAP_SHEET => '#sl-attributes',
                             \App\Integrations\Listings\ListingState::GAP_ATTRIBUTES => '#sl-attributes',
-                        ]) !!}</div>
+                        ];
+                    $gapAction = \App\Integrations\Listings\GapLinks::action($readiness['gaps'] ?? [], (int) $product->product_id, $gapAnchors);
+                @endphp
+                {{-- A blocker looks like one, and the way out is a BUTTON
+                     (the owner, 2026-09-09). The sentence names what is missing
+                     and stops; it carries no links, because half of what it
+                     names is not on this page and nothing in prose tells you
+                     which words are the door. --}}
+                <div class="fm-note fm-note--warn" role="status">
+                    <div class="fm-note__body">{{ \App\Integrations\Listings\GapLinks::sentence($readiness['gaps'] ?? [], 'Shopee', (bool) $link) }}@if($gapAction)<a class="x-btn x-btn--primary x-btn--sm fm-note__act" href="{{ $gapAction['href'] }}">{{ $gapAction['label'] }}</a>@endif</div>
                 </div>
             @endif
             @if($live && $staleSincePush)
