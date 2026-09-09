@@ -103,7 +103,14 @@ class ShopeeCoreChangedTest extends TestCase
         return $productId;
     }
 
-    public function test_the_listing_page_notes_a_catalog_change_after_the_last_push(): void
+    /**
+     * The staleness note left the listing page with the rest of the health
+     * surface on 2026-09-09 (the owner: "Nothing about health"). The FACT is
+     * unchanged - the engine still computes drift and the Listings index
+     * still shows it - so this pins the page's silence rather than
+     * pretending the question stopped mattering.
+     */
+    public function test_the_listing_page_no_longer_notes_a_catalog_change(): void
     {
         $productId = $this->seedProduct(now()->subHour());
         ShopeeProductLink::query()->create([
@@ -118,8 +125,8 @@ class ShopeeCoreChangedTest extends TestCase
             ->get(route('ext.shopee.listings.edit', $productId));
 
         $r->assertOk();
-        $r->assertSee('The catalog product changed');
-        $r->assertSee('after the last push');
+        $r->assertDontSee('The catalog product changed');
+        $r->assertDontSee('after the last push');
     }
 
     public function test_no_note_when_the_push_is_newer_than_the_catalog(): void
@@ -180,12 +187,9 @@ class ShopeeCoreChangedTest extends TestCase
         $r->assertOk();
         /* The column says errors only since 2026-09-07 (the owner: "Change last
          * sync to Error. No error - None. With error put the error."), so the
-         * group row no longer carries the staleness note. The listing page
-         * still says it, beside the push that would send the change. */
+         * group row no longer carries the staleness note. Nor does the
+         * listing page since 2026-09-09; the drift itself is unchanged and
+         * the Listings index is where it is read. */
         $r->assertDontSee('catalog changed since');
-        $this->actingAs($this->manager())
-            ->get(route('ext.shopee.listings.edit', $productId))
-            ->assertOk()
-            ->assertSee('The catalog product changed', false);
     }
 }

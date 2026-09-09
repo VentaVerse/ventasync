@@ -215,7 +215,21 @@ class ShopeeListingPageTest extends TestCase
      * catalog product. The owner, 2026-09-09: "Its a reminder that looks like
      * it doesnt belong and it doesnt really teach the user."
      */
-    public function test_a_gap_the_catalog_owns_links_to_the_catalog_product(): void
+    /**
+     * THE LISTING PAGE SHOWS NO HEALTH AT ALL (the owner, 2026-09-09).
+     *
+     * "The more we edit the listing page, the more I hate it... What I
+     * want to see right now are just fields to edit. Nothing about health.
+     * We focus on the product edit."
+     *
+     * So the state word, the live figures, Last push, the channel accent
+     * and every note - the readiness warning included - are off this page.
+     * They are not deleted from the system: the engine still computes them
+     * and the Listings index still shows them. This pins the page's own
+     * silence so it is a decision on the record rather than a regression,
+     * and it is Shopee only, "for now" in his words.
+     */
+    public function test_the_listing_page_reports_nothing_about_health(): void
     {
         $pfx = (string) config('catalog.prefix');
         $productId = $this->seedProduct();
@@ -224,24 +238,23 @@ class ShopeeListingPageTest extends TestCase
         $html = $this->actingAs($this->manager())
             ->get(route('ext.shopee.listings.edit', $productId))->assertOk()->getContent();
 
-        $this->assertStringContainsString('an SKU on the catalog product', $html);
+        foreach ([
+            'Not on Shopee' => 'the live state word',
+            'Last push' => 'the last push figure',
+            'an SKU on the catalog product' => 'the readiness warning',
+            'Open the catalog product' => "the warning's button",
+        ] as $gone => $what) {
+            $this->assertStringNotContainsString($gone, $html, "The page still reports {$what}.");
+        }
 
-        // It LOOKS like a blocker.
-        $this->assertStringContainsString('fm-note fm-note--warn', $html,
-            'A listing that cannot be pushed must read as a blocker, not as a stray reminder.');
+        $this->assertStringContainsString('cl-strip--quiet', $html,
+            'The bar keeps the verbs and loses the channel accent: a coloured bar reads as a status banner even when it says nothing.');
 
-        // And the way out is a button, not an underlined phrase in prose.
-        $this->assertStringContainsString(
-            '<a class="x-btn x-btn--primary x-btn--sm fm-note__act" href="' . e(route('products.edit', $productId)) . '">Open the catalog product</a>',
-            $html,
-            'A gap the catalog owns must carry the operator there by a control with weight and shape.'
-        );
-        $this->assertStringNotContainsString('">an SKU on the catalog product</a>', $html,
-            'The sentence carries no links: nothing in prose says which words are the door.');
-
-        // And the sentence stopped apologising.
-        $this->assertStringNotContainsString('before it can run', $html);
-        $this->assertStringNotContainsString('Set what is missing and save', $html);
+        /* What he asked to KEEP: the required-field handling. The category
+           still declares what it wants picked, and Save no longer waves it
+           through. */
+        $this->assertStringContainsString('data-combo-required="Pick a Shopee category from the list."', $html);
+        $this->assertStringNotContainsString('formnovalidate', $html);
     }
 
     /**
@@ -481,13 +494,12 @@ class ShopeeListingPageTest extends TestCase
             ->get(route('ext.shopee.listings.edit', $productId));
 
         $r->assertOk();
-        /* One strip in both states (the owner, 2026-09-08, draft C): a product
-           that is not on the channel says so on the same bar that carries
-           the live figures for one that is, and the gaps sit under it. */
-        $r->assertSee('Not on Shopee');
-        $r->assertSee('a Shopee category');
-        $r->assertSee('Never');
+        /* The strip used to answer this in words. Health came off the page
+           on 2026-09-09 (see test_the_listing_page_reports_nothing_about_health),
+           so what is pinned here is what remains true: the page opens, and
+           it offers no verb that acts on an item the store does not have. */
         $r->assertDontSee('Stock on Shopee');
+        $r->assertDontSee('Delist from Shopee');
     }
 
     public function test_saving_stores_settings_and_blank_content_follows_the_catalog(): void
@@ -534,8 +546,8 @@ class ShopeeListingPageTest extends TestCase
             ->get(route('ext.shopee.listings.edit', $productId));
 
         $r->assertOk();
-        $r->assertSee('On Shopee right now');
-        $r->assertSee('Live');
+        // The state word left with the rest of the health surface; the
+        // verbs that act on a live item stayed, and so did the write-through.
         $r->assertSee('Delist from Shopee');
         // And what it read is written to the mirror, so the lists agree at once.
         $this->assertSame('NORMAL', ShopeeProductLink::query()->where('shopee_item_id', 990077)->value('live_status'));
@@ -554,7 +566,9 @@ class ShopeeListingPageTest extends TestCase
             ->get(route('ext.shopee.listings.edit', $productId));
 
         $r->assertOk();
-        $r->assertSee('Shopee did not answer');
+        /* The sentence went with the health surface. The BEHAVIOUR it
+           existed to guarantee did not: a page that could not read the item
+           offers no verb that acts on it, rather than substituting a guess. */
         $r->assertDontSee('Delist from Shopee');
     }
 

@@ -22,8 +22,18 @@
       figures   list<['k' => string, 'v' => string]>  the channel's own facts, in its own words
       lastPush  ?['when' => string, 'from' => ?string]  null when nothing has ever gone up
       linked    bool  the product is on the channel at all
+      health    bool  draw the state, the figures and the last push at all
       verbs     slot  the forms that act on the live item
       notes     slot  refusals, gaps and staleness, drawn under the strip
+
+    HEALTH CAN BE TURNED OFF, and on Shopee it is (the owner, 2026-09-09):
+    "What I want to see right now are just fields to edit. Nothing about
+    health... We focus on the product edit." Everything the strip knows
+    about the live item goes quiet and the bar keeps only the verbs, which
+    are how you act rather than what you are told. The accent goes with it:
+    a bar in the channel's colour reads as a status banner even when it is
+    saying nothing. Written into extensions/CHANNEL-CONTRACT.md as a
+    deliberate, temporary divergence rather than a gap to close.
 --}}
 @props([
     'channel',
@@ -31,11 +41,14 @@
     'figures' => [],
     'lastPush' => null,
     'linked' => false,
+    'health' => true,
 ])
 {{-- The bar and the notes are SIBLINGS, not a wrapper and its children: a
      sticky element travels inside its own parent, so a bar nested in a
      wrapper only stays put until the wrapper scrolls away. --}}
-<section class="cl-strip" aria-label="On {{ $channel }} right now">
+<section class="cl-strip{{ $health ? '' : ' cl-strip--quiet' }}"
+         aria-label="{{ $health ? 'On ' . $channel . ' right now' : 'What you can do on ' . $channel }}">
+    @if($health)
     <div class="cl-strip__state cl-strip__state--{{ $state['tone'] ?? 'neutral' }}">
         <span class="cl-strip__dot" aria-hidden="true"></span>
         <span class="cl-strip__label">{{ $state['label'] ?? ($linked ? 'Unknown' : 'Not on ' . $channel) }}</span>
@@ -62,6 +75,7 @@
             </dd>
         </div>
     </dl>
+    @endif
 
     @if(trim($verbs ?? '') !== '')
         <div class="cl-strip__verbs">{{ $verbs }}</div>

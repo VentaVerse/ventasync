@@ -269,9 +269,16 @@ class ShopeeStockPushHealTest extends TestCase
         $page = $this->actingAs($this->manager())
             ->get(route('ext.shopee.listings.edit', $pid))->assertOk();
 
-        $page->assertSee('2 of 3 variations');
-        $page->assertSee('E-3');                       // the missing side, named
+        /* The coverage figure and the sentence naming the missing side
+           were both reports about the live item, and both left the page
+           with the rest of the health surface on 2026-09-09 (the owner:
+           "Nothing about health"). What stayed is what you ACT with: the
+           table of Shopee's own models, and the verb that sends the
+           missing ones. */
+        $page->assertDontSee('2 of 3 variations');
+        $page->assertDontSee('In the catalogue but not on Shopee');
         $page->assertSee('Not linked');                // Shopee's STRANGER model, flagged
+        $page->assertSee('Push missing variations');   // and the verb that fixes it
         $page->assertSee('Re-read variations from Shopee');
 
         // The verb runs the same repair the pushes self-heal with.

@@ -204,6 +204,55 @@
     outline-offset: 2px;
 }
 
+/* ── The quiet strip ────────────────────────────────────────────────
+ *
+ * Health off (the owner, 2026-09-09: "just fields to edit. Nothing about
+ * health"). With nothing left to report, a bar in the channel's own colour
+ * still reads as a status banner, so the colour goes with the status: the
+ * strip becomes a plain row of things you can do, on the page's own
+ * surface.
+ *
+ * Every rule above dresses the verbs for paper-on-accent, which is
+ * unreadable once the accent is gone. They are dressed back down here, in
+ * the same order, so nothing is left inheriting a contrast that no longer
+ * exists. */
+.cl-strip--quiet {
+    background: var(--bl-sheet);
+    color: var(--bl-ink);
+    border: 1px solid var(--bl-rule);
+    box-shadow: none;
+    justify-content: flex-end;
+}
+
+.cl-strip--quiet .cl-strip__verbs { margin-left: 0; }
+
+.cl-strip--quiet .cl-strip__verbs .x-btn {
+    border-color: var(--bl-rule-2);
+    background: transparent;
+    color: var(--bl-ink);
+}
+
+.cl-strip--quiet .cl-strip__verbs .x-btn:hover {
+    border-color: var(--bl-ink-3);
+    background: var(--bl-chrome);
+    color: var(--bl-ink);
+}
+
+.cl-strip--quiet .cl-strip__verbs .x-btn--oncolor,
+.cl-strip--quiet .cl-strip__verbs .x-btn--oncolor:hover {
+    border-color: transparent;
+    background: var(--ch-deep, var(--bl-ink));
+    color: var(--bl-paper);
+}
+
+/* The brand cyan, not the channel's own colour: a channel accent on this
+   ground resolves to about 1.2:1 on the darker channels, well under the
+   3:1 WCAG 1.4.11 asks of a focus indicator. FoundationTest says so. */
+.cl-strip--quiet .cl-strip__verbs .x-btn:focus-visible {
+    outline: 2px solid var(--bl-brand);
+    outline-offset: 2px;
+}
+
 .cl-strip__verbs form {
     margin: 0;
 }

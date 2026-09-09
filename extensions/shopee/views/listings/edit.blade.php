@@ -160,8 +160,21 @@
             : null;
     @endphp
 
-    <x-channel.listing-strip channel="Shopee" :state="$stripState" :figures="$stripFigures"
-                             :lastPush="$stripLastPush" :linked="(bool) $link">
+    {{-- HEALTH OFF ON SHOPEE (the owner, 2026-09-09): "What I want to see right
+         now are just fields to edit. Nothing about health." So the state
+         word, the live figures, Last push and the accent are all gone, and
+         the bar keeps only the verbs - what you can DO here, which is not a
+         report about the item. The notes went with them.
+
+         What survives is the required-field handling he asked to keep: the
+         validation summary at the top of the page, the browser's own bubble
+         on the category and the couriers, and the inline field errors.
+
+         This is a deliberate divergence from the other four, written into
+         extensions/CHANNEL-CONTRACT.md, and it is "for now" in his words -
+         the facts still exist and the page can take them back by passing
+         health again. --}}
+    <x-channel.listing-strip channel="Shopee" :health="false" :linked="(bool) $link">
         @if($canManage)
             <x-slot:verbs>
                 @if($link)
@@ -221,37 +234,6 @@
             </x-slot:verbs>
         @endif
 
-        <x-slot:notes>
-            @if($liveError)
-                <div class="fm-note fm-note--fail">
-                    <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'Shopee', 'raw' => $liveError, 'settingsRoute' => 'ext.shopee.index']) Nothing below is stale data standing in for it: the live state is simply unknown until Shopee answers.</div>
-                </div>
-            @endif
-            {{-- The anchors this page can answer itself, keyed on the
-                 gap's CODE and never on its English, which is how a
-                 reworded label silently breaks a link. --}}
-            @include('partials.channel-gap-note', [
-                'gaps' => $readiness['gaps'] ?? [], 'channel' => 'Shopee', 'isLive' => (bool) $link,
-                'productId' => (int) $product->product_id,
-                'anchors' => [
-                    \App\Integrations\Listings\ListingState::GAP_CATEGORY => '#sl-category',
-                    \App\Integrations\Listings\ListingState::GAP_COURIERS => '#sl-couriers',
-                    \App\Integrations\Listings\ListingState::GAP_IMAGE => '#sl-images',
-                    \App\Integrations\Listings\ListingState::GAP_SHEET => '#sl-attributes',
-                    \App\Integrations\Listings\ListingState::GAP_ATTRIBUTES => '#sl-attributes',
-                ],
-            ])
-            @if($live && $staleSincePush)
-                <div class="fm-note fm-note--warn" role="status">
-                    <div class="fm-note__body">The catalog product changed {{ $coreChangedAt->diffInSeconds() < 60 ? 'just now' : $coreChangedAt->diffForHumans() }} - after the last push {{ $listing->last_pushed_at->diffForHumans() }}. Fields without their own wording follow the catalog automatically; Push update to Shopee sends the current state to the live listing.</div>
-                </div>
-            @endif
-            @if($live && ($coverage['missing'] ?? collect())->isNotEmpty())
-                <div class="fm-note">
-                    <div class="fm-note__body">In the catalogue but not on Shopee: {{ $coverage['missing']->map(fn ($v) => $v['sku'] !== '' ? $v['sku'] : $v['name'])->implode(', ') }}. Stock and price pushes skip these and say so. Push missing variations sends them up without touching what is already live.</div>
-                </div>
-            @endif
-        </x-slot:notes>
     </x-channel.listing-strip>
 
     {{-- The record, in the one order this page keeps (the owner, 2026-09-07,

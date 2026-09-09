@@ -166,8 +166,11 @@ class ShopeeListingAttributesTest extends TestCase
         $r->assertSee('Category attributes');
         $r->assertSee('Brand Origin');
         $r->assertSee('Warranty Type');
-        // Readiness names them while unanswered.
-        $r->assertSee('2 required attributes');
+        /* Readiness used to name them in the note above. Health came off
+           this page on 2026-09-09 (the owner: "Nothing about health"), so what
+           is pinned is the sheet itself - the rows the operator answers -
+           and each required row still marks itself. */
+        $r->assertDontSee('2 required attributes');
     }
 
     public function test_saving_answers_stores_them_and_readiness_clears(): void
