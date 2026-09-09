@@ -314,10 +314,12 @@
                          what was just typed, then push. --}}
                     <x-ui.button type="submit" form="listing-form" name="push_after" value="1">Save and push to TikTok Shop</x-ui.button>
                 @endif
-                {{-- Save keeps a half-finished listing on purpose, so it
-                     stands the browser's constraints down; Save and push is
-                     the press the category is required for. --}}
-                <x-ui.button type="submit" form="listing-form" variant="primary" formnovalidate>Save listing</x-ui.button>
+                {{-- Required means required on BOTH presses (the owner,
+                     2026-09-09: "Anything that is required = null should not
+                     save as well"). Save carried formnovalidate for half a
+                     day; a field the page marks with an asterisk and then
+                     saves without teaches that the asterisk means nothing. --}}
+                <x-ui.button type="submit" form="listing-form" variant="primary">Save listing</x-ui.button>
             @endif
         </div>
     </div>
