@@ -109,6 +109,14 @@ class LazadaLinkCheck
                     foreach ($pivots as $p) $p->update(['sync_status' => 'pushed']);
                     $verdicts['linked']++;
                 } else {
+                    /* AND IT IS WRITTEN DOWN (parity, 2026-09-09): dropping
+                     * a link is destructive and left no trace, so an
+                     * operator watching links vanish had nothing to look at
+                     * and no way to tell a correct drop from a wrong one. */
+                    \App\Integrations\Listings\DroppedLink::write(
+                        'Lazada', 'Lazada Product', (int) $productId, (string) $listing->lazada_item_id,
+                        (int) $setting->id, $skusByProduct[$productId] ?? [], count($found)
+                    );
                     $listing->forceFill(['lazada_deleted_at' => now(), 'live_status' => 'missing', 'live_checked_at' => now(), 'last_synced_at' => now(), 'last_sync_action' => 'check', 'last_sync_ok' => false, 'last_sync_error_message' => 'Not found on Lazada'])->save();
                     foreach ($pivots as $p) $p->update(['sync_status' => 'error']);
                     $problems[] = "#{$productId}: not found on Lazada; the link was dropped";

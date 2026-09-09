@@ -641,21 +641,9 @@ class ShopeeLinkCheck
                  * unlinked"). Every fact the decision rested on goes in the
                  * activity log: which item, which SHOP was asked, what it
                  * was searched by, and that the shop was read to the end. */
-                \App\Services\ActivityLogger::log(
-                    'updated',
-                    'Shopee Product',
-                    $productId,
-                    'Link to Shopee item ' . $knownId . ' dropped: shop ' . (int) ($auth['shop_id'] ?? 0)
-                        . ' does not hold it, and no listing there carries ' . implode(', ', array_slice($skus, 0, 5)) . '.',
-                    [
-                        'reason' => 'the scheduled check found the item gone',
-                        'item_id' => $knownId,
-                        'shop_id' => (int) ($auth['shop_id'] ?? 0),
-                        'searched_skus' => array_slice($skus, 0, 20),
-                        'shop_read_completely' => true,
-                        'items_in_shop_index' => count($index['skus']),
-                    ],
-                    'api'
+                \App\Integrations\Listings\DroppedLink::write(
+                    'Shopee', 'Shopee Product', $productId, $knownId,
+                    (int) ($auth['shop_id'] ?? 0), $skus, count($index['skus'])
                 );
 
                 ShopeeProductLink::unlinkProduct($productId);

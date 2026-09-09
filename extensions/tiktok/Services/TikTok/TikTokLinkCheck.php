@@ -99,6 +99,18 @@ class TikTokLinkCheck
                     $this->writeProductStatus((int) $productId, ['tiktok_product_id' => $hit, 'tiktok_sku_id' => null, 'sync_status' => 'pushed', 'push_error' => null]);
                     $verdicts['linked']++;
                 } else {
+                    /* AND IT IS WRITTEN DOWN (parity, 2026-09-09): dropping
+                     * a link is destructive and left no trace, so an
+                     * operator watching links vanish had nothing to look at
+                     * and no way to tell a correct drop from a wrong one. */
+                    \App\Integrations\Listings\DroppedLink::write(
+                        'TikTok Shop', 'TikTok Listing', (int) $productId, (string) $known,
+                        // The store's own id, never the shop cipher: the
+                        // cipher is a credential and this line is read by
+                        // people.
+                        (int) ($c['setting']->id ?? 0),
+                        $skusByProduct[$productId] ?? [], count($shop['products'] ?? [])
+                    );
                     TikTokListing::query()->where('product_id', $productId)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null, 'last_checked_at' => now()]);
                     $this->writeProductStatus((int) $productId, ['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'sync_status' => 'error', 'push_error' => 'Not found on TikTok Shop; the link was dropped.']);
                     $problems[] = "#{$productId}: not found on TikTok Shop; the link was dropped";
