@@ -593,7 +593,7 @@ class ShopeeProductController extends Controller
         $itemIds = ShopeeProductLink::query()->where('product_id', $productId)
             ->pluck('shopee_item_id')->filter()->unique()->values();
 
-        ShopeeProductLink::unlinkProduct($productId);
+        ShopeeProductLink::unlinkProduct($productId, (int) app('shopee.route-store')->id);
         \Extensions\shopee\Models\ShopeeProductGroupProduct::query()
             ->where('product_id', $productId)
             ->whereIn('shopee_product_group_id', ShopeeProductGroup::query()->select('id'))
@@ -618,7 +618,7 @@ class ShopeeProductController extends Controller
             if (!ShopeeStoreProducts::has($pid)) {
                 continue;
             }
-            ShopeeProductLink::unlinkProduct($pid);
+            ShopeeProductLink::unlinkProduct($pid, (int) app('shopee.route-store')->id);
             \Extensions\shopee\Models\ShopeeProductGroupProduct::query()->where('product_id', $pid)
                 ->whereIn('shopee_product_group_id', ShopeeProductGroup::query()->select('id'))->delete();
             ShopeeListing::query()->where('product_id', $pid)->delete();
@@ -1269,7 +1269,7 @@ class ShopeeProductController extends Controller
         // Deleting the links and clearing their cache entries is one operation
         // and lives in one place, so this page and the product-group page
         // cannot drift apart again.
-        $deleted = ShopeeProductLink::unlinkProduct($productId);
+        $deleted = ShopeeProductLink::unlinkProduct($productId, (int) app('shopee.route-store')->id);
 
         if ($deleted === 0) {
             return redirect()->back()->with('error', 'Product was not linked to Shopee.');

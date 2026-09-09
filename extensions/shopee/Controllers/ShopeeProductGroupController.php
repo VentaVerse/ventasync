@@ -1160,7 +1160,7 @@ class ShopeeProductGroupController extends Controller
         // shopee_product_links row that was still there - and the push loop
         // tests that table, so the product stayed skipped as "already linked"
         // however many times it was unlinked.
-        $removed = ShopeeProductLink::unlinkProduct($productId);
+        $removed = ShopeeProductLink::unlinkProduct($productId, (int) app('shopee.route-store')->id);
 
         // Says what happened rather than announcing success either way. A
         // product that was never linked is not an error worth stopping for,

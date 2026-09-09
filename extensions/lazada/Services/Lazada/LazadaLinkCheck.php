@@ -66,6 +66,11 @@ class LazadaLinkCheck
         $pivotQuery = LazadaProductGroupProduct::query()->whereIn('product_id', $productIds);
         if ($group !== null) {
             $pivotQuery->where('lazada_product_group_id', $group->id);
+        } else {
+            // Every pivot the product has ON THIS STORE. Without the fence
+            // a console run wrote another store's pivots as well.
+            $pivotQuery->whereIn('lazada_product_group_id', LazadaProductGroup::query()
+                ->withoutGlobalScope('lazadaStore')->where('lazada_setting_id', (int) $setting->id)->select('id'));
         }
         $pivotsByProduct = $pivotQuery->get()->groupBy('product_id');
 
@@ -80,7 +85,14 @@ class LazadaLinkCheck
                     break;
                 }
             }
-            $listing ??= LazadaProduct::query()->where('product_id', $productId)->first();
+            /* THIS store's listing row, named rather than assumed. The
+               read fence in BelongsToLazadaStore is only up inside a store
+               request, and this runs in the console too, where an
+               unscoped first() hands back whichever store's row sorts
+               first - and everything below then writes to it. */
+            $listing ??= LazadaProduct::query()
+                ->withoutGlobalScope('lazadaStore')->where('lazada_setting_id', (int) $setting->id)
+                ->where('product_id', $productId)->first();
             $hits = [];
             $hitStatuses = [];
             foreach ($skusByProduct[$productId] ?? [] as $sku) {

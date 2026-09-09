@@ -278,7 +278,7 @@ class ShopeeReconcileTest extends TestCase
         $body = $this->methodBody('reconcile');
 
         $this->assertMatchesRegularExpression(
-            "/unlinkProduct\(\\\$productId\);(?:(?!return).)*'sync_status' => 'pending'/s",
+            "/unlinkProduct\(\\\$productId,.*?\);(?:(?!return).)*'sync_status' => 'pending'/s",
             $body,
             'A product Shopee lost is left marked unlinked, which reads as a deliberate act and '
             .'stops Send offering to recreate it.'

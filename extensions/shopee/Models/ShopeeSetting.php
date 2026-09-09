@@ -178,6 +178,7 @@ class ShopeeSetting extends Model
         if (!$setting) {
             return [
                 'mode'          => 'sandbox',
+                'store_id'      => null,
                 'partner_id'    => null,
                 'partner_key'   => null,
                 'shop_id'       => null,
@@ -202,6 +203,12 @@ class ShopeeSetting extends Model
 
         return [
             'mode'          => $mode,
+            /* OUR store's id, beside Shopee's shop id, because a caller
+               holding auth is acting FOR one store and anything it writes
+               has to be fenced to that store. The console has no read
+               fence (BelongsToShopeeStore), so a cron that could not name
+               its store wrote across all of them. */
+            'store_id'      => isset($setting->id) ? (int) $setting->id : null,
             'partner_id'    => $partnerId,
             'partner_key'   => $partnerKey,
             'shop_id'       => $shopId,

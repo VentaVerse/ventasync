@@ -646,7 +646,9 @@ class ShopeeLinkCheck
                     (int) ($auth['shop_id'] ?? 0), $skus, count($index['skus'])
                 );
 
-                ShopeeProductLink::unlinkProduct($productId);
+                /* The store that was actually asked, never "every store":
+                   this runs in the console, where the read fence is down. */
+                ShopeeProductLink::unlinkProduct($productId, (int) ($auth['store_id'] ?? 0));
 
                 // unlinkProduct leaves the row saying 'unlinked', which is the
                 // word for a deliberate act by the operator. Nobody unlinked

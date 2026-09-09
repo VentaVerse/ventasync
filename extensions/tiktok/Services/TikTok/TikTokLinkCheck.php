@@ -111,7 +111,14 @@ class TikTokLinkCheck
                         (int) ($c['setting']->id ?? 0),
                         $skusByProduct[$productId] ?? [], count($shop['products'] ?? [])
                     );
-                    TikTokListing::query()->where('product_id', $productId)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null, 'last_checked_at' => now()]);
+                    /* THIS store's row, named rather than assumed: the read
+                       fence in BelongsToTikTokStore is only up inside a store
+                       request, and dropping a link from the console used to
+                       drop it on every shop that held the product. */
+                    TikTokListing::query()
+                        ->withoutGlobalScope('tiktokStore')->where('tiktok_setting_id', (int) ($c['setting']->id ?? 0))
+                        ->where('product_id', $productId)
+                        ->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null, 'last_checked_at' => now()]);
                     $this->writeProductStatus((int) $productId, ['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'sync_status' => 'error', 'push_error' => 'Not found on TikTok Shop; the link was dropped.']);
                     $problems[] = "#{$productId}: not found on TikTok Shop; the link was dropped";
                     $verdicts['lost']++;

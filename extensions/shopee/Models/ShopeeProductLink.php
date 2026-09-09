@@ -84,13 +84,30 @@ class ShopeeProductLink extends Model
      * global. A product linked to one Shopee item is not linked to it in one
      * group and unlinked in another.
      *
-     * Returns the number of link rows removed.
+     * IT IS NOT GLOBAL ACROSS STORES, and it used to be. The store is named
+     * rather than assumed (the owner, 2026-09-09, wondering aloud whether his
+     * vanishing links were "the same products up on different stores,
+     * different API, and keys" - they were exactly that).
+     *
+     * This deleted every row for the product and relied on the read fence
+     * in BelongsToShopeeStore to keep it honest. That fence is only up
+     * inside a store REQUEST; the scheduled link check runs in the console,
+     * where the fence adds nothing by design, so one shop deciding an item
+     * was gone deleted that product's link on every other Shopee shop too.
+     * The other shop's item was alive and untouched; the ERP had simply
+     * forgotten it, which is precisely what "the listings unsynced by
+     * themselves" looks like.
+     *
+     * Returns the number of link rows removed - for this store.
      */
-    public static function unlinkProduct(int $productId): int
+    public static function unlinkProduct(int $productId, int $storeId): int
     {
-        $links = static::query()->where('product_id', $productId)->get();
+        /* Named, and named without the fence: correct whether or not a
+           store request happens to be bound, and identical in both. */
+        $mine = fn () => static::query()->withoutGlobalScope('shopeeStore')
+            ->where('shopee_setting_id', $storeId)->where('product_id', $productId);
 
-        foreach ($links as $link) {
+        foreach ($mine()->get() as $link) {
             // Keyed on item AND sku so a different product sharing the item
             // keeps its own cache row.
             ShopeeItemCache::query()
@@ -99,14 +116,17 @@ class ShopeeProductLink extends Model
                 ->delete();
         }
 
-        $removed = static::query()->where('product_id', $productId)->delete();
+        $removed = $mine()->delete();
 
-        // Runs even when there was no link. A pivot can hold an id the link
-        // table has already lost - that is exactly the state this bug left
-        // behind - and refusing to clear it because the link is missing would
-        // preserve the leftover forever.
+        /* Runs even when there was no link. A pivot can hold an id the link
+           table has already lost - that is exactly the state this bug left
+           behind - and refusing to clear it because the link is missing
+           would preserve the leftover forever. This store's groups only,
+           for the same reason as above. */
         ShopeeProductGroupProduct::query()
             ->where('product_id', $productId)
+            ->whereIn('shopee_product_group_id', ShopeeProductGroup::query()
+                ->withoutGlobalScope('shopeeStore')->where('shopee_setting_id', $storeId)->select('id'))
             ->update([
                 'shopee_item_id' => null,
                 'sync_status' => 'unlinked',
