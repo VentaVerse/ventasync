@@ -105,6 +105,8 @@ class TikTokListingController extends Controller
             'attrRows' => $attributes->rows($template),
             'savedAttributes' => $listing->attribute_values ?? [],
             'readinessMissing' => $readiness['missing'],
+            // The gaps by CODE, so the page can link each one to where it is fixed.
+            'readiness' => $readiness,
             'images' => \App\Support\Catalog\ProductImages::urls($productId),
             'groupCard' => $this->groupCardFor($productId),
             'storeId' => (int) (TikTokSetting::defaultStore()?->id ?? 0),

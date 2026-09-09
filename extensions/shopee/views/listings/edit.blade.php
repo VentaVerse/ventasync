@@ -230,28 +230,23 @@
             @endif
             @if(!empty($missing))
                 <div class="fm-note">
-                    @php
-                        /* Each gap links to the exact field that fills it;
-                           "below" is 2,400px away on a phone. Keyed on the
-                           gap's CODE (Phase B, #184) - this used to
-                           substring-match the English sentence, which is
-                           how a reworded label silently breaks a link. */
-                        $gapHrefs = [
+                    {{-- Every gap is a link, and the sentence says the one
+                         thing it is for. What this page can fix links to the
+                         field; what the CATALOG owns - a SKU, a name, a
+                         price, a parcel - links to the catalog product,
+                         because telling somebody to "save" a field that is
+                         not on screen teaches them nothing (the owner,
+                         2026-09-09). Keyed on the gap's CODE, never on its
+                         English, which is how a reworded label silently
+                         breaks a link. --}}
+                    <div class="fm-note__body">{!! \App\Integrations\Listings\GapLinks::sentence(
+                        $readiness['gaps'] ?? [], (int) $product->product_id, 'Shopee', (bool) $link, [
                             \App\Integrations\Listings\ListingState::GAP_CATEGORY => '#sl-category',
                             \App\Integrations\Listings\ListingState::GAP_COURIERS => '#sl-couriers',
                             \App\Integrations\Listings\ListingState::GAP_IMAGE => '#sl-images',
                             \App\Integrations\Listings\ListingState::GAP_SHEET => '#sl-attributes',
                             \App\Integrations\Listings\ListingState::GAP_ATTRIBUTES => '#sl-attributes',
-                        ];
-                        $gapLinks = collect($readiness['gaps'] ?? [])->map(function ($gap) use ($gapHrefs) {
-                            $href = $gapHrefs[$gap['code']] ?? null;
-                            return $href ? '<a href="' . e($href) . '">' . e($gap['label']) . '</a>' : e($gap['label']);
-                        })->all();
-                        $gapWords = count($gapLinks) > 1
-                            ? implode(', ', array_slice($gapLinks, 0, -1)) . ' and ' . end($gapLinks)
-                            : ($gapLinks[0] ?? '');
-                    @endphp
-                    <div class="fm-note__body">{{ $link ? 'Push update needs' : 'Before it can go to Shopee, this listing still needs' }} {!! $gapWords !!} before it can run. Set what is missing and save.</div>
+                        ]) !!}</div>
                 </div>
             @endif
             @if($live && $staleSincePush)

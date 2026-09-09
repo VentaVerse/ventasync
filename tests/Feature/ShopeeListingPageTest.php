@@ -208,6 +208,36 @@ class ShopeeListingPageTest extends TestCase
     }
 
     /**
+     * WHAT IS MISSING IS A LINK TO WHERE IT IS FIXED.
+     *
+     * The note used to name a SKU and then say "set what is missing and
+     * save" - on a page with no SKU field, because the SKU belongs to the
+     * catalog product. The owner, 2026-09-09: "Its a reminder that looks like
+     * it doesnt belong and it doesnt really teach the user."
+     */
+    public function test_a_gap_the_catalog_owns_links_to_the_catalog_product(): void
+    {
+        $pfx = (string) config('catalog.prefix');
+        $productId = $this->seedProduct();
+        DB::table($pfx . 'product')->where('product_id', $productId)->update(['sku' => '', 'model' => '']);
+
+        $html = $this->actingAs($this->manager())
+            ->get(route('ext.shopee.listings.edit', $productId))->assertOk()->getContent();
+
+        $this->assertStringContainsString('a SKU on the catalog product', $html);
+        $this->assertStringContainsString(
+            '<a href="' . e(route('products.edit', $productId)) . '">a SKU on the catalog product</a>',
+            $html,
+            'A gap the catalog owns must carry the operator to the catalog product; naming a field that is '
+            . 'not on this page teaches nothing.'
+        );
+
+        // And the sentence stopped apologising.
+        $this->assertStringNotContainsString('before it can run', $html);
+        $this->assertStringNotContainsString('Set what is missing and save', $html);
+    }
+
+    /**
      * The rail reports where a listing goes: the one group it is in on this
      * store, and what that group lends a listing with no rule of its own.
      */

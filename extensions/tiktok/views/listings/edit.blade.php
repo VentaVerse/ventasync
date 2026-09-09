@@ -125,7 +125,14 @@
             @endif
             @if(!empty($missing))
                 <div class="fm-note">
-                    <div class="fm-note__body">{{ $listed ? 'Push update needs' : 'Before it can go to TikTok Shop, this listing still needs' }} {{ implode(', ', $missing) }} before it can run. Set what is missing and save.</div>
+                    {{-- Every gap is a link; what the catalog owns leads to
+                         the catalog product. See the note on Shopee's. --}}
+                    <div class="fm-note__body">{!! \App\Integrations\Listings\GapLinks::sentence(
+                        $readiness['gaps'] ?? [], (int) $product->product_id, 'TikTok Shop', (bool) $listed, [
+                            \App\Integrations\Listings\ListingState::GAP_CATEGORY => '#tt-category',
+                            \App\Integrations\Listings\ListingState::GAP_SHEET => '#tt-attributes',
+                            \App\Integrations\Listings\ListingState::GAP_ATTRIBUTES => '#tt-attributes',
+                        ]) !!}</div>
                 </div>
             @endif
             @if($listed && !empty($coverage['missing']))
