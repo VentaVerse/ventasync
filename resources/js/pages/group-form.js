@@ -209,12 +209,47 @@ function initCategoryCombo(root) {
     const extraEmptyText = root.getAttribute('data-combo-extra-empty') || 'Pick a category first.';
     if (!input || !value || !results) return;
 
+    /* REQUIRED, THE WAY THE CORE PRODUCT FORM IS REQUIRED (the owner,
+     * 2026-09-09: "Best is we use the same pop up requirement in the core
+     * listing page... the default laravel and browser requirement
+     * feedback"). The browser's own bubble, on the button that needs the
+     * field, focusing the field it names.
+     *
+     * It has to hang off the VISIBLE input. The pick lives in a hidden
+     * input, and a hidden control cannot be validated or focused - the
+     * browser refuses the submit and shows NOTHING, which is worse than no
+     * constraint at all.
+     *
+     * And it is setCustomValidity rather than the `required` attribute,
+     * for two reasons that both come from the same fact: the visible box
+     * holds WORDS and the hidden input holds the answer.
+     *
+     *   - Typing voids the pick (see the input listener below, by design),
+     *     so a box full of text can sit over an empty id. `required` would
+     *     call that filled.
+     *   - A remote combo opens EMPTY and fills itself from a lookup a
+     *     moment later, so `required` would refuse a listing that has had
+     *     a category for months, in the seconds before the name arrives.
+     *
+     * Validity is therefore a plain function of the real value, and the
+     * message names what is wanted rather than saying "fill this in". Same
+     * native bubble, same focus, same behaviour as the core product form's
+     * own required fields. */
+    const mustPick = root.getAttribute('data-combo-required');
+
+    function syncValidity() {
+        if (mustPick === null || typeof input.setCustomValidity !== 'function') return;
+        const picked = String(value.value || '').trim() !== '';
+        input.setCustomValidity(picked ? '' : (mustPick || 'Pick one from the list.'));
+    }
+
     // When what this combobox depends on changes, its own pick is void:
     // a brand id from one category means nothing in another.
     if (extraSource) {
         extraSource.addEventListener('change', function () {
             value.value = '';
             input.value = '';
+            syncValidity();
             hide();
             warm();
         });
@@ -361,6 +396,7 @@ function initCategoryCombo(root) {
         // picked words ride a sibling hidden input when the page asks.
         const labelStore = root.querySelector('[data-combo-label-store]');
         if (labelStore) labelStore.value = label;
+        syncValidity();
         // Without this, focus was left on the option button, which the
         // hide() above turns into `display: none`; a hidden element cannot
         // hold focus, so the browser drops it to <body> and a keyboard
@@ -498,6 +534,7 @@ function initCategoryCombo(root) {
         // choose a category, edit the words, and save an id that no
         // longer matches what the box says.
         value.value = '';
+        syncValidity();
         window.clearTimeout(timer);
         const query = input.value.trim();
         timer = window.setTimeout(function () { search(query); }, 200);
@@ -507,6 +544,11 @@ function initCategoryCombo(root) {
         if (suppressFocusSearch) { suppressFocusSearch = false; return; }
         search(input.value.trim());
     });
+
+    // A page that opens with words in the box and no pick behind them - a
+    // refused save handing back what was typed - is in the hole from the
+    // first frame, not from the first keystroke.
+    syncValidity();
 
     input.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') { hide(); return; }

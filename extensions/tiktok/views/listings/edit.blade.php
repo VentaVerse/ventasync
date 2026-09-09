@@ -181,9 +181,8 @@
                     <div class="fm-section__head"><h2 class="fm-section__title">Category and brand</h2></div>
                     <div class="fm-fields">
                         <x-ui.field label="TikTok category" for="tl-category" name="tiktok_category_id" :required="true" wide
-                                    :need="trim((string) old('tiktok_category_id', $listing->tiktok_category_id ?? '')) === '' ? 'Required before a push.' : null"
                                     hint="Only leaf categories are listed. TikTok Shop accepts nothing else.">
-                            <div class="gf-combo" data-category-combo data-combo-mode="remote"
+                            <div class="gf-combo" data-category-combo data-combo-required="Pick a TikTok category from the list." data-combo-mode="remote"
                                  data-combo-search-url="{{ route('ext.tiktok.products.searchCategories') }}"
                                  data-combo-lookup-url="{{ route('ext.tiktok.products.categoryLookup') }}">
                                 <div class="gf-combo__field">
@@ -315,7 +314,10 @@
                          what was just typed, then push. --}}
                     <x-ui.button type="submit" form="listing-form" name="push_after" value="1">Save and push to TikTok Shop</x-ui.button>
                 @endif
-                <x-ui.button type="submit" form="listing-form" variant="primary">Save listing</x-ui.button>
+                {{-- Save keeps a half-finished listing on purpose, so it
+                     stands the browser's constraints down; Save and push is
+                     the press the category is required for. --}}
+                <x-ui.button type="submit" form="listing-form" variant="primary" formnovalidate>Save listing</x-ui.button>
             @endif
         </div>
     </div>

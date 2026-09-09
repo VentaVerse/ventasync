@@ -344,7 +344,6 @@
 
                     <div class="fm-fields">
                         <x-ui.field label="Lazada category" for="lz-category" name="primary_category_id" :required="true" wide
-                                    :need="trim((string) old('primary_category_id', $listing->primary_category_id ?? '')) === '' ? 'Required before a push.' : null"
                                     hint="{{ $mode === 'create' ? 'Pick the category; its attributes are filled in on the edit screen.' : 'Pick the category and its attributes appear below.' }}">
                             {{-- The shared searchable combobox instead of a
                                  5,000-option select (the owner, 2026-08-24).
@@ -360,7 +359,7 @@
                                     'name' => (string) $c->name,
                                 ])->values();
                             @endphp
-                            <div class="gf-combo" data-category-combo data-combo-mode="local">
+                            <div class="gf-combo" data-category-combo data-combo-required="Pick a Lazada category from the list." data-combo-mode="local">
                                 <div class="gf-combo__field">
                                     <input type="hidden" name="primary_category_id" data-combo-value
                                            value="{{ $lzSelectedCategoryId }}">
@@ -631,7 +630,10 @@
             : 'Save listing keeps everything on this page. Save and push keeps it and sends the listing to Lazada.' }}</span>
         <div class="fm-bar__actions">
             <a class="fm-cancel" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.lazada.products.index')) }}" data-guard-leave>Cancel</a>
-            <x-ui.button type="submit" form="lazada-listing" :variant="$mode === 'edit' ? 'secondary' : 'primary'">{{ $mode === 'create' ? 'Create listing' : 'Save listing' }}</x-ui.button>
+            {{-- Save keeps a half-finished listing on purpose, so it
+                 stands the browser's constraints down; Save and push is the
+                 press the category is required for. --}}
+            <x-ui.button type="submit" form="lazada-listing" :variant="$mode === 'edit' ? 'secondary' : 'primary'" formnovalidate>{{ $mode === 'create' ? 'Create listing' : 'Save listing' }}</x-ui.button>
             @if($mode === 'edit')
                 <x-ui.button type="submit" form="lazada-listing" name="push" value="1" variant="primary">{{ empty($listing->lazada_item_id) ? 'Save and push to Lazada' : 'Save and push the update' }}</x-ui.button>
             @endif

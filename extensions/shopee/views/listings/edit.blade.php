@@ -309,10 +309,10 @@
                     </div>
                     <div class="fm-fields">
                         <x-ui.field label="Shopee category" for="sl-category" name="shopee_category_id" :required="true" wide
-                                    :need="$selectedCategoryId > 0 ? null : 'Required before a push.'"
                                     hint="Only leaf categories are listed. Shopee accepts nothing else.">
                             <div class="gf-combo"
                                  data-category-combo
+                                 data-combo-required="Pick a Shopee category from the list."
                                  data-combo-mode="remote"
                                  data-combo-search-url="{{ route('ext.shopee.products.searchCategories') }}"
                                  data-combo-lookup-url="{{ route('ext.shopee.products.categoryLookup') }}">
@@ -586,7 +586,10 @@
                          still missing instead of pushing blind. --}}
                     <x-ui.button type="submit" form="listing-form" name="push_after" value="1">Save and push to Shopee</x-ui.button>
                 @endif
-                <x-ui.button type="submit" form="listing-form" variant="primary">Save listing</x-ui.button>
+                {{-- Save keeps a half-finished listing on purpose, so it
+                     stands the browser's constraints down; Save and push is
+                     the press the category is required for. --}}
+                <x-ui.button type="submit" form="listing-form" variant="primary" formnovalidate>Save listing</x-ui.button>
             @endif
         </div>
     </div>

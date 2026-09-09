@@ -313,15 +313,6 @@
         color: var(--bl-bad);
     }
 
-    /* Not an error, a requirement not yet met: the attention hue, not the
-       failure one. Nothing has been refused - this field has simply not
-       been filled and a push will be turned away for it. Same words and
-       same weight as the attribute rows' own marker (.gf-attr__need). */
-    .fm-need {
-        font-size: 12px;
-        font-weight: 600;
-        color: var(--bl-attn);
-    }
 
     /* An action that belongs to one section rather than to the page's save
        bar: Purge now under the log retentions. Wraps on a phone so the
