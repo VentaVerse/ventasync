@@ -309,6 +309,7 @@
                     </div>
                     <div class="fm-fields">
                         <x-ui.field label="Shopee category" for="sl-category" name="shopee_category_id" :required="true" wide
+                                    :need="$selectedCategoryId > 0 ? null : 'Required before a push.'"
                                     hint="Only leaf categories are listed. Shopee accepts nothing else.">
                             <div class="gf-combo"
                                  data-category-combo

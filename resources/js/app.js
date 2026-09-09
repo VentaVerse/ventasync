@@ -38,6 +38,7 @@ import './pages/description-template';
 import './pages/listing-images';
 import './pages/listing-strip';
 import './pages/unsaved-guard';
+import './pages/gap-jump';
 import './pages/group-products';
 import './pages/channel-listing-form';
 import './pages/channel-import';

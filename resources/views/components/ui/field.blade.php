@@ -10,6 +10,13 @@
     // manufacturer_name's error beside the visible text input, exactly where
     // the pre-redesign view put it).
     'errorKey' => null,
+    /* Said BEFORE a push, not only after the marketplace refuses: a
+       required field that is still empty says so where it is empty, the
+       way Lazada's attribute rows have since they were built. The
+       marketplace's own refusal, when there is one, wins the line -
+       "Required before a push" under a field that has just been refused
+       for a different reason would be the smaller truth. */
+    'need' => null,
 ])
 
 @php
@@ -41,5 +48,6 @@
 
     {{-- Same position the old views put @error in: directly under the
          control it belongs to, one message, never a summary at the top. --}}
-    @if($message)<div class="fm-error" @if($controlId) id="{{ $controlId }}-error" @endif>{{ $message }}</div>@endif
+    @if($message)<div class="fm-error" @if($controlId) id="{{ $controlId }}-error" @endif>{{ $message }}</div>
+    @elseif($need)<div class="fm-need" @if($controlId) id="{{ $controlId }}-error" @endif>{{ $need }}</div>@endif
 </div>

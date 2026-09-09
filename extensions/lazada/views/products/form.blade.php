@@ -344,6 +344,7 @@
 
                     <div class="fm-fields">
                         <x-ui.field label="Lazada category" for="lz-category" name="primary_category_id" :required="true" wide
+                                    :need="trim((string) old('primary_category_id', $listing->primary_category_id ?? '')) === '' ? 'Required before a push.' : null"
                                     hint="{{ $mode === 'create' ? 'Pick the category; its attributes are filled in on the edit screen.' : 'Pick the category and its attributes appear below.' }}">
                             {{-- The shared searchable combobox instead of a
                                  5,000-option select (the owner, 2026-08-24).

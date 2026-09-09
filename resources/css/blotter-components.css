@@ -220,6 +220,27 @@
        with the sentence, a control by weight and shape, not a link that
        reads as prose. */
     .fm-note__act { margin: 2px 0 2px 8px; vertical-align: middle; }
+    /* Where that button took you (resources/js/pages/gap-jump.js). A
+       same-page jump is silent and, when the section is already on screen,
+       invisible - so the section it lands on says "here" for a moment.
+       The ring is the attention hue rather than the failure one: nothing
+       is broken, something is unset. */
+    .is-wanted {
+        border-radius: var(--bl-r-ctrl);
+        animation: fm-wanted 2.6s ease-out 1;
+    }
+
+    @keyframes fm-wanted {
+        0%, 62% { box-shadow: 0 0 0 2px var(--bl-attn); }
+        100% { box-shadow: 0 0 0 2px transparent; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        /* The mark still happens, it simply does not fade: motion is the
+           decoration here, the ring is the message. */
+        .is-wanted { animation: none; box-shadow: 0 0 0 2px var(--bl-attn); }
+    }
+
     .fm-note__more { margin-top: 6px; font-size: 12.5px; }
     .fm-note__more > summary { cursor: pointer; color: var(--bl-alert-link); list-style: none; }
     .fm-note__more > summary::-webkit-details-marker { display: none; }
@@ -290,6 +311,16 @@
         font-size: 12px;
         font-weight: 600;
         color: var(--bl-bad);
+    }
+
+    /* Not an error, a requirement not yet met: the attention hue, not the
+       failure one. Nothing has been refused - this field has simply not
+       been filled and a push will be turned away for it. Same words and
+       same weight as the attribute rows' own marker (.gf-attr__need). */
+    .fm-need {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--bl-attn);
     }
 
     /* An action that belongs to one section rather than to the page's save

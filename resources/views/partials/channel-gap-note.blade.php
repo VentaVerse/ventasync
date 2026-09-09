@@ -22,6 +22,12 @@
       isLive     bool    already on the store (so it is an update that would be refused)
       productId  int     the catalog product, for the button
       anchors    array<string,string>  (optional) gap code => an anchor on THIS page
+
+    An anchor here MUST be an id this page actually renders. A dead one is
+    a button that does nothing at all when pressed, which is worse than no
+    button (the owner, 2026-09-09, on TikTok's, which pointed at #tt-category
+    while the section was tl-category-section). ChannelParityTest checks
+    every anchor against the page.
 --}}
 @php
     $gaps = array_values(array_filter((array) ($gaps ?? [])));
@@ -31,6 +37,6 @@
 @endphp
 @if($gaps !== [])
     <div class="fm-note fm-note--warn" role="status">
-        <div class="fm-note__body">{{ \App\Integrations\Listings\GapLinks::sentence($gaps, $channel, (bool) $isLive) }}@if($gapAction)<a class="x-btn x-btn--primary x-btn--sm fm-note__act" href="{{ $gapAction['href'] }}">{{ $gapAction['label'] }}</a>@endif</div>
+        <div class="fm-note__body">{{ \App\Integrations\Listings\GapLinks::sentence($gaps, $channel, (bool) $isLive) }}@if($gapAction)<a class="x-btn x-btn--primary x-btn--sm fm-note__act" href="{{ $gapAction['href'] }}"@if($gapAction['onPage'] ?? false) data-gap-jump @endif>{{ $gapAction['label'] }}</a>@endif</div>
     </div>
 @endif

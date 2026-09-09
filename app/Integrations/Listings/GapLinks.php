@@ -100,23 +100,53 @@ final class GapLinks
      *
      * The catalog product wins when it owns ANY of the gaps, because that
      * is the page this one cannot reach. When every gap is on this page
-     * the button jumps to the first of them.
+     * the button goes to the first of them - and NAMES it.
+     *
+     * the owner, 2026-09-09, pressing "Go to what is missing" on a TikTok
+     * listing: "There is a button here. Since it is in the same page.
+     * There is no redirection. But there is no pointing to the tiktok
+     * category either." A button that leads somewhere the reader is
+     * already looking at has to say what it is taking them to, or pressing
+     * it is indistinguishable from pressing nothing. So the label is the
+     * gap's own words - "Set a TikTok category" - and `onPage` tells the
+     * page to point at the field rather than only scroll near it.
      *
      * @param  list<array{code: string, label: string}>  $gaps
      * @param  array<string, string>  $anchors  gap code => an anchor on THIS page
-     * @return array{href: string, label: string}|null
+     * @return array{href: string, label: string, onPage: bool}|null
      */
     public static function action(array $gaps, int $productId, array $anchors = []): ?array
     {
-        $onPage = null;
         foreach ($gaps as $gap) {
             $code = (string) ($gap['code'] ?? '');
             if (in_array($code, self::CATALOG_OWNED, true) && ! isset($anchors[$code])) {
-                return ['href' => route('products.edit', $productId), 'label' => 'Open the catalog product'];
+                return [
+                    'href' => route('products.edit', $productId),
+                    'label' => 'Open the catalog product',
+                    'onPage' => false,
+                ];
             }
-            $onPage = $onPage ?? ($anchors[$code] ?? null);
+            if (isset($anchors[$code])) {
+                return [
+                    'href' => $anchors[$code],
+                    'label' => self::setLabel((string) ($gap['label'] ?? '')),
+                    'onPage' => true,
+                ];
+            }
         }
 
-        return $onPage !== null ? ['href' => $onPage, 'label' => 'Go to what is missing'] : null;
+        return null;
+    }
+
+    /**
+     * "a TikTok category" becomes "Set a TikTok category". The gap labels
+     * are written as the tail of a sentence ("it needs a TikTok category"),
+     * which is exactly the shape a verb wants in front of it.
+     */
+    private static function setLabel(string $label): string
+    {
+        $label = trim($label);
+
+        return $label === '' ? 'Go to what is missing' : 'Set ' . $label;
     }
 }

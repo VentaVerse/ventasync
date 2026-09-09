@@ -130,9 +130,9 @@
                 'gaps' => $readiness['gaps'] ?? [], 'channel' => 'TikTok Shop', 'isLive' => (bool) $listed,
                 'productId' => (int) $product->product_id,
                 'anchors' => [
-                    \App\Integrations\Listings\ListingState::GAP_CATEGORY => '#tt-category',
-                    \App\Integrations\Listings\ListingState::GAP_SHEET => '#tt-attributes',
-                    \App\Integrations\Listings\ListingState::GAP_ATTRIBUTES => '#tt-attributes',
+                    \App\Integrations\Listings\ListingState::GAP_CATEGORY => '#tl-category-section',
+                    \App\Integrations\Listings\ListingState::GAP_SHEET => '#tl-attributes',
+                    \App\Integrations\Listings\ListingState::GAP_ATTRIBUTES => '#tl-attributes',
                 ],
             ])
             @if($listed && !empty($coverage['missing']))
@@ -181,6 +181,7 @@
                     <div class="fm-section__head"><h2 class="fm-section__title">Category and brand</h2></div>
                     <div class="fm-fields">
                         <x-ui.field label="TikTok category" for="tl-category" name="tiktok_category_id" :required="true" wide
+                                    :need="trim((string) old('tiktok_category_id', $listing->tiktok_category_id ?? '')) === '' ? 'Required before a push.' : null"
                                     hint="Only leaf categories are listed. TikTok Shop accepts nothing else.">
                             <div class="gf-combo" data-category-combo data-combo-mode="remote"
                                  data-combo-search-url="{{ route('ext.tiktok.products.searchCategories') }}"
