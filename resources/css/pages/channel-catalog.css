@@ -1010,17 +1010,27 @@ body.cc-addpanel-open { overflow: hidden; }
    reads as a page that lost rows, so the filter says itself in the same
    words the chip used, with the way out beside it.
    ------------------------------------------------------------ */
+/* Written first as a rounded card with a thick accent rail down its left
+   edge, which is the single most recognisable tell of a generated
+   interface and is on this project's own banned list. It is not a card at
+   all: it is a line of state above a table, so it wears the grammar this
+   application already uses for state everywhere else - a square and a
+   word (.x-badge) - over a hairline. */
 .cs-filter {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     flex-wrap: wrap;
     gap: 4px 10px;
-    margin: 0 0 12px;
-    padding: 9px 12px;
-    border: 1px solid var(--bl-rule-2);
-    border-left: 3px solid var(--bl-attn-fill);
-    border-radius: 8px;
-    background: var(--bl-sheet);
+    margin: 0 0 14px;
+    padding-bottom: 9px;
+    border-bottom: 1px solid var(--bl-rule-2);
+}
+
+.cs-filter__mark {
+    width: 8px;
+    height: 8px;
+    flex: none;
+    background: var(--bl-attn-fill);
 }
 
 .cs-filter__k {
