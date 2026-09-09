@@ -9,14 +9,55 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * Read-only inventory access for external API clients (scope: inventory:read).
+ * Inventory for external API clients: reading on inventory:read, and one
+ * write on inventory:write (#177).
  *
- * Surfaces stock levels against each product's reorder level so an external
- * tool can flag low stock and reason about restocking (combine with the
- * reports endpoint for sales velocity and cost/price for margin).
+ * The read surfaces stock levels against each product's reorder level so an
+ * external tool can flag low stock and reason about restocking (combine with
+ * the reports endpoint for sales velocity and cost/price for margin).
  */
 class InventoryController extends Controller
 {
+    /**
+     * POST /api/v1/inventory/adjust - one quantity, with a stated reason.
+     *
+     * A variation is named by its SKU, the same code every list prints and
+     * every channel keys on. The product's own quantity can be set only
+     * when it has no variations; where it has them it is their sum, and
+     * the answer returns the recomputed total so the caller can report it
+     * without asking again.
+     */
+    public function adjust(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'product_id' => 'required|integer|min:1',
+            'variation_sku' => 'nullable|string|max:64',
+            // Exactly one of the two. A caller that knows the count says
+            // it; a caller recording an arrival says how many arrived.
+            'new_quantity' => 'required_without:change_by|prohibits:change_by|nullable|integer|min:0|max:99999999',
+            'change_by' => 'required_without:new_quantity|nullable|integer|min:-99999999|max:99999999',
+            'reason' => 'required|string|min:3|max:500',
+        ]);
+
+        try {
+            $result = app(\App\Services\Catalog\ProductQuantityWriter::class)->set(
+                (int) $data['product_id'],
+                $data['variation_sku'] ?? null,
+                isset($data['new_quantity']) ? (int) $data['new_quantity'] : null,
+                isset($data['change_by']) ? (int) $data['change_by'] : null,
+                trim((string) $data['reason']),
+                (string) ($request->user()?->name ?? 'An API application')
+            );
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json($result + [
+            'note' => 'Saved on the catalog product. Marketplace stock changes on the next stock push or sync, not now. '
+                . 'Stock that arrived on a purchase order should be received in Purchasing instead, so its unit cost is recorded.',
+        ]);
+    }
+
     public function index(Request $request): JsonResponse
     {
         $request->validate([

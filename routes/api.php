@@ -105,6 +105,10 @@ Route::prefix('v1')->middleware(['auth:sanctum', 'api.audit'])->group(function (
         Route::get('/inventory', [\App\Http\Controllers\Api\V1\InventoryController::class, 'index']);
     });
 
+    Route::middleware('scope:inventory:write')->group(function () {
+        Route::post('/inventory/adjust', [\App\Http\Controllers\Api\V1\InventoryController::class, 'adjust']);
+    });
+
     Route::middleware('scope:orders:read')->group(function () {
         Route::get('/orders', [\App\Http\Controllers\Api\V1\OrderController::class, 'index']);
         Route::get('/orders/{id}', [\App\Http\Controllers\Api\V1\OrderController::class, 'show'])->whereNumber('id');
