@@ -102,6 +102,12 @@
     @include('ext-shopee::products._scope_strips', ['stripRoute' => 'ext.shopee.products.index', 'stripParams' => []])
 @endif
 
+@include('partials.channel-state-filter', [
+    'bucket' => $troubleFilter ?? null,
+    'count' => $products->total(),
+    'clear' => route('ext.shopee.products.index', request()->except(['state', 'page'])),
+])
+
 {{-- One filter row. The old page had a five-column CSS grid of labelled
      selects inside a card; the selects here submit on change (data-autosubmit,
      resources/js/list-filters.js) so there is no Filter button to press, and

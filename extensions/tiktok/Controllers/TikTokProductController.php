@@ -164,6 +164,16 @@ class TikTokProductController extends Controller
             $query->whereIn('p.product_id', $tabProductIds ?: [0]);
         }
 
+
+        /* The dashboard's own figures, as a filter (#240): a chip that says
+         * "3 listings need attention" links here with ?state=attention, and
+         * the rows are fetched by the SAME query that counted them. */
+        $troubleFilter = \App\Integrations\Listings\ListingTrouble::asked($request->query('state'));
+        if ($troubleFilter !== null) {
+            $troubleIds = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)->productIdsIn($troubleFilter);
+            $query->whereIn('p.product_id', $troubleIds ?: [0]);
+        }
+
         $query->orderBy($sortColumns[$sort], $dir);
         if ($sortColumns[$sort] !== 'p.product_id') {
             $query->orderBy('p.product_id', 'asc');
@@ -239,6 +249,7 @@ class TikTokProductController extends Controller
 
         return view('ext-tiktok::products.index', [
             'products' => $products,
+            'troubleFilter' => $troubleFilter,
             'listingStates' => $listingStates,
             'rowErrors' => $rowErrors,
             'listedTotal' => $listedTotal,

@@ -111,6 +111,12 @@
     </div>
 @endif
 
+@include('partials.channel-state-filter', [
+    'bucket' => $troubleFilter ?? null,
+    'count' => $products->total(),
+    'clear' => route('ext.tiktok.products.index', request()->except(['state', 'page'])),
+])
+
 <form method="GET" action="{{ route('ext.tiktok.products.index') }}" class="x-filters">
     @if($tiktokTab !== 'all')
         <input type="hidden" name="tiktok_tab" value="{{ $tiktokTab }}">

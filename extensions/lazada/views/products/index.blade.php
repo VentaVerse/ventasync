@@ -169,6 +169,12 @@
     </div>
 @endif
 
+@include('partials.channel-state-filter', [
+    'bucket' => $troubleFilter ?? null,
+    'count' => $products->total(),
+    'clear' => route('ext.lazada.products.index', request()->except(['state', 'page'])),
+])
+
 <form method="GET" action="{{ route('ext.lazada.products.index') }}" class="x-filters" id="lazada-listings-filter">
     @if(($lazadaTab ?? 'all') !== 'all')
         <input type="hidden" name="lazada_tab" value="{{ $lazadaTab }}">

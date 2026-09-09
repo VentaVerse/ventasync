@@ -49,24 +49,44 @@ class LazadaListingStates
      */
     public function summary(): array
     {
+        return [
+            'attention' => $this->bucket('attention')->distinct()->count('lazada_products.product_id'),
+            'drift' => $this->bucket('drift')->distinct()->count('lazada_products.product_id'),
+        ];
+    }
+
+    /**
+     * The rows behind a figure, by the SAME query that counted them
+     * (#240): the Listings page filters on this, so a dashboard number and
+     * the rows it leads to can never disagree.
+     *
+     * @return list<int>
+     */
+    public function productIdsIn(string $bucket): array
+    {
+        return $this->bucket($bucket)->distinct()
+            ->pluck('lazada_products.product_id')
+            ->map(fn ($v) => (int) $v)->unique()->values()->all();
+    }
+
+    /** One definition of each bucket, counted and listed from here. */
+    private function bucket(string $bucket): \Illuminate\Database\Eloquent\Builder
+    {
         $pfx = (string) config('catalog.prefix');
 
         $linked = LazadaProduct::query()
             ->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '')
             ->whereNull('unlinked_at');
 
-        $attention = (clone $linked)
-            ->whereIn('live_status', self::ATTENTION_RAW)
-            ->distinct()->count('product_id');
+        if ($bucket === 'drift') {
+            return $linked
+                ->whereIn('live_status', ['active', 'inactive'])
+                ->join($pfx . 'product as p', 'p.product_id', '=', 'lazada_products.product_id')
+                ->whereNotNull('lazada_products.last_pushed_at')
+                ->whereColumn('p.date_modified', '>', 'lazada_products.last_pushed_at');
+        }
 
-        $drift = (clone $linked)
-            ->whereIn('live_status', ['active', 'inactive'])
-            ->join($pfx . 'product as p', 'p.product_id', '=', 'lazada_products.product_id')
-            ->whereNotNull('lazada_products.last_pushed_at')
-            ->whereColumn('p.date_modified', '>', 'lazada_products.last_pushed_at')
-            ->distinct()->count('lazada_products.product_id');
-
-        return ['attention' => $attention, 'drift' => $drift];
+        return $linked->whereIn('live_status', self::ATTENTION_RAW);
     }
 
     /**

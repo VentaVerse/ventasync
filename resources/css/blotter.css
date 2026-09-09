@@ -2046,6 +2046,24 @@
 
     a.bl-chan:hover { border-color: var(--bl-rule-2); }
 
+    /* The card stopped being one link on 2026-09-09 (#240): each fact goes
+       where it belongs, so each fact that goes anywhere is its own link.
+       They must still read as the plain lines they were - a card of four
+       blue underlined phrases is worse than the card that led nowhere - so
+       the link colour is the text colour and the underline waits for the
+       pointer. */
+    .bl-chan__go {
+        color: inherit;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .bl-chan__go:hover,
+    .bl-chan__go:focus-visible {
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
     .bl-chan__ic { flex: none; width: 40px; height: 40px; }
 
     .bl-chan__in {

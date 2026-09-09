@@ -412,14 +412,11 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                 try {
                     $sum = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)->summary();
                     $attention = (int) $sum['attention'];
-                    $parts = [];
-                    if ($sum['attention'] > 0) {
-                        $parts[] = $sum['attention'] . ' listing' . ($sum['attention'] === 1 ? ' needs' : 's need') . ' attention';
-                    }
-                    if ($sum['drift'] > 0) {
-                        $parts[] = $sum['drift'] . ' behind the catalogue';
-                    }
-                    $flags = $parts ? implode(' · ', $parts) : null;
+                    /* Each figure carries where it goes (#240): the Listings page
+                       filtered by the same query that counted it. The words are
+                       written once, in App\Integrations\Listings\ListingTrouble,
+                       so the chip and the page it lands on say the same thing. */
+                    $flags = \App\Integrations\Listings\ListingTrouble::figures($sum, fn (string $bucket) => route('ext.tiktok.products.index', ['store' => $ttSetting->id, 'state' => $bucket]));
                 } catch (\Throwable) {
                     // the chip simply carries no flags line
                 }
@@ -481,14 +478,11 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                 app()->instance('tiktok.route-store', $store);
                 $sum = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)->summary();
                 $attention = (int) $sum['attention'];
-                $parts = [];
-                if ($sum['attention'] > 0) {
-                    $parts[] = $sum['attention'] . ' listing' . ($sum['attention'] === 1 ? ' needs' : 's need') . ' attention';
-                }
-                if ($sum['drift'] > 0) {
-                    $parts[] = $sum['drift'] . ' behind the catalogue';
-                }
-                $flags = $parts ? implode(' · ', $parts) : null;
+                /* Each figure carries where it goes (#240): the Listings page
+                   filtered by the same query that counted it. The words are
+                   written once, in App\Integrations\Listings\ListingTrouble,
+                   so the chip and the page it lands on say the same thing. */
+                $flags = \App\Integrations\Listings\ListingTrouble::figures($sum, fn (string $bucket) => route('ext.tiktok.products.index', ['store' => $store->id, 'state' => $bucket]));
             } catch (\Throwable) {
                 // this store's chip simply carries no flags line
             } finally {

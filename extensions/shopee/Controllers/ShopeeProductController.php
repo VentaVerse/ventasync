@@ -233,6 +233,17 @@ class ShopeeProductController extends Controller
             $query->whereIn('p.product_id', $matching ?: [0]);
         }
 
+        /* The dashboard's own figures, as a filter (#240). A chip that says
+         * "3 listings need attention" links here with ?state=attention, and
+         * the rows it narrows to are fetched by the SAME query that counted
+         * them, so the number and the list cannot disagree. */
+        $troubleFilter = \App\Integrations\Listings\ListingTrouble::asked($request->query('state'));
+        if ($troubleFilter !== null) {
+            $troubleIds = app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)
+                ->productIdsIn($troubleFilter);
+            $query->whereIn('p.product_id', $troubleIds ?: [0]);
+        }
+
         // A live tab narrows the table to the products whose Shopee items
         // hold that status right now. Only linked products can match: the
         // tab is a view of the shop, and an unpushed product is not in it.
@@ -342,6 +353,7 @@ class ShopeeProductController extends Controller
 
         return view('ext-shopee::products.index', [
             'products' => $products,
+            'troubleFilter' => $troubleFilter,
             /* The relist preflight's page-side half (#191): a row whose
              * Relist would certainly be refused offers the fix instead. */
             'parcelGaps' => $this->parcelGapFor($products->pluck('product_id')->map(fn ($v) => (int) $v)->all()),

@@ -1000,3 +1000,38 @@ body.cc-addpanel-open { overflow: hidden; }
 .cc-addpanel__added { color: var(--bl-ink-2); font-size: .85rem; font-variant-numeric: tabular-nums; flex: 1; }
 .cc-addpanel__full { color: var(--bl-ink-3); font-size: .82rem; white-space: nowrap; }
 .cc-addpanel__full:hover { color: var(--bl-ink); }
+
+
+/* ------------------------------------------------------------
+   THE STATE FILTER STRIP (#240)
+
+   A dashboard chip says "3 listings need attention" and links here with
+   ?state=attention. Arriving at a shorter table with nothing to explain it
+   reads as a page that lost rows, so the filter says itself in the same
+   words the chip used, with the way out beside it.
+   ------------------------------------------------------------ */
+.cs-filter {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    margin: 0 0 12px;
+    padding: 9px 12px;
+    border: 1px solid var(--bl-rule-2);
+    border-left: 3px solid var(--bl-attn-fill);
+    border-radius: 8px;
+    background: var(--bl-sheet);
+}
+
+.cs-filter__k {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--bl-ink);
+}
+
+.cs-filter__clear {
+    font-size: 12.5px;
+    color: var(--bl-ink-2);
+}
+
+.cs-filter__clear:hover { color: var(--bl-ink); }

@@ -51,22 +51,42 @@ class TikTokListingStates
      */
     public function summary(): array
     {
+        return [
+            'attention' => $this->bucket('attention')->distinct()->count('tiktok_listings.product_id'),
+            'drift' => $this->bucket('drift')->distinct()->count('tiktok_listings.product_id'),
+        ];
+    }
+
+    /**
+     * The rows behind a figure, by the SAME query that counted them
+     * (#240): the Listings page filters on this, so a dashboard number and
+     * the rows it leads to can never disagree.
+     *
+     * @return list<int>
+     */
+    public function productIdsIn(string $bucket): array
+    {
+        return $this->bucket($bucket)->distinct()
+            ->pluck('tiktok_listings.product_id')
+            ->map(fn ($v) => (int) $v)->unique()->values()->all();
+    }
+
+    /** One definition of each bucket, counted and listed from here. */
+    private function bucket(string $bucket): \Illuminate\Database\Eloquent\Builder
+    {
         $pfx = (string) config('catalog.prefix');
 
         $linked = TikTokListing::query()->whereNotNull('tiktok_product_id');
 
-        $attention = (clone $linked)
-            ->whereIn('live_status', self::ATTENTION_RAW)
-            ->distinct()->count('product_id');
+        if ($bucket === 'drift') {
+            return $linked
+                ->whereIn('live_status', ['ACTIVATE', 'SELLER_DEACTIVATED'])
+                ->join($pfx . 'product as p', 'p.product_id', '=', 'tiktok_listings.product_id')
+                ->whereNotNull('tiktok_listings.last_pushed_at')
+                ->whereColumn('p.date_modified', '>', 'tiktok_listings.last_pushed_at');
+        }
 
-        $drift = (clone $linked)
-            ->whereIn('live_status', ['ACTIVATE', 'SELLER_DEACTIVATED'])
-            ->join($pfx . 'product as p', 'p.product_id', '=', 'tiktok_listings.product_id')
-            ->whereNotNull('tiktok_listings.last_pushed_at')
-            ->whereColumn('p.date_modified', '>', 'tiktok_listings.last_pushed_at')
-            ->distinct()->count('tiktok_listings.product_id');
-
-        return ['attention' => $attention, 'drift' => $drift];
+        return $linked->whereIn('live_status', self::ATTENTION_RAW);
     }
 
     /**

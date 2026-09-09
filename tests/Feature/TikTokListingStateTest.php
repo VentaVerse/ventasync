@@ -250,8 +250,12 @@ class TikTokListingStateTest extends TestCase
         $data = (new TiktokExtension(app()))->dashboardData();
 
         $this->assertNotNull($data['tiktokSyncStatus']);
-        $this->assertSame('1 listing needs attention', $data['tiktokSyncStatus']->listing_flags);
+        $flags = $data['tiktokSyncStatus']->listing_flags;
+        $this->assertCount(1, $flags);
+        $this->assertSame('1 listing needs attention', $flags[0]['text']);
         $this->assertSame(1, $data['tiktokSyncStatus']->listing_attention);
+        // The figure leads to the rows it counted (#240).
+        $this->assertStringContainsString('state=attention', (string) $flags[0]['href']);
     }
 
     /**

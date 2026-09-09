@@ -344,6 +344,16 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         } else {
             $query->orderBy($sortColumns[$sort], $dir);
         }
+
+        /* The dashboard's own figures, as a filter (#240): a chip that says
+         * "3 listings need attention" links here with ?state=attention, and
+         * the rows are fetched by the SAME query that counted them. */
+        $troubleFilter = \App\Integrations\Listings\ListingTrouble::asked($request->query('state'));
+        if ($troubleFilter !== null) {
+            $troubleIds = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)->productIdsIn($troubleFilter);
+            $query->whereIn('p.product_id', $troubleIds ?: [0]);
+        }
+
         // A stable tiebreak, or two products with the same name swap places
         // between pages and a row appears twice while another never shows.
         if (($sortColumns[$sort] ?? null) !== 'p.product_id') {
@@ -435,6 +445,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         return view('ext-lazada::products.index', [
             'products' => $products,
+            'troubleFilter' => $troubleFilter,
             'listingsById' => $listingsById,
             'listingStates' => $listingStates,
             'rowErrors' => $rowErrors,

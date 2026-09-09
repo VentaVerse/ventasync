@@ -45,21 +45,45 @@ class ShopeeListingStates
      */
     public function summary(): array
     {
+        return [
+            'attention' => $this->bucket('attention')->distinct()->count('shopee_product_links.product_id'),
+            'drift' => $this->bucket('drift')->distinct()->count('shopee_product_links.product_id'),
+        ];
+    }
+
+    /**
+     * The rows behind a figure, by the SAME query that counted them
+     * (#240). A number on the dashboard that leads nowhere is a fact the
+     * operator cannot act on - the owner, 2026-09-08: "That doesnt really
+     * answer the question needs attention. Im looking at Overview and in
+     * listing, but I dont know what Im looking for." The Listings page
+     * filters on this, so the count and the rows can never disagree.
+     *
+     * @return list<int>
+     */
+    public function productIdsIn(string $bucket): array
+    {
+        return $this->bucket($bucket)->distinct()
+            ->pluck('shopee_product_links.product_id')
+            ->map(fn ($v) => (int) $v)->unique()->values()->all();
+    }
+
+    /** One definition of each bucket, counted and listed from here. */
+    private function bucket(string $bucket): \Illuminate\Database\Eloquent\Builder
+    {
         $pfx = (string) config('catalog.prefix');
 
-        $attention = ShopeeProductLink::query()
-            ->whereIn('live_status', ['BANNED', 'SELLER_DELETE', 'SHOPEE_DELETE', 'MISSING'])
-            ->distinct()->count('product_id');
+        if ($bucket === 'drift') {
+            return ShopeeProductLink::query()
+                ->whereIn('live_status', ['NORMAL', 'UNLIST'])
+                ->join('shopee_listings as sl', 'sl.product_id', '=', 'shopee_product_links.product_id')
+                ->join($pfx . 'product as p', 'p.product_id', '=', 'shopee_product_links.product_id')
+                ->whereNotNull('sl.last_pushed_at')
+                ->whereColumn('p.date_modified', '>', 'sl.last_pushed_at');
+        }
 
-        $drift = ShopeeProductLink::query()
-            ->whereIn('live_status', ['NORMAL', 'UNLIST'])
-            ->join('shopee_listings as sl', 'sl.product_id', '=', 'shopee_product_links.product_id')
-            ->join($pfx . 'product as p', 'p.product_id', '=', 'shopee_product_links.product_id')
-            ->whereNotNull('sl.last_pushed_at')
-            ->whereColumn('p.date_modified', '>', 'sl.last_pushed_at')
-            ->distinct()->count('shopee_product_links.product_id');
-
-        return ['attention' => $attention, 'drift' => $drift];
+        return ShopeeProductLink::query()
+            ->whereIn('live_status', ['BANNED', 'SELLER_DELETE', 'SHOPEE_DELETE', 'MISSING']);
     }
 
     /** Worst first; the fold keeps the first status this list names. */

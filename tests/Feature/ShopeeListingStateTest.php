@@ -322,13 +322,59 @@ class ShopeeListingStateTest extends TestCase
             'live_status' => 'BANNED', 'live_checked_at' => now()]);
 
         $data = (new \Extensions\shopee\ShopeeExtension(app()))->dashboardData();
-        $this->assertSame('1 listing needs attention', $data['shopeeSyncStatus']->listing_flags);
+        $flags = $data['shopeeSyncStatus']->listing_flags;
+
+        $this->assertCount(1, $flags);
+        $this->assertSame('1 listing needs attention', $flags[0]['text']);
         $this->assertSame(1, $data['shopeeSyncStatus']->listing_attention);
+
+        /* And it goes somewhere (#240): a figure that leads to the orders
+           page, or nowhere at all, is a fact the operator cannot act on. */
+        $this->assertStringContainsString('state=attention', (string) $flags[0]['href']);
+        $this->assertStringContainsString('/shopee/', (string) $flags[0]['href']);
 
         // No troubles, no line: absence is the ordinary state.
         ShopeeProductLink::query()->update(['live_status' => 'NORMAL']);
         $data = (new \Extensions\shopee\ShopeeExtension(app()))->dashboardData();
-        $this->assertNull($data['shopeeSyncStatus']->listing_flags);
+        $this->assertSame([], $data['shopeeSyncStatus']->listing_flags);
+    }
+
+    /**
+     * The figure leads to the rows it counted (#240).
+     *
+     * the owner, 2026-09-08, on a card that said "1 listing needs attention"
+     * and opened the orders page: "That doesnt really answer the question
+     * needs attention. Im looking at Overview and in listing, but I dont
+     * know what Im looking for." So the count and the filter are the same
+     * query, and the page says which filter is on in the same words.
+     */
+    public function test_the_listings_page_filters_to_the_figure_the_dashboard_counted(): void
+    {
+        $troubled = $this->product('SICK');
+        ShopeeProductLink::create(['product_id' => $troubled, 'shopee_item_id' => 1301, 'sku' => 'SICK',
+            'live_status' => 'BANNED', 'live_checked_at' => now()]);
+
+        $fine = $this->product('WELL');
+        ShopeeProductLink::create(['product_id' => $fine, 'shopee_item_id' => 1302, 'sku' => 'WELL',
+            'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+
+        $engine = app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class);
+        $this->assertSame([$troubled], $engine->productIdsIn('attention'),
+            'The rows behind the figure must be the rows the figure counted.');
+        $this->assertSame(1, $engine->summary()['attention']);
+
+        $group = \App\Models\Admin\UserGroup::create(['name' => 'Shopee trouble readers']);
+        $group->permissions()->attach(\App\Models\Admin\Permission::whereIn('key',
+            ['view_shopee/product', 'manage_shopee/product'])->pluck('id')->all());
+        $user = \App\Models\User::factory()->create(['user_group_id' => $group->id]);
+
+        $page = $this->actingAs($user)
+            ->get(route('ext.shopee.products.index', ['state' => 'attention']))->assertOk();
+
+        $page->assertSee('Showing the 1 listing that needs attention.');
+        $page->assertSee('Show all');
+        $page->assertSee('SICK');
+        $page->assertDontSee('WELL');
     }
 
     /**

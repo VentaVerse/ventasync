@@ -165,8 +165,11 @@
                    (Phase B, #184): "2 listings need attention · 5 behind
                    the catalogue". A channel that reports none prints
                    nothing. */
-                'flags' => $sync->listing_flags ?? null,
-                'flags_bad' => (int) ($sync->listing_attention ?? 0) > 0,
+                /* Each trouble the channel counts, WITH somewhere to go
+                   (#240): the Listings page filtered to exactly the rows
+                   that were counted. A channel that reports none prints
+                   nothing, as before. */
+                'figures' => is_array($sync->listing_flags ?? null) ? $sync->listing_flags : [],
                 'pending' => $pendingFor[$tab->id] ?? $pendingFor[$tabBase] ?? $tab->unprocessedCount(),
                 'link' => RouteFacade::has($tab->routeName)
                     ? route($tab->routeName, $tab->routeParams)
@@ -313,11 +316,15 @@
     @if($channels !== [])
         <div class="bl-chans">
             @foreach($channels as $channel)
-                @php
-                    $chTag = $channel['link'] ? 'a' : 'div';
-                    $chBad = ($channel['state']['tone'] ?? '') === 'bad';
-                @endphp
-                <{{ $chTag }} class="bl-chan" @if($channel['link']) href="{{ $channel['link'] }}" @endif>
+                @php $chBad = ($channel['state']['tone'] ?? '') === 'bad'; @endphp
+                {{-- The card is no longer ONE link (#240). The owner, looking at
+                     "1 listing needs attention" on a card that opened the
+                     orders page: "That doesnt really answer the question
+                     needs attention." Each fact now goes where it belongs -
+                     the name and the waiting count to orders, each listing
+                     figure to the Listings page filtered to the rows it
+                     counted - which cannot be done inside one anchor. --}}
+                <div class="bl-chan">
                     {{-- Drawn as SVG, not as a span with an inline custom
                          property: this project puts no CSS in Blade and the
                          suite enforces it. fill is a presentation attribute,
@@ -331,25 +338,33 @@
                               dominant-baseline="central">{{ Str::upper(Str::substr($channel['name'], 0, 1)) }}</text>
                     </svg>
                     <span class="bl-chan__body">
-                        <span class="bl-chan__n block truncate">{{ $channel['name'] }}</span>
+                        @if($channel['link'])
+                            <a class="bl-chan__n bl-chan__go block truncate" href="{{ $channel['link'] }}">{{ $channel['name'] }}</a>
+                        @else
+                            <span class="bl-chan__n block truncate">{{ $channel['name'] }}</span>
+                        @endif
                         <span class="bl-chan__s {{ $chBad ? 'bl-chan__s--bad' : '' }} block truncate">
                             {{ $channel['state']['text'] }}
                         </span>
-                        @if($channel['flags'] ?? null)
-                            <span class="bl-chan__s {{ ($channel['flags_bad'] ?? false) ? 'bl-chan__s--bad' : '' }} block truncate">
-                                {{ $channel['flags'] }}
-                            </span>
-                        @endif
+                        @foreach($channel['figures'] as $figure)
+                            @if($figure['href'])
+                                <a class="bl-chan__s bl-chan__go {{ $figure['tone'] === 'bad' ? 'bl-chan__s--bad' : '' }} block truncate"
+                                   href="{{ $figure['href'] }}">{{ $figure['text'] }}</a>
+                            @else
+                                <span class="bl-chan__s {{ $figure['tone'] === 'bad' ? 'bl-chan__s--bad' : '' }} block truncate">{{ $figure['text'] }}</span>
+                            @endif
+                        @endforeach
                     </span>
                     @if($channel['pending'] !== null)
-                        <span class="bl-chan__q">
+                        <{{ $channel['link'] ? 'a' : 'span' }} class="bl-chan__q {{ $channel['link'] ? 'bl-chan__go' : '' }}"
+                            @if($channel['link']) href="{{ $channel['link'] }}" @endif>
                             <span class="bl-chan__qv {{ $channel['pending'] > 0 ? 'bl-chan__qv--attn' : '' }}">
                                 {{ number_format($channel['pending']) }}
                             </span>
                             <span class="bl-chan__ql block">waiting</span>
-                        </span>
+                        </{{ $channel['link'] ? 'a' : 'span' }}>
                     @endif
-                </{{ $chTag }}>
+                </div>
             @endforeach
         </div>
     @endif

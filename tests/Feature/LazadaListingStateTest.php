@@ -283,8 +283,12 @@ class LazadaListingStateTest extends TestCase
         $data = (new LazadaExtension(app()))->dashboardData();
 
         $this->assertNotNull($data['lazadaSyncStatus']);
-        $this->assertSame('1 listing needs attention', $data['lazadaSyncStatus']->listing_flags);
+        $flags = $data['lazadaSyncStatus']->listing_flags;
+        $this->assertCount(1, $flags);
+        $this->assertSame('1 listing needs attention', $flags[0]['text']);
         $this->assertSame(1, $data['lazadaSyncStatus']->listing_attention);
+        // The figure leads to the rows it counted (#240).
+        $this->assertStringContainsString('state=attention', (string) $flags[0]['href']);
     }
 
     /**
