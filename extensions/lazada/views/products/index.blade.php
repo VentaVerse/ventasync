@@ -277,6 +277,10 @@
      every tick would be worse than silence. --}}
 @php
     $bulk = [
+        /* Multi-tick push (2026-09-09): each ticked product goes up on
+           its own settings and reports for itself. */
+        'push' => ['action' => route('ext.lazada.products.bulk_push'), 'label' => 'Push to Lazada',
+            'confirm' => 'Push the selected products to Lazada? Each goes up on its own settings, and anything not ready is named rather than sent.'],
         'switch' => [
             ['action' => route('ext.lazada.products.bulk_toggle'), 'verb' => 'deactivate', 'codes' => 'active', 'label' => 'Deactivate :n on Lazada', 'button' => 'Deactivate on Lazada', 'fields' => ['action' => 'deactivate'], 'confirm' => 'Deactivate the selected items on Lazada? Buyers stop seeing them. They stay here and can be activated again at any time.'],
             ['action' => route('ext.lazada.products.bulk_toggle'), 'verb' => 'activate', 'codes' => 'inactive', 'label' => 'Activate :n on Lazada', 'button' => 'Activate on Lazada', 'fields' => ['action' => 'activate'], 'confirm' => 'Activate the selected items on Lazada? Buyers see them again once Lazada applies it.'],

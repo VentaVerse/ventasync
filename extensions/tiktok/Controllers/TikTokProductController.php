@@ -564,14 +564,41 @@ class TikTokProductController extends Controller
         if (!$c) {
             return redirect()->back()->with('error', 'Push failed: missing TikTok settings.');
         }
+
+        $answer = $this->pushOne($productId, $c, $client);
+        if (! $answer['ok']) {
+            // A refusal about the category lands under the category field on
+            // the listing page as well as in the header (2026-09-06).
+            $fieldErrors = preg_match('/categor/i', $answer['message']) ? ['tiktok_category_id' => 'TikTok: ' . $answer['message']] : [];
+
+            return redirect()->back()->with('error', 'Push failed: ' . $answer['message'])->withErrors($fieldErrors);
+        }
+
+        // Accepted: back to the Listings page the operator came from, search and all (the owner, 2026-09-06).
+        $done = \App\Support\BackTo::safe($request->input('back'), url()->previous(route('ext.tiktok.products.index')));
+
+        return redirect()->to($done)->with('status', $answer['message']);
+    }
+
+    /**
+     * Send ONE product to TikTok Shop on its own settings, and answer for
+     * itself. The single-product button and the multi-tick bar are the
+     * same act on one product, so they are the same code: the button
+     * redirects with the answer, the bar collects it beside nine others.
+     *
+     * @param  array<string, mixed>  $c
+     * @return array{ok: bool, message: string}
+     */
+    private function pushOne(int $productId, array $c, TikTokClient $client): array
+    {
         if ($this->truthFor($productId)) {
-            return redirect()->back()->with('error', 'Push failed: this product is already on TikTok Shop. Use Update on TikTok Shop for it.');
+            return ['ok' => false, 'message' => 'this product is already on TikTok Shop. Use Update on TikTok Shop for it.'];
         }
         // The options read the category's sheet first, so the gate judges the real one.
         $opts = $this->listingPushOptions($productId, $c);
         $readiness = app(TikTokListingReadiness::class)->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => ['a TikTok category']];
         if (!$readiness['ready']) {
-            return redirect()->back()->with('error', \App\Integrations\Listings\CatalogGaps::refusal($readiness));
+            return ['ok' => false, 'message' => \App\Integrations\Listings\CatalogGaps::refusal($readiness)];
         }
 
         $outcome = app(TikTokProductPush::class)->create($this->erpProduct($productId), $opts, $c, $client);
@@ -579,11 +606,7 @@ class TikTokProductController extends Controller
             // One latest error per product (the owner, 2026-09-05).
             TikTokListing::recordPushFailure($productId, (string) $outcome['message']);
 
-            // A refusal about the category lands under the category field on
-            // the listing page as well as in the header (2026-09-06).
-            $fieldErrors = preg_match('/categor/i', (string) $outcome['message']) ? ['tiktok_category_id' => 'TikTok: ' . $outcome['message']] : [];
-
-            return redirect()->back()->with('error', 'Push failed: ' . $outcome['message'])->withErrors($fieldErrors);
+            return ['ok' => false, 'message' => (string) $outcome['message']];
         }
         TikTokListing::recordPush($productId, $outcome['product_id'], $outcome['sku_ids'], 'listing');
         TikTokProductGroupProduct::query()->where('product_id', $productId)->update([
@@ -591,10 +614,27 @@ class TikTokProductController extends Controller
             'sync_status' => 'pushed', 'last_pushed_at' => now(), 'push_error' => null,
         ]);
 
-        // Accepted: back to the Listings page the operator came from, search and all (the owner, 2026-09-06).
-        $done = \App\Support\BackTo::safe($request->input('back'), url()->previous(route('ext.tiktok.products.index')));
+        return ['ok' => true, 'message' => 'Pushed to TikTok Shop as product ' . $outcome['product_id'] . '. It goes live once TikTok has reviewed it.'];
+    }
 
-        return redirect()->to($done)->with('status', 'Pushed to TikTok Shop as product ' . $outcome['product_id'] . '. It goes live once TikTok has reviewed it.');
+    /**
+     * Multi-tick push: each ticked product goes up on its OWN settings and
+     * reports for itself, in the words every channel shares.
+     */
+    public function bulkPush(Request $request, TikTokClient $client)
+    {
+        $c = $this->creds();
+        if (!$c) {
+            return redirect()->back()->with('error', 'Push failed: missing TikTok settings.');
+        }
+
+        $answer = \App\Integrations\Push\BulkPushRun::over(
+            (array) $request->input('product_ids', []),
+            'TikTok Shop',
+            fn (int $productId) => $this->pushOne($productId, $c, $client)
+        );
+
+        return redirect()->back()->with($answer['key'], $answer['message']);
     }
 
     /**

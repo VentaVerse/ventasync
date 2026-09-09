@@ -204,6 +204,8 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
         Route::post('/lazada/{store}/products/{productId}/remove-from-store', [LazadaProductController::class, 'removeFromStore'])->whereNumber('productId')->name('ext.lazada.products.remove_from_store');
         Route::post('/lazada/{store}/listings/{productId}/toggle', [LazadaProductController::class, 'toggleListing'])->whereNumber('productId')->name('ext.lazada.listings.toggle');
         // Activate / deactivate the selection, and refresh the status mirror on demand.
+        // Multi-tick push, first in the bulk bar on every channel (2026-09-09).
+        Route::post('/lazada/{store}/products/bulk/push', [LazadaProductController::class, 'bulkPush'])->name('ext.lazada.products.bulk_push');
         Route::post('/lazada/{store}/products/bulk/toggle', [LazadaProductController::class, 'bulkToggle'])->name('ext.lazada.products.bulk_toggle');
         Route::post('/lazada/{store}/products/refresh-status', [LazadaProductController::class, 'refreshStatus'])->name('ext.lazada.products.refresh_status');
 

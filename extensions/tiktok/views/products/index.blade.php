@@ -168,6 +168,10 @@
 @if($canManage)
 @php
     $bulk = [
+        /* Multi-tick push (2026-09-09): each ticked product goes up on
+           its own settings and reports for itself. */
+        'push' => ['action' => route('ext.tiktok.products.bulk_push'), 'label' => 'Push to TikTok Shop',
+            'confirm' => 'Push the selected products to TikTok Shop? Each goes up on its own settings, and anything not ready is named rather than sent.'],
         'switch' => [
             ['action' => route('ext.tiktok.products.bulk_toggle'), 'verb' => 'deactivate', 'codes' => 'ACTIVATE', 'label' => 'Deactivate :n on TikTok Shop', 'button' => 'Deactivate on TikTok Shop', 'fields' => ['action' => 'deactivate'], 'confirm' => 'Deactivate the selected products on TikTok Shop? Buyers stop seeing them. They can be activated again at any time.'],
             ['action' => route('ext.tiktok.products.bulk_toggle'), 'verb' => 'activate', 'codes' => 'SELLER_DEACTIVATED', 'label' => 'Activate :n on TikTok Shop', 'button' => 'Activate on TikTok Shop', 'fields' => ['action' => 'activate'], 'confirm' => 'Activate the selected products on TikTok Shop? Buyers see them again once TikTok applies it.'],

@@ -1184,50 +1184,16 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', "Push failed: Missing Shopee {$modeLabel} settings.");
         }
 
-        /* A ceiling, said out loud rather than applied quietly: each push
-         * uploads images and creates an item, so a selection of hundreds
-         * would outlive the request. The rest are named, not dropped. */
-        $limit = 25;
-        $overflow = array_slice($productIds, $limit);
-        $productIds = array_slice($productIds, 0, $limit);
+        /* The walk, the ceiling and the words are every channel's
+         * (App\Integrations\Push\BulkPushRun); only pushing one product
+         * is Shopee's. */
+        $answer = \App\Integrations\Push\BulkPushRun::over(
+            $productIds,
+            'Shopee',
+            fn (int $productId) => $this->pushOne($productId, $auth, $client)
+        );
 
-        $pushed = [];
-        $refused = [];
-        foreach ($productIds as $productId) {
-            $answer = $this->pushOne($productId, $auth, $client);
-            $name = $this->productLabel($productId);
-            if ($answer['ok']) {
-                $pushed[] = $name;
-            } else {
-                $refused[] = $name . ': ' . $answer['message'];
-            }
-        }
-
-        $parts = [];
-        if ($pushed !== []) {
-            $parts[] = count($pushed) . ' pushed to Shopee.';
-        }
-        if ($refused !== []) {
-            $parts[] = count($refused) . ' not pushed. ' . implode(' ', $refused);
-        }
-        if ($overflow !== []) {
-            $parts[] = count($overflow) . ' left for a second press: ' . $limit . ' go up at a time.';
-        }
-
-        return redirect()->back()->with($pushed === [] ? 'error' : 'status', implode(' ', $parts));
-    }
-
-    /** A product by the name an operator would recognise, for a ledger line. */
-    private function productLabel(int $productId): string
-    {
-        $pfx = (string) config('catalog.prefix');
-        $name = DB::table($pfx . 'product_description')
-            ->where('product_id', $productId)
-            ->where('language_id', (int) config('catalog.default_language_id'))
-            ->value('name');
-        $name = trim(html_entity_decode((string) $name, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
-
-        return $name !== '' ? $name : 'Product #' . $productId;
+        return redirect()->back()->with($answer['key'], $answer['message']);
     }
 
     public function syncQuantity(int $productId, ShopeeClient $client)

@@ -811,17 +811,39 @@ class VentaListingController extends Controller
             return redirect()->back()->with('error', 'That Venta store is turned off, so nothing was sent to it. Enable it in its settings first.');
         }
 
-        $listing = VentaListing::query()->firstOrNew(['venta_setting_id' => $store, 'product_id' => $productId]);
-        $push = VentaProductPush::for($setting);
+        $answer = $this->pushOne($setting, $productId);
+        if (! $answer['ok']) {
+            return redirect()->back()->with('error', 'Push failed: ' . $answer['message']);
+        }
 
-        $outcome = $push->push(
+        // Accepted: back to the Listings page the operator came from, search and all (the owner, 2026-09-06); the page itself when there is none.
+        $back = \App\Support\BackTo::safe($request->input('back'), '');
+
+        return ($back !== '' ? redirect()->to($back) : redirect()->route('ext.venta.listings.edit', [$store, $productId]))
+            ->with($answer['tone'], $answer['message']);
+    }
+
+    /**
+     * Send ONE product to this store on its own settings, and answer for
+     * itself. The single-product button and the multi-tick bar are the
+     * same act on one product, so they are the same code: the button
+     * redirects with the answer, the bar collects it beside nine others.
+     *
+     * @return array{ok: bool, message: string, tone: string}
+     */
+    private function pushOne(VentaSetting $setting, int $productId): array
+    {
+        $store = (int) $setting->id;
+        $listing = VentaListing::query()->firstOrNew(['venta_setting_id' => $store, 'product_id' => $productId]);
+
+        $outcome = VentaProductPush::for($setting)->push(
             $productId,
             $listing->overrides(),
             $listing->hasPriceRule() ? fn (float $base) => $listing->priceFor($base) : null
         );
 
         if (! $outcome['ok']) {
-            return redirect()->back()->with('error', 'Push failed: ' . $outcome['message']);
+            return ['ok' => false, 'message' => (string) $outcome['message'], 'tone' => 'error'];
         }
 
         $payload = $outcome['payload'];
@@ -851,10 +873,27 @@ class VentaListingController extends Controller
         $sentence = $outcome['message'] . ' ' . VentaProductPush::imagesSentence($outcome['images']);
         $tone = ($outcome['images']['sent'] > 0 && $outcome['images']['stored'] < $outcome['images']['sent']) ? 'warning' : 'status';
 
-        // Accepted: back to the Listings page the operator came from, search and all (the owner, 2026-09-06); the page itself when there is none.
-        $back = \App\Support\BackTo::safe($request->input('back'), '');
+        return ['ok' => true, 'message' => trim($sentence), 'tone' => $tone];
+    }
 
-        return ($back !== '' ? redirect()->to($back) : redirect()->route('ext.venta.listings.edit', [$store, $productId]))->with($tone, trim($sentence));
+    /**
+     * Multi-tick push: each ticked product goes up on its OWN settings and
+     * reports for itself, in the words every channel shares.
+     */
+    public function bulkPush(Request $request, int $store)
+    {
+        $setting = VentaSetting::where('id', $store)->where('enabled', true)->first();
+        if (! $setting) {
+            return redirect()->back()->with('error', 'That Venta store is turned off, so nothing was sent to it. Enable it in its settings first.');
+        }
+
+        $answer = \App\Integrations\Push\BulkPushRun::over(
+            (array) $request->input('product_ids', []),
+            (string) $setting->store_name,
+            fn (int $productId) => $this->pushOne($setting, $productId)
+        );
+
+        return redirect()->back()->with($answer['key'], $answer['message']);
     }
 
     /** Unlist or relist on the store, in the store's own terms: active or not. */

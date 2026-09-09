@@ -901,6 +901,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/lazada/{store}/products/bulk/push",
+        "name": "ext.lazada.products.bulk_push"
+    },
+    {
+        "method": "POST",
         "uri": "channels/lazada/{store}/products/bulk/remove-from-store",
         "name": "ext.lazada.products.bulk_remove_from_store"
     },
@@ -2446,6 +2451,11 @@
     },
     {
         "method": "POST",
+        "uri": "channels/tiktok/{store}/products/bulk/push",
+        "name": "ext.tiktok.products.bulk_push"
+    },
+    {
+        "method": "POST",
         "uri": "channels/tiktok/{store}/products/bulk/push-price",
         "name": "ext.tiktok.products.bulk_push_price"
     },
@@ -2718,6 +2728,11 @@
         "method": "POST",
         "uri": "channels/venta/{store}/listings/bulk-toggle",
         "name": "ext.venta.listings.bulk_toggle"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/listings/bulk/push",
+        "name": "ext.venta.listings.bulk_push"
     },
     {
         "method": "POST",
@@ -3098,6 +3113,11 @@
         "method": "POST",
         "uri": "channels/woocommerce/{store}/listings/bulk-toggle",
         "name": "ext.woocommerce.listings.bulk_toggle"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/listings/bulk/push",
+        "name": "ext.woocommerce.listings.bulk_push"
     },
     {
         "method": "POST",

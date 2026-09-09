@@ -70,6 +70,8 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     // The Listings page's missing verbs (parity, 2026-09-07): stock, price, unlink, delete at the store, and their bulk forms.
     Route::post('/venta/{store}/listings/{productId}/push-stock', [VentaListingController::class, 'pushStock'])->whereNumber('store')->whereNumber('productId')->name('ext.venta.listings.push_stock');
     Route::post('/venta/{store}/listings/{productId}/push-price', [VentaListingController::class, 'pushPrice'])->whereNumber('store')->whereNumber('productId')->name('ext.venta.listings.push_price');
+    // Multi-tick push, first in the bulk bar on every channel (2026-09-09).
+    Route::post('/venta/{store}/listings/bulk/push', [VentaListingController::class, 'bulkPush'])->whereNumber('store')->name('ext.venta.listings.bulk_push');
     Route::post('/venta/{store}/listings/bulk/push-stock', [VentaListingController::class, 'bulkPushStock'])->whereNumber('store')->name('ext.venta.listings.bulk_push_stock');
     Route::post('/venta/{store}/listings/bulk/push-prices', [VentaListingController::class, 'bulkPushPrices'])->whereNumber('store')->name('ext.venta.listings.bulk_push_prices');
     Route::post('/venta/{store}/products/{productId}/unlink', [VentaListingController::class, 'unlink'])->whereNumber('store')->whereNumber('productId')->name('ext.venta.products.unlink');

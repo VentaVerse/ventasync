@@ -172,6 +172,8 @@ Route::middleware(['auth', \Extensions\tiktok\Http\ResolveTikTokStore::class])
         Route::post('/tiktok/{store}/products/{productId}/remove-from-store', [TikTokProductController::class, 'removeFromStore'])->whereNumber('productId')->name('ext.tiktok.products.remove_from_store');
         Route::post('/tiktok/{store}/products/check', [TikTokProductController::class, 'checkAgainstTikTok'])->name('ext.tiktok.products.check');
         // The Listings page's bulk verbs (parity, 2026-09-07).
+        // Multi-tick push, first in the bulk bar on every channel (2026-09-09).
+        Route::post('/tiktok/{store}/products/bulk/push', [TikTokProductController::class, 'bulkPush'])->name('ext.tiktok.products.bulk_push');
         Route::post('/tiktok/{store}/products/bulk/push-stock', [TikTokProductController::class, 'bulkPushStock'])->name('ext.tiktok.products.bulk_push_stock');
         Route::post('/tiktok/{store}/products/bulk/push-price', [TikTokProductController::class, 'bulkPushPrice'])->name('ext.tiktok.products.bulk_push_price');
         Route::post('/tiktok/{store}/products/bulk/delete', [TikTokProductController::class, 'bulkDeleteFromTikTok'])->name('ext.tiktok.products.bulk_delete');

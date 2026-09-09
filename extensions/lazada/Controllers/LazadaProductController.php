@@ -1198,7 +1198,17 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             ->with('status', 'Sync Lazada ID: no Lazada product found for SKUs: ' . implode(', ', $allSkus));
     }
 
-    public function uploadToLazada(Request $request, int $productId, LazadaClient $client)
+    /**
+     * Send ONE listing to Lazada on its own settings, and answer for
+     * itself: create when the item is not there, update in place when it
+     * is. The single-product button and the multi-tick bar are the same
+     * act on one product, so they are the same code - the button redirects
+     * with the answer and the row errors, the bar collects the sentence
+     * beside nine others.
+     *
+     * @return array{ok: bool, message: string, errors: array<string, mixed>}
+     */
+    private function pushOne(int $productId, LazadaClient $client): array
     {
         $saved = $this->listingFor($productId);
         /* A group is a preset the product inherits (the owner, 2026-09-05): the
@@ -1210,8 +1220,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
-            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-                ->with('error', 'Missing Lazada settings (region/app key/app secret/access token).');
+            return ['ok' => false, 'message' => 'Missing Lazada settings (region/app key/app secret/access token).', 'errors' => []];
         }
 
 
@@ -1242,7 +1251,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 }
             }
 
-            return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('error', $refusal)->withErrors($rowErrors);
+            return ['ok' => false, 'message' => $refusal, 'errors' => $rowErrors];
         }
         $pfx = (string) config('catalog.prefix');
 
@@ -1261,9 +1270,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             $this->persistProductSyncStatus($saved, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'VALIDATION_ERROR', 'message' => (string)$msg]]);
             LazadaProduct::recordPushFailure((int) $listing->product_id, 'Upload refused: ' . $msg);
 
-            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-                ->with('error', 'Upload refused before anything was sent: ' . $msg)
-                ->withErrors($e->errors());
+            return ['ok' => false, 'message' => 'Upload refused before anything was sent: ' . $msg, 'errors' => $e->errors()];
         }
 
         // For updates, inject ItemId and SkuId so Lazada knows which product/SKUs to update
@@ -1305,11 +1312,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             if ($isUpdate) {
                 // Refresh variant cache after update
                 $this->itemCache()->refreshListing($saved, $setting, $client);
-                // The same way back as a create: the Listings search the operator came from.
-                $done = \App\Support\BackTo::safe($request->input('back'),
-                    $request->boolean('push') ? route('ext.lazada.products.index') : url()->previous(route('ext.lazada.products.index')));
-
-                return redirect()->to($done)->with('status', 'Product updated on Lazada successfully.');
+                return ['ok' => true, 'message' => 'Product updated on Lazada successfully.', 'errors' => []];
             }
 
             $itemId = $this->payload()->extractCreatedItemId($result);
@@ -1430,19 +1433,48 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 ? $this->attributeRowErrors($template->template_body, $this->payload()->extractLazadaError($result))
                 : [];
 
-            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-                ->with('error', $line)
-                ->withErrors($rowErrors);
+            return ['ok' => false, 'message' => $line, 'errors' => $rowErrors];
         }
 
-        /* Accepted: back to the Listings page the operator came from, search
-         * and all (the owner, 2026-09-06). A push from the edit form (push=1) goes
-         * to the Listings page even without a remembered search; a push from
-         * the Listings page itself returns to it as before. */
+        return ['ok' => true, 'message' => $line, 'errors' => []];
+    }
+
+    /**
+     * The single-product Push and Save-and-push: one product, then back to
+     * the Listings page the operator came from, search and all (the owner,
+     * 2026-09-06). A push from the edit form (push=1) goes to the Listings
+     * page even without a remembered search; a push from the Listings page
+     * itself returns to it as before.
+     */
+    public function uploadToLazada(Request $request, int $productId, LazadaClient $client)
+    {
+        $answer = $this->pushOne($productId, $client);
+
+        if (! $answer['ok']) {
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
+                ->with('error', $answer['message'])
+                ->withErrors($answer['errors']);
+        }
+
         $done = \App\Support\BackTo::safe($request->input('back'),
             $request->boolean('push') ? route('ext.lazada.products.index') : url()->previous(route('ext.lazada.products.index')));
 
-        return redirect()->to($done)->with('status', $line);
+        return redirect()->to($done)->with('status', $answer['message']);
+    }
+
+    /**
+     * Multi-tick push: each ticked product goes up on its OWN settings and
+     * reports for itself, in the words every channel shares.
+     */
+    public function bulkPush(Request $request, LazadaClient $client)
+    {
+        $answer = \App\Integrations\Push\BulkPushRun::over(
+            (array) $request->input('product_ids', []),
+            'Lazada',
+            fn (int $productId) => $this->pushOne($productId, $client)
+        );
+
+        return redirect()->back()->with($answer['key'], $answer['message']);
     }
 
     /**

@@ -146,6 +146,10 @@
 @if($canManage && $setting->enabled)
 @php
     $bulk = [
+        /* Multi-tick push (2026-09-09): each ticked product goes up on
+           its own settings and reports for itself. */
+        'push' => ['action' => route('ext.venta.listings.bulk_push', $setting->id), 'label' => 'Push to ' . $storeName,
+            'confirm' => "Push the selected products to {$storeName}? Each goes up on its own settings, and anything not ready is named rather than sent."],
         'switch' => [
             ['action' => route('ext.venta.listings.bulk_toggle', $setting->id), 'verb' => 'unlist', 'codes' => 'active', 'label' => 'Unlist :n on ' . $storeName, 'button' => 'Unlist on ' . $storeName, 'fields' => ['action' => 'unlist'], 'confirm' => "Unlist the selected products on {$storeName}? Buyers stop seeing them. They can be relisted at any time."],
             ['action' => route('ext.venta.listings.bulk_toggle', $setting->id), 'verb' => 'relist', 'codes' => 'inactive', 'label' => 'Relist :n on ' . $storeName, 'button' => 'Relist on ' . $storeName, 'fields' => ['action' => 'relist'], 'confirm' => "Relist the selected products on {$storeName}? Buyers see them again at once."],
