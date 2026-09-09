@@ -96,6 +96,25 @@ class ShopeeWhyUnsynced extends Command
             }
         }
 
+        /* WHO DROPPED A LINK, AND ON WHAT GROUNDS. The scheduled check
+         * writes one of these every time it lets a link go, so a link that
+         * vanished overnight can be read rather than guessed at. */
+        $this->line('');
+        $this->info('=== Links dropped by the scheduled check ===');
+        $dropped = \Illuminate\Support\Facades\DB::table('activity_logs')
+            ->where('subject_type', 'Shopee Product')
+            ->where('subject_label', 'like', 'Link to Shopee item%dropped%')
+            ->orderByDesc('id')->limit(15)
+            ->get(['created_at', 'subject_id', 'subject_label']);
+
+        if ($dropped->isEmpty()) {
+            $this->line('None recorded. (Only drops made after 2026-09-09 are written down.)');
+        } else {
+            foreach ($dropped as $row) {
+                $this->line('  ' . $row->created_at . '  product #' . $row->subject_id . '  ' . $row->subject_label);
+            }
+        }
+
         $this->line('');
         $this->info('Nothing was changed.');
 

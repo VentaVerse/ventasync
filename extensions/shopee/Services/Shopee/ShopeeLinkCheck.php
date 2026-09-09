@@ -633,6 +633,31 @@ class ShopeeLinkCheck
                 // item_not_found. This also clears the item cache, which is
                 // the other half of the same memory: a cached SKU to item_id
                 // row would otherwise hand the dead id straight back.
+                /* AND IT IS WRITTEN DOWN. Dropping a link is destructive
+                 * and left no trace at all, so an operator watching links
+                 * vanish had nothing to look at and no way to tell a
+                 * correct drop from a wrong one (the owner, 2026-09-09: "i
+                 * didnt do anything for a few mins... and the products are
+                 * unlinked"). Every fact the decision rested on goes in the
+                 * activity log: which item, which SHOP was asked, what it
+                 * was searched by, and that the shop was read to the end. */
+                \App\Services\ActivityLogger::log(
+                    'updated',
+                    'Shopee Product',
+                    $productId,
+                    'Link to Shopee item ' . $knownId . ' dropped: shop ' . (int) ($auth['shop_id'] ?? 0)
+                        . ' does not hold it, and no listing there carries ' . implode(', ', array_slice($skus, 0, 5)) . '.',
+                    [
+                        'reason' => 'the scheduled check found the item gone',
+                        'item_id' => $knownId,
+                        'shop_id' => (int) ($auth['shop_id'] ?? 0),
+                        'searched_skus' => array_slice($skus, 0, 20),
+                        'shop_read_completely' => true,
+                        'items_in_shop_index' => count($index['skus']),
+                    ],
+                    'api'
+                );
+
                 ShopeeProductLink::unlinkProduct($productId);
 
                 // unlinkProduct leaves the row saying 'unlinked', which is the
