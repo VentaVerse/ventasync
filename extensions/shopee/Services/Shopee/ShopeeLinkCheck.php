@@ -448,10 +448,26 @@ class ShopeeLinkCheck
                         $map[$itemSku] = $itemId;
                     }
 
-                    foreach ($item['model_list'] ?? [] as $model) {
-                        $modelSku = strtolower(trim((string) ($model['model_sku'] ?? '')));
-                        if ($modelSku !== '' && ! isset($map[$modelSku])) {
-                            $map[$modelSku] = $itemId;
+                    /* A MODEL'S SKU IS ITS OWN CALL.
+                     *
+                     * This used to read a model list off the base info, a
+                     * field Shopee does not put there: models come
+                     * from get_model_list, one item at a time, which is how
+                     * every other model read in this application already
+                     * does it. So the index has never held a single model
+                     * SKU - and a product with NO parent SKU contributes
+                     * nothing to it at all, which is exactly the product
+                     * that cannot be found any other way. The owner pushed one
+                     * on 2026-09-09, unlinked it, pushed again, and got a
+                     * duplicate with the guard in place.
+                     *
+                     * Paid only for an item that HAS models, which the base
+                     * info does tell us. */
+                    if (! empty($item['has_model'])) {
+                        foreach ($this->modelSkus($client, $auth, $itemId, $complete) as $modelSku) {
+                            if (! isset($map[$modelSku])) {
+                                $map[$modelSku] = $itemId;
+                            }
                         }
                     }
                 }
@@ -471,6 +487,49 @@ class ShopeeLinkCheck
         }
 
         return $this->shopeeSkuIndex = ['skus' => $map, 'complete' => $complete];
+    }
+
+    /**
+     * One item's model SKUs, lowercased.
+     *
+     * A read that fails marks the whole index incomplete: an item whose
+     * models could not be read is an item whose SKUs are missing from the
+     * map, and concluding "not on Shopee" from a map with holes in it is
+     * how a duplicate gets created.
+     *
+     * @return list<string>
+     */
+    private function modelSkus(ShopeeClient $client, array $auth, int $itemId, bool &$complete): array
+    {
+        try {
+            $res = $client->shopGet(
+                $auth['mode'], (int) $auth['partner_id'], (string) $auth['partner_key'],
+                (string) $auth['access_token'], (int) $auth['shop_id'],
+                '/api/v2/product/get_model_list',
+                ['item_id' => $itemId]
+            );
+        } catch (\Throwable $e) {
+            $complete = false;
+
+            return [];
+        }
+
+        $body = is_array($res['body'] ?? null) ? $res['body'] : [];
+        if (! ($res['ok'] ?? false) || (string) ($body['error'] ?? '') !== '') {
+            $complete = false;
+
+            return [];
+        }
+
+        $out = [];
+        foreach (($body['response']['model'] ?? []) as $model) {
+            $sku = strtolower(trim((string) ($model['model_sku'] ?? '')));
+            if ($sku !== '') {
+                $out[] = $sku;
+            }
+        }
+
+        return $out;
     }
 
     /**

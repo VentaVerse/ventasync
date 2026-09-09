@@ -134,10 +134,20 @@ class ShopeeFindDuplicates extends Command
                     if ($itemSku !== '') {
                         $skus[] = $itemSku;
                     }
-                    foreach ($item['model_list'] ?? [] as $model) {
-                        $modelSku = strtolower(trim((string) ($model['model_sku'] ?? '')));
-                        if ($modelSku !== '') {
-                            $skus[] = $modelSku;
+                    /* Models are their own call: get_item_base_info carries
+                       has_model, never the models themselves. Reading them
+                       off the base info is what made every variation
+                       product here report "no SKU". */
+                    if (! empty($item['has_model'])) {
+                        $models = $this->get($client, $auth, '/api/v2/product/get_model_list', ['item_id' => $id]);
+                        if ($models === null) {
+                            $complete = false;
+                        }
+                        foreach (($models['response']['model'] ?? []) as $model) {
+                            $modelSku = strtolower(trim((string) ($model['model_sku'] ?? '')));
+                            if ($modelSku !== '') {
+                                $skus[] = $modelSku;
+                            }
                         }
                     }
 

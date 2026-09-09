@@ -501,6 +501,17 @@ export function initChannelListings(config) {
 
     const showProgress = makeProgress(config.overlaySelector);
 
+    /* A page that posts a form from script raises this overlay by saying
+       so, rather than reaching into the page's markup itself: the push
+       review modal copies the edited title and description in and then
+       calls form.submit(), which fires no submit event, so the page sat
+       looking idle while the marketplace answered (the owner, 2026-09-09).
+       busy-overlay.js listens for the same event, so one line serves
+       whichever overlay a page happens to have. */
+    document.addEventListener('busy:show', function (e) {
+        showProgress((e.detail && e.detail.title) || '');
+    });
+
     initBulkForms(config, showProgress);
     initSlowActions(config, showProgress);
     document.querySelectorAll('form[data-unmatched-link]').forEach(initCatalogPicker);

@@ -1274,11 +1274,19 @@ class ShopeeProductGroupController extends Controller
                         break 2;
                     }
 
-                    foreach ($il['model_list'] ?? [] as $model) {
-                        $modelSku = strtolower(trim($model['model_sku'] ?? ''));
-                        if ($modelSku !== '' && in_array($modelSku, $skus)) {
-                            $matchedItemId = (int) $il['item_id'];
-                            break 3;
+                    /* Models are their own call (2026-09-09): base info
+                       carries has_model, never model_list. Read off the
+                       base info this matched nothing, ever, so an item
+                       with no parent SKU was unfindable here too. */
+                    if (! empty($il['has_model'])) {
+                        $modelRes = $client->shopGet($mode, $pid, $pkey, $token, $shopId,
+                            '/api/v2/product/get_model_list', ['item_id' => (int) $il['item_id']]);
+                        foreach (($modelRes['body']['response']['model'] ?? []) as $model) {
+                            $modelSku = strtolower(trim((string) ($model['model_sku'] ?? '')));
+                            if ($modelSku !== '' && in_array($modelSku, $skus)) {
+                                $matchedItemId = (int) $il['item_id'];
+                                break 3;
+                            }
                         }
                     }
                 }

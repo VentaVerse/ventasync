@@ -87,6 +87,17 @@
             }
             input.value = single.querySelector('[data-pr-' + name + ']').value;
         });
+
+        /* Say that something is happening. form.submit() fires no submit
+           event, so busy-overlay.js never sees this one and the page sat
+           looking idle for the ten seconds Shopee takes (the owner,
+           2026-09-09). The modal closes first, or it hangs over the
+           overlay it just raised. */
+        closeModal();
+        document.dispatchEvent(new CustomEvent('busy:show', {
+            detail: { title: 'Pushing to ' + (single.getAttribute('data-store') || 'the store') },
+        }));
+
         singleForm.submit();
     });
 

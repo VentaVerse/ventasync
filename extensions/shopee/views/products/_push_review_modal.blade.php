@@ -11,7 +11,7 @@
      the intercepted forms submit as they always did. --}}
 <div class="pr-scrim" data-pr-scrim hidden></div>
 
-<div class="pr-modal" data-pr-single role="dialog" aria-modal="true" aria-label="Push to Shopee" hidden>
+<div class="pr-modal" data-pr-single data-store="Shopee" role="dialog" aria-modal="true" aria-label="Push to Shopee" hidden>
     <div class="pr-modal__head">
         <h2 class="pr-modal__title">Push to Shopee</h2>
         <span class="pr-modal__sub" data-pr-sub></span>

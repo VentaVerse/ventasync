@@ -63,6 +63,23 @@
         show(title);
     });
 
+    /* A SUBMIT NOBODY CAN SEE.
+     *
+     * form.submit() does not fire a submit event, so a page that posts a
+     * form from script - the push review modal does, because it copies the
+     * edited title and description in first - left the operator on a page
+     * that looked idle while Shopee took ten seconds to answer. He pressed
+     * Push and nothing happened (the owner, 2026-09-09).
+     *
+     * Rather than let each such page raise its own overlay, they say what
+     * they are doing and this raises the one overlay the page already has.
+     *   document.dispatchEvent(new CustomEvent('busy:show', {
+     *       detail: { title: 'Pushing to Shopee' } }));
+     */
+    document.addEventListener('busy:show', function (e) {
+        show((e.detail && e.detail.title) || '');
+    });
+
     // The back button restoring this page from the cache would otherwise
     // bring the overlay back with it, still saying "Packing".
     window.addEventListener('pageshow', hide);

@@ -174,6 +174,31 @@ class ShopeeReconcileTest extends TestCase
         );
     }
 
+    /**
+     * A MODEL'S SKU IS ITS OWN CALL.
+     *
+     * The shop index read $item['model_list'] off get_item_base_info, a
+     * field Shopee does not put there - models come from get_model_list,
+     * one item at a time, which is how every other model read in this
+     * application already does it. So the index never held a single model
+     * SKU, and an item with no parent SKU contributed NOTHING to it: the
+     * one product that cannot be found any other way. The owner pushed such a
+     * product, unlinked it, pushed again and got a duplicate, with the
+     * guard in place and working exactly as written (2026-09-09).
+     */
+    public function test_the_shop_index_asks_for_the_models_it_needs(): void
+    {
+        $body = $this->methodBody('skuIndex');
+
+        $this->assertStringContainsString('get_model_list', $body,
+            'The index reads model SKUs off the base info, where Shopee never puts them, so it holds none '
+            .'and a product with no parent SKU can never be matched back to its listing.');
+        $this->assertStringContainsString("has_model", $body,
+            'Every item is asked for its models, or none is: the base info says which items have them.');
+        $this->assertStringNotContainsString("\$item['model_list']", $body,
+            'The field that was never there is being read again.');
+    }
+
     /** A parent with no SKU is not a product with no SKU. */
     public function test_the_search_knows_every_place_a_sku_lives(): void
     {
