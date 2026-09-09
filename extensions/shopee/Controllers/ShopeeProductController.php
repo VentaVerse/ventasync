@@ -915,6 +915,36 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', \App\Integrations\Listings\CatalogGaps::refusal($readiness));
         }
 
+        /* ASK SHOPEE, NOT ONLY OURSELVES (the owner, 2026-09-09).
+         *
+         * The absence of a link row was taken as proof that Shopee holds
+         * nothing, and it is not: a store deleted here takes every link
+         * with it while the shop keeps every item, and so does a database
+         * restored from before a push. Every push after that looked like a
+         * first push, and Shopee does not refuse a duplicate. His test
+         * shop ended with three copies of one product and four of another.
+         *
+         * The group push has always reconciled before deciding create or
+         * update, in these exact words: creating into that ignorance is
+         * how a duplicate listing appears next to the original. The
+         * one-click push did not, and it is the one an operator presses
+         * from a row. Same rule now, same service.
+         *
+         * Paid only when the ERP has no link, which is the only case that
+         * can create, and the shop scan inside is memoised per instance.
+         */
+        $verdict = app(\Extensions\shopee\Services\Shopee\ShopeeLinkCheck::class)
+            ->reconcile($client, $auth, $productId, $pfx);
+
+        if (in_array($verdict['state'], ['confirmed', 'adopted', 'repointed'], true)) {
+            return redirect()->back()->with('error',
+                'Not pushed: Shopee already holds this product as item ' . $verdict['item_id']
+                . '. It is linked here now, so use Push update to send these settings onto it.');
+        }
+        if ($verdict['state'] === 'taken' || $verdict['state'] === 'unreachable') {
+            return redirect()->back()->with('error', 'Not pushed: ' . $verdict['message']);
+        }
+
         $product = DB::table($pfx . 'product as p')
             ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
@@ -1562,13 +1592,17 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', "Missing Shopee {$modeLabel} settings.");
         }
 
+        /* Everything this store carries, not only what is already linked
+         * (the owner, 2026-09-09). Asked over a shop of thirty-two items with
+         * no link rows left, this used to answer "nothing to check" - the
+         * one moment it was most needed. A product Shopee does not hold
+         * simply reads "not pushed yet" and nothing is written. */
         $productIds = $this->parseProductIds($request);
         if (empty($productIds)) {
-            $productIds = ShopeeProductLink::query()->whereNotNull('shopee_item_id')
-                ->distinct()->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+            $productIds = $check->storeProductIds((int) $setting->id);
         }
         if (empty($productIds)) {
-            return redirect()->back()->with('error', 'Nothing is linked to Shopee yet, so there is nothing to check.');
+            return redirect()->back()->with('error', 'This store carries no products yet, so there is nothing to check.');
         }
 
         $r = $check->run($client, $auth, $productIds);

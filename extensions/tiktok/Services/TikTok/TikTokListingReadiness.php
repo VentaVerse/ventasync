@@ -63,7 +63,10 @@ class TikTokListingReadiness
             }
         }
         $listings = $listings->map(fn ($l) => $inherit->fill($l, $groups[(int) $l->product_id] ?? null)['listing']);
-        $catalog = CatalogGaps::forProducts($productIds, [CatalogGaps::ENABLED, CatalogGaps::IMAGE]);
+        /* ANY_SKU: TikTok takes no parent SKU either, so a product with
+           only variation codes is fine and one with none is not - see the
+           Shopee engine's note for why. */
+        $catalog = CatalogGaps::forProducts($productIds, [CatalogGaps::ENABLED, CatalogGaps::IMAGE, CatalogGaps::ANY_SKU]);
         $categoryIds = $listings->pluck('tiktok_category_id')->filter()->unique()->values()->all();
         $templates = $categoryIds
             ? TikTokCategoryTemplate::query()->whereIn('category_id', $categoryIds)->get()->keyBy('category_id')

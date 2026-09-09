@@ -23,6 +23,18 @@ final class CatalogGaps
     public const DESCRIPTION = 'description';
     public const PRICE = 'price';
     public const SKU = 'sku';
+
+    /**
+     * A SKU anywhere: the catalog product's own, its model, or any one of
+     * its variations'. Shopee and TikTok take no parent SKU of their own,
+     * so a product can go up carrying only its variations' codes - and
+     * that is fine, because both shops index every model SKU and the link
+     * checks search on them. What is NOT fine is a product carrying no
+     * code at all: lose its link and nothing can ever match it back, so
+     * the next push builds a second listing beside the first (the owner,
+     * 2026-09-09). This is the gap that says so before anything is sent.
+     */
+    public const ANY_SKU = 'any_sku';
     public const IMAGE = 'image';
     public const PARCEL = 'parcel';
 
@@ -42,6 +54,24 @@ final class CatalogGaps
         }
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
+
+        /* Only paid for when a channel asks for it: two small reads of the
+           variation tables for the page, which is what makes ANY_SKU
+           cheap enough to sit beside the flat column checks. */
+        $variationSkus = [];
+        if (in_array(self::ANY_SKU, $checks, true)) {
+            foreach ([$pfx . 'product_option_value', 'product_option_combinations'] as $table) {
+                foreach (
+                    DB::table($table)->whereIn('product_id', $productIds)
+                        ->whereNotNull('sku')->where('sku', '!=', '')
+                        ->get(['product_id', 'sku']) as $row
+                ) {
+                    if (trim((string) $row->sku) !== '') {
+                        $variationSkus[(int) $row->product_id] = true;
+                    }
+                }
+            }
+        }
 
         $rows = DB::table($pfx . 'product as p')
             ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
@@ -67,6 +97,8 @@ final class CatalogGaps
                         ? ['code' => ListingState::GAP_PRICE, 'label' => 'a price above zero on the catalog product'] : null,
                     self::SKU => (! $p || trim((string) ($p->sku ?: $p->model ?: '')) === '')
                         ? ['code' => ListingState::GAP_SKU, 'label' => 'a SKU on the catalog product'] : null,
+                    self::ANY_SKU => (! $p || (trim((string) ($p->sku ?: $p->model ?: '')) === '' && ! isset($variationSkus[$pid])))
+                        ? ['code' => ListingState::GAP_SKU, 'label' => 'a SKU on the catalog product or on one of its variations'] : null,
                     /* A listing that arranges its own pictures answers this
                        itself (critique 2026-09-08). Without the exception the
                        page told an operator it needed "a product image on the

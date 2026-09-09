@@ -40,11 +40,37 @@ class ShopeeLinkCheck
      */
     public function runNext(ShopeeClient $client, array $auth, int $storeId): ?array
     {
-        $linked = \Extensions\shopee\Models\ShopeeProductLink::query()->whereNotNull('shopee_item_id')
-            ->distinct()->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
-        $linked = \App\Integrations\Support\LinkCheckCursor::rotate('shopee:' . $storeId, $linked);
+        return ($ids = $this->storeProductIds($storeId)) !== []
+            ? $this->run($client, $auth, \App\Integrations\Support\LinkCheckCursor::rotate('shopee:' . $storeId, $ids))
+            : null;
+    }
 
-        return $linked !== [] ? $this->run($client, $auth, $linked) : null;
+    /**
+     * EVERY product this store carries, not only the ones already linked.
+     *
+     * The sweep walked the linked rows alone, which meant it could confirm
+     * a link and could never find one. An item created on Shopee whose
+     * link was then lost - a store deleted here, a database restored, a
+     * delete that answered ok while the item stayed up - was invisible to
+     * every automatic path, and the untargeted Check answered "Nothing is
+     * linked to Shopee yet, so there is nothing to check" over a shop
+     * holding thirty-two items (the owner's QA, 2026-09-09). The product is
+     * the unit of the question, so the product list is what it walks; a
+     * product genuinely not on Shopee reads 'new' and nothing is written.
+     *
+     * @return list<int>
+     */
+    public function storeProductIds(int $storeId): array
+    {
+        $listings = \Extensions\shopee\Models\ShopeeListing::query()
+            ->withoutGlobalScope('shopeeStore')->where('shopee_setting_id', $storeId)
+            ->pluck('product_id');
+
+        return \Extensions\shopee\Models\ShopeeProductLink::query()
+            ->withoutGlobalScope('shopeeStore')->where('shopee_setting_id', $storeId)
+            ->whereNotNull('shopee_item_id')->pluck('product_id')
+            ->merge($listings)
+            ->map(fn ($v) => (int) $v)->filter()->unique()->sort()->values()->all();
     }
 
     /** @return array{tone: 'status'|'warning'|'error', summary: string} */
@@ -243,12 +269,34 @@ class ShopeeLinkCheck
             }
         }
 
+        /* THE VARIATION SKUs ARE CANDIDATES TOO, from BOTH tables.
+         *
+         * This read combinations' older sibling only, so a product whose
+         * variations live in product_option_combinations - which is what
+         * every push here builds its models from - offered nothing to
+         * search by unless the parent carried a SKU of its own. Shopee
+         * needs no parent SKU, so a product could be pushed, lose its
+         * link, and then be unfindable forever: the check answered "this
+         * product has no SKU" and the next push made a second item beside
+         * the first (the owner, 2026-09-09: "Ive been pushing the same product
+         * to shopee without issue because it has no parent").
+         *
+         * Lazada's and TikTok's link checks already read both tables.
+         * Shopee's was the one that did not, and Shopee is the channel
+         * whose recovery depends on it. The marketplace half was always
+         * ready: skuIndex() maps every model_sku in the shop to its item.
+         */
         $optSkus = DB::table($pfx.'product_option_value')
             ->where('product_id', $productId)
             ->whereNotNull('sku')->where('sku', '!=', '')
             ->pluck('sku')->map(fn ($v) => strtolower(trim((string) $v)))->all();
 
-        return array_values(array_unique(array_filter(array_merge($skus, $optSkus))));
+        $comboSkus = DB::table('product_option_combinations')
+            ->where('product_id', $productId)
+            ->whereNotNull('sku')->where('sku', '!=', '')
+            ->pluck('sku')->map(fn ($v) => strtolower(trim((string) $v)))->all();
+
+        return array_values(array_unique(array_filter(array_merge($skus, $optSkus, $comboSkus))));
     }
 
     /**
@@ -348,6 +396,20 @@ class ShopeeLinkCheck
                     break;
                 }
 
+                /* A REFUSAL IS NOT AN EMPTY SHOP.
+                 *
+                 * Only the item list was read here, so a call that failed -
+                 * an expired token, a rate limit, a 500 - produced no items
+                 * and was indistinguishable from a shop holding none. The
+                 * index then called itself complete, the caller concluded
+                 * "not on Shopee", and a push created a listing beside the
+                 * one already there. The owner's QA log is full of
+                 * invalid_acceess_token on exactly these days. */
+                if (! ($res['ok'] ?? false) || (string) ($res['body']['error'] ?? '') !== '') {
+                    $complete = false;
+                    break;
+                }
+
                 $items = $res['body']['response']['item'] ?? [];
                 if (empty($items)) {
                     break;
@@ -366,6 +428,11 @@ class ShopeeLinkCheck
                         ['item_id_list' => implode(',', $itemIds)]
                     );
                 } catch (\Throwable $e) {
+                    $complete = false;
+                    break;
+                }
+
+                if (! ($detail['ok'] ?? false) || (string) ($detail['body']['error'] ?? '') !== '') {
                     $complete = false;
                     break;
                 }

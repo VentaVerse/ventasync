@@ -91,8 +91,15 @@ class ShopeeListingReadiness
             ->filter(fn ($l) => ! empty($l->image_order))
             ->keys()->all();
 
+        /* ANY_SKU, not SKU (the owner, 2026-09-09). Shopee takes no parent SKU
+           of its own, so a product carrying only its variations' codes is
+           perfectly pushable - the shop indexes every model_sku and the
+           link check searches on them. A product carrying no code at all
+           is not: lose its link and nothing can match it back, and the
+           next push builds a second listing beside the first. */
         $catalog = CatalogGaps::forProducts($productIds, [
-            CatalogGaps::ENABLED, CatalogGaps::NAME, CatalogGaps::DESCRIPTION, CatalogGaps::PRICE, CatalogGaps::IMAGE,
+            CatalogGaps::ENABLED, CatalogGaps::NAME, CatalogGaps::DESCRIPTION, CatalogGaps::PRICE,
+            CatalogGaps::IMAGE, CatalogGaps::ANY_SKU,
         ], $ownPictures);
 
         /* A group is a preset the product inherits (the owner, 2026-09-05):

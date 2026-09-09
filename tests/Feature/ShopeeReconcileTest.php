@@ -45,11 +45,11 @@ class ShopeeReconcileTest extends TestCase
         return file_get_contents(base_path($file));
     }
 
-    private function methodBody(string $method): string
+    private function methodBody(string $method, ?string $file = null): string
     {
-        $source = $this->source(self::CONTROLLER);
+        $source = $this->source($file ?? self::CONTROLLER);
 
-        if (! preg_match('/\n    (?:public|private) function '.$method.'\(/', $source, $m, PREG_OFFSET_CAPTURE)) {
+        if ($file === null && ! preg_match('/\n    (?:public|private) function '.$method.'\(/', $source, $m, PREG_OFFSET_CAPTURE)) {
             $source = $this->source(self::CHECK);
         }
 
@@ -121,6 +121,79 @@ class ShopeeReconcileTest extends TestCase
         $this->assertStringContainsString("\$index['complete']", $body,
             'A shop that could only be read halfway still yields a "not on Shopee" verdict, which '
             .'deletes links for products the scan simply never reached.');
+    }
+
+    /* ── The duplicate guard (#244, the owner 2026-09-09) ─────────────────
+     *
+     * His test shop held three copies of one product and four of another,
+     * and this ERP held not one link row. Four separate teeth had to be
+     * missing at once for that, and each one is pinned here. */
+
+    /** The one-click push asks the marketplace, not only our own table. */
+    public function test_the_one_click_push_reconciles_before_it_creates(): void
+    {
+        $body = $this->methodBody('pushDirect', 'extensions/shopee/Controllers/ShopeeProductController.php');
+
+        $this->assertNotSame('', $body, 'pushDirect is gone.');
+        $this->assertStringContainsString('reconcile(', $body,
+            'The one-click push decides create-or-not from the local link row alone. A store deleted '
+            .'here, or a database restored, takes every link while the shop keeps every item - and the '
+            .'next press builds a second listing beside the first.');
+        $this->assertStringContainsString("'taken'", $body,
+            'A Shopee item already held by another catalog product would be pushed over.');
+        $this->assertStringContainsString("'unreachable'", $body,
+            'Creating while the shop could not be read is how a duplicate appears next to the original; '
+            .'the group push has always refused it and this must too.');
+    }
+
+    /** A refusal from the shop is not a shop with nothing in it. */
+    public function test_a_refused_scan_is_never_a_complete_one(): void
+    {
+        $body = $this->methodBody('skuIndex');
+
+        $this->assertMatchesRegularExpression(
+            '/\$res\[.ok.\].*?\$complete = false;/s',
+            $body,
+            'An item-list call that failed yields no items and reads as an empty shop, so an expired '
+            .'token or a rate limit becomes "not on Shopee" and a duplicate is created. The owner\'s QA log '
+            .'was full of invalid_acceess_token on the days the copies appeared.'
+        );
+    }
+
+    /** A parent with no SKU is not a product with no SKU. */
+    public function test_the_search_knows_every_place_a_sku_lives(): void
+    {
+        $body = $this->methodBody('shopeeCandidateSkus');
+
+        $this->assertStringContainsString('product_option_value', $body,
+            'Variation SKUs are no longer candidates.');
+        $this->assertStringContainsString('product_option_combinations', $body,
+            'Combination SKUs are not candidates, so a product whose variations live there and whose '
+            .'parent carries no SKU can never be matched back to its Shopee item - which is exactly the '
+            .'product the owner pushed four times. Lazada and TikTok have always read both tables.');
+    }
+
+    /** A link is dropped only when the item is really gone. */
+    public function test_an_undo_confirms_the_item_left(): void
+    {
+        $body = $this->methodBody('undoCreate', 'extensions/shopee/Services/Shopee/ShopeeVariationPush.php');
+
+        $this->assertNotSame('', $body, 'undoCreate is gone.');
+        $this->assertStringContainsString('itemIsGone(', $body,
+            'delete_item answering ok is taken as proof the item left. An item that survives the call '
+            .'leaves a live listing with nothing here pointing at it, which is the state that makes the '
+            .'next push create a second one.');
+    }
+
+    /** The sweep can find a link, not only confirm one. */
+    public function test_the_sweep_walks_the_store_not_only_its_links(): void
+    {
+        $body = $this->methodBody('storeProductIds');
+
+        $this->assertNotSame('', $body, 'storeProductIds is gone.');
+        $this->assertStringContainsString('ShopeeListing::query()', $body,
+            'The sweep walks linked rows only, so an item whose link was lost is invisible to every '
+            .'automatic path and the untargeted Check answers "nothing to check" over a shop full of items.');
     }
 
     // ── Every divergence has a verdict ───────────────────────────────

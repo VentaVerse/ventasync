@@ -310,12 +310,65 @@ class ShopeeVariationPush
         ]);
 
         $ok = ($result['ok'] ?? false) && (($result['body']['error'] ?? '') === '' || ($result['body']['error'] ?? null) === null);
-        if ($ok) {
+
+        /* THE LINK GOES ONLY WHEN THE ITEM IS ACTUALLY GONE.
+         *
+         * delete_item answering ok was taken as proof, and it is not: an
+         * item that survives the call - refused for a reason the body does
+         * not carry, unlisted rather than removed, deleted late - left a
+         * live item on Shopee with nothing here pointing at it. That is
+         * the state that makes the next push create a second one, and on a
+         * product with no SKU nothing can ever find it again (the owner,
+         * 2026-09-09). So the shop is asked, and a link is dropped only on
+         * an answer that says the item is not there. Shopee not answering
+         * keeps the link: a link to an item that is gone is a smaller
+         * wrong than a duplicate nobody can see. */
+        if ($ok && $this->itemIsGone($client, $auth, $itemId)) {
             ShopeeProductLink::query()->where('product_id', $productId)->where('shopee_item_id', $itemId)->delete();
             ShopeeItemCache::query()->where('shopee_item_id', $itemId)->delete();
         }
 
         return $ok;
+    }
+
+    /**
+     * Did the delete really take? Only a definitive answer counts: the
+     * shop not answering, or answering with an error of its own, proves
+     * nothing and must not be read as absence.
+     */
+    private function itemIsGone(ShopeeClient $client, array $auth, int $itemId): bool
+    {
+        try {
+            $res = $client->shopGet(
+                $auth['mode'], (int) $auth['partner_id'], (string) $auth['partner_key'],
+                (string) $auth['access_token'], (int) $auth['shop_id'],
+                '/api/v2/product/get_item_base_info',
+                ['item_id_list' => (string) $itemId]
+            );
+        } catch (\Throwable $e) {
+            return false;
+        }
+
+        $body = is_array($res['body'] ?? null) ? $res['body'] : [];
+        $err = strtolower((string) ($body['error'] ?? ''));
+
+        if ($err !== '') {
+            // Only an error that NAMES the item as missing is an answer.
+            return str_contains($err, 'not_found') || str_contains($err, 'not_exist');
+        }
+
+        if (! ($res['ok'] ?? false)) {
+            return false;
+        }
+
+        foreach ($body['response']['item_list'] ?? [] as $item) {
+            if ((int) ($item['item_id'] ?? 0) === $itemId) {
+                return strtoupper((string) ($item['item_status'] ?? '')) === 'DELETED';
+            }
+        }
+
+        // A successful answer that does not hold the item: the shop has none.
+        return true;
     }
 
     /**

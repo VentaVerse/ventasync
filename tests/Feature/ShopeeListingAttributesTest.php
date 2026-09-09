@@ -56,6 +56,15 @@ class ShopeeListingAttributesTest extends TestCase
             }
             public function shopGet(string $mode, int $partnerId, string $partnerKey, string $accessToken, int $shopId, string $path, array $extraQuery = []): array
             {
+                /* An EMPTY shop that answered, not a shop that refused. The
+                 * one-click push reconciles against the marketplace before
+                 * it creates (#244), and a refusal is deliberately read as
+                 * "we do not know what is up there", which blocks the push.
+                 * This fixture is a fresh shop, so it says so. */
+                if ($path === '/api/v2/product/get_item_list') {
+                    return ['ok' => true, 'status' => 200, 'body' => ['error' => '', 'response' => ['item' => [], 'has_next_page' => false]]];
+                }
+
                 return ['ok' => false, 'status' => 500, 'body' => ['message' => 'not faked']];
             }
             public function signShop(int $partnerId, string $partnerKey, string $path, int $timestamp, string $accessToken, int $shopId): string
