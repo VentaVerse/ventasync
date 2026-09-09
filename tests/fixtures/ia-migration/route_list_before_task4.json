@@ -190,6 +190,11 @@
         "name": null
     },
     {
+        "method": "PUT",
+        "uri": "api/v1/products/{id}/price",
+        "name": null
+    },
+    {
         "method": "GET|HEAD",
         "uri": "api/v1/reports/products",
         "name": null
