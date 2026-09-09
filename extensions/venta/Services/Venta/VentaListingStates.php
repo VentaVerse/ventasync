@@ -27,6 +27,56 @@ class VentaListingStates
         return new self($storeId);
     }
 
+    /**
+     * The store's listing troubles in two numbers, for the dashboard chip:
+     * how many products need a human, and how many are live but behind the
+     * catalog. Aggregate SQL, not the per-product path - the dashboard must
+     * not walk two thousand rows.
+     *
+     * @return array{attention: int, drift: int}
+     */
+    public function summary(): array
+    {
+        return [
+            'attention' => $this->bucket('attention')->distinct()->count('venta_listings.product_id'),
+            'drift' => $this->bucket('drift')->distinct()->count('venta_listings.product_id'),
+        ];
+    }
+
+    /**
+     * The rows behind a figure, by the SAME query that counted them: the
+     * Listings page filters on this, so a dashboard number and the rows it
+     * leads to can never disagree.
+     *
+     * @return list<int>
+     */
+    public function productIdsIn(string $bucket): array
+    {
+        return $this->bucket($bucket)->distinct()
+            ->pluck('venta_listings.product_id')
+            ->map(fn ($v) => (int) $v)->unique()->values()->all();
+    }
+
+    /** One definition of each bucket, counted and listed from here. */
+    private function bucket(string $bucket): \Illuminate\Database\Eloquent\Builder
+    {
+        $pfx = (string) config('catalog.prefix');
+
+        $mine = VentaListing::query()->where('venta_listings.venta_setting_id', $this->storeId);
+
+        if ($bucket === 'drift') {
+            return $mine
+                ->whereIn('live_status', [VentaListing::STATUS_ACTIVE, VentaListing::STATUS_INACTIVE])
+                ->join($pfx . 'product as p', 'p.product_id', '=', 'venta_listings.product_id')
+                ->whereNotNull('venta_listings.last_pushed_at')
+                ->whereColumn('p.date_modified', '>', 'venta_listings.last_pushed_at');
+        }
+
+        // The store no longer returns the product: the one condition on
+        // this channel that needs a human rather than a push.
+        return $mine->where('live_status', VentaListing::STATUS_MISSING);
+    }
+
     /** @return array<int, ListingState> */
     public function forProducts(array $productIds): array
     {

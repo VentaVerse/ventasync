@@ -468,7 +468,35 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
 
     public function dashboardData(): array
     {
+        /* The listing troubles ride the chip, per store (VENT2-131): a
+         * product the storefront no longer returns, or one live but behind
+         * the catalog, used to live only on a page nobody opens daily.
+         * Counted by aggregate, keyed by tab id so two stores never share
+         * one blended row, and a failure here must not take the dashboard
+         * down. Each figure carries where it goes - the Listings page
+         * filtered by the same query that counted it - and the words are
+         * App\Integrations\Listings\ListingTrouble's, so the chip and the
+         * page it lands on say the same thing. */
+        $statuses = [];
+        if (Schema::hasTable('venta_listings')) {
+            foreach ($this->allStores() as $store) {
+                try {
+                    $sum = \Extensions\venta\Services\Venta\VentaListingStates::for((int) $store->id)->summary();
+                } catch (\Throwable) {
+                    continue; // this store's chip simply carries no flags line
+                }
+                $statuses[$this->id . ':' . $store->id] = (object) [
+                    'listing_flags' => \App\Integrations\Listings\ListingTrouble::figures(
+                        $sum,
+                        fn (string $bucket) => route('ext.venta.listings.index', ['store' => $store->id, 'state' => $bucket])
+                    ),
+                    'listing_attention' => (int) $sum['attention'],
+                ];
+            }
+        }
+
         return [
+            'channelSyncStatuses' => $statuses,
             'ventaStoreNames' => Schema::hasTable('venta_settings')
                 ? DB::table('venta_settings')->pluck('store_name', 'id')->all()
                 : [],

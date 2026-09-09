@@ -319,6 +319,16 @@ class VentaListingController extends Controller
             $query->whereIn('p.product_id', $errored ?: [0]);
         }
 
+        /* The dashboard's own figures, as a filter (VENT2-131): a chip
+           saying "3 listings need attention" links here with
+           ?state=attention, and the rows it narrows to are fetched by the
+           SAME query that counted them, so the number and the list cannot
+           disagree. */
+        $troubleFilter = \App\Integrations\Listings\ListingTrouble::asked($request->query('state'));
+        if ($troubleFilter !== null) {
+            $query->whereIn('p.product_id', \Extensions\venta\Services\Venta\VentaListingStates::for($store)->productIdsIn($troubleFilter) ?: [0]);
+        }
+
         // The catalogue's own total, before a store tab narrows the table.
         $catalogueTotal = (clone $query)->count();
 
@@ -382,6 +392,7 @@ class VentaListingController extends Controller
             'liveCounts' => $liveCounts,
             'liveCheckedAt' => $liveCheckedAt,
             'liveTabError' => $liveTabError,
+            'troubleFilter' => $troubleFilter,
             'catalogueTotal' => $catalogueTotal,
         ]);
     }

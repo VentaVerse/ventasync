@@ -58,6 +58,12 @@
     @endif
 </div>
 
+@include('partials.channel-state-filter', [
+    'bucket' => $troubleFilter ?? null,
+    'count' => $products->total(),
+    'clear' => route('ext.venta.listings.index', array_merge(['store' => $setting->id], request()->except(['state', 'page']))),
+])
+
 {{-- A store that cannot be asked says so, once, at the top (parity,
      2026-09-09). The buckets below are the mirror's last word, not a live
      read, so they stay - what would otherwise be missing is any reason for
