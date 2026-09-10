@@ -11,7 +11,7 @@ use App\Models\Catalog\ProductImage;
 use App\Rules\UniqueSku;
 use App\Services\ActivityLogger;
 use App\Services\StockHistoryLogger;
-use App\Support\HtmlSanitizer;
+use App\Support\Catalog\DescriptionHtml;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -713,7 +713,7 @@ public function store(Request $request)
                 // and re-executes it via jQuery .html() on the edit page
                 // (see App\Support\HtmlSanitizer docblock), so hostile
                 // markup must never reach the database in the first place.
-                'description' => HtmlSanitizer::sanitize((string) $request->input('description', '')),
+                'description' => DescriptionHtml::store((string) $request->input('description', '')),
                 'meta_title' => (string) $request->name,
                 'meta_description' => '',
                 'meta_keyword' => '',
@@ -922,7 +922,7 @@ public function store(Request $request)
         // (or written directly to the DB) may still carry hostile HTML.
         // Sanitising here neutralises them on display without rewriting
         // the database. See App\Support\HtmlSanitizer's docblock.
-        $product->description = HtmlSanitizer::sanitize($product->description ?? '');
+        $product->description = DescriptionHtml::store($product->description ?? '');
 
 
         // Load all assigned categories for this product
@@ -1355,7 +1355,7 @@ public function store(Request $request)
                     'name' => (string) $request->name,
                     // Sanitised before persistence: see the store() note
                     // above and App\Support\HtmlSanitizer's docblock.
-                    'description' => HtmlSanitizer::sanitize((string) $request->input('description', '')),
+                    'description' => DescriptionHtml::store((string) $request->input('description', '')),
                     'meta_title' => (string) $request->name,
                     'meta_description' => (string) ($d->meta_description ?? ''),
                     'meta_keyword' => (string) ($d->meta_keyword ?? ''),

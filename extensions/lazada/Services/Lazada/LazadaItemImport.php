@@ -87,7 +87,7 @@ class LazadaItemImport
                     'product_id' => $productId,
                     'language_id' => $langId,
                     'name' => Str::limit($name, 250, ''),
-                    'description' => \App\Support\HtmlSanitizer::sanitize((string) ($attrs['description'] ?? $attrs['short_description'] ?? '')),
+                    'description' => \App\Support\Catalog\DescriptionHtml::store((string) ($attrs['description'] ?? $attrs['short_description'] ?? '')),
                     'meta_title' => Str::limit($name, 250, ''),
                     'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
                 ]);

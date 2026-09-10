@@ -99,11 +99,16 @@ class TikTokProductPush
         }
         $title = mb_substr($title, 0, 255);
 
+        /* TikTok takes a RICH description - paragraphs, headings, lists
+         * and up to thirty pictures - and this used to strip_tags() the
+         * lot and send the words alone, so a description somebody had laid
+         * out arrived as a wall of text with its photographs deleted and
+         * nothing said about it (VENT2-129). Only what TikTok forbids is
+         * dropped now; App\Integrations\Listings\RichDescription owns the
+         * allowance. */
         $rawDesc = trim((string) ($opts['description'] ?? '')) !== '' ? (string) $opts['description'] : (string) ($erp->description ?? '');
-        $rawDesc = preg_replace('/<br\s*\/?>/i', "\n", $rawDesc);
-        $rawDesc = preg_replace('/<\/p>\s*/i', "\n\n", $rawDesc);
-        $desc = trim(strip_tags(html_entity_decode($rawDesc, ENT_QUOTES | ENT_HTML5, 'UTF-8')));
-        if ($desc === '') {
+        $desc = \App\Integrations\Listings\RichDescription::forTikTok($rawDesc);
+        if (trim(strip_tags($desc)) === '') {
             $desc = $title;
         }
 

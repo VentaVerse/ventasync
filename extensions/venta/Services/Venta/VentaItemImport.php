@@ -72,7 +72,7 @@ class VentaItemImport
                     'product_id' => $productId,
                     'language_id' => $langId,
                     'name' => Str::limit($name, 250, ''),
-                    'description' => \App\Support\HtmlSanitizer::sanitize((string) ($item['description'] ?? '')),
+                    'description' => \App\Support\Catalog\DescriptionHtml::store((string) ($item['description'] ?? '')),
                     'meta_title' => Str::limit($name, 250, ''),
                     'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
                 ]);

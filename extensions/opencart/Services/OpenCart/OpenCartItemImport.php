@@ -67,7 +67,7 @@ class OpenCartItemImport
                     'product_id' => $productId,
                     'language_id' => $langId,
                     'name' => Str::limit($name, 250, ''),
-                    'description' => \App\Support\HtmlSanitizer::sanitize(html_entity_decode((string) ($item['description'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')),
+                    'description' => \App\Support\Catalog\DescriptionHtml::store(html_entity_decode((string) ($item['description'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')),
                     'meta_title' => Str::limit($name, 250, ''),
                     'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
                 ]);

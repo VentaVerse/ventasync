@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Catalog\Category;
 use App\Models\Catalog\CategoryDescription;
 use App\Services\ActivityLogger;
-use App\Support\HtmlSanitizer;
+use App\Support\Catalog\DescriptionHtml;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -92,7 +92,7 @@ return view('catalog.categories.index', ['categories' => $categories, 'q' => $q]
             // re-executes it via jQuery .html() on the edit page (see
             // App\Support\HtmlSanitizer's docblock), so hostile markup must
             // never reach the database in the first place.
-            $cd->description = HtmlSanitizer::sanitize($request->input('description'));
+            $cd->description = DescriptionHtml::store($request->input('description'));
             $cd->meta_title = $request->name;
             $cd->meta_description = '';
             $cd->meta_keyword = '';
@@ -130,7 +130,7 @@ return view('catalog.categories.index', ['categories' => $categories, 'q' => $q]
         // (or written directly to the DB) may still carry hostile HTML.
         // Sanitising here neutralises them on display without rewriting
         // the database. See App\Support\HtmlSanitizer's docblock.
-        $category->description = HtmlSanitizer::sanitize($category->description ?? '');
+        $category->description = DescriptionHtml::store($category->description ?? '');
 
         $parents = $this->parentOptions((int)$id);
 
@@ -178,7 +178,7 @@ return view('catalog.categories.index', ['categories' => $categories, 'q' => $q]
             $cd->name = $request->name;
             // Sanitised before persistence: see store() above and
             // App\Support\HtmlSanitizer's docblock.
-            $cd->description = HtmlSanitizer::sanitize($request->input('description'));
+            $cd->description = DescriptionHtml::store($request->input('description'));
             $cd->meta_title = $request->name;
             $cd->save();
 
