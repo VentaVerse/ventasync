@@ -103,13 +103,43 @@ class VentaDisabledStoreTest extends TestCase
     }
 
     /**
+     * Commands that READ ONLY, and why each is allowed to. The rule below
+     * is about a command ACTING on a store that has been switched off -
+     * syncing it, pushing to it, calling it. A command that only reads
+     * what is already in this database is not that, and scoping one to
+     * enabled stores would defeat it: a freshly connected store is
+     * DISABLED until somebody turns syncing on, which is exactly the store
+     * whose stored orders you need to look at.
+     *
+     * Anything added here must call no marketplace and write nothing.
+     */
+    private const READ_ONLY = [
+        // Prints the fee-shaped fields the storefront sends, from payloads
+        // already stored. Temporary; delete with the command.
+        'VentaFeeKeys.php',
+    ];
+
+    /**
      * The console side, which was already correct and must stay that way.
      * --store=N is AND-ed with enabled, so a disabled store cannot be forced.
      */
     public function test_no_console_command_can_reach_a_disabled_store(): void
     {
         foreach (glob(base_path('extensions/venta/Commands/*.php')) as $path) {
-            $this->assertStringContainsString("where('enabled', true)", file_get_contents($path),
+            $source = (string) file_get_contents($path);
+
+            if (in_array(basename($path), self::READ_ONLY, true)) {
+                // The exemption is only worth having if it is checked: a
+                // read-only command that grows a write is the thing this
+                // rule exists to stop.
+                foreach (['->update(', '->delete(', '->insert(', '->save()', 'client->', 'Client('] as $write) {
+                    $this->assertStringNotContainsString($write, $source,
+                        basename($path) . ' is listed as read-only and writes or calls out.');
+                }
+                continue;
+            }
+
+            $this->assertStringContainsString("where('enabled', true)", $source,
                 basename($path).' can run against a disabled Venta store.');
         }
     }
