@@ -5,6 +5,8 @@
      flow where it is read first. Shared by Shopee, Lazada and TikTok.
 
      $steps      list of ['title', 'hint', 'state', 'tone' (done|todo|failed),
+                 'key' (optional: names the step so a script elsewhere on
+                 the page can bring its state up to date),
                  'button' => null | ['label', 'variant', and one of
                  'href' (a link), 'post' (a form action), 'attrs' (a button
                  carrying data attributes)]]
@@ -17,7 +19,8 @@
     <ol class="cs-flow">
         @foreach($steps as $i => $step)
             @php $button = $step['button'] ?? null; @endphp
-            <li class="cs-flow__step" data-state="{{ $step['tone'] ?? 'todo' }}">
+            <li class="cs-flow__step" data-state="{{ $step['tone'] ?? 'todo' }}"
+                @if(!empty($step['key'])) data-flow-step="{{ $step['key'] }}" @endif>
                 <span class="cs-step__n">{{ $i + 1 }}</span>
                 <div class="cs-flow__body">
                     <span class="cs-step__title">{{ $step['title'] }}
@@ -46,7 +49,14 @@
                             @endif
                         </div>
                     @endif
-                    <span class="cs-flow__state">{{ $step['state'] }}</span>
+                    {{-- The state line is named when a step has a `key`, so a
+                         step whose action lives elsewhere on the page can be
+                         brought up to date without a reload. Pressing Check
+                         connection wrote connected_at and left this reading
+                         "Not checked yet" until the next page load, which is
+                         indistinguishable from a hardcoded line (the owner,
+                         2026-09-10). --}}
+                    <span class="cs-flow__state" @if(!empty($step['key'])) data-flow-state="{{ $step['key'] }}" @endif>{{ $step['state'] }}</span>
                 </div>
             </li>
         @endforeach

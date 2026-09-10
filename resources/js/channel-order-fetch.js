@@ -173,15 +173,31 @@
             }, true);
         }
 
+        /* OPENING THE SHEET IS A CLASS, NOT AN ATTRIBUTE.
+         *
+         * .modal-backdrop is display:none and only .modal-backdrop.active
+         * is display:flex - the convention every other dialog in this app
+         * follows. This one toggled the `hidden` attribute alone, so the
+         * element stopped being hidden and stayed display:none: Open did
+         * nothing at all, on every channel, for as long as the sheet has
+         * existed (the owner, 2026-09-10: "I cant click Open").
+         *
+         * Both are set: the attribute keeps the element out of the
+         * accessibility tree while it is away, the class shows it. */
+        function showSheet(open) {
+            sheet.hidden = !open;
+            sheet.classList.toggle('active', !!open);
+        }
+
         root.addEventListener('click', function (e) {
             var t = e.target.closest('button');
             if (!t) return;
-            if (t.hasAttribute('data-of-open')) { sheet.hidden = false; }
-            else if (t.hasAttribute('data-of-minimise')) { sheet.hidden = true; }
+            if (t.hasAttribute('data-of-open')) { showSheet(true); }
+            else if (t.hasAttribute('data-of-minimise')) { showSheet(false); }
             else if (t.hasAttribute('data-of-stop')) { stopAsked = true; if (!driving && run) post(url(stopUrl, run.id), {}).then(apply); t.disabled = true; window.setTimeout(function () { t.disabled = false; }, 1500); }
-            else if (t.hasAttribute('data-of-close')) { sheet.hidden = true; window.location.reload(); }
+            else if (t.hasAttribute('data-of-close')) { showSheet(false); window.location.reload(); }
             else if (t.hasAttribute('data-of-retry') || t.hasAttribute('data-of-continue')) { if (run) { run.status = 'running'; draw(); drive(true); } }
-            else if (t.hasAttribute('data-of-startover')) { sheet.hidden = true; strip.hidden = true; root.hidden = true; run = null; if (form) { var b = form.querySelector('[type="submit"]'); if (b) b.focus(); } }
+            else if (t.hasAttribute('data-of-startover')) { showSheet(false); strip.hidden = true; root.hidden = true; run = null; if (form) { var b = form.querySelector('[type="submit"]'); if (b) b.focus(); } }
         });
 
         // A run this store did not finish: offer it.
@@ -194,7 +210,7 @@
                 var when = root.getAttribute('data-resumable-when');
                 each(titles, function (t) { if (t) t.textContent = 'A fetch stopped on page ' + run.page + (run.pages ? ' of ' + run.pages : ''); });
                 if (sub && when) sub.textContent = when + ', ' + run.date_from + ' to ' + run.date_to + '. ' + run.read.toLocaleString() + ' ' + plural(run.read, 'order is', 'orders are') + ' in.';
-                sheet.hidden = false;
+                showSheet(true);
             }
         }
     }

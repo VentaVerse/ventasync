@@ -281,7 +281,13 @@ class VentaOrderController extends Controller
     {
         $setting = VentaSetting::where('id', (int) $run->store_id)->where('enabled', true)->first();
         if (! $setting) {
-            return ['error' => 'This Venta store is not enabled.'];
+            /* A new store is created with syncing OFF and stays off until
+               somebody turns it on, so this is the first thing a freshly
+               connected store answers - and saying only "not enabled" left
+               the owner looking for a switch he had never been shown
+               (2026-09-10). An error says how to fix it or it is only half
+               an error. */
+            return ['error' => 'This Venta store is not enabled, so nothing was fetched. Turn Syncing on under its Connection settings and try again.'];
         }
         $sync = new VentaOrderSync(new VentaClient($setting), $setting);
         if (! empty($run->options['no_stock'])) {

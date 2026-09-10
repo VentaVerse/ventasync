@@ -78,14 +78,27 @@
         ['title' => 'Save the address and token', 'tone' => $csHasToken ? 'done' : 'todo',
          'hint' => 'The token is issued by the Venta store itself, under its own API settings. It has to allow reading orders and writing products, stock and prices.',
          'state' => $csHasToken ? 'Address and token saved' : 'Fill in the address and token below and save'],
+        /* The button for this step sits BESIDE Save connection, in the form
+           it tests, rather than up here (the owner, 2026-09-10: "the check
+           connection on top and the save connection feels that they should
+           belong together"). You type a token and check it in one place;
+           this line reports what happened, and the script brings it up to
+           date without a reload. */
         ['title' => 'Check the connection', 'tone' => $store->connected_at ? 'done' : 'todo',
+         'key' => 'connected',
          'hint' => 'Asks the store for its category list with the saved token. A refusal here means the token or the address is wrong.',
-         'button' => $csHasToken ? ['label' => 'Check connection', 'variant' => $store->connected_at ? 'secondary' : 'primary', 'attr' => 'data-test-connection'] : null,
          'state' => $store->connected_at ? 'Reached ' . $store->connected_at->diffForHumans() : 'Not checked yet'],
         ['title' => 'Set up the store', 'tone' => $csSetUp ? 'done' : 'todo',
          'hint' => 'Reads the categories and brands a product group picks from, and the order statuses the mapping needs. It runs on its own the first time the token is saved; press it again to refresh them. Nothing is written to the store.',
          'button' => $csHasToken ? ['label' => 'Set up store', 'variant' => $csSetUp ? 'secondary' : 'primary', 'attr' => 'data-setup-open'] : null,
          'state' => $csSetupState],
+        /* A store is created with syncing OFF and stays off until somebody
+           turns it on, so this is a real step in connecting one and it was
+           invisible: every fetch and every push refused, naming a switch
+           the operator had never been pointed at (the owner, 2026-09-10). */
+        ['title' => 'Turn syncing on', 'tone' => $store->enabled ? 'done' : 'todo',
+         'hint' => 'Until this is on, the store stays configured and nothing is fetched or pushed. The switch is at the bottom of the connection form.',
+         'state' => $store->enabled ? 'Syncing' : 'Off, so nothing is fetched or pushed yet'],
         ['title' => 'Map statuses', 'tone' => $statusMap->isNotEmpty() ? 'done' : 'todo',
          'hint' => 'Which sales order status a Venta order lands in. Fetch the store\'s statuses and set them under Status mapping.',
          'button' => ['label' => 'Status mapping', 'variant' => 'secondary', 'href' => route('ext.venta.settings.show', ['store' => $store->id, 'tab' => 'status'])],
@@ -254,8 +267,17 @@
                 </div>
 
                 @if($canManageVenta)
+                {{-- Save and Check together (the owner, 2026-09-10). The answer
+                     lands HERE, beside the button that asked for it: it used
+                     to be written next to Save while the button sat in the
+                     flow card at the top of the page, so pressing Check
+                     printed its verdict somewhere the reader was not
+                     looking. --}}
                 <div class="cs-actions">
                     <x-ui.button type="submit" variant="primary">Save connection</x-ui.button>
+                    @if($csHasToken)
+                        <button type="button" class="x-btn x-btn--secondary" data-test-connection>Check connection</button>
+                    @endif
                     <span class="cs-actions__note" data-test-result role="status" aria-live="polite"></span>
                 </div>
                 @endif

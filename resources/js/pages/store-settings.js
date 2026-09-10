@@ -226,10 +226,29 @@ function initTest(root, config) {
                         ? String(data.message)
                         : (parts.length ? 'Connected to ' + parts.join(', ') + '.' : 'Connected.');
                     result.classList.add('cs-actions__note--ok');
+
+                    /* The flow step above says whether this store has ever
+                       answered, and it is written by the server on page
+                       load. A successful check stamped connected_at and
+                       left the step reading "Not checked yet" until the
+                       next reload, which is indistinguishable from a
+                       hardcoded line (the owner, 2026-09-10). It says so now,
+                       when it happens. */
+                    const step = root.querySelector('[data-flow-step="connected"]');
+                    const state = root.querySelector('[data-flow-state="connected"]');
+                    if (state) state.textContent = 'Reached just now';
+                    if (step) step.setAttribute('data-state', 'done');
                 } else {
                     const reason = data.message || (data.body && data.body.error) || data.error || 'no reason given';
                     result.textContent = data.message ? String(data.message) : 'Could not connect: ' + reason;
                     result.classList.add('cs-actions__note--fail');
+
+                    // And a refusal is a state too: the step says it rather
+                    // than keeping whatever it said before.
+                    const failedStep = root.querySelector('[data-flow-step="connected"]');
+                    const failedState = root.querySelector('[data-flow-state="connected"]');
+                    if (failedState) failedState.textContent = 'Refused just now';
+                    if (failedStep) failedStep.setAttribute('data-state', 'failed');
                 }
             })
             .catch(function (error) {
