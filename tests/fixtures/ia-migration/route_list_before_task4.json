@@ -466,6 +466,41 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "catalog/watermarks",
+        "name": "watermarks.index"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/watermarks",
+        "name": "watermarks.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/watermarks/create",
+        "name": "watermarks.create"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/watermarks/preview",
+        "name": "watermarks.preview"
+    },
+    {
+        "method": "DELETE",
+        "uri": "catalog/watermarks/{id}",
+        "name": "watermarks.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "catalog/watermarks/{id}",
+        "name": "watermarks.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/watermarks/{id}/edit",
+        "name": "watermarks.edit"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "channels",
         "name": "channels.index"
     },

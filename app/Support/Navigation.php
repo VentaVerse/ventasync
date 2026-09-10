@@ -53,6 +53,8 @@ class Navigation
                  'keywords' => ['taxonomy', 'group']],
                 ['label' => 'Manufacturers', 'route' => 'manufacturers.index',
                  'keywords' => ['brand', 'supplier']],
+                ['label' => 'Watermarks', 'route' => 'watermarks.index',
+                 'keywords' => ['logo', 'branding', 'overlay', 'stamp', 'image']],
                 ['label' => 'Reviews', 'route' => 'ext.opencart.reviews.index',
                  'keywords' => ['rating', 'feedback', 'comment']],
             ]],

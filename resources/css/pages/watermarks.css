@@ -1,0 +1,102 @@
+/* ------------------------------------------------------------------
+   WATERMARK TEMPLATES (VENT2-128)
+
+   A named mark, defined in the catalogue and chosen by any listing or
+   product group. Two things on this page need drawing that nothing else
+   here does: a mark shown against something that proves its transparency,
+   and the nine positions as a shape rather than a dropdown.
+   ------------------------------------------------------------------ */
+
+/* A CHEQUER, because a white logo on a white card looks like an empty
+   box, and "my logo is missing" is the first thing that would be
+   reported. The squares are the convention every image editor uses for
+   transparency, so it reads without a caption. */
+.wm-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 3px;
+    border: 1px solid var(--bl-rule-2);
+    border-radius: var(--bl-r-ctrl);
+    background-color: var(--bl-sheet);
+    background-image:
+        linear-gradient(45deg, var(--bl-chrome-2) 25%, transparent 25%),
+        linear-gradient(-45deg, var(--bl-chrome-2) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, var(--bl-chrome-2) 75%),
+        linear-gradient(-45deg, transparent 75%, var(--bl-chrome-2) 75%);
+    background-size: 10px 10px;
+    background-position: 0 0, 0 5px, 5px -5px, -5px 0;
+}
+
+.wm-chip img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.wm-chip--lg {
+    width: 96px;
+    height: 96px;
+}
+
+.wm-pick {
+    display: flex;
+    align-items: center;
+    gap: var(--bl-space-3);
+    flex-wrap: wrap;
+}
+
+/* THE NINE POSITIONS AS A PICTURE OF THE FRAME. A select listing
+   "bottom-right, middle-center..." makes the reader translate words into
+   a corner; this is the corner. */
+.wm-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    width: 132px;
+    aspect-ratio: 1;
+    padding: 4px;
+    border: 1px solid var(--bl-rule-2);
+    border-radius: var(--bl-r-ctrl);
+    background: var(--bl-chrome);
+}
+
+.wm-grid__cell {
+    display: block;
+    border-radius: 3px;
+    background: var(--bl-sheet);
+    cursor: pointer;
+    transition: background 120ms ease, box-shadow 120ms ease;
+}
+
+.wm-grid__cell:hover { background: var(--bl-chrome-2); }
+
+.wm-grid__cell input { position: absolute; opacity: 0; pointer-events: none; }
+
+.wm-grid__cell:has(input:checked) {
+    background: var(--ch-deep, var(--bl-ink));
+    box-shadow: inset 0 0 0 1px var(--ch-deep, var(--bl-ink));
+}
+
+.wm-grid__cell:has(input:focus-visible) {
+    outline: 2px solid var(--bl-brand);
+    outline-offset: 2px;
+}
+
+/* The preview is a real photograph stamped by the real stamper, so it is
+   shown at the size a photograph deserves rather than as a thumbnail. */
+.wm-preview {
+    margin-top: var(--bl-space-2);
+    border: 1px solid var(--bl-rule-2);
+    border-radius: var(--bl-r-panel);
+    overflow: hidden;
+    background: var(--bl-chrome);
+}
+
+.wm-preview img {
+    display: block;
+    width: 100%;
+    height: auto;
+}

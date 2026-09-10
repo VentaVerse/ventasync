@@ -84,6 +84,7 @@
 @import './pages/channel-catalog.css' layer(vocabulary);
 @import './pages/purchasing.css' layer(vocabulary);
 @import './pages/group-form.css' layer(vocabulary);
+@import './pages/watermarks.css' layer(vocabulary);
 @import './pages/automations.css' layer(vocabulary);
 @import './pages/warehousing.css' layer(vocabulary);
 @import './pages/reviews.css' layer(vocabulary);

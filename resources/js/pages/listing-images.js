@@ -391,156 +391,10 @@
         return added;
     }
 
-    /* ── The library picker ─────────────────────────────────────────── */
-    function initPicker() {
-        var modal = document.querySelector('[data-ilp-modal]');
-        if (!modal) return null;
-
-        var url = modal.getAttribute('data-ilp-url');
-        var pathEl = modal.querySelector('[data-ilp-path]');
-        var foldersEl = modal.querySelector('[data-ilp-folders]');
-        var filesEl = modal.querySelector('[data-ilp-files]');
-        var foldersTitle = modal.querySelector('[data-ilp-folders-title]');
-        var filesTitle = modal.querySelector('[data-ilp-files-title]');
-        var emptyEl = modal.querySelector('[data-ilp-empty]');
-        var msgEl = modal.querySelector('[data-ilp-msg]');
-        var searchEl = modal.querySelector('[data-ilp-search]');
-        var upBtn = modal.querySelector('[data-ilp-up]');
-        var addBtn = modal.querySelector('[data-ilp-add]');
-        var here = '';
-        var parent = null;
-        var picked = {};
-
-        function count() {
-            return Object.keys(picked).length;
-        }
-
-        function refreshAdd() {
-            addBtn.disabled = count() === 0;
-            addBtn.textContent = count() === 0 ? 'Add' : 'Add ' + count();
-        }
-
-        function load(path, query) {
-            msgEl.textContent = 'Reading the library…';
-            var q = new URLSearchParams();
-            if (query) q.set('q', query); else q.set('path', path || '');
-            fetch(url + '?' + q.toString(), { headers: { Accept: 'application/json' } })
-                .then(function (r) {
-                    var type = r.headers.get('content-type') || '';
-                    // A session that has expired answers with a login page,
-                    // not with a refusal: an answer that is not JSON is one
-                    // this picker cannot read, whatever its status says.
-                    if (!r.ok || type.indexOf('json') === -1) {
-                        return Promise.reject(new Error('The library did not answer. Reload the page and try again.'));
-                    }
-                    return r.json();
-                })
-                .then(function (data) {
-                    msgEl.textContent = '';
-                    here = data.path || '';
-                    parent = data.parent;
-                    pathEl.textContent = query ? 'Search: ' + query : '/' + here;
-                    upBtn.disabled = query ? true : (parent === null || parent === undefined);
-                    draw(data.folders || [], data.files || []);
-                })
-                .catch(function (e) {
-                    msgEl.textContent = e.message;
-                    foldersTitle.hidden = true;
-                    filesTitle.hidden = true;
-                    emptyEl.hidden = true;
-                });
-        }
-
-        function draw(folders, files) {
-            foldersEl.innerHTML = '';
-            filesEl.innerHTML = '';
-            foldersTitle.hidden = folders.length === 0;
-            filesTitle.hidden = files.length === 0;
-            emptyEl.hidden = folders.length !== 0 || files.length !== 0;
-
-            folders.forEach(function (f) {
-                var b = document.createElement('button');
-                b.type = 'button';
-                b.className = 'fm-pick__item';
-                b.innerHTML = '<span class="fm-pick__ico"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"'
-                    + ' viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"'
-                    + ' stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2'
-                    + ' 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/></svg></span>';
-                var label = document.createElement('span');
-                label.className = 'fm-pick__label';
-                label.textContent = f.name;
-                b.appendChild(label);
-                b.addEventListener('click', function () { searchEl.value = ''; load(f.path, ''); });
-                foldersEl.appendChild(b);
-            });
-
-            files.forEach(function (f) {
-                var b = document.createElement('button');
-                b.type = 'button';
-                b.className = 'fm-pick__item';
-                b.setAttribute('aria-pressed', picked[f.path] ? 'true' : 'false');
-                if (picked[f.path]) b.classList.add('is-picked');
-                var img = document.createElement('img');
-                img.src = f.url;
-                img.alt = '';
-                img.loading = 'lazy';
-                b.appendChild(img);
-                var label = document.createElement('span');
-                label.className = 'fm-pick__label';
-                label.textContent = f.name;
-                b.appendChild(label);
-                b.addEventListener('click', function () {
-                    if (picked[f.path]) { delete picked[f.path]; } else { picked[f.path] = f; }
-                    b.classList.toggle('is-picked');
-                    b.setAttribute('aria-pressed', picked[f.path] ? 'true' : 'false');
-                    refreshAdd();
-                });
-                filesEl.appendChild(b);
-            });
-        }
-
-        var searchTimer = null;
-        searchEl.addEventListener('input', function () {
-            clearTimeout(searchTimer);
-            var q = searchEl.value.trim();
-            searchTimer = setTimeout(function () { load(here, q.length >= 2 ? q : ''); }, 220);
-        });
-        searchEl.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') e.preventDefault();
-        });
-        upBtn.addEventListener('click', function () {
-            if (parent === null || parent === undefined) return;
-            searchEl.value = '';
-            load(parent, '');
-        });
-        addBtn.addEventListener('click', function () {
-            var files = Object.keys(picked).map(function (k) { return picked[k]; });
-            var added = add(files);
-            close();
-            announce(added === 1 ? 'One picture added.' : added + ' pictures added.');
-        });
-        modal.querySelector('[data-ilp-cancel]').addEventListener('click', close);
-        modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape' && modal.classList.contains('active')) close();
-        });
-
-        function close() {
-            modal.classList.remove('active');
-            picked = {};
-            refreshAdd();
-        }
-
-        function open() {
-            picked = {};
-            refreshAdd();
-            modal.classList.add('active');
-            load(here, '');
-            searchEl.focus();
-        }
-
-        return { open: open };
-    }
+    /* The library picker lives in resources/js/pages/image-library.js:
+       the watermark form needs the same browse, folders and search, and a
+       second copy of a hundred and fifty lines is how two pickers drift
+       apart. This card asks for as many pictures as the operator ticks. */
 
     function init() {
         card = document.querySelector('[data-listing-images]');
@@ -579,11 +433,17 @@
             });
         }
 
-        var picker = initPicker();
         var addBtn = card.querySelector('[data-images-add]');
-        if (addBtn && picker) {
-            addBtn.addEventListener('click', picker.open);
+        if (addBtn && window.ImageLibrary && document.querySelector('[data-ilp-modal]')) {
+            addBtn.addEventListener('click', function () {
+                window.ImageLibrary.open(function (files) {
+                    var added = add(files);
+                    announce(added === 1 ? 'One picture added.' : added + ' pictures added.');
+                });
+            });
         } else if (addBtn) {
+            // No picker on the page: a button that opens nothing is worse
+            // than no button.
             addBtn.hidden = true;
         }
 
