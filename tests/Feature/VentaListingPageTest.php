@@ -323,8 +323,11 @@ class VentaListingPageTest extends TestCase
             'id' => 77, 'order_number' => 77, 'status' => 'delivered',
             'created_at' => '2026-06-15T10:00:00Z', 'updated_at' => '2026-06-15T10:00:00Z',
             'totals' => ['total' => 1000, 'subtotal' => 1000, 'shipping' => 0],
-            // What the storefront started recording, and backfilled.
-            'fees' => ['payment_fee' => 25.5, 'delivery_fee' => 60],
+            /* The storefront's own names, from ErpOrderController::show:
+               payment_fee is the gateway's charge, shipping_cost is what
+               the COURIER charged the store, and totals.shipping above is
+               what the customer paid - a different number entirely. */
+            'fees' => ['payment_fee' => 25.5, 'shipping_cost' => 60, 'net_after_fees' => 914.5],
             'items' => [['sku' => 'GP-200', 'quantity' => 1, 'price' => 1000, 'total' => 1000]],
         ];
         Http::fake([
@@ -348,6 +351,113 @@ class VentaListingPageTest extends TestCase
             ->whereIn('code', ['marketplace_payment_fee', 'marketplace_shipping_fee'])->pluck('value', 'code');
         $this->assertSame(-25.5, round((float) ($rows['marketplace_payment_fee'] ?? 0), 2));
         $this->assertSame(-60.0, round((float) ($rows['marketplace_shipping_fee'] ?? 0), 2));
+    }
+
+    /**
+     * THE TWO FEES TIE BACK TO THE STOREFRONT'S OWN NET FIGURE.
+     *
+     * Venta derives net_after_fees as total - payment_fee - shipping_cost
+     * and never stores it, so it cannot drift from its inputs. If what the
+     * ERP subtracts does not come to the same number, the ERP is
+     * subtracting the wrong fields - which is exactly what happened while
+     * the delivery fee was read under a name the storefront does not use.
+     *
+     * The same shape as reconciling Shopee against escrow_amount: the
+     * marketplace's own arithmetic is the check on ours.
+     */
+    public function test_the_fees_tie_back_to_the_storefronts_net_after_fees(): void
+    {
+        $store = $this->store();
+        $raw = [
+            'id' => 91,
+            'totals' => ['subtotal' => 12000, 'shipping' => 180, 'total' => 11990],
+            'fees' => ['payment_fee' => 374.70, 'shipping_cost' => 90.00, 'net_after_fees' => 11525.30],
+        ];
+        DB::table('venta_orders')->insert([
+            'venta_setting_id' => $store->id, 'venta_order_id' => 91, 'status' => 'delivered',
+            'total' => 11990, 'raw' => json_encode($raw), 'catalog_order_id' => 4242,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $buckets = (new \Extensions\venta\VentaExtension($this->app))->feeBucketsForOrder(4242);
+
+        $this->assertNotNull($buckets);
+        $this->assertSame(374.70, round($buckets['payment'], 2));
+        $this->assertSame(90.00, round($buckets['shipping'], 2), "The delivery fee is the COURIER's charge (fees.shipping_cost), not the buyer's 180.");
+        $this->assertSame(0.0, round($buckets['commission'], 2), 'A storefront takes no commission from its own owner.');
+
+        // The storefront's own arithmetic, reproduced from what we subtract.
+        $ours = round(11990 - $buckets['payment'] - $buckets['shipping'], 2);
+        $this->assertSame(11525.30, $ours,
+            'What the ERP subtracts does not come to the storefront\'s own net figure, so it is subtracting the wrong fields.');
+    }
+
+    /**
+     * Null is NOT KNOWN YET and never zero - the storefront says so in its
+     * own comment, because a payment fee arrives at settlement and a
+     * courier's charge at booking. Reading either as zero would report an
+     * unbooked parcel as free and overstate the margin.
+     */
+    public function test_an_order_whose_fees_are_not_settled_yet_writes_nothing(): void
+    {
+        $store = $this->store();
+        DB::table('venta_orders')->insert([
+            'venta_setting_id' => $store->id, 'venta_order_id' => 92, 'status' => 'pending',
+            'total' => 500, 'catalog_order_id' => 4243,
+            'raw' => json_encode(['id' => 92, 'fees' => ['payment_fee' => null, 'shipping_cost' => null, 'net_after_fees' => null]]),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $this->assertNull((new \Extensions\venta\VentaExtension($this->app))->feeBucketsForOrder(4243),
+            'An order whose fees are not settled yet must not be stamped with zeroes: it would read as free.');
+
+        // A half-known order still reports what IS known.
+        DB::table('venta_orders')->where('venta_order_id', 92)->update([
+            'raw' => json_encode(['id' => 92, 'fees' => ['payment_fee' => 12.5, 'shipping_cost' => null]]),
+        ]);
+        $half = (new \Extensions\venta\VentaExtension($this->app))->feeBucketsForOrder(4243);
+        $this->assertSame(12.5, round($half['payment'], 2));
+        $this->assertSame(0.0, round($half['shipping'], 2), 'An unbooked parcel has no courier charge to report yet.');
+    }
+
+    /**
+     * THE PAGE COUNT IS AT THE TOP LEVEL OF THE STOREFRONT'S ANSWER.
+     *
+     * The pull read it at meta.last_page. The storefront returns a Laravel
+     * paginator straight from response()->json(), which puts last_page at
+     * the top level and has no meta at all - so the read always found
+     * nothing, fell back to 1, and every order pull stopped after the
+     * first hundred orders. A live store with 158 orders since February
+     * reported 100 (the owner, 2026-09-10).
+     *
+     * Verified against the storefront's own source rather than inferred.
+     */
+    public function test_the_pull_walks_every_page_the_storefront_reports(): void
+    {
+        $store = $this->store();
+
+        $order = fn (int $id) => [
+            'id' => $id, 'order_number' => $id, 'status' => 'delivered',
+            'created_at' => '2026-06-15T10:00:00Z', 'updated_at' => '2026-06-15T10:00:00Z',
+            'totals' => ['total' => 100, 'subtotal' => 100, 'shipping' => 0],
+            'items' => [],
+        ];
+
+        Http::fake([
+            self::BASE . '/api/v1/order-statuses*' => Http::response(['data' => []]),
+            self::BASE . '/api/v1/orders/1' => Http::response($order(1)),
+            self::BASE . '/api/v1/orders/2' => Http::response($order(2)),
+            // Two pages, counted the way this storefront counts them.
+            self::BASE . '/api/v1/orders?*page=2*' => Http::response(['data' => [$order(2)], 'current_page' => 2, 'last_page' => 2]),
+            self::BASE . '/api/v1/orders*' => Http::response(['data' => [$order(1)], 'current_page' => 1, 'last_page' => 2]),
+        ]);
+
+        (new \Extensions\venta\Services\Venta\VentaOrderSync(
+            new \Extensions\venta\Services\Venta\VentaClient($store), $store
+        ))->setFeesOnly()->setSkipStockAdjust()->pull(since: '2026-06-01', full: true, maxPages: 10);
+
+        $this->assertSame(2, DB::table('venta_orders')->count(),
+            'The pull stopped after the first page: a store with more orders than fit on one page is silently half-read.');
     }
 
     /**

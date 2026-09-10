@@ -107,7 +107,25 @@ class VentaOrderSync
                 }
 
                 $orders = $result['body']['data'] ?? [];
-                $lastPage = $result['body']['meta']['last_page'] ?? 1;
+                /* THE PAGE COUNT IS AT THE TOP LEVEL, and reading it in the
+                 * wrong place stopped every order pull after 100 orders.
+                 *
+                 * The storefront returns a Laravel paginator straight from
+                 * response()->json(), which serialises as {data, current_page,
+                 * last_page, total, ...}. `meta` only appears when a
+                 * paginator is wrapped in a JsonResource collection, and
+                 * this endpoint does not wrap. So this read always found
+                 * nothing, fell back to 1, and the loop ended after the
+                 * first page - which is why a store with 158 orders since
+                 * February reported 100 (the owner, live, 2026-09-10). Our own
+                 * VentaListingMirror has read it correctly from the top
+                 * level all along, which is how one codebase came to hold
+                 * two readings of the same response.
+                 *
+                 * Both are accepted: if the storefront ever wraps, this
+                 * keeps working rather than silently truncating again. */
+                $body = $result['body'];
+                $lastPage = $body['meta']['last_page'] ?? $body['last_page'] ?? 1;
                 $this->lastTotalPages = (int) $lastPage;
 
                 foreach ($orders as $raw) {

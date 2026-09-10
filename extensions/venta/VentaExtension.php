@@ -472,27 +472,35 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
     /**
      * WHAT THE STOREFRONT CHARGED FOR THIS ORDER (VENT2-73, VENT2-74).
      *
-     * Venta records a payment fee and a delivery fee of its own since
-     * 2026-09-10; before that the ERP wrote a literal zero into
-     * payment_cost and the reports had no Venta join at all, so a Venta
-     * order read as costing nothing to take payment for and nothing to
-     * deliver. Profit on this channel was overstated by exactly those two
-     * numbers.
+     * Venta records both since 2026-09-10; before that the ERP wrote a
+     * literal zero into payment_cost and the reports had no Venta join at
+     * all, so a Venta order read as costing nothing to take payment for
+     * and nothing to deliver. Profit on this channel was overstated by
+     * exactly those two numbers.
+     *
+     * THE FIELD NAMES ARE THE STOREFRONT'S OWN, read from its source
+     * rather than guessed (ErpOrderController::show):
+     *
+     *   fees.payment_fee     what the gateway charged the store
+     *   fees.shipping_cost   what the COURIER charged the store
+     *   totals.shipping      what the CUSTOMER was charged - NOT this
+     *
+     * That last line is the trap, and the storefront says so in its own
+     * comment: the two "must never be conflated". The customer's shipping
+     * is revenue and already lands on the core order as shipping_cost;
+     * counting it here would charge the seller for a parcel the buyer paid
+     * for.
+     *
+     * NULL MEANS NOT KNOWN YET, NOT ZERO, and the storefront is explicit
+     * about it: a payment fee arrives at settlement and a courier's charge
+     * at booking, so an order can legitimately have neither. Reading null
+     * as 0 would report an unbooked parcel as free and overstate the
+     * margin - so an order with neither answers null and the normalizer
+     * writes nothing at all, rather than stamping it with zeroes.
      *
      * Read from the order's stored payload rather than the API, so the
      * live sync and the backfill agree and neither needs the storefront to
      * be reachable.
-     *
-     * THE KEYS ARE READ DEFENSIVELY, and deliberately: the storefront's
-     * own naming is confirmed against a real payload before this is
-     * trusted (asked of the owner 2026-09-10). Anything absent reads as
-     * nothing recorded, and the normalizer then writes nothing at all
-     * rather than stamping an order with zeroes it cannot vouch for.
-     *
-     * THE DELIVERY FEE HERE IS WHAT THE SELLER BORE. It is NOT the
-     * storefront's shipping line: that is what the buyer was charged, it
-     * already lands on the core order as shipping_cost, and adding the two
-     * would charge the seller twice for one parcel.
      */
     public function feeBucketsForOrder(int $coreOrderId): ?array
     {
@@ -506,24 +514,18 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
         }
 
         $raw = \App\Integrations\Orders\FeePayload::decode($row->raw ?? null);
-        /* The storefront may report them beside the totals or in a fees
-           object of their own; both shapes are read, neither is invented. */
+        /* Only the fees object, never the totals: everything in totals is
+           what the customer owed. */
         $fees = \App\Integrations\Orders\FeePayload::decode($raw['fees'] ?? []);
-        $totals = \App\Integrations\Orders\FeePayload::decode($raw['totals'] ?? []);
-        $where = $fees !== [] ? $fees : $totals;
 
-        $first = function (array $keys) use ($where): ?float {
-            foreach ($keys as $key) {
-                if (array_key_exists($key, $where) && $where[$key] !== null && $where[$key] !== '') {
-                    return abs((float) $where[$key]);
-                }
-            }
+        $known = function (string $key) use ($fees): ?float {
+            $value = $fees[$key] ?? null;
 
-            return null;
+            return ($value === null || $value === '') ? null : abs((float) $value);
         };
 
-        $payment = $first(['payment_fee', 'payment_charge', 'gateway_fee']);
-        $delivery = $first(['delivery_fee', 'shipping_fee', 'courier_fee', 'seller_shipping_fee']);
+        $payment = $known('payment_fee');
+        $delivery = $known('shipping_cost');
 
         // Nothing recorded is not the same fact as nothing charged.
         if ($payment === null && $delivery === null) {
