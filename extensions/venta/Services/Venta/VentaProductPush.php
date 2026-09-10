@@ -103,10 +103,8 @@ class VentaProductPush
      *
      * @param  array<string, string>  $overrides
      */
-    public function payload(object $prod, array $overrides = [], ?callable $priceFor = null): array
+    public function payload(object $prod, array $overrides = [], ?callable $priceFor = null, ?int $categoryId = null): array
     {
-        $pfx = (string) config('catalog.prefix');
-        $langId = (int) config('catalog.default_language_id');
         $pid = (int) $prod->product_id;
         $sku = self::skuOf($prod);
         $price = fn (float $base) => $priceFor ? round((float) $priceFor($base), 2) : $base;
@@ -137,22 +135,28 @@ class VentaProductPush
             }
         }
 
-        // Brand and categories go as names; the store finds or creates them.
+        // The brand goes as a name; the store finds or creates it.
         if (! empty($prod->brand_name)) {
             $data['brand_name'] = $prod->brand_name;
         }
 
-        $catNames = DB::table($pfx . 'product_to_category as ptc')
-            ->join($pfx . 'category_description as cd', function ($j) use ($langId) {
-                $j->on('ptc.category_id', '=', 'cd.category_id')->where('cd.language_id', '=', $langId);
-            })
-            ->where('ptc.product_id', $pid)
-            ->pluck('cd.name')
-            ->filter()
-            ->values()
-            ->toArray();
-        if (! empty($catNames)) {
-            $data['category_names'] = $catNames;
+        /* THE STORE'S OWN CATEGORY, PICKED ON THE PRODUCT GROUP (VENT2-13).
+         *
+         * This used to send the catalog's category NAMES and let the store
+         * find or create them, which is the opposite of the rule settled on
+         * 2026-09-05: core categories are internal, every channel fetches
+         * the store's own, and a group picks one from that list. The group
+         * screen has asked for a category since it was built and nothing
+         * ever read it - so a seller chose one, saved it, and the store put
+         * the product wherever the catalog's own words happened to land.
+         *
+         * WooCommerce is the shape this follows: the group's category id,
+         * or nothing at all. Nothing at all leaves the store's own
+         * placement alone, which is the honest answer when no group has
+         * said otherwise - safer than inventing categories on the store
+         * from an internal taxonomy nobody there has agreed to. */
+        if ($categoryId) {
+            $data['category_id'] = $categoryId;
         }
 
         $images = $this->images($pid);
@@ -424,7 +428,7 @@ class VentaProductPush
      *   payload: array<string, mixed>
      * }
      */
-    public function push(int $productId, array $overrides = [], ?callable $priceFor = null): array
+    public function push(int $productId, array $overrides = [], ?callable $priceFor = null, ?int $categoryId = null): array
     {
         $prod = $this->product($productId);
         if (! $prod) {
@@ -439,7 +443,7 @@ class VentaProductPush
         }
         $sku = self::skuOf($prod);
 
-        $data = $this->payload($prod, $overrides, $priceFor);
+        $data = $this->payload($prod, $overrides, $priceFor, $categoryId);
 
         $verdict = $this->reconcileLink($productId);
         if ($verdict['state'] === 'blocked' || $verdict['state'] === 'unreachable') {

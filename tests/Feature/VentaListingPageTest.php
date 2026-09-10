@@ -268,6 +268,80 @@ class VentaListingPageTest extends TestCase
      * payload straight from the catalogue, so it sent the catalogue's name
      * while the listing's own sat saved and unused.
      */
+    /**
+     * A GROUP'S MARKUP AND CATEGORY ARE NOT DECORATION (VENT2-13).
+     *
+     * The group screen has asked for a price markup and a store category
+     * since it was built, and saved both, and nothing ever read either:
+     * the group push built its payload straight from the catalog, so a 20%
+     * markup went up as the plain catalog price and a chosen category was
+     * never sent at all. The owner, on the card: "Leaving them is the only
+     * option that misleads."
+     */
+    public function test_a_group_push_applies_the_groups_markup_and_sends_its_category(): void
+    {
+        $store = $this->store();
+        $pid = $this->product();
+        $group = \Extensions\venta\Models\VentaProductGroup::create([
+            'venta_setting_id' => $store->id, 'name' => 'Pedals',
+            'markup_percent' => 20, 'venta_category_id' => 77,
+        ]);
+        \Extensions\venta\Models\VentaProductGroupProduct::create(['venta_product_group_id' => $group->id, 'product_id' => $pid]);
+
+        Http::fake([
+            self::BASE . '/api/v1/products/GP-200' => Http::response(['error' => 'Product not found'], 404),
+            self::BASE . '/api/v1/products' => Http::response(['id' => 9101, 'sku' => 'GP-200', 'images' => [], 'images_failed' => []], 201),
+        ]);
+
+        $pusher = $this->userWith(['view_venta/listing', 'manage_venta/listing', 'view_venta/product_group', 'manage_venta/product_group']);
+        $this->actingAs($pusher)
+            ->post(route('ext.venta.product-groups.push', [$store->id, $group->id]), ['ids' => [$pid]])
+            ->assertRedirect();
+
+        Http::assertSent(function ($request) {
+            if ($request->method() !== 'POST' || ! str_ends_with($request->url(), '/api/v1/products')) {
+                return false;
+            }
+            $body = $request->data();
+
+            // 1000 in the catalog, 20% on the group.
+            return round((float) $body['price'], 2) === 1200.0
+                && (int) ($body['category_id'] ?? 0) === 77;
+        });
+    }
+
+    /**
+     * And the listing's own rule still wins over its group's, which is the
+     * order every channel keeps: the listing's markup, else its group's,
+     * else the catalog price untouched.
+     */
+    public function test_a_listings_own_markup_beats_its_groups(): void
+    {
+        $store = $this->store();
+        $pid = $this->product();
+        VentaListing::create([
+            'venta_setting_id' => $store->id, 'product_id' => $pid, 'markup_percent' => 10,
+        ]);
+        $group = \Extensions\venta\Models\VentaProductGroup::create([
+            'venta_setting_id' => $store->id, 'name' => 'Pedals', 'markup_percent' => 50,
+        ]);
+        \Extensions\venta\Models\VentaProductGroupProduct::create(['venta_product_group_id' => $group->id, 'product_id' => $pid]);
+
+        Http::fake([
+            self::BASE . '/api/v1/products/GP-200' => Http::response(['error' => 'Product not found'], 404),
+            self::BASE . '/api/v1/products' => Http::response(['id' => 9101, 'sku' => 'GP-200', 'images' => [], 'images_failed' => []], 201),
+        ]);
+
+        $pusher = $this->userWith(['view_venta/listing', 'manage_venta/listing', 'view_venta/product_group', 'manage_venta/product_group']);
+        $this->actingAs($pusher)
+            ->post(route('ext.venta.product-groups.push', [$store->id, $group->id]), ['ids' => [$pid]])
+            ->assertRedirect();
+
+        Http::assertSent(fn ($request) => $request->method() !== 'POST'
+            || ! str_ends_with($request->url(), '/api/v1/products')
+            || round((float) $request->data()['price'], 2) === 1100.0);
+    }
+
     public function test_a_group_push_sends_the_listings_own_words_not_the_catalogues(): void
     {
         $store = $this->store();

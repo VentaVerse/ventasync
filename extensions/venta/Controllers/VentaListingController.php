@@ -866,10 +866,27 @@ class VentaListingController extends Controller
         $store = (int) $setting->id;
         $listing = VentaListing::query()->firstOrNew(['venta_setting_id' => $store, 'product_id' => $productId]);
 
+        /* THE PRICE RULE, IN THE ORDER EVERY CHANNEL KEEPS (2026-09-07):
+         * the listing's own markup, else its group's, else the catalog
+         * price untouched. Venta read the listing's and stopped, so a group
+         * markup was saved and never applied (VENT2-13).
+         *
+         * THE CATEGORY IS THE GROUP'S, for the same reason and by the same
+         * rule: core categories are internal, the store's own list is what
+         * a group picks from. */
+        $group = $this->groupFor($store, $productId);
+        $priceFor = match (true) {
+            $listing->hasPriceRule() => fn (float $base) => $listing->priceFor($base),
+            $group !== null && ($group->markup_percent !== null || $group->markup_fixed !== null)
+                => fn (float $base) => round($base + ($base * (float) ($group->markup_percent ?? 0) / 100) + (float) ($group->markup_fixed ?? 0), 2),
+            default => null,
+        };
+
         $outcome = VentaProductPush::for($setting)->push(
             $productId,
             $listing->overrides(),
-            $listing->hasPriceRule() ? fn (float $base) => $listing->priceFor($base) : null
+            $priceFor,
+            (int) ($group->venta_category_id ?? 0) ?: null
         );
 
         if (! $outcome['ok']) {
@@ -904,6 +921,22 @@ class VentaListingController extends Controller
         $tone = ($outcome['images']['sent'] > 0 && $outcome['images']['stored'] < $outcome['images']['sent']) ? 'warning' : 'status';
 
         return ['ok' => true, 'message' => trim($sentence), 'tone' => $tone];
+    }
+
+    /**
+     * The one group this product is in on this store, for the settings a
+     * group LENDS a listing that has none of its own: its price rule and
+     * its category. One product, one group (the owner, 2026-09-05), so the
+     * first is the only.
+     */
+    private function groupFor(int $store, int $productId): ?object
+    {
+        return DB::table('venta_product_groups as g')
+            ->join('venta_product_group_products as gp', 'gp.venta_product_group_id', '=', 'g.id')
+            ->where('g.venta_setting_id', $store)
+            ->where('gp.product_id', $productId)
+            ->orderBy('gp.id')
+            ->first(['g.id', 'g.venta_category_id', 'g.markup_percent', 'g.markup_fixed']);
     }
 
     /**

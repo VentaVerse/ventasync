@@ -742,6 +742,7 @@ class VentaProductGroupController extends Controller
         }
 
         $client = new VentaClient($setting);
+        $push = VentaProductPush::for($setting);
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
@@ -800,145 +801,36 @@ class VentaProductGroupController extends Controller
                 (string) ($prod->description ?? '')
             );
 
-            // Build product data payload
-            $data = [
-                'name'        => $ownWords['title'],
-                'sku'         => $sku,
-                'price'       => (float) $prod->price,
-                'cost'        => (float) ($prod->cost ?? 0),
-                'quantity'    => (int) $prod->quantity,
-                'weight'      => (float) ($prod->weight ?? 0),
-                'length'      => (float) ($prod->length ?? 0),
-                'width'       => (float) ($prod->width ?? 0),
-                'height'      => (float) ($prod->height ?? 0),
-                'status'      => (bool) $prod->status,
-                'description' => $ownWords['description'],
-            ];
+            /* ONE BUILDER (VENT2-13). Everything from here to the send
+             * used to be a second copy of VentaProductPush::payload() -
+             * about a hundred and twenty lines of it, built straight from
+             * the catalog. That is why a group's markup and category were
+             * saved and did nothing: the builder that honours them was
+             * never the one a group push used.
+             *
+             * Now the group hands its own settings to the one builder:
+             * the listing's price rule if it has one, else this group's,
+             * and this group's store category. What the store receives
+             * from a group push and from a single push cannot differ
+             * again, because there is one place that decides it. */
+            $listing = \Extensions\venta\Models\VentaListing::query()
+                ->where('venta_setting_id', $store)->where('product_id', $pid)->first();
 
-            // Send brand as name — Venta API will find-or-create
-            if ($prod->brand_name) {
-                $data['brand_name'] = $prod->brand_name;
-            }
+            $priceFor = match (true) {
+                $listing && $listing->hasPriceRule() => fn (float $base) => $listing->priceFor($base),
+                $g->markup_percent !== null || $g->markup_fixed !== null
+                    => fn (float $base) => round($base + ($base * (float) ($g->markup_percent ?? 0) / 100) + (float) ($g->markup_fixed ?? 0), 2),
+                default => null,
+            };
 
-            // Send categories as names — Venta API will find-or-create
-            $catNames = DB::table($pfx . 'product_to_category as ptc')
-                ->join($pfx . 'category_description as cd', function ($j) use ($langId) {
-                    $j->on('ptc.category_id', '=', 'cd.category_id')
-                        ->where('cd.language_id', '=', $langId);
-                })
-                ->where('ptc.product_id', $pid)
-                ->pluck('cd.name')
-                ->filter()
-                ->values()
-                ->toArray();
-            if (!empty($catNames)) {
-                $data['category_names'] = $catNames;
-            }
-
-            // Add images, in the order the LISTING arranged them for this
-            // store. A group push sends the listing's pictures, not the
-            // catalog's, exactly as it sends the listing's words.
-            $images = $this->getProductImages($setting, $pid);
-            if (!empty($images)) {
-                $data['images'] = $images;
-            }
-
-            // Get variants — check combinations first, fall back to option values
-            $combos = DB::table('product_option_combinations as poc')
-                ->where('poc.product_id', $pid)
-                ->orderBy('poc.sort_order')
-                ->get();
-
-            if ($combos->isNotEmpty()) {
-                // Combination-based variants (multi-option products)
-                $comboIds = $combos->pluck('id')->toArray();
-                $comboValues = DB::table('product_option_combination_values as pocv')
-                    ->join($pfx . 'product_option_value as pov', 'pocv.product_option_value_id', '=', 'pov.product_option_value_id')
-                    ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                        $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
-                            ->where('ovd.language_id', '=', $langId);
-                    })
-                    ->whereIn('pocv.combination_id', $comboIds)
-                    ->select('pocv.combination_id', 'ovd.name as value_name')
-                    ->get()
-                    ->groupBy('combination_id');
-
-                $variants = [];
-                foreach ($combos as $c) {
-                    $valueNames = ($comboValues->get($c->id) ?? collect())->pluck('value_name')->implode(' / ');
-                    $variants[] = [
-                        'sku'         => $c->sku ?: ($sku . '-' . $c->id),
-                        'name'        => $valueNames,
-                        'option_name' => 'Option',
-                        'price'       => (float) $c->absolute_price,
-                        'cost'        => (float) $c->absolute_cost,
-                        'quantity'    => (int) $c->quantity,
-                        'weight'      => (float) ($prod->weight ?? 0),
-                    ];
-                }
-                $data['variants'] = $variants;
-            } else {
-                // Single-option variants
-                $optionValues = DB::table($pfx . 'product_option_value as pov')
-                    ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                        $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
-                            ->where('ovd.language_id', '=', $langId);
-                    })
-                    ->join($pfx . 'option_description as od', function ($j) use ($langId) {
-                        $j->on('pov.option_id', '=', 'od.option_id')
-                            ->where('od.language_id', '=', $langId);
-                    })
-                    ->where('pov.product_id', $pid)
-                    ->get([
-                        'pov.product_option_value_id', 'pov.sku as variant_sku',
-                        'pov.quantity as variant_qty', 'pov.price as variant_price',
-                        'pov.price_prefix', 'pov.absolute_price',
-                        'pov.cost as variant_cost', 'pov.cost_prefix', 'pov.absolute_cost',
-                        'ovd.name as option_value_name', 'od.name as option_name',
-                    ]);
-
-                if ($optionValues->isNotEmpty()) {
-                    $variants = [];
-                    foreach ($optionValues as $ov) {
-                        $variantSku = $ov->variant_sku ?: ($sku . '-' . $ov->product_option_value_id);
-
-                        // Price: absolute_price takes priority, then modifier
-                        if ((float) ($ov->absolute_price ?? 0) > 0) {
-                            $variantPrice = (float) $ov->absolute_price;
-                        } else {
-                            $variantPrice = (float) $prod->price;
-                            if ($ov->variant_price) {
-                                $variantPrice = $ov->price_prefix === '-'
-                                    ? $variantPrice - (float) $ov->variant_price
-                                    : $variantPrice + (float) $ov->variant_price;
-                            }
-                        }
-
-                        // Cost: absolute_cost takes priority, then modifier
-                        if ((float) ($ov->absolute_cost ?? 0) > 0) {
-                            $variantCost = (float) $ov->absolute_cost;
-                        } else {
-                            $variantCost = (float) ($prod->cost ?? 0);
-                            if ($ov->variant_cost) {
-                                $variantCost = $ov->cost_prefix === '-'
-                                    ? $variantCost - (float) $ov->variant_cost
-                                    : $variantCost + (float) $ov->variant_cost;
-                            }
-                        }
-
-                        $variants[] = [
-                            'sku'         => $variantSku,
-                            'name'        => $ov->option_value_name,
-                            'option_name' => $ov->option_name,
-                            'price'       => $variantPrice,
-                            'cost'        => $variantCost,
-                            'quantity'    => (int) $ov->variant_qty,
-                            'weight'      => (float) ($prod->weight ?? 0),
-                        ];
-                    }
-                    $data['variants'] = $variants;
-                }
-            }
+            /* ListingContent::of answers title/description; the builder
+               takes the record's own key names. */
+            $data = $push->payload(
+                $prod,
+                ['name' => $ownWords['title'], 'description' => $ownWords['description']],
+                $priceFor,
+                (int) ($g->venta_category_id ?? 0) ?: null
+            );
 
             /*
              * ASK VENTA FIRST. Everything below used to be decided from the
