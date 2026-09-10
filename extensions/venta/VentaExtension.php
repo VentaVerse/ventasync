@@ -54,6 +54,7 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
             \Extensions\venta\Commands\VentaRefreshListingStatus::class,
             // TEMPORARY: delete once the fee field names are pinned.
             \Extensions\venta\Commands\VentaFeeKeys::class,
+            \Extensions\venta\Commands\VentaRefreshOrderFees::class,
         ]);
 
         $this->app->make(IntegrationRegistry::class)->register($this);

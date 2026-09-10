@@ -24,6 +24,24 @@ class VentaOrderSync
     private VentaSetting $setting;
     private bool $skipStockAdjust = false;
 
+    /**
+     * FEES ONLY: refresh what the storefront says about an order's money
+     * and touch nothing else.
+     *
+     * A full sync deletes and re-inserts every order LINE and looks each
+     * one's cost up from the catalogue AS IT IS TODAY. That is correct for
+     * a live order and catastrophic as a way to collect fees from a year
+     * of them: it would re-stamp a year of cost of goods at today's costs
+     * and move every profit figure in the system.
+     *
+     * So a run that only wants the fees says so, and the catalogue side of
+     * the sync is skipped entirely - the storefront's answer is stored,
+     * the fee rows are written onto the core order, and the lines, the
+     * costs, the statuses, the stock and the history are left exactly as
+     * they are.
+     */
+    private bool $feesOnly = false;
+
     public function __construct(VentaClient $client, VentaSetting $setting)
     {
         $this->client = $client;
@@ -33,6 +51,13 @@ class VentaOrderSync
     public function setSkipStockAdjust(bool $skip = true): self
     {
         $this->skipStockAdjust = $skip;
+        return $this;
+    }
+
+    public function setFeesOnly(bool $only = true): self
+    {
+        $this->feesOnly = $only;
+
         return $this;
     }
 
@@ -338,6 +363,19 @@ class VentaOrderSync
                 'total'          => (float) ($item['total'] ?? 0),
                 'raw'            => $item,
             ]);
+        }
+
+        if ($this->feesOnly) {
+            /* The storefront's answer is stored above; all this run wants
+               from it is the money. The core order keeps its lines, its
+               costs, its status and its history. An order this ERP has
+               never seen is skipped rather than created: a fees run is not
+               a way to import orders. */
+            if ($ventaOrder->catalog_order_id) {
+                app(\App\Services\Orders\MarketplaceFeeNormalizer::class)->forOrder((int) $ventaOrder->catalog_order_id);
+            }
+
+            return $wasCreated;
         }
 
         // Now sync to core catalog order

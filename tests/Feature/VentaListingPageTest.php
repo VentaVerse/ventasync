@@ -269,6 +269,88 @@ class VentaListingPageTest extends TestCase
      * while the listing's own sat saved and unused.
      */
     /**
+     * A FEES-ONLY RUN TAKES THE MONEY AND LEAVES EVERYTHING ELSE.
+     *
+     * Venta backfilled its own past orders with a payment and delivery fee,
+     * and the ERP cannot find them in what it already holds: a stored
+     * payload is a photograph of what was sent at the time. So those orders
+     * have to be asked for again - and a full re-sync would delete and
+     * re-insert every order LINE and re-stamp each cost from today's
+     * catalogue, moving every profit figure in the system.
+     *
+     * This pins the difference: the line and its cost are untouched.
+     */
+    public function test_a_fees_only_pull_never_rewrites_an_order_line(): void
+    {
+        $pfx = (string) config('catalog.prefix');
+        $store = $this->store();
+        $pid = $this->product();
+
+        // A core order as it stands today, with a cost that is NOT the
+        // catalogue's current one - which is the whole point.
+        $oid = (int) DB::table($pfx . 'order')->insertGetId([
+            'invoice_prefix' => 'INV-', 'store_id' => 0, 'store_name' => 'Xenon', 'store_url' => '',
+            'customer_id' => 0, 'customer_group_id' => 0, 'firstname' => 'A', 'lastname' => 'B', 'email' => 'a@b.test',
+            'telephone' => '', 'fax' => '', 'custom_field' => '',
+            'payment_firstname' => '', 'payment_lastname' => '', 'payment_company' => '', 'payment_address_1' => '', 'payment_address_2' => '',
+            'payment_city' => '', 'payment_postcode' => '', 'payment_country' => '', 'payment_country_id' => 0, 'payment_zone' => '', 'payment_zone_id' => 0,
+            'payment_address_format' => '', 'payment_custom_field' => '', 'payment_method' => '', 'payment_code' => '',
+            'shipping_firstname' => '', 'shipping_lastname' => '', 'shipping_company' => '', 'shipping_address_1' => '', 'shipping_address_2' => '',
+            'shipping_city' => '', 'shipping_postcode' => '', 'shipping_country' => '', 'shipping_country_id' => 0, 'shipping_zone' => '', 'shipping_zone_id' => 0,
+            'shipping_address_format' => '', 'shipping_custom_field' => '', 'shipping_method' => '', 'shipping_code' => '',
+            'comment' => '', 'affiliate_id' => 0, 'commission' => 0, 'marketing_id' => 0, 'tracking' => '',
+            'total' => 1000, 'order_status_id' => 5, 'language_id' => (int) config('catalog.default_language_id'),
+            'currency_id' => 1, 'currency_code' => 'PHP', 'currency_value' => 1,
+            'ip' => '', 'forwarded_ip' => '', 'user_agent' => '', 'accept_language' => '',
+            'courier_id' => 0, 'tracking_number' => '', 'oe_import' => 0,
+            'marketplace_source' => 'venta:' . $store->id, 'marketplace_order_id' => '77',
+            'shipping_cost' => 0, 'payment_cost' => 0, 'extra_cost' => 0,
+            'date_added' => '2026-06-15 10:00:00', 'date_modified' => '2026-06-15 10:00:00',
+        ]);
+        DB::table($pfx . 'order_product')->insert([
+            'order_id' => $oid, 'product_id' => $pid, 'name' => 'Guitar Pedal 200', 'model' => 'GP-200',
+            'quantity' => 1, 'price' => 1000, 'total' => 1000, 'tax' => 0, 'reward' => 0,
+            // What it cost when it sold, which is not what it costs now.
+            'cost' => 111.11,
+        ]);
+        DB::table('venta_orders')->insert([
+            'venta_setting_id' => $store->id, 'venta_order_id' => 77, 'status' => 'delivered',
+            'total' => 1000, 'raw' => '{}', 'catalog_order_id' => $oid,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $order = [
+            'id' => 77, 'order_number' => 77, 'status' => 'delivered',
+            'created_at' => '2026-06-15T10:00:00Z', 'updated_at' => '2026-06-15T10:00:00Z',
+            'totals' => ['total' => 1000, 'subtotal' => 1000, 'shipping' => 0],
+            // What the storefront started recording, and backfilled.
+            'fees' => ['payment_fee' => 25.5, 'delivery_fee' => 60],
+            'items' => [['sku' => 'GP-200', 'quantity' => 1, 'price' => 1000, 'total' => 1000]],
+        ];
+        Http::fake([
+            self::BASE . '/api/v1/order-statuses*' => Http::response(['data' => []]),
+            self::BASE . '/api/v1/orders/77' => Http::response($order),
+            self::BASE . '/api/v1/orders*' => Http::response(['data' => [$order], 'meta' => ['last_page' => 1]]),
+        ]);
+
+        (new \Extensions\venta\Services\Venta\VentaOrderSync(
+            new \Extensions\venta\Services\Venta\VentaClient($store), $store
+        ))->setFeesOnly()->setSkipStockAdjust()->pull(since: '2026-06-01', full: true, maxPages: 1);
+
+
+        // The line is exactly as it was.
+        $this->assertSame(111.11, round((float) DB::table($pfx . 'order_product')->where('order_id', $oid)->value('cost'), 2),
+            'A fees run re-stamped the cost of goods from the catalogue. That moves every profit figure in the system.');
+        $this->assertSame(1, DB::table($pfx . 'order_product')->where('order_id', $oid)->count());
+
+        // And the money landed where the reports read it.
+        $rows = DB::table($pfx . 'order_total')->where('order_id', $oid)
+            ->whereIn('code', ['marketplace_payment_fee', 'marketplace_shipping_fee'])->pluck('value', 'code');
+        $this->assertSame(-25.5, round((float) ($rows['marketplace_payment_fee'] ?? 0), 2));
+        $this->assertSame(-60.0, round((float) ($rows['marketplace_shipping_fee'] ?? 0), 2));
+    }
+
+    /**
      * A GROUP'S MARKUP AND CATEGORY ARE NOT DECORATION (VENT2-13).
      *
      * The group screen has asked for a price markup and a store category
