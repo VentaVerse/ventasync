@@ -1,14 +1,18 @@
 @extends('layouts.channel')
-@section('title', 'Description templates')
-@section('breadcrumb', 'Description templates')
+@section('title', $channelName . ' Description Templates')
+@section('breadcrumb', 'Description Templates')
 
 {{-- The store's own words a listing puts above or below the product
      description (the owner, 2026-09-07). One page for every channel; the
      controller is per channel only so the permission keys stay per channel. --}}
 @section('content')
-<div class="x-page-head">
+{{-- The page head every Catalog page on a store carries (Listings, Product
+     Groups, Categories): .x-list-head. This had .x-page-head, a class with
+     no rule anywhere, so the title kept its own side padding, the action
+     fell out of the row and the head had none of the shared inset. --}}
+<div class="x-list-head">
     <div>
-        <h1 class="x-page-title">Description templates</h1>
+        <h1 class="x-page-title">Description Templates</h1>
         <p class="x-page-sub">Written once here, used by any listing on this store.</p>
     </div>
     @if($canManage)
@@ -17,8 +21,9 @@
 </div>
 
 @if($templates->isEmpty())
-    <x-ui.empty title="No templates yet"
-                description="A template is a block of your own words, like a returns policy, that a listing carries above or below its description.">
+    {{-- Title and button only: the sub line above already says what a
+         template is for. --}}
+    <x-ui.empty title="No templates yet">
         @if($canManage)
             <x-slot:action>
                 <x-ui.button variant="primary" data-dt-new>New template</x-ui.button>

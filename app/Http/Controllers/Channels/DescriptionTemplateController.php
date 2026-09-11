@@ -48,6 +48,10 @@ abstract class DescriptionTemplateController extends Controller
         $store = $this->storeId();
 
         return view('channels.description-templates.index', [
+            // The browser tab reads "Shopee Description Templates", as its
+            // Catalog siblings read "Shopee Product Groups".
+            'channelName' => app(\App\Integrations\IntegrationRegistry::class)->resolveMarketplaceSourceLabel($ch)
+                ?? \Illuminate\Support\Str::headline($ch),
             'createUrl' => route('ext.' . $ch . '.description-templates.store', ['store' => $store]),
             'templates' => DescriptionTemplate::forStore($ch, $store)->map(fn ($t) => (object) [
                 'id' => (int) $t->id,
