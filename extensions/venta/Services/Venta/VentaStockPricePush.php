@@ -54,34 +54,42 @@ final class VentaStockPricePush
             $variants = ($combos->get($pid) ?? collect())->isNotEmpty() ? $combos->get($pid) : ($options->get($pid) ?? collect());
             $basePrice = (float) $product->price;
 
+            // A variation product exists on the store only as its variants
+            // (variants/{sku}); there is no simple products/{sku} for it, so a
+            // product-level push (pushStock/updateProduct) 404s "Product not
+            // found" and flips an otherwise-successful push to failed. Push the
+            // product level ONLY for simple products; for variation products
+            // the per-variant calls are the whole operation.
+            $variantSkus = $variants->filter(fn ($v) => trim((string) ($v->sku ?? '')) !== '');
+            $hasVariants = $variantSkus->isNotEmpty();
+
             if ($stock) {
-                foreach ($variants as $v) {
-                    if (trim((string) ($v->sku ?? '')) === '') {
-                        continue;
+                if ($hasVariants) {
+                    foreach ($variantSkus as $v) {
+                        $r = $this->client->pushVariantStock(trim((string) $v->sku), max(0, (int) $v->quantity));
+                        if (! ($r['ok'] ?? false)) {
+                            $fine = false;
+                            $why = (string) ($r['body']['error'] ?? $r['body']['message'] ?? 'no answer');
+                        }
                     }
-                    $r = $this->client->pushVariantStock(trim((string) $v->sku), max(0, (int) $v->quantity));
+                } else {
+                    $r = $this->client->pushStock($sku, max(0, (int) $product->quantity));
                     if (! ($r['ok'] ?? false)) {
                         $fine = false;
                         $why = (string) ($r['body']['error'] ?? $r['body']['message'] ?? 'no answer');
                     }
                 }
-                $r = $this->client->pushStock($sku, max(0, (int) $product->quantity));
-                if (! ($r['ok'] ?? false)) {
-                    $fine = false;
-                    $why = (string) ($r['body']['error'] ?? $r['body']['message'] ?? 'no answer');
-                }
             }
             if ($price) {
-                $r = $this->client->updateProduct($sku, ['price' => $basePrice]);
-                if (! ($r['ok'] ?? false)) {
-                    $fine = false;
-                    $why = (string) ($r['body']['error'] ?? $r['body']['message'] ?? 'no answer');
-                } else {
-                    foreach ($variants as $v) {
-                        if (trim((string) ($v->sku ?? '')) === '') {
-                            continue;
-                        }
+                if ($hasVariants) {
+                    foreach ($variantSkus as $v) {
                         $this->client->updateVariant(trim((string) $v->sku), ['price' => self::variantPrice($v, $basePrice)]);
+                    }
+                } else {
+                    $r = $this->client->updateProduct($sku, ['price' => $basePrice]);
+                    if (! ($r['ok'] ?? false)) {
+                        $fine = false;
+                        $why = (string) ($r['body']['error'] ?? $r['body']['message'] ?? 'no answer');
                     }
                 }
             }
