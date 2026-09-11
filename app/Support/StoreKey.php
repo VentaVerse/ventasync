@@ -53,6 +53,15 @@ final class StoreKey
         $query->where(function ($q) use ($parsed, $col) {
             foreach ($parsed as $p) {
                 $q->orWhere(function ($w) use ($p, $col) {
+                    /* "opencart" alone is every OpenCart store. Their
+                       sources carry the store ("opencart:1"), so the exact
+                       match a bare channel gets found none of them. */
+                    if (in_array($p['source'], self::SOURCE_NAMES_STORE, true)) {
+                        $w->where($col('marketplace_source'), $p['source'])
+                            ->orWhere($col('marketplace_source'), 'like', $p['source'] . ':%');
+
+                        return;
+                    }
                     $w->where($col('marketplace_source'), $p['source']);
                     if ($p['store_id'] !== null) {
                         $w->where($col('store_id'), $p['store_id']);

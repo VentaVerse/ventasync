@@ -152,46 +152,6 @@ function initRange() {
 }
 
 /* ------------------------------------------------------------------
-   2. "More filters" disclosure
-   ------------------------------------------------------------------ */
-
-function initMoreFilters() {
-    const toggle = document.querySelector('[data-more-toggle]');
-    if (!toggle) return;
-
-    const panel = document.getElementById(toggle.getAttribute('aria-controls'));
-    if (!panel) return;
-
-    // Remembered per page, keyed on the path, so the operator who works
-    // with the narrowing fields open does not reopen them every visit.
-    const key = 'xenon.reports.more:' + window.location.pathname;
-
-    try {
-        if (localStorage.getItem(key) === '1' && panel.hasAttribute('hidden')) {
-            panel.removeAttribute('hidden');
-            toggle.setAttribute('aria-expanded', 'true');
-        }
-    } catch (e) {
-        /* Private browsing denies localStorage; the panel still works. */
-    }
-
-    toggle.addEventListener('click', function () {
-        const opening = panel.hasAttribute('hidden');
-        if (opening) {
-            panel.removeAttribute('hidden');
-        } else {
-            panel.setAttribute('hidden', '');
-        }
-        toggle.setAttribute('aria-expanded', opening ? 'true' : 'false');
-        try {
-            localStorage.setItem(key, opening ? '1' : '0');
-        } catch (e) {
-            /* as above */
-        }
-    });
-}
-
-/* ------------------------------------------------------------------
    3. Month / period groups
    ------------------------------------------------------------------ */
 
@@ -461,7 +421,6 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!document.querySelector('[data-reports-page]')) return;
 
     initRange();
-    initMoreFilters();
     initGroups();
     initDrilldown();
 });

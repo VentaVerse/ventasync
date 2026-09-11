@@ -523,36 +523,6 @@
         accent-color: var(--bl-ink);
     }
 
-    .rp-more {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 12px;
-        width: 100%;
-    }
-
-    .rp-more[hidden] { display: none; }
-    .rp-more__field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-    .rp-more__field--wide { grid-column: span 2; }
-
-    .rp-more__label {
-        font-size: var(--bl-lab-size);
-        font-stretch: var(--bl-lab-stretch);
-        font-weight: var(--bl-lab-weight);
-        letter-spacing: var(--bl-lab-track);
-        text-transform: var(--bl-lab-case);
-        color: var(--bl-ink-3);
-    }
-
-    .rp-more-toggle {
-        font-size: 12.5px;
-        color: var(--bl-ink-2);
-        background: none;
-        border: 0;
-        cursor: pointer;
-        text-decoration: underline;
-        text-underline-offset: 2px;
-    }
-
     .rp-range__sep { color: var(--bl-ink-3); }
 
     .rp-gate {

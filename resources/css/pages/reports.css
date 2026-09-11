@@ -283,7 +283,7 @@
 .rp-range input[type="date"]::-webkit-calendar-picker-indicator { opacity: .45; cursor: pointer; }
 :root[data-theme="dark"] .rp-range input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: .55; }
 
-/* The second line: search, the fold, and the actions pushed right. */
+/* The second line: search, and the actions pushed right. */
 .rp-ask__row {
     display: flex;
     align-items: center;
@@ -296,26 +296,10 @@
 .rp-ask__clear { font-size: 12.5px; color: var(--bl-ink-3); }
 .rp-ask__clear:hover { color: var(--bl-ink); }
 
-/* The fold. A text control with a mark that turns when open, not a
-   third button competing with Run report. */
-.rp-more-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 0;
-    background: none;
-    border: 0;
-    color: var(--bl-ink-2);
-    font: inherit;
-    font-size: 12.5px;
-    cursor: pointer;
-}
-.rp-more-toggle:hover { color: var(--bl-ink); }
-.rp-more-toggle__mark { transition: transform .15s ease-out; }
-.rp-more-toggle[aria-expanded="true"] { color: var(--bl-ink); }
-.rp-more-toggle[aria-expanded="true"] .rp-more-toggle__mark { transform: rotate(180deg); }
-
-.rp-more {
+/* Every narrowing field, in sight (VENT2-140). They sat in a More
+   filters fold, which hid the store and the status, the first two things
+   a report is narrowed by. */
+.rp-fields {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: var(--bl-space-3);
@@ -323,11 +307,10 @@
     padding-top: var(--bl-space-3);
     border-top: 1px solid var(--bl-rule);
 }
-.rp-more[hidden] { display: none; }
-.rp-more__field { display: flex; flex-direction: column; gap: var(--bl-space-1); min-width: 0; }
-.rp-more__label { font-size: 11px; color: var(--bl-ink-3); }
-.rp-more__field .x-input,
-.rp-more__field .x-select-wrap { width: 100%; }
+.rp-field { display: flex; flex-direction: column; gap: var(--bl-space-1); min-width: 0; }
+.rp-field__label { font-size: 11px; color: var(--bl-ink-3); }
+.rp-field .x-input,
+.rp-field .x-select-wrap { width: 100%; }
 
 /* THE FILTER THAT DOES NOT GROW.
  *
@@ -339,9 +322,9 @@
  * control, one fixed footprint, and every filter on the row now the same
  * size and aligned with the plain text fields beside them.
  *
- * .rp-more__field--wide is kept for anything that still wants two columns;
+ * .rp-field--wide is kept for anything that still wants two columns;
  * neither of these filters needs it any more. */
-.rp-more__field--wide { grid-column: span 2; }
+.rp-field--wide { grid-column: span 2; }
 
 .rp-pick { position: relative; }
 

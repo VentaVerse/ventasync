@@ -3911,13 +3911,28 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "reports/categories/export",
+        "name": "ext.reports.categories.export"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "reports/fees",
         "name": "ext.reports.fees"
     },
     {
         "method": "GET|HEAD",
+        "uri": "reports/fees/export",
+        "name": "ext.reports.fees.export"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "reports/inventory",
         "name": "ext.reports.inventory"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "reports/inventory/export",
+        "name": "ext.reports.inventory.export"
     },
     {
         "method": "GET|HEAD",
