@@ -554,6 +554,14 @@ class VentaListingController extends Controller
             VentaListing::query()->updateOrCreate(['venta_setting_id' => $store, 'product_id' => (int) $pid], [])
                 ->forceFill(['last_push_error' => Str::limit($text, 480), 'last_push_failed_at' => now()])->save();
         }
+        // Clear a prior failure on every product that pushed cleanly this run,
+        // so a fixed push does not keep wearing an old "Product not found" badge.
+        foreach (($r['outcomes'] ?? []) as $pid => $failure) {
+            if ($failure === null) {
+                VentaListing::query()->where('venta_setting_id', $store)->where('product_id', (int) $pid)
+                    ->update(['last_push_error' => null, 'last_push_failed_at' => null]);
+            }
+        }
 
         return redirect()->back()->with($r['failed'] > 0 ? ($r['ok'] > 0 ? 'warning' : 'error') : 'status',
             \Extensions\venta\Services\Venta\VentaStockPricePush::sentence($r, $what, (string) $setting->store_name));
