@@ -59,7 +59,9 @@ class Watermarker
      * @param  string  $position   one of POSITIONS
      * @param  float  $sizePercent  the mark's width as a percent of the shorter edge; 100 covers the frame
      * @param  float  $opacity     0 to 1, multiplied into the mark's own alpha
-     * @param  float  $marginPercent  how far off the edge, as a percent of the shorter edge
+     * @param  float  $offsetXPercent  a nudge from the anchored position, as a percent of the
+     *                                 shorter edge: positive moves right, negative left
+     * @param  float  $offsetYPercent  the same, down for positive and up for negative
      * @return string|null  the stamped bytes, or null when it could not be done
      */
     public function stamp(
@@ -68,7 +70,8 @@ class Watermarker
         string $position = 'bottom-right',
         float $sizePercent = 18.0,
         float $opacity = 1.0,
-        float $marginPercent = 3.0,
+        float $offsetXPercent = 0.0,
+        float $offsetYPercent = 0.0,
     ): ?string {
         $photo = $this->open($imagePath);
         $mark = $this->open($markPath);
@@ -86,7 +89,8 @@ class Watermarker
 
             $sizePercent = max(1.0, min(100.0, $sizePercent));
             $opacity = max(0.0, min(1.0, $opacity));
-            $marginPercent = max(0.0, min(40.0, $marginPercent));
+            $offsetXPercent = max(-50.0, min(50.0, $offsetXPercent));
+            $offsetYPercent = max(-50.0, min(50.0, $offsetYPercent));
 
             /* The mark keeps its own proportions: a wide ribbon scaled to
                a square would be squashed, and a seller who authored a
@@ -114,8 +118,11 @@ class Watermarker
                 $this->fade($scaled, $opacity);
             }
 
-            $margin = (int) round($shorter * $marginPercent / 100);
-            [$x, $y] = $this->place($position, $pw, $ph, $targetW, $targetH, $margin);
+            [$x, $y] = $this->place(
+                $position, $pw, $ph, $targetW, $targetH,
+                (int) round($shorter * $offsetXPercent / 100),
+                (int) round($shorter * $offsetYPercent / 100),
+            );
 
             // Blending ON for the paste, or the mark's transparent pixels
             // would be copied as transparency and punch a hole in the photo.
@@ -136,25 +143,36 @@ class Watermarker
         }
     }
 
-    /** Where the mark sits, as a top-left corner. */
-    private function place(string $position, int $pw, int $ph, int $mw, int $mh, int $margin): array
+    /**
+     * Where the mark sits, as a top-left corner: anchored to one of the
+     * nine places, then nudged by the offset.
+     *
+     * The offset is in the picture's own directions, the way every image
+     * editor counts them - right and down are positive - so the same
+     * number means the same move whichever corner the mark is anchored to.
+     * Zero is flush against the anchor (the owner, 2026-09-11: "default is 0
+     * and can go to negative and positive").
+     *
+     * A nudge past the edge stops AT the edge. The mark never leaves the
+     * photograph, so dragging a slider too far pins it rather than losing
+     * it off the frame.
+     */
+    private function place(string $position, int $pw, int $ph, int $mw, int $mh, int $dx, int $dy): array
     {
         $position = in_array($position, self::POSITIONS, true) ? $position : 'bottom-right';
         [$vertical, $horizontal] = explode('-', $position);
 
         $x = match ($horizontal) {
-            'left' => $margin,
+            'left' => 0,
             'center' => (int) round(($pw - $mw) / 2),
-            default => $pw - $mw - $margin,
-        };
+            default => $pw - $mw,
+        } + $dx;
         $y = match ($vertical) {
-            'top' => $margin,
+            'top' => 0,
             'middle' => (int) round(($ph - $mh) / 2),
-            default => $ph - $mh - $margin,
-        };
+            default => $ph - $mh,
+        } + $dy;
 
-        // A full-frame template has no room for a margin; clamp rather than
-        // let it hang off the edge.
         return [max(0, min($x, $pw - $mw)), max(0, min($y, $ph - $mh))];
     }
 

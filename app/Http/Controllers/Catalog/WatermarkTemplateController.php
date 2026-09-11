@@ -45,7 +45,7 @@ class WatermarkTemplateController extends Controller
     public function create()
     {
         return view('catalog.watermarks.form', [
-            'template' => new WatermarkTemplate(['position' => 'bottom-right', 'size_percent' => 18, 'margin_percent' => 3, 'opacity' => 1, 'stamp_main' => false]),
+            'template' => new WatermarkTemplate(['position' => 'bottom-right', 'size_percent' => 18, 'offset_x_percent' => 0, 'offset_y_percent' => 0, 'opacity' => 1, 'stamp_main' => false]),
             'mode' => 'create',
             'browseUrl' => route('products.images.browse'),
         ]);
@@ -108,12 +108,20 @@ class WatermarkTemplateController extends Controller
      */
     public function preview(Request $request)
     {
+        /* Numbers here are CLAMPED, never refused. A preview is a question
+           asked while somebody is still deciding, and refusing an
+           out-of-range value answered with an error the picture could not
+           show - so typing 2 into the old strength box blanked the sample
+           instead of showing the strongest mark there is (the owner,
+           2026-09-11). The SAVE still validates strictly; this only has to
+           draw something true. */
         $data = $request->validate([
             'image_path' => 'required|string|max:1000',
             'position' => ['nullable', Rule::in(Watermarker::POSITIONS)],
-            'size_percent' => 'nullable|numeric|min:1|max:100',
-            'margin_percent' => 'nullable|numeric|min:0|max:40',
-            'opacity' => 'nullable|numeric|min:0|max:1',
+            'size_percent' => 'nullable|numeric',
+            'offset_x_percent' => 'nullable|numeric',
+            'offset_y_percent' => 'nullable|numeric',
+            'transparency' => 'nullable|numeric',
             'sample' => 'nullable|string|max:1000',
         ]);
 
@@ -131,17 +139,22 @@ class WatermarkTemplateController extends Controller
             abort(404);
         }
 
+        /* Through the disk, not public/storage: the symlink is a web
+           server convenience, and a missing one would blank every preview
+           while the files sit exactly where the library put them. */
+        $disk = Storage::disk('public');
         $bytes = app(Watermarker::class)->stamp(
-            public_path('storage/' . $samplePath),
-            public_path('storage/' . $mark[0]),
+            $disk->path($samplePath),
+            $disk->path($mark[0]),
             (string) ($data['position'] ?? 'bottom-right'),
-            (float) ($data['size_percent'] ?? 18),
-            (float) ($data['opacity'] ?? 1),
-            (float) ($data['margin_percent'] ?? 3),
+            max(1.0, min(100.0, (float) ($data['size_percent'] ?? 18))),
+            WatermarkTemplate::opacityFor((float) ($data['transparency'] ?? 0)),
+            (float) ($data['offset_x_percent'] ?? 0),
+            (float) ($data['offset_y_percent'] ?? 0),
         );
 
         if ($bytes === null) {
-            return response()->file(public_path('storage/' . $samplePath));
+            return response()->file($disk->path($samplePath));
         }
 
         return response($bytes, 200, ['Content-Type' => 'image/jpeg', 'Cache-Control' => 'no-store']);
@@ -155,10 +168,16 @@ class WatermarkTemplateController extends Controller
             'image_path' => 'required|string|max:1000',
             'position' => ['required', Rule::in(Watermarker::POSITIONS)],
             'size_percent' => 'required|numeric|min:1|max:100',
-            'margin_percent' => 'required|numeric|min:0|max:40',
-            'opacity' => 'required|numeric|min:0|max:1',
+            'offset_x_percent' => 'required|numeric|min:-50|max:50',
+            'offset_y_percent' => 'required|numeric|min:-50|max:50',
+            'transparency' => 'required|numeric|min:0|max:' . WatermarkTemplate::MAX_TRANSPARENCY,
             'stamp_main' => 'nullable|boolean',
         ]);
+
+        /* Shown as transparency, stored as the opacity the stamper
+           multiplies by. */
+        $data['opacity'] = WatermarkTemplate::opacityFor((float) $data['transparency']);
+        unset($data['transparency']);
 
         /* The mark has to be a file the library actually holds: this path
            is read at push time, on every picture of every product that

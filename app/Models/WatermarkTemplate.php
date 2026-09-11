@@ -23,7 +23,8 @@ class WatermarkTemplate extends Model
 
     protected $casts = [
         'size_percent' => 'float',
-        'margin_percent' => 'float',
+        'offset_x_percent' => 'float',
+        'offset_y_percent' => 'float',
         'opacity' => 'float',
         'stamp_main' => 'boolean',
     ];
@@ -57,6 +58,31 @@ class WatermarkTemplate extends Model
         return public_path('storage/' . ltrim((string) $this->image_path, '/'));
     }
 
+    /**
+     * How see-through the mark is, as the form shows it: 0 is the mark as
+     * drawn, higher lets more of the photograph through. Stored as opacity
+     * because that is what the stamper multiplies by; shown as
+     * transparency because that is what the seller is deciding (the owner,
+     * 2026-09-11: "Is strength the transparency? Then rename it").
+     */
+    public function transparencyPercent(): int
+    {
+        return (int) round((1 - (float) ($this->opacity ?? 1)) * 100);
+    }
+
+    /** The opacity a transparency percent means, clamped to what the form offers. */
+    public static function opacityFor(float $transparencyPercent): float
+    {
+        return round(1 - max(0.0, min((float) self::MAX_TRANSPARENCY, $transparencyPercent)) / 100, 3);
+    }
+
+    /**
+     * Past this the mark is so faint it is not a mark, and at 100 it is
+     * gone: a template that stamps nothing is a mistake the form should not
+     * allow rather than one the push should discover.
+     */
+    public const MAX_TRANSPARENCY = 90;
+
     /** The mark as a URL, for a preview. */
     public function markUrl(): string
     {
@@ -76,7 +102,8 @@ class WatermarkTemplate extends Model
             (string) $this->position,
             (float) $this->size_percent,
             (float) $this->opacity,
-            (float) $this->margin_percent,
+            (float) $this->offset_x_percent,
+            (float) $this->offset_y_percent,
         );
     }
 }

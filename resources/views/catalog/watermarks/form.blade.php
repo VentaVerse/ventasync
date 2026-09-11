@@ -82,22 +82,61 @@
                             </div>
                         </x-ui.field>
 
-                        <x-ui.field label="Size" for="wm-size" name="size_percent" :required="true"
-                                    hint="Percent of the picture's shorter edge, so it looks the same on a square photo and a tall one. 100 covers the whole frame, which is how a border or a full-frame template is made.">
-                            <x-ui.input id="wm-size" name="size_percent" type="number" step="0.5" min="1" max="100" required
-                                        :value="old('size_percent', $template->size_percent)" />
+                        {{-- Sliders, not number boxes (the owner, 2026-09-11). A box
+                             took any number anyone typed, and 2 in the old
+                             strength box blanked the preview; a slider cannot
+                             hold a value the stamper does not accept, and it
+                             is the right control for "a bit more, a bit less"
+                             while watching the preview move. --}}
+                        <x-ui.field label="Size" for="wm-size" name="size_percent" :required="true" wide
+                                    hint="How wide the mark is, as a share of the picture's shorter edge, so it looks the same on a square photo and a tall one. 100 fills the frame, which is how a border is made.">
+                            <div class="wm-slider">
+                                <input id="wm-size" class="wm-slider__range" type="range" name="size_percent"
+                                       min="1" max="100" step="1" required data-wm-unit="%"
+                                       value="{{ old('size_percent', (int) round((float) $template->size_percent)) }}">
+                                <output class="wm-slider__value" for="wm-size" data-wm-readout></output>
+                            </div>
                         </x-ui.field>
 
-                        <x-ui.field label="Margin" for="wm-margin" name="margin_percent" :required="true"
-                                    hint="How far off the edge, as a percent of the shorter edge.">
-                            <x-ui.input id="wm-margin" name="margin_percent" type="number" step="0.5" min="0" max="40" required
-                                        :value="old('margin_percent', $template->margin_percent)" />
+                        {{-- Two offsets, each centred on zero and signed, in the
+                             picture's own directions (the owner: "make offset both
+                             X and Y axis. Separated slider", "default is 0 and
+                             can go to negative and positive"). Zero is flush
+                             against the position above. --}}
+                        <x-ui.field label="Offset across" for="wm-offset-x" name="offset_x_percent" :required="true" wide
+                                    hint="Moves the mark left or right from its position, as a share of the shorter edge. Zero sits it flush against the position you picked.">
+                            <div class="wm-slider wm-slider--signed">
+                                <input id="wm-offset-x" class="wm-slider__range" type="range" name="offset_x_percent"
+                                       min="-50" max="50" step="0.5" required data-wm-unit="%" data-wm-signed
+                                       value="{{ old('offset_x_percent', (float) $template->offset_x_percent) }}">
+                                <output class="wm-slider__value" for="wm-offset-x" data-wm-readout></output>
+                                <span class="wm-slider__ends" aria-hidden="true"><span>Left</span><span>Right</span></span>
+                            </div>
                         </x-ui.field>
 
-                        <x-ui.field label="Strength" for="wm-opacity" name="opacity" :required="true"
-                                    hint="1 is the mark as you drew it. Lower softens it without editing the file.">
-                            <x-ui.input id="wm-opacity" name="opacity" type="number" step="0.05" min="0" max="1" required
-                                        :value="old('opacity', $template->opacity)" />
+                        <x-ui.field label="Offset down" for="wm-offset-y" name="offset_y_percent" :required="true" wide
+                                    hint="Moves the mark up or down from its position, as a share of the shorter edge. Zero sits it flush against the position you picked.">
+                            <div class="wm-slider wm-slider--signed">
+                                <input id="wm-offset-y" class="wm-slider__range" type="range" name="offset_y_percent"
+                                       min="-50" max="50" step="0.5" required data-wm-unit="%" data-wm-signed
+                                       value="{{ old('offset_y_percent', (float) $template->offset_y_percent) }}">
+                                <output class="wm-slider__value" for="wm-offset-y" data-wm-readout></output>
+                                <span class="wm-slider__ends" aria-hidden="true"><span>Up</span><span>Down</span></span>
+                            </div>
+                        </x-ui.field>
+
+                        {{-- Transparency, because that is what the old "strength"
+                             was. Stored as opacity, which is what the stamper
+                             multiplies by; capped short of invisible, since a
+                             template that stamps nothing is a mistake. --}}
+                        <x-ui.field label="Transparency" for="wm-transparency" name="transparency" :required="true" wide
+                                    hint="0 is the mark exactly as drawn. Higher lets more of the photograph show through it, without editing the file.">
+                            <div class="wm-slider">
+                                <input id="wm-transparency" class="wm-slider__range" type="range" name="transparency"
+                                       min="0" max="{{ \App\Models\WatermarkTemplate::MAX_TRANSPARENCY }}" step="5" required data-wm-unit="%"
+                                       value="{{ old('transparency', $template->transparencyPercent()) }}">
+                                <output class="wm-slider__value" for="wm-transparency" data-wm-readout></output>
+                            </div>
                         </x-ui.field>
                     </div>
                 </section>
@@ -105,18 +144,26 @@
                 <section class="fm-section">
                     <div class="fm-section__head"><h2 class="fm-section__title">The main image</h2></div>
                     {{-- The one place a marketplace will actually penalise a
-                         seller, so the reason is on the page rather than in a
-                         tooltip: this is a rule, not a preference. --}}
+                         seller, so the reason stays on the page rather than in
+                         a tooltip: it is a rule, not a preference. Said in the
+                         order a reader needs it (clarify, 2026-09-11): what
+                         the main image is, why it is different, what off
+                         leaves marked. --}}
                     <label class="gf-check">
-                        <input type="checkbox" class="cc-check" name="stamp_main" value="1"
+                        <input type="checkbox" class="cc-check" name="stamp_main" value="1" data-wm-main
                                @checked(old('stamp_main', $template->stamp_main))>
                         <span class="gf-check__name">Also mark the main image</span>
                     </label>
                     <p class="fm-section__note">
-                        Marketplaces police the main image and leave the rest alone. Shopee allows a corner logo of
-                        10% or less and refuses a busy watermark over the product; the gallery carries text and
-                        graphics freely on Shopee and Lazada alike. Left off, only the gallery and variation pictures
-                        are marked.
+                        The main image is the first photo buyers see, and the one marketplaces check. Shopee
+                        rejects a watermark over the product and allows only a small corner logo, 10% of the
+                        picture or less. With this off, every other photo is still marked.
+                    </p>
+                    {{-- Said while it can still be changed, not after a push is
+                         refused: the form knows the size and the position. --}}
+                    <p class="wm-risk" data-wm-risk role="status" aria-live="polite" hidden>
+                        At this size or position Shopee may reject the main image. Pick a corner and keep the
+                        size at 10% or less.
                     </p>
                 </section>
             </div>

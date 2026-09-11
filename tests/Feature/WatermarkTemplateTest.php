@@ -63,14 +63,18 @@ class WatermarkTemplateTest extends TestCase
 
         $this->actingAs($this->manager())->post(route('watermarks.store'), [
             'name' => 'Shop logo', 'image_path' => $path, 'position' => 'bottom-right',
-            'size_percent' => 12, 'margin_percent' => 3, 'opacity' => 0.8, 'stamp_main' => '1',
+            'size_percent' => 12, 'offset_x_percent' => -3, 'offset_y_percent' => -2.5, 'transparency' => 20, 'stamp_main' => '1',
         ])->assertRedirect(route('watermarks.index'));
 
         $template = WatermarkTemplate::first();
         $this->assertSame('Shop logo', $template->name);
         $this->assertSame($path, $template->image_path);
         $this->assertTrue($template->stamp_main);
+        // Shown as transparency, stored as the opacity the stamper multiplies by.
         $this->assertSame(0.8, round((float) $template->opacity, 2));
+        $this->assertSame(20, $template->transparencyPercent());
+        $this->assertSame(-3.0, (float) $template->offset_x_percent);
+        $this->assertSame(-2.5, (float) $template->offset_y_percent);
 
         $this->actingAs($this->reader())->get(route('watermarks.index'))
             ->assertOk()->assertSee('Shop logo');
@@ -87,7 +91,7 @@ class WatermarkTemplateTest extends TestCase
 
         $this->actingAs($this->manager())->post(route('watermarks.store'), [
             'name' => 'Forged', 'image_path' => '../../etc/passwd', 'position' => 'bottom-right',
-            'size_percent' => 12, 'margin_percent' => 3, 'opacity' => 1,
+            'size_percent' => 12, 'offset_x_percent' => 0, 'offset_y_percent' => 0, 'transparency' => 0,
         ])->assertSessionHasErrors('image_path');
 
         $this->assertSame(0, WatermarkTemplate::count());
@@ -99,11 +103,66 @@ class WatermarkTemplateTest extends TestCase
 
         $this->actingAs($this->manager())->post(route('watermarks.store'), [
             'name' => 'Gallery only', 'image_path' => $path, 'position' => 'bottom-right',
-            'size_percent' => 12, 'margin_percent' => 3, 'opacity' => 1,
+            'size_percent' => 12, 'offset_x_percent' => 0, 'offset_y_percent' => 0, 'transparency' => 0,
         ])->assertRedirect();
 
         $this->assertFalse(WatermarkTemplate::first()->stamp_main,
             'Marketplaces police the main image; it is left bare unless the seller says otherwise.');
+    }
+
+    /**
+     * The sliders cannot hold a value the stamper refuses, but a form post
+     * can, and the save still says no: an offset past half the edge, or a
+     * transparency that makes the mark vanish, is a mistake to name rather
+     * than a template to keep.
+     */
+    public function test_a_template_that_would_stamp_nothing_or_leave_the_frame_is_refused(): void
+    {
+        $path = $this->mark();
+
+        $this->actingAs($this->manager())->post(route('watermarks.store'), [
+            'name' => 'Invisible', 'image_path' => $path, 'position' => 'bottom-right',
+            'size_percent' => 12, 'offset_x_percent' => 0, 'offset_y_percent' => 0,
+            'transparency' => 100,
+        ])->assertSessionHasErrors('transparency');
+
+        $this->actingAs($this->manager())->post(route('watermarks.store'), [
+            'name' => 'Off the edge', 'image_path' => $path, 'position' => 'bottom-right',
+            'size_percent' => 12, 'offset_x_percent' => 80, 'offset_y_percent' => 0,
+            'transparency' => 0,
+        ])->assertSessionHasErrors('offset_x_percent');
+
+        $this->assertSame(0, WatermarkTemplate::count());
+    }
+
+    /**
+     * THE PREVIEW CLAMPS, IT NEVER REFUSES. Typing 2 into the old strength
+     * box answered the preview with a validation error the picture could
+     * not show, so the sample went blank (the owner, 2026-09-11). A preview is
+     * asked while somebody is still deciding; it draws the nearest true
+     * thing instead.
+     */
+    public function test_an_out_of_range_preview_still_draws_a_picture(): void
+    {
+        $markPath = $this->mark();
+        $pfx = (string) config('catalog.prefix');
+        $im = imagecreatetruecolor(200, 200);
+        ob_start();
+        imagejpeg($im);
+        Storage::disk('public')->put('catalog/sample.jpg', ob_get_clean());
+        imagedestroy($im);
+        \DB::table($pfx . 'product')->insert([
+            'model' => 'S', 'sku' => 'S', 'price' => 1, 'quantity' => 1, 'status' => 1, 'image' => 'catalog/sample.jpg',
+            'date_added' => now(), 'date_modified' => now(),
+        ]);
+
+        $response = $this->actingAs($this->reader())->get(route('watermarks.preview', [
+            'image_path' => $markPath, 'position' => 'bottom-right',
+            'size_percent' => 400, 'offset_x_percent' => -900, 'offset_y_percent' => 900, 'transparency' => 2,
+        ]));
+
+        $response->assertOk();
+        $this->assertStringStartsWith('image/', (string) $response->headers->get('Content-Type'));
     }
 
     /**
