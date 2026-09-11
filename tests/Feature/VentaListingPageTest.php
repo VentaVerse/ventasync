@@ -112,6 +112,32 @@ class VentaListingPageTest extends TestCase
     }
 
     /**
+     * Live, 2026-09-11: a Push stock the storefront refused answered with a
+     * server error ("Unknown column 'last_push_error'"). The refusal is
+     * written to the listing's latest push error, and Venta's listing table
+     * was the one of five that never got the column. It is recorded now, and
+     * the page says what the storefront said.
+     */
+    public function test_a_refused_stock_push_is_recorded_on_the_listing_not_a_server_error(): void
+    {
+        $store = $this->store();
+        $pid = $this->product();
+        VentaProductLink::create(['venta_setting_id' => $store->id, 'product_id' => $pid, 'venta_product_id' => 5001, 'sku' => 'GP-200']);
+        Http::fake([self::BASE . '/*' => Http::response(['error' => 'Product not found'], 404)]);
+
+        $this->actingAs($this->manager())
+            ->from('/dashboard')
+            ->post(route('ext.venta.listings.push_stock', [$store->id, $pid]))
+            ->assertRedirect('/dashboard')
+            ->assertSessionHas('error');
+
+        $listing = VentaListing::where('venta_setting_id', $store->id)->where('product_id', $pid)->first();
+        $this->assertNotNull($listing);
+        $this->assertSame('Stock push failed: Product not found', $listing->last_push_error);
+        $this->assertNotNull($listing->last_push_failed_at);
+    }
+
+    /**
      * The one group shape (2026-09-07): a Venta group picks the store's own
      * category, the way WooCommerce's does, and the listing page reports it.
      * A category this store does not hold is refused.
