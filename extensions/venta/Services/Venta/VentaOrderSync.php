@@ -668,44 +668,20 @@ class VentaOrderSync
                 }
             }
 
-            // Sync order totals. order_total has no foreign_* column - it
-            // always holds the default-currency figure, matching order.total.
-            /* Only the totals THIS sync owns. A blanket delete took the
-               normalized marketplace fee rows with it
-               (App\Services\Orders\MarketplaceFeeNormalizer), so a re-sync
-               silently emptied the Fees column on every report until the
-               next backfill. A writer clears its own codes and nothing
-               else's. */
+            // The order's sale lines as the storefront reports them. Only this
+            // writer's rows are replaced; the normalized fee rows stay.
             DB::table($pfx . 'order_total')->where('order_id', $coreOrderId)
-                ->whereIn('code', ['sub_total', 'shipping', 'total', 'handling', 'tax', 'voucher', 'discount', 'credit'])->delete();
+                ->whereNotIn('code', array_column(\App\Services\Orders\MarketplaceFeeNormalizer::CODES, 0))->delete();
             $sortOrder = 1;
-
-            DB::table($pfx . 'order_total')->insert([
-                'order_id'   => $coreOrderId,
-                'code'       => 'sub_total',
-                'title'      => 'Sub-Total',
-                'value'      => \App\Services\OrderCurrencyService::toBase($subTotal, $rate),
-                'sort_order' => $sortOrder++,
-            ]);
-
-            $shippingCost = (float) ($totals['shipping'] ?? 0);
-            if ($shippingCost != 0) {
+            foreach (VentaSaleLines::lines(is_array($totals) ? $totals : [], $subTotal, (float) ($totals['shipping'] ?? 0)) as $line) {
                 DB::table($pfx . 'order_total')->insert([
                     'order_id'   => $coreOrderId,
-                    'code'       => 'shipping',
-                    'title'      => 'Shipping',
-                    'value'      => \App\Services\OrderCurrencyService::toBase($shippingCost, $rate),
+                    'code'       => $line['code'],
+                    'title'      => $line['title'],
+                    'value'      => \App\Services\OrderCurrencyService::toBase($line['value'], $rate),
                     'sort_order' => $sortOrder++,
                 ]);
             }
-
-            DB::table($pfx . 'order_total')->insert([
-                'order_id'   => $coreOrderId,
-                'code'       => 'total',
-                'title'      => 'Total',
-                'value'      => \App\Services\OrderCurrencyService::toBase((float) ($totals['total'] ?? $subTotal), $rate),
-                'sort_order' => $sortOrder,
-            ]);
 
             // Add history if status changed or new
             if ($created || $oldStatusId !== $coreStatusId) {

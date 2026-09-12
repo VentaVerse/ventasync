@@ -33,7 +33,7 @@ use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Contracts\ListingStateSource;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class ShopeeExtension extends ExtensionProvider implements ListingStateSource, IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, RootRouteHandler, CredentialRevealer, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter, \App\Integrations\Contracts\MarketplaceOrderRefRenderer
+class ShopeeExtension extends ExtensionProvider implements ListingStateSource, IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, RootRouteHandler, CredentialRevealer, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter, \App\Integrations\Contracts\MarketplaceOrderRefRenderer, \App\Integrations\Contracts\SaleLinesSource
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -591,6 +591,18 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
      * the courier's price would understate net profit by about 99,340 on
      * that sample alone.
      */
+    public function saleLinesForOrder(int $coreOrderId, float $itemsSubtotal, float $shipping): ?array
+    {
+        $order = \Extensions\shopee\Models\ShopeeOrder::query()->where('catalog_order_id', $coreOrderId)->first();
+        if (! $order) {
+            return null;
+        }
+        $fees = is_array($order->fees) ? $order->fees : [];
+        $income = $fees['order_income'] ?? $fees;
+
+        return \Extensions\shopee\Services\ShopeeSaleLines::lines(is_array($income) ? $income : [], $itemsSubtotal, $shipping);
+    }
+
     public function feeBucketsForOrder(int $coreOrderId): ?array
     {
         if (! Schema::hasTable('shopee_orders')) {

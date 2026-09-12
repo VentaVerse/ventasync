@@ -2,83 +2,57 @@
 
 namespace Extensions\shopee\Services;
 
+use App\Services\Orders\SaleLines\AbstractSaleLines;
+
 /**
- * A Shopee order's sale, line by line, as Shopee reports it.
- *
- * Built from the escrow detail's order_income once Shopee has settled the
- * order: Shopee's own price, discount, voucher, coin and shipping figures, and
- * its buyer total. Before settlement only the items and shipping are known.
- * Values are in the order's currency; lines that are zero are left out.
+ * A Shopee order's sale as Seller Center shows it, from the escrow detail's
+ * order_income once Shopee has settled the order. Shopee's buyer total is the
+ * total. Item markdown (order_seller_discount, shopee_discount) is already in
+ * the selling price used as the subtotal, so it is not a line of its own.
  */
-final class ShopeeSaleLines
+final class ShopeeSaleLines extends AbstractSaleLines
 {
-    private const LINES = [
-        // Item markdown (order_seller_discount, shopee_discount) is the gap from
-        // the strikethrough original to the selling price; it is already in
-        // order_selling_price below and Seller Center never itemises it, so it
-        // is intentionally not a line here.
-        'voucher' => [['voucher_from_seller'], 'Seller voucher', -1],
-        'platform_voucher' => [['voucher_from_shopee'], 'Shopee voucher', -1],
-        'coins' => [['coins'], 'Coins', -1],
-        'shipping' => [['buyer_paid_shipping_fee'], 'Shipping paid by buyer', 1],
-        'buyer_transaction_fee' => [['buyer_transaction_fee'], 'Transaction fee paid by buyer', 1],
-        // Optional cover the buyer adds at checkout; Shopee collects it and it is not paid out to the seller.
-        'product_protection' => [['final_product_protection'], 'Product protection', 1],
-    ];
-
-    /**
-     * @param  array<string, mixed>  $income  order_income from the escrow detail, or [] when not settled yet
-     * @return list<array{code: string, title: string, value: float}>
-     */
-    public static function lines(array $income, float $itemsSubtotal, float $shipping): array
+    protected function isComplete(): bool
     {
-        $amount = fn (string $key): float => abs((float) ($income[$key] ?? 0));
+        return $this->has('order_original_price') || $this->has('buyer_total_amount');
+    }
 
-        if (! isset($income['order_original_price']) && ! isset($income['buyer_total_amount'])) {
-            $lines = [['code' => 'sub_total', 'title' => 'Items', 'value' => $itemsSubtotal]];
-            if ($shipping != 0.0) {
-                $lines[] = ['code' => 'shipping', 'title' => 'Shipping', 'value' => $shipping];
-            }
-            $lines[] = ['code' => 'total', 'title' => 'Total', 'value' => $itemsSubtotal + $shipping];
+    protected function subtotalTitle(): string
+    {
+        return 'Merchandise Subtotal';
+    }
 
-            return $lines;
-        }
-
-        // Merchandise subtotal = the selling price (after item markdown), the
-        // figure Seller Center shows. order_selling_price / order_discounted_price
-        // carry it; fall back to the summed line items.
-        $subtotal = $itemsSubtotal;
-        foreach (['order_selling_price', 'order_discounted_price'] as $key) {
-            if (isset($income[$key]) && $amount($key) > 0) {
-                $subtotal = $amount($key);
-                break;
-            }
-        }
-        $lines = [[
-            'code' => 'sub_total',
-            'title' => 'Merchandise subtotal',
-            'value' => $subtotal,
-        ]];
-
-        foreach (self::LINES as $code => [$keys, $title, $sign]) {
-            $value = 0.0;
-            foreach ($keys as $key) {
-                if ($amount($key) > 0) {
-                    $value = $amount($key);
-                    break;
-                }
-            }
-            if ($value > 0) {
-                $lines[] = ['code' => $code, 'title' => $title, 'value' => $sign * $value];
+    protected function subtotal(float $itemsSubtotal): float
+    {
+        foreach (['order_selling_price', 'order_discounted_price'] as $field) {
+            if ($this->amount($field) > 0) {
+                return $this->amount($field);
             }
         }
 
-        $lines[] = [
-            'code' => 'total',
-            'title' => 'Buyer total',
-            'value' => isset($income['buyer_total_amount']) ? $amount('buyer_total_amount') : array_sum(array_column($lines, 'value')),
+        return $itemsSubtotal;
+    }
+
+    protected function definitions(): array
+    {
+        return [
+            self::SHIPPING => ['title' => 'Shipping Fee', 'field' => 'buyer_paid_shipping_fee', 'sign' => 1, 'standard' => true],
+            self::PLATFORM_VOUCHER => ['title' => 'Shopee Voucher', 'field' => 'voucher_from_shopee', 'sign' => -1, 'standard' => true],
+            self::SELLER_VOUCHER => ['title' => 'Seller Voucher', 'field' => 'voucher_from_seller', 'sign' => -1, 'standard' => true],
+            self::COINS => ['title' => 'Coins', 'field' => 'coins', 'sign' => -1],
+            self::BUYER_TRANSACTION_FEE => ['title' => 'Transaction fee paid by buyer', 'field' => 'buyer_transaction_fee', 'sign' => 1],
+            // Optional cover the buyer adds at checkout; Shopee collects it and it is not paid out to the seller.
+            self::PRODUCT_PROTECTION => ['title' => 'Product protection', 'field' => 'final_product_protection', 'sign' => 1],
         ];
+    }
 
-        return $lines;
+    protected function totalTitle(): string
+    {
+        return 'Total Buyer Payment';
+    }
+
+    protected function total(float $sumOfLines): float
+    {
+        return $this->has('buyer_total_amount') ? $this->amount('buyer_total_amount') : $sumOfLines;
     }
 }

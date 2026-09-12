@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, \App\Integrations\Contracts\ListingStateSource, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter
+class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, \App\Integrations\Contracts\ListingStateSource, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter, \App\Integrations\Contracts\SaleLinesSource
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -515,6 +515,17 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
      * delivery charge is shipping_fee, which sat in the Fees column until
      * 2026-09-08; it publishes no payment-side deduction.
      */
+    public function saleLinesForOrder(int $coreOrderId, float $itemsSubtotal, float $shipping): ?array
+    {
+        $order = \Extensions\tiktok\Models\TikTokOrder::query()->where('catalog_order_id', $coreOrderId)->first();
+        if (! $order) {
+            return null;
+        }
+        $raw = is_array($order->raw) ? $order->raw : [];
+
+        return \Extensions\tiktok\Services\TikTokSaleLines::lines(is_array($raw['payment'] ?? null) ? $raw['payment'] : [], $itemsSubtotal, $shipping);
+    }
+
     public function feeBucketsForOrder(int $coreOrderId): ?array
     {
         if (! Schema::hasTable('tiktok_orders')) {

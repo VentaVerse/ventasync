@@ -33,7 +33,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ListingStateSource, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter, \App\Integrations\Contracts\MarketplaceOrderRefRenderer
+class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ListingStateSource, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter, \App\Integrations\Contracts\MarketplaceOrderRefRenderer, \App\Integrations\Contracts\SaleLinesSource
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['unpaid'],
@@ -661,6 +661,16 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
      * entries are charges - the positives are rebates and were never
      * counted.
      */
+    public function saleLinesForOrder(int $coreOrderId, float $itemsSubtotal, float $shipping): ?array
+    {
+        $order = \Extensions\lazada\Models\LazadaOrder::query()->where('catalog_order_id', $coreOrderId)->first();
+        if (! $order) {
+            return null;
+        }
+
+        return \Extensions\lazada\Services\LazadaSaleLines::lines(is_array($order->raw) ? $order->raw : [], $itemsSubtotal, $shipping);
+    }
+
     public function feeBucketsForOrder(int $coreOrderId): ?array
     {
         if (! Schema::hasTable('lazada_orders')) {

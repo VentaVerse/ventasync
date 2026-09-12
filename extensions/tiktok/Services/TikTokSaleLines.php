@@ -2,75 +2,77 @@
 
 namespace Extensions\tiktok\Services;
 
+use App\Services\Orders\SaleLines\AbstractSaleLines;
+
 /**
- * A TikTok Shop order's sale, line by line, from the payment block TikTok
- * returns with the order: original prices, the discounts split by who funded
- * them, buyer-paid fees, tax, and TikTok's own total. Without a payment block
- * only the items and shipping are known. Values are in the order's currency;
- * lines that are zero are left out.
+ * A TikTok Shop order's sale from the payment block TikTok returns with the
+ * order. TikTok's total_amount is the total.
+ *
+ * TikTok's platform_discount and seller_discount cover both item markdown,
+ * which is already inside sub_total, and discounts applied after it, which are
+ * not. Only the part not already in the subtotal is listed, so the lines always
+ * add up to the total.
  */
-final class TikTokSaleLines
+final class TikTokSaleLines extends AbstractSaleLines
 {
-    private const LINES = [
-        // Item markdown (seller_discount, platform_discount) is the gap from the
-        // original price to sub_total; it is already in sub_total below and the
-        // store does not itemise it, so it is intentionally not a line here.
-        'shipping' => ['original_shipping_fee', 'Original shipping fee', 1],
-        'shipping_discount_platform' => ['shipping_fee_platform_discount', 'Shipping discount by TikTok', -1],
-        'shipping_discount_seller' => ['shipping_fee_seller_discount', 'Shipping discount by seller', -1],
-        'shipping_discount_cofunded' => ['shipping_fee_cofunded_discount', 'Shipping discount, co-funded', -1],
-        'payment_discount' => ['payment_platform_discount', 'Payment discount', -1],
-        'handling_fee' => ['handling_fee', 'Handling fee', 1],
-        'item_insurance' => ['item_insurance_fee', 'Item insurance', 1],
-        'tax' => ['tax', 'Tax', 1],
-    ];
-
-    /**
-     * @param  array<string, mixed>  $payment  the order's payment block, or [] when absent
-     * @return list<array{code: string, title: string, value: float}>
-     */
-    public static function lines(array $payment, float $itemsSubtotal, float $shipping): array
+    protected function isComplete(): bool
     {
-        $amount = fn (string $key): float => abs((float) ($payment[$key] ?? 0));
+        return $this->has('original_total_product_price') || $this->has('total_amount');
+    }
 
-        if (! isset($payment['original_total_product_price']) && ! isset($payment['total_amount'])) {
-            $lines = [['code' => 'sub_total', 'title' => 'Items', 'value' => $itemsSubtotal]];
-            if ($shipping != 0.0) {
-                $lines[] = ['code' => 'shipping', 'title' => 'Shipping', 'value' => $shipping];
-            }
-            $lines[] = ['code' => 'total', 'title' => 'Total', 'value' => $itemsSubtotal + $shipping];
+    protected function subtotalTitle(): string
+    {
+        return 'Merchandise Subtotal';
+    }
 
-            return $lines;
-        }
-
-        // Merchandise subtotal = sub_total (product price after item discounts),
-        // the figure the store shows; fall back to the original price, then the
-        // summed line items.
-        $subtotal = $itemsSubtotal;
-        foreach (['sub_total', 'original_total_product_price'] as $key) {
-            if (isset($payment[$key]) && $amount($key) > 0) {
-                $subtotal = $amount($key);
-                break;
-            }
-        }
-        $lines = [[
-            'code' => 'sub_total',
-            'title' => 'Merchandise subtotal',
-            'value' => $subtotal,
-        ]];
-
-        foreach (self::LINES as $code => [$key, $title, $sign]) {
-            if ($amount($key) > 0) {
-                $lines[] = ['code' => $code, 'title' => $title, 'value' => $sign * $amount($key)];
+    protected function subtotal(float $itemsSubtotal): float
+    {
+        foreach (['sub_total', 'original_total_product_price'] as $field) {
+            if ($this->amount($field) > 0) {
+                return $this->amount($field);
             }
         }
 
-        $lines[] = [
-            'code' => 'total',
-            'title' => 'Total',
-            'value' => isset($payment['total_amount']) ? $amount('total_amount') : array_sum(array_column($lines, 'value')),
+        return $itemsSubtotal;
+    }
+
+    protected function definitions(): array
+    {
+        return [
+            self::SHIPPING => ['title' => 'Shipping Fee', 'field' => 'original_shipping_fee', 'sign' => 1, 'standard' => true],
+            self::SHIPPING_DISCOUNT_PLATFORM => ['title' => 'Shipping discount by TikTok', 'field' => 'shipping_fee_platform_discount', 'sign' => -1],
+            self::SHIPPING_DISCOUNT_SELLER => ['title' => 'Shipping discount by seller', 'field' => 'shipping_fee_seller_discount', 'sign' => -1],
+            self::SHIPPING_DISCOUNT_COFUNDED => ['title' => 'Shipping discount, co-funded', 'field' => 'shipping_fee_cofunded_discount', 'sign' => -1],
+            self::PLATFORM_DISCOUNT => ['title' => 'Platform discount', 'sign' => -1, 'standard' => true],
+            self::SELLER_DISCOUNT => ['title' => 'Seller discount', 'sign' => -1, 'standard' => true],
+            self::PAYMENT_DISCOUNT => ['title' => 'Payment discount', 'field' => 'payment_platform_discount', 'sign' => -1],
+            self::HANDLING_FEE => ['title' => 'Handling fee', 'field' => 'handling_fee', 'sign' => 1],
+            self::ITEM_INSURANCE => ['title' => 'Item insurance', 'field' => 'item_insurance_fee', 'sign' => 1],
+            self::TAX => ['title' => 'Tax', 'field' => 'tax', 'sign' => 1],
         ];
+    }
 
-        return $lines;
+    protected function value(string $code, array $definition): float
+    {
+        if ($code !== self::PLATFORM_DISCOUNT && $code !== self::SELLER_DISCOUNT) {
+            return parent::value($code, $definition);
+        }
+
+        // The markdown already inside the subtotal is set against the seller's
+        // discount first, then the platform's; what remains is listed.
+        $markdown = $this->has('sub_total') && $this->has('original_total_product_price')
+            ? max(0.0, $this->amount('original_total_product_price') - $this->amount('sub_total'))
+            : 0.0;
+        $seller = $this->amount('seller_discount');
+        if ($code === self::SELLER_DISCOUNT) {
+            return round(max(0.0, $seller - $markdown), 2);
+        }
+
+        return round(max(0.0, $this->amount('platform_discount') - max(0.0, $markdown - $seller)), 2);
+    }
+
+    protected function total(float $sumOfLines): float
+    {
+        return $this->has('total_amount') ? $this->amount('total_amount') : $sumOfLines;
     }
 }

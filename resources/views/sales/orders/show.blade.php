@@ -537,7 +537,7 @@
 
                 <div class="od-ledger">
                     @foreach($orderTotals as $ot)
-                        @if(! in_array($ot->code, $notSale, true) && ((float) $ot->value != 0 || $ot->code === 'sub_total'))
+                        @if(! in_array($ot->code, $notSale, true))
                         @php
                             $otForeign = $dual ? \App\Services\OrderCurrencyService::toForeign((float) $ot->value, $orderRate) : null;
                         @endphp

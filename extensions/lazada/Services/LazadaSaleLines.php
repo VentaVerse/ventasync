@@ -2,55 +2,51 @@
 
 namespace Extensions\lazada\Services;
 
+use App\Services\Orders\SaleLines\AbstractSaleLines;
+
 /**
- * A Lazada order's sale, line by line, as Lazada reports it on the order:
- * price, shipping fee, and the vouchers and shipping discounts split by who
- * funded them. Lazada sends no single amount the buyer paid per order, so the
- * total is the sum of these lines. Values are in the order's currency; lines
- * that are zero are left out.
+ * A Lazada order's sale as Lazada reports it on the order: price, shipping fee,
+ * and the vouchers and shipping discounts split by who funded them. Lazada
+ * sends no single amount the buyer paid, so the total is the lines added up.
  */
-final class LazadaSaleLines
+final class LazadaSaleLines extends AbstractSaleLines
 {
-    private const DISCOUNTS = [
-        'shipping_discount_platform' => ['shipping_fee_discount_platform', 'Shipping discount by Lazada'],
-        'shipping_discount_seller' => ['shipping_fee_discount_seller', 'Shipping discount by seller'],
-        'platform_voucher' => ['voucher_platform', 'Voucher by Lazada'],
-        'voucher' => ['voucher_seller', 'Voucher by seller'],
-    ];
+    private const COMBINED_VOUCHER = 'voucher';
 
-    /**
-     * @param  array<string, mixed>  $order  the order as Lazada returned it
-     * @return list<array{code: string, title: string, value: float}>
-     */
-    public static function lines(array $order, float $itemsSubtotal, float $shipping): array
+    protected function isComplete(): bool
     {
-        $amount = fn (string $key): float => abs((float) str_replace(',', '', (string) ($order[$key] ?? 0)));
+        return $this->has('price');
+    }
 
-        $lines = [[
-            'code' => 'sub_total',
-            'title' => 'Price',
-            'value' => isset($order['price']) ? $amount('price') : $itemsSubtotal,
-        ]];
+    protected function subtotalTitle(): string
+    {
+        return 'Price';
+    }
 
-        $shippingFee = isset($order['shipping_fee_original']) ? $amount('shipping_fee_original') : $shipping;
-        if ($shippingFee > 0) {
-            $lines[] = ['code' => 'shipping', 'title' => 'Shipping fee', 'value' => $shippingFee];
+    protected function subtotal(float $itemsSubtotal): float
+    {
+        return $this->amount('price');
+    }
+
+    protected function definitions(): array
+    {
+        return [
+            self::SHIPPING => ['title' => 'Shipping Fee', 'field' => ['shipping_fee_original', 'shipping_fee'], 'sign' => 1, 'standard' => true],
+            self::SHIPPING_DISCOUNT_PLATFORM => ['title' => 'Shipping discount by Lazada', 'field' => 'shipping_fee_discount_platform', 'sign' => -1],
+            self::SHIPPING_DISCOUNT_SELLER => ['title' => 'Shipping discount by seller', 'field' => 'shipping_fee_discount_seller', 'sign' => -1],
+            self::PLATFORM_VOUCHER => ['title' => 'Voucher by Lazada', 'field' => 'voucher_platform', 'sign' => -1, 'standard' => true],
+            self::SELLER_VOUCHER => ['title' => 'Voucher by seller', 'field' => 'voucher_seller', 'sign' => -1, 'standard' => true],
+            self::COMBINED_VOUCHER => ['title' => 'Voucher', 'field' => 'voucher', 'sign' => -1],
+        ];
+    }
+
+    /** Older orders carry one combined voucher instead of the split; it is listed only for them. */
+    protected function value(string $code, array $definition): float
+    {
+        if ($code === self::COMBINED_VOUCHER && ($this->has('voucher_platform') || $this->has('voucher_seller'))) {
+            return 0.0;
         }
 
-        $split = false;
-        foreach (self::DISCOUNTS as $code => [$key, $title]) {
-            if ($amount($key) > 0) {
-                $lines[] = ['code' => $code, 'title' => $title, 'value' => -$amount($key)];
-                $split = $split || str_contains($key, 'voucher');
-            }
-        }
-        // Older orders carry one combined voucher figure instead of the split.
-        if (! $split && $amount('voucher') > 0) {
-            $lines[] = ['code' => 'voucher', 'title' => 'Voucher', 'value' => -$amount('voucher')];
-        }
-
-        $lines[] = ['code' => 'total', 'title' => 'Total', 'value' => array_sum(array_column($lines, 'value'))];
-
-        return $lines;
+        return parent::value($code, $definition);
     }
 }

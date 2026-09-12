@@ -36,7 +36,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class VentaExtension extends ExtensionProvider implements \App\Integrations\Contracts\MarketplaceFeeSource, IntegrationProvider, SkuSyncContributor, DashboardContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ProductActionContributor, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, ListingStateSource
+class VentaExtension extends ExtensionProvider implements \App\Integrations\Contracts\MarketplaceFeeSource, IntegrationProvider, SkuSyncContributor, DashboardContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ProductActionContributor, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, ListingStateSource, \App\Integrations\Contracts\SaleLinesSource
 {
     protected string $id = 'venta';
 
@@ -502,6 +502,17 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
      * live sync and the backfill agree and neither needs the storefront to
      * be reachable.
      */
+    public function saleLinesForOrder(int $coreOrderId, float $itemsSubtotal, float $shipping): ?array
+    {
+        $order = VentaOrder::query()->where('catalog_order_id', $coreOrderId)->first();
+        if (! $order) {
+            return null;
+        }
+        $raw = is_array($order->raw) ? $order->raw : [];
+
+        return \Extensions\venta\Services\Venta\VentaSaleLines::lines(is_array($raw['totals'] ?? null) ? $raw['totals'] : [], $itemsSubtotal, $shipping);
+    }
+
     public function feeBucketsForOrder(int $coreOrderId): ?array
     {
         if (! Schema::hasTable('venta_orders')) {
