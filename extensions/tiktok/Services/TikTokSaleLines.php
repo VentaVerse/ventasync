@@ -12,8 +12,9 @@ namespace Extensions\tiktok\Services;
 final class TikTokSaleLines
 {
     private const LINES = [
-        'seller_discount' => ['seller_discount', 'Seller discount', -1],
-        'platform_discount' => ['platform_discount', 'TikTok discount', -1],
+        // Item markdown (seller_discount, platform_discount) is the gap from the
+        // original price to sub_total; it is already in sub_total below and the
+        // store does not itemise it, so it is intentionally not a line here.
         'shipping' => ['original_shipping_fee', 'Original shipping fee', 1],
         'shipping_discount_platform' => ['shipping_fee_platform_discount', 'Shipping discount by TikTok', -1],
         'shipping_discount_seller' => ['shipping_fee_seller_discount', 'Shipping discount by seller', -1],
@@ -42,10 +43,20 @@ final class TikTokSaleLines
             return $lines;
         }
 
+        // Merchandise subtotal = sub_total (product price after item discounts),
+        // the figure the store shows; fall back to the original price, then the
+        // summed line items.
+        $subtotal = $itemsSubtotal;
+        foreach (['sub_total', 'original_total_product_price'] as $key) {
+            if (isset($payment[$key]) && $amount($key) > 0) {
+                $subtotal = $amount($key);
+                break;
+            }
+        }
         $lines = [[
             'code' => 'sub_total',
-            'title' => 'Original product price',
-            'value' => isset($payment['original_total_product_price']) ? $amount('original_total_product_price') : $itemsSubtotal,
+            'title' => 'Merchandise subtotal',
+            'value' => $subtotal,
         ]];
 
         foreach (self::LINES as $code => [$key, $title, $sign]) {

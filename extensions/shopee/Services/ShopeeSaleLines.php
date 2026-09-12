@@ -13,8 +13,10 @@ namespace Extensions\shopee\Services;
 final class ShopeeSaleLines
 {
     private const LINES = [
-        'seller_discount' => [['order_seller_discount', 'seller_discount'], 'Seller discount', -1],
-        'shopee_discount' => [['shopee_discount'], 'Shopee discount', -1],
+        // Item markdown (order_seller_discount, shopee_discount) is the gap from
+        // the strikethrough original to the selling price; it is already in
+        // order_selling_price below and Seller Center never itemises it, so it
+        // is intentionally not a line here.
         'voucher' => [['voucher_from_seller'], 'Seller voucher', -1],
         'platform_voucher' => [['voucher_from_shopee'], 'Shopee voucher', -1],
         'coins' => [['coins'], 'Coins', -1],
@@ -42,10 +44,20 @@ final class ShopeeSaleLines
             return $lines;
         }
 
+        // Merchandise subtotal = the selling price (after item markdown), the
+        // figure Seller Center shows. order_selling_price / order_discounted_price
+        // carry it; fall back to the summed line items.
+        $subtotal = $itemsSubtotal;
+        foreach (['order_selling_price', 'order_discounted_price'] as $key) {
+            if (isset($income[$key]) && $amount($key) > 0) {
+                $subtotal = $amount($key);
+                break;
+            }
+        }
         $lines = [[
             'code' => 'sub_total',
-            'title' => 'Original price',
-            'value' => isset($income['order_original_price']) ? $amount('order_original_price') : $itemsSubtotal,
+            'title' => 'Merchandise subtotal',
+            'value' => $subtotal,
         ]];
 
         foreach (self::LINES as $code => [$keys, $title, $sign]) {
