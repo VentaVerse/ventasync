@@ -343,42 +343,17 @@ class LazadaCatalogOrderSync
             // default-currency figure, matching order.total.
             OrderTotal::where('order_id', $catalogOrder->order_id)->delete();
 
+            // The sale as Lazada reports it. order.total stays the revenue figure the reports read.
             $sortOrder = 1;
-            OrderTotal::create([
-                'order_id'   => $catalogOrder->order_id,
-                'code'       => 'sub_total',
-                'title'      => 'Sub-Total',
-                'value'      => \App\Services\OrderCurrencyService::toBase($subTotal, $rate),
-                'sort_order' => $sortOrder++,
-            ]);
-
-            if ($shippingTotal != 0) {
+            foreach (\Extensions\lazada\Services\LazadaSaleLines::lines($raw, $subTotal, $shippingTotal) as $line) {
                 OrderTotal::create([
                     'order_id'   => $catalogOrder->order_id,
-                    'code'       => 'shipping',
-                    'title'      => 'Shipping',
-                    'value'      => \App\Services\OrderCurrencyService::toBase($shippingTotal, $rate),
+                    'code'       => $line['code'],
+                    'title'      => $line['title'],
+                    'value'      => \App\Services\OrderCurrencyService::toBase($line['value'], $rate),
                     'sort_order' => $sortOrder++,
                 ]);
             }
-
-            if ($voucherTotal != 0) {
-                OrderTotal::create([
-                    'order_id'   => $catalogOrder->order_id,
-                    'code'       => 'voucher',
-                    'title'      => 'Voucher',
-                    'value'      => -\App\Services\OrderCurrencyService::toBase(abs($voucherTotal), $rate),
-                    'sort_order' => $sortOrder++,
-                ]);
-            }
-
-            OrderTotal::create([
-                'order_id'   => $catalogOrder->order_id,
-                'code'       => 'total',
-                'title'      => 'Total',
-                'value'      => \App\Services\OrderCurrencyService::toBase($total, $rate),
-                'sort_order' => $sortOrder,
-            ]);
 
             // --- Add history if status changed ---
             if ($oldStatusId !== $statusId) {

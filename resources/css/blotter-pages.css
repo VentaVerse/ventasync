@@ -468,6 +468,8 @@
         font-weight: 650;
     }
 
+    /* The total row draws its own rule above; the row before it drops its own. */
+    .od-ledger__row:has(+ .od-ledger__row--total) { border-bottom: 0; }
     .od-ledger__row--total .od-ledger__v { font-size: 16px; font-weight: 650; }
 
     .od-ledger__row--profit .od-ledger__v { font-weight: 650; }

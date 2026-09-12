@@ -515,7 +515,13 @@
 
             @php
                 $feeCodes = array_column(\App\Services\Orders\MarketplaceFeeNormalizer::CODES, 0);
-                $saleLabels = ['sub_total' => 'Items', 'shipping' => 'Shipping charged to buyer'];
+                // Payout and payment-balance lines kept from older imports are not part of the sale.
+                $notSale = array_merge($feeCodes, ['total', 'escrow_amount', 'total_amount', 'partial_payment_total']);
+                $totalRow = $orderTotals->firstWhere('code', 'total');
+                $saleTotal = $totalRow ? (float) $totalRow->value : (float) $order->total;
+                $saleTotalForeign = $dual
+                    ? ($totalRow ? \App\Services\OrderCurrencyService::toForeign($saleTotal, $orderRate) : $order->foreign_total)
+                    : null;
                 $netProfit = $orderProfit->netProfit();
                 $shippingTotal = $orderProfit->shippingCost();
                 // A shipping cost a store reported is that store's figure; only the order's own is edited here.
@@ -531,21 +537,21 @@
 
                 <div class="od-ledger">
                     @foreach($orderTotals as $ot)
-                        @if($ot->code !== 'total' && ! in_array($ot->code, $feeCodes, true))
+                        @if(! in_array($ot->code, $notSale, true) && ((float) $ot->value != 0 || $ot->code === 'sub_total'))
                         @php
                             $otForeign = $dual ? \App\Services\OrderCurrencyService::toForeign((float) $ot->value, $orderRate) : null;
                         @endphp
                         <div class="od-ledger__row">
-                            <span class="od-ledger__k">{{ $saleLabels[$ot->code] ?? $ot->title }}</span>
+                            <span class="od-ledger__k">{{ $ot->title }}</span>
                             <span class="od-ledger__v"><x-money :php="$ot->value" :foreign="$otForeign" :foreign-code="$order->currency_code" /></span>
                         </div>
                         @endif
                     @endforeach
 
                     <div class="od-ledger__row od-ledger__row--total">
-                        <span class="od-ledger__k">Buyer paid</span>
+                        <span class="od-ledger__k">{{ $totalRow->title ?? 'Total' }}</span>
                         <span class="od-ledger__v">
-                            <x-money :php="$order->total" :foreign="$dual ? $order->foreign_total : null" :foreign-code="$order->currency_code" />
+                            <x-money :php="$saleTotal" :foreign="$saleTotalForeign" :foreign-code="$order->currency_code" />
                         </span>
                     </div>
                 </div>

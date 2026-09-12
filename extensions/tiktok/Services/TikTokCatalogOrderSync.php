@@ -342,32 +342,17 @@ class TikTokCatalogOrderSync
             // default-currency figure, matching order.total.
             OrderTotal::where('order_id', $catalogOrder->order_id)->delete();
 
+            // The sale as TikTok Shop reports it. order.total above stays the revenue figure the reports read.
             $sortOrder = 1;
-            OrderTotal::create([
-                'order_id'   => $catalogOrder->order_id,
-                'code'       => 'sub_total',
-                'title'      => 'Sub-Total',
-                'value'      => \App\Services\OrderCurrencyService::toBase($subTotal, $rate),
-                'sort_order' => $sortOrder++,
-            ]);
-
-            if ($shippingTotal != 0) {
+            foreach (\Extensions\tiktok\Services\TikTokSaleLines::lines(is_array($raw['payment'] ?? null) ? $raw['payment'] : [], $subTotal, $shippingTotal) as $line) {
                 OrderTotal::create([
                     'order_id'   => $catalogOrder->order_id,
-                    'code'       => 'shipping',
-                    'title'      => 'Shipping',
-                    'value'      => \App\Services\OrderCurrencyService::toBase($shippingTotal, $rate),
+                    'code'       => $line['code'],
+                    'title'      => $line['title'],
+                    'value'      => \App\Services\OrderCurrencyService::toBase($line['value'], $rate),
                     'sort_order' => $sortOrder++,
                 ]);
             }
-
-            OrderTotal::create([
-                'order_id'   => $catalogOrder->order_id,
-                'code'       => 'total',
-                'title'      => 'Total',
-                'value'      => \App\Services\OrderCurrencyService::toBase($total, $rate),
-                'sort_order' => $sortOrder,
-            ]);
 
             // --- Add history if status changed ---
             if ($oldStatusId !== $statusId) {
