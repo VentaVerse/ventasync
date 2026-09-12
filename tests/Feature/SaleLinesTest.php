@@ -21,28 +21,33 @@ class SaleLinesTest extends TestCase
 
     public function test_a_settled_shopee_order_lists_shopees_breakdown_and_its_buyer_total(): void
     {
+        // Merchandise subtotal is the selling price (order_selling_price, 2500),
+        // not the strikethrough original (2600) — the figure Seller Center shows.
+        // The item markdown is not itemised, so the lines reach the buyer total.
         $lines = ShopeeSaleLines::lines([
-            'order_original_price' => 2600, 'shopee_discount' => 0, 'voucher_from_shopee' => 100,
-            'coins' => 20, 'buyer_paid_shipping_fee' => 36, 'buyer_total_amount' => 2516,
+            'order_original_price' => 2600, 'order_selling_price' => 2500, 'shopee_discount' => 0,
+            'voucher_from_shopee' => 100, 'coins' => 20, 'buyer_paid_shipping_fee' => 36,
+            'buyer_total_amount' => 2416,
         ], 2500, 0);
 
         $this->assertSame([
-            ['Original price', 2600.0],
+            ['Merchandise subtotal', 2500.0],
             ['Shopee voucher', -100.0],
             ['Coins', -20.0],
             ['Shipping paid by buyer', 36.0],
-            ['Buyer total', 2516.0],
+            ['Buyer total', 2416.0],
         ], $this->shape($lines));
     }
 
     public function test_product_protection_the_buyer_added_is_listed_so_the_lines_reach_the_buyer_total(): void
     {
         $lines = ShopeeSaleLines::lines([
-            'order_original_price' => 1438, 'final_product_protection' => 54, 'buyer_total_amount' => 1492,
+            'order_original_price' => 1438, 'order_selling_price' => 1438,
+            'final_product_protection' => 54, 'buyer_total_amount' => 1492,
         ], 1438, 0);
 
         $this->assertSame([
-            ['Original price', 1438.0],
+            ['Merchandise subtotal', 1438.0],
             ['Product protection', 54.0],
             ['Buyer total', 1492.0],
         ], $this->shape($lines));
@@ -80,14 +85,18 @@ class SaleLinesTest extends TestCase
 
     public function test_a_tiktok_order_lists_its_payment_breakdown_and_tiktoks_total(): void
     {
+        // Merchandise subtotal is sub_total (900, after the item discount), not
+        // the original_total_product_price (1000) — the product markdown is not
+        // itemised, matching how the seller centre shows it. Shipping discounts
+        // are still itemised.
         $lines = TikTokSaleLines::lines([
-            'original_total_product_price' => '1000', 'seller_discount' => '0', 'platform_discount' => '100',
-            'original_shipping_fee' => '50', 'shipping_fee_platform_discount' => '50', 'tax' => '0', 'total_amount' => '900',
+            'original_total_product_price' => '1000', 'sub_total' => '900', 'seller_discount' => '0',
+            'platform_discount' => '100', 'original_shipping_fee' => '50', 'shipping_fee_platform_discount' => '50',
+            'tax' => '0', 'total_amount' => '900',
         ], 1000, 0);
 
         $this->assertSame([
-            ['Original product price', 1000.0],
-            ['TikTok discount', -100.0],
+            ['Merchandise subtotal', 900.0],
             ['Original shipping fee', 50.0],
             ['Shipping discount by TikTok', -50.0],
             ['Total', 900.0],
