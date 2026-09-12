@@ -584,7 +584,7 @@
                         </span>
                     </div>
 
-                    @forelse($orderProfit->fees as $fee)
+                    @foreach($orderProfit->fees as $fee)
                     <div class="od-ledger__row">
                         <span class="od-ledger__k">
                             @if($fee['fee_id'] !== null && $canManageOrders)
@@ -619,12 +619,7 @@
                             @endif
                         </span>
                     </div>
-                    @empty
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k od-ledger__k--note">Marketplace fees</span>
-                        <span class="od-ledger__v od-ledger__v--note">None reported</span>
-                    </div>
-                    @endforelse
+                    @endforeach
 
                     @if($canManageOrders)
                     {{-- Delete forms live outside the ledger rows: a <form> nested in a
