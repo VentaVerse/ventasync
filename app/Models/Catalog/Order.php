@@ -71,6 +71,7 @@ class Order extends BaseModel
         'accept_language',
         'courier_id',
         'tracking_number',
+        'tracking_url',
         'date_added',
         'date_modified',
         'oe_import',
@@ -119,5 +120,28 @@ class Order extends BaseModel
     public function payments()
     {
         return $this->hasMany(\App\Models\OrderPayment::class, 'order_id', 'order_id');
+    }
+
+    /** A general tracking site, for an order whose store gives no tracking page. */
+    public const FALLBACK_TRACKING_URL = 'https://parcelsapp.com/en/tracking/';
+
+    /**
+     * Where the tracking number links: the store's own tracking page for this
+     * parcel when it gave a valid http(s) address, otherwise the general
+     * tracking site. Null when the order has no tracking number.
+     */
+    public function trackingHref(): ?string
+    {
+        $number = trim((string) $this->tracking_number);
+        if ($number === '') {
+            return null;
+        }
+
+        $url = trim((string) $this->tracking_url);
+        if ($url !== '' && filter_var($url, FILTER_VALIDATE_URL) && in_array(strtolower((string) parse_url($url, PHP_URL_SCHEME)), ['http', 'https'], true)) {
+            return $url;
+        }
+
+        return self::FALLBACK_TRACKING_URL . rawurlencode($number);
     }
 }

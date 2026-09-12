@@ -379,6 +379,39 @@ class VentaListingPageTest extends TestCase
         $this->assertSame(-60.0, round((float) ($rows['marketplace_shipping_fee'] ?? 0), 2));
     }
 
+    /** The storefront's tracking page for a parcel reaches the order, and a payload without one keeps it. */
+    public function test_the_storefronts_tracking_page_reaches_the_order(): void
+    {
+        $store = $this->store();
+        $this->product();
+        $pfx = (string) config('catalog.prefix');
+        $order = [
+            'id' => 88, 'order_number' => 88, 'status' => 'shipped',
+            'created_at' => '2026-06-15T10:00:00Z', 'updated_at' => '2026-06-15T10:00:00Z',
+            'totals' => ['total' => 1000, 'subtotal' => 1000, 'shipping' => 0],
+            'tracking_number' => 'QX12345', 'tracking_link' => 'https://app.gogoxpress.com/track/QX12345',
+            'items' => [['sku' => 'GP-200', 'quantity' => 1, 'price' => 1000, 'total' => 1000]],
+        ];
+        $pull = function (array $order) use ($store) {
+            Http::fake([
+                self::BASE . '/api/v1/order-statuses*' => Http::response(['data' => []]),
+                self::BASE . '/api/v1/orders/88' => Http::response($order),
+                self::BASE . '/api/v1/orders*' => Http::response(['data' => [$order], 'meta' => ['last_page' => 1]]),
+            ]);
+            (new \Extensions\venta\Services\Venta\VentaOrderSync(
+                new \Extensions\venta\Services\Venta\VentaClient($store), $store
+            ))->setSkipStockAdjust()->pull(since: '2026-06-01', full: true, maxPages: 1);
+        };
+
+        $pull($order);
+        $url = fn () => DB::table($pfx . 'order')->where('marketplace_source', 'venta:' . $store->id)->where('marketplace_order_id', '88')->value('tracking_url');
+        $this->assertSame('https://app.gogoxpress.com/track/QX12345', $url());
+
+        unset($order['tracking_link']);
+        $pull($order);
+        $this->assertSame('https://app.gogoxpress.com/track/QX12345', $url(), 'a payload without the field keeps the stored page');
+    }
+
     /**
      * THE TWO FEES TIE BACK TO THE STOREFRONT'S OWN NET FIGURE.
      *

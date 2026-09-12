@@ -286,7 +286,7 @@
                     <div class="od-fact">
                         <span class="od-fact__k">Tracking number</span>
                         <span class="od-fact__v od-fact__v--mono">
-                            <a href="https://parcelsapp.com/en/tracking/{{ $order->tracking_number }}" target="_blank" rel="noopener">
+                            <a href="{{ $order->trackingHref() }}" target="_blank" rel="noopener">
                                 {{ $order->tracking_number }}<x-ui.icon name="external-link" size="11" class="od-stamp__out" />
                             </a>
                         </span>

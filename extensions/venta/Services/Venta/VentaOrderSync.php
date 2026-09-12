@@ -533,6 +533,13 @@ class VentaOrderSync
                 'date_modified'          => isset($raw['updated_at']) ? \Carbon\Carbon::parse($raw['updated_at'])->format('Y-m-d H:i:s') : now()->toDateTimeString(),
             ];
 
+            // The storefront's own tracking page for the parcel; a payload that
+            // does not carry the field leaves the stored one alone.
+            if (array_key_exists('tracking_link', $raw)) {
+                $link = trim((string) ($raw['tracking_link'] ?? ''));
+                $orderData['tracking_url'] = ($link !== '' && strlen($link) <= 500) ? $link : null;
+            }
+
             if ($existing) {
                 $coreOrderId = (int) $existing->order_id;
                 $oldStatusId = (int) $existing->order_status_id;
