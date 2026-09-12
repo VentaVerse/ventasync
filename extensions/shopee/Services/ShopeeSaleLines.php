@@ -20,6 +20,8 @@ final class ShopeeSaleLines
         'coins' => [['coins'], 'Coins', -1],
         'shipping' => [['buyer_paid_shipping_fee'], 'Shipping paid by buyer', 1],
         'buyer_transaction_fee' => [['buyer_transaction_fee'], 'Transaction fee paid by buyer', 1],
+        // Optional cover the buyer adds at checkout; Shopee collects it and it is not paid out to the seller.
+        'product_protection' => [['final_product_protection'], 'Product protection', 1],
     ];
 
     /**

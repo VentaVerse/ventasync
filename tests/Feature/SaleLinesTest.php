@@ -35,6 +35,19 @@ class SaleLinesTest extends TestCase
         ], $this->shape($lines));
     }
 
+    public function test_product_protection_the_buyer_added_is_listed_so_the_lines_reach_the_buyer_total(): void
+    {
+        $lines = ShopeeSaleLines::lines([
+            'order_original_price' => 1438, 'final_product_protection' => 54, 'buyer_total_amount' => 1492,
+        ], 1438, 0);
+
+        $this->assertSame([
+            ['Original price', 1438.0],
+            ['Product protection', 54.0],
+            ['Buyer total', 1492.0],
+        ], $this->shape($lines));
+    }
+
     public function test_an_unsettled_shopee_order_lists_the_items_and_shipping_known_so_far(): void
     {
         $this->assertSame([['Items', 500.0], ['Total', 500.0]], $this->shape(ShopeeSaleLines::lines([], 500, 0)));
