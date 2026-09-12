@@ -504,7 +504,9 @@ class VentaOrderSync
                 'shipping_address_format'=> '',
                 'shipping_custom_field'  => '',
                 'shipping_method'        => $raw['shipping_method'] ?? '',
-                'shipping_cost'          => (float) ($totals['shipping'] ?? 0),
+                // The buyer's shipping charge is stored as an order total line; the
+                // seller's shipping cost is entered on the order or reported as a fee.
+                'shipping_cost'          => 0,
                 'shipping_code'          => '',
                 'comment'                => $raw['comment'] ?? '',
                 'total'                  => \App\Services\OrderCurrencyService::toBase((float) ($totals['total'] ?? ($totals['subtotal'] ?? 0)), $rate),
@@ -542,10 +544,8 @@ class VentaOrderSync
                     $oldStatusId = $coreStatusId;
                 }
                 $orderData['date_added'] = $existing->date_added;
-                // Preserve manually-set shipping_cost if API returns 0
-                if ((float) ($orderData['shipping_cost'] ?? 0) == 0 && (float) $existing->shipping_cost > 0) {
-                    unset($orderData['shipping_cost']);
-                }
+                // A re-sync never changes the seller's shipping cost.
+                unset($orderData['shipping_cost']);
                 DB::table($pfx . 'order')
                     ->where('order_id', $coreOrderId)
                     ->update($orderData);

@@ -446,10 +446,9 @@ class OrderController extends Controller
 
         // Resolve catalog products (handles product_id=0 via Lazada variant chain)
         $catalogProducts = self::resolveOrderCatalogProducts($products);
-        $lazadaImages = self::resolveLazadaImages(collect([$order]));
+        $orderLineImages = self::resolveLazadaImages(collect([$order]));
 
-        // Look up marketplace fees from the source order
-        $marketplaceFees = self::resolveMarketplaceFees($order);
+        $orderProfit = \App\Services\Orders\OrderProfit::of($order);
 
         $payments = OrderPayment::where('order_id', (int) $id)->orderBy('paid_at')->get();
         $totalPaid = $payments->sum('amount');
@@ -459,7 +458,7 @@ class OrderController extends Controller
         // from the `currencies` table rather than hardcoded.
         $defaultCurrency = \App\Models\Currency::where('is_default', 1)->first();
 
-        return view('sales.orders.show', compact('order', 'statuses', 'history', 'products', 'orderTotals', 'catalogProducts', 'lazadaImages', 'marketplaceFees', 'payments', 'totalPaid', 'defaultCurrency'));
+        return view('sales.orders.show', compact('order', 'statuses', 'history', 'products', 'orderTotals', 'catalogProducts', 'orderLineImages', 'orderProfit', 'payments', 'totalPaid', 'defaultCurrency'));
     }
 
     public function updateStatus(Request $request, $id)
@@ -1092,65 +1091,6 @@ class OrderController extends Controller
         return $merged;
     }
 
-    /**
-     * Resolve marketplace fees by asking each registered OrderFeesContributor
-     * if it can identify the order. Manual fees (from the order_fees table)
-     * are merged in regardless of which marketplace, if any, owns the order.
-     */
-    private static function resolveMarketplaceFees(Order $order): array
-    {
-        $source = (string) $order->marketplace_source;
-
-        // Manual fees from the order_fees table apply to every order.
-        $manualFees = DB::table('order_fees')
-            ->where('order_id', $order->order_id)
-            ->get();
-
-        $manualItems = [];
-        $manualTotal = 0;
-        foreach ($manualFees as $f) {
-            $amt = abs((float) $f->amount);
-            if ($amt > 0) {
-                $manualItems[] = ['label' => $f->label, 'amount' => $amt, 'fee_id' => $f->id];
-                $manualTotal += $amt;
-            }
-        }
-
-        // Ask the registry for the marketplace breakdown. First non-null wins.
-        $marketplaceFees = null;
-        foreach (app(IntegrationRegistry::class)->orderFeesContributors() as $contributor) {
-            $marketplaceFees = $contributor->feesForOrder($order);
-            if ($marketplaceFees !== null) {
-                break;
-            }
-        }
-
-        if ($marketplaceFees === null) {
-            return [
-                'total'  => round($manualTotal, 2),
-                'items'  => $manualItems,
-                'source' => $source ?: 'manual',
-                'pending' => false,
-            ];
-        }
-
-        /* PENDING, NOT FREE (the owner, 2026-09-08). A contributor that claimed
-         * the order and returned no items is saying "this order is mine and
-         * the marketplace has not told me its fees yet" - Lazada publishes
-         * them at delivery, and its own seller centre says as much. Without
-         * this the page showed an empty fee list, which reads as an order
-         * that cost nothing to sell.
-         *
-         * An order no contributor claims (Venta, a direct sale) is never
-         * pending: nobody is going to send fees for it. */
-        return [
-            'total'  => round(((float) ($marketplaceFees['total'] ?? 0)) + $manualTotal, 2),
-            'items'  => array_merge($marketplaceFees['items'] ?? [], $manualItems),
-            'source' => $marketplaceFees['source'] ?? $source,
-            'pending' => ($marketplaceFees['items'] ?? []) === [],
-        ];
-    }
-
     // ── Order Payments ──────────────────────────────────────
 
     public function storePayment(Request $request, $id)
@@ -1204,17 +1144,16 @@ class OrderController extends Controller
         // If disabling and payments exist, prevent it
         if (!$newState && $order->payments()->count() > 0) {
             return redirect()->route('orders.show', $order->order_id)
-                ->with('error', 'Cannot disable payment tracking while payments exist. Delete all payments first.');
+                ->with('error', "Delete this order's payments before removing it from receivables.");
         }
 
         $order->update(['track_payments' => $newState]);
 
-        $action = $newState ? 'enabled' : 'disabled';
         ActivityLogger::log('updated', 'Order', $order->order_id,
-            '#' . $order->order_id . ' - payment tracking ' . $action);
+            '#' . $order->order_id . ' - ' . ($newState ? 'added to receivables' : 'removed from receivables'));
 
         return redirect()->route('orders.show', $order->order_id)
-            ->with('status', 'Payment tracking ' . $action . '.');
+            ->with('status', $newState ? 'Added to receivables.' : 'Removed from receivables.');
     }
 
     public function paymentsReport(Request $request)

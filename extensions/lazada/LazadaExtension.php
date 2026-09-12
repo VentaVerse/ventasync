@@ -33,7 +33,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ListingStateSource, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter
+class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ListingStateSource, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter, \App\Integrations\Contracts\MarketplaceOrderRefRenderer
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['unpaid'],
@@ -691,6 +691,15 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
             'shipping' => \App\Integrations\Orders\FeePayload::amount($payload, 'shipping_service_cost'),
             'other' => $other,
         ];
+    }
+
+    public function renderOrderRef(string $marketplaceSource, string $marketplaceOrderId): ?array
+    {
+        if ($marketplaceSource !== 'lazada') {
+            return null;
+        }
+
+        return ['display' => $marketplaceOrderId, 'url' => 'https://sellercenter.lazada.com.ph/order/detail?tradeOrderId=' . rawurlencode($marketplaceOrderId)];
     }
 
     public function feesForOrder(Order $order): ?array

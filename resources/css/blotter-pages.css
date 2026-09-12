@@ -310,8 +310,9 @@
         .od-money { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
     }
     .od-money > .od-section { margin: 0; }
-    /* A marketplace order has no Payments section; Totals takes the row. */
-    .od-money > .od-section:only-child { grid-column: 1 / -1; }
+    /* Sale and Profit stack in the first column; Payments sits beside them. */
+    .od-money__ledgers { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+    .od-money__ledgers > .od-section { margin: 0; }
     .od-payments__body { display: flex; flex-direction: column; gap: 10px; }
     /* An empty Payments section centres what little it has to say. */
     .od-payments__body:has(> .od-empty:first-child) { flex: 1; justify-content: center; align-items: center; text-align: center; }

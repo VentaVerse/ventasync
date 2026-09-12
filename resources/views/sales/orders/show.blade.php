@@ -15,8 +15,6 @@
     // Payments are their own key (OrderPaymentController): a manager of
     // orders is not automatically a keeper of the books.
     $canManagePayments = auth()->user()?->hasPermission('manage_sales/order_payment') ?? false;
-    // A marketplace collects and pays out; the payouts report is that record.
-    $isMarketplaceOrder = in_array(strtok((string) ($order->marketplace_source ?? ''), ':'), ['shopee', 'lazada', 'tiktok'], true);
 
     $registry = app(\App\Integrations\IntegrationRegistry::class);
 
@@ -35,18 +33,8 @@
         ? $registry->resolveOrderRef((string) $order->marketplace_source, (string) $order->marketplace_order_id)
         : null;
 
-    // Fallback deep links for the two channels that shipped before the
-    // registry's order-ref renderers existed. Unchanged from the previous
-    // version of this page.
     $refUrl = $orderRef['url'] ?? null;
     $refText = $orderRef['display'] ?? (string) $order->marketplace_order_id;
-    if (!$orderRef && $order->marketplace_order_id) {
-        if ($order->marketplace_source === 'lazada') {
-            $refUrl = 'https://sellercenter.lazada.com.ph/order/detail?tradeOrderId=' . $order->marketplace_order_id;
-        } elseif ($order->marketplace_source === 'shopee') {
-            $refUrl = 'https://seller.shopee.ph/portal/sale/' . $order->marketplace_order_id;
-        }
-    }
 
     // Every money value in this view routes through App\Support\Money /
     // <x-money> - see the class docblock. `currency_value` is the rate
@@ -72,11 +60,6 @@
     $orderTotal = (float) $order->total;
     $balance = $orderTotal - $totalPaid;
 
-    $mktFeeTotal = (float) ($marketplaceFees['total'] ?? 0);
-    $mktFeeItems = $marketplaceFees['items'] ?? [];
-    // The marketplace claimed this order and has not reported its fees yet.
-    $mktFeePending = (bool) ($marketplaceFees['pending'] ?? false);
-    $shippingCost = (float) ($order->shipping_cost ?? 0);
 
     // Margin tone. There is no green "healthy" state on this page: colour
     // marks money that needs attention, so a good margin is plain text and
@@ -427,8 +410,8 @@
                             $img = $lineImages[trim((string) $p->model)] ?? ($catalogProduct ? trim((string) ($catalogProduct->image ?? '')) : '');
                             $imgSrc = $img !== '' ? asset('storage/' . ltrim($img, '/')) : '';
                             if ($imgSrc === '') {
-                                $lzImg = trim($lazadaImages[$p->order_product_id] ?? '');
-                                if ($lzImg !== '') { $imgSrc = $lzImg; }
+                                $channelImg = trim($orderLineImages[$p->order_product_id] ?? '');
+                                if ($channelImg !== '') { $imgSrc = $channelImg; }
                             }
 
                             $unitCost = (float) ($p->cost ?? 0);
@@ -530,89 +513,81 @@
                 @endif
             </section>
 
-            {{-- Totals and profit --}}
             @php
-                $grossProfit = $totalRevenue - $totalCogs;
-                $netProfit = $grossProfit - $shippingCost - $mktFeeTotal;
-                $netMargin = $totalRevenue > 0 ? ($netProfit / $totalRevenue * 100) : 0;
-                $grossMargin = $totalRevenue > 0 ? ($grossProfit / $totalRevenue * 100) : 0;
-                $netMarkup = ($totalCogs + $shippingCost + $mktFeeTotal) > 0 ? ($netProfit / ($totalCogs + $shippingCost + $mktFeeTotal) * 100) : 0;
-                $grossMarkup = $totalCogs > 0 ? ($grossProfit / $totalCogs * 100) : 0;
-                $hasCostData = $totalCogs > 0;
-                $hasDeductions = $shippingCost > 0 || $mktFeeTotal > 0;
-                $hasAnyProfit = $hasCostData || $hasDeductions;
-                // COGS is authoritative in the default currency (summed from
-                // order_product.cost); its foreign figure is a derived
-                // reference via the rate recorded on the order, not a stored
-                // value - drift from a "round" foreign cost is expected (see
-                // Money/OrderCurrencyService docs) and not something to fix.
-                $totalCogsForeign = $dual ? \App\Services\OrderCurrencyService::toForeign($totalCogs, $orderRate) : null;
-                $displayProfit = $hasDeductions ? $netProfit : $grossProfit;
-                $displayMargin = $hasDeductions ? $netMargin : $grossMargin;
-                $displayMarkup = $hasDeductions ? $netMarkup : $grossMarkup;
+                $feeCodes = array_column(\App\Services\Orders\MarketplaceFeeNormalizer::CODES, 0);
+                $saleLabels = ['sub_total' => 'Items', 'shipping' => 'Shipping charged to buyer'];
+                $netProfit = $orderProfit->netProfit();
+                $shippingTotal = $orderProfit->shippingCost();
+                // A shipping cost a store reported is that store's figure; only the order's own is edited here.
+                $shippingEditable = $canManageOrders && $orderProfit->reportedShippingCost == 0.0;
+                $cogsForeign = $dual ? \App\Services\OrderCurrencyService::toForeign($orderProfit->cogs, $orderRate) : null;
             @endphp
             <div class="od-money">
+            <div class="od-money__ledgers">
             <section class="od-section">
                 <div class="od-section__head">
-                    <h2 class="od-section__title">Totals</h2>
+                    <h2 class="od-section__title">Sale</h2>
                 </div>
 
                 <div class="od-ledger">
-                    {{-- Standard order totals (Sub-Total, Shipping, etc.) --}}
                     @foreach($orderTotals as $ot)
-                        @if($ot->code !== 'total')
+                        @if($ot->code !== 'total' && ! in_array($ot->code, $feeCodes, true))
                         @php
-                            // order_total.value is stored in the default
-                            // currency like every other money column here; the
-                            // foreign figure is derived from it the same way
-                            // Sub-Total is (verified against #44294).
                             $otForeign = $dual ? \App\Services\OrderCurrencyService::toForeign((float) $ot->value, $orderRate) : null;
                         @endphp
                         <div class="od-ledger__row">
-                            <span class="od-ledger__k">{{ $ot->title }}</span>
+                            <span class="od-ledger__k">{{ $saleLabels[$ot->code] ?? $ot->title }}</span>
                             <span class="od-ledger__v"><x-money :php="$ot->value" :foreign="$otForeign" :foreign-code="$order->currency_code" /></span>
                         </div>
                         @endif
                     @endforeach
 
                     <div class="od-ledger__row od-ledger__row--total">
-                        <span class="od-ledger__k">Total</span>
+                        <span class="od-ledger__k">Buyer paid</span>
                         <span class="od-ledger__v">
                             <x-money :php="$order->total" :foreign="$dual ? $order->foreign_total : null" :foreign-code="$order->currency_code" />
                         </span>
                     </div>
+                </div>
+            </section>
 
-                    @if($hasAnyProfit)
-                    <hr class="od-ledger__split">
+            <section class="od-section">
+                <div class="od-section__head">
+                    <h2 class="od-section__title">Profit</h2>
+                </div>
 
-                    @if($hasCostData)
+                <div class="od-ledger">
                     <div class="od-ledger__row">
-                        <span class="od-ledger__k">COGS</span>
-                        <span class="od-ledger__v od-neg">
-                            <x-money :php="-$totalCogs" :foreign="$totalCogsForeign !== null ? -$totalCogsForeign : null" :foreign-code="$order->currency_code" />
+                        <span class="od-ledger__k">Sales</span>
+                        <span class="od-ledger__v">{{ \App\Support\Money::base($orderProfit->revenue) }}</span>
+                    </div>
+
+                    <div class="od-ledger__row">
+                        <span class="od-ledger__k">Cost of goods</span>
+                        <span class="od-ledger__v {{ $orderProfit->cogs > 0 ? 'od-neg' : '' }}">
+                            <x-money :php="-$orderProfit->cogs" :foreign="$cogsForeign !== null ? -$cogsForeign : null" :foreign-code="$order->currency_code" />
                         </span>
                     </div>
-                    @endif
 
                     <div class="od-ledger__row">
                         <span class="od-ledger__k">Shipping cost</span>
                         <span class="od-ledger__v">
-                            @if($canManageOrders)
+                            @if($shippingEditable)
                                 <button type="button"
-                                        class="od-edit {{ $shippingCost > 0 ? 'od-neg' : '' }}"
+                                        class="od-edit {{ $shippingTotal > 0 ? 'od-neg' : '' }}"
                                         data-edit="shipping"
-                                        data-cost="{{ $shippingCost }}"
-                                        title="Edit shipping cost">{{ $shippingCost > 0 ? '-' . \App\Support\Money::base($shippingCost) : \App\Support\Money::base(0) }}</button>
+                                        data-cost="{{ $orderProfit->ownShippingCost }}"
+                                        title="Edit shipping cost">{{ $shippingTotal > 0 ? '-' . \App\Support\Money::base($shippingTotal) : \App\Support\Money::base(0) }}</button>
                             @else
-                                <span class="{{ $shippingCost > 0 ? 'od-neg' : '' }}">{{ $shippingCost > 0 ? '-' . \App\Support\Money::base($shippingCost) : \App\Support\Money::base(0) }}</span>
+                                <span class="{{ $shippingTotal > 0 ? 'od-neg' : '' }}">{{ $shippingTotal > 0 ? '-' . \App\Support\Money::base($shippingTotal) : \App\Support\Money::base(0) }}</span>
                             @endif
                         </span>
                     </div>
 
-                    @foreach($mktFeeItems as $fee)
+                    @forelse($orderProfit->fees as $fee)
                     <div class="od-ledger__row">
                         <span class="od-ledger__k">
-                            @if(isset($fee['fee_id']) && $canManageOrders)
+                            @if($fee['fee_id'] !== null && $canManageOrders)
                                 <button type="button"
                                         class="od-edit"
                                         data-edit="fee-label"
@@ -625,7 +600,7 @@
                             @endif
                         </span>
                         <span class="od-ledger__v od-neg">
-                            @if(isset($fee['fee_id']) && $canManageOrders)
+                            @if($fee['fee_id'] !== null && $canManageOrders)
                                 <button type="button"
                                         class="od-edit od-neg"
                                         data-edit="fee-amount"
@@ -644,28 +619,19 @@
                             @endif
                         </span>
                     </div>
-                    @endforeach
-
-                    @if($mktFeePending)
-                        {{-- Lazada's own seller centre says "Payment
-                             information is pending until order is
-                             delivered", and the rest behave the same way.
-                             An empty fee list without this line reads as an
-                             order that cost nothing to sell (the owner,
-                             2026-09-08). --}}
-                        <div class="od-ledger__row">
-                            <span class="od-ledger__k od-ledger__k--note">Marketplace fees</span>
-                            <span class="od-ledger__v od-ledger__v--note">Pending until the marketplace reports them</span>
-                        </div>
-                    @endif
+                    @empty
+                    <div class="od-ledger__row">
+                        <span class="od-ledger__k od-ledger__k--note">Marketplace fees</span>
+                        <span class="od-ledger__v od-ledger__v--note">None reported</span>
+                    </div>
+                    @endforelse
 
                     @if($canManageOrders)
-                    {{-- Delete forms live outside the ledger rows: a <form>
-                         nested in a grid row would become a grid item and
-                         break the two-column alignment, so the buttons above
-                         reference these by id instead. --}}
-                    @foreach($mktFeeItems as $fee)
-                        @if(isset($fee['fee_id']))
+                    {{-- Delete forms live outside the ledger rows: a <form> nested in a
+                         grid row would become a grid item and break the two-column
+                         alignment, so the buttons above reference these by id. --}}
+                    @foreach($orderProfit->fees as $fee)
+                        @if($fee['fee_id'] !== null)
                         <form id="od-fee-del-{{ $fee['fee_id'] }}"
                               method="POST"
                               action="{{ route('orders.destroy_fee', [$order->order_id, $fee['fee_id']]) }}"
@@ -677,9 +643,6 @@
                         @endif
                     @endforeach
 
-                    {{-- Folded, like Record a payment: a form that stood open
-                         inside a reading ledger on every order, whether or not
-                         a fee was ever due. --}}
                     <details class="od-disclose">
                         <summary><x-ui.icon name="plus" size="12" /> Add fee</summary>
                         <form method="POST" action="{{ route('orders.store_fee', $order->order_id) }}" class="od-ledger__form">
@@ -695,25 +658,19 @@
 
                     <div class="od-ledger__row od-ledger__row--profit">
                         <span class="od-ledger__k">
-                            {{ $hasDeductions ? 'Net profit' : 'Gross profit' }}
+                            Net profit
                             <span class="od-ledger__margins">
-                                <span class="od-ledger__margin {{ $marginTone($displayMargin) }}">{{ number_format($displayMargin, 1) }}% margin</span>
-                                <span class="od-ledger__margin {{ $marginTone($displayMarkup) }}">{{ number_format($displayMarkup, 1) }}% markup</span>
+                                <span class="od-ledger__margin {{ $marginTone($orderProfit->margin()) }}">{{ number_format($orderProfit->margin(), 1) }}% margin</span>
+                                <span class="od-ledger__margin {{ $marginTone($orderProfit->markup()) }}">{{ number_format($orderProfit->markup(), 1) }}% markup</span>
                             </span>
                         </span>
-                        <span class="od-ledger__v {{ $displayProfit >= 0 ? '' : 'od-neg' }}">{{ \App\Support\Money::base($displayProfit) }}</span>
+                        <span class="od-ledger__v {{ $netProfit >= 0 ? '' : 'od-neg' }}">{{ \App\Support\Money::base($netProfit) }}</span>
                     </div>
-                    @endif
                 </div>
             </section>
+            </div>
 
             {{-- ============ PAYMENTS ============ --}}
-            {{-- What has been paid against the total, as a section of its own
-                 beside the money it settles (the owner, 2026-08-27: "it looks like
-                 it's lost" as a footer inside the billing address). Manual and
-                 storefront orders only: a marketplace collects and pays out,
-                 and the payouts report is that record. --}}
-            @unless($isMarketplaceOrder)
             <section class="od-section od-payments">
                 <div class="od-section__head">
                     <h2 class="od-section__title">Payments</h2>
@@ -727,14 +684,14 @@
                             <x-ui.badge tone="warning">Partly paid</x-ui.badge>
                         @endif
                         @if($canManagePayments)
-                        <x-ui.menu label="Payment tracking options">
-                            <button type="submit" form="od-toggle-payments" class="x-menu__item">Turn off payment tracking</button>
+                        <x-ui.menu label="Receivables options">
+                            <button type="submit" form="od-toggle-payments" class="x-menu__item">Remove from receivables</button>
                         </x-ui.menu>
                         <form id="od-toggle-payments"
                               method="POST"
                               action="{{ route('orders.toggle_payments', $order->order_id) }}"
                               class="x-sr"
-                              data-confirm="Disable payment tracking for this order?">
+                              data-confirm="Remove this order from receivables?">
                             @csrf
                         </form>
                         @endif
@@ -830,16 +787,15 @@
                         </details>
                         @endif
                     @elseif($canManageOrders)
-                        <p class="od-empty">Payments are not tracked on this order. Turn tracking on to record what has been paid and see the balance.</p>
+                        <p class="od-empty">Not in receivables.</p>
                         <form method="POST" action="{{ route('orders.toggle_payments', $order->order_id) }}">
                             @csrf
-                            <x-ui.button size="sm" type="submit">Enable payment tracking</x-ui.button>
+                            <x-ui.button size="sm" type="submit">Add to receivables</x-ui.button>
                         </form>
                     @endif
 
                 </div>
             </section>
-            @endunless
             </div>
         </div>
     </div>

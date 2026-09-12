@@ -1,8 +1,6 @@
 @extends('layouts.blotter')
-@section('title', 'Payments')
-{{-- No @section('breadcrumb'): Sales > Payments is a real nav entry, so
-     Breadcrumbs already derives "Sales / Payments" from the URL and a leaf
-     would print the word a second time. --}}
+@section('title', 'Accounts receivable')
+{{-- No @section('breadcrumb'): the nav entry gives the breadcrumb its leaf. --}}
 
 @section('content')
 @php
@@ -40,9 +38,9 @@
 
     <div class="x-list-head">
         <div>
-            <h1 class="x-page-title">Payments</h1>
+            <h1 class="x-page-title">Accounts receivable</h1>
             <p class="x-page-sub">
-                Orders with payment tracking switched on, and what is still owed on each.
+                Orders added to receivables, and what is still owed on each.
                 <x-ui.hint label="How these figures are counted">All figures in {{ $defaultCode }} ({{ Money::defaultSymbol() }}). An order taken in another currency is converted at the rate recorded on that order.</x-ui.hint>
             </p>
         </div>

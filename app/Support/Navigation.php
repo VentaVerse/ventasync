@@ -31,8 +31,8 @@ class Navigation
             ['label' => 'Sales', 'icon' => 'receipt', 'items' => [
                 ['label' => 'Orders', 'route' => 'orders.index',
                  'keywords' => ['sale', 'customer', 'invoice', 'marketplace']],
-                ['label' => 'Payments', 'route' => 'orders.payments_report',
-                 'keywords' => ['paid', 'settlement', 'remittance']],
+                ['label' => 'Accounts receivable', 'route' => 'orders.payments_report',
+                 'keywords' => ['payments', 'receivable', 'balance', 'owed', 'paid', 'settlement', 'remittance']],
             ]],
 
             // Top level, not inside Sales or Channels, because it is neither:
