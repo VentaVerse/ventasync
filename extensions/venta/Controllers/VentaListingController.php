@@ -802,6 +802,7 @@ class VentaListingController extends Controller
         // which means "follows the catalogue". Saving here never writes the
         // core product.
         $blank = fn ($v) => ($v === null || trim((string) $v) === '') ? null : $v;
+        $currentDescription = VentaListing::query()->where('venta_setting_id', $store)->where('product_id', $productId)->value('description');
 
         VentaListing::query()->updateOrCreate(
             ['venta_setting_id' => $store, 'product_id' => $productId],
@@ -814,7 +815,7 @@ class VentaListingController extends Controller
                 'name' => \App\Integrations\Listings\ListingContent::overrideOrNull($data['name'] ?? null, $coreWords['title']),
                 'description_prefix_id' => ((int) ($data['description_prefix_id'] ?? 0)) ?: null,
                 'description_suffix_id' => ((int) ($data['description_suffix_id'] ?? 0)) ?: null,
-                'description' => \App\Integrations\Listings\ListingContent::overrideOrNull($data['description'] ?? null, $coreWords['description']),
+                'description' => \App\Integrations\Listings\ListingContent::descriptionToSave($data['description'] ?? null, $coreWords['description'], $currentDescription, $request->input('description_edited')),
                 'meta_title' => $blank($data['meta_title'] ?? null),
                 'meta_description' => $blank($data['meta_description'] ?? null),
             ]

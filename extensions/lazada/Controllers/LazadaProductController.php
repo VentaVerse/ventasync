@@ -2390,7 +2390,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
          * pre-filling never freezes a listing into a copy. */
         $coreWords = \App\Support\Catalog\CoreWords::of((int) $listing->product_id);
         $listing->item_name = \App\Integrations\Listings\ListingContent::overrideOrNull($data['item_name'] ?? null, $coreWords['title']);
-        $listing->description = \App\Integrations\Listings\ListingContent::overrideOrNull($data['description'] ?? null, $coreWords['description']);
+        $listing->description = \App\Integrations\Listings\ListingContent::descriptionToSave($data['description'] ?? null, $coreWords['description'], $listing->description, $request->input('description_edited'));
         $listing->description_prefix_id = ((int) ($data['description_prefix_id'] ?? 0)) ?: null;
         $listing->description_suffix_id = ((int) ($data['description_suffix_id'] ?? 0)) ?: null;
         $listing->primary_category_id = $data['primary_category_id'] ?? null;

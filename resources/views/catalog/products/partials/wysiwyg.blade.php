@@ -40,7 +40,9 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     if (!window.jQuery || !jQuery.fn || !jQuery.fn.summernote) return;
-    jQuery('textarea.wysiwyg').summernote({
+    jQuery('textarea.wysiwyg').each(function () {
+    var textarea = this;
+    jQuery(textarea).summernote({
         height: 260,
         toolbar: [
             ['style', ['style']],
@@ -71,8 +73,23 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 editable.setAttribute('aria-label',
                     (label && label.textContent.trim()) || 'Product description');
+            },
+            /* Keep the textarea in sync, notify unsaved-change guards, and set
+               the matching data-rte-edited flag so the server can tell a real
+               edit from editor normalisation (see
+               ListingContent::descriptionToSave). */
+            onChange: function (contents) {
+                textarea.value = contents;
+                if (textarea.id) {
+                    document.querySelectorAll('[data-rte-edited="' + CSS.escape(textarea.id) + '"]')
+                        .forEach(function (flag) { flag.value = '1'; });
+                }
+                textarea.dispatchEvent(new Event('input', { bubbles: true }));
             }
         }
+    });
+    // Read-only when the textarea is disabled.
+    if (textarea.disabled) jQuery(textarea).summernote('disable');
     });
 });
 </script>

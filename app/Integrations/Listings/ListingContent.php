@@ -3,6 +3,9 @@
 namespace App\Integrations\Listings;
 
 use App\Models\DescriptionTemplate;
+use App\Support\Catalog\DescriptionHtml;
+use App\Support\Catalog\DescriptionText;
+use App\Support\HtmlSanitizer;
 
 /**
  * What title and description go up for one product on one store.
@@ -106,6 +109,40 @@ class ListingContent
         }
 
         return $submitted;
+    }
+
+    /**
+     * Resolves the description to store for a listing; null means the listing
+     * follows the catalog description.
+     *
+     * When $edited is "0" the editor was loaded but not changed, so the current
+     * value is kept: rich editors normalise markup, which would otherwise look
+     * like an edit. Without the flag the submitted value is compared with the
+     * catalog. Stored HTML is sanitised like catalog descriptions, and an empty
+     * editor counts as blank. $plainText compares the value as plain text, for
+     * channels that do not accept HTML.
+     */
+    public static function descriptionToSave(?string $submitted, string $core, ?string $current, ?string $edited, bool $plainText = false): ?string
+    {
+        if ($edited === '0') {
+            return $current;
+        }
+
+        if ($plainText) {
+            $text = DescriptionText::of($submitted);
+
+            return ($text === '' || $text === DescriptionText::of($core) || trim((string) $submitted) === trim($core)) ? null : $text;
+        }
+
+        if (DescriptionText::isBlank($submitted)) {
+            return null;
+        }
+        $clean = trim(DescriptionHtml::store($submitted));
+        if ($clean === '' || $clean === trim($core) || $clean === trim(HtmlSanitizer::sanitize($core))) {
+            return null;
+        }
+
+        return $clean;
     }
 
     /** What to SHOW in the box: the listing's own words, else the catalog's. */

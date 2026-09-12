@@ -183,6 +183,7 @@ class TikTokListingController extends Controller
          * which means "follows the catalog". Saving here never writes the
          * core product. */
         $blank = fn ($v) => ($v === null || trim((string) $v) === '') ? null : $v;
+        $currentDescription = TikTokListing::query()->where('product_id', $productId)->value('description');
         TikTokListing::query()->updateOrCreate(
             ['product_id' => $productId],
             $images + [
@@ -197,7 +198,7 @@ class TikTokListingController extends Controller
                 'title' => \App\Integrations\Listings\ListingContent::overrideOrNull($data['title'] ?? null, $coreWords['title']),
                 'description_prefix_id' => ((int) ($data['description_prefix_id'] ?? 0)) ?: null,
                 'description_suffix_id' => ((int) ($data['description_suffix_id'] ?? 0)) ?: null,
-                'description' => \App\Integrations\Listings\ListingContent::overrideOrNull($data['description'] ?? null, $coreWords['description']),
+                'description' => \App\Integrations\Listings\ListingContent::descriptionToSave($data['description'] ?? null, $coreWords['description'], $currentDescription, $request->input('description_edited')),
                 'attribute_values' => array_filter(
                     array_map(fn ($v) => trim((string) $v), $data['attributes'] ?? []),
                     fn ($v) => $v !== ''

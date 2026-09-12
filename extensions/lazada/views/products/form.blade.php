@@ -310,7 +310,10 @@
                             'options' => $descriptionTemplates, 'canManage' => true,
                         ])
                         <x-ui.field label="Description" for="lz-description" name="description" wide>
-                            <x-ui.textarea id="lz-description" name="description" rows="6" maxlength="20000">{{ old('description', \App\Integrations\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription)) }}</x-ui.textarea>
+                            <x-ui.textarea id="lz-description" name="description" rows="6" maxlength="20000" class="wysiwyg">{{ old('description', \App\Integrations\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription)) }}</x-ui.textarea>
+                            {{-- Set to 1 by the editor on change; see ListingContent::descriptionToSave. --}}
+                            <input type="hidden" name="description_edited" value="0" data-rte-edited="lz-description">
+                            @include('catalog.products.partials.wysiwyg')
                         </x-ui.field>
                         @include('partials.channel-description-pick', [
                             'id' => 'lz-suffix', 'label' => 'Suffix description', 'name' => 'description_suffix_id',

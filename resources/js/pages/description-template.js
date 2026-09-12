@@ -19,6 +19,23 @@
     function open(modal) { modal.classList.add('active'); }
     function close(modal) { modal.classList.remove('active'); }
 
+    /* The body field may be a Summernote editor. Read and write it through
+       the editor so the display stays in sync; an empty editor returns
+       "<p><br></p>", which is treated as empty. */
+    function editor(el) {
+        return (window.jQuery && jQuery(el).data('summernote')) ? jQuery(el) : null;
+    }
+    function setBody(el, value) {
+        var rich = editor(el);
+        if (rich) rich.summernote('code', value);
+        el.value = value;
+    }
+    function getBody(el) {
+        var rich = editor(el);
+        if (!rich) return el.value;
+        return rich.summernote('isEmpty') ? '' : rich.summernote('code');
+    }
+
     /* ── The templates page ─────────────────────────────────────────── */
     function initPage() {
         var modal = document.querySelector('[data-dt-modal]');
@@ -40,13 +57,13 @@
                 method.value = 'POST';
                 title.textContent = 'New template';
                 name.value = '';
-                body.value = '';
+                setBody(body, '');
             } else {
                 form.setAttribute('action', el.getAttribute('data-dt-url'));
                 method.value = 'PUT';
                 title.textContent = 'Edit template';
                 name.value = el.getAttribute('data-dt-name') || '';
-                body.value = el.getAttribute('data-dt-body') || '';
+                setBody(body, el.getAttribute('data-dt-body') || '');
             }
             open(modal);
             name.focus();
@@ -69,7 +86,7 @@
             if (add) {
                 asking = document.getElementById(add.getAttribute('data-dtp-for'));
                 name.value = '';
-                body.value = '';
+                setBody(body, '');
                 error.textContent = '';
                 open(modal);
                 name.focus();
@@ -84,7 +101,7 @@
             fetch(url, {
                 method: 'POST',
                 headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
-                body: JSON.stringify({ name: name.value, body: body.value })
+                body: JSON.stringify({ name: name.value, body: getBody(body) })
             }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
               .then(function (answer) {
                   save.disabled = false;

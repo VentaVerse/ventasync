@@ -15,7 +15,8 @@
                     <x-ui.input id="dtp-name" data-dtp-name maxlength="128" placeholder="Returns policy" />
                 </x-ui.field>
                 <x-ui.field label="Words" for="dtp-body" name="dtp_body" wide>
-                    <x-ui.textarea id="dtp-body" data-dtp-body rows="8" maxlength="20000"></x-ui.textarea>
+                    {{-- Becomes a rich editor on pages that load the wysiwyg partial. --}}
+                    <x-ui.textarea id="dtp-body" data-dtp-body rows="8" maxlength="20000" class="wysiwyg"></x-ui.textarea>
                 </x-ui.field>
             </div>
             <p class="fm-error" data-dtp-error></p>

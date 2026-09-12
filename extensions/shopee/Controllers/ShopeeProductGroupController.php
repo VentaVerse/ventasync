@@ -1752,12 +1752,13 @@ class ShopeeProductGroupController extends Controller
             $content = \App\Integrations\Listings\ListingContent::of(
                 $ownListing,
                 html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-                trim(strip_tags(html_entity_decode($product->description ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'))),
+                \App\Support\Catalog\DescriptionText::of((string) ($product->description ?? '')),
                 'shopee',
                 (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0)
             );
             $itemName = $content['title'];
-            $description = $content['description'];
+            // Shopee accepts plain text only; description templates may contain HTML.
+            $description = \App\Support\Catalog\DescriptionText::of($content['description']);
 
             /* The listing's own pictures, in its own order, through the
                one reader every push path shares (2026-09-08). This copy
@@ -2077,12 +2078,13 @@ class ShopeeProductGroupController extends Controller
             $content = \App\Integrations\Listings\ListingContent::of(
                 $ownListing,
                 html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-                trim(strip_tags(html_entity_decode($product->description ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'))),
+                \App\Support\Catalog\DescriptionText::of((string) ($product->description ?? '')),
                 'shopee',
                 (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0)
             );
             $itemName = $content['title'];
-            $description = $content['description'];
+            // Shopee accepts plain text only; description templates may contain HTML.
+            $description = \App\Support\Catalog\DescriptionText::of($content['description']);
             if (trim($itemName) === '' || trim($description) === '' || (float) $product->weight <= 0) {
                 $errors[] = "#{$productId}: Missing name/description/weight";
                 $errCount++;

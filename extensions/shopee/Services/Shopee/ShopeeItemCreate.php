@@ -207,7 +207,8 @@ class ShopeeItemCreate
 
         $payload = [
             'original_price' => $listing->priceFor((float) $product->price),
-            'description' => mb_substr($content['description'], 0, 5000),
+            // Shopee accepts plain text only; description templates may contain HTML.
+            'description' => mb_substr(\App\Support\Catalog\DescriptionText::of($content['description']), 0, 5000),
             'item_name' => mb_substr($content['title'], 0, 255),
             'seller_stock' => [['stock' => max(0, (int) $product->quantity)]],
             'item_sku' => (string) ($product->sku ?? ''),

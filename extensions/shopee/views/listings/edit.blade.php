@@ -44,7 +44,8 @@
     $oldLogisticIds = old('logistic_ids');
     $savedLogisticIds = array_map('intval', $listing->logistic_ids ?? []);
 
-    $coreDescription = trim(strip_tags(html_entity_decode((string) ($product->description ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+    // Shopee descriptions are plain text; the catalog HTML is converted for display and comparison.
+    $coreDescription = \App\Support\Catalog\DescriptionText::of((string) ($product->description ?? ''));
 
     /* "Core has changed" (#100). Two different situations, told apart:
        - fields WITHOUT their own wording follow the catalog automatically,
@@ -271,7 +272,7 @@
                         ])
                         <x-ui.field label="Description" for="sl-description" name="description" wide>
                             <x-ui.textarea id="sl-description" name="description" rows="6" maxlength="5000"
-                                           :disabled="!$canManage">{{ old('description', \App\Integrations\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription)) }}</x-ui.textarea>
+                                           :disabled="!$canManage">{{ old('description', \App\Support\Catalog\DescriptionText::of(\App\Integrations\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription))) }}</x-ui.textarea>
                             @if($descriptionDiverges)
                                 <div class="fm-hint">The catalog's description now differs from this listing's own. Clearing this field follows the catalog again; keeping your wording is fine too.</div>
                             @endif

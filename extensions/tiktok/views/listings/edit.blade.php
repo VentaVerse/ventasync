@@ -168,7 +168,10 @@
                             'options' => $descriptionTemplates, 'canManage' => $canManage,
                         ])
                         <x-ui.field label="Description" for="tl-description" name="description" wide>
-                            <x-ui.textarea id="tl-description" name="description" rows="6" :disabled="!$canManage">{{ old('description', \App\Integrations\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription)) }}</x-ui.textarea>
+                            <x-ui.textarea id="tl-description" name="description" rows="6" class="wysiwyg" :disabled="!$canManage">{{ old('description', \App\Integrations\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription)) }}</x-ui.textarea>
+                            {{-- Set to 1 by the editor on change; see ListingContent::descriptionToSave. --}}
+                            <input type="hidden" name="description_edited" value="0" data-rte-edited="tl-description">
+                            @include('catalog.products.partials.wysiwyg')
                         </x-ui.field>
                         @include('partials.channel-description-pick', [
                             'id' => 'tl-suffix', 'label' => 'Suffix description', 'name' => 'description_suffix_id',

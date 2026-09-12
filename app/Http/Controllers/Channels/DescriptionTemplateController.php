@@ -50,6 +50,8 @@ abstract class DescriptionTemplateController extends Controller
         return view('channels.description-templates.index', [
             // The browser tab reads "Shopee Description Templates", as its
             // Catalog siblings read "Shopee Product Groups".
+            // Shopee descriptions are plain text, so its templates use a plain field.
+            'richText' => $ch !== 'shopee',
             'channelName' => app(\App\Integrations\IntegrationRegistry::class)->resolveMarketplaceSourceLabel($ch)
                 ?? \Illuminate\Support\Str::headline($ch),
             'createUrl' => route('ext.' . $ch . '.description-templates.store', ['store' => $store]),
@@ -72,7 +74,7 @@ abstract class DescriptionTemplateController extends Controller
             'integration' => $this->integration(),
             'store_id' => $this->storeId(),
             'name' => $data['name'],
-            'body' => $data['body'] ?? '',
+            'body' => $this->body($data['body'] ?? null),
         ]);
         ActivityLogger::log('created', 'Description Template', $template->id, $template->name);
 
@@ -89,7 +91,7 @@ abstract class DescriptionTemplateController extends Controller
     {
         $row = $this->ownRow($template);
         $data = $this->validated($request);
-        $row->update(['name' => $data['name'], 'body' => $data['body'] ?? '']);
+        $row->update(['name' => $data['name'], 'body' => $this->body($data['body'] ?? null)]);
         ActivityLogger::log('updated', 'Description Template', $row->id, $row->name);
 
         return $this->backToIndex('Template saved.');
@@ -117,6 +119,19 @@ abstract class DescriptionTemplateController extends Controller
             'name' => 'required|string|max:128',
             'body' => 'nullable|string|max:20000',
         ]);
+    }
+
+    /**
+     * Normalises a template body: sanitised HTML, or plain text for Shopee.
+     * An empty editor value is stored as an empty string.
+     */
+    private function body(?string $body): string
+    {
+        if ($this->integration() === 'shopee') {
+            return \App\Support\Catalog\DescriptionText::of($body);
+        }
+
+        return \App\Support\Catalog\DescriptionText::isBlank($body) ? '' : trim(\App\Support\Catalog\DescriptionHtml::store($body));
     }
 
     /** A template of THIS store, or a 404. One store never edits another's. */

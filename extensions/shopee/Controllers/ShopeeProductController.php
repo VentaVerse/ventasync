@@ -887,7 +887,7 @@ class ShopeeProductController extends Controller
                 : null,
             'variations' => $variationCount,
             'title' => (string) ($listing?->item_name ?: html_entity_decode((string) $product->name, ENT_QUOTES | ENT_HTML5, 'UTF-8')),
-            'description' => (string) ($listing?->description ?: trim(strip_tags(html_entity_decode((string) $product->description, ENT_QUOTES | ENT_HTML5, 'UTF-8')))),
+            'description' => \App\Support\Catalog\DescriptionText::of((string) ($listing?->description ?: $product->description)),
             'push_url' => route('ext.shopee.products.push_direct', $productId),
             'listing_url' => route('ext.shopee.listings.edit', $productId),
         ]);
@@ -2738,7 +2738,8 @@ class ShopeeProductController extends Controller
              * null, which is what "follow the catalog" is, so pre-filling
              * never freezes a listing into a copy. */
             'item_name' => \App\Integrations\Listings\ListingContent::overrideOrNull($data['item_name'] ?? null, $coreWords['title']),
-            'description' => \App\Integrations\Listings\ListingContent::overrideOrNull($data['description'] ?? null, $coreWords['description']),
+            // Shopee descriptions are plain text, so the value is compared as text.
+            'description' => \App\Integrations\Listings\ListingContent::descriptionToSave($data['description'] ?? null, $coreWords['description'], null, null, true),
             'weight' => $blank($data['weight'] ?? null),
             'package_length' => $blank($data['package_length'] ?? null),
             'package_width' => $blank($data['package_width'] ?? null),
@@ -2854,7 +2855,7 @@ class ShopeeProductController extends Controller
         // The same merge rule as every push: the listing's own value when
         // set, the catalog's otherwise.
         $coreName = html_entity_decode((string) ($product->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $coreDescription = trim(strip_tags(html_entity_decode((string) ($product->description ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+        $coreDescription = \App\Support\Catalog\DescriptionText::of((string) ($product->description ?? ''));
 
         $itemName = ($listing && $listing->item_name !== null && trim($listing->item_name) !== '') ? $listing->item_name : $coreName;
         $description = ($listing && $listing->description !== null && trim($listing->description) !== '') ? $listing->description : $coreDescription;
@@ -2862,7 +2863,7 @@ class ShopeeProductController extends Controller
         $payload = [
             'item_id' => (int) $link->shopee_item_id,
             'item_name' => mb_substr($itemName, 0, 255),
-            'description' => mb_substr($description, 0, 5000),
+            'description' => mb_substr(\App\Support\Catalog\DescriptionText::of($description), 0, 5000),
             'weight' => (float) (($listing?->weight) ?? $product->weight),
             'dimension' => [
                 'package_length' => (int) (($listing?->package_length) ?? $product->length),

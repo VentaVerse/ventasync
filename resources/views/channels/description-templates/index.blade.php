@@ -78,7 +78,8 @@
                             <x-ui.input id="dt-name" name="name" maxlength="128" data-dt-field-name placeholder="Returns policy" />
                         </x-ui.field>
                         <x-ui.field label="Words" for="dt-body" name="body" wide>
-                            <x-ui.textarea id="dt-body" name="body" rows="8" maxlength="20000" data-dt-field-body></x-ui.textarea>
+                            <x-ui.textarea id="dt-body" name="body" rows="8" maxlength="20000" data-dt-field-body
+                                           :class="$richText ? 'wysiwyg' : ''"></x-ui.textarea>
                         </x-ui.field>
                     </div>
                 </div>
@@ -89,5 +90,6 @@
             </form>
         </div>
     </div>
+    @if($richText) @include('catalog.products.partials.wysiwyg') @endif
 @endif
 @endsection
