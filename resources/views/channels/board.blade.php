@@ -63,6 +63,9 @@
 
             <footer class="x-board__foot">
                 <x-ui.button variant="secondary" size="sm" :href="$c['enterUrl']">Open</x-ui.button>
+                @if($c['productsUrl'] ?? null)
+                    <x-ui.button variant="ghost" size="sm" :href="$c['productsUrl']">Products</x-ui.button>
+                @endif
                 @if($c['actionUrl'])
                     <x-ui.button variant="ghost" size="sm" :href="$c['actionUrl']">{{ $c['actionLabel'] }}</x-ui.button>
                 @endif

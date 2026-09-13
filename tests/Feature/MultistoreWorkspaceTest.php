@@ -832,6 +832,30 @@ class MultistoreWorkspaceTest extends TestCase
         $response->assertDontSee($this->overviewHref($channel), false);
     }
 
+    /** Each store on the board has Products beside Open, landing on that store's own Listings page. */
+    public function test_the_board_gives_each_store_a_products_link_to_its_own_listings(): void
+    {
+        $card = $this->card('venta');
+        $response = $this->actingAs($this->operator('venta'))->get('/channels')->assertOk();
+        $links = collect($response->viewData('channels'))->pluck('productsUrl')->filter()->values()->all();
+
+        $this->assertNotEmpty($card->stores);
+        foreach ($card->stores as $store) {
+            $url = route('ext.venta.listings.index', ['store' => (int) (explode(':', (string) $store->id, 2)[1] ?? 0)]);
+            $this->assertContains($url, $links, 'each store links to its own Listings page');
+            $response->assertSee('href="' . e($url) . '"', false);
+        }
+    }
+
+    public function test_a_channel_without_a_listings_page_gets_no_products_link(): void
+    {
+        $rows = collect($this->actingAs($this->operator('opencart'))->get('/channels')->assertOk()->viewData('channels'))
+            ->filter(fn (array $row) => str_starts_with((string) $row['key'], 'opencart'));
+
+        $this->assertNotEmpty($rows);
+        $this->assertTrue($rows->every(fn (array $row) => $row['productsUrl'] === null), 'an OpenCart store has no Listings page to link');
+    }
+
     // ------------------------------------------------------------------
     // Round 2, Task 2: the orders pages, per store, on the seller center.
     //
