@@ -400,6 +400,33 @@ class ShopeeListingTest extends TestCase
         $this->assertSame([['logistic_id' => 8003, 'enabled' => true]], $add['body']['logistic_info'], 'the group fills the couriers the listing leaves blank');
     }
 
+    /** The listing page's group dropdown moves the product, and a value equal to the new group's follows it. */
+    public function test_the_listing_saves_its_group_and_a_value_equal_to_the_group_follows_it(): void
+    {
+        $productId = $this->seedProduct(300.0);
+        $first = $this->seedCatchAllGroup();
+        $second = ShopeeProductGroup::create([
+            'name' => 'drives', 'shopee_category_id' => 100200, 'logistic_ids' => [8003], 'markup_percent' => 10, 'markup_fixed' => 0,
+        ]);
+        DB::table('shopee_product_group_products')->insert(['shopee_product_group_id' => $first->id, 'product_id' => $productId]);
+
+        $this->actingAs($this->manager())->post(route('ext.shopee.listings.update', $productId), [
+            'product_group_listed' => 1, 'product_group_id' => $second->id,
+            'shopee_category_id' => 100200, 'markup_percent' => 25,
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame([$second->id], DB::table('shopee_product_group_products')->where('product_id', $productId)
+            ->pluck('shopee_product_group_id')->map(fn ($v) => (int) $v)->all(), 'moved, never in two groups');
+        $listing = ShopeeListing::query()->where('product_id', $productId)->first();
+        $this->assertNull($listing->shopee_category_id, "equal to the group's category: it follows the group");
+        $this->assertSame(25.0, (float) $listing->markup_percent, "different from the group's rule: the listing's own");
+
+        $this->actingAs($this->manager())->post(route('ext.shopee.listings.update', $productId), [
+            'product_group_listed' => 1, 'product_group_id' => '',
+        ])->assertSessionHasNoErrors();
+        $this->assertSame(0, DB::table('shopee_product_group_products')->where('product_id', $productId)->count(), 'No group takes it out');
+    }
+
     /**
      * the owner, 2026-09-07: a store listing's own title and description are
      * saved per store and must go up from EVERY door. The group push built

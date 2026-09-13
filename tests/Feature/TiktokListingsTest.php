@@ -284,7 +284,11 @@ class TiktokListingsTest extends TestCase
         ])->assertSessionHas('status');
 
         $listing = TikTokListing::where('product_id', $productId)->first();
-        $this->assertSame('900009', $listing->tiktok_category_id);
+        // Equal to its group's category, so it is kept as following the group...
+        $this->assertNull($listing->tiktok_category_id);
+        // ...and the category a push sends is still the group's.
+        $inherit = app(\Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::class);
+        $this->assertSame('900009', (string) $inherit->fill($listing, $inherit->forProducts([$productId])[$productId] ?? null)['listing']->tiktok_category_id);
         $this->assertSame('Valeton', $listing->brand_name);
         $this->assertSame(10.0, $listing->markup_percent);
         $this->assertSame('My own title', $listing->title);

@@ -176,6 +176,7 @@ class TikTokListingController extends Controller
             'attributes.*' => 'nullable|string|max:500',
             'image_order' => 'nullable|string|max:20000',
             ...\App\Integrations\Listings\ListingVariations::rules(),
+            ...\App\Integrations\Listings\ListingGroup::rules(),
             // TikTok takes the percent itself and only whole percents.
         ]);
 
@@ -191,6 +192,16 @@ class TikTokListingController extends Controller
          * which means "follows the catalog". Saving here never writes the
          * core product. */
         $blank = fn ($v) => ($v === null || trim((string) $v) === '') ? null : $v;
+        /* The group dropdown: picking a group moves the product into it,
+         * No group takes it out. */
+        $picked = \App\Integrations\Listings\ListingGroup::submitted($request);
+        if ($picked['present']) {
+            \App\Integrations\Listings\ListingGroup::assign([
+                'pivot' => 'tiktok_product_group_products', 'fk' => 'tiktok_product_group_id',
+                'groups' => 'tiktok_product_groups', 'storeFk' => 'tiktok_setting_id',
+                'storeId' => (int) (TikTokSetting::defaultStore()?->id ?? 0),
+            ], $productId, $picked['id']);
+        }
         $currentDescription = TikTokListing::query()->where('product_id', $productId)->value('description');
         TikTokListing::query()->updateOrCreate(
             ['product_id' => $productId],
@@ -214,6 +225,22 @@ class TikTokListingController extends Controller
                 ) ?: null,
             ]
         );
+
+        // A value equal to the group's follows the group from now on.
+        $followed = app(\Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::class)->forProducts([$productId])[$productId] ?? null;
+        $savedRow = TikTokListing::query()->where('product_id', $productId)->first();
+        if ($followed && $savedRow) {
+            $groupModel = \Extensions\tiktok\Models\TikTokProductGroup::query()->find($followed['group_id']);
+            if (is_array($savedRow->attribute_values)) {
+                $savedRow->attribute_values = \App\Integrations\Listings\ListingGroup::ownAnswers($savedRow->attribute_values, (array) ($followed['attributes'] ?? [])) ?: null;
+            }
+            \App\Integrations\Listings\ListingGroup::follow($savedRow, [
+                'tiktok_category_id' => $followed['category_id'],
+                'watermark_template_id' => $groupModel?->watermark_template_id,
+                'markup_percent' => $groupModel?->markup_percent,
+                'markup_fixed' => $groupModel?->markup_fixed,
+            ], [['markup_percent', 'markup_fixed']]);
+        }
 
         if (($sellHere = \App\Integrations\Listings\ListingVariations::submitted($request)) !== null) {
             \App\Integrations\Listings\ListingVariations::save('tiktok', (int) (TikTokSetting::defaultStore()?->id ?? 0), $productId, $sellHere);

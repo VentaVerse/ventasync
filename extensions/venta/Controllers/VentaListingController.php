@@ -794,7 +794,9 @@ class VentaListingController extends Controller
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:500',
             'image_order' => 'nullable|string|max:20000',
+            'venta_category_id' => 'nullable|integer|min:1',
             ...\App\Integrations\Listings\ListingVariations::rules(),
+            ...\App\Integrations\Listings\ListingGroup::rules(),
         ]);
 
         /* The pictures this listing sends, in the order the card arranged
@@ -809,11 +811,27 @@ class VentaListingController extends Controller
         // which means "follows the catalogue". Saving here never writes the
         // core product.
         $blank = fn ($v) => ($v === null || trim((string) $v) === '') ? null : $v;
+        // The listing's own category is one of this store's own.
+        $ownCategory = ((int) ($data['venta_category_id'] ?? 0)) ?: null;
+        if ($ownCategory !== null && ! \Illuminate\Support\Facades\DB::table('venta_categories')->where('venta_setting_id', $store)->where('venta_category_id', $ownCategory)->exists()) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['venta_category_id' => 'Pick one of this store\'s categories.']);
+        }
+
+        /* The group dropdown: picking a group moves the product into it,
+         * No group takes it out. */
+        $picked = \App\Integrations\Listings\ListingGroup::submitted($request);
+        if ($picked['present']) {
+            \App\Integrations\Listings\ListingGroup::assign([
+                'pivot' => 'venta_product_group_products', 'fk' => 'venta_product_group_id',
+                'groups' => 'venta_product_groups', 'storeFk' => 'venta_setting_id', 'storeId' => $store,
+            ], $productId, $picked['id'], ['created_at' => now(), 'updated_at' => now()]);
+        }
+
         $currentDescription = VentaListing::query()->where('venta_setting_id', $store)->where('product_id', $productId)->value('description');
 
         VentaListing::query()->updateOrCreate(
             ['venta_setting_id' => $store, 'product_id' => $productId],
-            $images + [
+            $images + ($request->has('venta_category_id') ? ['venta_category_id' => $ownCategory] : []) + [
                 'markup_percent' => $blank($data['markup_percent'] ?? null),
                 'markup_fixed' => $blank($data['markup_fixed'] ?? null),
                 /* The Content boxes are pre-filled with the catalog's words
@@ -828,6 +846,21 @@ class VentaListingController extends Controller
                 'meta_description' => $blank($data['meta_description'] ?? null),
             ]
         );
+
+        // A value equal to the group's follows the group from now on.
+        $groupRow = \Illuminate\Support\Facades\DB::table('venta_product_group_products as gp')
+            ->join('venta_product_groups as g', 'g.id', '=', 'gp.venta_product_group_id')
+            ->where('g.venta_setting_id', $store)->where('gp.product_id', $productId)->orderBy('gp.id')
+            ->first(['g.venta_category_id', 'g.markup_percent', 'g.markup_fixed', 'g.watermark_template_id']);
+        $savedRow = VentaListing::query()->where('venta_setting_id', $store)->where('product_id', $productId)->first();
+        if ($groupRow && $savedRow) {
+            \App\Integrations\Listings\ListingGroup::follow($savedRow, [
+                'venta_category_id' => $groupRow->venta_category_id,
+                'watermark_template_id' => $groupRow->watermark_template_id,
+                'markup_percent' => $groupRow->markup_percent,
+                'markup_fixed' => $groupRow->markup_fixed,
+            ], [['markup_percent', 'markup_fixed']]);
+        }
 
         if (($sellHere = \App\Integrations\Listings\ListingVariations::submitted($request)) !== null) {
             \App\Integrations\Listings\ListingVariations::save('venta', $store, $productId, $sellHere);
@@ -907,7 +940,8 @@ class VentaListingController extends Controller
             $productId,
             $listing->overrides(),
             $priceFor,
-            (int) ($group->venta_category_id ?? 0) ?: null
+            // The listing's own category on this store, else its group's.
+            ((int) ($listing->venta_category_id ?? 0) ?: (int) ($group->venta_category_id ?? 0)) ?: null
         );
 
         if (! $outcome['ok']) {

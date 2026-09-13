@@ -837,4 +837,22 @@ class VentaListingPageTest extends TestCase
             && str_contains($r->url(), '/api/v1/products/GP-200')
             && (float) ($r->data()['price'] ?? 0) === 1100.0);
     }
+
+
+    /** A listing picks one of its own store's categories; one from outside the store is refused. */
+    public function test_a_listing_holds_one_of_its_own_stores_categories(): void
+    {
+        $store = $this->store();
+        $pid = $this->product();
+        \Extensions\venta\Models\VentaCategory::create(['venta_setting_id' => $store->id, 'venta_category_id' => 42, 'name' => 'Pedals', 'parent_id' => 0]);
+
+        $this->actingAs($this->manager())
+            ->put(route('ext.venta.listings.update', [$store->id, $pid]), ['venta_category_id' => 42])
+            ->assertSessionHasNoErrors();
+        $this->assertSame(42, (int) VentaListing::query()->where('venta_setting_id', $store->id)->where('product_id', $pid)->value('venta_category_id'));
+
+        $this->actingAs($this->manager())
+            ->put(route('ext.venta.listings.update', [$store->id, $pid]), ['venta_category_id' => 999])
+            ->assertSessionHasErrors('venta_category_id');
+    }
 }

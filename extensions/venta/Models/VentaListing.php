@@ -20,7 +20,7 @@ class VentaListing extends Model
     protected $table = 'venta_listings';
 
     protected $fillable = [
-        'venta_setting_id', 'product_id',
+        'venta_setting_id', 'product_id', 'venta_category_id',
         'description_prefix_id', 'description_suffix_id', 'watermark_template_id', 'watermark_all_images',
         'markup_percent', 'markup_fixed',
         'name', 'description', 'meta_title', 'meta_description', 'image_order',

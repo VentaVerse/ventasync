@@ -790,6 +790,8 @@ function initAttributeFetch(root) {
                 if (data && data.ok && data.html) {
                     target.innerHTML = data.html;
                     bindAttributeRows();
+                    // Whoever filled the category can now fill the answers.
+                    root.dispatchEvent(new CustomEvent('attributes:loaded', { bubbles: true }));
                     if (readAt) readAt.textContent = data.fetched_at ? 'Attributes read from Lazada ' + data.fetched_at + '.' : '';
                     return;
                 }

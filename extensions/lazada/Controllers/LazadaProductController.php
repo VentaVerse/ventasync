@@ -2390,6 +2390,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'variants.*.quantity' => 'nullable|integer',
             'image_order' => 'nullable|string|max:20000',
             ...\App\Integrations\Listings\ListingVariations::rules(),
+            ...\App\Integrations\Listings\ListingGroup::rules(),
             'push' => 'nullable|boolean',
         ]);
 
@@ -2414,11 +2415,30 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $listing->markup_fixed = $data['markup_fixed'] ?? null;
         $listing->markup_percent = $data['markup_percent'] ?? null;
 
+        /* The group dropdown: picking a group moves the product into it,
+         * No group takes it out. The membership row points at this listing,
+         * so the listing is saved first. */
+        $picked = \App\Integrations\Listings\ListingGroup::submitted($request);
+        if ($picked['present']) {
+            if (! $listing->exists) {
+                $listing->save();
+            }
+            \App\Integrations\Listings\ListingGroup::assign([
+                'pivot' => 'lazada_product_group_products', 'fk' => 'lazada_product_group_id',
+                'groups' => 'lazada_product_groups', 'storeFk' => 'lazada_setting_id',
+                'storeId' => (int) ($listing->lazada_setting_id ?? 0),
+            ], (int) $listing->product_id, $picked['id'], ['lazada_product_id' => $listing->id, 'created_at' => now()]);
+        }
+
         /* A value equal to the group's is stored as following the group, so
          * the page's pre-filled group values never become the listing's own
          * and a later change to the group reaches this listing. */
         $followGroup = app(\Extensions\lazada\Services\Lazada\LazadaInheritedSettings::class)->forProducts([(int) $listing->product_id])[(int) $listing->product_id] ?? null;
         if ($followGroup) {
+            $groupWatermark = (int) \Extensions\lazada\Models\LazadaProductGroup::query()->whereKey($followGroup['group_id'] ?? 0)->value('watermark_template_id');
+            if ((int) ($listing->watermark_template_id ?? 0) > 0 && (int) $listing->watermark_template_id === $groupWatermark) {
+                $listing->watermark_template_id = null;
+            }
             if ((int) ($listing->primary_category_id ?? 0) > 0 && (int) $listing->primary_category_id === (int) ($followGroup['category_id'] ?? 0)) {
                 $listing->primary_category_id = null;
             }

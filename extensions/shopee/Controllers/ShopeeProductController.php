@@ -2721,6 +2721,7 @@ class ShopeeProductController extends Controller
             'attributes.*' => 'nullable|string|max:500',
             'image_order' => 'nullable|string|max:20000',
             ...\App\Integrations\Listings\ListingVariations::rules(),
+            ...\App\Integrations\Listings\ListingGroup::rules(),
         ]);
 
         /* The pictures this listing sends, in the order the card arranged
@@ -2771,7 +2772,35 @@ class ShopeeProductController extends Controller
             $fields['image_order'] = $imageOrder;
         }
 
+        /* The group dropdown: picking a group moves the product into it,
+         * No group takes it out. */
+        $picked = \App\Integrations\Listings\ListingGroup::submitted($request);
+        if ($picked['present']) {
+            \App\Integrations\Listings\ListingGroup::assign([
+                'pivot' => 'shopee_product_group_products', 'fk' => 'shopee_product_group_id',
+                'groups' => 'shopee_product_groups', 'storeFk' => 'shopee_setting_id',
+                'storeId' => (int) (ShopeeSetting::defaultStore()?->id ?? 0),
+            ], $productId, $picked['id']);
+        }
+
         ShopeeListing::query()->updateOrCreate(['product_id' => $productId], $fields);
+
+        // A value equal to the group's follows the group from now on.
+        $followed = app(\Extensions\shopee\Services\Shopee\ShopeeInheritedSettings::class)->forProducts([$productId])[$productId] ?? null;
+        $savedRow = ShopeeListing::query()->where('product_id', $productId)->first();
+        if ($followed && $savedRow) {
+            if (is_array($savedRow->attribute_values)) {
+                $savedRow->attribute_values = \App\Integrations\Listings\ListingGroup::ownAnswers($savedRow->attribute_values, (array) ($followed['attributes'] ?? [])) ?: null;
+            }
+            \App\Integrations\Listings\ListingGroup::follow($savedRow, [
+                'shopee_category_id' => $followed['category_id'],
+                'shopee_brand_id' => $followed['brand_id'],
+                'logistic_ids' => $followed['logistic_ids'],
+                'watermark_template_id' => \Extensions\shopee\Models\ShopeeProductGroup::query()->whereKey($followed['group_id'])->value('watermark_template_id'),
+                'markup_percent' => $followed['markup_percent'],
+                'markup_fixed' => $followed['markup_fixed'],
+            ], [['markup_percent', 'markup_fixed']]);
+        }
 
         if (($sellHere = \App\Integrations\Listings\ListingVariations::submitted($request)) !== null) {
             \App\Integrations\Listings\ListingVariations::save('shopee', (int) (ShopeeSetting::defaultStore()?->id ?? 0), $productId, $sellHere);

@@ -833,7 +833,8 @@ class VentaProductGroupController extends Controller
                     'meta_title' => $listing?->meta_title, 'meta_description' => $listing?->meta_description,
                 ], fn ($v) => $v !== null && trim((string) $v) !== ''),
                 $priceFor,
-                (int) ($g->venta_category_id ?? 0) ?: null
+                // The listing's own category on this store, else this group's.
+                ((int) ($listing?->venta_category_id ?? 0) ?: (int) ($g->venta_category_id ?? 0)) ?: null
             );
 
             /*
