@@ -212,13 +212,12 @@ class ShopeeOrderDetailTest extends TestCase
         $response->assertSee('Cash on Delivery');
 
         // Escrow block, both sides of the rule and the net figure
-        $response->assertSee('Original price');
-        $response->assertSee(\App\Support\Money::foreign(2600.00, 'PHP'));
-        $response->assertSee('Seller discount');
-        $response->assertSee('Commission fee');
-        $response->assertSee('Service fee');
-        $response->assertSee('Transaction fee');
-        $response->assertSee('Net to seller');
+        $response->assertSee('Order income');
+        $response->assertSee('Merchandise Subtotal');
+        $response->assertSee('Commission Fee');
+        $response->assertSee('Service Fee');
+        $response->assertSee('Transaction Fee');
+        $response->assertSee('Estimated Order Income');
         $response->assertSee(\App\Support\Money::foreign(2201.60, 'PHP'));
 
         // Invoice request
@@ -244,7 +243,7 @@ class ShopeeOrderDetailTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('No items synced yet. Items will be fetched on the next order sync.');
-        $response->assertSee('No escrow or fee data yet.');
+        $response->assertSee('Shopee has not settled this order yet.');
         $response->assertSee('Invoice information not available from Shopee.');
         // A missing figure says so rather than printing a number nobody has.
         $response->assertSee('Not recorded');
@@ -310,7 +309,7 @@ class ShopeeOrderDetailTest extends TestCase
         // The read tier loses controls, not information: every figure the
         // manager sees is still on their page.
         $asViewer->assertSee('Alpha Wireless Keyboard');
-        $asViewer->assertSee('Net to seller');
+        $asViewer->assertSee('Estimated Order Income');
         $asViewer->assertSee('SPXPH0392841');
     }
 

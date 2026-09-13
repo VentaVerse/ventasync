@@ -33,7 +33,7 @@ use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Contracts\ListingStateSource;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class ShopeeExtension extends ExtensionProvider implements ListingStateSource, IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, RootRouteHandler, CredentialRevealer, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter, \App\Integrations\Contracts\MarketplaceOrderRefRenderer, \App\Integrations\Contracts\SaleLinesSource, \App\Integrations\Contracts\OrderBreakdownSource
+class ShopeeExtension extends ExtensionProvider implements ListingStateSource, IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, RootRouteHandler, CredentialRevealer, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter, \App\Integrations\Contracts\MarketplaceOrderRefRenderer, \App\Integrations\Contracts\SaleLinesSource
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -591,18 +591,6 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
      * the courier's price would understate net profit by about 99,340 on
      * that sample alone.
      */
-    public function orderBreakdown(int $coreOrderId): ?\App\Services\Orders\Breakdown\OrderBreakdown
-    {
-        $order = \Extensions\shopee\Models\ShopeeOrder::query()->withoutGlobalScope('shopeeStore')->where('catalog_order_id', $coreOrderId)->first();
-        if (! $order) {
-            return null;
-        }
-        $fees = is_array($order->fees) ? $order->fees : [];
-        $income = $fees['order_income'] ?? $fees;
-
-        return \Extensions\shopee\Services\ShopeeOrderBreakdown::from(is_array($income) ? $income : []);
-    }
-
     public function saleLinesForOrder(int $coreOrderId, float $itemsSubtotal, float $shipping): ?array
     {
         $order = \Extensions\shopee\Models\ShopeeOrder::query()->withoutGlobalScope('shopeeStore')->where('catalog_order_id', $coreOrderId)->first();
@@ -662,7 +650,9 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             return null;
         }
 
-        return ['display' => $marketplaceOrderId, 'url' => 'https://seller.shopee.ph/portal/sale/' . rawurlencode($marketplaceOrderId)];
+        $store = ShopeeOrder::query()->withoutGlobalScope('shopeeStore')->where('order_sn', $marketplaceOrderId)->value('shopee_setting_id');
+
+        return ['display' => $marketplaceOrderId, 'url' => $store ? route('ext.shopee.orders.show', ['store' => $store, 'orderSn' => $marketplaceOrderId]) : null];
     }
 
     public function feesForOrder(Order $order): ?array

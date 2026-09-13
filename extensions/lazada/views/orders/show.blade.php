@@ -470,160 +470,20 @@
                 </div>
             </section>
 
-            {{-- ============ FEES AND REVENUE ============
-                 Lazada's settlement, not this system's arithmetic: nothing on
-                 this page is derived from these lines, so they belong in the
-                 side column as an independent block rather than as ledger
-                 lines feeding a profit figure (that is the core Sales show's
-                 shape, and it stays there). Every key, every fallback and
-                 every "print only when non-zero" condition is the one the
-                 previous version of this page used, including the estimate's
-                 own arithmetic: commission, payment fee and shipping service
-                 cost are stored negative, so the estimate ADDS them. --}}
-            @php
-                $lSubtotal = (float)($fees['subtotal'] ?? 0);
-                $lPaidTotal = (float)($fees['paid_total'] ?? 0);
-                $lShipping = (float)($fees['shipping'] ?? 0);
-                $lVoucherSeller = (float)($fees['voucher_seller'] ?? 0);
-                $lVoucherPlatform = (float)($fees['voucher_platform'] ?? 0);
-                $lShipDiscountSeller = (float)($fees['shipping_discount_seller'] ?? 0);
-                $lShipDiscountPlatform = (float)($fees['shipping_discount_platform'] ?? 0);
-                $lWalletCredits = (float)($fees['wallet_credits'] ?? 0);
-                $lShippingServiceCost = (float)($fees['shipping_service_cost'] ?? 0);
-                $lCommission = (float)($fees['commission'] ?? 0);
-                $lPaymentFee = (float)($fees['payment_fee'] ?? 0);
-                $lOrderVoucher = (float)($fees['order_voucher'] ?? 0);
-                $lOtherFees = $fees['other_fees'] ?? [];
-
-                // Estimate net: item price minus all fee deductions
-                $lNet = $lPaidTotal ?: $lSubtotal;
-                if ($lCommission) $lNet += $lCommission;
-                if ($lPaymentFee) $lNet += $lPaymentFee;
-                if ($lShippingServiceCost) $lNet += $lShippingServiceCost;
-                if (is_array($lOtherFees)) {
-                    foreach ($lOtherFees as $feeAmt) {
-                        if ((float) $feeAmt < 0) $lNet += (float) $feeAmt;
-                    }
-                }
-
-                // The rule dividing the block: above it is what the buyer paid
-                // and what came off that price, below it is what Lazada keeps.
-                // It only earns its place when there is something on both
-                // sides of it, which mirrors the two columns the previous
-                // version of this page split these lines across.
-                $feesPaidSide = $lSubtotal || $lPaidTotal || $lShipping || $lVoucherSeller
-                    || $lVoucherPlatform || $lWalletCredits || $lOrderVoucher;
-                $feesKeptSide = $lCommission || $lPaymentFee || $lShippingServiceCost
-                    || $lShipDiscountSeller || $lShipDiscountPlatform || !empty($lOtherFees);
-            @endphp
             <section class="od-card">
                 <div class="od-card__head">
-                    <h2 class="od-card__title">Fees and revenue</h2>
-                </div>
-                @if($hasFees)
-                <div class="od-card__body lzd-fees">
-                    @if($lSubtotal)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Subtotal (item prices)</span>
-                        <span class="od-ledger__v">{{ $money($lSubtotal) }}</span>
-                    </div>
-                    @endif
-                    @if($lPaidTotal && $lPaidTotal != $lSubtotal)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Paid total</span>
-                        <span class="od-ledger__v">{{ $money($lPaidTotal) }}</span>
-                    </div>
-                    @endif
-                    @if($lShipping)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Shipping</span>
-                        <span class="od-ledger__v">{{ $money($lShipping) }}</span>
-                    </div>
-                    @endif
-                    @if($lVoucherSeller)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Voucher (seller)</span>
-                        <span class="od-ledger__v od-neg">-{{ $money(abs($lVoucherSeller)) }}</span>
-                    </div>
-                    @endif
-                    @if($lVoucherPlatform)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Voucher (platform)</span>
-                        <span class="od-ledger__v od-neg">-{{ $money(abs($lVoucherPlatform)) }}</span>
-                    </div>
-                    @endif
-                    @if($lWalletCredits)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Wallet credits</span>
-                        <span class="od-ledger__v od-neg">-{{ $money(abs($lWalletCredits)) }}</span>
-                    </div>
-                    @endif
-                    @if($lOrderVoucher && !$lVoucherSeller && !$lVoucherPlatform)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Order voucher</span>
-                        <span class="od-ledger__v od-neg">-{{ $money(abs($lOrderVoucher)) }}</span>
-                    </div>
-                    @endif
-
-                    @if($feesPaidSide && $feesKeptSide)
-                    <hr class="od-ledger__split">
-                    @endif
-
-                    @if($lCommission)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Commission</span>
-                        <span class="od-ledger__v od-neg">-{{ $money(abs($lCommission)) }}</span>
-                    </div>
-                    @endif
-                    @if($lPaymentFee)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Payment fee</span>
-                        <span class="od-ledger__v od-neg">-{{ $money(abs($lPaymentFee)) }}</span>
-                    </div>
-                    @endif
-                    @if($lShippingServiceCost)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Shipping service cost</span>
-                        <span class="od-ledger__v od-neg">-{{ $money(abs($lShippingServiceCost)) }}</span>
-                    </div>
-                    @endif
-                    @if($lShipDiscountSeller)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Shipping discount (seller)</span>
-                        <span class="od-ledger__v od-neg">-{{ $money(abs($lShipDiscountSeller)) }}</span>
-                    </div>
-                    @endif
-                    @if($lShipDiscountPlatform)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Shipping discount (platform)</span>
-                        <span class="od-ledger__v">{{ $money(abs($lShipDiscountPlatform)) }}</span>
-                    </div>
-                    @endif
-                    @if(is_array($lOtherFees))
-                        @foreach($lOtherFees as $feeName => $feeAmt)
-                            @if($feeAmt != 0)
-                            <div class="od-ledger__row">
-                                <span class="od-ledger__k">{{ ucwords(str_replace('_', ' ', $feeName)) }}</span>
-                                <span class="od-ledger__v {{ $feeAmt < 0 ? 'od-neg' : '' }}">{{ $feeAmt < 0 ? '-' : '' }}{{ $money(abs($feeAmt)) }}</span>
-                            </div>
-                            @endif
-                        @endforeach
-                    @endif
-
-                    @if($lNet && ($lCommission || $lPaymentFee || $lShippingServiceCost || !empty($lOtherFees)))
-                    <div class="od-ledger__row od-ledger__row--profit">
-                        <span class="od-ledger__k">Estimated net</span>
-                        <span class="od-ledger__v od-pos">{{ $money($lNet) }}</span>
-                    </div>
+                    <h2 class="od-card__title">{{ $breakdown?->title ?? 'Order income' }}</h2>
+                    @if($breakdown && $order->payout_status)
+                        <x-ui.badge :tone="$order->payout_status === 'Paid' ? 'success' : 'warning'">{{ $order->payout_status }}</x-ui.badge>
                     @endif
                 </div>
-                @if(!$lCommission && !$lPaymentFee)
-                <div class="od-card__foot lzd-note">Commission and payment fee data may not be available until the order is settled by Lazada.</div>
-                @endif
+                @if($breakdown)
+                    @include('partials.order-breakdown', ['breakdown' => $breakdown, 'currency' => $breakdownCurrency])
                 @else
-                <div class="od-card__body">
-                    <p class="od-empty">No fee data yet. Fees are usually fetched automatically once Lazada completes the order.</p>
-                </div>
+                    <p class="od-empty">Lazada has not settled this order yet.</p>
+                @endif
+                @if($order->payout_status && $order->paid_at)
+                    <div class="od-card__foot">Paid out {{ $order->paid_at->format('M d, Y') }}</div>
                 @endif
             </section>
 

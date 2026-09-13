@@ -33,7 +33,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ListingStateSource, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter, \App\Integrations\Contracts\MarketplaceOrderRefRenderer, \App\Integrations\Contracts\SaleLinesSource, \App\Integrations\Contracts\OrderBreakdownSource
+class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ListingStateSource, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter, \App\Integrations\Contracts\MarketplaceOrderRefRenderer, \App\Integrations\Contracts\SaleLinesSource
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['unpaid'],
@@ -661,13 +661,6 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
      * entries are charges - the positives are rebates and were never
      * counted.
      */
-    public function orderBreakdown(int $coreOrderId): ?\App\Services\Orders\Breakdown\OrderBreakdown
-    {
-        $order = \Extensions\lazada\Models\LazadaOrder::query()->withoutGlobalScope('lazadaStore')->where('catalog_order_id', $coreOrderId)->first();
-
-        return $order ? \Extensions\lazada\Services\LazadaOrderBreakdown::from(is_array($order->fees) ? $order->fees : []) : null;
-    }
-
     public function saleLinesForOrder(int $coreOrderId, float $itemsSubtotal, float $shipping): ?array
     {
         $order = \Extensions\lazada\Models\LazadaOrder::query()->withoutGlobalScope('lazadaStore')->where('catalog_order_id', $coreOrderId)->first();
@@ -717,7 +710,9 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
             return null;
         }
 
-        return ['display' => $marketplaceOrderId, 'url' => 'https://sellercenter.lazada.com.ph/order/detail?tradeOrderId=' . rawurlencode($marketplaceOrderId)];
+        $store = LazadaOrder::query()->withoutGlobalScope('lazadaStore')->where('order_id', $marketplaceOrderId)->value('lazada_setting_id');
+
+        return ['display' => $marketplaceOrderId, 'url' => $store ? route('ext.lazada.orders.show', ['store' => $store, 'orderId' => $marketplaceOrderId]) : null];
     }
 
     public function feesForOrder(Order $order): ?array

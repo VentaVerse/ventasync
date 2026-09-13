@@ -144,6 +144,8 @@ class TikTokOrderController extends Controller
 
         return view('ext-tiktok::orders.show', [
             'order' => $order,
+            'breakdown' => \Extensions\tiktok\Services\TikTokOrderBreakdown::from(is_array($order->fees) ? $order->fees : []),
+            'breakdownCurrency' => (string) ((is_array($order->raw) ? ($order->raw['currency'] ?? null) : null) ?: \App\Support\Money::defaultCode()),
             'api_error' => $apiError,
         ]);
     }

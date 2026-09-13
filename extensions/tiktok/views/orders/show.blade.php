@@ -346,89 +346,20 @@
                 @endif
             </section>
 
-            {{-- ============ FEES AND SETTLEMENT ============
-                 TikTok's settlement, not this system's arithmetic: nothing on
-                 this page is derived from these lines, so they belong in the
-                 side column as an independent block rather than as ledger
-                 lines feeding a profit figure (that is the core Sales show's
-                 shape, and it stays there). Every key and every "print only
-                 when non-zero" condition is the one the previous version of
-                 this page used, including its abs() on each deduction. --}}
-            @php
-                $fees = is_array($order->fees ?? null) ? $order->fees : [];
-                $fCommission   = abs((float) ($fees['commission'] ?? 0));
-                $fTxnFee       = abs((float) ($fees['transaction_fee'] ?? 0));
-                $fShipping     = abs((float) ($fees['shipping_fee'] ?? 0));
-                $fPlatformDisc = abs((float) ($fees['platform_discount'] ?? 0));
-                $fRevenue      = (float) ($fees['revenue'] ?? 0);
-                $fSettlement   = (float) ($fees['settlement_amount'] ?? 0);
-                $fTotalFees    = $fCommission + $fTxnFee + $fShipping;
-                $hasFees       = $fTotalFees > 0 || $fSettlement > 0;
-            @endphp
             <section class="od-card">
                 <div class="od-card__head">
-                    <h2 class="od-card__title">Fees and settlement</h2>
-                    @if($hasFees && $order->payout_status)
+                    <h2 class="od-card__title">{{ $breakdown?->title ?? 'Order income' }}</h2>
+                    @if($breakdown && $order->payout_status)
                         <x-ui.badge :tone="$order->payout_status === 'Paid' ? 'success' : 'warning'">{{ $order->payout_status }}</x-ui.badge>
                     @endif
                 </div>
-                @if($hasFees)
-                <div class="od-card__body ttd-fees">
-                    @if($fRevenue > 0)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Revenue</span>
-                        <span class="od-ledger__v">{{ $money($fRevenue) }}</span>
-                    </div>
-                    @endif
-
-                    @if($fRevenue > 0 && ($fCommission > 0 || $fTxnFee > 0 || $fShipping > 0 || $fPlatformDisc > 0))
-                    <hr class="od-ledger__split">
-                    @endif
-
-                    @if($fCommission > 0)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Commission</span>
-                        <span class="od-ledger__v od-neg">-{{ $money($fCommission) }}</span>
-                    </div>
-                    @endif
-                    @if($fTxnFee > 0)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Transaction fee</span>
-                        <span class="od-ledger__v od-neg">-{{ $money($fTxnFee) }}</span>
-                    </div>
-                    @endif
-                    @if($fShipping > 0)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Shipping fee</span>
-                        <span class="od-ledger__v od-neg">-{{ $money($fShipping) }}</span>
-                    </div>
-                    @endif
-                    @if($fPlatformDisc > 0)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Platform discount</span>
-                        <span class="od-ledger__v od-neg">-{{ $money($fPlatformDisc) }}</span>
-                    </div>
-                    @endif
-                    @if($fTotalFees > 0)
-                    <div class="od-ledger__row ttd-total-fees">
-                        <span class="od-ledger__k">Total fees</span>
-                        <span class="od-ledger__v od-neg">-{{ $money($fTotalFees) }}</span>
-                    </div>
-                    @endif
-                    @if($fSettlement > 0)
-                    <div class="od-ledger__row od-ledger__row--profit">
-                        <span class="od-ledger__k">Settlement</span>
-                        <span class="od-ledger__v od-pos">{{ $money($fSettlement) }}</span>
-                    </div>
-                    @endif
-                </div>
-                @if($order->payout_status && $order->paid_at)
-                <div class="od-card__foot ttd-note">Paid out {{ $order->paid_at->format('M d, Y') }}</div>
-                @endif
+                @if($breakdown)
+                    @include('partials.order-breakdown', ['breakdown' => $breakdown, 'currency' => $breakdownCurrency])
                 @else
-                <div class="od-card__body">
-                    <p class="od-empty">No fee data yet. Settlement figures appear once TikTok completes its settlement cycle for this order.</p>
-                </div>
+                    <p class="od-empty">TikTok has not settled this order yet.</p>
+                @endif
+                @if($order->payout_status && $order->paid_at)
+                    <div class="od-card__foot">Paid out {{ $order->paid_at->format('M d, Y') }}</div>
                 @endif
             </section>
 

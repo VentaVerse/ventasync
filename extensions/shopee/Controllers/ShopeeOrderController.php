@@ -324,6 +324,8 @@ class ShopeeOrderController extends Controller
 
         return view('ext-shopee::orders.show', [
             'order' => $order,
+            'breakdown' => \Extensions\shopee\Services\ShopeeOrderBreakdown::from(is_array($order->fees['order_income'] ?? null) ? $order->fees['order_income'] : (is_array($order->fees) ? $order->fees : [])),
+            'breakdownCurrency' => (string) ((is_array($order->raw) ? ($order->raw['currency'] ?? null) : null) ?: \App\Support\Money::defaultCode()),
             'setting_region' => $region,
             'api_error' => $apiError,
             'returns' => $returns,

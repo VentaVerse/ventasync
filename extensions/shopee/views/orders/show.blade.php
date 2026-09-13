@@ -485,185 +485,20 @@
                 @endif
             </section>
 
-            {{-- ============ ESCROW AND FEES ============
-                 Shopee's settlement, not this system's arithmetic: nothing on
-                 this page is derived from these lines, so they belong in the
-                 side column as an independent block rather than as ledger
-                 lines feeding a profit figure (that is the core Sales show's
-                 shape, and it stays there). Every key, every fallback and
-                 every "print only when non-zero" condition is the one the
-                 previous version of this page used. --}}
-            @php
-                $feesRaw = is_array($order->fees ?? null) ? $order->fees : [];
-                // Support both flat format and old nested format (order_income sub-key)
-                $fees = (isset($feesRaw['order_income']) && is_array($feesRaw['order_income']))
-                    ? $feesRaw['order_income']
-                    : $feesRaw;
-                $hasFees = !empty($fees);
-
-                // Shopee escrow detail fields
-                $oBuyerTotal = (float)($fees['buyer_total_amount'] ?? 0);
-                $oOriginalPrice = (float)($fees['original_price'] ?? 0);
-                $oSellerDiscount = (float)($fees['seller_discount'] ?? 0);
-                $oPlatformDiscount = (float)($fees['shopee_discount'] ?? ($fees['platform_discount'] ?? 0));
-                $oVoucherSeller = (float)($fees['voucher_from_seller'] ?? 0);
-                $oVoucherPlatform = (float)($fees['voucher_from_shopee'] ?? ($fees['voucher_from_platform'] ?? 0));
-                $oCoinOffset = (float)($fees['coins'] ?? ($fees['coin_offset'] ?? 0));
-                $oCommission = (float)($fees['commission_fee'] ?? 0);
-                $oServiceFee = (float)($fees['service_fee'] ?? 0);
-                $oTransactionFee = (float)($fees['seller_transaction_fee'] ?? ($fees['credit_card_transaction_fee'] ?? 0));
-                $oShippingBuyer = (float)($fees['buyer_paid_shipping_fee'] ?? 0);
-                $oShippingDiscount = (float)($fees['shipping_fee_discount_from_3pl'] ?? ($fees['shopee_shipping_rebate'] ?? 0));
-                $oShippingSeller = (float)($fees['seller_shipping_discount'] ?? ($fees['final_shipping_fee'] ?? ($fees['actual_shipping_fee'] ?? 0)));
-                $oEscrow = (float)($fees['escrow_amount'] ?? 0);
-                $oSellerDue = (float)($fees['seller_due'] ?? 0);
-                $oWithholdingTax = (float)($fees['withholding_tax'] ?? 0);
-                $oCrossBorderTax = (float)($fees['cross_border_tax'] ?? 0);
-                $oEscrowTax = (float)($fees['escrow_tax'] ?? 0);
-                $oPaymentPromotion = (float)($fees['payment_promotion'] ?? 0);
-
-                // Compute net if escrow is available
-                $netAmount = $oEscrow ?: $oSellerDue;
-
-                // The rule dividing the block: above it is what the buyer
-                // paid and what came off that price, below it is what Shopee
-                // keeps. It only earns its place when there is something on
-                // both sides of it, which mirrors the two columns the
-                // previous version of this page split these lines across.
-                $feesPaidSide = $oOriginalPrice || $oBuyerTotal || $oSellerDiscount || $oPlatformDiscount
-                    || $oVoucherSeller || $oVoucherPlatform || $oCoinOffset || $oShippingBuyer;
-                $feesKeptSide = $oCommission || $oServiceFee || $oTransactionFee || $oWithholdingTax
-                    || $oCrossBorderTax || $oEscrowTax || $oPaymentPromotion || $oShippingDiscount
-                    || $oShippingSeller;
-            @endphp
             <section class="od-card">
                 <div class="od-card__head">
-                    <h2 class="od-card__title">Escrow and fees</h2>
-                </div>
-                @if($hasFees)
-                <div class="od-card__body spd-fees">
-                    @if($oOriginalPrice)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Original price</span>
-                        <span class="od-ledger__v">{{ $money($oOriginalPrice) }}</span>
-                    </div>
-                    @endif
-                    @if($oBuyerTotal)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Buyer total</span>
-                        <span class="od-ledger__v">{{ $money($oBuyerTotal) }}</span>
-                    </div>
-                    @endif
-                    @if($oSellerDiscount)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Seller discount</span>
-                        <span class="od-ledger__v od-neg">-{{ $money(abs($oSellerDiscount)) }}</span>
-                    </div>
-                    @endif
-                    @if($oPlatformDiscount)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Platform discount</span>
-                        <span class="od-ledger__v od-neg">-{{ $money(abs($oPlatformDiscount)) }}</span>
-                    </div>
-                    @endif
-                    @if($oVoucherSeller)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Voucher (seller)</span>
-                        <span class="od-ledger__v od-neg">-{{ $money(abs($oVoucherSeller)) }}</span>
-                    </div>
-                    @endif
-                    @if($oVoucherPlatform)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Voucher (platform)</span>
-                        <span class="od-ledger__v od-neg">-{{ $money(abs($oVoucherPlatform)) }}</span>
-                    </div>
-                    @endif
-                    @if($oCoinOffset)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Coins</span>
-                        <span class="od-ledger__v od-neg">-{{ $money(abs($oCoinOffset)) }}</span>
-                    </div>
-                    @endif
-                    @if($oShippingBuyer)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Shipping (buyer paid)</span>
-                        <span class="od-ledger__v">{{ $money($oShippingBuyer) }}</span>
-                    </div>
-                    @endif
-
-                    @if($feesPaidSide && $feesKeptSide)
-                    <hr class="od-ledger__split">
-                    @endif
-
-                    @if($oCommission)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Commission fee</span>
-                        <span class="od-ledger__v od-neg">-{{ $money(abs($oCommission)) }}</span>
-                    </div>
-                    @endif
-                    @if($oServiceFee)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Service fee</span>
-                        <span class="od-ledger__v od-neg">-{{ $money(abs($oServiceFee)) }}</span>
-                    </div>
-                    @endif
-                    @if($oTransactionFee)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Transaction fee</span>
-                        <span class="od-ledger__v od-neg">-{{ $money(abs($oTransactionFee)) }}</span>
-                    </div>
-                    @endif
-                    @if($oWithholdingTax)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Withholding tax</span>
-                        <span class="od-ledger__v od-neg">-{{ $money(abs($oWithholdingTax)) }}</span>
-                    </div>
-                    @endif
-                    @if($oCrossBorderTax)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Cross-border tax</span>
-                        <span class="od-ledger__v od-neg">-{{ $money(abs($oCrossBorderTax)) }}</span>
-                    </div>
-                    @endif
-                    @if($oEscrowTax)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Escrow tax</span>
-                        <span class="od-ledger__v od-neg">-{{ $money(abs($oEscrowTax)) }}</span>
-                    </div>
-                    @endif
-                    @if($oPaymentPromotion)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Payment promotion</span>
-                        <span class="od-ledger__v">{{ $money($oPaymentPromotion) }}</span>
-                    </div>
-                    @endif
-                    @if($oShippingDiscount)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Shipping rebate (3PL)</span>
-                        <span class="od-ledger__v">{{ $money($oShippingDiscount) }}</span>
-                    </div>
-                    @endif
-                    @if($oShippingSeller)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Final shipping fee</span>
-                        <span class="od-ledger__v od-neg">-{{ $money(abs($oShippingSeller)) }}</span>
-                    </div>
-                    @endif
-
-                    @if($netAmount)
-                    <div class="od-ledger__row od-ledger__row--profit">
-                        <span class="od-ledger__k">Net to seller</span>
-                        <span class="od-ledger__v od-pos">{{ $money($netAmount) }}</span>
-                    </div>
+                    <h2 class="od-card__title">{{ $breakdown?->title ?? 'Order income' }}</h2>
+                    @if($breakdown && $order->payout_status)
+                        <x-ui.badge :tone="$order->payout_status === 'Paid' ? 'success' : 'warning'">{{ $order->payout_status }}</x-ui.badge>
                     @endif
                 </div>
-                @if(!$oCommission && !$oServiceFee && !$oTransactionFee)
-                <div class="od-card__foot spd-note">Fee details may not be available until the order is completed and settled by Shopee.</div>
-                @endif
+                @if($breakdown)
+                    @include('partials.order-breakdown', ['breakdown' => $breakdown, 'currency' => $breakdownCurrency])
                 @else
-                <div class="od-card__body">
-                    <p class="od-empty">No escrow or fee data yet. Fees are usually fetched automatically once Shopee completes the order.</p>
-                </div>
+                    <p class="od-empty">Shopee has not settled this order yet.</p>
+                @endif
+                @if($order->payout_status && $order->paid_at)
+                    <div class="od-card__foot">Paid out {{ $order->paid_at->format('M d, Y') }}</div>
                 @endif
             </section>
 

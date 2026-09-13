@@ -232,7 +232,7 @@ class TiktokOrderDetailTest extends TestCase
         $response->assertSee(\App\Support\Money::foreign(150.00, 'PHP'));
 
         // Fees and settlement
-        $response->assertSee('Revenue');
+        $response->assertSee('Total revenue');
         $response->assertSee('Commission');
         $response->assertSee(\App\Support\Money::foreign(94.95, 'PHP'));
         $response->assertSee('Transaction fee');
@@ -260,7 +260,7 @@ class TiktokOrderDetailTest extends TestCase
         $response->assertOk();
         $response->assertSee('No items synced yet.');
         $response->assertSee('No payment figures from TikTok yet.');
-        $response->assertSee('No fee data yet.');
+        $response->assertSee('TikTok has not settled this order yet.');
         // A missing figure says so rather than printing a number nobody has.
         $response->assertSee('Not recorded');
     }

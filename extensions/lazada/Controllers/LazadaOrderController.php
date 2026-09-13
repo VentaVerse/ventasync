@@ -408,6 +408,8 @@ class LazadaOrderController extends Controller
 
         return view('ext-lazada::orders.show', [
             'order' => $order,
+            'breakdown' => \Extensions\lazada\Services\LazadaOrderBreakdown::from(is_array($order->fees) ? $order->fees : []),
+            'breakdownCurrency' => (string) ((is_array($order->raw) ? ($order->raw['currency'] ?? null) : null) ?: \App\Support\Money::defaultCode()),
             'setting_region' => $region,
             'detail' => $detail,
             'api_items_synced' => $apiItemsSynced,

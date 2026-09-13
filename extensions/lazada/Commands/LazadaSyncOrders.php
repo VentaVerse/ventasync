@@ -588,7 +588,7 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
                 $feeName = (string) ($trx['fee_name'] ?? $trx['transaction_type'] ?? '');
                 // Money::parse strips the thousands comma Lazada sends ("-2,251.57"); a bare (float) would read that as -2.
                 $amount = \App\Support\Money::parse($trx['amount'] ?? $trx['fee_amount'] ?? 0);
-                $lineName = $feeName !== '' ? $feeName : 'fee_type_' . $feeType;
+                $lineName = $feeName !== '' ? $feeName : 'Fee type ' . $feeType;
                 $byName[$lineName] = ($byName[$lineName] ?? 0) + $amount;
 
                 if ($feeType && in_array($feeType, $commissionTypes)) {

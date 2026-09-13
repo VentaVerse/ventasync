@@ -209,9 +209,7 @@
         <span class="od-stamp">
             <span class="od-stamp__k">Marketplace order</span>
             @if($refUrl)
-                <a class="od-stamp__v" href="{{ $refUrl }}" target="_blank" rel="noopener">
-                    {{ $refText }}<x-ui.icon name="external-link" size="11" class="od-stamp__out" />
-                </a>
+                <a class="od-stamp__v" href="{{ $refUrl }}">{{ $refText }}</a>
             @else
                 <span class="od-stamp__v">{{ $refText }}</span>
             @endif
@@ -530,9 +528,6 @@
             @endphp
             <div class="od-money">
             <div class="od-money__ledgers">
-            @if(! empty($breakdown))
-            @include('sales.orders._breakdown')
-            @else
             <section class="od-section">
                 <div class="od-section__head">
                     <h2 class="od-section__title">Sale</h2>
@@ -559,7 +554,6 @@
                     </div>
                 </div>
             </section>
-            @endif
 
             <section class="od-section">
                 <div class="od-section__head">

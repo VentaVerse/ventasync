@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, \App\Integrations\Contracts\ListingStateSource, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter, \App\Integrations\Contracts\SaleLinesSource, \App\Integrations\Contracts\OrderBreakdownSource
+class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, \App\Integrations\Contracts\ListingStateSource, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter, \App\Integrations\Contracts\SaleLinesSource, \App\Integrations\Contracts\MarketplaceOrderRefRenderer
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -515,11 +515,14 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
      * delivery charge is shipping_fee, which sat in the Fees column until
      * 2026-09-08; it publishes no payment-side deduction.
      */
-    public function orderBreakdown(int $coreOrderId): ?\App\Services\Orders\Breakdown\OrderBreakdown
+    public function renderOrderRef(string $marketplaceSource, string $marketplaceOrderId): ?array
     {
-        $order = \Extensions\tiktok\Models\TikTokOrder::query()->withoutGlobalScope('tiktokStore')->where('catalog_order_id', $coreOrderId)->first();
+        if ($marketplaceSource !== 'tiktok') {
+            return null;
+        }
+        $row = \Extensions\tiktok\Models\TikTokOrder::query()->withoutGlobalScope('tiktokStore')->where('order_id', $marketplaceOrderId)->first(['id', 'tiktok_setting_id']);
 
-        return $order ? \Extensions\tiktok\Services\TikTokOrderBreakdown::from(is_array($order->fees) ? $order->fees : []) : null;
+        return ['display' => $marketplaceOrderId, 'url' => $row && $row->tiktok_setting_id ? route('ext.tiktok.orders.show', ['store' => $row->tiktok_setting_id, 'id' => $row->id]) : null];
     }
 
     public function saleLinesForOrder(int $coreOrderId, float $itemsSubtotal, float $shipping): ?array

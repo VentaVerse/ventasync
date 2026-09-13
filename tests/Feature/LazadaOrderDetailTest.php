@@ -248,17 +248,10 @@ class LazadaOrderDetailTest extends TestCase
         $response->assertSee('LZDPH884120394');
 
         // Fee ledger, both sides of the rule and the estimate
-        $response->assertSee('Subtotal (item prices)');
-        $response->assertSee(\App\Support\Money::foreign(3400.00, 'PHP'));
-        $response->assertSee('Paid total');
+        $response->assertSee('Order income');
         $response->assertSee('Commission');
-        $response->assertSee('Payment fee');
-        $response->assertSee('Shipping service cost');
-        $response->assertSee('Shipping discount (seller)');
-        $response->assertSee('Sponsored Product Fee');
-        $response->assertSee('Estimated net');
-        // 3240 - 162 - 64.80 - 95 - 18.50, the previous page's own arithmetic.
-        $response->assertSee(\App\Support\Money::foreign(2899.70, 'PHP'));
+        $response->assertSee(\App\Support\Money::foreign(-162.00, 'PHP'));
+        $response->assertSee('Fee type 112');
 
         // Fee transactions
         $response->assertSee('Lazada platform fees');
@@ -282,7 +275,7 @@ class LazadaOrderDetailTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('No items synced yet. Items will be fetched on the next order sync.');
-        $response->assertSee('No fee data yet.');
+        $response->assertSee('Lazada has not settled this order yet.');
         // A missing figure says so rather than printing a number nobody has.
         $response->assertSee('Not recorded');
         // No fee block means no transaction section and no breakdown.
@@ -300,7 +293,7 @@ class LazadaOrderDetailTest extends TestCase
      * previous version of this page did (both were nested inside the same
      * `@if($hasFees)`).
      */
-    public function test_array_only_fee_data_does_not_contradict_the_empty_state(): void
+    public function test_a_reported_transaction_shows_the_breakdown_not_the_empty_state(): void
     {
         $order = LazadaOrder::create([
             'region' => 'ph',
@@ -337,8 +330,10 @@ class LazadaOrderDetailTest extends TestCase
         $response = $this->actingAs($this->viewer())->get('/channels/lazada/'.$this->lazadaStore->id.'/orders/'.$order->order_id);
 
         $response->assertOk();
-        $response->assertSee('No fee data yet.');
-        // Mutually exclusive: the empty state and the table never both show.
+        // A reported transaction is Lazada's breakdown, never the empty state; the two never both show.
+        $response->assertSee('Order income');
+        $response->assertSee(\App\Support\Money::foreign(-50.00, 'PHP'));
+        $response->assertDontSee('Lazada has not settled this order yet.');
         $response->assertDontSee('Lazada platform fees');
         $response->assertDontSee('Price breakdown by order item');
     }
@@ -365,7 +360,7 @@ class LazadaOrderDetailTest extends TestCase
         // The read tier loses controls, not information: every figure the
         // manager sees is still on their page.
         $asViewer->assertSee('Meridian Ceramic Pour-Over Dripper');
-        $asViewer->assertSee('Estimated net');
+        $asViewer->assertSee('Order income');
         $asViewer->assertSee('LZDPH884120394');
     }
 
