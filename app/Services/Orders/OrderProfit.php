@@ -11,7 +11,8 @@ use Illuminate\Support\Facades\DB;
  * Revenue is what the order's lines sold for. Shipping cost is the order's own
  * shipping cost plus the delivery fee a store reported. Fees are the fee lines
  * a store reported, or the order's payment and extra costs when there are none,
- * plus fees added on the order by hand. An order with no lines carries no money.
+ * plus the vouchers and coupons the seller paid for, plus fees added on the
+ * order by hand. An order with no lines carries no money.
  */
 final class OrderProfit
 {
@@ -38,6 +39,7 @@ final class OrderProfit
             ->first();
 
         $shippingCode = MarketplaceFeeNormalizer::CODES['shipping'][0];
+        $voucherCode = MarketplaceFeeNormalizer::CODES['voucher'][0];
         $reported = DB::table($pfx . 'order_total')
             ->where('order_id', $orderId)
             ->whereIn('code', array_column(MarketplaceFeeNormalizer::CODES, 0))
@@ -46,10 +48,15 @@ final class OrderProfit
 
         $reportedShipping = 0.0;
         $fees = [];
+        $vouchers = [];
         foreach ($reported as $row) {
             $amount = abs((float) $row->value);
             if ($row->code === $shippingCode) {
                 $reportedShipping += $amount;
+            } elseif ($row->code === $voucherCode) {
+                if ($amount > 0) {
+                    $vouchers[] = ['label' => (string) $row->title, 'amount' => $amount, 'fee_id' => null];
+                }
             } elseif ($amount > 0) {
                 $fees[] = ['label' => (string) $row->title, 'amount' => $amount, 'fee_id' => null];
             }
@@ -63,6 +70,8 @@ final class OrderProfit
                 }
             }
         }
+
+        $fees = array_merge($fees, $vouchers);
 
         foreach (DB::table('order_fees')->where('order_id', $orderId)->orderBy('id')->get(['id', 'label', 'amount']) as $fee) {
             $amount = abs((float) $fee->amount);

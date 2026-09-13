@@ -652,6 +652,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             'payment' => $amount('withholding_tax'),
             'shipping' => max(0.0, round($borne, 2)),
             'other' => round($other, 2),
+            'voucher' => $amount('voucher_from_seller') + $amount('seller_coin_cash_back'),
         ];
     }
 

@@ -707,6 +707,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
             'payment' => \App\Integrations\Orders\FeePayload::amount($payload, 'payment_fee'),
             'shipping' => \App\Integrations\Orders\FeePayload::amount($payload, 'shipping_service_cost'),
             'other' => $other,
+            'voucher' => \App\Integrations\Orders\FeePayload::amount($payload, 'voucher_seller'),
         ];
     }
 

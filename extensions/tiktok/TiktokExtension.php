@@ -550,11 +550,21 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
             return null;
         }
 
+        // The seller's discount beyond the markdown already inside the item prices.
+        $payment = is_array($row->raw['payment'] ?? null) ? $row->raw['payment'] : [];
+        $sellerDiscount = 0.0;
+        foreach (\Extensions\tiktok\Services\TikTokSaleLines::lines($payment, 0, 0) as $line) {
+            if ($line['code'] === \App\Services\Orders\SaleLines\AbstractSaleLines::SELLER_DISCOUNT) {
+                $sellerDiscount = abs($line['value']);
+            }
+        }
+
         return [
             'commission' => \App\Integrations\Orders\FeePayload::amount($payload, 'commission'),
             'payment' => 0.0,
             'shipping' => \App\Integrations\Orders\FeePayload::amount($payload, 'shipping_fee'),
             'other' => \App\Integrations\Orders\FeePayload::amount($payload, 'transaction_fee'),
+            'voucher' => $sellerDiscount,
         ];
     }
 

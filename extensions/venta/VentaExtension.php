@@ -549,8 +549,17 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
         $payment = $known('payment_fee');
         $delivery = $known('shipping_cost');
 
+        // The coupon is the store's cost; store credit is the buyer's own money.
+        $coupon = 0.0;
+        $totals = \App\Integrations\Orders\FeePayload::decode($raw['totals'] ?? []);
+        foreach (is_array($totals['lines'] ?? null) ? $totals['lines'] : [] as $line) {
+            if (is_array($line) && ($line['code'] ?? '') === 'coupon') {
+                $coupon += abs(\App\Support\Money::parse($line['amount'] ?? 0));
+            }
+        }
+
         // Nothing recorded is not the same fact as nothing charged.
-        if ($payment === null && $delivery === null) {
+        if ($payment === null && $delivery === null && $coupon == 0.0) {
             return null;
         }
 
@@ -559,6 +568,7 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
             'payment' => $payment ?? 0.0,
             'shipping' => $delivery ?? 0.0,
             'other' => 0.0,
+            'voucher' => round($coupon, 2),
         ];
     }
 

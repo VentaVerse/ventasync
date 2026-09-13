@@ -36,6 +36,7 @@ class MarketplaceFeeNormalizer
         'payment' => ['marketplace_payment_fee', 'Payment fee', 92],
         'shipping' => ['marketplace_shipping_fee', 'Delivery fee', 93],
         'other' => ['marketplace_other_fee', 'Other fees', 94],
+        'voucher' => ['marketplace_voucher', 'Vouchers', 95],
     ];
 
     public function __construct(private readonly IntegrationRegistry $registry) {}
