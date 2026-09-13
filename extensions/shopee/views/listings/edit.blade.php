@@ -33,16 +33,16 @@
         : [null, null];
 
     $corePrice = (float) $product->price;
-    $pct = $listing?->markup_percent;
-    $fixed = $listing?->markup_fixed;
+    $pct = $shown->markup_percent;
+    $fixed = $shown->markup_fixed;
     $hasRule = $pct !== null || $fixed !== null;
     $nextPrice = round($corePrice + ($corePrice * (float) ($pct ?? 0) / 100) + (float) ($fixed ?? 0), 2);
 
     $pushPrice = $hasRule ? $nextPrice : $corePrice;
 
-    $selectedCategoryId = (int) old('shopee_category_id', $listing->shopee_category_id ?? 0);
+    $selectedCategoryId = (int) old('shopee_category_id', $shown->shopee_category_id ?? 0);
     $oldLogisticIds = old('logistic_ids');
-    $savedLogisticIds = array_map('intval', $listing->logistic_ids ?? []);
+    $savedLogisticIds = array_map('intval', $shown->logistic_ids ?? []);
 
     // Shopee descriptions are plain text; the catalog HTML is converted for display and comparison.
     $coreDescription = \App\Support\Catalog\DescriptionText::of((string) ($product->description ?? ''));
@@ -241,7 +241,7 @@
          draft B, amended 2026-09-08): the main column is what the listing
          SAYS - Content, Category and brand, Category attributes, Images,
          then what only Shopee has. The rail is what it COSTS and what it
-         came from - Price rule, Discount, Product group, Last push.
+         came from - Price rule, Discount, Last push.
 
          Price rule and Discount moved to the rail on the owner's word; the
          other four channels follow, and until they do the gap is written
@@ -251,6 +251,19 @@
         @csrf
         <x-channel.listing-body>
             <x-slot:main>
+
+                @include('partials.listing-group-band', [
+                    'fields' => [
+                        'category' => ['label' => 'Shopee category', 'kind' => 'combo', 'value' => '#sl-category-value', 'text' => '#sl-category', 'reloads' => true],
+                        'brand' => ['label' => 'Brand', 'kind' => 'combo', 'value' => 'input[name="shopee_brand_id"]', 'text' => '#sl-brand'],
+                        'couriers' => ['label' => 'Couriers', 'kind' => 'checks', 'name' => 'logistic_ids[]'],
+                        'markup_percent' => ['label' => 'Percent added', 'kind' => 'input', 'el' => '#sl-markup-pct'],
+                        'markup_fixed' => ['label' => 'Fixed amount added', 'kind' => 'input', 'el' => '#sl-markup-fixed'],
+                        'watermark' => ['label' => 'Watermark', 'kind' => 'follow', 'el' => 'select[name="watermark_template_id"]'],
+                        'attributes' => ['label' => 'Attribute answers', 'kind' => 'attributes'],
+                    ],
+                    'canManage' => $canManage,
+                ])
 
                 <section class="fm-section">
                     <div class="fm-section__head">
@@ -311,7 +324,7 @@
                             </div>
                         </x-ui.field>
                         @php
-                            $slBrandId = (int) ($listing->shopee_brand_id ?? 0);
+                            $slBrandId = (int) old('shopee_brand_id', $shown->shopee_brand_id ?? 0);
                             $slBrandName = $slBrandId > 0
                                 ? (string) (optional($initialBrands->firstWhere('brand_id', $slBrandId))->name ?? '')
                                 : '';
@@ -473,13 +486,13 @@
                     <div class="fm-fields fm-fields--2">
                         <x-ui.field label="Percent added" for="sl-markup-pct" name="markup_percent">
                             <x-ui.input id="sl-markup-pct" name="markup_percent" type="number" step="0.01"
-                                        :value="old('markup_percent', $listing->markup_percent ?? '')"
+                                        :value="old('markup_percent', $shown->markup_percent ?? '')"
                                         placeholder="0"
                                         :disabled="!$canManage" />
                         </x-ui.field>
                         <x-ui.field label="Fixed amount added" for="sl-markup-fixed" name="markup_fixed">
                             <x-ui.input id="sl-markup-fixed" name="markup_fixed" type="number" step="0.01"
-                                        :value="old('markup_fixed', $listing->markup_fixed ?? '')"
+                                        :value="old('markup_fixed', $shown->markup_fixed ?? '')"
                                         placeholder="0"
                                         :disabled="!$canManage" />
                         </x-ui.field>
@@ -495,12 +508,6 @@
                         </div>
                     </div>
                 </section>
-
-
-                @include('partials.channel-group-card', [
-                'storeName' => 'Shopee', 'group' => $groupCard,
-                'groupsUrl' => route('ext.shopee.product-groups.index'),
-                ])
 
             </x-slot:rail>
         </x-channel.listing-body>

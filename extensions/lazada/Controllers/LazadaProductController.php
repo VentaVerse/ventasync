@@ -2327,6 +2327,8 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ? (app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$listing]))[(int) $listing->id] ?? null)
             : null;
 
+        $groupBand = $listing->exists ? $this->groupBandFor($listing) : ['current' => null, 'groups' => [], 'values' => []];
+
         return view('ext-lazada::products.form', \App\Integrations\Listings\ListingImages::cardData((int) $listing->product_id, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('lazada_product_groups', 'lazada_product_group_products', 'lazada_product_group_id', (int) $listing->product_id, 'lazada_setting_id', (int) ($listing->lazada_setting_id ?? 0) ?: null)) + [
             'readiness' => $readiness,
             'listingState' => $listingState,
@@ -2335,7 +2337,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 'lazada', (int) ($listing->lazada_setting_id ?? 0), (int) $listing->product_id,
                 !empty($listing->lazada_item_id) ? $listing->variants->pluck('seller_sku')->all() : []
             ),
-            'groupCard' => $this->groupCardFor($listing),
+            'groupBand' => $groupBand,
             'storeId' => (int) (LazadaSetting::defaultStore()?->id ?? 0),
             'descriptionTemplates' => \App\Models\DescriptionTemplate::forStore('lazada', (int) (LazadaSetting::defaultStore()?->id ?? 0)),
             'mode' => $listing->exists ? 'edit' : 'create',
@@ -2362,6 +2364,83 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'live' => $live,
             'liveError' => $liveError,
         ]);
+    }
+
+    /**
+     * The Product group band's data: the group holding this product on the
+     * listing's store, the store's groups, and each group's values keyed as
+     * the page's band fields.
+     *
+     * @return array{current: ?int, groups: list<array{id: int, name: string, url: string}>, values: array<int, array<string, mixed>>}
+     */
+    private function groupBandFor(LazadaProduct $listing): array
+    {
+        $storeId = (int) ($listing->lazada_setting_id ?? 0);
+        $current = \App\Integrations\Listings\ListingGroup::current([
+            'pivot' => 'lazada_product_group_products', 'fk' => 'lazada_product_group_id',
+            'groups' => 'lazada_product_groups', 'storeFk' => 'lazada_setting_id',
+            'storeId' => $storeId,
+        ], (int) $listing->product_id);
+
+        $groups = \Extensions\lazada\Models\LazadaProductGroup::query()
+            ->where('lazada_setting_id', $storeId)
+            ->orderBy('name')
+            ->get(['id', 'name', 'lazada_category_id', 'brand_id', 'brand_name_override', 'markup_fixed', 'markup_percent', 'watermark_template_id']);
+        $groupIds = $groups->pluck('id')->map(fn ($v) => (int) $v)->all();
+
+        $categoryNames = LazadaCategory::query()
+            ->whereIn('category_id', $groups->pluck('lazada_category_id')->filter()->map(fn ($v) => (int) $v)->unique()->values()->all() ?: [0])
+            ->pluck('name', 'category_id');
+        $brandNames = LazadaBrand::query()
+            ->where('region', $this->region())
+            ->whereIn('brand_id', $groups->pluck('brand_id')->filter()->map(fn ($v) => (int) $v)->unique()->values()->all() ?: [0])
+            ->pluck('name', 'brand_id');
+        $answers = LazadaProductGroupAttribute::query()
+            ->whereIn('lazada_product_group_id', $groupIds ?: [0])
+            ->get(['lazada_product_group_id', 'attribute_key', 'value'])
+            ->filter(fn ($a) => trim((string) $a->value) !== '' && strtolower(trim((string) $a->attribute_key)) !== 'brand')
+            ->groupBy('lazada_product_group_id');
+
+        $list = [];
+        $values = [];
+        foreach ($groups as $g) {
+            $id = (int) $g->id;
+            $list[] = [
+                'id' => $id,
+                'name' => (string) $g->name,
+                'url' => $storeId > 0
+                    ? route('ext.lazada.product-groups.products', ['store' => $storeId, 'id' => $id])
+                    : route('ext.lazada.product-groups.products', $id),
+            ];
+
+            $categoryId = (int) ($g->lazada_category_id ?? 0);
+            $categoryName = $categoryId > 0 ? (string) ($categoryNames[$categoryId] ?? '') : '';
+
+            $brandId = (int) ($g->brand_id ?? 0);
+            $override = trim((string) ($g->brand_name_override ?? ''));
+            $none = strtolower($override) === 'no brand';
+            $brand = null;
+            if ($brandId > 0 || $override !== '') {
+                $brand = [
+                    'id' => $brandId ?: null,
+                    'label' => $none ? 'No Brand' : (string) ($brandNames[$brandId] ?? $override),
+                    'none' => $none,
+                ];
+            }
+
+            $values[$id] = [
+                'category' => $categoryId > 0
+                    ? ['id' => $categoryId, 'label' => $categoryName !== '' ? $categoryName . ' (' . $categoryId . ')' : (string) $categoryId]
+                    : null,
+                'brand' => $brand,
+                'markup_percent' => $g->markup_percent,
+                'markup_fixed' => $g->markup_fixed,
+                'watermark' => $g->watermark_template_id !== null ? (int) $g->watermark_template_id : null,
+                'attributes' => ($answers[$id] ?? collect())->pluck('value', 'attribute_key')->all(),
+            ];
+        }
+
+        return ['current' => $current, 'groups' => $list, 'values' => $values];
     }
 
     public function update(Request $request, int $productId)
@@ -3056,46 +3135,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 );
             }
         });
-    }
-
-    /**
-     * The one group this product is in on this store, for the rail's
-     * Product group card (partials/channel-group-card).
-     *
-     * @return ?array{name: string, url: string, lends: list<string>}
-     */
-    private function groupCardFor(LazadaProduct $listing): ?array
-    {
-        $group = $listing->exists ? $listing->groups->first() : null;
-        if (! $group) {
-            return null;
-        }
-        $lends = [];
-        if ($group->lazada_category_id) {
-            $name = LazadaCategory::query()->where('category_id', (int) $group->lazada_category_id)->value('name');
-            $lends[] = 'category ' . ($name ?: '#' . $group->lazada_category_id);
-        }
-        if ($group->brand_id) {
-            $name = LazadaBrand::query()->where('region', $this->region())->where('brand_id', (int) $group->brand_id)->value('name');
-            $lends[] = 'brand ' . ($name ?: '#' . $group->brand_id);
-        }
-        $markup = \App\Support\MarkupWords::of(
-            $group->markup_percent !== null ? (float) $group->markup_percent : null,
-            $group->markup_fixed !== null ? (float) $group->markup_fixed : null
-        );
-        if ($markup !== 'none') {
-            $lends[] = 'markup ' . $markup;
-        }
-        $answers = \Extensions\lazada\Models\LazadaProductGroupAttribute::query()->where('lazada_product_group_id', $group->id)->count();
-        if ($answers > 0) {
-            $lends[] = $answers . ' attribute ' . \Illuminate\Support\Str::plural('answer', $answers);
-        }
-
-        return [
-            'name' => (string) $group->name,
-            'url' => route('ext.lazada.product-groups.products', $group->id),
-            'lends' => $lends,
-        ];
     }
 
     private function region(): string

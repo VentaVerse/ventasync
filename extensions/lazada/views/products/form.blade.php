@@ -96,8 +96,6 @@
         'price'            => (string) ($productRow->price ?? ''),
         'quantity'         => (string) ($productRow->quantity ?? ''),
     ] : [];
-
-    $linkedGroups = $listing->groups;
 @endphp
 
 <div class="fm-page">
@@ -125,12 +123,6 @@
                     <span class="fm-stamp">
                         <span class="fm-stamp__k">Catalog product</span>
                         <a class="fm-stamp__v" href="{{ route('products.edit', $listing->product_id) }}">{{ $listing->product_id }}</a>
-                    </span>
-                @endif
-                @if($linkedGroups->count() > 0)
-                    <span class="fm-stamp">
-                        <span class="fm-stamp__k">Product group</span>
-                        <span class="fm-stamp__v">{{ $linkedGroups->first()->name }}@if($linkedGroups->count() > 1) and {{ $linkedGroups->count() - 1 }} more @endif</span>
                     </span>
                 @endif
             </div>
@@ -272,6 +264,19 @@
              ride this form too, so one Save keeps the whole page. --}}
         <x-channel.listing-body>
             <x-slot:main>
+                @if($mode === 'edit')
+                    @include('partials.listing-group-band', [
+                        'fields' => [
+                            'category' => ['label' => 'Lazada category', 'kind' => 'combo', 'value' => 'input[name="primary_category_id"]', 'text' => '#lz-category', 'reloads' => true],
+                            'brand' => ['label' => 'Brand', 'kind' => 'lzbrand', 'id' => '[data-brand-id]', 'none' => '[data-brand-none-flag]', 'text' => '#lz-brand', 'readout' => '[data-brand-picked]'],
+                            'markup_percent' => ['label' => 'Percent added', 'kind' => 'input', 'el' => '#lz-markup-percent'],
+                            'markup_fixed' => ['label' => 'Fixed amount added', 'kind' => 'input', 'el' => '#lz-markup-fixed'],
+                            'watermark' => ['label' => 'Watermark', 'kind' => 'follow', 'el' => 'select[name="watermark_template_id"]'],
+                            'attributes' => ['label' => 'Attribute answers', 'kind' => 'attributes'],
+                        ],
+                        'canManage' => true,
+                    ])
+                @endif
 
                 @if($mode === 'create')
                 <section class="fm-section">
@@ -573,27 +578,7 @@
                                 <span class="cl-total__note">Catalog price <x-money :php="(float) $basePrice" /></span>
                             </div>
                         @endif
-
-                        @if($groupMarkup)
-                            @php
-                                $inherited = \App\Support\MarkupWords::of(
-                                    $groupMarkup->markup_percent !== null ? (float) $groupMarkup->markup_percent : null,
-                                    $groupMarkup->markup_fixed !== null ? (float) $groupMarkup->markup_fixed : null
-                                );
-                            @endphp
-                            @if($inherited !== 'none')
-                                <p class="fm-section__note">These started from the {{ $groupMarkup->name }} group ({{ $inherited }}). Changing them here overrides the group for this listing only.</p>
-                            @endif
-                        @endif
                 </section>
-
-                @if($mode === 'edit')
-                    @include('partials.channel-group-card', [
-                        'storeName' => 'Lazada', 'group' => $groupCard,
-                        'groupsUrl' => route('ext.lazada.product-groups.index'),
-                    ])
-
-                @endif
             </x-slot:rail>
         </x-channel.listing-body>
     </form>

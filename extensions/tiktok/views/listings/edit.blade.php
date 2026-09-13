@@ -24,8 +24,8 @@
         : [null, null];
 
     $corePrice = (float) $product->price;
-    $pct = $listing?->markup_percent;
-    $fixed = $listing?->markup_fixed;
+    $pct = $shown->markup_percent;
+    $fixed = $shown->markup_fixed;
     $hasRule = $pct !== null || $fixed !== null;
     $nextPrice = round($corePrice + ($corePrice * (float) ($pct ?? 0) / 100) + (float) ($fixed ?? 0), 2);
     $missing = $readinessMissing;
@@ -144,17 +144,24 @@
 
     </x-channel.listing-strip>
 
-    {{-- The one template (the owner, 2026-09-08, draft C): main is what the
-         listing SAYS, rail is what it COSTS. Kept from draft B:
-         Content, Category and brand, Category attributes,
-         Discount, Images; the rail only reports, Product group and Last
-         push. TikTok Shop has nothing only it has. --}}
+    {{-- Main is what the listing says, led by its product group, the
+         listing's template; the rail is what it costs. --}}
     <form id="listing-form" method="POST" action="{{ route('ext.tiktok.listings.update', $product->product_id) }}" data-guard-unsaved>
         <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
         @csrf
         @method('PUT')
         <x-channel.listing-body>
             <x-slot:main>
+                @include('partials.listing-group-band', [
+                    'fields' => [
+                        'category' => ['label' => 'TikTok category', 'kind' => 'combo', 'value' => '#tl-category-value', 'text' => '#tl-category', 'reloads' => true],
+                        'markup_percent' => ['label' => 'Percent added', 'kind' => 'input', 'el' => '#tl-markup-pct'],
+                        'markup_fixed' => ['label' => 'Fixed amount added', 'kind' => 'input', 'el' => '#tl-markup-fixed'],
+                        'watermark' => ['label' => 'Watermark', 'kind' => 'follow', 'el' => 'select[name="watermark_template_id"]'],
+                        'attributes' => ['label' => 'Attribute answers', 'kind' => 'attributes'],
+                    ],
+                    'canManage' => $canManage,
+                ])
 
                 <section class="fm-section">
                     <div class="fm-section__head"><h2 class="fm-section__title">Content on this channel <x-ui.hint label="About the content">A filled field is this listing's own wording and follows nobody. An empty field follows the catalog product, shown greyed as the placeholder. Clearing a field returns it to the catalog. Nothing here ever edits the catalog product itself.</x-ui.hint></h2></div>
@@ -190,7 +197,7 @@
                                  data-combo-search-url="{{ route('ext.tiktok.products.searchCategories') }}"
                                  data-combo-lookup-url="{{ route('ext.tiktok.products.categoryLookup') }}">
                                 <div class="gf-combo__field">
-                                    <input type="hidden" id="tl-category-value" name="tiktok_category_id" data-combo-value value="{{ old('tiktok_category_id', $listing->tiktok_category_id ?? '') }}">
+                                    <input type="hidden" id="tl-category-value" name="tiktok_category_id" data-combo-value value="{{ old('tiktok_category_id', $shown->tiktok_category_id ?? '') }}">
                                     <x-ui.input id="tl-category" type="search" autocomplete="off" data-combo-input
                                                 value="{{ $category ? $category->name . ' (' . $category->id . ')' : '' }}"
                                                 placeholder="Type to search TikTok categories" :disabled="!$canManage" />
@@ -253,10 +260,10 @@
                     </div>
                         <div class="fm-fields fm-fields--2">
                             <x-ui.field label="Percent added" for="tl-markup-pct" name="markup_percent">
-                                <x-ui.input id="tl-markup-pct" name="markup_percent" type="number" step="0.01" :value="old('markup_percent', $listing->markup_percent ?? '')" placeholder="0" :disabled="!$canManage" />
+                                <x-ui.input id="tl-markup-pct" name="markup_percent" type="number" step="0.01" :value="old('markup_percent', $shown->markup_percent ?? '')" placeholder="0" :disabled="!$canManage" />
                             </x-ui.field>
                             <x-ui.field label="Fixed amount added" for="tl-markup-fixed" name="markup_fixed">
-                                <x-ui.input id="tl-markup-fixed" name="markup_fixed" type="number" step="0.01" :value="old('markup_fixed', $listing->markup_fixed ?? '')" placeholder="0" :disabled="!$canManage" />
+                                <x-ui.input id="tl-markup-fixed" name="markup_fixed" type="number" step="0.01" :value="old('markup_fixed', $shown->markup_fixed ?? '')" placeholder="0" :disabled="!$canManage" />
                             </x-ui.field>
                         </div>
                         <div class="fm-stats">
@@ -264,11 +271,6 @@
                             <div class="fm-stat"><span class="fm-stat__k">Price on TikTok Shop after push</span><span class="fm-stat__v"><x-money :php="$hasRule ? $nextPrice : $corePrice" /></span></div>
                         </div>
                 </section>
-
-                @include('partials.channel-group-card', [
-                    'storeName' => 'TikTok Shop', 'group' => $groupCard,
-                    'groupsUrl' => route('ext.tiktok.product-groups.index'),
-                ])
 
                 {{-- When and where from are figures on the strip now
                      (the owner, 2026-09-08); what the push SENT would live here,

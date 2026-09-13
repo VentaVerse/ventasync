@@ -2471,13 +2471,20 @@ class ShopeeProductController extends Controller
          * cached. Fetched here when never read, so the section appears the
          * first time an operator lands on a listing whose category we have
          * not seen - the mirrored form, not a hardcoded one. */
-        $categoryId = (int) ($listing->shopee_category_id ?? 0);
+        // The listing with its blanks filled from its group: the values in effect.
+        $inherited = app(\Extensions\shopee\Services\Shopee\ShopeeInheritedSettings::class);
+        $shown = $inherited->fill(
+            $listing ?? (new ShopeeListing())->forceFill(['product_id' => $productId]),
+            $inherited->forProducts([$productId])[$productId] ?? null
+        )['listing'];
+
+        $categoryId = (int) ($shown->shopee_category_id ?? 0);
         $groupController = app(ShopeeProductGroupController::class);
         if ($categoryId > 0) {
             $groupController->ensureTemplate($categoryId, app(ShopeeClient::class));
         }
         $sheet = $groupController->normalizedAttributesFor($categoryId);
-        $savedAttributes = $listing->attribute_values ?? [];
+        $savedAttributes = $shown->attribute_values ?? [];
 
         /* Readiness through the ONE shared computation (#101), so "Ready"
          * on this page, the listings index and the bulk push all mean the
@@ -2545,49 +2552,80 @@ class ShopeeProductController extends Controller
                only the sentences was silently linking nothing. */
             'readiness' => $readiness,
             'logistics' => $this->fetchLogistics(),
-            'groupCard' => $this->groupCardFor($productId),
+            'shown' => $shown,
+            'groupBand' => $this->groupBandFor($productId, $shopeeStoreId),
             'storeId' => (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0),
             'descriptionTemplates' => \App\Models\DescriptionTemplate::forStore('shopee', (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0)),
         ]);
     }
 
     /**
-     * The one group this product is in on this store, for the rail's
-     * Product group card (partials/channel-group-card): its name, its
-     * page, and what it lends a listing that has nothing of its own.
+     * The Product group band's data (partials/listing-group-band): the
+     * group this product is in on this store, the store's groups, and each
+     * group's values keyed the way the page's field descriptors are.
      *
-     * @return ?array{name: string, url: string, lends: list<string>}
+     * @return array{current: ?int, groups: list<array{id: int, name: string, url: string}>, values: array<int, array<string, mixed>>}
      */
-    private function groupCardFor(int $productId): ?array
+    private function groupBandFor(int $productId, int $storeId): array
     {
-        $g = app(\Extensions\shopee\Services\Shopee\ShopeeInheritedSettings::class)->forProducts([$productId])[$productId] ?? null;
-        if (! $g) {
-            return null;
+        $current = \App\Integrations\Listings\ListingGroup::current([
+            'pivot' => 'shopee_product_group_products', 'fk' => 'shopee_product_group_id',
+            'groups' => 'shopee_product_groups', 'storeFk' => 'shopee_setting_id',
+            'storeId' => $storeId,
+        ], $productId);
+
+        $groups = ShopeeProductGroup::query()
+            ->where('shopee_setting_id', $storeId)
+            ->orderBy('name')
+            ->get(['id', 'name', 'shopee_category_id', 'shopee_brand_id', 'logistic_ids', 'markup_percent', 'markup_fixed', 'watermark_template_id']);
+        if ($groups->isEmpty()) {
+            return ['current' => $current, 'groups' => [], 'values' => []];
         }
-        $lends = [];
-        if ($g['category_id']) {
-            $name = \Extensions\shopee\Models\ShopeeCategory::query()->where('category_id', $g['category_id'])->value('name');
-            $lends[] = 'category ' . ($name ?: '#' . $g['category_id']);
-        }
-        if ($g['brand_id']) {
-            $name = \Extensions\shopee\Models\ShopeeBrand::query()->where('brand_id', $g['brand_id'])->value('name');
-            $lends[] = 'brand ' . ($name ?: '#' . $g['brand_id']);
-        }
-        if ($g['logistic_ids'] !== []) {
-            $lends[] = count($g['logistic_ids']) . ' ' . \Illuminate\Support\Str::plural('courier', count($g['logistic_ids']));
-        }
-        $markup = \App\Support\MarkupWords::of($g['markup_percent'], $g['markup_fixed']);
-        if ($markup !== 'none') {
-            $lends[] = 'markup ' . $markup;
-        }
-        if ($g['attributes'] !== []) {
-            $lends[] = count($g['attributes']) . ' attribute ' . \Illuminate\Support\Str::plural('answer', count($g['attributes']));
+
+        $categoryIds = $groups->pluck('shopee_category_id')->map(fn ($v) => (int) $v)->filter()->unique()->values()->all();
+        $brandIds = $groups->pluck('shopee_brand_id')->map(fn ($v) => (int) $v)->filter()->unique()->values()->all();
+
+        $categoryNames = $categoryIds === [] ? collect()
+            : ShopeeCategory::query()->whereIn('category_id', $categoryIds)->pluck('name', 'category_id');
+        $brands = $brandIds === [] ? collect()
+            : \Extensions\shopee\Models\ShopeeBrand::query()->whereIn('brand_id', $brandIds)->get(['brand_id', 'category_id', 'name']);
+        $answers = \Extensions\shopee\Models\ShopeeProductGroupAttribute::query()
+            ->whereIn('shopee_product_group_id', $groups->pluck('id')->all())
+            ->get(['shopee_product_group_id', 'attribute_key', 'value'])
+            ->filter(fn ($a) => trim((string) $a->value) !== '')
+            ->groupBy('shopee_product_group_id');
+
+        $values = [];
+        foreach ($groups as $g) {
+            $cid = (int) ($g->shopee_category_id ?? 0);
+            $bid = (int) ($g->shopee_brand_id ?? 0);
+            // The label reads the way the category picker writes it: name, then the id.
+            $categoryName = $cid > 0 ? $categoryNames->get($cid) : null;
+            $brandName = null;
+            if ($bid > 0) {
+                $brand = $brands->first(fn ($b) => (int) $b->brand_id === $bid && (int) $b->category_id === $cid)
+                    ?? $brands->firstWhere('brand_id', $bid);
+                $brandName = $brand ? (string) $brand->name : '';
+            }
+            $values[(int) $g->id] = [
+                'category' => $cid > 0 ? ['id' => $cid, 'label' => $categoryName !== null ? $categoryName . ' (' . $cid . ')' : (string) $cid] : null,
+                'brand' => $bid > 0 ? ['id' => $bid, 'label' => $brandName] : null,
+                'couriers' => array_values(array_filter(array_map('intval', (array) ($g->logistic_ids ?? [])))),
+                'markup_percent' => $g->markup_percent !== null ? (float) $g->markup_percent : null,
+                'markup_fixed' => $g->markup_fixed !== null ? (float) $g->markup_fixed : null,
+                'watermark' => $g->watermark_template_id !== null ? (int) $g->watermark_template_id : null,
+                'attributes' => ($answers->get($g->id) ?? collect())->pluck('value', 'attribute_key')->all(),
+            ];
         }
 
         return [
-            'name' => $g['group_name'],
-            'url' => route('ext.shopee.product-groups.products', $g['group_id']),
-            'lends' => $lends,
+            'current' => $current,
+            'groups' => $groups->map(fn ($g) => [
+                'id' => (int) $g->id,
+                'name' => (string) $g->name,
+                'url' => route('ext.shopee.product-groups.products', $g->id),
+            ])->values()->all(),
+            'values' => $values,
         ];
     }
 

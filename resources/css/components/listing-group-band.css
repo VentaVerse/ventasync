@@ -1,0 +1,88 @@
+/* The Product group band: the first decision on a listing page. The group
+   is the listing's template, so it leads the main column on its own raised,
+   tinted surface; everything below starts from it. */
+
+.lg-band {
+    display: flex;
+    flex-direction: column;
+    gap: var(--bl-space-3);
+    padding: var(--bl-space-4) var(--bl-space-5);
+    border: 1px solid color-mix(in srgb, var(--bl-brand-deep) 22%, var(--bl-rule-2));
+    border-radius: var(--bl-r-panel);
+    background: linear-gradient(180deg, var(--bl-brand-wash), var(--bl-sheet) 140%);
+    box-shadow: var(--bl-lift-2);
+}
+
+.lg-band__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: var(--bl-space-2) var(--bl-space-4);
+}
+
+.lg-band__field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--bl-space-2);
+    min-width: 0;
+}
+
+.lg-band__label {
+    font-size: 13px;
+    font-weight: 650;
+    color: var(--bl-ink);
+}
+
+.lg-band__select {
+    min-height: 44px;
+    padding: 10px 14px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.lg-band__open {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--bl-brand-deep);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    white-space: nowrap;
+}
+
+.lg-band__diff {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--bl-space-2) var(--bl-space-3);
+    padding-top: var(--bl-space-3);
+    border-top: 1px solid color-mix(in srgb, var(--bl-brand-deep) 18%, var(--bl-rule-2));
+}
+
+.lg-band__diff p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--bl-ink-2);
+}
+
+.lg-band__count {
+    font-weight: 650;
+    color: var(--bl-attn);
+}
+
+@media (max-width: 560px) {
+    .lg-band {
+        padding: var(--bl-space-4);
+    }
+
+    .lg-band__row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .lg-band__open {
+        min-height: 0;
+    }
+}

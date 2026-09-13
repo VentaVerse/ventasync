@@ -258,10 +258,11 @@ class ShopeeListingPageTest extends TestCase
     }
 
     /**
-     * The rail reports where a listing goes: the one group it is in on this
-     * store, and what that group lends a listing with no rule of its own.
+     * The product group leads the page as the listing's template: the one
+     * group it is in on this store is picked, and a listing with no rule of
+     * its own shows the group's rule in its fields.
      */
-    public function test_the_rail_names_the_group_and_what_it_lends(): void
+    public function test_the_band_picks_the_group_and_the_fields_show_what_it_gives(): void
     {
         $productId = $this->seedProduct();
         $group = \Extensions\shopee\Models\ShopeeProductGroup::create([
@@ -275,8 +276,10 @@ class ShopeeListingPageTest extends TestCase
         $page = $this->actingAs($this->manager())->get(route('ext.shopee.listings.edit', $productId))->assertOk();
         $page->assertSee('Product group');
         $page->assertSee('Guitar pedals');
-        $page->assertSee('markup 50%');
-        $page->assertSee('1 courier');
+        $html = $page->getContent();
+        $this->assertMatchesRegularExpression('/<option value="' . $group->id . '"\s+selected/', $html);
+        $this->assertMatchesRegularExpression('/id="sl-markup-pct"[^>]*value="50(\.0+)?"|value="50(\.0+)?"[^>]*id="sl-markup-pct"/', $html,
+            "the group's rule is the value in effect");
     }
 
     /**

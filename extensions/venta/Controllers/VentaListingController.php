@@ -725,33 +725,38 @@ class VentaListingController extends Controller
             }
         }
 
-        // The one group this product is in on this store (one product, one
-        // group), for the rail's Product group card and the Category section.
-        $groupRow = VentaProductGroupProduct::query()
-            ->join('venta_product_groups as g', 'g.id', '=', 'venta_product_group_products.venta_product_group_id')
-            ->leftJoin('venta_categories as c', fn ($j) => $j->on('c.venta_category_id', '=', 'g.venta_category_id')->where('c.venta_setting_id', '=', $store))
-            ->where('g.venta_setting_id', $store)
-            ->where('venta_product_group_products.product_id', $productId)
-            ->orderBy('venta_product_group_products.id')
-            ->first(['g.id', 'g.name', 'g.venta_category_id', 'g.markup_percent', 'g.markup_fixed', 'c.name as category_name']);
-        $groupCategory = $groupRow && $groupRow->venta_category_id ? (string) ($groupRow->category_name ?: '#' . $groupRow->venta_category_id) : null;
-        $groupCard = null;
-        if ($groupRow) {
-            $lends = [];
-            if ($groupCategory !== null) {
-                $lends[] = 'category ' . $groupCategory;
-            }
-            $markup = \App\Support\MarkupWords::of($groupRow->markup_percent !== null ? (float) $groupRow->markup_percent : null, $groupRow->markup_fixed !== null ? (float) $groupRow->markup_fixed : null);
-            if ($markup !== 'none') {
-                $lends[] = 'markup ' . $markup;
-            }
-            $groupCard = [
-                'id' => (int) $groupRow->id,
-                'name' => (string) $groupRow->name,
-                'url' => route('ext.venta.product-groups.products', [$store, $groupRow->id]),
-                'lends' => $lends,
-            ];
-        }
+        // The Product group band: the group holding this product on this
+        // store, this store's groups, and each group's values for the
+        // fields it fills.
+        $groupId = \App\Integrations\Listings\ListingGroup::current([
+            'pivot' => 'venta_product_group_products', 'fk' => 'venta_product_group_id',
+            'groups' => 'venta_product_groups', 'storeFk' => 'venta_setting_id', 'storeId' => $store,
+        ], $productId);
+        $storeGroups = VentaProductGroup::query()->where('venta_setting_id', $store)->orderBy('name')
+            ->get(['id', 'name', 'venta_category_id', 'markup_percent', 'markup_fixed', 'watermark_template_id']);
+        $group = $groupId !== null ? $storeGroups->firstWhere('id', $groupId) : null;
+        $num = fn ($v) => $v !== null ? (float) $v : null;
+        $groupBand = [
+            'current' => $groupId,
+            'groups' => $storeGroups->map(fn ($g) => [
+                'id' => (int) $g->id,
+                'name' => (string) $g->name,
+                'url' => route('ext.venta.product-groups.products', [$store, $g->id]),
+            ])->all(),
+            'values' => $storeGroups->mapWithKeys(fn ($g) => [(int) $g->id => [
+                'category' => $g->venta_category_id ? (int) $g->venta_category_id : null,
+                'markup_percent' => $num($g->markup_percent),
+                'markup_fixed' => $num($g->markup_fixed),
+                'watermark' => $g->watermark_template_id ? (int) $g->watermark_template_id : null,
+            ]])->all(),
+        ];
+
+        // A blank category or price rule on the listing follows its group,
+        // so the fields show the group's value until the listing sets its own.
+        $shownCategoryId = ((int) ($listing->venta_category_id ?? 0)) ?: (($group && $group->venta_category_id) ? (int) $group->venta_category_id : null);
+        $ownRule = $listing && ($listing->markup_percent !== null || $listing->markup_fixed !== null);
+        $markupPercent = $ownRule ? $num($listing->markup_percent) : $num($group?->markup_percent);
+        $markupFixed = $ownRule ? $num($listing->markup_fixed) : $num($group?->markup_fixed);
 
         return view('ext-venta::listings.edit', \App\Integrations\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('venta_product_groups', 'venta_product_group_products', 'venta_product_group_id', $productId, 'venta_setting_id', $store)) + [
             /* What this listing still needs before the store would take
@@ -769,10 +774,14 @@ class VentaListingController extends Controller
                 'venta', $store, $productId,
                 ($live['state'] ?? '') === 'found' ? collect($live['variants'] ?? [])->pluck('sku')->all() : ($link ? null : [])
             ),
-            'groupCard' => $groupCard,
+            'groupBand' => $groupBand,
+            'storeCategories' => \Extensions\venta\Models\VentaCategory::query()->where('venta_setting_id', $store)
+                ->orderBy('name')->get(['venta_category_id', 'name']),
+            'shownCategoryId' => $shownCategoryId,
+            'markupPercent' => $markupPercent,
+            'markupFixed' => $markupFixed,
             'storeId' => (int) $store,
             'descriptionTemplates' => \App\Models\DescriptionTemplate::forStore('venta', (int) $store),
-            'groupCategory' => $groupCategory,
         ]);
     }
 

@@ -57,13 +57,27 @@ class TikTokListingController extends Controller
             }
         }
 
+        /* The listing as the page shows it: a blank category and missing
+         * attribute answers filled from the product's group, and the group's
+         * price rule when the listing has none of its own. Never saved. */
+        $inherit = app(\Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::class);
+        $inheritedGroup = $inherit->forProducts([$productId])[$productId] ?? null;
+        $shown = $inherit->fill($listing ?? (new TikTokListing())->forceFill(['product_id' => $productId]), $inheritedGroup)['listing'];
+        if ($inheritedGroup && $shown->markup_percent === null && $shown->markup_fixed === null) {
+            $groupModel = \Extensions\tiktok\Models\TikTokProductGroup::query()->find($inheritedGroup['group_id']);
+            if ($groupModel) {
+                $shown->markup_percent = $groupModel->markup_percent;
+                $shown->markup_fixed = $groupModel->markup_fixed;
+            }
+        }
+
         // The category's attribute sheet, read once when never seen.
         $attributes = app(TikTokAttributes::class);
-        $template = ($listing && $listing->tiktok_category_id && $c)
-            ? $attributes->ensureTemplate((string) $listing->tiktok_category_id, app(TikTokClient::class), $c)
+        $template = ($shown->tiktok_category_id && $c)
+            ? $attributes->ensureTemplate((string) $shown->tiktok_category_id, app(TikTokClient::class), $c)
             : null;
-        $category = ($listing && $listing->tiktok_category_id)
-            ? TikTokCategory::query()->where('id', $listing->tiktok_category_id)->first(['id', 'name'])
+        $category = $shown->tiktok_category_id
+            ? TikTokCategory::query()->where('id', $shown->tiktok_category_id)->first(['id', 'name'])
             : null;
         $readiness = app(TikTokListingReadiness::class)->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => []];
 
@@ -93,6 +107,48 @@ class TikTokListingController extends Controller
             'missing' => array_values(array_filter($covSkus, fn ($sku) => !isset($covKeys[strtolower($sku)]))),
         ];
 
+        // The Product group band: this store's groups and each one's values.
+        $bandGroups = \Extensions\tiktok\Models\TikTokProductGroup::query()
+            ->where('tiktok_setting_id', $covStoreId)
+            ->orderBy('name')
+            ->get(['id', 'name', 'tiktok_category_id', 'markup_percent', 'markup_fixed', 'watermark_template_id']);
+        $bandCategoryNames = TikTokCategory::query()
+            ->whereIn('id', $bandGroups->pluck('tiktok_category_id')->filter()->unique()->values()->all())
+            ->pluck('name', 'id');
+        $bandAnswers = \Extensions\tiktok\Models\TikTokProductGroupAttribute::query()
+            ->whereIn('tiktok_product_group_id', $bandGroups->pluck('id')->all())
+            ->get(['tiktok_product_group_id', 'attribute_key', 'value'])
+            ->groupBy('tiktok_product_group_id');
+        $groupBand = [
+            'current' => \App\Integrations\Listings\ListingGroup::current([
+                'pivot' => 'tiktok_product_group_products', 'fk' => 'tiktok_product_group_id',
+                'groups' => 'tiktok_product_groups', 'storeFk' => 'tiktok_setting_id',
+                'storeId' => $covStoreId,
+            ], $productId),
+            'groups' => $bandGroups->map(fn ($g) => [
+                'id' => (int) $g->id,
+                'name' => (string) $g->name,
+                'url' => route('ext.tiktok.product-groups.products', $g->id),
+            ])->values()->all(),
+            'values' => $bandGroups->mapWithKeys(function ($g) use ($bandCategoryNames, $bandAnswers) {
+                $categoryId = trim((string) ($g->tiktok_category_id ?? ''));
+                $categoryName = $categoryId !== '' ? ($bandCategoryNames[$categoryId] ?? null) : null;
+
+                return [(int) $g->id => [
+                    'category' => $categoryId !== ''
+                        ? ['id' => $categoryId, 'label' => $categoryName !== null ? $categoryName . ' (' . $categoryId . ')' : $categoryId]
+                        : null,
+                    'markup_percent' => $g->markup_percent,
+                    'markup_fixed' => $g->markup_fixed,
+                    'watermark' => $g->watermark_template_id,
+                    'attributes' => ($bandAnswers->get($g->id) ?? collect())
+                        ->filter(fn ($a) => trim((string) $a->value) !== '')
+                        ->pluck('value', 'attribute_key')
+                        ->all(),
+                ]];
+            })->all(),
+        ];
+
         return view('ext-tiktok::listings.edit', \App\Integrations\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('tiktok_product_groups', 'tiktok_product_group_products', 'tiktok_product_group_id', $productId, 'tiktok_setting_id', (int) ($listing->tiktok_setting_id ?? 0) ?: null)) + [
             'coverage' => $coverage,
             ...\App\Integrations\Listings\ListingVariations::cardData(
@@ -108,51 +164,15 @@ class TikTokListingController extends Controller
             'category' => $category,
             'attrTemplate' => $template,
             'attrRows' => $attributes->rows($template),
-            'savedAttributes' => $listing->attribute_values ?? [],
+            'shown' => $shown,
+            'savedAttributes' => $shown->attribute_values ?? [],
             'readinessMissing' => $readiness['missing'],
             // The gaps by CODE, so the page can link each one to where it is fixed.
             'readiness' => $readiness,
-            'groupCard' => $this->groupCardFor($productId),
+            'groupBand' => $groupBand,
             'storeId' => (int) (TikTokSetting::defaultStore()?->id ?? 0),
             'descriptionTemplates' => \App\Models\DescriptionTemplate::forStore('tiktok', (int) (TikTokSetting::defaultStore()?->id ?? 0)),
         ]);
-    }
-
-    /**
-     * The one group this product is in on this store, for the rail's
-     * Product group card (partials/channel-group-card).
-     *
-     * @return ?array{name: string, url: string, lends: list<string>}
-     */
-    private function groupCardFor(int $productId): ?array
-    {
-        $groupId = (int) (\Extensions\tiktok\Models\TikTokProductGroupProduct::query()
-            ->where('product_id', $productId)->orderBy('id')->value('tiktok_product_group_id') ?? 0);
-        $group = $groupId > 0 ? \Extensions\tiktok\Models\TikTokProductGroup::query()->find($groupId) : null;
-        if (! $group) {
-            return null;
-        }
-        $lends = [];
-        if ($group->tiktok_category_id) {
-            $name = TikTokCategory::query()->where('id', $group->tiktok_category_id)->value('name');
-            $lends[] = 'category ' . ($name ?: '#' . $group->tiktok_category_id);
-        }
-        if ($group->markup_percent !== null || $group->markup_fixed !== null) {
-            $words = \App\Support\MarkupWords::of($group->markup_percent !== null ? (float) $group->markup_percent : null, $group->markup_fixed !== null ? (float) $group->markup_fixed : null);
-            if ($words !== 'none') {
-                $lends[] = 'markup ' . $words;
-            }
-        }
-        $answers = \Extensions\tiktok\Models\TikTokProductGroupAttribute::query()->where('tiktok_product_group_id', $group->id)->count();
-        if ($answers > 0) {
-            $lends[] = $answers . ' attribute ' . \Illuminate\Support\Str::plural('answer', $answers);
-        }
-
-        return [
-            'name' => (string) $group->name,
-            'url' => route('ext.tiktok.product-groups.products', $group->id),
-            'lends' => $lends,
-        ];
     }
 
     public function update(Request $request, int $productId)

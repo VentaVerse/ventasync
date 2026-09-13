@@ -27,8 +27,8 @@
     [$statusLabel, $statusTone] = $live && $live['status'] ? ($statusWords[$live['status']] ?? [ucfirst($live['status']), 'neutral']) : ['Unknown', 'neutral'];
 
     $corePrice = (float) $product->price;
-    $pct = $listing?->markup_percent;
-    $fixed = $listing?->markup_fixed;
+    $pct = $markupPercent;
+    $fixed = $markupFixed;
     $hasRule = $pct !== null || $fixed !== null;
     $nextPrice = round($corePrice + ($corePrice * (float) ($pct ?? 0) / 100) + (float) ($fixed ?? 0), 2);
     $coreDescription = trim(strip_tags(html_entity_decode((string) ($product->description ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
@@ -159,6 +159,16 @@
         <x-channel.listing-body>
             <x-slot:main>
 
+                @include('partials.listing-group-band', [
+                    'fields' => [
+                        'category' => ['label' => 'Category', 'kind' => 'input', 'el' => '#vl-category'],
+                        'markup_percent' => ['label' => 'Percent added', 'kind' => 'input', 'el' => '#vl-markup-pct'],
+                        'markup_fixed' => ['label' => 'Fixed amount added', 'kind' => 'input', 'el' => '#vl-markup-fixed'],
+                        'watermark' => ['label' => 'Watermark', 'kind' => 'follow', 'el' => 'select[name="watermark_template_id"]'],
+                    ],
+                    'canManage' => $canManage,
+                ])
+
                 <section class="fm-section">
                     <div class="fm-section__head"><h2 class="fm-section__title">Content on this store <x-ui.hint label="About the content">A filled field is this listing's own wording and follows nobody. An empty field follows the catalogue product, shown greyed as the placeholder. Clearing a field returns it to the catalogue. Nothing here ever edits the catalogue product itself.</x-ui.hint></h2></div>
                     <div class="fm-fields">
@@ -185,14 +195,17 @@
                 </section>
 
                 <section class="fm-section">
-                    <div class="fm-section__head"><h2 class="fm-section__title">Category on {{ $storeName }} <x-ui.hint label="About the category">The store owns its categories. The product's group picks one, and every push sends it; a product in no group goes up under the catalogue's own category names.</x-ui.hint></h2></div>
-                    @if($groupCard && $groupCategory)
-                        <p class="fm-section__note"><strong>{{ $groupCategory }}</strong>, from the group <a href="{{ $groupCard['url'] }}">{{ $groupCard['name'] }}</a>.</p>
-                    @elseif($groupCard)
-                        <p class="fm-section__note">The group <a href="{{ route('ext.venta.product-groups.edit', [$setting->id, $groupCard['id']]) }}">{{ $groupCard['name'] }}</a> has no category yet.</p>
-                    @else
-                        <p class="fm-section__note">In no product group on this store. <a href="{{ route('ext.venta.product-groups.index', $setting->id) }}">Add it to one</a> to give it a category.</p>
-                    @endif
+                    <div class="fm-section__head"><h2 class="fm-section__title">Category on {{ $storeName }}</h2></div>
+                    <div class="fm-fields">
+                        <x-ui.field label="Category" for="vl-category" name="venta_category_id">
+                            <select id="vl-category" name="venta_category_id" class="x-input" @disabled(!$canManage)>
+                                <option value="">None</option>
+                                @foreach($storeCategories as $category)
+                                    <option value="{{ $category->venta_category_id }}" @selected((int) old('venta_category_id', $shownCategoryId) === (int) $category->venta_category_id)>{{ $category->name }}</option>
+                                @endforeach
+                            </select>
+                        </x-ui.field>
+                    </div>
                 </section>
 
                 @include('partials.channel-images-card', [
@@ -229,10 +242,10 @@
                     </div>
                         <div class="fm-fields fm-fields--2">
                             <x-ui.field label="Percent added" for="vl-markup-pct" name="markup_percent">
-                                <x-ui.input id="vl-markup-pct" name="markup_percent" type="number" step="0.01" :value="old('markup_percent', $listing->markup_percent ?? '')" placeholder="0" :disabled="!$canManage" />
+                                <x-ui.input id="vl-markup-pct" name="markup_percent" type="number" step="0.01" :value="old('markup_percent', $markupPercent ?? '')" placeholder="0" :disabled="!$canManage" />
                             </x-ui.field>
                             <x-ui.field label="Fixed amount added" for="vl-markup-fixed" name="markup_fixed">
-                                <x-ui.input id="vl-markup-fixed" name="markup_fixed" type="number" step="0.01" :value="old('markup_fixed', $listing->markup_fixed ?? '')" placeholder="0" :disabled="!$canManage" />
+                                <x-ui.input id="vl-markup-fixed" name="markup_fixed" type="number" step="0.01" :value="old('markup_fixed', $markupFixed ?? '')" placeholder="0" :disabled="!$canManage" />
                             </x-ui.field>
                         </div>
                         <div class="fm-stats">
@@ -240,11 +253,6 @@
                             <div class="fm-stat"><span class="fm-stat__k">Price on {{ $storeName }} after push</span><span class="fm-stat__v"><x-money :php="$hasRule ? $nextPrice : $corePrice" /></span></div>
                         </div>
                 </section>
-
-                @include('partials.channel-group-card', [
-                    'storeName' => $storeName, 'group' => $groupCard,
-                    'groupsUrl' => route('ext.venta.product-groups.index', $setting->id),
-                ])
 
                 @if($listing?->live_checked_at)
                     {{-- Last push sent went with the owner's read on 2026-09-09;
