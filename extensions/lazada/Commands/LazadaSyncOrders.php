@@ -525,20 +525,22 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
         // First: always extract basic pricing from raw order data
         $raw = $order->raw;
         if (is_array($raw) && !empty($raw['price'])) {
+            // Money::parse strips the thousands comma Lazada's order detail can carry on large values.
+            $m = fn ($v) => \App\Support\Money::parse($v);
             $fees = is_array($existingFees) ? $existingFees : [];
-            $fees['subtotal'] = (float) ($raw['price'] ?? 0);
-            $fees['paid_total'] = (float) ($raw['price'] ?? 0)
-                - (float) ($raw['voucher_seller'] ?? 0)
-                - (float) ($raw['voucher_platform'] ?? $raw['voucher'] ?? 0);
-            $fees['shipping'] = (float) ($raw['shipping_fee'] ?? 0);
-            $fees['voucher_seller'] = (float) ($raw['voucher_seller'] ?? 0);
-            $fees['voucher_platform'] = (float) ($raw['voucher_platform'] ?? $raw['voucher'] ?? 0);
-            $fees['shipping_discount_seller'] = (float) ($raw['shipping_fee_discount_seller'] ?? 0);
-            $fees['shipping_discount_platform'] = (float) ($raw['shipping_fee_discount_platform'] ?? 0);
-            $fees['wallet_credits'] = (float) ($raw['wallet_credits'] ?? 0);
-            $fees['shipping_service_cost'] = (float) ($raw['shipping_service_cost'] ?? 0);
-            $fees['order_price'] = (float) ($raw['price'] ?? 0);
-            $fees['order_voucher'] = (float) ($raw['voucher_platform'] ?? $raw['voucher'] ?? 0);
+            $fees['subtotal'] = $m($raw['price'] ?? 0);
+            $fees['paid_total'] = $m($raw['price'] ?? 0)
+                - $m($raw['voucher_seller'] ?? 0)
+                - $m($raw['voucher_platform'] ?? $raw['voucher'] ?? 0);
+            $fees['shipping'] = $m($raw['shipping_fee'] ?? 0);
+            $fees['voucher_seller'] = $m($raw['voucher_seller'] ?? 0);
+            $fees['voucher_platform'] = $m($raw['voucher_platform'] ?? $raw['voucher'] ?? 0);
+            $fees['shipping_discount_seller'] = $m($raw['shipping_fee_discount_seller'] ?? 0);
+            $fees['shipping_discount_platform'] = $m($raw['shipping_fee_discount_platform'] ?? 0);
+            $fees['wallet_credits'] = $m($raw['wallet_credits'] ?? 0);
+            $fees['shipping_service_cost'] = $m($raw['shipping_service_cost'] ?? 0);
+            $fees['order_price'] = $m($raw['price'] ?? 0);
+            $fees['order_voucher'] = $m($raw['voucher_platform'] ?? $raw['voucher'] ?? 0);
 
             $order->fees = $fees;
             $order->save();
@@ -583,7 +585,8 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
 
                 $feeType = (int) ($trx['fee_type'] ?? 0);
                 $feeName = (string) ($trx['fee_name'] ?? $trx['transaction_type'] ?? '');
-                $amount = (float) ($trx['amount'] ?? $trx['fee_amount'] ?? 0);
+                // Money::parse strips the thousands comma Lazada sends ("-2,251.57"); a bare (float) would read that as -2.
+                $amount = \App\Support\Money::parse($trx['amount'] ?? $trx['fee_amount'] ?? 0);
 
                 if ($feeType && in_array($feeType, $commissionTypes)) {
                     $commissionTotal += $amount;

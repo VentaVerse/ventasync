@@ -28,6 +28,29 @@ class Money
 
     private static ?string $defaultCodeCache = null;
 
+    /**
+     * Parse a money value that arrived as marketplace data into a float.
+     *
+     * Marketplace finance APIs - Lazada's /finance/transaction/details/get
+     * above all - return amounts as strings WITH a thousands separator, e.g.
+     * "-2,251.57". A bare (float) cast stops at the comma and reads that as
+     * -2, silently dropping the thousands: a fee that crossed 1,000 was
+     * truncated to one or two pesos, which understated fees and overstated
+     * profit on every large order. Strip the grouping commas (and any stray
+     * whitespace) before casting so an inbound money string always parses in
+     * full. These feeds use comma-thousands / dot-decimal (PH), so a comma is
+     * always a group separator here, never the decimal mark. Numeric inputs
+     * (int/float) and null pass straight through.
+     */
+    public static function parse(mixed $value): float
+    {
+        if (is_int($value) || is_float($value)) {
+            return (float) $value;
+        }
+
+        return (float) str_replace([',', ' '], '', (string) ($value ?? ''));
+    }
+
     /** @var array<string, string|null> currency code (uppercased) => symbol, or null if unconfigured */
     private static array $symbolCache = [];
 

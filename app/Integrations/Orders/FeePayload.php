@@ -26,7 +26,9 @@ final class FeePayload
     /** A magnitude, whichever sign the marketplace used for a deduction. */
     public static function amount(array $payload, string $key): float
     {
-        return abs((float) ($payload[$key] ?? 0));
+        // Money::parse strips the thousands comma a marketplace may send
+        // ("2,251.57"); a bare (float) would read that as 2 and understate the fee.
+        return abs(\App\Support\Money::parse($payload[$key] ?? 0));
     }
 
     /**

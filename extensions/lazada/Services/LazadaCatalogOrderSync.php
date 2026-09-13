@@ -69,7 +69,7 @@ class LazadaCatalogOrderSync
             $shippingMethod = trim((string) ($src['shipping_provider'] ?? ($src['shipping_provider_type'] ?? '')));
             $paymentMethod = trim((string) ($src['payment_method'] ?? ''));
             $trackingNumber = trim((string) ($src['tracking_code'] ?? ($src['tracking_number'] ?? '')));
-            $total = (float) ($src['price'] ?? ($src['total'] ?? 0));
+            $total = \App\Support\Money::parse($src['price'] ?? ($src['total'] ?? 0));
             $currencyCode = trim((string) ($src['currency'] ?? 'PHP'));
             if ($currencyCode === '') $currencyCode = 'PHP';
 
@@ -232,11 +232,11 @@ class LazadaCatalogOrderSync
                 $key = trim((string) ($lp->sku ?? ''));
                 if ($key === '') $key = '_nosku_' . $lp->id;
 
-                $itemPrice = (float) ($lpRaw['item_price'] ?? ($lpRaw['paid_price'] ?? ($lpRaw['price'] ?? 0)));
+                $itemPrice = \App\Support\Money::parse($lpRaw['item_price'] ?? ($lpRaw['paid_price'] ?? ($lpRaw['price'] ?? 0)));
                 $itemQty = max(1, (int) $lp->quantity);
 
-                $shippingTotal += (float) ($lpRaw['shipping_amount'] ?? ($lpRaw['shipping_fee_original'] ?? 0));
-                $voucherTotal += (float) ($lpRaw['voucher_amount'] ?? ($lpRaw['voucher_seller'] ?? 0));
+                $shippingTotal += \App\Support\Money::parse($lpRaw['shipping_amount'] ?? ($lpRaw['shipping_fee_original'] ?? 0));
+                $voucherTotal += \App\Support\Money::parse($lpRaw['voucher_amount'] ?? ($lpRaw['voucher_seller'] ?? 0));
 
                 if (!isset($grouped[$key])) {
                     $grouped[$key] = [

@@ -342,7 +342,8 @@ class LazadaOrderController extends Controller
 
                             $feeType = (int) ($trx['fee_type'] ?? 0);
                             $feeName = (string) ($trx['fee_name'] ?? $trx['transaction_type'] ?? '');
-                            $amount = (float) ($trx['amount'] ?? $trx['fee_amount'] ?? 0);
+                            // Money::parse strips the thousands comma Lazada sends ("-2,251.57"); a bare (float) would read that as -2.
+                            $amount = \App\Support\Money::parse($trx['amount'] ?? $trx['fee_amount'] ?? 0);
                             $trxDate = (string) ($trx['transaction_date'] ?? $trx['paid_time'] ?? '');
                             $trxNumber = (string) ($trx['transaction_number'] ?? '');
                             $orderItemId = (string) ($trx['order_item_id'] ?? $trx['orderItemId'] ?? '');
@@ -427,29 +428,31 @@ class LazadaOrderController extends Controller
         $walletCredits = 0;
         $shippingServiceCost = 0;
 
+        // Money::parse strips the thousands comma Lazada's order detail can carry on large values.
+        $m = fn ($v) => \App\Support\Money::parse($v);
         foreach ($items as $item) {
             $ir = is_array($item->raw) ? $item->raw : [];
             $qty = max(1, (int) ($item->quantity ?? 1));
 
-            $itemPrice = (float) ($ir['item_price'] ?? ($ir['price'] ?? 0));
-            $paidPrice = (float) ($ir['paid_price'] ?? $itemPrice);
+            $itemPrice = $m($ir['item_price'] ?? ($ir['price'] ?? 0));
+            $paidPrice = $m($ir['paid_price'] ?? $itemPrice);
             $subtotal += $itemPrice * $qty;
             $paidTotal += $paidPrice;
-            $shippingTotal += (float) ($ir['shipping_amount'] ?? ($ir['shipping_fee_original'] ?? 0));
-            $voucherSeller += (float) ($ir['voucher_seller'] ?? 0);
-            $voucherPlatform += (float) ($ir['voucher_platform'] ?? 0);
-            $shippingDiscountSeller += (float) ($ir['shipping_fee_discount_seller'] ?? 0);
-            $shippingDiscountPlatform += (float) ($ir['shipping_fee_discount_platform'] ?? 0);
-            $walletCredits += (float) ($ir['wallet_credits'] ?? 0);
-            $shippingServiceCost += (float) ($ir['shipping_service_cost'] ?? 0);
+            $shippingTotal += $m($ir['shipping_amount'] ?? ($ir['shipping_fee_original'] ?? 0));
+            $voucherSeller += $m($ir['voucher_seller'] ?? 0);
+            $voucherPlatform += $m($ir['voucher_platform'] ?? 0);
+            $shippingDiscountSeller += $m($ir['shipping_fee_discount_seller'] ?? 0);
+            $shippingDiscountPlatform += $m($ir['shipping_fee_discount_platform'] ?? 0);
+            $walletCredits += $m($ir['wallet_credits'] ?? 0);
+            $shippingServiceCost += $m($ir['shipping_service_cost'] ?? 0);
         }
 
         // Order-level data
         $raw = is_array($order->raw) ? $order->raw : [];
         $detail = $raw['_detail'] ?? $raw;
-        $orderPrice = (float) ($detail['price'] ?? 0);
-        $orderShipping = (float) ($detail['shipping_fee'] ?? ($detail['shipping_amount'] ?? 0));
-        $orderVoucher = (float) ($detail['voucher'] ?? ($detail['voucher_amount'] ?? 0));
+        $orderPrice = $m($detail['price'] ?? 0);
+        $orderShipping = $m($detail['shipping_fee'] ?? ($detail['shipping_amount'] ?? 0));
+        $orderVoucher = $m($detail['voucher'] ?? ($detail['voucher_amount'] ?? 0));
 
         return [
             'subtotal' => round($subtotal, 2),
