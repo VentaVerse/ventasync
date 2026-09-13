@@ -828,6 +828,39 @@ class ShopeeListingPageTest extends TestCase
         $this->assertNotNull($listing->last_pushed_at);
     }
 
+    /**
+     * the owner, 2026-09-13: the templates chosen on the listing page reached
+     * Shopee from the first push and from a group push, but Push update on
+     * the listing page sent the bare words. tshirt 4565's live description
+     * carried neither its prefix nor its suffix. Every door reads the same
+     * composer now.
+     */
+    public function test_push_update_wraps_the_description_in_the_stores_templates(): void
+    {
+        $productId = $this->seedProduct();
+        $storeId = (int) ShopeeSetting::query()->value('id');
+        $prefix = \App\Models\DescriptionTemplate::query()->create(['integration' => 'shopee', 'store_id' => $storeId, 'name' => 'Returns', 'body' => 'Returns within 7 days.']);
+        $suffix = \App\Models\DescriptionTemplate::query()->create(['integration' => 'shopee', 'store_id' => $storeId, 'name' => 'Warranty', 'body' => 'One year warranty.']);
+        ShopeeProductLink::query()->create([
+            'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
+        ]);
+        ShopeeListing::query()->create([
+            'product_id' => $productId, 'shopee_setting_id' => $storeId,
+            'shopee_category_id' => 100013, 'logistic_ids' => [8003],
+            'description' => 'Shopee-only wording.',
+            'description_prefix_id' => $prefix->id, 'description_suffix_id' => $suffix->id,
+        ]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.listings.push_update', $productId))
+            ->assertSessionHas('status');
+
+        $sent = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/update_item');
+        $this->assertNotNull($sent, 'The update must reach update_item.');
+        $this->assertSame("Returns within 7 days.\n\nShopee-only wording.\n\nOne year warranty.", $sent['body']['description'],
+            'Prefix, the listing\'s own words, suffix: the same composition every other push sends.');
+    }
+
     public function test_push_update_refuses_a_product_that_is_not_on_shopee(): void
     {
         $productId = $this->seedProduct();

@@ -861,6 +861,14 @@ class ShopeeProductController extends Controller
         $imageCount = count(\App\Support\Catalog\ProductImages::paths($productId, $listing?->image_order));
         $variationCount = DB::table('product_option_combinations')->where('product_id', $productId)->count();
 
+        $content = \App\Integrations\Listings\ListingContent::of(
+            $listing,
+            html_entity_decode((string) $product->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+            \App\Support\Catalog\DescriptionText::of((string) ($product->description ?? '')),
+            'shopee',
+            (int) ($listing?->shopee_setting_id ?? 0)
+        );
+
         $corePrice = (float) $product->price;
         $finalPrice = $listing ? $listing->priceFor($corePrice) : $corePrice;
         $pct = (float) ($listing->markup_percent ?? 0);
@@ -886,8 +894,9 @@ class ShopeeProductController extends Controller
                 ? 'Shopee takes at most ' . \Extensions\shopee\Services\Shopee\ShopeeItemCreate::MAX_IMAGES . ', so the first ' . \Extensions\shopee\Services\Shopee\ShopeeItemCreate::MAX_IMAGES . ' go up'
                 : null,
             'variations' => $variationCount,
-            'title' => (string) ($listing?->item_name ?: html_entity_decode((string) $product->name, ENT_QUOTES | ENT_HTML5, 'UTF-8')),
-            'description' => \App\Support\Catalog\DescriptionText::of((string) ($listing?->description ?: $product->description)),
+            // The words exactly as the push will send them, templates included.
+            'title' => $content['title'],
+            'description' => \App\Support\Catalog\DescriptionText::of($content['description']),
             'push_url' => route('ext.shopee.products.push_direct', $productId),
             'listing_url' => route('ext.shopee.listings.edit', $productId),
         ]);
@@ -2860,8 +2869,16 @@ class ShopeeProductController extends Controller
         $coreName = html_entity_decode((string) ($product->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $coreDescription = \App\Support\Catalog\DescriptionText::of((string) ($product->description ?? ''));
 
-        $itemName = ($listing && $listing->item_name !== null && trim($listing->item_name) !== '') ? $listing->item_name : $coreName;
-        $description = ($listing && $listing->description !== null && trim($listing->description) !== '') ? $listing->description : $coreDescription;
+        /* The one reader, the same one the first push and the group push
+         * use (the owner, 2026-09-13): the listing's own words win, and the
+         * store's prefix and suffix templates wrap whichever won. This path
+         * picked the words by hand and sent them bare, so a template chosen
+         * on the listing page reached Shopee from every door but this one. */
+        $content = \App\Integrations\Listings\ListingContent::of(
+            $listing, $coreName, $coreDescription, 'shopee', (int) ($listing?->shopee_setting_id ?? 0)
+        );
+        $itemName = $content['title'];
+        $description = $content['description'];
 
         $payload = [
             'item_id' => (int) $link->shopee_item_id,
