@@ -150,13 +150,17 @@ class VentaProductPush
          * ever read it - so a seller chose one, saved it, and the store put
          * the product wherever the catalog's own words happened to land.
          *
-         * WooCommerce is the shape this follows: the group's category id,
+         * WooCommerce is the shape this follows: the listing's or the
+         * group's category id, an empty list for the listing's own "None",
          * or nothing at all. Nothing at all leaves the store's own
-         * placement alone, which is the honest answer when no group has
+         * placement alone, which is the honest answer when neither has
          * said otherwise - safer than inventing categories on the store
-         * from an internal taxonomy nobody there has agreed to. */
+         * from an internal taxonomy nobody there has agreed to. The store
+         * reads a list, category_ids. */
         if ($categoryId) {
-            $data['category_id'] = $categoryId;
+            $data['category_ids'] = [$categoryId];
+        } elseif ($categoryId === 0) {
+            $data['category_ids'] = [];
         }
 
         $images = $this->images($pid);

@@ -33,9 +33,9 @@ final class ShopeeInheritedSettings
             return [];
         }
 
-        // The store's own groups (the model's global scope), joined to the pivot.
+        // This store's groups, named outright: the pivot carries no store.
         $rows = DB::table('shopee_product_group_products as pv')
-            ->joinSub(ShopeeProductGroup::query()->select(['id', 'name', 'shopee_category_id', 'shopee_brand_id', 'logistic_ids', 'markup_fixed', 'markup_percent']), 'g', 'g.id', '=', 'pv.shopee_product_group_id')
+            ->joinSub(ShopeeProductGroup::query()->forStore(\Extensions\shopee\Models\ShopeeSetting::defaultStore())->select(['id', 'name', 'shopee_category_id', 'shopee_brand_id', 'logistic_ids', 'markup_fixed', 'markup_percent']), 'g', 'g.id', '=', 'pv.shopee_product_group_id')
             ->whereIn('pv.product_id', $productIds)
             ->orderBy('pv.id')
             ->get(['pv.product_id', 'g.id as group_id', 'g.name', 'g.shopee_category_id', 'g.shopee_brand_id', 'g.logistic_ids', 'g.markup_fixed', 'g.markup_percent']);

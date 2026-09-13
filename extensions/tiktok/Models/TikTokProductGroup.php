@@ -30,22 +30,10 @@ class TikTokProductGroup extends Model
         return $this->hasMany(TikTokProductGroupProduct::class, 'tiktok_product_group_id');
     }
 
-    /**
-     * Apply markup to a base price.
-     */
+    /** The group's price rule on a base price: the same sum, rounded the same, as a listing's own rule. */
     public function applyMarkup(float $price): float
     {
-        $pct = (float) ($this->markup_percent ?? 0);
-        $fix = (float) ($this->markup_fixed ?? 0);
-
-        if ($pct > 0) {
-            $price = $price + ($price * $pct / 100);
-        }
-        if ($fix > 0) {
-            $price = $price + $fix;
-        }
-
-        return $price;
+        return round($price + ($price * (float) ($this->markup_percent ?? 0) / 100) + (float) ($this->markup_fixed ?? 0), 2);
     }
 
     /** The group's attribute answers, keyed by TikTok attribute id. */

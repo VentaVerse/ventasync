@@ -555,10 +555,38 @@ class VentaListingPageTest extends TestCase
             }
             $body = $request->data();
 
-            // 1000 in the catalog, 20% on the group.
+            // 1000 in the catalog, 20% on the group; the store reads a list of categories.
             return round((float) $body['price'], 2) === 1200.0
-                && (int) ($body['category_id'] ?? 0) === 77;
+                && ($body['category_ids'] ?? null) === [77];
         });
+    }
+
+    /** "None" on a listing declines its group's category and goes as an empty list; with no group category it is blank. */
+    public function test_a_listings_none_declines_its_groups_category(): void
+    {
+        $store = $this->store();
+        $pid = $this->product();
+        \Extensions\venta\Models\VentaCategory::create(['venta_setting_id' => $store->id, 'venta_category_id' => 77, 'name' => 'Pedals', 'parent_id' => 0]);
+        $group = \Extensions\venta\Models\VentaProductGroup::create(['venta_setting_id' => $store->id, 'name' => 'Pedals', 'venta_category_id' => 77]);
+        \Extensions\venta\Models\VentaProductGroupProduct::create(['venta_product_group_id' => $group->id, 'product_id' => $pid]);
+        $editor = $this->userWith(['view_venta/listing', 'manage_venta/listing']);
+
+        $this->actingAs($editor)->put(route('ext.venta.listings.update', [$store->id, $pid]), ['venta_category_id' => 0])->assertSessionHasNoErrors();
+        $saved = VentaListing::query()->where('venta_setting_id', $store->id)->where('product_id', $pid)->value('venta_category_id');
+        $this->assertNotNull($saved, 'None is kept as the listing\'s answer, not blanked back to following');
+        $this->assertSame(0, (int) $saved);
+
+        Http::fake([
+            self::BASE . '/api/v1/products/GP-200' => Http::response(['error' => 'Product not found'], 404),
+            self::BASE . '/api/v1/products' => Http::response(['id' => 9102, 'sku' => 'GP-200', 'images' => [], 'images_failed' => []], 201),
+        ]);
+        $this->actingAs($editor)->post(route('ext.venta.listings.push', [$store->id, $pid]))->assertRedirect();
+        Http::assertSent(fn ($request) => $request->method() === 'POST' && str_ends_with($request->url(), '/api/v1/products')
+            && ($request->data()['category_ids'] ?? null) === []);
+
+        $loose = $this->product('GP-300');
+        $this->actingAs($editor)->put(route('ext.venta.listings.update', [$store->id, $loose]), ['venta_category_id' => 0])->assertSessionHasNoErrors();
+        $this->assertNull(VentaListing::query()->where('venta_setting_id', $store->id)->where('product_id', $loose)->value('venta_category_id'), 'with no group category to decline, None is blank');
     }
 
     /**

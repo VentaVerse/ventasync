@@ -112,10 +112,14 @@ class TikTokPushPrice extends Command implements \App\Integrations\Contracts\Ste
         $pids = $pivots->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
         $listings = TikTokListing::query()->whereIn('product_id', $pids ?: [0])->get()->keyBy('product_id');
         // The group by product too, for a row that carries no group id (the Listings page's rows).
-        $groupByProduct = TikTokProductGroupProduct::query()->whereIn('product_id', $pids ?: [0])->orderBy('id')->get()
+        // The pivot carries no store, so only this store's groups are read.
+        $store = TikTokSetting::defaultStore();
+        $groupByProduct = TikTokProductGroupProduct::query()->whereIn('product_id', $pids ?: [0])
+            ->whereIn('tiktok_product_group_id', TikTokProductGroup::query()->forStore($store)->select('id'))
+            ->orderBy('id')->get()
             ->groupBy('product_id')->map(fn ($rows) => (int) $rows->first()->tiktok_product_group_id);
         $groupIds = $pivots->pluck('tiktok_product_group_id')->filter()->merge($groupByProduct->values())->unique()->all();
-        $groups = TikTokProductGroup::query()->whereIn('id', $groupIds ?: [0])->get()->keyBy('id');
+        $groups = TikTokProductGroup::query()->forStore($store)->whereIn('id', $groupIds ?: [0])->get()->keyBy('id');
 
         return function (float $base, object $pivot) use ($listings, $groups, $groupByProduct): float {
             $pid = (int) $pivot->product_id;

@@ -26,8 +26,9 @@ final class LazadaInheritedSettings
             return [];
         }
 
+        // This store's groups, named outright: the pivot carries no store.
         $rows = DB::table('lazada_product_group_products as pv')
-            ->joinSub(LazadaProductGroup::query()->select(['id', 'name', 'lazada_category_id', 'brand_id', 'brand_name_override', 'markup_fixed', 'markup_percent']), 'g', 'g.id', '=', 'pv.lazada_product_group_id')
+            ->joinSub(LazadaProductGroup::query()->forStore(\Extensions\lazada\Models\LazadaSetting::defaultStore())->select(['id', 'name', 'lazada_category_id', 'brand_id', 'brand_name_override', 'markup_fixed', 'markup_percent']), 'g', 'g.id', '=', 'pv.lazada_product_group_id')
             ->whereIn('pv.product_id', $productIds)
             ->orderBy('pv.id')
             ->get(['pv.product_id', 'g.id as group_id', 'g.name', 'g.lazada_category_id', 'g.brand_id', 'g.brand_name_override', 'g.markup_fixed', 'g.markup_percent']);

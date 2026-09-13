@@ -82,6 +82,20 @@ class VentaListing extends Model
     }
 
     /**
+     * The category every push sends: the listing's own, else its group's.
+     * 0 is the listing's own "None", sent as no category at all; null
+     * leaves the store's placement alone.
+     */
+    public static function categoryFor(?self $listing, ?object $group): ?int
+    {
+        if ($listing && $listing->venta_category_id !== null) {
+            return (int) $listing->venta_category_id;
+        }
+
+        return ((int) ($group->venta_category_id ?? 0)) ?: null;
+    }
+
+    /**
      * The content this listing sends in place of the catalogue's. Only the
      * fields the operator set; an unset one is not in the array at all, so
      * the catalogue's value goes.

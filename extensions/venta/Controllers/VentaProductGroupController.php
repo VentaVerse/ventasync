@@ -834,7 +834,7 @@ class VentaProductGroupController extends Controller
                 ], fn ($v) => $v !== null && trim((string) $v) !== ''),
                 $priceFor,
                 // The listing's own category on this store, else this group's.
-                ((int) ($listing?->venta_category_id ?? 0) ?: (int) ($g->venta_category_id ?? 0)) ?: null
+                \Extensions\venta\Models\VentaListing::categoryFor($listing, $g)
             );
 
             /*

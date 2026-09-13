@@ -324,6 +324,38 @@ class TiktokStockPushTest extends TestCase
         $this->assertSame(['s1' => '1150', 's2' => '1250', 's3' => '1350', 's4' => '1450'], $byId->all());
     }
 
+    /** A group's rule is the same sum as a listing's own, rounded the same, so the page's figure and the push agree. */
+    public function test_a_groups_rule_is_the_same_sum_as_a_listings(): void
+    {
+        foreach ([[7.5, null, 123.45], [-10, -5, 1000.0], [null, 50, 99.99], [12.345, 0.555, 10.0]] as [$pct, $fixed, $base]) {
+            $group = (new TikTokProductGroup())->forceFill(['markup_percent' => $pct, 'markup_fixed' => $fixed]);
+            $listing = (new \Extensions\tiktok\Models\TikTokListing())->forceFill(['markup_percent' => $pct, 'markup_fixed' => $fixed]);
+            $this->assertSame($listing->priceFor($base), $group->applyMarkup($base), "percent {$pct}, fixed {$fixed} on {$base}");
+        }
+    }
+
+    /** The pivot carries no store: another store's group never prices or presets this store's product, bound or not. */
+    public function test_another_stores_group_never_reaches_this_store(): void
+    {
+        $main = TikTokSetting::query()->orderBy('id')->first();
+        $outlet = TikTokSetting::create([
+            'mode' => 'production', 'store_name' => 'Outlet', 'app_key' => 'k2', 'app_secret' => 's2',
+            'access_token' => 't2', 'refresh_token' => 'r2', 'shop_cipher' => 'c2', 'expires_at' => now()->addDays(3),
+        ]);
+        $pid = 424242;
+        $other = TikTokProductGroup::create(['tiktok_setting_id' => $outlet->id, 'name' => 'Outlet group', 'tiktok_category_id' => '900001', 'markup_percent' => 20]);
+        TikTokProductGroupProduct::create(['tiktok_product_group_id' => $other->id, 'product_id' => $pid, 'sync_status' => 'pending']);
+
+        $this->app->instance('tiktok.route-store', $main);
+        $rule = \Extensions\tiktok\Commands\TikTokPushPrice::priceRule([(object) ['product_id' => $pid]]);
+        $this->assertSame(1000.0, $rule(1000.0, (object) ['product_id' => $pid]), 'no group on this store: the catalog price');
+        $this->app->forgetInstance('tiktok.route-store');
+
+        $this->assertSame([], app(\Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::class)->forProducts([$pid]),
+            'with no store bound, the lookup reads the default store\'s groups, not every store\'s');
+        $this->assertSame((int) $main->id, (int) TikTokSetting::defaultStore()->id);
+    }
+
     /**
      * Live, 2026-09-07: "Data too long for column 'tiktok_sku_id'" stopped
      * every TikTok stock push. The map repair writes every seller SKU TikTok

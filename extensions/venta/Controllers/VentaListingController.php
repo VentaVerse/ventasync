@@ -753,7 +753,7 @@ class VentaListingController extends Controller
 
         // A blank category or price rule on the listing follows its group,
         // so the fields show the group's value until the listing sets its own.
-        $shownCategoryId = ((int) ($listing->venta_category_id ?? 0)) ?: (($group && $group->venta_category_id) ? (int) $group->venta_category_id : null);
+        $shownCategoryId = VentaListing::categoryFor($listing instanceof VentaListing ? $listing : null, $group);
         $ownRule = $listing && ($listing->markup_percent !== null || $listing->markup_fixed !== null);
         $markupPercent = $ownRule ? $num($listing->markup_percent) : $num($group?->markup_percent);
         $markupFixed = $ownRule ? $num($listing->markup_fixed) : $num($group?->markup_fixed);
@@ -803,7 +803,7 @@ class VentaListingController extends Controller
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:500',
             'image_order' => 'nullable|string|max:20000',
-            'venta_category_id' => 'nullable|integer|min:1',
+            'venta_category_id' => 'nullable|integer|min:0',
             ...\App\Integrations\Listings\ListingVariations::rules(),
             ...\App\Integrations\Listings\ListingGroup::rules(),
         ]);
@@ -820,9 +820,10 @@ class VentaListingController extends Controller
         // which means "follows the catalogue". Saving here never writes the
         // core product.
         $blank = fn ($v) => ($v === null || trim((string) $v) === '') ? null : $v;
-        // The listing's own category is one of this store's own.
-        $ownCategory = ((int) ($data['venta_category_id'] ?? 0)) ?: null;
-        if ($ownCategory !== null && ! \Illuminate\Support\Facades\DB::table('venta_categories')->where('venta_setting_id', $store)->where('venta_category_id', $ownCategory)->exists()) {
+        // The listing's own category is one of this store's own; 0 is its "None".
+        $rawCategory = $data['venta_category_id'] ?? null;
+        $ownCategory = ($rawCategory === null || $rawCategory === '') ? null : (int) $rawCategory;
+        if ($ownCategory && ! \Illuminate\Support\Facades\DB::table('venta_categories')->where('venta_setting_id', $store)->where('venta_category_id', $ownCategory)->exists()) {
             throw \Illuminate\Validation\ValidationException::withMessages(['venta_category_id' => 'Pick one of this store\'s categories.']);
         }
 
@@ -869,6 +870,10 @@ class VentaListingController extends Controller
                 'markup_percent' => $groupRow->markup_percent,
                 'markup_fixed' => $groupRow->markup_fixed,
             ], [['markup_percent', 'markup_fixed']]);
+        }
+        // "None" declines a group's category; with none to decline it is the same as blank.
+        if ($savedRow && $savedRow->venta_category_id !== null && (int) $savedRow->venta_category_id === 0 && ! (int) ($groupRow->venta_category_id ?? 0)) {
+            $savedRow->forceFill(['venta_category_id' => null])->save();
         }
 
         if (($sellHere = \App\Integrations\Listings\ListingVariations::submitted($request)) !== null) {
@@ -950,7 +955,7 @@ class VentaListingController extends Controller
             $listing->overrides(),
             $priceFor,
             // The listing's own category on this store, else its group's.
-            ((int) ($listing->venta_category_id ?? 0) ?: (int) ($group->venta_category_id ?? 0)) ?: null
+            VentaListing::categoryFor($listing, $group)
         );
 
         if (! $outcome['ok']) {

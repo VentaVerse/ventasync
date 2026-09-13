@@ -199,7 +199,7 @@
                     <div class="fm-fields">
                         <x-ui.field label="Category" for="vl-category" name="venta_category_id">
                             <select id="vl-category" name="venta_category_id" class="x-input" @disabled(!$canManage)>
-                                <option value="">None</option>
+                                <option value="0" @selected((int) old('venta_category_id', $shownCategoryId) === 0)>None</option>
                                 @foreach($storeCategories as $category)
                                     <option value="{{ $category->venta_category_id }}" @selected((int) old('venta_category_id', $shownCategoryId) === (int) $category->venta_category_id)>{{ $category->name }}</option>
                                 @endforeach
