@@ -96,6 +96,7 @@ Route::prefix('v1')->middleware(['auth:sanctum', 'api.audit'])->group(function (
        never reach this route. */
     Route::middleware('scope:products:write')->group(function () {
         Route::put('/products/{id}/price', [\App\Http\Controllers\Api\V1\ProductController::class, 'updatePrice'])->whereNumber('id');
+        Route::post('/products', [\App\Http\Controllers\Api\V1\ProductController::class, 'store']);
     });
 
     // NOTE: reports endpoints live in the reports extension

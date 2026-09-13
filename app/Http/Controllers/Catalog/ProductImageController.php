@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Catalog;
 use App\Http\Controllers\Controller;
 use App\Models\Catalog\Manufacturer;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -14,160 +13,16 @@ class ProductImageController extends Controller
     /** Results returned by one library search before it says it stopped. */
     private const SEARCH_LIMIT = 400;
 
-    /**
-     * CIDR blocks a remote image URL must not resolve into. Covers loopback,
-     * the three RFC1918 private ranges, link-local, multicast, and the other
-     * IANA-reserved blocks for both IPv4 and IPv6, so a URL cannot be used to
-     * make this server fetch from itself or the internal network (SSRF).
-     */
-    private const BLOCKED_IP_RANGES = [
-        '127.0.0.0/8',    // loopback
-        '10.0.0.0/8',     // RFC1918
-        '172.16.0.0/12',  // RFC1918
-        '192.168.0.0/16', // RFC1918
-        '169.254.0.0/16', // link-local
-        '0.0.0.0/8',      // "this" network
-        '224.0.0.0/4',    // multicast
-        '240.0.0.0/4',    // reserved / class E
-        '::1/128',        // loopback
-        '::/128',          // unspecified
-        'fe80::/10',       // link-local
-        'ff00::/8',        // multicast
-        'fc00::/7',        // unique local
-    ];
-
-    /**
-     * Reject anything that is not a plain public hostname or IP: the host
-     * must resolve (or literally be) an address outside every blocked
-     * range. Every A/AAAA record is checked, not just the first, so a host
-     * that resolves to both a public and a private address is rejected.
-     */
+    /** A link the catalog may fetch: a public address only (CatalogImageImporter holds the rules). */
     private function isSafeRemoteUrl(string $url): bool
     {
-        $parts = parse_url($url);
-        $scheme = strtolower((string) ($parts['scheme'] ?? ''));
-        $host = (string) ($parts['host'] ?? '');
-
-        if (!in_array($scheme, ['http', 'https'], true) || $host === '') {
-            return false;
-        }
-
-        $host = trim($host, '[]');
-
-        $addresses = filter_var($host, FILTER_VALIDATE_IP)
-            ? [$host]
-            : $this->resolveHostAddresses($host);
-
-        if ($addresses === []) {
-            return false;
-        }
-
-        foreach ($addresses as $address) {
-            if ($this->isBlockedAddress($address)) {
-                return false;
-            }
-        }
-
-        return true;
+        return app(\App\Services\Media\CatalogImageImporter::class)->isSafeRemoteUrl($url);
     }
 
-    /** @return string[] */
-    private function resolveHostAddresses(string $host): array
-    {
-        $records = @dns_get_record($host, DNS_A + DNS_AAAA);
-        if (!is_array($records)) {
-            return [];
-        }
-
-        $addresses = [];
-        foreach ($records as $record) {
-            if (!empty($record['ip'])) {
-                $addresses[] = $record['ip'];
-            }
-            if (!empty($record['ipv6'])) {
-                $addresses[] = $record['ipv6'];
-            }
-        }
-
-        return $addresses;
-    }
-
-    private function isBlockedAddress(string $address): bool
-    {
-        $address = trim($address, '[]');
-
-        // Unwrap IPv4-mapped IPv6 addresses (::ffff:a.b.c.d) so the embedded
-        // IPv4 address is what actually gets range-checked.
-        if (str_starts_with(strtolower($address), '::ffff:')
-            && filter_var(substr($address, 7), FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-            $address = substr($address, 7);
-        }
-
-        if (!filter_var($address, FILTER_VALIDATE_IP)) {
-            return true; // unparseable, treat as unsafe
-        }
-
-        foreach (self::BLOCKED_IP_RANGES as $cidr) {
-            if ($this->addressInCidr($address, $cidr)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function addressInCidr(string $address, string $cidr): bool
-    {
-        [$subnet, $maskBits] = explode('/', $cidr, 2);
-        $maskBits = (int) $maskBits;
-
-        $addressBin = @inet_pton($address);
-        $subnetBin = @inet_pton($subnet);
-        if ($addressBin === false || $subnetBin === false || strlen($addressBin) !== strlen($subnetBin)) {
-            return false;
-        }
-
-        $totalBits = strlen($addressBin) * 8;
-        if ($maskBits < 0 || $maskBits > $totalBits) {
-            return false;
-        }
-
-        $fullBytes = intdiv($maskBits, 8);
-        $remainderBits = $maskBits % 8;
-
-        if ($fullBytes > 0 && substr($addressBin, 0, $fullBytes) !== substr($subnetBin, 0, $fullBytes)) {
-            return false;
-        }
-
-        if ($remainderBits === 0) {
-            return true;
-        }
-
-        $mask = (0xFF << (8 - $remainderBits)) & 0xFF;
-        return (ord($addressBin[$fullBytes]) & $mask) === (ord($subnetBin[$fullBytes]) & $mask);
-    }
-
-    /**
-     * Fetch a remote URL's bytes with no redirects followed at all, so a
-     * host that is allowed on the first hop cannot 302 the request into an
-     * internal address afterwards. Caller must already have validated the
-     * URL with isSafeRemoteUrl().
-     */
+    /** A link's bytes, with no redirect followed; the caller has already checked the link. */
     private function fetchRemoteImageContents(string $url): string|false
     {
-        try {
-            $response = Http::withOptions(['allow_redirects' => false])
-                ->timeout(10)
-                ->get($url);
-        } catch (\Throwable $e) {
-            return false;
-        }
-
-        if (!$response->successful()) {
-            return false;
-        }
-
-        return $response->body();
+        return app(\App\Services\Media\CatalogImageImporter::class)->fetch($url);
     }
 
     private function manufacturerSlugFromId(int $manufacturerId): string
@@ -191,52 +46,17 @@ class ProductImageController extends Controller
 
     private function ensureAllowedImage(string $absPath): void
     {
-        $info = @getimagesize($absPath);
-        if ($info === false || !isset($info[2])) {
-            abort(422, 'Invalid image file.');
-        }
-
-        $type = (int) $info[2];
-        if (!in_array($type, [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_WEBP], true)) {
-            abort(422, 'Only JPG, PNG, and WebP images are allowed.');
+        try {
+            app(\App\Services\Media\CatalogImageImporter::class)->ensureAllowedImage($absPath);
+        } catch (\RuntimeException $e) {
+            abort(422, $e->getMessage());
         }
     }
 
-    /**
-     * Convert a WebP file to JPG on disk. Returns the new relative path (or the
-     * original path if not WebP). Updates the file in-place on the public disk.
-     */
+    /** A WebP saved as a JPG in place; the new path, or the same path when it was not a WebP. */
     private function convertWebpToJpg(string $relPath): string
     {
-        $disk = Storage::disk('public');
-        $absPath = $disk->path($relPath);
-
-        $info = @getimagesize($absPath);
-        if (!$info || (int) ($info[2] ?? 0) !== IMAGETYPE_WEBP) {
-            return $relPath;
-        }
-
-        $im = @imagecreatefromwebp($absPath);
-        if (!$im) {
-            return $relPath;
-        }
-
-        // Build new path: swap extension to .jpg
-        $newRel = preg_replace('/\.webp$/i', '.jpg', $relPath);
-        if ($newRel === $relPath) {
-            $newRel = $relPath . '.jpg';
-        }
-        $newAbs = $disk->path($newRel);
-
-        imagejpeg($im, $newAbs, 90);
-        imagedestroy($im);
-
-        // Remove original WebP
-        if ($newAbs !== $absPath) {
-            @unlink($absPath);
-        }
-
-        return $newRel;
+        return app(\App\Services\Media\CatalogImageImporter::class)->convertWebpToJpg($relPath);
     }
 
     private function tmpCleanup(): void
@@ -555,49 +375,12 @@ class ProductImageController extends Controller
         $sub = $this->normalizeCatalogSubPath((string) ($request->path ?? ''));
         $dir = 'catalog' . ($sub !== '' ? '/' . $sub : '');
 
-        $url = trim((string) $request->url);
-        if (!preg_match('#^https?://#i', $url) || !$this->isSafeRemoteUrl($url)) {
-            return response()->json(['ok' => false, 'message' => 'Invalid URL.'], 422);
+        // The same importer the API's product create uses, so a link is judged one way everywhere.
+        try {
+            $target = app(\App\Services\Media\CatalogImageImporter::class)->fromUrl((string) $request->url, $dir);
+        } catch (\RuntimeException $e) {
+            return response()->json(['ok' => false, 'message' => $e->getMessage()], 422);
         }
-
-        $contents = $this->fetchRemoteImageContents($url);
-        if ($contents === false) {
-            return response()->json(['ok' => false, 'message' => 'Unable to download image from URL.'], 422);
-        }
-
-        $pathPart = parse_url($url, PHP_URL_PATH) ?: '';
-        $name = basename($pathPart) ?: ('image_' . date('Ymd_His') . '.jpg');
-        $name = preg_replace('/[^A-Za-z0-9._-]/', '_', $name);
-
-        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) {
-            $tmp = tempnam(sys_get_temp_dir(), 'img');
-            file_put_contents($tmp, $contents);
-            $info = @getimagesize($tmp);
-            @unlink($tmp);
-            if ($info && isset($info[2])) {
-                $ext = match ((int) $info[2]) {
-                    IMAGETYPE_PNG => 'png',
-                    IMAGETYPE_WEBP => 'webp',
-                    default => 'jpg',
-                };
-            } else {
-                $ext = 'jpg';
-            }
-            $name = pathinfo($name, PATHINFO_FILENAME) . '.' . $ext;
-        }
-
-        $disk = Storage::disk('public');
-        $tmpRel = 'tmp/product-images/' . Str::uuid()->toString() . '.' . $ext;
-        $disk->put($tmpRel, $contents);
-        $absTmp = $disk->path($tmpRel);
-        $this->ensureAllowedImage($absTmp);
-        $tmpRel = $this->convertWebpToJpg($tmpRel);
-        $name = preg_replace('/\.webp$/i', '.jpg', $name);
-
-        $disk->makeDirectory($dir);
-        $target = $this->uniqueTargetPath($dir, $name);
-        $disk->move($tmpRel, $target);
 
         return response()->json([
             'ok' => true,

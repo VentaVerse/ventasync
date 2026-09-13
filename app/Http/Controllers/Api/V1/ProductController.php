@@ -10,9 +10,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * Read-only product access for external API clients (scope: products:read).
- * Exposes catalog + pricing fields an external pricing/reporting tool needs:
- * cost, price, quantity, status — nothing customer-facing is returned here.
+ * Product access for external API clients: reading (products:read), and
+ * setting a price or creating a product (products:write). Exposes the
+ * catalog and pricing fields an external tool needs: cost, price,
+ * quantity, status. Nothing customer-facing is returned here.
  */
 class ProductController extends Controller
 {
@@ -90,6 +91,108 @@ class ProductController extends Controller
             'note' => 'Saved on the catalog product. Marketplace prices are this price run through each '
                 . "listing's own rule, so they change on the next push or price sync, not now.",
         ]);
+    }
+
+    /**
+     * POST /api/v1/products - one new catalog product, with a stated reason.
+     *
+     * The same product the Add product form makes, through ProductCreator.
+     * Every field is checked first; then the photos are fetched, and a link
+     * that fails creates nothing and names itself. A product with no photo
+     * is saved switched off, because a product needs a photo to be sold.
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+            'sku' => ['required', 'string', 'max:64', new \App\Rules\UniqueSku()],
+            'price' => 'required|numeric|gt:0|max:99999999',
+            'weight' => 'required|numeric|gt:0',
+            'length' => 'required|numeric|gt:0',
+            'width' => 'required|numeric|gt:0',
+            'height' => 'required|numeric|gt:0',
+            'description' => 'nullable|string|max:65000',
+            'quantity' => 'nullable|integer|min:0',
+            'cost_amount' => 'nullable|numeric|min:0',
+            'manufacturer_name' => 'nullable|string|max:255',
+            'category_names' => 'nullable|array|max:10',
+            'category_names.*' => 'string|max:255',
+            'image_urls' => 'nullable|array|max:9',
+            'image_urls.*' => 'string|max:2048',
+            'enabled' => 'nullable|boolean',
+            'reason' => 'required|string|min:3|max:500',
+        ]);
+
+        $creator = app(\App\Services\Catalog\ProductCreator::class);
+        $notes = [];
+
+        $brand = trim((string) ($data['manufacturer_name'] ?? ''));
+        $manufacturerId = $creator->resolveManufacturerId(0, $brand);
+        if ($brand !== '' && $manufacturerId === 0) {
+            $notes[] = 'No brand named "' . $brand . '" exists, so the product was saved without one.';
+        }
+
+        $categoryIds = [];
+        foreach ((array) ($data['category_names'] ?? []) as $categoryName) {
+            $categoryId = $creator->resolveCategoryId(0, (string) $categoryName);
+            if ($categoryId > 0) {
+                $categoryIds[] = $categoryId;
+            } else {
+                $notes[] = 'No category named "' . $categoryName . '" exists, so it was left out.';
+            }
+        }
+
+        // The photos first: a link that fails creates nothing.
+        $disk = \Illuminate\Support\Facades\Storage::disk('public');
+        $importer = app(\App\Services\Media\CatalogImageImporter::class);
+        $folder = $creator->imageFolder($manufacturerId);
+        $paths = [];
+        foreach (array_values((array) ($data['image_urls'] ?? [])) as $i => $url) {
+            try {
+                $paths[] = $importer->fromUrl((string) $url, $folder);
+            } catch (\RuntimeException $e) {
+                $disk->delete($paths);
+
+                return response()->json(['message' => 'Photo ' . ($i + 1) . ' could not be used: ' . $e->getMessage() . ' Nothing was created.'], 422);
+            }
+        }
+
+        if ($paths === []) {
+            $notes[] = 'Saved switched off: a product needs at least one photo before it can be switched on and sold.';
+        }
+
+        try {
+            $productId = $creator->create([
+                'name' => trim((string) $data['name']),
+                'sku' => trim((string) $data['sku']),
+                'price' => (float) $data['price'],
+                'weight' => (float) $data['weight'],
+                'length' => (float) $data['length'],
+                'width' => (float) $data['width'],
+                'height' => (float) $data['height'],
+                'status' => (($data['enabled'] ?? true) && $paths !== []) ? 1 : 0,
+                'quantity' => (int) ($data['quantity'] ?? 0),
+                'cost_amount' => (float) ($data['cost_amount'] ?? 0),
+                'manufacturer_id' => $manufacturerId,
+                'category_ids' => array_values(array_unique($categoryIds)),
+                'description' => (string) ($data['description'] ?? ''),
+                'image_paths' => $paths,
+            ], by: [
+                'source' => 'api',
+                'actor' => (string) ($request->user()?->name ?? 'An API application'),
+                'reason' => trim((string) $data['reason']),
+            ]);
+        } catch (\Throwable $e) {
+            $disk->delete($paths);
+            throw $e;
+        }
+
+        $notes[] = "It is in the catalog only. Add it to a store's listings to sell it there.";
+
+        return response()->json($this->present(Product::with('description')->findOrFail($productId)) + [
+            'photos' => count($paths),
+            'notes' => $notes,
+        ], 201);
     }
 
     private function present(Product $product): array

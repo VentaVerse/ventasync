@@ -82,40 +82,12 @@ class ProductController extends Controller
 
     private function resolveManufacturerId(?int $manufacturerId, ?string $manufacturerName): int
     {
-        $manufacturerId = (int) ($manufacturerId ?? 0);
-        if ($manufacturerId > 0) return $manufacturerId;
-
-        $name = trim((string) ($manufacturerName ?? ''));
-        if ($name === '') return 0;
-
-        $row = Manufacturer::query()
-            ->whereRaw('LOWER(name) = ?', [mb_strtolower($name, 'UTF-8')])
-            ->first(['manufacturer_id']);
-
-        return $row ? (int) $row->manufacturer_id : 0;
+        return app(\App\Services\Catalog\ProductCreator::class)->resolveManufacturerId($manufacturerId, $manufacturerName);
     }
 
     private function resolveCategoryId(?int $categoryId, ?string $categoryName): int
     {
-        $categoryId = (int) ($categoryId ?? 0);
-        if ($categoryId > 0) return $categoryId;
-
-        $name = trim((string) ($categoryName ?? ''));
-        if ($name === '') return 0;
-
-        $p = config('catalog.prefix');
-        $lang = (int) config('catalog.default_language_id');
-        $table = $p . 'category_description';
-
-        // If user typed a path like "A > B > C", match on the last segment first, then full name
-        $last = trim(preg_split('/\s*>\s*/', $name)[-1] ?? $name);
-
-        $row = \Illuminate\Support\Facades\DB::table($table)
-            ->where('language_id', $lang)
-            ->whereRaw('LOWER(name) = ?', [mb_strtolower($last, 'UTF-8')])
-            ->first(['category_id']);
-
-        return $row ? (int) $row->category_id : 0;
+        return app(\App\Services\Catalog\ProductCreator::class)->resolveCategoryId($categoryId, $categoryName);
     }
 
 private function isWordStartMatch(string $haystack, string $term): bool
@@ -182,29 +154,9 @@ private function isWordStartMatch(string $haystack, string $term): bool
         return $out;
     }
 
-private function saveProductImages(int $productId, array $paths): void
+    private function saveProductImages(int $productId, array $paths): void
     {
-        $pfx = config('catalog.prefix');
-
-        // Update main image
-        $main = $paths[0] ?? '';
-        DB::table($pfx.'product')->where('product_id', (int)$productId)->update([
-            'image' => $main,
-        ]);
-
-        // Rebuild additional images (OpenCart behavior: exclude main)
-        DB::table($pfx.'product_image')->where('product_id', (int)$productId)->delete();
-
-        $additional = array_slice($paths, 1);
-        $sort = 0;
-        foreach ($additional as $img) {
-            DB::table($pfx.'product_image')->insert([
-                'product_id' => (int)$productId,
-                'image' => $img,
-                'sort_order' => $sort,
-            ]);
-            $sort++;
-        }
+        app(\App\Services\Catalog\ProductCreator::class)->saveImages($productId, $paths);
     }
 
 public function index(Request $request)
@@ -401,34 +353,7 @@ $pfx = config('catalog.prefix');
 
     private function resolveManufacturerDir(int $manufacturerId): string
     {
-        $disk = Storage::disk('public');
-
-        if ($manufacturerId > 0) {
-            $m = Manufacturer::query()->where('manufacturer_id', $manufacturerId)->first(['name']);
-            if ($m && $m->name) {
-                $name = (string) $m->name;
-                $slug = Str::slug($name);
-
-                // Check exact name, then slug, then case-insensitive scan
-                if ($disk->exists('catalog/' . $name)) return 'catalog/' . $name;
-                if ($slug !== '' && $disk->exists('catalog/' . $slug)) return 'catalog/' . $slug;
-
-                $nameLower = mb_strtolower($name);
-                $slugLower = mb_strtolower($slug);
-                foreach ($disk->directories('catalog') as $dir) {
-                    $folder = basename($dir);
-                    $folderLower = mb_strtolower($folder);
-                    if ($folderLower === $nameLower || $folderLower === $slugLower) {
-                        return 'catalog/' . $folder;
-                    }
-                }
-
-                // No existing folder — create from original name
-                return 'catalog/' . $name;
-            }
-        }
-
-        return 'catalog/_no_manufacturer_';
+        return app(\App\Services\Catalog\ProductCreator::class)->imageFolder($manufacturerId);
     }
 
     private function finalizeTempImages(string $token, string $manufacturerSlug, int $productId, array $items): array
@@ -540,11 +465,8 @@ $pfx = config('catalog.prefix');
     }
 
 
-public function store(Request $request)
+    public function store(Request $request)
     {
-        $pfx = config('catalog.prefix');
-        $pfxProduct = $pfx . 'product';
-
         $request->validate([
             /* WHAT A PRODUCT NEEDS TO EXIST is what the channels need to
              * LIST it (the owner, settled across 2026-09-03/04, reversing the
@@ -628,8 +550,6 @@ public function store(Request $request)
             'height.gt' => 'Each package dimension must be more than zero.',
         ]);
 
-        $langId = (int) config('catalog.default_language_id');
-
         $resolvedManufacturerId = $this->resolveManufacturerId(
             (int) $request->input('manufacturer_id', 0),
             (string) $request->input('manufacturer_name', '')
@@ -656,115 +576,49 @@ public function store(Request $request)
             $this->validateOptionSkus(0, $request);
         }
 
-        $productId = DB::transaction(function () use ($request, $langId, $resolvedManufacturerId, $categoryIds, $pfx, $forcedQty) {
-            $p = new Product();
-
-            /* A BLANK MODEL STAYS BLANK. It used to fall back to the SKU,
-             * and Laravel's ConvertEmptyStringsToNull makes that fire on an
-             * ordinary empty box rather than only on an absent field - so
-             * clearing the model silently refilled it with the SKU and the
-             * next reader could not tell an intended model from a copy.
-             *
-             * The field only exists because Lazada and Shopee have one, and
-             * the channel mapping supplies it there. Empty is a real answer
-             * here, so it is recorded as one. */
-            $p->model = trim((string) ($request->input('model') ?? ''));
-            $p->sku = $request->sku ?? '';
-            $p->upc = '';
-            $p->ean = '';
-            $p->jan = '';
-            $p->isbn = '';
-            $p->mpn = '';
-            $p->location = '';
-
-            $p->quantity = $forcedQty !== null ? (int) $forcedQty : (int) $request->quantity;
-            $p->reorder_level = (int) ($request->reorder_level ?? 0);
-            $p->weight = (float) ($request->input('weight', 0) ?? 0);
-            $p->length = (float) ($request->input('length', 0) ?? 0);
-            $p->width  = (float) ($request->input('width', 0) ?? 0);
-            $p->height = (float) ($request->input('height', 0) ?? 0);
-            $p->stock_status_id = 0;
-            $p->image = null;
-            $p->manufacturer_id = (int) ($resolvedManufacturerId ?? 0);
-            $p->shipping = 1;
-            $p->status = (int) $request->input('status', 1);
-
-            $p->price = (float) $request->price;
-            $p->cost_amount = (float) ($request->cost_amount ?? 0);
-            $p->cost_percentage = (float) ($request->cost_percentage ?? 0);
-            $p->cost_additional = (float) ($request->cost_additional ?? 0);
-            $p->cost = $p->cost_amount + ($p->cost_percentage / 100 * $p->price) + $p->cost_additional;
-            $p->points = 0;
-            $p->tax_class_id = 0;
-
-            // Ensure strict-mode safe date_available (OpenCart sets it automatically)
-            $da = $p->date_available;
-            if (!$da || $da === '0000-00-00') {
-                $p->date_available = now()->toDateString();
-            }
-
-            $p->save();
-
-                        DB::table($pfx.'product_description')->insert([
-                'product_id' => (int) $p->product_id,
-                'language_id' => (int) $langId,
+        /* The product is made by ProductCreator, the one the API uses too.
+         * The form hands in what only it has: its variations, and the
+         * pictures it uploaded, moved into the manufacturer's folder once
+         * the product has an id. */
+        app(\App\Services\Catalog\ProductCreator::class)->create(
+            [
                 'name' => (string) $request->name,
-                // Sanitised before persistence: Summernote stores raw HTML
-                // and re-executes it via jQuery .html() on the edit page
-                // (see App\Support\HtmlSanitizer docblock), so hostile
-                // markup must never reach the database in the first place.
-                'description' => DescriptionHtml::store((string) $request->input('description', '')),
-                'meta_title' => (string) $request->name,
-                'meta_description' => '',
-                'meta_keyword' => '',
-                'tag' => '',
-            ]);
-            foreach ($categoryIds as $catId) {
-                ProductToCategory::create([
-                    'product_id' => $p->product_id,
-                    'category_id' => $catId,
-                ]);
-            }
-
-            // Save product options
-            if ($request->has('_options_format')) {
-                $this->saveAbsoluteOptions((int) $p->product_id, $request);
-            } else {
-                $options = $request->input('options', []);
-                $this->saveProductOptions((int) $p->product_id, $options);
-            }
-
-            // Save product images (main + additional)
-            if ($request->has('images_json')) {
+                'sku' => (string) ($request->sku ?? ''),
+                // A blank model stays blank; the channel mapping supplies one where a channel needs it.
+                'model' => $request->input('model'),
+                'quantity' => $forcedQty !== null ? (int) $forcedQty : (int) $request->quantity,
+                'reorder_level' => (int) ($request->reorder_level ?? 0),
+                'weight' => (float) ($request->input('weight', 0) ?? 0),
+                'length' => (float) ($request->input('length', 0) ?? 0),
+                'width' => (float) ($request->input('width', 0) ?? 0),
+                'height' => (float) ($request->input('height', 0) ?? 0),
+                'status' => (int) $request->input('status', 1),
+                'price' => (float) $request->price,
+                'cost_amount' => (float) ($request->cost_amount ?? 0),
+                'cost_percentage' => (float) ($request->cost_percentage ?? 0),
+                'cost_additional' => (float) ($request->cost_additional ?? 0),
+                'manufacturer_id' => (int) ($resolvedManufacturerId ?? 0),
+                'category_ids' => $categoryIds,
+                'description' => (string) $request->input('description', ''),
+            ],
+            variations: function (int $id) use ($request) {
+                if ($request->has('_options_format')) {
+                    $this->saveAbsoluteOptions($id, $request);
+                } else {
+                    $this->saveProductOptions($id, $request->input('options', []));
+                }
+            },
+            images: function (int $id) use ($request): array {
                 $paths = $this->imagesFromRequest($request->input('images_json'));
                 $token = (string) $request->input('pim_token', '');
-                if ($token !== '' && !empty($paths)) {
-                    $items = array_map(fn($pth) => ['path' => $pth], $paths);
-                    $finalized = $this->finalizeTempImages($token, '', (int) $p->product_id, $items);
-                    $paths = array_map(fn($it) => $it['path'], $finalized);
+                if ($token !== '' && ! empty($paths)) {
+                    $items = array_map(fn ($pth) => ['path' => $pth], $paths);
+                    $paths = array_map(fn ($it) => $it['path'], $this->finalizeTempImages($token, '', $id, $items));
                 }
-                $this->saveProductImages((int) $p->product_id, $paths);
-            }
 
-            return (int) $p->product_id;
-        });
-
-        ActivityLogger::log('created', 'Product', $productId, $request->name . ' (SKU: ' . ($request->sku ?? '') . ')');
-
-        // Log initial stock
-        $finalQty = (int) DB::table(config('catalog.prefix') . 'product')->where('product_id', $productId)->value('quantity');
-        if ($finalQty > 0) {
-            StockHistoryLogger::log(
-                productId: $productId,
-                optionValueId: null,
-                orderId: null,
-                type: 'set',
-                qtyBefore: 0,
-                qtyAfter: $finalQty,
-                source: 'manual',
-                note: "Product created — initial stock $finalQty",
-            );
-        }
+                return $paths;
+            },
+        );
 
         return redirect()->route('products.index')
             ->with('status','Product created.');
