@@ -2996,7 +2996,7 @@ class ShopeeProductController extends Controller
             'Pushed a content update onto Shopee item ' . $link->shopee_item_id
         );
 
-        return ['ok' => true, 'message' => 'Update pushed. Shopee now shows this listing\'s content. Price and stock were not touched - they have their own syncs.'];
+        return ['ok' => true, 'message' => 'Update pushed. Shopee now shows this listing\'s content.'];
     }
 
     public function toggleListing(Request $request, int $productId, ShopeeClient $client)
