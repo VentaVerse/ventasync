@@ -831,14 +831,14 @@ class VentaListingController extends Controller
         if ($request->boolean('push_after')) {
             if (\Extensions\venta\Models\VentaProductLink::query()->where('venta_setting_id', $store)->where('product_id', $productId)->whereNotNull('venta_product_id')->exists()) {
                 return redirect()->route('ext.venta.listings.edit', $back !== '' ? [$store, $productId, 'back' => $back] : [$store, $productId])
-                    ->with('status', 'Listing saved. It is already on ' . $setting->store_name . '; use Push update to send these settings onto the live product.');
+                    ->with('status', 'Listing saved.');
             }
 
             return $this->push($request, $store, $productId);
         }
 
         return redirect()->route('ext.venta.listings.edit', $back !== '' ? [$store, $productId, 'back' => $back] : [$store, $productId])
-            ->with('status', 'Listing saved. These settings drive the next push to ' . $setting->store_name . '.');
+            ->with('status', 'Listing saved.');
     }
 
     /**

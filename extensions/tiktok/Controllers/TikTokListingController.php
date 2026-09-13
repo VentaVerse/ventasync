@@ -218,7 +218,7 @@ class TikTokListingController extends Controller
         if ($request->boolean('push_after')) {
             if (TikTokListing::query()->where('product_id', $productId)->whereNotNull('tiktok_product_id')->exists()) {
                 return redirect()->route('ext.tiktok.listings.edit', $back !== '' ? [$productId, 'back' => $back] : $productId)
-                    ->with('status', 'Listing saved. It is already on TikTok Shop; use Push update to send these settings onto the live product.');
+                    ->with('status', 'Listing saved.');
             }
             $readiness = app(TikTokListingReadiness::class)->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => ['its readiness could not be checked']];
             if (!$readiness['ready']) {
@@ -230,7 +230,7 @@ class TikTokListingController extends Controller
         }
 
         return redirect()->route('ext.tiktok.listings.edit', $back !== '' ? [$productId, 'back' => $back] : $productId)
-            ->with('status', 'Listing saved. These settings drive the next push and price sync.');
+            ->with('status', 'Listing saved.');
     }
 
     /**
@@ -277,7 +277,7 @@ class TikTokListingController extends Controller
         }
         TikTokListing::recordPush($productId, (string) $truth->tiktok_product_id, $outcome['sku_ids'] ?? ($truth->tiktok_sku_id ?? null), 'listing');
 
-        return redirect()->back()->with('status', 'Update sent to TikTok Shop. Title, description, package, category, brand and attributes went; price and stock have their own pushes.');
+        return redirect()->back()->with('status', 'Update pushed.');
     }
 
     /** The seller center's Activate / Deactivate, from here. */

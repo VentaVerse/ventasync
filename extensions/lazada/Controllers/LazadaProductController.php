@@ -1317,7 +1317,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             if ($isUpdate) {
                 // Refresh variant cache after update
                 $this->itemCache()->refreshListing($saved, $setting, $client);
-                return ['ok' => true, 'message' => 'Product updated on Lazada successfully.', 'errors' => []];
+                return ['ok' => true, 'message' => 'Update pushed.', 'errors' => []];
             }
 
             $itemId = $this->payload()->extractCreatedItemId($result);

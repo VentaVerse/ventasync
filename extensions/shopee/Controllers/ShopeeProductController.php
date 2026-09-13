@@ -2781,7 +2781,7 @@ class ShopeeProductController extends Controller
         if ($request->boolean('push_after')) {
             if (ShopeeProductLink::query()->where('product_id', $productId)->exists()) {
                 return redirect()->route('ext.shopee.listings.edit', $productId)
-                    ->with('status', 'Listing saved. It is already on Shopee - use Push update to send these settings onto the live item.');
+                    ->with('status', 'Listing saved.');
             }
 
             $readiness = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)
@@ -2797,7 +2797,7 @@ class ShopeeProductController extends Controller
         }
 
         return redirect()->route('ext.shopee.listings.edit', $productId)
-            ->with('status', 'Listing saved. These settings drive the next push and price sync.');
+            ->with('status', 'Listing saved.');
     }
 
     /**
@@ -2996,7 +2996,7 @@ class ShopeeProductController extends Controller
             'Pushed a content update onto Shopee item ' . $link->shopee_item_id
         );
 
-        return ['ok' => true, 'message' => 'Update pushed. Shopee now shows this listing\'s content.'];
+        return ['ok' => true, 'message' => 'Update pushed.'];
     }
 
     public function toggleListing(Request $request, int $productId, ShopeeClient $client)
