@@ -203,19 +203,6 @@
     color: var(--bl-ink-3);
 }
 
-/* The main image risk: the attention hue, not the failure one. Nothing has
-   been refused yet; this is the chance to change it before it is. */
-.wm-risk {
-    margin-top: var(--bl-space-2);
-    padding: var(--bl-space-2) var(--bl-space-3);
-    border-radius: var(--bl-r-ctrl);
-    background: var(--bl-attn-wash);
-    color: var(--bl-attn);
-    font-size: 12.5px;
-    font-weight: 600;
-    max-width: 62ch;
-}
-
 @media (prefers-reduced-motion: reduce) {
     .wm-slider__range::-webkit-slider-thumb { transition: none; }
 }

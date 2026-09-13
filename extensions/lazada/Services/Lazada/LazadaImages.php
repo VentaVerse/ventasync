@@ -227,10 +227,15 @@ class LazadaImages
      * @param  ?array<int, mixed>  $own  the listing's own arrangement, or null to follow the catalog
      * @return list<string>
      */
-    public function getProductImageUrls(int $productId, ?object $productRow, ?array $own = null): array
+    public function getProductImageUrls(int $productId, ?object $productRow, ?array $own = null, ?object $listing = null): array
     {
+        $paths = \App\Services\Media\ListingWatermark::paths(
+            array_slice(\App\Support\Catalog\ProductImages::paths($productId, $own), 0, self::MAX_IMAGES),
+            $listing,
+            \App\Services\Media\ListingWatermark::groupTemplateId('lazada_product_groups', 'lazada_product_group_products', 'lazada_product_group_id', $productId, 'lazada_setting_id', (int) ($listing?->lazada_setting_id ?? 0) ?: null)
+        );
         $images = [];
-        foreach (\App\Support\Catalog\ProductImages::paths($productId, $own) as $path) {
+        foreach ($paths as $path) {
             $url = $this->normalizeImageUrl($path);
             if ($url && ! in_array($url, $images, true)) {
                 $images[] = $url;

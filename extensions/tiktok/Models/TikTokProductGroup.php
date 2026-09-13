@@ -12,6 +12,7 @@ class TikTokProductGroup extends Model
     protected $table = 'tiktok_product_groups';
 
     protected $fillable = [
+        'watermark_template_id',
         'tiktok_setting_id', 'name', 'tiktok_category_id',
         'markup_percent', 'markup_fixed',
     ];

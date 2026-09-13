@@ -39,7 +39,6 @@
                 <th scope="col">Name</th>
                 <th scope="col">Where</th>
                 <th scope="col" class="x-td-num">Size</th>
-                <th scope="col">Main image</th>
                 <th scope="col"></th>
             </tr>
         </thead>
@@ -59,13 +58,6 @@
                     </td>
                     <td data-label="Where">{{ ucfirst(str_replace('-', ' ', (string) $t->position)) }}</td>
                     <td data-label="Size" class="x-td-num">{{ rtrim(rtrim(number_format((float) $t->size_percent, 2), '0'), '.') }}%</td>
-                    <td data-label="Main image">
-                        @if($t->stamp_main)
-                            <span class="x-badge x-badge--attn">Marked</span>
-                        @else
-                            <span class="x-badge">Left bare</span>
-                        @endif
-                    </td>
                     <td class="x-td-actions">
                         @if($canManage)
                             <form method="POST" action="{{ route('watermarks.destroy', $t->id) }}"

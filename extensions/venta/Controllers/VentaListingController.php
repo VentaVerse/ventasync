@@ -753,7 +753,7 @@ class VentaListingController extends Controller
             ];
         }
 
-        return view('ext-venta::listings.edit', \App\Integrations\Listings\ListingImages::cardData($productId, $listing->image_order ?? null) + [
+        return view('ext-venta::listings.edit', \App\Integrations\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('venta_product_groups', 'venta_product_group_products', 'venta_product_group_id', $productId, 'venta_setting_id', $store)) + [
             /* What this listing still needs before the store would take
                it, by the same computation the Ready column reads, so the
                page cannot promise what the push refuses. */
@@ -784,6 +784,8 @@ class VentaListingController extends Controller
             'name' => 'nullable|string|max:255',
             'description' => 'nullable|string|max:20000',
             'description_prefix_id' => 'nullable|integer',
+            'watermark_template_id' => 'nullable|integer',
+            'watermark_all_images' => 'nullable|boolean',
             'description_suffix_id' => 'nullable|integer',
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:500',
@@ -814,6 +816,7 @@ class VentaListingController extends Controller
                  * null, so pre-filling never freezes a listing into a copy. */
                 'name' => \App\Integrations\Listings\ListingContent::overrideOrNull($data['name'] ?? null, $coreWords['title']),
                 'description_prefix_id' => ((int) ($data['description_prefix_id'] ?? 0)) ?: null,
+                ...\App\Integrations\Listings\ListingImages::submittedWatermark($request),
                 'description_suffix_id' => ((int) ($data['description_suffix_id'] ?? 0)) ?: null,
                 'description' => \App\Integrations\Listings\ListingContent::descriptionToSave($data['description'] ?? null, $coreWords['description'], $currentDescription, $request->input('description_edited')),
                 'meta_title' => $blank($data['meta_title'] ?? null),

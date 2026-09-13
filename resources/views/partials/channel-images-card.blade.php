@@ -27,6 +27,8 @@
       catalogTiles   list<array{path,url}>  (optional) the catalog's own list, for the reset
       browseUrl      string (optional) the image library's browse endpoint
       anchor         string (optional) an id, for a readiness gap to link at
+      watermarkOptions, watermarkTemplateId, watermarkAllImages, watermarkLent
+                     (optional) the watermark choice, from ListingImages::cardData
 --}}
 @php
     $anchor = $anchor ?? null;
@@ -88,6 +90,27 @@
     </div>
 
     <p class="fm-section__note" data-images-words>{{ $imageWords }}</p>
+
+    @isset($watermarkOptions)
+        <div class="fm-fields lc-mark">
+            <x-ui.field label="Watermark" for="{{ ($anchor ?? 'lc-images') }}-watermark" name="watermark_template_id">
+                <div class="x-select-wrap">
+                    <select id="{{ ($anchor ?? 'lc-images') }}-watermark" name="watermark_template_id" class="x-input" @disabled(!($canManage ?? false))>
+                        <option value="">{{ !empty($watermarkLent) ? 'From the product group: ' . $watermarkLent : 'None' }}</option>
+                        @foreach($watermarkOptions as $option)
+                            <option value="{{ $option->id }}" @selected((int) ($watermarkTemplateId ?? 0) === (int) $option->id)>{{ $option->name }}</option>
+                        @endforeach
+                    </select>
+                    <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                </div>
+            </x-ui.field>
+            <label class="gf-check">
+                <input type="checkbox" class="cc-check" name="watermark_all_images" value="1"
+                       @checked($watermarkAllImages ?? false) @disabled(!($canManage ?? false))>
+                <span class="gf-check__name">Apply to all images in a product</span>
+            </label>
+        </div>
+    @endisset
 
     @if($editable)
         <input type="hidden" name="image_order" value="{{ $arrangement }}" data-images-input>

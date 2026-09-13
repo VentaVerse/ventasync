@@ -297,7 +297,15 @@ class VentaProductPush
      */
     public function images(int $productId): array
     {
-        return \App\Support\Catalog\ProductImages::urls($productId, $this->ownImageOrder($productId));
+        $marking = VentaListing::query()->where('venta_setting_id', $this->setting->id)->where('product_id', $productId)
+            ->first(['watermark_template_id', 'watermark_all_images']);
+        $paths = \App\Services\Media\ListingWatermark::paths(
+            \App\Support\Catalog\ProductImages::paths($productId, $this->ownImageOrder($productId)),
+            $marking,
+            \App\Services\Media\ListingWatermark::groupTemplateId('venta_product_groups', 'venta_product_group_products', 'venta_product_group_id', $productId, 'venta_setting_id', (int) $this->setting->id)
+        );
+
+        return array_map([\App\Support\Catalog\ProductImages::class, 'url'], $paths);
     }
 
     /** @return ?array<int, mixed> this store's listing's own arrangement, or null to follow the catalog */

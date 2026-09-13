@@ -2323,7 +2323,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ? (app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$listing]))[(int) $listing->id] ?? null)
             : null;
 
-        return view('ext-lazada::products.form', \App\Integrations\Listings\ListingImages::cardData((int) $listing->product_id, $listing->image_order ?? null) + [
+        return view('ext-lazada::products.form', \App\Integrations\Listings\ListingImages::cardData((int) $listing->product_id, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('lazada_product_groups', 'lazada_product_group_products', 'lazada_product_group_id', (int) $listing->product_id, 'lazada_setting_id', (int) ($listing->lazada_setting_id ?? 0) ?: null)) + [
             'readiness' => $readiness,
             'listingState' => $listingState,
             'coverage' => $coverage,
@@ -2368,6 +2368,8 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'item_name' => 'nullable|string|max:255',
             'description' => 'nullable|string|max:20000',
             'description_prefix_id' => 'nullable|integer',
+            'watermark_template_id' => 'nullable|integer',
+            'watermark_all_images' => 'nullable|boolean',
             'description_suffix_id' => 'nullable|integer',
             // The variation overrides ride this form since 2026-09-07, so one
             // Save keeps the whole page rather than needing a second press.
@@ -2392,6 +2394,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $listing->item_name = \App\Integrations\Listings\ListingContent::overrideOrNull($data['item_name'] ?? null, $coreWords['title']);
         $listing->description = \App\Integrations\Listings\ListingContent::descriptionToSave($data['description'] ?? null, $coreWords['description'], $listing->description, $request->input('description_edited'));
         $listing->description_prefix_id = ((int) ($data['description_prefix_id'] ?? 0)) ?: null;
+        $listing->forceFill(\App\Integrations\Listings\ListingImages::submittedWatermark($request));
         $listing->description_suffix_id = ((int) ($data['description_suffix_id'] ?? 0)) ?: null;
         $listing->primary_category_id = $data['primary_category_id'] ?? null;
         $listing->brand_id = $data['brand_id'] ?? null;

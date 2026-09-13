@@ -236,13 +236,14 @@ class TikTokProductGroupController extends Controller
             'name'               => 'required|string|max:255',
             'tiktok_category_id' => 'required|string|exists:tiktok_categories,id',
             'markup_percent'     => 'nullable|numeric|min:0',
+            'watermark_template_id' => 'nullable|integer',
             'markup_fixed'       => 'nullable|numeric|min:0',
         ]);
 
         $group = TikTokProductGroup::create([
             'name'               => $data['name'],
             'tiktok_category_id' => $data['tiktok_category_id'],
-            'markup_percent'     => $data['markup_percent'] ?? null,
+            'markup_percent'     => $data['markup_percent'] ?? null, 'watermark_template_id' => \App\Models\WatermarkTemplate::idOrNull($data['watermark_template_id'] ?? null),
             'markup_fixed'       => $data['markup_fixed'] ?? null,
         ]);
 
@@ -264,13 +265,14 @@ class TikTokProductGroupController extends Controller
             'name'               => 'required|string|max:255',
             'tiktok_category_id' => 'required|string|exists:tiktok_categories,id',
             'markup_percent'     => 'nullable|numeric|min:0',
+            'watermark_template_id' => 'nullable|integer',
             'markup_fixed'       => 'nullable|numeric|min:0',
         ]);
 
         $group->update([
             'name'                 => $data['name'],
             'tiktok_category_id'   => $data['tiktok_category_id'],
-            'markup_percent'       => $data['markup_percent'] ?? null,
+            'markup_percent'       => $data['markup_percent'] ?? null, 'watermark_template_id' => \App\Models\WatermarkTemplate::idOrNull($data['watermark_template_id'] ?? null),
             'markup_fixed'         => $data['markup_fixed'] ?? null,
         ]);
 

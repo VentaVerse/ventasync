@@ -163,6 +163,7 @@ class ShopeeProductGroupController extends Controller
             'logistic_ids.*' => 'integer',
             'markup_fixed' => 'nullable|numeric|min:0',
             'markup_percent' => 'nullable|numeric|min:0',
+            'watermark_template_id' => 'nullable|integer',
         ], [
             'shopee_category_id.required' => 'Shopee Category is required.',
             'logistic_ids.required' => 'At least one Logistics Channel is required.',
@@ -176,7 +177,7 @@ class ShopeeProductGroupController extends Controller
             'shopee_brand_id' => (int) ($data['shopee_brand_id'] ?? 0),
             'logistic_ids' => !empty($logIds) ? array_values(array_map('intval', $logIds)) : null,
             'markup_fixed' => $data['markup_fixed'] ?? null,
-            'markup_percent' => $data['markup_percent'] ?? null,
+            'markup_percent' => $data['markup_percent'] ?? null, 'watermark_template_id' => \App\Models\WatermarkTemplate::idOrNull($data['watermark_template_id'] ?? null),
         ]);
 
         ActivityLogger::log('created', 'Shopee Product group', $group->id, $group->name);
@@ -201,6 +202,7 @@ class ShopeeProductGroupController extends Controller
             'logistic_ids.*' => 'integer',
             'markup_fixed' => 'nullable|numeric|min:0',
             'markup_percent' => 'nullable|numeric|min:0',
+            'watermark_template_id' => 'nullable|integer',
         ], [
             'shopee_category_id.required' => 'Shopee Category is required.',
             'logistic_ids.required' => 'At least one Logistics Channel is required.',
@@ -214,7 +216,7 @@ class ShopeeProductGroupController extends Controller
             'shopee_brand_id' => (int) ($data['shopee_brand_id'] ?? 0),
             'logistic_ids' => !empty($logIds) ? array_values(array_map('intval', $logIds)) : null,
             'markup_fixed' => $data['markup_fixed'] ?? null,
-            'markup_percent' => $data['markup_percent'] ?? null,
+            'markup_percent' => $data['markup_percent'] ?? null, 'watermark_template_id' => \App\Models\WatermarkTemplate::idOrNull($data['watermark_template_id'] ?? null),
         ]);
 
         ActivityLogger::log('updated', 'Shopee Product group', $group->id, $group->name);

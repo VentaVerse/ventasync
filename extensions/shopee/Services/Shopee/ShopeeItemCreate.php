@@ -42,11 +42,13 @@ class ShopeeItemCreate
      */
     public function catalogImagePaths(object $product, ?ShopeeListing $listing = null): array
     {
-        return array_slice(
+        $paths = array_slice(
             \App\Support\Catalog\ProductImages::paths((int) $product->product_id, $listing?->image_order),
             0,
             self::MAX_IMAGES
         );
+
+        return \App\Services\Media\ListingWatermark::paths($paths, $listing, \App\Services\Media\ListingWatermark::groupTemplateId('shopee_product_groups', 'shopee_product_group_products', 'shopee_product_group_id', (int) $product->product_id, 'shopee_setting_id', (int) ($listing?->shopee_setting_id ?? 0) ?: null));
     }
 
     /** How many pictures this listing has, before the cap. */

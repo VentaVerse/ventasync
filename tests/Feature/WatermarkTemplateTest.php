@@ -63,13 +63,12 @@ class WatermarkTemplateTest extends TestCase
 
         $this->actingAs($this->manager())->post(route('watermarks.store'), [
             'name' => 'Shop logo', 'image_path' => $path, 'position' => 'bottom-right',
-            'size_percent' => 12, 'offset_x_percent' => -3, 'offset_y_percent' => -2.5, 'transparency' => 20, 'stamp_main' => '1',
+            'size_percent' => 12, 'offset_x_percent' => -3, 'offset_y_percent' => -2.5, 'transparency' => 20,
         ])->assertRedirect(route('watermarks.index'));
 
         $template = WatermarkTemplate::first();
         $this->assertSame('Shop logo', $template->name);
         $this->assertSame($path, $template->image_path);
-        $this->assertTrue($template->stamp_main);
         // Shown as transparency, stored as the opacity the stamper multiplies by.
         $this->assertSame(0.8, round((float) $template->opacity, 2));
         $this->assertSame(20, $template->transparencyPercent());
@@ -97,17 +96,16 @@ class WatermarkTemplateTest extends TestCase
         $this->assertSame(0, WatermarkTemplate::count());
     }
 
-    public function test_the_cover_image_is_left_bare_unless_it_is_asked_for(): void
+    /** The template holds only the mark: which photos get it, and any marketplace's rule, are not asked here. */
+    public function test_the_template_page_asks_only_about_the_mark(): void
     {
-        $path = $this->mark();
+        $html = $this->actingAs($this->manager())->get(route('watermarks.create'))->assertOk()->getContent();
 
-        $this->actingAs($this->manager())->post(route('watermarks.store'), [
-            'name' => 'Gallery only', 'image_path' => $path, 'position' => 'bottom-right',
-            'size_percent' => 12, 'offset_x_percent' => 0, 'offset_y_percent' => 0, 'transparency' => 0,
-        ])->assertRedirect();
-
-        $this->assertFalse(WatermarkTemplate::first()->stamp_main,
-            'Marketplaces police the main image; it is left bare unless the seller says otherwise.');
+        $this->assertStringNotContainsString('stamp_main', $html);
+        $this->assertStringNotContainsStringIgnoringCase('main image', $html);
+        foreach (['Shopee', 'Lazada', 'TikTok'] as $channel) {
+            $this->assertStringNotContainsString($channel, $html, "a catalog page names no marketplace ({$channel})");
+        }
     }
 
     /**

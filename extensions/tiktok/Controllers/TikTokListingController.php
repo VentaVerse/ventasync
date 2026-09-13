@@ -92,7 +92,7 @@ class TikTokListingController extends Controller
             'missing' => array_values(array_filter($covSkus, fn ($sku) => !isset($covKeys[strtolower($sku)]))),
         ];
 
-        return view('ext-tiktok::listings.edit', \App\Integrations\Listings\ListingImages::cardData($productId, $listing->image_order ?? null) + [
+        return view('ext-tiktok::listings.edit', \App\Integrations\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('tiktok_product_groups', 'tiktok_product_group_products', 'tiktok_product_group_id', $productId, 'tiktok_setting_id', (int) ($listing->tiktok_setting_id ?? 0) ?: null)) + [
             'coverage' => $coverage,
             'listingState' => $listingState,
             'product' => $product,
@@ -164,6 +164,8 @@ class TikTokListingController extends Controller
             'title' => 'nullable|string|max:255',
             'description' => 'nullable|string|max:10000',
             'description_prefix_id' => 'nullable|integer',
+            'watermark_template_id' => 'nullable|integer',
+            'watermark_all_images' => 'nullable|boolean',
             'description_suffix_id' => 'nullable|integer',
             'attributes' => 'nullable|array',
             'attributes.*' => 'nullable|string|max:500',
@@ -197,6 +199,7 @@ class TikTokListingController extends Controller
                  * null, so pre-filling never freezes a listing into a copy. */
                 'title' => \App\Integrations\Listings\ListingContent::overrideOrNull($data['title'] ?? null, $coreWords['title']),
                 'description_prefix_id' => ((int) ($data['description_prefix_id'] ?? 0)) ?: null,
+                ...\App\Integrations\Listings\ListingImages::submittedWatermark($request),
                 'description_suffix_id' => ((int) ($data['description_suffix_id'] ?? 0)) ?: null,
                 'description' => \App\Integrations\Listings\ListingContent::descriptionToSave($data['description'] ?? null, $coreWords['description'], $currentDescription, $request->input('description_edited')),
                 'attribute_values' => array_filter(

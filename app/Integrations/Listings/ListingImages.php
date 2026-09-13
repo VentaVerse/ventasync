@@ -2,6 +2,8 @@
 
 namespace App\Integrations\Listings;
 
+use App\Models\WatermarkTemplate;
+use App\Services\Media\StampedImages;
 use App\Support\Catalog\ProductImages;
 
 /**
@@ -32,10 +34,16 @@ final class ListingImages
      * hidden input comes back as a JSON string, which is why old() is
      * decoded here rather than trusted as an array.
      *
+     * The tiles show each picture as it goes up, marked by the listing's
+     * watermark template (or its product group's), so what the card shows
+     * is what the buyer sees; each tile still submits the unmarked path.
+     *
      * @param  ?array<int, mixed>  $stored  the listing's own arrangement, or null to follow the catalog
-     * @return array{tiles: list<array{path: string, url: string}>, catalogTiles: list<array{path: string, url: string}>, browseUrl: string}
+     * @param  ?object  $listing  the listing row, for its watermark choice
+     * @param  ?int  $groupTemplateId  the template the listing's product group lends
+     * @return array<string, mixed>
      */
-    public static function cardData(int $productId, ?array $stored): array
+    public static function cardData(int $productId, ?array $stored, ?object $listing = null, ?int $groupTemplateId = null): array
     {
         $submitted = null;
         $old = old('image_order');
@@ -44,10 +52,35 @@ final class ListingImages
             $submitted = is_array($decoded) ? $decoded : null;
         }
 
+        $refused = session()->hasOldInput();
+        $templateId = ((int) ($refused ? old('watermark_template_id') : ($listing->watermark_template_id ?? 0))) ?: null;
+        $allImages = $refused ? (bool) old('watermark_all_images') : (bool) ($listing->watermark_all_images ?? false);
+        $groupTemplateId = ((int) $groupTemplateId) ?: null;
+
+        $paths = ProductImages::paths($productId, $submitted ?? $stored);
+        $marked = app(StampedImages::class)->paths($paths, WatermarkTemplate::resolve($templateId, $groupTemplateId), $allImages);
+
         return [
-            'tiles' => ProductImages::tiles($productId, $submitted ?? $stored),
+            'tiles' => array_map(fn (string $path, string $shown) => ['path' => $path, 'url' => ProductImages::url($shown)], $paths, $marked),
             'catalogTiles' => ProductImages::tiles($productId),
             'browseUrl' => route('products.images.browse'),
+            'watermarkOptions' => WatermarkTemplate::forPicker(),
+            'watermarkTemplateId' => $templateId,
+            'watermarkAllImages' => $allImages,
+            'watermarkLent' => $groupTemplateId ? WatermarkTemplate::query()->whereKey($groupTemplateId)->value('name') : null,
+        ];
+    }
+
+    /**
+     * A listing's watermark choice as submitted, ready to store.
+     *
+     * @return array{watermark_template_id: ?int, watermark_all_images: bool}
+     */
+    public static function submittedWatermark(\Illuminate\Http\Request $request): array
+    {
+        return [
+            'watermark_template_id' => WatermarkTemplate::idOrNull($request->input('watermark_template_id')),
+            'watermark_all_images' => $request->boolean('watermark_all_images'),
         ];
     }
 

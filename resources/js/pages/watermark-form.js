@@ -14,10 +14,6 @@
        -4% set in a hyphen is a dash next to a four. */
     var MINUS = '−';
 
-    /* What Shopee allows on a main image: a small logo, in a corner. */
-    var MAIN_MAX_SIZE = 10;
-    var CORNERS = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
-
     function init() {
         var form = document.getElementById('wm-form');
         if (!form) return;
@@ -28,8 +24,6 @@
         var browseBtn = form.querySelector('[data-wm-browse]');
         var preview = form.querySelector('[data-wm-preview]');
         var note = form.querySelector('[data-wm-preview-note]');
-        var mainBox = form.querySelector('[data-wm-main]');
-        var risk = form.querySelector('[data-wm-risk]');
         var previewUrl = form.getAttribute('data-wm-preview-url');
         if (!pick || !pathEl) return;
 
@@ -75,17 +69,9 @@
             }
         });
 
-        /* ── The main image, said before a push is refused ────────── */
         function value(name) {
             var el = form.querySelector('[name="' + name + '"]:checked') || form.querySelector('[name="' + name + '"]');
             return el ? el.value : '';
-        }
-
-        function judgeMain() {
-            if (!risk || !mainBox) return;
-            var size = parseFloat(value('size_percent'));
-            var inCorner = CORNERS.indexOf(value('position')) !== -1;
-            risk.hidden = !(mainBox.checked && (size > MAIN_MAX_SIZE || !inCorner));
         }
 
         /* ── The library picker ───────────────────────────────────── */
@@ -137,14 +123,8 @@
             }, 220);
         }
 
-        function changed() {
-            judgeMain();
-            draw();
-        }
-
-        form.addEventListener('input', changed);
-        form.addEventListener('change', changed);
-        judgeMain();
+        form.addEventListener('input', draw);
+        form.addEventListener('change', draw);
         draw();
     }
 

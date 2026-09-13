@@ -12,6 +12,7 @@ class LazadaProductGroup extends Model
     protected $table = 'lazada_product_groups';
 
     protected $fillable = [
+        'watermark_template_id',
         'lazada_setting_id',
         'name',
         'lazada_category_id', 'brand_id', 'brand_name_override',

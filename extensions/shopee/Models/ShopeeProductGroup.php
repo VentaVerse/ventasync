@@ -11,6 +11,7 @@ class ShopeeProductGroup extends Model
     protected $table = 'shopee_product_groups';
 
     protected $fillable = [
+        'watermark_template_id',
         'shopee_setting_id',
         'name',
         'shopee_category_id', 'shopee_brand_id', 'logistic_ids',

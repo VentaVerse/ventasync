@@ -11,6 +11,7 @@ class VentaProductGroup extends Model
     protected $table = 'venta_product_groups';
 
     protected $fillable = [
+        'watermark_template_id',
         'venta_setting_id',
         'name',
         'venta_category_id',

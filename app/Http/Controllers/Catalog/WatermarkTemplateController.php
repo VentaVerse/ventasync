@@ -45,7 +45,7 @@ class WatermarkTemplateController extends Controller
     public function create()
     {
         return view('catalog.watermarks.form', [
-            'template' => new WatermarkTemplate(['position' => 'bottom-right', 'size_percent' => 18, 'offset_x_percent' => 0, 'offset_y_percent' => 0, 'opacity' => 1, 'stamp_main' => false]),
+            'template' => new WatermarkTemplate(['position' => 'bottom-right', 'size_percent' => 18, 'offset_x_percent' => 0, 'offset_y_percent' => 0, 'opacity' => 1]),
             'mode' => 'create',
             'browseUrl' => route('products.images.browse'),
         ]);
@@ -171,7 +171,6 @@ class WatermarkTemplateController extends Controller
             'offset_x_percent' => 'required|numeric|min:-50|max:50',
             'offset_y_percent' => 'required|numeric|min:-50|max:50',
             'transparency' => 'required|numeric|min:0|max:' . WatermarkTemplate::MAX_TRANSPARENCY,
-            'stamp_main' => 'nullable|boolean',
         ]);
 
         /* Shown as transparency, stored as the opacity the stamper
@@ -189,7 +188,6 @@ class WatermarkTemplateController extends Controller
             ]);
         }
         $data['image_path'] = $accepted[0];
-        $data['stamp_main'] = $request->boolean('stamp_main');
 
         return $data;
     }

@@ -11,8 +11,9 @@ use Illuminate\Database\Eloquent\Model;
  * any product group (the owner, 2026-09-10).
  *
  * It holds everything about the mark - which picture, where it sits, how
- * big, how strong, and whether the cover image gets it too - so choosing
- * one is a single decision rather than five fields repeated per store.
+ * big and how strong - so choosing one is a single decision rather than
+ * five fields repeated per store. Which of a product's pictures get it is
+ * the listing's choice, not the template's.
  *
  * The picture is a PATH into the image library, so replacing that file
  * updates every template pointing at it.
@@ -26,13 +27,12 @@ class WatermarkTemplate extends Model
         'offset_x_percent' => 'float',
         'offset_y_percent' => 'float',
         'opacity' => 'float',
-        'stamp_main' => 'boolean',
     ];
 
     /** Every template, by name, for a picker. */
     public static function forPicker()
     {
-        return static::query()->orderBy('name')->get(['id', 'name', 'image_path', 'stamp_main']);
+        return static::query()->orderBy('name')->get(['id', 'name', 'image_path']);
     }
 
     /**
@@ -52,10 +52,18 @@ class WatermarkTemplate extends Model
         return null;
     }
 
+    /** A submitted template id, kept only when that template exists. */
+    public static function idOrNull(mixed $id): ?int
+    {
+        $id = (int) $id;
+
+        return ($id > 0 && static::query()->whereKey($id)->exists()) ? $id : null;
+    }
+
     /** Where the mark lives on disk, for the stamper. */
     public function markPath(): string
     {
-        return public_path('storage/' . ltrim((string) $this->image_path, '/'));
+        return \Illuminate\Support\Facades\Storage::disk('public')->path(ltrim((string) $this->image_path, '/'));
     }
 
     /**

@@ -130,6 +130,13 @@
             ])
 
             <div class="fm-card">
+                <div class="fm-card__head"><h2 class="fm-card__title">Watermark</h2></div>
+                <div class="fm-card__body">
+                    @include('partials.watermark-pick', ['selected' => old('watermark_template_id', $group->watermark_template_id ?? null), 'canManage' => $canManage])
+                </div>
+            </div>
+
+            <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Price markup</h2></div>
                 <div class="fm-card__body">
                     <p class="fm-section__note">The percentage is taken off the catalog price first, then the fixed amount is added on top. Leave both empty to push the catalog price as it is.</p>

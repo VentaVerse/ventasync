@@ -76,9 +76,6 @@ class Watermarker
         $photo = $this->open($imagePath);
         $mark = $this->open($markPath);
         if ($photo === null || $mark === null) {
-            $photo && imagedestroy($photo);
-            $mark && imagedestroy($mark);
-
             return null;
         }
 
@@ -128,7 +125,6 @@ class Watermarker
             // would be copied as transparency and punch a hole in the photo.
             imagealphablending($photo, true);
             imagecopy($photo, $scaled, $x, $y, 0, 0, $targetW, $targetH);
-            imagedestroy($scaled);
 
             ob_start();
             imagejpeg($photo, null, self::JPEG_QUALITY);
@@ -137,9 +133,6 @@ class Watermarker
             return $bytes !== '' ? $bytes : null;
         } catch (\Throwable) {
             return null;
-        } finally {
-            imagedestroy($photo);
-            imagedestroy($mark);
         }
     }
 

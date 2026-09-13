@@ -140,32 +140,6 @@
                         </x-ui.field>
                     </div>
                 </section>
-
-                <section class="fm-section">
-                    <div class="fm-section__head"><h2 class="fm-section__title">The main image</h2></div>
-                    {{-- The one place a marketplace will actually penalise a
-                         seller, so the reason stays on the page rather than in
-                         a tooltip: it is a rule, not a preference. Said in the
-                         order a reader needs it (clarify, 2026-09-11): what
-                         the main image is, why it is different, what off
-                         leaves marked. --}}
-                    <label class="gf-check">
-                        <input type="checkbox" class="cc-check" name="stamp_main" value="1" data-wm-main
-                               @checked(old('stamp_main', $template->stamp_main))>
-                        <span class="gf-check__name">Also mark the main image</span>
-                    </label>
-                    <p class="fm-section__note">
-                        The main image is the first photo buyers see, and the one marketplaces check. Shopee
-                        rejects a watermark over the product and allows only a small corner logo, 10% of the
-                        picture or less. With this off, every other photo is still marked.
-                    </p>
-                    {{-- Said while it can still be changed, not after a push is
-                         refused: the form knows the size and the position. --}}
-                    <p class="wm-risk" data-wm-risk role="status" aria-live="polite" hidden>
-                        At this size or position Shopee may reject the main image. Pick a corner and keep the
-                        size at 10% or less.
-                    </p>
-                </section>
             </div>
 
             <aside class="cl-rail">
