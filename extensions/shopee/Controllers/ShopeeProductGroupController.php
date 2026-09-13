@@ -1698,8 +1698,8 @@ class ShopeeProductGroupController extends Controller
 
         /* THE GATE (the owner, 2026-09-06): the readiness the Ready column
          * shows, judged on what THIS push sends - the group's category,
-         * couriers, price rule and attribute answers standing in for each
-         * listing's own - so a product that read Ready is never turned
+         * couriers, price rule and attribute answers filling what each
+         * listing leaves blank - so a product that read Ready is never turned
          * away here, and one that is not is named with what it needs. */
         $groupAnswers = ShopeeProductGroupAttribute::query()
             ->where('shopee_product_group_id', (int) $group->id)
@@ -1712,8 +1712,9 @@ class ShopeeProductGroupController extends Controller
             'markup_fixed' => $group->markup_fixed !== null ? (float) $group->markup_fixed : null,
             'attributes' => $groupAnswers,
         ]);
-        $ownAnswers = ShopeeListing::query()->whereIn('product_id', $productIds)->get(['product_id', 'attribute_values'])
-            ->keyBy(fn ($l) => (int) $l->product_id);
+        // Each listing's own values, with its group filling only the blanks.
+        $inherit = app(\Extensions\shopee\Services\Shopee\ShopeeInheritedSettings::class);
+        $inheritedAll = $inherit->forProducts($productIds);
 
         foreach ($productIds as $productId) {
             // Skip already linked
@@ -1753,6 +1754,22 @@ class ShopeeProductGroupController extends Controller
              * used to send the CATALOG's title while the listing's own sat
              * saved and unused. */
             $ownListing = ShopeeListing::query()->where('product_id', (int) $productId)->first();
+
+            /* What this product sends: its listing's own category, couriers,
+             * brand, price rule and attribute answers, the group filling only
+             * what the listing leaves blank. The same values the listing
+             * page's own push sends. */
+            $eff = $inherit->fill($ownListing ?? (new ShopeeListing())->forceFill(['product_id' => (int) $productId]), $inheritedAll[(int) $productId] ?? null)['listing'];
+            if ($eff->markup_percent === null && $eff->markup_fixed === null) {
+                $eff->markup_percent = $group->markup_percent;
+                $eff->markup_fixed = $group->markup_fixed;
+            }
+            $effCategory = (int) ($eff->shopee_category_id ?? 0) ?: (int) $group->shopee_category_id;
+            $effLogistics = !empty($eff->logistic_ids) ? array_map('intval', (array) $eff->logistic_ids) : $logisticIds;
+            $effBrand = (int) ($eff->shopee_brand_id ?? 0) ?: (int) ($group->shopee_brand_id ?? 0);
+            if ($effCategory !== (int) $group->shopee_category_id) {
+                $this->ensureTemplate($effCategory, $client);
+            }
             $content = \App\Integrations\Listings\ListingContent::of(
                 $ownListing,
                 html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'),
@@ -1781,14 +1798,14 @@ class ShopeeProductGroupController extends Controller
 
             // Build payload
             $logisticInfo = [];
-            foreach ($logisticIds as $lid) {
+            foreach ($effLogistics as $lid) {
                 $logisticInfo[] = ['logistic_id' => (int) $lid, 'enabled' => true];
             }
 
             $basePrice = (float) $product->price;
-            $markupPct = (float) ($group->markup_percent ?? 0);
-            $markupFixed = (float) ($group->markup_fixed ?? 0);
-            $sellingPrice = round($basePrice + ($basePrice * $markupPct / 100) + $markupFixed, 2);
+            $markupPct = (float) ($eff->markup_percent ?? 0);
+            $markupFixed = (float) ($eff->markup_fixed ?? 0);
+            $sellingPrice = $eff->priceFor($basePrice);
 
             // Build tier_variation + per-combination model list when the
             // product has multi-option variants in product_option_combinations.
@@ -1808,10 +1825,10 @@ class ShopeeProductGroupController extends Controller
                     'package_width' => max(1, (int) $product->width),
                     'package_height' => max(1, (int) $product->height),
                 ],
-                'category_id' => (int) $group->shopee_category_id,
+                'category_id' => $effCategory,
                 'image' => ['image_id_list' => $imageIds],
                 'logistic_info' => $logisticInfo,
-                'brand' => $this->buildBrandPayload((int) $group->shopee_category_id, (int) ($group->shopee_brand_id ?? 0)),
+                'brand' => $this->buildBrandPayload($effCategory, $effBrand),
             ];
 
             // Shopee V2 does not honour tier_variation inside add_item, it
@@ -1825,8 +1842,7 @@ class ShopeeProductGroupController extends Controller
 
             /* The listing's own attribute answers over the group's, the
              * same merge readiness judged (2026-09-06). */
-            $own = array_filter((array) ($ownAnswers->get($productId)?->attribute_values ?? []), fn ($v) => trim((string) (is_array($v) ? implode('', $v) : $v)) !== '');
-            $attributeList = $this->attributeListFromSaved($own + $groupAnswers, (int) $group->shopee_category_id);
+            $attributeList = $this->attributeListFromSaved((array) ($eff->attribute_values ?? []), $effCategory);
             if (!empty($attributeList)) {
                 $payload['attribute_list'] = $attributeList;
             }
@@ -1918,15 +1934,12 @@ class ShopeeProductGroupController extends Controller
                     ]
                 );
 
-                /* Variations ride the group push too, priced by the
-                 * GROUP's rule - the settings that made this push are the
-                 * settings that price its models. Content still never
-                 * comes from the group; tiers are structure, not wording. */
-                $vPct = (float) ($group->markup_percent ?? 0);
-                $vFixed = (float) ($group->markup_fixed ?? 0);
+                /* Variations ride the group push too, priced by the rule
+                 * that priced the item: the listing's own, else the
+                 * group's. Tiers are structure, not wording. */
                 $variations = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)->pushForProduct(
                     $client, $auth, (int) $itemId, $productId,
-                    fn (float $core) => round($core + ($core * $vPct / 100) + $vFixed, 2),
+                    fn (float $core) => $eff->priceFor($core),
                     null
                 );
                 if ($variations !== null && !$variations['ok']) {
@@ -2539,11 +2552,11 @@ class ShopeeProductGroupController extends Controller
 
     private function pushPriceForLinks(ShopeeClient $client, array $auth, string $pfx, $links, ShopeeProductGroup $group): array
     {
-        /* The GROUP's markup makes this push, applied by the shared sender
-         * through the same closure contract the listing rule uses. */
-        $markupPct = (float) ($group->markup_percent ?? 0);
-        $markupFixed = (float) ($group->markup_fixed ?? 0);
-        $priceFor = fn (int $productId, float $price): float => $price + ($price * $markupPct / 100) + $markupFixed;
+        /* The one price rule every push uses: the listing's own markup,
+         * else its group's, else the catalog price. */
+        $priceFor = \Extensions\shopee\Commands\ShopeePushPrice::priceRule(
+            collect($links)->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all()
+        );
 
         $results = app(\Extensions\shopee\Services\Shopee\ShopeeStockPricePush::class)
             ->push('price', $auth, $links, $pfx, $priceFor);

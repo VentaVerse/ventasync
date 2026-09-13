@@ -63,8 +63,21 @@ class LazadaListingReadiness
         $productIds = $listings->pluck('product_id')->filter()->map(fn ($v) => (int) $v)->unique()->values()->all();
         $groups = $inherit->forProducts($productIds);
         $listings = $listings->map(fn ($l) => $inherit->fill($l, $groups[(int) $l->product_id] ?? null)['listing']);
+        // A push's settings fill what the listing leaves blank; its own values win.
         if (!empty($overrides['settings'])) {
-            $listings = $listings->map(fn ($l) => (clone $l)->forceFill($overrides['settings']));
+            $s = $overrides['settings'];
+            $listings = $listings->map(function ($l) use ($s) {
+                $c = clone $l;
+                if ((int) ($c->primary_category_id ?? 0) <= 0 && !empty($s['primary_category_id'])) {
+                    $c->primary_category_id = $s['primary_category_id'];
+                }
+                if ($c->markup_fixed === null && $c->markup_percent === null) {
+                    $c->markup_fixed = $s['markup_fixed'] ?? null;
+                    $c->markup_percent = $s['markup_percent'] ?? null;
+                }
+
+                return $c;
+            });
         }
         $sharedAnswers = array_filter((array) ($overrides['attributes'] ?? []), fn ($v) => trim((string) $v) !== '');
 

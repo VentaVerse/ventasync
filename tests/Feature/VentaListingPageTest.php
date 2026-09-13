@@ -818,4 +818,23 @@ class VentaListingPageTest extends TestCase
         $this->assertDatabaseMissing('venta_listings', ['venta_setting_id' => $store->id, 'product_id' => $nowhere]);
         $this->actingAs($this->manager())->get(route('ext.venta.listings.index', $store->id))->assertOk()->assertDontSee('PICK-1');
     }
+
+
+    /** Push price sends the price through the listing's own rule, never the plain catalog price. */
+    public function test_push_price_sends_the_listings_price_rule(): void
+    {
+        $store = $this->store();
+        $pid = $this->product('GP-200', 1000);
+        VentaProductLink::create(['venta_setting_id' => $store->id, 'product_id' => $pid, 'venta_product_id' => 5001, 'sku' => 'GP-200']);
+        VentaListing::query()->create(['venta_setting_id' => $store->id, 'product_id' => $pid, 'markup_percent' => 10]);
+        Http::fake([self::BASE . '/api/v1/products/GP-200' => Http::response(['data' => ['sku' => 'GP-200']])]);
+
+        $this->actingAs($this->userWith(['view_venta/listing', 'manage_venta/listing']))
+            ->post(route('ext.venta.listings.push_price', [$store->id, $pid]))
+            ->assertRedirect();
+
+        Http::assertSent(fn ($r) => $r->method() === 'PUT'
+            && str_contains($r->url(), '/api/v1/products/GP-200')
+            && (float) ($r->data()['price'] ?? 0) === 1100.0);
+    }
 }

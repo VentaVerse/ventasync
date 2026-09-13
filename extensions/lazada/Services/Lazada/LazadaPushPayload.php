@@ -37,17 +37,20 @@ class LazadaPushPayload
 
     public function buildLazadaProductCreatePayload(LazadaProduct $listing, ?object $setting = null, ?LazadaClient $client = null, array $overrides = []): array
     {
-        /* A GROUP push builds with the group's category, markups and
-         * attribute values without them ever becoming the listing's own
-         * (#104's rule). This used to be enforced by overwriting the
-         * listing's rows and restoring them after the build - a crash
-         * between the two left the listing permanently wearing the
-         * group's values. The overrides ride an in-memory clone and a
-         * post-read merge; nothing is written anywhere.
-         */
-        if (!empty($overrides['settings'])) {
-            $listing = (clone $listing)->forceFill($overrides['settings']);
+        /* The group's values fill only what the listing leaves blank, on
+         * every push, in memory on a clone; the listing's own value always
+         * wins and nothing is written anywhere. */
+        $listing = clone $listing;
+        $settings = (array) ($overrides['settings'] ?? []);
+        if ((int) ($listing->primary_category_id ?? 0) <= 0 && !empty($settings['primary_category_id'])) {
+            $listing->primary_category_id = $settings['primary_category_id'];
         }
+        if ($listing->markup_fixed === null && $listing->markup_percent === null && (array_key_exists('markup_fixed', $settings) || array_key_exists('markup_percent', $settings))) {
+            $listing->markup_fixed = $settings['markup_fixed'] ?? null;
+            $listing->markup_percent = $settings['markup_percent'] ?? null;
+        }
+        $inheritedGroup = app(LazadaInheritedSettings::class)->forProducts([(int) $listing->product_id])[(int) $listing->product_id] ?? null;
+        $listing = app(LazadaInheritedSettings::class)->fill($listing, $inheritedGroup)['listing'];
 
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
@@ -99,9 +102,12 @@ class LazadaPushPayload
             ->pluck('value', 'attribute_key')
             ->toArray();
 
-        // The group's attribute values, merged in memory (see above).
-        foreach (($overrides['attributes'] ?? []) as $oKey => $oValue) {
-            $attrs[(string) $oKey] = $oValue;
+        // The group's answers fill the attributes the listing leaves unanswered.
+        foreach (($overrides['attributes'] ?? ($inheritedGroup['attributes'] ?? [])) as $oKey => $oValue) {
+            $oKey = (string) $oKey;
+            if (!array_key_exists($oKey, $attrs) || trim((string) (is_array($attrs[$oKey]) ? implode('', $attrs[$oKey]) : $attrs[$oKey])) === '') {
+                $attrs[$oKey] = $oValue;
+            }
         }
 
         // Internal/legacy key - do not send to Lazada as it does not satisfy QC.

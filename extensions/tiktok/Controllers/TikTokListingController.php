@@ -269,7 +269,7 @@ class TikTokListingController extends Controller
             'category_id' => (string) $listing->tiktok_category_id,
             'brand_id' => $listing->brand_id,
             'attributes' => $attributes->payload($attributes->rows($template), $listing->attribute_values ?? []),
-            'priceFor' => fn (float $base) => $listing->priceFor($base),
+            'priceFor' => \Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::priceRule($listing, $inherit->groupModel($productId)),
             'warehouse_id' => $c['warehouse_id'] ?: null,
             'title' => $listing->title, 'description' => $listing->description,
             'image_order' => $listing->image_order,

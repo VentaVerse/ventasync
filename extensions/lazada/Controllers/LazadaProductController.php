@@ -2220,17 +2220,21 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $template = null;
         $attributes = [];
         $selectedBrandName = '';
-        if (!empty($listing->brand_id)) {
+        /* A blank category or brand shows its group's: the value a push
+         * sends. Saving it unchanged keeps it following the group. */
+        $inheritSvc = app(\Extensions\lazada\Services\Lazada\LazadaInheritedSettings::class);
+        $shown = $inheritSvc->fill($listing, $inheritSvc->forProducts([(int) $listing->product_id])[(int) $listing->product_id] ?? null)['listing'];
+        if (!empty($shown->brand_id)) {
             $b = LazadaBrand::query()
                 ->where('region', $this->region())
-                ->where('brand_id', (int)$listing->brand_id)
+                ->where('brand_id', (int)$shown->brand_id)
                 ->first();
             $selectedBrandName = $b ? (string)$b->name : '';
         }
-        if ($listing->primary_category_id) {
+        if ($shown->primary_category_id) {
             $template = LazadaCategoryTemplate::query()
                 ->where('region', $this->region())
-                ->where('primary_category_id', (int)$listing->primary_category_id)
+                ->where('primary_category_id', (int)$shown->primary_category_id)
                 ->first();
 
             if ($template && $template->template_body) {
@@ -2336,6 +2340,9 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'descriptionTemplates' => \App\Models\DescriptionTemplate::forStore('lazada', (int) (LazadaSetting::defaultStore()?->id ?? 0)),
             'mode' => $listing->exists ? 'edit' : 'create',
             'listing' => $listing,
+            'effectiveCategoryId' => $shown->primary_category_id,
+            'effectiveBrandId' => $shown->brand_id,
+            'effectiveBrandOverride' => $shown->brand_name_override,
             'products' => $products,
             'categories' => $categories,
             'template' => $template,
@@ -2407,6 +2414,27 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $listing->markup_fixed = $data['markup_fixed'] ?? null;
         $listing->markup_percent = $data['markup_percent'] ?? null;
 
+        /* A value equal to the group's is stored as following the group, so
+         * the page's pre-filled group values never become the listing's own
+         * and a later change to the group reaches this listing. */
+        $followGroup = app(\Extensions\lazada\Services\Lazada\LazadaInheritedSettings::class)->forProducts([(int) $listing->product_id])[(int) $listing->product_id] ?? null;
+        if ($followGroup) {
+            if ((int) ($listing->primary_category_id ?? 0) > 0 && (int) $listing->primary_category_id === (int) ($followGroup['category_id'] ?? 0)) {
+                $listing->primary_category_id = null;
+            }
+            if ((int) ($listing->brand_id ?? 0) === (int) ($followGroup['brand_id'] ?? 0)
+                && strtolower(trim((string) $listing->brand_name_override)) === strtolower(trim((string) ($followGroup['brand_name'] ?? '')))) {
+                $listing->brand_id = null;
+                $listing->brand_name_override = null;
+            }
+            $num = fn ($v) => ($v === null || $v === '') ? null : (float) $v;
+            if ($num($listing->markup_fixed) === $num($followGroup['markup_fixed'] ?? null)
+                && $num($listing->markup_percent) === $num($followGroup['markup_percent'] ?? null)) {
+                $listing->markup_fixed = null;
+                $listing->markup_percent = null;
+            }
+        }
+
         /* The pictures this listing sends, in the order the card arranged
          * them. Only a save that CARRIED the arrangement may change it:
          * the input is invisible, so a caller that does not send it must
@@ -2446,7 +2474,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
          * key leaves the answers alone; one with it saves them as given.
          * Brand is the form's own control, never an attribute row. */
         if ($request->has('attributes')) {
-            $this->storeAttributes($listing, (array) ($data['attributes'] ?? []));
+            $this->storeAttributes($listing, (array) ($data['attributes'] ?? []), (array) ($followGroup['attributes'] ?? []));
         }
         if ($request->has('variants')) {
             $this->storeVariants($listing, (array) ($data['variants'] ?? []));
@@ -2506,14 +2534,20 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
     }
 
     /** Saves the attribute answers as given; an empty answer clears the row. */
-    private function storeAttributes(LazadaProduct $listing, array $attrs): void
+    private function storeAttributes(LazadaProduct $listing, array $attrs, array $groupAnswers = []): void
     {
         unset($attrs['brand']);
 
-        DB::transaction(function () use ($listing, $attrs) {
+        DB::transaction(function () use ($listing, $attrs, $groupAnswers) {
             foreach ($attrs as $key => $value) {
                 $key = trim((string) $key);
                 if ($key === '') {
+                    continue;
+                }
+                // The group's own answer, unchanged, follows the group.
+                if (array_key_exists($key, $groupAnswers)
+                    && strtolower(trim((string) $value)) === strtolower(trim((string) $groupAnswers[$key]))) {
+                    LazadaProductAttribute::query()->where('lazada_product_id', $listing->id)->where('attribute_key', $key)->delete();
                     continue;
                 }
                 LazadaProductAttribute::query()->updateOrCreate(

@@ -138,16 +138,10 @@ class LazadaLinkCheck
             }
 
             if ($hitItemId !== null) {
-                // Unlisted here, already on the shop: adopt it. Group
-                // defaults dress the new listing when a group is present.
+                // Unlisted here, already on the shop: adopt it. The new
+                // listing starts blank; its group fills it at push time.
                 if (!$listing) {
-                    $listing = LazadaProduct::create([
-                        'product_id' => $productId,
-                        'primary_category_id' => $group?->lazada_category_id,
-                        'brand_name_override' => 'No Brand',
-                        'markup_fixed' => $group?->markup_fixed,
-                        'markup_percent' => $group?->markup_percent,
-                    ]);
+                    $listing = LazadaProduct::create(['product_id' => $productId]);
                 }
                 $listing->forceFill($hitMirror + ['lazada_item_id' => $hitItemId, 'lazada_deleted_at' => null, 'unlinked_at' => null, 'last_synced_at' => now(), 'last_sync_action' => 'check', 'last_sync_ok' => true])->save();
                 if ($pivots->isNotEmpty()) {

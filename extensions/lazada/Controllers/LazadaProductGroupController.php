@@ -769,7 +769,7 @@ class LazadaProductGroupController extends Controller
 
             /* THE GATE (the owner, 2026-09-06): the readiness the Ready column
              * shows, judged on what THIS push sends - the group's category,
-             * price rule and attribute answers over the listing's - so a
+             * price rule and attribute answers filling the listing's blanks - so a
              * product that read Ready is never turned away here. A product
              * with no listing row yet is judged as the row this push would
              * create for it. */
@@ -791,25 +791,11 @@ class LazadaProductGroupController extends Controller
                 continue;
             }
 
-            // Create listing record if needed
+            /* A listing row carries only what the operator set on it: the
+             * group's values fill its blanks at build time and are never
+             * written into it, so a later change to the group reaches it. */
             if (!$listing) {
-                $listing = LazadaProduct::create([
-                    'product_id' => $productId,
-                    'primary_category_id' => $group->lazada_category_id,
-                    'brand_name_override' => 'No Brand',
-                    'markup_fixed' => $group->markup_fixed,
-                    'markup_percent' => $group->markup_percent,
-                ]);
-
-                // Copy group attributes to product attributes
-                $groupAttrs = LazadaProductGroupAttribute::where('lazada_product_group_id', $group->id)
-                    ->get(['attribute_key', 'value']);
-                foreach ($groupAttrs as $ga) {
-                    \Extensions\lazada\Models\LazadaProductAttribute::updateOrCreate(
-                        ['lazada_product_id' => $listing->id, 'attribute_key' => $ga->attribute_key],
-                        ['value' => $ga->value]
-                    );
-                }
+                $listing = LazadaProduct::create(['product_id' => $productId]);
 
                 // Link pivot
                 if ($pivot) {
@@ -826,23 +812,19 @@ class LazadaProductGroupController extends Controller
                         ->where('product_id', $productId)
                         ->first();
                 }
-            } else {
-                /* THE GROUP'S SETTINGS MAKE THIS PUSH - WITHOUT BECOMING THE
-                 * LISTING'S OWN (#104's rule, ported from Shopee). The
-                 * builder applies these in memory; the listing's rows are
-                 * never written. This replaces the overwrite-then-restore
-                 * dance, whose crash window left listings permanently
-                 * wearing the group's values. */
-                $groupOverrides = [
-                    'settings' => [
-                        'primary_category_id' => $group->lazada_category_id,
-                        'markup_fixed'        => $group->markup_fixed,
-                        'markup_percent'      => $group->markup_percent,
-                    ],
-                    'attributes' => LazadaProductGroupAttribute::where('lazada_product_group_id', $group->id)
-                        ->pluck('value', 'attribute_key')->toArray(),
-                ];
             }
+
+            /* The group's settings fill what the listing leaves blank, in
+             * memory at build time; the listing's rows are never written. */
+            $groupOverrides = [
+                'settings' => [
+                    'primary_category_id' => $group->lazada_category_id,
+                    'markup_fixed'        => $group->markup_fixed,
+                    'markup_percent'      => $group->markup_percent,
+                ],
+                'attributes' => LazadaProductGroupAttribute::where('lazada_product_group_id', $group->id)
+                    ->pluck('value', 'attribute_key')->toArray(),
+            ];
 
             // Build payload
             try {
@@ -1212,12 +1194,11 @@ class LazadaProductGroupController extends Controller
         $pfx = (string) config('catalog.prefix');
         $listings = LazadaProduct::query()->whereNotNull('product_id')->whereIn('product_id', $ids)->get();
 
-        /* The shared sender (Phase F, #184), priced by the GROUP's rule. */
-        $gFixed = (float) ($group->markup_fixed ?? 0);
-        $gPct = (float) ($group->markup_percent ?? 0);
+        /* The shared sender (Phase F, #184), priced by the one rule every
+         * push uses: the listing's own markup, else its group's. */
         $results = app(\Extensions\lazada\Services\Lazada\LazadaStockPricePush::class)
             ->push('price', $setting, $creds, $listings, $pfx,
-                fn (int $pid, float $base) => \Extensions\lazada\Services\Lazada\LazadaPushPayload::computeFinalPrice($base, $gFixed, $gPct));
+                \Extensions\lazada\Commands\LazadaPushPrice::priceRule($listings));
 
         /* The verdicts land on THIS group's pivots - a stock or price
          * failure used to leave no durable trace on the page at all. */
@@ -1512,28 +1493,8 @@ class LazadaProductGroupController extends Controller
             $lpId = $existingLpMap->get($pid);
 
             if (!$lpId) {
-                // Create LazadaProduct record
-                $basePrice = (float)($erpPrices[$pid] ?? 0);
-                $finalPrice = LazadaPushPayload::computeFinalPrice(
-                    $basePrice, $group->markup_fixed, $group->markup_percent
-                );
-
-                $lp = LazadaProduct::create([
-                    'product_id' => $pid,
-                    'primary_category_id' => $group->lazada_category_id,
-                    'brand_id' => $group->brand_id,
-                    'brand_name_override' => $group->brand_name_override,
-                    'total_price' => $finalPrice,
-                ]);
-                $lpId = $lp->id;
-
-                foreach ($groupAttrs as $pa) {
-                    LazadaProductAttribute::create([
-                        'lazada_product_id' => $lpId,
-                        'attribute_key' => $pa->attribute_key,
-                        'value' => $pa->value,
-                    ]);
-                }
+                // A blank listing row: the group's values fill it at build time, never into it.
+                $lpId = LazadaProduct::create(['product_id' => $pid])->id;
             }
 
             LazadaProductGroupProduct::create([

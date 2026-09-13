@@ -52,12 +52,13 @@
 
     $noBrand = old('no_brand');
     if ($noBrand === null) {
-        $noBrand = (!empty($listing->brand_name_override)
-            && strtolower(trim((string) $listing->brand_name_override)) === 'no brand') ? 1 : 0;
+        $brandOverrideShown = $effectiveBrandOverride ?? $listing->brand_name_override;
+        $noBrand = (!empty($brandOverrideShown)
+            && strtolower(trim((string) $brandOverrideShown)) === 'no brand') ? 1 : 0;
     }
     $noBrand = (int) $noBrand;
 
-    $brandId = old('brand_id', $listing->brand_id);
+    $brandId = old('brand_id', $effectiveBrandId ?? $listing->brand_id);
     $brandName = $noBrand ? 'No Brand' : (old('brand_name') ?? ($selectedBrandName ?? ''));
 
     $productName = ($productRow->name ?? null)
@@ -337,7 +338,7 @@
                                  Local mode: the page already carries the
                                  cached category list. --}}
                             @php
-                                $lzSelectedCategoryId = (string) old('primary_category_id', $listing->primary_category_id);
+                                $lzSelectedCategoryId = (string) old('primary_category_id', $effectiveCategoryId ?? $listing->primary_category_id);
                                 $lzSelectedCategory = $lzSelectedCategoryId !== ''
                                     ? ($categories ?? collect())->firstWhere('category_id', (int) $lzSelectedCategoryId)
                                     : null;

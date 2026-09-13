@@ -920,15 +920,34 @@ class TikTokProductGroupController extends Controller
 
     private function groupPushOptions(TikTokProductGroup $group, array $c): array
     {
+        return ['warehouse_id' => $c['warehouse_id'] ?: null];
+    }
+
+    /**
+     * What one product sends from a group push: the listing's own category,
+     * brand, attribute answers and price rule, with the group filling only
+     * what the listing leaves blank. The same values the listing page's own
+     * push sends, so a product goes up the same whichever page sent it.
+     */
+    private function listingOptions(int $productId, TikTokProductGroup $group, array $c, TikTokClient $client): array
+    {
+        $inherit = app(\Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::class);
+        $own = TikTokListing::query()->where('product_id', $productId)->first();
+        $listing = $inherit->fill(
+            $own ?? (new TikTokListing())->forceFill(['product_id' => $productId]),
+            $inherit->forProducts([$productId])[$productId] ?? null
+        )['listing'];
+        $categoryId = trim((string) ($listing->tiktok_category_id ?? '')) !== ''
+            ? (string) $listing->tiktok_category_id
+            : (string) $group->tiktok_category_id;
         $service = app(TikTokAttributes::class);
-        $template = $service->ensureTemplate((string) $group->tiktok_category_id, app(TikTokClient::class), $c);
+        $template = $service->ensureTemplate($categoryId, $client, $c);
 
         return [
-            'category_id' => (string) $group->tiktok_category_id,
-            'brand_id' => null,
-            'attributes' => $service->payload($service->rows($template), $group->attributes()->pluck('value', 'attribute_key')->all()),
-            'priceFor' => fn (float $base) => $group->applyMarkup($base),
-            'warehouse_id' => $c['warehouse_id'] ?: null,
+            'category_id' => $categoryId,
+            'brand_id' => ($listing->brand_id ?? null) ?: null,
+            'attributes' => $service->payload($service->rows($template), (array) ($listing->attribute_values ?? [])),
+            'priceFor' => \Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::priceRule($own, $group),
         ];
     }
 
@@ -1033,11 +1052,9 @@ class TikTokProductGroupController extends Controller
          * shows is the one this push refuses through, and the attribute
          * answers it judged (the listing's own over the group's) are the
          * ones sent. */
-        $attributeService = app(TikTokAttributes::class);
-        $groupRows = $attributeService->rows($attributeService->ensureTemplate((string) $group->tiktok_category_id, $client, $c));
+        // A category never read is read now, so readiness can judge its sheet.
+        app(TikTokAttributes::class)->ensureTemplate((string) $group->tiktok_category_id, $client, $c);
         $readinessAll = app(\Extensions\tiktok\Services\TikTok\TikTokListingReadiness::class)->forProducts($pivotRows->pluck('product_id')->map(fn ($v) => (int) $v)->all());
-        $groupAnswers = $group->attributes()->pluck('value', 'attribute_key')->all();
-        $ownAnswers = TikTokListing::query()->whereIn('product_id', $pivotRows->pluck('product_id')->all())->get(['product_id', 'attribute_values'])->keyBy(fn ($l) => (int) $l->product_id);
 
         $created = 0;
         $skipped = 0;
@@ -1070,11 +1087,8 @@ class TikTokProductGroupController extends Controller
                 $failed++;
                 continue;
             }
-            $own = array_filter((array) ($ownAnswers->get((int) $pivot->product_id)?->attribute_values ?? []), fn ($v) => trim((string) (is_array($v) ? implode('', $v) : $v)) !== '');
-            $opts['attributes'] = $attributeService->payload($groupRows, $own + $groupAnswers);
-
-            // The listing's own words, per product (2026-09-07).
-            $outcome = $pusher->create($erp, array_merge($opts, $this->ownWords((int) $erp->product_id)), $c, $client);
+            // The listing's own values over the group's, and its own words.
+            $outcome = $pusher->create($erp, array_merge($opts, $this->listingOptions((int) $erp->product_id, $group, $c, $client), $this->ownWords((int) $erp->product_id)), $c, $client);
             if ($outcome['ok']) {
                 $pivot->update([
                     'tiktok_product_id' => $outcome['product_id'],
@@ -1147,7 +1161,7 @@ class TikTokProductGroupController extends Controller
             }
 
             $existingRaw = $pivot->tiktok_sku_id ?: ($listing?->tiktok_sku_id);
-            $outcome = $pusher->edit($erp, (string) $ttId, $existingRaw, array_merge($opts, $this->ownWords((int) $erp->product_id)), $c, $client);
+            $outcome = $pusher->edit($erp, (string) $ttId, $existingRaw, array_merge($opts, $this->listingOptions((int) $erp->product_id, $group, $c, $client), $this->ownWords((int) $erp->product_id)), $c, $client);
             if ($outcome['ok']) {
                 $pivot->update(array_filter([
                     'tiktok_product_id' => $ttId,
@@ -1214,7 +1228,7 @@ class TikTokProductGroupController extends Controller
          * a failed batch can no longer flash green. */
         $results = app(\Extensions\tiktok\Services\TikTok\TikTokStockPricePush::class)->push(
             $what === 'price' ? 'price' : 'stock', $c, $pivotRows, $pfx,
-            fn (float $base, object $pivot) => $group->applyMarkup($base)
+            \Extensions\tiktok\Commands\TikTokPushPrice::priceRule($pivotRows)
         );
         $ok = $results['ok'];
         $fail = $results['err'];

@@ -219,4 +219,31 @@ class TiktokAttributesTest extends TestCase
         $this->assertStringStartsWith('TikTok only title', $creates[0]['body']['title']);
         $this->assertSame('TikTok only description.', $creates[0]['body']['description']);
     }
+
+    /**
+     * Every push is the listing's own values first, the group's only where
+     * the listing has none. A group push used to send an empty brand, so a
+     * group update could strip a live product's brand.
+     */
+    public function test_a_group_push_keeps_the_listings_own_brand(): void
+    {
+        $productId = $this->seedProduct();
+        $group = TikTokProductGroup::create(['name' => 'Brand group', 'tiktok_category_id' => '900009']);
+        TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $productId, 'sync_status' => 'pending']);
+        $this->actingAs($this->manager())->put(route('ext.tiktok.product-groups.update', $group->id), [
+            'name' => 'Brand group', 'tiktok_category_id' => '900009',
+            'attributes' => ['100001' => 'v-ph', '100002' => 'Maple'],
+        ]);
+        TikTokListing::query()->updateOrCreate(['product_id' => $productId], ['brand_id' => 'b-7', 'brand_name' => 'Boss']);
+
+        $this->callResponses['POST /product/202309/products'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
+            'data' => ['product_id' => 'tt-779', 'skus' => [['id' => 'sku-3', 'seller_sku' => 'TTA-SKU']]]]];
+
+        $this->actingAs($this->manager())->post(route('ext.tiktok.product-groups.push', $group->id), ['ids' => [$productId]]);
+
+        $creates = $this->callsFor('POST', '/product/202309/products');
+        $this->assertCount(1, $creates);
+        $this->assertSame('b-7', $creates[0]['body']['brand_id'] ?? null);
+        $this->assertSame('900009', (string) $creates[0]['body']['category_id'], 'the group fills the category the listing leaves blank');
+    }
 }

@@ -1140,7 +1140,7 @@ class TikTokProductController extends Controller
             'category_id' => (string) ($listing->tiktok_category_id ?? ''),
             'brand_id' => $listing->brand_id ?? null,
             'attributes' => $service->payload($service->rows($template), $listing->attribute_values ?? []),
-            'priceFor' => fn (float $base) => $listing ? $listing->priceFor($base) : $base,
+            'priceFor' => \Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::priceRule($listing, $inherit->groupModel($productId)),
             'warehouse_id' => $c['warehouse_id'] ?: null,
             'title' => $listing->title ?? null,
             'description' => $listing->description ?? null,

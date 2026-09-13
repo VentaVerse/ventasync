@@ -828,7 +828,10 @@ class VentaProductGroupController extends Controller
                takes the record's own key names. */
             $data = $push->payload(
                 $prod,
-                ['name' => $ownWords['title'], 'description' => $ownWords['description']],
+                array_filter([
+                    'name' => $ownWords['title'], 'description' => $ownWords['description'],
+                    'meta_title' => $listing?->meta_title, 'meta_description' => $listing?->meta_description,
+                ], fn ($v) => $v !== null && trim((string) $v) !== ''),
                 $priceFor,
                 (int) ($g->venta_category_id ?? 0) ?: null
             );
@@ -1215,9 +1218,14 @@ class VentaProductGroupController extends Controller
 
             $sku = $link->sku ?: $product->sku;
             $basePrice = (float) $product->price;
+            // The listing's own price rule, else this group's, else the catalog price.
+            $rule = \Extensions\venta\Models\VentaListing::ruleFor(
+                \Extensions\venta\Models\VentaListing::query()->where('venta_setting_id', $store)->where('product_id', $pid)->first(),
+                $g
+            );
 
             // Push parent price
-            $result = $client->updateProduct($sku, ['price' => $basePrice]);
+            $result = $client->updateProduct($sku, ['price' => $rule($basePrice)]);
             if (!$result['ok']) {
                 $errCount++;
                 continue;
@@ -1230,7 +1238,7 @@ class VentaProductGroupController extends Controller
                 foreach ($combos as $c) {
                     if (!$c->sku || trim($c->sku) === '') continue;
                     if (!\App\Integrations\Listings\ListingVariations::allows($hiddenHere, $pid, (string) $c->sku)) continue;
-                    $client->updateVariant(trim($c->sku), ['price' => (float) $c->absolute_price]);
+                    $client->updateVariant(trim($c->sku), ['price' => $rule((float) $c->absolute_price)]);
                 }
             } else {
                 $variants = $erpOptions->get($pid);
@@ -1248,7 +1256,7 @@ class VentaProductGroupController extends Controller
                                     : $basePrice + (float) $ov->price;
                             }
                         }
-                        $client->updateVariant(trim($ov->sku), ['price' => $variantPrice]);
+                        $client->updateVariant(trim($ov->sku), ['price' => $rule($variantPrice)]);
                     }
                 }
             }

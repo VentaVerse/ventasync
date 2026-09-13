@@ -41,6 +41,12 @@ final class VentaStockPricePush
         $options = DB::table($pfx . 'product_option_value')->whereIn('product_id', $ids)->whereNotNull('sku')->where('sku', '!=', '')
             ->get(['product_id', 'sku', 'quantity', 'price', 'price_prefix', 'absolute_price'])->groupBy(fn ($r) => (int) $r->product_id);
         $hidden = \App\Integrations\Listings\ListingVariations::hidden('venta', (int) $this->setting->id, $ids);
+        $listings = \Extensions\venta\Models\VentaListing::query()->where('venta_setting_id', $this->setting->id)->whereIn('product_id', $ids)->get()->keyBy(fn ($l) => (int) $l->product_id);
+        $groupsByProduct = DB::table('venta_product_group_products as gp')
+            ->join('venta_product_groups as g', 'g.id', '=', 'gp.venta_product_group_id')
+            ->where('g.venta_setting_id', $this->setting->id)->whereIn('gp.product_id', $ids)
+            ->orderBy('gp.id')->get(['gp.product_id', 'g.markup_percent', 'g.markup_fixed'])
+            ->unique('product_id')->keyBy(fn ($r) => (int) $r->product_id);
 
         foreach ($ids as $pid) {
             $link = $links->get($pid);
@@ -60,6 +66,8 @@ final class VentaStockPricePush
                 continue;
             }
             $basePrice = (float) $product->price;
+            // The listing's own price rule, else its group's, else the catalog price.
+            $rule = \Extensions\venta\Models\VentaListing::ruleFor($listings->get($pid), $groupsByProduct->get($pid));
 
             // A variation product exists on the store only as its variants
             // (variants/{sku}); there is no simple products/{sku} for it, so a
@@ -90,10 +98,10 @@ final class VentaStockPricePush
             if ($price) {
                 if ($hasVariants) {
                     foreach ($variantSkus as $v) {
-                        $this->client->updateVariant(trim((string) $v->sku), ['price' => self::variantPrice($v, $basePrice)]);
+                        $this->client->updateVariant(trim((string) $v->sku), ['price' => $rule(self::variantPrice($v, $basePrice))]);
                     }
                 } else {
-                    $r = $this->client->updateProduct($sku, ['price' => $basePrice]);
+                    $r = $this->client->updateProduct($sku, ['price' => $rule($basePrice)]);
                     if (! ($r['ok'] ?? false)) {
                         $fine = false;
                         $why = (string) ($r['body']['error'] ?? $r['body']['message'] ?? 'no answer');

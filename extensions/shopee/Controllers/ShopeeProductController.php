@@ -2866,7 +2866,13 @@ class ShopeeProductController extends Controller
             return ['ok' => false, 'message' => 'Product not found.'];
         }
 
-        $listing = ShopeeListing::query()->where('product_id', $productId)->first();
+        /* A field the listing leaves blank follows its group, as on every
+         * other push; the listing's own value wins. */
+        $inherit = app(\Extensions\shopee\Services\Shopee\ShopeeInheritedSettings::class);
+        $listing = $inherit->fill(
+            ShopeeListing::query()->where('product_id', $productId)->first() ?? (new ShopeeListing())->forceFill(['product_id' => $productId]),
+            $inherit->forProducts([$productId])[$productId] ?? null
+        )['listing'];
 
         // The same merge rule as every push: the listing's own value when
         // set, the catalog's otherwise.

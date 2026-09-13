@@ -82,4 +82,31 @@ final class TikTokInheritedSettings
 
         return ['listing' => $copy, 'inherited' => $inherited];
     }
+
+    /**
+     * The price a push sends: the listing's own rule when it has one,
+     * otherwise its group's, otherwise the catalog price. Every push path
+     * prices through this, so a product goes up at one price whichever
+     * page sent it.
+     *
+     * @return \Closure(float): float
+     */
+    public static function priceRule(?TikTokListing $listing, ?TikTokProductGroup $group): \Closure
+    {
+        return function (float $base) use ($listing, $group): float {
+            if ($listing && ($listing->markup_percent !== null || $listing->markup_fixed !== null)) {
+                return $listing->priceFor($base);
+            }
+
+            return $group ? $group->applyMarkup($base) : $base;
+        };
+    }
+
+    /** The product's group on this store, by its one membership. */
+    public function groupModel(int $productId): ?TikTokProductGroup
+    {
+        $id = $this->forProducts([$productId])[$productId]['group_id'] ?? null;
+
+        return $id ? TikTokProductGroup::find($id) : null;
+    }
 }

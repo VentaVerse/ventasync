@@ -41,7 +41,7 @@ class ShopeeListingReadiness
      * @param array{category_id?: int|null, logistic_ids?: array<int>|null, markup_percent?: float|null, markup_fixed?: float|null, attributes?: array} $shared
      *        Settings a group push states for the whole batch (#151): a
      *        category, couriers, price rule or attribute answers given
-     *        here stand in for each listing's own, so readiness is judged
+     *        here fill what each listing leaves blank, so readiness is judged
      *        on what will actually be sent.
      * @return array<int, array{ready: bool, missing: array<string>, gaps: list<array{code: string, label: string}>, linked: bool}>
      *         `missing` is the sentences the pages print; `gaps` says the
@@ -132,7 +132,8 @@ class ShopeeListingReadiness
             // No row yet: judged as the blank row a push would make, with the group's presets filled in.
             $saved = $listings->get($productId) ?? (new ShopeeListing())->forceFill(['product_id' => $productId]);
             $listing = $inherit->fill($saved, $inherited[$productId] ?? null)['listing'];
-            if ($listing && $sharedRule) {
+            // A push's settings fill what the listing leaves blank; its own rule wins.
+            if ($listing && $sharedRule && $saved->markup_percent === null && $saved->markup_fixed === null) {
                 $listing->markup_percent = $shared['markup_percent'] ?? null;
                 $listing->markup_fixed = $shared['markup_fixed'] ?? null;
             }
@@ -168,8 +169,8 @@ class ShopeeListingReadiness
                 continue;
             }
 
-            $categoryId = $sharedCategory ?: (int) ($listing->shopee_category_id ?? 0);
-            $logisticIds = $sharedLogistics ?? (!empty($listing?->logistic_ids) ? $listing->logistic_ids : []);
+            $categoryId = (int) ($listing->shopee_category_id ?? 0) ?: (int) $sharedCategory;
+            $logisticIds = !empty($listing?->logistic_ids) ? $listing->logistic_ids : ($sharedLogistics ?? []);
 
             if (!$categoryId) {
                 $gaps[] = ['code' => ListingState::GAP_CATEGORY, 'label' => $categoriesCached ? 'a Shopee category' : 'a Shopee category - none have been fetched for this store yet (Set up store on Settings > Connection, or fetch them on Catalog > Categories)'];
@@ -184,7 +185,7 @@ class ShopeeListingReadiness
                     $gaps[] = ['code' => ListingState::GAP_SHEET, 'label' => "its category's attribute sheet (open the listing page once to read it)"];
                 } else {
                     $answers = array_filter((array) ($listing?->attribute_values ?? []), fn ($v) => trim((string) (is_array($v) ? implode('', $v) : $v)) !== '');
-                    $unanswered = $this->missingRequiredAttributes($template, $sharedAnswers + $answers);
+                    $unanswered = $this->missingRequiredAttributes($template, $answers + $sharedAnswers);
                     if (!empty($unanswered)) {
                         $gaps[] = ['code' => ListingState::GAP_ATTRIBUTES,
                             'label' => 'answers for ' . count($unanswered) . ' required '

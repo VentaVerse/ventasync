@@ -62,6 +62,26 @@ class VentaListing extends Model
     }
 
     /**
+     * The price every push sends: the listing's own rule, else its group's
+     * markup, else the catalog price.
+     *
+     * @return \Closure(float): float
+     */
+    public static function ruleFor(?self $listing, ?object $group): \Closure
+    {
+        return function (float $base) use ($listing, $group): float {
+            if ($listing && $listing->hasPriceRule()) {
+                return $listing->priceFor($base);
+            }
+            if ($group && ($group->markup_percent !== null || $group->markup_fixed !== null)) {
+                return round($base + ($base * (float) ($group->markup_percent ?? 0) / 100) + (float) ($group->markup_fixed ?? 0), 2);
+            }
+
+            return round($base, 2);
+        };
+    }
+
+    /**
      * The content this listing sends in place of the catalogue's. Only the
      * fields the operator set; an unset one is not in the array at all, so
      * the catalogue's value goes.

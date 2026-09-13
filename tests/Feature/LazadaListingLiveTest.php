@@ -460,10 +460,11 @@ class LazadaListingLiveTest extends TestCase
      * WITHOUT them ever touching the listing's rows (#104). The old
      * implementation overwrote the rows and restored them after the build;
      * a crash between the two corrupted the listing permanently. Now the
-     * overrides ride the builder in memory: the wire carries the group's
-     * values, the database keeps the listing's own.
+     * overrides ride the builder in memory: the wire carries the listing's
+     * own values with the group filling its blanks, and the database
+     * keeps the listing's own.
      */
-    public function test_a_group_push_carries_group_values_without_writing_them(): void
+    public function test_a_group_push_sends_the_listings_own_values_and_fills_its_blanks_from_the_group(): void
     {
         $productId = $this->seedProduct('Group-dressed product', 'GRP-DRESS');
         $pfx = (string) config('catalog.prefix');
@@ -489,10 +490,14 @@ class LazadaListingLiveTest extends TestCase
         \Extensions\lazada\Models\LazadaProductGroupAttribute::create([
             'lazada_product_group_id' => $group->id, 'attribute_key' => 'material', 'value' => 'Rosewood',
         ]);
-        // The GROUP's category has a cached template with no questions, so
+        // An answer only the group gives fills the listing's blank.
+        \Extensions\lazada\Models\LazadaProductGroupAttribute::create([
+            'lazada_product_group_id' => $group->id, 'attribute_key' => 'warranty_type', 'value' => 'No Warranty',
+        ]);
+        // The LISTING's category has a cached template with no questions, so
         // the mandatory gate passes and the build reaches the wire.
         \Extensions\lazada\Models\LazadaCategoryTemplate::create([
-            'region' => 'ph', 'primary_category_id' => 222,
+            'region' => 'ph', 'primary_category_id' => 111,
             'template_body' => ['data' => ['attributes' => []]], 'fetched_at' => now(),
         ]);
 
@@ -509,8 +514,10 @@ class LazadaListingLiveTest extends TestCase
         $create = collect($this->sentPosts)->firstWhere('path', '/product/create');
         $this->assertNotNull($create, 'the push must reach /product/create');
         $payload = (string) ($create['params']['payload'] ?? '');
-        $this->assertStringContainsString('Rosewood', $payload, "the wire carries the group's value");
-        $this->assertStringContainsString('222', $payload, "the wire carries the group's category");
+        $this->assertStringContainsString('Maple', $payload, "the listing's own answer wins over the group's");
+        $this->assertStringNotContainsString('Rosewood', $payload);
+        $this->assertStringContainsString('No Warranty', $payload, 'the group fills the answer the listing leaves blank');
+        $this->assertStringContainsString('111', $payload, "the listing's own category is sent");
 
         $listing->refresh();
         $this->assertSame(111, (int) $listing->primary_category_id, "the listing's own category is untouched");
@@ -518,6 +525,9 @@ class LazadaListingLiveTest extends TestCase
         $this->assertSame('Maple', \Extensions\lazada\Models\LazadaProductAttribute::query()
             ->where('lazada_product_id', $listing->id)->where('attribute_key', 'material')->value('value'),
             "the listing's own attribute value is untouched");
+        $this->assertFalse(\Extensions\lazada\Models\LazadaProductAttribute::query()
+            ->where('lazada_product_id', $listing->id)->where('attribute_key', 'warranty_type')->exists(),
+            "the group's answer is sent, never written into the listing");
     }
 
     public function test_readiness_names_gaps_on_the_index(): void
@@ -728,5 +738,36 @@ class LazadaListingLiveTest extends TestCase
             json_decode($call['params']['payload'], true)
         );
         $this->assertSame('inactive', $listing->fresh()->live_status);
+    }
+
+
+    /** The clean-up returns a copy equal to its group's value to blank, and leaves the listing's own alone. */
+    public function test_the_follow_migration_clears_only_copies_equal_to_the_group(): void
+    {
+        $copied = $this->seedProduct('Copied listing', 'LZ-COPY');
+        $own = $this->seedProduct('Own listing', 'LZ-OWN');
+        $group = \Extensions\lazada\Models\LazadaProductGroup::create(['name' => 'Copy group', 'lazada_category_id' => 222, 'markup_fixed' => 20]);
+        \Extensions\lazada\Models\LazadaProductGroupAttribute::create(['lazada_product_group_id' => $group->id, 'attribute_key' => 'material', 'value' => 'Rosewood']);
+
+        $a = LazadaProduct::query()->create(['product_id' => $copied, 'primary_category_id' => 222]);
+        $a->forceFill(['markup_fixed' => 20])->save();
+        \Extensions\lazada\Models\LazadaProductAttribute::create(['lazada_product_id' => $a->id, 'attribute_key' => 'material', 'value' => 'Rosewood']);
+        \Extensions\lazada\Models\LazadaProductAttribute::create(['lazada_product_id' => $a->id, 'attribute_key' => 'color_family', 'value' => 'Red']);
+        $b = LazadaProduct::query()->create(['product_id' => $own, 'primary_category_id' => 333]);
+        $b->forceFill(['markup_fixed' => 7])->save();
+        foreach ([[$copied, $a], [$own, $b]] as [$pid, $row]) {
+            \Extensions\lazada\Models\LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $pid, 'lazada_product_id' => $row->id, 'sync_status' => 'pushed']);
+        }
+
+        (require base_path('database/migrations/2026_09_16_110000_lazada_listings_follow_their_group.php'))->up();
+
+        $a->refresh();
+        $b->refresh();
+        $this->assertNull($a->primary_category_id);
+        $this->assertNull($a->markup_fixed);
+        $this->assertFalse(\Extensions\lazada\Models\LazadaProductAttribute::query()->where('lazada_product_id', $a->id)->where('attribute_key', 'material')->exists());
+        $this->assertTrue(\Extensions\lazada\Models\LazadaProductAttribute::query()->where('lazada_product_id', $a->id)->where('attribute_key', 'color_family')->exists(), 'an answer the group does not give stays');
+        $this->assertSame(333, (int) $b->primary_category_id, 'a value the operator set stays');
+        $this->assertSame(7.0, (float) $b->markup_fixed);
     }
 }

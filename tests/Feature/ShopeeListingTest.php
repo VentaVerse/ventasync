@@ -379,6 +379,27 @@ class ShopeeListingTest extends TestCase
         $this->assertNull($listing->item_name);
     }
 
+    /** A group push sends the listing's own category and price rule; the group fills only what the listing leaves blank. */
+    public function test_a_group_push_sends_the_listings_own_settings_over_the_groups(): void
+    {
+        $productId = $this->seedProduct(300.0);
+        $group = $this->seedCatchAllGroup();
+        DB::table('shopee_product_group_products')->insert([
+            'shopee_product_group_id' => $group->id, 'product_id' => $productId,
+        ]);
+        \Extensions\shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 100200], ['attributes' => []]);
+        ShopeeListing::query()->create(['product_id' => $productId, 'shopee_category_id' => 100200, 'markup_fixed' => 70]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.product-groups.push', $group->id), ['ids' => [$productId]]);
+
+        $add = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/add_item');
+        $this->assertNotNull($add, 'The group push must reach add_item.');
+        $this->assertSame(100200, (int) $add['body']['category_id'], "the listing's own category, not the group's");
+        $this->assertSame(370.0, (float) $add['body']['original_price'], "the listing's own rule, not the group's 50%");
+        $this->assertSame([['logistic_id' => 8003, 'enabled' => true]], $add['body']['logistic_info'], 'the group fills the couriers the listing leaves blank');
+    }
+
     /**
      * the owner, 2026-09-07: a store listing's own title and description are
      * saved per store and must go up from EVERY door. The group push built
