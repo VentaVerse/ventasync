@@ -130,4 +130,22 @@ class VariationRows
 
         return $rows;
     }
+
+    /**
+     * The rows every store's pages show: the catalog's variations that are
+     * switched on. The catalog is the source of truth, so a variation it
+     * switched off appears on no channel and no store. A store's own
+     * "Sell here" switch lives on its listing page and changes nothing
+     * here. The catalog list and the API keep forProducts(), which shows
+     * them all, since that is where a variation is switched back on.
+     *
+     * @param array<int> $productIds
+     * @return Collection<int, Collection<int, object>> keyed by product_id; a product left with no rows is absent
+     */
+    public static function forListing(array $productIds): Collection
+    {
+        return self::forProducts($productIds)
+            ->map(fn (Collection $list) => $list->filter(fn ($r) => (int) ($r->status ?? 1) !== 0)->values())
+            ->filter(fn (Collection $list) => $list->isNotEmpty());
+    }
 }

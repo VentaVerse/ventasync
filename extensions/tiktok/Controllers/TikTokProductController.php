@@ -265,7 +265,7 @@ class TikTokProductController extends Controller
             'allManufacturers' => DB::table($pfx . 'manufacturer')->orderBy('name')->pluck('name', 'manufacturer_id'),
             'allGroups' => TikTokProductGroup::query()->orderBy('name')->pluck('name', 'id'),
             'groupsByProductId' => $groupsByProductId,
-            'optionRowsByProductId' => \App\Support\VariationRows::forProducts($pageIds),
+            'optionRowsByProductId' => \App\Support\VariationRows::forListing($pageIds),
             'listingsByProductId' => $listingsByProductId,
             'pivotTruth' => $pivotTruth,
             'lastAttempts' => $lastAttempts,

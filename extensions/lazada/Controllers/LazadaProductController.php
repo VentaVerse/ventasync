@@ -388,7 +388,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             $productThumbsById = $products->mapWithKeys(function ($r) {
                 return [(int) $r->product_id => $this->images()->toDisplayImageUrl($r->image ?? null)];
             });
-            $optionRowsByProductId = \App\Support\VariationRows::forProducts($pageIds);
+            $optionRowsByProductId = \App\Support\VariationRows::forListing($pageIds);
         }
 
         /* The mirror fills its own blanks (the owner, 2026-08-28): a row with

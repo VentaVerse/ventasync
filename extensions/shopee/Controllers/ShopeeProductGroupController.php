@@ -365,7 +365,7 @@ class ShopeeProductGroupController extends Controller
         // product list uses, image and proper option names included
         // (App\Support\VariationRows). The pov fallback for never-resaved
         // products lives inside it.
-        $optionRowsByProductId = \App\Support\VariationRows::forProducts($pivotProductIds);
+        $optionRowsByProductId = \App\Support\VariationRows::forListing($pivotProductIds);
 
         // All product IDs in this group (for "Remove from Group" action)
         $manualIds = $group->groupProducts()->pluck('product_id')->toArray();
