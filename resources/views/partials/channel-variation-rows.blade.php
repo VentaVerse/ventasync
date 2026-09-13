@@ -22,7 +22,7 @@
        rows    iterable  App\Support\VariationRows::forListing() rows for one product
        check   bool      the table carries the select column (manage tier)
        trail   string[]  the classes of the cells after Price, in header order --}}
-@props(['rows' => [], 'check' => false, 'trail' => ['cc-col-chanid', 'cc-col-sync', 'cc-col-err', 'x-td-actions']])
+@props(['rows' => [], 'check' => false, 'trail' => ['cc-col-chanid', 'cc-col-ready', 'cc-col-sync', 'x-td-actions']])
 
 @foreach($rows as $vr)
     @php

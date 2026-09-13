@@ -226,6 +226,7 @@
         @endif
     </x-ui.empty>
 @else
+@php $colCount = 9 + ($canManageShopee ? 1 : 0); @endphp
 <x-ui.table id="shopee-listings-table">
     <x-slot:head>
         <tr>
@@ -266,7 +267,6 @@
             <th scope="col" class="cc-col-stat">Catalog</th>
             @include('partials.channel-ready-head')
             <th scope="col" class="cc-col-sync">Listing</th>
-            <th scope="col" class="cc-col-err">Error</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
@@ -285,6 +285,7 @@
             $syncFailed = $link && !is_null($link->last_sync_ok) && !$link->last_sync_ok;
             $rowLabel = (string) ($p->name ?: ($p->sku ?: 'product ' . $p->product_id));
         @endphp
+        @include('partials.channel-error-row', ['error' => $rowErrors[(int) $p->product_id] ?? null, 'cols' => $colCount])
         <tr>
             @if($canManageShopee)
             <td class="cc-col-check">
@@ -393,12 +394,6 @@
                     @endif
                 @endif
             </td>
-            <td class="cc-col-err" data-label="Error">
-                {{-- One answer for this column on every page (the owner,
-                     2026-09-05): the shared refusal, else the newest
-                     successful sync, else never. --}}
-                @include('partials.channel-error', ['error' => $rowErrors[(int) $p->product_id] ?? null])
-            </td>
 
             <td class="x-td-actions">
                 {{-- Each action keeps its own form inside the menu, exactly
@@ -449,7 +444,7 @@
         </tr>
         @if($variationCount > 0)
             {{-- The variations as rows of this table, under the same headers (partials.channel-variation-rows). --}}
-            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManageShopee, 'trail' => ['cc-col-chanid', 'cc-col-stat', 'cc-col-sync', 'cc-col-err', 'x-td-actions']])
+            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManageShopee, 'trail' => ['cc-col-chanid', 'cc-col-stat', 'cc-col-ready', 'cc-col-sync', 'x-td-actions']])
         @endif
     @endforeach
 </x-ui.table>

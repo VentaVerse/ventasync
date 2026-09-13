@@ -315,12 +315,14 @@
                             'selected' => (int) old('description_prefix_id', $listing->description_prefix_id ?? 0),
                             'options' => $descriptionTemplates, 'canManage' => true,
                         ])
-                        <x-ui.field label="Description" for="lz-description" name="description" wide>
-                            <x-ui.textarea id="lz-description" name="description" rows="6" maxlength="20000" class="wysiwyg">{{ old('description', \App\Integrations\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription)) }}</x-ui.textarea>
-                            {{-- Set to 1 by the editor on change; see ListingContent::descriptionToSave. --}}
-                            <input type="hidden" name="description_edited" value="0" data-rte-edited="lz-description">
-                            @include('catalog.products.partials.wysiwyg')
-                        </x-ui.field>
+                        @include('partials.channel-description-compose', [
+                            'id' => 'lz-description', 'label' => 'Description', 'name' => 'description',
+                            'value' => old('description', \App\Integrations\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription)),
+                            'rich' => true, 'disabled' => false, 'rows' => 6, 'maxlength' => 20000,
+                            'prefixFor' => 'lz-prefix', 'suffixFor' => 'lz-suffix',
+                            'prefix' => $listing->description_prefix_id ?? null, 'suffix' => $listing->description_suffix_id ?? null,
+                            'options' => $descriptionTemplates,
+                        ])
                         @include('partials.channel-description-pick', [
                             'id' => 'lz-suffix', 'label' => 'Suffix description', 'name' => 'description_suffix_id',
                             'selected' => (int) old('description_suffix_id', $listing->description_suffix_id ?? 0),

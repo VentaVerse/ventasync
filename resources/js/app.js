@@ -35,6 +35,7 @@ import './pages/channel-setup';
 import './pages/store-settings';
 import './pages/group-form';
 import './pages/description-template';
+import './pages/description-preview';
 import './pages/image-library';
 import './pages/watermark-form';
 import './pages/listing-images';

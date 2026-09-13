@@ -466,12 +466,10 @@ class LazadaListingLiveTest extends TestCase
         $r->assertSee('990077');
         $r->assertSee('Listed');
         $r->assertDontSee('>Failed<', false);
-        // One latest error per product (the owner, 2026-09-05, simplified to the
-        // Error column 2026-09-07): the group page draws the shared Error
-        // cell from the listing row; this group's older attempt is not the
-        // product's story once the listing pushed.
-        $r->assertSee('Error');
-        $r->assertSee('None');
+        // The group page draws the error line from the listing row; this
+        // group's older attempt is not the product's story once the listing
+        // pushed, so no line is drawn.
+        $r->assertDontSee('cc-err-row', false);
         $r->assertDontSee('Special characters');
     }
 

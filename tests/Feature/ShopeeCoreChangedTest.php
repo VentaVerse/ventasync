@@ -145,20 +145,22 @@ class ShopeeCoreChangedTest extends TestCase
             ->assertDontSee('The catalog product changed');
     }
 
-    public function test_an_overridden_field_says_when_the_catalog_now_differs(): void
+    /** An overridden title or description carries no note about the catalog. */
+    public function test_an_overridden_field_has_no_catalog_note(): void
     {
         $productId = $this->seedProduct(now()->subHour());
         ShopeeListing::query()->create([
             'product_id' => $productId,
             'item_name' => 'My Shopee-safe rewrite',
+            'description' => 'My own Shopee description',
         ]);
 
         $r = $this->actingAs($this->manager())
             ->get(route('ext.shopee.listings.edit', $productId));
 
         $r->assertOk();
-        $r->assertSee('The catalog now says');
-        $r->assertSee('Core changed product');
+        $r->assertDontSee('The catalog now says');
+        $r->assertDontSee("The catalog's description now differs", false);
         // The operator's wording is untouched in the field itself.
         $r->assertSee('My Shopee-safe rewrite');
     }

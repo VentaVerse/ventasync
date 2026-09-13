@@ -5,7 +5,9 @@
  *      or, with _method=PUT, to update.
  *   2. The + beside a prefix or suffix dropdown on a listing page: the same
  *      modal, posted over fetch so the page is never left. The new template
- *      joins both dropdowns and is selected in the one that asked for it.
+ *      joins both dropdowns and is selected in the one that asked for it,
+ *      and is announced as a "dtp:created" event for the description
+ *      preview (description-preview.js).
  *
  * Markup: resources/views/channels/description-templates/index.blade.php and
  * partials/channel-description-pick.blade.php.
@@ -117,6 +119,11 @@
                       select.appendChild(option);
                       if (asking && select === asking) select.value = String(answer.data.id);
                   });
+                  document.dispatchEvent(new CustomEvent('dtp:created', { detail: {
+                      id: String(answer.data.id),
+                      name: answer.data.name,
+                      body: typeof answer.data.body === 'string' ? answer.data.body : ''
+                  } }));
                   close(modal);
               }, function () {
                   save.disabled = false;

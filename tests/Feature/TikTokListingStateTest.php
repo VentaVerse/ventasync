@@ -312,7 +312,7 @@ class TikTokListingStateTest extends TestCase
         $this->assertStringContainsString('failed: Main image is required', implode(' ', $s->reasons));
         $this->assertStringContainsString('Main image is required', (string) $states->errors([$pid])[$pid]);
 
-        // A successful push clears it and the Error column empties.
+        // A successful push clears it and the error line goes.
         \Extensions\tiktok\Models\TikTokListing::recordPush($pid, 'tt-1', null, 'listing');
         $this->assertNull($states->errors([$pid])[$pid]);
         $this->assertNull(\Extensions\tiktok\Models\TikTokListing::query()->where('product_id', $pid)->value('last_push_error'));

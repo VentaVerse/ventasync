@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
+use App\Models\DescriptionTemplate;
 use App\Models\User;
 use Extensions\venta\Models\VentaListing;
 use Extensions\venta\Models\VentaProductGroup;
@@ -263,6 +264,49 @@ class VentaListingPageTest extends TestCase
         $this->actingAs($this->viewer())->get(route('ext.venta.listings.edit', [$store->id, $pid]))->assertOk();
 
         $this->assertSame(7777, (int) VentaProductLink::where('venta_setting_id', $store->id)->where('product_id', $pid)->value('venta_product_id'));
+    }
+
+    /**
+     * The chosen prefix shows greyed above the description, as the push
+     * sends it, and a template body is printed sanitised, never as it was
+     * stored. The blocks are not fields, so nothing extra is posted.
+     */
+    public function test_the_chosen_templates_frame_the_description_sanitised(): void
+    {
+        $store = $this->store();
+        $pid = $this->product();
+        Http::fake([self::BASE . '/*' => Http::response(['error' => 'Product not found'], 404)]);
+
+        $prefix = DescriptionTemplate::create([
+            'integration' => 'venta', 'store_id' => $store->id, 'name' => 'Returns',
+            'body' => '<p>Returns accepted within 30 days.</p>',
+        ]);
+        $suffix = DescriptionTemplate::create([
+            'integration' => 'venta', 'store_id' => $store->id, 'name' => 'Warranty',
+            'body' => '<p>One year warranty.</p><script>alert("xss-script")</script><img src="javascript:alert(\'xss-src\')" onerror="alert(\'xss-onerror\')">',
+        ]);
+        // Another store's template is never offered or previewed here.
+        $foreign = DescriptionTemplate::create([
+            'integration' => 'venta', 'store_id' => $store->id + 1000, 'name' => 'Elsewhere', 'body' => 'Another store policy',
+        ]);
+        VentaListing::create([
+            'venta_setting_id' => $store->id, 'product_id' => $pid,
+            'description_prefix_id' => $prefix->id, 'description_suffix_id' => $suffix->id,
+        ]);
+
+        $html = $this->actingAs($this->manager())
+            ->get(route('ext.venta.listings.edit', [$store->id, $pid]))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertMatchesRegularExpression('#data-dp-block="prefix"\s*><p>Returns accepted within 30 days\.</p></div>#', $html);
+        $this->assertStringContainsString('<template data-dt-preview="' . $prefix->id . '"><p>Returns accepted within 30 days.</p></template>', $html);
+        $this->assertStringContainsString('One year warranty.', $html);
+        $this->assertStringNotContainsString('xss-script', $html);
+        $this->assertStringNotContainsString('xss-src', $html);
+        $this->assertStringNotContainsString('xss-onerror', $html);
+        $this->assertStringNotContainsString('data-dt-preview="' . $foreign->id . '"', $html);
+        $this->assertStringNotContainsString('Another store policy', $html);
     }
 
     public function test_saving_keeps_overrides_and_returns_blanks_to_the_catalogue(): void

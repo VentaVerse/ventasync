@@ -149,12 +149,12 @@ class ShopeeListingStateTest extends TestCase
         $this->assertStringContainsString('Last push', $s->reasons[0]);
         $this->assertStringContainsString('failed: The number of product images must be between 1 and 9', $s->reasons[0]);
 
-        // The workbench draws it on the row, in the shared Error column.
+        // The workbench draws it on the error line above the product's row.
         $group = \App\Models\Admin\UserGroup::create(['name' => 'Shopee push readers']);
         $group->permissions()->attach(\App\Models\Admin\Permission::whereIn('key', ['view_shopee/product', 'manage_shopee/product'])->pluck('id')->all());
         $user = \App\Models\User::factory()->create(['user_group_id' => $group->id]);
         $html = $this->actingAs($user)->get(route('ext.shopee.products.index'))->assertOk()->getContent();
-        $this->assertStringContainsString('Error', $html);
+        $this->assertStringContainsString('<tr class="cc-err-row">', $html);
         $this->assertStringContainsString('between 1 and 9', $html);
 
         // The one answer both pages draw (the owner, 2026-09-07): the message the

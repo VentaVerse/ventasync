@@ -142,6 +142,7 @@
         @endif
     </x-ui.empty>
 @else
+@php $colCount = 9 + ($canManageVenta ? 1 : 0); @endphp
 <x-ui.table>
     <x-slot:head>
         <tr>
@@ -162,7 +163,6 @@
             <th scope="col" class="cc-col-stat">Catalog</th>
             @include('partials.channel-ready-head')
             <th scope="col" class="cc-col-sync">Push</th>
-            <th scope="col" class="cc-col-err">Error</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
@@ -204,6 +204,13 @@
             $metaParts[] = $isManual ? 'added by hand' : 'matched by the product group filter';
             $meta = implode(' / ', $metaParts);
         @endphp
+        {{-- A failure with no saved message still draws a line. --}}
+        @include('partials.channel-error-row', [
+            'error' => $hasError
+                ? (string) $p->push_error
+                : ($failed ? \App\Integrations\Push\PushLedger::NO_REASON : null),
+            'cols' => $colCount,
+        ])
         <tr>
             @if($canManageVenta)
             <td class="cc-col-check">
@@ -302,20 +309,6 @@
                 @endif
             </td>
 
-            <td class="cc-col-err" data-label="Error">
-                {{-- The shared Error cell (partials.channel-error), the same
-                     one every channel's Listings and group pages draw: the
-                     message this row is carrying right now, or None. A
-                     failure with no saved message still says so, because
-                     silence in a column that only fills on failure reads as
-                     nothing wrong. --}}
-                @include('partials.channel-error', [
-                    'error' => $hasError
-                        ? (string) $p->push_error
-                        : ($failed ? \App\Integrations\Push\PushLedger::NO_REASON : null),
-                ])
-            </td>
-
             <td class="x-td-actions">
                 @if($canManageVenta)
                 {{-- The old row carried a hand-rolled dropdown built from
@@ -353,7 +346,7 @@
         </tr>
         @if($variationCount > 0)
             {{-- The variations as rows of this table, under the same headers (partials.channel-variation-rows). --}}
-            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManageVenta, 'trail' => ['cc-col-chanid', 'cc-col-stat', 'cc-col-sync', 'cc-col-err', 'x-td-actions']])
+            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManageVenta, 'trail' => ['cc-col-chanid', 'cc-col-stat', 'cc-col-ready', 'cc-col-sync', 'x-td-actions']])
         @endif
     @endforeach
 </x-ui.table>

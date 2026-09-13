@@ -191,6 +191,7 @@
         </x-slot:action>
     </x-ui.empty>
 @else
+@php $colCount = 8 + ($canManage ? 1 : 0); @endphp
 <x-ui.table id="venta-listings-table">
     <x-slot:head>
         <tr>
@@ -210,7 +211,6 @@
             <th scope="col" class="cc-col-chanid">Store ID</th>
             @include('partials.channel-ready-head')
             <th scope="col" class="cc-col-sync">Listing</th>
-            <th scope="col" class="cc-col-err">Error</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
@@ -232,6 +232,7 @@
             $attemptFailed = $attempt && in_array($attempt->sync_status, ['error', 'failed'], true);
             $listingUrl = route('ext.venta.listings.edit', [$setting->id, $pid, 'back' => request()->getRequestUri()]);
         @endphp
+        @include('partials.channel-error-row', ['error' => $rowErrors[$pid] ?? null, 'cols' => $colCount])
         <tr>
             @if($canManage)
             <td class="cc-col-check">
@@ -278,11 +279,6 @@
                     <x-ui.badge tone="neutral">Not listed</x-ui.badge>
                 @endif
             </td>
-            <td class="cc-col-err" data-label="Error">
-                {{-- The shared Error cell (partials.channel-error): the message this
-                     row is carrying right now, or None. --}}
-                                @include('partials.channel-error', ['error' => $rowErrors[$pid] ?? null])
-            </td>
             <td class="x-td-actions">
                 @if($canManage || $canEditCatalog)
                 @php
@@ -320,7 +316,7 @@
         </tr>
         @if($optRows && count($optRows) > 0)
             {{-- The variations as rows of this table, under the same headers (partials.channel-variation-rows). --}}
-            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManage, 'trail' => ['cc-col-chanid', 'cc-col-sync', 'cc-col-err', 'x-td-actions']])
+            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManage, 'trail' => ['cc-col-chanid', 'cc-col-ready', 'cc-col-sync', 'x-td-actions']])
         @endif
     @endforeach
 </x-ui.table>

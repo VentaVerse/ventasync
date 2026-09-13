@@ -359,9 +359,9 @@ class LazadaListingStateTest extends TestCase
     /**
      * One latest push error per product (the owner, 2026-09-05): a refusal from
      * any push lands on the listing row and every surface tells it, until a
-     * push succeeds; the Error column is the same answer everywhere.
+     * push succeeds; the error line is the same answer everywhere.
      */
-    public function test_the_last_push_refusal_and_the_error_column_are_one_answer(): void
+    public function test_the_last_push_refusal_and_the_error_line_are_one_answer(): void
     {
         $pid = $this->seedProduct('Refused one', 'RF-1');
         \Extensions\lazada\Models\LazadaProduct::query()->create(['product_id' => $pid]);
@@ -374,7 +374,7 @@ class LazadaListingStateTest extends TestCase
 
         \Extensions\lazada\Models\LazadaProduct::clearPushFailure($pid);
         \Extensions\lazada\Models\LazadaProduct::query()->where('product_id', $pid)->update(['last_synced_at' => now()->subMinutes(5), 'last_sync_action' => 'bulk_upload_to_lazada', 'last_sync_ok' => true]);
-        $this->assertNull($states->errors([$pid])[$pid], 'a cleared refusal empties the Error column');
+        $this->assertNull($states->errors([$pid])[$pid], 'a cleared refusal draws no error line');
         $this->assertSame([], $states->forProducts([$pid])[$pid]->reasons);
 
         $never = $this->seedProduct('Never one', 'NV-1');

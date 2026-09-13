@@ -112,7 +112,6 @@
 .cc-col-ready   { width: 96px; }   /* "Not ready" plus the ? hint, measured */
 .cc-col-sync    { width: 112px; }
 .cc-col-group   { width: 132px; }
-.cc-col-err     { width: 180px; }
 .cc-col-count   { width: 88px; }
 .cc-col-lvl     { width: 72px; }
 /* Wide enough for the header, not the value: "Can list here" is 13 characters
@@ -352,6 +351,27 @@
 .cc-var-dot--phone { display: none; }
 
 /* ------------------------------------------------------------------
+   Error line. A product's error is a full-width row directly above the
+   product's own row. No rule between the two: the product row's rule
+   closes the pair.
+   ------------------------------------------------------------------ */
+
+.cc-page .x-table tbody tr.cc-err-row > td,
+.cc-page .x-table tbody tr.cc-err-row:hover > td {
+    padding: 7px 12px;
+    border-bottom: 0;
+    border-radius: 0;
+    background: color-mix(in srgb, var(--bl-bad) 7%, var(--bl-sheet));
+    color: var(--bl-bad);
+    font-size: 12.5px;
+    line-height: 1.45;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------------------
    Sync error cell. The one place on these pages where --bl-bad is
    spent, because a failed push is the only thing on the row an
    operator has to act on.
@@ -416,72 +436,6 @@
     color: var(--bl-attn);
 }
 
-/* ── The full reason, on request ──────────────────────────────────────
-   push_error is stored at 480 characters and the cell printed 120 of them
-   with no title and no expansion, so up to 360 characters of what the
-   marketplace actually said were unreachable from the interface.
-
-   A <details> rather than a title attribute: a tooltip waits about a second,
-   never appears on a phone, and cannot be reached from the keyboard. This
-   opens on Enter and on tap, and needs no JavaScript. */
-.cc-reason {
-    display: block;
-}
-
-.cc-reason__summary {
-    display: block;
-    cursor: pointer;
-    list-style: none;
-}
-
-/* Both engines, because each hides the marker its own way and a stray
-   triangle beside a drawn chevron is the tell. */
-.cc-reason__summary::-webkit-details-marker { display: none; }
-.cc-reason__summary::marker { content: ''; }
-
-.cc-reason__toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    margin-top: 2px;
-    font-size: 11px;
-    color: var(--bl-ink-3);
-}
-
-.cc-reason__summary:hover .cc-reason__toggle,
-.cc-reason__summary:focus-visible .cc-reason__toggle {
-    color: var(--bl-ink);
-}
-
-.cc-reason__summary:focus-visible {
-    outline: 2px solid var(--bl-brand);
-    outline-offset: 2px;
-    border-radius: var(--bl-r-dot);
-}
-
-.cc-reason__chevron {
-    transition: transform 160ms ease;
-}
-
-.cc-reason[open] .cc-reason__chevron {
-    transform: rotate(180deg);
-}
-
-/* Closed shows the clipped reason; open shows the whole one. Printing both
-   would repeat the first 120 characters directly above themselves. */
-.cc-reason[open] .cc-reason__clip { display: none; }
-
-.cc-reason__full {
-    margin: 0;
-    max-width: 46ch;
-    /* The reason column is naturally narrow, and inside the scrolling table
-       it measured 51px on a phone: opening the full reason produced a
-       289px-tall ribbon one word wide, which is not reading. Asking to read
-       it earns the room. The table already scrolls, so the cell widening on
-       demand costs nothing that was not already true. */
-    min-width: 30ch;
-}
-
 /* ── Failures outlive the banner that announced them ──────────────────
    A line, not a card. The count is the whole group's, and it links to
    exactly the rows it counts. The word "failed" carries the meaning; the
@@ -519,35 +473,7 @@
         align-items: center;
         min-height: 44px;
     }
-
-    .cc-reason__toggle {
-        min-height: 44px;
-    }
 }
-
-@media (prefers-reduced-motion: reduce) {
-    .cc-reason__chevron { transition: none; }
-}
-
-.cc-when {
-    display: block;
-    margin-top: 2px;
-    font-size: 12px;
-    color: var(--bl-ink-3);
-}
-
-/* What the sync was (listing, stock, price), on its own line under the
-   when, so the column holds two short lines instead of one sentence
-   wrapped four deep. "Catalog changed since" is the one fact here that
-   asks for a person, and wears the attention tone. */
-.cc-when__what {
-    display: block;
-    margin-top: 1px;
-    font-size: 11px;
-    color: var(--bl-ink-3);
-}
-
-.cc-when__stale { color: var(--bl-attn); }
 
 /* ------------------------------------------------------------------
    Selection checkbox. Needs its own stacking context for the reason
@@ -784,14 +710,13 @@
        wants to know whether the product is listed and how many are in
        stock. On a phone the row is: the product (name, SKU, thumbnail)
        with the row's actions in the corner, then Stock and Listing side by
-       side. The id, the price, the channel id, the catalog status and the
-       last sync stay in the DOM for a reader and are a tap away on the
-       listing page; on this screen they were the noise. */
+       side. The id, the price, the channel id and the catalog status stay
+       in the DOM for a reader and are a tap away on the listing page; on
+       this screen they were the noise. */
     .cc-page .x-table > tbody > tr > td.cc-col-id,
     .cc-page .x-table > tbody > tr > td.cc-col-price,
     .cc-page .x-table > tbody > tr > td.cc-col-chanid,
-    .cc-page .x-table > tbody > tr > td.cc-col-stat,
-    .cc-page .x-table > tbody > tr > td.cc-col-err { display: none; }
+    .cc-page .x-table > tbody > tr > td.cc-col-stat { display: none; }
 
     /* THE WIDTH RESET, back where it has to live. The generic restack in
        blotter-components.css sets td width back to auto, but that rule is
@@ -850,6 +775,19 @@
     .cc-var-row__item { margin-left: 0; flex-wrap: wrap; }
     .cc-var-dot--phone { display: inline-block; }
 
+    /* The error line runs the full width of the card below it, unlabelled. */
+    .cc-page .x-table > tbody > tr.cc-err-row {
+        grid-template-columns: minmax(0, 1fr);
+        padding: 0;
+        border-bottom: 0;
+    }
+    .cc-page .x-table > tbody > tr.cc-err-row:hover { background: none; }
+    .cc-page .x-table > tbody > tr.cc-err-row > td.cc-err-row__cell {
+        grid-column: 1 / -1;
+        grid-row: auto;
+        padding: var(--bl-space-2) var(--bl-space-3);
+    }
+
     /* The single-action bar stacks: the sentence above, the button below
        it, both full width. */
     .x-cmdbar__hint--inline { flex: 1 1 100%; align-self: flex-start; }
@@ -898,14 +836,6 @@
     }
 }
 
-
-/* The sync error is the actionable fact on a listings row; it wraps
-   inside its column instead of clipping to "VALIDATION_ER". */
-.cc-page .x-table td.cc-col-err {
-    white-space: normal;
-    overflow: visible;
-    text-overflow: clip;
-}
 
 /* A page-level note (the marketplace did not answer) keeps its own gap
    above the filter row; it sat flush against the search input. */

@@ -211,6 +211,7 @@
         @endif
     </x-ui.empty>
 @else
+@php $colCount = 8 + ($canManage ? 1 : 0); @endphp
 <x-ui.table id="tiktok-listings-table">
     <x-slot:head>
         <tr>
@@ -230,7 +231,6 @@
             <th scope="col" class="cc-col-chanid">TikTok ID</th>
             @include('partials.channel-ready-head')
             <th scope="col" class="cc-col-sync">Listing</th>
-            <th scope="col" class="cc-col-err">Error</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
@@ -262,6 +262,7 @@
             $attemptFailed = $attempt && $attempt->sync_status === 'error';
             $rowLabel = (string) ($p->name ?: ($p->sku ?: 'product ' . $pid));
         @endphp
+        @include('partials.channel-error-row', ['error' => ($rowErrors ?? [])[(int) $pid] ?? null, 'cols' => $colCount])
         <tr>
             @if($canManage)
             <td class="cc-col-check">
@@ -326,12 +327,6 @@
                     @endif
                 @endif
             </td>
-            <td class="cc-col-err" data-label="Error">
-                {{-- One answer for this column on every page (the owner,
-                     2026-09-05): the shared refusal, else the newest
-                     successful sync, else never. --}}
-                @include('partials.channel-error', ['error' => ($rowErrors ?? [])[(int) $pid] ?? null])
-            </td>
             <td class="x-td-actions">
                 @if($canManage || $canEditCatalog)
                 @php
@@ -369,7 +364,7 @@
         </tr>
         @if($optRows && count($optRows) > 0)
             {{-- The variations as rows of this table, under the same headers (partials.channel-variation-rows). --}}
-            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManage, 'trail' => ['cc-col-chanid', 'cc-col-sync', 'cc-col-err', 'x-td-actions']])
+            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManage, 'trail' => ['cc-col-chanid', 'cc-col-ready', 'cc-col-sync', 'x-td-actions']])
         @endif
     @endforeach
 </x-ui.table>

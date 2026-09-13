@@ -79,9 +79,15 @@ abstract class DescriptionTemplateController extends Controller
         ActivityLogger::log('created', 'Description Template', $template->id, $template->name);
 
         // The + on a listing page posts here and expects the new row back, so
-        // the dropdown can take it without a page load.
+        // the dropdown can take it without a page load. The body is the
+        // stored, cleaned one, which the description preview shows.
         if ($request->expectsJson()) {
-            return response()->json(['ok' => true, 'id' => (int) $template->id, 'name' => (string) $template->name]);
+            return response()->json([
+                'ok' => true,
+                'id' => (int) $template->id,
+                'name' => (string) $template->name,
+                'body' => (string) $template->body,
+            ]);
         }
 
         return $this->backToIndex('Template created.');

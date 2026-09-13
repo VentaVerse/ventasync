@@ -51,26 +51,14 @@
        - fields WITHOUT their own wording follow the catalog automatically,
          so a catalog edit after the last push only means the LIVE listing
          is behind: the staleness note below points at Push update.
-       - fields WITH their own wording never move on their own. When the
-         catalog now differs under one, the field says so inline; clearing
-         it is the accept gesture, keeping it is a decision, and nothing
-         ever overwrites the operator's wording unasked. */
+       - fields WITH their own wording never move on their own, and
+         nothing ever overwrites the operator's wording unasked. */
     $coreChangedAt = ($product->date_modified ?? null)
         ? \Illuminate\Support\Carbon::parse($product->date_modified)
         : null;
     $staleSincePush = $link && ($listing->last_pushed_at ?? null) && $coreChangedAt
         && $coreChangedAt->gt($listing->last_pushed_at);
 
-    $catalogNow = function ($override, $core) {
-        $override = $override !== null ? trim((string) $override) : '';
-        $core = trim((string) $core);
-        if ($override === '' || $core === '' || $override === $core) {
-            return null;
-        }
-        return \Illuminate\Support\Str::limit($core, 120);
-    };
-    $nameDiverges = $catalogNow($listing->item_name ?? null, $product->name);
-    $descriptionDiverges = $catalogNow($listing->description ?? null, $coreDescription);
     $weightDiverges = ($listing->weight ?? null) !== null && (float) $listing->weight !== (float) $product->weight
         ? (string) (float) $product->weight : null;
 
@@ -274,22 +262,20 @@
                             <x-ui.input id="sl-name" name="item_name" maxlength="255"
                                         :value="old('item_name', \App\Integrations\Listings\ListingContent::editable($listing->item_name ?? null, (string) $product->name))"
                                         :disabled="!$canManage" />
-                            @if($nameDiverges)
-                                <div class="fm-hint">The catalog now says "{{ $nameDiverges }}". Clearing this field follows it again; keeping your wording is fine too.</div>
-                            @endif
                         </x-ui.field>
                         @include('partials.channel-description-pick', [
                             'id' => 'sl-prefix', 'label' => 'Prefix description', 'name' => 'description_prefix_id',
                             'selected' => (int) old('description_prefix_id', $listing->description_prefix_id ?? 0),
                             'options' => $descriptionTemplates, 'canManage' => $canManage,
                         ])
-                        <x-ui.field label="Description" for="sl-description" name="description" wide>
-                            <x-ui.textarea id="sl-description" name="description" rows="6" maxlength="5000"
-                                           :disabled="!$canManage">{{ old('description', \App\Support\Catalog\DescriptionText::of(\App\Integrations\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription))) }}</x-ui.textarea>
-                            @if($descriptionDiverges)
-                                <div class="fm-hint">The catalog's description now differs from this listing's own. Clearing this field follows the catalog again; keeping your wording is fine too.</div>
-                            @endif
-                        </x-ui.field>
+                        @include('partials.channel-description-compose', [
+                            'id' => 'sl-description', 'label' => 'Description', 'name' => 'description',
+                            'value' => old('description', \App\Support\Catalog\DescriptionText::of(\App\Integrations\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription))),
+                            'rich' => false, 'disabled' => !$canManage, 'rows' => 6, 'maxlength' => 5000,
+                            'prefixFor' => 'sl-prefix', 'suffixFor' => 'sl-suffix',
+                            'prefix' => $listing->description_prefix_id ?? null, 'suffix' => $listing->description_suffix_id ?? null,
+                            'options' => $descriptionTemplates,
+                        ])
                         @include('partials.channel-description-pick', [
                             'id' => 'sl-suffix', 'label' => 'Suffix description', 'name' => 'description_suffix_id',
                             'selected' => (int) old('description_suffix_id', $listing->description_suffix_id ?? 0),

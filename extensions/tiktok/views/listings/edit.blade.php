@@ -174,12 +174,14 @@
                             'selected' => (int) old('description_prefix_id', $listing->description_prefix_id ?? 0),
                             'options' => $descriptionTemplates, 'canManage' => $canManage,
                         ])
-                        <x-ui.field label="Description" for="tl-description" name="description" wide>
-                            <x-ui.textarea id="tl-description" name="description" rows="6" class="wysiwyg" :disabled="!$canManage">{{ old('description', \App\Integrations\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription)) }}</x-ui.textarea>
-                            {{-- Set to 1 by the editor on change; see ListingContent::descriptionToSave. --}}
-                            <input type="hidden" name="description_edited" value="0" data-rte-edited="tl-description">
-                            @include('catalog.products.partials.wysiwyg')
-                        </x-ui.field>
+                        @include('partials.channel-description-compose', [
+                            'id' => 'tl-description', 'label' => 'Description', 'name' => 'description',
+                            'value' => old('description', \App\Integrations\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription)),
+                            'rich' => true, 'disabled' => !$canManage, 'rows' => 6, 'maxlength' => null,
+                            'prefixFor' => 'tl-prefix', 'suffixFor' => 'tl-suffix',
+                            'prefix' => $listing->description_prefix_id ?? null, 'suffix' => $listing->description_suffix_id ?? null,
+                            'options' => $descriptionTemplates,
+                        ])
                         @include('partials.channel-description-pick', [
                             'id' => 'tl-suffix', 'label' => 'Suffix description', 'name' => 'description_suffix_id',
                             'selected' => (int) old('description_suffix_id', $listing->description_suffix_id ?? 0),
