@@ -111,43 +111,73 @@ class CatalogImageImporter
      */
     public function isSafeRemoteUrl(string $url): bool
     {
-        $parts = parse_url($url);
-        $scheme = strtolower((string) ($parts['scheme'] ?? ''));
-        $host = (string) ($parts['host'] ?? '');
-
-        if (! in_array($scheme, ['http', 'https'], true) || $host === '') {
-            return false;
-        }
-
-        $host = trim($host, '[]');
-        $addresses = filter_var($host, FILTER_VALIDATE_IP) ? [$host] : $this->resolveHostAddresses($host);
-        if ($addresses === []) {
-            return false;
-        }
-
-        foreach ($addresses as $address) {
-            if ($this->isBlockedAddress($address)) {
-                return false;
-            }
-        }
-
-        return true;
+        return $this->checkedAddress($url) !== null;
     }
 
     /**
      * The link's bytes, with no redirect followed, so a host allowed on the
-     * first hop cannot send the request on to an internal address. The
-     * caller has already checked the link with isSafeRemoteUrl().
+     * first hop cannot send the request on to an internal address.
+     *
+     * The link is checked here, and the connection is pinned to the very
+     * address the check approved. Left to itself the HTTP client would look
+     * the host up a second time, and a hostile name server can answer that
+     * second lookup with an internal address (DNS rebinding). Without the
+     * curl extension there is no way to pin, so nothing is fetched.
      */
     public function fetch(string $url): string|false
     {
+        $pin = $this->checkedAddress($url);
+        if ($pin === null || ! defined('CURLOPT_RESOLVE')) {
+            return false;
+        }
+        $ip = str_contains($pin['ip'], ':') ? '[' . $pin['ip'] . ']' : $pin['ip'];
+
         try {
-            $response = Http::withOptions(['allow_redirects' => false])->timeout(10)->get($url);
+            $response = Http::withOptions([
+                'allow_redirects' => false,
+                'curl' => [CURLOPT_RESOLVE => [$pin['host'] . ':' . $pin['port'] . ':' . $ip]],
+            ])->timeout(10)->get($url);
         } catch (\Throwable) {
             return false;
         }
 
         return $response->successful() ? $response->body() : false;
+    }
+
+    /**
+     * The link's host and port and one address to connect to, every address
+     * the host resolves to having passed the blocklist; null when the link
+     * may not be fetched.
+     *
+     * @return array{host: string, port: int, ip: string}|null
+     */
+    private function checkedAddress(string $url): ?array
+    {
+        $parts = parse_url($url);
+        $scheme = strtolower((string) ($parts['scheme'] ?? ''));
+        $host = (string) ($parts['host'] ?? '');
+
+        if (! in_array($scheme, ['http', 'https'], true) || $host === '') {
+            return null;
+        }
+
+        $host = trim($host, '[]');
+        $addresses = filter_var($host, FILTER_VALIDATE_IP) ? [$host] : $this->resolveHostAddresses($host);
+        if ($addresses === []) {
+            return null;
+        }
+
+        foreach ($addresses as $address) {
+            if ($this->isBlockedAddress($address)) {
+                return null;
+            }
+        }
+
+        return [
+            'host' => $host,
+            'port' => (int) ($parts['port'] ?? ($scheme === 'https' ? 443 : 80)),
+            'ip' => trim((string) $addresses[0], '[]'),
+        ];
     }
 
     /** @throws RuntimeException when the file is not a JPEG, PNG or WebP image */
