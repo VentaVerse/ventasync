@@ -198,6 +198,12 @@ class VentaProductPush
             ->orderBy('poc.sort_order')
             ->get();
 
+        /* A variation this store does not sell still goes up, switched
+         * off: the store hides it and keeps it, so switching it back on
+         * returns the same variant with its history. Leaving it out would
+         * delete it, since the store rebuilds its variants from the list. */
+        $hidden = \App\Integrations\Listings\ListingVariations::hidden('venta', (int) $this->setting->id, [$pid]);
+
         if ($combos->isNotEmpty()) {
             $comboValues = DB::table('product_option_combination_values as pocv')
                 ->join($pfx . 'product_option_value as pov', 'pocv.product_option_value_id', '=', 'pov.product_option_value_id')
@@ -221,6 +227,7 @@ class VentaProductPush
                     'quantity'    => (int) $c->quantity,
                     'weight'      => (float) ($prod->weight ?? 0),
                     'image'       => $variantImage($c->image ?? null),
+                    'status'      => \App\Integrations\Listings\ListingVariations::allows($hidden, $pid, $c->sku),
                 ];
             }
 
@@ -278,6 +285,7 @@ class VentaProductPush
                 // Legacy single-axis rows (no combination rows) keep no
                 // per-variation image; the product image stands in.
                 'image'       => $variantImage(null),
+                'status'      => \App\Integrations\Listings\ListingVariations::allows($hidden, $pid, (string) ($ov->variant_sku ?? '')),
             ];
         }
 
@@ -441,6 +449,10 @@ class VentaProductPush
         $prod = $this->product($productId);
         if (! $prod) {
             return self::outcome(false, 'failed', 'The catalog product no longer exists.');
+        }
+
+        if (\App\Integrations\Listings\ListingVariations::noneSold('venta', (int) $this->setting->id, $productId)) {
+            return self::outcome(false, 'failed', \App\Integrations\Listings\ListingVariations::noneSoldMessage((string) $this->setting->store_name));
         }
 
         /* THE GATE (the owner, 2026-09-06): the one readiness computation the

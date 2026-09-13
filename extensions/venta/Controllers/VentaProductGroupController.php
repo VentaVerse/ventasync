@@ -1113,8 +1113,12 @@ class VentaProductGroupController extends Controller
 
             $sku = $link->sku ?: $product->sku;
 
-            // Check combinations first, then option values
+            // Check combinations first, then option values; only what this store sells.
             $variants = $erpCombos->get($pid) ?? $erpOptions->get($pid);
+            if ($variants) {
+                $hiddenHere = \App\Integrations\Listings\ListingVariations::hidden('venta', $store, [$pid]);
+                $variants = $variants->filter(fn ($v) => \App\Integrations\Listings\ListingVariations::allows($hiddenHere, $pid, (string) ($v->sku ?? '')));
+            }
             if ($variants && $variants->count() > 0) {
                 $allOk = true;
                 foreach ($variants as $ov) {
@@ -1219,11 +1223,13 @@ class VentaProductGroupController extends Controller
                 continue;
             }
 
-            // Push variant prices — combinations first, then option values
+            // Push variant prices — combinations first, then option values; only what this store sells.
+            $hiddenHere = \App\Integrations\Listings\ListingVariations::hidden('venta', $store, [$pid]);
             $combos = $erpCombos->get($pid);
             if ($combos && $combos->count() > 0) {
                 foreach ($combos as $c) {
                     if (!$c->sku || trim($c->sku) === '') continue;
+                    if (!\App\Integrations\Listings\ListingVariations::allows($hiddenHere, $pid, (string) $c->sku)) continue;
                     $client->updateVariant(trim($c->sku), ['price' => (float) $c->absolute_price]);
                 }
             } else {
@@ -1231,6 +1237,7 @@ class VentaProductGroupController extends Controller
                 if ($variants && $variants->count() > 0) {
                     foreach ($variants as $ov) {
                         if (!$ov->sku || trim($ov->sku) === '') continue;
+                        if (!\App\Integrations\Listings\ListingVariations::allows($hiddenHere, $pid, (string) $ov->sku)) continue;
                         if ((float) ($ov->absolute_price ?? 0) > 0) {
                             $variantPrice = (float) $ov->absolute_price;
                         } else {

@@ -384,54 +384,9 @@
                     'editable' => true, 'canManage' => $canManage, 'browseUrl' => $browseUrl,
                 ])
 
-                @if($live && !empty($live['models']))
-                    {{-- What only Shopee has, part one: the models it holds
-                         right now. It sits in the main column as a Shopee
-                         section, not on the strip, because the strip is the
-                         shape every channel shares and this table is not. --}}
-                    <section class="fm-section">
-                        <div class="fm-section__head">
-                            <h2 class="fm-section__title">Variations on Shopee</h2>
-                        </div>
-                        <x-ui.table caption="This item's variations as Shopee holds them right now">
-                            <thead>
-                                <tr>
-                                    <th>Variation</th>
-                                    <th>SKU</th>
-                                    <th class="x-num">Price</th>
-                                    <th class="x-num">Stock</th>
-                                    <th>In the catalog</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($live['models'] as $m)
-                                    <tr>
-                                        <td>{{ $m['name'] !== '' ? $m['name'] : 'Model ' . $m['model_id'] }}</td>
-                                        <td>{{ $m['model_sku'] !== '' ? $m['model_sku'] : 'none' }}</td>
-                                        <td class="x-num">
-                                            @if($m['price']['original'] !== null)
-                                                <x-money :php="$m['price']['current'] ?? $m['price']['original']" />
-                                            @else
-                                                unknown
-                                            @endif
-                                        </td>
-                                        <td class="x-num">{{ $m['stock'] !== null ? $m['stock'] : 'unknown' }}</td>
-                                        <td>
-                                            {{-- Linked = a link row carries this model, so
-                                                 pushes reach it. Anything else is a model
-                                                 Shopee holds that the ERP is not tracking. --}}
-                                            @if(($linkedModelIds ?? collect())->has((int) $m['model_id']))
-                                                <x-ui.badge tone="success">Linked</x-ui.badge>
-                                            @else
-                                                <x-ui.badge tone="warning">Not linked</x-ui.badge>
-                                            @endif
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </x-ui.table>
-                    </section>
-                @endif
+                @include('partials.listing-variations-card', [
+                    'title' => 'Variations on Shopee', 'storeName' => 'Shopee', 'canManage' => $canManage,
+                ])
 
                 {{-- What only Shopee has, in one place at the end of the main
                      column: the parcel Shopee quotes shipping from and the

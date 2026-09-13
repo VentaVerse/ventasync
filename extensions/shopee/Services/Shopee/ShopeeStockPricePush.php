@@ -106,32 +106,25 @@ class ShopeeStockPricePush
 
         $rows = $this->resolver->resolve($links, $pfx);
 
-        /* All or nothing per product: a variation the catalogue has and
-         * Shopee lacks, or a model Shopee has and the catalogue lacks, fails
-         * the whole product before any call, and none of its models is
-         * sent. The catalogue (or the repair) is the fix. */
-        $mismatched = $this->mismatches($links, $rows, $erpVariationSkus);
-        foreach ($mismatched as $pid => $entries) {
-            $this->failMismatch($kind, $pid, $entries, $out);
-        }
+        /* Only what this store sells is sent. A variation switched off, a
+         * model the catalogue does not have, and a parent row on an item
+         * sold in variations are left alone; a variation Shopee does not
+         * carry is simply not asked of it. None of these is an error. */
+        $hidden = \App\Integrations\Listings\ListingVariations::hidden('shopee', (int) ($auth['store_id'] ?? 0), $productIds);
         $grouped = [];
-        foreach ($rows as $row) {
-            $pid = (int) $row['link']->product_id;
-            if (isset($mismatched[$pid])) {
-                continue;
-            }
+        foreach ($this->sendable($rows, $erpVariationSkus, $hidden) as $row) {
             $grouped[(int) $row['item_id']][] = $row;
         }
 
         foreach ($grouped as $itemId => $itemRows) {
-            $this->pushItem($kind, $auth, (int) $itemId, $itemRows, $pfx, $priceFor, $erpVariationSkus, $out, true);
+            $this->pushItem($kind, $auth, (int) $itemId, $itemRows, $pfx, $priceFor, $erpVariationSkus, $hidden, $out, true);
         }
 
         return $out;
     }
 
     /** One item's call, with a single repair-and-retry on a model-level refusal. */
-    private function pushItem(string $kind, array $auth, int $itemId, array $rows, string $pfx, ?callable $priceFor, array $erpVariationSkus, array &$out, bool $mayHeal): void
+    private function pushItem(string $kind, array $auth, int $itemId, array $rows, string $pfx, ?callable $priceFor, array $erpVariationSkus, array $hidden, array &$out, bool $mayHeal): void
     {
         $list = [];
         $sentRows = [];
@@ -193,17 +186,10 @@ class ShopeeStockPricePush
                     ->whereIn('product_id', $pids->all())
                     ->where('shopee_item_id', $itemId)
                     ->get();
-                $freshRows = $this->resolver->resolve($fresh, $pfx);
-                // A product the repair left unmatched (a variation Shopee no
-                // longer has, or one the catalogue never had) fails whole;
-                // the rest retry once.
-                $mismatched = $this->mismatches($fresh, $freshRows, $erpVariationSkus);
-                foreach ($mismatched as $mpid => $entries) {
-                    $this->failMismatch($kind, $mpid, $entries, $out);
-                }
-                $freshRows = array_values(array_filter($freshRows, fn ($r) => !isset($mismatched[(int) $r['link']->product_id])));
+                // What the repair left unmatched is left alone; the rest retry once.
+                $freshRows = $this->sendable($this->resolver->resolve($fresh, $pfx), $erpVariationSkus, $hidden);
                 if (!empty($freshRows)) {
-                    $this->pushItem($kind, $auth, $itemId, $freshRows, $pfx, $priceFor, $erpVariationSkus, $out, false);
+                    $this->pushItem($kind, $auth, $itemId, $freshRows, $pfx, $priceFor, $erpVariationSkus, $hidden, $out, false);
                 }
                 return;
             }
@@ -220,28 +206,22 @@ class ShopeeStockPricePush
         $action = $kind === 'price' ? 'sync_price' : 'sync_qty';
 
         /* A model Shopee says is gone (the seller deleted that variation in
-         * the seller centre, 2026-09-07) is not a push failure to retry
-         * every run: its link is dropped, and the product fails whole with
-         * the variation named, so the operator deletes it from the catalog
-         * or adds it back on Shopee. */
-        $deadByProduct = [];
+         * the seller centre) is not a failure: its link is dropped and the
+         * variation is simply no longer on Shopee. */
+        $dead = [];
         foreach ($sentRows as $row) {
             $reason = $failures[(int) $row['model_id']] ?? null;
             if ($reason !== null && (int) $row['model_id'] !== 0 && preg_match(self::DEAD_MODEL, $reason)) {
-                $pid = (int) $row['link']->product_id;
-                $deadByProduct[$pid][] = ['sku' => (string) $row['seller_sku'], 'reason' => 'not on Shopee'];
+                $dead[(int) $row['model_id']] = true;
                 $row['link']->delete();
             }
-        }
-        foreach ($deadByProduct as $pid => $entries) {
-            $this->failMismatch($kind, $pid, $entries, $out);
         }
 
         foreach ($sentRows as $row) {
             $link = $row['link'];
             $pid = (int) $link->product_id;
-            if (isset($deadByProduct[$pid])) {
-                continue; // the product's verdict is the mismatch sentence, on every row it still has
+            if (isset($dead[(int) $row['model_id']])) {
+                continue;
             }
             $modelFailure = $failures[(int) $row['model_id']] ?? null;
             $rowOk = $callOk && $modelFailure === null;
@@ -269,54 +249,20 @@ class ShopeeStockPricePush
     }
 
     /**
-     * Where the catalogue and Shopee disagree, per product: an ERP
-     * variation SKU no link carries (not on Shopee), and a model link whose
-     * SKU the catalogue lacks on a product sold in variations (on Shopee but
-     * not in the catalogue). A product without variations matches by
-     * definition.
-     *
-     * @return array<int, list<array{sku: string, reason: string}>>
+     * The rows this store sells. A variation switched off, a model the
+     * catalogue does not have, and an item-level row on a product sold in
+     * variations are not sent; everything else is.
      */
-    private function mismatches($links, array $rows, array $erpVariationSkus): array
+    private function sendable(array $rows, array $erpVariationSkus, array $hidden): array
     {
-        $linkSkusByProduct = collect($links)->groupBy(fn ($l) => (int) $l->product_id)
-            ->map(fn ($group) => $group->pluck('sku')->map(fn ($s) => strtolower(trim((string) $s)))->filter()->flip());
-        $pids = collect($links)->pluck('product_id')->map(fn ($v) => (int) $v)->unique();
-        $m = [];
-        foreach ($pids as $pid) {
-            foreach ($erpVariationSkus[$pid] ?? [] as $sku) {
-                if (!($linkSkusByProduct->get($pid)?->has(strtolower(trim((string) $sku))))) {
-                    $m[$pid][] = ['sku' => (string) $sku, 'reason' => 'not on Shopee'];
-                }
-            }
-        }
-        foreach ($rows as $row) {
+        return array_values(array_filter($rows, function ($row) use ($erpVariationSkus, $hidden) {
             $pid = (int) $row['link']->product_id;
-            if (!$row['matched'] && !empty($erpVariationSkus[$pid]) && (int) $row['model_id'] !== 0) {
-                $m[$pid][] = ['sku' => (string) $row['seller_sku'], 'reason' => 'on Shopee but not in the catalogue'];
+            if (!empty($erpVariationSkus[$pid]) && ((int) $row['model_id'] === 0 || !$row['matched'])) {
+                return false;
             }
-        }
 
-        return $m;
-    }
-
-    /** The product fails whole, every link row wears the sentence, nothing is sent. */
-    private function failMismatch(string $kind, int $pid, array $entries, array &$out): void
-    {
-        $message = \App\Integrations\Push\PushLedger::mismatchMessage($entries, 'Shopee');
-        $out['err']++;
-        $out['last_error'] = $message;
-        $out['outcomes'][$pid] = ['ok' => false, 'error' => Str::limit($message, 255, '')];
-        foreach ($entries as $e) {
-            $out['mismatched'][] = ['product_id' => $pid] + $e;
-        }
-        ShopeeProductLink::query()->where('product_id', $pid)->update([
-            'last_synced_at' => now(),
-            'last_sync_action' => $kind === 'price' ? 'sync_price' : 'sync_qty',
-            'last_sync_ok' => false,
-            'last_sync_error_code' => 'VARIATIONS_MISMATCH',
-            'last_sync_error_message' => Str::limit($message, 255, ''),
-        ]);
+            return \App\Integrations\Listings\ListingVariations::allows($hidden, $pid, (string) $row['seller_sku']);
+        }));
     }
 
     /**

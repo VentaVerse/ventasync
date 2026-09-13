@@ -125,6 +125,7 @@ class ShopeeListingReadiness
             : collect();
 
         $variations = app(ShopeeVariationPush::class);
+        $shopeeStoreId = (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0);
 
         $out = [];
         foreach ($productIds as $productId) {
@@ -204,7 +205,7 @@ class ShopeeListingReadiness
             $priceFor = $listing
                 ? fn (float $core) => $listing->priceFor($core)
                 : fn (float $core) => $core;
-            if ($refusal = $variations->refusalFor($productId, $priceFor)) {
+            if ($refusal = $variations->refusalFor($productId, $priceFor, $shopeeStoreId)) {
                 $gaps[] = ['code' => ListingState::GAP_VARIATIONS, 'label' => 'variations Shopee accepts: ' . rtrim($refusal, '.')];
             }
 

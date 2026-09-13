@@ -2496,16 +2496,11 @@ class ShopeeProductController extends Controller
          * this page can say "On Shopee: 2 of 3 variations" and name what
          * is missing on which side - the fact the deleted-1pc incident
          * had no surface for. */
-        // Counted from the same SKU sources the pushes act on (combos
-        // first, then option values), so this line and the push ledger can
-        // never disagree about what "3 variations" means.
-        $variationSkus = DB::table('product_option_combinations')
-            ->where('product_id', $productId)->whereNotNull('sku')->where('sku', '!=', '')
-            ->pluck('sku')
-            ->merge(DB::table($pfx . 'product_option_value')
-                ->where('product_id', $productId)->whereNotNull('sku')->where('sku', '!=', '')
-                ->pluck('sku'))
-            ->map(fn ($v) => trim((string) $v))->filter()->unique()->values();
+        // The variations this store sells, the list every push acts on, so
+        // this line and the pushes never disagree about what "3 variations"
+        // means. One switched off here or in the catalog is not counted.
+        $shopeeStoreId = (int) (ShopeeSetting::defaultStore()?->id ?? 0);
+        $variationSkus = collect(\App\Integrations\Listings\ListingVariations::sold('shopee', $shopeeStoreId, [$productId], $pfx)[$productId] ?? []);
         $linkedSkus = $links->pluck('sku')->map(fn ($v) => strtolower(trim((string) $v)))->filter()->flip();
         $coverageRows = $variationSkus->map(fn ($sku) => [
             'name' => '',
@@ -2517,7 +2512,6 @@ class ShopeeProductController extends Controller
             'linked' => $coverageRows->where('linked', true)->count(),
             'missing' => $coverageRows->where('linked', false)->values(),
         ];
-        $linkedModelIds = $links->pluck('shopee_model_id')->filter()->map(fn ($v) => (int) $v)->flip();
 
         $initialBrands = $categoryId > 0
             ? \Extensions\shopee\Models\ShopeeBrand::query()
@@ -2534,7 +2528,12 @@ class ShopeeProductController extends Controller
             'link' => $link,
             'links' => $links,
             'coverage' => $coverage,
-            'linkedModelIds' => $linkedModelIds,
+            ...\App\Integrations\Listings\ListingVariations::cardData(
+                'shopee', $shopeeStoreId, $productId,
+                $live !== null
+                    ? collect($live['models'] ?? [])->pluck('model_sku')->all()
+                    : ($link ? $links->whereNotNull('shopee_model_id')->pluck('sku')->all() : [])
+            ),
             'live' => $live,
             'liveError' => $liveError,
             'attrTemplate' => $sheet['template'],
@@ -2721,6 +2720,7 @@ class ShopeeProductController extends Controller
             'attributes' => 'nullable|array',
             'attributes.*' => 'nullable|string|max:500',
             'image_order' => 'nullable|string|max:20000',
+            ...\App\Integrations\Listings\ListingVariations::rules(),
         ]);
 
         /* The pictures this listing sends, in the order the card arranged
@@ -2772,6 +2772,10 @@ class ShopeeProductController extends Controller
         }
 
         ShopeeListing::query()->updateOrCreate(['product_id' => $productId], $fields);
+
+        if (($sellHere = \App\Integrations\Listings\ListingVariations::submitted($request)) !== null) {
+            \App\Integrations\Listings\ListingVariations::save('shopee', (int) (ShopeeSetting::defaultStore()?->id ?? 0), $productId, $sellHere);
+        }
 
         /* Save and push (2026-09-03, the one-editor merge): the save half
          * has already landed, so a refusal below never loses the typing.

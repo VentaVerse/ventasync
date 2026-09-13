@@ -40,6 +40,7 @@ final class VentaStockPricePush
         $combos = DB::table('product_option_combinations')->whereIn('product_id', $ids)->get(['product_id', 'sku', 'quantity', 'absolute_price'])->groupBy(fn ($r) => (int) $r->product_id);
         $options = DB::table($pfx . 'product_option_value')->whereIn('product_id', $ids)->whereNotNull('sku')->where('sku', '!=', '')
             ->get(['product_id', 'sku', 'quantity', 'price', 'price_prefix', 'absolute_price'])->groupBy(fn ($r) => (int) $r->product_id);
+        $hidden = \App\Integrations\Listings\ListingVariations::hidden('venta', (int) $this->setting->id, $ids);
 
         foreach ($ids as $pid) {
             $link = $links->get($pid);
@@ -51,7 +52,13 @@ final class VentaStockPricePush
             $sku = $link->sku ?: $product->sku;
             $fine = true;
             $why = '';
-            $variants = ($combos->get($pid) ?? collect())->isNotEmpty() ? $combos->get($pid) : ($options->get($pid) ?? collect());
+            $allVariants = ($combos->get($pid) ?? collect())->isNotEmpty() ? $combos->get($pid) : ($options->get($pid) ?? collect());
+            // Only the variations this store sells are synced.
+            $variants = $allVariants->filter(fn ($v) => \App\Integrations\Listings\ListingVariations::allows($hidden, $pid, (string) ($v->sku ?? '')));
+            if ($allVariants->isNotEmpty() && $variants->isEmpty()) {
+                $out['skipped']++;
+                continue;
+            }
             $basePrice = (float) $product->price;
 
             // A variation product exists on the store only as its variants

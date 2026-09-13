@@ -2298,7 +2298,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
          * UPDATE ON LAZADA is the verb that sends them, because the update
          * payload carries every catalogue variation. The unlink-and-resync
          * ritual existed only because nothing said so. */
-        $covSkus = \App\Integrations\Push\PushLedger::erpVariationSkus([(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? [];
+        $covSkus = \App\Integrations\Listings\ListingVariations::sold('lazada', (int) ($listing->lazada_setting_id ?? 0), [(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? [];
         $covVariantSkus = $listing->variants->pluck('seller_sku')->map(fn ($v) => strtolower(trim((string) $v)))->flip();
         $coverage = [
             'total' => count($covSkus),
@@ -2327,6 +2327,10 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'readiness' => $readiness,
             'listingState' => $listingState,
             'coverage' => $coverage,
+            ...\App\Integrations\Listings\ListingVariations::cardData(
+                'lazada', (int) ($listing->lazada_setting_id ?? 0), (int) $listing->product_id,
+                !empty($listing->lazada_item_id) ? $listing->variants->pluck('seller_sku')->all() : []
+            ),
             'groupCard' => $this->groupCardFor($listing),
             'storeId' => (int) (LazadaSetting::defaultStore()?->id ?? 0),
             'descriptionTemplates' => \App\Models\DescriptionTemplate::forStore('lazada', (int) (LazadaSetting::defaultStore()?->id ?? 0)),
@@ -2378,6 +2382,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'variants.*.price' => 'nullable|numeric',
             'variants.*.quantity' => 'nullable|integer',
             'image_order' => 'nullable|string|max:20000',
+            ...\App\Integrations\Listings\ListingVariations::rules(),
             'push' => 'nullable|boolean',
         ]);
 
@@ -2445,6 +2450,9 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         }
         if ($request->has('variants')) {
             $this->storeVariants($listing, (array) ($data['variants'] ?? []));
+        }
+        if (($sellHere = \App\Integrations\Listings\ListingVariations::submitted($request)) !== null) {
+            \App\Integrations\Listings\ListingVariations::save('lazada', (int) ($listing->lazada_setting_id ?? 0), (int) $listing->product_id, $sellHere);
         }
 
         ActivityLogger::log('updated', 'Lazada Product', $listing->id, 'ERP #' . (int)$listing->product_id);

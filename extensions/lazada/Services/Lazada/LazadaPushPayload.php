@@ -215,6 +215,17 @@ class LazadaPushPayload
                 ->orderBy('poc.sort_order')
                 ->get();
 
+            // Only the variations this store sells go up.
+            $soldHidden = \App\Integrations\Listings\ListingVariations::hidden('lazada', (int) ($listing->lazada_setting_id ?? 0), [(int) $listing->product_id]);
+            if ($combos->isNotEmpty()) {
+                $combos = $combos->filter(fn ($c) => \App\Integrations\Listings\ListingVariations::allows($soldHidden, (int) $listing->product_id, $c->sku))->values();
+                if ($combos->isEmpty()) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'variants' => \App\Integrations\Listings\ListingVariations::noneSoldMessage('Lazada'),
+                    ]);
+                }
+            }
+
             if ($combos->isNotEmpty()) {
                 $comboIds = $combos->pluck('id')->toArray();
                 $comboValuesByCombo = DB::table('product_option_combination_values as pocv')
@@ -335,7 +346,13 @@ class LazadaPushPayload
                 $skus[] = $skuRow;
             }
         } elseif ($povRows->count() > 0) {
-            foreach ($povRows as $r) {
+            $soldPov = $povRows->filter(fn ($r) => \App\Integrations\Listings\ListingVariations::allows($soldHidden, (int) $listing->product_id, $r->sku))->values();
+            if ($soldPov->isEmpty()) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'variants' => \App\Integrations\Listings\ListingVariations::noneSoldMessage('Lazada'),
+                ]);
+            }
+            foreach ($soldPov as $r) {
                 $key = (string)$r->product_option_value_id;
                 $m = $map->get($key);
                 // SellerSku mapping rule (Option A: all variants must have SKU):

@@ -130,8 +130,8 @@ class LazadaStockPushHealTest extends TestCase
         return array_values(array_filter($this->sentPosts, fn ($c) => $c['path'] === '/product/price_quantity/update'));
     }
 
-    /** A variation the catalogue has and Lazada lacks fails the product whole, by name. */
-    public function test_a_variation_missing_from_lazada_fails_the_product_whole(): void
+    /** A variation Lazada does not carry is not an error: the variants Lazada has go up. */
+    public function test_a_variation_missing_from_lazada_is_left_alone_and_the_rest_go_up(): void
     {
         $pid = $this->comboProduct(['LZ-1' => 5, 'LZ-2' => 8]);
         $listing = LazadaProduct::create(['product_id' => $pid, 'lazada_item_id' => '900']);
@@ -144,22 +144,13 @@ class LazadaStockPushHealTest extends TestCase
             ->post(route('ext.lazada.products.sync_quantity', $listing->product_id))
             ->assertRedirect();
 
-        // Ruled the other way on 2026-09-07: the product fails whole and names
-        // the difference; nothing of it is sent.
-        $this->assertNull(session('status'));
-        $flash = (string) session('error');
-        $this->assertStringContainsString('Variations do not match Lazada: LZ-2 (not on Lazada)', $flash);
-        $this->assertStringContainsString('Nothing was pushed', $flash);
-        $this->assertSame([], $this->updateCalls(), 'not even the variant Lazada has');
-
-        $fresh = $listing->fresh();
-        $this->assertFalse((bool) $fresh->last_sync_ok);
-        $this->assertSame('VARIATIONS_MISMATCH', $fresh->last_sync_error_code);
-        $this->assertStringContainsString('LZ-2 (not on Lazada)', (string) $fresh->last_sync_error_message);
+        $this->assertNull(session('error'));
+        $this->assertCount(1, $this->updateCalls(), 'the variant Lazada has goes up');
+        $this->assertNull($listing->fresh()->last_sync_error_code);
     }
 
-    /** An orphan variant (on Lazada, gone from the catalogue) fails the product whole - never a zero, never pushed around. */
-    public function test_an_orphan_variant_fails_the_product_whole(): void
+    /** An orphan variant (on Lazada, gone from the catalogue) is left alone: never a zero, never an error. */
+    public function test_an_orphan_variant_is_left_alone(): void
     {
         $pid = $this->comboProduct(['LZ-1' => 5]);
         $listing = LazadaProduct::create(['product_id' => $pid, 'lazada_item_id' => '900']);
@@ -170,10 +161,25 @@ class LazadaStockPushHealTest extends TestCase
             ->post(route('ext.lazada.products.sync_quantity', $listing->product_id))
             ->assertRedirect();
 
-        $flash = (string) session('error');
-        $this->assertStringContainsString('LZ-GONE (on Lazada but not in the catalogue)', $flash);
-        $this->assertSame([], $this->updateCalls(), 'nothing is sent: not the orphan, not its twin');
-        $this->assertSame('VARIATIONS_MISMATCH', $listing->fresh()->last_sync_error_code);
+        $this->assertNull(session('error'));
+        $this->assertCount(1, $this->updateCalls(), 'only the twin the catalogue has');
+    }
+
+    /** A variation switched off for this store is not synced, and its absence is no error. */
+    public function test_a_variation_switched_off_for_the_store_is_not_synced(): void
+    {
+        $pid = $this->comboProduct(['LZ-1' => 5, 'LZ-2' => 8]);
+        $listing = LazadaProduct::create(['product_id' => $pid, 'lazada_item_id' => '900']);
+        LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
+        LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-2', 'sku_id' => 12]);
+        \App\Integrations\Listings\ListingVariations::save('lazada', (int) ($listing->lazada_setting_id ?? 0), $pid, ['LZ-1']);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.lazada.products.sync_quantity', $listing->product_id))
+            ->assertRedirect();
+
+        $this->assertNull(session('error'));
+        $this->assertCount(1, $this->updateCalls(), 'LZ-2 is off for this store');
     }
 
     /** A refusal naming the sku heals once and retries once. */

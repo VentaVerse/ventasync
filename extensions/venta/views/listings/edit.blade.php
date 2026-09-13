@@ -201,38 +201,9 @@
                     'editable' => true, 'canManage' => $canManage, 'browseUrl' => $browseUrl,
                 ])
 
-                @if($found && count($live['variants']) > 0)
-                    {{-- What only this store has: the variations it holds
-                         right now. The strip is the shape every channel
-                         shares; this is not. --}}
-                    <section class="fm-section">
-                        <div class="fm-section__head">
-                            <h2 class="fm-section__title">Variations on {{ $storeName }}</h2>
-                        </div>
-                    <x-ui.table caption="This product's variations as {{ $storeName }} holds them right now">
-                        <thead>
-                            <tr>
-                                <th>Variation</th>
-                                <th>SKU</th>
-                                <th class="x-num">Price</th>
-                                <th class="x-num">Stock</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($live['variants'] as $v)
-                                <tr>
-                                    <td>{{ $v['name'] !== '' ? $v['name'] : 'Variation' }}</td>
-                                    <td>{{ $v['sku'] !== '' ? $v['sku'] : 'none' }}</td>
-                                    <td class="x-num">@if($v['price'] !== null)<x-money :php="$v['price']" />@else none @endif</td>
-                                    <td class="x-num">{{ $v['quantity'] ?? 'none' }}</td>
-                                    <td><x-ui.badge :tone="$v['active'] ? 'success' : 'warning'">{{ $v['active'] ? 'Active' : 'Unlisted' }}</x-ui.badge></td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </x-ui.table>
-                    </section>
-                @endif
+                @include('partials.listing-variations-card', [
+                    'title' => 'Variations on ' . $storeName, 'storeName' => $storeName, 'canManage' => $canManage,
+                ])
 
                 <section class="fm-section" id="vl-only">
                     <div class="fm-section__head"><h2 class="fm-section__title">Only on {{ $storeName }}</h2></div>

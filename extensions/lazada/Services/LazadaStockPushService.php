@@ -85,6 +85,9 @@ class LazadaStockPushService
 
         $hasErpVariants = !empty($erpQtyBySku) || !empty($erpQtyByPov);
 
+        // A variation switched off for this store, or in the catalog, is not synced.
+        $hidden = \App\Integrations\Listings\ListingVariations::hidden('lazada', (int) ($listing->lazada_setting_id ?? 0), [$productId]);
+
         $items = [];
         foreach ($lazadaVariants as $variant) {
             $skuId = $variant->sku_id ?? null;
@@ -92,6 +95,9 @@ class LazadaStockPushService
                 continue;
             }
             $sellerSku = trim((string) ($variant->seller_sku ?? ''));
+            if (!\App\Integrations\Listings\ListingVariations::allows($hidden, $productId, $sellerSku)) {
+                continue;
+            }
             $povId     = $variant->product_option_value_id;
 
             // Match by seller_sku first (survives option-value renumbering),

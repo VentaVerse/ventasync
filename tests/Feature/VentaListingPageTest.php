@@ -196,7 +196,7 @@ class VentaListingPageTest extends TestCase
         $this->assertStringNotContainsString('On Gear Depot right now', $html);
         $this->assertStringNotContainsString('Guitar Pedal 200 on the store', $html);
         $this->assertStringContainsString('GP-200-RED', $html);
-        $this->assertStringContainsString('>Active<', $html);
+        $this->assertStringContainsString('>Listed<', $html);
         // A viewer reads; no verbs.
         $this->assertStringNotContainsString('Unlist on Gear Depot', $html);
         $this->assertStringNotContainsString('Save listing', $html);

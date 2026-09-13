@@ -64,18 +64,21 @@ class TikTokStockPricePush
 
         $productIds = $pivots->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
         $erpSkus = PushLedger::erpVariationSkus($productIds, $pfx);
+        $storeId = (int) (\Extensions\tiktok\Models\TikTokSetting::defaultStore()?->id ?? 0);
+        $hidden = \App\Integrations\Listings\ListingVariations::hidden('tiktok', $storeId, $productIds);
+        $soldSkus = \App\Integrations\Listings\ListingVariations::sold('tiktok', $storeId, $productIds, $pfx);
 
         /* Pre-call heal: a map that is empty, single-keyed on a product
-         * that sells in variations, or missing catalogue SKUs will push
-         * the wrong figures. One product read fixes it - the old code's
-         * skus[0].id hack, done properly. */
+         * that sells in variations, or missing a SKU this store sells will
+         * push the wrong figures. One product read fixes it - the old
+         * code's skus[0].id hack, done properly. */
         foreach ($pivots as $pivot) {
             $pid = (int) $pivot->product_id;
             $map = TikTokVariationPush::existingIds($pivot->tiktok_sku_id ?? null);
             $hasVariations = !empty($erpSkus[$pid]);
             $needsHeal = $map === []
                 || ($hasVariations && isset($map['__single__']))
-                || ($hasVariations && array_diff(array_map('strval', $erpSkus[$pid]), array_map('strval', array_keys($map))) !== []);
+                || ($hasVariations && array_diff(array_map('strval', $soldSkus[$pid] ?? []), array_map('strval', array_keys($map))) !== []);
             if ($needsHeal && !empty($pivot->tiktok_product_id)) {
                 $r = $this->repair->forProduct($c, $pid, (string) $pivot->tiktok_product_id);
                 if (!isset($r['error'])) {
@@ -88,13 +91,13 @@ class TikTokStockPricePush
         $resolved = $this->resolver->resolve($pivots, $pfx, $priceFor);
 
         foreach ($resolved as $row) {
-            $this->pushProduct($kind, $c, $row, $pfx, $priceFor, $erpSkus, $out, true);
+            $this->pushProduct($kind, $c, $row, $pfx, $priceFor, $erpSkus, $hidden, $out, true);
         }
 
         return $out;
     }
 
-    private function pushProduct(string $kind, array $c, array $row, string $pfx, ?callable $priceFor, array $erpSkus, array &$out, bool $mayHeal): void
+    private function pushProduct(string $kind, array $c, array $row, string $pfx, ?callable $priceFor, array $erpSkus, array $hidden, array &$out, bool $mayHeal): void
     {
         $pivot = $row['pivot'];
         $pid = (int) $pivot->product_id;
@@ -105,17 +108,17 @@ class TikTokStockPricePush
             return;
         }
 
-        /* All or nothing per product (the owner, 2026-09-07): a SKU the shop
-         * has and the catalogue lacks, or a catalogue variation the shop
-         * lacks, fails the whole product before any call. */
+        /* Only what this store sells is sent: a SKU the catalogue does not
+         * have and a variation switched off are left alone, and a catalogue
+         * variation the shop does not carry is simply not asked of it.
+         * None of these is an error. */
         $sentSkus = [];
         $payload = [];
-        $mapSkus = [];
-        $entries = [];
         foreach ($row['skus'] as $sku) {
-            $mapSkus[strtolower((string) $sku['seller_sku'])] = true;
             if (!$sku['matched'] && $sku['seller_sku'] !== '' && !empty($erpSkus[$pid])) {
-                $entries[] = ['sku' => (string) $sku['seller_sku'], 'reason' => 'on TikTok Shop but not in the catalogue'];
+                continue;
+            }
+            if (!\App\Integrations\Listings\ListingVariations::allows($hidden, $pid, (string) $sku['seller_sku'])) {
                 continue;
             }
             $payload[] = $kind === 'price'
@@ -126,19 +129,8 @@ class TikTokStockPricePush
                 ], fn ($v) => $v !== null)]];
             $sentSkus[(string) $sku['id']] = (string) $sku['seller_sku'];
         }
-        foreach ($erpSkus[$pid] ?? [] as $erpSku) {
-            if (!isset($mapSkus[strtolower($erpSku)])) {
-                $entries[] = ['sku' => $erpSku, 'reason' => 'not on TikTok Shop'];
-            }
-        }
-        if ($entries !== [] && !empty($row['skus'])) {
-            $message = PushLedger::mismatchMessage($entries, 'TikTok Shop');
-            $out['err']++;
-            $out['last_error'] = $message;
-            $out['outcomes'][$pid] = ['ok' => false, 'error' => mb_substr($message, 0, 255)];
-            foreach ($entries as $e) {
-                $out['mismatched'][] = ['product_id' => $pid] + $e;
-            }
+        if (empty($payload) && !empty($row['skus'])) {
+            $out['skipped']++;
 
             return;
         }
@@ -192,7 +184,7 @@ class TikTokStockPricePush
                 $pivot->tiktok_sku_id = json_encode($r['map']);
                 $fresh = $this->resolver->resolve([$pivot], $pfx, $priceFor);
                 if (!empty($fresh)) {
-                    $this->pushProduct($kind, $c, $fresh[0], $pfx, $priceFor, $erpSkus, $out, false);
+                    $this->pushProduct($kind, $c, $fresh[0], $pfx, $priceFor, $erpSkus, $hidden, $out,false);
                 }
 
                 return;

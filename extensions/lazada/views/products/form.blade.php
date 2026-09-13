@@ -463,6 +463,10 @@
                         'editable' => true, 'canManage' => true, 'browseUrl' => $browseUrl,
                     ])
 
+                    @include('partials.listing-variations-card', [
+                        'title' => 'Variations on Lazada', 'storeName' => 'Lazada', 'canManage' => true,
+                    ])
+
                     {{-- What only Lazada has, in one place at the end of the
                          main column: the per-variation overrides. They ride
                          this form since 2026-09-07, so Save keeps them with

@@ -239,7 +239,7 @@ public function resolveSkuIds(LazadaProduct $listing, object $setting, LazadaCli
         // "fresh" and a variation added in the catalogue never triggered
         // the refetch that would have found its Lazada twin.
         $pfx = (string) config('catalog.prefix');
-        $erpSkus = \App\Integrations\Push\PushLedger::erpVariationSkus([(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? [];
+        $erpSkus = \App\Integrations\Listings\ListingVariations::sold('lazada', (int) ($listing->lazada_setting_id ?? 0), [(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? [];
 
         $missingSkus = array_diff($erpSkus, array_keys($map));
         if (empty($missingSkus)) {

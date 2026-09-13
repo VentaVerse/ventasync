@@ -100,6 +100,7 @@ final class ProductDeleter
                 DB::table($pfx . $table)->where('product_id', $productId)->delete();
             }
         }
+        \App\Integrations\Listings\ListingVariations::forgetProducts([$productId]);
     }
 
     /**

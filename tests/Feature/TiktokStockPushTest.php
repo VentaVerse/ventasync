@@ -347,9 +347,9 @@ class TiktokStockPushTest extends TestCase
         }
         $this->callResponses['GET /product/202309/products/tt-7'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success', 'data' => ['id' => 'tt-7', 'status' => 'ACTIVATE', 'title' => 'Wide', 'skus' => $skus]]];
 
-        // The map is repaired and kept whole; then the product fails whole,
-        // because the shop holds eight variations the catalog does not.
-        $this->artisan('tiktok:push-stock')->assertExitCode(1);
+        // The map is repaired and kept whole; the eight SKUs the catalog
+        // does not have are left alone and the four it does go up.
+        $this->artisan('tiktok:push-stock')->assertExitCode(0);
 
         $stored = (string) $pivot->fresh()->tiktok_sku_id;
         $this->assertGreaterThan(255, strlen($stored), 'the whole map is kept, not a truncated prefix');
@@ -359,8 +359,7 @@ class TiktokStockPushTest extends TestCase
         $this->assertSame('1729000000000000001', $map['TTV-Red-S']);
         $this->assertSame('1729000000000000012', $map['TTV-Blue-XL']);
 
-        $this->assertSame([], $this->callsFor('POST', '/product/202309/products/tt-7/inventory/update'), 'nothing goes up until the catalog and the shop agree');
-        $this->assertStringContainsString('TTV-Red-L (on TikTok Shop but not in the catalogue)', (string) $pivot->fresh()->push_error, 'the cron stamps the pivot, so the error filter finds the product');
-        $this->assertSame('error', $pivot->fresh()->sync_status);
+        $this->assertCount(1, $this->callsFor('POST', '/product/202309/products/tt-7/inventory/update'), 'the catalog\'s four go up');
+        $this->assertNotSame('error', $pivot->fresh()->sync_status);
     }
 }

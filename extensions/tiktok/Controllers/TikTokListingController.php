@@ -79,7 +79,8 @@ class TikTokListingController extends Controller
          * update), so PUSH UPDATE is the add-variation verb - this line
          * says so instead of leaving unlink-and-resync as folklore. */
         $covPfx = (string) config('catalog.prefix');
-        $covSkus = \App\Integrations\Push\PushLedger::erpVariationSkus([$productId], $covPfx)[$productId] ?? [];
+        $covStoreId = (int) (TikTokSetting::defaultStore()?->id ?? 0);
+        $covSkus = \App\Integrations\Listings\ListingVariations::sold('tiktok', $covStoreId, [$productId], $covPfx)[$productId] ?? [];
         // derivedTruth's pseudo-object carries no map; read it where it lives.
         $covRaw = \Extensions\tiktok\Models\TikTokListing::query()->where('product_id', $productId)->value('tiktok_sku_id')
             ?? \Extensions\tiktok\Models\TikTokProductGroupProduct::query()->where('product_id', $productId)
@@ -94,6 +95,10 @@ class TikTokListingController extends Controller
 
         return view('ext-tiktok::listings.edit', \App\Integrations\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('tiktok_product_groups', 'tiktok_product_group_products', 'tiktok_product_group_id', $productId, 'tiktok_setting_id', (int) ($listing->tiktok_setting_id ?? 0) ?: null)) + [
             'coverage' => $coverage,
+            ...\App\Integrations\Listings\ListingVariations::cardData(
+                'tiktok', $covStoreId, $productId,
+                $live !== null ? collect($live['skus'] ?? [])->pluck('seller_sku')->all() : (empty($listing->tiktok_product_id ?? null) ? [] : null)
+            ),
             'listingState' => $listingState,
             'product' => $product,
             'listing' => $listing,
@@ -170,6 +175,7 @@ class TikTokListingController extends Controller
             'attributes' => 'nullable|array',
             'attributes.*' => 'nullable|string|max:500',
             'image_order' => 'nullable|string|max:20000',
+            ...\App\Integrations\Listings\ListingVariations::rules(),
             // TikTok takes the percent itself and only whole percents.
         ]);
 
@@ -208,6 +214,10 @@ class TikTokListingController extends Controller
                 ) ?: null,
             ]
         );
+
+        if (($sellHere = \App\Integrations\Listings\ListingVariations::submitted($request)) !== null) {
+            \App\Integrations\Listings\ListingVariations::save('tiktok', (int) (TikTokSetting::defaultStore()?->id ?? 0), $productId, $sellHere);
+        }
 
         $back = \App\Support\BackTo::safe($request->input('back'), '');
 

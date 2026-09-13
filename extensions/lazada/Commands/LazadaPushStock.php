@@ -211,7 +211,8 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
 
             // Combinations AND option values (Phase F, #184): POV alone
             // meant a multi-option product's cache never went stale here.
-            $erpSkus = \App\Integrations\Push\PushLedger::erpVariationSkus([(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? [];
+            // Only what this store sells can be missing from its cache.
+            $erpSkus = \App\Integrations\Listings\ListingVariations::sold('lazada', (int) ($listing->lazada_setting_id ?? 0), [(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? [];
 
             if (empty($erpSkus) || empty(array_diff($erpSkus, $cachedSkus))) {
                 continue; // Cache is up-to-date

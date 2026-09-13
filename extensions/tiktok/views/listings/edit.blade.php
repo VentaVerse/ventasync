@@ -240,36 +240,9 @@
                     'editable' => true, 'canManage' => $canManage, 'browseUrl' => $browseUrl,
                 ])
 
-                @if($listed && $live && count($live['skus']) > 0)
-                    {{-- What only TikTok has: the variations it holds right
-                         now. A channel supplies its own sections; the strip
-                         is the shape they share. --}}
-                    <section class="fm-section">
-                        <div class="fm-section__head">
-                            <h2 class="fm-section__title">Variations on TikTok Shop</h2>
-                        </div>
-                <x-ui.table caption="This product's variations as TikTok Shop holds them right now">
-                    <thead>
-                        <tr>
-                            <th>Variation</th>
-                            <th>SKU</th>
-                            <th class="x-num">Price</th>
-                            <th class="x-num">Stock</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($live['skus'] as $sku)
-                            <tr>
-                                <td>{{ $sku['name'] !== '' ? $sku['name'] : 'SKU ' . $sku['id'] }}</td>
-                                <td>{{ $sku['seller_sku'] !== '' ? $sku['seller_sku'] : 'none' }}</td>
-                                <td class="x-num"><x-money :php="$sku['price']" /></td>
-                                <td class="x-num">{{ $sku['stock'] }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </x-ui.table>
-                    </section>
-                @endif
+                @include('partials.listing-variations-card', [
+                    'title' => 'Variations on TikTok Shop', 'storeName' => 'TikTok Shop', 'canManage' => $canManage,
+                ])
             </x-slot:main>
 
             <x-slot:rail>

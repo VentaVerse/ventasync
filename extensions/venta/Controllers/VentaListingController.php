@@ -765,6 +765,10 @@ class VentaListingController extends Controller
             'link' => $link,
             'live' => $live,
             'liveError' => $liveError,
+            ...\App\Integrations\Listings\ListingVariations::cardData(
+                'venta', $store, $productId,
+                ($live['state'] ?? '') === 'found' ? collect($live['variants'] ?? [])->pluck('sku')->all() : ($link ? null : [])
+            ),
             'groupCard' => $groupCard,
             'storeId' => (int) $store,
             'descriptionTemplates' => \App\Models\DescriptionTemplate::forStore('venta', (int) $store),
@@ -790,6 +794,7 @@ class VentaListingController extends Controller
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:500',
             'image_order' => 'nullable|string|max:20000',
+            ...\App\Integrations\Listings\ListingVariations::rules(),
         ]);
 
         /* The pictures this listing sends, in the order the card arranged
@@ -823,6 +828,10 @@ class VentaListingController extends Controller
                 'meta_description' => $blank($data['meta_description'] ?? null),
             ]
         );
+
+        if (($sellHere = \App\Integrations\Listings\ListingVariations::submitted($request)) !== null) {
+            \App\Integrations\Listings\ListingVariations::save('venta', $store, $productId, $sellHere);
+        }
 
         $back = \App\Support\BackTo::safe($request->input('back'), '');
 

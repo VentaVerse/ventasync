@@ -119,16 +119,13 @@ class ShopeeStockPushHealTest extends TestCase
     }
 
     /**
-     * The deleted-1pc incident, ruled the other way (the owner, 2026-09-07): a
-     * product whose variations differ from Shopee's fails WHOLE and names
-     * the difference, nothing of it is sent, and the operator makes the
-     * catalog and Shopee agree. A partial push named the skip but not the
-     * product, and nobody could find it among two thousand rows.
+     * A variation Shopee does not carry is not an error: the models that
+     * are on Shopee go up and the missing one is simply not asked of it.
      */
-    public function test_a_product_whose_variations_do_not_match_shopee_fails_whole_and_names_them(): void
+    public function test_a_variation_missing_from_shopee_is_left_alone_and_the_rest_go_up(): void
     {
         $pid = $this->productWithVariations(['PRD-1PC' => 5, 'PRD-5PC' => 6, 'PRD-10PC' => 7]);
-        // Shopee holds only two of the three (the 1pc was deleted there).
+        // Shopee holds only two of the three (the 1pc is not on Shopee).
         $five = ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 900, 'shopee_model_id' => 52, 'sku' => 'PRD-5PC']);
         ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 900, 'shopee_model_id' => 53, 'sku' => 'PRD-10PC']);
 
@@ -136,20 +133,15 @@ class ShopeeStockPushHealTest extends TestCase
             ->post(route('ext.shopee.products.sync_quantity', $pid))
             ->assertRedirect();
 
-        $this->assertNull(session('status'), 'nothing went up, so no green tick');
-        $flash = (string) session('error');
-        $this->assertStringContainsString('Variations do not match Shopee: PRD-1PC (not on Shopee)', $flash);
-        $this->assertStringContainsString('Nothing was pushed', $flash);
-        $this->assertSame([], $this->stockCalls(), 'not even the two Shopee has');
-
-        $fresh = $five->fresh();
-        $this->assertFalse((bool) $fresh->last_sync_ok, 'every link row of the product wears the verdict, so the error filter finds it');
-        $this->assertSame('VARIATIONS_MISMATCH', $fresh->last_sync_error_code);
-        $this->assertStringContainsString('PRD-1PC (not on Shopee)', (string) $fresh->last_sync_error_message);
+        $this->assertNull(session('error'));
+        $calls = $this->stockCalls();
+        $this->assertCount(1, $calls);
+        $this->assertSame([52, 53], array_column($calls[0]['body']['stock_list'], 'model_id'));
+        $this->assertTrue((bool) $five->fresh()->last_sync_ok);
     }
 
-    /** The other direction, and the cron: a model Shopee has that the catalogue lacks fails the product whole too. */
-    public function test_the_cron_fails_a_product_with_a_model_the_catalogue_lacks_and_pushes_the_rest(): void
+    /** The other direction, and the cron: a model the catalogue lacks is left alone, and the rest still go up. */
+    public function test_the_cron_leaves_a_model_the_catalogue_lacks_alone_and_pushes_the_rest(): void
     {
         $gone = $this->productWithVariations(['G-1' => 5]);
         ShopeeProductLink::create(['product_id' => $gone, 'shopee_item_id' => 910, 'shopee_model_id' => 1, 'sku' => 'G-1']);
@@ -157,14 +149,12 @@ class ShopeeStockPushHealTest extends TestCase
         $fine = $this->productWithVariations(['F-1' => 3]);
         ShopeeProductLink::create(['product_id' => $fine, 'shopee_item_id' => 911, 'shopee_model_id' => 3, 'sku' => 'F-1']);
 
-        $this->artisan('shopee:push-stock')->assertExitCode(1);
+        $this->artisan('shopee:push-stock')->assertExitCode(0);
 
-        $calls = $this->stockCalls();
-        $this->assertCount(1, $calls, 'the whole product is held back; the other product still goes up');
-        $this->assertSame(911, (int) $calls[0]['body']['item_id']);
-        $message = (string) ShopeeProductLink::query()->where('product_id', $gone)->value('last_sync_error_message');
-        $this->assertStringContainsString('G-OLD (on Shopee but not in the catalogue)', $message);
-        $this->assertStringContainsString('delete it on Shopee, then Refresh from Shopee', $message, 'the fix for this direction is named');
+        $calls = collect($this->stockCalls())->keyBy(fn ($c) => (int) $c['body']['item_id']);
+        $this->assertCount(2, $calls, 'both products go up');
+        $this->assertSame([1], array_column($calls[910]['body']['stock_list'], 'model_id'), 'G-OLD is not asked of Shopee');
+        $this->assertNull(ShopeeProductLink::query()->where('product_id', $gone)->where('sku', 'G-OLD')->value('last_sync_error_code'));
         $this->assertTrue((bool) ShopeeProductLink::query()->where('product_id', $fine)->value('last_sync_ok'));
     }
 
@@ -273,11 +263,10 @@ class ShopeeStockPushHealTest extends TestCase
            were both reports about the live item, and both left the page
            with the rest of the health surface on 2026-09-09 (the owner:
            "Nothing about health"). What stayed is what you ACT with: the
-           table of Shopee's own models, and the verb that sends the
-           missing ones. */
+           Variations card, and the verb that sends the missing ones. */
         $page->assertDontSee('2 of 3 variations');
         $page->assertDontSee('In the catalogue but not on Shopee');
-        $page->assertSee('Not linked');                // Shopee's STRANGER model, flagged
+        $page->assertSee('Not in your main catalog');  // Shopee's STRANGER model, flagged
         $page->assertSee('Push missing variations');   // and the verb that fixes it
         $page->assertSee('Re-read variations from Shopee');
 
@@ -333,12 +322,12 @@ class ShopeeStockPushHealTest extends TestCase
     }
 
     /**
-     * The live case (the owner, 2026-09-07): a variation deleted in the seller
-     * centre left a link Shopee refused on every run. Shopee's per-model
-     * "does not exist" now drops that link and fails the product whole, by
-     * name, so the next run tells the operator which variation to delete.
+     * A variation deleted in the seller centre left a link Shopee refused on
+     * every run. Shopee's per-model "does not exist" drops that link; the
+     * variation is simply no longer on Shopee, which is not an error, and
+     * the rest of the product keeps its verdict.
      */
-    public function test_a_model_shopee_says_is_gone_is_dropped_and_the_product_fails_whole_by_name(): void
+    public function test_a_model_shopee_says_is_gone_is_dropped_and_the_rest_keeps_its_verdict(): void
     {
         $pid = $this->productWithVariations(['E-1' => 5, 'E-2' => 6]);
         $alive = ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 905, 'shopee_model_id' => 71, 'sku' => 'E-1']);
@@ -354,13 +343,9 @@ class ShopeeStockPushHealTest extends TestCase
 
         $this->assertNull($dead->fresh(), 'the dead link is dropped, not retried every run');
         $fresh = $alive->fresh();
-        $this->assertFalse((bool) $fresh->last_sync_ok);
-        $this->assertSame('VARIATIONS_MISMATCH', $fresh->last_sync_error_code);
-        $this->assertStringContainsString('E-2 (not on Shopee)', (string) $fresh->last_sync_error_message);
-        $flash = (string) session('error');
-        $this->assertStringContainsString('E-2 (not on Shopee)', $flash);
-        $this->assertStringContainsString('add it with Push update, or delete it from the catalog', $flash, 'the fix for this direction is named');
-        $this->assertStringNotContainsString('Refresh from Shopee', $flash, 'the other direction\'s fix is not');
+        $this->assertTrue((bool) $fresh->last_sync_ok);
+        $this->assertNull($fresh->last_sync_error_code);
+        $this->assertNull(session('error'));
     }
 
     private function automationsManager(): User

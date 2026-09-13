@@ -39,6 +39,7 @@ class VariationForgetService
         if ($removed === []) {
             return [];
         }
+        \App\Integrations\Listings\ListingVariations::forget($productId, $removed);
         foreach (app(IntegrationRegistry::class)->variationForgetters() as $forgetter) {
             $forgetter->forgetVariations($productId, $removed);
         }

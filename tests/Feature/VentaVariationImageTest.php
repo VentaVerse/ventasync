@@ -65,4 +65,21 @@ class VentaVariationImageTest extends TestCase
         $this->assertStringStartsWith('http', (string) $variants['VIMG-1PC']['image'],
             'Venta fetches over the web from the address the ERP publishes - it must be absolute');
     }
+
+    public function test_a_variation_switched_off_goes_up_switched_off_rather_than_being_left_out(): void
+    {
+        $pid = $this->seedProduct();
+        DB::table('product_option_combinations')->insert([
+            ['product_id' => $pid, 'sku' => 'VIMG-1PC', 'quantity' => 3, 'absolute_price' => 100, 'absolute_cost' => 40, 'image' => null, 'sort_order' => 0, 'created_at' => now(), 'updated_at' => now()],
+            ['product_id' => $pid, 'sku' => 'VIMG-5PC', 'quantity' => 2, 'absolute_price' => 450, 'absolute_cost' => 180, 'image' => null, 'sort_order' => 1, 'created_at' => now(), 'updated_at' => now()],
+        ]);
+        \App\Integrations\Listings\ListingVariations::save('venta', 0, $pid, ['VIMG-1PC']);
+
+        $push = app(VentaProductPush::class);
+        $variants = collect($push->payload($push->product($pid))['variants'] ?? [])->keyBy('sku');
+
+        $this->assertCount(2, $variants, 'nothing is left out, so the store deletes nothing');
+        $this->assertTrue($variants['VIMG-1PC']['status']);
+        $this->assertFalse($variants['VIMG-5PC']['status'], 'the store hides it and keeps it');
+    }
 }

@@ -110,44 +110,25 @@ class LazadaStockPricePush
         $pid = (int) $listing->product_id;
         $rows = $this->resolver->buildPushItems($listing, $product, $pfx);
 
-        /* All or nothing per product (the owner, 2026-09-07): a variant Lazada
-         * has and the catalogue lacks, or a catalogue variation Lazada
-         * lacks, fails the whole listing before any call. */
-        $variantSkus = [];
-        $entries = [];
-        foreach ($rows as $row) {
-            $variantSkus[strtolower((string) $row['seller_sku'])] = true;
-            if (!($row['matched'] ?? true) && !empty($erpSkus[$pid])) {
-                $entries[] = ['sku' => (string) $row['seller_sku'], 'reason' => 'on Lazada but not in the catalogue'];
-            }
-        }
-        foreach ($erpSkus[$pid] ?? [] as $erpSku) {
-            if (!isset($variantSkus[strtolower($erpSku)])) {
-                $entries[] = ['sku' => $erpSku, 'reason' => 'not on Lazada'];
-            }
-        }
-        if ($entries !== [] && !empty($rows)) {
-            $message = PushLedger::mismatchMessage($entries, 'Lazada');
-            $out['err']++;
-            $out['last_error'] = $message;
-            $out['outcomes'][$pid] = ['ok' => false, 'error' => Str::limit($message, 255, '')];
-            foreach ($entries as $e) {
-                $out['mismatched'][] = ['product_id' => $pid] + $e;
-            }
-            $this->stamp($listing, $kind, false, 'VARIATIONS_MISMATCH', $message);
+        /* Only what this store sells is sent: a variant the catalogue does
+         * not have is left alone, a variation switched off never reached
+         * $rows, and a catalogue variation Lazada does not carry is simply
+         * not asked of it. None of these is an error. */
+        $sendRows = !empty($erpSkus[$pid])
+            ? array_values(array_filter($rows, fn ($row) => $row['matched'] ?? true))
+            : $rows;
 
-            return;
-        }
-        $sendRows = $rows;
-
-        if (empty($sendRows)) {
-            $reason = empty($rows)
-                ? 'could not resolve Lazada SkuIds for this product'
-                : 'nothing left to send - every Lazada variant is missing from the catalogue';
+        if (empty($rows) && $listing->variants->whereNotNull('sku_id')->isEmpty()) {
+            $reason = 'could not resolve Lazada SkuIds for this product';
             $out['err']++;
             $out['last_error'] = $reason;
             $out['outcomes'][$pid] = ['ok' => false, 'error' => $reason];
             $this->stamp($listing, $kind, false, 'NO_SKUS', $reason);
+
+            return;
+        }
+        if (empty($sendRows)) {
+            $out['skipped']++;
 
             return;
         }

@@ -454,6 +454,8 @@ class ShopeeProductGroupController extends Controller
             ->where('product_id', $productId)
             ->orderBy('sort_order')
             ->get(['id', 'sku', 'quantity', 'absolute_price']);
+        $hidden = \App\Integrations\Listings\ListingVariations::hidden('shopee', (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0), [$productId]);
+        $combos = $combos->filter(fn ($c) => \App\Integrations\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
         if ($combos->isEmpty()) {
             return ['tier_variation' => [], 'models' => []];
         }

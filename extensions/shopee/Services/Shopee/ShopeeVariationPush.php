@@ -34,14 +34,21 @@ class ShopeeVariationPush
      * selling the wrong thing. Null means nothing knowable stands in the
      * way (including "no variations at all").
      */
-    public function refusalFor(int $productId, \Closure $priceFor): ?string
+    public function refusalFor(int $productId, \Closure $priceFor, int $storeId = 0): ?string
     {
         $pfx = (string) config('catalog.prefix');
-        $combos = DB::table('product_option_combinations')
+        $all = DB::table('product_option_combinations')
             ->where('product_id', $productId)
             ->get(['sku', 'absolute_price']);
-        if ($combos->isEmpty()) {
+        if ($all->isEmpty()) {
             return null;
+        }
+        // Only the variations this store sells count, so switching the dear
+        // one off on Shopee is how a spread Shopee refuses is answered.
+        $hidden = \App\Integrations\Listings\ListingVariations::hidden('shopee', $storeId, [$productId]);
+        $combos = $all->filter(fn ($c) => \App\Integrations\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
+        if ($combos->isEmpty()) {
+            return \App\Integrations\Listings\ListingVariations::noneSoldMessage('Shopee');
         }
         if ($combos->count() > 50) {
             return 'Shopee accepts at most 50 variations per item; this product has ' . $combos->count() . '.';
@@ -122,6 +129,8 @@ class ShopeeVariationPush
             ->where('product_id', $productId)
             ->orderBy('sort_order')
             ->get(['id', 'sku', 'quantity', 'absolute_price', 'image']);
+        $hidden = \App\Integrations\Listings\ListingVariations::hidden('shopee', (int) ($auth['store_id'] ?? 0), [$productId]);
+        $combos = $combos->filter(fn ($c) => \App\Integrations\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
         if ($combos->isEmpty()) {
             return ['ok' => true, 'message' => 'The catalogue has no variations for this product; nothing to add.', 'added' => 0];
         }
@@ -385,7 +394,7 @@ class ShopeeVariationPush
         \Closure $priceFor,
         ?\Closure $uploadImageId = null
     ): ?array {
-        $built = $this->build($productId, $priceFor, $uploadImageId);
+        $built = $this->build($productId, $priceFor, $uploadImageId, (int) ($auth['store_id'] ?? 0));
         if ($built === null) {
             return null;
         }
@@ -492,18 +501,23 @@ class ShopeeVariationPush
      * @return null|array null = no combinations; ['refused' => reason]
      *         when the structure cannot go to Shopee as it stands.
      */
-    private function build(int $productId, \Closure $priceFor, ?\Closure $uploadImageId): ?array
+    private function build(int $productId, \Closure $priceFor, ?\Closure $uploadImageId, int $storeId = 0): ?array
     {
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $combos = DB::table('product_option_combinations')
+        $all = DB::table('product_option_combinations')
             ->where('product_id', $productId)
             ->orderBy('sort_order')
             ->get(['id', 'sku', 'quantity', 'absolute_price', 'image', 'status']);
 
-        if ($combos->isEmpty()) {
+        if ($all->isEmpty()) {
             return null;
+        }
+        $hidden = \App\Integrations\Listings\ListingVariations::hidden('shopee', $storeId, [$productId]);
+        $combos = $all->filter(fn ($c) => \App\Integrations\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
+        if ($combos->isEmpty()) {
+            return ['refused' => \App\Integrations\Listings\ListingVariations::noneSoldMessage('Shopee')];
         }
         if ($combos->count() > 50) {
             return ['refused' => 'Shopee accepts at most 50 variations per item; this product has ' . $combos->count() . '.'];

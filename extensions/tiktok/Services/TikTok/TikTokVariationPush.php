@@ -54,6 +54,16 @@ class TikTokVariationPush
             ->orderBy('sort_order')
             ->get(['id', 'sku', 'quantity', 'absolute_price', 'image', 'status']);
 
+        /* Only the variations this store sells go up. TikTok deletes a SKU
+         * an edit leaves out, so one switched off comes off the shop too. */
+        $hidden = \App\Integrations\Listings\ListingVariations::hidden('tiktok', (int) (\Extensions\tiktok\Models\TikTokSetting::defaultStore()?->id ?? 0), [$productId]);
+        if ($combos->isNotEmpty()) {
+            $combos = $combos->filter(fn ($c) => \App\Integrations\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
+            if ($combos->isEmpty()) {
+                return ['skus' => [], 'kind' => 'combos', 'keys' => [], 'refused' => \App\Integrations\Listings\ListingVariations::noneSoldMessage('TikTok Shop')];
+            }
+        }
+
         if ($combos->isNotEmpty()) {
             $values = DB::table('product_option_combination_values as cv')
                 ->join($pfx . 'product_option_value as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
@@ -114,6 +124,12 @@ class TikTokVariationPush
 
         // ── Single-axis option values (no combinations) ──
         $optionValues = $this->optionValues($pfx, $langId, $productId);
+        if (!empty($optionValues)) {
+            $optionValues = array_values(array_filter($optionValues, fn ($ov) => \App\Integrations\Listings\ListingVariations::allows($hidden, $productId, $ov->sku)));
+            if ($optionValues === []) {
+                return ['skus' => [], 'kind' => 'pov', 'keys' => [], 'refused' => \App\Integrations\Listings\ListingVariations::noneSoldMessage('TikTok Shop')];
+            }
+        }
         if (!empty($optionValues)) {
             $skus = [];
             $keys = [];
