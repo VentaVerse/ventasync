@@ -229,6 +229,12 @@ class IntegrationRegistry
         return $this->providersImplementing(\App\Integrations\Contracts\SaleLinesSource::class);
     }
 
+    /** @return list<\App\Integrations\Contracts\OrderBreakdownSource> */
+    public function orderBreakdownSources(): array
+    {
+        return $this->providersImplementing(\App\Integrations\Contracts\OrderBreakdownSource::class);
+    }
+
     /**
      * Find the MobileMarketplaceProvider whose platform slug matches the
      * given identifier (e.g. 'lazada', 'shopee'). Returns null if no

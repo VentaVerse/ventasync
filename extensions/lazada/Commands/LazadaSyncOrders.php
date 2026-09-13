@@ -579,6 +579,7 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
             $paymentFeeTotal = 0;
             $shippingFeeTotal = 0;
             $otherFees = [];
+            $byName = [];
 
             foreach ($trxItems as $trx) {
                 if (!is_array($trx)) continue;
@@ -587,6 +588,8 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
                 $feeName = (string) ($trx['fee_name'] ?? $trx['transaction_type'] ?? '');
                 // Money::parse strips the thousands comma Lazada sends ("-2,251.57"); a bare (float) would read that as -2.
                 $amount = \App\Support\Money::parse($trx['amount'] ?? $trx['fee_amount'] ?? 0);
+                $lineName = $feeName !== '' ? $feeName : 'fee_type_' . $feeType;
+                $byName[$lineName] = ($byName[$lineName] ?? 0) + $amount;
 
                 if ($feeType && in_array($feeType, $commissionTypes)) {
                     $commissionTotal += $amount;
@@ -614,6 +617,11 @@ class LazadaSyncOrders extends Command implements \App\Integrations\Contracts\St
             if ($paymentFeeTotal != 0) $fees['payment_fee'] = round($paymentFeeTotal, 2);
             if ($shippingFeeTotal != 0) $fees['shipping_service_cost'] = round($shippingFeeTotal, 2);
             if (!empty($otherFees)) $fees['other_fees'] = $otherFees;
+            $fees['transactions'] = array_map(
+                fn ($name, $total) => ['name' => (string) $name, 'amount' => round($total, 2)],
+                array_keys($byName),
+                array_values($byName),
+            );
 
             $order->fees = $fees;
             $order->save();

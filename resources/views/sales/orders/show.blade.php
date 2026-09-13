@@ -530,6 +530,9 @@
             @endphp
             <div class="od-money">
             <div class="od-money__ledgers">
+            @if(! empty($breakdown))
+            @include('sales.orders._breakdown')
+            @else
             <section class="od-section">
                 <div class="od-section__head">
                     <h2 class="od-section__title">Sale</h2>
@@ -556,6 +559,7 @@
                     </div>
                 </div>
             </section>
+            @endif
 
             <section class="od-section">
                 <div class="od-section__head">

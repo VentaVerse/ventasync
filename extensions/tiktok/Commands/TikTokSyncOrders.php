@@ -355,6 +355,7 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
             $fees['settlement_amount'] = round($settlementTotal, 2);
             $fees['revenue']           = round($revenueTotal, 2);
             $fees['platform_discount'] = round($platformDiscount, 2);
+            $fees['statement'] = array_values(array_filter($transactions, 'is_array'));
 
             $order->fees = $fees;
             $order->save();

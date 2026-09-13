@@ -36,7 +36,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class VentaExtension extends ExtensionProvider implements \App\Integrations\Contracts\MarketplaceFeeSource, IntegrationProvider, SkuSyncContributor, DashboardContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ProductActionContributor, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, ListingStateSource, \App\Integrations\Contracts\SaleLinesSource
+class VentaExtension extends ExtensionProvider implements \App\Integrations\Contracts\MarketplaceFeeSource, IntegrationProvider, SkuSyncContributor, DashboardContributor, MarketplaceSourceOptionsProvider, CredentialRevealer, ProductActionContributor, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, ListingStateSource, \App\Integrations\Contracts\SaleLinesSource, \App\Integrations\Contracts\OrderBreakdownSource
 {
     protected string $id = 'venta';
 
@@ -502,6 +502,17 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
      * live sync and the backfill agree and neither needs the storefront to
      * be reachable.
      */
+    public function orderBreakdown(int $coreOrderId): ?\App\Services\Orders\Breakdown\OrderBreakdown
+    {
+        $order = VentaOrder::query()->where('catalog_order_id', $coreOrderId)->first();
+        $totals = $order && is_array($order->raw) && is_array($order->raw['totals'] ?? null) ? $order->raw['totals'] : [];
+        if (! isset($totals['subtotal']) && ! isset($totals['total'])) {
+            return null;
+        }
+
+        return \App\Services\Orders\Breakdown\OrderBreakdown::fromSaleLines('Order summary', \Extensions\venta\Services\Venta\VentaSaleLines::lines($totals, 0, 0));
+    }
+
     public function saleLinesForOrder(int $coreOrderId, float $itemsSubtotal, float $shipping): ?array
     {
         $order = VentaOrder::query()->where('catalog_order_id', $coreOrderId)->first();

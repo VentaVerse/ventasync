@@ -450,6 +450,13 @@ class OrderController extends Controller
 
         $orderProfit = \App\Services\Orders\OrderProfit::of($order);
 
+        $breakdown = null;
+        foreach (app(\App\Integrations\IntegrationRegistry::class)->orderBreakdownSources() as $source) {
+            if ($breakdown = $source->orderBreakdown((int) $order->order_id)) {
+                break;
+            }
+        }
+
         $payments = OrderPayment::where('order_id', (int) $id)->orderBy('paid_at')->get();
         $totalPaid = $payments->sum('amount');
 
@@ -458,7 +465,7 @@ class OrderController extends Controller
         // from the `currencies` table rather than hardcoded.
         $defaultCurrency = \App\Models\Currency::where('is_default', 1)->first();
 
-        return view('sales.orders.show', compact('order', 'statuses', 'history', 'products', 'orderTotals', 'catalogProducts', 'orderLineImages', 'orderProfit', 'payments', 'totalPaid', 'defaultCurrency'));
+        return view('sales.orders.show', compact('order', 'statuses', 'history', 'products', 'orderTotals', 'catalogProducts', 'orderLineImages', 'orderProfit', 'breakdown', 'payments', 'totalPaid', 'defaultCurrency'));
     }
 
     public function updateStatus(Request $request, $id)

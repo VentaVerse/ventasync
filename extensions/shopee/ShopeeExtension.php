@@ -33,7 +33,7 @@ use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Contracts\ListingStateSource;
 use App\Integrations\Concerns\RevealsCredentials;
 
-class ShopeeExtension extends ExtensionProvider implements ListingStateSource, IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, RootRouteHandler, CredentialRevealer, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter, \App\Integrations\Contracts\MarketplaceOrderRefRenderer, \App\Integrations\Contracts\SaleLinesSource
+class ShopeeExtension extends ExtensionProvider implements ListingStateSource, IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Integrations\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, RootRouteHandler, CredentialRevealer, \App\Integrations\Contracts\WebhookReceiver, \App\Integrations\Contracts\StoreOptionsProvider, \App\Integrations\Contracts\ProductRemover, \App\Integrations\Contracts\VariationForgetter, \App\Integrations\Contracts\MarketplaceOrderRefRenderer, \App\Integrations\Contracts\SaleLinesSource, \App\Integrations\Contracts\OrderBreakdownSource
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -591,9 +591,21 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
      * the courier's price would understate net profit by about 99,340 on
      * that sample alone.
      */
+    public function orderBreakdown(int $coreOrderId): ?\App\Services\Orders\Breakdown\OrderBreakdown
+    {
+        $order = \Extensions\shopee\Models\ShopeeOrder::query()->withoutGlobalScope('shopeeStore')->where('catalog_order_id', $coreOrderId)->first();
+        if (! $order) {
+            return null;
+        }
+        $fees = is_array($order->fees) ? $order->fees : [];
+        $income = $fees['order_income'] ?? $fees;
+
+        return \Extensions\shopee\Services\ShopeeOrderBreakdown::from(is_array($income) ? $income : []);
+    }
+
     public function saleLinesForOrder(int $coreOrderId, float $itemsSubtotal, float $shipping): ?array
     {
-        $order = \Extensions\shopee\Models\ShopeeOrder::query()->where('catalog_order_id', $coreOrderId)->first();
+        $order = \Extensions\shopee\Models\ShopeeOrder::query()->withoutGlobalScope('shopeeStore')->where('catalog_order_id', $coreOrderId)->first();
         if (! $order) {
             return null;
         }
@@ -629,11 +641,17 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             - $amount('shipping_fee_discount_from_3pl')
             - $amount('seller_shipping_discount');
 
+        $other = $amount('service_fee') + $amount('seller_transaction_fee');
+        $unitemised = \Extensions\shopee\Services\ShopeeOrderBreakdown::from($income)?->unitemised() ?? 0.0;
+        if ($unitemised < 0) {
+            $other += abs($unitemised);
+        }
+
         return [
             'commission' => $amount('commission_fee'),
             'payment' => $amount('withholding_tax'),
             'shipping' => max(0.0, round($borne, 2)),
-            'other' => $amount('service_fee') + $amount('seller_transaction_fee'),
+            'other' => round($other, 2),
         ];
     }
 

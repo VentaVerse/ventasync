@@ -474,6 +474,11 @@
 
     .od-ledger__row--profit .od-ledger__v { font-weight: 650; }
 
+    .od-ledger__row--group .od-ledger__k { font-weight: 600; }
+    .od-ledger__row--child { padding-left: 16px; }
+    .od-ledger__row--child .od-ledger__k,
+    .od-ledger__row--child .od-ledger__v { color: var(--bl-ink-2); font-size: 12px; }
+
     .od-ledger__split { color: var(--bl-ink-3); font-size: 12px; }
 
     .od-ledger__margins {
