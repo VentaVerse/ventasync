@@ -355,11 +355,31 @@
                 @endif
             </section>
 
+            {{-- The store's own breakdown of what this order came to, under the items it is for. --}}
+            <section class="od-section">
+                <div class="od-section__head">
+                    <h2 class="od-section__title">{{ $breakdown?->title ?? 'Order income' }}</h2>
+                    @if($order->payout_status)
+                        <span class="od-payout">
+                            <x-ui.badge :tone="$order->payout_status === 'Paid' ? 'success' : 'warning'">{{ $order->payout_status }}</x-ui.badge>
+                            @if($order->paid_at)
+                                <span class="od-payout__when">Paid out {{ $order->paid_at->format('M d, Y') }}</span>
+                            @endif
+                        </span>
+                    @endif
+                </div>
+                @if($breakdown)
+                    @include('partials.order-breakdown', ['breakdown' => $breakdown, 'currency' => $breakdownCurrency])
+                @else
+                    <p class="od-empty">Lazada has not settled this order yet.</p>
+                @endif
+            </section>
+
             {{-- ============ FEE TRANSACTIONS ============
                  Lazada's finance ledger for this order: one row per charge it
                  actually posted, which is a different question from the
-                 summary in the side column (that says what the order came to,
-                 this says which transactions made it up). Full width in the
+                 breakdown above it (that says what the order came to, this
+                 says which transactions made it up). Full width in the
                  main column because it is a second subject with its own rows,
                  not a reference fact about the first one. --}}
             @php
@@ -407,15 +427,10 @@
                  under the body, for the same reason Shopee's does: the side
                  column here is taller than the item list, and a full-width
                  band below both is marooned under a screen of empty canvas. --}}
-            <section class="od-section">
-                <div class="od-section__head">
-                    <h2 class="od-section__title">Raw payload</h2>
-                </div>
-                <details class="od-disclose">
-                    <summary>Show the JSON Lazada returned</summary>
-                    <pre class="lzd-raw">{{ json_encode(['order' => $raw, 'detail' => $detail, 'fees' => $fees], JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) }}</pre>
-                </details>
-            </section>
+            <details class="od-disclose od-rawbox">
+                <summary>Show the JSON Lazada returned</summary>
+                <pre class="lzd-raw">{{ json_encode(['order' => $raw, 'detail' => $detail, 'fees' => $fees], JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) }}</pre>
+            </details>
         </div>
 
         {{-- ============ SIDE COLUMN ============ --}}
@@ -468,23 +483,6 @@
                     <button type="button" class="btnLzLogistics x-btn x-btn--secondary x-btn--sm"
                             data-url="{{ route('ext.lazada.orders.logistics_trace', ['orderId' => $order->order_id]) }}">Tracking</button>
                 </div>
-            </section>
-
-            <section class="od-card">
-                <div class="od-card__head">
-                    <h2 class="od-card__title">{{ $breakdown?->title ?? 'Order income' }}</h2>
-                    @if($breakdown && $order->payout_status)
-                        <x-ui.badge :tone="$order->payout_status === 'Paid' ? 'success' : 'warning'">{{ $order->payout_status }}</x-ui.badge>
-                    @endif
-                </div>
-                @if($breakdown)
-                    @include('partials.order-breakdown', ['breakdown' => $breakdown, 'currency' => $breakdownCurrency])
-                @else
-                    <p class="od-empty">Lazada has not settled this order yet.</p>
-                @endif
-                @if($order->payout_status && $order->paid_at)
-                    <div class="od-card__foot">Paid out {{ $order->paid_at->format('M d, Y') }}</div>
-                @endif
             </section>
 
         </div>

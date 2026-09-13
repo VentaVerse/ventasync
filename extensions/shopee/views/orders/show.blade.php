@@ -196,6 +196,26 @@
                 @endif
             </section>
 
+            {{-- The store's own breakdown of what this order came to, under the items it is for. --}}
+            <section class="od-section">
+                <div class="od-section__head">
+                    <h2 class="od-section__title">{{ $breakdown?->title ?? 'Order income' }}</h2>
+                    @if($order->payout_status)
+                        <span class="od-payout">
+                            <x-ui.badge :tone="$order->payout_status === 'Paid' ? 'success' : 'warning'">{{ $order->payout_status }}</x-ui.badge>
+                            @if($order->paid_at)
+                                <span class="od-payout__when">Paid out {{ $order->paid_at->format('M d, Y') }}</span>
+                            @endif
+                        </span>
+                    @endif
+                </div>
+                @if($breakdown)
+                    @include('partials.order-breakdown', ['breakdown' => $breakdown, 'currency' => $breakdownCurrency])
+                @else
+                    <p class="od-empty">Shopee has not settled this order yet.</p>
+                @endif
+            </section>
+
             {{-- ============ INVOICE REQUEST ============
                  The same three states and the same five fields the shared
                  invoice card rendered, poured into this page's own grammar
@@ -221,6 +241,7 @@
                 $invAddress = $inv && is_array($inv['address'] ?? null) ? $inv['address'] : [];
                 $invFull    = (string) ($invAddress['full'] ?? '');
             @endphp
+            @if($invState === 'requested')
             <section class="od-section">
                 <div class="od-section__head">
                     <h2 class="od-section__title">Invoice request</h2>
@@ -267,12 +288,9 @@
                             @endif
                         </div>
                     </div>
-                @elseif($invState === 'declined')
-                    <p class="od-empty">Buyer did not request an invoice.</p>
-                @else
-                    <p class="od-empty">Invoice information not available from Shopee.</p>
                 @endif
             </section>
+            @endif
 
             {{-- Returns and refunds. Full-width in the main column rather
                  than the side, because a return carries its own items and
@@ -393,15 +411,10 @@
                  page is three cards taller than the item list and a
                  full-width band below both left it marooned under a screen
                  of empty canvas. --}}
-            <section class="od-section">
-                <div class="od-section__head">
-                    <h2 class="od-section__title">Raw payload</h2>
-                </div>
-                <details class="od-disclose">
-                    <summary>Show the JSON Shopee returned</summary>
-                    <pre class="spd-raw">{{ json_encode($raw, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) }}</pre>
-                </details>
-            </section>
+            <details class="od-disclose od-rawbox">
+                <summary>Show the JSON Shopee returned</summary>
+                <pre class="spd-raw">{{ json_encode($raw, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) }}</pre>
+            </details>
         </div>
 
         {{-- ============ SIDE COLUMN ============ --}}
@@ -417,6 +430,12 @@
                         <span class="od-fact__k">Buyer</span>
                         <span class="od-fact__v">{{ $buyer !== '' ? $buyer : 'Not recorded' }}</span>
                     </div>
+                    @if($invState !== 'requested')
+                    <div class="od-fact">
+                        <span class="od-fact__k">Invoice</span>
+                        <span class="od-fact__v">{{ $invState === 'declined' ? 'Not requested' : 'Not available from Shopee' }}</span>
+                    </div>
+                    @endif
                     <div class="od-fact">
                         <span class="od-fact__k">Delivery address</span>
                         <div class="od-lines">
@@ -482,23 +501,6 @@
                     <button type="button" class="btnShopeeTracking x-btn x-btn--secondary x-btn--sm"
                             data-url="{{ route('ext.shopee.orders.tracking_info', ['orderSn' => $order->order_sn]) }}">Tracking</button>
                 </div>
-                @endif
-            </section>
-
-            <section class="od-card">
-                <div class="od-card__head">
-                    <h2 class="od-card__title">{{ $breakdown?->title ?? 'Order income' }}</h2>
-                    @if($breakdown && $order->payout_status)
-                        <x-ui.badge :tone="$order->payout_status === 'Paid' ? 'success' : 'warning'">{{ $order->payout_status }}</x-ui.badge>
-                    @endif
-                </div>
-                @if($breakdown)
-                    @include('partials.order-breakdown', ['breakdown' => $breakdown, 'currency' => $breakdownCurrency])
-                @else
-                    <p class="od-empty">Shopee has not settled this order yet.</p>
-                @endif
-                @if($order->payout_status && $order->paid_at)
-                    <div class="od-card__foot">Paid out {{ $order->paid_at->format('M d, Y') }}</div>
                 @endif
             </section>
 

@@ -227,15 +227,67 @@
                 @endif
             </section>
 
-            {{-- ============ PAYMENT ============
-                 What the buyer was charged, as TikTok reports it on the order
-                 itself. Separate from settlement in the side column, which is
-                 what TikTok pays out, and the two answer different questions.
-                 In the main column rather than beside Customer/Shipping: the
-                 same rebalance Shopee's invoice request took, moving content
-                 into the shorter column rather than the escrow-style block
-                 back (that adjudication stands). Without it TikTok's main
-                 column stopped at 283px against an 1022px side. --}}
+            {{-- The store's own breakdown of what this order came to, under the items it is for. --}}
+            <section class="od-section">
+                <div class="od-section__head">
+                    <h2 class="od-section__title">{{ $breakdown?->title ?? 'Order income' }}</h2>
+                    @if($order->payout_status)
+                        <span class="od-payout">
+                            <x-ui.badge :tone="$order->payout_status === 'Paid' ? 'success' : 'warning'">{{ $order->payout_status }}</x-ui.badge>
+                            @if($order->paid_at)
+                                <span class="od-payout__when">Paid out {{ $order->paid_at->format('M d, Y') }}</span>
+                            @endif
+                        </span>
+                    @endif
+                </div>
+                @if($breakdown)
+                    @include('partials.order-breakdown', ['breakdown' => $breakdown, 'currency' => $breakdownCurrency])
+                @else
+                    <p class="od-empty">TikTok has not settled this order yet.</p>
+                @endif
+            </section>
+
+            {{-- Raw payload. Kept from the previous version of this page: when
+                 TikTok's response and this page disagree, this is what settles
+                 it. It closes the main column rather than running full width
+                 under the body, for the same reason Shopee's and Lazada's do:
+                 the side column here is taller than the item list, and a
+                 full-width band below both is marooned under a screen of
+                 empty canvas. --}}
+            <details class="od-disclose od-rawbox">
+                <summary>Show the JSON TikTok returned</summary>
+                <pre class="ttd-raw">{{ json_encode($raw, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) }}</pre>
+            </details>
+        </div>
+
+        {{-- ============ SIDE COLUMN ============ --}}
+        <div class="od-col od-col--side">
+
+            {{-- Customer and delivery address --}}
+            <section class="od-card">
+                <div class="od-card__head">
+                    <h2 class="od-card__title">Customer</h2>
+                </div>
+                <div class="od-card__body">
+                    <div class="od-fact">
+                        <span class="od-fact__k">Buyer</span>
+                        <span class="od-fact__v">{{ $buyer !== '' ? $buyer : 'Not recorded' }}</span>
+                    </div>
+                    <div class="od-fact">
+                        <span class="od-fact__k">Delivery address</span>
+                        <div class="od-lines">
+                            @if($receiverName !== '')
+                                <span class="od-lines__name">{{ $receiverName }}</span>
+                            @endif
+                            @if($phone !== '')<span>{{ $phone }}</span>@endif
+                            <span>{{ $address !== '' ? $address : 'Not recorded' }}</span>
+                            @if($addrLine2 !== '')<span>{{ $addrLine2 }}</span>@endif
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {{-- What the buyer was charged, as TikTok reports it on the order. --}}
             <section class="od-card">
                 <div class="od-card__head">
                     <h2 class="od-card__title">Payment</h2>
@@ -275,51 +327,6 @@
                 </div>
             </section>
 
-            {{-- Raw payload. Kept from the previous version of this page: when
-                 TikTok's response and this page disagree, this is what settles
-                 it. It closes the main column rather than running full width
-                 under the body, for the same reason Shopee's and Lazada's do:
-                 the side column here is taller than the item list, and a
-                 full-width band below both is marooned under a screen of
-                 empty canvas. --}}
-            <section class="od-section">
-                <div class="od-section__head">
-                    <h2 class="od-section__title">Raw payload</h2>
-                </div>
-                <details class="od-disclose">
-                    <summary>Show the JSON TikTok returned</summary>
-                    <pre class="ttd-raw">{{ json_encode($raw, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) }}</pre>
-                </details>
-            </section>
-        </div>
-
-        {{-- ============ SIDE COLUMN ============ --}}
-        <div class="od-col od-col--side">
-
-            {{-- Customer and delivery address --}}
-            <section class="od-card">
-                <div class="od-card__head">
-                    <h2 class="od-card__title">Customer</h2>
-                </div>
-                <div class="od-card__body">
-                    <div class="od-fact">
-                        <span class="od-fact__k">Buyer</span>
-                        <span class="od-fact__v">{{ $buyer !== '' ? $buyer : 'Not recorded' }}</span>
-                    </div>
-                    <div class="od-fact">
-                        <span class="od-fact__k">Delivery address</span>
-                        <div class="od-lines">
-                            @if($receiverName !== '')
-                                <span class="od-lines__name">{{ $receiverName }}</span>
-                            @endif
-                            @if($phone !== '')<span>{{ $phone }}</span>@endif
-                            <span>{{ $address !== '' ? $address : 'Not recorded' }}</span>
-                            @if($addrLine2 !== '')<span>{{ $addrLine2 }}</span>@endif
-                        </div>
-                    </div>
-                </div>
-            </section>
-
             {{-- Shipping --}}
             <section class="od-card">
                 <div class="od-card__head">
@@ -343,23 +350,6 @@
                     <button type="button" class="btnTtTracking x-btn x-btn--secondary x-btn--sm"
                             data-url="{{ route('ext.tiktok.orders.tracking', $order->id) }}">Tracking</button>
                 </div>
-                @endif
-            </section>
-
-            <section class="od-card">
-                <div class="od-card__head">
-                    <h2 class="od-card__title">{{ $breakdown?->title ?? 'Order income' }}</h2>
-                    @if($breakdown && $order->payout_status)
-                        <x-ui.badge :tone="$order->payout_status === 'Paid' ? 'success' : 'warning'">{{ $order->payout_status }}</x-ui.badge>
-                    @endif
-                </div>
-                @if($breakdown)
-                    @include('partials.order-breakdown', ['breakdown' => $breakdown, 'currency' => $breakdownCurrency])
-                @else
-                    <p class="od-empty">TikTok has not settled this order yet.</p>
-                @endif
-                @if($order->payout_status && $order->paid_at)
-                    <div class="od-card__foot">Paid out {{ $order->paid_at->format('M d, Y') }}</div>
                 @endif
             </section>
 

@@ -248,18 +248,6 @@
    Side column: the settlement summary and the parcel controls.
    ------------------------------------------------------------------ */
 
-/* Up to sixteen fee lines in a 340px column: the card body's own
-   --bl-space-3 rhythm is meant for three or four facts and turns this block
-   into a scroll. The rows keep their own vertical padding and the gap
-   goes. Same handling Shopee's escrow block takes. */
-.lzd-fees { gap: 0; }
-
-/* The settlement note under the fee block. */
-.lzd-note {
-    font-size: 12px;
-    color: var(--bl-ink-2);
-}
-
 /* Waybill and tracking sit in the shipping card's foot. Two controls of
    the same weight: neither is more the operator's move than the other,
    and a solid button here would compete with the one in the page head. */

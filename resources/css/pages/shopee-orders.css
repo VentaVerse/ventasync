@@ -172,19 +172,6 @@
     }
 }
 
-/* Escrow rows. Nineteen possible lines in a 340px column: the card body's
-   own --bl-space-3 rhythm is meant for three or four facts and turns this
-   block into a scroll. The rows keep their own vertical padding and the
-   gap goes. */
-.spd-fees { gap: 0; }
-
-/* The settlement note under the escrow block, and any other quiet
-   sentence that belongs to a card rather than to a row. */
-.spd-note {
-    font-size: 12px;
-    color: var(--bl-ink-2);
-}
-
 /* Waybill and tracking sit in the shipping card's foot. Two controls of
    the same weight: neither is more the operator's move than the other,
    and a solid button here would compete with the one in the page head. */
@@ -321,7 +308,9 @@
    container, so it behaves the same whether the invoice block is a section
    in the main column or a card in the side one. */
 .spd-copy {
-    padding: 0;
+    /* The mark is small; the target is not. */
+    padding: 10px;
+    margin: -10px;
     background: none;
     border: 0;
     color: var(--bl-brand-deep);

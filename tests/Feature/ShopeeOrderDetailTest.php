@@ -244,7 +244,7 @@ class ShopeeOrderDetailTest extends TestCase
         $response->assertOk();
         $response->assertSee('No items synced yet. Items will be fetched on the next order sync.');
         $response->assertSee('Shopee has not settled this order yet.');
-        $response->assertSee('Invoice information not available from Shopee.');
+        $response->assertSee('Not available from Shopee');
         // A missing figure says so rather than printing a number nobody has.
         $response->assertSee('Not recorded');
     }
