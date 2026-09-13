@@ -53,12 +53,22 @@ class ShopeeRefreshListingStatus extends Command
             $checked = app(\Extensions\shopee\Services\Shopee\ShopeeLinkCheck::class)
                 ->runNext(app(\Extensions\shopee\Services\Shopee\ShopeeClient::class), $auth, (int) $store->id);
 
+            // Bound for the read only: the store's own listings and groups name the categories.
+            app()->instance('shopee.route-store', $store);
+            try {
+                $sheets = app(\Extensions\shopee\Services\Shopee\ShopeeSheetReads::class)
+                    ->readMissing($auth, app(\Extensions\shopee\Services\Shopee\ShopeeClient::class));
+            } finally {
+                app()->forgetInstance('shopee.route-store');
+            }
+
             $this->info(sprintf(
-                'Store %s: refreshed %d link(s): %s.%s',
+                'Store %s: refreshed %d link(s): %s.%s%s',
                 $label,
                 $result['links'],
                 implode(', ', array_map(fn ($k, $v) => "{$v} {$k}", array_keys($result['counts']), $result['counts'])) ?: 'nothing on Shopee',
-                $checked ? ' ' . $checked['summary'] : ''
+                $checked ? ' ' . $checked['summary'] : '',
+                $sheets['summary'] !== '' ? ' ' . $sheets['summary'] : ''
             ));
         }
 

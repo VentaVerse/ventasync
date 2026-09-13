@@ -649,17 +649,23 @@ class ShopeeProductGroupController extends Controller
     /**
      * Fetch and cache the category's attribute tree when it has never been
      * read. Quiet on failure by design: the caller renders whatever the
-     * cache holds, and the operator can re-pick the category to retry.
+     * cache holds, and Refresh reads it again. A caller walking several
+     * stores passes the store's own auth.
      */
-    public function ensureTemplate(int $categoryId, ShopeeClient $client): void
+    public function ensureTemplate(int $categoryId, ShopeeClient $client, ?array $auth = null): void
     {
         if ($categoryId <= 0 || ShopeeCategoryTemplate::query()->where('category_id', $categoryId)->exists()) {
             return;
         }
 
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        if ($auth === null) {
+            $setting = ShopeeSetting::defaultStore()?->decrypted();
+            $auth = ShopeeSetting::activeAuth($setting);
+            if (!$setting) {
+                return;
+            }
+        }
+        if (!($auth['complete'] ?? false)) {
             return;
         }
 
@@ -675,7 +681,8 @@ class ShopeeProductGroupController extends Controller
             return;
         }
 
-        if (!($result['ok'] ?? false)) {
+        // An error answer is not a sheet: filing it would read as a category with no required questions.
+        if (!($result['ok'] ?? false) || !\App\Support\MarketplaceVerdict::ok('shopee', true, $result['body'] ?? null)) {
             return;
         }
 

@@ -60,12 +60,14 @@ class LazadaRefreshListingStatus extends Command
          * was never revisited and a row wore a six-month-old refusal until
          * somebody pressed Refresh by hand. */
         $checked = app(\Extensions\lazada\Services\Lazada\LazadaLinkCheck::class)->runNext($setting, $creds);
+        $sheets = app(\Extensions\lazada\Services\Lazada\LazadaSheetReads::class)->readMissing($setting, app(\Extensions\lazada\Services\Lazada\LazadaClient::class));
 
         $this->info(sprintf(
-            'Refreshed %d listing(s): %s.%s',
+            'Refreshed %d listing(s): %s.%s%s',
             $result['links'],
             implode(', ', array_map(fn ($k, $v) => "{$v} {$k}", array_keys($result['counts']), $result['counts'])) ?: 'nothing on Lazada',
-            $checked ? ' ' . $checked['summary'] : ''
+            $checked ? ' ' . $checked['summary'] : '',
+            $sheets['summary'] !== '' ? ' ' . $sheets['summary'] : ''
         ));
 
         return self::SUCCESS;

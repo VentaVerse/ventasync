@@ -667,6 +667,8 @@ class ShopeeProductController extends Controller
          * old Repair links folded in. */
         // The check reads two hundred per run; the list starts after the last one checked, so "run it again" continues.
         $checked = app(\Extensions\shopee\Services\Shopee\ShopeeLinkCheck::class)->runNext(app(ShopeeClient::class), $auth, (int) $setting->id);
+        $sheets = app(\Extensions\shopee\Services\Shopee\ShopeeSheetReads::class)
+            ->readMissing($auth, app(ShopeeClient::class), \App\Integrations\Listings\SheetReads::PER_PRESS);
 
         $labels = ['NORMAL' => 'live', 'UNLIST' => 'unlisted', 'BANNED' => 'in violation', 'REVIEWING' => 'under review',
             'SELLER_DELETE' => 'deleted', 'SHOPEE_DELETE' => 'deleted by Shopee', 'MISSING' => 'not found on Shopee'];
@@ -676,7 +678,8 @@ class ShopeeProductController extends Controller
         }
 
         return redirect()->back()->with('status', 'Refreshed from Shopee: ' . ($parts ? implode(', ', $parts) : 'no linked items') . '.'
-            . ($checked ? ' ' . $checked['summary'] : ''));
+            . ($checked ? ' ' . $checked['summary'] : '')
+            . ($sheets['summary'] !== '' ? ' ' . $sheets['summary'] : ''));
     }
 
     /**

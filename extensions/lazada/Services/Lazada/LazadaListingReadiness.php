@@ -131,7 +131,7 @@ class LazadaListingReadiness
             $template = $listing->primary_category_id ? $templates->get((int) $listing->primary_category_id) : null;
             if ($listing->primary_category_id) {
                 if (!$template || !$template->template_body) {
-                    $gaps[] = ['code' => ListingState::GAP_SHEET, 'label' => "its category's attribute template (open the listing once to read it)"];
+                    $gaps[] = ['code' => ListingState::GAP_SHEET, 'label' => "its category's attribute sheet (Refresh reads it)"];
                 } else {
                     // The listing's own answers, the group's answers, then
                     // what the catalog fills at push - the builder's merge.

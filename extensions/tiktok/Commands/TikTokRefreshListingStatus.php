@@ -59,12 +59,14 @@ class TikTokRefreshListingStatus extends Command
          * check was never revisited and a row wore a six-month-old
          * refusal until somebody pressed Refresh by hand. */
         $checked = app(\Extensions\tiktok\Services\TikTok\TikTokLinkCheck::class)->runNext($c, (int) $store->id);
+        $sheets = app(\Extensions\tiktok\Services\TikTok\TikTokSheetReads::class)->readMissing($c, app(\Extensions\tiktok\Services\TikTok\TikTokClient::class));
 
         $this->info(sprintf(
-            'Refreshed %d listing(s): %s.%s',
+            'Refreshed %d listing(s): %s.%s%s',
             $result['links'],
             implode(', ', array_map(fn ($k, $v) => "{$v} {$k}", array_keys($result['counts']), $result['counts'])) ?: 'nothing on TikTok Shop',
-            $checked ? ' ' . $checked['summary'] : ''
+            $checked ? ' ' . $checked['summary'] : '',
+            $sheets['summary'] !== '' ? ' ' . $sheets['summary'] : ''
         ));
 
         return self::SUCCESS;

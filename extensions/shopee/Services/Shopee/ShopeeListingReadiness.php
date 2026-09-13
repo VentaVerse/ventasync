@@ -182,7 +182,7 @@ class ShopeeListingReadiness
             if ($categoryId) {
                 $template = $templates->get($categoryId);
                 if (!$template) {
-                    $gaps[] = ['code' => ListingState::GAP_SHEET, 'label' => "its category's attribute sheet (open the listing page once to read it)"];
+                    $gaps[] = ['code' => ListingState::GAP_SHEET, 'label' => "its category's attribute sheet (Refresh reads it)"];
                 } else {
                     $answers = array_filter((array) ($listing?->attribute_values ?? []), fn ($v) => trim((string) (is_array($v) ? implode('', $v) : $v)) !== '');
                     $unanswered = $this->missingRequiredAttributes($template, $answers + $sharedAnswers);

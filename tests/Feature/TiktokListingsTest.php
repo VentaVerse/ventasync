@@ -245,6 +245,39 @@ class TiktokListingsTest extends TestCase
         $this->assertSame('ACTIVATE', TikTokListing::where('tiktok_product_id', 'tt-live')->value('live_status'));
     }
 
+    public function test_refresh_reads_the_attribute_sheets_its_listings_need(): void
+    {
+        $own = $this->seedProduct('S');
+        TikTokListing::create(['product_id' => $own, 'tiktok_category_id' => '900111']);
+        TikTokProductGroup::create(['name' => 'Unread group', 'tiktok_category_id' => '900222']);
+        $this->callResponses['GET /product/202309/categories/900111/attributes'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
+            'data' => ['attributes' => [['id' => '101', 'name' => 'Material', 'type' => 'PRODUCT_PROPERTY', 'values' => []]]]]];
+        $this->callResponses['GET /product/202309/categories/900222/attributes'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 36009004, 'message' => 'Category not found']];
+
+        $this->actingAs($this->manager())->post(route('ext.tiktok.products.refresh_status'))->assertSessionHas('status');
+
+        $status = (string) session('status');
+        $this->assertStringContainsString('Read 1 attribute sheet.', $status);
+        $this->assertStringContainsString('1 attribute sheet could not be read.', $status);
+        $this->assertNotNull(TikTokCategoryTemplate::where('category_id', '900111')->first());
+        $this->assertNull(TikTokCategoryTemplate::where('category_id', '900222')->first(), 'a refused read files nothing');
+        $this->assertCount(0, $this->callsFor('GET', '/product/202309/categories/900009/attributes'), 'a sheet already read is not read again');
+        $state = app(\Extensions\tiktok\Services\TikTok\TikTokListingReadiness::class)->forProducts([$own]);
+        $this->assertNotContains(\App\Integrations\Listings\ListingState::GAP_SHEET, array_column($state[$own]['gaps'], 'code'));
+    }
+
+    public function test_the_scheduled_refresh_reads_them_too(): void
+    {
+        $own = $this->seedProduct('C');
+        TikTokListing::create(['product_id' => $own, 'tiktok_category_id' => '900111']);
+        $this->callResponses['GET /product/202309/categories/900111/attributes'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
+            'data' => ['attributes' => []]]];
+
+        $this->artisan('tiktok:refresh-listing-status')->assertExitCode(0);
+
+        $this->assertNotNull(TikTokCategoryTemplate::where('category_id', '900111')->first());
+    }
+
     public function test_a_tiktok_tab_narrows_the_table_by_the_mirror(): void
     {
         $live = $this->seedProduct('L');

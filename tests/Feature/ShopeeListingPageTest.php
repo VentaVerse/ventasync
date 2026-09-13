@@ -706,6 +706,25 @@ class ShopeeListingPageTest extends TestCase
         $this->assertNotNull(ShopeeProductLink::where('shopee_item_id', 111)->value('live_checked_at'));
     }
 
+    public function test_refresh_reads_the_attribute_sheets_its_listings_need(): void
+    {
+        $productId = $this->seedProduct();
+        \Extensions\shopee\Models\ShopeeListing::query()->updateOrCreate(['product_id' => $productId], ['shopee_category_id' => 555001]);
+        \Extensions\shopee\Models\ShopeeProductGroup::query()->create(['name' => 'Unread group', 'shopee_category_id' => 555002]);
+        $this->fakeItemList(['NORMAL' => [], 'UNLIST' => [], 'BANNED' => [], 'REVIEWING' => [], 'SELLER_DELETE' => [], 'SHOPEE_DELETE' => []]);
+        $this->getResponses['/api/v2/product/get_attribute_tree'] = fn (array $q) => (int) ($q['category_id'] ?? 0) === 555001
+            ? ['ok' => true, 'status' => 200, 'body' => ['response' => ['attribute_list' => [['attribute_id' => 1, 'original_attribute_name' => 'Material', 'is_mandatory' => false]]]]]
+            : ['ok' => true, 'status' => 200, 'body' => ['error' => 'error_param', 'message' => 'Invalid category.']];
+
+        $this->actingAs($this->manager())->post(route('ext.shopee.products.refresh_status'))->assertSessionHas('status');
+
+        $status = (string) session('status');
+        $this->assertStringContainsString('Read 1 attribute sheet.', $status);
+        $this->assertStringContainsString('1 attribute sheet could not be read.', $status);
+        $this->assertTrue(\Extensions\shopee\Models\ShopeeCategoryTemplate::where('category_id', 555001)->exists());
+        $this->assertFalse(\Extensions\shopee\Models\ShopeeCategoryTemplate::where('category_id', 555002)->exists(), 'an error answer is not filed as a sheet');
+    }
+
     public function test_refresh_leaves_the_mirror_alone_when_shopee_does_not_answer(): void
     {
         $productId = $this->seedProduct();

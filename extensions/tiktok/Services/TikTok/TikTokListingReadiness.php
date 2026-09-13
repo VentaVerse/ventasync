@@ -107,7 +107,7 @@ class TikTokListingReadiness
             } else {
                 $template = $templates->get($categoryId);
                 if (!$template) {
-                    $gaps[] = ['code' => ListingState::GAP_SHEET, 'label' => "its category's attribute sheet (open the listing page once to read it)"];
+                    $gaps[] = ['code' => ListingState::GAP_SHEET, 'label' => "its category's attribute sheet (Refresh reads it)"];
                 } else {
                     $unanswered = $this->attributes->missingRequired($this->attributes->rows($template), $listing->attribute_values ?? []);
                     if ($unanswered) {

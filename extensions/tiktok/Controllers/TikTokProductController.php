@@ -530,6 +530,8 @@ class TikTokProductController extends Controller
          * old Repair links folded in. */
         // The check reads two hundred per run; the list starts after the last one checked, so "run it again" continues.
         $checked = app(\Extensions\tiktok\Services\TikTok\TikTokLinkCheck::class)->runNext($c, (int) (\Extensions\tiktok\Models\TikTokSetting::defaultStore()?->id ?? 0));
+        $sheets = app(\Extensions\tiktok\Services\TikTok\TikTokSheetReads::class)
+            ->readMissing($c, app(TikTokClient::class), \App\Integrations\Listings\SheetReads::PER_PRESS);
 
         // One word per state, the engine's (#184 D): 'unlisted', not 'deactivated'.
         $labels = ['ACTIVATE' => 'live', 'SELLER_DEACTIVATED' => 'unlisted', 'PLATFORM_DEACTIVATED' => 'deactivated by TikTok',
@@ -541,7 +543,8 @@ class TikTokProductController extends Controller
         }
 
         return redirect()->back()->with('status', 'Refreshed from TikTok Shop: ' . ($parts ? implode(', ', $parts) : 'no linked products') . '.'
-            . ($checked ? ' ' . $checked['summary'] : ''));
+            . ($checked ? ' ' . $checked['summary'] : '')
+            . ($sheets['summary'] !== '' ? ' ' . $sheets['summary'] : ''));
     }
 
     /** The one-click push on the product's OWN listing settings (#96). */

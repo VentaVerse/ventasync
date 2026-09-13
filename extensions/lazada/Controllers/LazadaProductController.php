@@ -786,6 +786,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
          * old Repair links folded in. */
         // The check reads two hundred per run; the list starts after the last one checked, so "run it again" continues.
         $checked = app(\Extensions\lazada\Services\Lazada\LazadaLinkCheck::class)->runNext($setting, $creds);
+        $sheets = app(\Extensions\lazada\Services\Lazada\LazadaSheetReads::class)
+            ->readMissing($setting, app(LazadaClient::class), \App\Integrations\Listings\SheetReads::PER_PRESS);
 
         // One word per state, the engine's (#184 C): 'rejected', not 'in violation'.
         $labels = ['active' => 'active', 'inactive' => 'inactive', 'pending' => 'pending QC', 'rejected' => 'rejected',
@@ -796,7 +798,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         }
 
         return redirect()->back()->with('status', 'Refreshed from Lazada: ' . ($parts ? implode(', ', $parts) : 'no uploaded listings') . '.'
-            . ($checked ? ' ' . $checked['summary'] : ''));
+            . ($checked ? ' ' . $checked['summary'] : '')
+            . ($sheets['summary'] !== '' ? ' ' . $sheets['summary'] : ''));
     }
 
     /**

@@ -352,6 +352,26 @@ class LazadaListingLiveTest extends TestCase
         $page->assertDontSee('>Listed<', false);
     }
 
+    public function test_refresh_reads_the_attribute_sheets_its_listings_need(): void
+    {
+        LazadaProduct::query()->create(['product_id' => $this->seedProduct('Unread sheet product', 'LZT-S'), 'primary_category_id' => 7001]);
+        LazadaProduct::query()->create(['product_id' => $this->seedProduct('Read sheet product', 'LZT-R'), 'primary_category_id' => 7002]);
+        \Extensions\lazada\Models\LazadaCategoryTemplate::query()->create(['region' => 'ph', 'primary_category_id' => 7002, 'template_body' => ['code' => '0', 'data' => []], 'fetched_at' => now()]);
+        $this->getResponses['/products/get'] = fn () => ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => ['total_products' => 0, 'products' => []]]];
+        $asked = [];
+        $this->getResponses['/category/attributes/get'] = function (array $params) use (&$asked) {
+            $asked[] = (string) $params['primary_category_id'];
+
+            return ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => [['name' => 'color_family', 'label' => 'Color', 'is_mandatory' => 0]]]];
+        };
+
+        $this->actingAs($this->manager())->post(route('ext.lazada.products.refresh_status'))->assertSessionHas('status');
+
+        $this->assertStringContainsString('Read 1 attribute sheet.', (string) session('status'));
+        $this->assertSame(['7001'], $asked, 'only the unread sheet is asked for');
+        $this->assertTrue(\Extensions\lazada\Models\LazadaCategoryTemplate::where('region', 'ph')->where('primary_category_id', 7001)->exists());
+    }
+
     public function test_refresh_leaves_the_mirror_alone_when_lazada_does_not_answer(): void
     {
         $productId = $this->seedProduct('Still visible product', 'LZT-KEEP');
