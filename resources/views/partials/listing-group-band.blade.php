@@ -2,7 +2,8 @@
     The Product group band, first in every listing page's main column. The
     group is the listing's template: picking one moves the product into it
     and fills the page's fields with its values; "Use the group's values"
-    does the same for the group already picked. Both save with Save.
+    does the same for the group already picked. Both save with Save. It is
+    drawn as one of the page's own sections; it leads by position.
 
     Expected keys:
       groupBand  array{current: ?int, groups: list<array{id: int, name: string, url: string}>,
@@ -21,24 +22,24 @@
         'urls' => (object) collect($band['groups'])->mapWithKeys(fn ($g) => [$g['id'] => $g['url']])->all(),
     ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 @endphp
-<section class="lg-band" data-group-band aria-labelledby="lg-band-label">
-    <div class="lg-band__row">
-        <div class="lg-band__field">
-            <label class="lg-band__label" id="lg-band-label" for="lg-group">Product group</label>
-            <select id="lg-group" name="product_group_id" class="x-input lg-band__select" data-group-select @disabled(! ($canManage ?? false))>
-                <option value="">No group</option>
-                @foreach($band['groups'] as $g)
-                    <option value="{{ $g['id'] }}" @selected((int) $current === (int) $g['id'])>{{ $g['name'] }}</option>
-                @endforeach
-            </select>
-            @if($canManage ?? false)
-                <input type="hidden" name="product_group_listed" value="1">
-            @endif
-        </div>
+<section class="fm-section lg-band" data-group-band aria-labelledby="lg-band-title">
+    <div class="fm-section__head">
+        <h2 class="fm-section__title" id="lg-band-title"><label for="lg-group">Product group</label></h2>
         <a class="lg-band__open" href="{{ $currentUrl ?? '#' }}" data-group-open @if(! $currentUrl) hidden @endif>Open the group</a>
     </div>
+    <div class="lg-band__field">
+        <x-ui.select id="lg-group" name="product_group_id" data-group-select :disabled="! ($canManage ?? false)">
+            <option value="">No group</option>
+            @foreach($band['groups'] as $g)
+                <option value="{{ $g['id'] }}" @selected((int) $current === (int) $g['id'])>{{ $g['name'] }}</option>
+            @endforeach
+        </x-ui.select>
+        @if($canManage ?? false)
+            <input type="hidden" name="product_group_listed" value="1">
+        @endif
+    </div>
     <div class="lg-band__diff" data-group-diff hidden>
-        <p><span class="lg-band__count" data-group-diff-count></span> differ from the group: <span data-group-diff-names></span></p>
+        <p class="fm-section__note"><span class="lg-band__count" data-group-diff-count></span> differ from the group: <span data-group-diff-names></span></p>
         @if($canManage ?? false)
             <x-ui.button type="button" size="sm" data-group-reset>Use the group's values</x-ui.button>
         @endif

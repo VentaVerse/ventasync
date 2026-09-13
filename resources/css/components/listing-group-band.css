@@ -1,88 +1,46 @@
-/* The Product group band: the first decision on a listing page. The group
-   is the listing's template, so it leads the main column on its own raised,
-   tinted surface; everything below starts from it. */
-
-.lg-band {
-    display: flex;
-    flex-direction: column;
-    gap: var(--bl-space-3);
-    padding: var(--bl-space-4) var(--bl-space-5);
-    border: 1px solid color-mix(in srgb, var(--bl-brand-deep) 22%, var(--bl-rule-2));
-    border-radius: var(--bl-r-panel);
-    background: linear-gradient(180deg, var(--bl-brand-wash), var(--bl-sheet) 140%);
-    box-shadow: var(--bl-lift-2);
-}
-
-.lg-band__row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: end;
-    gap: var(--bl-space-2) var(--bl-space-4);
-}
-
-.lg-band__field {
-    display: flex;
-    flex-direction: column;
-    gap: var(--bl-space-2);
-    min-width: 0;
-}
-
-.lg-band__label {
-    font-size: 13px;
-    font-weight: 650;
-    color: var(--bl-ink);
-}
-
-.lg-band__select {
-    min-height: 44px;
-    padding: 10px 14px;
-    font-size: 16px;
-    font-weight: 600;
-}
+/* The Product group band: the first section of a listing page's main
+   column, drawn in the page's own section anatomy (fm-section, its head,
+   the shared select). It leads by position, not by a surface of its own.
+   Only what the section anatomy lacks lives here. */
 
 .lg-band__open {
-    display: inline-flex;
-    align-items: center;
-    min-height: 44px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--bl-brand-deep);
+    font-size: 12px;
+    color: var(--bl-ink-2);
     text-decoration: underline;
+    text-decoration-color: var(--bl-rule-2);
     text-underline-offset: 3px;
     white-space: nowrap;
+}
+
+.lg-band__open:hover {
+    color: var(--bl-ink);
+    text-decoration-color: currentColor;
+}
+
+.lg-band__open:focus-visible {
+    outline: 2px solid var(--bl-ink-2);
+    outline-offset: 2px;
+    border-radius: 2px;
 }
 
 .lg-band__diff {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
-    gap: var(--bl-space-2) var(--bl-space-3);
-    padding-top: var(--bl-space-3);
-    border-top: 1px solid color-mix(in srgb, var(--bl-brand-deep) 18%, var(--bl-rule-2));
+    gap: 8px 12px;
 }
 
-.lg-band__diff p {
+/* display: flex outranks the hidden attribute; the script toggles hidden. */
+.lg-band__diff[hidden],
+.lg-band__open[hidden] {
+    display: none;
+}
+
+.lg-band__diff .fm-section__note {
     margin: 0;
-    font-size: 13px;
-    color: var(--bl-ink-2);
 }
 
 .lg-band__count {
     font-weight: 650;
     color: var(--bl-attn);
-}
-
-@media (max-width: 560px) {
-    .lg-band {
-        padding: var(--bl-space-4);
-    }
-
-    .lg-band__row {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .lg-band__open {
-        min-height: 0;
-    }
 }
