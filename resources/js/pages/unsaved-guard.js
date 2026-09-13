@@ -48,6 +48,11 @@
         var leaving = false;
 
         var exits = Array.prototype.slice.call(document.querySelectorAll('[data-guard-leave]'));
+        /* A confirmed exit is the page leaving: the house confirm already
+           asked, so the browser's own unload dialog must not ask again. */
+        exits.forEach(function (el) {
+            el.addEventListener('confirm:accepted', function () { leaving = true; });
+        });
         /* Verbs that send the SAVED record somewhere. Their own confirm
            sentence is kept, and replaced while the page is dirty. */
         var stale = Array.prototype.slice.call(document.querySelectorAll('[data-guard-stale]'));

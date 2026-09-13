@@ -12,9 +12,9 @@
         <div class="dt-modal__body">
             <div class="fm-fields">
                 <x-ui.field label="Name" for="dtp-name" name="dtp_name" :required="true" wide>
-                    <x-ui.input id="dtp-name" data-dtp-name maxlength="128" placeholder="Returns policy" />
+                    <x-ui.input id="dtp-name" data-dtp-name maxlength="128" />
                 </x-ui.field>
-                <x-ui.field label="Words" for="dtp-body" name="dtp_body" wide>
+                <x-ui.field label="Description" for="dtp-body" name="dtp_body" wide>
                     {{-- Becomes a rich editor on pages that load the wysiwyg partial. --}}
                     <x-ui.textarea id="dtp-body" data-dtp-body rows="8" maxlength="20000" class="wysiwyg"></x-ui.textarea>
                 </x-ui.field>

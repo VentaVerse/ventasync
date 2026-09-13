@@ -17,6 +17,7 @@
  *     also carries data-confirm-submit="<form id>", that form is submitted
  *     after the user confirms. This is how a menu button outside any form
  *     (e.g. a destructive item in <x-ui.menu>) drives a hidden delete form.
+ *   - A link with data-confirm goes where it points once the user confirms.
  */
 document.addEventListener('DOMContentLoaded', function () {
     var backdrop = document.getElementById('x-confirm-modal');
@@ -254,14 +255,28 @@ document.addEventListener('DOMContentLoaded', function () {
              *
              * Such a button should do nothing on click and listen for this
              * instead. Additive: buttons that only submit a named form via
-             * data-confirm-submit are unaffected. */
-            btn.dispatchEvent(new CustomEvent('confirm:accepted', { bubbles: true }));
+             * data-confirm-submit are unaffected. A listener that handles the
+             * trigger itself cancels the event, and a link then stays put. */
+            var proceed = btn.dispatchEvent(new CustomEvent('confirm:accepted', { bubbles: true, cancelable: true }));
 
             if (submitId) {
                 var f = document.getElementById(submitId);
                 if (f) {
                     f._confirmed = true;
                     f.requestSubmit ? f.requestSubmit() : f.submit();
+                }
+                return;
+            }
+
+            /* A LINK GOES WHERE IT POINTS. The click that opened this dialog
+             * was prevented, so a confirmed link has to be followed here, or
+             * its Leave closes the dialog and does nothing. */
+            var href = btn.tagName === 'A' ? (btn.getAttribute('href') || '') : '';
+            if (proceed && href !== '' && href !== '#' && href.indexOf('javascript:') !== 0) {
+                if (btn.target === '_blank') {
+                    window.open(btn.href, '_blank', 'noopener');
+                } else {
+                    window.location.assign(btn.href);
                 }
             }
         });

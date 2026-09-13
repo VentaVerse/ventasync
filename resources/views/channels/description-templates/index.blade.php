@@ -35,14 +35,14 @@
         <x-slot:head>
             <tr>
                 <th scope="col">Name</th>
-                <th scope="col">Words</th>
+                <th scope="col">Description</th>
                 <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
             </tr>
         </x-slot:head>
         @foreach($templates as $t)
             <tr>
                 <td data-label="Name">{{ $t->name }}</td>
-                <td data-label="Words">{{ \Illuminate\Support\Str::limit(trim(strip_tags((string) $t->body)), 120) }}</td>
+                <td data-label="Description">{{ \Illuminate\Support\Str::limit(trim(strip_tags((string) $t->body)), 120) }}</td>
                 <td class="x-td-actions">
                     @if($canManage)
                         <x-ui.button size="sm" data-dt-edit
@@ -75,9 +75,9 @@
                 <div class="dt-modal__body">
                     <div class="fm-fields">
                         <x-ui.field label="Name" for="dt-name" name="name" :required="true" wide>
-                            <x-ui.input id="dt-name" name="name" maxlength="128" data-dt-field-name placeholder="Returns policy" />
+                            <x-ui.input id="dt-name" name="name" maxlength="128" data-dt-field-name />
                         </x-ui.field>
-                        <x-ui.field label="Words" for="dt-body" name="body" wide>
+                        <x-ui.field label="Description" for="dt-body" name="body" wide>
                             <x-ui.textarea id="dt-body" name="body" rows="8" maxlength="20000" data-dt-field-body
                                            :class="$richText ? 'wysiwyg' : ''"></x-ui.textarea>
                         </x-ui.field>
