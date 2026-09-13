@@ -13,8 +13,13 @@
 
      Shared by every channel's Listings page (extensions/CHANNEL-CONTRACT.md).
 
+     A row that carries sold_here (VariationRows::forListing() given the
+     page's store) gets a dot under Listing: green when this store sells the
+     variation, red when its Sell here switch is off. On a phone, where the
+     cells after Price are hidden, the dot sits beside the name instead.
+
      Props:
-       rows    iterable  App\Support\VariationRows::forProducts() rows for one product
+       rows    iterable  App\Support\VariationRows::forListing() rows for one product
        check   bool      the table carries the select column (manage tier)
        trail   string[]  the classes of the cells after Price, in header order --}}
 @props(['rows' => [], 'check' => false, 'trail' => ['cc-col-chanid', 'cc-col-sync', 'cc-col-err', 'x-td-actions']])
@@ -27,6 +32,8 @@
         $vrPrice = (float) ($vr->absolute_price ?? 0);
         $vrImg = trim((string) ($vr->option_image ?? ''));
         $vrSrc = $vrImg !== '' ? asset('storage/' . ltrim($vrImg, '/')) : '';
+        $vrSold = isset($vr->sold_here) ? (bool) $vr->sold_here : null;
+        $vrDotLabel = $vrSold ? 'Sold on this store' : 'Switched off on this store';
     @endphp
     <tr class="cc-var-row">
         @if($check)
@@ -41,6 +48,9 @@
                 @if($vrSku !== '')
                     <span class="cc-var-row__sku">{{ $vrSku }}</span>
                 @endif
+                @if(! is_null($vrSold))
+                    <span class="cc-var-dot cc-var-dot--phone cc-var-dot--{{ $vrSold ? 'on' : 'off' }}" role="img" aria-label="{{ $vrDotLabel }}"></span>
+                @endif
             </div>
         </td>
 
@@ -53,7 +63,7 @@
         </td>
 
         @foreach($trail as $vrClass)
-            <td class="{{ $vrClass }} cc-var-row__gap"></td>
+            <td class="{{ $vrClass }} cc-var-row__gap">@if($vrClass === 'cc-col-sync' && ! is_null($vrSold))<span class="cc-var-dot cc-var-dot--{{ $vrSold ? 'on' : 'off' }}" role="img" aria-label="{{ $vrDotLabel }}"></span>@endif</td>
         @endforeach
     </tr>
 @endforeach

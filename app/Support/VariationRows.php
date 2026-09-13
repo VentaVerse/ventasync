@@ -139,13 +139,26 @@ class VariationRows
      * here. The catalog list and the API keep forProducts(), which shows
      * them all, since that is where a variation is switched back on.
      *
+     * Given the page's store, each row also carries sold_here: that store's
+     * own switch, drawn as a dot beside the variation. It changes which
+     * dot shows, never which rows show.
+     *
      * @param array<int> $productIds
      * @return Collection<int, Collection<int, object>> keyed by product_id; a product left with no rows is absent
      */
-    public static function forListing(array $productIds): Collection
+    public static function forListing(array $productIds, ?string $channel = null, ?int $storeId = null): Collection
     {
-        return self::forProducts($productIds)
+        $rows = self::forProducts($productIds)
             ->map(fn (Collection $list) => $list->filter(fn ($r) => (int) ($r->status ?? 1) !== 0)->values())
             ->filter(fn (Collection $list) => $list->isNotEmpty());
+        if ($channel === null || $storeId === null || $rows->isEmpty()) {
+            return $rows;
+        }
+
+        $off = \App\Integrations\Listings\ListingVariations::offOnStore($channel, $storeId, array_map('intval', $productIds));
+
+        return $rows->each(fn (Collection $list, $pid) => $list->each(function ($r) use ($off, $pid) {
+            $r->sold_here = \App\Integrations\Listings\ListingVariations::allows($off, (int) $pid, $r->sku ?? null);
+        }));
     }
 }

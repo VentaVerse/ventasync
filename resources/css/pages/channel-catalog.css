@@ -336,6 +336,21 @@
     white-space: nowrap;
 }
 
+/* Whether this store sells the variation: its own Sell here switch. Green
+   on, red off, the dot the page's badges already use. The copy beside the
+   name is for a phone, where the Listing cell is hidden. */
+.cc-var-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    flex: none;
+    border-radius: 50%;
+    vertical-align: middle;
+}
+.cc-var-dot--on { background: var(--bl-good); }
+.cc-var-dot--off { background: var(--bl-bad); }
+.cc-var-dot--phone { display: none; }
+
 /* ------------------------------------------------------------------
    Sync error cell. The one place on these pages where --bl-bad is
    spent, because a failed push is the only thing on the row an
@@ -833,6 +848,7 @@
         margin: 0 var(--bl-space-1) 0 0;
     }
     .cc-var-row__item { margin-left: 0; flex-wrap: wrap; }
+    .cc-var-dot--phone { display: inline-block; }
 
     /* The single-action bar stacks: the sentence above, the button below
        it, both full width. */

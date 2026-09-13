@@ -382,7 +382,7 @@ class VentaListingController extends Controller
             'groupFilter' => $groupFilter, 'erpStatus' => $erpStatus, 'syncStatus' => $syncStatus,
             'allGroups' => VentaProductGroup::where('venta_setting_id', $store)->orderBy('name')->pluck('name', 'id'),
             'groupsByProductId' => $groupsByProductId,
-            'optionRowsByProductId' => \App\Support\VariationRows::forListing($pageIds),
+            'optionRowsByProductId' => \App\Support\VariationRows::forListing($pageIds, 'venta', $store),
             'linksByProductId' => $linksByProductId,
             'listingsByProductId' => $listingsByProductId,
             'lastAttempts' => $lastAttempts,

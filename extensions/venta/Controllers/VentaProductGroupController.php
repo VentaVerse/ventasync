@@ -444,7 +444,7 @@ class VentaProductGroupController extends Controller
         // (App\Support\VariationRows). The pov fallback for never-resaved
         // products lives inside it.
         $paginatedIds = $products->pluck('product_id')->toArray();
-        $optionRowsByProductId = \App\Support\VariationRows::forListing($paginatedIds);
+        $optionRowsByProductId = \App\Support\VariationRows::forListing($paginatedIds, 'venta', $store);
 
         $manualIds = $g->products()->pluck('product_id')->toArray();
 

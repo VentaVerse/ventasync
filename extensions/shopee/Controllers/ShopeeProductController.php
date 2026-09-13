@@ -295,7 +295,7 @@ class ShopeeProductController extends Controller
         // Variation rows for this page: combinations with their own image
         // and SKU, exactly what the core product list shows, one shared
         // query (App\Support\VariationRows).
-        $optionRowsByProductId = \App\Support\VariationRows::forListing($pageIds);
+        $optionRowsByProductId = \App\Support\VariationRows::forListing($pageIds, 'shopee', (int) (ShopeeSetting::defaultStore()?->id ?? 0));
 
         /* The mirror fills its own blanks (the owner, 2026-08-28: a product
          * pushed a minute ago should not read "Not checked yet"). A link

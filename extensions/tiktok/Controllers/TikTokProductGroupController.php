@@ -433,7 +433,7 @@ class TikTokProductGroupController extends Controller
         // Variation rows: the shared combinations-first query the core
         // product list uses (App\Support\VariationRows).
         $pageIds = $products->pluck('product_id')->all();
-        $optionRowsByProductId = \App\Support\VariationRows::forListing($pageIds);
+        $optionRowsByProductId = \App\Support\VariationRows::forListing($pageIds, 'tiktok', (int) (\Extensions\tiktok\Models\TikTokSetting::defaultStore()?->id ?? 0));
 
         return view('ext-tiktok::product-groups.products', [
             'group'                => $group,
