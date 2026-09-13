@@ -581,6 +581,10 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
                     continue; // this store's chip simply carries no flags line
                 }
                 $statuses[$this->id . ':' . $store->id] = (object) [
+                    // The dashboard's freshness line reads last_order_sync_at off this
+                    // object; without it Venta always read "never synced" even though
+                    // the store syncs on schedule (the timestamp lives on the setting).
+                    'last_order_sync_at' => $store->last_order_sync_at,
                     'listing_flags' => \App\Integrations\Listings\ListingTrouble::figures(
                         $sum,
                         fn (string $bucket) => route('ext.venta.listings.index', ['store' => $store->id, 'state' => $bucket])
