@@ -151,9 +151,12 @@
             </aside>
         </div>
 
-        <div class="fm-save">
-            <a class="fm-cancel" href="{{ route('watermarks.index') }}" data-guard-leave>Cancel</a>
-            <x-ui.button type="submit" variant="primary">Save template</x-ui.button>
+        <div class="fm-bar">
+            <span class="fm-bar__meta">{{ $mode === 'edit' ? 'Template ' . $template->id : '' }}</span>
+            <div class="fm-bar__actions">
+                <a class="fm-cancel" href="{{ route('watermarks.index') }}" data-guard-leave>Cancel</a>
+                <x-ui.button type="submit" variant="primary">Save template</x-ui.button>
+            </div>
         </div>
     </form>
 </div>
