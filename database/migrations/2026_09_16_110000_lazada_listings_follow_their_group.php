@@ -22,9 +22,11 @@ return new class extends Migration
             }
         }
 
+        // Each membership with its own store's listing row: another store's listing never follows this group.
         $pairs = DB::table('lazada_product_group_products as gp')
             ->join('lazada_product_groups as g', 'g.id', '=', 'gp.lazada_product_group_id')
-            ->join('lazada_products as l', 'l.product_id', '=', 'gp.product_id')
+            ->join('lazada_products as l', 'l.id', '=', 'gp.lazada_product_id')
+            ->whereColumn('l.lazada_setting_id', 'g.lazada_setting_id')
             ->get([
                 'l.id as listing_id', 'l.primary_category_id', 'l.brand_id', 'l.brand_name_override', 'l.markup_fixed', 'l.markup_percent',
                 'g.id as group_id', 'g.lazada_category_id', 'g.brand_id as g_brand_id', 'g.brand_name_override as g_brand_name', 'g.markup_fixed as g_fixed', 'g.markup_percent as g_pct',

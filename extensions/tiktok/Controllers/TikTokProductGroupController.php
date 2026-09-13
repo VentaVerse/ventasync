@@ -26,20 +26,21 @@ class TikTokProductGroupController extends Controller
     // ── Helpers ──────────────────────────────────────────────────
 
     /**
-     * Write a product's status to EVERY group that holds it.
+     * Write a product's status to every group that holds it on one store.
      *
-     * The status was stored once per group, so one product could read
+     * The status is stored once per group, so one product could read
      * differently on two pages: a stale error sends the operator chasing a
      * problem that is fixed, and a stale success hides a real failure behind a
-     * green badge somewhere else. TikTok is single-store, so every group
-     * refers to the same shop and the same remote product.
+     * green badge somewhere else. A store's groups refer to the same shop and
+     * the same remote product; another store's groups do not, so they are
+     * left alone.
      */
-    private function writeProductStatus(int $productId, array $attributes): void
+    private function writeProductStatus(int $storeId, int $productId, array $attributes): void
     {
         \App\Support\ChannelProductStatus::write(
             'tiktok_product_group_products',
             'tiktok_product_group_id',
-            null,
+            TikTokProductGroupProduct::groupIdsOn($storeId),
             $productId,
             $attributes
         );
@@ -340,10 +341,11 @@ class TikTokProductGroupController extends Controller
             ->keyBy('product_id');
 
         /* The filter answers what the column shows (one-truth port):
-         * Listed/Not listed are the product's fact across ALL groups;
-         * 'error' stays per-group - this group's own last attempt. */
+         * Listed/Not listed are the product's fact across this store's
+         * groups; 'error' stays per-group - this group's own last attempt. */
         if ($syncStatus === 'pushed' || $syncStatus === 'pending') {
             $listedIds = DB::table('tiktok_product_group_products')
+                ->whereIn('tiktok_product_group_id', TikTokProductGroupProduct::groupIdsOn((int) $group->tiktok_setting_id))
                 ->whereIn('product_id', $productIds)
                 ->whereNotNull('tiktok_product_id')
                 ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->flip();
@@ -406,6 +408,7 @@ class TikTokProductGroupController extends Controller
          * the provenance names which group's push made it true. */
         $truthByProductId = DB::table('tiktok_product_group_products as tp')
             ->join('tiktok_product_groups as tg', 'tg.id', '=', 'tp.tiktok_product_group_id')
+            ->where('tg.tiktok_setting_id', $group->tiktok_setting_id)
             ->whereIn('tp.product_id', $products->pluck('product_id')->all() ?: [0])
             ->whereNotNull('tp.tiktok_product_id')
             ->orderByDesc('tp.last_pushed_at')
@@ -512,7 +515,7 @@ class TikTokProductGroupController extends Controller
             ->join('tiktok_product_groups as g', 'g.id', '=', 'pv.tiktok_product_group_id')
             ->whereIn('pv.product_id', $ids)
             ->where('g.id', '!=', $group->id)
-            ->when(app()->bound('tiktok.route-store'), fn ($w) => $w->where('g.tiktok_setting_id', app('tiktok.route-store')->id))
+            ->where('g.tiktok_setting_id', $group->tiktok_setting_id)
             ->get(['pv.product_id', 'g.name'])
             ->keyBy('product_id');
 
@@ -610,7 +613,7 @@ class TikTokProductGroupController extends Controller
          * against a link the operator had just cut. Same writes as the
          * row-menu unlink, mirror included. */
         TikTokListing::query()->where('product_id', $product)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null]);
-        $this->writeProductStatus($product, ['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'sync_status' => 'unlinked']);
+        $this->writeProductStatus((int) $group->tiktok_setting_id, $product, ['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'sync_status' => 'unlinked']);
 
         return $this->productsRedirect($id)
             ->with('status', 'Product unlinked from TikTok.');
@@ -728,9 +731,10 @@ class TikTokProductGroupController extends Controller
             if ($pivot->tiktok_product_id) {
                 $status = 'synced';
             } else {
-                // Try to find from other groups
+                // Try to find from this store's other groups
                 $ttId = DB::table('tiktok_product_group_products')
                     ->where('tiktok_product_group_id', '!=', $group->id)
+                    ->whereIn('tiktok_product_group_id', TikTokProductGroupProduct::groupIdsOn((int) $group->tiktok_setting_id))
                     ->where('product_id', $product)
                     ->whereNotNull('tiktok_product_id')
                     ->value('tiktok_product_id');
@@ -827,7 +831,7 @@ class TikTokProductGroupController extends Controller
             TikTokListing::query()->whereIn('product_id', $ids)
                 ->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null]);
             foreach ($ids as $unlinkedId) {
-                $this->writeProductStatus((int) $unlinkedId, [
+                $this->writeProductStatus((int) $group->tiktok_setting_id, (int) $unlinkedId, [
                     'tiktok_product_id' => null,
                     'sync_status' => 'pending',
                     'push_error' => null,
@@ -990,7 +994,7 @@ class TikTokProductGroupController extends Controller
             return $this->productsRedirect($id)->with('error', 'Unlinked on TikTok Shop: ' . $shop['error']);
         }
         $known = TikTokListing::query()->whereNotNull('tiktok_product_id')->pluck('tiktok_product_id')->map(fn ($v) => (string) $v)
-            ->merge(TikTokProductGroupProduct::query()->whereNotNull('tiktok_product_id')->pluck('tiktok_product_id')->map(fn ($v) => (string) $v))
+            ->merge(TikTokProductGroupProduct::query()->onStore((int) $group->tiktok_setting_id)->whereNotNull('tiktok_product_id')->pluck('tiktok_product_id')->map(fn ($v) => (string) $v))
             ->unique()->flip();
 
         $orphans = [];
@@ -1027,7 +1031,12 @@ class TikTokProductGroupController extends Controller
             // Ensure pivot rows exist for filter-matched products
             $existingIds = $group->groupProducts()->whereIn('product_id', $intIds)->pluck('product_id')->toArray();
             $missingIds = array_diff($intIds, $existingIds);
-            foreach ($missingIds as $pid) {
+            // A product in another of this store's groups stays there and is not pushed here.
+            $claim = \App\Integrations\OneGroupRule::claim(
+                'tiktok_product_group_products', 'tiktok_product_group_id', 'tiktok_product_groups', 'tiktok_setting_id',
+                $group->id, $missingIds
+            );
+            foreach ($claim['free'] as $pid) {
                 TikTokProductGroupProduct::create([
                     'tiktok_product_group_id' => $group->id,
                     'product_id' => $pid,
@@ -1236,7 +1245,7 @@ class TikTokProductGroupController extends Controller
         /* The verdicts land on the pivots this page reads - a stock or
          * price failure used to leave zero durable trace anywhere. */
         foreach ($results['outcomes'] as $pid => $outcome) {
-            $this->writeProductStatus((int) $pid, $outcome['ok']
+            $this->writeProductStatus((int) $group->tiktok_setting_id, (int) $pid, $outcome['ok']
                 ? ['sync_status' => 'pushed', 'push_error' => null]
                 : ['sync_status' => 'error', 'push_error' => mb_substr('' . ($what === 'price' ? 'Price push: ' : 'Stock push: ') . $outcome['error'], 0, 255)]);
         }

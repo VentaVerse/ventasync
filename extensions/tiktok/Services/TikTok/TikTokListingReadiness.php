@@ -49,7 +49,7 @@ class TikTokListingReadiness
 
         $listings = TikTokListing::query()->whereIn('product_id', $productIds)->get()->keyBy(fn ($l) => (int) $l->product_id);
         $linked = $listings->filter(fn ($l) => trim((string) ($l->tiktok_product_id ?? '')) !== '')->keys()->flip()
-            ->union(TikTokProductGroupProduct::query()->whereIn('product_id', $productIds)->whereNotNull('tiktok_product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->flip());
+            ->union(TikTokProductGroupProduct::query()->onStore()->whereIn('product_id', $productIds)->whereNotNull('tiktok_product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->flip());
         /* A group is a preset the product inherits (the owner, 2026-09-05): a
          * blank category on the listing is filled from its group, in memory,
          * the same way every push fills it now, and the group's attribute

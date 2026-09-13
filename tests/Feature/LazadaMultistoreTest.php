@@ -291,4 +291,39 @@ class LazadaMultistoreTest extends TestCase
         $this->assertSame('Main store', $one->fresh()->store_name, "the second store's save must not touch the first store");
     }
 
+    /**
+     * One group per product PER STORE: a store never sees another store's
+     * groups, so a product sits in one group on each store, a second group
+     * on the same store is held, and leaving a group on one store leaves
+     * the other store's membership alone.
+     */
+    public function test_a_product_sits_in_one_group_on_each_store(): void
+    {
+        $one = LazadaSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $two = LazadaSetting::create(['mode' => 'live', 'store_name' => 'Outlet']);
+        $group = fn ($store, string $name) => tap((new \Extensions\lazada\Models\LazadaProductGroup())->forceFill(['lazada_setting_id' => $store->id, 'name' => $name]))->save();
+        $x = $group($one, 'Group X');
+        $y = $group($one, 'Group Y');
+        $onOutlet = $group($two, 'Group Y outlet');
+        $pid = 77;
+        $row = fn ($store) => tap((new \Extensions\lazada\Models\LazadaProduct())->forceFill(['lazada_setting_id' => $store->id, 'product_id' => $pid]))->save();
+        $rowOne = $row($one);
+        $rowTwo = $row($two);
+        $shape = fn ($store) => ['pivot' => 'lazada_product_group_products', 'fk' => 'lazada_product_group_id', 'groups' => 'lazada_product_groups', 'storeFk' => 'lazada_setting_id', 'storeId' => (int) $store->id];
+        $extra = fn ($listing) => ['lazada_product_id' => $listing->id, 'created_at' => now()];
+
+        \App\Integrations\Listings\ListingGroup::assign($shape($one), $pid, (int) $x->id, $extra($rowOne));
+        \App\Integrations\Listings\ListingGroup::assign($shape($two), $pid, (int) $onOutlet->id, $extra($rowTwo));
+
+        $this->assertSame((int) $x->id, \App\Integrations\Listings\ListingGroup::current($shape($one), $pid));
+        $this->assertSame((int) $onOutlet->id, \App\Integrations\Listings\ListingGroup::current($shape($two), $pid), 'the other store groups it too');
+
+        $claim = \App\Integrations\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'lazada_setting_id', (int) $y->id, [$pid]);
+        $this->assertSame([$pid => 'Group X'], $claim['held'], 'a second group on the same store is held');
+
+        \App\Integrations\Listings\ListingGroup::assign($shape($one), $pid, null);
+        $this->assertNull(\App\Integrations\Listings\ListingGroup::current($shape($one), $pid));
+        $this->assertSame((int) $onOutlet->id, \App\Integrations\Listings\ListingGroup::current($shape($two), $pid), 'No group on one store leaves the other store alone');
+    }
+
 }

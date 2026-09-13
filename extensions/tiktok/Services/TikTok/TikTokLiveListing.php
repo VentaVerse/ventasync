@@ -156,7 +156,7 @@ class TikTokLiveListing
         // Pivot truths with no listing row: give them one, so one table
         // carries the mirror.
         $withRow = \Extensions\tiktok\Models\TikTokListing::query()->pluck('product_id')->map(fn ($v) => (int) $v)->all();
-        $pivots = \Extensions\tiktok\Models\TikTokProductGroupProduct::query()
+        $pivots = \Extensions\tiktok\Models\TikTokProductGroupProduct::query()->onStore($c['setting'] ?? null)
             ->whereNotNull('tiktok_product_id')
             ->whereNotIn('product_id', $withRow ?: [0])
             ->orderByDesc('last_pushed_at')
@@ -171,7 +171,7 @@ class TikTokLiveListing
         // A listing row with no product id of its own inherits the pivot's.
         $blank = \Extensions\tiktok\Models\TikTokListing::query()->whereNull('tiktok_product_id')->get();
         foreach ($blank as $row) {
-            $pv = \Extensions\tiktok\Models\TikTokProductGroupProduct::query()
+            $pv = \Extensions\tiktok\Models\TikTokProductGroupProduct::query()->onStore($c['setting'] ?? null)
                 ->where('product_id', $row->product_id)->whereNotNull('tiktok_product_id')
                 ->orderByDesc('last_pushed_at')->first();
             if ($pv) {

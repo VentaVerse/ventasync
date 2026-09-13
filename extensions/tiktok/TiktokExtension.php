@@ -331,7 +331,8 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
 
         $newSku = $skuChanges['product_sku']['new'];
 
-        $links = TikTokProductGroupProduct::where('product_id', $productId)
+        // Only the store whose credentials send the edit below.
+        $links = TikTokProductGroupProduct::query()->onStore()->where('product_id', $productId)
             ->whereNotNull('tiktok_product_id')
             ->whereNotNull('tiktok_sku_id')
             ->get();

@@ -247,7 +247,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         // Product group filter, through the pivot's denormalised product_id
         if ($groupFilter === 'none') {
-            $groupedIds = DB::table('lazada_product_group_products')->whereNotNull('product_id')->pluck('product_id')->unique()->all();
+            // Grouped on this store; another store's group does not count.
+            $groupedIds = \Extensions\lazada\Models\LazadaProductGroupProduct::query()->onStore()->whereNotNull('product_id')->pluck('product_id')->unique()->all();
             if (!empty($groupedIds)) {
                 $query->whereNotIn('p.product_id', $groupedIds);
             }
@@ -529,7 +530,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             $query->where('p.manufacturer_id', (int) $manufacturerFilter);
         }
         if ($groupFilter === 'none') {
-            $groupedIds = DB::table('lazada_product_group_products')->whereNotNull('product_id')->pluck('product_id')->unique()->all();
+            // Grouped on this store; another store's group does not count.
+            $groupedIds = \Extensions\lazada\Models\LazadaProductGroupProduct::query()->onStore()->whereNotNull('product_id')->pluck('product_id')->unique()->all();
             if (! empty($groupedIds)) {
                 $query->whereNotIn('p.product_id', $groupedIds);
             }

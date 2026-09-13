@@ -83,6 +83,7 @@ class TikTokProductController extends Controller
 
         $groupsByProductId = DB::table('tiktok_product_group_products as tp')
             ->join('tiktok_product_groups as tg', 'tg.id', '=', 'tp.tiktok_product_group_id')
+            ->where('tg.tiktok_setting_id', (int) (TikTokSetting::defaultStore()?->id ?? 0))
             ->get(['tp.product_id', 'tg.name'])
             ->groupBy('product_id')
             ->map(fn ($rows) => $rows->pluck('name')->all());
@@ -127,7 +128,7 @@ class TikTokProductController extends Controller
                 $sub->where('p.status', 1)
                     ->orWhereIn('p.product_id', TikTokListing::query()
                         ->whereNotNull('tiktok_product_id')->select('product_id'))
-                    ->orWhereIn('p.product_id', \Extensions\tiktok\Models\TikTokProductGroupProduct::query()
+                    ->orWhereIn('p.product_id', \Extensions\tiktok\Models\TikTokProductGroupProduct::query()->onStore()
                         ->whereNotNull('tiktok_product_id')->select('product_id'));
             });
         }
@@ -143,7 +144,7 @@ class TikTokProductController extends Controller
         } elseif ($syncStatus === 'not_listed') {
             $query->whereNotIn('p.product_id', $listedProductIds ?: [0]);
         } elseif ($syncStatus === 'error') {
-            $errored = TikTokProductGroupProduct::query()->where('sync_status', 'error')->pluck('product_id')->all();
+            $errored = TikTokProductGroupProduct::query()->onStore()->where('sync_status', 'error')->pluck('product_id')->all();
             $query->whereIn('p.product_id', $errored ?: [0]);
         } elseif ($syncStatus === 'ready' || $syncStatus === 'not_ready') {
             $candidates = array_values(array_diff($scopeIds, $listedProductIds));
@@ -186,10 +187,10 @@ class TikTokProductController extends Controller
         $pageIds = $products->pluck('product_id')->map(fn ($v) => (int) $v)->all();
         $listingsByProductId = TikTokListing::query()->whereIn('product_id', $pageIds ?: [0])->get()->keyBy(fn ($l) => (int) $l->product_id);
         // Products pushed before the record carried the truth: the pivots answer.
-        $pivotTruth = TikTokProductGroupProduct::query()
+        $pivotTruth = TikTokProductGroupProduct::query()->onStore()
             ->whereIn('product_id', $pageIds ?: [0])->whereNotNull('tiktok_product_id')
             ->orderByDesc('last_pushed_at')->get()->groupBy(fn ($p) => (int) $p->product_id)->map(fn ($rows) => $rows->first());
-        $lastAttempts = TikTokProductGroupProduct::query()
+        $lastAttempts = TikTokProductGroupProduct::query()->onStore()
             ->whereIn('product_id', $pageIds ?: [0])->orderByDesc('last_pushed_at')->get()
             ->groupBy(fn ($p) => (int) $p->product_id)->map(fn ($rows) => $rows->first());
 
@@ -617,7 +618,7 @@ class TikTokProductController extends Controller
             return ['ok' => false, 'message' => (string) $outcome['message']];
         }
         TikTokListing::recordPush($productId, $outcome['product_id'], $outcome['sku_ids'], 'listing');
-        TikTokProductGroupProduct::query()->where('product_id', $productId)->update([
+        TikTokProductGroupProduct::query()->onStore($c['setting'] ?? null)->where('product_id', $productId)->update([
             'tiktok_product_id' => $outcome['product_id'], 'tiktok_sku_id' => $outcome['sku_ids'],
             'sync_status' => 'pushed', 'last_pushed_at' => now(), 'push_error' => null,
         ]);
@@ -666,7 +667,7 @@ class TikTokProductController extends Controller
         $productIds = array_map('intval', array_filter((array) $request->input('product_ids', [])));
         if (empty($productIds)) {
             $productIds = TikTokListing::query()->whereNotNull('tiktok_product_id')->pluck('product_id')
-                ->merge(\Extensions\tiktok\Models\TikTokProductGroupProduct::query()->whereNotNull('tiktok_product_id')->pluck('product_id'))
+                ->merge(\Extensions\tiktok\Models\TikTokProductGroupProduct::query()->onStore($c['setting'] ?? null)->whereNotNull('tiktok_product_id')->pluck('product_id'))
                 ->map(fn ($v) => (int) $v)->unique()->sort()->values()->all();
         }
         if (empty($productIds)) {
@@ -697,7 +698,7 @@ class TikTokProductController extends Controller
             foreach (TikTokListing::query()->whereIn('product_id', $ids)->whereNotNull('tiktok_product_id')->get(['product_id', 'tiktok_product_id']) as $l) {
                 $out[(int) $l->product_id] = 'TikTok product ' . $l->tiktok_product_id;
             }
-            foreach (TikTokProductGroupProduct::query()->whereIn('product_id', $ids)->whereNotNull('tiktok_product_id')->get(['product_id', 'tiktok_product_id']) as $p) {
+            foreach (TikTokProductGroupProduct::query()->onStore()->whereIn('product_id', $ids)->whereNotNull('tiktok_product_id')->get(['product_id', 'tiktok_product_id']) as $p) {
                 $out[(int) $p->product_id] ??= 'TikTok product ' . $p->tiktok_product_id;
             }
 
@@ -724,7 +725,7 @@ class TikTokProductController extends Controller
         }
 
         $linked = TikTokListing::query()->whereNotNull('tiktok_product_id')->pluck('tiktok_product_id')
-            ->merge(\Extensions\tiktok\Models\TikTokProductGroupProduct::query()->whereNotNull('tiktok_product_id')->pluck('tiktok_product_id'))
+            ->merge(\Extensions\tiktok\Models\TikTokProductGroupProduct::query()->onStore($c['setting'] ?? null)->whereNotNull('tiktok_product_id')->pluck('tiktok_product_id'))
             ->map(fn ($v) => (string) $v)->flip();
 
         $pfx = (string) config('catalog.prefix');
@@ -860,12 +861,12 @@ class TikTokProductController extends Controller
          * the first; this action used to overwrite the row and wipe its
          * SKU map, so a wrong pick silently re-pointed every push. */
         $held = TikTokListing::query()->where('product_id', $productId)->whereNotNull('tiktok_product_id')->value('tiktok_product_id')
-            ?: TikTokProductGroupProduct::query()->where('product_id', $productId)->whereNotNull('tiktok_product_id')->value('tiktok_product_id');
+            ?: TikTokProductGroupProduct::query()->onStore()->where('product_id', $productId)->whereNotNull('tiktok_product_id')->value('tiktok_product_id');
         if ($held && (string) $held !== (string) $data['ref']) {
             return redirect()->back()->with('error', 'Catalog product #' . $productId . ' is already linked to TikTok product ' . $held . '. Unlink it first.');
         }
         $taken = TikTokListing::query()->where('tiktok_product_id', (string) $data['ref'])->where('product_id', '!=', $productId)->value('product_id')
-            ?: TikTokProductGroupProduct::query()->where('tiktok_product_id', (string) $data['ref'])->where('product_id', '!=', $productId)->value('product_id');
+            ?: TikTokProductGroupProduct::query()->onStore()->where('tiktok_product_id', (string) $data['ref'])->where('product_id', '!=', $productId)->value('product_id');
         if ($taken) {
             return redirect()->back()->with('error', 'TikTok product ' . $data['ref'] . ' is already linked to catalog product #' . $taken . '. Unlink that product first.');
         }
@@ -955,7 +956,7 @@ class TikTokProductController extends Controller
                 continue;
             }
             TikTokListing::query()->where('product_id', $pid)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null]);
-            TikTokProductGroupProduct::query()->where('product_id', $pid)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'sync_status' => 'pending']);
+            TikTokProductGroupProduct::query()->onStore($c['setting'] ?? null)->where('product_id', $pid)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'sync_status' => 'pending']);
             $deleted++;
         }
         $msg = "Delete from TikTok Shop: {$deleted} deleted" . ($skipped > 0 ? ", {$skipped} skipped (not on TikTok Shop)" : '') . ($errors ? ', ' . count($errors) . ' failed. ' . implode('; ', array_slice($errors, 0, 3)) : '') . '.';
@@ -1024,7 +1025,7 @@ class TikTokProductController extends Controller
         // The mirror described the link that was just cut (#184 D): a kept
         // status would be stale forever, and a later re-match would wear it.
         TikTokListing::query()->where('product_id', $productId)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null]);
-        TikTokProductGroupProduct::query()->where('product_id', $productId)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'sync_status' => 'unlinked']);
+        TikTokProductGroupProduct::query()->onStore()->where('product_id', $productId)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'sync_status' => 'unlinked']);
 
         return redirect()->back()->with('status', 'Unlinked. The TikTok Shop product stays up and can be matched again later.');
     }
@@ -1049,7 +1050,7 @@ class TikTokProductController extends Controller
         // The link is gone; void the mirror rather than keep a status the
         // sweep can no longer correct (#184 D).
         TikTokListing::query()->where('product_id', $productId)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null]);
-        TikTokProductGroupProduct::query()->where('product_id', $productId)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'sync_status' => 'pending']);
+        TikTokProductGroupProduct::query()->onStore($c['setting'] ?? null)->where('product_id', $productId)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'sync_status' => 'pending']);
 
         return redirect()->back()->with('status', 'Deleted from TikTok Shop.');
     }
@@ -1120,7 +1121,7 @@ class TikTokProductController extends Controller
         if ($listing && $listing->tiktok_product_id) {
             return (object) ['tiktok_product_id' => $listing->tiktok_product_id, 'tiktok_sku_id' => $listing->tiktok_sku_id];
         }
-        $pivot = TikTokProductGroupProduct::query()->where('product_id', $productId)->whereNotNull('tiktok_product_id')->orderByDesc('last_pushed_at')->first();
+        $pivot = TikTokProductGroupProduct::query()->onStore()->where('product_id', $productId)->whereNotNull('tiktok_product_id')->orderByDesc('last_pushed_at')->first();
 
         return $pivot ? (object) ['tiktok_product_id' => $pivot->tiktok_product_id, 'tiktok_sku_id' => $pivot->tiktok_sku_id] : null;
     }

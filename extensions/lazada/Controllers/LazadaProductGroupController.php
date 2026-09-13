@@ -42,20 +42,20 @@ class LazadaProductGroupController extends Controller
         return app(LazadaPushPayload::class);
     }
     /**
-     * Write a product's status to EVERY group that holds it.
+     * Write a product's status to every group on the store that holds it.
      *
-     * The status was stored once per group, so one product could read
+     * The status is stored once per group, so one product could read
      * differently on two pages: a stale error sends the operator chasing a
      * problem that is fixed, and a stale success hides a real failure behind a
-     * green badge somewhere else. Lazada is single-store, so every group
-     * refers to the same shop and the same remote product.
+     * green badge somewhere else. Another store's groups refer to another
+     * shop and another remote product, so they are left alone.
      */
-    private function writeProductStatus(int $productId, array $attributes): void
+    private function writeProductStatus(int $storeId, int $productId, array $attributes): void
     {
         \App\Support\ChannelProductStatus::write(
             'lazada_product_group_products',
             'lazada_product_group_id',
-            null,
+            LazadaProductGroupProduct::groupIdsOn($storeId),
             $productId,
             $attributes
         );
@@ -386,7 +386,7 @@ class LazadaProductGroupController extends Controller
             ->join('lazada_product_groups as g', 'g.id', '=', 'pv.lazada_product_group_id')
             ->where('pv.product_id', $productId)
             ->where('g.id', '!=', $group->id)
-            ->when(app()->bound('lazada.route-store'), fn ($w) => $w->where('g.lazada_setting_id', app('lazada.route-store')->id))
+            ->where('g.lazada_setting_id', (int) $group->lazada_setting_id)
             ->value('g.name');
     }
 
@@ -459,7 +459,7 @@ class LazadaProductGroupController extends Controller
             ->join('lazada_product_groups as g', 'g.id', '=', 'pv.lazada_product_group_id')
             ->whereIn('pv.product_id', $ids)
             ->where('g.id', '!=', $group->id)
-            ->when(app()->bound('lazada.route-store'), fn ($w) => $w->where('g.lazada_setting_id', app('lazada.route-store')->id))
+            ->where('g.lazada_setting_id', (int) $group->lazada_setting_id)
             ->get(['pv.product_id', 'g.name'])
             ->keyBy('product_id');
 
@@ -800,7 +800,8 @@ class LazadaProductGroupController extends Controller
                 // Link pivot
                 if ($pivot) {
                     $pivot->update(['lazada_product_id' => $listing->id]);
-                } else {
+                } elseif (\App\Integrations\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'lazada_setting_id', $group->id, [(int) $productId])['free'] !== []) {
+                    // Only a product no other group on this store holds joins this one.
                     LazadaProductGroupProduct::create([
                         'lazada_product_group_id' => $group->id,
                         'product_id' => $productId,
@@ -1376,7 +1377,7 @@ class LazadaProductGroupController extends Controller
                 } catch (\Throwable $ex) {}
 
                 // Update pivot
-                $this->writeProductStatus($pivotRow->product_id, ['sync_status' => 'pending']);
+                $this->writeProductStatus((int) $group->lazada_setting_id, (int) $pivotRow->product_id, ['sync_status' => 'pending']);
 
                 ActivityLogger::log('deleted', 'Lazada Product', $listing->id,
                     'Deleted from Lazada via product group, ERP #' . (int) $listing->product_id);
@@ -1462,7 +1463,7 @@ class LazadaProductGroupController extends Controller
         /* One product, one group (cleanup point 2): products owned by
          * another group are dropped here and named by the caller's flash
          * via lastHeld. */
-        $claim = \App\Integrations\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', null, $group->id, array_values(array_diff(array_map('intval', $productIds), $existing)), $moveIds);
+        $claim = \App\Integrations\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'lazada_setting_id', $group->id, array_values(array_diff(array_map('intval', $productIds), $existing)), $moveIds);
         $this->lastHeld = $claim['held'];
         $productIds = array_merge($claim['free'], array_keys($claim['moved']), array_map('intval', $existing));
         $added = 0;

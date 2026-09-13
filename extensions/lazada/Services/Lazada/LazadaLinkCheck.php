@@ -146,7 +146,8 @@ class LazadaLinkCheck
                 $listing->forceFill($hitMirror + ['lazada_item_id' => $hitItemId, 'lazada_deleted_at' => null, 'unlinked_at' => null, 'last_synced_at' => now(), 'last_sync_action' => 'check', 'last_sync_ok' => true])->save();
                 if ($pivots->isNotEmpty()) {
                     foreach ($pivots as $p) $p->update(['lazada_product_id' => $listing->id, 'sync_status' => 'pushed']);
-                } elseif ($group !== null) {
+                } elseif ($group !== null && \App\Integrations\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'lazada_setting_id', $group->id, [(int) $productId])['free'] !== []) {
+                    // Only a product no other group on this store holds joins this one.
                     LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $productId, 'lazada_product_id' => $listing->id, 'sync_status' => 'pushed']);
                 }
                 $verdicts['linked']++;

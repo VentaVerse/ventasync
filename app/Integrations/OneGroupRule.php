@@ -9,14 +9,16 @@ use Illuminate\Support\Facades\DB;
  *
  * A product in several groups was the ambiguity that made group status
  * unreadable. Every membership write goes through claim(): products
- * already owned by another group (same store, where groups are
- * store-scoped) are HELD and their owner named - never silently
- * reassigned - unless the caller passes them in $moveIds, which is the
- * operator's explicit "Move here".
+ * already owned by another group ON THE SAME STORE are HELD and their
+ * owner named - never silently reassigned - unless the caller passes
+ * them in $moveIds, which is the operator's explicit "Move here". A store
+ * never sees another store's groups, so a product may sit in one group
+ * on each store.
  *
- * Lazada, TikTok and Pedallion also carry a DB unique on the pivot's
- * product_id (their groups are not store-scoped); this class is the
- * gate for everyone and the only gate for the store-scoped three.
+ * The pivots carry no store, so a caller passes the group table's store
+ * column. Pedallion, a single-store channel, passes none and also keeps a
+ * DB unique on its pivot's product_id; for every other channel this
+ * class is the only gate.
  */
 class OneGroupRule
 {

@@ -23,4 +23,27 @@ class TikTokProductGroupProduct extends Model
     {
         return $this->belongsTo(TikTokProductGroup::class, 'tiktok_product_group_id');
     }
+
+    /**
+     * One store's rows. The pivot carries no store, its group does, and a
+     * product may sit in one group on each store. Without a store named,
+     * the store in hand (the bound one, else the first enabled).
+     */
+    public function scopeOnStore(\Illuminate\Database\Eloquent\Builder $query, TikTokSetting|int|null $store = null): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->whereIn($query->qualifyColumn('tiktok_product_group_id'), self::storeGroups($store));
+    }
+
+    /** One store's group ids, for writes that take a list. */
+    public static function groupIdsOn(TikTokSetting|int|null $store = null): array
+    {
+        return self::storeGroups($store)->pluck('id')->map(fn ($v) => (int) $v)->all();
+    }
+
+    private static function storeGroups(TikTokSetting|int|null $store): \Illuminate\Database\Query\Builder
+    {
+        $id = $store instanceof TikTokSetting ? $store->id : ($store ?? TikTokSetting::defaultStore()?->id);
+
+        return \Illuminate\Support\Facades\DB::table('tiktok_product_groups')->where('tiktok_setting_id', (int) $id)->select('id');
+    }
 }

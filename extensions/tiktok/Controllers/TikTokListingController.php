@@ -97,7 +97,7 @@ class TikTokListingController extends Controller
         $covSkus = \App\Integrations\Listings\ListingVariations::sold('tiktok', $covStoreId, [$productId], $covPfx)[$productId] ?? [];
         // derivedTruth's pseudo-object carries no map; read it where it lives.
         $covRaw = \Extensions\tiktok\Models\TikTokListing::query()->where('product_id', $productId)->value('tiktok_sku_id')
-            ?? \Extensions\tiktok\Models\TikTokProductGroupProduct::query()->where('product_id', $productId)
+            ?? \Extensions\tiktok\Models\TikTokProductGroupProduct::query()->onStore($covStoreId)->where('product_id', $productId)
                 ->whereNotNull('tiktok_product_id')->orderByDesc('last_pushed_at')->value('tiktok_sku_id');
         $covMap = \Extensions\tiktok\Services\TikTok\TikTokVariationPush::existingIds($covRaw);
         $covKeys = array_change_key_case(array_flip(array_map('strval', array_keys($covMap))), CASE_LOWER);
@@ -469,6 +469,7 @@ class TikTokListingController extends Controller
 
         return DB::table('tiktok_product_group_products as tp')
             ->join('tiktok_product_groups as tg', 'tg.id', '=', 'tp.tiktok_product_group_id')
+            ->where('tg.tiktok_setting_id', (int) (TikTokSetting::defaultStore()?->id ?? 0))
             ->where('tp.product_id', $productId)
             ->whereNotNull('tp.tiktok_product_id')
             ->orderByDesc('tp.last_pushed_at')

@@ -57,7 +57,7 @@ class TikTokSkuMapRepair
         $encoded = json_encode($map);
         TikTokListing::query()->where('product_id', $productId)
             ->update(['tiktok_sku_id' => $encoded]);
-        TikTokProductGroupProduct::query()->where('product_id', $productId)
+        TikTokProductGroupProduct::query()->onStore($c['setting'] ?? null)->where('product_id', $productId)
             ->whereNotNull('tiktok_product_id')
             ->update(['tiktok_sku_id' => $encoded]);
 

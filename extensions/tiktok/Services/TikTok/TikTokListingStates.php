@@ -109,7 +109,7 @@ class TikTokListingStates
 
         // Products on TikTok only through a group pivot (pushed before the
         // listing row carried the truth): linked, mirror unknown.
-        $pivotTruth = TikTokProductGroupProduct::query()
+        $pivotTruth = TikTokProductGroupProduct::query()->onStore()
             ->whereIn('product_id', $productIds)
             ->whereNotNull('tiktok_product_id')
             ->orderByDesc('last_pushed_at')
@@ -219,7 +219,7 @@ class TikTokListingStates
             return [];
         }
         $listings = TikTokListing::query()->whereIn('product_id', $productIds)->get()->keyBy(fn ($l) => (int) $l->product_id);
-        $pivots = TikTokProductGroupProduct::query()->whereIn('product_id', $productIds)->get()->groupBy('product_id');
+        $pivots = TikTokProductGroupProduct::query()->onStore()->whereIn('product_id', $productIds)->get()->groupBy('product_id');
 
         $out = [];
         foreach ($productIds as $pid) {

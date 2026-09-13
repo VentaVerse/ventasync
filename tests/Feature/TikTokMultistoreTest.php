@@ -280,4 +280,35 @@ class TikTokMultistoreTest extends TestCase
             'expires_at' => now()->addDay(),
         ]);
     }
+
+    /**
+     * One group per product PER STORE: a store never sees another store's
+     * groups, so a product sits in one group on each store, a second group
+     * on the same store is held, and leaving a group on one store leaves
+     * the other store's membership alone.
+     */
+    public function test_a_product_sits_in_one_group_on_each_store(): void
+    {
+        $one = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $two = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Outlet']);
+        $group = fn ($store, string $name) => tap((new \Extensions\tiktok\Models\TikTokProductGroup())->forceFill(['tiktok_setting_id' => $store->id, 'name' => $name, 'tiktok_category_id' => '900001']))->save();
+        $x = $group($one, 'Group X');
+        $y = $group($one, 'Group Y');
+        $onOutlet = $group($two, 'Group Y outlet');
+        $shape = fn ($store) => ['pivot' => 'tiktok_product_group_products', 'fk' => 'tiktok_product_group_id', 'groups' => 'tiktok_product_groups', 'storeFk' => 'tiktok_setting_id', 'storeId' => (int) $store->id];
+        $pid = 77;
+
+        \App\Integrations\Listings\ListingGroup::assign($shape($one), $pid, (int) $x->id);
+        \App\Integrations\Listings\ListingGroup::assign($shape($two), $pid, (int) $onOutlet->id);
+
+        $this->assertSame((int) $x->id, \App\Integrations\Listings\ListingGroup::current($shape($one), $pid));
+        $this->assertSame((int) $onOutlet->id, \App\Integrations\Listings\ListingGroup::current($shape($two), $pid), 'the other store groups it too');
+
+        $claim = \App\Integrations\OneGroupRule::claim('tiktok_product_group_products', 'tiktok_product_group_id', 'tiktok_product_groups', 'tiktok_setting_id', (int) $y->id, [$pid]);
+        $this->assertSame([$pid => 'Group X'], $claim['held'], 'a second group on the same store is held');
+
+        \App\Integrations\Listings\ListingGroup::assign($shape($one), $pid, null);
+        $this->assertNull(\App\Integrations\Listings\ListingGroup::current($shape($one), $pid));
+        $this->assertSame((int) $onOutlet->id, \App\Integrations\Listings\ListingGroup::current($shape($two), $pid), 'No group on one store leaves the other store alone');
+    }
 }
