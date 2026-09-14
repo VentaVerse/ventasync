@@ -186,6 +186,37 @@ class ShopeeListingStateTest extends TestCase
         $this->assertNull(app(ShopeeListingStates::class)->errors([$never])[$never]);
     }
 
+    public function test_a_variation_the_store_sells_but_its_item_lacks_is_an_error_until_switched_off(): void
+    {
+        $pid = $this->product('EXL110');
+        foreach (['EXL110-1046', 'EXL110-0942', 'EXL110-1149'] as $i => $sku) {
+            DB::table('product_option_combinations')->insert([
+                'product_id' => $pid, 'sku' => $sku, 'quantity' => 3, 'absolute_price' => 100, 'status' => 1, 'sort_order' => $i,
+            ]);
+        }
+        $this->readyListing($pid);
+        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 910, 'shopee_model_id' => 1, 'sku' => 'EXL110-1046', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        $storeId = (int) ShopeeSetting::defaultStore()->id;
+        \App\Integrations\Listings\ListingVariations::remember('shopee', $storeId, $pid, ['EXL110-1046', 'EXL110-0942']);
+
+        $line = (string) app(ShopeeListingStates::class)->errors([$pid])[$pid];
+        $this->assertStringContainsString('Not on Shopee:', $line);
+        $this->assertStringContainsString('EXL110-1149', $line);
+        $this->assertStringNotContainsString('EXL110-0942', $line);
+
+        $group = \App\Models\Admin\UserGroup::create(['name' => 'Shopee missing readers']);
+        $group->permissions()->attach(\App\Models\Admin\Permission::whereIn('key', ['view_shopee/product', 'manage_shopee/product'])->pluck('id')->all());
+        $user = \App\Models\User::factory()->create(['user_group_id' => $group->id]);
+        $html = $this->actingAs($user)->get(route('ext.shopee.products.index'))->assertOk()->getContent();
+        $this->assertStringContainsString('Not on Shopee:', $html);
+        $this->assertStringContainsString('EXL110-1149', $html);
+
+        DB::table(\App\Integrations\Listings\ListingVariations::TABLE)->insert([
+            'channel' => 'shopee', 'store_id' => $storeId, 'product_id' => $pid, 'sku' => 'exl110-1149',
+        ]);
+        $this->assertNull(app(ShopeeListingStates::class)->errors([$pid])[$pid]);
+    }
+
     public function test_a_push_sends_at_most_nine_images_main_first(): void
     {
         $pid = $this->product('MANY', 'catalog/main.png');

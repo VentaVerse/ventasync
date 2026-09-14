@@ -1179,7 +1179,7 @@ class TikTokProductGroupController extends Controller
                     'push_error'     => null,
                     'tiktok_sku_id'  => $outcome['sku_ids'],
                 ], fn ($v, $k) => $k !== 'tiktok_sku_id' || $v !== null, ARRAY_FILTER_USE_BOTH));
-                TikTokListing::recordPush((int) $pivot->product_id, (string) $ttId, $outcome['sku_ids'] ?? $existingRaw, 'group:' . $group->name);
+                TikTokListing::recordPush((int) $pivot->product_id, (string) $ttId, $outcome['sku_ids'] ?? $existingRaw, 'group:' . $group->name, isset($outcome['sku_ids']));
                 $updated++;
             } else {
                 $pivot->update(['sync_status' => 'error', 'push_error' => $outcome['message']]);

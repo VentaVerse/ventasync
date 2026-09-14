@@ -120,6 +120,31 @@ class TiktokStockPushHealTest extends TestCase
         return $pid;
     }
 
+    public function test_a_product_read_and_a_push_answer_remember_the_seller_skus_the_item_holds(): void
+    {
+        $pid = $this->comboProduct(['RM-1' => 1, 'RM-2' => 2, 'RM-3' => 3]);
+        $storeId = (int) TikTokSetting::defaultStore()->id;
+        $missing = fn () => array_column(\App\Integrations\Listings\ListingVariations::missing('tiktok', $storeId, [$pid])[$pid] ?? [], 'sku');
+        $this->getProductAnswers['tt-rm'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'data' => [
+            'status' => 'ACTIVATE', 'title' => 'TT', 'skus' => [
+                ['id' => 's1', 'seller_sku' => 'RM-1', 'inventory' => []],
+                ['id' => 's2', 'seller_sku' => 'RM-2', 'inventory' => []],
+            ],
+        ]]];
+
+        $r = app(\Extensions\tiktok\Services\TikTok\TikTokSkuMapRepair::class)
+            ->forProduct(['app_key' => 'k', 'app_secret' => 's', 'token' => 't', 'shop_cipher' => 'c'], $pid, 'tt-rm');
+        $this->assertArrayNotHasKey('error', $r);
+        $this->assertSame(['RM-3'], $missing());
+
+        TikTokListing::recordPush($pid, 'tt-rm', json_encode(['RM-1' => 's1', 'RM-2' => 's2', 'RM-3' => 's3']), 'listing');
+        $this->assertSame([], $missing());
+
+        // A map the push did not answer with is not a read.
+        TikTokListing::recordPush($pid, 'tt-rm', json_encode(['RM-1' => 's1']), 'listing', false);
+        $this->assertSame([], $missing());
+    }
+
     private function inventoryCalls(): array
     {
         return array_values(array_filter($this->calls, fn ($c) => $c['method'] === 'inventory'));

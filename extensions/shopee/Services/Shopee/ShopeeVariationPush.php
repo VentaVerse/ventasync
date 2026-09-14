@@ -491,6 +491,13 @@ class ShopeeVariationPush
                 $stored++;
             }
         }
+        if ($answered !== []) {
+            ShopeeListingStates::rememberHeld(
+                (int) ($auth['store_id'] ?? 0) ?: (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0),
+                $productId,
+                array_map(fn ($m) => (string) ($m['model_sku'] ?? ''), $answered)
+            );
+        }
 
         return ['ok' => true, 'message' => '', 'models' => count($built['models']), 'stored_links' => $stored];
     }

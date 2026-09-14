@@ -712,6 +712,9 @@ class VentaListingController extends Controller
                 $mirror = $listing ?? new VentaListing(['venta_setting_id' => $store, 'product_id' => $productId]);
                 $mirror->mirror($live['status'], $live['price'], $live['quantity']);
                 $listing = $mirror;
+                if ($live['state'] === 'found') {
+                    $push->rememberHeld($productId, array_column($live['variants'], 'sku'));
+                }
 
                 // A product the store holds under our SKU with no link on
                 // record is a link waiting to be made, and reconcile would

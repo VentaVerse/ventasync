@@ -118,6 +118,32 @@ class ShopeeStockPushHealTest extends TestCase
         return array_values(array_filter($this->sentPosts, fn ($c) => $c['path'] === '/api/v2/product/update_stock'));
     }
 
+    public function test_a_model_reread_remembers_every_model_the_item_holds(): void
+    {
+        $pid = $this->productWithVariations(['RR-1' => 1, 'RR-2' => 2, 'RR-3' => 3]);
+        $storeId = (int) ShopeeSetting::query()->value('id');
+        $auth = ['mode' => 'live', 'partner_id' => 1, 'partner_key' => 'k', 'access_token' => 't', 'shop_id' => 2, 'store_id' => $storeId];
+        $this->getResponses['/api/v2/product/get_model_list'] = ['ok' => true, 'status' => 200, 'body' => [
+            'response' => ['model' => [
+                ['model_id' => 71, 'model_sku' => 'RR-1'],
+                ['model_id' => 72, 'model_sku' => 'RR-2'],
+                ['model_id' => 73, 'model_sku' => 'STRANGER'],
+            ]],
+        ]];
+        $repair = app(\Extensions\shopee\Services\Shopee\ShopeeModelLinkRepair::class);
+
+        $this->assertSame('models', $repair->forItem($auth, $pid, 900, ['rr-1', 'rr-2', 'rr-3'])['mode']);
+        $missing = \App\Integrations\Listings\ListingVariations::missing('shopee', $storeId, [$pid]);
+        $this->assertSame(['RR-3'], array_column($missing[$pid] ?? [], 'sku'));
+        $this->assertStringContainsString('STRANGER', (string) DB::table(\App\Integrations\Listings\ListingVariations::STORE_SKUS)->where('product_id', $pid)->value('skus'), 'an unmatched model is still held');
+
+        // An unanswered read changes nothing.
+        $this->getResponses['/api/v2/product/get_model_list'] = ['ok' => false, 'status' => 500, 'body' => ['error' => 'error', 'message' => 'down']];
+        $this->assertArrayHasKey('error', $repair->forItem($auth, $pid, 900, ['rr-1', 'rr-2', 'rr-3']));
+        $missing = \App\Integrations\Listings\ListingVariations::missing('shopee', $storeId, [$pid]);
+        $this->assertSame(['RR-3'], array_column($missing[$pid] ?? [], 'sku'));
+    }
+
     /**
      * A variation Shopee does not carry is not an error: the models that
      * are on Shopee go up and the missing one is simply not asked of it.

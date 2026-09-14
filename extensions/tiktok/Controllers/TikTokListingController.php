@@ -54,6 +54,11 @@ class TikTokListingController extends Controller
                     TikTokListing::query()->where('tiktok_product_id', (string) $truth->tiktok_product_id)
                         ->update(['live_status' => (string) $live['status'], 'live_checked_at' => now()]);
                 }
+                if ($live !== null && ($live['skus'] ?? []) !== []) {
+                    \Extensions\tiktok\Services\TikTok\TikTokListingStates::rememberHeld(
+                        (int) (TikTokSetting::defaultStore()?->id ?? 0), $productId, array_column($live['skus'], 'seller_sku')
+                    );
+                }
             }
         }
 
@@ -332,7 +337,7 @@ class TikTokListingController extends Controller
         if (!$outcome['ok']) {
             return redirect()->back()->with('error', 'Update failed: ' . $outcome['message']);
         }
-        TikTokListing::recordPush($productId, (string) $truth->tiktok_product_id, $outcome['sku_ids'] ?? ($truth->tiktok_sku_id ?? null), 'listing');
+        TikTokListing::recordPush($productId, (string) $truth->tiktok_product_id, $outcome['sku_ids'] ?? ($truth->tiktok_sku_id ?? null), 'listing', isset($outcome['sku_ids']));
 
         return redirect()->back()->with('status', 'Update pushed.');
     }

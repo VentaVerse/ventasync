@@ -242,4 +242,39 @@ class VentaListingsIndexTest extends TestCase
         $this->assertSame(['active' => 1, 'unlisted' => 0, 'missing' => 0], VentaListingMirror::for($store)->counts());
         $this->assertDatabaseMissing('venta_product_links', ['venta_setting_id' => $store->id, 'product_id' => $ids['A-1']]);
     }
+
+    public function test_a_variation_the_store_sells_but_its_item_lacks_is_named_until_it_is_switched_off(): void
+    {
+        $store = $this->store();
+        $pid = $this->product('TEE', 'Tee');
+        foreach (['TEE-S', 'TEE-M', 'TEE-L'] as $i => $sku) {
+            DB::table('product_option_combinations')->insert([
+                'product_id' => $pid, 'sku' => $sku, 'quantity' => 3, 'absolute_price' => 500, 'status' => 1, 'sort_order' => $i,
+            ]);
+        }
+        $group = VentaProductGroup::create(['venta_setting_id' => $store->id, 'name' => 'Tees']);
+        VentaProductGroupProduct::create(['venta_product_group_id' => $group->id, 'product_id' => $pid, 'sync_status' => 'pending']);
+        VentaProductLink::create(['venta_setting_id' => $store->id, 'product_id' => $pid, 'venta_product_id' => 21, 'sku' => 'TEE']);
+        VentaListing::create(['venta_setting_id' => $store->id, 'product_id' => $pid, 'live_status' => 'active', 'live_checked_at' => now()]);
+        \App\Integrations\Listings\ListingVariations::remember('venta', (int) $store->id, $pid, ['TEE-S', 'TEE-M']);
+        Http::fake();
+
+        $html = $this->actingAs($this->manager())
+            ->get(route('ext.venta.listings.index', $store->id))
+            ->assertOk()
+            ->getContent();
+        $this->assertStringContainsString('Not on Gear Depot: TEE-L.', $html);
+
+        DB::table('listing_variation_offs')->insert([
+            'channel' => 'venta', 'store_id' => $store->id, 'product_id' => $pid, 'sku' => 'tee-l',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $html = $this->actingAs($this->manager())
+            ->get(route('ext.venta.listings.index', $store->id))
+            ->assertOk()
+            ->getContent();
+        $this->assertStringNotContainsString('Not on Gear Depot:', $html);
+        Http::assertNothingSent();
+    }
 }

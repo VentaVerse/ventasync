@@ -2465,6 +2465,12 @@ class ShopeeProductController extends Controller
                     ShopeeProductLink::query()->whereKey($link->id)
                         ->update(['live_status' => $mirror, 'live_checked_at' => now()]);
                 }
+                // An item with models whose model list came back empty was not read.
+                if ($live !== null && (empty($live['has_model']) || ($live['models'] ?? []) !== [])) {
+                    \Extensions\shopee\Services\Shopee\ShopeeListingStates::rememberHeld(
+                        (int) ($auth['store_id'] ?? 0), $productId, array_column($live['models'] ?? [], 'model_sku')
+                    );
+                }
             }
         }
 

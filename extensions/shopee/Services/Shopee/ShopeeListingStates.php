@@ -3,8 +3,11 @@
 namespace Extensions\shopee\Services\Shopee;
 
 use App\Integrations\Listings\ListingState;
+use App\Integrations\Listings\ListingVariations;
+use App\Integrations\Push\PushLedger;
 use Extensions\shopee\Models\ShopeeListing;
 use Extensions\shopee\Models\ShopeeProductLink;
+use Extensions\shopee\Models\ShopeeSetting;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -117,6 +120,7 @@ class ShopeeListingStates
         }
         $listings = ShopeeListing::query()->whereIn('product_id', $productIds)->get()->keyBy('product_id');
         $links = ShopeeProductLink::query()->whereIn('product_id', $productIds)->get()->groupBy('product_id');
+        $missing = ListingVariations::missing('shopee', (int) (ShopeeSetting::defaultStore()?->id ?? 0), $productIds);
 
         $out = [];
         foreach ($productIds as $pid) {
@@ -138,10 +142,55 @@ class ShopeeListingStates
                     trim((string) $failedSync->last_sync_error_message) ?: \App\Integrations\Push\PushLedger::NO_REASON];
             }
             usort($found, fn ($a, $b) => $b[0] <=> $a[0]);
-            $out[$pid] = $found === [] ? null : $found[0][1];
+            // A sold variation the linked item does not hold rides beside it.
+            $out[$pid] = ListingVariations::withMissing(
+                $found === [] ? null : $found[0][1],
+                isset($missing[$pid]) && $rows->isNotEmpty() ? ListingVariations::missingMessage('Shopee', $missing[$pid]) : null
+            );
         }
 
         return $out;
+    }
+
+    /**
+     * Remember the variation SKUs a store's item holds, as just read from
+     * Shopee. The parent's own SKU and model are not variations, and a
+     * product without variations has nothing to remember.
+     *
+     * @param iterable<string|null> $skus
+     */
+    public static function rememberHeld(int $storeId, int $productId, iterable $skus): void
+    {
+        if ($storeId <= 0 || $productId <= 0) {
+            return;
+        }
+        $pfx = (string) config('catalog.prefix');
+        $variations = [];
+        foreach (PushLedger::erpVariationSkus([$productId], $pfx)[$productId] ?? [] as $sku) {
+            $variations[strtolower(trim((string) $sku))] = true;
+        }
+        if ($variations === []) {
+            return;
+        }
+
+        $parent = DB::table($pfx . 'product')->where('product_id', $productId)->first(['sku', 'model']);
+        $own = [];
+        foreach ([$parent->sku ?? '', $parent->model ?? ''] as $s) {
+            $k = strtolower(trim((string) $s));
+            if ($k !== '' && !isset($variations[$k])) {
+                $own[$k] = true;
+            }
+        }
+
+        $held = [];
+        foreach ($skus as $sku) {
+            $k = strtolower(trim((string) $sku));
+            if ($k !== '' && !isset($own[$k])) {
+                $held[] = trim((string) $sku);
+            }
+        }
+
+        ListingVariations::remember('shopee', $storeId, $productId, $held);
     }
 
     /**

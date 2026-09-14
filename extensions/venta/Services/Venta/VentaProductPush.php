@@ -354,6 +354,7 @@ class VentaProductPush
 
         $found = null;
         $foundSku = null;
+        $foundVariants = null;
         $denied = null;
 
         foreach ($this->candidateSkus($productId) as $sku) {
@@ -366,6 +367,7 @@ class VentaProductPush
                 if ($id > 0) {
                     $found = $id;
                     $foundSku = $sku;
+                    $foundVariants = is_array($body['variants'] ?? null) ? array_column($body['variants'], 'sku') : null;
                     break;
                 }
                 continue;
@@ -393,6 +395,10 @@ class VentaProductPush
         }
 
         if ($link && (int) $link->venta_product_id === $found) {
+            if ($foundVariants !== null) {
+                $this->rememberHeld($productId, $foundVariants);
+            }
+
             return ['state' => 'confirmed', 'venta_id' => $found, 'sku' => $foundSku, 'message' => null];
         }
 
@@ -400,6 +406,9 @@ class VentaProductPush
 
         if ($clash = $this->linkProductTo($productId, $found, $foundSku)) {
             return ['state' => 'blocked', 'venta_id' => $found, 'sku' => $foundSku, 'message' => $clash];
+        }
+        if ($foundVariants !== null) {
+            $this->rememberHeld($productId, $foundVariants);
         }
 
         return [
@@ -483,8 +492,9 @@ class VentaProductPush
             }
 
             $this->setting->update(['last_product_sync_at' => now()]);
+            $this->rememberAnswer($productId, $result);
 
-            return self::outcome(true, 'updated', 'Updated on ' . $this->setting->store_name . '.', (int) $link->venta_product_id, self::imageVerdict($result), $data);
+            return self::outcome(true, 'updated','Updated on ' . $this->setting->store_name . '.', (int) $link->venta_product_id, self::imageVerdict($result), $data);
         }
 
         $result = $this->client->createProduct($data);
@@ -498,8 +508,46 @@ class VentaProductPush
         }
 
         $this->setting->update(['last_product_sync_at' => now()]);
+        $this->rememberAnswer($productId, $result);
 
-        return self::outcome(true, 'created', 'Created on ' . $this->setting->store_name . '.', $ventaId, self::imageVerdict($result), $data);
+        return self::outcome(true, 'created','Created on ' . $this->setting->store_name . '.', $ventaId, self::imageVerdict($result), $data);
+    }
+
+    /**
+     * Keep the variation SKUs the store's item holds, as just read from it.
+     * A product without variations in the catalog has nothing to keep, and
+     * the product's own SKU and model are never a variation.
+     *
+     * @param  iterable<string|null>  $skus
+     */
+    public function rememberHeld(int $productId, iterable $skus): void
+    {
+        $pfx = (string) config('catalog.prefix');
+        if ((\App\Integrations\Push\PushLedger::erpVariationSkus([$productId], $pfx)[$productId] ?? []) === []) {
+            return;
+        }
+        $own = DB::table($pfx . 'product')->where('product_id', $productId)->first(['sku', 'model']);
+        $parent = array_filter([strtolower(trim((string) ($own->sku ?? ''))), strtolower(trim((string) ($own->model ?? '')))]);
+        $held = [];
+        foreach ($skus as $sku) {
+            $sku = trim((string) $sku);
+            if ($sku !== '' && ! in_array(strtolower($sku), $parent, true)) {
+                $held[] = $sku;
+            }
+        }
+        \App\Integrations\Listings\ListingVariations::remember('venta', (int) $this->setting->id, $productId, $held);
+    }
+
+    /** The variants a push's answer names; an answer that says nothing about them keeps what was known. */
+    private function rememberAnswer(int $productId, array $result): void
+    {
+        $body = $result['body'] ?? [];
+        $body = is_array($body) ? ($body['data'] ?? $body) : [];
+        if (is_array($body['variants'] ?? null)) {
+            $this->rememberHeld($productId, array_column($body['variants'], 'sku'));
+        } elseif (array_key_exists('has_variants', $body) && ! $body['has_variants']) {
+            $this->rememberHeld($productId, []);
+        }
     }
 
     /**

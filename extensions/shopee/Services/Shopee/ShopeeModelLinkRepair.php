@@ -68,6 +68,7 @@ class ShopeeModelLinkRepair
                 ['product_id' => $productId, 'shopee_item_id' => $itemId, 'shopee_model_id' => null],
                 ['sku' => $skus[0] ?? '', 'last_synced_at' => now(), 'last_sync_ok' => true, 'last_sync_error_code' => null, 'last_sync_error_message' => null]
             );
+            ShopeeListingStates::rememberHeld($this->storeId($auth), $productId, []);
 
             return ['mode' => 'item', 'linked' => 1, 'removed' => $removed, 'unmatched' => []];
         }
@@ -124,6 +125,14 @@ class ShopeeModelLinkRepair
                 ->delete();
         }
 
+        // Every model the item holds, matched or not.
+        ShopeeListingStates::rememberHeld($this->storeId($auth), $productId, array_map(fn ($m) => (string) ($m['model_sku'] ?? ''), $models));
+
         return ['mode' => 'models', 'linked' => $linked, 'removed' => $removed, 'unmatched' => $unmatched];
+    }
+
+    private function storeId(array $auth): int
+    {
+        return (int) ($auth['store_id'] ?? 0) ?: (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0);
     }
 }

@@ -87,10 +87,12 @@ class TikTokListing extends Model
      * Write the truth a push produced. One product is one TikTok product,
      * so whichever surface pushed it (a group, the listing page) lands
      * the same fact here; the pivots keep their own attempt history.
+     *
+     * @param bool $answered false when $skuIds is the map already held, not one TikTok Shop answered with
      */
-    public static function recordPush(int $productId, string $tiktokProductId, ?string $skuIds, string $source): void
+    public static function recordPush(int $productId, string $tiktokProductId, ?string $skuIds, string $source, bool $answered = true): void
     {
-        static::query()->updateOrCreate(
+        $row = static::query()->updateOrCreate(
             ['product_id' => $productId],
             [
                 'tiktok_product_id' => $tiktokProductId,
@@ -102,6 +104,15 @@ class TikTokListing extends Model
                 'last_push_failed_at' => null,
             ]
         );
+
+        // The map TikTok Shop just answered with is what the item holds.
+        if ($answered && $skuIds !== null && $skuIds !== '') {
+            \Extensions\tiktok\Services\TikTok\TikTokListingStates::rememberHeld(
+                (int) ($row->tiktok_setting_id ?? 0),
+                $productId,
+                array_keys(\Extensions\tiktok\Services\TikTok\TikTokVariationPush::existingIds($skuIds))
+            );
+        }
     }
 
     /**

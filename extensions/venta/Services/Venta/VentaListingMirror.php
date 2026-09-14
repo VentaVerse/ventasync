@@ -174,6 +174,9 @@ class VentaListingMirror
 
             $row = VentaListing::query()->firstOrNew(['venta_setting_id' => $store, 'product_id' => (int) $productId]);
             $row->mirror($live['status'], $live['price'], $live['quantity']);
+            if ($live['state'] === 'found') {
+                $push->rememberHeld((int) $productId, array_column($live['variants'], 'sku'));
+            }
             $filled++;
         }
 

@@ -321,6 +321,29 @@ class TikTokListingStateTest extends TestCase
         $this->assertNull($states->errors([$never])[$never]);
     }
 
+    public function test_a_variation_the_store_sells_but_its_item_lacks_is_an_error_until_switched_off(): void
+    {
+        $pid = $this->seedProduct('Three sizes', 'EXL110');
+        foreach (['EXL110-1046', 'EXL110-0942', 'EXL110-1149'] as $i => $sku) {
+            DB::table('product_option_combinations')->insert([
+                'product_id' => $pid, 'sku' => $sku, 'quantity' => 3, 'absolute_price' => 100, 'status' => 1, 'sort_order' => $i,
+            ]);
+        }
+        TikTokListing::query()->create(['product_id' => $pid, 'tiktok_product_id' => 'tt-9', 'live_status' => 'ACTIVATE', 'live_checked_at' => now()]);
+        $storeId = (int) TikTokSetting::defaultStore()->id;
+        \App\Integrations\Listings\ListingVariations::remember('tiktok', $storeId, $pid, ['EXL110-1046', 'EXL110-0942']);
+
+        $line = (string) $this->engine()->errors([$pid])[$pid];
+        $this->assertStringContainsString('Not on TikTok Shop:', $line);
+        $this->assertStringContainsString('EXL110-1149', $line);
+        $this->assertStringNotContainsString('EXL110-0942', $line);
+
+        DB::table(\App\Integrations\Listings\ListingVariations::TABLE)->insert([
+            'channel' => 'tiktok', 'store_id' => $storeId, 'product_id' => $pid, 'sku' => 'exl110-1149',
+        ]);
+        $this->assertNull($this->engine()->errors([$pid])[$pid]);
+    }
+
     public function test_a_group_is_a_preset_the_product_inherits(): void
     {
         // A group is a preset the product inherits (the owner, 2026-09-05): a

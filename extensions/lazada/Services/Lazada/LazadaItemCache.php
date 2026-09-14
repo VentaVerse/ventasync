@@ -117,6 +117,15 @@ public function refreshListing(LazadaProduct $listing, object $setting, LazadaCl
         } catch (\Throwable $ex) {}
     }
 
+    // The item's seller SKUs, remembered only from an answer that holds them.
+    if (($res['ok'] ?? false) && ($apiCode === '' || $apiCode === '0') && is_array($skus) && $skus !== []) {
+        LazadaListingStates::rememberHeld(
+            (int) ($listing->lazada_setting_id ?? 0) ?: (int) ($setting->id ?? 0),
+            (int) $listing->product_id,
+            array_map(fn ($s) => is_array($s) ? (string) ($s['SellerSku'] ?? $s['seller_sku'] ?? '') : '', $skus)
+        );
+    }
+
     // 4. Remove stale variants no longer on Lazada
     if (!empty($activeLazadaSkus)) {
         LazadaProductVariant::where('lazada_product_id', $listing->id)
@@ -209,6 +218,15 @@ public function fetchAndCacheVariants(LazadaProduct $listing, object $setting, L
                 ]
             );
         } catch (\Throwable $ex) {}
+    }
+
+    // The item's seller SKUs, remembered only from an answer that holds them.
+    if (($res['ok'] ?? false) && ($apiCode === '' || $apiCode === '0') && $skus !== []) {
+        LazadaListingStates::rememberHeld(
+            (int) ($listing->lazada_setting_id ?? 0) ?: (int) ($setting->id ?? 0),
+            (int) $listing->product_id,
+            array_map(fn ($s) => is_array($s) ? (string) ($s['SellerSku'] ?? $s['seller_sku'] ?? '') : '', $skus)
+        );
     }
 
     return $variants;

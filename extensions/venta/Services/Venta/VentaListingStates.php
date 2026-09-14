@@ -3,10 +3,12 @@
 namespace Extensions\venta\Services\Venta;
 
 use App\Integrations\Listings\ListingState;
+use App\Integrations\Listings\ListingVariations;
 use Extensions\venta\Models\VentaListing;
 use Extensions\venta\Models\VentaProductGroup;
 use Extensions\venta\Models\VentaProductGroupProduct;
 use Extensions\venta\Models\VentaProductLink;
+use Extensions\venta\Models\VentaSetting;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -154,6 +156,9 @@ class VentaListingStates
         }
         $listings = VentaListing::query()->where('venta_setting_id', $this->storeId)->whereIn('product_id', $productIds)->get()->keyBy(fn ($l) => (int) $l->product_id);
         $attempts = $this->latestAttempts($productIds);
+        // A variation this store sells that its own item does not hold.
+        $missing = ListingVariations::missing('venta', $this->storeId, $productIds);
+        $storeName = $missing !== [] ? (string) VentaSetting::query()->whereKey($this->storeId)->value('store_name') : '';
 
         $out = [];
         foreach ($productIds as $pid) {
@@ -170,7 +175,7 @@ class VentaListingStates
                     trim((string) ($a->push_error ?? '')) ?: \App\Integrations\Push\PushLedger::NO_REASON];
             }
             usort($found, fn ($x, $y) => $y[0] <=> $x[0]);
-            $out[$pid] = $found === [] ? null : $found[0][1];
+            $out[$pid] = ListingVariations::withMissing($found === [] ? null : $found[0][1], isset($missing[$pid]) ? ListingVariations::missingMessage($storeName, $missing[$pid]) : null);
         }
 
         return $out;

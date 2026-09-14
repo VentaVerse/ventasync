@@ -139,6 +139,69 @@ class VentaListingPageTest extends TestCase
     }
 
     /**
+     * A product with three variations on this store: TEE-M switched off for
+     * the store, TEE-L not on the store's item. Returns [store, product id, group].
+     *
+     * @return array{0: VentaSetting, 1: int, 2: VentaProductGroup}
+     */
+    private function productWithVariations(): array
+    {
+        $store = $this->store();
+        $pid = $this->product('TEE');
+        foreach ([['TEE-S', 1], ['TEE-M', 2], ['TEE-L', 3]] as [$sku, $sort]) {
+            DB::table('product_option_combinations')->insert([
+                'product_id' => $pid, 'sku' => $sku, 'quantity' => 4, 'absolute_price' => 1000, 'status' => 1, 'sort_order' => $sort,
+            ]);
+        }
+        VentaProductLink::create(['venta_setting_id' => $store->id, 'product_id' => $pid, 'venta_product_id' => 5001, 'sku' => 'TEE']);
+        DB::table(\App\Integrations\Listings\ListingVariations::TABLE)->insert(['channel' => 'venta', 'store_id' => $store->id, 'product_id' => $pid, 'sku' => 'tee-m']);
+        $group = VentaProductGroup::create(['venta_setting_id' => $store->id, 'name' => 'Tees']);
+        VentaProductGroupProduct::create(['venta_product_group_id' => $group->id, 'product_id' => $pid]);
+
+        Http::fake([
+            self::BASE . '/api/v1/variants/TEE-S' => Http::response(['ok' => true], 200),
+            self::BASE . '/api/v1/variants/TEE-L' => Http::response(['error' => 'Variant not found'], 404),
+            self::BASE . '/*' => Http::response(['ok' => true], 200),
+        ]);
+
+        return [$store, $pid, $group];
+    }
+
+    private function assertOnlyTheSoldVariantsWentAndTheGapIsNamed(VentaSetting $store, int $pid): void
+    {
+        Http::assertNotSent(fn ($request) => str_ends_with($request->url(), '/variants/TEE-M'));
+        Http::assertSent(fn ($request) => str_ends_with($request->url(), '/variants/TEE-S'));
+
+        $this->assertNull(VentaListing::where('venta_setting_id', $store->id)->where('product_id', $pid)->value('last_push_error'),
+            'a variation the store lacks is not a failed push');
+        $this->assertNotSame('error', DB::table('venta_product_group_products')->where('product_id', $pid)->value('sync_status'));
+        $this->assertSame(['TEE-L'], array_column(\App\Integrations\Listings\ListingVariations::missing('venta', $store->id, [$pid])[$pid] ?? [], 'sku'));
+    }
+
+    public function test_the_scheduled_stock_push_sends_only_what_the_store_sells_and_names_what_it_lacks(): void
+    {
+        [$store, $pid] = $this->productWithVariations();
+
+        $this->artisan('venta:push-stock', ['--store' => $store->id])->assertExitCode(0);
+
+        $this->assertOnlyTheSoldVariantsWentAndTheGapIsNamed($store, $pid);
+        $this->assertNotNull($store->fresh()->last_stock_push_at);
+    }
+
+    public function test_the_group_pages_push_stock_sends_only_what_the_store_sells_and_names_what_it_lacks(): void
+    {
+        [$store, $pid, $group] = $this->productWithVariations();
+        $pusher = $this->userWith(['view_venta/product_group', 'manage_venta/product_group']);
+
+        $this->actingAs($pusher)
+            ->post(route('ext.venta.product-groups.push-stock', [$store->id, $group->id]), ['ids' => [$pid]])
+            ->assertRedirect()
+            ->assertSessionHas('status');
+
+        $this->assertOnlyTheSoldVariantsWentAndTheGapIsNamed($store, $pid);
+    }
+
+    /**
      * The one group shape (2026-09-07): a Venta group picks the store's own
      * category, the way WooCommerce's does, and the listing page reports it.
      * A category this store does not hold is refused.
@@ -926,5 +989,39 @@ class VentaListingPageTest extends TestCase
         $this->actingAs($this->manager())
             ->put(route('ext.venta.listings.update', [$store->id, $pid]), ['venta_category_id' => 999])
             ->assertSessionHasErrors('venta_category_id');
+    }
+
+    public function test_a_stock_push_sends_the_variants_the_store_holds_and_names_the_one_it_lacks(): void
+    {
+        $store = $this->store();
+        $pid = $this->product();
+        foreach (['GP-200-S', 'GP-200-M', 'GP-200-L'] as $i => $sku) {
+            DB::table('product_option_combinations')->insert([
+                'product_id' => $pid, 'sku' => $sku, 'quantity' => 3, 'absolute_price' => 1000, 'status' => 1, 'sort_order' => $i,
+            ]);
+        }
+        VentaProductLink::create(['venta_setting_id' => $store->id, 'product_id' => $pid, 'venta_product_id' => 5001, 'sku' => 'GP-200']);
+        Http::fake([
+            self::BASE . '/api/v1/variants/GP-200-L' => Http::response(['error' => 'Variant not found'], 404),
+            self::BASE . '/api/v1/variants/*' => Http::response(['sku' => 'ok', 'quantity' => 3]),
+        ]);
+
+        $this->actingAs($this->manager())
+            ->from('/dashboard')
+            ->post(route('ext.venta.listings.push_stock', [$store->id, $pid]))
+            ->assertRedirect('/dashboard')
+            ->assertSessionHas('status');
+
+        foreach (['GP-200-S', 'GP-200-M'] as $sku) {
+            Http::assertSent(fn ($r) => $r->method() === 'PUT' && str_ends_with($r->url(), '/api/v1/variants/' . $sku));
+        }
+        $this->assertNull(VentaListing::where('venta_setting_id', $store->id)->where('product_id', $pid)->value('last_push_error'));
+        $held = json_decode((string) DB::table('listing_store_skus')
+            ->where('channel', 'venta')->where('store_id', $store->id)->where('product_id', $pid)->value('skus'), true);
+        $this->assertEqualsCanonicalizing(['GP-200-S', 'GP-200-M'], $held);
+
+        $line = (string) \Extensions\venta\Services\Venta\VentaListingStates::for((int) $store->id)->errors([$pid])[$pid];
+        $this->assertStringContainsString('Not on Gear Depot:', $line);
+        $this->assertStringContainsString('GP-200-L', $line);
     }
 }

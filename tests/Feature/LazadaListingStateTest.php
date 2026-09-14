@@ -381,6 +381,63 @@ class LazadaListingStateTest extends TestCase
         $this->assertNull($states->errors([$never])[$never]);
     }
 
+    private function threeCombos(int $pid, array $skus): void
+    {
+        foreach ($skus as $i => $sku) {
+            DB::table('product_option_combinations')->insert([
+                'product_id' => $pid, 'sku' => $sku, 'quantity' => 3, 'absolute_price' => 100, 'status' => 1, 'sort_order' => $i,
+            ]);
+        }
+    }
+
+    public function test_a_variation_the_store_sells_but_its_item_lacks_is_an_error_until_switched_off(): void
+    {
+        $pid = $this->seedProduct('Three sizes', 'EXL110');
+        $this->threeCombos($pid, ['EXL110-1046', 'EXL110-0942', 'EXL110-1149']);
+        (new LazadaProduct())->forceFill(['product_id' => $pid, 'lazada_item_id' => '555', 'live_status' => 'active'])->save();
+        $storeId = (int) LazadaSetting::defaultStore()->id;
+        \App\Integrations\Listings\ListingVariations::remember('lazada', $storeId, $pid, ['EXL110-1046', 'EXL110-0942']);
+
+        $line = (string) $this->engine()->errors([$pid])[$pid];
+        $this->assertStringContainsString('Not on Lazada:', $line);
+        $this->assertStringContainsString('EXL110-1149', $line);
+        $this->assertStringNotContainsString('EXL110-0942', $line);
+
+        DB::table(\App\Integrations\Listings\ListingVariations::TABLE)->insert([
+            'channel' => 'lazada', 'store_id' => $storeId, 'product_id' => $pid, 'sku' => 'exl110-1149',
+        ]);
+        $this->assertNull($this->engine()->errors([$pid])[$pid]);
+    }
+
+    public function test_a_read_of_the_item_remembers_the_seller_skus_it_holds(): void
+    {
+        $pid = $this->seedProduct('Read one', 'RD');
+        $this->threeCombos($pid, ['RD-1', 'RD-2', 'RD-3']);
+        $listing = new LazadaProduct();
+        $listing->forceFill(['product_id' => $pid, 'lazada_item_id' => '777'])->save();
+        $setting = LazadaSetting::defaultStore();
+        $storeId = (int) $setting->id;
+        $answer = fn (array $skus) => ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => [
+            'item_id' => 777, 'status' => 'active',
+            'skus' => array_map(fn ($s, $i) => ['SellerSku' => $s, 'SkuId' => 10 + $i, 'ShopSku' => 'shop-' . $i], $skus, array_keys($skus)),
+        ]]];
+        $cache = app(\Extensions\lazada\Services\Lazada\LazadaItemCache::class);
+
+        $this->getResponses['/product/item/get'] = $answer(['RD-1', 'RD-2']);
+        $cache->refreshListing($listing->fresh(), $setting, app(LazadaClient::class));
+        $missing = \App\Integrations\Listings\ListingVariations::missing('lazada', $storeId, [$pid]);
+        $this->assertSame(['RD-3'], array_column($missing[$pid] ?? [], 'sku'));
+
+        $this->getResponses['/product/item/get'] = $answer(['RD-1', 'RD-2', 'RD-3']);
+        $cache->fetchAndCacheVariants($listing->fresh(), $setting, app(LazadaClient::class));
+        $this->assertSame([], \App\Integrations\Listings\ListingVariations::missing('lazada', $storeId, [$pid]));
+
+        // An answer Lazada refused changes nothing.
+        $this->getResponses['/product/item/get'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 'E0001', 'message' => 'refused']];
+        $cache->fetchAndCacheVariants($listing->fresh(), $setting, app(LazadaClient::class));
+        $this->assertSame([], \App\Integrations\Listings\ListingVariations::missing('lazada', $storeId, [$pid]));
+    }
+
     public function test_a_group_is_a_preset_the_product_inherits(): void
     {
         // A group is a preset the product inherits (the owner, 2026-09-05): a

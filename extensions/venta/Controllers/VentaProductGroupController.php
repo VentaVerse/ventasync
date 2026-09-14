@@ -1064,88 +1064,39 @@ class VentaProductGroupController extends Controller
                 ->with('error', 'No products selected.');
         }
 
-        $client = new VentaClient($setting);
-        $pfx = (string) config('catalog.prefix');
+        return $this->pushFigures($setting, $store, $group, $ids, true, false, 'Stock');
+    }
 
-        // Get linked products for the selected IDs
-        $links = VentaProductLink::where('venta_setting_id', $store)
-            ->whereIn('product_id', $ids)
-            ->get()
-            ->keyBy('product_id');
-
-        if ($links->isEmpty()) {
+    /**
+     * Stock or price onto this store for the ticked products, through the
+     * one sender every Venta path uses: only what this store sells, and a
+     * variation its item lacks is named on the listing, not failed here.
+     * The outcome lands on the listing and the group row, as it does from
+     * the Listings page.
+     *
+     * @param  list<int>  $ids
+     */
+    private function pushFigures(VentaSetting $setting, int $store, int $group, array $ids, bool $stock, bool $price, string $what)
+    {
+        if (! VentaProductLink::where('venta_setting_id', $store)->whereIn('product_id', $ids)->exists()) {
             return $this->productsRedirect($store, $group)
                 ->with('error', 'No linked Venta products found for the selected items.');
         }
 
-        // Fetch ERP quantities
-        $erpProducts = DB::table($pfx . 'product')
-            ->whereIn('product_id', $ids)
-            ->get(['product_id', 'sku', 'quantity', 'status'])
-            ->keyBy('product_id');
-
-        // Fetch combinations first, then option values as fallback
-        $erpCombos = DB::table('product_option_combinations')
-            ->whereIn('product_id', $ids)
-            ->get(['product_id', 'sku', 'quantity'])
-            ->groupBy(fn($r) => (int) $r->product_id);
-
-        $erpOptions = DB::table($pfx . 'product_option_value')
-            ->whereIn('product_id', $ids)
-            ->whereNotNull('sku')
-            ->where('sku', '!=', '')
-            ->get(['product_id', 'sku', 'quantity'])
-            ->groupBy(fn($r) => (int) $r->product_id);
-
-        $okCount = 0;
-        $errCount = 0;
-        $skipCount = 0;
-
-        foreach ($ids as $pid) {
-            $link = $links->get($pid);
-            $product = $erpProducts->get($pid);
-
-            if (!$link || !$product) {
-                $skipCount++;
-                continue;
-            }
-
-            if ((int) $product->status === 0) {
-                $skipCount++;
-                continue;
-            }
-
-            $sku = $link->sku ?: $product->sku;
-
-            // Check combinations first, then option values; only what this store sells.
-            $variants = $erpCombos->get($pid) ?? $erpOptions->get($pid);
-            if ($variants) {
-                $hiddenHere = \App\Integrations\Listings\ListingVariations::hidden('venta', $store, [$pid]);
-                $variants = $variants->filter(fn ($v) => \App\Integrations\Listings\ListingVariations::allows($hiddenHere, $pid, (string) ($v->sku ?? '')));
-            }
-            if ($variants && $variants->count() > 0) {
-                $allOk = true;
-                foreach ($variants as $ov) {
-                    if (!$ov->sku || trim($ov->sku) === '') continue;
-                    $result = $client->pushVariantStock(trim($ov->sku), max(0, (int) $ov->quantity));
-                    if (!$result['ok']) {
-                        $allOk = false;
-                    }
-                }
-                // Also push parent stock
-                $client->pushStock($sku, max(0, (int) $product->quantity));
-                $allOk ? $okCount++ : $errCount++;
+        $r = \Extensions\venta\Services\Venta\VentaStockPricePush::for($setting)->push($ids, $stock, $price);
+        \Extensions\venta\Services\Venta\VentaStockPricePush::recordOutcomes($store, $r['outcomes']);
+        foreach ($r['outcomes'] as $pid => $failure) {
+            if ($failure === null) {
+                \Extensions\venta\Models\VentaListing::query()->where('venta_setting_id', $store)->where('product_id', (int) $pid)
+                    ->update(['last_push_error' => null, 'last_push_failed_at' => null]);
             } else {
-                $result = $client->pushStock($sku, max(0, (int) $product->quantity));
-                $result['ok'] ? $okCount++ : $errCount++;
+                \Extensions\venta\Models\VentaListing::query()->updateOrCreate(['venta_setting_id' => $store, 'product_id' => (int) $pid], [])
+                    ->forceFill(['last_push_error' => \Illuminate\Support\Str::limit($failure, 480), 'last_push_failed_at' => now()])->save();
             }
         }
 
-        $msg = "Stock push complete — {$okCount} updated";
-        if ($errCount > 0) $msg .= ", {$errCount} failed";
-        if ($skipCount > 0) $msg .= ", {$skipCount} skipped";
-
-        return $this->productsRedirect($store, $group)->with('status', $msg);
+        return $this->productsRedirect($store, $group)->with($r['failed'] > 0 ? ($r['ok'] > 0 ? 'warning' : 'error') : 'status',
+            \Extensions\venta\Services\Venta\VentaStockPricePush::sentence($r, $what, (string) $setting->store_name));
     }
 
     // ── Push Prices ─────────────────────────────────────────
@@ -1166,110 +1117,7 @@ class VentaProductGroupController extends Controller
                 ->with('error', 'No products selected.');
         }
 
-        $client = new VentaClient($setting);
-        $pfx = (string) config('catalog.prefix');
-
-        // Get linked products
-        $links = VentaProductLink::where('venta_setting_id', $store)
-            ->whereIn('product_id', $ids)
-            ->get()
-            ->keyBy('product_id');
-
-        if ($links->isEmpty()) {
-            return $this->productsRedirect($store, $group)
-                ->with('error', 'No linked Venta products found for the selected items.');
-        }
-
-        // Fetch ERP prices
-        $erpProducts = DB::table($pfx . 'product')
-            ->whereIn('product_id', $ids)
-            ->get(['product_id', 'sku', 'price', 'status'])
-            ->keyBy('product_id');
-
-        // Fetch combinations first, then option values as fallback
-        $erpCombos = DB::table('product_option_combinations')
-            ->whereIn('product_id', $ids)
-            ->get(['product_id', 'sku', 'absolute_price', 'absolute_cost'])
-            ->groupBy(fn($r) => (int) $r->product_id);
-
-        $erpOptions = DB::table($pfx . 'product_option_value')
-            ->whereIn('product_id', $ids)
-            ->whereNotNull('sku')
-            ->where('sku', '!=', '')
-            ->get(['product_id', 'sku', 'price', 'price_prefix', 'absolute_price'])
-            ->groupBy(fn($r) => (int) $r->product_id);
-
-        $okCount = 0;
-        $errCount = 0;
-        $skipCount = 0;
-
-        foreach ($ids as $pid) {
-            $link = $links->get($pid);
-            $product = $erpProducts->get($pid);
-
-            if (!$link || !$product) {
-                $skipCount++;
-                continue;
-            }
-
-            if ((int) $product->status === 0) {
-                $skipCount++;
-                continue;
-            }
-
-            $sku = $link->sku ?: $product->sku;
-            $basePrice = (float) $product->price;
-            // The listing's own price rule, else this group's, else the catalog price.
-            $rule = \Extensions\venta\Models\VentaListing::ruleFor(
-                \Extensions\venta\Models\VentaListing::query()->where('venta_setting_id', $store)->where('product_id', $pid)->first(),
-                $g
-            );
-
-            // Push parent price
-            $result = $client->updateProduct($sku, ['price' => $rule($basePrice)]);
-            if (!$result['ok']) {
-                $errCount++;
-                continue;
-            }
-
-            // Push variant prices — combinations first, then option values; only what this store sells.
-            $hiddenHere = \App\Integrations\Listings\ListingVariations::hidden('venta', $store, [$pid]);
-            $combos = $erpCombos->get($pid);
-            if ($combos && $combos->count() > 0) {
-                foreach ($combos as $c) {
-                    if (!$c->sku || trim($c->sku) === '') continue;
-                    if (!\App\Integrations\Listings\ListingVariations::allows($hiddenHere, $pid, (string) $c->sku)) continue;
-                    $client->updateVariant(trim($c->sku), ['price' => $rule((float) $c->absolute_price)]);
-                }
-            } else {
-                $variants = $erpOptions->get($pid);
-                if ($variants && $variants->count() > 0) {
-                    foreach ($variants as $ov) {
-                        if (!$ov->sku || trim($ov->sku) === '') continue;
-                        if (!\App\Integrations\Listings\ListingVariations::allows($hiddenHere, $pid, (string) $ov->sku)) continue;
-                        if ((float) ($ov->absolute_price ?? 0) > 0) {
-                            $variantPrice = (float) $ov->absolute_price;
-                        } else {
-                            $variantPrice = $basePrice;
-                            if ($ov->price) {
-                                $variantPrice = $ov->price_prefix === '-'
-                                    ? $basePrice - (float) $ov->price
-                                    : $basePrice + (float) $ov->price;
-                            }
-                        }
-                        $client->updateVariant(trim($ov->sku), ['price' => $rule($variantPrice)]);
-                    }
-                }
-            }
-
-            $okCount++;
-        }
-
-        $msg = "Price push complete — {$okCount} updated";
-        if ($errCount > 0) $msg .= ", {$errCount} failed";
-        if ($skipCount > 0) $msg .= ", {$skipCount} skipped";
-
-        return $this->productsRedirect($store, $group)->with('status', $msg);
+        return $this->pushFigures($setting, $store, $group, $ids, false, true, 'Price');
     }
 
     // ── Unlink / Link / Mass Remove ─────────────────────────

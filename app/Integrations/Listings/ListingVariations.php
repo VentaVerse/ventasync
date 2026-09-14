@@ -13,14 +13,20 @@ use Illuminate\Support\Facades\DB;
  * off everywhere: no listing shows it and no store is sent or synced it. A
  * listing's switch turns an enabled variation off on that one store. Every
  * push, every stock and price sync and every listing page asks here, so a
- * variation that is off is never sent, and one a store does not carry is
- * never an error.
+ * variation that is off is never sent.
+ *
+ * A variation the store sells but its own item does not hold is named on
+ * the listing (missing()), from the SKUs last read from the store
+ * (remember()), and never stops the others being sent. Switching it off for
+ * the store takes it off the listing at once.
  *
  * Variations are known by SKU, as they are on every store.
  */
 final class ListingVariations
 {
     public const TABLE = 'listing_variation_offs';
+
+    public const STORE_SKUS = 'listing_store_skus';
 
     /** Validation rules for the card's fields, for a listing save to merge. */
     public static function rules(): array
@@ -107,6 +113,100 @@ final class ListingVariations
     public static function noneSoldMessage(string $storeName): string
     {
         return 'Every variation of this product is switched off for ' . $storeName . '. Switch at least one on, then push.';
+    }
+
+    /**
+     * The SKUs a store's item holds for a product, as just read from the
+     * store. Call it only with a read that succeeded: an empty list says the
+     * item holds no variations, not that the store could not be asked.
+     *
+     * @param  iterable<string|null>  $skus
+     */
+    public static function remember(string $channel, int $storeId, int $productId, iterable $skus): void
+    {
+        $clean = [];
+        foreach ($skus as $sku) {
+            $sku = trim((string) $sku);
+            if ($sku !== '') {
+                $clean[self::key($sku)] = $sku;
+            }
+        }
+
+        DB::table(self::STORE_SKUS)->updateOrInsert(
+            ['channel' => $channel, 'store_id' => $storeId, 'product_id' => $productId],
+            ['skus' => json_encode(array_values($clean)), 'checked_at' => now()]
+        );
+    }
+
+    /**
+     * The variations this store sells that its own item does not hold, per
+     * product, from the SKUs last remembered for it. A product whose store
+     * was never read is left out: not knowing is not a gap.
+     *
+     * @return array<int, list<array{sku: string, name: string}>>
+     */
+    public static function missing(string $channel, int $storeId, array $productIds): array
+    {
+        $productIds = array_values(array_unique(array_map('intval', $productIds)));
+        if ($productIds === []) {
+            return [];
+        }
+
+        $held = DB::table(self::STORE_SKUS)
+            ->where('channel', $channel)->where('store_id', $storeId)
+            ->whereIn('product_id', $productIds)
+            ->pluck('skus', 'product_id');
+        if ($held->isEmpty()) {
+            return [];
+        }
+
+        $read = $held->keys()->map(fn ($v) => (int) $v)->all();
+        $names = \App\Support\VariationRows::forProducts($read);
+
+        $out = [];
+        foreach (self::sold($channel, $storeId, $read) as $pid => $skus) {
+            $have = [];
+            foreach ((array) json_decode((string) $held->get($pid), true) as $sku) {
+                $have[self::key($sku)] = true;
+            }
+            $named = [];
+            foreach ($names->get((int) $pid) ?? [] as $row) {
+                $named[self::key($row->sku ?? '')] = trim((string) ($row->option_value_name ?? ''));
+            }
+
+            $gap = [];
+            foreach ($skus as $sku) {
+                $k = self::key($sku);
+                if ($k !== '' && ! isset($have[$k])) {
+                    $gap[] = ['sku' => trim((string) $sku), 'name' => $named[$k] ?? ''];
+                }
+            }
+            if ($gap !== []) {
+                $out[(int) $pid] = $gap;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * The line a listing carries while missing() holds for it.
+     *
+     * @param  list<array{sku: string, name: string}>  $missing
+     */
+    public static function missingMessage(string $storeName, array $missing): string
+    {
+        $parts = array_map(fn ($m) => $m['name'] !== '' ? $m['name'] . ' (' . $m['sku'] . ')' : $m['sku'], $missing);
+
+        return 'Not on ' . $storeName . ': ' . implode(', ', $parts) . '.';
+    }
+
+    /** A listing's error and its missing-variation line, both kept: neither hides the other. */
+    public static function withMissing(?string $error, ?string $missingLine): ?string
+    {
+        $parts = array_values(array_filter([trim((string) $error), trim((string) $missingLine)], fn ($p) => $p !== ''));
+
+        return $parts === [] ? null : implode(' ', $parts);
     }
 
     /**
@@ -259,6 +359,7 @@ final class ListingVariations
     public static function forgetProducts(array $productIds): void
     {
         DB::table(self::TABLE)->whereIn('product_id', $productIds ?: [0])->delete();
+        DB::table(self::STORE_SKUS)->whereIn('product_id', $productIds ?: [0])->delete();
     }
 
     private static function key(mixed $sku): string

@@ -3,8 +3,11 @@
 namespace Extensions\tiktok\Services\TikTok;
 
 use App\Integrations\Listings\ListingState;
+use App\Integrations\Listings\ListingVariations;
+use App\Integrations\Push\PushLedger;
 use Extensions\tiktok\Models\TikTokListing;
 use Extensions\tiktok\Models\TikTokProductGroupProduct;
+use Extensions\tiktok\Models\TikTokSetting;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -220,6 +223,7 @@ class TikTokListingStates
         }
         $listings = TikTokListing::query()->whereIn('product_id', $productIds)->get()->keyBy(fn ($l) => (int) $l->product_id);
         $pivots = TikTokProductGroupProduct::query()->onStore()->whereIn('product_id', $productIds)->get()->groupBy('product_id');
+        $missing = ListingVariations::missing('tiktok', (int) (TikTokSetting::defaultStore()?->id ?? 0), $productIds);
 
         $out = [];
         foreach ($productIds as $pid) {
@@ -238,9 +242,57 @@ class TikTokListingStates
                     trim((string) $failed->push_error) ?: \App\Integrations\Push\PushLedger::NO_REASON];
             }
             usort($found, fn ($a, $b) => $b[0] <=> $a[0]);
-            $out[$pid] = $found === [] ? null : $found[0][1];
+            // A sold variation the linked item does not hold rides beside it.
+            $linked = ($listing && !empty($listing->tiktok_product_id))
+                || ($pivots->get($pid) ?? collect())->contains(fn ($r) => !empty($r->tiktok_product_id));
+            $out[$pid] = ListingVariations::withMissing(
+                $found === [] ? null : $found[0][1],
+                isset($missing[$pid]) && $linked ? ListingVariations::missingMessage('TikTok Shop', $missing[$pid]) : null
+            );
         }
 
         return $out;
+    }
+
+    /**
+     * Remember the variation SKUs a store's item holds, as just read from
+     * TikTok Shop. The parent's own SKU and model are not variations, nor
+     * is the __single__ placeholder, and a product without variations has
+     * nothing to remember.
+     *
+     * @param iterable<string|int|null> $skus
+     */
+    public static function rememberHeld(int $storeId, int $productId, iterable $skus): void
+    {
+        if ($storeId <= 0 || $productId <= 0) {
+            return;
+        }
+        $pfx = (string) config('catalog.prefix');
+        $variations = [];
+        foreach (PushLedger::erpVariationSkus([$productId], $pfx)[$productId] ?? [] as $sku) {
+            $variations[strtolower(trim((string) $sku))] = true;
+        }
+        if ($variations === []) {
+            return;
+        }
+
+        $parent = DB::table($pfx . 'product')->where('product_id', $productId)->first(['sku', 'model']);
+        $own = ['__single__' => true];
+        foreach ([$parent->sku ?? '', $parent->model ?? ''] as $s) {
+            $k = strtolower(trim((string) $s));
+            if ($k !== '' && !isset($variations[$k])) {
+                $own[$k] = true;
+            }
+        }
+
+        $held = [];
+        foreach ($skus as $sku) {
+            $k = strtolower(trim((string) $sku));
+            if ($k !== '' && !isset($own[$k])) {
+                $held[] = trim((string) $sku);
+            }
+        }
+
+        ListingVariations::remember('tiktok', $storeId, $productId, $held);
     }
 }
