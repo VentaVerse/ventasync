@@ -332,4 +332,32 @@ class VentaListingsIndexTest extends TestCase
             $this->assertStringNotContainsString('Errored pedal', $html, $url);
         }
     }
+    /** A row is named by this store's own title, the catalog's name when it has none, and the search finds it by that title. */
+    public function test_a_row_shows_the_stores_own_title_and_the_search_finds_it(): void
+    {
+        $store = $this->store();
+        $ids = $this->scope($store);
+        VentaListing::query()->where('venta_setting_id', $store->id)->where('product_id', $ids['A-1'])->update(['name' => 'Qable IC50 Pro']);
+        $other = VentaSetting::create(['store_name' => 'Other Depot', 'base_url' => 'https://two.venta.test', 'api_token' => 't', 'enabled' => true]);
+        VentaListing::create(['venta_setting_id' => $other->id, 'product_id' => $ids['U-1'], 'name' => 'Qable elsewhere']);
+        $group = VentaProductGroup::query()->where('venta_setting_id', $store->id)->where('name', 'Pedals')->firstOrFail();
+        Http::fake();
+
+        foreach ([route('ext.venta.listings.index', $store->id), route('ext.venta.product-groups.products', [$store->id, $group->id])] as $url) {
+            $this->actingAs($this->manager())->get($url)->assertOk()
+                ->assertSee('Qable IC50 Pro')
+                ->assertSee('Unlisted pedal')
+                ->assertDontSee('Active pedal')
+                ->assertDontSee('Qable elsewhere');
+        }
+
+        foreach ([
+            route('ext.venta.listings.index', ['store' => $store->id, 'q' => 'Qable']),
+            route('ext.venta.product-groups.products', ['store' => $store->id, 'group' => $group->id, 'q' => 'Qable']),
+        ] as $url) {
+            $this->actingAs($this->manager())->get($url)->assertOk()
+                ->assertSee('Qable IC50 Pro')
+                ->assertDontSee('Unlisted pedal');
+        }
+    }
 }

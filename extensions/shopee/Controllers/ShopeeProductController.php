@@ -189,7 +189,12 @@ class ShopeeProductController extends Controller
             $query->where(function ($sub) use ($q) {
                 $sub->where('pd.name', 'like', '%' . $q . '%')
                     ->orWhere('p.model', 'like', '%' . $q . '%')
-                    ->orWhere('p.sku', 'like', '%' . $q . '%');
+                    ->orWhere('p.sku', 'like', '%' . $q . '%')
+                    // The row shows this store's own title, so the search finds it by that too.
+                    ->orWhereIn('p.product_id', \Extensions\shopee\Models\ShopeeListing::query()
+                        ->forStore(ShopeeSetting::defaultStore())
+                        ->where('item_name', 'like', '%' . $q . '%')
+                        ->select('product_id'));
             });
         }
 
@@ -272,6 +277,11 @@ class ShopeeProductController extends Controller
 
         // Load Shopee links for products on this page
         $pageIds = $products->pluck('product_id')->map(fn($v) => (int) $v)->all();
+        // Each row is named by this store's own title, the catalog's name when it has none.
+        $rowTitles = \App\Integrations\Listings\ListingContent::rowTitles($products, $pageIds === [] ? [] : \Extensions\shopee\Models\ShopeeListing::query()
+            ->forStore(ShopeeSetting::defaultStore())
+            ->whereIn('product_id', $pageIds)
+            ->get());
         $shopeeLinks = collect();
         if (!empty($pageIds)) {
             $shopeeLinks = ShopeeProductLink::query()
@@ -357,6 +367,7 @@ class ShopeeProductController extends Controller
 
         return view('ext-shopee::products.index', [
             'products' => $products,
+            'rowTitles' => $rowTitles,
             'troubleFilter' => $troubleFilter,
             /* The relist preflight's page-side half (#191): a row whose
              * Relist would certainly be refused offers the fix instead. */

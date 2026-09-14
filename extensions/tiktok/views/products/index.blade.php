@@ -260,7 +260,8 @@
             $rowState = ($listingStates ?? [])[$pid] ?? null;
             $stateClass = \App\Integrations\Listings\ListingState::class;
             $attemptFailed = $attempt && $attempt->sync_status === 'error';
-            $rowLabel = (string) ($p->name ?: ($p->sku ?: 'product ' . $pid));
+            $pName = (string) ($rowTitles[(int) $pid] ?? $p->name);
+            $rowLabel = $pName !== '' ? $pName : (string) ($p->sku ?: 'product ' . $pid);
         @endphp
         @include('partials.channel-error-row', ['error' => ($rowErrors ?? [])[(int) $pid] ?? null, 'cols' => $colCount])
         <tr>
@@ -278,7 +279,7 @@
                         @if($thumbSrc)<img src="{{ $thumbSrc }}" alt="" loading="lazy" decoding="async" data-thumb>@endif
                     </div>
                     <div class="co-item__body">
-                        <a class="x-row-link co-item__name" href="{{ route('ext.tiktok.listings.edit', $pid) }}">{{ $p->name ?: 'Unnamed product' }}</a>
+                        <a class="x-row-link co-item__name" href="{{ route('ext.tiktok.listings.edit', $pid) }}">{{ $pName ?: 'Unnamed product' }}</a>
                         <div class="co-item__meta">
                             <span class="co-item__sku">{{ $p->sku ?: 'No SKU' }}</span>
                             @if($p->manufacturer_name)<span>{{ $p->manufacturer_name }}</span>@endif

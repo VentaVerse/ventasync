@@ -477,4 +477,44 @@ class LazadaListingStateTest extends TestCase
         $this->assertSame(99, (int) $filled['listing']->primary_category_id);
         $this->assertSame(['brand' => 'Preset group'], $filled['inherited']);
     }
+    /** A row is named by this store's own title, the catalog's name when it has none, and the search finds it by that title. */
+    public function test_a_row_shows_the_stores_own_title_and_the_search_finds_it(): void
+    {
+        $titled = $this->seedProduct('Catalog pedal name', 'TTL-1');
+        $plain = $this->seedProduct('Plain catalog pedal', 'PLN-1');
+        $titledRow = LazadaProduct::create(['product_id' => $titled, 'item_name' => 'Qable IC50 Pro']);
+        $plainRow = LazadaProduct::create(['product_id' => $plain]);
+        $other = LazadaSetting::query()->create([
+            'mode' => 'live', 'region' => 'ph',
+            'app_key' => 'k2', 'app_secret' => 's2',
+            'access_token' => 't2', 'refresh_token' => 'r2',
+        ]);
+        LazadaProduct::create(['lazada_setting_id' => $other->id, 'product_id' => $plain, 'item_name' => 'Qable elsewhere']);
+        $grp = \Extensions\lazada\Models\LazadaProductGroup::create(['name' => 'Titled pedals', 'lazada_category_id' => 4321]);
+        foreach ([[$titled, $titledRow], [$plain, $plainRow]] as [$pid, $row]) {
+            \Extensions\lazada\Models\LazadaProductGroupProduct::create([
+                'lazada_product_group_id' => $grp->id, 'product_id' => $pid,
+                'lazada_product_id' => $row->id, 'sync_status' => 'pending',
+            ]);
+        }
+        $ug = UserGroup::create(['name' => 'Lazada titles']);
+        $ug->permissions()->attach(Permission::whereIn('key', [
+            'view_lazada/product', 'manage_lazada/product', 'view_lazada/product_group', 'manage_lazada/product_group',
+        ])->pluck('id')->all());
+        $user = User::factory()->create(['user_group_id' => $ug->id]);
+
+        foreach ([route('ext.lazada.products.index'), route('ext.lazada.product-groups.products', $grp->id)] as $url) {
+            $this->actingAs($user)->get($url)->assertOk()
+                ->assertSee('Qable IC50 Pro')
+                ->assertSee('Plain catalog pedal')
+                ->assertDontSee('Catalog pedal name')
+                ->assertDontSee('Qable elsewhere');
+        }
+
+        foreach ([route('ext.lazada.products.index', ['q' => 'Qable']), route('ext.lazada.product-groups.products', ['id' => $grp->id, 'q' => 'Qable'])] as $url) {
+            $this->actingAs($user)->get($url)->assertOk()
+                ->assertSee('Qable IC50 Pro')
+                ->assertDontSee('Plain catalog pedal');
+        }
+    }
 }

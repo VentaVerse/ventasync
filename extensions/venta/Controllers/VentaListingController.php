@@ -304,10 +304,15 @@ class VentaListingController extends Controller
             $query->where('p.status', 0);
         }
         if ($q !== '') {
-            $query->where(function ($w) use ($q) {
+            $query->where(function ($w) use ($q, $store) {
                 $w->where('pd.name', 'like', '%' . $q . '%')
                     ->orWhere('p.model', 'like', '%' . $q . '%')
-                    ->orWhere('p.sku', 'like', '%' . $q . '%');
+                    ->orWhere('p.sku', 'like', '%' . $q . '%')
+                    // The row shows this store's own title, so the search finds it by that too.
+                    ->orWhereIn('p.product_id', VentaListing::query()
+                        ->where('venta_setting_id', $store)
+                        ->where('name', 'like', '%' . $q . '%')
+                        ->select('product_id'));
             });
         }
         if ($syncStatus === 'listed') {
@@ -368,6 +373,8 @@ class VentaListingController extends Controller
 
         $listingsByProductId = VentaListing::query()->where('venta_setting_id', $store)
             ->whereIn('product_id', $pageIds ?: [0])->get()->keyBy(fn ($l) => (int) $l->product_id);
+        // Each row is named by this store's own title, the catalog's name when it has none.
+        $rowTitles = \App\Integrations\Listings\ListingContent::rowTitles($products, $listingsByProductId);
         $lastAttempts = VentaProductGroupProduct::query()
             ->whereIn('venta_product_group_id', $groupIds ?: [0])
             ->whereIn('product_id', $pageIds ?: [0])
@@ -377,6 +384,7 @@ class VentaListingController extends Controller
         return view('ext-venta::listings.index', [
             'setting' => $setting,
             'products' => $products,
+            'rowTitles' => $rowTitles,
             'q' => $q, 'sort' => $sort, 'dir' => $dir,
             'groupFilter' => $groupFilter, 'erpStatus' => $erpStatus, 'syncStatus' => $syncStatus,
             'allGroups' => VentaProductGroup::where('venta_setting_id', $store)->orderBy('name')->pluck('name', 'id'),

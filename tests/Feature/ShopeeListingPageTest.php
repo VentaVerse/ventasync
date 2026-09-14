@@ -1223,4 +1223,38 @@ class ShopeeListingPageTest extends TestCase
         $this->assertStringContainsString('stalls >= 3', $js);
         $this->assertStringContainsString('kept sending the same page', $js);
     }
+    /** A row is named by this store's own title, the catalog's name when it has none, and the search finds it by that title. */
+    public function test_a_row_shows_the_stores_own_title_and_the_search_finds_it(): void
+    {
+        $pfx = (string) config('catalog.prefix');
+        $titled = $this->seedProduct();
+        $plain = $this->seedProduct();
+        DB::table($pfx . 'product_description')->where('product_id', $plain)->update(['name' => 'Plain catalog pedal']);
+        ShopeeListing::query()->create(['product_id' => $titled, 'item_name' => 'Qable IC50 Pro']);
+        ShopeeListing::query()->create(['product_id' => $plain]);
+        $other = ShopeeSetting::query()->create([
+            'partner_id' => 1002, 'partner_key' => 'k2', 'shop_id' => 3003,
+            'access_token' => 't2', 'refresh_token' => 'r2', 'mode' => 'production',
+        ]);
+        ShopeeListing::query()->create(['shopee_setting_id' => $other->id, 'product_id' => $plain, 'item_name' => 'Qable elsewhere']);
+        $group = \Extensions\shopee\Models\ShopeeProductGroup::create(['name' => 'Titled pedals', 'shopee_category_id' => 100013, 'logistic_ids' => [8003]]);
+        foreach ([$titled, $plain] as $pid) {
+            \Extensions\shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $pid, 'sync_status' => 'pending']);
+        }
+        $user = $this->userWith(['manage_shopee/product', 'view_shopee/product', 'view_shopee/product_group']);
+
+        foreach ([route('ext.shopee.products.index'), route('ext.shopee.product-groups.products', $group->id)] as $url) {
+            $this->actingAs($user)->get($url)->assertOk()
+                ->assertSee('Qable IC50 Pro')
+                ->assertSee('Plain catalog pedal')
+                ->assertDontSee('Listing page product')
+                ->assertDontSee('Qable elsewhere');
+        }
+
+        foreach ([route('ext.shopee.products.index', ['q' => 'Qable']), route('ext.shopee.product-groups.products', ['id' => $group->id, 'q' => 'Qable'])] as $url) {
+            $this->actingAs($user)->get($url)->assertOk()
+                ->assertSee('Qable IC50 Pro')
+                ->assertDontSee('Plain catalog pedal');
+        }
+    }
 }

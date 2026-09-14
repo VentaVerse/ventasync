@@ -425,4 +425,33 @@ class TiktokListingsTest extends TestCase
         $r->assertDontSee('Send to TikTok Shop');
         $r->assertDontSee('Push to TikTok Shop');
     }
+    /** A row is named by this store's own title, the catalog's name when it has none, and the search finds it by that title. */
+    public function test_a_row_shows_the_stores_own_title_and_the_search_finds_it(): void
+    {
+        $titled = $this->seedProduct('T');
+        $plain = $this->seedProduct('P');
+        TikTokListing::create(['product_id' => $titled, 'title' => 'Qable IC50 Pro']);
+        TikTokListing::create(['product_id' => $plain]);
+        $other = TikTokSetting::create([
+            'mode' => 'production', 'app_key' => 'k2', 'app_secret' => 's2',
+            'access_token' => 't2', 'refresh_token' => 'r2', 'shop_cipher' => 'c2', 'expires_at' => now()->addDays(3),
+        ]);
+        TikTokListing::create(['tiktok_setting_id' => $other->id, 'product_id' => $plain, 'title' => 'Qable elsewhere']);
+        $group = TikTokProductGroup::query()->where('name', 'Scope group')->firstOrFail();
+        $user = $this->userWith(['manage_tiktok/product', 'view_tiktok/product', 'view_tiktok/product_group']);
+
+        foreach ([route('ext.tiktok.products.index'), route('ext.tiktok.product-groups.products', ['id' => $group->id])] as $url) {
+            $this->actingAs($user)->get($url)->assertOk()
+                ->assertSee('Qable IC50 Pro')
+                ->assertSee('TikTok listing product P')
+                ->assertDontSee('TikTok listing product T')
+                ->assertDontSee('Qable elsewhere');
+        }
+
+        foreach ([route('ext.tiktok.products.index', ['q' => 'Qable']), route('ext.tiktok.product-groups.products', ['id' => $group->id, 'q' => 'Qable'])] as $url) {
+            $this->actingAs($user)->get($url)->assertOk()
+                ->assertSee('Qable IC50 Pro')
+                ->assertDontSee('TikTok listing product P');
+        }
+    }
 }

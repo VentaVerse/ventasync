@@ -366,6 +366,7 @@ class VentaProductGroupController extends Controller
                 'setting'              => $setting,
                 'group'                => $g,
                 'products'             => new \Illuminate\Pagination\LengthAwarePaginator([], 0, 50),
+                'rowTitles'            => [],
                 'optionRowsByProductId' => collect(),
                 'manualIds'            => [],
             ]);
@@ -409,10 +410,15 @@ class VentaProductGroupController extends Controller
             );
 
         if ($q !== '') {
-            $query->where(function ($w) use ($q) {
+            $query->where(function ($w) use ($q, $store) {
                 $w->where('pd.name', 'like', "%{$q}%")
                     ->orWhere('p.sku', 'like', "%{$q}%")
-                    ->orWhere('p.model', 'like', "%{$q}%");
+                    ->orWhere('p.model', 'like', "%{$q}%")
+                    // The row shows this store's own title, so the search finds it by that too.
+                    ->orWhereIn('p.product_id', \Extensions\venta\Models\VentaListing::query()
+                        ->where('venta_setting_id', $store)
+                        ->where('name', 'like', "%{$q}%")
+                        ->select('product_id'));
             });
         }
 
@@ -450,10 +456,17 @@ class VentaProductGroupController extends Controller
 
         $manualIds = $g->products()->pluck('product_id')->toArray();
 
+        // Each row is named by this store's own title, the catalog's name when it has none.
+        $rowTitles = \App\Integrations\Listings\ListingContent::rowTitles($products, \Extensions\venta\Models\VentaListing::query()
+            ->where('venta_setting_id', $store)
+            ->whereIn('product_id', $paginatedIds ?: [0])
+            ->get());
+
         return view('ext-venta::product-groups.products', [
             'setting'              => $setting,
             'group'                => $g,
             'products'             => $products,
+            'rowTitles'            => $rowTitles,
             'optionRowsByProductId' => $optionRowsByProductId,
             // The Ready column reads the engine, the way every page does (2026-09-06).
             'listingStates'        => \Extensions\venta\Services\Venta\VentaListingStates::for((int) $setting->id)->forProducts(array_map('intval', $paginatedIds)),

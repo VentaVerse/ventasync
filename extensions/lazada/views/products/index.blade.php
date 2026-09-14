@@ -380,7 +380,7 @@
             $stateClass = \App\Integrations\Listings\ListingState::class;
 
             $thumbSrc = $productThumbsById->get($pid);
-            $pName = (string) ($row->name ?? '');
+            $pName = (string) ($rowTitles[(int) $row->product_id] ?? $row->name ?? '');
             $pSku = (string) ($row->sku ?? '');
             $pQty = (int) ($row->quantity ?? 0);
             $pStatus = (int) ($row->status ?? 0);

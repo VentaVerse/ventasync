@@ -227,7 +227,7 @@
             $rowState = ($listingStates ?? [])[(int) $p->product_id] ?? null;
             $stateClass = \App\Integrations\Listings\ListingState::class;
 
-            $pName = html_entity_decode((string) ($p->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $pName = (string) ($rowTitles[(int) $p->product_id] ?? html_entity_decode((string) ($p->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
             $pSku = (string) ($p->sku ?: ($p->model ?: ''));
             $isManual = in_array((int) $p->product_id, $manualIds, true);
 

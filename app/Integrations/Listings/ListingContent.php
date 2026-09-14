@@ -61,6 +61,36 @@ class ListingContent
     }
 
     /**
+     * The name each row of a Listings page or group page shows: the store's
+     * own title when its listing has one, the catalog's name otherwise.
+     *
+     * @param  iterable<object>  $rows  the page's rows, each with product_id and name
+     * @param  iterable<object>  $listings  this store's listing rows for those products
+     * @return array<int, string>  product id => the name to show
+     */
+    public static function rowTitles(iterable $rows, iterable $listings): array
+    {
+        $own = [];
+        foreach ($listings as $listing) {
+            if (! method_exists($listing, 'contentOverrides')) {
+                continue;
+            }
+            $title = trim((string) ($listing->contentOverrides()['title'] ?? ''));
+            if ($title !== '') {
+                $own[(int) $listing->product_id] = $title;
+            }
+        }
+
+        $out = [];
+        foreach ($rows as $row) {
+            $pid = (int) $row->product_id;
+            $out[$pid] = $own[$pid] ?? html_entity_decode((string) ($row->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        }
+
+        return $out;
+    }
+
+    /**
      * The store's templates around a description that has already been
      * resolved elsewhere. Every channel's payload builder calls this, so a
      * push from any door carries the store's policy text.

@@ -248,7 +248,7 @@
                         @if($thumbSrc)<img src="{{ $thumbSrc }}" alt="" loading="lazy" decoding="async" data-thumb>@endif
                     </div>
                     <div class="co-item__body">
-                        <a class="x-row-link co-item__name" href="{{ $listingUrl }}">{{ $p->name ?: 'Unnamed product' }}</a>
+                        <a class="x-row-link co-item__name" href="{{ $listingUrl }}">{{ ($rowTitles[(int) $p->product_id] ?? $p->name) ?: 'Unnamed product' }}</a>
                         <div class="co-item__meta">
                             <span class="co-item__sku">{{ $p->sku ?: ($p->model ?: 'No SKU') }}</span>
                             @if($p->manufacturer_name)<span>{{ $p->manufacturer_name }}</span>@endif

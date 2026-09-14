@@ -136,7 +136,12 @@ class TikTokProductController extends Controller
             $query->where(function ($w) use ($q) {
                 $w->where('pd.name', 'like', '%' . $q . '%')
                     ->orWhere('p.model', 'like', '%' . $q . '%')
-                    ->orWhere('p.sku', 'like', '%' . $q . '%');
+                    ->orWhere('p.sku', 'like', '%' . $q . '%')
+                    // The row shows this store's own title, so the search finds it by that too.
+                    ->orWhereIn('p.product_id', TikTokListing::query()
+                        ->forStore(TikTokSetting::defaultStore())
+                        ->where('title', 'like', '%' . $q . '%')
+                        ->select('product_id'));
             });
         }
         if ($syncStatus === 'listed') {
@@ -185,7 +190,9 @@ class TikTokProductController extends Controller
         }
 
         $pageIds = $products->pluck('product_id')->map(fn ($v) => (int) $v)->all();
-        $listingsByProductId = TikTokListing::query()->whereIn('product_id', $pageIds ?: [0])->get()->keyBy(fn ($l) => (int) $l->product_id);
+        $listingsByProductId = TikTokListing::query()->forStore(TikTokSetting::defaultStore())->whereIn('product_id', $pageIds ?: [0])->get()->keyBy(fn ($l) => (int) $l->product_id);
+        // Each row is named by this store's own title, the catalog's name when it has none.
+        $rowTitles = \App\Integrations\Listings\ListingContent::rowTitles($products, $listingsByProductId);
         // Products pushed before the record carried the truth: the pivots answer.
         $pivotTruth = TikTokProductGroupProduct::query()->onStore()
             ->whereIn('product_id', $pageIds ?: [0])->whereNotNull('tiktok_product_id')
@@ -255,6 +262,7 @@ class TikTokProductController extends Controller
 
         return view('ext-tiktok::products.index', [
             'products' => $products,
+            'rowTitles' => $rowTitles,
             'troubleFilter' => $troubleFilter,
             'listingStates' => $listingStates,
             'rowErrors' => $rowErrors,

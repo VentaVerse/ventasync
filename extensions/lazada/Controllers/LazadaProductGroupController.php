@@ -323,7 +323,12 @@ class LazadaProductGroupController extends Controller
             $query->where(function ($w) use ($q) {
                 $w->where('pd.name', 'like', "%{$q}%")
                     ->orWhere('p.sku', 'like', "%{$q}%")
-                    ->orWhere('p.model', 'like', "%{$q}%");
+                    ->orWhere('p.model', 'like', "%{$q}%")
+                    // The row shows this store's own title, so the search finds it by that too.
+                    ->orWhereIn('p.product_id', LazadaProduct::query()
+                        ->forStore(LazadaSetting::defaultStore())
+                        ->where('item_name', 'like', "%{$q}%")
+                        ->select('product_id'));
             });
         }
 
@@ -373,9 +378,17 @@ class LazadaProductGroupController extends Controller
         // All product IDs in this group
         $manualIds = $group->groupProducts()->whereNotNull('product_id')->pluck('product_id')->toArray();
 
+        // Each row is named by this store's own title, the catalog's name when it has none.
+        $rowTitles = \App\Integrations\Listings\ListingContent::rowTitles($products, LazadaProduct::query()
+            ->forStore(LazadaSetting::defaultStore())
+            ->whereIn('product_id', $pivotProductIds ?: [0])
+            ->orderBy('id')
+            ->get());
+
         return view('ext-lazada::product-groups.products', [
             'group' => $group,
             'products' => $products,
+            'rowTitles' => $rowTitles,
             'pivotMap' => $pivotMap,
             /* ONE state per row (#188): the same engine the Listings page
              * renders, so this page's badges and menus can never disagree

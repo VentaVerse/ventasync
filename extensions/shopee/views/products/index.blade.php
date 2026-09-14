@@ -283,7 +283,8 @@
             $thumbSrc = $img !== '' ? asset('storage/' . ltrim($img, '/')) : '';
 
             $syncFailed = $link && !is_null($link->last_sync_ok) && !$link->last_sync_ok;
-            $rowLabel = (string) ($p->name ?: ($p->sku ?: 'product ' . $p->product_id));
+            $pName = (string) ($rowTitles[(int) $p->product_id] ?? $p->name);
+            $rowLabel = $pName !== '' ? $pName : (string) ($p->sku ?: 'product ' . $p->product_id);
         @endphp
         @include('partials.channel-error-row', ['error' => $rowErrors[(int) $p->product_id] ?? null, 'cols' => $colCount])
         <tr>
@@ -311,7 +312,7 @@
                         @endif
                     </div>
                     <div class="co-item__body">
-                        <a class="x-row-link co-item__name" href="{{ route('products.edit', $p->product_id) }}">{{ $p->name ?: 'Unnamed product' }}</a>
+                        <a class="x-row-link co-item__name" href="{{ route('products.edit', $p->product_id) }}">{{ $pName ?: 'Unnamed product' }}</a>
                         <div class="co-item__meta">
                             <span class="co-item__sku">{{ $p->sku ?: 'No SKU' }}</span>
                             @if($p->manufacturer_name)

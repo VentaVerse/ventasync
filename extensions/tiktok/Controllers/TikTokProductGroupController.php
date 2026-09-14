@@ -328,6 +328,7 @@ class TikTokProductGroupController extends Controller
             return view('ext-tiktok::product-groups.products', [
                 'group'                => $group,
                 'products'             => $emptyPaginator,
+                'rowTitles'            => [],
                 'pivotMap'             => collect(),
                 'truthByProductId'     => collect(),
                 'manualIds'            => [],
@@ -373,6 +374,7 @@ class TikTokProductGroupController extends Controller
             return view('ext-tiktok::product-groups.products', [
                 'group'                => $group,
                 'products'             => $emptyPaginator,
+                'rowTitles'            => [],
                 'pivotMap'             => $pivotMap,
                 'truthByProductId'     => collect(),
                 'manualIds'            => $group->groupProducts()->pluck('product_id')->toArray(),
@@ -393,10 +395,15 @@ class TikTokProductGroupController extends Controller
             ->select('p.product_id', 'pd.name', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'p.image', 'p.date_modified', 'm.name as manufacturer_name');
 
         if ($q !== '') {
-            $query->where(function ($w) use ($q) {
+            $query->where(function ($w) use ($q, $group) {
                 $w->where('pd.name', 'like', "%{$q}%")
                     ->orWhere('p.sku', 'like', "%{$q}%")
-                    ->orWhere('p.model', 'like', "%{$q}%");
+                    ->orWhere('p.model', 'like', "%{$q}%")
+                    // The row shows this store's own title, so the search finds it by that too.
+                    ->orWhereIn('p.product_id', TikTokListing::query()
+                        ->forStore((int) $group->tiktok_setting_id)
+                        ->where('title', 'like', "%{$q}%")
+                        ->select('product_id'));
             });
         }
 
@@ -443,9 +450,16 @@ class TikTokProductGroupController extends Controller
         $pageIds = $products->pluck('product_id')->all();
         $optionRowsByProductId = \App\Support\VariationRows::forListing($pageIds, 'tiktok', (int) (\Extensions\tiktok\Models\TikTokSetting::defaultStore()?->id ?? 0));
 
+        // Each row is named by this store's own title, the catalog's name when it has none.
+        $rowTitles = \App\Integrations\Listings\ListingContent::rowTitles($products, TikTokListing::query()
+            ->forStore((int) $group->tiktok_setting_id)
+            ->whereIn('product_id', $pageIds ?: [0])
+            ->get());
+
         return view('ext-tiktok::product-groups.products', [
             'group'                => $group,
             'products'             => $products,
+            'rowTitles'            => $rowTitles,
             'pivotMap'             => $pivotMap,
             'truthByProductId'     => $truthByProductId,
             'manualIds'            => $manualIds,

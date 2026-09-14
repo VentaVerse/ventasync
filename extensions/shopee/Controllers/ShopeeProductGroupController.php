@@ -300,7 +300,12 @@ class ShopeeProductGroupController extends Controller
             $query->where(function ($w) use ($q) {
                 $w->where('pd.name', 'like', "%{$q}%")
                     ->orWhere('p.sku', 'like', "%{$q}%")
-                    ->orWhere('p.model', 'like', "%{$q}%");
+                    ->orWhere('p.model', 'like', "%{$q}%")
+                    // The row shows this store's own title, so the search finds it by that too.
+                    ->orWhereIn('p.product_id', ShopeeListing::query()
+                        ->forStore(ShopeeSetting::defaultStore())
+                        ->where('item_name', 'like', "%{$q}%")
+                        ->select('product_id'));
             });
         }
 
@@ -385,9 +390,12 @@ class ShopeeProductGroupController extends Controller
             ->get()
             ->groupBy(fn ($l) => (int) $l->product_id);
         $listingsByProductId = ShopeeListing::query()
+            ->forStore(ShopeeSetting::defaultStore())
             ->whereIn('product_id', $displayIds)
             ->get()
             ->keyBy('product_id');
+        // Each row is named by this store's own title, the catalog's name when it has none.
+        $rowTitles = \App\Integrations\Listings\ListingContent::rowTitles($products, $listingsByProductId);
 
         /* ONE state per row (Phase B, #184): this page used to show
          * "Listed" for a product Shopee had banned, because its column
@@ -406,6 +414,7 @@ class ShopeeProductGroupController extends Controller
             'optionRowsByProductId' => $optionRowsByProductId,
             'linksByProductId' => $linksByProductId,
             'listingsByProductId' => $listingsByProductId,
+            'rowTitles' => $rowTitles,
             'manualIds' => $manualIds,
             'q' => $q,
             'syncStatus' => $syncStatus,

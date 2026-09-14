@@ -292,7 +292,12 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 $sub->where('pd.name', 'like', '%' . $q . '%')
                     ->orWhere('p.model', 'like', '%' . $q . '%')
                     ->orWhere('p.sku', 'like', '%' . $q . '%')
-                    ->orWhere('lp.lazada_item_id', 'like', '%' . $q . '%');
+                    ->orWhere('lp.lazada_item_id', 'like', '%' . $q . '%')
+                    // The row shows this store's own title, so the search finds it by that too.
+                    ->orWhereIn('p.product_id', LazadaProduct::query()
+                        ->forStore(LazadaSetting::defaultStore())
+                        ->where('item_name', 'like', '%' . $q . '%')
+                        ->select('product_id'));
             });
         }
 
@@ -386,6 +391,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             ->whereIn('id', $pageListingIds ?: [0])
             ->get()
             ->keyBy('id');
+        // Each row is named by this store's own title, the catalog's name when it has none.
+        $rowTitles = \App\Integrations\Listings\ListingContent::rowTitles($products, $listingsById);
 
         // Thumbnails and variation rows, page-sized
         $productThumbsById = collect();
@@ -459,6 +466,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         return view('ext-lazada::products.index', [
             'products' => $products,
+            'rowTitles' => $rowTitles,
             'troubleFilter' => $troubleFilter,
             'listingsById' => $listingsById,
             'listingStates' => $listingStates,
