@@ -29,7 +29,7 @@
     $hasRule = $pct !== null || $fixed !== null;
     $nextPrice = round($corePrice + ($corePrice * (float) ($pct ?? 0) / 100) + (float) ($fixed ?? 0), 2);
     $missing = $readinessMissing;
-    $coreDescription = trim(strip_tags(html_entity_decode((string) ($product->description ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+    $coreDescription = (string) ($product->description ?? '');
 @endphp
 
 <div class="fm-page">

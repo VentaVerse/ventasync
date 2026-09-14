@@ -31,7 +31,7 @@
     $fixed = $markupFixed;
     $hasRule = $pct !== null || $fixed !== null;
     $nextPrice = round($corePrice + ($corePrice * (float) ($pct ?? 0) / 100) + (float) ($fixed ?? 0), 2);
-    $coreDescription = trim(strip_tags(html_entity_decode((string) ($product->description ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+    $coreDescription = (string) ($product->description ?? '');
     $noSku = $sku === '';
 @endphp
 

@@ -30,13 +30,8 @@ class CoreWords
 
         return [
             'title' => (string) ($row->name ?? ''),
-            'description' => self::plain((string) ($row->description ?? '')),
+            // As stored and as the editor loads it, so a save compares like with like.
+            'description' => (string) ($row->description ?? ''),
         ];
-    }
-
-    /** The description as the box shows it: entities decoded, tags gone. */
-    public static function plain(string $html): string
-    {
-        return trim(strip_tags(html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8')));
     }
 }

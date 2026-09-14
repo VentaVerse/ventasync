@@ -1067,7 +1067,8 @@ class ShopeeProductController extends Controller
 
         // The catalog's words; the listing's own override them in the payload.
         $itemName = html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $description = trim(strip_tags(html_entity_decode($product->description ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+        // Words with their line breaks kept; strip_tags alone ran the paragraphs together.
+        $description = \App\Support\Catalog\DescriptionText::of((string) ($product->description ?? ''));
 
         // Step 1: Upload images
         $create = app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class);

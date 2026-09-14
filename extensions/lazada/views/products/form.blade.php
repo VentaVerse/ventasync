@@ -68,7 +68,7 @@
 
     // The catalog's own description, as the Content card's placeholder: the
     // greyed value an empty field follows.
-    $coreDescription = trim(strip_tags(html_entity_decode((string) ($productRow->description ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+    $coreDescription = (string) ($productRow->description ?? '');
 
     // The values a mapped attribute can read off the catalog product. Data
     // only, no behaviour: the preview lives in
