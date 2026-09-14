@@ -2942,7 +2942,7 @@ class ShopeeProductController extends Controller
 
         $r = $this->performListingUpdate($productId, $client, $auth);
 
-        return redirect()->back()->with($r['ok'] ? 'status' : 'error', $r['message']);
+        return redirect()->back()->with($r['ok'] && ($r['failure'] ?? null) === null ? 'status' : 'error', $r['message']);
     }
 
     /**
@@ -2950,17 +2950,20 @@ class ShopeeProductController extends Controller
      * the listing page's Push update and the bulk Send path (which updates
      * already-listed selections instead of silently skipping them).
      *
-     * @return array{ok: bool, message: string}
+     * An update that went can still carry a failure: a variation Shopee
+     * would not remove or add. That failure is the listing's outcome.
+     *
+     * @return array{ok: bool, message: string, failure?: ?string}
      */
     private function performListingUpdate(int $productId, ShopeeClient $client, array $auth): array
     {
         $answer = $this->attemptListingUpdate($productId, $client, $auth);
-        $this->listingStates()->recordOutcome($productId, $answer['ok'] ? null : $answer['message']);
+        $this->listingStates()->recordOutcome($productId, $answer['ok'] ? ($answer['failure'] ?? null) : $answer['message']);
 
         return $answer;
     }
 
-    /** @return array{ok: bool, message: string} */
+    /** @return array{ok: bool, message: string, failure?: ?string} */
     private function attemptListingUpdate(int $productId, ShopeeClient $client, array $auth): array
     {
         $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
@@ -3079,11 +3082,29 @@ class ShopeeProductController extends Controller
             (new \Extensions\shopee\Services\Shopee\ShopeeDescription($client))->shapeOf($auth, (int) $link->shopee_item_id)
         );
 
+        /* The item's models are read once; the rename and the store's
+         * variation switches both work from that read. */
+        $switches = app(\Extensions\shopee\Services\Shopee\ShopeeVariationSwitches::class);
+        $read = $switches->readFor($client, $auth, (int) $link->shopee_item_id, $productId);
+
         /* The catalog names the item's own variation types. A rename that
          * cannot happen is skipped and said, and the rest of the update goes. */
         $rename = app(\Extensions\shopee\Services\Shopee\ShopeeVariationRename::class);
-        $renamed = $rename->apply($client, $auth, $rename->plan($client, $auth, (int) $link->shopee_item_id, $productId));
+        $plan = $rename->plan($client, $auth, (int) $link->shopee_item_id, $productId, $read);
+        $renamed = $rename->apply($client, $auth, $plan);
         $warning = $renamed['ok'] ? '' : ' ' . $renamed['message'];
+
+        /* A variation switched off for this store stops selling: its model
+         * is deleted. One sold here that the item lacks is added. A refusal
+         * is the listing's outcome, and the rest of the update still goes. */
+        $followed = $switches->follow(
+            $client, $auth, (int) $link->shopee_item_id, $productId,
+            \Extensions\shopee\Services\Shopee\ShopeeVariationSwitches::renamed($read, $plan, $renamed),
+            fn (float $core) => (float) $listing->priceFor($core),
+            $create->tierImageUploader($client, $auth)
+        );
+        $switchNote = \Extensions\shopee\Services\Shopee\ShopeeVariationSwitches::note($followed);
+        $switchNote = $switchNote === '' ? '' : ' ' . $switchNote;
 
         $path = '/api/v2/product/update_item';
         try {
@@ -3094,7 +3115,7 @@ class ShopeeProductController extends Controller
                 $path, [], $payload
             );
         } catch (\Throwable $e) {
-            return ['ok' => false, 'message' => 'Update failed: ' . \App\Support\TransportError::plain($e, 'Shopee')];
+            return ['ok' => false, 'message' => 'Update failed: ' . \App\Support\TransportError::plain($e, 'Shopee') . $switchNote];
         }
 
         ShopeeApiLog::safeCreate([
@@ -3111,7 +3132,7 @@ class ShopeeProductController extends Controller
             $msg = is_array($result['body'] ?? null)
                 ? (string) ($result['body']['message'] ?? ($result['body']['error'] ?? 'no response'))
                 : 'no response';
-            return ['ok' => false, 'message' => 'Update failed: ' . $msg];
+            return ['ok' => false, 'message' => 'Update failed: ' . $msg . $switchNote];
         }
 
         // Provenance (#104): what went, from where, when.
@@ -3143,7 +3164,7 @@ class ShopeeProductController extends Controller
             'Pushed a content update onto Shopee item ' . $link->shopee_item_id
         );
 
-        return ['ok' => true, 'message' => 'Update pushed.' . $warning];
+        return ['ok' => true, 'message' => 'Update pushed.' . $warning . $switchNote, 'failure' => $followed['failure']];
     }
 
     public function toggleListing(Request $request, int $productId, ShopeeClient $client)

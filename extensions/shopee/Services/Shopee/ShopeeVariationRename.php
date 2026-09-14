@@ -30,31 +30,25 @@ class ShopeeVariationRename
     private const VALUE_NAME_LIMIT = 50;
 
     /**
+     * @param null|array{ok: bool, reason: string, response: array} $read
+     *        the item's models as already read (ShopeeVariationPush::readModels()),
+     *        or null to read them here
      * @return array{ok: bool, message: string, payload: ?array}
      *         ok false carries a one-line warning and no rename is sent;
      *         ok true with a null payload means nothing needs renaming.
      */
-    public function plan(ShopeeClient $client, array $auth, int $itemId, int $productId): array
+    public function plan(ShopeeClient $client, array $auth, int $itemId, int $productId, ?array $read = null): array
     {
         $catalog = $this->catalog($productId);
         if ($catalog === null) {
             return $this->nothing();
         }
 
-        try {
-            $res = $client->shopGet(
-                $auth['mode'], (int) $auth['partner_id'], (string) $auth['partner_key'],
-                (string) $auth['access_token'], (int) $auth['shop_id'],
-                '/api/v2/product/get_model_list', ['item_id' => $itemId]
-            );
-        } catch (\Throwable $e) {
-            return $this->refuse('Shopee did not say what variations the item has (' . $this->bare(\App\Support\TransportError::plain($e, 'Shopee')) . ')');
+        $read ??= app(ShopeeVariationPush::class)->readModels($client, $auth, $itemId);
+        if (!($read['ok'] ?? false)) {
+            return $this->refuse('Shopee did not say what variations the item has (' . $this->bare((string) ($read['reason'] ?? '')) . ')');
         }
-        $body = is_array($res['body'] ?? null) ? $res['body'] : [];
-        if (!($res['ok'] ?? false) || trim((string) ($body['error'] ?? '')) !== '') {
-            return $this->refuse('Shopee did not say what variations the item has (' . $this->bare(\App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => $body])) . ')');
-        }
-        $resp = is_array($body['response'] ?? null) ? $body['response'] : [];
+        $resp = (array) ($read['response'] ?? []);
 
         $legacy = array_values((array) ($resp['tier_variation'] ?? []));
         $standardise = array_values((array) ($resp['standardise_tier_variation'] ?? []));

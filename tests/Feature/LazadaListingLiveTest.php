@@ -1311,6 +1311,190 @@ class LazadaListingLiveTest extends TestCase
     }
 
 
+    private function storeId(): int
+    {
+        return (int) LazadaSetting::defaultStore()->id;
+    }
+
+    /** A Red, Blue and Green product on an item already on Lazada, ready for the upload button. */
+    private function colourProduct(string $sku): int
+    {
+        $pid = $this->productWithPicture($sku);
+        $this->addOption($pid, 'Color', ['Red', 'Blue', 'Green'], ['Red' => $sku . '-R', 'Blue' => $sku . '-B', 'Green' => $sku . '-G']);
+        $this->listingOn($pid, '2712258176');
+        \Extensions\lazada\Models\LazadaCategoryTemplate::create([
+            'region' => 'ph', 'primary_category_id' => 9257,
+            'template_body' => ['data' => ['attributes' => []]], 'fetched_at' => now(),
+        ]);
+        $this->postResponses['/image/migrate'] = ['ok' => true, 'status' => 200, 'body' => [
+            'code' => '0', 'data' => ['image' => ['url' => 'https://sg-live.slatic.net/p/fake.jpg']],
+        ]];
+
+        return $pid;
+    }
+
+    /** The item as Lazada reads it: Red, Blue and Green are SKU ids 1, 2 and 3, each with its status. */
+    private function liveColours(string $sku, array $statuses = [], string $itemStatus = 'active'): void
+    {
+        $skus = [];
+        $id = 0;
+        foreach (['R' => 'Red', 'B' => 'Blue', 'G' => 'Green'] as $suffix => $name) {
+            $skus[] = ['SkuId' => ++$id, 'SellerSku' => $sku . '-' . $suffix, 'Status' => $statuses[$suffix] ?? 'active', 'saleProp' => ['color_family' => $name]];
+        }
+        $this->getResponses['/product/item/get'] = ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => [
+            'item_id' => 2712258176, 'status' => $itemStatus, 'attributes' => ['name' => 'Qable IC50', 'brand' => 'No Brand'], 'skus' => $skus,
+        ]]];
+    }
+
+    private function sellHere(int $pid, array $onSkus): void
+    {
+        \App\Integrations\Listings\ListingVariations::save('lazada', $this->storeId(), $pid, $onSkus);
+    }
+
+    private function pushListing(int $pid): \Illuminate\Testing\TestResponse
+    {
+        return $this->actingAs($this->manager())->post(route('ext.lazada.products.upload', $pid))->assertRedirect();
+    }
+
+    /** @return array<string, array<string, mixed>> the update's SKU rows by seller SKU */
+    private function updateSkus(): array
+    {
+        $update = collect($this->sentPosts)->firstWhere('path', '/product/update');
+        $this->assertNotNull($update, 'the update reaches Lazada');
+
+        return collect(json_decode($update['params']['payload'], true)['Request']['Product']['Skus']['Sku'])->keyBy('SellerSku')->all();
+    }
+
+    /** @return list<array> every /product/deactivate payload sent */
+    private function deactivations(): array
+    {
+        return collect($this->sentPosts)->where('path', '/product/deactivate')
+            ->map(fn ($p) => json_decode($p['params']['payload'], true))->values()->all();
+    }
+
+    public function test_a_variation_switched_off_for_the_store_is_deactivated_by_its_sku_alone(): void
+    {
+        $pid = $this->colourProduct('SW-OFF');
+        $this->liveColours('SW-OFF');
+        $this->sellHere($pid, ['SW-OFF-B', 'SW-OFF-G']);
+
+        $this->pushListing($pid)->assertSessionHas('status', 'Update pushed. Switched off on Lazada: Red (SW-OFF-R).');
+
+        $this->assertSame(
+            [['Request' => ['Product' => ['ItemId' => 2712258176, 'Skus' => ['SkuId' => 1, 'SellerSku' => 'SW-OFF-R']]]]],
+            $this->deactivations(),
+            'one call, carrying only the switched-off SKU'
+        );
+        $skus = $this->updateSkus();
+        $this->assertSame(['SW-OFF-B', 'SW-OFF-G'], array_keys($skus));
+        foreach ($skus as $row) {
+            $this->assertArrayNotHasKey('Status', $row, 'the variations still sold are left as they are');
+        }
+        $this->assertNull(app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)->errors([$pid])[$pid]);
+    }
+
+    public function test_a_variation_switched_back_on_is_sent_active_in_the_update(): void
+    {
+        $pid = $this->colourProduct('SW-BACK');
+        $this->sellHere($pid, ['SW-BACK-B', 'SW-BACK-G']);
+        $this->sellHere($pid, ['SW-BACK-R', 'SW-BACK-B', 'SW-BACK-G']);
+        $this->liveColours('SW-BACK', ['R' => 'inactive']);
+
+        $this->pushListing($pid)->assertSessionHas('status', 'Update pushed. Switched back on: Red (SW-BACK-R).');
+
+        $skus = $this->updateSkus();
+        $this->assertSame('active', $skus['SW-BACK-R']['Status']);
+        $this->assertArrayNotHasKey('Status', $skus['SW-BACK-B']);
+        $this->assertArrayNotHasKey('Status', $skus['SW-BACK-G']);
+        $this->assertSame([], $this->deactivations());
+    }
+
+    public function test_a_sku_already_inactive_on_lazada_is_not_deactivated_again(): void
+    {
+        $pid = $this->colourProduct('SW-DONE');
+        $this->sellHere($pid, ['SW-DONE-B', 'SW-DONE-G']);
+        $this->liveColours('SW-DONE', ['R' => 'inactive']);
+
+        $this->pushListing($pid)->assertSessionHas('status', 'Update pushed.');
+
+        $this->assertSame([], $this->deactivations());
+        $this->assertArrayNotHasKey('SW-DONE-R', $this->updateSkus());
+    }
+
+    public function test_a_refused_deactivate_is_the_listings_error(): void
+    {
+        $pid = $this->colourProduct('SW-NO');
+        $this->sellHere($pid, ['SW-NO-B', 'SW-NO-G']);
+        $this->liveColours('SW-NO');
+        $this->postResponses['/product/deactivate'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 'E0006', 'message' => 'Unexpected internal error']];
+
+        $line = 'Lazada refused to switch off Red (SW-NO-R): Unexpected internal error (code E0006).';
+        $this->pushListing($pid)->assertSessionHas('error', 'Update pushed. ' . $line);
+
+        $this->assertSame($line, app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)->errors([$pid])[$pid]);
+    }
+
+    public function test_lazada_saying_the_sku_is_already_inactive_counts_as_done(): void
+    {
+        $pid = $this->colourProduct('SW-E4');
+        $this->sellHere($pid, ['SW-E4-B', 'SW-E4-G']);
+        $this->liveColours('SW-E4');
+        $this->postResponses['/product/deactivate'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 'E0004', 'message' => 'Product Status not online']];
+
+        $this->pushListing($pid)->assertSessionHas('status', 'Update pushed. Switched off on Lazada: Red (SW-E4-R).');
+
+        $this->assertNull(app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)->errors([$pid])[$pid]);
+    }
+
+    public function test_an_item_switched_off_as_a_whole_is_not_switched_back_on_by_a_push(): void
+    {
+        $pid = $this->colourProduct('SW-ITEM');
+        $this->liveColours('SW-ITEM', ['R' => 'inactive', 'B' => 'inactive', 'G' => 'inactive'], 'inactive');
+
+        $this->pushListing($pid)->assertSessionHas('status', 'Update pushed.');
+
+        foreach ($this->updateSkus() as $row) {
+            $this->assertArrayNotHasKey('Status', $row);
+        }
+    }
+
+    public function test_a_group_update_deactivates_a_variation_switched_off_for_the_store(): void
+    {
+        $pid = $this->colourProduct('SW-GRP');
+        $this->sellHere($pid, ['SW-GRP-B', 'SW-GRP-G']);
+        $this->liveColours('SW-GRP');
+        $listing = LazadaProduct::query()->where('product_id', $pid)->firstOrFail();
+        $group = \Extensions\lazada\Models\LazadaProductGroup::create(['name' => 'Switch group', 'lazada_category_id' => 9257]);
+        \Extensions\lazada\Models\LazadaProductGroupProduct::create([
+            'lazada_product_group_id' => $group->id, 'product_id' => $pid,
+            'lazada_product_id' => $listing->id, 'sync_status' => 'pending',
+        ]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.lazada.product-groups.updateProduct', $group->id), ['ids' => [$pid]])
+            ->assertRedirect();
+
+        $this->assertStringContainsString('Switched off on Lazada: Red (SW-GRP-R).', (string) session('status'));
+        $this->assertSame([['Request' => ['Product' => ['ItemId' => 2712258176, 'Skus' => ['SkuId' => 1, 'SellerSku' => 'SW-GRP-R']]]]], $this->deactivations());
+        $this->assertSame(['SW-GRP-B', 'SW-GRP-G'], array_keys($this->updateSkus()));
+    }
+
+    public function test_activating_the_item_leaves_a_variation_switched_off_for_the_store_off(): void
+    {
+        $pid = $this->colourProduct('SW-TOG');
+        $this->sellHere($pid, ['SW-TOG-B', 'SW-TOG-G']);
+        $this->liveColours('SW-TOG', ['R' => 'inactive', 'B' => 'inactive', 'G' => 'inactive'], 'inactive');
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.lazada.listings.toggle', $pid), ['action' => 'activate'])
+            ->assertRedirect()
+            ->assertSessionHas('status');
+
+        $skus = $this->updateSkus();
+        $this->assertSame(['SW-TOG-B', 'SW-TOG-G'], array_keys($skus));
+        $this->assertSame(['active', 'active'], array_column($skus, 'Status'));
+    }
+
     /** The clean-up returns a copy equal to its group's value to blank, and leaves the listing's own alone. */
     public function test_the_follow_migration_clears_only_copies_equal_to_the_group(): void
     {

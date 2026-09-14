@@ -247,6 +247,7 @@ class LazadaPushPayload
         $keyForPosition = [];
         $namePairs = [];
         $liveItem = null;
+        $soldHidden = [];
         $combos = collect();
         $comboValuesByCombo = collect();
         if ($povRows->count() > 0) {
@@ -653,6 +654,12 @@ class LazadaPushPayload
             $payload['Request']['Product']['variation'] = $rename['variation'];
         }
 
+        /* On an item already on Lazada, a variation this store does not sell
+         * is named for deactivating, and one it sells again that Lazada holds
+         * inactive goes up active. See LazadaVariationSwitch. */
+        $switch = LazadaVariationSwitch::plan((int) $listing->product_id, $soldHidden, $liveItem, $payload['Request']['Product']['Skus']['Sku']);
+        $payload['Request']['Product']['Skus']['Sku'] = $switch['skus'];
+
         $preview = [
             'listing_id' => $listing->id,
             'primary_category_id' => $listing->primary_category_id,
@@ -662,6 +669,8 @@ class LazadaPushPayload
             'payload' => $payload,
             'variation_renames' => $rename['renames'],
             'variation_rename_skipped' => $rename['skipped'],
+            'variations_off' => $switch['off'],
+            'variations_back' => $switch['back'],
         ];
 
         return [$payload, $preview];

@@ -311,25 +311,34 @@ class LazadaLiveListing
     public const PACKAGE_FIELDS = ['package_weight', 'package_length', 'package_width', 'package_height'];
 
     /**
-     * An item/get answer reduced to three things:
+     * An item/get answer reduced to what an update has to respect:
      * - keys: the variation keys the SKUs carry, in their order, from each
      *   SKU's saleProp map ({"Length": "1m"}); [] when the item has none;
      * - packages: each SKU's package_weight/length/width/height, only the
      *   ones it carries;
      * - variation: the item's variation types (variation1..4) with name,
      *   customize (true for a seller-defined type) and has_image, in slot
-     *   order; null when the answer carries no variation object.
+     *   order; null when the answer carries no variation object;
+     * - status: the item's own status, lowercased;
+     * - skus: each SKU's id, seller SKU and lowercased status.
      *
-     * @return array{keys: list<string>, packages: list<array<string, string>>, variation: ?list<array{slot: int, name: string, customize: bool, has_image: mixed}>}
+     * @return array{keys: list<string>, packages: list<array<string, string>>, variation: ?list<array{slot: int, name: string, customize: bool, has_image: mixed}>, status: string, skus: list<array{sku_id: ?int, seller_sku: string, status: string}>}
      */
     public static function shapeOf(array $data): array
     {
         $keys = [];
         $packages = [];
+        $skus = [];
         foreach ((array) ($data['skus'] ?? []) as $sku) {
             if (! is_array($sku)) {
                 continue;
             }
+            $skuId = $sku['SkuId'] ?? $sku['sku_id'] ?? null;
+            $skus[] = [
+                'sku_id' => is_numeric($skuId) ? (int) $skuId : null,
+                'seller_sku' => trim((string) ($sku['SellerSku'] ?? $sku['seller_sku'] ?? '')),
+                'status' => strtolower(trim((string) ($sku['Status'] ?? $sku['status'] ?? ''))),
+            ];
             foreach ((array) ($sku['saleProp'] ?? []) as $key => $value) {
                 if (is_string($key) && trim($key) !== '' && ! in_array($key, $keys, true)) {
                     $keys[] = $key;
@@ -367,7 +376,11 @@ class LazadaLiveListing
             usort($variation, fn ($a, $b) => $a['slot'] <=> $b['slot']);
         }
 
-        return ['keys' => $keys, 'packages' => $packages, 'variation' => $variation];
+        return [
+            'keys' => $keys, 'packages' => $packages, 'variation' => $variation,
+            'status' => strtolower(trim((string) ($data['status'] ?? ''))),
+            'skus' => $skus,
+        ];
     }
 
     public function fetch(object $setting, array $creds, string $itemId): array

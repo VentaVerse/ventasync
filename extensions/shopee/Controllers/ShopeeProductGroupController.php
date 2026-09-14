@@ -2172,12 +2172,41 @@ class ShopeeProductGroupController extends Controller
                 (new \Extensions\shopee\Services\Shopee\ShopeeDescription($client))->shapeOf($auth, (int) $itemId)
             );
 
+            /* The item's models are read once; the rename and the store's
+             * variation switches both work from that read. */
+            $switches = app(\Extensions\shopee\Services\Shopee\ShopeeVariationSwitches::class);
+            $read = $switches->readFor($client, $auth, $itemId, (int) $productId);
+
             /* The catalog names the item's own variation types. A rename that
              * cannot happen is skipped and said, and the rest of the update goes. */
             $rename = app(\Extensions\shopee\Services\Shopee\ShopeeVariationRename::class);
-            $renamed = $rename->apply($client, $auth, $rename->plan($client, $auth, $itemId, (int) $productId));
+            $plan = $rename->plan($client, $auth, $itemId, (int) $productId, $read);
+            $renamed = $rename->apply($client, $auth, $plan);
             if (!$renamed['ok']) {
                 $warnings[] = "#{$productId}: {$renamed['message']}";
+            }
+
+            /* A variation switched off for this store stops selling: its
+             * model is deleted. One sold here that the item lacks is added,
+             * priced by the listing's own rule, else the group's. */
+            $inherit = app(\Extensions\shopee\Services\Shopee\ShopeeInheritedSettings::class);
+            $eff = $inherit->fill(
+                $ownListing ?? (new ShopeeListing())->forceFill(['product_id' => (int) $productId]),
+                $inherit->forProducts([(int) $productId])[(int) $productId] ?? null
+            )['listing'];
+            if ($eff->markup_percent === null && $eff->markup_fixed === null) {
+                $eff->markup_percent = $group->markup_percent;
+                $eff->markup_fixed = $group->markup_fixed;
+            }
+            $followed = $switches->follow(
+                $client, $auth, $itemId, (int) $productId,
+                \Extensions\shopee\Services\Shopee\ShopeeVariationSwitches::renamed($read, $plan, $renamed),
+                fn (float $core) => (float) $eff->priceFor($core),
+                $create->tierImageUploader($client, $auth)
+            );
+            $switchNote = \Extensions\shopee\Services\Shopee\ShopeeVariationSwitches::note($followed);
+            if ($switchNote !== '') {
+                $warnings[] = "#{$productId}: {$switchNote}";
             }
 
             $path = '/api/v2/product/update_item';
@@ -2224,6 +2253,10 @@ class ShopeeProductGroupController extends Controller
                         $this->listingStates()->recordOutcome($productId, (string) ($outcome['error'] ?? ''));
                         break;
                     }
+                }
+                // A variation Shopee would not remove or add is the outcome too.
+                if ($followed['failure'] !== null) {
+                    $this->listingStates()->recordOutcome($productId, $followed['failure']);
                 }
 
                 ActivityLogger::log('updated', 'Shopee Product', $productId, 'Updated item ' . $itemId . ' on Shopee via product group');

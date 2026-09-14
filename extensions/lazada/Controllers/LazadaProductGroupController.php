@@ -21,6 +21,7 @@ use Extensions\lazada\Services\Lazada\LazadaItemCache;
 use Extensions\lazada\Services\Lazada\LazadaPushPayload;
 use Extensions\lazada\Services\LazadaStockPushService;
 use Extensions\lazada\Services\Lazada\LazadaLiveListing;
+use Extensions\lazada\Services\Lazada\LazadaVariationSwitch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -1116,10 +1117,15 @@ class LazadaProductGroupController extends Controller
                 'user_id' => auth()->id(),
             ]);
 
+            // A variation switched off for this store stops selling, whatever the update's answer.
+            $switched = app(LazadaVariationSwitch::class)->switchOff($setting, $creds, (string) $listing->lazada_item_id, $preview['variations_off'] ?? []);
+            $switchRefusal = LazadaVariationSwitch::refusal($productId, $switched['refused']);
+
             $e = $this->payload()->extractLazadaError($result);
             if ($e['ok']) {
                 $readBack = app(LazadaItemCache::class)->refreshListing($listing, $setting, $client, 'lazada.product.item.get.cache.group');
-                $kept = $this->payload()->renameReadBack($preview['variation_renames'] ?? [], $readBack);
+                $kept = LazadaVariationSwitch::line($this->payload()->renameReadBack($preview['variation_renames'] ?? [], $readBack), $switchRefusal);
+                $switchNote = LazadaVariationSwitch::summary($productId, $switched['off'], $preview['variations_back'] ?? []);
                 $this->persistSyncStatus($listing, 'push', true);
 
                 /* Provenance (#104): the GROUP's settings made this push -
@@ -1140,14 +1146,14 @@ class LazadaProductGroupController extends Controller
                     'Updated ERP #' . $productId . ' on Lazada via product group');
 
                 return $kept === null
-                    ? ['ok' => true, 'message' => 'updated', 'warning' => $this->payload()->renameWarning($preview)]
-                    : ['ok' => false, 'message' => $kept];
+                    ? ['ok' => true, 'message' => 'updated', 'warning' => LazadaVariationSwitch::line($switchNote, $this->payload()->renameWarning($preview))]
+                    : ['ok' => false, 'message' => LazadaVariationSwitch::line($switchNote, $kept)];
             }
 
-            $reason = (string) ($e['message'] ?? 'Unknown error');
+            $reason = LazadaVariationSwitch::line((string) ($e['message'] ?? 'Unknown error'), $switchRefusal);
             $this->recordGroupFailure($group, $pivot, $productId, $reason);
 
-            return ['ok' => false, 'message' => $reason];
+            return ['ok' => false, 'message' => LazadaVariationSwitch::line(LazadaVariationSwitch::summary($productId, $switched['off'], []), $reason)];
 
     }
 

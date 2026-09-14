@@ -21,6 +21,7 @@ use Extensions\lazada\Services\Lazada\LazadaImages;
 use Extensions\lazada\Services\Lazada\LazadaItemCache;
 use Extensions\lazada\Services\Lazada\LazadaItemMatcher;
 use Extensions\lazada\Services\Lazada\LazadaPushPayload;
+use Extensions\lazada\Services\Lazada\LazadaVariationSwitch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -1333,6 +1334,12 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         $result = $client->post((string) $setting->region, $apiPath, $params);
 
+        // A variation switched off for this store stops selling, whatever the update's answer.
+        $switched = $isUpdate
+            ? app(LazadaVariationSwitch::class)->switchOff($setting, $creds, (string) $listing->lazada_item_id, $preview['variations_off'] ?? [])
+            : ['off' => [], 'refused' => []];
+        $switchRefusal = LazadaVariationSwitch::refusal((int) $saved->product_id, $switched['refused']);
+
         $this->persistProductSyncStatus($saved, 'upload_to_lazada', $result, 'listing');
 
         // If successful, store lazada_item_id (create) or refresh variants (update).
@@ -1343,15 +1350,17 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 // Refresh variant cache after update; the same read tells whether a rename was taken.
                 $readBack = $this->itemCache()->refreshListing($saved, $setting, $client);
                 $kept = $this->payload()->renameReadBack($preview['variation_renames'] ?? [], $readBack);
-                if ($kept !== null) {
-                    $this->states()->recordOutcome((int) $saved->product_id, $kept);
+                $switchNote = LazadaVariationSwitch::summary((int) $saved->product_id, $switched['off'], $preview['variations_back'] ?? []);
+                $failure = LazadaVariationSwitch::line($kept, $switchRefusal);
+                if ($failure !== null) {
+                    $this->states()->recordOutcome((int) $saved->product_id, $failure);
 
-                    return ['ok' => false, 'message' => $kept, 'errors' => []];
+                    return ['ok' => false, 'message' => LazadaVariationSwitch::line($kept === null ? 'Update pushed.' : null, $switchNote, $failure), 'errors' => []];
                 }
 
                 $note = $this->payload()->renameWarning($preview);
 
-                return ['ok' => true, 'message' => 'Update pushed.' . ($note !== null ? ' ' . $note : ''), 'errors' => []];
+                return ['ok' => true, 'message' => LazadaVariationSwitch::line('Update pushed.', $switchNote, $note), 'errors' => []];
             }
 
             $itemId = $this->payload()->extractCreatedItemId($result);
@@ -1462,7 +1471,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $labeller = $template && $template->template_body ? $this->attrs()->fieldLabeller($template->template_body) : null;
         $line = $this->payload()->formatLazadaResultMessage('Upload', $result, $labeller);
         if (! ($e['ok'] ?? false)) {
-            $this->states()->recordOutcome((int) $listing->product_id, $line);
+            $this->states()->recordOutcome((int) $listing->product_id, LazadaVariationSwitch::line($line, $switchRefusal));
 
             /* The refusal on the row it is about (the owner, 2026-09-06: the
              * sheet used to say "this field is required" under the row; the
@@ -1472,7 +1481,9 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 ? $this->attributeRowErrors($template->template_body, $this->payload()->extractLazadaError($result))
                 : [];
 
-            return ['ok' => false, 'message' => $line, 'errors' => $rowErrors];
+            $switchNote = LazadaVariationSwitch::summary((int) $saved->product_id, $switched['off'], []);
+
+            return ['ok' => false, 'message' => LazadaVariationSwitch::line($line, $switchNote, $switchRefusal), 'errors' => $rowErrors];
         }
 
         return ['ok' => true, 'message' => $line, 'errors' => []];
@@ -1690,6 +1701,12 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             }
             if (empty($live['skus'])) {
                 return ['ok' => false, 'message' => 'Lazada returned no SKUs for this item, so there is nothing to activate.'];
+            }
+            // A variation switched off for this store stays off when the item comes back.
+            $hidden = \App\Integrations\Listings\ListingVariations::hidden('lazada', (int) ($listing->lazada_setting_id ?? 0), [(int) $listing->product_id]);
+            $live['skus'] = array_values(array_filter($live['skus'], fn ($s) => \App\Integrations\Listings\ListingVariations::allows($hidden, (int) $listing->product_id, (string) ($s['SellerSku'] ?? ''))));
+            if ($live['skus'] === []) {
+                return ['ok' => false, 'message' => \App\Integrations\Listings\ListingVariations::noneSoldMessage('Lazada')];
             }
 
             $apiPath = '/product/update';

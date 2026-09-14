@@ -93,20 +93,31 @@ class ShopeeVariationPush
      * A flat item (no models yet) ships its whole structure through the
      * existing init path instead.
      *
+     * A caller that has already read the item passes that read (readModels())
+     * so the item is not asked twice.
+     *
+     * @param null|array{ok: bool, reason: string, response: array} $read
      * @return array{ok: bool, message: string, added: int}
      */
-    public function pushMissingModels(ShopeeClient $client, array $auth, int $itemId, int $productId, \Closure $priceFor, ?\Closure $uploadImageId = null): array
+    public function pushMissingModels(ShopeeClient $client, array $auth, int $itemId, int $productId, \Closure $priceFor, ?\Closure $uploadImageId = null, ?array $read = null): array
     {
-        $modelRes = $client->shopGet(
-            $auth['mode'], (int) $auth['partner_id'], (string) $auth['partner_key'],
-            (string) $auth['access_token'], (int) $auth['shop_id'],
-            '/api/v2/product/get_model_list', ['item_id' => $itemId]
-        );
-        $body = $modelRes['body'] ?? [];
-        if (!($modelRes['ok'] ?? false) || (($body['error'] ?? '') !== '' && ($body['error'] ?? null) !== null)) {
-            return ['ok' => false, 'message' => 'Shopee did not answer for the item\'s variations: ' . (string) ($body['message'] ?? 'no answer') . ' Nothing was changed.', 'added' => 0];
+        if ($read !== null) {
+            if (!($read['ok'] ?? false)) {
+                return ['ok' => false, 'message' => 'Shopee did not answer for the item\'s variations: ' . (string) ($read['reason'] ?? 'no answer') . ' Nothing was changed.', 'added' => 0];
+            }
+            $resp = (array) ($read['response'] ?? []);
+        } else {
+            $modelRes = $client->shopGet(
+                $auth['mode'], (int) $auth['partner_id'], (string) $auth['partner_key'],
+                (string) $auth['access_token'], (int) $auth['shop_id'],
+                '/api/v2/product/get_model_list', ['item_id' => $itemId]
+            );
+            $body = $modelRes['body'] ?? [];
+            if (!($modelRes['ok'] ?? false) || (($body['error'] ?? '') !== '' && ($body['error'] ?? null) !== null)) {
+                return ['ok' => false, 'message' => 'Shopee did not answer for the item\'s variations: ' . (string) ($body['message'] ?? 'no answer') . ' Nothing was changed.', 'added' => 0];
+            }
+            $resp = $body['response'] ?? $body;
         }
-        $resp = $body['response'] ?? $body;
         $shopeeModels = (array) ($resp['model'] ?? []);
         $shopeeTiers = (array) ($resp['tier_variation'] ?? []);
 
@@ -294,6 +305,34 @@ class ShopeeVariationPush
                 . ($extended > 0 ? ' (' . $extended . ' new tier option' . ($extended === 1 ? '' : 's') . ')' : '') . '.',
             'added' => count($newModels),
         ];
+    }
+
+    /**
+     * One get_model_list read of an item, in the shape every step of an
+     * update shares: the rename, the store's variation switches and the add
+     * path all work from it. A failed read carries Shopee's reason in plain
+     * words and an empty response.
+     *
+     * @return array{ok: bool, reason: string, response: array}
+     */
+    public function readModels(ShopeeClient $client, array $auth, int $itemId): array
+    {
+        try {
+            $res = $client->shopGet(
+                $auth['mode'], (int) $auth['partner_id'], (string) $auth['partner_key'],
+                (string) $auth['access_token'], (int) $auth['shop_id'],
+                '/api/v2/product/get_model_list', ['item_id' => $itemId]
+            );
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'reason' => \App\Support\TransportError::plain($e, 'Shopee'), 'response' => []];
+        }
+
+        $body = is_array($res['body'] ?? null) ? $res['body'] : [];
+        if (!($res['ok'] ?? false) || trim((string) ($body['error'] ?? '')) !== '') {
+            return ['ok' => false, 'reason' => \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => $body]), 'response' => []];
+        }
+
+        return ['ok' => true, 'reason' => '', 'response' => is_array($body['response'] ?? null) ? $body['response'] : []];
     }
 
     /**

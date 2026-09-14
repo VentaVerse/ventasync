@@ -509,6 +509,252 @@ class ShopeeAddModelTest extends TestCase
         $this->assertNotNull($this->postIndex('/api/v2/product/update_item'));
     }
 
+    /** Three pack sizes, all on the item as models 81, 82 and 83, linked by SKU. */
+    private function threePacksOnTheItem(): int
+    {
+        $pid = $this->variationProduct(
+            ['Pack size' => ['5 pcs', '10 pcs', '20 pcs']],
+            ['PK-5' => ['5 pcs'], 'PK-10' => ['10 pcs'], 'PK-20' => ['20 pcs']]
+        );
+        $this->linkForUpdate($pid);
+        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 800, 'shopee_model_id' => 82, 'sku' => 'PK-10']);
+        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 800, 'shopee_model_id' => 83, 'sku' => 'PK-20']);
+
+        return $pid;
+    }
+
+    private function packTier(): array
+    {
+        return [['name' => 'Pack size', 'option_list' => [['option' => '5 pcs'], ['option' => '10 pcs'], ['option' => '20 pcs']]]];
+    }
+
+    private function storeId(): int
+    {
+        return (int) ShopeeSetting::defaultStore()->id;
+    }
+
+    /** @return list<array> the bodies sent to one path, in order */
+    private function sentTo(string $path): array
+    {
+        return array_values(array_map(fn ($p) => $p['body'], array_filter($this->sentPosts, fn ($p) => $p['path'] === $path)));
+    }
+
+    /** @return list<string> the SKUs remembered as held by the store's item */
+    private function rememberedSkus(int $pid): array
+    {
+        $skus = (array) json_decode((string) DB::table(\App\Integrations\Listings\ListingVariations::STORE_SKUS)
+            ->where('channel', 'shopee')->where('product_id', $pid)->value('skus'), true);
+        sort($skus);
+
+        return $skus;
+    }
+
+    /**
+     * A variation switched off for the store stops selling: its model alone
+     * is deleted, the others are left exactly as they are, and the result
+     * names what went.
+     */
+    public function test_a_switched_off_variation_has_its_model_deleted_and_nothing_else(): void
+    {
+        $pid = $this->threePacksOnTheItem();
+        \App\Integrations\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, ['PK-5', 'PK-20']);
+        $this->itemHolds([
+            'tier_variation' => $this->packTier(),
+            'model' => [
+                ['model_id' => 81, 'model_sku' => 'PK-5', 'tier_index' => [0]],
+                ['model_id' => 82, 'model_sku' => 'PK-10', 'tier_index' => [1]],
+                ['model_id' => 83, 'model_sku' => 'PK-20', 'tier_index' => [2]],
+            ],
+        ]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.listings.push_update', $pid))
+            ->assertSessionHas('status');
+
+        $this->assertSame([['item_id' => 800, 'model_id' => 82]], $this->sentTo('/api/v2/product/delete_model'), 'Only the switched-off model is deleted.');
+        foreach (['/api/v2/product/add_model', '/api/v2/product/update_tier_variation', '/api/v2/product/init_tier_variation'] as $path) {
+            $this->assertSame([], $this->sentTo($path), $path . ' must not touch the other models.');
+        }
+        $this->assertNotNull($this->postIndex('/api/v2/product/update_item'), 'The rest of the update still goes.');
+
+        $status = (string) session('status');
+        $this->assertStringStartsWith('Update pushed.', $status);
+        $this->assertStringContainsString('Removed from Shopee: 10 pcs (PK-10).', $status);
+
+        $this->assertSame([81, 83], ShopeeProductLink::query()->where('product_id', $pid)->orderBy('shopee_model_id')
+            ->pluck('shopee_model_id')->map(fn ($v) => (int) $v)->all(), 'The deleted model takes its link with it.');
+        $this->assertSame(['PK-20', 'PK-5'], $this->rememberedSkus($pid), 'The item is remembered holding what is left.');
+        $this->assertNull(ShopeeListing::query()->where('product_id', $pid)->value('last_push_error'));
+    }
+
+    /**
+     * Switched back on, the variation returns through the add path: a new
+     * model on the option it had, no tier rebuilt, the links learn its id.
+     */
+    public function test_switching_it_back_on_adds_it_through_the_add_path(): void
+    {
+        $pid = $this->threePacksOnTheItem();
+        ShopeeProductLink::query()->where('shopee_model_id', 82)->delete();
+        $reads = 0;
+        $this->getResponses['/api/v2/product/get_model_list'] = function () use (&$reads) {
+            $reads++;
+            $models = [
+                ['model_id' => 81, 'model_sku' => 'PK-5', 'tier_index' => [0], 'price_info' => [['original_price' => 100]]],
+                ['model_id' => 83, 'model_sku' => 'PK-20', 'tier_index' => [2], 'price_info' => [['original_price' => 100]]],
+            ];
+            if ($reads > 1) {
+                $models[] = ['model_id' => 84, 'model_sku' => 'PK-10', 'tier_index' => [1]];
+            }
+
+            return ['ok' => true, 'status' => 200, 'body' => ['error' => '', 'response' => ['tier_variation' => $this->packTier(), 'model' => $models]]];
+        };
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.listings.push_update', $pid))
+            ->assertSessionHas('status');
+
+        $added = $this->sentTo('/api/v2/product/add_model');
+        $this->assertCount(1, $added);
+        $this->assertSame(800, (int) $added[0]['item_id']);
+        $this->assertSame('PK-10', $added[0]['model_list'][0]['model_sku']);
+        $this->assertSame([1], $added[0]['model_list'][0]['tier_index'], 'It returns on the option it already had.');
+        $this->assertSame([], $this->sentTo('/api/v2/product/update_tier_variation'));
+        $this->assertSame([], $this->sentTo('/api/v2/product/delete_model'));
+        $this->assertSame(2, $reads, 'One read for the update, one after the add to learn the new model.');
+
+        $this->assertStringContainsString('Added to Shopee: 10 pcs (PK-10).', (string) session('status'));
+        $this->assertTrue(ShopeeProductLink::query()->where('product_id', $pid)->where('shopee_model_id', 84)->exists());
+        $this->assertSame(['PK-10', 'PK-20', 'PK-5'], $this->rememberedSkus($pid));
+    }
+
+    /** A delete Shopee refuses is the listing's error, with Shopee's reason, and the link stays. */
+    public function test_a_refused_delete_is_the_listings_error(): void
+    {
+        $pid = $this->threePacksOnTheItem();
+        \App\Integrations\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, ['PK-5', 'PK-20']);
+        $this->itemHolds([
+            'tier_variation' => $this->packTier(),
+            'model' => [
+                ['model_id' => 81, 'model_sku' => 'PK-5', 'tier_index' => [0]],
+                ['model_id' => 82, 'model_sku' => 'PK-10', 'tier_index' => [1]],
+                ['model_id' => 83, 'model_sku' => 'PK-20', 'tier_index' => [2]],
+            ],
+        ]);
+        $this->postResponses['/api/v2/product/delete_model'] = ['ok' => true, 'status' => 200, 'body' => [
+            'error' => 'error_model_remove_model_in_promotion', 'message' => 'Model cannot be deleted when item/model is under promotion or groupbuy.',
+        ]];
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.listings.push_update', $pid))
+            ->assertSessionHas('error');
+
+        $error = (string) ShopeeListing::query()->where('product_id', $pid)->value('last_push_error');
+        $this->assertStringStartsWith('Not removed from Shopee: 10 pcs (PK-10) (', $error);
+        $this->assertStringContainsString('promotion', $error, 'Shopee\'s reason is kept.');
+        $this->assertStringContainsString('Update pushed.', (string) session('error'));
+        $this->assertTrue(ShopeeProductLink::query()->where('shopee_model_id', 82)->exists(), 'A model still live keeps its link.');
+        $this->assertSame([], $this->sentTo('/api/v2/product/add_model'));
+    }
+
+    /**
+     * The item's last model is never deleted while nothing sold here can
+     * take its place; once one is added, it goes, after the add.
+     */
+    public function test_the_last_remaining_model_is_never_deleted(): void
+    {
+        $pid = $this->variationProduct(['Pack size' => ['5 pcs', '10 pcs']], ['PK-5' => ['5 pcs'], 'PK-10' => ['10 pcs']]);
+        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 800, 'shopee_model_id' => 82, 'sku' => 'PK-10']);
+        ShopeeListing::create(['product_id' => $pid, 'shopee_category_id' => 100139, 'logistic_ids' => [8003]]);
+        \App\Integrations\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, ['PK-5']);
+        $this->itemHolds([
+            'tier_variation' => [['name' => 'Pack size', 'option_list' => [['option' => '5 pcs'], ['option' => '10 pcs']]]],
+            'model' => [['model_id' => 82, 'model_sku' => 'PK-10', 'tier_index' => [1], 'price_info' => [['original_price' => 100]]]],
+        ]);
+        $this->postResponses['/api/v2/product/add_model'] = ['ok' => true, 'status' => 200, 'body' => [
+            'error' => 'error_param', 'message' => 'Model tier_index err.',
+        ]];
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.listings.push_update', $pid))
+            ->assertSessionHas('error');
+
+        $this->assertSame([], $this->sentTo('/api/v2/product/delete_model'), 'The last model stays while nothing replaced it.');
+        $error = (string) ShopeeListing::query()->where('product_id', $pid)->value('last_push_error');
+        $this->assertStringContainsString('Not added to Shopee: 5 pcs (PK-5)', $error);
+        $this->assertStringContainsString('Not removed from Shopee: 10 pcs (PK-10) (a Shopee item keeps at least one variation', $error);
+
+        // Shopee takes the add: the last model goes, after it.
+        $this->sentPosts = [];
+        unset($this->postResponses['/api/v2/product/add_model']);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.listings.push_update', $pid))
+            ->assertSessionHas('status');
+
+        $this->assertSame([['item_id' => 800, 'model_id' => 82]], $this->sentTo('/api/v2/product/delete_model'));
+        $this->assertLessThan($this->postIndex('/api/v2/product/delete_model'), $this->postIndex('/api/v2/product/add_model'));
+        $status = (string) session('status');
+        $this->assertStringContainsString('Removed from Shopee: 10 pcs (PK-10).', $status);
+        $this->assertStringContainsString('Added to Shopee: 5 pcs (PK-5).', $status);
+        $this->assertNull(ShopeeListing::query()->where('product_id', $pid)->value('last_push_error'));
+    }
+
+    /** Every variation switched off is still refused by name, and nothing is deleted. */
+    public function test_every_variation_off_is_refused_and_nothing_is_deleted(): void
+    {
+        $pid = $this->threePacksOnTheItem();
+        \App\Integrations\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, []);
+        $this->itemHolds([
+            'tier_variation' => $this->packTier(),
+            'model' => [
+                ['model_id' => 81, 'model_sku' => 'PK-5', 'tier_index' => [0]],
+                ['model_id' => 82, 'model_sku' => 'PK-10', 'tier_index' => [1]],
+                ['model_id' => 83, 'model_sku' => 'PK-20', 'tier_index' => [2]],
+            ],
+        ]);
+        $group = \Extensions\shopee\Models\ShopeeProductGroup::create([
+            'name' => 'Packs', 'shopee_setting_id' => $this->storeId(),
+            'shopee_category_id' => 100139, 'logistic_ids' => [8003],
+        ]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.product-groups.updateProduct', $group->id), ['ids' => [$pid]])
+            ->assertRedirect();
+
+        $this->assertSame([], $this->sentTo('/api/v2/product/delete_model'));
+        $this->assertSame(
+            \App\Integrations\Listings\ListingVariations::noneSoldMessage('Shopee'),
+            ShopeeListing::query()->where('product_id', $pid)->value('last_push_error')
+        );
+    }
+
+    /** The group's update follows the store's switches the same way. */
+    public function test_the_group_update_deletes_a_switched_off_variation(): void
+    {
+        $pid = $this->threePacksOnTheItem();
+        \App\Integrations\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, ['PK-5', 'PK-10']);
+        $this->itemHolds([
+            'tier_variation' => $this->packTier(),
+            'model' => [
+                ['model_id' => 81, 'model_sku' => 'PK-5', 'tier_index' => [0]],
+                ['model_id' => 82, 'model_sku' => 'PK-10', 'tier_index' => [1]],
+                ['model_id' => 83, 'model_sku' => 'PK-20', 'tier_index' => [2]],
+            ],
+        ]);
+        $group = \Extensions\shopee\Models\ShopeeProductGroup::create([
+            'name' => 'Packs', 'shopee_setting_id' => $this->storeId(),
+            'shopee_category_id' => 100139, 'logistic_ids' => [8003],
+        ]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.product-groups.updateProduct', $group->id), ['ids' => [$pid]])
+            ->assertSessionHas('status');
+
+        $this->assertSame([['item_id' => 800, 'model_id' => 83]], $this->sentTo('/api/v2/product/delete_model'));
+        $this->assertStringContainsString("#{$pid}: Removed from Shopee: 20 pcs (PK-20).", (string) session('status'));
+        $this->assertFalse(ShopeeProductLink::query()->where('shopee_model_id', 83)->exists());
+    }
+
     /**
      * Shopee refusing the rename call itself leaves the item as it was
      * (the call is whole or nothing), and the group's update still goes.
