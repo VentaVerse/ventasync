@@ -284,6 +284,29 @@ class LazadaLiveListing
         return $this->signedGet($setting, $creds, '/product/item/get', ['item_id' => $itemId]);
     }
 
+    /**
+     * The variation keys the item's SKUs carry now, in their order, from
+     * each SKU's saleProp map ({"Length": "1m"}); [] when the item has none.
+     * Throws when Lazada does not answer.
+     *
+     * @return list<string>
+     */
+    public function salePropKeys(object $setting, array $creds, string $itemId): array
+    {
+        $data = $this->signedGet($setting, $creds, '/product/item/get', ['item_id' => $itemId]);
+
+        $keys = [];
+        foreach ((array) ($data['skus'] ?? []) as $sku) {
+            foreach ((array) ($sku['saleProp'] ?? []) as $key => $value) {
+                if (is_string($key) && trim($key) !== '' && ! in_array($key, $keys, true)) {
+                    $keys[] = $key;
+                }
+            }
+        }
+
+        return $keys;
+    }
+
     public function fetch(object $setting, array $creds, string $itemId): array
     {
         try {

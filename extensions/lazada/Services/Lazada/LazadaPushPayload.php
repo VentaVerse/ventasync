@@ -275,14 +275,23 @@ class LazadaPushPayload
             // We never invent extra keys beyond what the category actually exposes — Lazada
             // silently ignores unknown sale-prop keys, which collapses multi-SKU payloads
             // into duplicates and triggers CHK_SKU_PROPS_DUPLICATE.
-            if ($setting && $client && !empty($listing->primary_category_id)) {
-                $variantKeys = app(LazadaAttributes::class)->getLazadaSalePropKeys((int)$listing->primary_category_id, $setting, $client);
-            }
-            if (empty($variantKeys) && !empty($listing->primary_category_id)) {
-                $variantKeys = app(LazadaAttributes::class)->cachedSalePropKeys((int)$listing->primary_category_id);
-            }
-            if (empty($variantKeys) && !$combos->isNotEmpty()) {
-                $variantKeys = app(LazadaAttributes::class)->guessLazadaVariantKeysFromOptionName((string)($povRows->first()->option_name ?? ''));
+            //
+            // An item already on Lazada comes first, with the keys its own SKUs
+            // carry: an update that sends any other key adds a second variation
+            // type beside the item's own, so the item's keys always win there.
+            $liveKeys = $this->itemSalePropKeys($listing, $setting, $client);
+            if ($liveKeys !== null && $liveKeys !== []) {
+                $variantKeys = $liveKeys;
+            } else {
+                if ($setting && $client && !empty($listing->primary_category_id)) {
+                    $variantKeys = app(LazadaAttributes::class)->getLazadaSalePropKeys((int)$listing->primary_category_id, $setting, $client);
+                }
+                if (empty($variantKeys) && !empty($listing->primary_category_id)) {
+                    $variantKeys = app(LazadaAttributes::class)->cachedSalePropKeys((int)$listing->primary_category_id);
+                }
+                if (empty($variantKeys) && !$combos->isNotEmpty()) {
+                    $variantKeys = app(LazadaAttributes::class)->guessLazadaVariantKeysFromOptionName((string)($povRows->first()->option_name ?? ''));
+                }
             }
             $variantKeys = array_values(array_filter(array_unique($variantKeys), fn ($k) => trim((string)$k) !== ''));
 
@@ -290,7 +299,14 @@ class LazadaPushPayload
                 $allowed = count($variantKeys);
                 $have = $optionNamesOrdered->count();
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'variants' => "Lazada won't accept this product. The selected Lazada category only allows {$allowed} variation per product, but your product has {$have}. Either remove a variation, or move this listing to a Lazada category that supports {$have}."
+                    'variants' => $liveKeys
+                        ? "This item on Lazada has {$allowed} variation " . \Illuminate\Support\Str::plural('type', $allowed) . ' (' . implode(', ', $liveKeys) . "), but your product has {$have}. Remove a variation, or list the product as a new item."
+                        : "Lazada won't accept this product. The selected Lazada category only allows {$allowed} variation per product, but your product has {$have}. Either remove a variation, or move this listing to a Lazada category that supports {$have}."
+                ]);
+            }
+            if (!$combos->isNotEmpty() && $variantKeys === [] && $povRows->count() > 1) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'variants' => "Lazada needs a variation type for this product's options, and neither the item nor its Lazada category names one. Pick a Lazada category that has a variation property."
                 ]);
             }
         }
@@ -583,6 +599,32 @@ class LazadaPushPayload
      *  mixed $value
      *  mixed
      */
+    /**
+     * The variation keys an item already on Lazada carries, in their order,
+     * or null when the listing is not on Lazada or no store is at hand to
+     * ask. Lazada not answering refuses the update: a guessed key would add
+     * a variation type the item does not have.
+     *
+     * @return list<string>|null
+     */
+    private function itemSalePropKeys(LazadaProduct $listing, ?object $setting, ?LazadaClient $client): ?array
+    {
+        $itemId = trim((string) ($listing->lazada_item_id ?? ''));
+        if ($itemId === '' || !empty($listing->lazada_deleted_at) || !$setting || !$client) {
+            return null;
+        }
+
+        try {
+            return (new LazadaLiveListing($client))->salePropKeys(
+                $setting, \Extensions\lazada\Models\LazadaSetting::activeCredentials($setting), $itemId
+            );
+        } catch (\RuntimeException $e) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'variants' => 'Lazada did not say which variation types this item already has (' . $e->getMessage() . '), so nothing was sent. Try again.',
+            ]);
+        }
+    }
+
     public function compactPayloadValue($value)
     {
         if (is_array($value)) {

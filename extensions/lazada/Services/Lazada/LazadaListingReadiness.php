@@ -229,7 +229,9 @@ class LazadaListingReadiness
                     ? app(LazadaAttributes::class)->cachedSalePropKeys((int) $listing->primary_category_id)
                     : [];
                 $keys = array_values(array_filter(array_unique($keys), fn ($k) => trim((string) $k) !== ''));
-                if ($template && count($keys) < $axes) {
+                // An item already on Lazada keeps its own variation types; the push checks against those.
+                $onLazada = trim((string) ($listing->lazada_item_id ?? '')) !== '' && empty($listing->lazada_deleted_at);
+                if ($template && ! $onLazada && count($keys) < $axes) {
                     $gaps[] = ['code' => ListingState::GAP_VARIATIONS, 'label' => 'a Lazada category that allows ' . $axes . ' variation ' . Str::plural('axis', $axes) . ' (this one allows ' . count($keys) . ')'];
                 }
                 $blank = $combos->filter(fn ($c) => trim((string) ($c->sku ?? '')) === '')->count();

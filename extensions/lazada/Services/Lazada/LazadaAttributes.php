@@ -514,9 +514,10 @@ class LazadaAttributes
      */
     public function guessLazadaVariantKeysFromOptionName(string $optionName): array
     {
+        // No name, no guess: an invented key is how a wrong variation type reaches Lazada.
         $n = strtolower(trim($optionName));
         if ($n === '') {
-            return ['color_family'];
+            return [];
         }
         if (str_contains($n, 'color')) {
             return ['color_family'];
@@ -528,8 +529,8 @@ class LazadaAttributes
             // Some PH categories use 'length' or 'cable_length'; we can't know which without category lookup.
             return ['length'];
         }
-        // Generic safe-ish default.
-        return ['color_family'];
+        // A name that says nothing about its type gets no key; the caller refuses rather than guess.
+        return [];
     }
 
     /**

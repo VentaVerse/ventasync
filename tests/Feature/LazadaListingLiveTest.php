@@ -143,6 +143,157 @@ class LazadaListingLiveTest extends TestCase
         };
     }
 
+    private int $optSeq = 700;
+
+    /** One catalog option with its values; returns value name => product_option_value_id. */
+    private function addOption(int $pid, string $name, array $values, array $skus = []): array
+    {
+        $pfx = (string) config('catalog.prefix');
+        $lang = (int) config('catalog.default_language_id');
+        $optionId = ++$this->optSeq;
+        DB::table($pfx . 'option')->insert(['option_id' => $optionId, 'type' => 'select', 'sort_order' => 0]);
+        DB::table($pfx . 'option_description')->insert(['option_id' => $optionId, 'language_id' => $lang, 'name' => $name]);
+        $productOptionId = DB::table($pfx . 'product_option')->insertGetId(['product_id' => $pid, 'option_id' => $optionId, 'value' => '', 'required' => 1]);
+
+        $out = [];
+        foreach (array_values($values) as $i => $value) {
+            $valueId = $optionId * 10 + $i;
+            DB::table($pfx . 'option_value')->insert(['option_value_id' => $valueId, 'option_id' => $optionId, 'image' => '', 'sort_order' => $i]);
+            DB::table($pfx . 'option_value_description')->insert(['option_value_id' => $valueId, 'language_id' => $lang, 'option_id' => $optionId, 'name' => $value]);
+            $out[$value] = (int) DB::table($pfx . 'product_option_value')->insertGetId([
+                'product_option_id' => $productOptionId, 'product_id' => $pid, 'option_id' => $optionId, 'option_value_id' => $valueId,
+                'sku' => $skus[$value] ?? '', 'quantity' => 3, 'subtract' => 1, 'price' => 0, 'price_prefix' => '+', 'absolute_price' => 100,
+                'cost' => 0, 'cost_amount' => 0, 'cost_percentage' => 0, 'cost_additional' => 0, 'absolute_cost' => 0, 'cost_prefix' => '+',
+                'points' => 0, 'points_prefix' => '+', 'weight' => 0, 'weight_prefix' => '+',
+            ]);
+        }
+
+        return $out;
+    }
+
+    private function productWithPicture(string $sku): int
+    {
+        $pid = $this->seedProduct('Qable IC50', $sku);
+        DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $pid)->update(['image' => 'catalog/qable.png']);
+
+        return $pid;
+    }
+
+    private function listingOn(int $pid, ?string $itemId): LazadaProduct
+    {
+        return LazadaProduct::query()->create([
+            'product_id' => $pid, 'lazada_setting_id' => (int) LazadaSetting::defaultStore()->id,
+            'lazada_item_id' => $itemId, 'primary_category_id' => $itemId !== null ? 9257 : null,
+        ]);
+    }
+
+    /** @return list<array<string, mixed>> the SKU rows the payload carries */
+    private function skusSent(LazadaProduct $listing): array
+    {
+        [$payload] = app(\Extensions\lazada\Services\Lazada\LazadaPushPayload::class)
+            ->buildLazadaProductCreatePayload($listing, LazadaSetting::defaultStore()->decrypted(), app(LazadaClient::class));
+
+        return $payload['Request']['Product']['Skus']['Sku'];
+    }
+
+    private function liveItemSkus(array $skus): void
+    {
+        $this->getResponses['/product/item/get'] = ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => [
+            'item_id' => 2712258176, 'skus' => $skus,
+        ]]];
+    }
+
+    /**
+     * An item already on Lazada keeps the variation type it was built with.
+     * QB-IC50 carries "Length" while its category's own type is color_family;
+     * sending color_family added a second dimension beside Length.
+     */
+    public function test_an_update_sends_the_variation_type_the_item_already_has(): void
+    {
+        $pid = $this->productWithPicture('QB-IC50');
+        $this->addOption($pid, 'Length', ['1ft', '3ft'], ['1ft' => 'QB-IC50-1', '3ft' => 'QB-IC50-3']);
+        $this->liveItemSkus([
+            ['SkuId' => 1, 'SellerSku' => 'QB-IC50-1', 'saleProp' => ['Length' => '1ft']],
+            ['SkuId' => 2, 'SellerSku' => 'QB-IC50-3', 'saleProp' => ['Length' => '3ft']],
+        ]);
+
+        $skus = $this->skusSent($this->listingOn($pid, '2712258176'));
+
+        $this->assertSame(['1ft', '3ft'], array_column($skus, 'Length'));
+        foreach ($skus as $sku) {
+            $this->assertArrayNotHasKey('color_family', $sku, 'an update must never add a variation type the item does not have');
+        }
+    }
+
+    public function test_an_item_with_two_variation_types_keeps_both_in_their_order(): void
+    {
+        $pid = $this->productWithPicture('QB-TWO');
+        $length = $this->addOption($pid, 'Length', ['1ft', '3ft']);
+        $colour = $this->addOption($pid, 'Colour', ['Black']);
+        foreach (['1ft', '3ft'] as $i => $value) {
+            $comboId = DB::table('product_option_combinations')->insertGetId([
+                'product_id' => $pid, 'sku' => 'QB-TWO-' . $value, 'status' => 1, 'quantity' => 5,
+                'absolute_price' => 100, 'absolute_cost' => 0, 'cost_amount' => 0, 'cost_additional' => 0,
+                'subtract' => 1, 'sort_order' => $i, 'created_at' => now(), 'updated_at' => now(),
+            ]);
+            DB::table('product_option_combination_values')->insert([
+                ['combination_id' => $comboId, 'product_option_value_id' => $length[$value]],
+                ['combination_id' => $comboId, 'product_option_value_id' => $colour['Black']],
+            ]);
+        }
+        $this->liveItemSkus([
+            ['SkuId' => 1, 'SellerSku' => 'QB-TWO-1ft', 'saleProp' => ['Length' => '1ft', 'Color' => 'Black']],
+            ['SkuId' => 2, 'SellerSku' => 'QB-TWO-3ft', 'saleProp' => ['Length' => '3ft', 'Color' => 'Black']],
+        ]);
+
+        $skus = $this->skusSent($this->listingOn($pid, '2712258176'));
+
+        $this->assertSame([['1ft', 'Black'], ['3ft', 'Black']], array_map(fn ($s) => [$s['Length'] ?? null, $s['Color'] ?? null], $skus));
+        $this->assertArrayNotHasKey('color_family', $skus[0]);
+    }
+
+    public function test_a_new_item_still_takes_its_variation_type_from_the_category_or_the_name(): void
+    {
+        $pid = $this->productWithPicture('QB-NEW');
+        $this->addOption($pid, 'Color', ['Black', 'Red'], ['Black' => 'QB-NEW-B', 'Red' => 'QB-NEW-R']);
+        $asked = 0;
+        $this->getResponses['/product/item/get'] = function () use (&$asked) {
+            $asked++;
+
+            return ['ok' => false, 'status' => 500, 'body' => ['code' => '500', 'message' => 'must not be asked']];
+        };
+
+        $skus = $this->skusSent($this->listingOn($pid, null));
+
+        $this->assertSame(['Black', 'Red'], array_column($skus, 'color_family'));
+        $this->assertSame(0, $asked, 'an item not on Lazada yet has nothing to read');
+    }
+
+    public function test_an_update_lazada_will_not_describe_is_refused_rather_than_guessed(): void
+    {
+        $pid = $this->productWithPicture('QB-QUIET');
+        $this->addOption($pid, 'Length', ['1ft', '3ft'], ['1ft' => 'QB-Q-1', '3ft' => 'QB-Q-3']);
+        // No /product/item/get answer: the fake refuses.
+
+        try {
+            $this->skusSent($this->listingOn($pid, '2712258176'));
+            $this->fail('the update must be refused');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->assertStringContainsString('did not say which variation types', implode(' ', $e->errors()['variants'] ?? []));
+        }
+        $this->assertEmpty($this->sentPosts, 'nothing is sent');
+    }
+
+    public function test_an_option_name_that_names_no_type_gets_no_guessed_key(): void
+    {
+        $attributes = app(\Extensions\lazada\Services\Lazada\LazadaAttributes::class);
+
+        $this->assertSame([], $attributes->guessLazadaVariantKeysFromOptionName(''));
+        $this->assertSame([], $attributes->guessLazadaVariantKeysFromOptionName('Finish'));
+        $this->assertSame(['color_family'], $attributes->guessLazadaVariantKeysFromOptionName('Color'));
+        $this->assertSame(['length'], $attributes->guessLazadaVariantKeysFromOptionName('Cable length'));
+    }
+
     /**
      * The one listing shape (2026-09-07): a Lazada listing carries its own
      * title and description like every other channel. An empty column
