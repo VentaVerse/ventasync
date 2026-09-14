@@ -190,6 +190,18 @@ final class ListingVariations
     }
 
     /**
+     * The products whose item on this store has been read: the only ones
+     * missing() can name, so a store-wide error filter starts from these.
+     *
+     * @return list<int>
+     */
+    public static function readProducts(string $channel, int $storeId): array
+    {
+        return DB::table(self::STORE_SKUS)->where('channel', $channel)->where('store_id', $storeId)
+            ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+    }
+
+    /**
      * The line a listing carries while missing() holds for it.
      *
      * @param  list<array{sku: string, name: string}>  $missing

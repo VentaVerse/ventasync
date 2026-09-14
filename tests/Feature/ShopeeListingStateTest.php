@@ -14,6 +14,7 @@ use Extensions\shopee\Services\Shopee\ShopeeListingStates;
 use Extensions\shopee\Services\Shopee\ShopeeLiveListing;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 /**
@@ -141,7 +142,7 @@ class ShopeeListingStateTest extends TestCase
         $pid = $this->product('IMG');
         $this->readyListing($pid);
 
-        ShopeeListing::recordPushFailure($pid, 'The number of product images must be between 1 and 9. Please adjust it.');
+        app(ShopeeListingStates::class)->recordOutcome($pid, 'The number of product images must be between 1 and 9. Please adjust it.');
         $s = $this->states([$pid])[$pid];
         $this->assertSame(ListingState::NOT_LISTED, $s->state);
         $this->assertTrue($s->ready, 'the refusal is not a readiness gap');
@@ -165,7 +166,7 @@ class ShopeeListingStateTest extends TestCase
         ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 777, 'sku' => 'IMG', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
         $this->assertStringContainsString('between 1 and 9', implode(' ', $this->states([$pid])[$pid]->reasons));
 
-        ShopeeListing::clearPushFailure($pid);
+        app(ShopeeListingStates::class)->clearErrors([$pid]);
         $this->assertSame([], $this->states([$pid])[$pid]->reasons);
         $this->assertNull(ShopeeListing::query()->where('product_id', $pid)->value('last_push_error'));
 
@@ -512,5 +513,182 @@ class ShopeeListingStateTest extends TestCase
 
         $states = collect($sources)->map(fn ($s) => $s->listingStates([$pid]))->first();
         $this->assertSame(ListingState::LIVE, $states[$pid]->state);
+    }
+
+    // ── The error line is the outcome of the last thing done ─────────
+
+    /** Shopee's answer per API path; a path not named answers an empty success. */
+    private function fakeShopee(array $answers): void
+    {
+        Http::fake(function (\Illuminate\Http\Client\Request $request) use ($answers) {
+            $path = (string) parse_url($request->url(), PHP_URL_PATH);
+
+            return Http::response($answers[$path] ?? ['error' => '', 'message' => '', 'response' => []], 200);
+        });
+    }
+
+    private function operator(): \App\Models\User
+    {
+        $group = \App\Models\Admin\UserGroup::create(['name' => 'Shopee outcome operators']);
+        $group->permissions()->attach(\App\Models\Admin\Permission::where('key', 'like', '%_shopee/%')->pluck('id')->all());
+
+        return \App\Models\User::factory()->create(['user_group_id' => $group->id]);
+    }
+
+    private function line(int $productId): ?string
+    {
+        return app(ShopeeListingStates::class)->errors([$productId])[$productId];
+    }
+
+    private function linkedProduct(string $sku, int $itemId): int
+    {
+        $pid = $this->product($sku);
+        $this->readyListing($pid);
+        ShopeeProductLink::create([
+            'product_id' => $pid, 'shopee_item_id' => $itemId, 'sku' => $sku,
+            'live_status' => 'NORMAL', 'live_checked_at' => now(),
+        ]);
+
+        return $pid;
+    }
+
+    public function test_a_refused_update_is_the_line_until_a_stock_sync_goes_through(): void
+    {
+        $pid = $this->linkedProduct('UPD', 5001);
+        $this->fakeShopee([
+            '/api/v2/product/update_item' => ['error' => 'error_param', 'message' => 'Brand information required'],
+            '/api/v2/product/update_stock' => ['error' => '', 'message' => '', 'response' => ['failure_list' => []]],
+        ]);
+        $user = $this->operator();
+
+        $this->actingAs($user)->post(route('ext.shopee.listings.push_update', $pid))->assertSessionHas('error');
+        $this->assertSame('Update failed: Brand information required', $this->line($pid));
+
+        $this->actingAs($user)->post(route('ext.shopee.products.sync_quantity', $pid))->assertSessionHas('status');
+        $this->assertNull($this->line($pid));
+        $this->assertNull(ShopeeListing::query()->where('product_id', $pid)->value('last_push_error'));
+    }
+
+    public function test_a_stored_push_error_survives_a_check_and_a_refresh_and_clears_on_the_next_stock_push(): void
+    {
+        $pid = $this->linkedProduct('KEEP', 5002);
+        app(ShopeeListingStates::class)->recordOutcome($pid, 'Price is out of range.');
+        $this->fakeShopee([
+            '/api/v2/product/get_item_base_info' => ['error' => '', 'message' => '', 'response' => ['item_list' => [
+                ['item_id' => 5002, 'item_status' => 'NORMAL', 'item_sku' => 'KEEP'],
+            ]]],
+            '/api/v2/product/get_item_list' => ['error' => '', 'message' => '', 'response' => [
+                'item' => [['item_id' => 5002, 'item_status' => 'NORMAL']], 'has_next_page' => false, 'total_count' => 1,
+            ]],
+            '/api/v2/product/update_stock' => ['error' => '', 'message' => '', 'response' => ['failure_list' => []]],
+        ]);
+        $user = $this->operator();
+
+        $this->actingAs($user)->post(route('ext.shopee.products.check'), ['product_ids' => [$pid]])->assertRedirect();
+        $this->assertSame(1, ShopeeProductLink::query()->where('product_id', $pid)->count(), 'the check found the item');
+        $this->assertSame('Price is out of range.', $this->line($pid), 'a check that finds the item leaves the failure standing');
+
+        $this->artisan('shopee:refresh-listing-status');
+        $this->assertSame('Price is out of range.', $this->line($pid), 'so does the scheduled refresh');
+
+        $this->actingAs($user)->post(route('ext.shopee.products.sync_quantity', $pid))->assertSessionHas('status');
+        $this->assertNull($this->line($pid));
+    }
+
+    public function test_a_check_that_finds_the_item_gone_sets_the_line(): void
+    {
+        $pid = $this->linkedProduct('GONE', 5003);
+        $this->fakeShopee([
+            '/api/v2/product/get_item_base_info' => ['error' => '', 'message' => '', 'response' => ['item_list' => []]],
+            '/api/v2/product/get_item_list' => ['error' => '', 'message' => '', 'response' => ['item' => [], 'has_next_page' => false]],
+        ]);
+
+        $this->actingAs($this->operator())->post(route('ext.shopee.products.check'), ['product_ids' => [$pid]])->assertRedirect();
+
+        $this->assertSame(0, ShopeeProductLink::query()->where('product_id', $pid)->count());
+        $this->assertSame('Shopee item 5003 is no longer on Shopee.', $this->line($pid));
+    }
+
+    public function test_unlinking_clears_the_line(): void
+    {
+        $pid = $this->linkedProduct('UNL', 5004);
+        app(ShopeeListingStates::class)->recordOutcome($pid, 'Update failed: Brand information required');
+        ShopeeProductLink::query()->where('product_id', $pid)
+            ->update(['last_sync_ok' => false, 'last_synced_at' => now(), 'last_sync_error_message' => 'Stock refused.']);
+        $this->assertNotNull($this->line($pid));
+
+        $this->actingAs($this->operator())->post(route('ext.shopee.products.unlink', $pid))->assertSessionHas('status');
+
+        $this->assertNull($this->line($pid));
+        $this->assertNull(ShopeeListing::query()->where('product_id', $pid)->value('last_push_error'));
+        $this->assertSame([], app(ShopeeListingStates::class)->erroredProductIds());
+    }
+
+    public function test_the_error_filter_lists_exactly_the_rows_that_show_an_error_line(): void
+    {
+        // Nothing wrong but a variation the store sells that its item lacks.
+        $missing = $this->product('MISSVAR');
+        foreach (['MISSVAR-A', 'MISSVAR-B'] as $i => $sku) {
+            DB::table('product_option_combinations')->insert([
+                'product_id' => $missing, 'sku' => $sku, 'quantity' => 3, 'absolute_price' => 100, 'status' => 1, 'sort_order' => $i,
+            ]);
+        }
+        $this->readyListing($missing);
+        ShopeeProductLink::create(['product_id' => $missing, 'shopee_item_id' => 6001, 'shopee_model_id' => 1, 'sku' => 'MISSVAR-A',
+            'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        $storeId = (int) ShopeeSetting::defaultStore()->id;
+        \App\Integrations\Listings\ListingVariations::remember('shopee', $storeId, $missing, ['MISSVAR-A']);
+
+        $refused = $this->linkedProduct('PUSHERR', 6002);
+        $clean = $this->linkedProduct('CLEANROW', 6003);
+        $states = app(ShopeeListingStates::class);
+        $states->recordOutcome($refused, 'Push failed: Category is invalid.');
+
+        $this->assertSame([$missing, $refused], $states->erroredProductIds());
+
+        $user = $this->operator();
+        $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'error']))->assertOk()
+            ->assertSee('MISSVAR')->assertSee('PUSHERR')->assertDontSee('CLEANROW')
+            ->assertSee('>Has an error</option>', false);
+
+        $grp = DB::table('shopee_product_groups')->insertGetId([
+            'shopee_setting_id' => $storeId, 'name' => 'Outcome group', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        foreach ([$missing, $refused, $clean] as $p) {
+            DB::table('shopee_product_group_products')->insert(['shopee_product_group_id' => $grp, 'product_id' => $p]);
+        }
+        $this->actingAs($user)->get(route('ext.shopee.product-groups.products', ['id' => $grp, 'sync_status' => 'error']))->assertOk()
+            ->assertSee('MISSVAR')->assertSee('PUSHERR')->assertDontSee('CLEANROW')
+            ->assertSee('>Has an error</option>', false);
+        $this->actingAs($user)->get(route('ext.shopee.product-groups.products', $grp))->assertOk()
+            ->assertSee('have an error.');
+
+        $states->recordOutcome($refused, null);
+        $this->assertSame([$missing], $states->erroredProductIds());
+        $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'error']))->assertOk()
+            ->assertSee('MISSVAR')->assertDontSee('PUSHERR');
+    }
+
+    public function test_an_outcome_lands_on_the_store_it_was_about(): void
+    {
+        $one = ShopeeSetting::defaultStore();
+        $two = ShopeeSetting::query()->create([
+            'partner_id' => 1001, 'partner_key' => 'k', 'shop_id' => 3003,
+            'access_token' => 't', 'refresh_token' => 'r', 'mode' => 'production', 'store_name' => 'Second',
+        ]);
+        $pid = $this->product('TWOSTORE');
+        $states = app(ShopeeListingStates::class);
+
+        $states->forStore($two)->recordOutcome($pid, 'Refused on the second shop.');
+        $this->assertNull($states->forStore($one)->errors([$pid])[$pid]);
+        $this->assertSame('Refused on the second shop.', $states->forStore($two)->errors([$pid])[$pid]);
+        $this->assertSame([], $states->forStore($one)->erroredProductIds());
+        $this->assertSame([$pid], $states->forStore($two)->erroredProductIds());
+
+        $states->forStore($one)->clearErrors([$pid]);
+        $this->assertSame('Refused on the second shop.', $states->forStore($two)->errors([$pid])[$pid]);
+
+        $states->forStore($two)->clearErrors([$pid]);
+        $this->assertNull($states->forStore($two)->errors([$pid])[$pid]);
     }
 }

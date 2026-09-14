@@ -699,7 +699,10 @@ class ShopeeLinkCheck
                     'push_error' => null,
                 ]);
 
-                return ['state' => 'lost', 'item_id' => null, 'message' => null];
+                $gone = "Shopee item {$knownId} is no longer on Shopee.";
+                $this->recordFailure($productId, $gone);
+
+                return ['state' => 'lost', 'item_id' => null, 'message' => $gone];
             }
 
             return ['state' => 'new', 'item_id' => null, 'message' => null];
@@ -713,11 +716,14 @@ class ShopeeLinkCheck
         if ($otherHolder) {
             // Not taken over. That link may be perfectly good, and stealing it
             // would leave the other product pointing at nothing.
+            $held = "Shopee item {$found} is already linked to catalog product #{$otherHolder}. "
+                .'Unlink that product first, then send this one again.';
+            $this->recordFailure($productId, $held);
+
             return [
                 'state' => 'taken',
                 'item_id' => $found,
-                'message' => "Shopee item {$found} is already linked to catalog product #{$otherHolder}. "
-                    .'Unlink that product first, then send this one again.',
+                'message' => $held,
             ];
         }
 
@@ -731,6 +737,16 @@ class ShopeeLinkCheck
             'item_id' => $found,
             'message' => null,
         ];
+    }
+
+    /**
+     * A read can find a failure but never clears one: an item gone or held
+     * by another product sets the listing's error line on this store, and
+     * an item found still there leaves the line as the last write left it.
+     */
+    private function recordFailure(int $productId, string $message): void
+    {
+        app(ShopeeListingStates::class)->forStore($this->actingStore)->recordOutcome($productId, $message);
     }
 
     private function writeProductStatus(int $productId, array $attributes): void

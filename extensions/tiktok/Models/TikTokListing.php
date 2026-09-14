@@ -116,29 +116,6 @@ class TikTokListing extends Model
     }
 
     /**
-     * One latest push error per product (the owner, 2026-09-05): whichever
-     * surface pushed, the refusal lands here, the row every surface reads,
-     * until a push succeeds. Store-scoped through the global scope.
-     */
-    public static function recordPushFailure(int $productId, string $reason): void
-    {
-        $reason = trim($reason) !== '' ? trim($reason) : 'No reason was recorded.';
-        $values = ['last_push_error' => mb_substr($reason, 0, 480), 'last_push_failed_at' => now()];
-        if (static::query()->where('product_id', $productId)->exists()) {
-            static::query()->where('product_id', $productId)->update($values);
-        } else {
-            static::query()->create(['product_id' => $productId])->forceFill($values)->save();
-        }
-    }
-
-    public static function clearPushFailure(int $productId): void
-    {
-        static::query()->where('product_id', $productId)
-            ->whereNotNull('last_push_error')
-            ->update(['last_push_error' => null, 'last_push_failed_at' => null]);
-    }
-
-    /**
      * What this listing holds of its own (App\Integrations\Listings\ListingContent):
      * a blank column means "follow the catalog product".
      *

@@ -6,9 +6,12 @@ use App\Integrations\Listings\ListingState;
 use App\Integrations\Listings\ListingVariations;
 use App\Integrations\Push\PushLedger;
 use Extensions\lazada\Models\LazadaProduct;
+use Extensions\lazada\Models\LazadaProductGroupProduct;
 use Extensions\lazada\Models\LazadaSetting;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * The Lazada engine behind ListingState (Phase C, #184): one computation,
@@ -42,6 +45,161 @@ class LazadaListingStates
     }
 
     private const ATTENTION_RAW = ['rejected', 'sold-out', 'deleted', 'missing'];
+
+    /** The store the error line reads and writes; null means the store the request stands in. */
+    private ?int $storeId = null;
+
+    /**
+     * The same engine, fixed to one store. A loop over stores, a command
+     * or a store delete names the store it is about, so a write never
+     * lands on whichever store happens to be bound.
+     */
+    public function forStore(object|int $store): self
+    {
+        $copy = clone $this;
+        $id = is_int($store) ? $store : (int) ($store->id ?? 0);
+        $copy->storeId = $id > 0 ? $id : null;
+
+        return $copy;
+    }
+
+    /** Shorthand for app(self::class)->forStore($store). */
+    public static function on(object|int $store): self
+    {
+        return app(self::class)->forStore($store);
+    }
+
+    private function storeId(): int
+    {
+        return $this->storeId ?? (int) (LazadaSetting::defaultStore()?->id ?? 0);
+    }
+
+    /** This store's listing rows, named rather than left to the bound store. */
+    private function storeRows(): \Illuminate\Database\Eloquent\Builder
+    {
+        return LazadaProduct::query()->withoutGlobalScope('lazadaStore')
+            ->where('lazada_products.lazada_setting_id', $this->storeId());
+    }
+
+    /** A product's row on the store: the linked one, else the newest. */
+    private static function currentRow(Collection $rows): ?LazadaProduct
+    {
+        return $rows->first(fn ($l) => ! empty($l->lazada_item_id) && ! $l->unlinked_at) ?? $rows->last();
+    }
+
+    /**
+     * What the last thing done with this product on this store came to.
+     * Null is a success and clears every error slot; a message is a
+     * failure and becomes the line.
+     */
+    public function recordOutcome(int $productId, ?string $failure): void
+    {
+        if ($productId <= 0) {
+            return;
+        }
+        if ($failure === null) {
+            $this->clearErrors([$productId]);
+
+            return;
+        }
+        $storeId = $this->storeId();
+        if ($storeId <= 0) {
+            return;
+        }
+
+        $failure = trim($failure) !== '' ? trim($failure) : PushLedger::NO_REASON;
+        $values = ['last_push_error' => Str::limit($failure, 477), 'last_push_failed_at' => now()];
+
+        $row = self::currentRow($this->storeRows()->where('product_id', $productId)->orderBy('id')->get());
+        if ($row) {
+            $row->forceFill($values)->save();
+
+            return;
+        }
+        (new LazadaProduct())->forceFill(['product_id' => $productId, 'lazada_setting_id' => $storeId] + $values)->save();
+    }
+
+    /**
+     * Clear every slot errors() reads for these products on this store,
+     * and the group pivot's error. A pivot marked unlinked is left alone.
+     *
+     * @param list<int> $productIds
+     */
+    public function clearErrors(array $productIds): void
+    {
+        $productIds = array_values(array_unique(array_filter(array_map('intval', $productIds), fn ($v) => $v > 0)));
+        $storeId = $this->storeId();
+        if ($productIds === [] || $storeId <= 0) {
+            return;
+        }
+        $groupIds = LazadaProductGroupProduct::groupIdsOn($storeId);
+
+        foreach (array_chunk($productIds, 500) as $chunk) {
+            $this->storeRows()->whereIn('product_id', $chunk)
+                ->where(fn ($q) => $q->whereNotNull('last_push_error')->orWhereNotNull('last_push_failed_at'))
+                ->update(['last_push_error' => null, 'last_push_failed_at' => null]);
+            $this->storeRows()->whereIn('product_id', $chunk)->where('last_sync_ok', false)
+                ->update(['last_sync_ok' => true, 'last_sync_error_code' => null, 'last_sync_error_message' => null]);
+
+            if ($groupIds === []) {
+                continue;
+            }
+            $linked = $this->storeRows()->whereIn('product_id', $chunk)
+                ->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '')
+                ->whereNull('unlinked_at')->whereNull('lazada_deleted_at')
+                ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+            $pivots = fn () => DB::table('lazada_product_group_products')
+                ->whereIn('lazada_product_group_id', $groupIds)->whereIn('product_id', $chunk);
+
+            $pivots()->whereNotNull('push_error')
+                ->where(fn ($q) => $q->whereNull('sync_status')->orWhere('sync_status', '!=', 'unlinked'))
+                ->update(['push_error' => null]);
+            if ($linked !== []) {
+                $pivots()->whereIn('sync_status', ['error', 'failed'])->whereIn('product_id', $linked)
+                    ->update(['sync_status' => 'pushed']);
+            }
+            $pivots()->whereIn('sync_status', ['error', 'failed'])
+                ->when($linked !== [], fn ($q) => $q->whereNotIn('product_id', $linked))
+                ->update(['sync_status' => 'pending']);
+        }
+    }
+
+    /**
+     * The products that draw an error line on this store, by the same
+     * errors() the line is drawn from, so the filter and the lines agree.
+     *
+     * @return list<int>
+     */
+    public function erroredProductIds(): array
+    {
+        $storeId = $this->storeId();
+        if ($storeId <= 0) {
+            return [];
+        }
+
+        $candidates = $this->storeRows()->whereNotNull('product_id')
+            ->where(function ($q) {
+                $q->where(fn ($w) => $w->whereNotNull('last_push_error')->where('last_push_error', '!=', ''))
+                    ->orWhere('last_sync_ok', false);
+            })
+            ->distinct()->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        $candidates = array_values(array_unique(array_merge(
+            $candidates,
+            ListingVariations::readProducts('lazada', $storeId)
+        )));
+
+        $out = [];
+        foreach (array_chunk($candidates, 500) as $chunk) {
+            foreach ($this->errors($chunk) as $pid => $line) {
+                if ($line !== null) {
+                    $out[] = (int) $pid;
+                }
+            }
+        }
+        sort($out);
+
+        return $out;
+    }
 
     /**
      * The shop's listing troubles in two numbers, for the dashboard chip.
@@ -216,11 +374,10 @@ class LazadaListingStates
     }
 
     /**
-     * The Error column (the owner, 2026-09-07): the message a Lazada listing is
-     * carrying right now, or null when nothing is wrong. One question, one
-     * answer, no rule about how old a failure is: the scheduled refresh
-     * re-runs the link check, and a successful push or sync clears the
-     * message it wrote.
+     * The error line: the message a Lazada listing on this store is
+     * carrying right now, or null when nothing is wrong. It is the outcome
+     * of the last thing done with the product here: recordOutcome writes a
+     * failure, any success clears every slot read below.
      *
      * @param list<int> $productIds
      * @return array<int, ?string>
@@ -231,13 +388,13 @@ class LazadaListingStates
         if ($productIds === []) {
             return [];
         }
-        $rowsByProduct = LazadaProduct::query()->whereIn('product_id', $productIds)->orderBy('id')->get()->groupBy('product_id');
-        $missing = ListingVariations::missing('lazada', (int) (LazadaSetting::defaultStore()?->id ?? 0), $productIds);
+        $rowsByProduct = $this->storeRows()->whereIn('product_id', $productIds)->orderBy('id')->get()->groupBy('product_id');
+        $missing = ListingVariations::missing('lazada', $this->storeId(), $productIds);
 
         $out = [];
         foreach ($productIds as $pid) {
             $rows = $rowsByProduct->get($pid) ?? collect();
-            $listing = $rows->first(fn ($l) => ! empty($l->lazada_item_id) && ! $l->unlinked_at) ?? $rows->last();
+            $listing = self::currentRow($rows);
 
             $found = [];
             if ($listing && trim((string) ($listing->last_push_error ?? '')) !== '') {

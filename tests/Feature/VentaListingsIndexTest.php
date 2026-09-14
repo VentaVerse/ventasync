@@ -277,4 +277,59 @@ class VentaListingsIndexTest extends TestCase
         $this->assertStringNotContainsString('Not on Gear Depot:', $html);
         Http::assertNothingSent();
     }
+
+    /**
+     * "Has an error" lists exactly the rows that show an error line, on the
+     * Listings page and the group page: a missing variation counts, and a
+     * product drops out once its error clears.
+     */
+    public function test_the_error_filter_lists_exactly_the_rows_with_an_error_line(): void
+    {
+        $store = $this->store();
+        $group = VentaProductGroup::create(['venta_setting_id' => $store->id, 'name' => 'Mixed']);
+
+        $tee = $this->product('TEE', 'Missing tee');
+        foreach (['TEE-S', 'TEE-L'] as $i => $sku) {
+            DB::table('product_option_combinations')->insert([
+                'product_id' => $tee, 'sku' => $sku, 'quantity' => 3, 'absolute_price' => 500, 'status' => 1, 'sort_order' => $i,
+            ]);
+        }
+        \App\Integrations\Listings\ListingVariations::remember('venta', (int) $store->id, $tee, ['TEE-S']);
+        $errored = $this->product('E-1', 'Errored pedal');
+        $clean = $this->product('C-1', 'Clean pedal');
+
+        foreach ([[$tee, 'TEE', 31], [$errored, 'E-1', 32], [$clean, 'C-1', 33]] as [$pid, $sku, $vid]) {
+            VentaProductGroupProduct::create(['venta_product_group_id' => $group->id, 'product_id' => $pid, 'sync_status' => 'pushed']);
+            VentaProductLink::create(['venta_setting_id' => $store->id, 'product_id' => $pid, 'venta_product_id' => $vid, 'sku' => $sku]);
+            VentaListing::create(['venta_setting_id' => $store->id, 'product_id' => $pid, 'live_status' => 'active', 'live_checked_at' => now()]);
+        }
+        VentaListing::where('product_id', $errored)->first()->forceFill(['last_push_error' => 'Stock push failed: Product not found', 'last_push_failed_at' => now()])->save();
+        Http::fake([self::BASE . '/*' => Http::response(['id' => 32, 'sku' => 'E-1', 'quantity' => 3])]);
+
+        $this->assertEqualsCanonicalizing([$tee, $errored], \Extensions\venta\Services\Venta\VentaListingStates::for($store->id)->erroredProductIds());
+
+        $pages = fn () => [
+            route('ext.venta.listings.index', ['store' => $store->id, 'sync_status' => 'error']),
+            route('ext.venta.product-groups.products', ['store' => $store->id, 'group' => $group->id, 'sync_status' => 'error']),
+        ];
+        foreach ($pages() as $url) {
+            $html = $this->actingAs($this->manager())->get($url)->assertOk()->getContent();
+            $this->assertStringContainsString('>Has an error</option>', $html);
+            $this->assertStringContainsString('Missing tee', $html, $url);
+            $this->assertStringContainsString('Errored pedal', $html, $url);
+            $this->assertStringContainsString('Stock push failed: Product not found', $html, $url);
+            $this->assertStringNotContainsString('Clean pedal', $html, $url);
+        }
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.venta.listings.push_stock', [$store->id, $errored]))
+            ->assertRedirect()
+            ->assertSessionHas('status');
+
+        foreach ($pages() as $url) {
+            $html = $this->actingAs($this->manager())->get($url)->assertOk()->getContent();
+            $this->assertStringContainsString('Missing tee', $html, $url);
+            $this->assertStringNotContainsString('Errored pedal', $html, $url);
+        }
+    }
 }

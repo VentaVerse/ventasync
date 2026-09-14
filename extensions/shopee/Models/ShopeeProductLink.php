@@ -133,6 +133,9 @@ class ShopeeProductLink extends Model
                 'push_error' => null,
             ]);
 
+        // An unlinked product carries no error line on this store.
+        app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->forStore($storeId)->clearErrors([$productId]);
+
         return $removed;
     }
 }

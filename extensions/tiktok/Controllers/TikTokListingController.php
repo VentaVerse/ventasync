@@ -309,6 +309,8 @@ class TikTokListingController extends Controller
         }
         $readiness = app(TikTokListingReadiness::class)->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => ['a TikTok category']];
         if (!$readiness['ready']) {
+            $this->states()->recordOutcome($productId, \App\Integrations\Listings\CatalogGaps::refusal($readiness, 'update'));
+
             return redirect()->back()->with('error', 'Update failed: this listing still needs ' . implode(', ', $readiness['missing']) . '.');
         }
         $listing = TikTokListing::query()->where('product_id', $productId)->first();
@@ -335,11 +337,23 @@ class TikTokListingController extends Controller
 
         $outcome = app(TikTokProductPush::class)->edit($erp, (string) $truth->tiktok_product_id, $truth->tiktok_sku_id ?? null, $opts, $c, $client);
         if (!$outcome['ok']) {
+            $this->states()->recordOutcome($productId, (string) $outcome['message']);
+
             return redirect()->back()->with('error', 'Update failed: ' . $outcome['message']);
         }
         TikTokListing::recordPush($productId, (string) $truth->tiktok_product_id, $outcome['sku_ids'] ?? ($truth->tiktok_sku_id ?? null), 'listing', isset($outcome['sku_ids']));
+        $this->states()->recordOutcome($productId, null);
 
         return redirect()->back()->with('status', 'Update pushed.');
+    }
+
+    /** The listing-state engine, pinned to the store this request acts for. */
+    private function states(): \Extensions\tiktok\Services\TikTok\TikTokListingStates
+    {
+        $engine = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class);
+        $store = TikTokSetting::defaultStore();
+
+        return $store ? $engine->forStore($store) : $engine;
     }
 
     /** The seller center's Activate / Deactivate, from here. */
@@ -354,8 +368,11 @@ class TikTokListingController extends Controller
         }
         $result = $this->toggleProducts($client, $c, [(string) $truth->tiktok_product_id], $deactivate);
         if ($result['error'] !== null) {
+            $this->states()->recordOutcome($productId, ($deactivate ? 'Deactivate: ' : 'Activate: ') . $result['error']);
+
             return redirect()->back()->with('error', ($deactivate ? 'Deactivate' : 'Activate') . ' failed: ' . $result['error']);
         }
+        $this->states()->recordOutcome($productId, null);
 
         return redirect()->back()->with('status', $deactivate
             ? 'Deactivated on TikTok Shop. Buyers stop seeing it; it can be activated again at any time.'
@@ -369,7 +386,7 @@ class TikTokListingController extends Controller
      * status without waiting for a refresh.
      *
      * @param  list<string>  $tiktokProductIds
-     * @return array{ok: list<string>, error: ?string}
+     * @return array{ok: list<string>, failed: list<string>, error: ?string} failed is the refused call's ids; later ones were not sent
      */
     private function toggleProducts(TikTokClient $client, array $c, array $tiktokProductIds, bool $deactivate): array
     {
@@ -378,14 +395,14 @@ class TikTokListingController extends Controller
         foreach (array_chunk(array_values(array_unique($tiktokProductIds)), 50) as $chunk) {
             $result = $this->call($client, $c, 'POST', $path, ['product_ids' => $chunk]);
             if (!$this->callOk($result)) {
-                return ['ok' => $ok, 'error' => $this->callMessage($result)];
+                return ['ok' => $ok, 'failed' => $chunk, 'error' => $this->callMessage($result)];
             }
             TikTokListing::query()->whereIn('tiktok_product_id', $chunk)
                 ->update(['live_status' => $deactivate ? 'SELLER_DEACTIVATED' : 'ACTIVATE', 'live_checked_at' => now()]);
             array_push($ok, ...$chunk);
         }
 
-        return ['ok' => $ok, 'error' => null];
+        return ['ok' => $ok, 'failed' => [], 'error' => null];
     }
 
     /** The selection bar's Deactivate / Activate (the owner, 2026-08-28): the same call as the row's, for many rows. */
@@ -406,10 +423,12 @@ class TikTokListingController extends Controller
 
         $ids = array_values(array_unique(array_map('intval', (array) $request->input('product_ids'))));
         $ttIds = [];
+        $productsByTt = [];
         foreach ($ids as $id) {
             $truth = $this->derivedTruth($id);
             if ($truth && $truth->tiktok_product_id) {
                 $ttIds[] = (string) $truth->tiktok_product_id;
+                $productsByTt[(string) $truth->tiktok_product_id][] = $id;
             }
         }
         $notOnTikTok = count($ids) - count($ttIds);
@@ -418,6 +437,17 @@ class TikTokListingController extends Controller
         }
 
         $result = $this->toggleProducts($client, $c, $ttIds, $deactivate);
+        $states = $this->states();
+        foreach ($result['ok'] as $ttId) {
+            foreach ($productsByTt[$ttId] ?? [] as $pid) {
+                $states->recordOutcome($pid, null);
+            }
+        }
+        foreach ($result['failed'] as $ttId) {
+            foreach ($productsByTt[$ttId] ?? [] as $pid) {
+                $states->recordOutcome($pid, ($deactivate ? 'Deactivate: ' : 'Activate: ') . $result['error']);
+            }
+        }
 
         $parts = [];
         if ($result['ok'] !== []) {

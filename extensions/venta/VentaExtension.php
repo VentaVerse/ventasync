@@ -424,6 +424,8 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
                 if ($ok) {
                     $link->update(['sku' => $new]);
                 }
+                \Extensions\venta\Services\Venta\VentaListingStates::for((int) $setting->id)->recordOutcome($productId, $ok ? null
+                    : 'SKU change to ' . $new . ' failed: ' . \Extensions\venta\Services\Venta\VentaProductPush::failureText($result, $linkSku));
 
                 $results[] = $setting->store_name . ': ' . ($ok ? 'OK' : 'Failed');
             } catch (\Throwable $e) {
@@ -434,6 +436,8 @@ class VentaExtension extends ExtensionProvider implements \App\Integrations\Cont
                     'sku_new' => $new,
                     'error' => $e->getMessage(),
                 ]);
+                \Extensions\venta\Services\Venta\VentaListingStates::for((int) $setting->id)->recordOutcome($productId,
+                    'SKU change to ' . $new . ' failed: ' . \App\Support\TransportError::plain($e, 'Venta'));
                 $results[] = $setting->store_name . ': Error';
             }
         }

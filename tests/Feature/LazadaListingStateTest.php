@@ -366,13 +366,13 @@ class LazadaListingStateTest extends TestCase
         $pid = $this->seedProduct('Refused one', 'RF-1');
         \Extensions\lazada\Models\LazadaProduct::query()->create(['product_id' => $pid]);
 
-        \Extensions\lazada\Models\LazadaProduct::recordPushFailure($pid, 'Primary category is required before upload.');
         $states = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class);
+        $states->recordOutcome($pid, 'Primary category is required before upload.');
         $s = $states->forProducts([$pid])[$pid];
         $this->assertStringContainsString('failed: Primary category is required', implode(' ', $s->reasons));
         $this->assertStringContainsString('Primary category is required', (string) $states->errors([$pid])[$pid]);
 
-        \Extensions\lazada\Models\LazadaProduct::clearPushFailure($pid);
+        $states->clearErrors([$pid]);
         \Extensions\lazada\Models\LazadaProduct::query()->where('product_id', $pid)->update(['last_synced_at' => now()->subMinutes(5), 'last_sync_action' => 'bulk_upload_to_lazada', 'last_sync_ok' => true]);
         $this->assertNull($states->errors([$pid])[$pid], 'a cleared refusal draws no error line');
         $this->assertSame([], $states->forProducts([$pid])[$pid]->reasons);

@@ -525,9 +525,16 @@ class LazadaListingLiveTest extends TestCase
             'code' => '0', 'data' => ['image' => ['url' => 'https://sg-live.slatic.net/p/fake.jpg']],
         ]];
 
+        // An earlier refusal on the listing's line: the group push's success replaces it.
+        $states = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class);
+        $states->recordOutcome($productId, 'Upload refused: an earlier refusal');
+        $this->assertNotNull($states->errors([$productId])[$productId]);
+
         $this->actingAs($this->manager())
             ->post(route('ext.lazada.product-groups.push', $group->id), ['ids' => [$productId]])
             ->assertRedirect();
+
+        $this->assertNull($states->errors([$productId])[$productId], 'a successful group push clears the line');
 
         $create = collect($this->sentPosts)->firstWhere('path', '/product/create');
         $this->assertNotNull($create, 'the push must reach /product/create');

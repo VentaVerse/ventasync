@@ -31,6 +31,13 @@ final class LazadaStoreDeleter
         return DB::transaction(function () use ($store) {
             $removed = [];
 
+            if (Schema::hasTable('lazada_products')) {
+                LazadaListingStates::on((int) $store->id)->clearErrors(
+                    DB::table('lazada_products')->where('lazada_setting_id', $store->id)->whereNotNull('product_id')
+                        ->distinct()->pluck('product_id')->map(fn ($v) => (int) $v)->all()
+                );
+            }
+
             // The group pivot has no store column of its own: clear it by
             // the store's groups before the groups go.
             if (Schema::hasTable('lazada_product_group_products')) {

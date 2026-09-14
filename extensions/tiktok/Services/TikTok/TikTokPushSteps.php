@@ -72,7 +72,7 @@ final class TikTokPushSteps
                     ->whereIn('tiktok_product_group_id', TikTokProductGroup::query()->select('id'))
                     ->whereIn('product_id', $pids)->whereNotNull('tiktok_product_id')->where('tiktok_product_id', '!=', '')->get();
                 $results = app(TikTokStockPricePush::class)->push($kind, $c, $pivots, $pfx, $kind === 'price' ? TikTokPushPrice::priceRule($pivots) : null);
-                TikTokStockPricePush::recordOutcomes($kind, $results['outcomes']);
+                TikTokStockPricePush::recordOutcomes($kind, $results['outcomes'], $raw);
                 foreach ($pids as $pid) {
                     $outcome = $results['outcomes'][$pid] ?? null;
                     if ($outcome !== null && ! empty($outcome['ok'])) {

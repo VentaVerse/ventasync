@@ -119,12 +119,17 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
         $batches = array_chunk($allPushItems, $batchSize);
         $totalOk = 0;
         $totalErr = 0;
+        $sentProducts = [];
+        $failedProducts = [];
 
         $this->info("Pushing " . count($allPushItems) . " SKU(s) in " . count($batches) . " batch(es)...");
 
         foreach ($batches as $batch) {
             $payloadXml = $this->buildBatchStockXml($batch);
             $labels = array_map(fn ($i) => $i['seller_sku'] ?: "SkuId:{$i['sku_id']}", $batch);
+            foreach ($batch as $item) {
+                $sentProducts[(int) $item['product_id']] = true;
+            }
 
             $result = $this->pushToLazada($client, $setting, '/product/stock/sellable/update', $payloadXml);
 
@@ -136,6 +141,11 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
             } else {
                 $totalErr += count($batch);
                 $msg = is_array($body) ? ($body['message'] ?? json_encode($body)) : (string) $body;
+                foreach ($batch as $item) {
+                    $failedProducts[(int) $item['product_id']] ??= \Illuminate\Support\Str::limit(
+                        ($item['seller_sku'] ?: 'SkuId ' . $item['sku_id']) . ': ' . (is_string($msg) ? $msg : (string) json_encode($msg)), 255
+                    );
+                }
                 Log::warning('Lazada push-stock batch failed', [
                     'skus' => $labels,
                     'response' => $msg,
@@ -152,6 +162,12 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
                     }
                 }
             }
+        }
+
+        // Each product's verdict becomes its error line on THIS store.
+        $states = \Extensions\lazada\Services\Lazada\LazadaListingStates::on($store);
+        foreach (array_keys($sentProducts) as $pid) {
+            $states->recordOutcome((int) $pid, isset($failedProducts[$pid]) ? 'Stock push: ' . $failedProducts[$pid] : null);
         }
 
         $this->info("Done. Success: {$totalOk}, Failed: {$totalErr}, Skipped: {$skipped}");
@@ -247,8 +263,9 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
         }
 
         // Cron only consumes sku_id/seller_sku/quantity. Strip the price field.
-        return array_map(function ($r) {
+        return array_map(function ($r) use ($listing) {
             return [
+                'product_id' => (int) $listing->product_id,
                 'sku_id'     => $r['sku_id'],
                 'seller_sku' => $r['seller_sku'],
                 'quantity'   => $r['quantity'],

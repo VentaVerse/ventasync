@@ -105,7 +105,7 @@
             <option value="all" @selected($syncStatus === 'all')>Listed or not</option>
             <option value="pushed" @selected($syncStatus === 'pushed')>Listed on TikTok</option>
             <option value="pending" @selected($syncStatus === 'pending')>Not listed</option>
-            <option value="error" @selected($syncStatus === 'error')>Last push from this product group failed</option>
+            <option value="error" @selected($syncStatus === 'error')>Has an error</option>
             <option value="unlinked" @selected($syncStatus === 'unlinked')>Unlinked</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />

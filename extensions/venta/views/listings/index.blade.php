@@ -149,7 +149,7 @@
             <option value="all" @selected($syncStatus === 'all')>Listed or not</option>
             <option value="listed" @selected($syncStatus === 'listed')>On {{ $storeName }}</option>
             <option value="not_listed" @selected($syncStatus === 'not_listed')>Not listed</option>
-            <option value="error" @selected($syncStatus === 'error')>Last push failed</option>
+            <option value="error" @selected($syncStatus === 'error')>Has an error</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>

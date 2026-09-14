@@ -102,6 +102,13 @@ class LazadaStockPricePush
             $this->pushListing($kind, $setting, $creds, $listing, $product, $pfx, $priceFor, $erpSkus, $out, true);
         }
 
+        // Each product's verdict becomes its error line on this store.
+        $states = LazadaListingStates::on($setting);
+        $label = $kind === 'price' ? 'Price push: ' : 'Stock push: ';
+        foreach ($out['outcomes'] as $pid => $outcome) {
+            $states->recordOutcome((int) $pid, $outcome['ok'] ? null : $label . (string) $outcome['error']);
+        }
+
         return $out;
     }
 

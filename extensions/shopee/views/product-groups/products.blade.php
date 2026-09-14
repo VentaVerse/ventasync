@@ -118,7 +118,7 @@
             <option value="all" @selected($syncStatus === 'all')>Listed or not</option>
             <option value="pushed" @selected($syncStatus === 'pushed')>Listed on Shopee</option>
             <option value="pending" @selected($syncStatus === 'pending')>Not listed</option>
-            <option value="error" @selected($syncStatus === 'error')>Last push from this product group failed</option>
+            <option value="error" @selected($syncStatus === 'error')>Has an error</option>
             <option value="unlinked" @selected($syncStatus === 'unlinked')>Unlinked</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
@@ -146,7 +146,7 @@
         <x-ui.icon name="alert-triangle" size="13" class="cc-failnote__icon" />
         <span><span class="x-num">{{ number_format($failedCount) }}</span>
             {{ \Illuminate\Support\Str::plural('product', $failedCount) }} in this product group
-            {{ $failedCount === 1 ? 'failed its' : 'failed their' }} last push from this product group.</span>
+            {{ $failedCount === 1 ? 'has' : 'have' }} an error.</span>
         <a class="cc-failnote__link" href="{{ request()->fullUrlWithQuery(['sync_status' => 'error', 'page' => null]) }}">Show them</a>
     </p>
 @endif

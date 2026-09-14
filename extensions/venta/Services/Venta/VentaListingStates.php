@@ -11,6 +11,7 @@ use Extensions\venta\Models\VentaProductLink;
 use Extensions\venta\Models\VentaSetting;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * ONE state per product on a Venta store, from the ERP's own records and
@@ -176,6 +177,92 @@ class VentaListingStates
             }
             usort($found, fn ($x, $y) => $y[0] <=> $x[0]);
             $out[$pid] = ListingVariations::withMissing($found === [] ? null : $found[0][1], isset($missing[$pid]) ? ListingVariations::missingMessage($storeName, $missing[$pid]) : null);
+        }
+
+        return $out;
+    }
+
+    /**
+     * The outcome of the latest thing done with this product on this store:
+     * null clears every error slot, a failure is written to the listing's
+     * own slot, dated now, so it is the newest the error line reads.
+     */
+    public function recordOutcome(int $productId, ?string $failure): void
+    {
+        if ($failure === null) {
+            $this->clearErrors([$productId]);
+
+            return;
+        }
+        $text = trim($failure) !== '' ? trim($failure) : \App\Integrations\Push\PushLedger::NO_REASON;
+        VentaListing::query()->firstOrCreate(['venta_setting_id' => $this->storeId, 'product_id' => $productId])
+            ->forceFill(['last_push_error' => Str::limit($text, 480), 'last_push_failed_at' => now()])
+            ->save();
+    }
+
+    /**
+     * Every error slot errors() reads, cleared for these products on this
+     * store: the listing's own, and the store's group rows. A row that was
+     * failed reads as pushed when the product is linked here, else pending;
+     * an unlinked row is left as it is.
+     *
+     * @param  list<int>  $productIds
+     */
+    public function clearErrors(array $productIds): void
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $productIds), fn ($v) => $v > 0)));
+        if ($ids === []) {
+            return;
+        }
+        VentaListing::query()->where('venta_setting_id', $this->storeId)->whereIn('product_id', $ids)
+            ->where(fn ($q) => $q->whereNotNull('last_push_error')->orWhereNotNull('last_push_failed_at'))
+            ->update(['last_push_error' => null, 'last_push_failed_at' => null]);
+
+        $groupIds = VentaProductGroup::query()->where('venta_setting_id', $this->storeId)->pluck('id')->all();
+        if ($groupIds === []) {
+            return;
+        }
+        $linked = VentaProductLink::query()->where('venta_setting_id', $this->storeId)->whereIn('product_id', $ids)
+            ->whereNotNull('venta_product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+        $rows = fn () => VentaProductGroupProduct::query()->whereIn('venta_product_group_id', $groupIds);
+
+        $rows()->whereIn('product_id', $linked ?: [0])->whereIn('sync_status', ['error', 'failed'])
+            ->update(['sync_status' => 'pushed', 'push_error' => null]);
+        $rows()->whereIn('product_id', array_values(array_diff($ids, $linked)) ?: [0])->whereIn('sync_status', ['error', 'failed'])
+            ->update(['sync_status' => 'pending', 'push_error' => null]);
+        $rows()->whereIn('product_id', $ids)->whereNotNull('push_error')
+            ->where(fn ($q) => $q->whereNull('sync_status')->orWhereNotIn('sync_status', ['unlinked']))
+            ->update(['push_error' => null]);
+    }
+
+    /**
+     * The products on this store whose error line is showing: the one
+     * definition the error filter on the Listings page and the group page
+     * reads, so the filter and the red lines cannot disagree.
+     *
+     * @return list<int>
+     */
+    public function erroredProductIds(): array
+    {
+        $groupIds = VentaProductGroup::query()->where('venta_setting_id', $this->storeId)->pluck('id')->all();
+        $candidates = array_merge(
+            VentaListing::query()->where('venta_setting_id', $this->storeId)
+                ->whereNotNull('last_push_error')->where('last_push_error', '!=', '')
+                ->pluck('product_id')->all(),
+            $groupIds === [] ? [] : VentaProductGroupProduct::query()->whereIn('venta_product_group_id', $groupIds)
+                ->whereIn('sync_status', ['error', 'failed'])->pluck('product_id')->all(),
+            ListingVariations::readProducts('venta', $this->storeId),
+        );
+        $candidates = array_values(array_unique(array_filter(array_map('intval', $candidates), fn ($v) => $v > 0)));
+        sort($candidates);
+
+        $out = [];
+        foreach (array_chunk($candidates, 500) as $chunk) {
+            foreach ($this->errors($chunk) as $pid => $line) {
+                if ($line !== null) {
+                    $out[] = (int) $pid;
+                }
+            }
         }
 
         return $out;

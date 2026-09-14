@@ -44,27 +44,6 @@ class ShopeeListing extends Model
         'last_push_failed_at' => 'datetime',
     ];
 
-    /**
-     * One latest push error per product (the owner, 2026-09-05): whichever
-     * surface pushed, the refusal lands here, the row every surface reads,
-     * until a push succeeds. Store-scoped through the global scope, so a
-     * product listed on two stores keeps two answers.
-     */
-    public static function recordPushFailure(int $productId, string $reason): void
-    {
-        $reason = trim($reason) !== '' ? trim($reason) : 'No reason was recorded.';
-        static::query()->firstOrCreate(['product_id' => $productId])
-            ->forceFill(['last_push_error' => mb_substr($reason, 0, 480), 'last_push_failed_at' => now()])
-            ->save();
-    }
-
-    public static function clearPushFailure(int $productId): void
-    {
-        static::query()->where('product_id', $productId)
-            ->whereNotNull('last_push_error')
-            ->update(['last_push_error' => null, 'last_push_failed_at' => null]);
-    }
-
     /** The price this listing sells at, from the core price it never stores. */
     public function priceFor(float $corePrice): float
     {

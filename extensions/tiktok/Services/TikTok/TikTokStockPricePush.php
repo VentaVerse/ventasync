@@ -210,21 +210,29 @@ class TikTokStockPricePush
     }
 
     /**
-     * Each product's verdict onto this store's group pivots, the shape the
-     * group page has always written; the crons wrote nothing here, so a
-     * failed scheduled push left no product to find (2026-09-07).
+     * Each product's verdict onto the store's group pivots and its listing
+     * error line. A success clears the line, a failure writes it. The store
+     * is the one the push went to; without one named, the store in hand.
      *
      * @param array<int, array{ok: bool, error: ?string}> $outcomes
      */
-    public static function recordOutcomes(string $kind, array $outcomes): void
+    public static function recordOutcomes(string $kind, array $outcomes, \Extensions\tiktok\Models\TikTokSetting|int|null $store = null): void
     {
+        $store ??= \Extensions\tiktok\Models\TikTokSetting::defaultStore();
+        if ($store === null) {
+            return;
+        }
+        $states = app(TikTokListingStates::class)->forStore($store);
+
         foreach ($outcomes as $pid => $outcome) {
-            TikTokProductGroupProduct::query()
-                ->whereIn('tiktok_product_group_id', TikTokProductGroup::query()->select('id'))
+            $failure = $outcome['ok'] ? null : ($kind === 'price' ? 'Price push: ' : 'Stock push: ') . (string) $outcome['error'];
+            TikTokProductGroupProduct::query()->onStore($store)
                 ->where('product_id', (int) $pid)
-                ->update($outcome['ok']
+                ->where(fn ($q) => $q->whereNull('sync_status')->orWhere('sync_status', '!=', 'unlinked'))
+                ->update($failure === null
                     ? ['sync_status' => 'pushed', 'push_error' => null, 'last_pushed_at' => now()]
-                    : ['sync_status' => 'error', 'push_error' => mb_substr(($kind === 'price' ? 'Price push: ' : 'Stock push: ') . (string) $outcome['error'], 0, 255)]);
+                    : ['sync_status' => 'error', 'push_error' => mb_substr($failure, 0, 255)]);
+            $states->recordOutcome((int) $pid, $failure);
         }
     }
 

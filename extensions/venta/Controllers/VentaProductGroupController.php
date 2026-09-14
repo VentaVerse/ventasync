@@ -339,7 +339,9 @@ class VentaProductGroupController extends Controller
         $this->store_($store);
         $g = VentaProductGroup::where('venta_setting_id', $store)->findOrFail($group);
         $name = $g->name;
+        $members = $g->products()->pluck('product_id')->map(fn ($v) => (int) $v)->all();
         $g->delete();
+        \Extensions\venta\Services\Venta\VentaListingStates::for($store)->clearErrors($members);
 
         ActivityLogger::log('deleted', 'Venta Product Group', (int) $group, $name);
 
@@ -434,7 +436,7 @@ class VentaProductGroupController extends Controller
                         ->orWhereNull('vpgp.sync_status');
                 });
         } elseif ($syncStatus === 'error') {
-            $query->whereIn('vpgp.sync_status', ['error', 'failed']);
+            $query->whereIn('p.product_id', \Extensions\venta\Services\Venta\VentaListingStates::for($store)->erroredProductIds() ?: [0]);
         }
 
         $products = $query->orderBy('p.product_id', 'desc')->paginate(50)->withQueryString();
@@ -455,6 +457,7 @@ class VentaProductGroupController extends Controller
             'optionRowsByProductId' => $optionRowsByProductId,
             // The Ready column reads the engine, the way every page does (2026-09-06).
             'listingStates'        => \Extensions\venta\Services\Venta\VentaListingStates::for((int) $setting->id)->forProducts(array_map('intval', $paginatedIds)),
+            'rowErrors'            => \Extensions\venta\Services\Venta\VentaListingStates::for((int) $setting->id)->errors(array_map('intval', $paginatedIds)),
             'manualIds'            => $manualIds,
             'q'                    => $q,
             'syncStatus'           => $syncStatus,
@@ -564,6 +567,7 @@ class VentaProductGroupController extends Controller
                 'venta_sku'   => $matchedSku,
                 'push_error'  => null,
             ]);
+        \Extensions\venta\Services\Venta\VentaListingStates::for($store)->recordOutcome($product, null);
 
         return $this->productsRedirect($store, $group)
             ->with('status', "Venta product ID {$matchedVentaId} synced for SKU: {$matchedSku}");
@@ -744,6 +748,7 @@ class VentaProductGroupController extends Controller
 
         $client = new VentaClient($setting);
         $push = VentaProductPush::for($setting);
+        $states = \Extensions\venta\Services\Venta\VentaListingStates::for($store);
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
@@ -788,6 +793,7 @@ class VentaProductGroupController extends Controller
                 $refusal = \App\Integrations\Listings\CatalogGaps::refusal($readiness);
                 $errors[] = "Product #{$pid}: {$refusal}";
                 $this->writeProductStatus($g, $pid, ['sync_status' => 'error', 'push_error' => \Illuminate\Support\Str::limit($refusal, 480)]);
+                $states->recordOutcome($pid, $refusal);
                 continue;
             }
             $sku = $prod->sku ?: $prod->model;
@@ -869,6 +875,7 @@ class VentaProductGroupController extends Controller
                     'push_error' => $verdict['message'],
                     'last_pushed_at' => now(),
                 ]);
+                $states->recordOutcome($pid, (string) $verdict['message']);
                 continue;
             }
 
@@ -893,11 +900,13 @@ class VentaProductGroupController extends Controller
                             'push_error'   => null,
                             'venta_sku'    => $sku,
                         ]);
+                    $states->recordOutcome($pid, null);
                 } else {
                     $failed++;
                     $errMsg = json_encode($result['body']);
                     $errors[] = "Product #{$pid}: {$errMsg}";
                     $this->writeProductStatus($g, $pid, ['sync_status' => 'failed', 'push_error' => $errMsg]);
+                    $states->recordOutcome($pid, (string) $errMsg);
                 }
             } else {
                 // Create new product on Venta
@@ -928,6 +937,7 @@ class VentaProductGroupController extends Controller
                         $failed++;
                         $created--;
                         $errors[] = "#{$pid}: created on Venta as {$ventaProductId}, but {$clash}";
+                        $states->recordOutcome($pid, "Created on Venta as {$ventaProductId}, but {$clash}");
                         continue;
                     }
 
@@ -937,11 +947,13 @@ class VentaProductGroupController extends Controller
                             'push_error'   => null,
                             'venta_sku'    => $sku,
                         ]);
+                    $states->recordOutcome($pid, null);
                 } else {
                     $failed++;
                     $errMsg = $this->pushFailureText($result, $sku);
                     $errors[] = "Product #{$pid}: {$errMsg}";
                     $this->writeProductStatus($g, $pid, ['sync_status' => 'failed', 'push_error' => Str::limit($errMsg, 480)]);
+                    $states->recordOutcome($pid, $errMsg);
                 }
             }
         }
@@ -1084,16 +1096,8 @@ class VentaProductGroupController extends Controller
         }
 
         $r = \Extensions\venta\Services\Venta\VentaStockPricePush::for($setting)->push($ids, $stock, $price);
+        // Each product's outcome through recordOutcome, onto the listing and its group rows alike.
         \Extensions\venta\Services\Venta\VentaStockPricePush::recordOutcomes($store, $r['outcomes']);
-        foreach ($r['outcomes'] as $pid => $failure) {
-            if ($failure === null) {
-                \Extensions\venta\Models\VentaListing::query()->where('venta_setting_id', $store)->where('product_id', (int) $pid)
-                    ->update(['last_push_error' => null, 'last_push_failed_at' => null]);
-            } else {
-                \Extensions\venta\Models\VentaListing::query()->updateOrCreate(['venta_setting_id' => $store, 'product_id' => (int) $pid], [])
-                    ->forceFill(['last_push_error' => \Illuminate\Support\Str::limit($failure, 480), 'last_push_failed_at' => now()])->save();
-            }
-        }
 
         return $this->productsRedirect($store, $group)->with($r['failed'] > 0 ? ($r['ok'] > 0 ? 'warning' : 'error') : 'status',
             \Extensions\venta\Services\Venta\VentaStockPricePush::sentence($r, $what, (string) $setting->store_name));
@@ -1145,6 +1149,7 @@ class VentaProductGroupController extends Controller
             'sync_status' => 'pending',
             'push_error' => null,
         ]);
+        \Extensions\venta\Services\Venta\VentaListingStates::for($store)->clearErrors([$product]);
 
         return $this->productsRedirect($store, $group)->with(
             'status',
@@ -1185,6 +1190,7 @@ class VentaProductGroupController extends Controller
                 $link->delete();
 
                 $this->writeProductStatus($g, $pid, ['sync_status' => 'pending', 'push_error' => null, 'last_pushed_at' => null]);
+                \Extensions\venta\Services\Venta\VentaListingStates::for($store)->clearErrors([$pid]);
 
                 $deleted++;
                 continue;
@@ -1197,6 +1203,7 @@ class VentaProductGroupController extends Controller
                     'sync_status' => 'error',
                     'push_error'  => Str::limit('Delete from Venta failed. ' . $message, 480),
                 ]);
+            \Extensions\venta\Services\Venta\VentaListingStates::for($store)->recordOutcome($pid, 'Delete from Venta failed. ' . $message);
 
             usleep(150000);
         }
@@ -1271,12 +1278,14 @@ class VentaProductGroupController extends Controller
             $link->delete();
 
             $this->writeProductStatus($g, $product, ['sync_status' => 'pending', 'push_error' => null, 'last_pushed_at' => null]);
+            \Extensions\venta\Services\Venta\VentaListingStates::for($store)->clearErrors([$product]);
 
             return $this->productsRedirect($store, $group)
                 ->with('status', 'Product deleted from Venta store.');
         }
 
         $error = $result['body']['error'] ?? 'Unknown error';
+        \Extensions\venta\Services\Venta\VentaListingStates::for($store)->recordOutcome($product, 'Delete from Venta failed. ' . $error);
         return $this->productsRedirect($store, $group)
             ->with('error', 'Failed to delete from Venta: ' . $error);
     }
@@ -1299,6 +1308,7 @@ class VentaProductGroupController extends Controller
                 ->exists();
 
             $pivot->update(['sync_status' => $hasLink ? 'synced' : 'pending']);
+            \Extensions\venta\Services\Venta\VentaListingStates::for($store)->recordOutcome($product, null);
         }
 
         return $this->productsRedirect($store, $group)
@@ -1314,6 +1324,7 @@ class VentaProductGroupController extends Controller
 
         if (!empty($ids)) {
             $g->products()->whereIn('product_id', $ids)->delete();
+            \Extensions\venta\Services\Venta\VentaListingStates::for($store)->clearErrors($ids);
         }
 
         return $this->productsRedirect($store, $group)
@@ -1362,6 +1373,7 @@ class VentaProductGroupController extends Controller
         VentaProductGroupProduct::where('venta_product_group_id', $g->id)
             ->where('product_id', $product)
             ->delete();
+        \Extensions\venta\Services\Venta\VentaListingStates::for($store)->clearErrors([$product]);
 
         return $this->productsRedirect($store, $group)
             ->with('status', 'Product removed from product group.');

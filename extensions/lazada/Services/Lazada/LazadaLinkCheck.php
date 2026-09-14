@@ -74,8 +74,9 @@ class LazadaLinkCheck
         }
         $pivotsByProduct = $pivotQuery->get()->groupBy('product_id');
 
-        $verdicts = ['confirmed' => 0, 'linked' => 0, 'lost' => 0, 'not_on_lazada' => 0];
+        $verdicts = ['confirmed' => 0, 'linked' => 0, 'lost' => 0, 'taken' => 0, 'not_on_lazada' => 0];
         $problems = [];
+        $states = LazadaListingStates::on($setting);
 
         foreach ($productIds as $productId) {
             $pivots = $pivotsByProduct->get($productId) ?? collect();
@@ -112,13 +113,18 @@ class LazadaLinkCheck
 
             if ($listing && $listing->lazada_item_id && !$listing->lazada_deleted_at) {
                 if ($hitItemId !== null && in_array((string) $listing->lazada_item_id, $hits, true)) {
-                    $listing->forceFill($hitMirror + ['last_synced_at' => now(), 'last_sync_action' => 'check', 'last_sync_ok' => true, 'last_sync_error_message' => null])->save();
-                    foreach ($pivots as $p) $p->update(['sync_status' => 'pushed']);
+                    $listing->forceFill($hitMirror + $this->checkedStamp($listing))->save();
+                    $this->markPushed($pivots);
                     $verdicts['confirmed']++;
+                } elseif ($hitItemId !== null && ($holder = $this->holderOf($setting, $hitItemId, (int) $productId)) !== null) {
+                    $line = "Lazada item {$hitItemId} holds this product's SKU but is linked to catalog product #{$holder}.";
+                    $states->recordOutcome((int) $productId, $line);
+                    $problems[] = "#{$productId}: " . $line;
+                    $verdicts['taken']++;
                 } elseif ($hitItemId !== null) {
                     // The SKU sits on a different item now; the record follows the shop.
-                    $listing->forceFill($hitMirror + ['lazada_item_id' => $hitItemId, 'lazada_deleted_at' => null, 'last_synced_at' => now(), 'last_sync_action' => 'check', 'last_sync_ok' => true])->save();
-                    foreach ($pivots as $p) $p->update(['sync_status' => 'pushed']);
+                    $listing->forceFill($hitMirror + ['lazada_item_id' => $hitItemId, 'lazada_deleted_at' => null] + $this->checkedStamp($listing))->save();
+                    $this->markPushed($pivots);
                     $verdicts['linked']++;
                 } else {
                     /* AND IT IS WRITTEN DOWN (parity, 2026-09-09): dropping
@@ -137,15 +143,25 @@ class LazadaLinkCheck
                 continue;
             }
 
-            if ($hitItemId !== null) {
+            if ($hitItemId !== null && ($holder = $this->holderOf($setting, $hitItemId, (int) $productId)) !== null) {
+                // One item, one product: an item another product holds is never adopted.
+                $line = "Lazada item {$hitItemId} holds this product's SKU but is linked to catalog product #{$holder}.";
+                if ($listing) {
+                    $states->recordOutcome((int) $productId, $line);
+                }
+                $problems[] = "#{$productId}: " . $line;
+                $verdicts['taken']++;
+            } elseif ($hitItemId !== null) {
                 // Unlisted here, already on the shop: adopt it. The new
                 // listing starts blank; its group fills it at push time.
                 if (!$listing) {
                     $listing = LazadaProduct::create(['product_id' => $productId]);
                 }
-                $listing->forceFill($hitMirror + ['lazada_item_id' => $hitItemId, 'lazada_deleted_at' => null, 'unlinked_at' => null, 'last_synced_at' => now(), 'last_sync_action' => 'check', 'last_sync_ok' => true])->save();
+                $listing->forceFill($hitMirror + ['lazada_item_id' => $hitItemId, 'lazada_deleted_at' => null, 'unlinked_at' => null] + $this->checkedStamp($listing))->save();
                 if ($pivots->isNotEmpty()) {
-                    foreach ($pivots as $p) $p->update(['lazada_product_id' => $listing->id, 'sync_status' => 'pushed']);
+                    foreach ($pivots as $p) {
+                        $p->update(['lazada_product_id' => $listing->id] + (in_array($p->sync_status, ['error', 'failed'], true) ? [] : ['sync_status' => 'pushed']));
+                    }
                 } elseif ($group !== null && \App\Integrations\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'lazada_setting_id', $group->id, [(int) $productId])['free'] !== []) {
                     // Only a product no other group on this store holds joins this one.
                     LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $productId, 'lazada_product_id' => $listing->id, 'sync_status' => 'pushed']);
@@ -160,12 +176,46 @@ class LazadaLinkCheck
         if ($verdicts['confirmed']) $parts[] = "{$verdicts['confirmed']} confirmed on Lazada";
         if ($verdicts['linked']) $parts[] = "{$verdicts['linked']} linked to the item Lazada holds";
         if ($verdicts['lost']) $parts[] = "{$verdicts['lost']} no longer on Lazada";
+        if ($verdicts['taken']) $parts[] = "{$verdicts['taken']} on an item another product holds";
         if ($verdicts['not_on_lazada']) $parts[] = "{$verdicts['not_on_lazada']} not on Lazada";
         $summary = 'Checked ' . count($productIds) . ' against Lazada: ' . (implode(', ', $parts) ?: 'nothing to report') . '.';
         if ($skippedForSize > 0) $summary .= " {$skippedForSize} more were not checked (200 at a time).";
         if ($problems) $summary .= ' ' . implode('; ', array_slice($problems, 0, 5)) . '.';
 
-        return ['tone' => $verdicts['lost'] > 0 ? 'error' : 'status', 'summary' => $summary];
+        return ['tone' => ($verdicts['lost'] + $verdicts['taken']) > 0 ? 'error' : 'status', 'summary' => $summary];
+    }
+
+    /**
+     * The sync stamp a check that found the item leaves: nothing on a row
+     * carrying a failure, because a read never clears an error.
+     */
+    private function checkedStamp(LazadaProduct $listing): array
+    {
+        return $listing->last_sync_ok !== null && ! $listing->last_sync_ok
+            ? []
+            : ['last_synced_at' => now(), 'last_sync_action' => 'check', 'last_sync_ok' => true];
+    }
+
+    /** Pivots read as pushed, except one carrying a failed attempt. */
+    private function markPushed($pivots): void
+    {
+        foreach ($pivots as $p) {
+            if (! in_array($p->sync_status, ['error', 'failed'], true)) {
+                $p->update(['sync_status' => 'pushed']);
+            }
+        }
+    }
+
+    /** The other catalog product on this store already linked to the item, if any. */
+    private function holderOf(object $setting, string $itemId, int $productId): ?int
+    {
+        $holder = LazadaProduct::query()->withoutGlobalScope('lazadaStore')
+            ->where('lazada_setting_id', (int) $setting->id)
+            ->where('lazada_item_id', $itemId)->where('product_id', '!=', $productId)
+            ->whereNull('lazada_deleted_at')->whereNull('unlinked_at')
+            ->value('product_id');
+
+        return $holder !== null ? (int) $holder : null;
     }
 
     /** Every SKU the catalogue knows for these products: parent, model, variations. */

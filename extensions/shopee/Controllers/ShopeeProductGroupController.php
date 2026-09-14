@@ -314,9 +314,9 @@ class ShopeeProductGroupController extends Controller
          * PRODUCT facts now (stage 1 of the one-truth repointing,
          * 2026-08-24): they read shopee_product_links, the same record the
          * Listings page reads, so a product pushed through any door filters
-         * the same on every page. 'error' and 'unlinked' stay per-group -
-         * they describe this group's own last attempt, which genuinely is
-         * this page's private history. */
+         * the same on every page. 'error' is the error line itself, the same
+         * set the Listings page filters on; 'unlinked' stays per-group. */
+        $erroredIds = $this->listingStates()->erroredProductIds();
         $linkedProductIds = DB::table('shopee_product_links')
             ->when(app()->bound('shopee.route-store'), fn ($q) => $q->where('shopee_setting_id', app('shopee.route-store')->id))
             ->whereNotNull('shopee_item_id')
@@ -326,7 +326,7 @@ class ShopeeProductGroupController extends Controller
         } elseif ($syncStatus === 'pending') {
             $query->whereNotIn('p.product_id', $linkedProductIds);
         } elseif ($syncStatus === 'error') {
-            $query->where('gp.sync_status', 'error');
+            $query->whereIn('p.product_id', $erroredIds ?: [0]);
         } elseif ($syncStatus === 'unlinked') {
             // The badge has always had four states and the filter offered
             // three, so unlinked products could only be found by eye.
@@ -370,15 +370,10 @@ class ShopeeProductGroupController extends Controller
         // All product IDs in this group (for "Remove from Group" action)
         $manualIds = $group->groupProducts()->pluck('product_id')->toArray();
 
-        // Counted across the WHOLE group, not the current page or filter. The
-        // push summary was the only place failures were named, and it is a
-        // flash message the next click destroys, so an operator who navigated
-        // away had to remember which of twelve had failed. This is the same
-        // fact, kept where it cannot be lost.
-        $failedCount = ShopeeProductGroupProduct::query()
-            ->where('shopee_product_group_id', $group->id)
-            ->where('sync_status', 'error')
-            ->count();
+        // Counted across the WHOLE group, not the current page or filter, by
+        // the same set the error filter lists, so the count and the rows it
+        // links to agree.
+        $failedCount = count(array_intersect($erroredIds, array_map('intval', $memberIds)));
 
         /* Product-level truth for the three columns that used to read the
          * pivot's private copies: the links (is it on Shopee, which item)
@@ -1342,8 +1337,10 @@ class ShopeeProductGroupController extends Controller
             ->forItem($auth, $productId, $itemId, $skus);
 
         if (isset($r['error'])) {
+            $this->listingStates()->recordOutcome($productId, "Shopee did not answer for item {$itemId}: {$r['error']}");
             return redirect()->back()->with('error', "Shopee did not answer for item {$itemId}: {$r['error']}. Nothing was changed.");
         }
+        $this->listingStates()->recordOutcome($productId, null);
 
         $pivot->update(['shopee_item_id' => (string) $itemId, 'sync_status' => 'pushed']);
 
@@ -1403,6 +1400,7 @@ class ShopeeProductGroupController extends Controller
     {
         $group = ShopeeProductGroup::query()->findOrFail($groupId);
         $group->groupProducts()->where('product_id', $productId)->delete();
+        $this->listingStates()->clearErrors([$productId]);
 
         return $this->productsRedirect($group->id)
             ->with('status', 'Product removed from the product group.');
@@ -1424,6 +1422,7 @@ class ShopeeProductGroupController extends Controller
         // count($ids), so posting ten ids of which four were not in the group
         // still claimed ten removals.
         $removed = $group->groupProducts()->whereIn('product_id', $ids)->delete();
+        $this->listingStates()->clearErrors($ids);
 
         $summary = "{$removed} product(s) removed from the product group.";
         if ($removed < count($ids)) {
@@ -1799,6 +1798,7 @@ class ShopeeProductGroupController extends Controller
 
             if (empty($imageIds)) {
                 $errors[] = "#{$productId}: Image upload failed";
+                $this->writeProductStatus($productId, ['sync_status' => 'error', 'push_error' => 'Image upload failed']);
                 $errCount++;
                 continue;
             }
@@ -2090,6 +2090,7 @@ class ShopeeProductGroupController extends Controller
 
             if (!$product || (int) $product->status === 0) {
                 $errors[] = "#{$productId}: Product not found or disabled";
+                $this->writeProductStatus($productId, ['sync_status' => 'error', 'push_error' => 'Product not found or disabled']);
                 $errCount++;
                 continue;
             }
@@ -2111,6 +2112,7 @@ class ShopeeProductGroupController extends Controller
             $description = \App\Support\Catalog\DescriptionText::of($content['description']);
             if (trim($itemName) === '' || trim($description) === '' || (float) $product->weight <= 0) {
                 $errors[] = "#{$productId}: Missing name/description/weight";
+                $this->writeProductStatus($productId, ['sync_status' => 'error', 'push_error' => 'Missing name/description/weight']);
                 $errCount++;
                 continue;
             }
@@ -2164,8 +2166,10 @@ class ShopeeProductGroupController extends Controller
             if (($result['ok'] ?? false) && $respError === '') {
                 // Also update price and stock via dedicated endpoints
                 $links = ShopeeProductLink::query()->where('product_id', $productId)->get();
-                $this->pushPriceForLinks($client, $auth, $pfx, $links, $group);
-                $this->pushStockForLinks($client, $auth, $pfx, $links);
+                $synced = [
+                    $this->pushPriceForLinks($client, $auth, $pfx, $links, $group),
+                    $this->pushStockForLinks($client, $auth, $pfx, $links),
+                ];
                 // A content update can send the item back under review.
                 app(\Extensions\shopee\Services\Shopee\ShopeeLiveListing::class)->confirm($auth, $links->pluck('shopee_item_id')->all());
 
@@ -2178,6 +2182,14 @@ class ShopeeProductGroupController extends Controller
                         'push_error' => null,
                         'last_pushed_at' => now(),
                     ]);
+                // The update went; a price or stock refusal in the same run is still its outcome.
+                foreach ($synced as $sync) {
+                    $outcome = $sync['outcomes'][$productId] ?? null;
+                    if ($outcome !== null && empty($outcome['ok'])) {
+                        $this->listingStates()->recordOutcome($productId, (string) ($outcome['error'] ?? ''));
+                        break;
+                    }
+                }
 
                 ActivityLogger::log('updated', 'Shopee Product', $productId, 'Updated item ' . $itemId . ' on Shopee via product group');
                 $okCount++;
@@ -2404,6 +2416,7 @@ class ShopeeProductGroupController extends Controller
 
                 // Clear pivot sync data
                 $this->writeProductStatus($productId, ['shopee_item_id' => null, 'sync_status' => 'pending']);
+                $this->listingStates()->clearErrors([$productId]);
 
                 ActivityLogger::log('deleted', 'Shopee Product', $productId, 'Deleted item ' . $itemId . ' from Shopee via product group');
                 $okCount++;
@@ -2451,28 +2464,35 @@ class ShopeeProductGroupController extends Controller
      * elsewhere, and a success left a green badge on the other page hiding a
      * real failure - the quiet direction, and the dangerous one.
      *
-     * No group scope is passed because Shopee is single-store: every group
-     * belongs to the same shop, so every group is talking about the same
-     * remote product.
+     * This store's groups only: a failure against one shop says nothing
+     * about another.
      */
     private function writeProductStatus(int $productId, array $attributes): void
     {
+        $storeId = (int) (ShopeeSetting::defaultStore()?->id ?? 0);
         \App\Support\ChannelProductStatus::write(
             'shopee_product_group_products',
             'shopee_product_group_id',
-            null,
+            $storeId > 0
+                ? ShopeeProductGroup::query()->withoutGlobalScope('shopeeStore')->where('shopee_setting_id', $storeId)
+                    ->pluck('id')->map(fn ($v) => (int) $v)->all()
+                : null,
             $productId,
             $attributes
         );
 
-        // One latest error per product (the owner, 2026-09-05): the refusal
-        // also lands on the listing record, the row every surface reads,
-        // and a success clears it there.
+        // The listing's error line is the outcome of this write.
         if (($attributes['sync_status'] ?? null) === 'error') {
-            ShopeeListing::recordPushFailure($productId, (string) ($attributes['push_error'] ?? ''));
+            $this->listingStates()->recordOutcome($productId, (string) ($attributes['push_error'] ?? ''));
         } elseif (($attributes['sync_status'] ?? null) === 'pushed') {
-            ShopeeListing::clearPushFailure($productId);
+            $this->listingStates()->recordOutcome($productId, null);
         }
+    }
+
+    /** The listing engine for the store this request stands in. */
+    private function listingStates(): \Extensions\shopee\Services\Shopee\ShopeeListingStates
+    {
+        return app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class);
     }
 
     /**

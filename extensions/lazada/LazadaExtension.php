@@ -378,6 +378,9 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                 $apiResult = $this->lazadaUpdateSellerSku($listing, $old, $new);
                 if ($apiResult) {
                     $results[] = $apiResult;
+                    \Extensions\lazada\Services\Lazada\LazadaListingStates::on((int) ($listing->lazada_setting_id ?? 0))
+                        ->recordOutcome((int) $listing->product_id, $apiResult === 'API OK' ? null
+                            : 'SKU change: ' . (str_starts_with($apiResult, 'API: ') ? substr($apiResult, 5) : 'Lazada did not answer.'));
                 }
             }
         }
@@ -400,11 +403,13 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         }
 
         try {
-            $listing->update([
-                'last_synced_at' => now(),
-                'last_sync_action' => 'sku_sync',
-                'last_sync_ok' => true,
-            ]);
+            if (! ($listing->last_sync_ok !== null && ! $listing->last_sync_ok)) {
+                $listing->update([
+                    'last_synced_at' => now(),
+                    'last_sync_action' => 'sku_sync',
+                    'last_sync_ok' => true,
+                ]);
+            }
         } catch (\Throwable) {
             // Non-critical — listing sync metadata is best-effort
         }

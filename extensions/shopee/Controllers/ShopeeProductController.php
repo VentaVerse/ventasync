@@ -207,20 +207,8 @@ class ShopeeProductController extends Controller
                 $query->whereNotIn('p.product_id', $listedIds);
             }
         } elseif ($syncStatus === 'error') {
-            /* The reason to open this page. last_sync_ok is written on every
-             * push and was readable in one column and filterable from
-             * nowhere, so finding what failed among two thousand products
-             * meant paging through forty screens looking for red. */
-            $failedIds = ShopeeProductLink::query()
-                ->where('last_sync_ok', false)
-                ->whereNotNull('last_sync_ok')
-                ->pluck('product_id')->unique()->toArray();
-
-            if (empty($failedIds)) {
-                $query->whereRaw('1=0');
-            } else {
-                $query->whereIn('p.product_id', $failedIds);
-            }
+            // Exactly the rows that carry an error line.
+            $query->whereIn('p.product_id', $this->listingStates()->erroredProductIds() ?: [0]);
         } elseif ($syncStatus === 'ready' || $syncStatus === 'not_ready') {
             /* The computed answer, filterable (#101): which unlisted
              * products could be one-click pushed RIGHT NOW, and which
@@ -777,6 +765,7 @@ class ShopeeProductController extends Controller
             [$held, $links] = $links->partition(fn ($l) => isset($parcelGaps[(int) $l->product_id]));
             foreach ($held as $l) {
                 $heldBack[] = '#' . $l->product_id . ' needs ' . $parcelGaps[(int) $l->product_id];
+                $this->listingStates()->recordOutcome((int) $l->product_id, 'Not published: Shopee will refuse it without ' . $parcelGaps[(int) $l->product_id] . '.');
             }
             if ($links->isEmpty()) {
                 return redirect()->back()->with('error',
@@ -789,6 +778,17 @@ class ShopeeProductController extends Controller
 
         $result = $this->unlistItems($client, $auth, $links->pluck('shopee_item_id')->all(), $unlist);
         $okItems = array_flip($result['ok']);
+        $failedPrefix = $unlist ? 'Delist failed: ' : 'Publish failed: ';
+        foreach ($links as $l) {
+            $itemId = (int) $l->shopee_item_id;
+            if (isset($okItems[$itemId])) {
+                $this->listingStates()->recordOutcome((int) $l->product_id, null);
+            } elseif (isset($result['failed'][$itemId])) {
+                $this->listingStates()->recordOutcome((int) $l->product_id, $failedPrefix . $result['failed'][$itemId]);
+            } elseif ($result['error'] !== null) {
+                $this->listingStates()->recordOutcome((int) $l->product_id, $failedPrefix . $result['error']);
+            }
+        }
         foreach ($links as $l) {
             if (isset($okItems[(int) $l->shopee_item_id])) {
                 ActivityLogger::log(
@@ -930,6 +930,7 @@ class ShopeeProductController extends Controller
         }
 
         $answer = $this->pushOne($productId, $auth, $client);
+        $this->listingStates()->recordOutcome($productId, $answer['ok'] ? null : $answer['message']);
 
         if (! $answer['ok']) {
             return redirect()->back()->with('error', $answer['message']);
@@ -1089,19 +1090,12 @@ class ShopeeProductController extends Controller
 
         $added = $create->addItem($client, $auth, $payload, 'shopee.products.add_item.direct');
         if (!$added['ok']) {
-            // One latest error per product (the owner, 2026-09-05): the refusal
-            // lands on the listing record so every surface can show it.
-            ShopeeListing::recordPushFailure($productId, (string) $added['error']);
-
             return ['ok' => false, 'message' => 'Push failed: ' . $added['error']];
         }
 
         $itemId = $added['item_id'];
         if (!$itemId) {
-            // Accepted with no item: addItem() says what Shopee did say, and
-            // the listing record keeps it as this product's latest failure.
-            ShopeeListing::recordPushFailure($productId, (string) $added['error']);
-
+            // Accepted with no item: addItem() says what Shopee did say.
             return ['ok' => false, 'message' => (string) $added['error']];
         }
 
@@ -1201,7 +1195,12 @@ class ShopeeProductController extends Controller
         $answer = \App\Integrations\Push\BulkPushRun::over(
             $productIds,
             'Shopee',
-            fn (int $productId) => $this->pushOne($productId, $auth, $client)
+            function (int $productId) use ($auth, $client) {
+                $answer = $this->pushOne($productId, $auth, $client);
+                $this->listingStates()->recordOutcome($productId, $answer['ok'] ? null : $answer['message']);
+
+                return $answer;
+            }
         );
 
         return redirect()->back()->with($answer['key'], $answer['message']);
@@ -1339,6 +1338,7 @@ class ShopeeProductController extends Controller
             // Remove links and cache entries for this item
             ShopeeItemCache::query()->where('shopee_item_id', $link->shopee_item_id)->delete();
             ShopeeProductLink::query()->where('product_id', $productId)->delete();
+            $this->listingStates()->clearErrors([$productId]);
 
             ActivityLogger::log('deleted', 'Shopee Product', $productId, 'Deleted item ' . $itemId . ' from Shopee');
 
@@ -1346,6 +1346,7 @@ class ShopeeProductController extends Controller
         }
 
         $errorMsg = $respError ?: $respMsg ?: 'Unknown error';
+        $this->listingStates()->recordOutcome($productId, 'Delete from Shopee failed: ' . $errorMsg);
         return redirect()->back()->with('error', 'Delete failed: ' . $errorMsg);
     }
 
@@ -1406,8 +1407,11 @@ class ShopeeProductController extends Controller
             if (($result['ok'] ?? false) && $respError === '') {
                 ShopeeItemCache::query()->where('shopee_item_id', $link->shopee_item_id)->delete();
                 ShopeeProductLink::query()->where('product_id', $productId)->delete();
+                $this->listingStates()->clearErrors([$productId]);
                 $okCount++;
             } else {
+                $respMsg = is_array($body) ? (string) ($body['message'] ?? '') : '';
+                $this->listingStates()->recordOutcome($productId, 'Delete from Shopee failed: ' . ($respError ?: $respMsg ?: 'Unknown error'));
                 $errCount++;
             }
 
@@ -2196,6 +2200,12 @@ class ShopeeProductController extends Controller
         return $out;
     }
 
+    /** The listing engine for the store this request stands in. */
+    private function listingStates(): \Extensions\shopee\Services\Shopee\ShopeeListingStates
+    {
+        return app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class);
+    }
+
     private function parseProductIds(Request $request): array
     {
         $ids = $request->input('product_ids', []);
@@ -2672,8 +2682,10 @@ class ShopeeProductController extends Controller
             ->forItem($auth, $productId, (int) $link->shopee_item_id, $allSkus);
 
         if (isset($r['error'])) {
+            $this->listingStates()->recordOutcome($productId, 'Shopee did not answer: ' . $r['error']);
             return redirect()->back()->with('error', 'Shopee did not answer: ' . $r['error'] . ' Nothing was changed.');
         }
+        $this->listingStates()->recordOutcome($productId, null);
 
         $msg = $r['mode'] === 'models'
             ? "Re-read from Shopee: {$r['linked']} variation(s) linked" . ($r['removed'] > 0 ? ", {$r['removed']} stale link(s) removed" : '') . '.'
@@ -2706,6 +2718,7 @@ class ShopeeProductController extends Controller
 
         $listing = ShopeeListing::query()->where('product_id', $productId)->first();
         if (!$listing || ($listing->markup_percent === null && $listing->markup_fixed === null)) {
+            $this->listingStates()->recordOutcome($productId, 'Variations not added: this listing has no price rule of its own.');
             return redirect()->back()->with('error', 'Adding variations needs the listing\'s own price rule, and this listing has none. Push once from the form to give it one.');
         }
 
@@ -2716,8 +2729,10 @@ class ShopeeProductController extends Controller
         );
 
         if (!$r['ok']) {
+            $this->listingStates()->recordOutcome($productId, (string) $r['message']);
             return redirect()->back()->with('error', $r['message']);
         }
+        $this->listingStates()->recordOutcome($productId, null);
 
         if ($r['added'] > 0) {
             // The links learn the new models at once, by the same repair
@@ -2914,6 +2929,15 @@ class ShopeeProductController extends Controller
      */
     private function performListingUpdate(int $productId, ShopeeClient $client, array $auth): array
     {
+        $answer = $this->attemptListingUpdate($productId, $client, $auth);
+        $this->listingStates()->recordOutcome($productId, $answer['ok'] ? null : $answer['message']);
+
+        return $answer;
+    }
+
+    /** @return array{ok: bool, message: string} */
+    private function attemptListingUpdate(int $productId, ShopeeClient $client, array $auth): array
+    {
         $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
         if (!$link) {
             return ['ok' => false, 'message' => 'This product is not on Shopee yet, so there is nothing to update. Push it first.'];
@@ -3108,6 +3132,7 @@ class ShopeeProductController extends Controller
          * knowable in advance is checked in advance; the flash names the
          * fields and where they live, and no request is fired. */
         if (!$unlist && ($parcelGap = $this->parcelGapFor([$productId])[$productId] ?? null)) {
+            $this->listingStates()->recordOutcome($productId, 'Not published: Shopee will refuse it without ' . $parcelGap . '.');
             return redirect()->back()->with('error',
                 'Not published: Shopee will refuse it without ' . $parcelGap
                 . '. Add them on the catalog product (Catalog, Products, edit), then publish.');
@@ -3116,8 +3141,10 @@ class ShopeeProductController extends Controller
         $result = $this->unlistItems($client, $auth, [(int) $link->shopee_item_id], $unlist);
         if ($result['error'] !== null || $result['failed'] !== []) {
             $msg = $result['error'] ?? (string) reset($result['failed']);
+            $this->listingStates()->recordOutcome($productId, ($unlist ? 'Delist' : 'Publish') . ' failed: ' . $msg);
             return redirect()->back()->with('error', ($unlist ? 'Delist' : 'Publish') . ' failed: ' . $msg);
         }
+        $this->listingStates()->recordOutcome($productId, null);
 
         ActivityLogger::log(
             $unlist ? 'delisted' : 'published',

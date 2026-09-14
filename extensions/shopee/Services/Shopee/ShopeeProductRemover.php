@@ -54,6 +54,13 @@ final class ShopeeProductRemover
         $links = ShopeeProductLink::query()->where('product_id', $productId)->get();
         $stores = $this->stores($links->pluck('shopee_setting_id'));
         $stays = [];
+
+        $storeIds = $links->pluck('shopee_setting_id')
+            ->merge(ShopeeListing::query()->where('product_id', $productId)->pluck('shopee_setting_id'))
+            ->map(fn ($v) => (int) $v)->filter()->unique();
+        foreach ($storeIds as $storeId) {
+            app(ShopeeListingStates::class)->forStore($storeId)->clearErrors([$productId]);
+        }
         foreach ($links->filter(fn ($l) => (int) $l->shopee_item_id > 0) as $link) {
             $gone = in_array(strtoupper((string) ($link->live_status ?? '')), self::GONE, true);
             if (!$gone) {

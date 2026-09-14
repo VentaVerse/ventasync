@@ -144,7 +144,7 @@ class TikTokProductController extends Controller
         } elseif ($syncStatus === 'not_listed') {
             $query->whereNotIn('p.product_id', $listedProductIds ?: [0]);
         } elseif ($syncStatus === 'error') {
-            $errored = TikTokProductGroupProduct::query()->onStore()->where('sync_status', 'error')->pluck('product_id')->all();
+            $errored = $this->states()->erroredProductIds();
             $query->whereIn('p.product_id', $errored ?: [0]);
         } elseif ($syncStatus === 'ready' || $syncStatus === 'not_ready') {
             $candidates = array_values(array_diff($scopeIds, $listedProductIds));
@@ -607,13 +607,15 @@ class TikTokProductController extends Controller
         $opts = $this->listingPushOptions($productId, $c);
         $readiness = app(TikTokListingReadiness::class)->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => ['a TikTok category']];
         if (!$readiness['ready']) {
-            return ['ok' => false, 'message' => \App\Integrations\Listings\CatalogGaps::refusal($readiness)];
+            $refusal = \App\Integrations\Listings\CatalogGaps::refusal($readiness);
+            $this->states($c['setting'] ?? null)->recordOutcome($productId, $refusal);
+
+            return ['ok' => false, 'message' => $refusal];
         }
 
         $outcome = app(TikTokProductPush::class)->create($this->erpProduct($productId), $opts, $c, $client);
         if (!$outcome['ok']) {
-            // One latest error per product (the owner, 2026-09-05).
-            TikTokListing::recordPushFailure($productId, (string) $outcome['message']);
+            $this->states($c['setting'] ?? null)->recordOutcome($productId, (string) $outcome['message']);
 
             return ['ok' => false, 'message' => (string) $outcome['message']];
         }
@@ -622,6 +624,7 @@ class TikTokProductController extends Controller
             'tiktok_product_id' => $outcome['product_id'], 'tiktok_sku_id' => $outcome['sku_ids'],
             'sync_status' => 'pushed', 'last_pushed_at' => now(), 'push_error' => null,
         ]);
+        $this->states($c['setting'] ?? null)->recordOutcome($productId, null);
 
         return ['ok' => true, 'message' => 'Pushed to TikTok Shop as product ' . $outcome['product_id'] . '. It goes live once TikTok has reviewed it.'];
     }
@@ -919,6 +922,7 @@ class TikTokProductController extends Controller
             $what === 'price' ? 'price' : 'stock', $c, $rows, (string) config('catalog.prefix'),
             \Extensions\tiktok\Commands\TikTokPushPrice::priceRule($rows)
         );
+        \Extensions\tiktok\Services\TikTok\TikTokStockPricePush::recordOutcomes($what === 'price' ? 'price' : 'stock', $results['outcomes'], $c['setting'] ?? null);
         $clause = \Extensions\tiktok\Services\TikTok\TikTokStockPricePush::ledgerClause($results);
         $msg = ucfirst($what) . " pushed to TikTok Shop: {$results['ok']} updated" . ($results['err'] > 0 ? ", {$results['err']} failed" : '') . ($skipped > 0 ? ", {$skipped} skipped (not on TikTok Shop)" : '') . '.' . $clause;
 
@@ -953,10 +957,12 @@ class TikTokProductController extends Controller
             $this->log('DELETE', '/product/202309/products', ['product_ids' => [$truth->tiktok_product_id]], $result);
             if (!$this->ok($result) && !\App\Support\MarketplaceLink::looksMissingRemotely($this->message($result))) {
                 $errors[] = "#{$pid}: " . $this->message($result);
+                $this->states($c['setting'] ?? null)->recordOutcome($pid, 'Delete: ' . $this->message($result));
                 continue;
             }
             TikTokListing::query()->where('product_id', $pid)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null]);
             TikTokProductGroupProduct::query()->onStore($c['setting'] ?? null)->where('product_id', $pid)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'sync_status' => 'pending']);
+            $this->states($c['setting'] ?? null)->clearErrors([$pid]);
             $deleted++;
         }
         $msg = "Delete from TikTok Shop: {$deleted} deleted" . ($skipped > 0 ? ", {$skipped} skipped (not on TikTok Shop)" : '') . ($errors ? ', ' . count($errors) . ' failed. ' . implode('; ', array_slice($errors, 0, 3)) : '') . '.';
@@ -1010,6 +1016,7 @@ class TikTokProductController extends Controller
             $what === 'price' ? 'price' : 'stock', $c, [$pseudo], (string) config('catalog.prefix'),
             \Extensions\tiktok\Commands\TikTokPushPrice::priceRule([$pseudo])
         );
+        \Extensions\tiktok\Services\TikTok\TikTokStockPricePush::recordOutcomes($what === 'price' ? 'price' : 'stock', $results['outcomes'], $c['setting'] ?? null);
         $clause = \Extensions\tiktok\Services\TikTok\TikTokStockPricePush::ledgerClause($results);
 
         if ($results['ok'] === 0) {
@@ -1026,6 +1033,7 @@ class TikTokProductController extends Controller
         // status would be stale forever, and a later re-match would wear it.
         TikTokListing::query()->where('product_id', $productId)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null]);
         TikTokProductGroupProduct::query()->onStore()->where('product_id', $productId)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'sync_status' => 'unlinked']);
+        $this->states()->clearErrors([$productId]);
 
         return redirect()->back()->with('status', 'Unlinked. The TikTok Shop product stays up and can be matched again later.');
     }
@@ -1045,12 +1053,15 @@ class TikTokProductController extends Controller
         }
         $this->log('DELETE', '/product/202309/products', ['product_ids' => [$truth->tiktok_product_id]], $result);
         if (!$this->ok($result)) {
+            $this->states($c['setting'] ?? null)->recordOutcome($productId, 'Delete: ' . $this->message($result));
+
             return redirect()->back()->with('error', 'Delete failed: ' . $this->message($result));
         }
         // The link is gone; void the mirror rather than keep a status the
         // sweep can no longer correct (#184 D).
         TikTokListing::query()->where('product_id', $productId)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null]);
         TikTokProductGroupProduct::query()->onStore($c['setting'] ?? null)->where('product_id', $productId)->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'sync_status' => 'pending']);
+        $this->states($c['setting'] ?? null)->clearErrors([$productId]);
 
         return redirect()->back()->with('status', 'Deleted from TikTok Shop.');
     }
@@ -1163,6 +1174,15 @@ class TikTokProductController extends Controller
             })
             ->where('p.product_id', $productId)
             ->first(['p.product_id', 'pd.name', 'pd.description', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.image', 'p.weight', 'p.length', 'p.width', 'p.height', 'p.status']);
+    }
+
+    /** The listing-state engine, pinned to the store this request acts for. */
+    private function states(?TikTokSetting $store = null): \Extensions\tiktok\Services\TikTok\TikTokListingStates
+    {
+        $engine = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class);
+        $store ??= TikTokSetting::defaultStore();
+
+        return $store ? $engine->forStore($store) : $engine;
     }
 
     private function creds(): ?array

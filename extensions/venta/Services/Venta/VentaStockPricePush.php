@@ -195,9 +195,9 @@ final class VentaStockPricePush
     }
 
     /**
-     * Each product's verdict onto its group pivot for THIS store, where the
-     * group page reads sync_status and push_error; the stock cron has
-     * written them since 2026-08 and the price cron writes the same.
+     * Each product's verdict onto its group rows for THIS store, where the
+     * group page reads sync_status, and onto the listing's error line, so
+     * the two always agree.
      *
      * @param array<int, ?string> $outcomes product id => null when it worked, else the failure text
      */
@@ -207,16 +207,17 @@ final class VentaStockPricePush
             return;
         }
         $groupIds = DB::table('venta_product_groups')->where('venta_setting_id', $settingId)->pluck('id');
-        if ($groupIds->isEmpty()) {
-            return;
-        }
+        $states = VentaListingStates::for($settingId);
         foreach ($outcomes as $productId => $failure) {
-            DB::table('venta_product_group_products')->whereIn('venta_product_group_id', $groupIds)->where('product_id', (int) $productId)
-                ->update([
-                    'sync_status' => $failure === null ? 'pushed' : 'error',
-                    'push_error' => $failure === null ? null : \Illuminate\Support\Str::limit($failure, 480),
-                    'last_pushed_at' => now(),
-                ]);
+            if ($groupIds->isNotEmpty()) {
+                DB::table('venta_product_group_products')->whereIn('venta_product_group_id', $groupIds)->where('product_id', (int) $productId)
+                    ->update([
+                        'sync_status' => $failure === null ? 'pushed' : 'error',
+                        'push_error' => $failure === null ? null : \Illuminate\Support\Str::limit($failure, 480),
+                        'last_pushed_at' => now(),
+                    ]);
+            }
+            $states->recordOutcome((int) $productId, $failure);
         }
     }
 

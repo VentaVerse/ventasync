@@ -120,6 +120,15 @@ class ShopeeStockPricePush
             $this->pushItem($kind, $auth, (int) $itemId, $itemRows, $pfx, $priceFor, $erpVariationSkus, $hidden, $out, true);
         }
 
+        /* A failure is already on its link rows with its own time; a
+         * product that went through whole clears its error line. */
+        $states = app(ShopeeListingStates::class)->forStore((int) ($auth['store_id'] ?? 0));
+        foreach ($out['outcomes'] as $pid => $outcome) {
+            if (! empty($outcome['ok'])) {
+                $states->recordOutcome((int) $pid, null);
+            }
+        }
+
         return $out;
     }
 

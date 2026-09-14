@@ -153,7 +153,7 @@
             <option value="all" @selected($syncStatus === 'all')>Listed or not</option>
             <option value="listed" @selected($syncStatus === 'listed')>Listed on TikTok Shop</option>
             <option value="not_listed" @selected($syncStatus === 'not_listed')>Not listed</option>
-            <option value="error" @selected($syncStatus === 'error')>Last push failed</option>
+            <option value="error" @selected($syncStatus === 'error')>Has an error</option>
             <option value="ready" @selected($syncStatus === 'ready')>Ready to push</option>
             <option value="not_ready" @selected($syncStatus === 'not_ready')>Not ready to push</option>
         </select>

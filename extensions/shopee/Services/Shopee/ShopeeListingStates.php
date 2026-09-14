@@ -6,10 +6,12 @@ use App\Integrations\Listings\ListingState;
 use App\Integrations\Listings\ListingVariations;
 use App\Integrations\Push\PushLedger;
 use Extensions\shopee\Models\ShopeeListing;
+use Extensions\shopee\Models\ShopeeProductGroup;
 use Extensions\shopee\Models\ShopeeProductLink;
 use Extensions\shopee\Models\ShopeeSetting;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * The Shopee engine behind ListingState (Phase B, #184): one computation,
@@ -34,8 +36,149 @@ use Illuminate\Support\Facades\DB;
  */
 class ShopeeListingStates
 {
+    /** The store this instance reads and writes; null follows ShopeeSetting::defaultStore(). */
+    private ?int $storeId = null;
+
     public function __construct(private readonly ShopeeListingReadiness $readiness)
     {
+    }
+
+    /**
+     * The same engine, pinned to one store. A cron or command looping
+     * stores writes through this, so an outcome lands on the store the
+     * call was about and never on whichever store happens to be bound.
+     */
+    public function forStore(ShopeeSetting|int|null $store): static
+    {
+        $id = $store instanceof ShopeeSetting ? (int) $store->id : (int) $store;
+        $copy = clone $this;
+        $copy->storeId = $id > 0 ? $id : null;
+
+        return $copy;
+    }
+
+    private function storeId(): int
+    {
+        return $this->storeId ?? (int) (ShopeeSetting::defaultStore()?->id ?? 0);
+    }
+
+    /** A store-owned query fenced to this store, request or console alike. */
+    private function mine(string $model): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = $model::query();
+        $storeId = $this->storeId();
+
+        return $storeId > 0
+            ? $query->withoutGlobalScope('shopeeStore')->where($query->qualifyColumn('shopee_setting_id'), $storeId)
+            : $query;
+    }
+
+    /**
+     * The outcome of the latest thing done with this product on this
+     * store. Null is a success and clears every error slot; a reason is a
+     * failure and becomes the listing's error line.
+     */
+    public function recordOutcome(int $productId, ?string $failure): void
+    {
+        if ($failure === null) {
+            $this->clearErrors([$productId]);
+
+            return;
+        }
+
+        $storeId = $this->storeId();
+        if ($productId <= 0 || $storeId <= 0) {
+            return;
+        }
+
+        $reason = trim($failure) !== '' ? trim($failure) : PushLedger::NO_REASON;
+        $listing = $this->mine(ShopeeListing::class)->firstOrCreate(
+            ['product_id' => $productId],
+            ['shopee_setting_id' => $storeId]
+        );
+        $listing->forceFill([
+            'last_push_error' => Str::limit($reason, 477),
+            'last_push_failed_at' => now(),
+        ])->save();
+    }
+
+    /**
+     * Clear every slot errors() reads for these products on this store,
+     * and the group pivot's copy. An unlinked pivot row is left alone.
+     *
+     * @param list<int> $productIds
+     */
+    public function clearErrors(array $productIds): void
+    {
+        $productIds = array_values(array_unique(array_filter(array_map('intval', $productIds), fn ($v) => $v > 0)));
+        $storeId = $this->storeId();
+        if ($productIds === [] || $storeId <= 0) {
+            return;
+        }
+
+        $groupIds = ShopeeProductGroup::query()->withoutGlobalScope('shopeeStore')
+            ->where('shopee_setting_id', $storeId)->pluck('id')->map(fn ($v) => (int) $v)->all();
+
+        foreach (array_chunk($productIds, 500) as $chunk) {
+            $this->mine(ShopeeListing::class)->whereIn('product_id', $chunk)
+                ->where(fn ($q) => $q->whereNotNull('last_push_error')->orWhereNotNull('last_push_failed_at'))
+                ->update(['last_push_error' => null, 'last_push_failed_at' => null]);
+
+            $this->mine(ShopeeProductLink::class)->whereIn('product_id', $chunk)
+                ->where('last_sync_ok', false)
+                ->update(['last_sync_ok' => true, 'last_sync_error_code' => null, 'last_sync_error_message' => null]);
+
+            if ($groupIds === []) {
+                continue;
+            }
+
+            $linked = $this->mine(ShopeeProductLink::class)->whereIn('product_id', $chunk)
+                ->whereNotNull('shopee_item_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+            $pivot = fn () => DB::table('shopee_product_group_products')
+                ->whereIn('shopee_product_group_id', $groupIds)
+                ->whereIn('product_id', $chunk);
+
+            $pivot()->whereIn('sync_status', ['error', 'failed'])->whereIn('product_id', $linked ?: [0])
+                ->update(['sync_status' => 'pushed', 'push_error' => null]);
+            $pivot()->whereIn('sync_status', ['error', 'failed'])->whereNotIn('product_id', $linked ?: [0])
+                ->update(['sync_status' => 'pending', 'push_error' => null]);
+            $pivot()->whereNotNull('push_error')
+                ->where(fn ($q) => $q->whereNull('sync_status')->orWhere('sync_status', '!=', 'unlinked'))
+                ->update(['push_error' => null]);
+        }
+    }
+
+    /**
+     * The products that show an error line on this store, by the same
+     * errors() the rows are drawn from, so the filter and the red lines
+     * can never disagree.
+     *
+     * @return list<int>
+     */
+    public function erroredProductIds(): array
+    {
+        $storeId = $this->storeId();
+        if ($storeId <= 0) {
+            return [];
+        }
+
+        $candidates = $this->mine(ShopeeListing::class)
+            ->whereNotNull('last_push_error')->where('last_push_error', '!=', '')
+            ->pluck('product_id')
+            ->merge($this->mine(ShopeeProductLink::class)->where('last_sync_ok', false)->pluck('product_id'))
+            ->merge(ListingVariations::readProducts('shopee', $storeId))
+            ->map(fn ($v) => (int) $v)->filter()->unique()->sort()->values()->all();
+
+        $out = [];
+        foreach (array_chunk($candidates, 500) as $chunk) {
+            foreach ($this->errors($chunk) as $productId => $line) {
+                if ($line !== null) {
+                    $out[] = (int) $productId;
+                }
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -118,9 +261,9 @@ class ShopeeListingStates
         if ($productIds === []) {
             return [];
         }
-        $listings = ShopeeListing::query()->whereIn('product_id', $productIds)->get()->keyBy('product_id');
-        $links = ShopeeProductLink::query()->whereIn('product_id', $productIds)->get()->groupBy('product_id');
-        $missing = ListingVariations::missing('shopee', (int) (ShopeeSetting::defaultStore()?->id ?? 0), $productIds);
+        $listings = $this->mine(ShopeeListing::class)->whereIn('product_id', $productIds)->get()->keyBy('product_id');
+        $links = $this->mine(ShopeeProductLink::class)->whereIn('product_id', $productIds)->get()->groupBy('product_id');
+        $missing = ListingVariations::missing('shopee', $this->storeId(), $productIds);
 
         $out = [];
         foreach ($productIds as $pid) {

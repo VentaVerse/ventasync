@@ -51,6 +51,12 @@ final class VentaProductRemover
                 $stays['Venta (' . ($stores[(int) $link->venta_setting_id] ?? 'store #' . (int) $link->venta_setting_id) . ')'] = true;
             }
         }
+        $storeIds = $links->pluck('venta_setting_id')
+            ->merge(VentaListing::query()->where('product_id', $productId)->pluck('venta_setting_id'))
+            ->map(fn ($v) => (int) $v)->filter()->unique();
+        foreach ($storeIds as $storeId) {
+            VentaListingStates::for($storeId)->clearErrors([$productId]);
+        }
         VentaProductLink::query()->where('product_id', $productId)->delete();
         VentaListing::query()->where('product_id', $productId)->delete();
         VentaProductGroupProduct::query()->where('product_id', $productId)->delete();

@@ -34,6 +34,7 @@ final class VentaStoreDelete
         $out = ['deleted' => 0, 'skipped' => 0, 'errors' => []];
         $links = VentaProductLink::query()->where('venta_setting_id', $this->setting->id)->whereIn('product_id', $ids ?: [0])->get()->keyBy('product_id');
         $groupIds = VentaProductGroup::query()->where('venta_setting_id', $this->setting->id)->pluck('id')->all();
+        $states = VentaListingStates::for((int) $this->setting->id);
         foreach ($ids as $pid) {
             $link = $links->get($pid);
             if (! $link || trim((string) $link->sku) === '') {
@@ -48,8 +49,10 @@ final class VentaStoreDelete
             $gone = ($r['ok'] ?? false) || (int) ($r['status'] ?? 0) === 404;
             if (! $gone) {
                 $out['errors'][$pid] = (string) ($r['body']['error'] ?? $r['body']['message'] ?? 'no answer');
+                $states->recordOutcome($pid, 'Delete from ' . $this->setting->store_name . ' failed: ' . $out['errors'][$pid]);
                 continue;
             }
+            $states->clearErrors([$pid]);
             $link->delete();
             VentaListing::query()->where('venta_setting_id', $this->setting->id)->where('product_id', $pid)
                 ->update(['live_status' => null, 'live_checked_at' => null]);

@@ -48,6 +48,9 @@ final class LazadaProductRemover
     {
         $rows = LazadaProduct::query()->where('product_id', $productId)->get();
         $stores = $this->stores($rows->pluck('lazada_setting_id'));
+        foreach ($rows->pluck('lazada_setting_id')->filter()->unique() as $storeId) {
+            LazadaListingStates::on((int) $storeId)->clearErrors([$productId]);
+        }
         $stays = [];
         foreach ($rows as $row) {
             $storeId = (int) $row->lazada_setting_id;

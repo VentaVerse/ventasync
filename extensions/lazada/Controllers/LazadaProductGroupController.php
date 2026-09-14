@@ -60,14 +60,28 @@ class LazadaProductGroupController extends Controller
             $attributes
         );
 
-        // One latest error per product (the owner, 2026-09-05): the refusal also
-        // lands on the listing row, the one every surface reads; a success
-        // clears it there.
+        // The listing's error line follows: a failure sets it, a success clears it.
+        $states = \Extensions\lazada\Services\Lazada\LazadaListingStates::on($storeId);
         if (($attributes['sync_status'] ?? null) === 'error') {
-            LazadaProduct::recordPushFailure($productId, (string) ($attributes['push_error'] ?? ''));
+            $states->recordOutcome($productId, (string) ($attributes['push_error'] ?? ''));
         } elseif (($attributes['sync_status'] ?? null) === 'pushed') {
-            LazadaProduct::clearPushFailure($productId);
+            $states->recordOutcome($productId, null);
         }
+    }
+
+    /** The error line engine for the group's own store. */
+    private function states(LazadaProductGroup $group): \Extensions\lazada\Services\Lazada\LazadaListingStates
+    {
+        return \Extensions\lazada\Services\Lazada\LazadaListingStates::on((int) $group->lazada_setting_id);
+    }
+
+    /** A failed group attempt: named on this group's pivot, and the listing's error line. */
+    private function recordGroupFailure(LazadaProductGroup $group, ?LazadaProductGroupProduct $pivot, int $productId, string $message): void
+    {
+        if ($pivot) {
+            $pivot->update(['sync_status' => 'error', 'push_error' => \Illuminate\Support\Str::limit($message, 477)]);
+        }
+        $this->states($group)->recordOutcome($productId, $message);
     }
 
     private function productsRedirect(int $id)
@@ -235,8 +249,10 @@ class LazadaProductGroupController extends Controller
 
         // Get lazada_product_ids linked to this group before deletion
         $linkedLpIds = $group->groupProducts()->pluck('lazada_product_id')->filter()->toArray();
+        $memberIds = $group->groupProducts()->whereNotNull('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
 
         $group->delete();
+        $this->states($group)->clearErrors($memberIds);
 
         ActivityLogger::log('deleted', 'Lazada Product group', (int) $id, $group->name);
 
@@ -317,10 +333,13 @@ class LazadaProductGroupController extends Controller
             $query->where('p.status', 0);
         }
 
+        $states = $this->states($group);
+
         /* The filter answers what the column shows (one-truth port from
          * Shopee, 2026-08-25): Listed/Not listed are the LISTING record's
          * facts - lazada_products, the same row the Listings page reads.
-         * 'error' stays per-group: this group's own last attempt. */
+         * 'error' is the rows that draw an error line, by the line's own
+         * engine. */
         if ($syncStatus === 'pushed') {
             $query->whereNotNull('lp.lazada_item_id')->where('lp.lazada_item_id', '!=', '');
         } elseif ($syncStatus === 'pending') {
@@ -328,7 +347,7 @@ class LazadaProductGroupController extends Controller
                 $w->whereNull('lp.lazada_item_id')->orWhere('lp.lazada_item_id', '');
             });
         } elseif ($syncStatus === 'error') {
-            $query->where('gp.sync_status', 'error');
+            $query->whereIn('p.product_id', $states->erroredProductIds() ?: [0]);
         } elseif ($syncStatus === 'unlinked') {
             // Unlinked was a state the columns could show and the filter
             // could not find (parity #156, from Shopee's group page).
@@ -364,8 +383,7 @@ class LazadaProductGroupController extends Controller
             'listingStates' => app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)
                 ->forProducts(array_map('intval', $pivotProductIds)),
             // The Last sync column (the owner, 2026-09-05), one answer shared with the Listings page.
-            'rowErrors' => app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)
-                ->errors(array_map('intval', $pivotProductIds)),
+            'rowErrors' => $states->errors(array_map('intval', $pivotProductIds)),
             'optionRowsByProductId' => $optionRowsByProductId,
             // The row menu reaches the product's Lazada listing page, like
             // the Shopee and TikTok group pages do (critique 2026-08-25).
@@ -548,6 +566,7 @@ class LazadaProductGroupController extends Controller
         $group->groupProducts()
             ->where('product_id', $productId)
             ->update(['sync_status' => 'unlinked']);
+        $this->states($group)->clearErrors([$productId]);
 
         return $this->productsRedirect($group->id)
             ->with('status', 'Product unlinked from Lazada.');
@@ -589,6 +608,8 @@ class LazadaProductGroupController extends Controller
         $skus = array_unique(array_merge($skus, $optSkus));
 
         if (empty($skus)) {
+            $this->states($group)->recordOutcome($productId, 'Product has no SKU to match against Lazada.');
+
             return redirect()->back()->with('error', 'Product has no SKU to match against Lazada.');
         }
 
@@ -596,7 +617,9 @@ class LazadaProductGroupController extends Controller
         $lazadaProduct = LazadaProduct::find($pivot->lazada_product_id);
         if ($lazadaProduct && $lazadaProduct->lazada_item_id && !$lazadaProduct->unlinked_at) {
             app(LazadaItemCache::class)->refreshListing($lazadaProduct, $setting, $client, 'lazada.product.item.get.cache.group');
-            $pivot->update(['sync_status' => 'synced']);
+            if (! in_array($pivot->sync_status, ['error', 'failed'], true)) {
+                $pivot->update(['sync_status' => 'synced']);
+            }
             return redirect()->back()->with('status', "Lazada item ID {$lazadaProduct->lazada_item_id} — cache refreshed.");
         }
 
@@ -636,6 +659,8 @@ class LazadaProductGroupController extends Controller
         }
 
         if (!$matchedItemId) {
+            $this->states($group)->recordOutcome($productId, 'No matching product found on Lazada for SKU(s): ' . implode(', ', $skus));
+
             return redirect()->back()->with('error', 'No matching product found on Lazada for SKU(s): ' . implode(', ', $skus));
         }
 
@@ -656,6 +681,7 @@ class LazadaProductGroupController extends Controller
 
         // Update sync status
         $pivot->update(['sync_status' => 'pushed']);
+        $this->states($group)->recordOutcome($productId, null);
 
         return redirect()->back()->with('status', "Lazada item ID {$matchedItemId} synced for this product.");
     }
@@ -691,6 +717,7 @@ class LazadaProductGroupController extends Controller
     {
         $group = LazadaProductGroup::query()->findOrFail($groupId);
         $group->groupProducts()->where('product_id', $productId)->delete();
+        $this->states($group)->clearErrors([$productId]);
 
         return $this->productsRedirect($group->id)
             ->with('status', 'Product removed from the product group.');
@@ -706,6 +733,7 @@ class LazadaProductGroupController extends Controller
 
         if (!empty($ids)) {
             $group->groupProducts()->whereIn('product_id', $ids)->delete();
+            $this->states($group)->clearErrors($ids);
         }
 
         return $this->productsRedirect($group->id)
@@ -785,8 +813,7 @@ class LazadaProductGroupController extends Controller
             if (!$readiness['ready']) {
                 $refusal = \App\Integrations\Listings\CatalogGaps::refusal($readiness);
                 $errors[] = "#{$productId}: {$refusal}";
-                if ($pivot) $pivot->update(['sync_status' => 'error', 'push_error' => $refusal]);
-                LazadaProduct::recordPushFailure((int) $productId, $refusal);
+                $this->recordGroupFailure($group, $pivot, (int) $productId, $refusal);
                 $errCount++;
                 continue;
             }
@@ -834,12 +861,12 @@ class LazadaProductGroupController extends Controller
             } catch (\Illuminate\Validation\ValidationException $e) {
                 $msg = implode('; ', array_map(fn($m) => implode(', ', $m), $e->errors()));
                 $errors[] = "#{$productId}: {$msg}";
-                if ($pivot) $pivot->update(['sync_status' => 'error']);
+                $this->recordGroupFailure($group, $pivot, (int) $productId, $msg);
                 $errCount++;
                 continue;
             } catch (\Throwable $e) {
                 $errors[] = "#{$productId}: " . $e->getMessage();
-                if ($pivot) $pivot->update(['sync_status' => 'error']);
+                $this->recordGroupFailure($group, $pivot, (int) $productId, $e->getMessage());
                 $errCount++;
                 continue;
             }
@@ -897,14 +924,16 @@ class LazadaProductGroupController extends Controller
                     ],
                 ])->save();
                 if ($pivot) $pivot->update(['sync_status' => 'pushed']);
+                $this->states($group)->recordOutcome((int) $productId, null);
 
                 ActivityLogger::log('created', 'Lazada Product', $listing->id,
                     'Pushed ERP #' . $productId . ' to Lazada via product group');
 
                 $okCount++;
             } else {
-                $errors[] = "#{$productId}: " . ($e['message'] ?? 'Unknown error');
-                if ($pivot) $pivot->update(['sync_status' => 'error']);
+                $reason = (string) ($e['message'] ?? 'Unknown error');
+                $errors[] = "#{$productId}: " . $reason;
+                $this->recordGroupFailure($group, $pivot, (int) $productId, $reason);
                 $errCount++;
             }
 
@@ -1012,8 +1041,7 @@ class LazadaProductGroupController extends Controller
             $readiness = app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class)->forListings(collect([$listing]), $groupOverrides)[(int) $listing->id] ?? ['ready' => false, 'missing' => []];
             if (!$readiness['ready']) {
                 $refusal = \App\Integrations\Listings\CatalogGaps::refusal($readiness, 'update');
-                if ($pivot) $pivot->update(['sync_status' => 'error', 'push_error' => $refusal]);
-                LazadaProduct::recordPushFailure($productId, $refusal);
+                $this->recordGroupFailure($group, $pivot, $productId, $refusal);
 
                 return ['ok' => false, 'message' => $refusal];
             }
@@ -1024,10 +1052,10 @@ class LazadaProductGroupController extends Controller
                 $productPayload = app(\Extensions\lazada\Services\Lazada\LazadaImages::class)->ensureLazadaInlinkImages($productPayload, $setting, $client);
             } catch (\Illuminate\Validation\ValidationException $e) {
                 $msg = implode('; ', array_map(fn($m) => implode(', ', $m), $e->errors()));
-                if ($pivot) $pivot->update(['sync_status' => 'error']);
+                $this->recordGroupFailure($group, $pivot, $productId, $msg);
                 return ['ok' => false, 'message' => $msg];
             } catch (\Throwable $e) {
-                if ($pivot) $pivot->update(['sync_status' => 'error']);
+                $this->recordGroupFailure($group, $pivot, $productId, $e->getMessage());
                 return ['ok' => false, 'message' => $e->getMessage()];
             }
 
@@ -1086,6 +1114,7 @@ class LazadaProductGroupController extends Controller
                     ],
                 ])->save();
                 if ($pivot) $pivot->update(['sync_status' => 'pushed']);
+                $this->states($group)->recordOutcome($productId, null);
 
                 ActivityLogger::log('updated', 'Lazada Product', $listing->id,
                     'Updated ERP #' . $productId . ' on Lazada via product group');
@@ -1093,9 +1122,10 @@ class LazadaProductGroupController extends Controller
                 return ['ok' => true, 'message' => 'updated'];
             }
 
-            if ($pivot) $pivot->update(['sync_status' => 'error']);
+            $reason = (string) ($e['message'] ?? 'Unknown error');
+            $this->recordGroupFailure($group, $pivot, $productId, $reason);
 
-            return ['ok' => false, 'message' => (string) ($e['message'] ?? 'Unknown error')];
+            return ['ok' => false, 'message' => $reason];
 
     }
 
@@ -1378,6 +1408,7 @@ class LazadaProductGroupController extends Controller
 
                 // Update pivot
                 $this->writeProductStatus((int) $group->lazada_setting_id, (int) $pivotRow->product_id, ['sync_status' => 'pending']);
+                $this->states($group)->clearErrors([(int) $pivotRow->product_id]);
 
                 ActivityLogger::log('deleted', 'Lazada Product', $listing->id,
                     'Deleted from Lazada via product group, ERP #' . (int) $listing->product_id);

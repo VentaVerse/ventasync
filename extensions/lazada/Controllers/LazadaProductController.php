@@ -104,6 +104,12 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
     }
 }
 
+    /** The error line engine for the store this request stands in. */
+    private function states(): \Extensions\lazada\Services\Lazada\LazadaListingStates
+    {
+        return app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class);
+    }
+
     /** Listings-strip tab key => the status word Lazada returns on an item (and the mirror stores). */
     public const TAB_STATUS = [
         'active' => 'active',
@@ -300,8 +306,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         } elseif ($syncStatus === 'deleted') {
             $query->whereNotNull('lp.lazada_deleted_at');
         } elseif ($syncStatus === 'error') {
-            /* The reason to open this page: what failed, filterable. */
-            $query->where('lp.last_sync_ok', false)->whereNotNull('lp.last_sync_ok');
+            /* The rows that draw an error line, by the line's own engine. */
+            $query->whereIn('p.product_id', $this->states()->erroredProductIds() ?: [0]);
         } elseif ($syncStatus === 'ready' || $syncStatus === 'not_ready') {
             /* The computed answer (#101): which unlisted products could be
              * pushed RIGHT NOW - by the same LazadaListingReadiness every
@@ -722,6 +728,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $itemId = $listing->lazada_item_id;
         $productId = $listing->product_id;
 
+        $this->states()->clearErrors([(int) $productId]);
         $listing->variants()->delete();
         $listing->groups()->detach();
         $listing->delete();
@@ -741,6 +748,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
     {
         $ids = array_values(array_unique(array_filter(array_map('intval', (array) $request->input('product_ids', [])), fn ($v) => $v > 0)));
         $n = 0;
+        $this->states()->clearErrors($ids);
         foreach (LazadaProduct::query()->whereIn('product_id', $ids)->get() as $listing) {
             $listing->variants()->delete();
             $listing->groups()->detach();
@@ -1043,6 +1051,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             } catch (\Throwable $ex) {
                 // Avoid throwing if DB schema isn't migrated yet.
             }
+            $this->states()->clearErrors([(int) $listing->product_id]);
         }
 
         // Log the final attempt + any fallback attempt for troubleshooting.
@@ -1086,6 +1095,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         // Remove cached Lazada variants so sync jobs skip this listing
         $listing->variants()->delete();
+        $this->states()->clearErrors([(int) $productId]);
 
         $label = $itemId ? "Lazada item {$itemId}" : "product #{$productId}";
 
@@ -1198,6 +1208,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             } catch (\Throwable $ex) {
                 // keep status log; avoid throwing in production
             }
+            $this->states()->recordOutcome((int) $listing->product_id, null);
 
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Sync Lazada ID: linked successfully.');
@@ -1252,7 +1263,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         if (!$readiness['ready']) {
             $refusal = \App\Integrations\Listings\CatalogGaps::refusal($readiness, $isUpdate ? 'update' : 'push');
             $this->persistProductSyncStatus($saved, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'NOT_READY', 'message' => $refusal]]);
-            LazadaProduct::recordPushFailure((int) $listing->product_id, $refusal);
+            $this->states()->recordOutcome((int) $listing->product_id, $refusal);
             // Each blank required attribute lands on its own row, in the builder's words.
             $rowErrors = [];
             foreach ($readiness['gaps'] ?? [] as $gap) {
@@ -1278,7 +1289,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             $all = collect($e->errors())->flatten()->all();
             $msg = $all !== [] ? implode(' ', $all) : 'Listing mapping is incomplete.';
             $this->persistProductSyncStatus($saved, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'VALIDATION_ERROR', 'message' => (string)$msg]]);
-            LazadaProduct::recordPushFailure((int) $listing->product_id, 'Upload refused: ' . $msg);
+            $this->states()->recordOutcome((int) $listing->product_id, 'Upload refused: ' . $msg);
 
             return ['ok' => false, 'message' => 'Upload refused before anything was sent: ' . $msg, 'errors' => $e->errors()];
         }
@@ -1319,6 +1330,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         // If successful, store lazada_item_id (create) or refresh variants (update).
         $e = $this->payload()->extractLazadaError($result);
         if (!empty($e['ok'])) {
+            $this->states()->recordOutcome((int) $saved->product_id, null);
             if ($isUpdate) {
                 // Refresh variant cache after update
                 $this->itemCache()->refreshListing($saved, $setting, $client);
@@ -1433,7 +1445,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $labeller = $template && $template->template_body ? $this->attrs()->fieldLabeller($template->template_body) : null;
         $line = $this->payload()->formatLazadaResultMessage('Upload', $result, $labeller);
         if (! ($e['ok'] ?? false)) {
-            LazadaProduct::recordPushFailure((int) $listing->product_id, $line);
+            $this->states()->recordOutcome((int) $listing->product_id, $line);
 
             /* The refusal on the row it is about (the owner, 2026-09-06: the
              * sheet used to say "this field is required" under the row; the
@@ -1616,6 +1628,16 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
      * @return array{ok: bool, message: string}
      */
     private function toggleOne(LazadaProduct $listing, bool $deactivate, object $setting, array $creds, LazadaClient $client): array
+    {
+        $r = $this->toggleOnLazada($listing, $deactivate, $setting, $creds, $client);
+        $this->states()->recordOutcome((int) $listing->product_id, $r['ok'] ? null
+            : ($deactivate ? 'Deactivate' : 'Activate') . ' failed: ' . $r['message']);
+
+        return $r;
+    }
+
+    /** @return array{ok: bool, message: string} */
+    private function toggleOnLazada(LazadaProduct $listing, bool $deactivate, object $setting, array $creds, LazadaClient $client): array
     {
         if ($deactivate) {
             $apiPath = '/product/deactivate';
@@ -1884,6 +1906,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                     // ['ok' => true] with no error body clears the stale code and
                     // message and stamps last_synced_at + last_sync_action.
                     $this->persistProductSyncStatus($listing, 'bulk_sync_lazada_id', ['ok' => true]);
+                    $this->states()->recordOutcome((int) $listing->product_id, null);
                     $okCount++;
                 } catch (\Throwable $ex) {
                     $errCount++;
@@ -2131,6 +2154,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             } catch (\Throwable $ex) {
                 // ignore
             }
+            $this->states()->clearErrors([(int) $listing->product_id]);
         } else {
             $errCount++;
         }
@@ -3367,6 +3391,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 'lazada_item_id' => (string) $data['ref'],
             ]);
         }
+        $this->states()->recordOutcome($productId, null);
 
         return redirect()->back()->with('status', 'Linked Lazada item #' . $data['ref'] . ' to catalog product #' . $productId . '.');
     }

@@ -37,6 +37,11 @@ final class ShopeeStoreDeleter
         return DB::transaction(function () use ($store) {
             $removed = [];
 
+            $productIds = DB::table('shopee_listings')->where('shopee_setting_id', $store->id)->pluck('product_id')
+                ->merge(DB::table('shopee_product_links')->where('shopee_setting_id', $store->id)->pluck('product_id'))
+                ->map(fn ($v) => (int) $v)->unique()->values()->all();
+            app(ShopeeListingStates::class)->forStore($store)->clearErrors($productIds);
+
             // The group pivot has no store column of its own: clear it by
             // the store's groups before the groups go.
             if (Schema::hasTable('shopee_product_group_products')) {

@@ -61,6 +61,18 @@ public function refreshListing(LazadaProduct $listing, object $setting, LazadaCl
         'user_id'         => auth()->id(),
     ]);
 
+    $answered = ($res['ok'] ?? false) && ($apiCode === '' || $apiCode === '0');
+    if (! $answered) {
+        // A read can set a failure: Lazada saying the item is gone becomes the line.
+        $said = is_array($body) ? trim((string) ($body['message'] ?? '')) : '';
+        if (preg_match('/not\s*(?:exist|found)|E0207/i', $apiCode . ' ' . $said)) {
+            LazadaListingStates::on((int) ($listing->lazada_setting_id ?? 0) ?: (int) ($setting->id ?? 0))
+                ->recordOutcome((int) $listing->product_id, 'Not found on Lazada' . ($said !== '' ? ': ' . rtrim($said, '.') : '') . '.');
+        }
+
+        return;
+    }
+
     if (empty($data) || !is_array($data)) return;
 
     // 1. Write the answer through to the mirror (#184 C). This read runs
@@ -73,11 +85,13 @@ public function refreshListing(LazadaProduct $listing, object $setting, LazadaCl
         $listing->live_checked_at = now();
     }
 
-    // 2. Clear stale sync error fields
-    $listing->last_sync_ok = true;
-    $listing->last_sync_error_code = null;
-    $listing->last_sync_error_message = null;
-    $listing->last_synced_at = now();
+    // 2. The sync stamp moves only on a row carrying no failure: a read never clears an error.
+    if (! ($listing->last_sync_ok !== null && ! $listing->last_sync_ok)) {
+        $listing->last_sync_ok = true;
+        $listing->last_sync_error_code = null;
+        $listing->last_sync_error_message = null;
+        $listing->last_synced_at = now();
+    }
     $listing->save();
 
     // 3. Refresh variants (sku_id, shop_sku, pov_id mapping)
@@ -133,9 +147,10 @@ public function refreshListing(LazadaProduct $listing, object $setting, LazadaCl
             ->delete();
     }
 
-    // 5. Update sync_status on group pivot
+    // 5. Update sync_status on group pivot, never over a failed attempt
     DB::table('lazada_product_group_products')
         ->where('lazada_product_id', $listing->id)
+        ->where(fn ($q) => $q->whereNull('sync_status')->orWhereNotIn('sync_status', ['error', 'failed']))
         ->update(['sync_status' => 'synced', 'push_error' => null]);
 }
 

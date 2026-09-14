@@ -65,6 +65,7 @@ class VentaLinkCheck
 
         $verdicts = [];
         $clashes = [];
+        $states = VentaListingStates::for($settingId);
 
         foreach ($ids as $pid) {
             $verdict = $push->reconcileLink($pid);
@@ -85,6 +86,7 @@ class VentaLinkCheck
                     'push_error' => $verdict['message'],
                     'last_confirmed_at' => now(),
                 ]);
+                $states->recordOutcome($pid, (string) $verdict['message']);
                 continue;
             }
 
@@ -98,6 +100,7 @@ class VentaLinkCheck
                     'last_pushed_at' => null,
                     'last_confirmed_at' => now(),
                 ]);
+                $states->recordOutcome($pid, 'No longer on ' . $storeName . ', so its link was removed.');
                 continue;
             }
 
@@ -111,6 +114,7 @@ class VentaLinkCheck
             }
 
             // confirmed, adopted, repointed: Venta has it and the link is right.
+            // A read never clears the listing's error; only a write to the store does.
             $this->writeProductStatus($settingId, $pid, [
                 'sync_status' => 'pushed',
                 'venta_sku' => $verdict['sku'],

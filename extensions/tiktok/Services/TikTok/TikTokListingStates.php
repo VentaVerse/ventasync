@@ -10,6 +10,7 @@ use Extensions\tiktok\Models\TikTokProductGroupProduct;
 use Extensions\tiktok\Models\TikTokSetting;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * The TikTok engine behind ListingState (Phase D, #184): one computation,
@@ -42,6 +43,128 @@ class TikTokListingStates
 {
     public function __construct(private readonly TikTokListingReadiness $readiness)
     {
+    }
+
+    /** The store the error slots are read and written for; null means the store in hand. */
+    private ?int $store = null;
+
+    /**
+     * The same engine, pinned to one store. A loop over stores, or any
+     * write about a store other than the bound one, goes through here so
+     * it never lands on whichever store happens to be in hand.
+     */
+    public function forStore(TikTokSetting|int $store): static
+    {
+        $pinned = clone $this;
+        $pinned->store = $store instanceof TikTokSetting ? (int) $store->id : (int) $store;
+
+        return $pinned;
+    }
+
+    private function storeId(): int
+    {
+        return $this->store ?? (int) (TikTokSetting::defaultStore()?->id ?? 0);
+    }
+
+    /** This store's listing rows, named rather than left to the request's read fence. */
+    private function listingsOnStore(): \Illuminate\Database\Eloquent\Builder
+    {
+        return TikTokListing::query()->withoutGlobalScope('tiktokStore')
+            ->where('tiktok_listings.tiktok_setting_id', $this->storeId());
+    }
+
+    /**
+     * The outcome of the latest thing done with this product on this
+     * store. Null is a success and clears every error slot; a reason is
+     * written onto the listing row, which is created when missing.
+     */
+    public function recordOutcome(int $productId, ?string $failure): void
+    {
+        if ($failure === null) {
+            $this->clearErrors([$productId]);
+
+            return;
+        }
+        $storeId = $this->storeId();
+        if ($productId <= 0 || $storeId <= 0) {
+            return;
+        }
+
+        $reason = trim($failure) !== '' ? trim($failure) : PushLedger::NO_REASON;
+        // The column holds 480 characters, the trailing marker included.
+        $values = ['last_push_error' => Str::limit($reason, 477), 'last_push_failed_at' => now()];
+        if ($this->listingsOnStore()->where('product_id', $productId)->exists()) {
+            $this->listingsOnStore()->where('product_id', $productId)->update($values);
+        } else {
+            (new TikTokListing())->forceFill(['tiktok_setting_id' => $storeId, 'product_id' => $productId] + $values)->save();
+        }
+    }
+
+    /**
+     * Clear every slot errors() reads for these products on this store: the
+     * listing's own error and the group pivots' failures. A pivot marked
+     * unlinked keeps that status.
+     *
+     * @param list<int> $productIds
+     */
+    public function clearErrors(array $productIds): void
+    {
+        $productIds = array_values(array_unique(array_filter(array_map('intval', $productIds), fn ($v) => $v > 0)));
+        $storeId = $this->storeId();
+        if ($productIds === [] || $storeId <= 0) {
+            return;
+        }
+
+        foreach (array_chunk($productIds, 500) as $chunk) {
+            $this->listingsOnStore()->whereIn('product_id', $chunk)
+                ->where(fn ($q) => $q->whereNotNull('last_push_error')->orWhereNotNull('last_push_failed_at'))
+                ->update(['last_push_error' => null, 'last_push_failed_at' => null]);
+
+            $pivots = fn () => TikTokProductGroupProduct::query()->onStore($storeId)->whereIn('product_id', $chunk);
+            $pivots()->whereIn('sync_status', ['error', 'failed'])
+                ->whereNotNull('tiktok_product_id')->where('tiktok_product_id', '!=', '')
+                ->update(['sync_status' => 'pushed', 'push_error' => null]);
+            $pivots()->whereIn('sync_status', ['error', 'failed'])
+                ->update(['sync_status' => 'pending', 'push_error' => null]);
+            $pivots()->whereNotNull('push_error')->update(['push_error' => null]);
+        }
+    }
+
+    /**
+     * The products on this store whose row shows an error line: the one
+     * definition behind the error filter, so the filter and the red lines
+     * cannot disagree.
+     *
+     * @return list<int>
+     */
+    public function erroredProductIds(): array
+    {
+        $storeId = $this->storeId();
+        if ($storeId <= 0) {
+            return [];
+        }
+
+        $candidates = $this->listingsOnStore()
+            ->whereNotNull('last_push_error')->where('last_push_error', '!=', '')
+            ->pluck('product_id')
+            ->merge(TikTokProductGroupProduct::query()->onStore($storeId)
+                ->where(fn ($q) => $q->whereIn('sync_status', ['error', 'failed'])
+                    ->orWhere(fn ($w) => $w->whereNotNull('push_error')->where('push_error', '!=', '')))
+                ->pluck('product_id'))
+            ->merge(ListingVariations::readProducts('tiktok', $storeId))
+            ->map(fn ($v) => (int) $v)->filter(fn ($v) => $v > 0)
+            ->unique()->sort()->values()->all();
+
+        $out = [];
+        foreach (array_chunk($candidates, 500) as $chunk) {
+            foreach ($this->errors($chunk) as $pid => $line) {
+                if ($line !== null) {
+                    $out[] = (int) $pid;
+                }
+            }
+        }
+
+        return $out;
     }
 
     private const ATTENTION_RAW = ['FAILED', 'PLATFORM_DEACTIVATED', 'FREEZE', 'DRAFT', 'DELETED', 'MISSING'];
@@ -221,9 +344,10 @@ class TikTokListingStates
         if ($productIds === []) {
             return [];
         }
-        $listings = TikTokListing::query()->whereIn('product_id', $productIds)->get()->keyBy(fn ($l) => (int) $l->product_id);
-        $pivots = TikTokProductGroupProduct::query()->onStore()->whereIn('product_id', $productIds)->get()->groupBy('product_id');
-        $missing = ListingVariations::missing('tiktok', (int) (TikTokSetting::defaultStore()?->id ?? 0), $productIds);
+        $storeId = $this->storeId();
+        $listings = $this->listingsOnStore()->whereIn('product_id', $productIds)->get()->keyBy(fn ($l) => (int) $l->product_id);
+        $pivots = TikTokProductGroupProduct::query()->onStore($storeId)->whereIn('product_id', $productIds)->get()->groupBy('product_id');
+        $missing = ListingVariations::missing('tiktok', $storeId, $productIds);
 
         $out = [];
         foreach ($productIds as $pid) {

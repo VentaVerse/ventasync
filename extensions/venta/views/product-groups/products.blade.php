@@ -91,7 +91,7 @@
             <option value="all" @selected($syncStatus === 'all')>Pushed or not</option>
             <option value="pushed" @selected($syncStatus === 'pushed')>Pushed</option>
             <option value="pending" @selected($syncStatus === 'pending')>Not pushed yet</option>
-            <option value="error" @selected($syncStatus === 'error')>Last push failed</option>
+            <option value="error" @selected($syncStatus === 'error')>Has an error</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
@@ -176,7 +176,6 @@
             $isUnlinked = $syncState === 'unlinked';
             $hasVentaId = !empty($p->venta_product_id) && !$isUnlinked;
             $failed = in_array($syncState, ['error', 'failed'], true);
-            $hasError = $failed && ($p->push_error ?? null);
 
             // Parsed rather than cast: this comes off a query builder select,
             // not an Eloquent model, so it arrives as a string and has no
@@ -204,13 +203,7 @@
             $metaParts[] = $isManual ? 'added by hand' : 'matched by the product group filter';
             $meta = implode(' / ', $metaParts);
         @endphp
-        {{-- A failure with no saved message still draws a line. --}}
-        @include('partials.channel-error-row', [
-            'error' => $hasError
-                ? (string) $p->push_error
-                : ($failed ? \App\Integrations\Push\PushLedger::NO_REASON : null),
-            'cols' => $colCount,
-        ])
+        @include('partials.channel-error-row', ['error' => $rowErrors[(int) $p->product_id] ?? null, 'cols' => $colCount])
         <tr>
             @if($canManageVenta)
             <td class="cc-col-check">

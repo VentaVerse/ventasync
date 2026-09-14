@@ -16,6 +16,7 @@ use Extensions\tiktok\Services\TikTok\TikTokListingStates;
 use Extensions\tiktok\TiktokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 /**
@@ -55,6 +56,7 @@ class TikTokListingStateTest extends TestCase
             Permission::whereIn('key', [
                 'view_tiktok/product', 'manage_tiktok/product',
                 'view_tiktok/product_group', 'manage_tiktok/product_group',
+                'view_tiktok/listing', 'manage_tiktok/listing',
             ])->pluck('id')->all()
         );
 
@@ -306,7 +308,7 @@ class TikTokListingStateTest extends TestCase
         $pid = $this->seedProduct('Refused one', 'RF-1');
         \Extensions\tiktok\Models\TikTokListing::query()->create(['product_id' => $pid]);
 
-        \Extensions\tiktok\Models\TikTokListing::recordPushFailure($pid, 'Main image is required.');
+        app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)->recordOutcome($pid, 'Main image is required.');
         $states = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class);
         $s = $states->forProducts([$pid])[$pid];
         $this->assertStringContainsString('failed: Main image is required', implode(' ', $s->reasons));
@@ -378,5 +380,213 @@ class TikTokListingStateTest extends TestCase
         $filled = $inherit->fill($ownListing, $inherit->forProducts([$own])[$own] ?? null);
         $this->assertSame('900777', $filled['listing']->tiktok_category_id);
         $this->assertSame([], $filled['inherited']);
+    }
+
+    /** A product on the store, linked to a single-SKU TikTok Shop product. */
+    private function linkedSingle(string $name, string $sku, string $ttId): int
+    {
+        $pid = $this->seedProduct($name, $sku);
+        TikTokListing::query()->create([
+            'product_id' => $pid, 'tiktok_product_id' => $ttId,
+            'tiktok_sku_id' => json_encode(['__single__' => 's-' . $ttId]),
+            'live_status' => 'ACTIVATE', 'live_checked_at' => now(),
+        ]);
+
+        return $pid;
+    }
+
+    private static function tiktokAnswer(int $code = 0, string $message = 'Success', array $data = []): \GuzzleHttp\Promise\PromiseInterface
+    {
+        return Http::response(['code' => $code, 'message' => $message, 'data' => $data], 200);
+    }
+
+    public function test_a_failure_then_a_success_on_another_path_clears_the_line(): void
+    {
+        $pid = $this->linkedSingle('Two paths', 'TP-1', 'tt-501');
+        Http::fake([
+            '*/prices/update*' => self::tiktokAnswer(12052700, 'Price is below the allowed floor.'),
+            '*/inventory/update*' => self::tiktokAnswer(),
+            '*' => self::tiktokAnswer(),
+        ]);
+        $user = $this->manager();
+
+        $this->actingAs($user)->post(route('ext.tiktok.products.push_price', $pid))->assertRedirect();
+        $line = (string) $this->engine()->errors([$pid])[$pid];
+        $this->assertStringContainsString('Price push: Price is below the allowed floor.', $line);
+        $this->assertContains($pid, $this->engine()->erroredProductIds());
+
+        $this->actingAs($user)->post(route('ext.tiktok.products.push_stock', $pid))->assertRedirect();
+        $this->assertNull($this->engine()->errors([$pid])[$pid], 'a later success on another path clears the line');
+        $this->assertNotContains($pid, $this->engine()->erroredProductIds());
+    }
+
+    public function test_a_stored_error_survives_a_link_check_and_a_refresh_until_a_write_succeeds(): void
+    {
+        $pid = $this->linkedSingle('Survivor', 'SV-1', 'tt-801');
+        Http::fake([
+            '*/prices/update*' => self::tiktokAnswer(12052700, 'Price is below the allowed floor.'),
+            '*/products/search*' => self::tiktokAnswer(0, 'Success', ['products' => [[
+                'id' => 'tt-801', 'status' => 'ACTIVATE', 'title' => 'Survivor',
+                'skus' => [['id' => 's-tt-801', 'seller_sku' => 'SV-1']],
+            ]]]),
+            '*/inventory/update*' => self::tiktokAnswer(),
+            '*' => self::tiktokAnswer(),
+        ]);
+        $user = $this->manager();
+
+        $this->actingAs($user)->post(route('ext.tiktok.products.push_price', $pid))->assertRedirect();
+        $this->assertStringContainsString('Price is below the allowed floor.', (string) $this->engine()->errors([$pid])[$pid]);
+
+        // The link check finds the item still there: a read never clears.
+        $this->actingAs($user)->post(route('ext.tiktok.products.check'), ['product_ids' => [$pid]])->assertRedirect();
+        $this->assertStringContainsString('Price is below the allowed floor.', (string) $this->engine()->errors([$pid])[$pid]);
+
+        // Nor does the scheduled refresh, which re-reads statuses and checks the links.
+        $this->artisan('tiktok:refresh-listing-status')->assertExitCode(0);
+        $this->assertStringContainsString('Price is below the allowed floor.', (string) $this->engine()->errors([$pid])[$pid]);
+
+        $this->actingAs($user)->post(route('ext.tiktok.products.push_stock', $pid))->assertRedirect();
+        $this->assertNull($this->engine()->errors([$pid])[$pid]);
+    }
+
+    public function test_the_link_check_sets_a_failure_when_the_item_is_gone(): void
+    {
+        $pid = $this->linkedSingle('Gone one', 'GN-1', 'tt-901');
+        Http::fake([
+            '*/products/search*' => self::tiktokAnswer(0, 'Success', ['products' => []]),
+            '*' => self::tiktokAnswer(),
+        ]);
+
+        $this->actingAs($this->manager())->post(route('ext.tiktok.products.check'), ['product_ids' => [$pid]])->assertRedirect();
+
+        $this->assertStringContainsString('Not found on TikTok Shop', (string) $this->engine()->errors([$pid])[$pid]);
+        $this->assertNull(TikTokListing::query()->where('product_id', $pid)->value('tiktok_product_id'));
+    }
+
+    public function test_unlink_clears_the_line(): void
+    {
+        $pid = $this->linkedSingle('Cut with an error', 'CE-1', 'tt-601');
+        $grp = TikTokProductGroup::create(['name' => 'Erroring group', 'tiktok_category_id' => '900009']);
+        TikTokProductGroupProduct::create([
+            'tiktok_product_group_id' => $grp->id, 'product_id' => $pid,
+            'tiktok_product_id' => 'tt-601', 'sync_status' => 'error', 'push_error' => 'Category attribute missing.',
+        ]);
+        $this->engine()->recordOutcome($pid, 'Stock push: refused.');
+        $this->assertNotNull($this->engine()->errors([$pid])[$pid]);
+
+        $this->actingAs($this->manager())->post(route('ext.tiktok.products.unlink', $pid))->assertRedirect();
+
+        $this->assertNull($this->engine()->errors([$pid])[$pid]);
+        $pivot = TikTokProductGroupProduct::query()->where('product_id', $pid)->first();
+        $this->assertSame('unlinked', $pivot->sync_status, 'unlinked is kept');
+        $this->assertNull($pivot->push_error);
+        $this->assertNull(TikTokListing::query()->where('product_id', $pid)->value('last_push_error'));
+    }
+
+    public function test_removing_from_the_group_clears_the_line(): void
+    {
+        $pid = $this->linkedSingle('Leaves the group', 'LG-1', 'tt-611');
+        $grp = TikTokProductGroup::create(['name' => 'Leaving group', 'tiktok_category_id' => '900009']);
+        TikTokProductGroupProduct::create(['tiktok_product_group_id' => $grp->id, 'product_id' => $pid, 'tiktok_product_id' => 'tt-611', 'sync_status' => 'pushed']);
+        $this->engine()->recordOutcome($pid, 'Update refused.');
+
+        $this->actingAs($this->manager())
+            ->delete(route('ext.tiktok.product-groups.removeProduct', [$grp->id, $pid]))
+            ->assertRedirect();
+
+        $this->assertNull($this->engine()->errors([$pid])[$pid]);
+    }
+
+    public function test_the_error_filter_lists_exactly_the_rows_with_an_error_line(): void
+    {
+        $storeId = (int) TikTokSetting::defaultStore()->id;
+
+        $short = $this->linkedSingle('Short a variation', 'MV1', 'tt-701');
+        foreach (['MV1-A', 'MV1-B'] as $i => $sku) {
+            DB::table('product_option_combinations')->insert([
+                'product_id' => $short, 'sku' => $sku, 'quantity' => 3, 'absolute_price' => 100, 'status' => 1, 'sort_order' => $i,
+            ]);
+        }
+        \App\Integrations\Listings\ListingVariations::remember('tiktok', $storeId, $short, ['MV1-A']);
+
+        $refused = $this->linkedSingle('Refused then fixed', 'RT-1', 'tt-702');
+        $this->engine()->recordOutcome($refused, 'Stock push: refused.');
+
+        $clean = $this->linkedSingle('Nothing wrong here', 'NW-1', 'tt-703');
+
+        $ids = $this->engine()->erroredProductIds();
+        $this->assertContains($short, $ids, 'a missing variation alone is an error line');
+        $this->assertContains($refused, $ids);
+        $this->assertNotContains($clean, $ids);
+
+        $user = $this->manager();
+        $page = $this->actingAs($user)->get(route('ext.tiktok.products.index', ['sync_status' => 'error']));
+        $page->assertOk()->assertSee('Short a variation')->assertSee('Refused then fixed')->assertDontSee('Nothing wrong here')->assertSee('>Has an error</option>', false);
+
+        $this->engine()->recordOutcome($refused, null);
+        $this->actingAs($user)->get(route('ext.tiktok.products.index', ['sync_status' => 'error']))
+            ->assertOk()->assertSee('Short a variation')->assertDontSee('Refused then fixed');
+
+        // The group page filters by the same definition.
+        $grp = TikTokProductGroup::create(['name' => 'Filter group', 'tiktok_category_id' => '900009']);
+        foreach ([$short, $refused, $clean] as $pid) {
+            TikTokProductGroupProduct::create(['tiktok_product_group_id' => $grp->id, 'product_id' => $pid, 'sync_status' => 'pending']);
+        }
+        $this->actingAs($user)->get(route('ext.tiktok.product-groups.products', ['store' => $storeId, 'id' => $grp->id, 'sync_status' => 'error']))
+            ->assertOk()->assertSee('Short a variation')->assertDontSee('Refused then fixed')->assertDontSee('Nothing wrong here')
+            ->assertSee('>Has an error</option>', false);
+    }
+
+    public function test_an_outcome_lands_on_the_store_it_is_about(): void
+    {
+        $one = TikTokSetting::defaultStore();
+        $two = TikTokSetting::create([
+            'mode' => 'production', 'app_key' => 'k2', 'app_secret' => 's2',
+            'access_token' => 't2', 'refresh_token' => 'r2', 'shop_cipher' => 'c2', 'expires_at' => now()->addDays(3),
+        ]);
+        $pid = $this->linkedSingle('On two stores', 'TS-1', 'tt-301');
+
+        $this->engine()->forStore($two)->recordOutcome($pid, 'Stock push: refused on the second store.');
+
+        $this->assertNull($this->engine()->forStore($one)->errors([$pid])[$pid], 'the first store is untouched');
+        $this->assertStringContainsString('refused on the second store', (string) $this->engine()->forStore($two)->errors([$pid])[$pid]);
+        $this->assertSame([$pid], $this->engine()->forStore($two)->erroredProductIds());
+
+        $this->engine()->forStore($one)->clearErrors([$pid]);
+        $this->assertNotNull($this->engine()->forStore($two)->errors([$pid])[$pid], 'a clear on one store leaves the other');
+    }
+
+    public function test_a_refused_toggle_sets_the_line_and_a_successful_bulk_toggle_clears_it(): void
+    {
+        $pid = $this->linkedSingle('Toggled one', 'TG-1', 'tt-321');
+        $other = $this->linkedSingle('Toggled two', 'TG-2', 'tt-322');
+        $refuse = true;
+        Http::fake(function ($request) use (&$refuse) {
+            if (str_contains($request->url(), '/deactivate') && $refuse) {
+                return self::tiktokAnswer(12019001, 'The product is under review and cannot be deactivated.');
+            }
+
+            return self::tiktokAnswer();
+        });
+        $user = $this->manager();
+
+        $this->actingAs($user)->post(route('ext.tiktok.listings.toggle', $pid), ['action' => 'deactivate'])->assertRedirect();
+        $this->assertStringContainsString('Deactivate: The product is under review', (string) $this->engine()->errors([$pid])[$pid]);
+
+        $refuse = false;
+        $this->actingAs($user)->post(route('ext.tiktok.products.bulk_toggle'), ['action' => 'deactivate', 'product_ids' => [$pid, $other]])->assertRedirect();
+        $this->assertNull($this->engine()->errors([$pid])[$pid], 'a successful toggle clears the line');
+        $this->assertSame('SELLER_DEACTIVATED', TikTokListing::query()->where('product_id', $pid)->value('live_status'));
+    }
+
+    public function test_a_scheduled_sync_success_clears_the_listing_error_too(): void
+    {
+        $pid = $this->linkedSingle('Cron cleared', 'CC-1', 'tt-401');
+        $this->engine()->recordOutcome($pid, 'Update refused.');
+
+        \Extensions\tiktok\Services\TikTok\TikTokStockPricePush::recordOutcomes('stock', [$pid => ['ok' => true, 'error' => null]], TikTokSetting::defaultStore());
+
+        $this->assertNull($this->engine()->errors([$pid])[$pid]);
+        $this->assertNull(TikTokListing::query()->where('product_id', $pid)->value('last_push_error'));
     }
 }

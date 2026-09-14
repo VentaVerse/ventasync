@@ -206,6 +206,7 @@ class VentaListingController extends Controller
             ['venta_setting_id' => $store, 'product_id' => (int) $data['product_id']],
             ['venta_product_id' => $ventaId, 'sku' => $data['ref']]
         );
+        \Extensions\venta\Services\Venta\VentaListingStates::for($store)->recordOutcome((int) $data['product_id'], null);
 
         return redirect()->back()->with('status', 'Linked "' . $data['ref'] . '" to catalog product #' . $data['product_id'] . '.');
     }
@@ -314,9 +315,7 @@ class VentaListingController extends Controller
         } elseif ($syncStatus === 'not_listed') {
             $query->whereNotIn('p.product_id', $linkedProductIds ?: [0]);
         } elseif ($syncStatus === 'error') {
-            $errored = VentaProductGroupProduct::query()->whereIn('venta_product_group_id', $groupIds ?: [0])
-                ->whereIn('sync_status', ['error', 'failed'])->pluck('product_id')->all();
-            $query->whereIn('p.product_id', $errored ?: [0]);
+            $query->whereIn('p.product_id', \Extensions\venta\Services\Venta\VentaListingStates::for($store)->erroredProductIds() ?: [0]);
         }
 
         /* The dashboard's own figures, as a filter (VENT2-131): a chip
@@ -550,18 +549,8 @@ class VentaListingController extends Controller
             return redirect()->back()->with('error', 'No products selected.');
         }
         $r = \Extensions\venta\Services\Venta\VentaStockPricePush::for($setting)->push($ids, $stock, $price);
-        foreach ($r['errors'] as $pid => $text) {
-            VentaListing::query()->updateOrCreate(['venta_setting_id' => $store, 'product_id' => (int) $pid], [])
-                ->forceFill(['last_push_error' => Str::limit($text, 480), 'last_push_failed_at' => now()])->save();
-        }
-        // Clear a prior failure on every product that pushed cleanly this run,
-        // so a fixed push does not keep wearing an old "Product not found" badge.
-        foreach (($r['outcomes'] ?? []) as $pid => $failure) {
-            if ($failure === null) {
-                VentaListing::query()->where('venta_setting_id', $store)->where('product_id', (int) $pid)
-                    ->update(['last_push_error' => null, 'last_push_failed_at' => null]);
-            }
-        }
+        // Each product's outcome through recordOutcome, onto the listing and its group rows alike.
+        \Extensions\venta\Services\Venta\VentaStockPricePush::recordOutcomes($store, $r['outcomes']);
 
         return redirect()->back()->with($r['failed'] > 0 ? ($r['ok'] > 0 ? 'warning' : 'error') : 'status',
             \Extensions\venta\Services\Venta\VentaStockPricePush::sentence($r, $what, (string) $setting->store_name));
@@ -576,6 +565,7 @@ class VentaListingController extends Controller
         VentaProductGroupProduct::query()->where('product_id', $productId)
             ->whereIn('venta_product_group_id', VentaProductGroup::query()->where('venta_setting_id', $store)->select('id'))
             ->update(['sync_status' => 'pending', 'push_error' => null]);
+        \Extensions\venta\Services\Venta\VentaListingStates::for($store)->clearErrors([$productId]);
 
         return redirect()->back()->with('status', $removed > 0
             ? 'Unlinked. The store product stays up; Link ID or a push connects this product again.'
@@ -659,10 +649,12 @@ class VentaListingController extends Controller
         }
 
         $push = VentaProductPush::for($setting);
+        $states = \Extensions\venta\Services\Venta\VentaListingStates::for($store);
         $done = 0;
         $refused = [];
         foreach ($linked as $productId) {
             $result = $push->setActive($productId, $active);
+            $states->recordOutcome($productId, $result['ok'] ? null : ($active ? 'Relist' : 'Unlist') . ' failed: ' . $result['message']);
             if (! $result['ok']) {
                 $refused[] = $result['message'];
                 continue;
@@ -838,6 +830,9 @@ class VentaListingController extends Controller
                 'pivot' => 'venta_product_group_products', 'fk' => 'venta_product_group_id',
                 'groups' => 'venta_product_groups', 'storeFk' => 'venta_setting_id', 'storeId' => $store,
             ], $productId, $picked['id'], ['created_at' => now(), 'updated_at' => now()]);
+            if ($picked['id'] === null) {
+                \Extensions\venta\Services\Venta\VentaListingStates::for($store)->clearErrors([$productId]);
+            }
         }
 
         $currentDescription = VentaListing::query()->where('venta_setting_id', $store)->where('product_id', $productId)->value('description');
@@ -961,9 +956,13 @@ class VentaListingController extends Controller
             VentaListing::categoryFor($listing, $group)
         );
 
+        $states = \Extensions\venta\Services\Venta\VentaListingStates::for($store);
         if (! $outcome['ok']) {
+            $states->recordOutcome($productId, 'Push failed: ' . (string) $outcome['message']);
+
             return ['ok' => false, 'message' => (string) $outcome['message'], 'tone' => 'error'];
         }
+        $states->recordOutcome($productId, null);
 
         $payload = $outcome['payload'];
         $listing->forceFill([
@@ -1048,6 +1047,8 @@ class VentaListingController extends Controller
         }
 
         $result = VentaProductPush::for($setting)->setActive($productId, $active);
+        \Extensions\venta\Services\Venta\VentaListingStates::for($store)->recordOutcome($productId,
+            $result['ok'] ? null : ($active ? 'Relist' : 'Unlist') . ' failed: ' . $result['message']);
         if (! $result['ok']) {
             return redirect()->back()->with('error', ($active ? 'Relist' : 'Unlist') . ' failed: ' . $result['message']);
         }

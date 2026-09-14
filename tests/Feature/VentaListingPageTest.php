@@ -138,6 +138,127 @@ class VentaListingPageTest extends TestCase
         $this->assertNotNull($listing->last_push_failed_at);
     }
 
+    /** The error line shows the latest outcome: a push refused, then a clean stock push, leaves no line. */
+    public function test_a_failed_push_then_a_clean_stock_push_clears_the_error_line(): void
+    {
+        $store = $this->store();
+        $pid = $this->product();
+        VentaProductLink::create(['venta_setting_id' => $store->id, 'product_id' => $pid, 'venta_product_id' => 5001, 'sku' => 'GP-200']);
+        $refuse = true;
+        Http::fake(function ($request) use (&$refuse) {
+            if ($request->method() === 'GET') {
+                return Http::response($this->storeProduct(5001));
+            }
+
+            return $refuse
+                ? Http::response(['error' => 'Title is too long'], 422)
+                : Http::response(['id' => 5001, 'sku' => 'GP-200', 'quantity' => 7]);
+        });
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.venta.listings.push', [$store->id, $pid]))
+            ->assertRedirect()
+            ->assertSessionHas('error');
+        $error = (string) VentaListing::where('venta_setting_id', $store->id)->where('product_id', $pid)->value('last_push_error');
+        $this->assertStringContainsString('Title is too long', $error);
+        $this->assertStringContainsString('Title is too long', (string) \Extensions\venta\Services\Venta\VentaListingStates::for($store->id)->errors([$pid])[$pid]);
+
+        $refuse = false;
+        $this->actingAs($this->manager())
+            ->post(route('ext.venta.listings.push_stock', [$store->id, $pid]))
+            ->assertRedirect()
+            ->assertSessionHas('status');
+
+        $this->assertNull(VentaListing::where('venta_setting_id', $store->id)->where('product_id', $pid)->value('last_push_error'));
+        $this->assertNull(\Extensions\venta\Services\Venta\VentaListingStates::for($store->id)->errors([$pid])[$pid]);
+        $this->actingAs($this->manager())
+            ->get(route('ext.venta.listings.index', $store->id))
+            ->assertOk()
+            ->assertDontSee('Title is too long');
+    }
+
+    /** A read never clears an error: a push error survives a successful link check and Refresh, and the next clean stock push clears it. */
+    public function test_a_push_error_survives_a_successful_link_check_and_the_next_stock_push_clears_it(): void
+    {
+        $store = $this->store();
+        $pid = $this->product();
+        VentaProductLink::create(['venta_setting_id' => $store->id, 'product_id' => $pid, 'venta_product_id' => 5001, 'sku' => 'GP-200']);
+        VentaListing::create(['venta_setting_id' => $store->id, 'product_id' => $pid, 'live_status' => 'active', 'live_checked_at' => now()]);
+        VentaListing::where('product_id', $pid)->first()->forceFill(['last_push_error' => 'Price push failed: Price below floor', 'last_push_failed_at' => now()])->save();
+        Http::fake([
+            self::BASE . '/api/v1/products/GP-200' => Http::response($this->storeProduct(5001)),
+            self::BASE . '/api/v1/products*' => Http::response(['data' => [$this->storeProduct(5001)], 'last_page' => 1]),
+        ]);
+        $line = fn () => \Extensions\venta\Services\Venta\VentaListingStates::for($store->id)->errors([$pid])[$pid];
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.venta.listings.check', $store->id), ['product_ids' => [$pid]])
+            ->assertRedirect()
+            ->assertSessionHas('status');
+        $this->assertSame('Price push failed: Price below floor', $line());
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.venta.listings.refresh_status', $store->id))
+            ->assertRedirect()
+            ->assertSessionHas('status');
+        $this->assertSame('Price push failed: Price below floor', $line());
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.venta.listings.push_stock', [$store->id, $pid]))
+            ->assertRedirect()
+            ->assertSessionHas('status');
+        $this->assertNull($line());
+    }
+
+    /** A successful product push from the Listings page clears the error an earlier push left. */
+    public function test_a_successful_push_clears_an_earlier_push_error(): void
+    {
+        $store = $this->store();
+        $pid = $this->product();
+        VentaListing::create(['venta_setting_id' => $store->id, 'product_id' => $pid]);
+        VentaListing::where('product_id', $pid)->first()->forceFill(['last_push_error' => 'Push failed: Product not found', 'last_push_failed_at' => now()])->save();
+        Http::fake([
+            self::BASE . '/api/v1/products/GP-200' => Http::sequence()
+                ->push($this->storeProduct(5001))
+                ->push(['id' => 5001, 'sku' => 'GP-200', 'images' => [], 'images_failed' => []]),
+        ]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.venta.listings.push', [$store->id, $pid]))
+            ->assertRedirect()
+            ->assertSessionHas('status');
+
+        $this->assertNull(VentaListing::where('product_id', $pid)->value('last_push_error'));
+        $this->assertNull(\Extensions\venta\Services\Venta\VentaListingStates::for($store->id)->errors([$pid])[$pid]);
+    }
+
+    /** Unlink clears every error slot the line reads, on the listing and the group row. */
+    public function test_unlinking_clears_the_error_line(): void
+    {
+        $store = $this->store();
+        $pid = $this->product();
+        VentaProductLink::create(['venta_setting_id' => $store->id, 'product_id' => $pid, 'venta_product_id' => 5001, 'sku' => 'GP-200']);
+        $group = VentaProductGroup::create(['venta_setting_id' => $store->id, 'name' => 'Pedals']);
+        VentaProductGroupProduct::create(['venta_product_group_id' => $group->id, 'product_id' => $pid, 'sync_status' => 'error', 'push_error' => 'Old refusal', 'last_pushed_at' => now()->subDay()]);
+        VentaListing::create(['venta_setting_id' => $store->id, 'product_id' => $pid, 'live_status' => 'active', 'live_checked_at' => now()]);
+        VentaListing::where('product_id', $pid)->first()->forceFill(['last_push_error' => 'Stock push failed: Product not found', 'last_push_failed_at' => now()])->save();
+        $this->assertNotNull(\Extensions\venta\Services\Venta\VentaListingStates::for($store->id)->errors([$pid])[$pid]);
+        Http::fake();
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.venta.products.unlink', [$store->id, $pid]))
+            ->assertRedirect()
+            ->assertSessionHas('status');
+
+        $this->assertNull(VentaListing::where('product_id', $pid)->value('last_push_error'));
+        $this->assertNull(VentaListing::where('product_id', $pid)->value('last_push_failed_at'));
+        $pivot = VentaProductGroupProduct::where('product_id', $pid)->first();
+        $this->assertNull($pivot->push_error);
+        $this->assertSame('pending', $pivot->sync_status);
+        $this->assertNull(\Extensions\venta\Services\Venta\VentaListingStates::for($store->id)->errors([$pid])[$pid]);
+        Http::assertNothingSent();
+    }
+
     /**
      * A product with three variations on this store: TEE-M switched off for
      * the store, TEE-L not on the store's item. Returns [store, product id, group].

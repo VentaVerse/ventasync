@@ -443,6 +443,10 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
                 'last_sync_error_code'    => $isOk ? null : (string) ($result['body']['error'] ?? ''),
                 'last_sync_error_message' => $isOk ? null : (string) ($result['body']['message'] ?? ''),
             ]);
+            if ($isOk) {
+                app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)
+                    ->forStore((int) $link->shopee_setting_id)->recordOutcome((int) $link->product_id, null);
+            }
 
             return "Item {$itemId}: " . ($isOk ? 'OK' : 'Failed');
         } catch (\Throwable $e) {

@@ -45,6 +45,9 @@ final class TikTokProductRemover
                 $stays['TikTok Shop (' . $this->storeName($h['store_id']) . ')'] = true;
             }
         }
+        foreach (TikTokSetting::allStores() as $store) {
+            app(TikTokListingStates::class)->forStore($store)->clearErrors([$productId]);
+        }
         TikTokListing::query()->where('product_id', $productId)->delete();
         TikTokProductGroupProduct::query()->where('product_id', $productId)->delete();
 
