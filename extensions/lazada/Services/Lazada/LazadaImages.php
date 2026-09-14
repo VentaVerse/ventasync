@@ -234,6 +234,8 @@ class LazadaImages
             $listing,
             \App\Services\Media\ListingWatermark::groupTemplateId('lazada_product_groups', 'lazada_product_group_products', 'lazada_product_group_id', $productId, 'lazada_setting_id', (int) ($listing?->lazada_setting_id ?? 0) ?: null)
         );
+        // Lazada fetches each picture and refuses one over its size or in another format.
+        $paths = \App\Services\Media\StoreReadyImages::paths($paths, \App\Services\Media\StoreReadyImages::LAZADA);
         $images = [];
         foreach ($paths as $path) {
             $url = $this->normalizeImageUrl($path);
@@ -461,7 +463,7 @@ class LazadaImages
 
             if (!$newUrl) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'images' => 'Failed to migrate image to Lazada inlink. Please ensure the image URL is public and reachable.'
+                    'images' => 'Lazada would not take the picture "' . basename((string) parse_url($originalUrl, PHP_URL_PATH)) . '".'
                 ]);
             }
 

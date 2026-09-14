@@ -135,6 +135,8 @@ class ShopeeItemCreate
 
     public function uploadImage(ShopeeClient $client, array $auth, string $localPath): array
     {
+        // Shopee refuses a picture over its size or in another format; product and variation pictures all come through here.
+        $localPath = \App\Services\Media\StoreReadyImages::fitLocalFile($localPath, \App\Services\Media\StoreReadyImages::SHOPEE);
         $path = '/api/v2/media_space/upload_image';
         $timestamp = time();
         $sign = $client->signShop(

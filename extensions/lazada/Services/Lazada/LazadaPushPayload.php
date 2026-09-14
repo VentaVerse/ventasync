@@ -403,6 +403,9 @@ class LazadaPushPayload
                  * URL. */
                 $comboImg = trim((string)($c->image ?? ''));
                 if ($comboImg !== '') {
+                    $comboImg = \App\Services\Media\StoreReadyImages::fit($comboImg, \App\Services\Media\StoreReadyImages::LAZADA) ?? $comboImg;
+                }
+                if ($comboImg !== '') {
                     $comboUrl = app(LazadaImages::class)->normalizeImageUrl(asset('storage/' . ltrim($comboImg, '/')));
                     if (is_string($comboUrl) && $comboUrl !== '') {
                         $skuRow['Images'] = ['Image' => [$comboUrl]];
