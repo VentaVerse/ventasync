@@ -100,7 +100,7 @@ class TikTokListingController extends Controller
         $covPfx = (string) config('catalog.prefix');
         $covStoreId = (int) (TikTokSetting::defaultStore()?->id ?? 0);
         $covSkus = \App\Integrations\Listings\ListingVariations::sold('tiktok', $covStoreId, [$productId], $covPfx)[$productId] ?? [];
-        // derivedTruth's pseudo-object carries no map; read it where it lives.
+        // The map where it lives: the listing row, else the latest group pivot.
         $covRaw = \Extensions\tiktok\Models\TikTokListing::query()->where('product_id', $productId)->value('tiktok_sku_id')
             ?? \Extensions\tiktok\Models\TikTokProductGroupProduct::query()->onStore($covStoreId)->where('product_id', $productId)
                 ->whereNotNull('tiktok_product_id')->orderByDesc('last_pushed_at')->value('tiktok_sku_id');
@@ -343,8 +343,9 @@ class TikTokListingController extends Controller
         }
         TikTokListing::recordPush($productId, (string) $truth->tiktok_product_id, $outcome['sku_ids'] ?? ($truth->tiktok_sku_id ?? null), 'listing', isset($outcome['sku_ids']));
         $this->states()->recordOutcome($productId, null);
+        $warning = $outcome['warning'] ?? null;
 
-        return redirect()->back()->with('status', 'Update pushed.');
+        return redirect()->back()->with($warning ? 'warning' : 'status', 'Update pushed.' . ($warning ? ' ' . $warning : ''));
     }
 
     /** The listing-state engine, pinned to the store this request acts for. */
@@ -496,6 +497,7 @@ class TikTokListingController extends Controller
         if ($listing && $listing->tiktok_product_id) {
             return (object) [
                 'tiktok_product_id' => $listing->tiktok_product_id,
+                'tiktok_sku_id' => $listing->tiktok_sku_id,
                 'last_pushed_at' => $listing->last_pushed_at,
                 'group_name' => str_starts_with((string) $listing->last_push_source, 'group:') ? substr((string) $listing->last_push_source, 6) : null,
                 'source' => $listing->last_push_source,
@@ -508,7 +510,7 @@ class TikTokListingController extends Controller
             ->where('tp.product_id', $productId)
             ->whereNotNull('tp.tiktok_product_id')
             ->orderByDesc('tp.last_pushed_at')
-            ->first(['tp.tiktok_product_id', 'tp.last_pushed_at', 'tg.name as group_name']);
+            ->first(['tp.tiktok_product_id', 'tp.tiktok_sku_id', 'tp.last_pushed_at', 'tg.name as group_name']);
     }
 
     /** Credentials for whichever mode the shop runs in, or null. */
@@ -526,6 +528,7 @@ class TikTokListingController extends Controller
             'app_secret' => $sandbox ? ($d->sandbox_app_secret ?? '') : ($d->app_secret ?? ''),
             'token' => $sandbox ? ($d->sandbox_access_token ?? '') : ($d->access_token ?? ''),
             'shop_cipher' => $sandbox ? ($s->sandbox_shop_cipher ?? '') : ($s->shop_cipher ?? ''),
+            'warehouse_id' => $sandbox ? ($s->sandbox_warehouse_id ?? '') : ($s->warehouse_id ?? ''),
         ];
     }
 

@@ -778,6 +778,7 @@ class LazadaProductGroupController extends Controller
         $skipCount = 0;
         $errCount = 0;
         $errors = [];
+        $notes = [];
 
         foreach ($productIds as $productId) {
             // Get or create LazadaProduct record
@@ -800,6 +801,7 @@ class LazadaProductGroupController extends Controller
                 $outcome = $this->updateLinked($group, $pivot, $listing, (int) $productId, $setting, $creds, $client);
                 if ($outcome['ok']) {
                     $updatedCount++;
+                    if (!empty($outcome['warning'])) $notes[] = "#{$productId}: " . $outcome['warning'];
                 } else {
                     $errors[] = "#{$productId}: " . $outcome['message'];
                     $errCount++;
@@ -958,6 +960,7 @@ class LazadaProductGroupController extends Controller
         if ($skipCount > 0) $summary .= ", {$skipCount} skipped (disabled)";
         if ($errCount > 0) $summary .= ", {$errCount} failed";
         if (!empty($errors)) $summary .= '. Errors: ' . implode('; ', array_slice($errors, 0, 5));
+        if (!empty($notes)) $summary .= '. ' . implode(' ', array_slice($notes, 0, 5));
 
         return $this->productsRedirect($id)->with(($okCount + $updatedCount) > 0 ? 'status' : 'error', $summary);
     }
@@ -989,6 +992,7 @@ class LazadaProductGroupController extends Controller
         $skipCount = 0;
         $errCount = 0;
         $errors = [];
+        $notes = [];
 
         foreach ($productIds as $productId) {
             $pivot = LazadaProductGroupProduct::query()
@@ -1010,6 +1014,7 @@ class LazadaProductGroupController extends Controller
             $outcome = $this->updateLinked($group, $pivot, $listing, (int) $productId, $setting, $creds, $client);
             if ($outcome['ok']) {
                 $okCount++;
+                if (!empty($outcome['warning'])) $notes[] = "#{$productId}: " . $outcome['warning'];
             } else {
                 $errors[] = "#{$productId}: " . $outcome['message'];
                 $errCount++;
@@ -1022,6 +1027,7 @@ class LazadaProductGroupController extends Controller
         if ($skipCount > 0) $summary .= ", {$skipCount} skipped (not linked)";
         if ($errCount > 0) $summary .= ", {$errCount} failed";
         if (!empty($errors)) $summary .= '. Errors: ' . implode('; ', array_slice($errors, 0, 5));
+        if (!empty($notes)) $summary .= '. ' . implode(' ', array_slice($notes, 0, 5));
 
         return $this->productsRedirect($id)->with($okCount > 0 ? 'status' : 'error', $summary);
     }
@@ -1112,7 +1118,8 @@ class LazadaProductGroupController extends Controller
 
             $e = $this->payload()->extractLazadaError($result);
             if ($e['ok']) {
-                app(LazadaItemCache::class)->refreshListing($listing, $setting, $client, 'lazada.product.item.get.cache.group');
+                $readBack = app(LazadaItemCache::class)->refreshListing($listing, $setting, $client, 'lazada.product.item.get.cache.group');
+                $kept = $this->payload()->renameReadBack($preview['variation_renames'] ?? [], $readBack);
                 $this->persistSyncStatus($listing, 'push', true);
 
                 /* Provenance (#104): the GROUP's settings made this push -
@@ -1127,12 +1134,14 @@ class LazadaProductGroupController extends Controller
                     ],
                 ])->save();
                 if ($pivot) $pivot->update(['sync_status' => 'pushed']);
-                $this->states($group)->recordOutcome($productId, null);
+                $this->states($group)->recordOutcome($productId, $kept);
 
                 ActivityLogger::log('updated', 'Lazada Product', $listing->id,
                     'Updated ERP #' . $productId . ' on Lazada via product group');
 
-                return ['ok' => true, 'message' => 'updated'];
+                return $kept === null
+                    ? ['ok' => true, 'message' => 'updated', 'warning' => $this->payload()->renameWarning($preview)]
+                    : ['ok' => false, 'message' => $kept];
             }
 
             $reason = (string) ($e['message'] ?? 'Unknown error');

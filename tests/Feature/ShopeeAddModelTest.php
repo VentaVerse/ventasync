@@ -77,7 +77,7 @@ class ShopeeAddModelTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'Add-model group ' . uniqid()]);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['view_shopee/product', 'manage_shopee/product'])->pluck('id')->all()
+            Permission::whereIn('key', ['view_shopee/product', 'manage_shopee/product', 'view_shopee/product_group', 'manage_shopee/product_group'])->pluck('id')->all()
         );
 
         return User::factory()->create(['user_group_id' => $group->id]);
@@ -233,5 +233,314 @@ class ShopeeAddModelTest extends TestCase
         $this->assertStringContainsString('more than 5 times', (string) session('error'));
         $this->assertNull(collect($this->sentPosts)->firstWhere('path', '/api/v2/product/update_tier_variation'));
         $this->assertNull(collect($this->sentPosts)->firstWhere('path', '/api/v2/product/add_model'));
+    }
+
+    /**
+     * A product ready for an update, its options given as name => values
+     * and its combinations as SKU => one value per option, in option order.
+     */
+    private function variationProduct(array $options, array $combos): int
+    {
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $productId = DB::table($pfx . 'product')->insertGetId([
+            'model' => 'VR', 'sku' => 'VR', 'quantity' => 30, 'price' => 100,
+            'status' => 1, 'image' => 'catalog/x.png', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
+            'manufacturer_id' => 0,
+            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+        ]);
+        DB::table($pfx . 'product_description')->insert([
+            'product_id' => $productId, 'language_id' => $langId,
+            'name' => 'Variation product', 'description' => 'Sold by the pack.',
+            'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
+        ]);
+
+        $povIds = [];
+        foreach ($options as $optionName => $values) {
+            $optionId = (int) DB::table($pfx . 'option')->insertGetId(['type' => 'select', 'sort_order' => 0]);
+            DB::table($pfx . 'option_description')->insert([
+                'option_id' => $optionId, 'language_id' => $langId, 'name' => $optionName,
+            ]);
+            $productOptionId = (int) DB::table($pfx . 'product_option')->insertGetId([
+                'product_id' => $productId, 'option_id' => $optionId, 'value' => '', 'required' => 0,
+            ]);
+            foreach ($values as $i => $valueName) {
+                $valueId = (int) DB::table($pfx . 'option_value')->insertGetId([
+                    'option_id' => $optionId, 'image' => '', 'sort_order' => $i,
+                ]);
+                DB::table($pfx . 'option_value_description')->insert([
+                    'option_value_id' => $valueId, 'language_id' => $langId,
+                    'option_id' => $optionId, 'name' => $valueName,
+                ]);
+                $povIds[$optionName][$valueName] = (int) DB::table($pfx . 'product_option_value')->insertGetId([
+                    'product_option_id' => $productOptionId, 'product_id' => $productId,
+                    'option_id' => $optionId, 'option_value_id' => $valueId,
+                    'sku' => '', 'quantity' => 5, 'subtract' => 1,
+                    'price' => 0, 'price_prefix' => '+', 'points' => 0, 'points_prefix' => '+',
+                    'weight' => 0, 'weight_prefix' => '+',
+                    'cost' => 0, 'cost_amount' => 0, 'cost_percentage' => 0, 'cost_additional' => 0,
+                    'absolute_cost' => 0, 'cost_prefix' => '+', 'absolute_price' => 100,
+                ]);
+            }
+        }
+
+        $optionNames = array_keys($options);
+        $n = 0;
+        foreach ($combos as $sku => $picked) {
+            $comboId = (int) DB::table('product_option_combinations')->insertGetId([
+                'product_id' => $productId, 'sku' => $sku, 'quantity' => 5,
+                'absolute_price' => 100, 'image' => null, 'status' => 1,
+                'sort_order' => $n++, 'created_at' => now(), 'updated_at' => now(),
+            ]);
+            foreach ($picked as $k => $valueName) {
+                DB::table('product_option_combination_values')->insert([
+                    'combination_id' => $comboId, 'product_option_value_id' => $povIds[$optionNames[$k]][$valueName],
+                ]);
+            }
+        }
+
+        return $productId;
+    }
+
+    private function linkForUpdate(int $productId): void
+    {
+        ShopeeProductLink::create(['product_id' => $productId, 'shopee_item_id' => 800, 'shopee_model_id' => 81, 'sku' => 'PK-5']);
+        ShopeeListing::create(['product_id' => $productId, 'shopee_category_id' => 100139, 'logistic_ids' => [8003]]);
+    }
+
+    /** What Shopee holds for item 800. */
+    private function itemHolds(array $response): void
+    {
+        $this->getResponses['/api/v2/product/get_model_list'] = ['ok' => true, 'status' => 200, 'body' => ['error' => '', 'response' => $response]];
+    }
+
+    private function postIndex(string $path): ?int
+    {
+        foreach ($this->sentPosts as $i => $post) {
+            if ($post['path'] === $path) {
+                return $i;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * A type the seller named takes the catalog option's name, its values
+     * the catalog's, paired by SKU rather than by position, and every model
+     * keeps the tier_index it already had.
+     */
+    public function test_an_update_renames_a_custom_type_and_its_values_to_the_catalogs(): void
+    {
+        $pid = $this->variationProduct(['Pack size' => ['5 pcs', '10 pcs']], ['PK-5' => ['5 pcs'], 'PK-10' => ['10 pcs']]);
+        $this->linkForUpdate($pid);
+        $this->itemHolds([
+            'tier_variation' => [['name' => 'Size', 'option_list' => [
+                ['option' => 'Ten', 'image' => ['image_id' => 'img-ten']],
+                ['option' => 'Five'],
+            ]]],
+            'model' => [
+                ['model_id' => 81, 'model_sku' => 'PK-5', 'tier_index' => [1]],
+                ['model_id' => 82, 'model_sku' => 'PK-10', 'tier_index' => [0]],
+            ],
+        ]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.listings.push_update', $pid))
+            ->assertSessionHas('status');
+
+        $tier = collect($this->sentPosts)->firstWhere('path', '/api/v2/product/update_tier_variation');
+        $this->assertNotNull($tier, 'The rename must reach update_tier_variation.');
+        $this->assertSame(800, (int) $tier['body']['item_id']);
+        $this->assertSame('Pack size', $tier['body']['tier_variation'][0]['name']);
+        $this->assertSame(['10 pcs', '5 pcs'], array_column($tier['body']['tier_variation'][0]['option_list'], 'option'));
+        $this->assertSame('img-ten', $tier['body']['tier_variation'][0]['option_list'][0]['image']['image_id'], 'An option keeps its picture.');
+        $this->assertSame([
+            ['model_id' => 81, 'tier_index' => [1]],
+            ['model_id' => 82, 'tier_index' => [0]],
+        ], $tier['body']['model_list']);
+
+        foreach (['/api/v2/product/add_model', '/api/v2/product/delete_model', '/api/v2/product/init_tier_variation'] as $path) {
+            $this->assertNull($this->postIndex($path), $path . ' must not run for a rename.');
+        }
+        $this->assertNotNull($this->postIndex('/api/v2/product/update_item'));
+        $this->assertLessThan($this->postIndex('/api/v2/product/update_item'), $this->postIndex('/api/v2/product/update_tier_variation'));
+        $this->assertNull(ShopeeListing::query()->where('product_id', $pid)->value('last_push_error'));
+    }
+
+    /**
+     * A type the category defines keeps Shopee's name and values; the
+     * seller's type beside it takes the catalog's. Sent in the item's own
+     * standardise shape, through the group's update.
+     */
+    public function test_a_category_defined_type_keeps_the_stores_name(): void
+    {
+        $pid = $this->variationProduct(
+            ['Colour' => ['Red', 'Blue'], 'Pack size' => ['Small', 'Large']],
+            ['CL-RS' => ['Red', 'Small'], 'CL-RL' => ['Red', 'Large'], 'CL-BS' => ['Blue', 'Small'], 'CL-BL' => ['Blue', 'Large']]
+        );
+        $this->linkForUpdate($pid);
+        $standard = [
+            'variation_id' => 101054, 'variation_group_id' => 849982774362112, 'variation_name' => 'Color',
+            'variation_option_list' => [
+                ['variation_option_id' => 6242, 'variation_option_name' => 'red'],
+                ['variation_option_id' => 6246, 'variation_option_name' => 'blue'],
+            ],
+        ];
+        $this->itemHolds([
+            'tier_variation' => [
+                ['name' => 'Color', 'option_list' => [['option' => 'red'], ['option' => 'blue']]],
+                ['name' => 'Taille', 'option_list' => [['option' => 'S'], ['option' => 'L']]],
+            ],
+            'standardise_tier_variation' => [
+                $standard,
+                ['variation_id' => 0, 'variation_group_id' => 0, 'variation_name' => 'Taille', 'variation_option_list' => [
+                    ['variation_option_id' => 0, 'variation_option_name' => 'S'],
+                    ['variation_option_id' => 0, 'variation_option_name' => 'L'],
+                ]],
+            ],
+            'model' => [
+                ['model_id' => 91, 'model_sku' => 'CL-RS', 'tier_index' => [0, 0]],
+                ['model_id' => 92, 'model_sku' => 'CL-RL', 'tier_index' => [0, 1]],
+                ['model_id' => 93, 'model_sku' => 'CL-BS', 'tier_index' => [1, 0]],
+                ['model_id' => 94, 'model_sku' => 'CL-BL', 'tier_index' => [1, 1]],
+            ],
+        ]);
+        $group = \Extensions\shopee\Models\ShopeeProductGroup::create([
+            'name' => 'Packs', 'shopee_setting_id' => (int) ShopeeSetting::query()->value('id'),
+            'shopee_category_id' => 100139, 'logistic_ids' => [8003],
+        ]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.product-groups.updateProduct', $group->id), ['ids' => [$pid]])
+            ->assertRedirect();
+
+        $tier = collect($this->sentPosts)->firstWhere('path', '/api/v2/product/update_tier_variation');
+        $this->assertNotNull($tier, 'The seller\'s type still takes the catalog\'s names.');
+        $this->assertArrayNotHasKey('tier_variation', $tier['body'], 'The item speaks the standardise shape, so only that goes.');
+        $sent = $tier['body']['standardise_tier_variation'];
+        $this->assertSame($standard, $sent[0], 'The category\'s type goes back exactly as Shopee holds it.');
+        $this->assertSame(0, $sent[1]['variation_id']);
+        $this->assertSame('Pack size', $sent[1]['variation_name']);
+        $this->assertSame(['Small', 'Large'], array_column($sent[1]['variation_option_list'], 'variation_option_name'));
+        $this->assertSame([[0, 0], [0, 1], [1, 0], [1, 1]], array_column($tier['body']['model_list'], 'tier_index'));
+        $this->assertNotNull($this->postIndex('/api/v2/product/update_item'));
+    }
+
+    /** Names already the catalog's, and a type only the category names: no rename call. */
+    public function test_no_rename_call_when_the_names_already_match(): void
+    {
+        $pid = $this->variationProduct(['Pack size' => ['5 pcs', '10 pcs']], ['PK-5' => ['5 pcs'], 'PK-10' => ['10 pcs']]);
+        $this->linkForUpdate($pid);
+        $this->itemHolds([
+            'tier_variation' => [['name' => 'Pack size', 'option_list' => [['option' => '5 pcs'], ['option' => '10 pcs']]]],
+            'model' => [
+                ['model_id' => 81, 'model_sku' => 'PK-5', 'tier_index' => [0]],
+                ['model_id' => 82, 'model_sku' => 'PK-10', 'tier_index' => [1]],
+            ],
+        ]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.listings.push_update', $pid))
+            ->assertSessionHas('status');
+
+        $this->assertNull($this->postIndex('/api/v2/product/update_tier_variation'));
+        $this->assertNotNull($this->postIndex('/api/v2/product/update_item'));
+
+        $this->sentPosts = [];
+        $this->itemHolds([
+            'standardise_tier_variation' => [['variation_id' => 305033, 'variation_name' => 'Size', 'variation_option_list' => [
+                ['variation_option_id' => 24472486, 'variation_option_name' => 'Five'],
+                ['variation_option_id' => 24472485, 'variation_option_name' => 'Ten'],
+            ]]],
+            'model' => [
+                ['model_id' => 81, 'model_sku' => 'PK-5', 'tier_index' => [0]],
+                ['model_id' => 82, 'model_sku' => 'PK-10', 'tier_index' => [1]],
+            ],
+        ]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.listings.push_update', $pid))
+            ->assertSessionHas('status');
+
+        $this->assertNull($this->postIndex('/api/v2/product/update_tier_variation'), 'A type the category defines is never renamed.');
+        $this->assertNotNull($this->postIndex('/api/v2/product/update_item'));
+    }
+
+    /**
+     * A rename that cannot happen is skipped: no rename call, the update
+     * still goes, the result carries the warning and the success stands.
+     */
+    public function test_a_rename_that_cannot_be_paired_is_skipped_and_the_update_goes(): void
+    {
+        $pid = $this->variationProduct(['Pack size' => ['5 pcs', '10 pcs']], ['PK-5' => ['5 pcs'], 'PK-10' => ['10 pcs']]);
+        $this->linkForUpdate($pid);
+        ShopeeListing::query()->where('product_id', $pid)->update(['last_push_error' => 'An older failure.', 'last_push_failed_at' => now()]);
+        $this->itemHolds([
+            'tier_variation' => [['name' => 'Size', 'option_list' => [['option' => 'Five'], ['option' => 'Ten']]]],
+            'model' => [
+                ['model_id' => 81, 'model_sku' => 'OLD-5', 'tier_index' => [0]],
+                ['model_id' => 82, 'model_sku' => 'OLD-10', 'tier_index' => [1]],
+            ],
+        ]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.listings.push_update', $pid))
+            ->assertSessionHas('status');
+
+        $status = (string) session('status');
+        $this->assertStringStartsWith('Update pushed.', $status);
+        $this->assertStringContainsString('Variation names were not changed: none of the item\'s variations on Shopee carries a SKU the catalog holds.', $status);
+        $this->assertNull($this->postIndex('/api/v2/product/update_tier_variation'));
+        $this->assertNotNull($this->postIndex('/api/v2/product/update_item'), 'A skipped rename never holds the update back.');
+        $this->assertNull(ShopeeListing::query()->where('product_id', $pid)->value('last_push_error'), 'The update succeeded, so the success is recorded.');
+
+        // Shopee not answering for the models is skipped the same way.
+        $this->sentPosts = [];
+        $this->getResponses['/api/v2/product/get_model_list'] = ['ok' => false, 'status' => 500, 'body' => ['error' => 'error_server', 'message' => 'Something wrong.']];
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.listings.push_update', $pid))
+            ->assertSessionHas('status');
+
+        $this->assertStringContainsString('Variation names were not changed: Shopee did not say what variations the item has', (string) session('status'));
+        $this->assertNull($this->postIndex('/api/v2/product/update_tier_variation'));
+        $this->assertNotNull($this->postIndex('/api/v2/product/update_item'));
+    }
+
+    /**
+     * Shopee refusing the rename call itself leaves the item as it was
+     * (the call is whole or nothing), and the group's update still goes.
+     */
+    public function test_a_refused_rename_call_warns_and_the_update_goes(): void
+    {
+        $pid = $this->variationProduct(['Pack size' => ['5 pcs', '10 pcs']], ['PK-5' => ['5 pcs'], 'PK-10' => ['10 pcs']]);
+        $this->linkForUpdate($pid);
+        $this->itemHolds([
+            'tier_variation' => [['name' => 'Size', 'option_list' => [['option' => 'Five'], ['option' => 'Ten']]]],
+            'model' => [
+                ['model_id' => 81, 'model_sku' => 'PK-5', 'tier_index' => [0]],
+                ['model_id' => 82, 'model_sku' => 'PK-10', 'tier_index' => [1]],
+            ],
+        ]);
+        $this->postResponses['/api/v2/product/update_tier_variation'] = ['ok' => true, 'status' => 200, 'body' => [
+            'error' => 'error_in_item_promotion_remove_model', 'message' => 'Can\'t change tier_variation when item is under promotion.',
+        ]];
+        $group = \Extensions\shopee\Models\ShopeeProductGroup::create([
+            'name' => 'Packs', 'shopee_setting_id' => (int) ShopeeSetting::query()->value('id'),
+            'shopee_category_id' => 100139, 'logistic_ids' => [8003],
+        ]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.product-groups.updateProduct', $group->id), ['ids' => [$pid]])
+            ->assertSessionHas('status');
+
+        $status = (string) session('status');
+        $this->assertStringStartsWith('Update: 1 updated', $status);
+        $this->assertStringContainsString("#{$pid}: Variation names were not changed: Shopee refused them", $status);
+        $this->assertSame(1, collect($this->sentPosts)->where('path', '/api/v2/product/update_tier_variation')->count(), 'One attempt, never a second half.');
+        $this->assertNotNull($this->postIndex('/api/v2/product/update_item'));
+        $this->assertLessThan($this->postIndex('/api/v2/product/update_item'), $this->postIndex('/api/v2/product/update_tier_variation'));
     }
 }

@@ -1340,9 +1340,18 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         if (!empty($e['ok'])) {
             $this->states()->recordOutcome((int) $saved->product_id, null);
             if ($isUpdate) {
-                // Refresh variant cache after update
-                $this->itemCache()->refreshListing($saved, $setting, $client);
-                return ['ok' => true, 'message' => 'Update pushed.', 'errors' => []];
+                // Refresh variant cache after update; the same read tells whether a rename was taken.
+                $readBack = $this->itemCache()->refreshListing($saved, $setting, $client);
+                $kept = $this->payload()->renameReadBack($preview['variation_renames'] ?? [], $readBack);
+                if ($kept !== null) {
+                    $this->states()->recordOutcome((int) $saved->product_id, $kept);
+
+                    return ['ok' => false, 'message' => $kept, 'errors' => []];
+                }
+
+                $note = $this->payload()->renameWarning($preview);
+
+                return ['ok' => true, 'message' => 'Update pushed.' . ($note !== null ? ' ' . $note : ''), 'errors' => []];
             }
 
             $itemId = $this->payload()->extractCreatedItemId($result);

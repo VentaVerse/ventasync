@@ -1680,6 +1680,10 @@ class ShopeeProductGroupController extends Controller
                 $summary .= ' (and '.(count($errors) - 4).' more)';
             }
         }
+        $warnings = $updated['warnings'] ?? [];
+        if ($warnings) {
+            $summary .= ' '.implode(' ', array_slice($warnings, 0, 4));
+        }
 
         return $this->productsRedirect($id)->with($this->batchTone($okCount, $errCount), $summary);
     }
@@ -2066,7 +2070,7 @@ class ShopeeProductGroupController extends Controller
      * same reason as createOnShopee, and carrying the mirror of its gate: it
      * skips anything NOT linked.
      *
-     * @return array{ok:int,skip:int,err:int,errors:array<int,string>}
+     * @return array{ok:int,skip:int,err:int,errors:array<int,string>,warnings:array<int,string>}
      */
     private function updateOnShopee(ShopeeProductGroup $group, array $productIds, ShopeeClient $client, array $auth, string $pfx, int $langId): array
     {
@@ -2074,6 +2078,7 @@ class ShopeeProductGroupController extends Controller
         $skipCount = 0;
         $errCount = 0;
         $errors = [];
+        $warnings = [];
 
         foreach ($productIds as $productId) {
             // Only process products that are already linked to Shopee
@@ -2160,6 +2165,14 @@ class ShopeeProductGroupController extends Controller
                 (new \Extensions\shopee\Services\Shopee\ShopeeDescription($client))->shapeOf($auth, (int) $itemId)
             );
 
+            /* The catalog names the item's own variation types. A rename that
+             * cannot happen is skipped and said, and the rest of the update goes. */
+            $rename = app(\Extensions\shopee\Services\Shopee\ShopeeVariationRename::class);
+            $renamed = $rename->apply($client, $auth, $rename->plan($client, $auth, $itemId, (int) $productId));
+            if (!$renamed['ok']) {
+                $warnings[] = "#{$productId}: {$renamed['message']}";
+            }
+
             $path = '/api/v2/product/update_item';
             $result = $client->shopPost(
                 $auth['mode'],
@@ -2224,7 +2237,7 @@ class ShopeeProductGroupController extends Controller
             usleep(300000);
         }
 
-        return ['ok' => $okCount, 'skip' => $skipCount, 'err' => $errCount, 'errors' => $errors];
+        return ['ok' => $okCount, 'skip' => $skipCount, 'err' => $errCount, 'errors' => $errors, 'warnings' => $warnings];
     }
 
     public function push(Request $request, int $id, ShopeeClient $client)
@@ -2294,6 +2307,7 @@ class ShopeeProductGroupController extends Controller
         if ($skipCount > 0) $summary .= ", {$skipCount} skipped (not linked)";
         if ($errCount > 0) $summary .= ", {$errCount} failed";
         if (!empty($errors)) $summary .= '. Errors: ' . implode('; ', array_slice($errors, 0, 5));
+        if (!empty($r['warnings'])) $summary .= '. ' . implode(' ', array_slice($r['warnings'], 0, 5));
 
         return $this->productsRedirect($id)->with($this->batchTone($okCount, $errCount), $summary);
     }

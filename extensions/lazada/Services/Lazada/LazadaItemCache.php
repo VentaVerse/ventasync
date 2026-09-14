@@ -26,11 +26,13 @@ class LazadaItemCache
 /**
 /**
  * Full cache refresh for a Lazada product: variants, status, stale cleanup, sync_status, error fields.
+ * Returns the item as Lazada answered it, or null when it did not answer,
+ * so a caller that needs the item after a write reads it only once.
  */
-public function refreshListing(LazadaProduct $listing, object $setting, LazadaClient $client, string $pack = 'lazada.product.item.get.cache'): void
+public function refreshListing(LazadaProduct $listing, object $setting, LazadaClient $client, string $pack = 'lazada.product.item.get.cache'): ?array
 {
     $itemId = (string) ($listing->lazada_item_id ?? '');
-    if ($itemId === '') return;
+    if ($itemId === '') return null;
 
     $creds = LazadaSetting::activeCredentials($setting);
 
@@ -70,10 +72,10 @@ public function refreshListing(LazadaProduct $listing, object $setting, LazadaCl
                 ->recordOutcome((int) $listing->product_id, 'Not found on Lazada' . ($said !== '' ? ': ' . rtrim($said, '.') : '') . '.');
         }
 
-        return;
+        return null;
     }
 
-    if (empty($data) || !is_array($data)) return;
+    if (empty($data) || !is_array($data)) return null;
 
     // 1. Write the answer through to the mirror (#184 C). This read runs
     // after uploads and ID matches, so the status in hand is exactly the
@@ -152,6 +154,8 @@ public function refreshListing(LazadaProduct $listing, object $setting, LazadaCl
         ->where('lazada_product_id', $listing->id)
         ->where(fn ($q) => $q->whereNull('sync_status')->orWhereNotIn('sync_status', ['error', 'failed']))
         ->update(['sync_status' => 'synced', 'push_error' => null]);
+
+    return $data;
 }
 
 /**

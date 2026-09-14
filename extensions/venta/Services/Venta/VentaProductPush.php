@@ -297,6 +297,105 @@ class VentaProductPush
     }
 
     /**
+     * The payload for an update, with the variation type and its values
+     * named as the catalog names them.
+     *
+     * The store rebuilds its variation types from option_name and name on
+     * every update and keeps each variant on its own SKU, so sending the
+     * catalog's words renames in place and every variant stays attached.
+     *
+     * All or nothing: the names change only when every variant sent has a
+     * catalog name to take. A partial rename would leave the store with two
+     * types for one product, so anything short of that sends the payload as
+     * it was built. A product with two or more variation types keeps its
+     * payload too, because the store holds one type per variant from this
+     * endpoint.
+     *
+     * @param  array<string, mixed>  $data  a payload() result
+     * @return array<string, mixed>
+     */
+    public function withCatalogNames(object $prod, array $data): array
+    {
+        if (empty($data['variants']) || ! is_array($data['variants'])) {
+            return $data;
+        }
+
+        $names = $this->catalogVariationNames($prod);
+        if ($names === []) {
+            return $data;
+        }
+
+        foreach ($data['variants'] as $variant) {
+            if (! isset($names[(string) ($variant['sku'] ?? '')])) {
+                return $data;
+            }
+        }
+
+        foreach ($data['variants'] as $i => $variant) {
+            $data['variants'][$i] = array_merge($variant, $names[(string) $variant['sku']]);
+        }
+
+        return $data;
+    }
+
+    /**
+     * Each combination's catalog option and value name, keyed by the SKU the
+     * payload sends it under. Empty when the product has no combinations,
+     * more than one variation type, or a combination without exactly one
+     * named value.
+     *
+     * @return array<string, array{option_name: string, name: string}>
+     */
+    private function catalogVariationNames(object $prod): array
+    {
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+        $pid = (int) $prod->product_id;
+        $sku = self::skuOf($prod);
+
+        $combos = DB::table('product_option_combinations')
+            ->where('product_id', $pid)
+            ->orderBy('sort_order')
+            ->get(['id', 'sku']);
+
+        if ($combos->isEmpty()) {
+            return [];
+        }
+
+        $values = DB::table('product_option_combination_values as pocv')
+            ->join($pfx . 'product_option_value as pov', 'pocv.product_option_value_id', '=', 'pov.product_option_value_id')
+            ->join($pfx . 'option_description as od', function ($j) use ($langId) {
+                $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
+            })
+            ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
+            })
+            ->whereIn('pocv.combination_id', $combos->pluck('id')->all())
+            ->get(['pocv.combination_id', 'pov.option_id', 'od.name as option_name', 'ovd.name as value_name'])
+            ->groupBy('combination_id');
+
+        if ($values->flatten(1)->pluck('option_id')->unique()->count() !== 1) {
+            return [];
+        }
+
+        $names = [];
+        foreach ($combos as $c) {
+            $rows = $values->get($c->id);
+            if (! $rows || $rows->count() !== 1) {
+                return [];
+            }
+            $option = trim((string) $rows->first()->option_name);
+            $value = trim((string) $rows->first()->value_name);
+            if ($option === '' || $value === '') {
+                return [];
+            }
+            $names[$c->sku ?: ($sku . '-' . $c->id)] = ['option_name' => $option, 'name' => $value];
+        }
+
+        return $names;
+    }
+
+    /**
      * The pictures this store is sent, in the order it is sent them.
      *
      * The listing's OWN arrangement wins when it has one, and the catalog
@@ -486,6 +585,7 @@ class VentaProductPush
         $link = VentaProductLink::where('venta_setting_id', $this->setting->id)->where('product_id', $productId)->first();
 
         if ($link && $link->venta_product_id) {
+            $data = $this->withCatalogNames($prod, $data);
             $result = $this->client->updateProduct($sku, $data);
             if (! ($result['ok'] ?? false)) {
                 return self::outcome(false, 'failed', self::failureText($result, $sku), (int) $link->venta_product_id, [], $data);

@@ -211,6 +211,9 @@ class LazadaPushPayload
         // Single-option products store variant data directly on product_option_value rows.
         // We map ERP option value(s) onto Lazada sale-prop keys for the category.
         $variantKeys = [];
+        $keyForPosition = [];
+        $namePairs = [];
+        $liveItem = null;
         $combos = collect();
         $comboValuesByCombo = collect();
         if ($povRows->count() > 0) {
@@ -279,7 +282,8 @@ class LazadaPushPayload
             // An item already on Lazada comes first, with the keys its own SKUs
             // carry: an update that sends any other key adds a second variation
             // type beside the item's own, so the item's keys always win there.
-            $liveKeys = $this->itemSalePropKeys($listing, $setting, $client);
+            $liveItem = $this->liveItemShape($listing, $setting, $client);
+            $liveKeys = $liveItem['keys'] ?? null;
             if ($liveKeys !== null && $liveKeys !== []) {
                 $variantKeys = $liveKeys;
             } else {
@@ -304,6 +308,23 @@ class LazadaPushPayload
                         : "Lazada won't accept this product. The selected Lazada category only allows {$allowed} variation per product, but your product has {$have}. Either remove a variation, or move this listing to a Lazada category that supports {$have}."
                 ]);
             }
+
+            // Which live key each catalog option rides, by position unless
+            // the names say otherwise on an item with two or more types.
+            if ($combos->isNotEmpty()) {
+                $comboOptionNames = ($comboValuesByCombo->first() ?? collect())
+                    ->map(fn ($v) => trim((string) ($v->option_name ?? '')))->values()->all();
+                $keyForPosition = $liveKeys && count($liveKeys) >= 2
+                    ? $this->pairOptionsWithLiveKeys($comboOptionNames, $liveKeys)
+                    : $variantKeys;
+                foreach ($comboOptionNames as $i => $optionName) {
+                    if (isset($keyForPosition[$i])) {
+                        $namePairs[] = [$optionName, $keyForPosition[$i]];
+                    }
+                }
+            } elseif ($variantKeys !== []) {
+                $namePairs[] = [trim((string) ($povRows->first()->option_name ?? '')), $variantKeys[0]];
+            }
             if (!$combos->isNotEmpty() && $variantKeys === [] && $povRows->count() > 1) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'variants' => "Lazada needs a variation type for this product's options, and neither the item nor its Lazada category names one. Pick a Lazada category that has a variation property."
@@ -312,11 +333,11 @@ class LazadaPushPayload
         }
         if ($combos->isNotEmpty()) {
             // Multi-option: each combination row is one Lazada SKU.
-            // Map ERP options to Lazada sale-prop slots POSITIONALLY (first ERP option
+            // ERP options map to Lazada sale-prop slots by position (first ERP option
             // → first Lazada key, etc.) so the ERP variation order is preserved in
-            // Lazada's UI. Semantic matching ("Color" → color_family) would put values
-            // in correctly-labeled slots but flip the display order whenever Lazada's
-            // sale-prop order differs from the ERP option order.
+            // Lazada's UI. On an item already on Lazada with two or more types, an
+            // option whose name matches a live key takes that key instead; see
+            // pairOptionsWithLiveKeys().
             foreach ($combos as $c) {
                 $values = $comboValuesByCombo->get($c->id) ?? collect();
 
@@ -356,12 +377,12 @@ class LazadaPushPayload
                 }
 
                 foreach ($values->values() as $i => $v) {
-                    if (!isset($variantKeys[$i])) {
+                    if (!isset($keyForPosition[$i])) {
                         continue;
                     }
                     $valName = trim((string)($v->value_name ?? ''));
                     if ($valName !== '') {
-                        $skuRow[$variantKeys[$i]] = $valName;
+                        $skuRow[$keyForPosition[$i]] = $valName;
                     }
                 }
 
@@ -478,6 +499,17 @@ class LazadaPushPayload
             }
         }
 
+        /* The catalog has one weight and one size per product. When the
+         * item's variations already differ from one another on Lazada, an
+         * update leaves the package fields off so each keeps its own. */
+        if ($liveItem !== null && $this->livePackagesDiffer($liveItem['packages'])) {
+            foreach ($skus as $i => $row) {
+                foreach (LazadaLiveListing::PACKAGE_FIELDS as $field) {
+                    unset($skus[$i][$field]);
+                }
+            }
+        }
+
         // What the catalogue can answer, it answers, BEFORE the gate below:
         // this fallback used to sit after it, where it could never fire.
         $attrs = app(LazadaAttributes::class)->autoFillBasics($attrs, $product);
@@ -578,6 +610,16 @@ class LazadaPushPayload
             }
         }
 
+        /* A seller-defined variation type takes the catalog option's name.
+         * The SKUs keep the item's live keys, so a Lazada that ignores the
+         * variation object changes nothing; standard types are never sent. */
+        $rename = $liveItem !== null
+            ? $this->variationRename($namePairs, $liveItem, (int) $listing->primary_category_id)
+            : ['variation' => [], 'renames' => [], 'skipped' => []];
+        if ($rename['variation'] !== []) {
+            $payload['Request']['Product']['variation'] = $rename['variation'];
+        }
+
         $preview = [
             'listing_id' => $listing->id,
             'primary_category_id' => $listing->primary_category_id,
@@ -585,6 +627,8 @@ class LazadaPushPayload
             'skus' => $skus,
             'images' => $imageUrls,
             'payload' => $payload,
+            'variation_renames' => $rename['renames'],
+            'variation_rename_skipped' => $rename['skipped'],
         ];
 
         return [$payload, $preview];
@@ -600,14 +644,15 @@ class LazadaPushPayload
      *  mixed
      */
     /**
-     * The variation keys an item already on Lazada carries, in their order,
-     * or null when the listing is not on Lazada or no store is at hand to
-     * ask. Lazada not answering refuses the update: a guessed key would add
-     * a variation type the item does not have.
+     * An item already on Lazada as its one item/get read describes it (see
+     * LazadaLiveListing::shapeOf), or null when the listing is not on
+     * Lazada or no store is at hand to ask. Lazada not answering refuses
+     * the update: a guessed key would add a variation type the item does
+     * not have.
      *
-     * @return list<string>|null
+     * @return array{keys: list<string>, packages: list<array<string, string>>, variation: ?list<array{slot: int, name: string, customize: bool, has_image: mixed}>}|null
      */
-    private function itemSalePropKeys(LazadaProduct $listing, ?object $setting, ?LazadaClient $client): ?array
+    private function liveItemShape(LazadaProduct $listing, ?object $setting, ?LazadaClient $client): ?array
     {
         $itemId = trim((string) ($listing->lazada_item_id ?? ''));
         if ($itemId === '' || !empty($listing->lazada_deleted_at) || !$setting || !$client) {
@@ -615,7 +660,7 @@ class LazadaPushPayload
         }
 
         try {
-            return (new LazadaLiveListing($client))->salePropKeys(
+            return (new LazadaLiveListing($client))->itemShape(
                 $setting, \Extensions\lazada\Models\LazadaSetting::activeCredentials($setting), $itemId
             );
         } catch (\RuntimeException $e) {
@@ -623,6 +668,210 @@ class LazadaPushPayload
                 'variants' => 'Lazada did not say which variation types this item already has (' . $e->getMessage() . '), so nothing was sent. Try again.',
             ]);
         }
+    }
+
+    /** A variation name as compared: case, spaces, underscores and hyphens do not count. */
+    private static function nameKey(string $name): string
+    {
+        return mb_strtolower((string) preg_replace('/[\s_\-]+/u', '', $name));
+    }
+
+    /**
+     * Each catalog option, by its position in the combinations, paired with
+     * the live key it rides. A name that matches a live key takes that key;
+     * the rest go by position. When a name matches a key at another
+     * position and another option matches no key at all, the names say the
+     * orders differ without saying how, so the update is refused.
+     *
+     * @param  list<string>  $optionNames
+     * @param  list<string>  $liveKeys
+     * @return array<int, string>
+     */
+    private function pairOptionsWithLiveKeys(array $optionNames, array $liveKeys): array
+    {
+        $byName = [];
+        $taken = [];
+        foreach ($optionNames as $i => $name) {
+            $want = self::nameKey($name);
+            if ($want === '') {
+                continue;
+            }
+            foreach ($liveKeys as $j => $key) {
+                if (!isset($taken[$j]) && self::nameKey($key) === $want) {
+                    $byName[$i] = $j;
+                    $taken[$j] = true;
+                    break;
+                }
+            }
+        }
+
+        $crossed = false;
+        foreach ($byName as $i => $j) {
+            if ($i !== $j) {
+                $crossed = true;
+            }
+        }
+
+        $pairs = [];
+        foreach ($optionNames as $i => $name) {
+            if (isset($byName[$i])) {
+                $pairs[$i] = $liveKeys[$byName[$i]];
+                continue;
+            }
+            if ($crossed || !isset($liveKeys[$i]) || isset($taken[$i])) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'variants' => 'This item on Lazada has its variations in the order ' . implode(', ', $liveKeys)
+                        . ' and your product has ' . implode(', ', array_map(fn ($n) => $n !== '' ? $n : '(unnamed)', $optionNames))
+                        . '; the names do not say which is which, so nothing was sent.',
+                ]);
+            }
+            $pairs[$i] = $liveKeys[$i];
+            $taken[$i] = true;
+        }
+
+        return $pairs;
+    }
+
+    /**
+     * True when the item's SKUs carry different values from one another in
+     * any package field. Values compare as numbers when they are numbers,
+     * so "10.00" and "10" are the same size.
+     *
+     * @param  list<array<string, string>>  $packages
+     */
+    private function livePackagesDiffer(array $packages): bool
+    {
+        foreach (LazadaLiveListing::PACKAGE_FIELDS as $field) {
+            $seen = [];
+            foreach ($packages as $package) {
+                if (!isset($package[$field])) {
+                    continue;
+                }
+                $value = $package[$field];
+                $seen[is_numeric($value) ? sprintf('%.4F', (float) $value) : mb_strtolower($value)] = true;
+            }
+            if (count($seen) > 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The variation object an update carries to rename seller-defined types
+     * to the catalog option's name, and the renames it asks for. A type is
+     * renamed only when Lazada reports it customize=true, its name is not
+     * one of the category's own sale-prop keys, and the catalog name differs
+     * by more than case, spaces, underscores or hyphens and is not already
+     * another type's name. Each renamed type goes in its own slot with
+     * Lazada's own has_image and customize; nothing else is sent. A rename
+     * that cannot be decided (no variation object in the item's answer, so
+     * custom cannot be told from standard; the type missing from it; the
+     * new name already taken) is skipped with its reason, and the update
+     * goes ahead without it. A standard type is left alone without a reason.
+     *
+     * @param  list<array{0: string, 1: string}>  $namePairs  [catalog option name, live key]
+     * @return array{variation: array<string, array<string, mixed>>, renames: list<array{from: string, to: string}>, skipped: list<string>}
+     */
+    private function variationRename(array $namePairs, array $liveItem, int $categoryId): array
+    {
+        $out = ['variation' => [], 'renames' => [], 'skipped' => []];
+        if ($namePairs === []) {
+            return $out;
+        }
+        $types = is_array($liveItem['variation'] ?? null) ? $liveItem['variation'] : [];
+
+        $standard = [];
+        foreach (array_merge(self::STANDARD_SALE_PROPS, app(LazadaAttributes::class)->cachedSalePropKeys($categoryId)) as $key) {
+            $standard[self::nameKey((string) $key)] = true;
+        }
+        $liveNames = [];
+        foreach (array_merge($liveItem['keys'] ?? [], array_column($types, 'name')) as $name) {
+            $liveNames[self::nameKey((string) $name)] = true;
+        }
+
+        foreach ($namePairs as [$optionName, $liveKey]) {
+            $optionName = trim((string) $optionName);
+            $to = self::nameKey($optionName);
+            $from = self::nameKey((string) $liveKey);
+            if ($to === '' || $to === $from || isset($standard[$from])) {
+                continue;
+            }
+            if ($types === []) {
+                $out['skipped'][] = 'Lazada did not say which variation types on this item are your own';
+                continue;
+            }
+            if (isset($liveNames[$to])) {
+                $out['skipped'][] = $optionName . ' is already a variation type on this item';
+                continue;
+            }
+            $type = null;
+            foreach ($types as $candidate) {
+                if (self::nameKey($candidate['name']) === $from) {
+                    $type = $candidate;
+                    break;
+                }
+            }
+            if ($type === null) {
+                $out['skipped'][] = 'Lazada did not describe the ' . $liveKey . ' type';
+                continue;
+            }
+            if (!$type['customize']) {
+                continue;
+            }
+            $entry = ['name' => $optionName];
+            if ($type['has_image'] !== null) {
+                $entry['has_image'] = $type['has_image'];
+            }
+            $entry['customize'] = true;
+            $out['variation']['Variation' . $type['slot']] = $entry;
+            $out['renames'][] = ['from' => $type['name'], 'to' => $optionName];
+            $liveNames[$to] = true;
+        }
+        $out['skipped'] = array_values(array_unique($out['skipped']));
+
+        return $out;
+    }
+
+    /** The warning a result message carries when a wanted rename was skipped, or null. */
+    public function renameWarning(array $preview): ?string
+    {
+        $skipped = (array) ($preview['variation_rename_skipped'] ?? []);
+
+        return $skipped === [] ? null : 'Variation names were not changed: ' . implode('; ', $skipped) . '.';
+    }
+
+    /** Lazada's own sale-prop keys, standard in every category that has them. */
+    private const STANDARD_SALE_PROPS = ['color_family', 'size'];
+
+    /**
+     * After an update that asked for a rename, the item as Lazada now holds
+     * it: when it shows both the old name and the new one, the line to
+     * record. A rename Lazada ignored, one it took, or a read that did not
+     * come back gives null.
+     *
+     * @param  list<array{from: string, to: string}>  $renames
+     */
+    public function renameReadBack(array $renames, ?array $itemData): ?string
+    {
+        if ($renames === [] || $itemData === null) {
+            return null;
+        }
+        $shape = LazadaLiveListing::shapeOf($itemData);
+        $names = [];
+        foreach (array_merge($shape['keys'], array_column($shape['variation'] ?? [], 'name')) as $name) {
+            $names[self::nameKey((string) $name)] = true;
+        }
+
+        $lines = [];
+        foreach ($renames as $rename) {
+            if (isset($names[self::nameKey($rename['from'])], $names[self::nameKey($rename['to'])])) {
+                $lines[] = 'Lazada kept ' . $rename['from'] . ' and added ' . $rename['to'] . '.';
+            }
+        }
+
+        return $lines === [] ? null : implode(' ', $lines) . ' Remove one in Seller Center.';
     }
 
     public function compactPayloadValue($value)

@@ -293,18 +293,81 @@ class LazadaLiveListing
      */
     public function salePropKeys(object $setting, array $creds, string $itemId): array
     {
-        $data = $this->signedGet($setting, $creds, '/product/item/get', ['item_id' => $itemId]);
+        return $this->itemShape($setting, $creds, $itemId)['keys'];
+    }
 
+    /**
+     * What an update has to respect on an item already on Lazada, from one
+     * /product/item/get read. See shapeOf(). Throws when Lazada does not
+     * answer.
+     *
+     * @return array{keys: list<string>, packages: list<array<string, string>>, variation: ?list<array{slot: int, name: string, customize: bool, has_image: mixed}>}
+     */
+    public function itemShape(object $setting, array $creds, string $itemId): array
+    {
+        return self::shapeOf($this->signedGet($setting, $creds, '/product/item/get', ['item_id' => $itemId]));
+    }
+
+    public const PACKAGE_FIELDS = ['package_weight', 'package_length', 'package_width', 'package_height'];
+
+    /**
+     * An item/get answer reduced to three things:
+     * - keys: the variation keys the SKUs carry, in their order, from each
+     *   SKU's saleProp map ({"Length": "1m"}); [] when the item has none;
+     * - packages: each SKU's package_weight/length/width/height, only the
+     *   ones it carries;
+     * - variation: the item's variation types (variation1..4) with name,
+     *   customize (true for a seller-defined type) and has_image, in slot
+     *   order; null when the answer carries no variation object.
+     *
+     * @return array{keys: list<string>, packages: list<array<string, string>>, variation: ?list<array{slot: int, name: string, customize: bool, has_image: mixed}>}
+     */
+    public static function shapeOf(array $data): array
+    {
         $keys = [];
+        $packages = [];
         foreach ((array) ($data['skus'] ?? []) as $sku) {
+            if (! is_array($sku)) {
+                continue;
+            }
             foreach ((array) ($sku['saleProp'] ?? []) as $key => $value) {
                 if (is_string($key) && trim($key) !== '' && ! in_array($key, $keys, true)) {
                     $keys[] = $key;
                 }
             }
+            $package = [];
+            foreach (self::PACKAGE_FIELDS as $field) {
+                $value = $sku[$field] ?? null;
+                if (is_scalar($value) && trim((string) $value) !== '') {
+                    $package[$field] = trim((string) $value);
+                }
+            }
+            $packages[] = $package;
         }
 
-        return $keys;
+        $variation = null;
+        if (isset($data['variation']) && is_array($data['variation'])) {
+            $variation = [];
+            foreach ($data['variation'] as $slotKey => $type) {
+                if (! is_array($type) || ! preg_match('/^variation([1-9])$/i', (string) $slotKey, $m)) {
+                    continue;
+                }
+                $name = trim((string) ($type['name'] ?? ''));
+                if ($name === '') {
+                    continue;
+                }
+                $customize = $type['customize'] ?? false;
+                $variation[] = [
+                    'slot' => (int) $m[1],
+                    'name' => $name,
+                    'customize' => $customize === true || (is_string($customize) && strtolower(trim($customize)) === 'true') || $customize === 1,
+                    'has_image' => $type['has_image'] ?? null,
+                ];
+            }
+            usort($variation, fn ($a, $b) => $a['slot'] <=> $b['slot']);
+        }
+
+        return ['keys' => $keys, 'packages' => $packages, 'variation' => $variation];
     }
 
     public function fetch(object $setting, array $creds, string $itemId): array

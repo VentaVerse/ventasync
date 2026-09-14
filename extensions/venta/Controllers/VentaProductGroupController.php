@@ -902,8 +902,8 @@ class VentaProductGroupController extends Controller
                 ->first();
 
             if ($existingLink && $existingLink->venta_product_id) {
-                // Update existing product on Venta
-                $result = $client->updateProduct($sku, $data);
+                // Update existing product on Venta, variation names as the catalog has them
+                $result = $client->updateProduct($sku, $push->withCatalogNames($prod, $data));
                 if ($result['ok']) {
                     $updated++;
                     $this->collectImageVerdict($result, $pid, $imagesSent, $imagesStored, $imageRejections);

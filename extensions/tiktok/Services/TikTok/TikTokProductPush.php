@@ -26,7 +26,7 @@ class TikTokProductPush
     /** How many main images TikTok Shop takes on a product; the push sends the first nine and says so. */
     public const MAX_IMAGES = 9;
 
-    public function __construct(private TikTokVariationPush $variations) {}
+    public function __construct(private TikTokVariationPush $variations, private TikTokVariationRename $rename) {}
 
     /** @return array{payload?: array, built?: array, refused?: string} */
     public function build(object $erp, array $opts, array $c, TikTokClient $client, ?array $existingIds = null): array
@@ -177,31 +177,111 @@ class TikTokProductPush
         ];
     }
 
-    /** @return array{ok: bool, message: string, sku_ids?: ?string, result: array} */
+    /**
+     * warning is set when the update went up with the item's variation
+     * names kept, and says why.
+     *
+     * @return array{ok: bool, message: string, sku_ids?: ?string, warning?: ?string, result: array}
+     */
     public function edit(object $erp, string $tiktokProductId, ?string $existingRaw, array $opts, array $c, TikTokClient $client): array
     {
-        $b = $this->build($erp, $opts, $c, $client, TikTokVariationPush::existingIds($existingRaw));
+        $existing = TikTokVariationPush::existingIds($existingRaw);
+        $builtIn = $this->builtInTypes((string) ($opts['category_id'] ?? ''), $client, $c);
+
+        /* An item with variations is read first, so its variation types
+         * can be paired with the catalog's options (TikTokVariationRename).
+         * An edit overwrites every variation it sends and cannot leave them
+         * out, so an item that cannot be read is refused before any
+         * picture is uploaded. */
+        $live = null;
+        $probe = $this->variations->skus($erp, $opts['priceFor'], $opts['warehouse_id'] ?? null, null, $existing);
+        if (!$probe['refused'] && $probe['kind'] !== 'single') {
+            $read = (new TikTokLiveListing($client))->variationSkus($tiktokProductId, $c);
+            if ($read['skus'] === null) {
+                return ['ok' => false, 'message' => 'TikTok Shop did not say which variations this item has (' . $read['error'] . '), so nothing was sent.', 'result' => []];
+            }
+            $live = $read['skus'];
+        }
+
+        $b = $this->build($erp, $opts, $c, $client, $existing);
         if (isset($b['refused'])) {
             return ['ok' => false, 'message' => $b['refused'], 'result' => []];
         }
-        try {
-            $result = $client->editProduct($c['app_key'], $c['app_secret'], $c['token'], $tiktokProductId, $b['payload'], $c['shop_cipher'] ?: null);
-        } catch (\Throwable $e) {
-            $result = ['ok' => false, 'status' => 0, 'body' => ['message' => \App\Support\TransportError::plain($e, 'TikTok Shop')]];
+        $built = $b['payload']['skus'];
+        $shaped = ['renamed' => false, 'skipped' => null];
+        if ($live !== null) {
+            $shaped = $this->rename->shape($built, $live, $builtIn);
+            $b['payload']['skus'] = $shaped['skus'];
         }
-        $this->log('PUT', '/product/202309/products/' . $tiktokProductId, $b['payload'], $result);
+        $skipped = $shaped['skipped'];
+        $result = $this->sendEdit($client, $c, $tiktokProductId, $b['payload']);
+
+        // TikTok answered no to an edit with a rename in it: the same update once more, under the item's own names.
+        if (!$this->ok($result) && $shaped['renamed'] && (int) ($result['status'] ?? 0) > 0) {
+            $kept = $this->rename->shape($built, $live, $builtIn, 'TikTok Shop refused them (' . $this->message($result) . ')');
+            $b['payload']['skus'] = $kept['skus'];
+            $skipped = $kept['skipped'];
+            $result = $this->sendEdit($client, $c, $tiktokProductId, $b['payload']);
+        }
 
         if (!$this->ok($result)) {
             return ['ok' => false, 'message' => $this->message($result), 'result' => $result];
         }
+        $warning = $skipped !== null ? 'Variation names were not changed: ' . $skipped . '.' : null;
 
-        return [
-            'ok' => true, 'message' => 'updated',
-            'sku_ids' => !empty($result['body']['data']['skus'])
-                ? $this->variations->storedIds($b['built'], $result['body']['data']['skus'])
-                : null,
-            'result' => $result,
-        ];
+        $skuIds = !empty($result['body']['data']['skus'])
+            ? $this->variations->storedIds($b['built'], $result['body']['data']['skus'])
+            : null;
+        // An answer without SKUs: the item is read again, so the map follows the ids it holds now.
+        if ($skuIds === null && $live !== null) {
+            $skuIds = $this->heldIds((new TikTokLiveListing($client))->variationSkus($tiktokProductId, $c)['skus'] ?? []);
+        }
+
+        return ['ok' => true, 'message' => $warning ?? 'updated', 'warning' => $warning, 'sku_ids' => $skuIds, 'result' => $result];
+    }
+
+    private function sendEdit(TikTokClient $client, array $c, string $tiktokProductId, array $payload): array
+    {
+        try {
+            $result = $client->editProduct($c['app_key'], $c['app_secret'], $c['token'], $tiktokProductId, $payload, $c['shop_cipher'] ?: null);
+        } catch (\Throwable $e) {
+            $result = ['ok' => false, 'status' => 0, 'body' => ['message' => \App\Support\TransportError::plain($e, 'TikTok Shop')]];
+        }
+        $this->log('PUT', '/product/202309/products/' . $tiktokProductId, $payload, $result);
+
+        return $result;
+    }
+
+    /** seller_sku => id for every SKU the item holds, as the stored map keeps it; null when none. */
+    private function heldIds(array $liveSkus): ?string
+    {
+        $map = [];
+        foreach ($liveSkus as $sku) {
+            $seller = trim((string) ($sku['seller_sku'] ?? ''));
+            $id = trim((string) ($sku['id'] ?? ''));
+            if ($seller !== '' && $id !== '') {
+                $map[$seller] = $id;
+            }
+        }
+
+        return $map ? json_encode($map) : null;
+    }
+
+    /** The category's own variation type ids, read once and only when a pairing asks. */
+    private function builtInTypes(string $categoryId, TikTokClient $client, array $c): \Closure
+    {
+        $asked = false;
+        $ids = null;
+
+        return function () use (&$asked, &$ids, $categoryId, $client, $c): ?array {
+            if (!$asked) {
+                $asked = true;
+                $attributes = app(TikTokAttributes::class);
+                $ids = $categoryId !== '' ? $attributes->salesPropertyIds($attributes->ensureTemplate($categoryId, $client, $c)) : null;
+            }
+
+            return $ids;
+        };
     }
 
     private function ok(array $result): bool

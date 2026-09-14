@@ -219,6 +219,30 @@ class ShopeeVariationPushTest extends TestCase
         $this->assertSame(2, ShopeeItemCache::query()->where('shopee_item_id', 990077)->count());
     }
 
+    /** A new item takes the catalog's names through init_tier_variation, and no rename runs. */
+    public function test_a_new_item_is_created_as_before_with_no_rename(): void
+    {
+        $productId = $this->seedVariationProduct();
+        ShopeeListing::query()->create([
+            'product_id' => $productId,
+            'shopee_category_id' => 106755, 'logistic_ids' => [41003],
+            'markup_percent' => 0, 'markup_fixed' => 10,
+        ]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.products.push_direct', $productId));
+
+        $paths = array_column($this->sentPayloads, 'path');
+        $this->assertContains('/api/v2/product/add_item', $paths);
+        $this->assertContains('/api/v2/product/init_tier_variation', $paths);
+        $this->assertNotContains('/api/v2/product/update_tier_variation', $paths);
+        $this->assertNotContains('/api/v2/product/update_item', $paths);
+
+        $init = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/init_tier_variation');
+        $this->assertSame('Colour', $init['body']['tier_variation'][0]['name']);
+        $this->assertSame(['Red', 'Black'], array_column($init['body']['tier_variation'][0]['option_list'], 'option'));
+    }
+
     public function test_a_plain_product_triggers_no_tier_call(): void
     {
         $pfx = (string) config('catalog.prefix');

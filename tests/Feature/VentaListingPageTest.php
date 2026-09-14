@@ -1145,4 +1145,241 @@ class VentaListingPageTest extends TestCase
         $this->assertStringContainsString('Not on Gear Depot:', $line);
         $this->assertStringContainsString('GP-200-L', $line);
     }
+
+    /**
+     * A catalog product whose one variation type is Colour, valued Crimson
+     * on TEE-RED and Navy on TEE-BLU. With $withSize every combination also
+     * carries Size M, so the product has two variation types.
+     *
+     * @return array{0: VentaSetting, 1: int, 2: VentaProductGroup}
+     */
+    private function productNamedByTheCatalog(bool $linked = true, bool $withSize = false): array
+    {
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+        $store = $this->store();
+        $pid = $this->product('TEE');
+
+        $option = function (string $name) use ($pfx, $langId, $pid): array {
+            $optionId = (int) DB::table($pfx . 'option')->insertGetId(['type' => 'select', 'sort_order' => 0]);
+            DB::table($pfx . 'option_description')->insert(['option_id' => $optionId, 'language_id' => $langId, 'name' => $name]);
+            $productOptionId = (int) DB::table($pfx . 'product_option')->insertGetId([
+                'product_id' => $pid, 'option_id' => $optionId, 'value' => '', 'required' => 0,
+            ]);
+
+            return [$optionId, $productOptionId];
+        };
+        $value = function (array $option, string $name, string $sku, int $sort) use ($pfx, $langId, $pid): int {
+            [$optionId, $productOptionId] = $option;
+            $valueId = (int) DB::table($pfx . 'option_value')->insertGetId(['option_id' => $optionId, 'image' => '', 'sort_order' => $sort]);
+            DB::table($pfx . 'option_value_description')->insert([
+                'option_value_id' => $valueId, 'language_id' => $langId, 'option_id' => $optionId, 'name' => $name,
+            ]);
+
+            return (int) DB::table($pfx . 'product_option_value')->insertGetId([
+                'product_option_id' => $productOptionId, 'product_id' => $pid,
+                'option_id' => $optionId, 'option_value_id' => $valueId,
+                'sku' => $sku, 'quantity' => 4, 'subtract' => 1,
+                'price' => 0, 'price_prefix' => '+', 'points' => 0, 'points_prefix' => '+',
+                'weight' => 0, 'weight_prefix' => '+',
+                'cost' => 0, 'cost_amount' => 0, 'cost_percentage' => 0, 'cost_additional' => 0,
+                'absolute_cost' => 0, 'cost_prefix' => '+', 'absolute_price' => 1000,
+            ]);
+        };
+
+        $colour = $option('Colour');
+        $sizeM = $withSize ? $value($option('Size'), 'M', '', 0) : null;
+
+        foreach ([['Crimson', 'TEE-RED'], ['Navy', 'TEE-BLU']] as $i => [$name, $sku]) {
+            $povId = $value($colour, $name, $sku, $i);
+            $comboId = (int) DB::table('product_option_combinations')->insertGetId([
+                'product_id' => $pid, 'sku' => $sku, 'quantity' => 4, 'absolute_price' => 1000,
+                'status' => 1, 'sort_order' => $i, 'created_at' => now(), 'updated_at' => now(),
+            ]);
+            DB::table('product_option_combination_values')->insert(['combination_id' => $comboId, 'product_option_value_id' => $povId]);
+            if ($sizeM !== null) {
+                DB::table('product_option_combination_values')->insert(['combination_id' => $comboId, 'product_option_value_id' => $sizeM]);
+            }
+        }
+
+        if ($linked) {
+            VentaProductLink::create(['venta_setting_id' => $store->id, 'product_id' => $pid, 'venta_product_id' => 5001, 'sku' => 'TEE']);
+        }
+        $group = VentaProductGroup::create(['venta_setting_id' => $store->id, 'name' => 'Tees']);
+        VentaProductGroupProduct::create(['venta_product_group_id' => $group->id, 'product_id' => $pid]);
+
+        return [$store, $pid, $group];
+    }
+
+    /**
+     * The store's item TEE, as its read endpoint answers: one variation type
+     * and a value per variant SKU.
+     *
+     * @param  array<string, string>  $values  variant sku => value
+     */
+    private function storeTee(string $type, array $values): array
+    {
+        $variants = [];
+        $typeValues = [];
+        $n = 0;
+        foreach ($values as $sku => $value) {
+            $n++;
+            $typeValues[] = ['id' => $n, 'value' => $value];
+            $variants[] = ['id' => 700 + $n, 'sku' => $sku, 'price' => 1000.0, 'quantity' => 4, 'is_active' => true,
+                'option_values' => [['id' => $n, 'value' => $value]]];
+        }
+
+        return [
+            'id' => 5001, 'sku' => 'TEE', 'name' => 'Tee', 'price' => 1000.0, 'quantity' => 8,
+            'status' => true, 'has_variants' => true, 'images' => [],
+            'variant_types' => [['id' => 1, 'name' => $type, 'values' => $typeValues]],
+            'variants' => $variants,
+        ];
+    }
+
+    /**
+     * The store reads TEE as $held (or has none), creates on POST, and
+     * answers the update with $putStatus and $putBody.
+     */
+    private function fakeTheTeeStore(?array $held, int $putStatus = 200, ?array $putBody = null): void
+    {
+        Http::fake(function ($request) use ($held, $putStatus, $putBody) {
+            $item = str_ends_with($request->url(), '/api/v1/products/TEE');
+            if ($item && $request->method() === 'GET') {
+                return $held !== null ? Http::response($held) : Http::response(['error' => 'Product not found'], 404);
+            }
+            if ($item && $request->method() === 'PUT') {
+                return Http::response($putBody ?? $held ?? [], $putStatus);
+            }
+            if ($request->method() === 'POST' && str_ends_with($request->url(), '/api/v1/products')) {
+                return Http::response(['id' => 5001, 'sku' => 'TEE', 'images' => [], 'images_failed' => []], 201);
+            }
+
+            return Http::response(['error' => 'unexpected'], 500);
+        });
+    }
+
+    /** @return array<string, array{0: string, 1: string}> sku => [option_name, name], from the one request of $method */
+    private function sentVariations(string $method, string $path): array
+    {
+        $sent = Http::recorded(fn ($r) => $r->method() === $method && str_ends_with($r->url(), $path));
+        $this->assertCount(1, $sent, "one {$method} to {$path}");
+
+        return collect($sent->first()[0]->data()['variants'] ?? [])
+            ->mapWithKeys(fn ($v) => [$v['sku'] => [$v['option_name'], $v['name']]])
+            ->all();
+    }
+
+    private function pusher(): User
+    {
+        return $this->userWith(['view_venta/listing', 'manage_venta/listing', 'view_venta/product_group', 'manage_venta/product_group']);
+    }
+
+    public function test_an_update_from_the_listing_page_gives_the_variations_the_catalogs_names(): void
+    {
+        [$store, $pid] = $this->productNamedByTheCatalog();
+        $this->fakeTheTeeStore($this->storeTee('Color', ['TEE-RED' => 'Red', 'TEE-BLU' => 'Blue']));
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.venta.listings.push', [$store->id, $pid]))
+            ->assertRedirect()
+            ->assertSessionHas('status');
+
+        $this->assertSame(
+            ['TEE-RED' => ['Colour', 'Crimson'], 'TEE-BLU' => ['Colour', 'Navy']],
+            $this->sentVariations('PUT', '/api/v1/products/TEE'),
+            'each variant keeps its own SKU and takes the catalog type and value'
+        );
+        Http::assertNotSent(fn ($r) => in_array($r->method(), ['POST', 'DELETE'], true));
+        $this->assertNull(VentaListing::where('venta_setting_id', $store->id)->where('product_id', $pid)->value('last_push_error'));
+    }
+
+    public function test_a_group_push_update_gives_the_variations_the_catalogs_names(): void
+    {
+        [$store, $pid, $group] = $this->productNamedByTheCatalog();
+        $this->fakeTheTeeStore($this->storeTee('Color', ['TEE-RED' => 'Red', 'TEE-BLU' => 'Blue']));
+
+        $this->actingAs($this->pusher())
+            ->post(route('ext.venta.product-groups.push', [$store->id, $group->id]), ['ids' => [$pid]])
+            ->assertRedirect();
+
+        $this->assertSame(
+            ['TEE-RED' => ['Colour', 'Crimson'], 'TEE-BLU' => ['Colour', 'Navy']],
+            $this->sentVariations('PUT', '/api/v1/products/TEE')
+        );
+        Http::assertNotSent(fn ($r) => in_array($r->method(), ['POST', 'DELETE'], true));
+        $this->assertNull(VentaListing::where('venta_setting_id', $store->id)->where('product_id', $pid)->value('last_push_error'));
+    }
+
+    public function test_an_update_whose_names_already_match_sends_them_as_they_are(): void
+    {
+        [$store, $pid, $group] = $this->productNamedByTheCatalog();
+        $this->fakeTheTeeStore($this->storeTee('Colour', ['TEE-RED' => 'Crimson', 'TEE-BLU' => 'Navy']));
+
+        $this->actingAs($this->pusher())
+            ->post(route('ext.venta.product-groups.push', [$store->id, $group->id]), ['ids' => [$pid]])
+            ->assertRedirect();
+
+        $this->assertSame(
+            ['TEE-RED' => ['Colour', 'Crimson'], 'TEE-BLU' => ['Colour', 'Navy']],
+            $this->sentVariations('PUT', '/api/v1/products/TEE'),
+            'the names the store already holds'
+        );
+        Http::assertNotSent(fn ($r) => in_array($r->method(), ['POST', 'DELETE'], true) || str_contains($r->url(), '/variants'));
+        $this->assertNull(VentaListing::where('venta_setting_id', $store->id)->where('product_id', $pid)->value('last_push_error'));
+    }
+
+    public function test_a_create_sends_its_variations_as_it_always_has(): void
+    {
+        [$store, $pid] = $this->productNamedByTheCatalog(linked: false);
+        $this->fakeTheTeeStore(null);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.venta.listings.push', [$store->id, $pid]))
+            ->assertRedirect()
+            ->assertSessionHas('status');
+
+        $this->assertSame(
+            ['TEE-RED' => ['Option', 'Crimson'], 'TEE-BLU' => ['Option', 'Navy']],
+            $this->sentVariations('POST', '/api/v1/products')
+        );
+        Http::assertNotSent(fn ($r) => $r->method() === 'PUT');
+        $this->assertSame(5001, (int) VentaProductLink::where('product_id', $pid)->value('venta_product_id'));
+    }
+
+    public function test_a_product_with_two_variation_types_updates_as_it_always_has(): void
+    {
+        [$store, $pid] = $this->productNamedByTheCatalog(withSize: true);
+        $this->fakeTheTeeStore($this->storeTee('Option', ['TEE-RED' => 'Crimson / M', 'TEE-BLU' => 'Navy / M']));
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.venta.listings.push', [$store->id, $pid]))
+            ->assertRedirect();
+
+        $sent = $this->sentVariations('PUT', '/api/v1/products/TEE');
+        $this->assertSame(['TEE-RED', 'TEE-BLU'], array_keys($sent));
+        foreach ($sent as [$type, $value]) {
+            $this->assertSame('Option', $type, 'the store holds one type per variant from this endpoint, so none is half renamed');
+            $this->assertStringContainsString(' / ', $value);
+        }
+    }
+
+    public function test_a_refused_rename_is_recorded_on_the_listing(): void
+    {
+        [$store, $pid] = $this->productNamedByTheCatalog();
+        $this->fakeTheTeeStore(
+            $this->storeTee('Color', ['TEE-RED' => 'Red', 'TEE-BLU' => 'Blue']),
+            422,
+            ['message' => 'The variants.0.option_name field must not be greater than 100 characters.']
+        );
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.venta.listings.push', [$store->id, $pid]))
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        $line = (string) VentaListing::where('venta_setting_id', $store->id)->where('product_id', $pid)->value('last_push_error');
+        $this->assertStringContainsString('The variants.0.option_name field must not be greater than 100 characters.', $line);
+        $this->assertSame('Push failed: The variants.0.option_name field must not be greater than 100 characters.', $line);
+    }
 }

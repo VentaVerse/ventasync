@@ -112,7 +112,7 @@ class TiktokStockPushTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'TikTok stock pushers']);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['manage_tiktok/product_group', 'view_tiktok/product_group'])->pluck('id')->all()
+            Permission::whereIn('key', ['manage_tiktok/product_group', 'view_tiktok/product_group', 'manage_tiktok/listing', 'view_tiktok/listing'])->pluck('id')->all()
         );
 
         return User::factory()->create(['user_group_id' => $group->id]);
@@ -354,6 +354,286 @@ class TiktokStockPushTest extends TestCase
         $this->assertSame([], app(\Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::class)->forProducts([$pid]),
             'with no store bound, the lookup reads the default store\'s groups, not every store\'s');
         $this->assertSame((int) $main->id, (int) TikTokSetting::defaultStore()->id);
+    }
+
+    private const SKU_IDS = ['TTV-Red-S' => 's1', 'TTV-Red-M' => 's2', 'TTV-Black-S' => 's3', 'TTV-Black-M' => 's4'];
+
+    /** Category 900001 defines one variation type of its own, Specification. */
+    private function categoryWithSpecification(): void
+    {
+        \Extensions\tiktok\Models\TikTokCategoryTemplate::query()->create([
+            'category_id' => '900001', 'fetched_at' => now(),
+            'attributes' => [['id' => '100089', 'name' => 'Specification', 'type' => 'SALES_PROPERTY', 'values' => []]],
+        ]);
+    }
+
+    /**
+     * The item as TikTok Shop holds it: every combination under its own SKU
+     * id, the colour and the size under the types given as
+     * [type id, type name, [catalog value => [value id, value name on the shop]]].
+     */
+    private function liveItem(string $ttId, array $colour, ?array $size, array $skuIds = self::SKU_IDS): array
+    {
+        $skus = [];
+        foreach ($skuIds as $seller => $id) {
+            [, $c, $s] = explode('-', $seller);
+            $attributes = [['id' => $colour[0], 'name' => $colour[1], 'value_id' => $colour[2][$c][0], 'value_name' => $colour[2][$c][1]]];
+            if ($size !== null) {
+                $attributes[] = ['id' => $size[0], 'name' => $size[1], 'value_id' => $size[2][$s][0], 'value_name' => $size[2][$s][1]];
+            }
+            $skus[] = ['id' => $id, 'seller_sku' => $seller, 'price' => ['sale_price' => '1000'], 'inventory' => [['quantity' => 1]], 'sales_attributes' => $attributes];
+        }
+
+        return ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success', 'data' => ['id' => $ttId, 'status' => 'ACTIVATE', 'title' => 'Two axis', 'skus' => $skus]]];
+    }
+
+    private function linkedInGroup(int $productId, string $ttId, array $map = self::SKU_IDS): TikTokProductGroupProduct
+    {
+        $group = TikTokProductGroup::create(['name' => 'Rename group ' . $ttId, 'tiktok_category_id' => '900001']);
+
+        return TikTokProductGroupProduct::create([
+            'tiktok_product_group_id' => $group->id, 'product_id' => $productId,
+            'tiktok_product_id' => $ttId, 'sync_status' => 'pushed', 'last_pushed_at' => now(),
+            'tiktok_sku_id' => json_encode($map),
+        ]);
+    }
+
+    private function updateThroughGroup(TikTokProductGroupProduct $pivot): \Illuminate\Testing\TestResponse
+    {
+        return $this->actingAs($this->manager())
+            ->post(route('ext.tiktok.product-groups.updateProduct', $pivot->tiktok_product_group_id), ['ids' => [$pivot->product_id]]);
+    }
+
+    /** @return array<string, array> the SKUs the one edit sent, by seller SKU */
+    private function editedSkus(string $ttId): array
+    {
+        $puts = $this->callsFor('PUT', '/product/202309/products/' . $ttId);
+        $this->assertCount(1, $puts, 'one edit reaches TikTok Shop');
+
+        return collect($puts[0]['body']['skus'])->keyBy('seller_sku')->all();
+    }
+
+    /** A type the seller named takes the catalog's option name and value names; every SKU keeps its own id. */
+    public function test_an_update_renames_a_type_the_seller_named_and_keeps_every_sku(): void
+    {
+        ['product_id' => $productId] = $this->seedTwoAxisProduct();
+        $this->categoryWithSpecification();
+        $pivot = $this->linkedInGroup($productId, 'tt-r1');
+        $this->callResponses['GET /product/202309/products/tt-r1'] = $this->liveItem('tt-r1',
+            ['7301', 'Shade', ['Red' => ['8301', 'Crimson'], 'Black' => ['8302', 'Onyx']]],
+            ['7302', 'Talla', ['S' => ['9001', 'S'], 'M' => ['9002', 'M']]]);
+
+        $this->updateThroughGroup($pivot);
+
+        $skus = $this->editedSkus('tt-r1');
+        $this->assertSame(self::SKU_IDS, array_map(fn ($s) => $s['id'] ?? null, $skus), 'no variation is deleted and re-created');
+        $this->assertSame([['name' => 'Colour', 'value_name' => 'Red'], ['name' => 'Size', 'value_name' => 'S']], $skus['TTV-Red-S']['sales_attributes']);
+        $this->assertSame([['name' => 'Colour', 'value_name' => 'Black'], ['name' => 'Size', 'value_name' => 'M']], $skus['TTV-Black-M']['sales_attributes']);
+        $this->assertSame('pushed', $pivot->fresh()->sync_status);
+    }
+
+    /** A type the category defines keeps the store's name: it goes up by its own id. */
+    public function test_an_update_keeps_the_name_of_a_type_the_category_defines(): void
+    {
+        ['product_id' => $productId] = $this->seedTwoAxisProduct();
+        $this->categoryWithSpecification();
+        $pivot = $this->linkedInGroup($productId, 'tt-r2');
+        $this->callResponses['GET /product/202309/products/tt-r2'] = $this->liveItem('tt-r2',
+            ['7301', 'Shade', ['Red' => ['8301', 'Red'], 'Black' => ['8302', 'Black']]],
+            ['100089', 'Specification', ['S' => ['9001', 'S'], 'M' => ['9002', 'Medium']]]);
+
+        $this->updateThroughGroup($pivot);
+
+        $skus = $this->editedSkus('tt-r2');
+        $this->assertSame(['name' => 'Colour', 'value_name' => 'Red'], $skus['TTV-Red-S']['sales_attributes'][0], 'the seller\'s own type is renamed');
+        $this->assertSame(['id' => '100089', 'value_id' => '9001', 'value_name' => 'S'], $skus['TTV-Red-S']['sales_attributes'][1]);
+        $this->assertSame(['id' => '100089', 'value_name' => 'M'], $skus['TTV-Red-M']['sales_attributes'][1], 'the value takes the catalog\'s name, the type keeps its own');
+        foreach ($skus as $sku) {
+            $this->assertArrayNotHasKey('name', $sku['sales_attributes'][1]);
+        }
+    }
+
+    public function test_an_update_sends_no_rename_when_the_names_already_match(): void
+    {
+        ['product_id' => $productId] = $this->seedTwoAxisProduct();
+        $this->categoryWithSpecification();
+        $pivot = $this->linkedInGroup($productId, 'tt-r3');
+        $this->callResponses['GET /product/202309/products/tt-r3'] = $this->liveItem('tt-r3',
+            ['7301', 'Colour', ['Red' => ['8301', 'Red'], 'Black' => ['8302', 'Black']]],
+            ['7302', 'Size', ['S' => ['9001', 'S'], 'M' => ['9002', 'M']]]);
+
+        $this->updateThroughGroup($pivot);
+
+        $skus = $this->editedSkus('tt-r3');
+        $this->assertSame([['id' => '7301', 'value_id' => '8301', 'value_name' => 'Red'], ['id' => '7302', 'value_id' => '9001', 'value_name' => 'S']], $skus['TTV-Red-S']['sales_attributes']);
+        foreach ($skus as $sku) {
+            foreach ($sku['sales_attributes'] as $attribute) {
+                $this->assertArrayNotHasKey('name', $attribute);
+                $this->assertArrayHasKey('value_id', $attribute);
+            }
+        }
+    }
+
+    /**
+     * A rename gives the types new ids. An answer that lists no SKUs has the
+     * item read again, and the map on the pivot and the listing follows it:
+     * a stale id and a missing one are both put right, and the next stock
+     * push reaches every SKU.
+     */
+    public function test_the_stored_map_follows_the_item_after_a_rename(): void
+    {
+        ['product_id' => $productId] = $this->seedTwoAxisProduct();
+        $this->categoryWithSpecification();
+        $pivot = $this->linkedInGroup($productId, 'tt-r4', ['TTV-Red-S' => 's1', 'TTV-Red-M' => 'gone-2', 'TTV-Black-S' => 's3']);
+        $before = $this->liveItem('tt-r4',
+            ['7301', 'Shade', ['Red' => ['8301', 'Crimson'], 'Black' => ['8302', 'Onyx']]],
+            ['7302', 'Talla', ['S' => ['9001', 'S'], 'M' => ['9002', 'M']]]);
+        $after = $this->liveItem('tt-r4',
+            ['7401', 'Colour', ['Red' => ['8401', 'Red'], 'Black' => ['8402', 'Black']]],
+            ['7402', 'Size', ['S' => ['9401', 'S'], 'M' => ['9402', 'M']]]);
+        $edited = false;
+        $this->callResponses['GET /product/202309/products/tt-r4'] = function () use (&$edited, $before, $after) {
+            return $edited ? $after : $before;
+        };
+        $this->callResponses['PUT /product/202309/products/tt-r4'] = function () use (&$edited) {
+            $edited = true;
+
+            return ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success', 'data' => ['product_id' => 'tt-r4']]];
+        };
+
+        $this->updateThroughGroup($pivot);
+
+        $this->assertSame(self::SKU_IDS, array_map(fn ($s) => $s['id'] ?? null, $this->editedSkus('tt-r4')));
+        $this->assertSame(self::SKU_IDS, json_decode((string) $pivot->fresh()->tiktok_sku_id, true));
+        $this->assertSame(self::SKU_IDS, json_decode((string) \Extensions\tiktok\Models\TikTokListing::where('product_id', $productId)->value('tiktok_sku_id'), true));
+
+        $this->artisan('tiktok:push-stock')->assertExitCode(0);
+        $stock = $this->callsFor('POST', '/product/202309/products/tt-r4/inventory/update');
+        $this->assertCount(1, $stock);
+        $this->assertSame(['s1' => 1, 's2' => 2, 's3' => 3, 's4' => 4], collect($stock[0]['body']['skus'])->keyBy('id')->map(fn ($s) => $s['inventory'][0]['quantity'])->all());
+    }
+
+    /** The listing page's update is the other door, and renames the same way. */
+    public function test_the_listing_page_update_renames_the_same_way(): void
+    {
+        ['product_id' => $productId] = $this->seedTwoAxisProduct();
+        $this->categoryWithSpecification();
+        \Extensions\tiktok\Models\TikTokListing::create([
+            'product_id' => $productId, 'tiktok_product_id' => 'tt-l1', 'tiktok_category_id' => '900001',
+            'tiktok_sku_id' => json_encode(self::SKU_IDS),
+        ]);
+        $this->callResponses['GET /product/202309/products/tt-l1'] = $this->liveItem('tt-l1',
+            ['7301', 'Shade', ['Red' => ['8301', 'Crimson'], 'Black' => ['8302', 'Onyx']]],
+            ['7302', 'Talla', ['S' => ['9001', 'S'], 'M' => ['9002', 'M']]]);
+
+        $this->actingAs($this->manager())->post(route('ext.tiktok.listings.push_update', $productId))
+            ->assertSessionHas('status', 'Update pushed.');
+
+        $skus = $this->editedSkus('tt-l1');
+        $this->assertSame(self::SKU_IDS, array_map(fn ($s) => $s['id'] ?? null, $skus));
+        $this->assertSame([['name' => 'Colour', 'value_name' => 'Black'], ['name' => 'Size', 'value_name' => 'S']], $skus['TTV-Black-S']['sales_attributes']);
+        $this->assertSame(self::SKU_IDS, json_decode((string) \Extensions\tiktok\Models\TikTokListing::where('product_id', $productId)->value('tiktok_sku_id'), true));
+    }
+
+    /**
+     * Types that cannot be paired with the options skip the rename, not the
+     * update: the SKUs the item holds keep its own variations, the rest of
+     * the update goes up, and the reason is the row's error line. New
+     * variations that could only be placed by a guess are left off.
+     */
+    public function test_a_rename_that_cannot_be_paired_is_skipped_and_the_update_goes_through(): void
+    {
+        ['product_id' => $productId] = $this->seedTwoAxisProduct();
+        $this->categoryWithSpecification();
+        \Extensions\tiktok\Models\TikTokListing::create([
+            'product_id' => $productId, 'tiktok_product_id' => 'tt-l2', 'tiktok_category_id' => '900001',
+            'tiktok_sku_id' => json_encode(self::SKU_IDS),
+        ]);
+        $this->callResponses['GET /product/202309/products/tt-l2'] = $this->liveItem('tt-l2',
+            ['7301', 'Shade', ['Red' => ['8301', 'Crimson'], 'Black' => ['8302', 'Onyx']]], null,
+            ['TTV-Red-S' => 's1', 'TTV-Black-S' => 's3']);
+        $warning = 'Variation names were not changed: the item on TikTok Shop has 1 variation type (Shade) and the product has 2 (Colour, Size), and 2 new variations were not added.';
+
+        $this->actingAs($this->manager())->post(route('ext.tiktok.listings.push_update', $productId))
+            ->assertSessionHas('warning', 'Update pushed. ' . $warning);
+
+        $skus = $this->editedSkus('tt-l2');
+        $this->assertSame(['TTV-Red-S' => 's1', 'TTV-Black-S' => 's3'], array_map(fn ($s) => $s['id'] ?? null, $skus));
+        $this->assertSame([['id' => '7301', 'value_id' => '8301', 'value_name' => 'Crimson']], $skus['TTV-Red-S']['sales_attributes'], 'kept as TikTok holds it');
+        $this->assertSame([['id' => '7301', 'value_id' => '8302', 'value_name' => 'Onyx']], $skus['TTV-Black-S']['sales_attributes']);
+        $this->assertNull(\Extensions\tiktok\Models\TikTokListing::where('product_id', $productId)->value('last_push_error'), 'the update succeeded, so the row carries no error');
+    }
+
+    /** TikTok refusing the rename is sent once more under the item's own names, and says so. */
+    public function test_a_rename_tiktok_refuses_is_sent_again_under_the_items_own_names(): void
+    {
+        ['product_id' => $productId] = $this->seedTwoAxisProduct();
+        $this->categoryWithSpecification();
+        $pivot = $this->linkedInGroup($productId, 'tt-r5');
+        $this->callResponses['GET /product/202309/products/tt-r5'] = $this->liveItem('tt-r5',
+            ['7301', 'Shade', ['Red' => ['8301', 'Crimson'], 'Black' => ['8302', 'Onyx']]],
+            ['7302', 'Talla', ['S' => ['9001', 'S'], 'M' => ['9002', 'M']]]);
+        $this->callResponses['PUT /product/202309/products/tt-r5'] = function (array $body) {
+            return isset($body['skus'][0]['sales_attributes'][0]['name'])
+                ? ['ok' => true, 'status' => 200, 'body' => ['code' => 12019019, 'message' => 'sale property is invalid']]
+                : ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success', 'data' => ['product_id' => 'tt-r5']]];
+        };
+
+        $response = $this->updateThroughGroup($pivot);
+
+        $puts = $this->callsFor('PUT', '/product/202309/products/tt-r5');
+        $this->assertCount(2, $puts);
+        $second = collect($puts[1]['body']['skus'])->keyBy('seller_sku')->all();
+        $this->assertSame(self::SKU_IDS, array_map(fn ($s) => $s['id'] ?? null, $second));
+        $this->assertSame([['id' => '7301', 'value_id' => '8301', 'value_name' => 'Crimson'], ['id' => '7302', 'value_id' => '9001', 'value_name' => 'S']], $second['TTV-Red-S']['sales_attributes']);
+        $this->assertSame('pushed', $pivot->fresh()->sync_status);
+        $response->assertSessionHas('warning');
+        $summary = (string) session('warning');
+        $this->assertStringStartsWith('Update: 1 updated. #' . $productId . ': Variation names were not changed: TikTok Shop refused them (', $summary);
+        $this->assertStringContainsString('sale property is invalid', $summary);
+        $this->assertNull(\Extensions\tiktok\Models\TikTokListing::where('product_id', $productId)->value('last_push_error'), 'the update succeeded, so the row carries no error');
+        $this->assertSame(self::SKU_IDS, json_decode((string) $pivot->fresh()->tiktok_sku_id, true));
+    }
+
+    /** An edit overwrites every variation it sends, so an item that cannot be read is not edited at all. */
+    public function test_an_item_that_cannot_be_read_is_not_edited(): void
+    {
+        ['product_id' => $productId] = $this->seedTwoAxisProduct();
+        $this->categoryWithSpecification();
+        $pivot = $this->linkedInGroup($productId, 'tt-r6');
+        $this->callResponses['GET /product/202309/products/tt-r6'] = ['ok' => false, 'status' => 500, 'body' => ['code' => 36009003, 'message' => 'Internal error']];
+
+        $this->updateThroughGroup($pivot);
+
+        $this->assertSame([], $this->callsFor('PUT', '/product/202309/products/tt-r6'));
+        $this->assertSame([], $this->callsFor('POST', '/product/202309/images/upload'), 'not even a picture');
+        $this->assertSame('error', $pivot->fresh()->sync_status);
+        $this->assertSame(
+            'TikTok Shop did not say which variations this item has (TikTok Shop did not answer: Internal error), so nothing was sent.',
+            \Extensions\tiktok\Models\TikTokListing::where('product_id', $productId)->value('last_push_error')
+        );
+    }
+
+    /** A new item goes up as it always has: the catalog's names, and no read of the shop first. */
+    public function test_a_new_item_is_created_as_before_without_reading_the_shop(): void
+    {
+        ['product_id' => $productId] = $this->seedTwoAxisProduct();
+        $this->categoryWithSpecification();
+        $group = TikTokProductGroup::create(['name' => 'Create group', 'tiktok_category_id' => '900001']);
+        TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $productId, 'sync_status' => 'pending']);
+        $this->callResponses['POST /product/202309/products'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
+            'data' => ['product_id' => 'tt-c1', 'skus' => array_map(fn ($seller, $id) => ['id' => $id, 'seller_sku' => $seller], array_keys(self::SKU_IDS), self::SKU_IDS)]]];
+
+        $this->actingAs($this->manager())->post(route('ext.tiktok.product-groups.push', $group->id), ['ids' => [$productId]]);
+
+        $creates = $this->callsFor('POST', '/product/202309/products');
+        $this->assertCount(1, $creates);
+        foreach ($creates[0]['body']['skus'] as $sku) {
+            $this->assertArrayNotHasKey('id', $sku);
+            $this->assertSame(['Colour', 'Size'], array_column($sku['sales_attributes'], 'name'));
+        }
+        $this->assertSame([], array_filter($this->sentCalls, fn ($c) => $c['method'] === 'GET' && str_starts_with($c['path'], '/product/202309/products/')));
+        $this->assertSame(self::SKU_IDS, json_decode((string) TikTokProductGroupProduct::where('product_id', $productId)->value('tiktok_sku_id'), true));
     }
 
     /**

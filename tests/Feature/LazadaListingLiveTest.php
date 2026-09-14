@@ -284,6 +284,278 @@ class LazadaListingLiveTest extends TestCase
         $this->assertEmpty($this->sentPosts, 'nothing is sent');
     }
 
+    /** @return array{0: array, 1: array} the payload and the preview */
+    private function payloadSent(LazadaProduct $listing): array
+    {
+        return app(\Extensions\lazada\Services\Lazada\LazadaPushPayload::class)
+            ->buildLazadaProductCreatePayload($listing, LazadaSetting::defaultStore()->decrypted(), app(LazadaClient::class));
+    }
+
+    private function liveItem(array $skus, ?array $variation = null): void
+    {
+        $data = ['item_id' => 2712258176, 'skus' => $skus];
+        if ($variation !== null) {
+            $data['variation'] = $variation;
+        }
+        $this->getResponses['/product/item/get'] = ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => $data]];
+    }
+
+    /** Two catalog options, first then second, one combination per value of the first. */
+    private function twoOptionProduct(string $sku, string $first, array $firstValues, string $second, string $secondValue): int
+    {
+        $pid = $this->productWithPicture($sku);
+        $a = $this->addOption($pid, $first, $firstValues);
+        $b = $this->addOption($pid, $second, [$secondValue]);
+        foreach ($firstValues as $i => $value) {
+            $comboId = DB::table('product_option_combinations')->insertGetId([
+                'product_id' => $pid, 'sku' => $sku . '-' . $value, 'status' => 1, 'quantity' => 5,
+                'absolute_price' => 100, 'absolute_cost' => 0, 'cost_amount' => 0, 'cost_additional' => 0,
+                'subtract' => 1, 'sort_order' => $i, 'created_at' => now(), 'updated_at' => now(),
+            ]);
+            DB::table('product_option_combination_values')->insert([
+                ['combination_id' => $comboId, 'product_option_value_id' => $a[$value]],
+                ['combination_id' => $comboId, 'product_option_value_id' => $b[$secondValue]],
+            ]);
+        }
+
+        return $pid;
+    }
+
+    public function test_swapped_variation_types_pair_by_name(): void
+    {
+        $pid = $this->twoOptionProduct('QB-SWAP', 'cable length', ['1ft', '3ft'], 'Color', 'Black');
+        $this->liveItemSkus([
+            ['SkuId' => 1, 'SellerSku' => 'QB-SWAP-1ft', 'saleProp' => ['Color' => 'Black', 'Cable_Length' => '1ft']],
+            ['SkuId' => 2, 'SellerSku' => 'QB-SWAP-3ft', 'saleProp' => ['Color' => 'Black', 'Cable_Length' => '3ft']],
+        ]);
+
+        $skus = $this->skusSent($this->listingOn($pid, '2712258176'));
+
+        $this->assertSame([['1ft', 'Black'], ['3ft', 'Black']], array_map(fn ($s) => [$s['Cable_Length'] ?? null, $s['Color'] ?? null], $skus));
+    }
+
+    public function test_orders_the_names_cannot_settle_are_refused_with_nothing_sent(): void
+    {
+        $pid = $this->twoOptionProduct('QB-KNOT', 'Size', ['S', 'M'], 'Colour', 'Black');
+        $this->liveItemSkus([
+            ['SkuId' => 1, 'SellerSku' => 'QB-KNOT-S', 'saleProp' => ['Color' => 'Black', 'Size' => 'S']],
+            ['SkuId' => 2, 'SellerSku' => 'QB-KNOT-M', 'saleProp' => ['Color' => 'Black', 'Size' => 'M']],
+        ]);
+
+        try {
+            $this->skusSent($this->listingOn($pid, '2712258176'));
+            $this->fail('the update must be refused');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $said = implode(' ', $e->errors()['variants'] ?? []);
+            $this->assertStringContainsString('in the order Color, Size', $said);
+            $this->assertStringContainsString('your product has Size, Colour', $said);
+        }
+        $this->assertEmpty($this->sentPosts, 'nothing is sent');
+    }
+
+    public function test_a_single_type_item_is_not_paired_by_name(): void
+    {
+        $pid = $this->productWithPicture('QB-ONE');
+        $this->addOption($pid, 'Cable Length', ['1ft', '3ft'], ['1ft' => 'QB-ONE-1', '3ft' => 'QB-ONE-3']);
+        $this->liveItemSkus([
+            ['SkuId' => 1, 'SellerSku' => 'QB-ONE-1', 'saleProp' => ['Length' => '1ft']],
+            ['SkuId' => 2, 'SellerSku' => 'QB-ONE-3', 'saleProp' => ['Length' => '3ft']],
+        ]);
+
+        [$payload] = $this->payloadSent($this->listingOn($pid, '2712258176'));
+        $skus = $payload['Request']['Product']['Skus']['Sku'];
+
+        $this->assertSame(['1ft', '3ft'], array_column($skus, 'Length'));
+        $this->assertArrayNotHasKey('Cable Length', $skus[0]);
+        $this->assertArrayNotHasKey('variation', $payload['Request']['Product'], 'no variation object without one in the read');
+    }
+
+    public function test_an_update_leaves_package_fields_off_when_the_variations_already_differ(): void
+    {
+        $pid = $this->productWithPicture('QB-PKG');
+        $this->addOption($pid, 'Length', ['1ft', '3ft'], ['1ft' => 'QB-PKG-1', '3ft' => 'QB-PKG-3']);
+        $this->liveItemSkus([
+            ['SkuId' => 1, 'SellerSku' => 'QB-PKG-1', 'saleProp' => ['Length' => '1ft'], 'package_weight' => '0.10', 'package_length' => '10.00', 'package_width' => '10.00', 'package_height' => '4.00'],
+            ['SkuId' => 2, 'SellerSku' => 'QB-PKG-3', 'saleProp' => ['Length' => '3ft'], 'package_weight' => '0.30', 'package_length' => '10.00', 'package_width' => '10.00', 'package_height' => '4.00'],
+        ]);
+
+        $skus = $this->skusSent($this->listingOn($pid, '2712258176'));
+
+        foreach ($skus as $sku) {
+            foreach (['package_weight', 'package_length', 'package_width', 'package_height'] as $field) {
+                $this->assertArrayNotHasKey($field, $sku, 'Lazada keeps each variation its own ' . $field);
+            }
+        }
+    }
+
+    public function test_an_update_sends_our_package_fields_when_the_variations_agree(): void
+    {
+        $pid = $this->productWithPicture('QB-PKGEQ');
+        $this->addOption($pid, 'Length', ['1ft', '3ft'], ['1ft' => 'QB-PKGEQ-1', '3ft' => 'QB-PKGEQ-3']);
+        $this->liveItemSkus([
+            ['SkuId' => 1, 'SellerSku' => 'QB-PKGEQ-1', 'saleProp' => ['Length' => '1ft'], 'package_weight' => '0.20', 'package_length' => '10.00'],
+            ['SkuId' => 2, 'SellerSku' => 'QB-PKGEQ-3', 'saleProp' => ['Length' => '3ft'], 'package_weight' => '0.2', 'package_length' => '10'],
+        ]);
+
+        $skus = $this->skusSent($this->listingOn($pid, '2712258176'));
+
+        foreach ($skus as $sku) {
+            $this->assertEquals(0.5, (float) $sku['package_weight'], "the catalog's weight goes up");
+            $this->assertEquals(10.0, (float) $sku['package_length']);
+            $this->assertEquals(10.0, (float) $sku['package_width']);
+            $this->assertEquals(5.0, (float) $sku['package_height']);
+        }
+    }
+
+    public function test_a_create_still_sends_the_package_fields(): void
+    {
+        $pid = $this->productWithPicture('QB-PKGNEW');
+        $this->addOption($pid, 'Color', ['Black', 'Red'], ['Black' => 'QB-PKGNEW-B', 'Red' => 'QB-PKGNEW-R']);
+
+        $skus = $this->skusSent($this->listingOn($pid, null));
+
+        foreach ($skus as $sku) {
+            $this->assertEquals(0.5, (float) $sku['package_weight']);
+            $this->assertEquals(5.0, (float) $sku['package_height']);
+        }
+    }
+
+    private function cableLengthProduct(string $sku): int
+    {
+        $pid = $this->productWithPicture($sku);
+        $this->addOption($pid, 'Cable Length', ['1ft', '3ft'], ['1ft' => $sku . '-1', '3ft' => $sku . '-3']);
+
+        return $pid;
+    }
+
+    private function lengthSkus(string $sku, string $key = 'Length'): array
+    {
+        return [
+            ['SkuId' => 1, 'SellerSku' => $sku . '-1', 'saleProp' => [$key => '1ft']],
+            ['SkuId' => 2, 'SellerSku' => $sku . '-3', 'saleProp' => [$key => '3ft']],
+        ];
+    }
+
+    public function test_a_custom_variation_type_is_renamed_to_the_catalog_name_and_the_skus_keep_the_live_key(): void
+    {
+        $pid = $this->cableLengthProduct('QB-REN');
+        $this->liveItem($this->lengthSkus('QB-REN'), [
+            'variation1' => ['has_image' => 'false', 'name' => 'Length', 'options' => [], 'label' => 'Length', 'customize' => 'true'],
+        ]);
+
+        [$payload, $preview] = $this->payloadSent($this->listingOn($pid, '2712258176'));
+        $product = $payload['Request']['Product'];
+
+        $this->assertSame(['Variation1' => ['name' => 'Cable Length', 'has_image' => 'false', 'customize' => true]], $product['variation']);
+        $this->assertSame(['1ft', '3ft'], array_column($product['Skus']['Sku'], 'Length'), 'the SKUs keep the live key');
+        $this->assertArrayNotHasKey('Cable Length', $product['Skus']['Sku'][0]);
+        $this->assertSame([['from' => 'Length', 'to' => 'Cable Length']], $preview['variation_renames']);
+    }
+
+    public function test_a_standard_variation_type_is_never_renamed(): void
+    {
+        // Lazada says the type is not seller-defined.
+        $pid = $this->cableLengthProduct('QB-STD');
+        $this->liveItem($this->lengthSkus('QB-STD'), [
+            'variation1' => ['has_image' => 'false', 'name' => 'Length', 'options' => [], 'customize' => 'false'],
+        ]);
+        [$payload, $preview] = $this->payloadSent($this->listingOn($pid, '2712258176'));
+        $this->assertArrayNotHasKey('variation', $payload['Request']['Product']);
+        $this->assertSame([], $preview['variation_renames']);
+
+        // A category's own key stays itself even when the answer calls it custom.
+        $colour = $this->productWithPicture('QB-CF');
+        $this->addOption($colour, 'Colour', ['Black', 'Red'], ['Black' => 'QB-CF-B', 'Red' => 'QB-CF-R']);
+        $this->liveItem([
+            ['SkuId' => 1, 'SellerSku' => 'QB-CF-B', 'saleProp' => ['color_family' => 'Black']],
+            ['SkuId' => 2, 'SellerSku' => 'QB-CF-R', 'saleProp' => ['color_family' => 'Red']],
+        ], ['variation1' => ['has_image' => 'true', 'name' => 'color_family', 'options' => [], 'customize' => 'true']]);
+        [$payload] = $this->payloadSent($this->listingOn($colour, '2712258177'));
+        $this->assertArrayNotHasKey('variation', $payload['Request']['Product']);
+        $this->assertSame(['Black', 'Red'], array_column($payload['Request']['Product']['Skus']['Sku'], 'color_family'));
+    }
+
+    /** The upload button on an item already on Lazada, with the item as it reads before and after. */
+    private function pushRenameThroughTheButton(string $sku, array $after): int
+    {
+        $pid = $this->cableLengthProduct($sku);
+        $this->listingOn($pid, '2712258176');
+        \Extensions\lazada\Models\LazadaCategoryTemplate::create([
+            'region' => 'ph', 'primary_category_id' => 9257,
+            'template_body' => ['data' => ['attributes' => []]], 'fetched_at' => now(),
+        ]);
+        $this->postResponses['/image/migrate'] = ['ok' => true, 'status' => 200, 'body' => [
+            'code' => '0', 'data' => ['image' => ['url' => 'https://sg-live.slatic.net/p/fake.jpg']],
+        ]];
+        $before = ['item_id' => 2712258176, 'skus' => $this->lengthSkus($sku), 'variation' => [
+            'variation1' => ['has_image' => 'false', 'name' => 'Length', 'options' => [], 'customize' => 'true'],
+        ]];
+        $reads = 0;
+        $this->getResponses['/product/item/get'] = function () use (&$reads, $before, $after) {
+            return ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => $reads++ === 0 ? $before : $after]];
+        };
+
+        $this->actingAs($this->manager())->post(route('ext.lazada.products.upload', $pid))->assertRedirect();
+
+        $update = collect($this->sentPosts)->firstWhere('path', '/product/update');
+        $this->assertNotNull($update, 'the update reaches Lazada');
+        $sent = json_decode($update['params']['payload'], true)['Request']['Product'];
+        $this->assertSame('Cable Length', $sent['variation']['Variation1']['name']);
+        $this->assertSame(2, $reads, 'one read before the update, one after');
+
+        return $pid;
+    }
+
+    public function test_a_read_back_showing_both_names_records_the_error(): void
+    {
+        $pid = $this->pushRenameThroughTheButton('QB-BOTH', ['item_id' => 2712258176, 'skus' => [
+            ['SkuId' => 1, 'SellerSku' => 'QB-BOTH-1', 'saleProp' => ['Length' => '1ft', 'Cable Length' => '1ft']],
+            ['SkuId' => 2, 'SellerSku' => 'QB-BOTH-3', 'saleProp' => ['Length' => '3ft', 'Cable Length' => '3ft']],
+        ], 'variation' => [
+            'variation1' => ['has_image' => 'false', 'name' => 'Length', 'options' => [], 'customize' => 'true'],
+            'variation2' => ['has_image' => 'false', 'name' => 'Cable Length', 'options' => [], 'customize' => 'true'],
+        ]]);
+
+        $states = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class);
+        $this->assertSame('Lazada kept Length and added Cable Length. Remove one in Seller Center.', $states->errors([$pid])[$pid]);
+    }
+
+    public function test_a_rename_that_cannot_be_decided_is_skipped_and_the_update_still_goes(): void
+    {
+        $pid = $this->cableLengthProduct('QB-BLIND');
+        $this->listingOn($pid, '2712258176');
+        \Extensions\lazada\Models\LazadaCategoryTemplate::create([
+            'region' => 'ph', 'primary_category_id' => 9257,
+            'template_body' => ['data' => ['attributes' => []]], 'fetched_at' => now(),
+        ]);
+        $this->postResponses['/image/migrate'] = ['ok' => true, 'status' => 200, 'body' => [
+            'code' => '0', 'data' => ['image' => ['url' => 'https://sg-live.slatic.net/p/fake.jpg']],
+        ]];
+        // No variation object: custom cannot be told from standard.
+        $this->liveItem($this->lengthSkus('QB-BLIND'));
+
+        $this->actingAs($this->manager())->post(route('ext.lazada.products.upload', $pid))
+            ->assertRedirect()
+            ->assertSessionHas('status', 'Update pushed. Variation names were not changed: Lazada did not say which variation types on this item are your own.');
+
+        $update = collect($this->sentPosts)->firstWhere('path', '/product/update');
+        $this->assertNotNull($update, 'the update still reaches Lazada');
+        $sent = json_decode($update['params']['payload'], true)['Request']['Product'];
+        $this->assertArrayNotHasKey('variation', $sent);
+        $this->assertSame(['1ft', '3ft'], array_column($sent['Skus']['Sku'], 'Length'));
+        $this->assertNull(app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)->errors([$pid])[$pid]);
+    }
+
+    public function test_a_read_back_showing_only_the_old_name_records_nothing(): void
+    {
+        $pid = $this->pushRenameThroughTheButton('QB-OLD', ['item_id' => 2712258176, 'skus' => $this->lengthSkus('QB-OLD'), 'variation' => [
+            'variation1' => ['has_image' => 'false', 'name' => 'Length', 'options' => [], 'customize' => 'true'],
+        ]]);
+
+        $states = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class);
+        $this->assertNull($states->errors([$pid])[$pid]);
+    }
+
     public function test_an_option_name_that_names_no_type_gets_no_guessed_key(): void
     {
         $attributes = app(\Extensions\lazada\Services\Lazada\LazadaAttributes::class);

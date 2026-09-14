@@ -3066,6 +3066,12 @@ class ShopeeProductController extends Controller
             (new \Extensions\shopee\Services\Shopee\ShopeeDescription($client))->shapeOf($auth, (int) $link->shopee_item_id)
         );
 
+        /* The catalog names the item's own variation types. A rename that
+         * cannot happen is skipped and said, and the rest of the update goes. */
+        $rename = app(\Extensions\shopee\Services\Shopee\ShopeeVariationRename::class);
+        $renamed = $rename->apply($client, $auth, $rename->plan($client, $auth, (int) $link->shopee_item_id, $productId));
+        $warning = $renamed['ok'] ? '' : ' ' . $renamed['message'];
+
         $path = '/api/v2/product/update_item';
         try {
             $result = $client->shopPost(
@@ -3124,7 +3130,7 @@ class ShopeeProductController extends Controller
             'Pushed a content update onto Shopee item ' . $link->shopee_item_id
         );
 
-        return ['ok' => true, 'message' => 'Update pushed.'];
+        return ['ok' => true, 'message' => 'Update pushed.' . $warning];
     }
 
     public function toggleListing(Request $request, int $productId, ShopeeClient $client)

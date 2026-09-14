@@ -104,6 +104,28 @@ class TikTokAttributes
         return $rows;
     }
 
+    /**
+     * The ids of the variation types the category defines itself (its
+     * SALES_PROPERTY rows), or null when the sheet is unknown.
+     *
+     * @return ?list<string>
+     */
+    public function salesPropertyIds(?TikTokCategoryTemplate $template): ?array
+    {
+        if (!$template) {
+            return null;
+        }
+        $list = is_array($template->attributes) ? $template->attributes : (json_decode((string) $template->attributes, true) ?: []);
+        $ids = [];
+        foreach ($list as $attr) {
+            if (is_array($attr) && ($attr['type'] ?? '') === 'SALES_PROPERTY' && (string) ($attr['id'] ?? '') !== '') {
+                $ids[] = (string) $attr['id'];
+            }
+        }
+
+        return $ids;
+    }
+
     /** The answers as product_attributes for a push. */
     public function payload(array $rows, array $saved): array
     {

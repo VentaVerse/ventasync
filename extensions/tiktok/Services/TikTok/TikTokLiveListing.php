@@ -66,6 +66,46 @@ class TikTokLiveListing
     }
 
     /**
+     * The item's SKUs with the variation types TikTok holds them under:
+     * id, seller_sku and sales_attributes [{id, name, value_id, value_name}].
+     * skus is null when TikTok does not answer.
+     *
+     * @return array{skus: ?list<array>, error: ?string}
+     */
+    public function variationSkus(string $tiktokProductId, array $c): array
+    {
+        try {
+            $r = $this->client->getProduct($c['app_key'], $c['app_secret'], $c['token'], $tiktokProductId, $c['shop_cipher'] ?: null);
+        } catch (\Throwable $e) {
+            return ['skus' => null, 'error' => \App\Support\TransportError::plain($e, 'TikTok Shop')];
+        }
+        $this->log('GET', '/product/202309/products/' . $tiktokProductId, ['product_id' => $tiktokProductId], $r);
+
+        if (!($r['ok'] ?? false) || (int) ($r['body']['code'] ?? -1) !== 0) {
+            return ['skus' => null, 'error' => 'TikTok Shop did not answer: ' . (string) ($r['body']['message'] ?? 'no response')];
+        }
+
+        $skus = [];
+        foreach ((array) ($r['body']['data']['skus'] ?? []) as $sku) {
+            if (!is_array($sku)) {
+                continue;
+            }
+            $attributes = [];
+            foreach ((array) ($sku['sales_attributes'] ?? []) as $a) {
+                if (is_array($a)) {
+                    $attributes[] = [
+                        'id' => (string) ($a['id'] ?? ''), 'name' => (string) ($a['name'] ?? ''),
+                        'value_id' => (string) ($a['value_id'] ?? ''), 'value_name' => (string) ($a['value_name'] ?? ''),
+                    ];
+                }
+            }
+            $skus[] = ['id' => (string) ($sku['id'] ?? ''), 'seller_sku' => (string) ($sku['seller_sku'] ?? ''), 'sales_attributes' => $attributes];
+        }
+
+        return ['skus' => $skus, 'error' => null];
+    }
+
+    /**
      * Every product on the shop, page by page (100 per page, ten pages
      * at most), keyed by TikTok product id: status, title and the seller
      * SKUs it carries. The index's tabs, the group's Check and the
