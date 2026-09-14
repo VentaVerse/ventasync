@@ -26,7 +26,11 @@ class TikTokProductPush
     /** How many main images TikTok Shop takes on a product; the push sends the first nine and says so. */
     public const MAX_IMAGES = 9;
 
-    public function __construct(private TikTokVariationPush $variations, private TikTokVariationRename $rename) {}
+    public function __construct(
+        private TikTokVariationPush $variations,
+        private TikTokVariationRename $rename,
+        private TikTokDescriptionImages $descriptionImages,
+    ) {}
 
     /** @return array{payload?: array, built?: array, refused?: string} */
     public function build(object $erp, array $opts, array $c, TikTokClient $client, ?array $existingIds = null): array
@@ -104,25 +108,32 @@ class TikTokProductPush
         }
         $title = mb_substr($title, 0, 255);
 
-        /* TikTok takes a RICH description - paragraphs, headings, lists
-         * and up to thirty pictures - and this used to strip_tags() the
-         * lot and send the words alone, so a description somebody had laid
-         * out arrived as a wall of text with its photographs deleted and
-         * nothing said about it (VENT2-129). Only what TikTok forbids is
-         * dropped now; App\Integrations\Listings\RichDescription owns the
-         * allowance. */
+        /* TikTok takes a rich description: paragraphs, headings, lists and
+         * up to thirty pictures. Only what TikTok forbids is dropped;
+         * App\Integrations\Listings\RichDescription owns the allowance. */
         $rawDesc = trim((string) ($opts['description'] ?? '')) !== '' ? (string) $opts['description'] : (string) ($erp->description ?? '');
         $desc = \App\Integrations\Listings\RichDescription::forTikTok($rawDesc);
-        if (trim(strip_tags($desc)) === '') {
+        $leftOut = max(0, \App\Integrations\Listings\RichDescription::imageCount($rawDesc) - \App\Integrations\Listings\RichDescription::imageCount($desc));
+        $blank = fn (string $html): bool => trim(strip_tags($html)) === '' && stripos($html, '<img') === false;
+        if ($blank($desc)) {
             $desc = $title;
         }
 
-        /* The store's prefix and suffix templates (2026-09-07): its own words
-         * above and below whatever description won. */
+        // The store's prefix and suffix templates: its own words above and below whatever description won.
         $ttListing = \Extensions\tiktok\Models\TikTokListing::query()->where('product_id', (int) $erp->product_id)->first();
         $desc = \App\Integrations\Listings\ListingContent::wrapDescription(
             $desc, 'tiktok', (int) ($ttListing->tiktok_setting_id ?? 0), $ttListing
         );
+
+        /* TikTok shows only the description pictures it hosts, so each one
+         * is uploaded and its src replaced; one that cannot be is left out. */
+        $store = ($c['setting'] ?? null) instanceof \Extensions\tiktok\Models\TikTokSetting ? $c['setting'] : \Extensions\tiktok\Models\TikTokSetting::defaultStore();
+        $hosted = $this->descriptionImages->host($desc, $c, $client, (int) ($store?->id ?? 0));
+        $desc = $hosted['html'];
+        $leftOut += $hosted['left_out'];
+        if ($blank($desc)) {
+            $desc = $title;
+        }
 
         $desc = mb_substr($desc, 0, 10000);
 
@@ -156,10 +167,26 @@ class TikTokProductPush
             $payload['product_attributes'] = $opts['attributes'];
         }
 
-        return ['payload' => $payload, 'built' => $built];
+        return ['payload' => $payload, 'built' => $built, 'left_out' => $leftOut];
     }
 
-    /** @return array{ok: bool, message: string, product_id?: string, sku_ids?: ?string, result: array} */
+    /** The note for description pictures that did not reach TikTok, or null when all of them did. */
+    public static function picturesNote(int $leftOut): ?string
+    {
+        if ($leftOut <= 0) {
+            return null;
+        }
+
+        return $leftOut === 1
+            ? '1 picture in the description could not be sent to TikTok Shop and was left out.'
+            : $leftOut . ' pictures in the description could not be sent to TikTok Shop and were left out.';
+    }
+
+    /**
+     * pictures is set when description pictures were left out, and says how many.
+     *
+     * @return array{ok: bool, message: string, product_id?: string, sku_ids?: ?string, pictures?: ?string, warning?: ?string, result: array}
+     */
     public function create(object $erp, array $opts, array $c, TikTokClient $client): array
     {
         $b = $this->build($erp, $opts, $c, $client, null);
@@ -177,19 +204,23 @@ class TikTokProductPush
             return ['ok' => false, 'message' => $this->message($result), 'result' => $result];
         }
 
+        $pictures = self::picturesNote((int) ($b['left_out'] ?? 0));
+
         return [
             'ok' => true, 'message' => 'created',
             'product_id' => (string) $result['body']['data']['product_id'],
             'sku_ids' => $this->variations->storedIds($b['built'], $result['body']['data']['skus'] ?? []),
+            'pictures' => $pictures, 'warning' => $pictures,
             'result' => $result,
         ];
     }
 
     /**
      * warning is set when the update went up with the item's variation
-     * names kept, and says why.
+     * names kept, or with description pictures left out, and says why.
+     * pictures carries the second part alone.
      *
-     * @return array{ok: bool, message: string, sku_ids?: ?string, warning?: ?string, result: array}
+     * @return array{ok: bool, message: string, sku_ids?: ?string, pictures?: ?string, warning?: ?string, result: array}
      */
     public function edit(object $erp, string $tiktokProductId, ?string $existingRaw, array $opts, array $c, TikTokClient $client): array
     {
@@ -235,7 +266,11 @@ class TikTokProductPush
         if (!$this->ok($result)) {
             return ['ok' => false, 'message' => $this->message($result), 'result' => $result];
         }
-        $warning = $skipped !== null ? 'Variation names were not changed: ' . $skipped . '.' : null;
+        $pictures = self::picturesNote((int) ($b['left_out'] ?? 0));
+        $warning = implode(' ', array_filter([
+            $skipped !== null ? 'Variation names were not changed: ' . $skipped . '.' : null,
+            $pictures,
+        ])) ?: null;
 
         $skuIds = !empty($result['body']['data']['skus'])
             ? $this->variations->storedIds($b['built'], $result['body']['data']['skus'])
@@ -245,7 +280,7 @@ class TikTokProductPush
             $skuIds = $this->heldIds((new TikTokLiveListing($client))->variationSkus($tiktokProductId, $c)['skus'] ?? []);
         }
 
-        return ['ok' => true, 'message' => $warning ?? 'updated', 'warning' => $warning, 'sku_ids' => $skuIds, 'result' => $result];
+        return ['ok' => true, 'message' => $warning ?? 'updated', 'warning' => $warning, 'pictures' => $pictures, 'sku_ids' => $skuIds, 'result' => $result];
     }
 
     private function sendEdit(TikTokClient $client, array $c, string $tiktokProductId, array $payload): array

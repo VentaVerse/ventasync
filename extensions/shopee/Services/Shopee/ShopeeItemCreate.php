@@ -133,7 +133,12 @@ class ShopeeItemCreate
         return ['ids' => $ids, 'error' => null];
     }
 
-    public function uploadImage(ShopeeClient $client, array $auth, string $localPath): array
+    /**
+     * One picture into Shopee's media space. A product picture goes up with
+     * the default scene, which Shopee squares; a picture inside an extended
+     * description goes up with scene "desc", which Shopee leaves as it is.
+     */
+    public function uploadImage(ShopeeClient $client, array $auth, string $localPath, string $scene = 'normal'): array
     {
         // Shopee refuses a picture over its size or in another format; product and variation pictures all come through here.
         $localPath = \App\Services\Media\StoreReadyImages::fitLocalFile($localPath, \App\Services\Media\StoreReadyImages::SHOPEE);
@@ -159,7 +164,7 @@ class ShopeeItemCreate
 
         $response = Http::timeout(30)
             ->attach('image', $contents, basename($localPath))
-            ->post($url);
+            ->post($url, $scene === 'desc' ? ['scene' => 'desc'] : []);
 
         $body = $response->json();
 

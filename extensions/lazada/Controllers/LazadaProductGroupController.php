@@ -780,6 +780,7 @@ class LazadaProductGroupController extends Controller
         $errCount = 0;
         $errors = [];
         $notes = [];
+        $picturesWarned = false;
 
         foreach ($productIds as $productId) {
             // Get or create LazadaProduct record
@@ -803,6 +804,7 @@ class LazadaProductGroupController extends Controller
                 if ($outcome['ok']) {
                     $updatedCount++;
                     if (!empty($outcome['warning'])) $notes[] = "#{$productId}: " . $outcome['warning'];
+                    if (!empty($outcome['pictures_left_out'])) $picturesWarned = true;
                 } else {
                     $errors[] = "#{$productId}: " . $outcome['message'];
                     $errCount++;
@@ -874,6 +876,7 @@ class LazadaProductGroupController extends Controller
             try {
                 [$productPayload, $preview] = $this->payload()->buildLazadaProductCreatePayload($listing, $setting, $client, $groupOverrides);
                 $productPayload = app(\Extensions\lazada\Services\Lazada\LazadaImages::class)->ensureLazadaInlinkImages($productPayload, $setting, $client);
+                [$productPayload, $picturesLeftOut] = app(\Extensions\lazada\Services\Lazada\LazadaImages::class)->ensureLazadaDescriptionImages($productPayload, $setting, $client);
             } catch (\Illuminate\Validation\ValidationException $e) {
                 $msg = implode('; ', array_map(fn($m) => implode(', ', $m), $e->errors()));
                 $errors[] = "#{$productId}: {$msg}";
@@ -945,6 +948,12 @@ class LazadaProductGroupController extends Controller
                 ActivityLogger::log('created', 'Lazada Product', $listing->id,
                     'Pushed ERP #' . $productId . ' to Lazada via product group');
 
+                $pictureNote = \Extensions\lazada\Services\Lazada\LazadaImages::descriptionNote($picturesLeftOut);
+                if ($pictureNote !== null) {
+                    $notes[] = "#{$productId}: " . $pictureNote;
+                    $picturesWarned = true;
+                }
+
                 $okCount++;
             } else {
                 $reason = (string) ($e['message'] ?? 'Unknown error');
@@ -963,7 +972,7 @@ class LazadaProductGroupController extends Controller
         if (!empty($errors)) $summary .= '. Errors: ' . implode('; ', array_slice($errors, 0, 5));
         if (!empty($notes)) $summary .= '. ' . implode(' ', array_slice($notes, 0, 5));
 
-        return $this->productsRedirect($id)->with(($okCount + $updatedCount) > 0 ? 'status' : 'error', $summary);
+        return $this->productsRedirect($id)->with(($okCount + $updatedCount) > 0 ? ($picturesWarned ? 'warning' : 'status') : 'error', $summary);
     }
 
     /**
@@ -994,6 +1003,7 @@ class LazadaProductGroupController extends Controller
         $errCount = 0;
         $errors = [];
         $notes = [];
+        $picturesWarned = false;
 
         foreach ($productIds as $productId) {
             $pivot = LazadaProductGroupProduct::query()
@@ -1030,7 +1040,7 @@ class LazadaProductGroupController extends Controller
         if (!empty($errors)) $summary .= '. Errors: ' . implode('; ', array_slice($errors, 0, 5));
         if (!empty($notes)) $summary .= '. ' . implode(' ', array_slice($notes, 0, 5));
 
-        return $this->productsRedirect($id)->with($okCount > 0 ? 'status' : 'error', $summary);
+        return $this->productsRedirect($id)->with($okCount > 0 ? ($picturesWarned ? 'warning' : 'status') : 'error', $summary);
     }
 
     /**
@@ -1070,6 +1080,7 @@ class LazadaProductGroupController extends Controller
             try {
                 [$productPayload, $preview] = $this->payload()->buildLazadaProductCreatePayload($listing, $setting, $client, $groupOverrides);
                 $productPayload = app(\Extensions\lazada\Services\Lazada\LazadaImages::class)->ensureLazadaInlinkImages($productPayload, $setting, $client);
+                [$productPayload, $picturesLeftOut] = app(\Extensions\lazada\Services\Lazada\LazadaImages::class)->ensureLazadaDescriptionImages($productPayload, $setting, $client);
             } catch (\Illuminate\Validation\ValidationException $e) {
                 $msg = implode('; ', array_map(fn($m) => implode(', ', $m), $e->errors()));
                 $this->recordGroupFailure($group, $pivot, $productId, $msg);
@@ -1145,9 +1156,11 @@ class LazadaProductGroupController extends Controller
                 ActivityLogger::log('updated', 'Lazada Product', $listing->id,
                     'Updated ERP #' . $productId . ' on Lazada via product group');
 
+                $pictureNote = \Extensions\lazada\Services\Lazada\LazadaImages::descriptionNote($picturesLeftOut);
+
                 return $kept === null
-                    ? ['ok' => true, 'message' => 'updated', 'warning' => LazadaVariationSwitch::line($switchNote, $this->payload()->renameWarning($preview))]
-                    : ['ok' => false, 'message' => LazadaVariationSwitch::line($switchNote, $kept)];
+                    ? ['ok' => true, 'message' => 'updated', 'warning' => LazadaVariationSwitch::line($switchNote, $pictureNote, $this->payload()->renameWarning($preview)), 'pictures_left_out' => $pictureNote !== null]
+                    : ['ok' => false, 'message' => LazadaVariationSwitch::line($switchNote, $pictureNote, $kept)];
             }
 
             $reason = LazadaVariationSwitch::line((string) ($e['message'] ?? 'Unknown error'), $switchRefusal);

@@ -320,6 +320,20 @@ class TikTokClient
 
     public function uploadImage(string $appKey, string $appSecret, string $accessToken, string $imageData, ?string $shopCipher = null): array
     {
+        return $this->sendImage($appKey, $appSecret, $accessToken, $imageData, $shopCipher, null);
+    }
+
+    /**
+     * A picture for use inside a product description. TikTok answers with
+     * a url for the img tag, and the width and height it stored.
+     */
+    public function uploadDescriptionImage(string $appKey, string $appSecret, string $accessToken, string $imageData, ?string $shopCipher = null): array
+    {
+        return $this->sendImage($appKey, $appSecret, $accessToken, $imageData, $shopCipher, 'DESCRIPTION_IMAGE');
+    }
+
+    private function sendImage(string $appKey, string $appSecret, string $accessToken, string $imageData, ?string $shopCipher, ?string $useCase): array
+    {
         $params = [
             'app_key' => $appKey,
             'timestamp' => time(),
@@ -333,10 +347,17 @@ class TikTokClient
 
         $url = self::BASE_URL . '/product/202309/images/upload?' . http_build_query($params);
 
+        $type = @getimagesizefromstring($imageData)[2] ?? null;
+        $name = 'image.' . match ($type) {
+            IMAGETYPE_PNG => 'png',
+            IMAGETYPE_WEBP => 'webp',
+            default => 'jpg',
+        };
+
         $response = Http::timeout(60)->connectTimeout(5)
             ->withHeaders(['x-tts-access-token' => $accessToken])
-            ->attach('data', $imageData, 'image.jpg')
-            ->post($url);
+            ->attach('data', $imageData, $name)
+            ->post($url, $useCase !== null ? ['use_case' => $useCase] : []);
 
         return [
             'status' => $response->status(),

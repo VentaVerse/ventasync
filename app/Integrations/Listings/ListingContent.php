@@ -40,6 +40,12 @@ class ListingContent
             ? $listing->contentOverrides()
             : [];
 
+        /* A catalog description can be stored entity-encoded, the older way;
+         * decoded here it reaches every store as markup, with its pictures'
+         * links whole, the way the editor shows it. Plain words stay words. */
+        $decoded = DescriptionHtml::decoded($coreDescription);
+        $coreDescription = DescriptionText::looksLikeHtml($decoded) ? DescriptionHtml::forEditor($decoded) : $decoded;
+
         $description = self::pick($own['description'] ?? null, $coreDescription);
 
         /* The store's own words above and below (the owner, 2026-09-07): a

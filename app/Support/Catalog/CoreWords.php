@@ -30,8 +30,8 @@ class CoreWords
 
         return [
             'title' => (string) ($row->name ?? ''),
-            // As stored and as the editor loads it, so a save compares like with like.
-            'description' => (string) ($row->description ?? ''),
+            // As the editor loads it, so a save compares like with like.
+            'description' => DescriptionHtml::forEditor((string) ($row->description ?? '')),
         ];
     }
 }

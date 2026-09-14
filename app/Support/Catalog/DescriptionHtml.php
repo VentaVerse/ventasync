@@ -44,7 +44,79 @@ final class DescriptionHtml
      */
     public static function store(?string $html): string
     {
-        return self::pastedImagesToFiles(HtmlSanitizer::sanitize($html));
+        return self::pastedImagesToFiles(self::forEditor($html));
+    }
+
+    /**
+     * A description as the rich editor should load it: decoded once when
+     * it was stored entity-encoded, sanitised, and with every library path
+     * in an img src turned into a URL that loads from any page. The editor
+     * renders this as live markup, so it is never handed the raw row.
+     * Writes nothing: a pasted picture stays pasted until a save.
+     */
+    public static function forEditor(?string $html): string
+    {
+        return self::librarySrcs(HtmlSanitizer::sanitize(self::decoded((string) $html)));
+    }
+
+    /**
+     * Markup stored entity-encoded (`&lt;p&gt;...`), as OpenCart saves a
+     * description, decoded once. A description holding any real tag is
+     * already markup and is returned as it is, so words that merely
+     * mention "&lt;" are never turned into tags.
+     */
+    public static function decoded(string $html): string
+    {
+        if (preg_match('#<[a-z!/]#i', $html) || ! preg_match('#&lt;/?[a-z][a-z0-9]*(?:\s|/|&gt;)#i', $html)) {
+            return $html;
+        }
+
+        return html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+
+    /**
+     * Every img src written as a bare path becomes a full URL. A bare path
+     * resolves against the page it is shown on, so `catalog/a.jpg` loads on
+     * no page at all. Library paths (`catalog/...`) point into the public
+     * disk; any other bare path is under the web root. Absolute URLs,
+     * root-relative paths and data: pictures are left alone.
+     */
+    private static function librarySrcs(string $html): string
+    {
+        if (stripos($html, '<img') === false) {
+            return $html;
+        }
+
+        return (string) preg_replace_callback(
+            '#(<img\b[^>]*?\bsrc=")([^"]*)(")#i',
+            function (array $m): string {
+                $url = self::bareSrcToUrl(html_entity_decode($m[2], ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+
+                return $url === null ? $m[0] : $m[1] . e($url) . $m[3];
+            },
+            $html
+        );
+    }
+
+    private static function bareSrcToUrl(string $src): ?string
+    {
+        $src = trim($src);
+        if ($src === '' || preg_match('#^([a-z][a-z0-9+.\-]*:|/|\#|\?)#i', $src)) {
+            return null;
+        }
+
+        preg_match('/^([^?#]*)(.*)$/s', $src, $parts);
+        $path = preg_replace('#^(\./)+#', '', $parts[1]);
+        if ($path === '' || str_contains($path, '..') || preg_match('/[\x00-\x1F\x7F]/', $path)) {
+            return null;
+        }
+
+        $encoded = implode('/', array_map(
+            fn (string $segment) => rawurlencode(rawurldecode($segment)),
+            explode('/', $path)
+        ));
+
+        return (str_starts_with($path, 'catalog/') ? asset('storage/' . $encoded) : asset($encoded)) . $parts[2];
     }
 
     /**

@@ -1104,6 +1104,7 @@ class TikTokProductGroupController extends Controller
         $created = 0;
         $skipped = 0;
         $failed = 0;
+        $warnings = [];
 
         foreach ($pivotRows as $pivot) {
             // Already on TikTok (by this group or any other, or by the
@@ -1146,6 +1147,9 @@ class TikTokProductGroupController extends Controller
                 TikTokListing::recordPush((int) $pivot->product_id, $outcome['product_id'], $outcome['sku_ids'], 'group:' . $group->name);
                 $this->states((int) $group->tiktok_setting_id)->recordOutcome((int) $pivot->product_id, null);
                 $created++;
+                if (!empty($outcome['pictures'])) {
+                    $warnings[] = '#' . $pivot->product_id . ': ' . $outcome['pictures'];
+                }
             } else {
                 $pivot->update(['sync_status' => 'error', 'push_error' => $outcome['message']]);
                 $this->states((int) $group->tiktok_setting_id)->recordOutcome((int) $pivot->product_id, (string) $outcome['message']);
@@ -1156,7 +1160,10 @@ class TikTokProductGroupController extends Controller
         $summary = "Push: {$created} created";
         if ($skipped > 0) $summary .= ", {$skipped} skipped (already linked)";
         if ($failed > 0) $summary .= ", {$failed} failed";
-        return $this->productsRedirect($id)->with($created > 0 ? 'status' : 'error', $summary);
+        if ($warnings) {
+            $summary .= '. ' . implode(' ', array_slice($warnings, 0, 3)) . (count($warnings) > 3 ? ' (and ' . (count($warnings) - 3) . ' more)' : '');
+        }
+        return $this->productsRedirect($id)->with($created === 0 ? 'error' : ($warnings ? 'warning' : 'status'), $summary);
     }
 
     // ── Update Product ──────────────────────────────────────────

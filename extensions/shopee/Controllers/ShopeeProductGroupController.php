@@ -1690,7 +1690,10 @@ class ShopeeProductGroupController extends Controller
             $summary .= ' '.implode(' ', array_slice($warnings, 0, 4));
         }
 
-        return $this->productsRedirect($id)->with($this->batchTone($okCount, $errCount), $summary);
+        // Warnings with nothing failed read as a warning, not a success.
+        $tone = ($warnings && $errCount === 0) ? 'warning' : $this->batchTone($okCount, $errCount);
+
+        return $this->productsRedirect($id)->with($tone, $summary);
     }
 
     /**
@@ -2166,11 +2169,22 @@ class ShopeeProductGroupController extends Controller
                 $payload['image'] = ['image_id_list' => $imageIds];
             }
 
-            // The description goes in the item's own shape: plain, or Seller Center's extended list.
-            $payload = \Extensions\shopee\Services\Shopee\ShopeeDescription::into(
-                $payload, (string) $payload['description'],
-                (new \Extensions\shopee\Services\Shopee\ShopeeDescription($client))->shapeOf($auth, (int) $itemId)
+            /* The description goes in the item's own shape: plain text, or an
+             * extended list of our words and pictures in our order. */
+            $described = (new \Extensions\shopee\Services\Shopee\ShopeeDescription($client))->write(
+                $payload, $auth, (int) $itemId,
+                \App\Integrations\Listings\ListingContent::of(
+                    $ownListing,
+                    html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                    (string) ($product->description ?? ''),
+                    'shopee',
+                    (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0)
+                )['description']
             );
+            $payload = $described['payload'];
+            if ($described['note'] !== '') {
+                $warnings[] = "#{$productId}: {$described['note']}";
+            }
 
             /* The item's models are read once; the rename and the store's
              * variation switches both work from that read. */
@@ -2247,16 +2261,24 @@ class ShopeeProductGroupController extends Controller
                         'last_pushed_at' => now(),
                     ]);
                 // The update went; a price or stock refusal in the same run is still its outcome.
+                $failed = false;
                 foreach ($synced as $sync) {
                     $outcome = $sync['outcomes'][$productId] ?? null;
                     if ($outcome !== null && empty($outcome['ok'])) {
                         $this->listingStates()->recordOutcome($productId, (string) ($outcome['error'] ?? ''));
+                        $failed = true;
                         break;
                     }
                 }
                 // A variation Shopee would not remove or add is the outcome too.
                 if ($followed['failure'] !== null) {
                     $this->listingStates()->recordOutcome($productId, $followed['failure']);
+                    $failed = true;
+                }
+                /* A clean update clears the line. A description picture left
+                 * out is a warning in the summary, never the error line. */
+                if (! $failed) {
+                    $this->listingStates()->recordOutcome($productId, null);
                 }
 
                 ActivityLogger::log('updated', 'Shopee Product', $productId, 'Updated item ' . $itemId . ' on Shopee via product group');

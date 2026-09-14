@@ -1100,6 +1100,159 @@ class LazadaListingLiveTest extends TestCase
             "the group's answer is sent, never written into the listing");
     }
 
+    /** A picture on the public disk, linked the way the description editor links it. */
+    private function descriptionPicture(string $path): string
+    {
+        $canvas = imagecreatetruecolor(12, 12);
+        ob_start();
+        imagepng($canvas);
+        \Illuminate\Support\Facades\Storage::disk('public')->put($path, (string) ob_get_clean());
+
+        return asset('storage/' . $path);
+    }
+
+    /** A fresh public disk and a public catalog address, before any picture is written. */
+    private function onAPublicCatalog(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        config(['catalog.public_url' => 'https://shop.example.com']);
+    }
+
+    /** A product on Lazada whose catalog description is the given HTML. */
+    private function productDescribedAs(string $sku, string $html): int
+    {
+        $pid = $this->colourProduct($sku);
+        $this->liveColours($sku);
+        DB::table((string) config('catalog.prefix') . 'product_description')->where('product_id', $pid)->update(['description' => $html]);
+
+        return $pid;
+    }
+
+    /** Lazada's image migrate: a picture whose address names a refused file is refused, every other one is given a link named after it. */
+    private function migrateAnswers(array $refused = []): void
+    {
+        $this->postResponses['/image/migrate'] = function (array $params) use ($refused) {
+            preg_match('#<Url>(.*)</Url>#', (string) ($params['payload'] ?? ''), $m);
+            $url = html_entity_decode($m[1] ?? '', ENT_XML1);
+            foreach ($refused as $name) {
+                if (str_contains($url, $name)) {
+                    return ['ok' => true, 'status' => 200, 'body' => ['code' => '302', 'message' => 'Not supported URL']];
+                }
+            }
+
+            return ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => ['image' => [
+                'url' => 'https://sg-live.slatic.net/p/' . basename((string) parse_url($url, PHP_URL_PATH)),
+            ]]]];
+        };
+    }
+
+    /** @return list<string> every address sent to /image/migrate */
+    private function migratedUrls(): array
+    {
+        return collect($this->sentPosts)->where('path', '/image/migrate')
+            ->map(fn ($p) => preg_match('#<Url>(.*)</Url>#', (string) $p['params']['payload'], $m) ? html_entity_decode($m[1], ENT_XML1) : '')
+            ->values()->all();
+    }
+
+    /** @return array<string, mixed> the Attributes of the nth update sent */
+    private function updateAttributes(int $nth = 0): array
+    {
+        $update = collect($this->sentPosts)->where('path', '/product/update')->values()->get($nth);
+        $this->assertNotNull($update, 'the update reaches Lazada');
+
+        return json_decode($update['params']['payload'], true)['Request']['Product']['Attributes'];
+    }
+
+    public function test_a_description_picture_is_sent_with_its_lazada_link(): void
+    {
+        $this->onAPublicCatalog();
+        $src = $this->descriptionPicture('catalog/desc/pic.png');
+        $pid = $this->productDescribedAs('DESC-PIC', '<p>Soft cable.</p><img src="' . $src . '" alt="Cable">');
+        $this->migrateAnswers();
+
+        $this->pushListing($pid)->assertSessionHas('status', 'Update pushed.');
+
+        $this->assertContains('https://shop.example.com/storage/catalog/desc/pic.png', $this->migratedUrls(),
+            'Lazada fetches the picture from the public catalog address, not the one the editor wrote');
+        $attributes = $this->updateAttributes();
+        $this->assertStringContainsString('<img src="https://sg-live.slatic.net/p/pic.png" alt="Cable">', $attributes['description']);
+        $this->assertStringNotContainsString('/storage/', json_encode($attributes, JSON_UNESCAPED_SLASHES), 'no attribute carries our own address');
+    }
+
+    public function test_a_description_picture_migrated_once_is_reused_on_the_next_push(): void
+    {
+        $this->onAPublicCatalog();
+        $src = $this->descriptionPicture('catalog/desc/pic.png');
+        $pid = $this->productDescribedAs('DESC-AGAIN', '<p>Soft cable.</p><img src="' . $src . '">');
+        $this->migrateAnswers();
+
+        $this->pushListing($pid);
+        $this->pushListing($pid);
+
+        $asked = array_filter($this->migratedUrls(), fn ($url) => str_contains($url, 'desc/pic.png'));
+        $this->assertCount(1, $asked, 'the second push reuses the link instead of migrating again');
+        $this->assertStringContainsString('<img src="https://sg-live.slatic.net/p/pic.png">', $this->updateAttributes(1)['description']);
+        $this->assertSame(1, \Extensions\lazada\Models\LazadaImageLink::query()
+            ->where('region', 'ph')->where('original_url', 'https://shop.example.com/storage/catalog/desc/pic.png')->count());
+    }
+
+    public function test_a_description_picture_lazada_refuses_is_left_out_and_the_push_says_so(): void
+    {
+        $this->onAPublicCatalog();
+        $refused = $this->descriptionPicture('catalog/desc/refused.png');
+        $kept = $this->descriptionPicture('catalog/desc/kept.png');
+        $pid = $this->productDescribedAs('DESC-OUT', '<p>Soft cable.</p><img src="' . $refused . '"><img src="' . $kept . '">');
+        $this->migrateAnswers(['refused.png']);
+
+        $this->pushListing($pid)
+            ->assertSessionHas('warning', 'Update pushed. 1 picture was left out of the description.')
+            ->assertSessionMissing('error');
+
+        $attributes = $this->updateAttributes();
+        $this->assertSame('<p>Soft cable.</p><img src="https://sg-live.slatic.net/p/kept.png">', $attributes['description']);
+        $this->assertStringNotContainsString('refused.png', json_encode($attributes), 'the refused picture is not sent with our address');
+        $this->assertNull(app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class)->errors([$pid])[$pid],
+            'a picture left out is a warning, never the listing\'s error line');
+    }
+
+    public function test_an_entity_encoded_description_picture_is_found_and_migrated(): void
+    {
+        $this->onAPublicCatalog();
+        $this->descriptionPicture('catalog/desc/pic.png');
+        $pid = $this->productDescribedAs('DESC-ENC', '&lt;p&gt;Soft cable.&lt;/p&gt;&lt;img src=&quot;catalog/desc/pic.png&quot;&gt;');
+        $this->migrateAnswers();
+
+        $this->pushListing($pid)->assertSessionHas('status', 'Update pushed.');
+
+        $this->assertContains('https://shop.example.com/storage/catalog/desc/pic.png', $this->migratedUrls());
+        $this->assertStringContainsString('<img src="https://sg-live.slatic.net/p/pic.png"', $this->updateAttributes()['description']);
+    }
+
+    public function test_a_group_push_summary_warns_when_a_description_picture_is_left_out(): void
+    {
+        $this->onAPublicCatalog();
+        $refused = $this->descriptionPicture('catalog/desc/refused.png');
+        $pid = $this->productDescribedAs('DESC-GRP', '<p>Soft cable.</p><img src="' . $refused . '">');
+        $this->migrateAnswers(['refused.png']);
+
+        $listing = LazadaProduct::query()->where('product_id', $pid)->firstOrFail();
+        $group = \Extensions\lazada\Models\LazadaProductGroup::create(['name' => 'Cables', 'lazada_category_id' => 9257]);
+        \Extensions\lazada\Models\LazadaProductGroupProduct::create([
+            'lazada_product_group_id' => $group->id, 'product_id' => $pid,
+            'lazada_product_id' => $listing->id, 'sync_status' => 'pending',
+        ]);
+        $states = app(\Extensions\lazada\Services\Lazada\LazadaListingStates::class);
+        $states->recordOutcome($pid, 'Upload refused: an earlier refusal');
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.lazada.product-groups.push', $group->id), ['ids' => [$pid]])
+            ->assertRedirect()
+            ->assertSessionHas('warning', fn ($message) => str_contains((string) $message, "#{$pid}: 1 picture was left out of the description."));
+
+        $this->assertStringNotContainsString('refused.png', json_encode($this->updateAttributes()));
+        $this->assertNull($states->errors([$pid])[$pid], 'the push went, so the line is cleared, not set to the warning');
+    }
+
     public function test_readiness_names_gaps_on_the_index(): void
     {
         /* #101, Lazada half: the index answers "can this upload succeed"

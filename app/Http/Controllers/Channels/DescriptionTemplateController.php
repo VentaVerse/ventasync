@@ -63,6 +63,10 @@ abstract class DescriptionTemplateController extends Controller
                 'destroy_url' => route('ext.' . $ch . '.description-templates.destroy', ['store' => $store, 'template' => $t->id]),
             ]),
             'canManage' => $this->canManage(),
+            // The media library for the rich editor, only for someone who may browse it.
+            'browseUrl' => $ch !== 'shopee' && (auth()->user()?->hasPermission('view_catalog/product_image') ?? false)
+                ? route('products.images.browse')
+                : null,
         ]);
     }
 

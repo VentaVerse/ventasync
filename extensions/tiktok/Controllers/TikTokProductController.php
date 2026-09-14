@@ -594,7 +594,7 @@ class TikTokProductController extends Controller
         // Accepted: back to the Listings page the operator came from, search and all (the owner, 2026-09-06).
         $done = \App\Support\BackTo::safe($request->input('back'), url()->previous(route('ext.tiktok.products.index')));
 
-        return redirect()->to($done)->with('status', $answer['message']);
+        return redirect()->to($done)->with(! empty($answer['warning']) ? 'warning' : 'status', $answer['message']);
     }
 
     /**
@@ -632,9 +632,13 @@ class TikTokProductController extends Controller
             'tiktok_product_id' => $outcome['product_id'], 'tiktok_sku_id' => $outcome['sku_ids'],
             'sync_status' => 'pushed', 'last_pushed_at' => now(), 'push_error' => null,
         ]);
+        $pictures = $outcome['pictures'] ?? null;
         $this->states($c['setting'] ?? null)->recordOutcome($productId, null);
 
-        return ['ok' => true, 'message' => 'Pushed to TikTok Shop as product ' . $outcome['product_id'] . '. It goes live once TikTok has reviewed it.'];
+        return [
+            'ok' => true, 'warning' => $pictures,
+            'message' => 'Pushed to TikTok Shop as product ' . $outcome['product_id'] . '. It goes live once TikTok has reviewed it.' . ($pictures ? ' ' . $pictures : ''),
+        ];
     }
 
     /**

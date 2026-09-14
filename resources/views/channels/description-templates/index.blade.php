@@ -91,5 +91,9 @@
         </div>
     </div>
     @if($richText) @include('catalog.products.partials.wysiwyg') @endif
+    {{-- Outside the template form: the picker's search box would submit it on Enter. --}}
+    @if($browseUrl)
+        @include('partials.image-library-pick', ['browseUrl' => $browseUrl])
+    @endif
 @endif
 @endsection

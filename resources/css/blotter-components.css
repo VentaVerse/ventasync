@@ -5585,6 +5585,14 @@
     font-family: var(--font-mono);
 }
 
+/* A picture in a description fits the editor's width on every page that
+   carries the editor; the stored markup keeps its own size. Unscoped and
+   mirroring the vendor's chain, for the same reason as the focus ring. */
+.note-editor .note-editing-area .note-editable img {
+    max-width: 100%;
+    height: auto;
+}
+
 /* A field's description is its ? tooltip on the label row (the owner,
    2026-09-05): the label and the button sit on one line, the control
    under both. The environment note on a channel's Settings rides the same

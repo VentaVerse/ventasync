@@ -1286,9 +1286,11 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $pfx = (string) config('catalog.prefix');
 
         // Build payload from listing mapping. If mapping is incomplete, we do not send an invalid payload.
+        $picturesLeftOut = 0;
         try {
             [$productPayload, $preview] = $this->payload()->buildLazadaProductCreatePayload($listing, $setting, $client);
             $productPayload = $this->images()->ensureLazadaInlinkImages($productPayload, $setting, $client);
+            [$productPayload, $picturesLeftOut] = $this->images()->ensureLazadaDescriptionImages($productPayload, $setting, $client);
         } catch (\Illuminate\Validation\ValidationException $e) {
             /* Our own refusal, before anything is sent: every missing answer
              * named at once, as an ERROR (a refusal is never green), and on
@@ -1343,6 +1345,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $this->persistProductSyncStatus($saved, 'upload_to_lazada', $result, 'listing');
 
         // If successful, store lazada_item_id (create) or refresh variants (update).
+        $pictureNote = LazadaImages::descriptionNote($picturesLeftOut);
         $e = $this->payload()->extractLazadaError($result);
         if (!empty($e['ok'])) {
             $this->states()->recordOutcome((int) $saved->product_id, null);
@@ -1355,12 +1358,12 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 if ($failure !== null) {
                     $this->states()->recordOutcome((int) $saved->product_id, $failure);
 
-                    return ['ok' => false, 'message' => LazadaVariationSwitch::line($kept === null ? 'Update pushed.' : null, $switchNote, $failure), 'errors' => []];
+                    return ['ok' => false, 'message' => LazadaVariationSwitch::line($kept === null ? 'Update pushed.' : null, $switchNote, $pictureNote, $failure), 'errors' => []];
                 }
 
                 $note = $this->payload()->renameWarning($preview);
 
-                return ['ok' => true, 'message' => LazadaVariationSwitch::line('Update pushed.', $switchNote, $note), 'errors' => []];
+                return ['ok' => true, 'message' => LazadaVariationSwitch::line('Update pushed.', $switchNote, $pictureNote, $note), 'errors' => [], 'warning' => $pictureNote !== null];
             }
 
             $itemId = $this->payload()->extractCreatedItemId($result);
@@ -1486,7 +1489,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             return ['ok' => false, 'message' => LazadaVariationSwitch::line($line, $switchNote, $switchRefusal), 'errors' => $rowErrors];
         }
 
-        return ['ok' => true, 'message' => $line, 'errors' => []];
+        return ['ok' => true, 'message' => LazadaVariationSwitch::line($line, $pictureNote), 'errors' => [], 'warning' => $pictureNote !== null];
     }
 
     /**
@@ -1509,7 +1512,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $done = \App\Support\BackTo::safe($request->input('back'),
             $request->boolean('push') ? route('ext.lazada.products.index') : url()->previous(route('ext.lazada.products.index')));
 
-        return redirect()->to($done)->with('status', $answer['message']);
+        return redirect()->to($done)->with(! empty($answer['warning']) ? 'warning' : 'status', $answer['message']);
     }
 
     /**

@@ -15,6 +15,8 @@ final class DescriptionText
     public static function of(?string $html): string
     {
         $text = str_replace(["\r\n", "\r"], "\n", (string) $html);
+        // An entity-encoded description is markup first, so its tags are read as tags, not as words.
+        $text = DescriptionHtml::decoded($text);
         if (! self::looksLikeHtml($text)) {
             return trim($text);
         }

@@ -2942,7 +2942,12 @@ class ShopeeProductController extends Controller
 
         $r = $this->performListingUpdate($productId, $client, $auth);
 
-        return redirect()->back()->with($r['ok'] && ($r['failure'] ?? null) === null ? 'status' : 'error', $r['message']);
+        // A description picture left out is a warning: the update went, and it is never the error line.
+        $tone = (! $r['ok'] || ($r['failure'] ?? null) !== null)
+            ? 'error'
+            : ((($r['warning'] ?? '') !== '') ? 'warning' : 'status');
+
+        return redirect()->back()->with($tone, $r['message']);
     }
 
     /**
@@ -2953,7 +2958,7 @@ class ShopeeProductController extends Controller
      * An update that went can still carry a failure: a variation Shopee
      * would not remove or add. That failure is the listing's outcome.
      *
-     * @return array{ok: bool, message: string, failure?: ?string}
+     * @return array{ok: bool, message: string, failure?: ?string, warning?: string}
      */
     private function performListingUpdate(int $productId, ShopeeClient $client, array $auth): array
     {
@@ -2963,7 +2968,7 @@ class ShopeeProductController extends Controller
         return $answer;
     }
 
-    /** @return array{ok: bool, message: string, failure?: ?string} */
+    /** @return array{ok: bool, message: string, failure?: ?string, warning?: string} */
     private function attemptListingUpdate(int $productId, ShopeeClient $client, array $auth): array
     {
         $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
@@ -3076,11 +3081,16 @@ class ShopeeProductController extends Controller
             $payload['image'] = ['image_id_list' => $up['ids']];
         }
 
-        // The description goes in the item's own shape: plain, or Seller Center's extended list.
-        $payload = \Extensions\shopee\Services\Shopee\ShopeeDescription::into(
-            $payload, (string) $payload['description'],
-            (new \Extensions\shopee\Services\Shopee\ShopeeDescription($client))->shapeOf($auth, (int) $link->shopee_item_id)
+        /* The description goes in the item's own shape: plain text, or an
+         * extended list of our words and pictures in our order. */
+        $described = (new \Extensions\shopee\Services\Shopee\ShopeeDescription($client))->write(
+            $payload, $auth, (int) $link->shopee_item_id,
+            \App\Integrations\Listings\ListingContent::of(
+                $listing, $coreName, (string) ($product->description ?? ''), 'shopee', (int) ($listing?->shopee_setting_id ?? 0)
+            )['description']
         );
+        $payload = $described['payload'];
+        $descNote = $described['note'] === '' ? '' : ' ' . $described['note'];
 
         /* The item's models are read once; the rename and the store's
          * variation switches both work from that read. */
@@ -3164,7 +3174,7 @@ class ShopeeProductController extends Controller
             'Pushed a content update onto Shopee item ' . $link->shopee_item_id
         );
 
-        return ['ok' => true, 'message' => 'Update pushed.' . $warning . $switchNote, 'failure' => $followed['failure']];
+        return ['ok' => true, 'message' => 'Update pushed.' . $descNote . $warning . $switchNote, 'failure' => $followed['failure'], 'warning' => $described['note']];
     }
 
     public function toggleListing(Request $request, int $productId, ShopeeClient $client)

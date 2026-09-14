@@ -910,9 +910,9 @@ class ShopeeListingPageTest extends TestCase
     /**
      * An item saved by Seller Center's rich editor holds an extended
      * description, a list of text and image fields. Shopee refuses a plain
-     * description onto it, so the update answers in that shape: the
-     * listing's words, line breaks kept, in place of the text, and the
-     * item's own image kept where it was.
+     * description onto it, so the update answers in that shape. The
+     * description is ours: the listing's words, line breaks kept, and the
+     * store's own image fields are not kept.
      */
     public function test_push_update_writes_an_extended_description_in_its_own_shape(): void
     {
@@ -933,8 +933,158 @@ class ShopeeListingPageTest extends TestCase
         $this->assertSame('extended', $sent['body']['description_type']);
         $this->assertSame([
             ['field_type' => 'text', 'text' => "Qable IC50\n\nAn instrument cable"],
+        ], $sent['body']['description_info']['extended_description']['field_list'],
+            'The store\'s own image field is replaced by our description.');
+    }
+
+    /** A listing that follows the catalog, whose description carries two library pictures. */
+    private function catalogDescriptionWithTwoPictures(): int
+    {
+        $productId = $this->seedProduct();
+        ShopeeProductLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1']);
+        ShopeeListing::query()->create([
+            'product_id' => $productId, 'shopee_setting_id' => (int) ShopeeSetting::query()->value('id'),
+            'shopee_category_id' => 100013, 'logistic_ids' => [8003],
+        ]);
+
+        $disk = \Illuminate\Support\Facades\Storage::disk('public');
+        $urls = [];
+        foreach ([1, 2] as $i) {
+            $path = self::TEST_IMAGE_DIR . "/desc-{$i}.png";
+            $disk->put($path, 'not really a png');
+            $urls[] = \App\Support\Catalog\ProductImages::url($path);
+        }
+        DB::table((string) config('catalog.prefix') . 'product_description')->where('product_id', $productId)->update([
+            'description' => '<p>Intro words.</p><p><img src="' . e($urls[0]) . '" alt="first"></p>'
+                . '<p>Middle words.</p><img src="' . e($urls[1]) . '"><p>Last words.</p>',
+        ]);
+
+        return $productId;
+    }
+
+    /**
+     * Fakes media_space upload_image: each call answers the next id, except
+     * the calls listed in $refused, which Shopee refuses.
+     *
+     * @param  list<int>  $refused  1-based call numbers
+     * @return \ArrayObject<int, string>  the multipart body of every upload
+     */
+    private function fakeUploads(array $refused = []): \ArrayObject
+    {
+        $bodies = new \ArrayObject();
+        \Illuminate\Support\Facades\Http::fake(function ($request) use ($bodies, $refused) {
+            $bodies[] = $request->body();
+            $n = count($bodies);
+
+            return in_array($n, $refused, true)
+                ? \Illuminate\Support\Facades\Http::response(['error' => 'error_image', 'message' => 'The picture is broken.'], 200)
+                : \Illuminate\Support\Facades\Http::response(['response' => ['image_info' => ['image_id' => 'desc-' . $n]]], 200);
+        });
+
+        return $bodies;
+    }
+
+    public function test_an_extended_item_gets_our_words_and_pictures_in_our_order(): void
+    {
+        $productId = $this->catalogDescriptionWithTwoPictures();
+        $this->liveItemWithDescription('extended', [
             ['field_type' => 'image', 'image_info' => ['image_id' => 'sg-11134-art']],
+            ['field_type' => 'text', 'text' => 'Old words.'],
+        ]);
+        $uploads = $this->fakeUploads();
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.listings.push_update', $productId))
+            ->assertSessionHas('status', fn (string $m) => ! str_contains($m, 'left out'));
+
+        $sent = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/update_item');
+        $this->assertNotNull($sent, 'The update must reach update_item.');
+        $this->assertSame([
+            ['field_type' => 'text', 'text' => 'Intro words.'],
+            ['field_type' => 'image', 'image_info' => ['image_id' => 'desc-1']],
+            ['field_type' => 'text', 'text' => 'Middle words.'],
+            ['field_type' => 'image', 'image_info' => ['image_id' => 'desc-2']],
+            ['field_type' => 'text', 'text' => 'Last words.'],
         ], $sent['body']['description_info']['extended_description']['field_list']);
+        $this->assertStringNotContainsString('sg-11134-art', json_encode($sent['body']), 'The store\'s old image field is not kept.');
+
+        $this->assertCount(2, $uploads);
+        foreach ($uploads as $body) {
+            $this->assertMatchesRegularExpression('/name="scene"\r?\n(?:[^\r\n]+\r?\n)*\r?\ndesc\r?\n/', $body, 'A description picture goes up with scene desc.');
+        }
+    }
+
+    public function test_a_description_picture_that_cannot_be_uploaded_is_left_out_and_said(): void
+    {
+        $productId = $this->catalogDescriptionWithTwoPictures();
+        $this->liveItemWithDescription('extended', [['field_type' => 'text', 'text' => 'Old words.']]);
+        $this->fakeUploads([2]);
+        $states = app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class);
+        $states->recordOutcome($productId, 'An earlier refusal.');
+        $this->assertContains($productId, $states->erroredProductIds());
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.listings.push_update', $productId))
+            ->assertSessionMissing('error')
+            ->assertSessionHas('warning', fn (string $m) => str_contains($m, '1 description picture could not be uploaded and was left out.'));
+
+        $this->assertNotContains($productId, app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->erroredProductIds(),
+            'The update went, so its line clears: a picture left out is a warning, never the error line.');
+
+        $sent = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/update_item');
+        $this->assertNotNull($sent, 'The rest of the description still goes.');
+        $this->assertSame([
+            ['field_type' => 'text', 'text' => 'Intro words.'],
+            ['field_type' => 'image', 'image_info' => ['image_id' => 'desc-1']],
+            ['field_type' => 'text', 'text' => "Middle words.\n\nLast words."],
+        ], $sent['body']['description_info']['extended_description']['field_list']);
+    }
+
+    public function test_a_group_send_says_a_left_out_picture_as_a_warning(): void
+    {
+        $productId = $this->catalogDescriptionWithTwoPictures();
+        $group = \Extensions\shopee\Models\ShopeeProductGroup::create([
+            'name' => 'Description pictures',
+            'shopee_category_id' => 100013, 'logistic_ids' => [8003], 'markup_percent' => 0, 'markup_fixed' => 0,
+        ]);
+        DB::table('shopee_product_group_products')->insert([
+            'shopee_product_group_id' => $group->id, 'product_id' => $productId,
+        ]);
+        $this->liveItemWithDescription('extended', [['field_type' => 'text', 'text' => 'Old words.']]);
+        $this->fakeUploads([2]);
+        app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->recordOutcome($productId, 'An earlier refusal.');
+
+        $this->actingAs($this->userWith(['manage_shopee/product', 'view_shopee/product', 'manage_shopee/product_group', 'view_shopee/product_group']))
+            ->post(route('ext.shopee.product-groups.send', $group->id), ['ids' => [$productId]])
+            ->assertSessionMissing('error')
+            ->assertSessionHas('warning', fn (string $m) => str_contains($m, "#{$productId}: 1 description picture could not be uploaded and was left out."));
+
+        $sent = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/update_item');
+        $this->assertNotNull($sent, 'The group update still goes.');
+        $this->assertSame([
+            ['field_type' => 'text', 'text' => 'Intro words.'],
+            ['field_type' => 'image', 'image_info' => ['image_id' => 'desc-1']],
+            ['field_type' => 'text', 'text' => "Middle words.\n\nLast words."],
+        ], $sent['body']['description_info']['extended_description']['field_list']);
+        $this->assertNotContains($productId, app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->erroredProductIds(),
+            'A picture left out is never the error line.');
+    }
+
+    public function test_a_normal_item_gets_plain_text_even_when_our_description_has_pictures(): void
+    {
+        $productId = $this->catalogDescriptionWithTwoPictures();
+        $this->liveItemWithDescription('normal', []);
+        $uploads = $this->fakeUploads();
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.listings.push_update', $productId))
+            ->assertSessionHas('status');
+
+        $sent = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/update_item');
+        $this->assertSame("Intro words.\n\nMiddle words.\n\nLast words.", $sent['body']['description']);
+        $this->assertArrayNotHasKey('description_type', $sent['body']);
+        $this->assertArrayNotHasKey('description_info', $sent['body']);
+        $this->assertCount(0, $uploads, 'A normal description cannot show pictures, so none go up.');
     }
 
     public function test_push_update_keeps_a_normal_description_plain(): void

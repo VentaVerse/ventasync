@@ -388,6 +388,206 @@ class LazadaImages
         return $productPayload;
     }
 
+    /** Lazada attributes that carry HTML, where a picture can sit. */
+    private const HTML_ATTRIBUTES = ['description', 'short_description'];
+
+    /** Hosts only this server can follow. */
+    private const LOOPBACK = ['localhost', '127.0.0.1', '0.0.0.0'];
+
+    /**
+     * The payload with every picture inside the description re-hosted on
+     * Lazada, and how many pictures were left out.
+     *
+     * Lazada refuses outside image links anywhere in a product payload, the
+     * description included. Each picture is fitted to what Lazada accepts,
+     * migrated from its public address, and its src swapped for the Lazada
+     * link; a link already migrated in this region is reused. A picture that
+     * cannot be migrated is taken out of the HTML rather than sent with our
+     * own address, and the push goes on without it.
+     *
+     * @return array{0: array, 1: int}
+     */
+    public function ensureLazadaDescriptionImages(array $productPayload, $setting, LazadaClient $client): array
+    {
+        $attributes = data_get($productPayload, 'Request.Product.Attributes');
+        if (!is_array($attributes)) {
+            return [$productPayload, 0];
+        }
+
+        $creds = LazadaSetting::activeCredentials($setting);
+        $region = (string) ($setting->region ?? '');
+        $links = [];
+        $leftOut = [];
+
+        foreach (self::HTML_ATTRIBUTES as $key) {
+            $html = $attributes[$key] ?? null;
+            if (!is_string($html) || stripos($html, '<img') === false) {
+                continue;
+            }
+
+            $attributes[$key] = preg_replace_callback('/<img\b[^>]*>/i', function (array $tag) use (&$links, &$leftOut, $region, $creds, $client) {
+                if (!preg_match('/\ssrc\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s"\'>]+))/i', $tag[0], $m)) {
+                    return '';
+                }
+                $src = trim(html_entity_decode(($m[1] ?? '') . ($m[2] ?? '') . ($m[3] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+                if ($src === '') {
+                    return '';
+                }
+
+                if (!array_key_exists($src, $links)) {
+                    $links[$src] = $this->descriptionImageLink($src, $region, $creds, $client);
+                }
+                $link = $links[$src];
+                if ($link === null) {
+                    $leftOut[$src] = true;
+
+                    return '';
+                }
+
+                // A srcset would carry our own addresses past the swapped src.
+                $img = (string) preg_replace('/\ssrcset\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s"\'>]+)/i', '', $tag[0]);
+
+                return (string) preg_replace_callback(
+                    '/(\ssrc\s*=\s*)(?:"[^"]*"|\'[^\']*\'|[^\s"\'>]+)/i',
+                    fn (array $s) => $s[1] . '"' . htmlspecialchars($link, ENT_QUOTES, 'UTF-8') . '"',
+                    $img,
+                    1
+                );
+            }, $html) ?? $html;
+        }
+
+        data_set($productPayload, 'Request.Product.Attributes', $attributes);
+
+        return [$productPayload, count($leftOut)];
+    }
+
+    /** The line a push result carries when description pictures were left out, or null. */
+    public static function descriptionNote(int $leftOut): ?string
+    {
+        if ($leftOut < 1) {
+            return null;
+        }
+
+        return $leftOut === 1
+            ? '1 picture was left out of the description.'
+            : $leftOut . ' pictures were left out of the description.';
+    }
+
+    /** The Lazada link for one description picture, or null when it cannot be sent. */
+    private function descriptionImageLink(string $src, string $region, array $creds, LazadaClient $client): ?string
+    {
+        if ($this->isLazadaInlinkUrl($src)) {
+            return $src;
+        }
+
+        $url = $this->descriptionImageSource($src);
+        if ($url === null || $region === '') {
+            return null;
+        }
+
+        $hash = hash('sha256', $url);
+        $cached = LazadaImageLink::query()
+            ->where('region', $region)
+            ->where('original_hash', $hash)
+            ->value('lazada_url');
+        if (is_string($cached) && $cached !== '') {
+            return $cached;
+        }
+
+        try {
+            $link = $this->migrateSingleImageXml(
+                $region,
+                $url,
+                (string) $creds['app_key'],
+                (string) $creds['app_secret'],
+                (string) $creds['access_token'],
+                $client
+            );
+        } catch (\Throwable) {
+            return null;
+        }
+        if (!is_string($link) || !$this->isLazadaInlinkUrl($link)) {
+            return null;
+        }
+
+        LazadaImageLink::query()->updateOrCreate(
+            ['region' => $region, 'original_hash' => $hash],
+            ['original_url' => $url, 'lazada_url' => $link]
+        );
+
+        return $link;
+    }
+
+    /**
+     * The public address Lazada fetches a description picture from. One of
+     * ours (a relative path, or our own or a loopback host) is fitted to
+     * Lazada's rules and rebuilt on the public catalog URL, since the address
+     * the editor wrote may be one only the office can reach. An outside
+     * address goes as written. Null when there is nothing Lazada can fetch.
+     */
+    private function descriptionImageSource(string $src): ?string
+    {
+        if (str_starts_with($src, '//')) {
+            $src = 'https:' . $src;
+        }
+        $absolute = (bool) preg_match('#^https?://#i', $src);
+        if (!$absolute && preg_match('#^[a-z][a-z0-9+.\-]*:#i', $src)) {
+            return null;
+        }
+
+        $url = $src;
+        if (!$absolute || $this->isOwnHost(strtolower((string) parse_url($src, PHP_URL_HOST)))) {
+            $path = rawurldecode(ltrim((string) parse_url($src, PHP_URL_PATH), '/'));
+            if ($path === '' || str_contains($path, '..') || str_contains($path, "\0")) {
+                return null;
+            }
+
+            $onDisk = Str::startsWith($path, 'storage/') ? substr($path, strlen('storage/')) : $path;
+            try {
+                $fitted = \App\Services\Media\StoreReadyImages::fit($onDisk, \App\Services\Media\StoreReadyImages::LAZADA);
+            } catch (\Throwable) {
+                $fitted = null;
+            }
+
+            $url = $fitted !== null
+                ? $this->toPublicImageUrl('storage/' . $fitted)
+                : $this->toPublicImageUrl($path);
+        }
+
+        $host = strtolower((string) parse_url((string) $url, PHP_URL_HOST));
+
+        return ($url !== null && $host !== '' && !in_array($host, self::LOOPBACK, true)) ? $url : null;
+    }
+
+    /** True for a host that is this install's own: the app, the public catalog, the current request, or loopback. */
+    private function isOwnHost(string $host): bool
+    {
+        if ($host === '') {
+            return false;
+        }
+        if (in_array($host, self::LOOPBACK, true)) {
+            return true;
+        }
+
+        $own = [
+            parse_url((string) config('app.url'), PHP_URL_HOST),
+            parse_url((string) config('catalog.public_url'), PHP_URL_HOST),
+        ];
+        try {
+            $own[] = request()->getHost();
+        } catch (\Throwable) {
+            // No request: the configured hosts are enough.
+        }
+
+        foreach ($own as $candidate) {
+            if (is_string($candidate) && $candidate !== '' && strtolower($candidate) === $host) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * Determine whether a URL is a Lazada inlink (i.e., Lazada-hosted image URL).
      *

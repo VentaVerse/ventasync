@@ -40,6 +40,63 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     if (!window.jQuery || !jQuery.fn || !jQuery.fn.summernote) return;
+
+    /* The media library, through whichever picker this page already has:
+       the shared one (several pictures at once) where its modal is on the
+       page, else the product form's own (one at a time). A page with
+       neither gets no button. Each hands back [{url}]. */
+    var pickPictures = null;
+    if (document.querySelector('[data-ilp-modal]') && window.ImageLibrary) {
+        pickPictures = function (done) { window.ImageLibrary.open(done); };
+    } else if (typeof window.pimPickOne === 'function') {
+        pickPictures = function (done) {
+            window.pimPickOne(function (file) { done(file ? [file] : []); });
+        };
+    }
+
+    /* Only a URL of this site or an http(s) one goes into an img src. */
+    function pictureSrc(file) {
+        var src = file && typeof file.url === 'string' ? file.url.trim() : '';
+        return /^https?:\/\//i.test(src) || /^\/(?!\/)/.test(src) ? src : '';
+    }
+
+    function libraryButton(context) {
+        var ui = jQuery.summernote.ui;
+        var icons = context.options.icons || {};
+        var $button = ui.button({
+            contents: ui.icon(icons.picture || 'note-icon-picture'),
+            className: 'note-btn-library',
+            click: function () {
+                var editable = context.layoutInfo.editable[0];
+                var saved = context.invoke('editor.getLastRange');
+                // A range left from content that has since been replaced
+                // points at nothing: fall back to the end of the text.
+                if (!saved || !editable.contains(saved.sc)) {
+                    var range = jQuery.summernote.range;
+                    saved = range && range.createFromBodyElement
+                        ? range.createFromBodyElement(editable, false)
+                        : null;
+                }
+
+                pickPictures(function (files) {
+                    var srcs = (files || []).map(pictureSrc).filter(Boolean);
+                    if (!srcs.length) return;
+                    if (saved) context.invoke('editor.setLastRange', saved);
+                    context.invoke('editor.restoreRange');
+                    srcs.forEach(function (src) {
+                        var img = document.createElement('img');
+                        img.setAttribute('src', src);
+                        img.setAttribute('alt', '');
+                        // A command: it fires onChange, which marks the field edited.
+                        context.invoke('editor.insertNode', img);
+                    });
+                });
+            }
+        }).render();
+        $button.attr('aria-label', 'Insert picture from the media library');
+        return $button;
+    }
+
     jQuery('textarea.wysiwyg').each(function () {
     var textarea = this;
     jQuery(textarea).summernote({
@@ -48,9 +105,10 @@ document.addEventListener('DOMContentLoaded', function () {
             ['style', ['style']],
             ['font', ['bold', 'italic', 'underline', 'clear']],
             ['para', ['ul', 'ol', 'paragraph']],
-            ['insert', ['link', 'table']],
+            ['insert', pickPictures ? ['link', 'table', 'library'] : ['link', 'table']],
             ['view', ['codeview']]
         ],
+        buttons: pickPictures ? { library: libraryButton } : {},
         callbacks: {
             /* The editor Summernote builds is a role="textbox" div with no
                accessible name: the real <textarea name="description"> is

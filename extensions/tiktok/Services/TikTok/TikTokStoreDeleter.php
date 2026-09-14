@@ -23,6 +23,7 @@ final class TikTokStoreDeleter
         'tiktok_product_groups',
         'tiktok_returns',
         'tiktok_orders',
+        'tiktok_description_images',
     ];
 
     /** @return array<string,int> rows removed per table */
