@@ -107,8 +107,7 @@ class TiktokOneTruthTest extends TestCase
         $r->assertSee('tt-990077');
         $r->assertSee('Listed');
         $r->assertDontSee('>Failed<', false);
-        // One latest error per product (the owner, 2026-09-05): the shared Last
-        // sync cell, from the listing row, on every group page alike.
-        $r->assertSee('Last sync');
+        // The shared Readiness column, the same on every group page.
+        $r->assertSee('What Readiness means');
     }
 }

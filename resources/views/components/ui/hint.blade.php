@@ -6,7 +6,9 @@
 
      Shows on hover, on keyboard focus, and on tap: tapping the button focuses
      it, which is the same state hover produces, so one CSS rule covers all
-     three and no JavaScript is involved. Tapping elsewhere blurs it away.
+     three. Tapping elsewhere blurs it away. Above 900px, resources/js/
+     hint-place.js places the open bubble against the viewport so a table
+     wrapper or card cannot clip it; without the script it opens in place.
 
      The bubble stays in the accessibility tree at all times through
      aria-describedby rather than being hidden with `visibility` or `hidden`,

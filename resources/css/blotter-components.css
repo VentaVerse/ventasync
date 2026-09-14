@@ -5208,6 +5208,12 @@
             right: 0;
             left: auto;
         }
+
+        /* Placed against the viewport by hint-place.js, so no table wrapper
+           or card clips it; the script writes top and left. */
+        .bl-hint--placed .bl-hint__bubble {
+            position: fixed;
+        }
     }
 
     /* Below 900px there is not enough width to open a 300px bubble beside

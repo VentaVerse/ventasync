@@ -14,6 +14,7 @@ import './nav-progress';
 import './order-selection';
 import './order-thumb-preview';
 import './field-a11y';
+import './hint-place';
 import './desk-tools';
 import './legacy-flash';
 import './pages/shopee-orders';
