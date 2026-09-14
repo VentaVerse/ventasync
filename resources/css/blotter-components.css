@@ -1154,6 +1154,28 @@
         box-shadow: var(--bl-lift);
     }
 
+    /* In the lineup: ringed and ticked, so it reads by shape as well as by
+       colour. The tick sits top left, clear of the delete control. */
+    /* An outline, not an inset shadow: the picture covers a shadow, while an
+       outline is painted over it. */
+    .fm-pick__item.is-picked {
+        position: relative;
+        border-color: var(--bl-brand-deep);
+        outline: 2px solid var(--bl-brand-deep);
+        outline-offset: -2px;
+    }
+
+    .fm-pick__item.is-picked::after {
+        content: "";
+        position: absolute;
+        top: 6px;
+        left: 6px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--bl-brand-deep) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / 12px no-repeat;
+    }
+
     .fm-pick__item > img {
         display: block;
         width: 100%;

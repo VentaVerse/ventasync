@@ -376,6 +376,16 @@
       card.appendChild(where);
     }
 
+    /* Highlighted is in the product's pictures, not highlighted is not: a
+       click takes it in or out, so a second click can never add it twice. */
+    const inLineup = () => items.some(x => x.path === f.path);
+    const mark = () => {
+      const on = !pickOne && inLineup();
+      card.classList.toggle('is-picked', on);
+      card.setAttribute('aria-pressed', on ? 'true' : 'false');
+    };
+    mark();
+
     card.addEventListener('click', () => {
       // Single-pick: hand the file back and get out of the way.
       if (pickOne) {
@@ -386,13 +396,15 @@
         return;
       }
 
-      if (!items.some(x => x.path === f.path)) {
-        items.push({path: f.path, url: f.url});
-        render();
-        showToast('Added');
+      if (inLineup()) {
+        items = items.filter(x => x.path !== f.path);
+        showToast('Removed');
       } else {
-        showToast('Already added');
+        items.push({path: f.path, url: f.url});
+        showToast('Added');
       }
+      render();
+      mark();
     });
 
     cell.appendChild(card);

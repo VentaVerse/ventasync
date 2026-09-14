@@ -10,15 +10,20 @@
  * named `<img src=x onerror=...>` is text here, not markup.
  *
  *   ImageLibrary.open(onPick, {single: true})
+ *   ImageLibrary.open(null, {selected: [paths], onToggle: fn(file, inLineup)})
  *
  * onPick receives the chosen files as [{path, url, name}]. `single` moves
  * the tick instead of collecting a second, for the callers that want one
  * picture rather than a set.
+ *
+ * With onToggle the picker edits a lineup in place: the pictures already in
+ * it open highlighted, a click adds or removes one at once and says which,
+ * and the button closes the picker, since every change is already made.
  */
 (function () {
     var picker = null;
 
-function build(onPick, single) {
+function build() {
     var modal = document.querySelector('[data-ilp-modal]');
     if (!modal) return null;
 
@@ -33,20 +38,40 @@ function build(onPick, single) {
     var searchEl = modal.querySelector('[data-ilp-search]');
     var upBtn = modal.querySelector('[data-ilp-up]');
     var addBtn = modal.querySelector('[data-ilp-add]');
+    var cancelBtn = modal.querySelector('[data-ilp-cancel]');
     var here = '';
     var parent = null;
     var picked = {};
+    var onPick = null;
+    var single = false;
+    var onToggle = null;
+    var selected = [];
+    var msgTimer = null;
 
     function count() {
         return Object.keys(picked).length;
     }
 
     function refreshAdd() {
+        if (onToggle) {
+            addBtn.disabled = false;
+            addBtn.textContent = 'Done';
+            cancelBtn.hidden = true;
+            return;
+        }
+        cancelBtn.hidden = false;
         addBtn.disabled = count() === 0;
         addBtn.textContent = count() === 0 ? 'Add' : 'Add ' + count();
     }
 
+    function say(text) {
+        msgEl.textContent = text;
+        clearTimeout(msgTimer);
+        msgTimer = setTimeout(function () { msgEl.textContent = ''; }, 2400);
+    }
+
     function load(path, query) {
+        clearTimeout(msgTimer);
         msgEl.textContent = 'Reading the library…';
         var q = new URLSearchParams();
         if (query) q.set('q', query); else q.set('path', path || '');
@@ -77,6 +102,11 @@ function build(onPick, single) {
             });
     }
 
+    function mark(b, on) {
+        b.classList.toggle('is-picked', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+
     function draw(folders, files) {
         foldersEl.innerHTML = '';
         filesEl.innerHTML = '';
@@ -104,8 +134,7 @@ function build(onPick, single) {
             var b = document.createElement('button');
             b.type = 'button';
             b.className = 'fm-pick__item';
-            b.setAttribute('aria-pressed', picked[f.path] ? 'true' : 'false');
-            if (picked[f.path]) b.classList.add('is-picked');
+            mark(b, !!picked[f.path]);
             var img = document.createElement('img');
             img.src = f.url;
             img.alt = '';
@@ -116,18 +145,23 @@ function build(onPick, single) {
             label.textContent = f.name;
             b.appendChild(label);
             b.addEventListener('click', function () {
+                if (onToggle) {
+                    // The lineup itself: highlighted is in it, a click takes it in or out.
+                    var on = !picked[f.path];
+                    if (on) { picked[f.path] = f; } else { delete picked[f.path]; }
+                    mark(b, on);
+                    onToggle(f, on);
+                    say(on ? 'Added to the pictures.' : 'Removed from the pictures.');
+                    return;
+                }
                 if (single && !picked[f.path]) {
                     // One at a time: a mark is one picture, so ticking a
                     // second must move the tick rather than collect two.
                     picked = {};
-                    filesEl.querySelectorAll('.is-picked').forEach(function (el) {
-                        el.classList.remove('is-picked');
-                        el.setAttribute('aria-pressed', 'false');
-                    });
+                    filesEl.querySelectorAll('.is-picked').forEach(function (el) { mark(el, false); });
                 }
                 if (picked[f.path]) { delete picked[f.path]; } else { picked[f.path] = f; }
-                b.classList.toggle('is-picked');
-                b.setAttribute('aria-pressed', picked[f.path] ? 'true' : 'false');
+                mark(b, !!picked[f.path]);
                 refreshAdd();
             });
             filesEl.appendChild(b);
@@ -149,11 +183,15 @@ function build(onPick, single) {
         load(parent, '');
     });
     addBtn.addEventListener('click', function () {
+        if (onToggle) {
+            close();
+            return;
+        }
         var files = Object.keys(picked).map(function (k) { return picked[k]; });
         close();
-        onPick(files);
+        if (onPick) onPick(files);
     });
-    modal.querySelector('[data-ilp-cancel]').addEventListener('click', close);
+    cancelBtn.addEventListener('click', close);
     modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape' && modal.classList.contains('active')) close();
@@ -167,15 +205,20 @@ function build(onPick, single) {
 
     function open() {
         picked = {};
+        if (onToggle) {
+            selected.forEach(function (p) { picked[p] = { path: p }; });
+        }
         refreshAdd();
         modal.classList.add('active');
         load(here, '');
         searchEl.focus();
     }
 
-    function setHandler(fn, isSingle) {
-        onPick = fn;
-        single = isSingle;
+    function setHandler(fn, options) {
+        onPick = typeof fn === 'function' ? fn : null;
+        single = !!options.single;
+        onToggle = !single && typeof options.onToggle === 'function' ? options.onToggle : null;
+        selected = Array.isArray(options.selected) ? options.selected.slice() : [];
     }
 
     return { open: open, setHandler: setHandler };
@@ -188,10 +231,10 @@ function build(onPick, single) {
                modal at all, and one that does may render it after this
                script has run. */
             if (!picker) {
-                picker = build(onPick, !!options.single);
+                picker = build();
                 if (!picker) return;
             }
-            picker.setHandler(onPick, !!options.single);
+            picker.setHandler(onPick, options);
             picker.open();
         },
     };

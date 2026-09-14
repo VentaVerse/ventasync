@@ -211,9 +211,3 @@
    the label and the way out stay readable so it can be arranged back. */
 .lc-images__item--held img { opacity: .45; }
 .lc-images--arrange .lc-images__item--held { opacity: 1; }
-
-/* The library picker's tick (partials/image-library-pick). */
-.fm-pick__item.is-picked {
-    border-color: var(--bl-brand-deep);
-    box-shadow: 0 0 0 2px var(--bl-brand-deep) inset;
-}

@@ -436,9 +436,26 @@
         var addBtn = card.querySelector('[data-images-add]');
         if (addBtn && window.ImageLibrary && document.querySelector('[data-ilp-modal]')) {
             addBtn.addEventListener('click', function () {
-                window.ImageLibrary.open(function (files) {
-                    var added = add(files);
-                    announce(added === 1 ? 'One picture added.' : added + ' pictures added.');
+                // The picker edits this lineup in place: what is in it opens highlighted.
+                window.ImageLibrary.open(null, {
+                    selected: pathsNow(),
+                    onToggle: function (file, on) {
+                        if (on) {
+                            add([file]);
+                            announce('Picture added. ' + words.textContent);
+                            return;
+                        }
+                        var li = Array.prototype.find.call(list.children, function (el) {
+                            return el.getAttribute('data-path') === file.path;
+                        });
+                        if (li) {
+                            // Quietly: focus stays in the open picker.
+                            if (grabbed === li) grabbed = null;
+                            li.remove();
+                            refresh();
+                            announce('Picture removed. ' + words.textContent);
+                        }
+                    },
                 });
             });
         } else if (addBtn) {
