@@ -89,9 +89,11 @@ class ShopeeItemImport
                     'product_id' => $productId,
                     'language_id' => $langId,
                     'name' => Str::limit($name, 250, ''),
-                    // A plain-text description (Shopee's usual shape) keeps its line breaks.
+                    // A plain-text description keeps its line breaks; an extended one brings its text fields.
                     'description' => \App\Support\Catalog\DescriptionHtml::store(
-                        str_contains((string) ($item['description'] ?? ''), '<') ? (string) $item['description'] : nl2br((string) ($item['description'] ?? ''))
+                        str_contains(\Extensions\shopee\Services\Shopee\ShopeeDescription::textOf($item), '<')
+                            ? \Extensions\shopee\Services\Shopee\ShopeeDescription::textOf($item)
+                            : nl2br(\Extensions\shopee\Services\Shopee\ShopeeDescription::textOf($item))
                     ),
                     'meta_title' => Str::limit($name, 250, ''),
                     'meta_description' => '', 'meta_keyword' => '', 'tag' => '',

@@ -883,6 +883,88 @@ class ShopeeListingPageTest extends TestCase
             'Prefix, the listing\'s own words, suffix: the same composition every other push sends.');
     }
 
+    /** The live item for the description tests, in the shape Shopee holds it. */
+    private function liveItemWithDescription(string $type, array $fields): void
+    {
+        $this->getResponses['/api/v2/product/get_item_base_info'] = ['ok' => true, 'status' => 200, 'body' => ['response' => ['item_list' => [[
+            'item_id' => 990077, 'item_status' => 'NORMAL', 'item_name' => 'Qable IC50',
+            'description' => $type === 'normal' ? 'Old words.' : '',
+            'description_type' => $type,
+            'description_info' => ['extended_description' => ['field_list' => $fields]],
+        ]]]]];
+    }
+
+    private function listingWithWords(string $words): int
+    {
+        $productId = $this->seedProduct();
+        ShopeeProductLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1']);
+        ShopeeListing::query()->create([
+            'product_id' => $productId, 'shopee_setting_id' => (int) ShopeeSetting::query()->value('id'),
+            'shopee_category_id' => 100013, 'logistic_ids' => [8003],
+            'description' => $words,
+        ]);
+
+        return $productId;
+    }
+
+    /**
+     * An item saved by Seller Center's rich editor holds an extended
+     * description, a list of text and image fields. Shopee refuses a plain
+     * description onto it, so the update answers in that shape: the
+     * listing's words, line breaks kept, in place of the text, and the
+     * item's own image kept where it was.
+     */
+    public function test_push_update_writes_an_extended_description_in_its_own_shape(): void
+    {
+        $productId = $this->listingWithWords("Qable IC50\n\nAn instrument cable");
+        $this->liveItemWithDescription('extended', [
+            ['field_type' => 'text', 'text' => 'Old words.'],
+            ['field_type' => 'image', 'image_info' => ['image_id' => 'sg-11134-art', 'image_url' => 'https://cf.shopee.sg/file/sg-11134-art']],
+            ['field_type' => 'text', 'text' => 'More old words.'],
+        ]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.listings.push_update', $productId))
+            ->assertSessionHas('status');
+
+        $sent = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/update_item');
+        $this->assertNotNull($sent, 'The update must reach update_item.');
+        $this->assertArrayNotHasKey('description', $sent['body'], 'A plain description is what Shopee refuses on an extended item.');
+        $this->assertSame('extended', $sent['body']['description_type']);
+        $this->assertSame([
+            ['field_type' => 'text', 'text' => "Qable IC50\n\nAn instrument cable"],
+            ['field_type' => 'image', 'image_info' => ['image_id' => 'sg-11134-art']],
+        ], $sent['body']['description_info']['extended_description']['field_list']);
+    }
+
+    public function test_push_update_keeps_a_normal_description_plain(): void
+    {
+        $productId = $this->listingWithWords("Qable IC50\n\nAn instrument cable");
+        $this->liveItemWithDescription('normal', []);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.listings.push_update', $productId))
+            ->assertSessionHas('status');
+
+        $sent = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/update_item');
+        $this->assertSame("Qable IC50\n\nAn instrument cable", $sent['body']['description']);
+        $this->assertArrayNotHasKey('description_type', $sent['body']);
+        $this->assertArrayNotHasKey('description_info', $sent['body']);
+    }
+
+    public function test_the_words_of_an_extended_item_are_its_text_fields(): void
+    {
+        $this->assertSame("First part.\n\nSecond part.", \Extensions\shopee\Services\Shopee\ShopeeDescription::textOf([
+            'description' => '',
+            'description_info' => ['extended_description' => ['field_list' => [
+                ['field_type' => 'text', 'text' => 'First part.'],
+                ['field_type' => 'image', 'image_info' => ['image_id' => 'x']],
+                ['field_type' => 'text', 'text' => 'Second part.'],
+            ]]],
+        ]));
+        $this->assertSame('Plain words.', \Extensions\shopee\Services\Shopee\ShopeeDescription::textOf(['description' => 'Plain words.']));
+    }
+
     public function test_push_update_refuses_a_product_that_is_not_on_shopee(): void
     {
         $productId = $this->seedProduct();

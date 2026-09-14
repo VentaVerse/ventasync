@@ -2145,6 +2145,12 @@ class ShopeeProductGroupController extends Controller
                 $payload['image'] = ['image_id_list' => $imageIds];
             }
 
+            // The description goes in the item's own shape: plain, or Seller Center's extended list.
+            $payload = \Extensions\shopee\Services\Shopee\ShopeeDescription::into(
+                $payload, (string) $payload['description'],
+                (new \Extensions\shopee\Services\Shopee\ShopeeDescription($client))->shapeOf($auth, (int) $itemId)
+            );
+
             $path = '/api/v2/product/update_item';
             $result = $client->shopPost(
                 $auth['mode'],
