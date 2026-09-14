@@ -20,7 +20,9 @@ class LazadaProduct extends Model
         // dropped them SILENTLY - the same disease 0af64cea documented on
         // the group dance's update(). Found again by #195's save-as pin.
         'markup_fixed', 'markup_percent',
-        'total_price', 'lazada_item_id', 'unlinked_at', 'live_status', 'live_checked_at',
+        // The listing's own starting price and parcel; blank follows the catalog.
+        'price', 'weight', 'package_length', 'package_width', 'package_height',
+        'lazada_item_id', 'unlinked_at', 'live_status', 'live_checked_at',
         'last_pushed_at', 'last_push_source', 'last_push_settings',
         'last_push_error', 'last_push_failed_at',
         'sale_percent', 'sale_starts_at', 'sale_ends_at', 'sale_pushed_at',
@@ -28,6 +30,11 @@ class LazadaProduct extends Model
 
     protected $casts = [
         'watermark_all_images' => 'boolean',
+        'price' => 'float',
+        'weight' => 'float',
+        'package_length' => 'integer',
+        'package_width' => 'integer',
+        'package_height' => 'integer',
         'unlinked_at' => 'datetime',
         'live_checked_at' => 'datetime',
         'last_pushed_at' => 'datetime',

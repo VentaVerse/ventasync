@@ -86,7 +86,9 @@ class LazadaPushPrice extends Command implements \App\Integrations\Contracts\Ste
 
     /**
      * The rule the buttons use, resolved once per product: the listing's
-     * own markup, else its group's, else no markup at all.
+     * own markup, else its group's, else no markup at all. The base it is
+     * added to is the listing's own price for a product without
+     * variations, else the catalog's (LazadaStockPushService).
      *
      * @param iterable<LazadaProduct> $listings
      * @return \Closure(int, float): float

@@ -20,7 +20,7 @@ class ShopeeListing extends Model
         'description_prefix_id', 'description_suffix_id', 'watermark_template_id', 'watermark_all_images',
         'product_id',
         'shopee_category_id', 'shopee_brand_id', 'logistic_ids',
-        'markup_percent', 'markup_fixed',
+        'markup_percent', 'markup_fixed', 'price',
         'sale_percent', 'sale_starts_at', 'sale_ends_at', 'shopee_discount_id',
         'item_name', 'description', 'attribute_values', 'image_order', 'weight',
         'package_length', 'package_width', 'package_height',
@@ -38,6 +38,7 @@ class ShopeeListing extends Model
         'last_checked_at' => 'datetime',
         'markup_percent' => 'float',
         'markup_fixed' => 'float',
+        'price' => 'float',
         'sale_percent' => 'float',
         'sale_starts_at' => 'datetime',
         'sale_ends_at' => 'datetime',
@@ -53,6 +54,53 @@ class ShopeeListing extends Model
             + (float) ($this->markup_fixed ?? 0),
             2
         );
+    }
+
+    /**
+     * The price the rule is added to: this listing's own Price when it has
+     * one and the product has no variations, the catalog price otherwise.
+     * A product with variations prices each variation from the catalog.
+     */
+    public function startingPrice(float $corePrice, bool $hasVariations): float
+    {
+        $own = $this->price !== null ? (float) $this->price : 0.0;
+
+        return (! $hasVariations && $own > 0) ? $own : $corePrice;
+    }
+
+    /** What the item sells at: its starting price run through the rule. */
+    public function itemPriceFor(float $corePrice, bool $hasVariations): float
+    {
+        return $this->priceFor($this->startingPrice($corePrice, $hasVariations));
+    }
+
+    /**
+     * The products among these that sell in variations: any combination,
+     * or option values carrying their own SKUs.
+     *
+     * @param list<int> $productIds
+     * @return array<int, true>
+     */
+    public static function withVariations(array $productIds): array
+    {
+        $productIds = array_values(array_unique(array_map('intval', $productIds)));
+        if ($productIds === []) {
+            return [];
+        }
+        $set = array_fill_keys(array_map('intval', array_keys(
+            \App\Integrations\Push\PushLedger::erpVariationSkus($productIds, (string) config('catalog.prefix'))
+        )), true);
+        foreach (\Illuminate\Support\Facades\DB::table('product_option_combinations')
+            ->whereIn('product_id', $productIds)->distinct()->pluck('product_id') as $pid) {
+            $set[(int) $pid] = true;
+        }
+
+        return $set;
+    }
+
+    public static function hasVariations(int $productId): bool
+    {
+        return isset(self::withVariations([$productId])[$productId]);
     }
 
     /** Whether an unattended push has what it needs. */

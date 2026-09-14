@@ -2507,12 +2507,16 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'watermark_template_id' => 'nullable|integer',
             'watermark_all_images' => 'nullable|boolean',
             'description_suffix_id' => 'nullable|integer',
-            // The variation overrides ride this form since 2026-09-07, so one
-            // Save keeps the whole page rather than needing a second press.
+            // The listing's own starting price and parcel; blank follows the catalog.
+            'price' => 'nullable|numeric|min:0|max:99999999',
+            'weight' => 'nullable|numeric|min:0.001|max:99999',
+            'package_length' => 'nullable|integer|min:1|max:99999',
+            'package_width' => 'nullable|integer|min:1|max:99999',
+            'package_height' => 'nullable|integer|min:1|max:99999',
+            // A variation's own price rides this form; its SKU and stock
+            // always come from the catalog.
             'variants' => 'nullable|array',
-            'variants.*.seller_sku' => 'nullable|string|max:64',
-            'variants.*.price' => 'nullable|numeric',
-            'variants.*.quantity' => 'nullable|integer',
+            'variants.*.price' => 'nullable|numeric|min:0|max:99999999',
             'image_order' => 'nullable|string|max:20000',
             ...\App\Integrations\Listings\ListingVariations::rules(),
             ...\App\Integrations\Listings\ListingGroup::rules(),
@@ -2539,6 +2543,21 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $listing->brand_name_override = $noBrand ? 'No Brand' : null;
         $listing->markup_fixed = $data['markup_fixed'] ?? null;
         $listing->markup_percent = $data['markup_percent'] ?? null;
+
+        /* A product with variations prices each variation, so it keeps no
+         * price of its own. Only a save that carried a field changes it. */
+        $pfx = (string) config('catalog.prefix');
+        $hasVariations = DB::table($pfx . 'product_option_value')->where('product_id', (int) $listing->product_id)->exists();
+        if ($hasVariations) {
+            $listing->price = null;
+        } elseif ($request->has('price')) {
+            $listing->price = $blank($data['price'] ?? null);
+        }
+        foreach (['weight', 'package_length', 'package_width', 'package_height'] as $parcelField) {
+            if ($request->has($parcelField)) {
+                $listing->{$parcelField} = $blank($data[$parcelField] ?? null);
+            }
+        }
 
         /* The group dropdown: picking a group moves the product into it,
          * No group takes it out. The membership row points at this listing,
@@ -2595,23 +2614,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
          * price itself is never stored - it is computed from the final
          * price at push time. Clearing the percent clears the rule. */
 
-        // Compute total_price from ERP base price + effective markup
-        $pfx = (string) config('catalog.prefix');
-        $erpPrice = (float) DB::table($pfx . 'product')->where('product_id', (int)$listing->product_id)->value('price');
-
-        $fixedMarkup = $listing->markup_fixed;
-        $percentMarkup = $listing->markup_percent;
-
-        // Fall back to group markup if product has none
-        if ($fixedMarkup === null && $percentMarkup === null) {
-            $mkGroup = $listing->groups()->first();
-            if ($mkGroup) {
-                $fixedMarkup = $mkGroup->markup_fixed;
-                $percentMarkup = $mkGroup->markup_percent;
-            }
-        }
-
-        $listing->total_price = LazadaPushPayload::computeFinalPrice($erpPrice, $fixedMarkup, $percentMarkup);
         $listing->save();
 
         /* The attribute answers ride the same form since 2026-09-06 (the owner:
@@ -3143,9 +3145,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
         $data = $request->validate([
             'variants' => 'array',
-            'variants.*.seller_sku' => 'nullable|string|max:64',
-            'variants.*.price' => 'nullable|numeric',
-            'variants.*.quantity' => 'nullable|integer',
+            'variants.*.price' => 'nullable|numeric|min:0|max:99999999',
         ]);
 
         $this->storeVariants($listing, (array) ($data['variants'] ?? []));
@@ -3154,9 +3154,9 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
     }
 
     /**
-     * The per-variation overrides, saved as given; an empty box means the
-     * catalog's own value. The listing form carries these since
-     * 2026-09-07, so this is shared with update().
+     * The per-variation prices, saved as given; an empty box means the
+     * catalog's own price. SKU and stock are never saved here: both always
+     * come from the catalog. Shared with update().
      *
      * @param  array<string, array<string, mixed>>  $rows
      */
@@ -3174,9 +3174,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                         'product_option_value_id' => ctype_digit($povId) ? (int) $povId : null,
                     ],
                     [
-                        'seller_sku' => isset($row['seller_sku']) && $row['seller_sku'] !== '' ? (string) $row['seller_sku'] : null,
                         'price' => isset($row['price']) && $row['price'] !== '' ? (float) $row['price'] : null,
-                        'quantity' => isset($row['quantity']) && $row['quantity'] !== '' ? (int) $row['quantity'] : null,
                     ]
                 );
             }

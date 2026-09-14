@@ -56,12 +56,16 @@ class TikTokStockPushService
         $povByOvId = $povs->map(fn ($rows) => $rows->keyBy(fn ($r) => (string) $r->option_value_id));
         $povBySku = $povs->map(fn ($rows) => $rows->filter(fn ($r) => trim((string) $r->sku) !== '')->keyBy(fn ($r) => trim((string) $r->sku)));
 
+        // A product without variations starts from its listing's own Price when it has one.
+        $ownPrices = \Extensions\tiktok\Models\TikTokListing::ownPrices($productIds);
+        $varied = TikTokVariationPush::withVariations($productIds);
+
         $priceFor ??= fn (float $base, object $pivot) => $base;
         $out = [];
         foreach ($pivots as $pivot) {
             $pid = (int) $pivot->product_id;
             $product = $products->get($pid);
-            $basePrice = (float) ($product->price ?? 0);
+            $basePrice = (!isset($varied[$pid]) && isset($ownPrices[$pid])) ? $ownPrices[$pid] : (float) ($product->price ?? 0);
             $map = TikTokVariationPush::existingIds($pivot->tiktok_sku_id ?? null);
 
             $skus = [];

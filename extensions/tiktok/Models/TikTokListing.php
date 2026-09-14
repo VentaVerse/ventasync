@@ -26,6 +26,7 @@ class TikTokListing extends Model
         'tiktok_product_id', 'tiktok_sku_id',
         'tiktok_category_id', 'brand_id', 'brand_name', 'attribute_values', 'image_order',
         'title', 'description', 'markup_percent', 'markup_fixed',
+        'price', 'weight', 'package_length', 'package_width', 'package_height',
         'sale_percent', 'sale_starts_at', 'sale_ends_at', 'tiktok_activity_id',
         'last_pushed_at', 'last_push_source', 'last_checked_at',
         'last_push_error', 'last_push_failed_at',
@@ -38,6 +39,11 @@ class TikTokListing extends Model
         'image_order' => 'array',
         'markup_percent' => 'float',
         'markup_fixed' => 'float',
+        'price' => 'float',
+        'weight' => 'float',
+        'package_length' => 'integer',
+        'package_width' => 'integer',
+        'package_height' => 'integer',
         'sale_percent' => 'float',
         'sale_starts_at' => 'datetime',
         'sale_ends_at' => 'datetime',
@@ -81,6 +87,35 @@ class TikTokListing extends Model
             $corePrice + ($corePrice * (float) ($this->markup_percent ?? 0) / 100) + (float) ($this->markup_fixed ?? 0),
             2
         );
+    }
+
+    /**
+     * The price the rule is added to: the listing's own Price when it has
+     * one and the product has no variations, the catalog price otherwise.
+     */
+    public function startingPrice(float $corePrice, bool $hasVariations): float
+    {
+        return (! $hasVariations && (float) ($this->price ?? 0) > 0) ? (float) $this->price : $corePrice;
+    }
+
+    /**
+     * The listings' own Price, by product, for those that have one. Only a
+     * product without variations starts from it; the caller decides that.
+     *
+     * @param  list<int>  $productIds
+     * @return array<int, float>
+     */
+    public static function ownPrices(array $productIds): array
+    {
+        $productIds = array_values(array_unique(array_map('intval', $productIds)));
+        if ($productIds === []) {
+            return [];
+        }
+
+        return static::query()->whereIn('product_id', $productIds)->where('price', '>', 0)
+            ->pluck('price', 'product_id')
+            ->mapWithKeys(fn ($price, $pid) => [(int) $pid => (float) $price])
+            ->all();
     }
 
     /**

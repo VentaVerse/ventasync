@@ -366,6 +366,104 @@ class TiktokListingsTest extends TestCase
         $this->assertSame([], $this->callsFor('POST', '/product/202309/products'));
     }
 
+    /** A listing's own Price is where the rule starts: 500 with ten percent added goes up at 550, on the page and on the push. */
+    public function test_a_listings_own_price_is_the_starting_price_the_rule_is_added_to(): void
+    {
+        $productId = $this->seedProduct('OP', 300);
+        TikTokListing::create(['product_id' => $productId, 'tiktok_category_id' => '900009', 'price' => 500, 'markup_percent' => 10]);
+        $this->callResponses['POST /product/202309/products'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
+            'data' => ['product_id' => 'tt-own', 'skus' => [['id' => 'sku-o', 'seller_sku' => 'TTL-SKU-OP']]]]];
+
+        $page = $this->actingAs($this->manager())->get(route('ext.tiktok.listings.edit', $productId));
+        $page->assertOk();
+        $page->assertSee('name="price"', false);
+        $page->assertSee('550.00');
+
+        $this->actingAs($this->manager())->post(route('ext.tiktok.products.push_direct', $productId))->assertSessionHas('status');
+
+        $creates = $this->callsFor('POST', '/product/202309/products');
+        $this->assertCount(1, $creates);
+        $this->assertSame('550', $creates[0]['body']['skus'][0]['price']['amount']);
+    }
+
+    public function test_a_blank_price_starts_from_the_catalog_price(): void
+    {
+        $productId = $this->seedProduct('BP', 300);
+        TikTokListing::create(['product_id' => $productId, 'tiktok_category_id' => '900009', 'markup_percent' => 10]);
+        $this->callResponses['POST /product/202309/products'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
+            'data' => ['product_id' => 'tt-blank', 'skus' => [['id' => 'sku-b', 'seller_sku' => 'TTL-SKU-BP']]]]];
+
+        $this->actingAs($this->manager())->post(route('ext.tiktok.products.push_direct', $productId))->assertSessionHas('status');
+
+        $this->assertSame('330', $this->callsFor('POST', '/product/202309/products')[0]['body']['skus'][0]['price']['amount']);
+    }
+
+    /** The listing page's update onto the live item starts from the same Price. */
+    public function test_the_listing_page_update_starts_from_the_listings_own_price(): void
+    {
+        $productId = $this->seedProduct('UP', 300);
+        TikTokListing::create(['product_id' => $productId, 'tiktok_product_id' => 'tt-up', 'tiktok_sku_id' => 's-up',
+            'price' => 500, 'markup_percent' => 10, 'last_pushed_at' => now(), 'last_push_source' => 'listing']);
+
+        $this->actingAs($this->manager())->post(route('ext.tiktok.listings.push_update', $productId))->assertSessionHas('status');
+
+        $edits = $this->callsFor('PUT', '/product/202309/products/tt-up');
+        $this->assertCount(1, $edits);
+        $this->assertSame('s-up', $edits[0]['body']['skus'][0]['id']);
+        $this->assertSame('550', $edits[0]['body']['skus'][0]['price']['amount']);
+    }
+
+    /** A product with variations prices each one from the catalog: no Price field, and a submitted one is not kept. */
+    public function test_a_variation_product_has_no_price_field_and_keeps_no_price(): void
+    {
+        $productId = $this->seedProduct('VP', 300);
+        DB::table('product_option_combinations')->insert([
+            'product_id' => $productId, 'sku' => 'TTL-VP-RED', 'quantity' => 2, 'absolute_price' => 0,
+            'status' => 1, 'sort_order' => 1, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $page = $this->actingAs($this->manager())->get(route('ext.tiktok.listings.edit', $productId));
+        $page->assertOk();
+        $page->assertDontSee('name="price"', false);
+        $page->assertSee('name="markup_percent"', false);
+
+        $this->actingAs($this->manager())->put(route('ext.tiktok.listings.update', $productId), [
+            'tiktok_category_id' => '900009', 'price' => 500, 'markup_percent' => 10,
+        ])->assertSessionHas('status');
+
+        $this->assertNull(TikTokListing::where('product_id', $productId)->value('price'));
+    }
+
+    /** The parcel sends the listing's own figures, and each blank one follows the catalog. */
+    public function test_the_parcel_sends_the_listings_own_figures_and_blank_ones_follow_the_catalog(): void
+    {
+        $productId = $this->seedProduct('PC', 300); // the catalog's parcel: 1 kg, 10 x 10 x 10 cm
+
+        $this->actingAs($this->manager())->put(route('ext.tiktok.listings.update', $productId), [
+            'tiktok_category_id' => '900009', 'weight' => 0, 'package_length' => 0,
+        ])->assertSessionHasErrors(['weight', 'package_length']);
+
+        $this->actingAs($this->manager())->put(route('ext.tiktok.listings.update', $productId), [
+            'tiktok_category_id' => '900009', 'price' => '', 'weight' => '2.5', 'package_length' => '30', 'package_width' => '', 'package_height' => '',
+        ])->assertSessionHas('status');
+
+        $listing = TikTokListing::where('product_id', $productId)->first();
+        $this->assertSame(2.5, $listing->weight);
+        $this->assertSame(30, $listing->package_length);
+        $this->assertNull($listing->package_width);
+        $this->assertNull($listing->package_height);
+        $this->assertNull($listing->price);
+
+        $this->callResponses['POST /product/202309/products'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
+            'data' => ['product_id' => 'tt-parcel', 'skus' => [['id' => 'sku-p', 'seller_sku' => 'TTL-SKU-PC']]]]];
+        $this->actingAs($this->manager())->post(route('ext.tiktok.products.push_direct', $productId))->assertSessionHas('status');
+
+        $body = $this->callsFor('POST', '/product/202309/products')[0]['body'];
+        $this->assertSame(['unit' => 'GRAM', 'value' => '2500'], $body['package_weight']);
+        $this->assertSame(['unit' => 'CENTIMETER', 'length' => '30', 'width' => '10', 'height' => '10'], $body['package_dimensions']);
+        $this->assertSame('300', $body['skus'][0]['price']['amount'], 'a blank Price is the catalog price');
+    }
+
     public function test_activate_and_deactivate_pass_the_product_id_through(): void
     {
         $productId = $this->seedProduct('T');

@@ -208,7 +208,7 @@ class ShopeeItemCreate
         );
 
         $payload = [
-            'original_price' => $listing->priceFor((float) $product->price),
+            'original_price' => $listing->itemPriceFor((float) $product->price, ShopeeListing::hasVariations((int) $product->product_id)),
             // Shopee accepts plain text only; description templates may contain HTML.
             'description' => mb_substr(\App\Support\Catalog\DescriptionText::of($content['description']), 0, 5000),
             'item_name' => mb_substr($content['title'], 0, 255),

@@ -47,6 +47,7 @@ final class VentaStockPricePush
             ->where('g.venta_setting_id', $this->setting->id)->whereIn('gp.product_id', $ids)
             ->orderBy('gp.id')->get(['gp.product_id', 'g.markup_percent', 'g.markup_fixed'])
             ->unique('product_id')->keyBy(fn ($r) => (int) $r->product_id);
+        $withVariations = array_flip(\Extensions\venta\Models\VentaListing::withVariations($ids));
 
         foreach ($ids as $pid) {
             $link = $links->get($pid);
@@ -116,7 +117,8 @@ final class VentaStockPricePush
                         $variantCall($this->client->updateVariant($vsku, ['price' => $rule(self::variantPrice($v, $basePrice))]), $vsku);
                     }
                 } else {
-                    $r = $this->client->updateProduct($sku, ['price' => $rule($basePrice)]);
+                    $start = \Extensions\venta\Models\VentaListing::startFor($listings->get($pid), $basePrice, isset($withVariations[$pid]));
+                    $r = $this->client->updateProduct($sku, ['price' => $rule($start)]);
                     if (! ($r['ok'] ?? false)) {
                         $fine = false;
                         $why = (string) ($r['body']['error'] ?? $r['body']['message'] ?? 'no answer');

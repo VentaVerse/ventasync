@@ -320,7 +320,7 @@
             <td class="cc-col-qty x-td-num" data-label="Stock"><span class="x-num">{{ number_format((int) $p->quantity) }}</span></td>
 
             <td class="cc-col-price x-td-num" data-label="Price">
-                <x-money :php="(float) $p->price" />
+                <x-money :php="(float) ($rowPrices[(int) $p->product_id] ?? $p->price)" />
             </td>
 
             <td class="cc-col-chanid" data-label="Shopee ID">

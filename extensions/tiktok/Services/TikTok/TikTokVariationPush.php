@@ -153,11 +153,12 @@ class TikTokVariationPush
             return ['skus' => $skus, 'kind' => 'pov', 'keys' => $keys, 'refused' => null];
         }
 
-        // ── The bare product ──
+        // ── The bare product: the listing's own Price, when set, is where the rule starts ──
         $sellerSku = $erp->sku ?: ($erp->model ?: (string) $productId);
+        $startPrice = \Extensions\tiktok\Models\TikTokListing::ownPrices([$productId])[$productId] ?? $basePrice;
         $sku = [
             'seller_sku' => $sellerSku,
-            'price' => $money($priceFor($basePrice)),
+            'price' => $money($priceFor($startPrice)),
             'inventory' => $inventory((int) ($erp->quantity ?? 0)),
         ];
         $single = $existing['__single__'] ?? null;
@@ -208,6 +209,31 @@ class TikTokVariationPush
         }
 
         return ['__single__' => $raw];
+    }
+
+    /**
+     * The products among these that sell in variations, the way skus()
+     * decides it: combinations, or single-axis option values.
+     *
+     * @param  list<int>  $productIds
+     * @return array<int, true>
+     */
+    public static function withVariations(array $productIds): array
+    {
+        $productIds = array_values(array_unique(array_map('intval', $productIds)));
+        if ($productIds === []) {
+            return [];
+        }
+        $pfx = (string) config('catalog.prefix');
+        $combos = DB::table('product_option_combinations')->whereIn('product_id', $productIds)->distinct()->pluck('product_id');
+        $values = DB::table($pfx . 'product_option_value as pov')
+            ->join($pfx . 'product_option as po', 'po.product_option_id', '=', 'pov.product_option_id')
+            ->join($pfx . 'option as o', 'o.option_id', '=', 'po.option_id')
+            ->whereIn('pov.product_id', $productIds)
+            ->whereIn('o.type', ['select', 'radio'])
+            ->distinct()->pluck('pov.product_id');
+
+        return array_fill_keys($combos->merge($values)->map(fn ($v) => (int) $v)->unique()->values()->all(), true);
     }
 
     /** @return array<int, object> */

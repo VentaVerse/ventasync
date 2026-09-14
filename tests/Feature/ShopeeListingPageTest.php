@@ -1257,4 +1257,88 @@ class ShopeeListingPageTest extends TestCase
                 ->assertDontSee('Plain catalog pedal');
         }
     }
+
+    /** A variation SKU on the catalog product, which makes it a product with variations. */
+    private function giveVariations(int $productId): void
+    {
+        DB::table('product_option_combinations')->insert([
+            'product_id' => $productId, 'sku' => 'LSTP-VAR-1', 'quantity' => 3,
+            'absolute_price' => 300, 'image' => null, 'status' => 1,
+            'sort_order' => 0, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+    }
+
+    public function test_the_page_draws_the_shared_price_and_parcel_cards(): void
+    {
+        $productId = $this->seedProduct(300.0);
+        ShopeeListing::query()->create(['product_id' => $productId, 'price' => 500, 'markup_percent' => 10, 'weight' => 2.5]);
+
+        $r = $this->actingAs($this->manager())->get(route('ext.shopee.listings.edit', $productId))->assertOk();
+
+        $r->assertSee('data-own-price', false);
+        $r->assertSee('Price on Shopee after push');
+        $r->assertSee('550.00');
+        $r->assertSee('Weight in kg');
+        $r->assertDontSee('The catalog now says');
+        $this->assertSame(1, substr_count($r->getContent(), '>Price rule<'), 'one price rule card');
+    }
+
+    public function test_a_variation_product_shows_no_price_field_and_ignores_a_stored_one(): void
+    {
+        $productId = $this->seedProduct(300.0);
+        $this->giveVariations($productId);
+        ShopeeListing::query()->create(['product_id' => $productId, 'price' => 999, 'markup_percent' => 10]);
+
+        $r = $this->actingAs($this->manager())->get(route('ext.shopee.listings.edit', $productId))->assertOk();
+        $r->assertDontSee('data-own-price', false);
+        $r->assertSee('330.00');
+        $r->assertDontSee('1,098.90');
+
+        $this->actingAs($this->manager())->post(route('ext.shopee.listings.update', $productId), [
+            'shopee_category_id' => 100013, 'logistic_ids' => [8003], 'price' => 700,
+        ])->assertSessionHasNoErrors();
+        $this->assertNull(ShopeeListing::query()->where('product_id', $productId)->value('price'));
+    }
+
+    public function test_saving_keeps_the_listings_own_price_and_parcel_and_blank_follows_the_catalog(): void
+    {
+        $productId = $this->seedProduct(300.0);
+        $user = $this->manager();
+
+        $this->actingAs($user)->post(route('ext.shopee.listings.update', $productId), [
+            'shopee_category_id' => 100013, 'logistic_ids' => [8003],
+            'price' => '500', 'weight' => '2.5', 'package_length' => '30', 'package_width' => '', 'package_height' => '',
+        ])->assertSessionHasNoErrors();
+        $listing = ShopeeListing::query()->where('product_id', $productId)->firstOrFail();
+        $this->assertSame(500.0, (float) $listing->price);
+        $this->assertSame(2.5, (float) $listing->weight);
+        $this->assertSame(30, (int) $listing->package_length);
+        $this->assertNull($listing->package_width);
+
+        $this->actingAs($user)->post(route('ext.shopee.listings.update', $productId), [
+            'shopee_category_id' => 100013, 'logistic_ids' => [8003], 'price' => '',
+        ]);
+        $this->assertNull($listing->fresh()->price, 'Blank means the catalog price.');
+
+        $this->actingAs($user)->post(route('ext.shopee.listings.update', $productId), [
+            'shopee_category_id' => 100013, 'logistic_ids' => [8003], 'price' => '-1',
+        ])->assertSessionHasErrors('price');
+    }
+
+    public function test_push_update_sends_the_listings_own_parcel_and_the_catalogs_for_blank_fields(): void
+    {
+        $productId = $this->seedProduct();
+        ShopeeProductLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1']);
+        ShopeeListing::query()->create([
+            'product_id' => $productId, 'shopee_category_id' => 100013, 'logistic_ids' => [8003],
+            'weight' => 2.5, 'package_length' => 30,
+        ]);
+
+        $this->actingAs($this->manager())->post(route('ext.shopee.listings.push_update', $productId));
+
+        $sent = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/update_item');
+        $this->assertNotNull($sent);
+        $this->assertSame(2.5, (float) $sent['body']['weight']);
+        $this->assertSame(['package_length' => 30, 'package_width' => 10, 'package_height' => 5], array_map('intval', $sent['body']['dimension']));
+    }
 }

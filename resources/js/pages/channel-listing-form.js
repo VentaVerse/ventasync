@@ -92,6 +92,8 @@ function initRunningTotal(root) {
     const out = root.querySelector('[data-total-value]');
     const percentInput = document.querySelector('[data-markup-percent]');
     const fixedInput = document.querySelector('[data-markup-fixed]');
+    // The listing's own Price, when typed, is the starting price the rule is added to.
+    const ownInput = document.querySelector('[data-own-price]');
     if (!out || Number.isNaN(base)) return;
 
     /* Only the digits are replaced, never the currency: the figure was
@@ -112,8 +114,10 @@ function initRunningTotal(root) {
         const percent = parseFloat(percentInput ? percentInput.value : '') || 0;
         const fixed = parseFloat(fixedInput ? fixedInput.value : '') || 0;
 
-        let total = base;
-        if (percent > 0) total += (base * percent) / 100;
+        const own = parseFloat(ownInput ? ownInput.value : '');
+        const start = own > 0 ? own : base;
+        let total = start;
+        if (percent > 0) total += (start * percent) / 100;
         if (fixed > 0) total += fixed;
 
         // Rounded once, here, at the display boundary. The number input
@@ -123,6 +127,7 @@ function initRunningTotal(root) {
     }
 
     if (percentInput) percentInput.addEventListener('input', recalc);
+    if (ownInput) ownInput.addEventListener('input', recalc);
     if (fixedInput) fixedInput.addEventListener('input', recalc);
     recalc();
 }

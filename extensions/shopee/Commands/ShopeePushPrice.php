@@ -90,7 +90,8 @@ class ShopeePushPrice extends Command implements \App\Integrations\Contracts\Ste
     /**
      * The rule the buttons use, resolved once per product: the listing's
      * own markup, else the group's through the inherited-settings fill,
-     * else the catalog price untouched.
+     * else the catalog price untouched. A product without variations starts
+     * from the listing's own Price when it has one.
      *
      * @param list<int> $productIds
      * @return \Closure(int, float): float
@@ -100,12 +101,13 @@ class ShopeePushPrice extends Command implements \App\Integrations\Contracts\Ste
         $listings = ShopeeListing::query()->whereIn('product_id', $productIds ?: [0])->get()->keyBy('product_id');
         $inherit = app(ShopeeInheritedSettings::class);
         $groups = $inherit->forProducts($productIds);
+        $withVariations = ShopeeListing::withVariations($productIds);
 
-        return function (int $productId, float $base) use ($listings, $groups, $inherit): float {
+        return function (int $productId, float $base) use ($listings, $groups, $inherit, $withVariations): float {
             $listing = $listings->get($productId) ?? (new ShopeeListing())->forceFill(['product_id' => $productId]);
             $filled = $inherit->fill($listing, $groups[$productId] ?? null)['listing'];
 
-            return (float) $filled->priceFor($base);
+            return (float) $filled->itemPriceFor($base, isset($withVariations[$productId]));
         };
     }
 

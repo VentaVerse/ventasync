@@ -35,6 +35,39 @@ class LazadaPushPayload
         return round($price, 2);
     }
 
+    /**
+     * The price a product without variations starts from before the price
+     * rule is added: the listing's own when set, else the catalog's. A
+     * product with variations prices each variation instead, so callers ask
+     * this only for a product that has none.
+     */
+    public static function startingPrice(?LazadaProduct $listing, float $catalogPrice): float
+    {
+        $own = $listing?->price;
+
+        return ($own !== null && (float) $own > 0) ? (float) $own : $catalogPrice;
+    }
+
+    /**
+     * The parcel a push sends, as Lazada's package_* SKU fields: the
+     * listing's own weight and size, each blank one left out so the next
+     * source fills it.
+     *
+     * @return array<string, string>
+     */
+    public static function ownParcel(LazadaProduct $listing): array
+    {
+        $out = [];
+        foreach (['package_weight' => 'weight', 'package_length' => 'package_length', 'package_width' => 'package_width', 'package_height' => 'package_height'] as $field => $column) {
+            $value = $listing->{$column} ?? null;
+            if ($value !== null && (float) $value > 0) {
+                $out[$field] = (string) $value;
+            }
+        }
+
+        return $out;
+    }
+
     public function buildLazadaProductCreatePayload(LazadaProduct $listing, ?object $setting = null, ?LazadaClient $client = null, array $overrides = []): array
     {
         /* The group's values fill only what the listing leaves blank, on
@@ -398,14 +431,9 @@ class LazadaPushPayload
             foreach ($soldPov as $r) {
                 $key = (string)$r->product_option_value_id;
                 $m = $map->get($key);
-                // SellerSku mapping rule (Option A: all variants must have SKU):
-                // 1) Listing variant override
-                // 2) ERP option SKU (pov.sku) - required
-                // 3) (last resort) ERP base SKU/model
-                $candidate = trim((string)($m && $m->seller_sku ? $m->seller_sku : ''));
-                if ($candidate === '') {
-                    $candidate = trim((string)($r->sku ?? ''));
-                }
+                // SKU and stock always come from the catalog; only the
+                // listing's own price for a variation is an override.
+                $candidate = trim((string)($r->sku ?? ''));
                 if ($candidate === '') {
                     $label = trim((string)($r->option_name ?? ''));
                     $valLabel = trim((string)($r->option_value_name ?? ''));
@@ -432,7 +460,7 @@ class LazadaPushPayload
                 $skuRow = [
                     'SellerSku' => $candidate,
                     'price' => $finalPrice,
-                    'quantity' => $m && $m->quantity !== null ? (int)$m->quantity : (int)$r->quantity,
+                    'quantity' => (int)$r->quantity,
                 ];
 
                 // Variation attribute mapping (1 or 2 keys) so each SKU is distinguishable.
@@ -446,12 +474,12 @@ class LazadaPushPayload
                 $skus[] = $skuRow;
             }
         } else {
-            // No variants in ERP; create a single base SKU.
-            // Use stored total_price (base + markup) if available.
-            $singlePrice = $listing->total_price ?? (float)($product->price ?? 0);
+            // No variants in ERP; create a single base SKU. The listing's own
+            // price, else the catalog's, with the price rule added on top.
+            $singlePrice = self::computeFinalPrice(self::startingPrice($listing, $basePrice), $effectiveFixed, $effectivePercent);
             $skus[] = [
                 'SellerSku' => $fallbackBaseSku,
-                'price' => (float)$singlePrice,
+                'price' => $singlePrice,
                 'quantity' => (int)($product->quantity ?? 0),
             ];
         }
@@ -470,7 +498,9 @@ class LazadaPushPayload
             }
         }
 
-        // If packaging defaults are still missing, try ERP core fields.
+        // The listing's own parcel comes first, then an attribute answer,
+        // then the catalog product's own weight and size.
+        $skuDefaults = self::ownParcel($listing) + $skuDefaults;
         if (!array_key_exists('package_weight', $skuDefaults) && $product && $product->weight !== null) {
             $w = (string)$product->weight;
             if (trim($w) !== '') $skuDefaults['package_weight'] = $w;
@@ -562,7 +592,7 @@ class LazadaPushPayload
             foreach ($skus as $s) {
                 if (empty($s['SellerSku'])) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        'variants' => 'SellerSku is mandatory. Please set SKU in ERP or in Variant Mapping overrides.'
+                        'variants' => 'SellerSku is mandatory. Please set the SKU on the catalog product.'
                     ]);
                 }
             }

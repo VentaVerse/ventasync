@@ -27,10 +27,6 @@
     [$statusLabel, $statusTone] = $live && $live['status'] ? ($statusWords[$live['status']] ?? [ucfirst($live['status']), 'neutral']) : ['Unknown', 'neutral'];
 
     $corePrice = (float) $product->price;
-    $pct = $markupPercent;
-    $fixed = $markupFixed;
-    $hasRule = $pct !== null || $fixed !== null;
-    $nextPrice = round($corePrice + ($corePrice * (float) ($pct ?? 0) / 100) + (float) ($fixed ?? 0), 2);
     $coreDescription = (string) ($product->description ?? '');
     $noSku = $sku === '';
 @endphp
@@ -220,6 +216,10 @@
                     'title' => 'Variations on ' . $storeName, 'storeName' => $storeName, 'canManage' => $canManage,
                 ])
 
+                @include('partials.listing-parcel-card', [
+                    'id' => 'vl', 'canManage' => $canManage, 'listing' => $listing, 'catalog' => $product,
+                ])
+
                 <section class="fm-section" id="vl-only">
                     <div class="fm-section__head"><h2 class="fm-section__title">Only on {{ $storeName }}</h2></div>
                     <div class="fm-sub">
@@ -237,24 +237,12 @@
             </x-slot:main>
 
             <x-slot:rail>
-                <section class="fm-section">
-                    <div class="fm-section__head">
-                        <h2 class="fm-section__title">Price rule</h2>
-                        <x-ui.hint label="About the price rule">The {{ $storeName }} price is never stored: it is the catalogue price run through this rule at every push and price sync. Variations go through the same rule. Without a rule of its own the listing uses its group's.</x-ui.hint>
-                    </div>
-                        <div class="fm-fields fm-fields--2">
-                            <x-ui.field label="Percent added" for="vl-markup-pct" name="markup_percent">
-                                <x-ui.input id="vl-markup-pct" name="markup_percent" type="number" step="0.01" :value="old('markup_percent', $markupPercent ?? '')" placeholder="0" :disabled="!$canManage" />
-                            </x-ui.field>
-                            <x-ui.field label="Fixed amount added" for="vl-markup-fixed" name="markup_fixed">
-                                <x-ui.input id="vl-markup-fixed" name="markup_fixed" type="number" step="0.01" :value="old('markup_fixed', $markupFixed ?? '')" placeholder="0" :disabled="!$canManage" />
-                            </x-ui.field>
-                        </div>
-                        <div class="fm-stats">
-                            <div class="fm-stat"><span class="fm-stat__k">Catalogue price</span><span class="fm-stat__v"><x-money :php="$corePrice" /></span></div>
-                            <div class="fm-stat"><span class="fm-stat__k">Price on {{ $storeName }} after push</span><span class="fm-stat__v"><x-money :php="$hasRule ? $nextPrice : $corePrice" /></span></div>
-                        </div>
-                </section>
+                @include('partials.listing-price-card', [
+                    'id' => 'vl', 'storeName' => $storeName, 'canManage' => $canManage,
+                    'markupPercent' => $markupPercent, 'markupFixed' => $markupFixed,
+                    'price' => $listing?->price, 'corePrice' => $corePrice,
+                    'pushPrice' => $pushPrice, 'hasVariations' => $hasVariations,
+                ])
 
                 @if($listing?->live_checked_at)
                     {{-- Last push sent went with the owner's read on 2026-09-09;

@@ -95,9 +95,10 @@ class VentaProductPush
      *
      * $overrides is the listing's own content (name, description,
      * meta_title, meta_description), each replacing the catalogue's value
-     * only when present. $priceFor runs the core price, and every
-     * variation's price, through the listing's rule; without it the core
-     * price goes as it is, which is what the group push has always sent.
+     * only when present. $priceFor runs the price the product starts from
+     * (VentaListing::startFor), and every variation's price, through the
+     * listing's rule; without it that price goes as it is. The parcel is
+     * the listing's own figures, each blank one the catalogue's.
      *
      * Never overridden: sku. Reconcile matches by it.
      *
@@ -108,23 +109,26 @@ class VentaProductPush
         $pid = (int) $prod->product_id;
         $sku = self::skuOf($prod);
         $price = fn (float $base) => $priceFor ? round((float) $priceFor($base), 2) : $base;
+        $listing = VentaListing::query()->where('venta_setting_id', $this->setting->id)->where('product_id', $pid)->first();
+        $start = VentaListing::startFor($listing, (float) $prod->price, VentaListing::withVariations([$pid]) !== []);
+        $parcel = VentaListing::parcelFor($listing, $prod);
 
         $data = [
             'name'        => $overrides['name'] ?? $prod->name,
             'sku'         => $sku,
-            'price'       => $price((float) $prod->price),
+            'price'       => $price($start),
             'cost'        => (float) ($prod->cost ?? 0),
             'quantity'    => (int) $prod->quantity,
-            'weight'      => (float) ($prod->weight ?? 0),
-            'length'      => (float) ($prod->length ?? 0),
-            'width'       => (float) ($prod->width ?? 0),
-            'height'      => (float) ($prod->height ?? 0),
+            'weight'      => $parcel['weight'],
+            'length'      => $parcel['length'],
+            'width'       => $parcel['width'],
+            'height'      => $parcel['height'],
             'status'      => (bool) $prod->status,
             'description' => \App\Integrations\Listings\ListingContent::wrapDescription(
                 (string) ($overrides['description'] ?? ($prod->description ?? '')),
                 'venta',
                 (int) $this->setting->id,
-                \Extensions\venta\Models\VentaListing::query()->where('venta_setting_id', $this->setting->id)->where('product_id', $pid)->first()
+                $listing
             ),
         ];
 
@@ -168,7 +172,7 @@ class VentaProductPush
             $data['images'] = $images;
         }
 
-        $variants = $this->variants($prod, $sku, $price);
+        $variants = $this->variants($prod, $sku, $price, $parcel['weight']);
         if ($variants !== []) {
             $data['variants'] = $variants;
         }
@@ -183,7 +187,7 @@ class VentaProductPush
      *
      * @return list<array<string, mixed>>
      */
-    private function variants(object $prod, string $sku, callable $price): array
+    private function variants(object $prod, string $sku, callable $price, float $weight): array
     {
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
@@ -229,7 +233,7 @@ class VentaProductPush
                     'price'       => $price((float) $c->absolute_price),
                     'cost'        => (float) $c->absolute_cost,
                     'quantity'    => (int) $c->quantity,
-                    'weight'      => (float) ($prod->weight ?? 0),
+                    'weight'      => $weight,
                     'image'       => $variantImage($c->image ?? null),
                     'status'      => \App\Integrations\Listings\ListingVariations::allows($hidden, $pid, $c->sku),
                 ];
@@ -285,7 +289,7 @@ class VentaProductPush
                 'price'       => $price($variantPrice),
                 'cost'        => $variantCost,
                 'quantity'    => (int) $ov->variant_qty,
-                'weight'      => (float) ($prod->weight ?? 0),
+                'weight'      => $weight,
                 // Legacy single-axis rows (no combination rows) keep no
                 // per-variation image; the product image stands in.
                 'image'       => $variantImage(null),

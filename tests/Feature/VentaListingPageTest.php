@@ -1095,6 +1095,133 @@ class VentaListingPageTest extends TestCase
     }
 
 
+    /** Answers a GET with not found, a create with a new product, and any update with success. */
+    private function fakeAStoreWithoutTheProduct(): void
+    {
+        Http::fake(function ($request) {
+            if ($request->method() === 'POST' && str_ends_with($request->url(), '/api/v1/products')) {
+                return Http::response(['id' => 9001, 'sku' => 'GP-200', 'images' => [], 'images_failed' => []], 201);
+            }
+            if ($request->method() === 'PUT') {
+                return Http::response(['data' => ['sku' => 'GP-200']]);
+            }
+
+            return Http::response(['error' => 'Product not found'], 404);
+        });
+    }
+
+    private function sentPrice(string $method, string $path): ?float
+    {
+        $sent = Http::recorded(fn ($request) => $request->method() === $method && str_ends_with($request->url(), $path));
+
+        return $sent->isEmpty() ? null : (float) ($sent->last()[0]->data()['price'] ?? 0);
+    }
+
+    /** A listing's own Price is where its rule starts: 500 with 10 percent added goes up as 550, from the page and from Push price. */
+    public function test_a_listings_own_price_is_where_its_rule_starts(): void
+    {
+        $store = $this->store();
+        $pid = $this->product('GP-200', 1000);
+        $this->fakeAStoreWithoutTheProduct();
+
+        $this->actingAs($this->manager())
+            ->put(route('ext.venta.listings.update', [$store->id, $pid]), ['price' => '500', 'markup_percent' => '10'])
+            ->assertSessionHasNoErrors();
+        $this->assertSame(500.0, (float) VentaListing::where('venta_setting_id', $store->id)->where('product_id', $pid)->value('price'));
+
+        $this->actingAs($this->manager())->get(route('ext.venta.listings.edit', [$store->id, $pid]))
+            ->assertOk()
+            ->assertSee('id="vl-price"', false)
+            ->assertSee('550.00');
+
+        $this->actingAs($this->manager())->post(route('ext.venta.listings.push', [$store->id, $pid]))->assertRedirect();
+        $this->assertSame(550.0, $this->sentPrice('POST', '/api/v1/products'));
+
+        $this->actingAs($this->manager())->post(route('ext.venta.listings.push_price', [$store->id, $pid]))->assertRedirect();
+        $this->assertSame(550.0, $this->sentPrice('PUT', '/api/v1/products/GP-200'));
+    }
+
+    /** Without a rule of its own, the group's rule is added to the listing's own Price. */
+    public function test_a_groups_rule_is_added_to_the_listings_own_price(): void
+    {
+        $store = $this->store();
+        $pid = $this->product('GP-200', 1000);
+        VentaProductLink::create(['venta_setting_id' => $store->id, 'product_id' => $pid, 'venta_product_id' => 5001, 'sku' => 'GP-200']);
+        VentaListing::create(['venta_setting_id' => $store->id, 'product_id' => $pid, 'price' => 500]);
+        $group = VentaProductGroup::create(['venta_setting_id' => $store->id, 'name' => 'Pedals', 'markup_percent' => 20]);
+        VentaProductGroupProduct::create(['venta_product_group_id' => $group->id, 'product_id' => $pid]);
+        $this->fakeAStoreWithoutTheProduct();
+
+        $this->actingAs($this->manager())->post(route('ext.venta.listings.push_price', [$store->id, $pid]))->assertRedirect();
+
+        $this->assertSame(600.0, $this->sentPrice('PUT', '/api/v1/products/GP-200'));
+    }
+
+    /** A blank Price starts from the catalog price. */
+    public function test_a_blank_price_starts_from_the_catalog_price(): void
+    {
+        $store = $this->store();
+        $pid = $this->product('GP-200', 1000);
+        VentaListing::create(['venta_setting_id' => $store->id, 'product_id' => $pid, 'price' => 500, 'markup_percent' => 10]);
+        $this->fakeAStoreWithoutTheProduct();
+
+        $this->actingAs($this->manager())
+            ->put(route('ext.venta.listings.update', [$store->id, $pid]), ['price' => '', 'markup_percent' => '10'])
+            ->assertSessionHasNoErrors();
+        $this->assertNull(VentaListing::where('venta_setting_id', $store->id)->where('product_id', $pid)->value('price'));
+
+        $this->actingAs($this->manager())->post(route('ext.venta.listings.push', [$store->id, $pid]))->assertRedirect();
+
+        $this->assertSame(1100.0, $this->sentPrice('POST', '/api/v1/products'));
+    }
+
+    /** A product with variations has no Price field, and a Price sent for it anyway is not kept. */
+    public function test_a_product_with_variations_has_no_price_field(): void
+    {
+        $store = $this->store();
+        $pid = $this->product('TEE');
+        DB::table('product_option_combinations')->insert([
+            'product_id' => $pid, 'sku' => 'TEE-S', 'quantity' => 4, 'absolute_price' => 1000, 'status' => 1, 'sort_order' => 1,
+        ]);
+        Http::fake([self::BASE . '/*' => Http::response(['error' => 'Product not found'], 404)]);
+
+        $this->actingAs($this->manager())->get(route('ext.venta.listings.edit', [$store->id, $pid]))
+            ->assertOk()
+            ->assertDontSee('id="vl-price"', false)
+            ->assertSee('id="vl-markup-pct"', false)
+            ->assertSee('id="vl-weight"', false);
+
+        $this->actingAs($this->manager())
+            ->put(route('ext.venta.listings.update', [$store->id, $pid]), ['price' => '500'])
+            ->assertSessionHasNoErrors();
+        $this->assertNull(VentaListing::where('venta_setting_id', $store->id)->where('product_id', $pid)->value('price'));
+    }
+
+    /** The parcel sends the listing's own figures, and each blank one follows the catalog. */
+    public function test_the_parcel_sends_the_listings_own_figures_and_follows_the_catalog_for_the_rest(): void
+    {
+        $store = $this->store();
+        $pid = $this->product();
+        DB::table(config('catalog.prefix') . 'product')->where('product_id', $pid)->update(['weight' => 2, 'length' => 10, 'width' => 20, 'height' => 5]);
+        $this->fakeAStoreWithoutTheProduct();
+
+        $this->actingAs($this->manager())
+            ->put(route('ext.venta.listings.update', [$store->id, $pid]), ['weight' => '1.5', 'package_length' => '30', 'package_width' => '', 'package_height' => ''])
+            ->assertSessionHasNoErrors();
+
+        $this->actingAs($this->manager())->post(route('ext.venta.listings.push', [$store->id, $pid]))->assertRedirect();
+
+        $sent = Http::recorded(fn ($request) => $request->method() === 'POST' && str_ends_with($request->url(), '/api/v1/products'));
+        $this->assertCount(1, $sent);
+        $body = $sent->first()[0]->data();
+        $this->assertSame([1.5, 30.0, 20.0, 5.0], [(float) $body['weight'], (float) $body['length'], (float) $body['width'], (float) $body['height']]);
+
+        $this->actingAs($this->manager())
+            ->put(route('ext.venta.listings.update', [$store->id, $pid]), ['weight' => '0', 'package_length' => '0'])
+            ->assertSessionHasErrors(['weight', 'package_length']);
+        $this->assertSame(1.5, (float) VentaListing::where('venta_setting_id', $store->id)->where('product_id', $pid)->value('weight'));
+    }
+
     /** A listing picks one of its own store's categories; one from outside the store is refused. */
     public function test_a_listing_holds_one_of_its_own_stores_categories(): void
     {

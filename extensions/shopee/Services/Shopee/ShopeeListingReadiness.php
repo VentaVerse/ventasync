@@ -125,6 +125,7 @@ class ShopeeListingReadiness
             : collect();
 
         $variations = app(ShopeeVariationPush::class);
+        $withVariations = ShopeeListing::withVariations($productIds);
         $shopeeStoreId = (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0);
 
         $out = [];
@@ -150,6 +151,10 @@ class ShopeeListingReadiness
                 }
                 if ($isLinked && in_array($gap['code'], [ListingState::GAP_PRICE, ListingState::GAP_IMAGE], true)) {
                     continue; // update_item carries neither
+                }
+                // A listing with its own Price starts from it, not from the catalog's.
+                if ($gap['code'] === ListingState::GAP_PRICE && $listing->startingPrice(0.0, isset($withVariations[$productId])) > 0) {
+                    continue;
                 }
                 $gaps[] = $gap;
             }

@@ -22,7 +22,8 @@ class VentaListing extends Model
     protected $fillable = [
         'venta_setting_id', 'product_id', 'venta_category_id',
         'description_prefix_id', 'description_suffix_id', 'watermark_template_id', 'watermark_all_images',
-        'markup_percent', 'markup_fixed',
+        'markup_percent', 'markup_fixed', 'price',
+        'weight', 'package_length', 'package_width', 'package_height',
         'name', 'description', 'meta_title', 'meta_description', 'image_order',
         'live_status', 'live_checked_at', 'live_price', 'live_quantity',
         'last_pushed_at', 'last_push_source', 'last_push_settings',
@@ -32,6 +33,11 @@ class VentaListing extends Model
         'watermark_all_images' => 'boolean',
         'markup_percent' => 'float',
         'markup_fixed' => 'float',
+        'price' => 'float',
+        'weight' => 'float',
+        'package_length' => 'integer',
+        'package_width' => 'integer',
+        'package_height' => 'integer',
         'live_price' => 'float',
         'live_quantity' => 'integer',
         'live_checked_at' => 'datetime',
@@ -45,15 +51,61 @@ class VentaListing extends Model
         return $this->belongsTo(VentaSetting::class, 'venta_setting_id');
     }
 
-    /** The price this listing sells at, from the core price it never stores. */
-    public function priceFor(float $corePrice): float
+    /** The price this listing sells at: its rule added to the price it starts from (see startFor). */
+    public function priceFor(float $startPrice): float
     {
         return round(
-            $corePrice
-            + ($corePrice * (float) ($this->markup_percent ?? 0) / 100)
+            $startPrice
+            + ($startPrice * (float) ($this->markup_percent ?? 0) / 100)
             + (float) ($this->markup_fixed ?? 0),
             2
         );
+    }
+
+    /**
+     * Where the price rule starts for the product itself: the listing's own
+     * Price when set and the product has no variations, else the catalog
+     * price. Each variation always starts from its catalog price.
+     */
+    public static function startFor(?self $listing, float $corePrice, bool $hasVariations): float
+    {
+        return ! $hasVariations && $listing && $listing->price !== null ? (float) $listing->price : $corePrice;
+    }
+
+    /**
+     * The catalog products among these that sell in variations, as the push
+     * builds them: combinations, else single-axis values.
+     *
+     * @param  list<int>  $productIds
+     * @return list<int>
+     */
+    public static function withVariations(array $productIds): array
+    {
+        $ids = array_values(array_unique(array_map('intval', $productIds)));
+        if ($ids === []) {
+            return [];
+        }
+
+        return array_values(array_unique(array_map('intval', array_merge(
+            \Illuminate\Support\Facades\DB::table('product_option_combinations')->whereIn('product_id', $ids)->distinct()->pluck('product_id')->all(),
+            \Illuminate\Support\Facades\DB::table((string) config('catalog.prefix') . 'product_option_value')->whereIn('product_id', $ids)->distinct()->pluck('product_id')->all(),
+        ))));
+    }
+
+    /**
+     * The parcel every push sends: each of the listing's own figures, else
+     * the catalog's. Weight in kg, the sides in cm.
+     *
+     * @return array{weight: float, length: float, width: float, height: float}
+     */
+    public static function parcelFor(?self $listing, object $catalog): array
+    {
+        return [
+            'weight' => (float) ($listing?->weight ?? $catalog->weight ?? 0),
+            'length' => (float) ($listing?->package_length ?? $catalog->length ?? 0),
+            'width' => (float) ($listing?->package_width ?? $catalog->width ?? 0),
+            'height' => (float) ($listing?->package_height ?? $catalog->height ?? 0),
+        ];
     }
 
     public function hasPriceRule(): bool
@@ -63,7 +115,7 @@ class VentaListing extends Model
 
     /**
      * The price every push sends: the listing's own rule, else its group's
-     * markup, else the catalog price.
+     * markup, else no markup, run on the price it starts from (startFor).
      *
      * @return \Closure(float): float
      */

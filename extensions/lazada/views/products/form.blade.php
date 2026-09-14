@@ -30,10 +30,11 @@
      wire of each is checked against LazadaProductController:
 
        store/update   product_id (create only), primary_category_id, brand_id,
-                      no_brand, markup_fixed, markup_percent, the discount
-                      rule, attributes[<key>] with the __map:<field> prefix
+                      no_brand, price, markup_fixed, markup_percent, weight,
+                      package_length, package_width, package_height,
+                      attributes[<key>] with the __map:<field> prefix
                       intact, and push=1 when the press is Save and push
-       variants       variants[<id>][seller_sku|price|quantity]
+       variants       variants[<id>][price]
 
      Picking a category asks products.attributes_fetch for that category's
      sheet and injects it into the listing form, so the answers submit with
@@ -65,6 +66,16 @@
         ? html_entity_decode((string) $productRow->name, ENT_QUOTES | ENT_HTML5, 'UTF-8')
         : '';
     $basePrice = isset($productRow->price) ? (float) $productRow->price : null;
+
+    // What the next push sends for this listing, before the fields change.
+    $hasVariations = ($variants ?? collect())->count() > 0;
+    $pushPrice = \Extensions\lazada\Services\Lazada\LazadaPushPayload::computeFinalPrice(
+        $hasVariations
+            ? (float) $basePrice
+            : \Extensions\lazada\Services\Lazada\LazadaPushPayload::startingPrice($listing, (float) $basePrice),
+        is_numeric($effectiveFixed) ? (float) $effectiveFixed : null,
+        is_numeric($effectivePercent) ? (float) $effectivePercent : null
+    );
 
     // The catalog's own description, as the Content card's placeholder: the
     // greyed value an empty field follows.
@@ -269,7 +280,7 @@
                         'fields' => [
                             'category' => ['label' => 'Lazada category', 'kind' => 'combo', 'value' => 'input[name="primary_category_id"]', 'text' => '#lz-category', 'reloads' => true],
                             'brand' => ['label' => 'Brand', 'kind' => 'lzbrand', 'id' => '[data-brand-id]', 'none' => '[data-brand-none-flag]', 'text' => '#lz-brand', 'readout' => '[data-brand-picked]'],
-                            'markup_percent' => ['label' => 'Percent added', 'kind' => 'input', 'el' => '#lz-markup-percent'],
+                            'markup_percent' => ['label' => 'Percent added', 'kind' => 'input', 'el' => '#lz-markup-pct'],
                             'markup_fixed' => ['label' => 'Fixed amount added', 'kind' => 'input', 'el' => '#lz-markup-fixed'],
                             'watermark' => ['label' => 'Watermark', 'kind' => 'follow', 'el' => 'select[name="watermark_template_id"]'],
                             'attributes' => ['label' => 'Attribute answers', 'kind' => 'attributes'],
@@ -475,6 +486,10 @@
                         'title' => 'Variations on Lazada', 'storeName' => 'Lazada', 'canManage' => true,
                     ])
 
+                    @include('partials.listing-parcel-card', [
+                        'id' => 'lz', 'canManage' => true, 'listing' => $listing, 'catalog' => $productRow,
+                    ])
+
                     {{-- What only Lazada has, in one place at the end of the
                          main column: the per-variation overrides. They ride
                          this form since 2026-09-07, so Save keeps them with
@@ -484,7 +499,7 @@
                             <h2 class="fm-section__title">Only on Lazada</h2>
                         </div>
                         <div class="fm-sub">
-                            <h3 class="fm-sub__title">Variation overrides <x-ui.hint label="About the overrides">Lazada gets the catalog's own SKU, price and stock for each variation unless one is overridden here. Anything left empty stays as the catalog has it.</x-ui.hint></h3>
+                            <h3 class="fm-sub__title">Variation prices</h3>
                             @if(($variants ?? collect())->count() === 0)
                                 <p class="fm-section__note">This product has no variations, so Lazada gets it as a single SKU. Nothing to map.</p>
                             @else
@@ -496,9 +511,7 @@
                                                 <th scope="col" class="fm-vcol-sku">Catalog SKU</th>
                                                 <th scope="col" class="fm-vcol-price fm-vcol-num">Catalog price</th>
                                                 <th scope="col" class="fm-vcol-qty fm-vcol-num">Catalog stock</th>
-                                                <th scope="col" class="fm-vcol-sku">Lazada SKU</th>
                                                 <th scope="col" class="fm-vcol-price fm-vcol-num">Lazada price</th>
-                                                <th scope="col" class="fm-vcol-qty fm-vcol-num">Lazada stock</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -515,23 +528,12 @@
                                                     <td class="fm-vcol-sku" data-label="Catalog SKU"><span class="x-num">{{ $variant->sku ?: 'None' }}</span></td>
                                                     <td class="fm-vcol-price fm-num" data-label="Catalog price">{{ number_format((float) ($variant->absolute_price ?? 0), 2) }}</td>
                                                     <td class="fm-vcol-qty fm-num" data-label="Catalog stock">{{ $variant->quantity }}</td>
-                                                    <td class="fm-vcol-sku" data-label="Lazada SKU">
-                                                        <input class="x-input" name="variants[{{ $variantId }}][seller_sku]"
-                                                               value="{{ old('variants.' . $variantId . '.seller_sku', $mapped?->seller_sku) }}"
-                                                               placeholder="Same as catalog"
-                                                               aria-label="Lazada SKU for {{ $variantLabel }}">
-                                                    </td>
                                                     <td class="fm-vcol-price fm-vcol-num" data-label="Lazada price">
                                                         <input class="x-input fm-num" name="variants[{{ $variantId }}][price]"
+                                                               type="number" step="0.01" min="0"
                                                                value="{{ old('variants.' . $variantId . '.price', $mapped?->price) }}"
                                                                placeholder="Same"
                                                                aria-label="Lazada price for {{ $variantLabel }}">
-                                                    </td>
-                                                    <td class="fm-vcol-qty fm-vcol-num" data-label="Lazada stock">
-                                                        <input class="x-input fm-num" name="variants[{{ $variantId }}][quantity]"
-                                                               value="{{ old('variants.' . $variantId . '.quantity', $mapped?->quantity) }}"
-                                                               placeholder="Same"
-                                                               aria-label="Lazada stock for {{ $variantLabel }}">
                                                     </td>
                                                 </tr>
                                             @endforeach
@@ -545,42 +547,12 @@
             </x-slot:main>
 
             <x-slot:rail>
-                <section class="fm-section">
-                    <div class="fm-section__head">
-                        <h2 class="fm-section__title">Price rule</h2>
-                        <x-ui.hint label="About the price rule">The percentage is added to the catalog price first, then the fixed amount on top. The Lazada price is never stored: it is the catalog price run through this rule at every push and price sync. Without a rule of its own the listing uses its group's.</x-ui.hint>
-                    </div>
-                        <div class="fm-fields fm-fields--2">
-                            <x-ui.field label="Percent added" for="lz-markup-percent" name="markup_percent">
-                                <div class="cs-inline">
-                                    <x-ui.input id="lz-markup-percent" name="markup_percent" type="number" step="0.01" min="0"
-                                                class="fm-input--num cs-days" data-markup-percent
-                                                value="{{ $effectivePercent }}" placeholder="0" />
-                                    <span class="cs-inline__unit">%</span>
-                                </div>
-                            </x-ui.field>
-
-                            <x-ui.field label="Fixed amount added" for="lz-markup-fixed" name="markup_fixed">
-                                <x-ui.input id="lz-markup-fixed" name="markup_fixed" type="number" step="0.01" min="0"
-                                            class="fm-input--num" data-markup-fixed
-                                            value="{{ $effectiveFixed }}" placeholder="0.00" />
-                            </x-ui.field>
-                        </div>
-
-                        @if($basePrice !== null)
-                            {{-- The one figure the two fields above raise a
-                                 question about. The currency is resolved by
-                                 App\Support\Money here in Blade; the script
-                                 only replaces the number, because nothing in
-                                 JavaScript can read the default currency off
-                                 the currencies table. --}}
-                            <div class="cl-total" data-running-total data-base-price="{{ $basePrice }}">
-                                <span class="cl-total__k">Price on Lazada after push</span>
-                                <span class="cl-total__v" data-total-value><x-money :php="(float) $basePrice" /></span>
-                                <span class="cl-total__note">Catalog price <x-money :php="(float) $basePrice" /></span>
-                            </div>
-                        @endif
-                </section>
+                @include('partials.listing-price-card', [
+                    'id' => 'lz', 'storeName' => 'Lazada', 'canManage' => true,
+                    'markupPercent' => $effectivePercent, 'markupFixed' => $effectiveFixed,
+                    'price' => $listing->price, 'corePrice' => (float) $basePrice,
+                    'pushPrice' => $pushPrice, 'hasVariations' => $hasVariations,
+                ])
             </x-slot:rail>
         </x-channel.listing-body>
     </form>

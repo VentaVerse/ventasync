@@ -504,4 +504,117 @@ class ShopeeListingTest extends TestCase
         $add = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/add_item');
         $this->assertStringNotContainsString('Not ours.', (string) ($add['body']['description'] ?? ''));
     }
+
+    /** A listing's own Price is where the rule starts, on the first push, the review, the price sync and the cron. */
+    public function test_a_listings_own_price_500_with_10_percent_added_pushes_550(): void
+    {
+        $productId = $this->seedProduct(300.0);
+        ShopeeListing::create([
+            'product_id' => $productId, 'shopee_category_id' => 100200,
+            'logistic_ids' => [8003], 'markup_percent' => 10, 'price' => 500,
+        ]);
+        $user = $this->manager();
+
+        $this->actingAs($user)->getJson(route('ext.shopee.products.push_review', $productId))
+            ->assertOk()->assertJson(['price' => '550.00', 'core_price' => '300.00']);
+
+        $this->actingAs($user)->post(route('ext.shopee.products.push_direct', $productId));
+        $add = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/add_item');
+        $this->assertNotNull($add, 'The push must reach add_item.');
+        $this->assertSame(550.0, (float) $add['body']['original_price']);
+        $this->assertSame(550.0, (float) ShopeeListing::query()->where('product_id', $productId)->first()->last_push_settings['price']);
+
+        $this->sentPayloads = [];
+        $this->actingAs($user)->post(route('ext.shopee.products.sync_price', $productId))->assertSessionMissing('error');
+        $update = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/update_price');
+        $this->assertNotNull($update);
+        $this->assertSame(550.0, (float) $update['body']['price_list'][0]['original_price']);
+
+        $this->sentPayloads = [];
+        $this->artisan('shopee:push-price')->assertExitCode(0);
+        $update = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/update_price');
+        $this->assertNotNull($update);
+        $this->assertSame(550.0, (float) $update['body']['price_list'][0]['original_price']);
+    }
+
+    public function test_a_group_push_starts_from_the_listings_own_price(): void
+    {
+        $productId = $this->seedProduct(300.0);
+        $group = $this->seedCatchAllGroup();
+        DB::table('shopee_product_group_products')->insert(['shopee_product_group_id' => $group->id, 'product_id' => $productId]);
+        \Extensions\shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 100013], ['attributes' => []]);
+        ShopeeListing::query()->create(['product_id' => $productId, 'price' => 500, 'markup_percent' => 10]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.product-groups.push', $group->id), ['ids' => [$productId]]);
+
+        $add = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/add_item');
+        $this->assertNotNull($add, 'The group push must reach add_item.');
+        $this->assertSame(550.0, (float) $add['body']['original_price']);
+    }
+
+    public function test_a_blank_price_starts_from_the_catalog_price(): void
+    {
+        $productId = $this->seedProduct(300.0);
+        ShopeeListing::create([
+            'product_id' => $productId, 'shopee_category_id' => 100200,
+            'logistic_ids' => [8003], 'markup_percent' => 10, 'price' => null,
+        ]);
+
+        $this->actingAs($this->manager())->post(route('ext.shopee.products.push_direct', $productId));
+
+        $add = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/add_item');
+        $this->assertNotNull($add);
+        $this->assertSame(330.0, (float) $add['body']['original_price']);
+    }
+
+    /** A catalog product without a price is still ready when the listing has its own. */
+    public function test_a_listings_own_price_answers_a_catalog_without_one(): void
+    {
+        $productId = $this->seedProduct(0.0);
+        ShopeeListing::create(['product_id' => $productId, 'shopee_category_id' => 100200, 'logistic_ids' => [8003]]);
+        $gaps = fn () => array_column(app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)->forProducts([$productId])[$productId]['gaps'], 'code');
+
+        $this->assertContains(\App\Integrations\Listings\ListingState::GAP_PRICE, $gaps());
+
+        ShopeeListing::query()->where('product_id', $productId)->update(['price' => 500]);
+        $this->assertNotContains(\App\Integrations\Listings\ListingState::GAP_PRICE, $gaps());
+    }
+
+    /** The listing's own weight and size go on every door; a blank field follows the catalog. */
+    public function test_the_parcels_own_values_are_sent_and_blank_ones_follow_the_catalog(): void
+    {
+        $parcel = ['weight' => 2.5, 'package_length' => 30, 'package_width' => null, 'package_height' => null];
+        $expect = fn (array $body) => [
+            (float) $body['weight'],
+            (int) $body['dimension']['package_length'], (int) $body['dimension']['package_width'], (int) $body['dimension']['package_height'],
+        ];
+
+        // The first push.
+        $direct = $this->seedProduct(300.0);
+        ShopeeListing::create(['product_id' => $direct, 'shopee_category_id' => 100200, 'logistic_ids' => [8003]] + $parcel);
+        $this->actingAs($this->manager())->post(route('ext.shopee.products.push_direct', $direct));
+        $add = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/add_item');
+        $this->assertNotNull($add);
+        $this->assertSame([2.5, 30, 10, 5], $expect($add['body']));
+
+        // The group push.
+        $this->sentPayloads = [];
+        $grouped = $this->seedProduct(300.0);
+        $group = $this->seedCatchAllGroup();
+        DB::table('shopee_product_group_products')->insert(['shopee_product_group_id' => $group->id, 'product_id' => $grouped]);
+        \Extensions\shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 100013], ['attributes' => []]);
+        ShopeeListing::create(['product_id' => $grouped] + $parcel);
+        $this->actingAs($this->manager())->post(route('ext.shopee.product-groups.push', $group->id), ['ids' => [$grouped]]);
+        $add = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/add_item');
+        $this->assertNotNull($add, 'The group push must reach add_item.');
+        $this->assertSame([2.5, 30, 10, 5], $expect($add['body']));
+
+        // The group update, onto the item the group push just made.
+        $this->sentPayloads = [];
+        $this->actingAs($this->manager())->post(route('ext.shopee.product-groups.updateProduct', $group->id), ['ids' => [$grouped]]);
+        $update = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/update_item');
+        $this->assertNotNull($update, 'The group update must reach update_item.');
+        $this->assertSame([2.5, 30, 10, 5], $expect($update['body']));
+    }
 }

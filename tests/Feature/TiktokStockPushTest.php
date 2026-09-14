@@ -324,6 +324,39 @@ class TiktokStockPushTest extends TestCase
         $this->assertSame(['s1' => '1150', 's2' => '1250', 's3' => '1350', 's4' => '1450'], $byId->all());
     }
 
+    /** The price push starts a product without variations from its listing's own Price; a product with variations never does. */
+    public function test_the_price_cron_starts_a_simple_product_from_the_listings_own_price(): void
+    {
+        $pfx = (string) config('catalog.prefix');
+        $simple = DB::table($pfx . 'product')->insertGetId([
+            'model' => 'TTS-1', 'sku' => 'TTS', 'quantity' => 4, 'price' => 300,
+            'status' => 1, 'image' => 'catalog/__tt-stock-test.png', 'weight' => 1, 'length' => 10, 'width' => 10, 'height' => 10,
+            'manufacturer_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+        ]);
+        ['product_id' => $varied] = $this->seedTwoAxisProduct();
+        $group = TikTokProductGroup::create(['name' => 'Own price group', 'tiktok_category_id' => '900001']);
+        TikTokProductGroupProduct::create([
+            'tiktok_product_group_id' => $group->id, 'product_id' => $simple,
+            'tiktok_product_id' => 'tt-s', 'tiktok_sku_id' => 'single-1', 'sync_status' => 'pushed', 'last_pushed_at' => now(),
+        ]);
+        TikTokProductGroupProduct::create([
+            'tiktok_product_group_id' => $group->id, 'product_id' => $varied,
+            'tiktok_product_id' => 'tt-9', 'tiktok_sku_id' => json_encode(self::SKU_IDS), 'sync_status' => 'pushed', 'last_pushed_at' => now(),
+        ]);
+        (new \Extensions\tiktok\Models\TikTokListing())->forceFill(['product_id' => $simple, 'price' => 500, 'markup_percent' => 10])->save();
+        (new \Extensions\tiktok\Models\TikTokListing())->forceFill(['product_id' => $varied, 'price' => 5, 'markup_percent' => 10])->save();
+
+        $this->artisan('tiktok:push-price')->assertExitCode(0);
+
+        $calls = $this->callsFor('POST', '/product/202309/products/tt-s/prices/update');
+        $this->assertCount(1, $calls);
+        $this->assertSame([['id' => 'single-1', 'price' => ['amount' => '550', 'currency' => 'PHP']]], $calls[0]['body']['skus']);
+
+        $calls = $this->callsFor('POST', '/product/202309/products/tt-9/prices/update');
+        $byId = collect($calls[0]['body']['skus'])->keyBy('id')->map(fn ($s) => $s['price']['amount']);
+        $this->assertSame(['s1' => '1210', 's2' => '1320', 's3' => '1430', 's4' => '1540'], $byId->all(), 'each variation from the catalog, the stored Price ignored');
+    }
+
     /** A group's rule is the same sum as a listing's own, rounded the same, so the page's figure and the push agree. */
     public function test_a_groups_rule_is_the_same_sum_as_a_listings(): void
     {

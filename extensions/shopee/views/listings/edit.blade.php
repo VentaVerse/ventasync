@@ -33,12 +33,7 @@
         : [null, null];
 
     $corePrice = (float) $product->price;
-    $pct = $shown->markup_percent;
-    $fixed = $shown->markup_fixed;
-    $hasRule = $pct !== null || $fixed !== null;
-    $nextPrice = round($corePrice + ($corePrice * (float) ($pct ?? 0) / 100) + (float) ($fixed ?? 0), 2);
-
-    $pushPrice = $hasRule ? $nextPrice : $corePrice;
+    $pushPrice = $shown->itemPriceFor($corePrice, $hasVariations);
 
     $selectedCategoryId = (int) old('shopee_category_id', $shown->shopee_category_id ?? 0);
     $oldLogisticIds = old('logistic_ids');
@@ -58,9 +53,6 @@
         : null;
     $staleSincePush = $link && ($listing->last_pushed_at ?? null) && $coreChangedAt
         && $coreChangedAt->gt($listing->last_pushed_at);
-
-    $weightDiverges = ($listing->weight ?? null) !== null && (float) $listing->weight !== (float) $product->weight
-        ? (string) (float) $product->weight : null;
 
     // Readiness: what the one-click push still needs before it can run.
     // Computed by the shared ShopeeListingReadiness, the same answer the
@@ -387,44 +379,16 @@
                     'title' => 'Variations on Shopee', 'storeName' => 'Shopee', 'canManage' => $canManage,
                 ])
 
-                {{-- What only Shopee has, in one place at the end of the main
-                     column: the parcel Shopee quotes shipping from and the
+                @include('partials.listing-parcel-card', [
+                    'id' => 'sl', 'canManage' => $canManage, 'listing' => $listing, 'catalog' => $product,
+                    'weightMin' => '0.01',
+                ])
+
+                {{-- What only Shopee has, at the end of the main column: the
                      couriers it is offered on. --}}
                 <section class="fm-section" id="sl-only">
                     <div class="fm-section__head">
                         <h2 class="fm-section__title">Only on Shopee</h2>
-                    </div>
-                    <div class="fm-sub">
-                        <h3 class="fm-sub__title">Parcel <x-ui.hint label="About the parcel">What Shopee quotes shipping from. Empty fields follow the catalog's figures.</x-ui.hint></h3>
-                        <div class="fm-fields">
-                            <x-ui.field label="Weight in kg" for="sl-weight" name="weight">
-                                <x-ui.input id="sl-weight" name="weight" type="number" step="0.01" min="0.01"
-                                            :value="old('weight', $listing->weight ?? '')"
-                                            placeholder="{{ (float) $product->weight }}"
-                                            :disabled="!$canManage" />
-                                @if($weightDiverges)
-                                    <div class="fm-hint">The catalog now says {{ $weightDiverges }} kg. Clearing this field follows it again.</div>
-                                @endif
-                            </x-ui.field>
-                            <x-ui.field label="Length in cm" for="sl-length" name="package_length">
-                                <x-ui.input id="sl-length" name="package_length" type="number" min="1"
-                                            :value="old('package_length', $listing->package_length ?? '')"
-                                            placeholder="{{ (int) $product->length }}"
-                                            :disabled="!$canManage" />
-                            </x-ui.field>
-                            <x-ui.field label="Width in cm" for="sl-width" name="package_width">
-                                <x-ui.input id="sl-width" name="package_width" type="number" min="1"
-                                            :value="old('package_width', $listing->package_width ?? '')"
-                                            placeholder="{{ (int) $product->width }}"
-                                            :disabled="!$canManage" />
-                            </x-ui.field>
-                            <x-ui.field label="Height in cm" for="sl-height" name="package_height">
-                                <x-ui.input id="sl-height" name="package_height" type="number" min="1"
-                                            :value="old('package_height', $listing->package_height ?? '')"
-                                            placeholder="{{ (int) $product->height }}"
-                                            :disabled="!$canManage" />
-                            </x-ui.field>
-                        </div>
                     </div>
                     <div class="fm-sub" id="sl-couriers">
                         <h3 class="fm-sub__title">Couriers <span class="fm-req" aria-hidden="true">*</span><span class="x-sr">(required)</span> <x-ui.hint label="About the couriers">Which of Shopee's couriers this listing is offered on. Pick at least one.</x-ui.hint></h3>
@@ -464,36 +428,12 @@
             </x-slot:main>
 
             <x-slot:rail>
-                <section class="fm-section">
-                    <div class="fm-section__head">
-                        <h2 class="fm-section__title">Price rule</h2>
-                        <x-ui.hint label="About the price rule">The Shopee price is never stored: it is the catalog price run through this rule at every push and price sync, so catalog price changes carry through on their own. Without a rule of its own the listing uses its group's.</x-ui.hint>
-                    </div>
-                    <div class="fm-fields fm-fields--2">
-                        <x-ui.field label="Percent added" for="sl-markup-pct" name="markup_percent">
-                            <x-ui.input id="sl-markup-pct" name="markup_percent" type="number" step="0.01"
-                                        :value="old('markup_percent', $shown->markup_percent ?? '')"
-                                        placeholder="0"
-                                        :disabled="!$canManage" />
-                        </x-ui.field>
-                        <x-ui.field label="Fixed amount added" for="sl-markup-fixed" name="markup_fixed">
-                            <x-ui.input id="sl-markup-fixed" name="markup_fixed" type="number" step="0.01"
-                                        :value="old('markup_fixed', $shown->markup_fixed ?? '')"
-                                        placeholder="0"
-                                        :disabled="!$canManage" />
-                        </x-ui.field>
-                    </div>
-                    <div class="fm-stats">
-                        <div class="fm-stat">
-                            <span class="fm-stat__k">Catalog price</span>
-                            <span class="fm-stat__v"><x-money :php="$corePrice" /></span>
-                        </div>
-                        <div class="fm-stat">
-                            <span class="fm-stat__k">Price on Shopee after push</span>
-                            <span class="fm-stat__v"><x-money :php="$pushPrice" /></span>
-                        </div>
-                    </div>
-                </section>
+                @include('partials.listing-price-card', [
+                    'id' => 'sl', 'storeName' => 'Shopee', 'canManage' => $canManage,
+                    'markupPercent' => $shown->markup_percent, 'markupFixed' => $shown->markup_fixed,
+                    'price' => $hasVariations ? null : ($listing->price ?? null),
+                    'corePrice' => $corePrice, 'pushPrice' => $pushPrice, 'hasVariations' => $hasVariations,
+                ])
 
             </x-slot:rail>
         </x-channel.listing-body>

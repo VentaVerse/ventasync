@@ -342,7 +342,7 @@
                             $menu['push'] = ['href' => route('ext.tiktok.listings.edit', [$pid, 'back' => request()->getRequestUri()]), 'label' => 'Push to TikTok Shop'];
                             $menu['link'] = ['action' => route('ext.tiktok.products.check'), 'fields' => ['product_ids[]' => $pid]];
                         } else {
-                            $menu['update'] = ['action' => route('ext.tiktok.listings.push_update', $pid), 'label' => 'Update on TikTok Shop', 'confirm' => "Push this listing's content and settings onto the live TikTok Shop product? Title, description, package, category, brand and attributes are updated. Price and stock are not touched.", 'verb' => 'Push update', 'tone' => 'primary'];
+                            $menu['update'] = ['action' => route('ext.tiktok.listings.push_update', $pid), 'label' => 'Update on TikTok Shop', 'confirm' => "Push this listing's content and settings onto the live TikTok Shop product? Title, description, package, category, brand, attributes, price and stock are updated.", 'verb' => 'Push update', 'tone' => 'primary'];
                             $menu['stock'] = route('ext.tiktok.products.push_stock', $pid);
                             $menu['price'] = route('ext.tiktok.products.push_price', $pid);
                             if ($rowState?->state === $stateClass::LIVE) {

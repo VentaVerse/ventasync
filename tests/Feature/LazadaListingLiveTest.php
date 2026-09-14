@@ -619,10 +619,11 @@ class LazadaListingLiveTest extends TestCase
     }
 
     /**
-     * The variation overrides ride the listing form since the one listing
-     * shape (2026-09-07): one Save keeps the whole page.
+     * A variation's own price rides the listing form, so one Save keeps the
+     * whole page. A typed SKU or stock count is never saved: both always
+     * come from the catalog.
      */
-    public function test_one_save_keeps_the_variation_overrides_too(): void
+    public function test_one_save_keeps_the_variation_price_and_never_a_sku_or_stock(): void
     {
         $productId = $this->seedProduct('Variant product', 'LZT-VAR');
         $listing = LazadaProduct::query()->create(['product_id' => $productId]);
@@ -641,10 +642,131 @@ class LazadaListingLiveTest extends TestCase
 
         $variant = \Extensions\lazada\Models\LazadaProductVariant::query()
             ->where('lazada_product_id', $listing->id)->where('product_option_value_id', $povId)->first();
-        $this->assertNotNull($variant, 'the listing form saves the variation overrides');
-        $this->assertSame('LZ-RED', $variant->seller_sku);
+        $this->assertNotNull($variant, 'the listing form saves the variation price');
         $this->assertEquals(199.5, (float) $variant->price);
-        $this->assertSame(7, (int) $variant->quantity);
+        $this->assertNull($variant->seller_sku, 'a typed SKU is not saved');
+        $this->assertNull($variant->quantity, 'a typed stock count is not saved');
+    }
+
+    public function test_a_listing_price_is_the_start_the_price_rule_is_added_to(): void
+    {
+        $pid = $this->productWithPicture('LZ-OWNPRICE');
+        $listing = $this->listingOn($pid, null);
+        $listing->forceFill(['price' => 500, 'markup_percent' => 10])->save();
+
+        $skus = $this->skusSent($listing->fresh());
+        $this->assertCount(1, $skus);
+        $this->assertEquals(550.0, (float) $skus[0]['price'], 'the listing price with 10 percent added');
+
+        // The stock and price sender, through the rule the automation and the buttons use.
+        $listing->forceFill(['lazada_item_id' => '9001'])->save();
+        \Extensions\lazada\Models\LazadaProductVariant::create(['lazada_product_id' => $listing->id, 'seller_sku' => 'LZ-OWNPRICE', 'sku_id' => 77]);
+        $listings = LazadaProduct::query()->whereKey($listing->id)->get();
+        $setting = LazadaSetting::defaultStore()->decrypted();
+        app(\Extensions\lazada\Services\Lazada\LazadaStockPricePush::class)->push(
+            'price', $setting, LazadaSetting::activeCredentials($setting), $listings,
+            (string) config('catalog.prefix'), \Extensions\lazada\Commands\LazadaPushPrice::priceRule($listings)
+        );
+
+        $sent = collect($this->sentPosts)->firstWhere('path', '/product/price_quantity/update');
+        $this->assertNotNull($sent, 'the price reaches Lazada');
+        $this->assertStringContainsString('<Price>550.00</Price>', (string) $sent['params']['payload']);
+    }
+
+    public function test_a_blank_listing_price_starts_from_the_catalog_price(): void
+    {
+        $pid = $this->productWithPicture('LZ-CATPRICE');
+        $listing = $this->listingOn($pid, null);
+        $listing->forceFill(['price' => null, 'markup_percent' => 10])->save();
+
+        $skus = $this->skusSent($listing->fresh());
+
+        $this->assertEquals(110.0, (float) $skus[0]['price'], 'the catalog price of 100 with 10 percent added');
+    }
+
+    public function test_the_page_has_no_price_field_for_a_product_with_variations_and_no_sku_or_stock_input(): void
+    {
+        $pid = $this->productWithPicture('LZ-PAGEVAR');
+        $povs = $this->addOption($pid, 'Color', ['Black', 'Red'], ['Black' => 'LZ-PAGEVAR-B', 'Red' => 'LZ-PAGEVAR-R']);
+        LazadaProduct::query()->create(['product_id' => $pid]);
+
+        $page = $this->actingAs($this->manager())->get(route('ext.lazada.products.edit', $pid))->assertOk();
+        $page->assertSee('Price rule');
+        $page->assertDontSee('name="price"', false);
+        $page->assertSee('name="variants[' . $povs['Red'] . '][price]"', false);
+        $page->assertDontSee('[seller_sku]', false);
+        $page->assertDontSee('[quantity]', false);
+        $page->assertSee('name="package_length"', false);
+
+        $simple = $this->seedProduct('Simple page product', 'LZ-PAGESIMPLE');
+        LazadaProduct::query()->create(['product_id' => $simple]);
+        $this->actingAs($this->manager())->get(route('ext.lazada.products.edit', $simple))->assertOk()
+            ->assertSee('name="price"', false);
+    }
+
+    public function test_save_keeps_the_listing_price_and_parcel_and_no_price_for_a_product_with_variations(): void
+    {
+        $pid = $this->seedProduct('Saved parcel product', 'LZ-SAVE');
+        $listing = LazadaProduct::query()->create(['product_id' => $pid]);
+
+        $this->actingAs($this->manager())
+            ->put(route('ext.lazada.products.update', $pid), [
+                'primary_category_id' => 300400, 'brand_id' => 5150,
+                'price' => '500', 'weight' => '1.2', 'package_length' => '30', 'package_width' => '', 'package_height' => '',
+            ])->assertSessionHasNoErrors();
+
+        $listing->refresh();
+        $this->assertEquals(500.0, $listing->price);
+        $this->assertEquals(1.2, $listing->weight);
+        $this->assertSame(30, $listing->package_length);
+        $this->assertNull($listing->package_width, 'a blank size follows the catalog');
+        $this->assertNull($listing->package_height);
+
+        $this->actingAs($this->manager())
+            ->put(route('ext.lazada.products.update', $pid), [
+                'primary_category_id' => 300400, 'brand_id' => 5150, 'weight' => '0', 'package_width' => '0',
+            ])->assertSessionHasErrors(['weight', 'package_width']);
+
+        $varied = $this->seedProduct('Saved variation product', 'LZ-SAVEVAR');
+        $this->addOption($varied, 'Color', ['Black'], ['Black' => 'LZ-SAVEVAR-B']);
+        $variedListing = LazadaProduct::query()->create(['product_id' => $varied]);
+        $this->actingAs($this->manager())
+            ->put(route('ext.lazada.products.update', $varied), [
+                'primary_category_id' => 300400, 'brand_id' => 5150, 'price' => '500',
+            ])->assertSessionHasNoErrors();
+        $this->assertNull($variedListing->fresh()->price, 'a product with variations keeps no price of its own');
+    }
+
+    public function test_the_listing_parcel_is_sent_and_a_blank_field_follows_the_catalog(): void
+    {
+        $pid = $this->productWithPicture('LZ-PARCEL');
+        $listing = $this->listingOn($pid, null);
+        $listing->forceFill(['weight' => 1.25, 'package_length' => 30])->save();
+
+        $skus = $this->skusSent($listing->fresh());
+
+        $this->assertEquals(1.25, (float) $skus[0]['package_weight'], "the listing's own weight");
+        $this->assertEquals(30.0, (float) $skus[0]['package_length'], "the listing's own length");
+        $this->assertEquals(10.0, (float) $skus[0]['package_width'], "the catalog's width");
+        $this->assertEquals(5.0, (float) $skus[0]['package_height'], "the catalog's height");
+    }
+
+    public function test_a_stored_sku_or_stock_override_is_never_sent(): void
+    {
+        $pid = $this->productWithPicture('LZ-OVR');
+        $povs = $this->addOption($pid, 'Color', ['Black', 'Red'], ['Black' => 'LZ-OVR-B', 'Red' => 'LZ-OVR-R']);
+        $listing = $this->listingOn($pid, null);
+        \Extensions\lazada\Models\LazadaProductVariant::create([
+            'lazada_product_id' => $listing->id, 'product_option_value_id' => $povs['Red'],
+            'seller_sku' => 'LZ-TYPED', 'quantity' => 99, 'price' => 150,
+        ]);
+
+        $skus = collect($this->skusSent($listing))->keyBy('SellerSku');
+
+        $this->assertEqualsCanonicalizing(['LZ-OVR-B', 'LZ-OVR-R'], $skus->keys()->all(), 'the catalog SKUs go up');
+        $this->assertSame(3, (int) $skus['LZ-OVR-R']['quantity'], "the catalog's stock goes up");
+        $this->assertEquals(150.0, (float) $skus['LZ-OVR-R']['price'], "the variation's own price still applies");
+        $this->assertEquals(100.0, (float) $skus['LZ-OVR-B']['price']);
     }
 
     /** #149 (2026-08-26): the row menu opens the listing page, where the push button now lives; no one-click upload from the index. */

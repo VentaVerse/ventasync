@@ -396,6 +396,10 @@ class ShopeeProductGroupController extends Controller
             ->keyBy('product_id');
         // Each row is named by this store's own title, the catalog's name when it has none.
         $rowTitles = \App\Integrations\Listings\ListingContent::rowTitles($products, $listingsByProductId);
+        // Each row's starting price: the listing's own Price, the catalog's when it has none.
+        $withVariations = ShopeeListing::withVariations($displayIds);
+        $rowPrices = $products->mapWithKeys(fn ($p) => [(int) $p->product_id => ($listingsByProductId->get((int) $p->product_id) ?? new ShopeeListing())
+            ->startingPrice((float) $p->price, isset($withVariations[(int) $p->product_id]))])->all();
 
         /* ONE state per row (Phase B, #184): this page used to show
          * "Listed" for a product Shopee had banned, because its column
@@ -415,6 +419,7 @@ class ShopeeProductGroupController extends Controller
             'linksByProductId' => $linksByProductId,
             'listingsByProductId' => $listingsByProductId,
             'rowTitles' => $rowTitles,
+            'rowPrices' => $rowPrices,
             'manualIds' => $manualIds,
             'q' => $q,
             'syncStatus' => $syncStatus,
@@ -1825,7 +1830,7 @@ class ShopeeProductGroupController extends Controller
             $basePrice = (float) $product->price;
             $markupPct = (float) ($eff->markup_percent ?? 0);
             $markupFixed = (float) ($eff->markup_fixed ?? 0);
-            $sellingPrice = $eff->priceFor($basePrice);
+            $sellingPrice = $eff->itemPriceFor($basePrice, ShopeeListing::hasVariations((int) $productId));
 
             // Build tier_variation + per-combination model list when the
             // product has multi-option variants in product_option_combinations.
@@ -1839,11 +1844,12 @@ class ShopeeProductGroupController extends Controller
                 'item_name' => mb_substr($itemName, 0, 255),
                 'seller_stock' => [['stock' => max(0, (int) $product->quantity)]],
                 'item_sku' => (string) ($product->sku ?? ''),
-                'weight' => (float) $product->weight,
+                // The listing's own parcel, each blank field following the catalog's.
+                'weight' => (float) ($eff->weight ?? $product->weight),
                 'dimension' => [
-                    'package_length' => max(1, (int) $product->length),
-                    'package_width' => max(1, (int) $product->width),
-                    'package_height' => max(1, (int) $product->height),
+                    'package_length' => (int) ($eff->package_length ?? max(1, (int) $product->length)),
+                    'package_width' => (int) ($eff->package_width ?? max(1, (int) $product->width)),
+                    'package_height' => (int) ($eff->package_height ?? max(1, (int) $product->height)),
                 ],
                 'category_id' => $effCategory,
                 'image' => ['image_id_list' => $imageIds],
@@ -2124,7 +2130,7 @@ class ShopeeProductGroupController extends Controller
             $itemName = $content['title'];
             // Shopee accepts plain text only; description templates may contain HTML.
             $description = \App\Support\Catalog\DescriptionText::of($content['description']);
-            if (trim($itemName) === '' || trim($description) === '' || (float) $product->weight <= 0) {
+            if (trim($itemName) === '' || trim($description) === '' || (float) ($ownListing?->weight ?? $product->weight) <= 0) {
                 $errors[] = "#{$productId}: Missing name/description/weight";
                 $this->writeProductStatus($productId, ['sync_status' => 'error', 'push_error' => 'Missing name/description/weight']);
                 $errCount++;
@@ -2146,11 +2152,12 @@ class ShopeeProductGroupController extends Controller
                 'description' => mb_substr($description, 0, 5000),
                 'item_name' => mb_substr($itemName, 0, 255),
                 'item_sku' => (string) ($product->sku ?? ''),
-                'weight' => (float) $product->weight,
+                // The listing's own parcel, each blank field following the catalog's.
+                'weight' => (float) ($ownListing?->weight ?? $product->weight),
                 'dimension' => [
-                    'package_length' => max(1, (int) $product->length),
-                    'package_width' => max(1, (int) $product->width),
-                    'package_height' => max(1, (int) $product->height),
+                    'package_length' => (int) ($ownListing?->package_length ?? max(1, (int) $product->length)),
+                    'package_width' => (int) ($ownListing?->package_width ?? max(1, (int) $product->width)),
+                    'package_height' => (int) ($ownListing?->package_height ?? max(1, (int) $product->height)),
                 ],
             ];
 

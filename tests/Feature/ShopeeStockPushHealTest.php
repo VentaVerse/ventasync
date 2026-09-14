@@ -507,4 +507,46 @@ class ShopeeStockPushHealTest extends TestCase
         $bulk = $this->actingAs($this->manager())->post(route('ext.shopee.products.bulk_sync_price'), ['product_ids' => [$pid]])->assertRedirect();
         $this->assertStringNotContainsString('without a listing price rule', (string) session('status') . (string) session('error'));
     }
+
+    /** A product without variations starts from its listing's own Price, on the button, the bulk bar, the cron and Run now's step. */
+    public function test_the_price_sender_starts_a_simple_product_from_its_own_price(): void
+    {
+        $pid = $this->productWithVariations([]);
+        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 930, 'shopee_model_id' => null, 'sku' => 'PAR']);
+        ShopeeListing::create(['product_id' => $pid, 'price' => 500, 'markup_percent' => 10]);
+        $sent = function () {
+            $calls = array_values(array_filter($this->sentPosts, fn ($c) => $c['path'] === '/api/v2/product/update_price'));
+            $this->sentPosts = [];
+
+            return array_map(fn ($c) => (float) $c['body']['price_list'][0]['original_price'], $calls);
+        };
+
+        $this->actingAs($this->manager())->post(route('ext.shopee.products.sync_price', $pid))->assertRedirect();
+        $this->assertSame([550.0], $sent(), 'its own 500 + the listing\'s 10%');
+
+        $this->actingAs($this->manager())->post(route('ext.shopee.products.bulk_sync_price'), ['product_ids' => [$pid]])->assertRedirect();
+        $this->assertSame([550.0], $sent());
+
+        $this->artisan('shopee:push-price')->assertExitCode(0);
+        $this->assertSame([550.0], $sent());
+
+        $storeId = (int) ShopeeSetting::query()->value('id');
+        \Extensions\shopee\Services\Shopee\ShopeePushSteps::step('price', [$storeId . ':' . $pid]);
+        $this->assertSame([550.0], $sent());
+    }
+
+    /** A product with variations prices each one from the catalog; a Price left on its listing is ignored. */
+    public function test_a_variation_product_ignores_a_stored_price(): void
+    {
+        $pid = $this->productWithVariations(['V-1' => 5, 'V-2' => 6]);
+        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 931, 'shopee_model_id' => 71, 'sku' => 'V-1']);
+        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 931, 'shopee_model_id' => 72, 'sku' => 'V-2']);
+        ShopeeListing::create(['product_id' => $pid, 'price' => 999, 'markup_percent' => 10]);
+
+        $this->artisan('shopee:push-price')->assertExitCode(0);
+
+        $calls = array_values(array_filter($this->sentPosts, fn ($c) => $c['path'] === '/api/v2/product/update_price'));
+        $this->assertCount(1, $calls);
+        $this->assertSame([110.0, 110.0], array_map(fn ($m) => (float) $m['original_price'], $calls[0]['body']['price_list']), 'base 100 + 10%, never the stored 999');
+    }
 }

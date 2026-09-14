@@ -154,6 +154,8 @@ class TikTokListingController extends Controller
             })->all(),
         ];
 
+        $hasVariations = isset(\Extensions\tiktok\Services\TikTok\TikTokVariationPush::withVariations([$productId])[$productId]);
+
         return view('ext-tiktok::listings.edit', \App\Integrations\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('tiktok_product_groups', 'tiktok_product_group_products', 'tiktok_product_group_id', $productId, 'tiktok_setting_id', (int) ($listing->tiktok_setting_id ?? 0) ?: null)) + [
             'coverage' => $coverage,
             ...\App\Integrations\Listings\ListingVariations::cardData(
@@ -170,6 +172,9 @@ class TikTokListingController extends Controller
             'attrTemplate' => $template,
             'attrRows' => $attributes->rows($template),
             'shown' => $shown,
+            'hasVariations' => $hasVariations,
+            // What the next push sends for a product without variations; the rule that priceRule() applies.
+            'pushPrice' => $shown->priceFor($shown->startingPrice((float) $product->price, $hasVariations)),
             'savedAttributes' => $shown->attribute_values ?? [],
             'readinessMissing' => $readiness['missing'],
             // The gaps by CODE, so the page can link each one to where it is fixed.
@@ -191,6 +196,11 @@ class TikTokListingController extends Controller
             'brand_name' => 'nullable|string|max:191',
             'markup_percent' => 'nullable|numeric|min:-100|max:1000',
             'markup_fixed' => 'nullable|numeric|min:-1000000|max:1000000',
+            'price' => 'nullable|numeric|min:0|max:1000000000',
+            'weight' => 'nullable|numeric|min:0.001|max:99999.999',
+            'package_length' => 'nullable|integer|min:1|max:100000',
+            'package_width' => 'nullable|integer|min:1|max:100000',
+            'package_height' => 'nullable|integer|min:1|max:100000',
             'title' => 'nullable|string|max:255',
             'description' => 'nullable|string|max:10000',
             'description_prefix_id' => 'nullable|integer',
@@ -228,6 +238,8 @@ class TikTokListingController extends Controller
             ], $productId, $picked['id']);
         }
         $currentDescription = TikTokListing::query()->where('product_id', $productId)->value('description');
+        // A product with variations prices each one from the catalog, so it keeps no Price of its own.
+        $hasVariations = isset(\Extensions\tiktok\Services\TikTok\TikTokVariationPush::withVariations([$productId])[$productId]);
         TikTokListing::query()->updateOrCreate(
             ['product_id' => $productId],
             $images + [
@@ -236,6 +248,11 @@ class TikTokListingController extends Controller
                 'brand_name' => $blank($data['brand_id'] ?? null) ? $blank($data['brand_name'] ?? null) : null,
                 'markup_percent' => $blank($data['markup_percent'] ?? null),
                 'markup_fixed' => $blank($data['markup_fixed'] ?? null),
+                'price' => $hasVariations ? null : $blank($data['price'] ?? null),
+                'weight' => $blank($data['weight'] ?? null),
+                'package_length' => $blank($data['package_length'] ?? null),
+                'package_width' => $blank($data['package_width'] ?? null),
+                'package_height' => $blank($data['package_height'] ?? null),
                 /* The Content boxes are pre-filled with the catalog's words
                  * (the owner, 2026-09-07); text still equal to them is stored as
                  * null, so pre-filling never freezes a listing into a copy. */
@@ -479,7 +496,7 @@ class TikTokListingController extends Controller
                 $join->on('pd.product_id', '=', 'p.product_id')->where('pd.language_id', $langId);
             })
             ->where('p.product_id', $productId)
-            ->first(['p.product_id', 'p.model', 'p.sku', 'p.price', 'p.image', 'pd.name']);
+            ->first(['p.product_id', 'p.model', 'p.sku', 'p.price', 'p.image', 'p.weight', 'p.length', 'p.width', 'p.height', 'pd.name']);
 
         abort_unless((bool) $product, 404);
 

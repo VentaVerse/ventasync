@@ -7,7 +7,6 @@ use App\Integrations\Listings\ListingState;
 use Extensions\lazada\Models\LazadaCategory;
 use Extensions\lazada\Models\LazadaCategoryTemplate;
 use Extensions\lazada\Models\LazadaProductAttribute;
-use Extensions\lazada\Models\LazadaProductVariant;
 use Extensions\lazada\Models\LazadaSetting;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -242,13 +241,8 @@ class LazadaListingReadiness
                     $prices[] = $priceOf($c->absolute_price !== null ? (float) $c->absolute_price : null);
                 }
             } else {
-                $overrides = LazadaProductVariant::query()->where('lazada_product_id', $listing->id)
-                    ->whereNotNull('product_option_value_id')->pluck('seller_sku', 'product_option_value_id');
-                $blank = $povRows->filter(function ($r) use ($overrides) {
-                    $own = trim((string) ($overrides[(string) $r->product_option_value_id] ?? $overrides[(int) $r->product_option_value_id] ?? ''));
-
-                    return $own === '' && trim((string) ($r->sku ?? '')) === '';
-                })->count();
+                // A variation's SKU is the catalog's, never the listing's.
+                $blank = $povRows->filter(fn ($r) => trim((string) ($r->sku ?? '')) === '')->count();
                 if ($blank > 0) {
                     $gaps[] = ['code' => ListingState::GAP_VARIATIONS, 'label' => 'an SKU on every variation (' . $blank . ' without one)'];
                 }
@@ -257,7 +251,7 @@ class LazadaListingReadiness
                 }
             }
         } else {
-            $prices[] = $priceOf(null);
+            $prices[] = $priceOf(LazadaPushPayload::startingPrice($listing, $basePrice));
         }
 
         $needsPrice = in_array('price', array_map(fn ($k) => strtolower((string) $k), $requiredKeys), true);

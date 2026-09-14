@@ -124,17 +124,23 @@ class TikTokProductPush
 
         $desc = mb_substr($desc, 0, 10000);
 
+        // The parcel: the listing's own figure for each field it fills, the catalog's for each it leaves blank.
+        $weight = (float) ($ttListing?->weight ?? 0) > 0 ? (float) $ttListing->weight : (float) ($erp->weight ?? 0);
+        $side = fn (string $own, string $core): string => (string) max(1, (int) ($ttListing?->{$own} ?? 0) > 0
+            ? (int) $ttListing->{$own}
+            : (int) round((float) ($erp->{$core} ?? 0)));
+
         $payload = [
             'title' => $title,
             'description' => $desc,
             'category_id' => (string) $opts['category_id'],
             'category_version' => 'v2',
-            'package_weight' => ['unit' => 'GRAM', 'value' => (string) max(1, (int) round((float) ($erp->weight ?? 0) * 1000))],
+            'package_weight' => ['unit' => 'GRAM', 'value' => (string) max(1, (int) round($weight * 1000))],
             'package_dimensions' => [
                 'unit' => 'CENTIMETER',
-                'length' => (string) max(1, (int) round((float) ($erp->length ?? 0))),
-                'width' => (string) max(1, (int) round((float) ($erp->width ?? 0))),
-                'height' => (string) max(1, (int) round((float) ($erp->height ?? 0))),
+                'length' => $side('package_length', 'length'),
+                'width' => $side('package_width', 'width'),
+                'height' => $side('package_height', 'height'),
             ],
             'skus' => $built['skus'],
         ];

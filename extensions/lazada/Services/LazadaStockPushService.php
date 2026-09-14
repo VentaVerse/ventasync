@@ -110,9 +110,10 @@ class LazadaStockPushService
                 $qty   = $erpQtyByPov[(int) $povId];
                 $price = $erpPriceByPov[(int) $povId] ?? null;
             } elseif (!$hasErpVariants) {
-                // Simple product (no ERP variants) — use the base catalog values.
+                // Simple product (no ERP variants): catalog stock, and the
+                // listing's own price when set, else the catalog's.
                 $qty   = max(0, (int) ($product->quantity ?? 0));
-                $price = $basePrice;
+                $price = \Extensions\lazada\Services\Lazada\LazadaPushPayload::startingPrice($listing, $basePrice);
             } else {
                 // ERP has variants but this Lazada variant didn't match any of them.
                 // Default to 0 stock so we don't oversell on the marketplace by

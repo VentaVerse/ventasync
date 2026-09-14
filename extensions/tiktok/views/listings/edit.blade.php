@@ -24,10 +24,6 @@
         : [null, null];
 
     $corePrice = (float) $product->price;
-    $pct = $shown->markup_percent;
-    $fixed = $shown->markup_fixed;
-    $hasRule = $pct !== null || $fixed !== null;
-    $nextPrice = round($corePrice + ($corePrice * (float) ($pct ?? 0) / 100) + (float) ($fixed ?? 0), 2);
     $missing = $readinessMissing;
     $coreDescription = (string) ($product->description ?? '');
 @endphp
@@ -111,7 +107,7 @@
                 @if($listed)
                     @if(!$liveError && empty($missing))
                         <form method="POST" action="{{ route('ext.tiktok.listings.push_update', $product->product_id) }}"
-                              data-guard-stale data-confirm="Push this listing's content and settings onto the live TikTok Shop product? Title, description, package, category, brand and attributes are updated. Price and stock are not touched." data-confirm-tone="primary" data-confirm-verb="Push update">
+                              data-guard-stale data-confirm="Push this listing's content and settings onto the live TikTok Shop product? Title, description, package, category, brand, attributes, price and stock are updated." data-confirm-tone="primary" data-confirm-verb="Push update">
                             @csrf
                             <x-ui.button type="submit" variant="oncolor" size="sm">Push update to TikTok Shop</x-ui.button>
                         </form>
@@ -242,7 +238,6 @@
                     </div>
                 </section>
 
-
                 @include('partials.channel-images-card', [
                     'anchor' => 'tl-images', 'storeName' => 'TikTok Shop', 'tiles' => $tiles, 'catalogTiles' => $catalogTiles,
                     'limit' => \Extensions\tiktok\Services\TikTok\TikTokProductPush::MAX_IMAGES, 'fetchesOverWeb' => false,
@@ -252,27 +247,19 @@
                 @include('partials.listing-variations-card', [
                     'title' => 'Variations on TikTok Shop', 'storeName' => 'TikTok Shop', 'canManage' => $canManage,
                 ])
+
+                @include('partials.listing-parcel-card', [
+                    'id' => 'tl', 'canManage' => $canManage, 'listing' => $listing, 'catalog' => $product,
+                ])
             </x-slot:main>
 
             <x-slot:rail>
-                <section class="fm-section">
-                    <div class="fm-section__head">
-                        <h2 class="fm-section__title">Price rule</h2>
-                        <x-ui.hint label="About the price rule">The TikTok Shop price is never stored: it is the catalog price run through this rule at every push and price sync. Without a rule of its own the listing uses its group's.</x-ui.hint>
-                    </div>
-                        <div class="fm-fields fm-fields--2">
-                            <x-ui.field label="Percent added" for="tl-markup-pct" name="markup_percent">
-                                <x-ui.input id="tl-markup-pct" name="markup_percent" type="number" step="0.01" :value="old('markup_percent', $shown->markup_percent ?? '')" placeholder="0" :disabled="!$canManage" />
-                            </x-ui.field>
-                            <x-ui.field label="Fixed amount added" for="tl-markup-fixed" name="markup_fixed">
-                                <x-ui.input id="tl-markup-fixed" name="markup_fixed" type="number" step="0.01" :value="old('markup_fixed', $shown->markup_fixed ?? '')" placeholder="0" :disabled="!$canManage" />
-                            </x-ui.field>
-                        </div>
-                        <div class="fm-stats">
-                            <div class="fm-stat"><span class="fm-stat__k">Catalog price</span><span class="fm-stat__v"><x-money :php="$corePrice" /></span></div>
-                            <div class="fm-stat"><span class="fm-stat__k">Price on TikTok Shop after push</span><span class="fm-stat__v"><x-money :php="$hasRule ? $nextPrice : $corePrice" /></span></div>
-                        </div>
-                </section>
+                @include('partials.listing-price-card', [
+                    'id' => 'tl', 'storeName' => 'TikTok Shop', 'canManage' => $canManage,
+                    'markupPercent' => $shown->markup_percent, 'markupFixed' => $shown->markup_fixed,
+                    'price' => $listing->price ?? null, 'corePrice' => $corePrice,
+                    'pushPrice' => $pushPrice, 'hasVariations' => $hasVariations,
+                ])
 
                 {{-- When and where from are figures on the strip now
                      (the owner, 2026-09-08); what the push SENT would live here,

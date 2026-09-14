@@ -278,10 +278,16 @@ class ShopeeProductController extends Controller
         // Load Shopee links for products on this page
         $pageIds = $products->pluck('product_id')->map(fn($v) => (int) $v)->all();
         // Each row is named by this store's own title, the catalog's name when it has none.
-        $rowTitles = \App\Integrations\Listings\ListingContent::rowTitles($products, $pageIds === [] ? [] : \Extensions\shopee\Models\ShopeeListing::query()
+        $pageListings = $pageIds === [] ? collect() : \Extensions\shopee\Models\ShopeeListing::query()
             ->forStore(ShopeeSetting::defaultStore())
             ->whereIn('product_id', $pageIds)
-            ->get());
+            ->get();
+        $rowTitles = \App\Integrations\Listings\ListingContent::rowTitles($products, $pageListings);
+        // Each row's starting price: the listing's own Price, the catalog's when it has none.
+        $pageListings = $pageListings->keyBy(fn ($l) => (int) $l->product_id);
+        $withVariations = ShopeeListing::withVariations($pageIds);
+        $rowPrices = collect($products->items())->mapWithKeys(fn ($p) => [(int) $p->product_id => ($pageListings->get((int) $p->product_id) ?? new ShopeeListing())
+            ->startingPrice((float) $p->price, isset($withVariations[(int) $p->product_id]))])->all();
         $shopeeLinks = collect();
         if (!empty($pageIds)) {
             $shopeeLinks = ShopeeProductLink::query()
@@ -368,6 +374,7 @@ class ShopeeProductController extends Controller
         return view('ext-shopee::products.index', [
             'products' => $products,
             'rowTitles' => $rowTitles,
+            'rowPrices' => $rowPrices,
             'troubleFilter' => $troubleFilter,
             /* The relist preflight's page-side half (#191): a row whose
              * Relist would certainly be refused offers the fix instead. */
@@ -884,12 +891,14 @@ class ShopeeProductController extends Controller
         );
 
         $corePrice = (float) $product->price;
-        $finalPrice = $listing ? $listing->priceFor($corePrice) : $corePrice;
+        $startPrice = $listing ? $listing->startingPrice($corePrice, $variationCount > 0 || ShopeeListing::hasVariations($productId)) : $corePrice;
+        $finalPrice = $listing ? $listing->priceFor($startPrice) : $corePrice;
         $pct = (float) ($listing->markup_percent ?? 0);
         $fixed = (float) ($listing->markup_fixed ?? 0);
+        $startWords = $startPrice !== $corePrice ? "this listing's price of " . number_format($startPrice, 2) : 'catalog price';
         $ruleWords = ($pct == 0.0 && $fixed == 0.0)
-            ? 'catalog price'
-            : trim(($pct != 0.0 ? $pct . '%' : '') . ($pct != 0.0 && $fixed != 0.0 ? ' + ' : '') . ($fixed != 0.0 ? number_format($fixed, 2) : '')) . ' over catalog';
+            ? $startWords
+            : trim(($pct != 0.0 ? $pct . '%' : '') . ($pct != 0.0 && $fixed != 0.0 ? ' + ' : '') . ($fixed != 0.0 ? number_format($fixed, 2) : '')) . ' over ' . ($startPrice !== $corePrice ? $startWords : 'catalog');
 
         return response()->json([
             'ok' => true,
@@ -1091,7 +1100,7 @@ class ShopeeProductController extends Controller
          * catalog's - reconcile matches by it (card #97). */
         /* #192's variation refusals (the 5x price ratio, the 50-variation
          * cap) are readiness gaps now, judged at the gate above. */
-        $sellingPrice = $listing->priceFor((float) $product->price);
+        $sellingPrice = $listing->itemPriceFor((float) $product->price, ShopeeListing::hasVariations($productId));
 
         // The listing's own content/price/parcel over the catalog's, and
         // its answers to the category's attribute sheet (#98).
@@ -2584,6 +2593,7 @@ class ShopeeProductController extends Controller
             'readiness' => $readiness,
             'logistics' => $this->fetchLogistics(),
             'shown' => $shown,
+            'hasVariations' => ShopeeListing::hasVariations($productId),
             'groupBand' => $this->groupBandFor($productId, $shopeeStoreId),
             'storeId' => (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0),
             'descriptionTemplates' => \App\Models\DescriptionTemplate::forStore('shopee', (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0)),
@@ -2781,6 +2791,7 @@ class ShopeeProductController extends Controller
             'logistic_ids.*' => 'integer|min:1',
             'markup_percent' => 'nullable|numeric|min:-100|max:1000',
             'markup_fixed' => 'nullable|numeric|min:-1000000|max:1000000',
+            'price' => 'nullable|numeric|min:0|max:1000000000',
             'item_name' => 'nullable|string|max:255',
             'description' => 'nullable|string|max:5000',
             'weight' => 'nullable|numeric|min:0.01',
@@ -2819,6 +2830,8 @@ class ShopeeProductController extends Controller
             'logistic_ids' => array_map('intval', $data['logistic_ids'] ?? []),
             'markup_percent' => $blank($data['markup_percent'] ?? null),
             'markup_fixed' => $blank($data['markup_fixed'] ?? null),
+            // A product with variations prices each variation from the catalog, so it keeps no Price.
+            'price' => ShopeeListing::hasVariations($productId) ? null : $blank($data['price'] ?? null),
             /* The Content boxes are pre-filled with the catalog's words so
              * a few can be changed without retyping the rest (the owner,
              * 2026-09-07). Text still equal to the catalog's is stored as

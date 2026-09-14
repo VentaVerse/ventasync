@@ -760,6 +760,8 @@ class VentaListingController extends Controller
         $ownRule = $listing && ($listing->markup_percent !== null || $listing->markup_fixed !== null);
         $markupPercent = $ownRule ? $num($listing->markup_percent) : $num($group?->markup_percent);
         $markupFixed = $ownRule ? $num($listing->markup_fixed) : $num($group?->markup_fixed);
+        $hasVariations = VentaListing::withVariations([$productId]) !== [];
+        $pushPrice = VentaListing::ruleFor($listing, $group)(VentaListing::startFor($listing, (float) $product->price, $hasVariations));
 
         return view('ext-venta::listings.edit', \App\Integrations\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('venta_product_groups', 'venta_product_group_products', 'venta_product_group_id', $productId, 'venta_setting_id', $store)) + [
             /* What this listing still needs before the store would take
@@ -783,6 +785,8 @@ class VentaListingController extends Controller
             'shownCategoryId' => $shownCategoryId,
             'markupPercent' => $markupPercent,
             'markupFixed' => $markupFixed,
+            'hasVariations' => $hasVariations,
+            'pushPrice' => $pushPrice,
             'storeId' => (int) $store,
             'descriptionTemplates' => \App\Models\DescriptionTemplate::forStore('venta', (int) $store),
         ]);
@@ -797,6 +801,11 @@ class VentaListingController extends Controller
         $data = $request->validate([
             'markup_percent' => 'nullable|numeric|min:-100|max:1000',
             'markup_fixed' => 'nullable|numeric|min:-1000000|max:1000000',
+            'price' => 'nullable|numeric|min:0|max:99999999999',
+            'weight' => 'nullable|numeric|min:0.001|max:99999.999',
+            'package_length' => 'nullable|integer|min:1|max:1000000',
+            'package_width' => 'nullable|integer|min:1|max:1000000',
+            'package_height' => 'nullable|integer|min:1|max:1000000',
             'name' => 'nullable|string|max:255',
             'description' => 'nullable|string|max:20000',
             'description_prefix_id' => 'nullable|integer',
@@ -850,6 +859,12 @@ class VentaListingController extends Controller
             $images + ($request->has('venta_category_id') ? ['venta_category_id' => $ownCategory] : []) + [
                 'markup_percent' => $blank($data['markup_percent'] ?? null),
                 'markup_fixed' => $blank($data['markup_fixed'] ?? null),
+                // A product with variations prices each variation from the catalog, so it keeps no Price of its own.
+                'price' => VentaListing::withVariations([$productId]) !== [] ? null : $blank($data['price'] ?? null),
+                'weight' => $blank($data['weight'] ?? null),
+                'package_length' => $blank($data['package_length'] ?? null),
+                'package_width' => $blank($data['package_width'] ?? null),
+                'package_height' => $blank($data['package_height'] ?? null),
                 /* The Content boxes are pre-filled with the catalog's words
                  * (the owner, 2026-09-07); text still equal to them is stored as
                  * null, so pre-filling never freezes a listing into a copy. */
