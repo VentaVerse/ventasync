@@ -60,3 +60,6 @@ CLAUDE.md
 # with nothing saying which session made them or whether they still mattered.
 # Safe to delete wholesale at any time.
 /.scratch/
+
+# Legacy OpenCart DB dumps for one-time backfill (do not commit)
+temp_for_delete/

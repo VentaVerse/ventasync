@@ -271,8 +271,16 @@ document.addEventListener('DOMContentLoaded', function () {
             /* A LINK GOES WHERE IT POINTS. The click that opened this dialog
              * was prevented, so a confirmed link has to be followed here, or
              * its Leave closes the dialog and does nothing. */
-            var href = btn.tagName === 'A' ? (btn.getAttribute('href') || '') : '';
-            if (proceed && href !== '' && href !== '#' && href.indexOf('javascript:') !== 0) {
+            /* Allowlist the scheme, don't denylist. The raw attribute is
+             * trimmed and lower-cased before the check so a leading space or
+             * mixed case ("JavaScript:", " javascript:") cannot slip a
+             * javascript:/data:/vbscript: URI past it; relative links (same
+             * document) are always fine. */
+            var raw = btn.tagName === 'A' ? (btn.getAttribute('href') || '').trim() : '';
+            var scheme = (raw.split(':')[0] || '').toLowerCase();
+            var sameDoc = raw.charAt(0) === '/' || raw.charAt(0) === '#' || raw.charAt(0) === '?';
+            var safe = raw !== '' && raw !== '#' && (sameDoc || scheme === 'http' || scheme === 'https' || scheme === 'mailto' || scheme === 'tel');
+            if (proceed && safe) {
                 if (btn.target === '_blank') {
                     window.open(btn.href, '_blank', 'noopener');
                 } else {
