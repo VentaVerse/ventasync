@@ -23,6 +23,9 @@ use Illuminate\Support\Str;
  */
 class ProductCreator
 {
+    /** The most pictures a product is created with: the first is the main one. */
+    public const MAX_IMAGES = 9;
+
     /**
      * @param  array<string, mixed>  $data  name, sku, price, weight, length, width, height, status; optionally
      *                                      model, quantity, reorder_level, cost_amount, cost_percentage,

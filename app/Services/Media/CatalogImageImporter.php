@@ -85,6 +85,77 @@ class CatalogImageImporter
             $name = pathinfo($name, PATHINFO_FILENAME) . '.' . $ext;
         }
 
+        return $this->place($contents, $name, $ext, $dir);
+    }
+
+    /** The longest base64 text a MAX_BYTES image can be: 4 * ceil(MAX_BYTES / 3). */
+    public const MAX_BASE64_LENGTH = 6990508;
+
+    /** The most pixels a picture sent as data may decode to, so a small file cannot unpack into gigabytes. */
+    public const MAX_PIXELS = 50_000_000;
+
+    /**
+     * Store an image sent as base64 text in $dir, a folder under catalog/,
+     * and return its path on the public disk. The type is read from the
+     * bytes and the extension follows it; the file name only supplies the
+     * base name. A data: URL prefix is accepted and its stated type ignored.
+     *
+     * @throws RuntimeException saying what was wrong, in words for the person who sent it
+     */
+    public function fromBase64(string $data, string $filename, string $dir): string
+    {
+        $data = trim($data);
+        if (preg_match('#^data:[^,]{0,100},#i', $data, $m)) {
+            $data = substr($data, strlen($m[0]));
+        }
+        $data = (string) preg_replace('/\s+/', '', $data);
+        if ($data === '') {
+            throw new RuntimeException('It is empty.');
+        }
+        // Too long to be 5 MB once decoded: refused before anything is decoded.
+        if (strlen($data) > self::MAX_BASE64_LENGTH) {
+            throw new RuntimeException('The image is larger than 5 MB.');
+        }
+
+        $bytes = base64_decode($data, true);
+        if ($bytes === false || $bytes === '') {
+            throw new RuntimeException('It is not valid base64 data.');
+        }
+        if (strlen($bytes) > self::MAX_BYTES) {
+            throw new RuntimeException('The image is larger than 5 MB.');
+        }
+
+        $info = @getimagesizefromstring($bytes);
+        $ext = match ((int) ($info[2] ?? 0)) {
+            IMAGETYPE_JPEG => 'jpg',
+            IMAGETYPE_PNG => 'png',
+            IMAGETYPE_WEBP => 'webp',
+            default => null,
+        };
+        if ($info === false || $ext === null) {
+            throw new RuntimeException('It is not a JPEG, PNG or WebP image.');
+        }
+        if ((int) $info[0] * (int) $info[1] > self::MAX_PIXELS) {
+            throw new RuntimeException('The image is larger than 50 megapixels.');
+        }
+
+        // Letters, digits, dash and underscore only: no dots, so no second extension survives.
+        $base = pathinfo(basename(str_replace('\\', '/', $filename)), PATHINFO_FILENAME);
+        $base = trim((string) preg_replace('/[^A-Za-z0-9_-]/', '_', $base), '_');
+        if ($base === '') {
+            $base = 'image_' . date('Ymd_His');
+        }
+
+        return $this->place($bytes, substr($base, 0, 100) . '.' . $ext, $ext, $dir);
+    }
+
+    /**
+     * Put checked bytes into the library: written to a temporary file,
+     * judged by its content, a WebP turned into a JPG, then moved into $dir
+     * under $name, or name_1, name_2 when that is taken.
+     */
+    private function place(string $contents, string $name, string $ext, string $dir): string
+    {
         $disk = Storage::disk('public');
         $tmpRel = 'tmp/product-images/' . Str::uuid()->toString() . '.' . $ext;
         $disk->put($tmpRel, $contents);
