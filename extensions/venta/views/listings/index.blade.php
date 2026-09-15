@@ -24,6 +24,8 @@
         return url()->current() . '?' . http_build_query($qp);
     };
     $statusMap = \Extensions\venta\Services\Venta\VentaListingMirror::STATUS_MAP;
+    $tabDefs = \Extensions\venta\Services\Venta\VentaListingMirror::TABS;
+    $tabQuery = request()->except('page', 'venta_tab');
     $indexUrl = fn (array $params = []) => route('ext.venta.listings.index', array_merge(['store' => $setting->id], $params));
 @endphp
 
@@ -46,15 +48,9 @@
     </div>
     @if($canManage)
         <div class="cc-head-actions">
-            {{-- Refresh from the store re-reads every status and checks every
-                 link; the menu says when it last ran. Add products opens the
-                 slide-over. --}}
-            @if($setting->enabled)
-                <form method="POST" action="{{ route('ext.venta.listings.refresh_status', $setting->id) }}" class="cc-head-refresh" data-slow-action>
-                    @csrf
-                    <x-ui.button type="submit"><x-ui.icon name="refresh-cw" size="14" /> Refresh from {{ $storeName }}</x-ui.button>
-                </form>
-            @endif
+            {{-- Add products: the one way a main-catalogue product joins this
+                 store, opening the slide-over in place. Refresh sits in the
+                 status strip below. --}}
             <x-ui.button type="button" variant="primary" data-add-panel-open>
                 <x-ui.icon name="plus" size="14" /> Add products
             </x-ui.button>
@@ -68,16 +64,63 @@
     'clear' => route('ext.venta.listings.index', array_merge(['store' => $setting->id], request()->except(['state', 'page']))),
 ])
 
-{{-- A store that cannot be asked says so, once, at the top (parity,
-     2026-09-09). The store's statuses under Listed in the menu are the
-     mirror's last word, not a live read, so they stay - what would
-     otherwise be missing is any reason for every row reading "not checked
-     yet". --}}
+{{-- A store that cannot be asked says so, once, at the top. The buckets
+     below are the mirror's last word, not a live read, so they stay; what
+     would otherwise be missing is any reason for every row reading "not
+     checked yet". --}}
 @if(($liveTabError ?? null) !== null)
     <div class="fm-note fm-note--warn" role="status">
         <div class="fm-note__body">@include('partials.channel-answer', ['channel' => $storeName, 'raw' => $liveTabError, 'settingsRoute' => null])</div>
     </div>
 @endif
+
+{{-- The store's own statuses, as the tab row above the table: the
+     catalogue's total and the store's buckets from the mirror, beside the
+     menu's VentaSync status. The two combine, and each one's counts follow
+     the other's choice. The strip says when the mirror was refreshed. --}}
+<div class="x-segment-bar">
+    <div class="x-segment-groups">
+        <div class="x-segment-group">
+            <span class="x-segment-group__k">Your catalogue</span>
+            <nav class="x-segment" aria-label="Catalogue">
+                <a href="{{ $indexUrl($tabQuery) }}"
+                   class="x-segment__item {{ $ventaTab === 'all' ? 'is-active' : '' }}"
+                   @if($ventaTab === 'all') aria-current="true" @endif>
+                    <span>All products</span>
+                    <span class="x-segment__count">{{ number_format((int) ($catalogueTotal ?? $products->total())) }}</span>
+                </a>
+            </nav>
+        </div>
+        <div class="x-segment-group">
+            <span class="x-segment-group__k">On {{ $storeName }}</span>
+            <nav class="x-segment" aria-label="{{ $storeName }} listing status">
+                @foreach($tabDefs as $tabKey => [$tabLabel, $tabStatus])
+                    @continue($tabKey === 'all')
+                    @php $isActive = $ventaTab === $tabKey; @endphp
+                    <a href="{{ $indexUrl(array_merge($tabQuery, ['venta_tab' => $tabKey])) }}"
+                       class="x-segment__item {{ $isActive ? 'is-active' : '' }}" @if($isActive) aria-current="true" @endif>
+                        <span>{{ $tabLabel }}</span>
+                        <span class="x-segment__count">{{ number_format((int) ($liveCounts[$tabKey] ?? 0)) }}</span>
+                    </a>
+                @endforeach
+            </nav>
+            <span class="x-segment-group__meta">
+                @if($liveCheckedAt ?? null)
+                    as of {{ $liveCheckedAt->format('H:i, M j') }}
+                @else
+                    not refreshed yet
+                @endif
+            </span>
+            @if($canManage && $setting->enabled)
+                {{-- Refresh checks every link against the store and re-reads every status. --}}
+                <form method="POST" action="{{ route('ext.venta.listings.refresh_status', $setting->id) }}" class="x-segment-group__refresh" data-slow-action>
+                    @csrf
+                    <x-ui.button type="submit"><x-ui.icon name="refresh-cw" size="14" /> Refresh from {{ $storeName }}</x-ui.button>
+                </form>
+            @endif
+        </div>
+    </div>
+</div>
 
 <div class="lsm-layout">
 @include('partials.listing-status-menu', ['menu' => $statusMenu])

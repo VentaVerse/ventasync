@@ -39,29 +39,33 @@ class ShopeeProductController extends Controller
     }
 
     /**
-     * Which unlisted products could be pushed right now, by the same
-     * ShopeeListingReadiness the rows, the listing page and the bulk push
-     * read. Held for a minute: the menu counts it on every page.
+     * Whether each of this store's products could be pushed right now, listed
+     * or not, by the same ShopeeListingReadiness answer the row's Readiness
+     * column reads (one answer per product, linked or not), so a menu count
+     * and the rows it leads to agree. Held for a minute: the menu counts it
+     * on every page.
      *
      * @return array<int, bool>  product id => ready
      */
     private function readyByProduct(): array
     {
         $storeId = (int) (ShopeeSetting::defaultStore()?->id ?? 0);
+        $readiness = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class);
+        $storeIds = fn (): array => DB::query()->fromSub(ShopeeStoreProducts::query(), 'os')
+            ->pluck('os.product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+        $answer = fn (array $productIds): array => $productIds === [] ? [] : array_map(
+            fn ($r) => (bool) $r['ready'],
+            $readiness->forProducts($productIds)
+        );
 
-        return \Illuminate\Support\Facades\Cache::remember('shopee:ready-by-product:' . $storeId, 60, function () {
-            $pfx = (string) config('catalog.prefix');
-            $listedIds = ShopeeProductLink::query()->pluck('product_id')
-                ->map(fn ($v) => (int) $v)->unique()->all();
-            $candidateIds = DB::table($pfx . 'product')
-                ->when(!empty($listedIds), fn ($q) => $q->whereNotIn('product_id', $listedIds))
-                ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        $held = \Illuminate\Support\Facades\Cache::remember('shopee:ready-by-product:' . $storeId, 60,
+            fn () => $answer($storeIds()));
 
-            return array_map(
-                fn ($r) => (bool) $r['ready'],
-                app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)->forProducts($candidateIds)
-            );
-        });
+        /* A product that joined the store after the answer was held is
+         * answered now, so it is never missing from both lists. */
+        $new = array_values(array_diff($storeIds(), array_keys($held)));
+
+        return $new === [] ? $held : $answer($new) + $held;
     }
 
     public function index(Request $request, ShopeeClient $client)
@@ -72,7 +76,7 @@ class ShopeeProductController extends Controller
         $syncStatus = (string) $request->get('sync_status', 'all');
         // The page's older words for the two halves of the tree still land there.
         $syncStatus = ['listed' => 'uploaded', 'not_listed' => 'not_uploaded'][$syncStatus] ?? $syncStatus;
-        if (!in_array($syncStatus, ['all', 'not_uploaded', 'uploaded', 'error', 'ready', 'not_ready'], true)) {
+        if (!in_array($syncStatus, [...\App\Integrations\Listings\StatusMenu::VALUES, 'error'], true)) {
             $syncStatus = 'all';
         }
         /* The status menu's two switches narrow whatever the tree has
@@ -127,7 +131,8 @@ class ShopeeProductController extends Controller
          * The strip says when the mirror was last refreshed. */
         $liveCheckedAt = null;
         if ($setting && $auth['complete']) {
-            $liveCounts = ShopeeProductLink::mirrorCounts($tabMap);
+            // Counted below, against the rows the status menu has chosen.
+            $liveCounts = [];
             $liveCheckedAt = ShopeeProductLink::query()->max('live_checked_at');
             $liveCheckedAt = $liveCheckedAt ? \Illuminate\Support\Carbon::parse($liveCheckedAt) : null;
         } else {
@@ -255,71 +260,101 @@ class ShopeeProductController extends Controller
         /* One definition of each place in the tree, used for the rows and
          * for the menu's counts alike, so a number and its list agree.
          * Listed is a row in the links table; Not listed is its exact
-         * complement, and Ready to push and Needs details split it. */
+         * complement; readiness splits each half. */
         $linkedIds = ShopeeProductLink::query()->pluck('product_id')
             ->map(fn ($v) => (int) $v)->unique()->values()->all();
-        $applySync = function ($query, string $status) use ($linkedIds) {
-            if ($status === 'uploaded') {
-                $query->whereIn('p.product_id', $linkedIds ?: [0]);
-            } elseif ($status === 'not_uploaded' || $status === 'ready' || $status === 'not_ready') {
-                if ($linkedIds !== []) {
-                    $query->whereNotIn('p.product_id', $linkedIds);
-                }
-                if ($status !== 'not_uploaded') {
-                    $wantReady = $status === 'ready';
-                    $matching = array_keys(array_filter($this->readyByProduct(), fn ($r) => $r === $wantReady));
-                    $query->whereIn('p.product_id', $matching ?: [0]);
-                }
+        $listed = fn ($query) => $query->whereIn('p.product_id', $linkedIds ?: [0]);
+        $notListed = fn ($query) => $linkedIds === [] ? $query : $query->whereNotIn('p.product_id', $linkedIds);
+        $readyIs = function ($query, bool $wantReady) {
+            $matching = array_keys(array_filter($this->readyByProduct(), fn ($r) => $r === $wantReady));
+
+            return $query->whereIn('p.product_id', $matching ?: [0]);
+        };
+        $applySync = function ($query, string $status) use ($listed, $notListed, $readyIs) {
+            match ($status) {
+                'uploaded' => $listed($query),
+                'listed_ready' => $readyIs($listed($query), true),
+                'listed_not_ready' => $readyIs($listed($query), false),
+                'not_uploaded' => $notListed($query),
+                'ready' => $readyIs($notListed($query), true),
+                'not_ready' => $readyIs($notListed($query), false),
+                default => $query,
+            };
+
+            return $query;
+        };
+
+        $errored = $this->listingStates()->erroredProductIds();
+        $changed = $this->listingStates()->productIdsIn('drift');
+
+        /* The status menu's choice, and the store's tab: each narrows the
+         * rows, and each one's counts are taken under the other's choice. */
+        $applyMenu = function ($query) use ($applySync, $syncStatus, $failedFlag, $changeFlag, $errored, $changed) {
+            $applySync($query, $syncStatus);
+            if ($failedFlag) {
+                // Exactly the rows that carry an error line.
+                $query->whereIn('p.product_id', $errored ?: [0]);
+            }
+            if ($changeFlag) {
+                $query->whereIn('p.product_id', $changed ?: [0]);
             }
 
             return $query;
         };
 
-        $menuBase = clone $query;
-        $errored = $this->listingStates()->erroredProductIds();
-        $changed = $this->listingStates()->productIdsIn('drift');
+        /* The dashboard's own figures, as a filter. A chip that says "3
+         * listings need attention" links here with ?state=attention, and the
+         * rows it narrows to are fetched by the SAME query that counted them,
+         * so the number and the list cannot disagree. */
+        $troubleFilter = \App\Integrations\Listings\ListingTrouble::asked($request->query('state'));
+        $troubleIds = $troubleFilter === null ? null
+            : app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->productIdsIn($troubleFilter);
+        $applyTrouble = fn ($query) => $troubleIds === null ? $query : $query->whereIn('p.product_id', $troubleIds ?: [0]);
+
+        // A tab narrows the table to the products whose Shopee items hold
+        // that status in the mirror. Only linked products can match: the tab
+        // is a view of the shop, and an unpushed product is not in it.
+        $tabProductIds = ($shopeeTab !== 'all' && $liveCounts !== null)
+            ? ShopeeProductLink::query()->where('live_status', $tabMap[$shopeeTab])
+                ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all()
+            : null;
+        $applyTab = fn ($query) => $tabProductIds === null ? $query : $query->whereIn('p.product_id', $tabProductIds ?: [0]);
+        // Each tab's count: the chosen rows whose Shopee items hold that status.
+        $tabCounts = function ($query) use ($tabMap): array {
+            $byStatus = ShopeeProductLink::query()
+                ->whereIn('product_id', (clone $query)->select('p.product_id'))
+                ->whereNotNull('live_status')
+                ->selectRaw('live_status, COUNT(DISTINCT product_id) as n')
+                ->groupBy('live_status')
+                ->pluck('n', 'live_status');
+            $out = [];
+            foreach ($tabMap as $tabKey => $status) {
+                $out[$tabKey] = (int) ($byStatus[$status] ?? 0);
+            }
+
+            return $out;
+        };
+
+        $menuBase = $applyTab(clone $query);
         $menuCounts = ['all' => (clone $menuBase)->count()];
-        foreach (['not_uploaded', 'ready', 'not_ready', 'uploaded'] as $status) {
+        foreach (['not_uploaded', 'ready', 'not_ready', 'uploaded', 'listed_ready', 'listed_not_ready'] as $status) {
             $menuCounts[$status] = $applySync(clone $menuBase, $status)->count();
         }
         $menuCounts['failed'] = (clone $menuBase)->whereIn('p.product_id', $errored ?: [0])->count();
         $menuCounts['change'] = (clone $menuBase)->whereIn('p.product_id', $changed ?: [0])->count();
 
-        $applySync($query, $syncStatus);
-        if ($failedFlag) {
-            // Exactly the rows that carry an error line.
-            $query->whereIn('p.product_id', $errored ?: [0]);
+        $tabBase = $applyTrouble($applyMenu(clone $query));
+        // The tab row's All: every row the menu has chosen, before a tab narrows it.
+        $catalogueTotal = (clone $tabBase)->count();
+        if ($liveCounts !== null) {
+            $liveCounts = $tabCounts($tabBase);
         }
-        if ($changeFlag) {
-            $query->whereIn('p.product_id', $changed ?: [0]);
-        }
-
-        /* The dashboard's own figures, as a filter (#240). A chip that says
-         * "3 listings need attention" links here with ?state=attention, and
-         * the rows it narrows to are fetched by the SAME query that counted
-         * them, so the number and the list cannot disagree. */
-        $troubleFilter = \App\Integrations\Listings\ListingTrouble::asked($request->query('state'));
-        if ($troubleFilter !== null) {
-            $troubleIds = app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)
-                ->productIdsIn($troubleFilter);
-            $query->whereIn('p.product_id', $troubleIds ?: [0]);
-        }
-
-        // A live tab narrows the table to the products whose Shopee items
-        // hold that status right now. Only linked products can match: the
-        // tab is a view of the shop, and an unpushed product is not in it.
-        // The catalogue's own total, before a Shopee tab narrows the table:
-        // the "All products" tab wears it so it reads as a total, not a status.
-        $catalogueTotal = (clone $query)->count();
         // The header's second number: how much of this store's list is on Shopee.
         $listedTotal = (int) ShopeeProductLink::query()->distinct()->count('product_id');
 
-        if ($shopeeTab !== 'all' && $liveCounts !== null) {
-            $tabProductIds = ShopeeProductLink::query()
-                ->where('live_status', $tabMap[$shopeeTab])
-                ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
-            $query->whereIn('p.product_id', $tabProductIds ?: [0]);
-        }
+        $applyMenu($query);
+        $applyTrouble($query);
+        $applyTab($query);
 
         $query->orderBy($sortColumns[$sort], $dir);
         // A stable tiebreak, or two products with the same name swap places
@@ -381,7 +416,7 @@ class ShopeeProductController extends Controller
                 session()->now('error', \App\Integrations\Listings\BlankFillRefusal::sentence('Shopee', $fillError));
             }
             if ($filled) {
-                $liveCounts = ShopeeProductLink::mirrorCounts($tabMap);
+                $liveCounts = $tabCounts($tabBase);
                 $liveCheckedAt = $liveCheckedAt ?? now();
             }
         }
@@ -472,12 +507,6 @@ class ShopeeProductController extends Controller
                 'failed' => $failedFlag,
                 'change' => $changeFlag,
                 'counts' => $menuCounts,
-                'market' => [
-                    'param' => 'shopee_tab', 'current' => $shopeeTab, 'store' => 'Shopee',
-                    'defs' => ['live' => 'Live', 'unlisted' => 'Unpublished', 'violation' => 'Violation', 'reviewing' => 'Under review'],
-                    'counts' => $liveCounts,
-                    'meta' => $liveCheckedAt ? 'as of ' . $liveCheckedAt->format('H:i, M j') : 'not refreshed yet',
-                ],
             ]),
         ]);
     }

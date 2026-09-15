@@ -6,6 +6,8 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
+use Extensions\tiktok\Models\TikTokCategory;
+use Extensions\tiktok\Models\TikTokCategoryTemplate;
 use Extensions\tiktok\Models\TikTokListing;
 use Extensions\tiktok\Models\TikTokSetting;
 use Extensions\tiktok\Services\TikTok\TikTokListingStates;
@@ -15,7 +17,8 @@ use Tests\TestCase;
 
 /**
  * The status menu on a TikTok Shop store's Listings page: the tree, the two
- * switches that narrow it, and the store's item id on the product's own line.
+ * switches that narrow it, the store's tab row it combines with, and the
+ * store's item id on the product's own line.
  */
 class TiktokListingStatusMenuTest extends TestCase
 {
@@ -75,7 +78,7 @@ class TiktokListingStatusMenuTest extends TestCase
         TikTokListing::query()->create(['product_id' => $notListed]);
     }
 
-    public function test_the_menu_replaces_the_tabs_and_push_failed_narrows_listed(): void
+    public function test_the_menu_sits_beside_the_tabs_and_push_failed_narrows_listed(): void
     {
         $this->store();
         $user = $this->manager();
@@ -83,10 +86,11 @@ class TiktokListingStatusMenuTest extends TestCase
         $page = $this->actingAs($user)->get(route('ext.tiktok.products.index'))->assertOk();
         $page->assertSee('Where it stands')->assertSee('Needs you')->assertSee('data-lsm', false);
         $page->assertDontSee('name="sync_status"', false);
-        $page->assertDontSee('x-segment-bar', false);
+        $page->assertSee('class="x-segment-bar"', false);
         $page->assertDontSee('cc-col-chanid', false);
         $page->assertSee('TikTok tt-9001');
-        $page->assertSee('cc-head-refresh', false);
+        $page->assertDontSee('cc-head-refresh', false);
+        $page->assertSee('x-segment-group__refresh', false);
 
         $this->actingAs($user)->get(route('ext.tiktok.products.index', ['sync_status' => 'uploaded']))
             ->assertOk()->assertSee('Listed and fine')->assertSee('Listed but failed')->assertDontSee('Not on TikTok yet');
@@ -109,5 +113,33 @@ class TiktokListingStatusMenuTest extends TestCase
 
         $this->actingAs($user)->get(route('ext.tiktok.products.index', ['sync_status' => 'error']))
             ->assertOk()->assertSee('Listed but failed')->assertDontSee('Listed and fine')->assertSee('matches: Push failed', false);
+    }
+
+    /** A live product with a gap on VentaSync's side is found under Listed, and the store's tab row counts under that choice. */
+    public function test_a_listed_product_that_needs_details_is_found_under_listed(): void
+    {
+        TikTokCategory::create(['id' => '900009', 'name' => 'Guitar Accessories', 'parent_id' => null, 'is_leaf' => true]);
+        TikTokCategoryTemplate::create(['category_id' => '900009', 'attributes' => [], 'fetched_at' => now()]);
+
+        $complete = $this->product('Listed and complete', 'TMN-4');
+        TikTokListing::query()->create(['product_id' => $complete, 'tiktok_product_id' => 'tt-9004', 'tiktok_category_id' => '900009', 'live_status' => 'ACTIVATE', 'live_checked_at' => now()]);
+        $gap = $this->product('Listed without a category', 'TMN-5');
+        TikTokListing::query()->create(['product_id' => $gap, 'tiktok_product_id' => 'tt-9005', 'live_status' => 'ACTIVATE', 'live_checked_at' => now()]);
+        $unlisted = $this->product('Not on TikTok yet', 'TMN-3');
+        TikTokListing::query()->create(['product_id' => $unlisted]);
+        $user = $this->manager();
+
+        $page = $this->actingAs($user)->get(route('ext.tiktok.products.index', ['sync_status' => 'listed_not_ready']))->assertOk();
+        $page->assertSee('Listed without a category')->assertDontSee('Listed and complete')->assertDontSee('Not on TikTok yet');
+        $page->assertSee('Listed, Needs details')->assertSee('class="x-segment-bar"', false);
+        $html = $page->getContent();
+        $this->assertMatchesRegularExpression('/sync_status=listed_not_ready"[^>]*>\s*<span class="lsm-item__label">Needs details<\/span>\s*<span class="lsm-n">1</s', $html);
+        $this->assertMatchesRegularExpression('/tiktok_tab=live"[^>]*>\s*<span>Live<\/span>\s*<span class="x-segment__count">1</s', $html, 'the tab counts only what the menu chose');
+
+        $this->actingAs($user)->get(route('ext.tiktok.products.index', ['sync_status' => 'listed_ready']))
+            ->assertOk()->assertSee('Listed and complete')->assertDontSee('Listed without a category')->assertDontSee('Not on TikTok yet');
+
+        $this->actingAs($user)->get(route('ext.tiktok.products.index', ['sync_status' => 'listed_not_ready', 'tiktok_tab' => 'deactivated']))
+            ->assertOk()->assertDontSee('Listed without a category');
     }
 }

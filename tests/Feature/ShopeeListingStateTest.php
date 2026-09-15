@@ -692,6 +692,37 @@ class ShopeeListingStateTest extends TestCase
             ->assertSee('MISSVAR')->assertDontSee('PUSHERR');
     }
 
+    /** A live item with a gap on VentaSync's side is found under Listed, and Shopee's tab narrows it further. */
+    public function test_a_listed_product_that_needs_details_is_found_under_listed(): void
+    {
+        $this->linkedProduct('LISTOK', 7001);
+
+        // A listed item keeps its live photos and price, so the gap that still counts is the parcel.
+        $gap = $this->product('LISTGAP');
+        DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $gap)->update(['weight' => 0]);
+        $this->readyListing($gap);
+        ShopeeProductLink::create([
+            'product_id' => $gap, 'shopee_item_id' => 7002, 'sku' => 'LISTGAP',
+            'live_status' => 'NORMAL', 'live_checked_at' => now(),
+        ]);
+        $this->assertFalse($this->states([$gap])[$gap]->ready, 'the row itself reads Needs details');
+
+        $unlisted = $this->product('NOTPUSHED', '');
+        ShopeeListing::query()->create(['product_id' => $unlisted]);
+
+        $user = $this->operator();
+        $page = $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'listed_not_ready']))->assertOk();
+        $page->assertSee('LISTGAP')->assertDontSee('LISTOK')->assertDontSee('NOTPUSHED')
+            ->assertSee('Listed, Needs details')->assertSee('class="x-segment-bar"', false);
+        $this->assertMatchesRegularExpression('/sync_status=listed_not_ready[^>]*>\s*<span class="lsm-item__label">Needs details<\/span>\s*<span class="lsm-n">1</s', $page->getContent());
+
+        $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'listed_ready']))->assertOk()
+            ->assertSee('LISTOK')->assertDontSee('LISTGAP')->assertDontSee('NOTPUSHED');
+
+        $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'listed_not_ready', 'shopee_tab' => 'unlisted']))
+            ->assertOk()->assertDontSee('LISTGAP')->assertSee('class="x-segment-bar"', false);
+    }
+
     public function test_an_outcome_lands_on_the_store_it_was_about(): void
     {
         $one = ShopeeSetting::defaultStore();

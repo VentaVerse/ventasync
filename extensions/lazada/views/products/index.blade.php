@@ -77,20 +77,8 @@
     </div>
     @if($canManageLazada)
         <div class="cc-head-actions">
-            {{-- Refresh from Lazada re-reads every status and checks every
-                 link; the menu says when it last ran.
-                 Add products: the one
-                 way a main-catalogue product joins this store. A primary
-                 button, sized to how often it happens, opening the slide-over
-                 in place - not a tab beside the daily table, which gave a
-                 rare act equal billing. "New listing" (#196) stays retired:
-                 the row's Set up on Lazada is the push door. --}}
-            @if(($liveCounts ?? null) !== null)
-                <form method="POST" action="{{ route('ext.lazada.products.refresh_status') }}" class="cc-head-refresh" data-slow-action>
-                    @csrf
-                    <x-ui.button type="submit"><x-ui.icon name="refresh-cw" size="14" /> Refresh from Lazada</x-ui.button>
-                </form>
-            @endif
+            {{-- Add products: the one way a main-catalogue product joins this
+                 store, opening the slide-over in place. --}}
             <x-ui.button type="button" variant="primary" data-add-panel-open>
                 <x-ui.icon name="plus" size="14" /> Add products
             </x-ui.button>
@@ -104,11 +92,62 @@
      Filter button to press, and Clear is a link because it is navigation. The
      two hidden fields keep whatever column the list is sorted by from being
      dropped the moment a filter is submitted, exactly as before. --}}
-{{-- Lazada's own statuses live in the status menu, under Listed. When
-     Lazada cannot be asked, this note says why and the menu shows none. --}}
+{{-- Lazada's own statuses, as the tab row above the table: what the store
+     says about each item, beside the menu's VentaSync status. The two
+     combine, and each one's counts follow the other's choice. When Lazada
+     cannot be asked, the note says why and the row is not drawn. --}}
 @if(($liveTabError ?? null) !== null)
     <div class="fm-note fm-note--warn" role="status">
         <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'Lazada', 'raw' => $liveTabError, 'settingsRoute' => 'ext.lazada.index'])</div>
+    </div>
+@elseif(($liveCounts ?? null) !== null)
+    @php
+        $liveTabDefs = [
+            'active' => 'Active',
+            'inactive' => 'Inactive',
+            'pending' => 'Pending QC',
+            'violation' => 'Rejected',
+            'soldout' => 'Sold out',
+            'deleted' => 'Deleted',
+        ];
+        $tabQuery = request()->except('page', 'lazada_tab');
+    @endphp
+    <div class="x-segment-bar">
+        <div class="x-segment-groups">
+            <div class="x-segment-group">
+                <nav class="x-segment" aria-label="Lazada listing status">
+                    <a href="{{ route('ext.lazada.products.index', $tabQuery) }}"
+                       class="x-segment__item {{ ($lazadaTab ?? 'all') === 'all' ? 'is-active' : '' }}"
+                       @if(($lazadaTab ?? 'all') === 'all') aria-current="true" @endif>
+                        <span>All</span>
+                        <span class="x-segment__count">{{ number_format((int) ($catalogueTotal ?? $paginator->total())) }}</span>
+                    </a>
+                    @foreach($liveTabDefs as $tabKey => $tabLabel)
+                        @php $isActive = ($lazadaTab ?? 'all') === $tabKey; @endphp
+                        <a href="{{ route('ext.lazada.products.index', array_merge($tabQuery, ['lazada_tab' => $tabKey])) }}"
+                           class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
+                           @if($isActive) aria-current="true" @endif>
+                            <span>{{ $tabLabel }}</span>
+                            <span class="x-segment__count">{{ number_format((int) ($liveCounts[$tabKey] ?? 0)) }}</span>
+                        </a>
+                    @endforeach
+                </nav>
+                <span class="x-segment-group__meta">
+                    @if($liveCheckedAt ?? null)
+                        as of {{ $liveCheckedAt->format('H:i, M j') }}
+                    @else
+                        not refreshed yet
+                    @endif
+                </span>
+                @if($canManageLazada)
+                    {{-- Refresh re-reads every status and checks every link against the store. --}}
+                    <form method="POST" action="{{ route('ext.lazada.products.refresh_status') }}" class="x-segment-group__refresh" data-slow-action>
+                        @csrf
+                        <x-ui.button type="submit"><x-ui.icon name="refresh-cw" size="14" /> Refresh from Lazada</x-ui.button>
+                    </form>
+                @endif
+            </div>
+        </div>
     </div>
 @endif
 

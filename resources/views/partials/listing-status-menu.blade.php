@@ -1,7 +1,9 @@
 {{-- The status menu down the left of a store's Listings page
-     (App\Integrations\Listings\StatusMenu builds $menu). Where it stands is
-     one tree; Needs you is two switches that narrow it. Every entry is a link,
-     so the choice lives in the address and survives a reload or a share. --}}
+     (App\Integrations\Listings\StatusMenu builds $menu): VentaSync's own view
+     of each product. Where it stands is one tree; Needs you is two switches
+     that narrow it. The store's own statuses are the tab row above the table.
+     Every entry is a link, so the choice lives in the address and survives a
+     reload or a share. --}}
 <nav class="lsm" aria-label="Listing status" data-lsm>
     <div class="lsm-group" role="group" aria-labelledby="lsm-where">
         <span class="lsm-group__k" id="lsm-where">Where it stands</span>
@@ -13,9 +15,6 @@
             </a>
             @if($item['kids'] !== [])
                 <div class="lsm-kids">
-                    @if($item['meta'])
-                        <span class="lsm-kids__meta">{{ $item['meta'] }}</span>
-                    @endif
                     @foreach($item['kids'] as $kid)
                         <a href="{{ $kid['url'] }}" class="lsm-item lsm-item--kid{{ $kid['active'] ? ' is-active' : '' }}"
                            @if($kid['active']) aria-current="true" @endif>

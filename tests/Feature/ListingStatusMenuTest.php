@@ -116,14 +116,13 @@ class ListingStatusMenuTest extends TestCase
             ->assertOk()->assertSee('compare=1', false)->assertDontSee('Listed but failed')->assertDontSee('Not on Lazada yet');
     }
 
-    public function test_the_tree_keeps_every_other_filter_and_a_store_status_sits_under_listed(): void
+    public function test_the_tree_keeps_every_other_filter_and_splits_both_halves_by_readiness(): void
     {
         $menu = StatusMenu::build([
             'url' => fn (array $p) => '/listings?' . http_build_query($p),
-            'query' => ['q' => 'cable', 'page' => 3, 'sync_status' => 'error'],
+            'query' => ['q' => 'cable', 'page' => 3, 'sync_status' => 'error', 'lazada_tab' => 'active'],
             'sync' => 'error', 'failed' => false, 'change' => false,
-            'counts' => ['all' => 10, 'not_uploaded' => 4, 'ready' => 3, 'not_ready' => 1, 'uploaded' => 6, 'failed' => 2, 'change' => 1],
-            'market' => ['param' => 'lazada_tab', 'current' => 'all', 'store' => 'Lazada', 'defs' => ['active' => 'Active'], 'counts' => ['active' => 5], 'meta' => 'not refreshed yet'],
+            'counts' => ['all' => 10, 'not_uploaded' => 4, 'ready' => 3, 'not_ready' => 1, 'uploaded' => 6, 'listed_ready' => 4, 'listed_not_ready' => 2, 'failed' => 2, 'change' => 1],
         ]);
 
         $this->assertSame('Push failed', $menu['label']);
@@ -131,12 +130,29 @@ class ListingStatusMenuTest extends TestCase
         [$all, $notListed, $listed] = $menu['tree'];
         $this->assertTrue($all['active']);
         $this->assertStringContainsString('q=cable', $listed['url'], 'the search stays');
+        $this->assertStringContainsString('lazada_tab=active', $listed['url'], 'the store tab stays chosen');
         $this->assertStringNotContainsString('page=', $listed['url'], 'a new choice starts at the first page');
         $this->assertStringContainsString('failed=1', $listed['url'], 'the switch stays on when the tree moves');
         $this->assertSame(['Ready to push', 'Needs details'], array_column($notListed['kids'], 'label'));
-        $this->assertSame('On Lazada, not refreshed yet', $listed['meta']);
-        $this->assertStringContainsString('sync_status=uploaded', $listed['kids'][0]['url']);
-        $this->assertStringContainsString('lazada_tab=active', $listed['kids'][0]['url']);
+        $this->assertSame(['Ready', 'Needs details'], array_column($listed['kids'], 'label'));
+        $this->assertSame([4, 2], array_column($listed['kids'], 'count'));
+        $this->assertStringContainsString('sync_status=listed_not_ready', $listed['kids'][1]['url']);
         $this->assertStringNotContainsString('failed=1', $menu['flags'][0]['url'], 'pressing an on switch turns it off');
+    }
+
+    /** A live product with a gap on VentaSync's side is found under Listed, and the store's tab narrows it further. */
+    public function test_a_listed_product_that_needs_details_is_found_under_listed(): void
+    {
+        $ids = $this->store();
+        $pfx = (string) config('catalog.prefix');
+        DB::table($pfx . 'product')->where('product_id', $ids['listedOk'])->update(['sku' => '']);
+        $user = $this->manager();
+
+        $page = $this->actingAs($user)->get(route('ext.lazada.products.index', ['sync_status' => 'listed_not_ready']))->assertOk();
+        $page->assertSee('Listed and fine')->assertDontSee('Not on Lazada yet')->assertSee('Listed, Needs details');
+        $this->assertMatchesRegularExpression('/sync_status=listed_not_ready[^>]*>\s*<span class="lsm-item__label">Needs details<\/span>\s*<span class="lsm-n">[1-9]/s', $page->getContent());
+
+        $this->actingAs($user)->get(route('ext.lazada.products.index', ['sync_status' => 'listed_not_ready', 'lazada_tab' => 'inactive']))
+            ->assertOk()->assertDontSee('Listed and fine')->assertSee('class="x-segment-bar"', false);
     }
 }

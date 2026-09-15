@@ -15,9 +15,9 @@ use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
- * The status menu on Shopee's Listings page: the tree replaces the tab row
- * and the Listed-or-not select, the two switches narrow it, and the item id
- * rides the product's own line.
+ * The status menu on Shopee's Listings page: the tree replaces the
+ * Listed-or-not select and sits beside Shopee's own tab row, the two
+ * switches narrow it, and the item id rides the product's own line.
  */
 class ShopeeListingStatusMenuTest extends TestCase
 {
@@ -77,7 +77,7 @@ class ShopeeListingStatusMenuTest extends TestCase
         $this->product('Not on Shopee yet', 'SMN-3');
     }
 
-    public function test_the_menu_replaces_the_tab_row_and_push_failed_combines_with_listed(): void
+    public function test_the_menu_sits_beside_the_tab_row_and_push_failed_combines_with_listed(): void
     {
         $this->store();
         $user = $this->manager();
@@ -85,9 +85,11 @@ class ShopeeListingStatusMenuTest extends TestCase
         $page = $this->actingAs($user)->get(route('ext.shopee.products.index'))->assertOk();
         $page->assertSee('Where it stands')->assertSee('Needs you')->assertSee('data-lsm', false);
         $page->assertDontSee('name="sync_status"', false);
-        $page->assertDontSee('x-segment__item', false);
+        $page->assertSee('class="x-segment-bar"', false);
+        $page->assertSee('x-segment__item', false);
         $page->assertDontSee('>Shopee ID<', false);
-        $page->assertSee('cc-head-refresh', false);
+        $page->assertDontSee('cc-head-refresh', false);
+        $page->assertSee('x-segment-group__refresh', false);
         $page->assertSee('lsm-chanid">Shopee 9001<', false);
         $page->assertSee('shopee_tab=live', false);
         $page->assertSee('lsm-n lsm-n--bad">1<', false);

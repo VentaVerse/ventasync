@@ -53,17 +53,8 @@
     </div>
     @if($canManage)
         <div class="cc-head-actions">
-            {{-- Refresh from TikTok Shop re-reads every status and checks
-                 every link; the menu says when it last ran. Add products is
-                 the one way a main-catalogue product joins this store: a
-                 primary button, sized to how often it happens, opening the
-                 slide-over in place. --}}
-            @if(($liveCounts ?? null) !== null)
-                <form method="POST" action="{{ route('ext.tiktok.products.refresh_status') }}" class="cc-head-refresh" data-slow-action>
-                    @csrf
-                    <x-ui.button type="submit"><x-ui.icon name="refresh-cw" size="14" /> Refresh from TikTok Shop</x-ui.button>
-                </form>
-            @endif
+            {{-- Add products: the one way a main-catalogue product joins this
+                 store, opening the slide-over in place. --}}
             <x-ui.button type="button" variant="primary" data-add-panel-open>
                 <x-ui.icon name="plus" size="14" /> Add products
             </x-ui.button>
@@ -71,11 +62,55 @@
     @endif
 </div>
 
-{{-- TikTok Shop's own statuses live in the status menu, under Listed. When
-     TikTok Shop cannot be asked, this note says why and the menu shows none. --}}
+{{-- TikTok Shop's own statuses, as the tab row above the table: what the
+     store says about each item, beside the menu's VentaSync status. The two
+     combine, and each one's counts follow the other's choice. When TikTok
+     Shop cannot be asked, the note says why and the row is not drawn. --}}
 @if(($liveTabError ?? null) !== null)
     <div class="fm-note fm-note--warn" role="status">
-        <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'TikTok Shop', 'raw' => $liveTabError, 'settingsRoute' => 'ext.tiktok.index']) The live statuses are unavailable right now; the list below is unaffected.</div>
+        <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'TikTok Shop', 'raw' => $liveTabError, 'settingsRoute' => 'ext.tiktok.index']) The live tabs and statuses are unavailable right now; the list below is unaffected.</div>
+    </div>
+@elseif(($liveCounts ?? null) !== null)
+    @php
+        $tabDefs = \Extensions\tiktok\Services\TikTok\TikTokLiveListing::TABS;
+        $tabQuery = request()->except('page', 'tiktok_tab');
+    @endphp
+    <div class="x-segment-bar">
+        <div class="x-segment-groups">
+            <div class="x-segment-group">
+                <nav class="x-segment" aria-label="TikTok Shop listing status">
+                    <a href="{{ route('ext.tiktok.products.index', $tabQuery) }}"
+                       class="x-segment__item {{ $tiktokTab === 'all' ? 'is-active' : '' }}"
+                       @if($tiktokTab === 'all') aria-current="true" @endif>
+                        <span>All</span>
+                        <span class="x-segment__count">{{ number_format((int) ($catalogueTotal ?? $products->total())) }}</span>
+                    </a>
+                    @foreach($tabDefs as $tabKey => [$tabLabel, $tabStatus])
+                        @continue($tabKey === 'all')
+                        @php $isActive = $tiktokTab === $tabKey; @endphp
+                        <a href="{{ route('ext.tiktok.products.index', array_merge($tabQuery, ['tiktok_tab' => $tabKey])) }}"
+                           class="x-segment__item {{ $isActive ? 'is-active' : '' }}" @if($isActive) aria-current="true" @endif>
+                            <span>{{ $tabLabel }}</span>
+                            <span class="x-segment__count">{{ number_format((int) ($liveCounts[$tabKey] ?? 0)) }}</span>
+                        </a>
+                    @endforeach
+                </nav>
+                <span class="x-segment-group__meta">
+                    @if($liveCheckedAt ?? null)
+                        as of {{ $liveCheckedAt->format('H:i, M j') }}
+                    @else
+                        not refreshed yet
+                    @endif
+                </span>
+                @if($canManage)
+                    {{-- Refresh re-reads every status and checks every link against the store. --}}
+                    <form method="POST" action="{{ route('ext.tiktok.products.refresh_status') }}" class="x-segment-group__refresh" data-slow-action>
+                        @csrf
+                        <x-ui.button type="submit"><x-ui.icon name="refresh-cw" size="14" /> Refresh from TikTok Shop</x-ui.button>
+                    </form>
+                @endif
+            </div>
+        </div>
     </div>
 @endif
 
@@ -216,7 +251,7 @@
             $optRows = $optionRowsByProductId->get($pid);
             $img = trim((string) ($p->image ?? ''));
             $thumbSrc = $img !== '' ? asset('storage/' . ltrim($img, '/')) : '';
-            /* The mirrored status for this row; the status menu says when it
+            /* The mirrored status for this row; the tab row says when it
                was refreshed. Never refreshed reads as exactly that, not as a guess. */
             $rowLiveStatus = null;
             if ($listed && $liveCounts !== null) {

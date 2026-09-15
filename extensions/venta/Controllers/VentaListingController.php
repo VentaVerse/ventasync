@@ -284,7 +284,7 @@ class VentaListingController extends Controller
         $syncStatus = (string) $request->get('sync_status', 'all');
         // The status menu's words, with the page's older listed / not_listed still read.
         $syncStatus = ['listed' => 'uploaded', 'not_listed' => 'not_uploaded'][$syncStatus] ?? $syncStatus;
-        if (! in_array($syncStatus, ['all', 'not_uploaded', 'ready', 'not_ready', 'uploaded', 'error'], true)) {
+        if (! in_array($syncStatus, [...\App\Integrations\Listings\StatusMenu::VALUES, 'error'], true)) {
             $syncStatus = 'all';
         }
         /* The status menu's two switches narrow whatever the tree has
@@ -304,7 +304,8 @@ class VentaListingController extends Controller
         $dir = strtolower((string) $request->get('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
 
         $mirror = VentaListingMirror::for($setting);
-        $liveCounts = $mirror->counts();
+        // Counted below, against the rows the status menu has chosen.
+        $liveCounts = [];
         $liveCheckedAt = $mirror->checkedAt();
 
         /* A store that cannot be asked says so, once, at the top (parity
@@ -376,49 +377,90 @@ class VentaListingController extends Controller
 
         /* One definition of each place in the tree, used for the rows and
          * for the menu's counts alike, so a number and its list agree.
-         * Listed means linked to this store; Ready to push and Needs
-         * details split the rest by the readiness every push path reads. */
-        $unlistedIds = array_values(array_diff($scopeIds, $linkedProductIds));
-        $applySync = function ($query, string $status) use ($store, $linkedProductIds, $unlistedIds) {
-            if ($status === 'uploaded') {
-                $query->whereIn('p.product_id', $linkedProductIds ?: [0]);
-            } elseif ($status === 'not_uploaded') {
-                $query->whereNotIn('p.product_id', $linkedProductIds ?: [0]);
-            } elseif ($status === 'ready' || $status === 'not_ready') {
-                $wantReady = $status === 'ready';
-                $matching = array_keys(array_filter($this->readyByProduct($store, $unlistedIds), fn ($r) => $r === $wantReady));
-                $query->whereIn('p.product_id', $matching ?: [0]);
-            }
+         * Listed means linked to this store; each half splits by the
+         * readiness the row's own Ready column reads. */
+        $listed = fn ($query) => $query->whereIn('p.product_id', $linkedProductIds ?: [0]);
+        $notListed = fn ($query) => $query->whereNotIn('p.product_id', $linkedProductIds ?: [0]);
+        $readyIs = function ($query, bool $wantReady) use ($store, $scopeIds) {
+            $matching = array_keys(array_filter($this->readyByProduct($store, $scopeIds), fn ($r) => $r === $wantReady));
+
+            return $query->whereIn('p.product_id', $matching ?: [0]);
+        };
+        $applySync = function ($query, string $status) use ($listed, $notListed, $readyIs) {
+            match ($status) {
+                'uploaded' => $listed($query),
+                'listed_ready' => $readyIs($listed($query), true),
+                'listed_not_ready' => $readyIs($listed($query), false),
+                'not_uploaded' => $notListed($query),
+                'ready' => $readyIs($notListed($query), true),
+                'not_ready' => $readyIs($notListed($query), false),
+                default => $query,
+            };
 
             return $query;
         };
 
-        $menuBase = clone $query;
         $errored = $states->erroredProductIds();
         $changed = $states->productIdsIn('drift');
+
+        /* The status menu's choice, and the store's tab: each narrows the
+         * rows, and each one's counts are taken under the other's choice. */
+        $applyMenu = function ($query) use ($applySync, $syncStatus, $failedFlag, $changeFlag, $errored, $changed) {
+            $applySync($query, $syncStatus);
+            if ($failedFlag) {
+                /* The rows that draw an error line, by the line's own engine. */
+                $query->whereIn('p.product_id', $errored ?: [0]);
+            }
+            if ($changeFlag) {
+                $query->whereIn('p.product_id', $changed ?: [0]);
+            }
+
+            return $query;
+        };
+        // A tab narrows the table to the products the mirror holds in that status. Only listed rows can match.
+        $applyTab = function ($query) use ($tab, $store, $linkedProductIds) {
+            if ($tab !== 'all') {
+                $tabIds = VentaListing::query()->where('venta_setting_id', $store)
+                    ->whereIn('product_id', $linkedProductIds ?: [0])
+                    ->where('live_status', VentaListingMirror::TABS[$tab][1])->pluck('product_id')->all();
+                $query->whereIn('p.product_id', $tabIds ?: [0]);
+            }
+
+            return $query;
+        };
+        // The mirror's buckets, as TABS names them, over the listed rows of the given query.
+        $tabCounts = function ($query) use ($store, $listed): array {
+            $byStatus = VentaListing::query()->where('venta_setting_id', $store)
+                ->whereIn('product_id', $listed(clone $query)->select('p.product_id'))
+                ->whereNotNull('live_status')
+                ->selectRaw('live_status, COUNT(DISTINCT product_id) as n')
+                ->groupBy('live_status')
+                ->pluck('n', 'live_status');
+            $out = [];
+            foreach (VentaListingMirror::TABS as $tabKey => [$label, $status]) {
+                if ($status !== null) {
+                    $out[$tabKey] = (int) ($byStatus[$status] ?? 0);
+                }
+            }
+
+            return $out;
+        };
+
+        $menuBase = $applyTab(clone $query);
         $menuCounts = ['all' => (clone $menuBase)->count()];
-        foreach (['not_uploaded', 'ready', 'not_ready', 'uploaded'] as $status) {
+        foreach (['not_uploaded', 'ready', 'not_ready', 'uploaded', 'listed_ready', 'listed_not_ready'] as $status) {
             $menuCounts[$status] = $applySync(clone $menuBase, $status)->count();
         }
         $menuCounts['failed'] = (clone $menuBase)->whereIn('p.product_id', $errored ?: [0])->count();
         $menuCounts['change'] = (clone $menuBase)->whereIn('p.product_id', $changed ?: [0])->count();
 
-        $applySync($query, $syncStatus);
-        if ($failedFlag) {
-            /* The rows that draw an error line, by the line's own engine. */
-            $query->whereIn('p.product_id', $errored ?: [0]);
-        }
-        if ($changeFlag) {
-            $query->whereIn('p.product_id', $changed ?: [0]);
-        }
+        $tabBase = $applyMenu(clone $query);
+        // The tab row's All products: every row the menu has chosen, before a tab narrows it.
+        $catalogueTotal = (clone $tabBase)->count();
+        $liveCounts = $tabCounts($tabBase);
 
-        if ($tab !== 'all') {
-            $wanted = VentaListingMirror::TABS[$tab][1];
-            $tabIds = VentaListing::query()->where('venta_setting_id', $store)
-                ->whereIn('product_id', $linkedProductIds ?: [0])
-                ->where('live_status', $wanted)->pluck('product_id')->all();
-            $query->whereIn('p.product_id', $tabIds ?: [0]);
-        }
+        $applyMenu($query);
+        $applyTab($query);
 
         $query->orderBy($sortColumns[$sort], $dir);
         if ($sortColumns[$sort] !== 'p.product_id') {
@@ -440,7 +482,7 @@ class VentaListingController extends Controller
            a fill fails, so the tabs stay and this rides the flash. */
         $fillError = null;
         if ($setting->enabled && $linksByProductId->isNotEmpty() && $mirror->fillBlanks($linksByProductId, 10, $fillError) > 0) {
-            $liveCounts = $mirror->counts();
+            $liveCounts = $tabCounts($tabBase);
             $liveCheckedAt = $mirror->checkedAt();
         }
         if ($fillError !== null) {
@@ -476,6 +518,7 @@ class VentaListingController extends Controller
             'liveCheckedAt' => $liveCheckedAt,
             'liveTabError' => $liveTabError,
             'troubleFilter' => $troubleFilter,
+            'catalogueTotal' => $catalogueTotal,
             'failedFlag' => $failedFlag,
             'changeFlag' => $changeFlag,
             'statusMenu' => \App\Integrations\Listings\StatusMenu::build([
@@ -485,27 +528,32 @@ class VentaListingController extends Controller
                 'failed' => $failedFlag,
                 'change' => $changeFlag,
                 'counts' => $menuCounts,
-                'market' => [
-                    'param' => 'venta_tab', 'current' => $tab, 'store' => (string) $setting->store_name,
-                    'defs' => array_map(fn ($def) => $def[0], array_diff_key(VentaListingMirror::TABS, ['all' => true])),
-                    'counts' => $liveCounts,
-                    'meta' => $liveCheckedAt ? 'as of ' . $liveCheckedAt->format('H:i, M j') : 'not refreshed yet',
-                ],
             ]),
         ]);
     }
 
     /**
-     * Which of this store's unlisted products could be pushed right now, by
-     * the readiness every push path reads. Held for a minute: the menu
-     * counts it on every page. A product added since is answered on the spot.
+     * Whether each of this store's products could be pushed right now,
+     * listed or not, by the same readiness the row's own Ready column reads
+     * (one answer per product, a product with no answer read as not ready,
+     * exactly as VentaListingStates draws it), so a menu count and the rows
+     * it leads to agree. Held for a minute: the menu counts it on every
+     * page. A product added since is answered on the spot.
      *
      * @param  list<int>  $productIds
      * @return array<int, bool>  product id => ready
      */
     private function readyByProduct(int $store, array $productIds): array
     {
-        $answer = fn (array $ids) => array_map(fn ($r) => (bool) $r['ready'], \Extensions\venta\Services\Venta\VentaListingReadiness::forProducts($ids));
+        $answer = function (array $ids): array {
+            $readiness = \Extensions\venta\Services\Venta\VentaListingReadiness::forProducts($ids);
+            $out = [];
+            foreach ($ids as $id) {
+                $out[(int) $id] = (bool) ($readiness[(int) $id]['ready'] ?? false);
+            }
+
+            return $out;
+        };
         $held = \Illuminate\Support\Facades\Cache::remember('venta:ready-by-product:' . $store, 60, fn () => $answer($productIds));
         $missing = array_values(array_diff($productIds, array_keys($held)));
 

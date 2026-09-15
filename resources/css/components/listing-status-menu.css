@@ -39,13 +39,6 @@
     letter-spacing: .005em;
 }
 
-.lsm-kids__meta {
-    padding: 3px 10px 2px;
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--bl-ink-3);
-}
-
 .lsm-item {
     display: flex;
     align-items: center;
@@ -133,12 +126,6 @@
 .lsm-n--attn { color: var(--bl-attn); }
 .lsm-n--good { color: var(--bl-good); }
 
-/* Refresh from the store sits beside Add products in the page head. */
-.cc-head-actions .cc-head-refresh {
-    display: inline-flex;
-    margin: 0;
-}
-
 /* A hint in the two right-hand columns opens leftwards, so a closed bubble
    beside the menu never runs past the table and makes it scroll sideways.
    Below 900px the bubble is a sheet across the screen instead. */
@@ -179,8 +166,7 @@
         padding-top: 8px;
     }
 
-    .lsm-group__k,
-    .lsm-kids__meta {
+    .lsm-group__k {
         display: none;
     }
 

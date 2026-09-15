@@ -76,17 +76,8 @@
     </div>
     @if($canManageShopee)
         <div class="cc-head-actions">
-            {{-- Refresh from Shopee re-reads every status and checks every
-                 link; the menu says when it last ran. Add products is the one
-                 way a main-catalogue product joins this store: a primary
-                 button, sized to how often it happens, opening the slide-over
-                 in place. --}}
-            @if(($liveCounts ?? null) !== null)
-                <form method="POST" action="{{ route('ext.shopee.products.refresh_status') }}" class="cc-head-refresh" data-slow-action>
-                    @csrf
-                    <x-ui.button type="submit"><x-ui.icon name="refresh-cw" size="14" /> Refresh from Shopee</x-ui.button>
-                </form>
-            @endif
+            {{-- Add products: the one way a main-catalogue product joins this
+                 store, opening the slide-over in place. --}}
             <x-ui.button type="button" variant="primary" data-add-panel-open>
                 <x-ui.icon name="plus" size="14" /> Add products
             </x-ui.button>
@@ -96,12 +87,16 @@
 
 
 
-{{-- Shopee's own statuses live in the status menu, under Listed. When
-     Shopee cannot be asked, this note says why and the menu shows none. --}}
+{{-- Shopee's own statuses, as the tab row above the table: what the store
+     says about each item, beside the menu's VentaSync status. The two
+     combine, and each one's counts follow the other's choice. When Shopee
+     cannot be asked, the note says why and the row is not drawn. --}}
 @if(($liveTabError ?? null) !== null)
     <div class="fm-note fm-note--warn" role="status">
         <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'Shopee', 'raw' => $liveTabError, 'settingsRoute' => 'ext.shopee.index'])</div>
     </div>
+@elseif(($liveCounts ?? null) !== null)
+    @include('ext-shopee::products._scope_strips', ['stripRoute' => 'ext.shopee.products.index', 'stripParams' => []])
 @endif
 
 @include('partials.channel-state-filter', [
