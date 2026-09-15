@@ -279,7 +279,8 @@ function initPoLines(form) {
 
         line.appendChild(cell('Qty', field('input', 'po-in po-in--num', {
             'data-po-qty': '', type: 'number', min: '1', step: '1',
-            name: 'items[' + i + '][quantity]', value: '1',
+            name: 'items[' + i + '][quantity]',
+            value: (vp && Number(vp.min_qty) > 0) ? String(parseInt(vp.min_qty, 10)) : '1',
         })));
 
         line.appendChild(cell('Unit price', field('input', 'po-in po-in--num', {
