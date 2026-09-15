@@ -50,11 +50,11 @@ trait ComparesWithTheCatalog
                 'catalog.description' => 'nullable|string|max:60000',
                 'catalog.description_edited' => 'nullable|in:0,1',
                 'catalog.photos' => 'nullable|string|max:20000',
-                'catalog.price' => 'nullable|numeric|gt:0|max:99999999',
-                'catalog.weight' => 'nullable|numeric|gt:0|max:99999',
-                'catalog.length' => 'nullable|numeric|gt:0|max:99999',
-                'catalog.width' => 'nullable|numeric|gt:0|max:99999',
-                'catalog.height' => 'nullable|numeric|gt:0|max:99999',
+                'catalog.price' => 'nullable|numeric|min:0|max:99999999',
+                'catalog.weight' => 'nullable|numeric|min:0|max:99999',
+                'catalog.length' => 'nullable|numeric|min:0|max:99999',
+                'catalog.width' => 'nullable|numeric|min:0|max:99999',
+                'catalog.height' => 'nullable|numeric|min:0|max:99999',
             ];
         }
         $data = $request->validate($rules, [], [
@@ -77,8 +77,10 @@ trait ComparesWithTheCatalog
                     $fields['photos'] = $decoded;
                 }
             }
+            /* A catalog product without a figure shows 0; a 0 is never
+             * written, so an untouched empty figure saves as it was. */
             foreach (['price', 'weight', 'length', 'width', 'height'] as $key) {
-                if (($c[$key] ?? null) !== null && $c[$key] !== '') {
+                if (($c[$key] ?? null) !== null && $c[$key] !== '' && (float) $c[$key] > 0) {
                     $fields[$key] = (float) $c[$key];
                 }
             }

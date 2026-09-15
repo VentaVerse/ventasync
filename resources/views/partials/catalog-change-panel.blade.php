@@ -30,6 +30,9 @@
         'listing' => ['label' => 'This listing', 'values' => $own, 'photos' => $photosOf('listing', $own['photos']), 'can' => (bool) $canManage],
     ];
     $num = fn ($v, int $places) => rtrim(rtrim(number_format((float) $v, $places, '.', ''), '0'), '.');
+    /* The listing's price and parcel show only what it holds of its own; an
+       empty box follows the catalog, whose figure is its placeholder. */
+    $ownNum = fn ($v, int $places) => ($v === null || $v === '') ? '' : $num($v, $places);
 @endphp
 @if($catalog !== null)
 <div class="modal-backdrop cc-addpanel lcx-panel{{ $openNow ? ' active' : '' }}" id="lcx-panel" data-lcx-panel>
@@ -116,8 +119,8 @@
                                 <div class="lcx-cell">
                                     <span class="lcx-side">{{ $s['label'] }}</span>
                                     <input type="number" class="x-input fm-input--num" name="{{ $side }}[price]" id="lcx-{{ $side }}-price" step="0.01" min="0"
-                                           value="{{ old($side . '.price', $num($s['values']['price'], 2)) }}" aria-labelledby="lcx-k-price"
-                                           @if($side === 'catalog') data-lcx-catalog @endif @disabled(!$s['can'])>
+                                           value="{{ old($side . '.price', $side === 'listing' ? $ownNum($listing->price, 2) : $num($s['values']['price'], 2)) }}" aria-labelledby="lcx-k-price"
+                                           @if($side === 'catalog') data-lcx-catalog @else placeholder="{{ $num($catalog['price'], 2) }}" @endif @disabled(!$s['can'])>
                                     @error($side . '.price')<div class="fm-error">{{ $message }}</div>@enderror
                                 </div>
                             @endforeach
@@ -133,12 +136,17 @@
                                 <span class="lcx-side">{{ $s['label'] }}</span>
                                 <div class="lcx-parcel">
                                     @foreach(['weight' => 'Weight kg', 'length' => 'Length cm', 'width' => 'Width cm', 'height' => 'Height cm'] as $key => $label)
+                                        @php
+                                            $places = $key === 'weight' ? 3 : 2;
+                                            $mine = $side === 'listing';
+                                        @endphp
                                         <div class="lcx-parcel__f">
                                             <label class="lcx-mini" for="lcx-{{ $side }}-{{ $key }}">{{ $label }}</label>
                                             <input type="number" class="x-input fm-input--num" name="{{ $side }}[{{ $key }}]" id="lcx-{{ $side }}-{{ $key }}"
-                                                   step="{{ $key === 'weight' ? '0.001' : ($side === 'listing' ? '1' : '0.01') }}" min="0"
-                                                   value="{{ old($side . '.' . $key, $num($s['values']['parcel'][$key], $key === 'weight' ? 3 : 2)) }}"
-                                                   @if($side === 'catalog') data-lcx-catalog @endif @disabled(!$s['can'])>
+                                                   step="{{ $key === 'weight' ? '0.001' : ($mine ? '1' : '0.01') }}"
+                                                   min="{{ $mine ? ($key === 'weight' ? '0.001' : '1') : '0' }}"
+                                                   value="{{ old($side . '.' . $key, $mine ? $ownNum(((float) $listing->{\App\Integrations\Listings\CatalogCopy::PARCEL[$key]}) > 0 ? $listing->{\App\Integrations\Listings\CatalogCopy::PARCEL[$key]} : null, $places) : $num($s['values']['parcel'][$key], $places)) }}"
+                                                   @if($mine) placeholder="{{ $num($catalog['parcel'][$key], $places) }}" @else data-lcx-catalog @endif @disabled(!$s['can'])>
                                         </div>
                                     @endforeach
                                 </div>

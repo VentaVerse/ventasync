@@ -176,6 +176,39 @@ class CatalogChangeTest extends TestCase
         $this->assertSame([], $listing->catalogChange());
     }
 
+    /**
+     * A listing's sizes are whole centimetres. Filling its boxes with a
+     * catalog size like 2.5 made the browser refuse Save; they now hold only
+     * the listing's own figures, the catalog's shown as the placeholder.
+     */
+    public function test_a_catalog_size_with_decimals_or_a_missing_weight_never_blocks_save(): void
+    {
+        $pid = $this->product('Plug', '<p>Words.</p>');
+        $pfx = (string) config('catalog.prefix');
+        DB::table($pfx . 'product')->where('product_id', $pid)->update(['weight' => 0, 'length' => 2.5]);
+        LazadaProduct::query()->create(['product_id' => $pid]);
+        $this->editCatalog($pid, ['name' => 'Plug v2']);
+
+        $page = $this->actingAs($this->user(true))->get(route('ext.lazada.products.edit', $pid))->assertOk()->getContent();
+        $this->assertMatchesRegularExpression('/id="lcx-listing-length"[^>]*value=""[^>]*placeholder="2.5"/s', $page,
+            'an empty listing size follows the catalog, whose figure is the placeholder');
+        $this->assertMatchesRegularExpression('/id="lcx-listing-price"[^>]*value=""[^>]*placeholder="130"/s', $page);
+        $this->assertMatchesRegularExpression('/id="lcx-catalog-length"[^>]*value="2.5"/s', $page);
+
+        $this->post(route('ext.lazada.products.catalog_change_save', $pid), [
+            'back' => '/channels',
+            'listing' => ['title' => 'Plug v2', 'price' => '', 'weight' => '', 'length' => '', 'width' => '', 'height' => ''],
+            'catalog' => ['title' => 'Plug v2', 'price' => '130', 'weight' => '0', 'length' => '2.5', 'width' => '2', 'height' => '1'],
+        ])->assertSessionHasNoErrors()->assertRedirect('/channels')->assertSessionHas('status', 'Saved.');
+
+        $this->assertEquals(0, (float) DB::table($pfx . 'product')->where('product_id', $pid)->value('weight'), 'an empty catalog weight saves as it was');
+        $this->assertEquals(2.5, (float) DB::table($pfx . 'product')->where('product_id', $pid)->value('length'));
+        $listing = LazadaProduct::query()->where('product_id', $pid)->first();
+        $this->assertNull($listing->package_length, 'the listing keeps following the catalog size');
+        $this->assertNull($listing->weight);
+        $this->assertSame([], $listing->catalogChange());
+    }
+
     public function test_without_catalog_permission_save_leaves_the_catalog_alone(): void
     {
         $pid = $this->product('Plug', '<p>Words.</p>');
