@@ -15,7 +15,8 @@
 
 .lsm {
     position: sticky;
-    top: 14px;
+    /* Under the channel menu band, which stays put above it. */
+    top: calc(var(--bl-chband-h, 43px) + 14px);
     display: grid;
     gap: 20px;
 }

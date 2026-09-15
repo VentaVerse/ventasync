@@ -512,11 +512,11 @@
 
 .cc-bulkbar {
     /* Sticky: a tick on row 30 of a 6,800px table used to change nothing
-       on screen, the bar sat static above the header. It rides under the
-       top bar on wide screens and along the bottom edge on a phone, where
-       the thumb is. */
+       on screen, the bar sat static above the header. It rides just under
+       the channel menu band on wide screens, never behind it, and along
+       the bottom edge on a phone, where the thumb is. */
     position: sticky;
-    top: var(--bl-space-2);
+    top: calc(var(--bl-chband-h, 43px) + var(--bl-space-2));
     z-index: 6;
     display: flex;
     align-items: center;
