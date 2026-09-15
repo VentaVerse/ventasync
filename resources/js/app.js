@@ -41,6 +41,7 @@ import './pages/image-library';
 import './pages/watermark-form';
 import './pages/listing-images';
 import './pages/catalog-change';
+import './pages/listing-status-menu';
 import './pages/listing-group-band';
 import './pages/listing-strip';
 import './pages/unsaved-guard';

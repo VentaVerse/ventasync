@@ -20,7 +20,7 @@ use Tests\TestCase;
 
 /**
  * The store's listings index (#171): in the menu like the Big 3, the
- * catalogue / on-store strip from the mirror (#166), rows that link to
+ * status menu with the store's statuses from the mirror (#166), rows that link to
  * the singular page, the mirror filling its own blanks, a Refresh that
  * walks the store's product list, and Unlist / Relist for a selection.
  */
@@ -107,7 +107,7 @@ class VentaListingsIndexTest extends TestCase
         $this->assertContains(['Listings', 'ext.venta.listings.index', 'Catalog'], $labels);
     }
 
-    public function test_the_index_shows_the_strip_from_the_mirror_and_links_every_row_to_its_page(): void
+    public function test_the_index_shows_the_menu_from_the_mirror_and_links_every_row_to_its_page(): void
     {
         $store = $this->store();
         $ids = $this->scope($store);
@@ -118,16 +118,44 @@ class VentaListingsIndexTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('Your catalogue', $html);
-        $this->assertStringContainsString('On Gear Depot', $html);
-        $this->assertMatchesRegularExpression('/<span>Active<\/span>\s*<span class="x-segment__count">1<\/span>/', $html);
-        $this->assertMatchesRegularExpression('/<span>Unlisted<\/span>\s*<span class="x-segment__count">1<\/span>/', $html);
-        $this->assertMatchesRegularExpression('/<span>All products<\/span>\s*<span class="x-segment__count">3<\/span>/', $html);
+        $this->assertStringContainsString('On Gear Depot, as of', $html);
+        $this->assertStringNotContainsString('x-segment', $html);
+        $this->assertMatchesRegularExpression('/<span class="lsm-item__label">Active<\/span>\s*<span class="lsm-n">1<\/span>/', $html);
+        $this->assertMatchesRegularExpression('/<span class="lsm-item__label">Unlisted<\/span>\s*<span class="lsm-n">1<\/span>/', $html);
+        $this->assertMatchesRegularExpression('/<span class="lsm-item__label">All<\/span>\s*<span class="lsm-n">3<\/span>/', $html);
+        $this->assertMatchesRegularExpression('/<span class="lsm-item__label">Listed<\/span>\s*<span class="lsm-n">2<\/span>/', $html);
+        $this->assertStringContainsString('<span class="co-item__sku lsm-chanid">Venta 11</span>', $html);
+        $this->assertStringContainsString('class="cc-head-refresh"', $html);
         foreach ($ids as $pid) {
             $this->assertStringContainsString(route('ext.venta.listings.edit', [$store->id, $pid]), $html);
         }
         $this->assertStringContainsString('Refresh from Gear Depot', $html);
         $this->assertStringContainsString('Unlist on Gear Depot', $html);
+        Http::assertNothingSent();
+    }
+
+    /** The status menu: Push failed narrows Listed, and the page's older filter words still land where they did. */
+    public function test_the_menu_shows_and_push_failed_combines_with_listed(): void
+    {
+        $store = $this->store();
+        $ids = $this->scope($store);
+        VentaListing::where('product_id', $ids['A-1'])->first()->forceFill(['last_push_error' => 'Push failed: refused', 'last_push_failed_at' => now()])->save();
+        Http::fake();
+        $user = $this->manager();
+
+        $this->actingAs($user)->get(route('ext.venta.listings.index', $store->id))->assertOk()
+            ->assertSee('Where it stands')->assertSee('Needs you')->assertSee('data-lsm', false)
+            ->assertDontSee('name="sync_status"', false);
+
+        $this->actingAs($user)->get(route('ext.venta.listings.index', ['store' => $store->id, 'sync_status' => 'uploaded', 'failed' => 1]))->assertOk()
+            ->assertSee('Active pedal')->assertDontSee('Unlisted pedal')->assertDontSee('New pedal')
+            ->assertSee('matches: Listed · Push failed', false);
+
+        $this->actingAs($user)->get(route('ext.venta.listings.index', ['store' => $store->id, 'sync_status' => 'not_listed']))->assertOk()
+            ->assertSee('New pedal')->assertDontSee('Active pedal')->assertDontSee('Unlisted pedal');
+
+        $this->actingAs($user)->get(route('ext.venta.listings.index', ['store' => $store->id, 'sync_status' => 'ready']))->assertOk()
+            ->assertSee('New pedal')->assertDontSee('Active pedal')->assertSee('Not listed, Ready to push');
         Http::assertNothingSent();
     }
 
@@ -308,13 +336,15 @@ class VentaListingsIndexTest extends TestCase
 
         $this->assertEqualsCanonicalizing([$tee, $errored], \Extensions\venta\Services\Venta\VentaListingStates::for($store->id)->erroredProductIds());
 
-        $pages = fn () => [
-            route('ext.venta.listings.index', ['store' => $store->id, 'sync_status' => 'error']),
-            route('ext.venta.product-groups.products', ['store' => $store->id, 'group' => $group->id, 'sync_status' => 'error']),
+        // The Listings page reads an old error link as Push failed switched on; the group page keeps its dropdown.
+        $markers = [
+            route('ext.venta.listings.index', ['store' => $store->id, 'sync_status' => 'error']) => 'lsm-item lsm-flag is-on',
+            route('ext.venta.product-groups.products', ['store' => $store->id, 'group' => $group->id, 'sync_status' => 'error']) => '>Has an error</option>',
         ];
-        foreach ($pages() as $url) {
+        $pages = fn () => array_keys($markers);
+        foreach ($markers as $url => $marker) {
             $html = $this->actingAs($this->manager())->get($url)->assertOk()->getContent();
-            $this->assertStringContainsString('>Has an error</option>', $html);
+            $this->assertStringContainsString($marker, $html, $url);
             $this->assertStringContainsString('Missing tee', $html, $url);
             $this->assertStringContainsString('Errored pedal', $html, $url);
             $this->assertStringContainsString('Stock push failed: Product not found', $html, $url);

@@ -645,10 +645,9 @@ class ShopeeListingPageTest extends TestCase
         $r = $this->actingAs($this->manager())->get(route('ext.shopee.products.index'));
 
         $r->assertOk();
-        // One strip since #201: "All" is this store's own list, then
-        // Shopee's buckets. The catalogue framing is gone with the
-        // catalogue-as-table.
-        $r->assertSee('<span>All</span>', false);
+        // The status menu: "All" is this store's own list, and Shopee's
+        // buckets sit under Listed. The catalogue framing stays gone.
+        $r->assertSee('lsm-item__label">All<', false);
         $r->assertDontSee('x-segment-group__k', false); // no "Your catalogue" / "On Shopee" labels
         $r->assertDontSee('All products');
         $r->assertSee('as of 08:30, Aug 28');

@@ -221,10 +221,14 @@ class LazadaStockPushHealTest extends TestCase
         $user = $this->groupManager();
 
         $this->assertSame([$missing, $refused], $this->states()->erroredProductIds());
-        foreach ([route('ext.lazada.products.index', ['sync_status' => 'error']), route('ext.lazada.product-groups.products', [$group->id, 'sync_status' => 'error'])] as $url) {
+        // The Listings page says it through the status menu's Push failed switch; the group page keeps its filter option.
+        foreach ([
+            route('ext.lazada.products.index', ['sync_status' => 'error']) => 'lsm-flag is-on',
+            route('ext.lazada.product-groups.products', [$group->id, 'sync_status' => 'error']) => '>Has an error</option>',
+        ] as $url => $says) {
             $this->actingAs($user)->get($url)->assertOk()
                 ->assertSee('Missing size product')->assertSee('Refused price product')->assertDontSee('Clean quiet product')
-                ->assertSee('>Has an error</option>', false);
+                ->assertSee($says, false);
         }
 
         $this->states()->clearErrors([$refused]);

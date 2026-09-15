@@ -164,10 +164,9 @@ class TiktokListingsTest extends TestCase
         $r = $this->actingAs($this->manager())->get(route('ext.tiktok.products.index'));
 
         $r->assertOk();
-        // One strip since #201: "All" is this store's own list, then
-        // TikTok's buckets; icon-only refresh and Repair links beside the
-        // freshness stamp (the Shopee shape).
-        $r->assertSee('<span>All</span>', false);
+        // The status menu: "All" is this store's own list, TikTok's statuses
+        // sit under Listed with the freshness stamp, and Refresh is in the head.
+        $r->assertSee('lsm-item__label">All<', false);
         $r->assertDontSee('x-segment-group__k', false);
         $r->assertDontSee('All products');
         $r->assertSee('as of 08:30, Aug 28');
@@ -181,7 +180,7 @@ class TiktokListingsTest extends TestCase
         // the product inherits, 2026-09-05), so nothing here lacks one.
         $r->assertDontSee('Missing: a TikTok category');
         $r->assertSee('Push to TikTok Shop');
-        $r->assertSee('Under review');                // the tab bar exists
+        $r->assertSee('Under review');                // the menu lists the store's statuses
         $r->assertSee('Deactivate on TikTok Shop');   // the row verb for a live row
         $this->assertCount(0, $this->callsFor('POST', '/product/202309/products/search'));
     }

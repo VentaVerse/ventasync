@@ -41,6 +41,56 @@ class LazadaProductController extends Controller
         return $rows->first(fn ($l) => ! empty($l->lazada_item_id) && ! $l->unlinked_at) ?? $rows->last();
     }
 
+    /**
+     * Which of this store's unlisted products could be pushed right now, by
+     * the same readiness every other surface reads, rows and rowless
+     * products alike. Held for a minute: the menu counts it on every page.
+     *
+     * @return array<int, bool>  product id => ready
+     */
+    private function readyByProduct(): array
+    {
+        $storeId = (int) (LazadaSetting::defaultStore()?->id ?? 0);
+        $pfx = (string) config('catalog.prefix');
+        $readiness = app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class);
+
+        $unlistedRows = fn () => LazadaProduct::query()
+            ->where(function ($sub) {
+                $sub->whereNull('lazada_item_id')->orWhere('lazada_item_id', '=', '');
+            })
+            ->whereNull('lazada_deleted_at')->whereNotNull('product_id');
+        $rowlessIds = function () use ($pfx): array {
+            $mappedIds = LazadaProduct::query()->whereNotNull('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->all();
+
+            return DB::table($pfx . 'product')
+                ->when(!empty($mappedIds), fn ($qq) => $qq->whereNotIn('product_id', $mappedIds))
+                ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        };
+        $answer = function ($rows, array $productIds) use ($readiness): array {
+            $out = [];
+            $rowAnswers = $rows->isEmpty() ? [] : $readiness->forListings($rows);
+            foreach ($rows as $row) {
+                $out[(int) $row->product_id] = (bool) ($rowAnswers[(int) $row->id]['ready'] ?? false);
+            }
+            foreach ($productIds === [] ? [] : $readiness->forProducts($productIds) as $pid => $a) {
+                $out[(int) $pid] = (bool) $a['ready'];
+            }
+
+            return $out;
+        };
+
+        $held = \Illuminate\Support\Facades\Cache::remember('lazada:ready-by-product:' . $storeId, 60,
+            fn () => $answer($unlistedRows()->get(), $rowlessIds()));
+
+        /* A product that joined the store after the answer was held is
+         * answered now, so it is never missing from both lists. */
+        $known = array_keys($held);
+        $newRows = $unlistedRows()->when($known !== [], fn ($q) => $q->whereNotIn('product_id', $known))->get();
+        $newRowless = array_values(array_diff($rowlessIds(), $known));
+
+        return ($newRows->isEmpty() && $newRowless === []) ? $held : $answer($newRows, $newRowless) + $held;
+    }
+
     protected function catalogChangeFallback(int $productId): string
     {
         return route('ext.lazada.products.edit', $productId);
@@ -198,6 +248,13 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         if (!in_array($syncStatus, ['all', 'not_uploaded', 'uploaded', 'deleted', 'error', 'ready', 'not_ready'], true)) {
             $syncStatus = 'all';
         }
+        /* The status menu's two switches narrow whatever the tree has
+         * chosen; an old sync_status=error link is Push failed switched on. */
+        $failedFlag = $request->boolean('failed') || $syncStatus === 'error';
+        $changeFlag = $request->boolean('change');
+        if ($syncStatus === 'error') {
+            $syncStatus = 'all';
+        }
         $groupFilter = (string) $request->query('group', 'all');
         $manufacturerFilter = (string) $request->query('manufacturer', 'all');
         $erpStatus = (string) $request->query('erp_status', 'all');
@@ -318,43 +375,43 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             });
         }
 
-        // Sync status filter
-        if ($syncStatus === 'uploaded') {
-            $query->whereNotNull('lp.lazada_item_id')->where('lp.lazada_item_id', '!=', '');
-        } elseif ($syncStatus === 'not_uploaded') {
-            $query->where(function ($sub) {
-                $sub->whereNull('lp.lazada_item_id')->orWhere('lp.lazada_item_id', '=', '');
-            })->whereNull('lp.lazada_deleted_at');
-        } elseif ($syncStatus === 'deleted') {
-            $query->whereNotNull('lp.lazada_deleted_at');
-        } elseif ($syncStatus === 'error') {
+        /* One definition of each place in the tree, used for the rows and
+         * for the menu's counts alike, so a number and its list agree. */
+        $applySync = function ($query, string $status) {
+            if ($status === 'uploaded') {
+                $query->whereNotNull('lp.lazada_item_id')->where('lp.lazada_item_id', '!=', '');
+            } elseif ($status === 'not_uploaded') {
+                $query->where(function ($sub) {
+                    $sub->whereNull('lp.lazada_item_id')->orWhere('lp.lazada_item_id', '=', '');
+                })->whereNull('lp.lazada_deleted_at');
+            } elseif ($status === 'deleted') {
+                $query->whereNotNull('lp.lazada_deleted_at');
+            } elseif ($status === 'ready' || $status === 'not_ready') {
+                $wantReady = $status === 'ready';
+                $matching = array_keys(array_filter($this->readyByProduct(), fn ($r) => $r === $wantReady));
+                $query->whereIn('p.product_id', $matching ?: [0]);
+            }
+
+            return $query;
+        };
+
+        $menuBase = clone $query;
+        $errored = $this->states()->erroredProductIds();
+        $changed = $this->states()->productIdsIn('drift');
+        $menuCounts = ['all' => (clone $menuBase)->count()];
+        foreach (['not_uploaded', 'ready', 'not_ready', 'uploaded'] as $status) {
+            $menuCounts[$status] = $applySync(clone $menuBase, $status)->count();
+        }
+        $menuCounts['failed'] = (clone $menuBase)->whereIn('p.product_id', $errored ?: [0])->count();
+        $menuCounts['change'] = (clone $menuBase)->whereIn('p.product_id', $changed ?: [0])->count();
+
+        $applySync($query, $syncStatus);
+        if ($failedFlag) {
             /* The rows that draw an error line, by the line's own engine. */
-            $query->whereIn('p.product_id', $this->states()->erroredProductIds() ?: [0]);
-        } elseif ($syncStatus === 'ready' || $syncStatus === 'not_ready') {
-            /* The computed answer (#101): which unlisted products could be
-             * pushed RIGHT NOW - by the same LazadaListingReadiness every
-             * other surface reads, rows and rowless products alike. */
-            $readiness = app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class);
-            $candidateRows = LazadaProduct::query()
-                ->where(function ($sub) {
-                    $sub->whereNull('lazada_item_id')->orWhere('lazada_item_id', '=', '');
-                })
-                ->whereNull('lazada_deleted_at')->whereNotNull('product_id')->get();
-            $rowAnswers = $readiness->forListings($candidateRows);
-            $readyByProduct = [];
-            foreach ($candidateRows as $row) {
-                $readyByProduct[(int) $row->product_id] = (bool) ($rowAnswers[(int) $row->id]['ready'] ?? false);
-            }
-            $mappedIds = LazadaProduct::query()->whereNotNull('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->all();
-            $rowlessIds = DB::table($pfx . 'product')
-                ->when(!empty($mappedIds), fn ($qq) => $qq->whereNotIn('product_id', $mappedIds))
-                ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
-            foreach ($readiness->forProducts($rowlessIds) as $pid => $answer) {
-                $readyByProduct[$pid] = (bool) $answer['ready'];
-            }
-            $wantReady = $syncStatus === 'ready';
-            $matching = array_keys(array_filter($readyByProduct, fn ($r) => $r === $wantReady));
-            $query->whereIn('p.product_id', $matching ?: [0]);
+            $query->whereIn('p.product_id', $errored ?: [0]);
+        }
+        if ($changeFlag) {
+            $query->whereIn('p.product_id', $changed ?: [0]);
         }
 
         // The catalogue's own total, before a Lazada tab narrows the table.
@@ -507,6 +564,22 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'catalogueTotal' => $catalogueTotal,
             'listedTotal' => $listedTotal,
             'listTab' => 'store',
+            'failedFlag' => $failedFlag,
+            'changeFlag' => $changeFlag,
+            'statusMenu' => \App\Integrations\Listings\StatusMenu::build([
+                'url' => fn (array $params) => route('ext.lazada.products.index', $params),
+                'query' => $request->query(),
+                'sync' => $syncStatus,
+                'failed' => $failedFlag,
+                'change' => $changeFlag,
+                'counts' => $menuCounts,
+                'market' => [
+                    'param' => 'lazada_tab', 'current' => $lazadaTab, 'store' => 'Lazada',
+                    'defs' => ['active' => 'Active', 'inactive' => 'Inactive', 'pending' => 'Pending QC', 'violation' => 'Rejected', 'soldout' => 'Sold out', 'deleted' => 'Deleted'],
+                    'counts' => $liveCounts,
+                    'meta' => $liveCheckedAt ? 'as of ' . $liveCheckedAt->format('H:i, M j') : 'not refreshed yet',
+                ],
+            ]),
         ]);
     }
 

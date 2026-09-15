@@ -36,6 +36,19 @@ class TikTokProductController extends Controller
         $langId = (int) config('catalog.default_language_id');
         $q = trim((string) $request->get('q', ''));
         $syncStatus = (string) $request->get('sync_status', 'all');
+        /* The status menu speaks the shared words; the older listed and
+         * not_listed links still land where they did. */
+        $syncStatus = ['listed' => 'uploaded', 'not_listed' => 'not_uploaded'][$syncStatus] ?? $syncStatus;
+        if (!in_array($syncStatus, ['all', 'not_uploaded', 'uploaded', 'error', 'ready', 'not_ready'], true)) {
+            $syncStatus = 'all';
+        }
+        /* The status menu's two switches narrow whatever the tree has
+         * chosen; an old sync_status=error link is Push failed switched on. */
+        $failedFlag = $request->boolean('failed') || $syncStatus === 'error';
+        $changeFlag = $request->boolean('change');
+        if ($syncStatus === 'error') {
+            $syncStatus = 'all';
+        }
         $manufacturerFilter = (string) $request->get('manufacturer', 'all');
         $groupFilter = (string) $request->get('group', 'all');
         $erpStatus = (string) $request->get('erp_status', 'all');
@@ -54,13 +67,12 @@ class TikTokProductController extends Controller
             return $this->addCatalogue($request);
         }
 
-        /* The seller center's tabs, from the MIRROR on the listing rows
+        /* The store's own statuses, from the MIRROR on the listing rows
          * (live_status, live_checked_at), refreshed every 30 minutes by
          * the automation, on demand by the Refresh button, and written
          * through by every activate and deactivate the ERP makes. A page
-         * view asks TikTok for nothing (the owner, 2026-08-28: the walk on
-         * every click had become the cost of the page). The strip says
-         * when the mirror was last refreshed. */
+         * view asks TikTok for nothing. The status menu says when the
+         * mirror was last refreshed. */
         $c = $this->creds();
         $liveTabError = null;
         $liveCounts = null;
@@ -105,9 +117,8 @@ class TikTokProductController extends Controller
          * state now leads to Add products instead. Filtering by a group
          * below still narrows within the store's list. */
         $query->whereIn('p.product_id', TikTokStoreProducts::query());
-        // The two sets the listed / ready filters below answer from.
+        // The set the listed / not listed places below answer from.
         $listedProductIds = TikTokStoreProducts::listedIds();
-        $scopeIds = DB::query()->fromSub(TikTokStoreProducts::query(), 'os')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
 
         if ($groupFilter !== 'all') {
             $inGroup = TikTokProductGroupProduct::query()->where('tiktok_product_group_id', (int) $groupFilter)->pluck('product_id')->all();
@@ -144,22 +155,42 @@ class TikTokProductController extends Controller
                         ->select('product_id'));
             });
         }
-        if ($syncStatus === 'listed') {
-            $query->whereIn('p.product_id', $listedProductIds ?: [0]);
-        } elseif ($syncStatus === 'not_listed') {
-            $query->whereNotIn('p.product_id', $listedProductIds ?: [0]);
-        } elseif ($syncStatus === 'error') {
-            $errored = $this->states()->erroredProductIds();
+        /* One definition of each place in the tree, used for the rows and
+         * for the menu's counts alike, so a number and its list agree. */
+        $applySync = function ($query, string $status) use ($listedProductIds) {
+            if ($status === 'uploaded') {
+                $query->whereIn('p.product_id', $listedProductIds ?: [0]);
+            } elseif ($status === 'not_uploaded') {
+                $query->whereNotIn('p.product_id', $listedProductIds ?: [0]);
+            } elseif ($status === 'ready' || $status === 'not_ready') {
+                $wantReady = $status === 'ready';
+                $matching = array_keys(array_filter($this->readyByProduct($listedProductIds), fn ($r) => $r === $wantReady));
+                $query->whereIn('p.product_id', $matching ?: [0]);
+            }
+
+            return $query;
+        };
+
+        $menuBase = clone $query;
+        $errored = $this->states()->erroredProductIds();
+        $changed = $this->states()->productIdsIn('drift');
+        $menuCounts = ['all' => (clone $menuBase)->count()];
+        foreach (['not_uploaded', 'ready', 'not_ready', 'uploaded'] as $status) {
+            $menuCounts[$status] = $applySync(clone $menuBase, $status)->count();
+        }
+        $menuCounts['failed'] = (clone $menuBase)->whereIn('p.product_id', $errored ?: [0])->count();
+        $menuCounts['change'] = (clone $menuBase)->whereIn('p.product_id', $changed ?: [0])->count();
+
+        $applySync($query, $syncStatus);
+        if ($failedFlag) {
+            /* The rows that draw an error line, by the line's own engine. */
             $query->whereIn('p.product_id', $errored ?: [0]);
-        } elseif ($syncStatus === 'ready' || $syncStatus === 'not_ready') {
-            $candidates = array_values(array_diff($scopeIds, $listedProductIds));
-            $readinessAll = app(TikTokListingReadiness::class)->forProducts($candidates);
-            $matching = array_keys(array_filter($readinessAll, fn ($r) => $syncStatus === 'ready' ? $r['ready'] : !$r['ready']));
-            $query->whereIn('p.product_id', $matching ?: [0]);
+        }
+        if ($changeFlag) {
+            $query->whereIn('p.product_id', $changed ?: [0]);
         }
 
-        // The catalogue's own total, before a TikTok tab narrows the table:
-        // the "All products" tab wears it so it reads as a total, not a status.
+        // The list's own total, before a TikTok status narrows the table.
         $catalogueTotal = (clone $query)->count();
 
         // A TikTok tab narrows to the products the mirror holds in that status.
@@ -284,7 +315,43 @@ class TikTokProductController extends Controller
             'liveCheckedAt' => $liveCheckedAt,
             'catalogueTotal' => $catalogueTotal,
             'readinessByProductId' => $readinessByProductId,
+            'failedFlag' => $failedFlag,
+            'changeFlag' => $changeFlag,
+            'statusMenu' => \App\Integrations\Listings\StatusMenu::build([
+                'url' => fn (array $params) => route('ext.tiktok.products.index', $params),
+                'query' => $request->query(),
+                'sync' => $syncStatus,
+                'failed' => $failedFlag,
+                'change' => $changeFlag,
+                'counts' => $menuCounts,
+                'market' => [
+                    'param' => 'tiktok_tab', 'current' => $tiktokTab, 'store' => 'TikTok Shop',
+                    'defs' => collect(TikTokLiveListing::TABS)->except('all')->map(fn ($def) => $def[0])->all(),
+                    'counts' => $liveCounts,
+                    'meta' => $liveCheckedAt ? 'as of ' . $liveCheckedAt->format('H:i, M j') : 'not refreshed yet',
+                ],
+            ]),
         ]);
+    }
+
+    /**
+     * Which of this store's unlisted products could be pushed right now, by
+     * the same readiness every other surface reads. Held for a minute: the
+     * menu counts it on every page.
+     *
+     * @param  list<int>  $listedProductIds
+     * @return array<int, bool>  product id => ready
+     */
+    private function readyByProduct(array $listedProductIds): array
+    {
+        $storeId = (int) (TikTokSetting::defaultStore()?->id ?? 0);
+
+        return \Illuminate\Support\Facades\Cache::remember('tiktok:ready-by-product:' . $storeId, 60, function () use ($listedProductIds) {
+            $scopeIds = DB::query()->fromSub(TikTokStoreProducts::query(), 'os')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+            $candidates = array_values(array_diff($scopeIds, $listedProductIds));
+
+            return array_map(fn ($r) => (bool) $r['ready'], app(TikTokListingReadiness::class)->forProducts($candidates));
+        });
     }
 
     /**

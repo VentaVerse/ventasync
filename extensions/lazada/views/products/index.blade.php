@@ -28,6 +28,9 @@
 
     $hasFilters = $q !== ''
         || $syncStatus !== 'all'
+        || ($lazadaTab ?? 'all') !== 'all'
+        || ($failedFlag ?? false)
+        || ($changeFlag ?? false)
         || $manufacturerFilter !== 'all'
         || $groupFilter !== 'all'
         || $erpStatus !== 'all';
@@ -65,7 +68,7 @@
                  carries, not the whole catalogue. A filtered count says what
                  it is counting. --}}
             @if($hasFilters)
-                {{ number_format($paginator->total()) }} {{ $paginator->total() === 1 ? 'product matches' : 'products match' }}
+                {{ number_format($paginator->total()) }} {{ $paginator->total() === 1 ? 'product matches' : 'products match' }}@if($statusMenu['label'] ?? null): {{ $statusMenu['label'] }}@endif
             @else
                 {{ number_format($catalogueTotal) }} {{ $catalogueTotal === 1 ? 'product' : 'products' }} on this store
                 &middot; {{ number_format($listedTotal) }} live on Lazada
@@ -74,15 +77,20 @@
     </div>
     @if($canManageLazada)
         <div class="cc-head-actions">
-            {{-- Refresh and Repair links live beside the freshness stamp on
-                 the strip (the Shopee shape, ported back 2026-09-05): global
-                 maintenance, page furniture, not page actions.
-                 Add products (#201, Draft C - the owner 2026-09-05): the one
+            {{-- Refresh from Lazada re-reads every status and checks every
+                 link; the menu says when it last ran.
+                 Add products: the one
                  way a main-catalogue product joins this store. A primary
                  button, sized to how often it happens, opening the slide-over
                  in place - not a tab beside the daily table, which gave a
                  rare act equal billing. "New listing" (#196) stays retired:
                  the row's Set up on Lazada is the push door. --}}
+            @if(($liveCounts ?? null) !== null)
+                <form method="POST" action="{{ route('ext.lazada.products.refresh_status') }}" class="cc-head-refresh" data-slow-action>
+                    @csrf
+                    <x-ui.button type="submit"><x-ui.icon name="refresh-cw" size="14" /> Refresh from Lazada</x-ui.button>
+                </form>
+            @endif
             <x-ui.button type="button" variant="primary" data-add-panel-open>
                 <x-ui.icon name="plus" size="14" /> Add products
             </x-ui.button>
@@ -96,76 +104,11 @@
      Filter button to press, and Clear is a link because it is navigation. The
      two hidden fields keep whatever column the list is sorted by from being
      dropped the moment a filter is submitted, exactly as before. --}}
-{{-- The seller center's tabs, answered by Lazada on this page load
-     (Lazada parity with Shopee's listings index, 2026-08-24). All is the
-     stored view; the other tabs narrow the table to the items Lazada
-     holds in that status right now. Absent entirely when Lazada cannot
-     be asked - the note below says why. --}}
+{{-- Lazada's own statuses live in the status menu, under Listed. When
+     Lazada cannot be asked, this note says why and the menu shows none. --}}
 @if(($liveTabError ?? null) !== null)
     <div class="fm-note fm-note--warn" role="status">
         <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'Lazada', 'raw' => $liveTabError, 'settingsRoute' => 'ext.lazada.index'])</div>
-    </div>
-@elseif(($liveCounts ?? null) !== null)
-    @php
-        $liveTabDefs = [
-            'active' => 'Active',
-            'inactive' => 'Inactive',
-            'pending' => 'Pending QC',
-            // One state, one word: the row badge says Rejected (the
-            // engine's label), so the tab that filters to it must not
-            // say Violation (Phase C, #184).
-            'violation' => 'Rejected',
-            'soldout' => 'Sold out',
-            'deleted' => 'Deleted',
-        ];
-        $tabQuery = request()->except('page', 'lazada_tab');
-    @endphp
-    {{-- Two questions on one strip, each named (the owner, 2026-08-28): the
-         catalogue's own total, whether pushed or not, and Lazada's buckets.
-         The bucket counts and every row's chip come from the mirror on
-         the listing rows, refreshed every 30 minutes, on demand here, and
-         by every activate and deactivate. The strip says when. --}}
-    <div class="x-segment-bar">
-        <div class="x-segment-groups">
-            <div class="x-segment-group">
-                {{-- This store's own state filter (#201): the "All products"
-                     tab is gone with the catalogue framing - This store IS the
-                     store's list. "All" here means every state, the stored
-                     view; the rest narrow to what Lazada holds right now. --}}
-                <nav class="x-segment" aria-label="Lazada listing status">
-                    <a href="{{ route('ext.lazada.products.index', $tabQuery) }}"
-                       class="x-segment__item {{ ($lazadaTab ?? 'all') === 'all' ? 'is-active' : '' }}"
-                       @if(($lazadaTab ?? 'all') === 'all') aria-current="true" @endif>
-                        <span>All</span>
-                        <span class="x-segment__count">{{ number_format((int) ($catalogueTotal ?? $paginator->total())) }}</span>
-                    </a>
-                    @foreach($liveTabDefs as $tabKey => $tabLabel)
-                        @php $isActive = ($lazadaTab ?? 'all') === $tabKey; @endphp
-                        <a href="{{ route('ext.lazada.products.index', array_merge($tabQuery, ['lazada_tab' => $tabKey])) }}"
-                           class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
-                           @if($isActive) aria-current="true" @endif>
-                            <span>{{ $tabLabel }}</span>
-                            <span class="x-segment__count">{{ number_format((int) ($liveCounts[$tabKey] ?? 0)) }}</span>
-                        </a>
-                    @endforeach
-                </nav>
-                <span class="x-segment-group__meta">
-                    @if($liveCheckedAt ?? null)
-                        as of {{ $liveCheckedAt->format('H:i, M j') }}
-                    @else
-                        not refreshed yet
-                    @endif
-                </span>
-                @if($canManageLazada)
-                    {{-- The one button (the owner, 2026-09-07): Refresh checks every link against
-                         the store and re-reads every status, the old Repair links folded in. --}}
-                    <form method="POST" action="{{ route('ext.lazada.products.refresh_status') }}" class="x-segment-group__refresh" data-slow-action>
-                        @csrf
-                        <x-ui.button type="submit"><x-ui.icon name="refresh-cw" size="14" /> Refresh from Lazada</x-ui.button>
-                    </form>
-                @endif
-            </div>
-        </div>
     </div>
 @endif
 
@@ -175,9 +118,23 @@
     'clear' => route('ext.lazada.products.index', request()->except(['state', 'page'])),
 ])
 
+<div class="lsm-layout">
+@include('partials.listing-status-menu', ['menu' => $statusMenu])
+<div class="lsm-layout__main">
+
 <form method="GET" action="{{ route('ext.lazada.products.index') }}" class="x-filters" id="lazada-listings-filter">
+    {{-- The menu's choice rides a search. --}}
     @if(($lazadaTab ?? 'all') !== 'all')
         <input type="hidden" name="lazada_tab" value="{{ $lazadaTab }}">
+    @endif
+    @if($syncStatus !== 'all')
+        <input type="hidden" name="sync_status" value="{{ $syncStatus }}">
+    @endif
+    @if($failedFlag ?? false)
+        <input type="hidden" name="failed" value="1">
+    @endif
+    @if($changeFlag ?? false)
+        <input type="hidden" name="change" value="1">
     @endif
     <x-ui.input type="search" name="q" class="x-filters__search"
                 value="{{ $q }}" placeholder="Name, model, SKU or Lazada ID" aria-label="Search listings" />
@@ -208,23 +165,6 @@
             <option value="all" @selected($erpStatus === 'all')>Any catalog status</option>
             <option value="enabled" @selected($erpStatus === 'enabled')>Enabled</option>
             <option value="disabled" @selected($erpStatus === 'disabled')>Disabled</option>
-        </select>
-        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-    </div>
-
-    <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="sync_status" class="x-input" data-autosubmit aria-label="Filter by Lazada listing status">
-            <option value="all" @selected($syncStatus === 'all')>Listed or not</option>
-            <option value="uploaded" @selected($syncStatus === 'uploaded')>Listed on Lazada</option>
-            <option value="not_uploaded" @selected($syncStatus === 'not_uploaded')>Not listed</option>
-            <option value="deleted" @selected($syncStatus === 'deleted')>Deleted from Lazada</option>
-            {{-- The computed answer (#101): uploadable right now, or not. --}}
-            <option value="ready" @selected($syncStatus === 'ready')>Ready to push</option>
-            <option value="not_ready" @selected($syncStatus === 'not_ready')>Not ready to push</option>
-            {{-- The reason to open this page. Separated from the three above
-                 because they describe where a listing IS and this one
-                 describes what happened to it. --}}
-            <option value="error" @selected($syncStatus === 'error')>Has an error</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
@@ -320,7 +260,7 @@
         @endif
     </x-ui.empty>
 @else
-@php $colCount = 8 + ($canManageLazada ? 1 : 0); @endphp
+@php $colCount = 7 + ($canManageLazada ? 1 : 0); @endphp
 <x-ui.table id="lazada-listings-table">
     <x-slot:head>
         <tr>
@@ -352,12 +292,6 @@
                 </a>
             </th>
             <th scope="col" class="cc-col-price x-td-num">Price</th>
-            <th scope="col" class="cc-col-chanid">
-                <a class="x-th-sort" href="{{ $sortUrl('lazada_item_id') }}">
-                    Lazada ID
-                    @if($sort === 'lazada_item_id')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
-                </a>
-            </th>
             @include('partials.channel-ready-head')
             <th scope="col" class="cc-col-sync">
                 <a class="x-th-sort" href="{{ $sortUrl('lazada_status') }}">
@@ -449,6 +383,9 @@
                         <div class="co-item__meta">
                             <x-ui.badge :tone="$pStatus ? 'success' : 'neutral'">{{ $pStatus ? 'Enabled' : 'Disabled' }}</x-ui.badge>
                             <span class="co-item__sku">{{ $pSku ?: 'No SKU' }}</span>
+                            @if($hasItemId)
+                                <span class="co-item__sku lsm-chanid">Lazada {{ $row->lazada_item_id }}</span>
+                            @endif
                             @if($pMfg !== '')
                                 <span>{{ $pMfg }}</span>
                             @endif
@@ -473,13 +410,6 @@
                 <x-money :php="(float) $row->price" />
             </td>
 
-            <td class="cc-col-chanid" data-label="Lazada ID">
-                @if($hasItemId)
-                    <span class="x-num">{{ $row->lazada_item_id }}</span>
-                @else
-                    <span class="x-cell-muted">None</span>
-                @endif
-            </td>
             <td class="cc-col-ready" data-label="Ready">
                 @include('partials.channel-ready', ['state' => $rowState])
             </td>
@@ -565,7 +495,7 @@
         </tr>
         @if($variationCount > 0)
             {{-- The variations as rows of this table, under the same headers (partials.channel-variation-rows). --}}
-            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManageLazada, 'trail' => ['cc-col-chanid', 'cc-col-ready', 'cc-col-sync', 'x-td-actions']])
+            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManageLazada, 'trail' => ['cc-col-ready', 'cc-col-sync', 'x-td-actions']])
         @endif
     @endforeach
 </x-ui.table>
@@ -573,6 +503,9 @@
 <x-ui.pager :paginator="$paginator" />
 
 @endif
+
+</div>{{-- /.lsm-layout__main --}}
+</div>{{-- /.lsm-layout --}}
 
 {{-- Work-in-progress overlay. An upload to Lazada is a multi-second round trip
      and the page has to say so, or the operator clicks again. Rides

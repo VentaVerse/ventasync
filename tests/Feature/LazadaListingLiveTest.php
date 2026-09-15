@@ -892,7 +892,8 @@ class LazadaListingLiveTest extends TestCase
 
         $page = $this->actingAs($this->manager())->get(route('ext.lazada.products.index'));
         $page->assertSee('Not found on Lazada');
-        $page->assertDontSee('>Listed<', false);
+        // No row wears the bare "Listed" fallback; the menu's own Listed entry is not a badge.
+        $page->assertDontSee('x-badge__label">Listed<', false);
     }
 
     public function test_refresh_reads_the_attribute_sheets_its_listings_need(): void

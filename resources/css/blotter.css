@@ -120,6 +120,7 @@
 @import './components/channel-listing-console.css' layer(vocabulary);
 @import './components/description-template.css' layer(vocabulary);
 @import './components/catalog-change.css' layer(vocabulary);
+@import './components/listing-status-menu.css' layer(vocabulary);
 @import './components/typeahead.css' layer(vocabulary);
 @import './components/nav-progress.css' layer(vocabulary);
 @import './components/permission-pill.css' layer(vocabulary);

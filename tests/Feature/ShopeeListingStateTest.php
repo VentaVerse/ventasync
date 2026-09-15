@@ -669,9 +669,10 @@ class ShopeeListingStateTest extends TestCase
         $this->assertSame([$missing, $refused], $states->erroredProductIds());
 
         $user = $this->operator();
+        // On the Listings page an old error link is the menu's Push failed switch.
         $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'error']))->assertOk()
             ->assertSee('MISSVAR')->assertSee('PUSHERR')->assertDontSee('CLEANROW')
-            ->assertSee('>Has an error</option>', false);
+            ->assertSee('products match: Push failed', false);
 
         $grp = DB::table('shopee_product_groups')->insertGetId([
             'shopee_setting_id' => $storeId, 'name' => 'Outcome group', 'created_at' => now(), 'updated_at' => now(),

@@ -13,7 +13,8 @@
     $canEditCatalog = auth()->user()?->hasPermission('manage_catalog/product') ?? false;
     $storeName = $setting->store_name;
 
-    $hasFilters = $q !== '' || $groupFilter !== 'all' || $erpStatus !== 'all' || $syncStatus !== 'all';
+    $hasFilters = $q !== '' || $groupFilter !== 'all' || $erpStatus !== 'all' || $syncStatus !== 'all'
+        || $ventaTab !== 'all' || ($failedFlag ?? false) || ($changeFlag ?? false);
     $toggleDir = fn (string $col) => $sort !== $col ? 'asc' : ($dir === 'asc' ? 'desc' : 'asc');
     $sortUrl = function (string $col) use ($toggleDir) {
         $qp = request()->query();
@@ -23,8 +24,6 @@
         return url()->current() . '?' . http_build_query($qp);
     };
     $statusMap = \Extensions\venta\Services\Venta\VentaListingMirror::STATUS_MAP;
-    $tabDefs = \Extensions\venta\Services\Venta\VentaListingMirror::TABS;
-    $tabQuery = request()->except('page', 'venta_tab');
     $indexUrl = fn (array $params = []) => route('ext.venta.listings.index', array_merge(['store' => $setting->id], $params));
 @endphp
 
@@ -39,7 +38,7 @@
         <h1 class="x-page-title">Listings</h1>
         <p class="x-page-sub">
             @if($hasFilters)
-                {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product matches' : 'products match' }}
+                {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product matches' : 'products match' }}@if($statusMenu['label'] ?? null): {{ $statusMenu['label'] }}@endif
             @else
                 {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product' : 'products' }} in scope for {{ $storeName }}
             @endif
@@ -47,10 +46,15 @@
     </div>
     @if($canManage)
         <div class="cc-head-actions">
-            {{-- The one header action every channel's Listings page carries
-                 (draft C, 2026-09-05): Add products opens the slide-over. The
-                 check moved to the status strip, where the other channels
-                 keep their maintenance. --}}
+            {{-- Refresh from the store re-reads every status and checks every
+                 link; the menu says when it last ran. Add products opens the
+                 slide-over. --}}
+            @if($setting->enabled)
+                <form method="POST" action="{{ route('ext.venta.listings.refresh_status', $setting->id) }}" class="cc-head-refresh" data-slow-action>
+                    @csrf
+                    <x-ui.button type="submit"><x-ui.icon name="refresh-cw" size="14" /> Refresh from {{ $storeName }}</x-ui.button>
+                </form>
+            @endif
             <x-ui.button type="button" variant="primary" data-add-panel-open>
                 <x-ui.icon name="plus" size="14" /> Add products
             </x-ui.button>
@@ -65,66 +69,33 @@
 ])
 
 {{-- A store that cannot be asked says so, once, at the top (parity,
-     2026-09-09). The buckets below are the mirror's last word, not a live
-     read, so they stay - what would otherwise be missing is any reason for
-     every row reading "not checked yet". --}}
+     2026-09-09). The store's statuses under Listed in the menu are the
+     mirror's last word, not a live read, so they stay - what would
+     otherwise be missing is any reason for every row reading "not checked
+     yet". --}}
 @if(($liveTabError ?? null) !== null)
     <div class="fm-note fm-note--warn" role="status">
         <div class="fm-note__body">@include('partials.channel-answer', ['channel' => $storeName, 'raw' => $liveTabError, 'settingsRoute' => null])</div>
     </div>
 @endif
 
-{{-- Two questions on one strip, each named (the owner, 2026-08-28): the
-     catalogue's own total, whether pushed or not, and the store's buckets
-     from the mirror. The strip says when the mirror was refreshed. --}}
-<div class="x-segment-bar">
-    <div class="x-segment-groups">
-        <div class="x-segment-group">
-            <span class="x-segment-group__k">Your catalogue</span>
-            <nav class="x-segment" aria-label="Catalogue">
-                <a href="{{ $indexUrl($tabQuery) }}"
-                   class="x-segment__item {{ $ventaTab === 'all' ? 'is-active' : '' }}"
-                   @if($ventaTab === 'all') aria-current="true" @endif>
-                    <span>All products</span>
-                    <span class="x-segment__count">{{ number_format((int) $catalogueTotal) }}</span>
-                </a>
-            </nav>
-        </div>
-        <div class="x-segment-group">
-            <span class="x-segment-group__k">On {{ $storeName }}</span>
-            <nav class="x-segment" aria-label="{{ $storeName }} listing status">
-                @foreach($tabDefs as $tabKey => [$tabLabel, $tabStatus])
-                    @continue($tabKey === 'all')
-                    @php $isActive = $ventaTab === $tabKey; @endphp
-                    <a href="{{ $indexUrl(array_merge($tabQuery, ['venta_tab' => $tabKey])) }}"
-                       class="x-segment__item {{ $isActive ? 'is-active' : '' }}" @if($isActive) aria-current="true" @endif>
-                        <span>{{ $tabLabel }}</span>
-                        <span class="x-segment__count">{{ number_format((int) ($liveCounts[$tabKey] ?? 0)) }}</span>
-                    </a>
-                @endforeach
-            </nav>
-            <span class="x-segment-group__meta">
-                @if($liveCheckedAt ?? null)
-                    as of {{ $liveCheckedAt->format('H:i, M j') }}
-                @else
-                    not refreshed yet
-                @endif
-            </span>
-            @if($canManage && $setting->enabled)
-                {{-- The one button (the owner, 2026-09-07): Refresh checks every link against
-                         the store and re-reads every status, the old Repair links folded in. --}}
-                    <form method="POST" action="{{ route('ext.venta.listings.refresh_status', $setting->id) }}" class="x-segment-group__refresh" data-slow-action>
-                        @csrf
-                        <x-ui.button type="submit"><x-ui.icon name="refresh-cw" size="14" /> Refresh from {{ $storeName }}</x-ui.button>
-                    </form>
-            @endif
-        </div>
-    </div>
-</div>
+<div class="lsm-layout">
+@include('partials.listing-status-menu', ['menu' => $statusMenu])
+<div class="lsm-layout__main">
 
 <form method="GET" action="{{ $indexUrl() }}" class="x-filters">
+    {{-- The menu's choice rides a search. --}}
     @if($ventaTab !== 'all')
         <input type="hidden" name="venta_tab" value="{{ $ventaTab }}">
+    @endif
+    @if($syncStatus !== 'all')
+        <input type="hidden" name="sync_status" value="{{ $syncStatus }}">
+    @endif
+    @if($failedFlag ?? false)
+        <input type="hidden" name="failed" value="1">
+    @endif
+    @if($changeFlag ?? false)
+        <input type="hidden" name="change" value="1">
     @endif
     <x-ui.input type="search" name="q" class="x-filters__search" value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search listings" />
     <div class="x-select-wrap x-filters__select">
@@ -141,15 +112,6 @@
             <option value="all" @selected($erpStatus === 'all')>Any catalogue status</option>
             <option value="enabled" @selected($erpStatus === 'enabled')>Enabled</option>
             <option value="disabled" @selected($erpStatus === 'disabled')>Disabled</option>
-        </select>
-        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-    </div>
-    <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="sync_status" class="x-input" data-autosubmit aria-label="Filter by store listing status">
-            <option value="all" @selected($syncStatus === 'all')>Listed or not</option>
-            <option value="listed" @selected($syncStatus === 'listed')>On {{ $storeName }}</option>
-            <option value="not_listed" @selected($syncStatus === 'not_listed')>Not listed</option>
-            <option value="error" @selected($syncStatus === 'error')>Has an error</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
@@ -191,7 +153,7 @@
         </x-slot:action>
     </x-ui.empty>
 @else
-@php $colCount = 8 + ($canManage ? 1 : 0); @endphp
+@php $colCount = 7 + ($canManage ? 1 : 0); @endphp
 <x-ui.table id="venta-listings-table">
     <x-slot:head>
         <tr>
@@ -208,7 +170,6 @@
             <th scope="col"><a class="x-th-sort" href="{{ $sortUrl('product') }}">Product @if($sort === 'product')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif</a></th>
             <th scope="col" class="cc-col-qty x-td-num"><a class="x-th-sort x-th-sort--num" href="{{ $sortUrl('quantity') }}">Stock @if($sort === 'quantity')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif</a></th>
             <th scope="col" class="cc-col-price x-td-num"><a class="x-th-sort x-th-sort--num" href="{{ $sortUrl('price') }}">Price @if($sort === 'price')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif</a></th>
-            <th scope="col" class="cc-col-chanid">Store ID</th>
             @include('partials.channel-ready-head')
             <th scope="col" class="cc-col-sync">Listing</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
@@ -251,6 +212,9 @@
                         <a class="x-row-link co-item__name" href="{{ $listingUrl }}">{{ ($rowTitles[(int) $p->product_id] ?? $p->name) ?: 'Unnamed product' }}</a>
                         <div class="co-item__meta">
                             <span class="co-item__sku">{{ $p->sku ?: ($p->model ?: 'No SKU') }}</span>
+                            @if($listed)
+                                <span class="co-item__sku lsm-chanid">Venta {{ $link->venta_product_id }}</span>
+                            @endif
                             @if($p->manufacturer_name)<span>{{ $p->manufacturer_name }}</span>@endif
                             @if(count($pGroups) > 0)
                                 <span class="co-item__var" @if(count($pGroups) > 1) title="Groups: {{ implode(', ', $pGroups) }}" @endif>Group{{ count($pGroups) > 1 ? 's' : '' }}: {{ $pGroups[0] }}@if(count($pGroups) > 1) and {{ count($pGroups) - 1 }} more @endif</span>
@@ -261,9 +225,6 @@
             </td>
             <td class="cc-col-qty x-td-num" data-label="Stock"><span class="x-num">{{ (int) $p->quantity }}</span></td>
             <td class="cc-col-price x-td-num" data-label="Price"><x-money :php="(float) $p->price" /></td>
-            <td class="cc-col-chanid" data-label="Store ID">
-                @if($listed)<span class="x-num">{{ $link->venta_product_id }}</span>@else<span class="x-cell-muted">None</span>@endif
-            </td>
             <td class="cc-col-ready" data-label="Ready">
                 @include('partials.channel-ready', ['state' => ($listingStates ?? [])[(int) $p->product_id] ?? null])
             </td>
@@ -316,13 +277,16 @@
         </tr>
         @if($optRows && count($optRows) > 0)
             {{-- The variations as rows of this table, under the same headers (partials.channel-variation-rows). --}}
-            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManage, 'trail' => ['cc-col-chanid', 'cc-col-ready', 'cc-col-sync', 'x-td-actions']])
+            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManage, 'trail' => ['cc-col-ready', 'cc-col-sync', 'x-td-actions']])
         @endif
     @endforeach
 </x-ui.table>
 
 <x-ui.pager :paginator="$products" />
 @endif
+
+</div>{{-- /.lsm-layout__main --}}
+</div>{{-- /.lsm-layout --}}
 
 <div id="venta-listings-progress" class="modal-backdrop">
     <div class="modal co-modal co-modal--sm" role="dialog" aria-modal="true"

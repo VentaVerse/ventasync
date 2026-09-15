@@ -282,6 +282,18 @@ class VentaListingController extends Controller
         $groupFilter = (string) $request->get('group', 'all');
         $erpStatus = (string) $request->get('erp_status', 'all');
         $syncStatus = (string) $request->get('sync_status', 'all');
+        // The status menu's words, with the page's older listed / not_listed still read.
+        $syncStatus = ['listed' => 'uploaded', 'not_listed' => 'not_uploaded'][$syncStatus] ?? $syncStatus;
+        if (! in_array($syncStatus, ['all', 'not_uploaded', 'ready', 'not_ready', 'uploaded', 'error'], true)) {
+            $syncStatus = 'all';
+        }
+        /* The status menu's two switches narrow whatever the tree has
+         * chosen; an old sync_status=error link is Push failed switched on. */
+        $failedFlag = $request->boolean('failed') || $syncStatus === 'error';
+        $changeFlag = $request->boolean('change');
+        if ($syncStatus === 'error') {
+            $syncStatus = 'all';
+        }
         $tab = (string) $request->get('venta_tab', 'all');
         if (! array_key_exists($tab, VentaListingMirror::TABS)) {
             $tab = 'all';
@@ -350,13 +362,7 @@ class VentaListingController extends Controller
                         ->select('product_id'));
             });
         }
-        if ($syncStatus === 'listed') {
-            $query->whereIn('p.product_id', $linkedProductIds ?: [0]);
-        } elseif ($syncStatus === 'not_listed') {
-            $query->whereNotIn('p.product_id', $linkedProductIds ?: [0]);
-        } elseif ($syncStatus === 'error') {
-            $query->whereIn('p.product_id', \Extensions\venta\Services\Venta\VentaListingStates::for($store)->erroredProductIds() ?: [0]);
-        }
+        $states = \Extensions\venta\Services\Venta\VentaListingStates::for($store);
 
         /* The dashboard's own figures, as a filter (VENT2-131): a chip
            saying "3 listings need attention" links here with
@@ -365,11 +371,46 @@ class VentaListingController extends Controller
            disagree. */
         $troubleFilter = \App\Integrations\Listings\ListingTrouble::asked($request->query('state'));
         if ($troubleFilter !== null) {
-            $query->whereIn('p.product_id', \Extensions\venta\Services\Venta\VentaListingStates::for($store)->productIdsIn($troubleFilter) ?: [0]);
+            $query->whereIn('p.product_id', $states->productIdsIn($troubleFilter) ?: [0]);
         }
 
-        // The catalogue's own total, before a store tab narrows the table.
-        $catalogueTotal = (clone $query)->count();
+        /* One definition of each place in the tree, used for the rows and
+         * for the menu's counts alike, so a number and its list agree.
+         * Listed means linked to this store; Ready to push and Needs
+         * details split the rest by the readiness every push path reads. */
+        $unlistedIds = array_values(array_diff($scopeIds, $linkedProductIds));
+        $applySync = function ($query, string $status) use ($store, $linkedProductIds, $unlistedIds) {
+            if ($status === 'uploaded') {
+                $query->whereIn('p.product_id', $linkedProductIds ?: [0]);
+            } elseif ($status === 'not_uploaded') {
+                $query->whereNotIn('p.product_id', $linkedProductIds ?: [0]);
+            } elseif ($status === 'ready' || $status === 'not_ready') {
+                $wantReady = $status === 'ready';
+                $matching = array_keys(array_filter($this->readyByProduct($store, $unlistedIds), fn ($r) => $r === $wantReady));
+                $query->whereIn('p.product_id', $matching ?: [0]);
+            }
+
+            return $query;
+        };
+
+        $menuBase = clone $query;
+        $errored = $states->erroredProductIds();
+        $changed = $states->productIdsIn('drift');
+        $menuCounts = ['all' => (clone $menuBase)->count()];
+        foreach (['not_uploaded', 'ready', 'not_ready', 'uploaded'] as $status) {
+            $menuCounts[$status] = $applySync(clone $menuBase, $status)->count();
+        }
+        $menuCounts['failed'] = (clone $menuBase)->whereIn('p.product_id', $errored ?: [0])->count();
+        $menuCounts['change'] = (clone $menuBase)->whereIn('p.product_id', $changed ?: [0])->count();
+
+        $applySync($query, $syncStatus);
+        if ($failedFlag) {
+            /* The rows that draw an error line, by the line's own engine. */
+            $query->whereIn('p.product_id', $errored ?: [0]);
+        }
+        if ($changeFlag) {
+            $query->whereIn('p.product_id', $changed ?: [0]);
+        }
 
         if ($tab !== 'all') {
             $wanted = VentaListingMirror::TABS[$tab][1];
@@ -428,15 +469,47 @@ class VentaListingController extends Controller
             'linksByProductId' => $linksByProductId,
             'listingsByProductId' => $listingsByProductId,
             'lastAttempts' => $lastAttempts,
-            'listingStates' => \Extensions\venta\Services\Venta\VentaListingStates::for($store)->forProducts($pageIds),
-            'rowErrors' => \Extensions\venta\Services\Venta\VentaListingStates::for($store)->errors($pageIds),
+            'listingStates' => $states->forProducts($pageIds),
+            'rowErrors' => $states->errors($pageIds),
             'ventaTab' => $tab,
             'liveCounts' => $liveCounts,
             'liveCheckedAt' => $liveCheckedAt,
             'liveTabError' => $liveTabError,
             'troubleFilter' => $troubleFilter,
-            'catalogueTotal' => $catalogueTotal,
+            'failedFlag' => $failedFlag,
+            'changeFlag' => $changeFlag,
+            'statusMenu' => \App\Integrations\Listings\StatusMenu::build([
+                'url' => fn (array $params) => route('ext.venta.listings.index', array_merge(['store' => $store], $params)),
+                'query' => $request->query(),
+                'sync' => $syncStatus,
+                'failed' => $failedFlag,
+                'change' => $changeFlag,
+                'counts' => $menuCounts,
+                'market' => [
+                    'param' => 'venta_tab', 'current' => $tab, 'store' => (string) $setting->store_name,
+                    'defs' => array_map(fn ($def) => $def[0], array_diff_key(VentaListingMirror::TABS, ['all' => true])),
+                    'counts' => $liveCounts,
+                    'meta' => $liveCheckedAt ? 'as of ' . $liveCheckedAt->format('H:i, M j') : 'not refreshed yet',
+                ],
+            ]),
         ]);
+    }
+
+    /**
+     * Which of this store's unlisted products could be pushed right now, by
+     * the readiness every push path reads. Held for a minute: the menu
+     * counts it on every page. A product added since is answered on the spot.
+     *
+     * @param  list<int>  $productIds
+     * @return array<int, bool>  product id => ready
+     */
+    private function readyByProduct(int $store, array $productIds): array
+    {
+        $answer = fn (array $ids) => array_map(fn ($r) => (bool) $r['ready'], \Extensions\venta\Services\Venta\VentaListingReadiness::forProducts($ids));
+        $held = \Illuminate\Support\Facades\Cache::remember('venta:ready-by-product:' . $store, 60, fn () => $answer($productIds));
+        $missing = array_values(array_diff($productIds, array_keys($held)));
+
+        return $missing === [] ? $held : $held + $answer($missing);
     }
 
     // ── Add products slide-over (#201, on Venta since 2026-09-06) ──────────

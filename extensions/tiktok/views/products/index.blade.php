@@ -12,7 +12,14 @@
     $canManage = auth()->user()?->hasPermission('manage_tiktok/product') ?? false;
     $canEditCatalog = auth()->user()?->hasPermission('manage_catalog/product') ?? false;
 
-    $hasFilters = $q !== '' || $syncStatus !== 'all' || $manufacturerFilter !== 'all' || $groupFilter !== 'all' || $erpStatus !== 'all';
+    $hasFilters = $q !== ''
+        || $syncStatus !== 'all'
+        || $tiktokTab !== 'all'
+        || ($failedFlag ?? false)
+        || ($changeFlag ?? false)
+        || $manufacturerFilter !== 'all'
+        || $groupFilter !== 'all'
+        || $erpStatus !== 'all';
     $toggleDir = fn (string $col) => $sort !== $col ? 'asc' : ($dir === 'asc' ? 'desc' : 'asc');
     $sortUrl = function (string $col) use ($toggleDir) {
         $qp = request()->query();
@@ -21,8 +28,6 @@
         unset($qp['page']);
         return url()->current() . '?' . http_build_query($qp);
     };
-    $tabDefs = \Extensions\tiktok\Services\TikTok\TikTokLiveListing::TABS;
-    $tabQuery = request()->except('page', 'tiktok_tab');
 @endphp
 
 <div class="cc-page"
@@ -39,7 +44,7 @@
                  carries, not the whole catalogue. A filtered count says what
                  it is counting. --}}
             @if($hasFilters)
-                {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product matches' : 'products match' }}
+                {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product matches' : 'products match' }}@if($statusMenu['label'] ?? null): {{ $statusMenu['label'] }}@endif
             @else
                 {{ number_format($catalogueTotal ?? $products->total()) }} {{ ($catalogueTotal ?? $products->total()) === 1 ? 'product' : 'products' }} on this store
                 &middot; {{ number_format($listedTotal ?? 0) }} on TikTok Shop
@@ -48,12 +53,17 @@
     </div>
     @if($canManage)
         <div class="cc-head-actions">
-            {{-- Refresh and Repair links live beside the freshness stamp on
-                 the strip (the Shopee shape): global maintenance, page
-                 furniture. Add products (#201, Draft C - the owner 2026-09-05) is
+            {{-- Refresh from TikTok Shop re-reads every status and checks
+                 every link; the menu says when it last ran. Add products is
                  the one way a main-catalogue product joins this store: a
                  primary button, sized to how often it happens, opening the
                  slide-over in place. --}}
+            @if(($liveCounts ?? null) !== null)
+                <form method="POST" action="{{ route('ext.tiktok.products.refresh_status') }}" class="cc-head-refresh" data-slow-action>
+                    @csrf
+                    <x-ui.button type="submit"><x-ui.icon name="refresh-cw" size="14" /> Refresh from TikTok Shop</x-ui.button>
+                </form>
+            @endif
             <x-ui.button type="button" variant="primary" data-add-panel-open>
                 <x-ui.icon name="plus" size="14" /> Add products
             </x-ui.button>
@@ -61,53 +71,11 @@
     @endif
 </div>
 
+{{-- TikTok Shop's own statuses live in the status menu, under Listed. When
+     TikTok Shop cannot be asked, this note says why and the menu shows none. --}}
 @if(($liveTabError ?? null) !== null)
     <div class="fm-note fm-note--warn" role="status">
-        <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'TikTok Shop', 'raw' => $liveTabError, 'settingsRoute' => 'ext.tiktok.index']) The live tabs and statuses are unavailable right now; the list below is unaffected.</div>
-    </div>
-@elseif(($liveCounts ?? null) !== null)
-    {{-- One strip (the Shopee shape, #201): "All" is this store's own list,
-         the stored view, pushed or not; the rest narrow to what TikTok
-         holds right now, from the mirror. The strip says when the mirror
-         was refreshed, and carries the on-demand refresh and the link
-         audit as page furniture. --}}
-    <div class="x-segment-bar">
-        <div class="x-segment-groups">
-            <div class="x-segment-group">
-                <nav class="x-segment" aria-label="TikTok Shop listing status">
-                    <a href="{{ route('ext.tiktok.products.index', $tabQuery) }}"
-                       class="x-segment__item {{ $tiktokTab === 'all' ? 'is-active' : '' }}"
-                       @if($tiktokTab === 'all') aria-current="true" @endif>
-                        <span>All</span>
-                        <span class="x-segment__count">{{ number_format((int) ($catalogueTotal ?? $products->total())) }}</span>
-                    </a>
-                    @foreach($tabDefs as $tabKey => [$tabLabel, $tabStatus])
-                        @continue($tabKey === 'all')
-                        @php $isActive = $tiktokTab === $tabKey; @endphp
-                        <a href="{{ route('ext.tiktok.products.index', array_merge($tabQuery, ['tiktok_tab' => $tabKey])) }}"
-                           class="x-segment__item {{ $isActive ? 'is-active' : '' }}" @if($isActive) aria-current="true" @endif>
-                            <span>{{ $tabLabel }}</span>
-                            <span class="x-segment__count">{{ number_format((int) ($liveCounts[$tabKey] ?? 0)) }}</span>
-                        </a>
-                    @endforeach
-                </nav>
-                <span class="x-segment-group__meta">
-                    @if($liveCheckedAt ?? null)
-                        as of {{ $liveCheckedAt->format('H:i, M j') }}
-                    @else
-                        not refreshed yet
-                    @endif
-                </span>
-                @if($canManage)
-                    {{-- The one button (the owner, 2026-09-07): Refresh checks every link against
-                         the store and re-reads every status, the old Repair links folded in. --}}
-                    <form method="POST" action="{{ route('ext.tiktok.products.refresh_status') }}" class="x-segment-group__refresh" data-slow-action>
-                        @csrf
-                        <x-ui.button type="submit"><x-ui.icon name="refresh-cw" size="14" /> Refresh from TikTok Shop</x-ui.button>
-                    </form>
-                @endif
-            </div>
-        </div>
+        <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'TikTok Shop', 'raw' => $liveTabError, 'settingsRoute' => 'ext.tiktok.index']) The live statuses are unavailable right now; the list below is unaffected.</div>
     </div>
 @endif
 
@@ -117,9 +85,23 @@
     'clear' => route('ext.tiktok.products.index', request()->except(['state', 'page'])),
 ])
 
+<div class="lsm-layout">
+@include('partials.listing-status-menu', ['menu' => $statusMenu])
+<div class="lsm-layout__main">
+
 <form method="GET" action="{{ route('ext.tiktok.products.index') }}" class="x-filters">
+    {{-- The menu's choice rides a search. --}}
     @if($tiktokTab !== 'all')
         <input type="hidden" name="tiktok_tab" value="{{ $tiktokTab }}">
+    @endif
+    @if($syncStatus !== 'all')
+        <input type="hidden" name="sync_status" value="{{ $syncStatus }}">
+    @endif
+    @if($failedFlag ?? false)
+        <input type="hidden" name="failed" value="1">
+    @endif
+    @if($changeFlag ?? false)
+        <input type="hidden" name="change" value="1">
     @endif
     <x-ui.input type="search" name="q" class="x-filters__search" value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search listings" />
     <div class="x-select-wrap x-filters__select">
@@ -145,17 +127,6 @@
             <option value="all" @selected($erpStatus === 'all')>Any catalog status</option>
             <option value="enabled" @selected($erpStatus === 'enabled')>Enabled</option>
             <option value="disabled" @selected($erpStatus === 'disabled')>Disabled</option>
-        </select>
-        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-    </div>
-    <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="sync_status" class="x-input" data-autosubmit aria-label="Filter by TikTok listing status">
-            <option value="all" @selected($syncStatus === 'all')>Listed or not</option>
-            <option value="listed" @selected($syncStatus === 'listed')>Listed on TikTok Shop</option>
-            <option value="not_listed" @selected($syncStatus === 'not_listed')>Not listed</option>
-            <option value="error" @selected($syncStatus === 'error')>Has an error</option>
-            <option value="ready" @selected($syncStatus === 'ready')>Ready to push</option>
-            <option value="not_ready" @selected($syncStatus === 'not_ready')>Not ready to push</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
@@ -211,7 +182,7 @@
         @endif
     </x-ui.empty>
 @else
-@php $colCount = 8 + ($canManage ? 1 : 0); @endphp
+@php $colCount = 7 + ($canManage ? 1 : 0); @endphp
 <x-ui.table id="tiktok-listings-table">
     <x-slot:head>
         <tr>
@@ -228,7 +199,6 @@
             <th scope="col"><a class="x-th-sort" href="{{ $sortUrl('product') }}">Product @if($sort === 'product')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif</a></th>
             <th scope="col" class="cc-col-qty x-td-num"><a class="x-th-sort x-th-sort--num" href="{{ $sortUrl('quantity') }}">Stock @if($sort === 'quantity')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif</a></th>
             <th scope="col" class="cc-col-price x-td-num"><a class="x-th-sort x-th-sort--num" href="{{ $sortUrl('price') }}">Price @if($sort === 'price')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif</a></th>
-            <th scope="col" class="cc-col-chanid">TikTok ID</th>
             @include('partials.channel-ready-head')
             <th scope="col" class="cc-col-sync">Listing</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
@@ -246,8 +216,8 @@
             $optRows = $optionRowsByProductId->get($pid);
             $img = trim((string) ($p->image ?? ''));
             $thumbSrc = $img !== '' ? asset('storage/' . ltrim($img, '/')) : '';
-            /* The mirrored status for this row; the strip says when it was
-               refreshed. Never refreshed reads as exactly that, not as a guess. */
+            /* The mirrored status for this row; the status menu says when it
+               was refreshed. Never refreshed reads as exactly that, not as a guess. */
             $rowLiveStatus = null;
             if ($listed && $liveCounts !== null) {
                 $rowLiveStatus = $liveStatuses[(string) $ttId] ?? null;
@@ -282,6 +252,9 @@
                         <a class="x-row-link co-item__name" href="{{ route('ext.tiktok.listings.edit', $pid) }}">{{ $pName ?: 'Unnamed product' }}</a>
                         <div class="co-item__meta">
                             <span class="co-item__sku">{{ $p->sku ?: 'No SKU' }}</span>
+                            @if($listed)
+                                <span class="co-item__sku lsm-chanid">TikTok {{ $ttId }}</span>
+                            @endif
                             @if($p->manufacturer_name)<span>{{ $p->manufacturer_name }}</span>@endif
                             @if(count($pGroups) > 0)
                                 <span class="co-item__var" @if(count($pGroups) > 1) title="Product Groups: {{ implode(', ', $pGroups) }}" @endif>Product group{{ count($pGroups) > 1 ? 's' : '' }}: {{ $pGroups[0] }}@if(count($pGroups) > 1) and {{ count($pGroups) - 1 }} more @endif</span>
@@ -292,9 +265,6 @@
             </td>
             <td class="cc-col-qty x-td-num" data-label="Stock"><span class="x-num">{{ (int) $p->quantity }}</span></td>
             <td class="cc-col-price x-td-num" data-label="Price"><x-money :php="(float) $p->price" /></td>
-            <td class="cc-col-chanid" data-label="TikTok ID">
-                @if($listed)<span class="x-num">{{ $ttId }}</span>@else<span class="x-cell-muted">None</span>@endif
-            </td>
             <td class="cc-col-ready" data-label="Ready">
                 @include('partials.channel-ready', ['state' => ($listingStates ?? [])[(int) $p->product_id] ?? null])
             </td>
@@ -364,13 +334,16 @@
         </tr>
         @if($optRows && count($optRows) > 0)
             {{-- The variations as rows of this table, under the same headers (partials.channel-variation-rows). --}}
-            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManage, 'trail' => ['cc-col-chanid', 'cc-col-ready', 'cc-col-sync', 'x-td-actions']])
+            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManage, 'trail' => ['cc-col-ready', 'cc-col-sync', 'x-td-actions']])
         @endif
     @endforeach
 </x-ui.table>
 
 <x-ui.pager :paginator="$products" />
 @endif
+
+</div>{{-- /.lsm-layout__main --}}
+</div>{{-- /.lsm-layout --}}
 
 <div id="tiktok-listings-progress" class="modal-backdrop">
     <div class="modal co-modal co-modal--sm" role="dialog" aria-modal="true"

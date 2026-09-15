@@ -25,6 +25,9 @@
 
     $hasFilters = $q !== ''
         || $syncStatus !== 'all'
+        || ($shopeeTab ?? 'all') !== 'all'
+        || ($failedFlag ?? false)
+        || ($changeFlag ?? false)
         || $manufacturerFilter !== 'all'
         || $groupFilter !== 'all'
         || $erpStatus !== 'all';
@@ -60,11 +63,11 @@
     <div>
         <h1 class="x-page-title">Listings</h1>
         <p class="x-page-sub">
-            {{-- This store's own list now (#201): the products this store
-                 carries, not the whole catalogue. A filtered count says what
-                 it is counting. --}}
+            {{-- This store's own list: the products this store carries, not
+                 the whole catalogue. A filtered count says what it is
+                 counting. --}}
             @if($hasFilters)
-                {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product matches' : 'products match' }}
+                {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product matches' : 'products match' }}@if($statusMenu['label'] ?? null): {{ $statusMenu['label'] }}@endif
             @else
                 {{ number_format($catalogueTotal ?? $products->total()) }} {{ ($catalogueTotal ?? $products->total()) === 1 ? 'product' : 'products' }} on this store
                 &middot; {{ number_format($listedTotal ?? 0) }} on Shopee
@@ -73,13 +76,17 @@
     </div>
     @if($canManageShopee)
         <div class="cc-head-actions">
-            {{-- Refresh and Repair links live beside the freshness stamp on
-                 the strip (2026-09-03): global maintenance, page furniture.
-                 Add products (#201, Draft C - the owner 2026-09-05) is the one
+            {{-- Refresh from Shopee re-reads every status and checks every
+                 link; the menu says when it last ran. Add products is the one
                  way a main-catalogue product joins this store: a primary
                  button, sized to how often it happens, opening the slide-over
-                 in place - not a tab beside the daily table, which gave a
-                 rare act equal billing. --}}
+                 in place. --}}
+            @if(($liveCounts ?? null) !== null)
+                <form method="POST" action="{{ route('ext.shopee.products.refresh_status') }}" class="cc-head-refresh" data-slow-action>
+                    @csrf
+                    <x-ui.button type="submit"><x-ui.icon name="refresh-cw" size="14" /> Refresh from Shopee</x-ui.button>
+                </form>
+            @endif
             <x-ui.button type="button" variant="primary" data-add-panel-open>
                 <x-ui.icon name="plus" size="14" /> Add products
             </x-ui.button>
@@ -89,17 +96,12 @@
 
 
 
-{{-- The seller center's tabs, answered by Shopee on this page load
-     (quest 1 slice 2). All is the whole catalog view; the other four
-     narrow the table to the items Shopee holds in that status right now.
-     Absent entirely when Shopee cannot be asked - a tab bar that cannot
-     answer is worse than none, and the note below says why it is gone. --}}
+{{-- Shopee's own statuses live in the status menu, under Listed. When
+     Shopee cannot be asked, this note says why and the menu shows none. --}}
 @if(($liveTabError ?? null) !== null)
     <div class="fm-note fm-note--warn" role="status">
         <div class="fm-note__body">@include('partials.channel-answer', ['channel' => 'Shopee', 'raw' => $liveTabError, 'settingsRoute' => 'ext.shopee.index'])</div>
     </div>
-@elseif(($liveCounts ?? null) !== null)
-    @include('ext-shopee::products._scope_strips', ['stripRoute' => 'ext.shopee.products.index', 'stripParams' => []])
 @endif
 
 @include('partials.channel-state-filter', [
@@ -112,9 +114,23 @@
      selects inside a card; the selects here submit on change (data-autosubmit,
      resources/js/list-filters.js) so there is no Filter button to press, and
      Clear is a link because it is navigation. --}}
+<div class="lsm-layout">
+@include('partials.listing-status-menu', ['menu' => $statusMenu])
+<div class="lsm-layout__main">
+
 <form method="GET" action="{{ route('ext.shopee.products.index') }}" class="x-filters" id="shopee-listings-filter">
+    {{-- The menu's choice rides a search. --}}
     @if(($shopeeTab ?? 'all') !== 'all')
         <input type="hidden" name="shopee_tab" value="{{ $shopeeTab }}">
+    @endif
+    @if($syncStatus !== 'all')
+        <input type="hidden" name="sync_status" value="{{ $syncStatus }}">
+    @endif
+    @if($failedFlag ?? false)
+        <input type="hidden" name="failed" value="1">
+    @endif
+    @if($changeFlag ?? false)
+        <input type="hidden" name="change" value="1">
     @endif
     <x-ui.input type="search" name="q" class="x-filters__search"
                 value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search listings" />
@@ -145,21 +161,6 @@
             <option value="all" @selected($erpStatus === 'all')>Any catalog status</option>
             <option value="enabled" @selected($erpStatus === 'enabled')>Enabled</option>
             <option value="disabled" @selected($erpStatus === 'disabled')>Disabled</option>
-        </select>
-        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-    </div>
-
-    <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="sync_status" class="x-input" data-autosubmit aria-label="Filter by Shopee listing status">
-            <option value="all" @selected($syncStatus === 'all')>Listed or not</option>
-            <option value="listed" @selected($syncStatus === 'listed')>Listed on Shopee</option>
-            <option value="not_listed" @selected($syncStatus === 'not_listed')>Not listed</option>
-            {{-- Where the two above say where a product IS, this says what
-                 happened to it. It is the reason to open this page. --}}
-            <option value="error" @selected($syncStatus === 'error')>Has an error</option>
-            {{-- The computed answer (#101): pushable right now, or not. --}}
-            <option value="ready" @selected($syncStatus === 'ready')>Ready to push</option>
-            <option value="not_ready" @selected($syncStatus === 'not_ready')>Not ready to push</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
@@ -226,7 +227,7 @@
         @endif
     </x-ui.empty>
 @else
-@php $colCount = 9 + ($canManageShopee ? 1 : 0); @endphp
+@php $colCount = 8 + ($canManageShopee ? 1 : 0); @endphp
 <x-ui.table id="shopee-listings-table">
     <x-slot:head>
         <tr>
@@ -263,7 +264,6 @@
                     @if($sort === 'price')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
-            <th scope="col" class="cc-col-chanid">Shopee ID</th>
             <th scope="col" class="cc-col-stat">Catalog</th>
             @include('partials.channel-ready-head')
             <th scope="col" class="cc-col-sync">Listing</th>
@@ -315,6 +315,9 @@
                         <a class="x-row-link co-item__name" href="{{ route('products.edit', $p->product_id) }}">{{ $pName ?: 'Unnamed product' }}</a>
                         <div class="co-item__meta">
                             <span class="co-item__sku">{{ $p->sku ?: 'No SKU' }}</span>
+                            @if($link)
+                                <span class="co-item__sku lsm-chanid">Shopee {{ $link->shopee_item_id }}</span>
+                            @endif
                             @if($p->manufacturer_name)
                                 <span>{{ $p->manufacturer_name }}</span>
                             @endif
@@ -337,21 +340,6 @@
             <td class="cc-col-qty x-td-num" data-label="Stock"><span class="x-num">{{ (int) $p->quantity }}</span></td>
 
             <td class="cc-col-price x-td-num" data-label="Price"><x-money :php="(float) ($rowPrices[(int) $p->product_id] ?? $p->price)" /></td>
-
-            <td class="cc-col-chanid" data-label="Shopee ID">
-                @if($link)
-                    @php $liveUrl = \Extensions\shopee\Models\ShopeeSetting::publicListingUrl($link->shopee_item_id); @endphp
-                    @if($liveUrl)
-                        {{-- The answer to "what does the buyer see right
-                             now?" - the id links to the live listing. --}}
-                        <a class="x-num" href="{{ $liveUrl }}" target="_blank" rel="noopener">{{ $link->shopee_item_id }}</a>
-                    @else
-                        <span class="x-num">{{ $link->shopee_item_id }}</span>
-                    @endif
-                @else
-                    <span class="x-cell-muted">None</span>
-                @endif
-            </td>
 
             <td class="cc-col-stat" data-label="Catalog">
                 <x-ui.badge :tone="(int) $p->status === 1 ? 'success' : 'neutral'">{{ (int) $p->status === 1 ? 'Enabled' : 'Disabled' }}</x-ui.badge>
@@ -443,7 +431,7 @@
         </tr>
         @if($variationCount > 0)
             {{-- The variations as rows of this table, under the same headers (partials.channel-variation-rows). --}}
-            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManageShopee, 'trail' => ['cc-col-chanid', 'cc-col-stat', 'cc-col-ready', 'cc-col-sync', 'x-td-actions']])
+            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManageShopee, 'trail' => ['cc-col-stat', 'cc-col-ready', 'cc-col-sync', 'x-td-actions']])
         @endif
     @endforeach
 </x-ui.table>
@@ -451,6 +439,9 @@
 <x-ui.pager :paginator="$products" />
 
 @endif
+
+</div>{{-- /.lsm-layout__main --}}
+</div>{{-- /.lsm-layout --}}
 
 {{-- Work-in-progress overlay. A push to Shopee is a multi-second round trip
      and the page has to say so, or the operator clicks again. Rides

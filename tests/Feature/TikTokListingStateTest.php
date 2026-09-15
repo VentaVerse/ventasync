@@ -541,7 +541,7 @@ class TikTokListingStateTest extends TestCase
 
         $user = $this->manager();
         $page = $this->actingAs($user)->get(route('ext.tiktok.products.index', ['sync_status' => 'error']));
-        $page->assertOk()->assertSee('Short a variation')->assertSee('Refused then fixed')->assertDontSee('Nothing wrong here')->assertSee('>Has an error</option>', false);
+        $page->assertOk()->assertSee('Short a variation')->assertSee('Refused then fixed')->assertDontSee('Nothing wrong here')->assertSee('products match: Push failed', false);
 
         $this->engine()->recordOutcome($refused, null);
         $this->actingAs($user)->get(route('ext.tiktok.products.index', ['sync_status' => 'error']))
