@@ -42,7 +42,7 @@
 
 <section class="fm-section" aria-labelledby="sec-images">
     <div class="fm-section__head">
-        <h2 class="fm-section__title" id="sec-images">Images <span class="fm-req" aria-hidden="true">*</span><span class="x-sr">(required)</span></h2>
+        <h2 class="fm-section__title" id="sec-images">Images</h2>
         <x-ui.hint label="How image order works">Drag a tile to reorder. The first image is the one the
             catalog and the marketplaces show, and it is marked Main.</x-ui.hint>
         <div class="fm-section__aside">

@@ -47,6 +47,18 @@ class ProductFormVariationsCreateTest extends TestCase
         return (int) DB::table((string) config('catalog.prefix') . 'product')->where('sku', $sku)->value('product_id');
     }
 
+    /** A product can be made without a photo, for a purchase order or a deal not closed yet; a store push still asks for one. */
+    public function test_the_form_saves_a_product_without_a_photo(): void
+    {
+        $this->actingAs($this->manager())->post(route('products.store'), $this->payload([
+            'sku' => 'NOPIC-1', 'images_json' => '[]',
+        ]))->assertSessionHasNoErrors();
+
+        $image = \Illuminate\Support\Facades\DB::table((string) config('catalog.prefix') . 'product')
+            ->where('product_id', $this->productId('NOPIC-1'))->value('image');
+        $this->assertSame('', (string) $image);
+    }
+
     public function test_the_form_saves_one_variation_type_as_before(): void
     {
         $this->actingAs($this->manager())->post(route('products.store'), $this->payload([

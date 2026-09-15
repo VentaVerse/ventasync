@@ -508,7 +508,7 @@ $pfx = config('catalog.prefix');
              * marketplace with a minimum of its own says so when the listing
              * is pushed; nothing in the catalog CRUD points at a channel. */
             'description' => ['nullable', 'string'],
-            'images_json' => ['required', 'string', new \App\Rules\HasAtLeastOneImage()],
+            'images_json' => ['nullable', 'string'],
 
             'options' => 'array',
             'options.*.option_id' => 'required|integer|min:1',
@@ -529,7 +529,6 @@ $pfx = config('catalog.prefix');
             'sku.required' => 'A SKU is needed. Imports, stock pushes and link repair recognise this product by it.',
             'price.required' => 'A price above zero is needed - a listing pushed without one goes live at zero.',
             'price.gt' => 'The price must be more than zero - a listing pushed at zero sells at zero.',
-            'images_json.required' => 'At least one product photo is needed.',
             'weight.required' => 'A package weight is needed.',
             'weight.gt' => 'The package weight must be more than zero.',
             'length.required' => 'The package size (L×W×H) is needed - the channels refuse a push without it.',
@@ -1056,7 +1055,7 @@ $pfx = config('catalog.prefix');
              * marketplace with a minimum of its own says so when the listing
              * is pushed; nothing in the catalog CRUD points at a channel. */
             'description' => ['nullable', 'string'],
-            'images_json' => ['required', 'string', new \App\Rules\HasAtLeastOneImage()],
+            'images_json' => ['nullable', 'string'],
 
             'options' => 'array',
             'options.*.option_id' => 'required|integer|min:1',
@@ -1077,7 +1076,6 @@ $pfx = config('catalog.prefix');
             'sku.required' => 'A SKU is needed. Imports, stock pushes and link repair recognise this product by it.',
             'price.required' => 'A price above zero is needed - a listing pushed without one goes live at zero.',
             'price.gt' => 'The price must be more than zero - a listing pushed at zero sells at zero.',
-            'images_json.required' => 'At least one product photo is needed.',
             'weight.required' => 'A package weight is needed.',
             'weight.gt' => 'The package weight must be more than zero.',
             'length.required' => 'The package size (L×W×H) is needed - the channels refuse a push without it.',
