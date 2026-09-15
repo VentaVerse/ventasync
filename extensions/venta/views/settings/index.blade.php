@@ -458,19 +458,6 @@
         <div class="fm-section__head">
             <h2 class="fm-section__title">Recording</h2>
             <div class="fm-section__aside">
-                @if($canManageVenta)
-                    <form method="POST" action="{{ route('ext.venta.set_sync_log_level', $store->id) }}" class="cs-inline-form">
-                        @csrf
-                        <label class="x-sr" for="vt-sync-level-{{ $store->id }}">What to record</label>
-                        <x-ui.select id="vt-sync-level-{{ $store->id }}" name="sync_log_level">
-                            <option value="" @selected($syncLevel === null)>Follow the default</option>
-                            @foreach(\App\Support\LogRetention::LEVELS as $value => $label)
-                                <option value="{{ $value }}" @selected($syncLevel === $value)>{{ $label }}</option>
-                            @endforeach
-                        </x-ui.select>
-                        <x-ui.button type="submit" size="sm">Save</x-ui.button>
-                    </form>
-                @endif
                 <x-ui.badge :tone="$syncLevel === 'off' ? 'neutral' : 'success'">{{ $syncLevelLabel }}</x-ui.badge>
             </div>
         </div>
@@ -480,6 +467,25 @@
             into an exception list. How long the kept rows survive is set once for every channel
             in Settings, Website.
         </p>
+
+        @if($canManageVenta)
+            <form method="POST" action="{{ route('ext.venta.set_sync_log_level', $store->id) }}">
+                @csrf
+                <div class="fm-fields">
+                    <x-ui.field label="What to record" for="vt-sync-level-{{ $store->id }}" name="sync_log_level">
+                        <x-ui.select id="vt-sync-level-{{ $store->id }}" name="sync_log_level">
+                            <option value="" @selected($syncLevel === null)>Follow the default</option>
+                            @foreach(\App\Support\LogRetention::LEVELS as $value => $label)
+                                <option value="{{ $value }}" @selected($syncLevel === $value)>{{ $label }}</option>
+                            @endforeach
+                        </x-ui.select>
+                    </x-ui.field>
+                </div>
+                <div class="cs-actions">
+                    <x-ui.button type="submit" variant="primary">Save</x-ui.button>
+                </div>
+            </form>
+        @endif
     </section>
 
     <section class="fm-section">

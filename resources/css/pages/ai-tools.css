@@ -87,6 +87,8 @@
     display: grid;
     gap: var(--bl-space-3);
 }
+/* The assistant's Save sits at the lower right of its form. */
+.ai-change__foot { display: flex; justify-content: flex-end; }
 .ai-hint { margin: var(--bl-space-3) 0 0; color: var(--bl-ink-3); font-size: 12.5px; }
 
 /* ---- connect ---- */

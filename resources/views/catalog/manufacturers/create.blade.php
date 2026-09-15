@@ -2,7 +2,7 @@
 @section('title', 'New manufacturer')
 
 @section('content')
-<form method="POST" action="{{ route('manufacturers.store') }}" class="fm-page">
+<form method="POST" action="{{ route('manufacturers.store') }}" class="fm-page" data-guard-unsaved>
     @csrf
 
     <div class="fm-flash" role="status" aria-live="polite">
@@ -15,7 +15,7 @@
 
     <div class="fm-head">
         <div class="fm-head__main">
-            <a class="fm-back" href="{{ route('manufacturers.index') }}">
+            <a class="fm-back" href="{{ route('manufacturers.index') }}" data-guard-leave>
                 <x-ui.icon name="chevron-left" size="14" /> Manufacturers
             </a>
             <h1 class="fm-title">New manufacturer</h1>
@@ -55,12 +55,9 @@
         </div>
     </div>
 
-    <div class="fm-bar">
-        <span class="fm-bar__meta">Nothing is saved until you create the manufacturer.</span>
-        <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ route('manufacturers.index') }}">Cancel</a>
-            <x-ui.button type="submit" variant="primary">Create manufacturer</x-ui.button>
-        </div>
-    </div>
+    <x-ui.form-bar :cancel="route('manufacturers.index')">
+        <x-slot:note>Nothing is saved until you create the manufacturer.</x-slot:note>
+        <x-slot:primary><x-ui.button type="submit" variant="primary">Create manufacturer</x-ui.button></x-slot:primary>
+    </x-ui.form-bar>
 </form>
 @endsection

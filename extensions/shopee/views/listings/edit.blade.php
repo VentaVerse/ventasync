@@ -433,32 +433,29 @@
 
 
 
-    <div class="fm-bar">
-        <span class="fm-bar__meta">{{ !$canManage
+    <x-ui.form-bar :cancel="\App\Support\BackTo::safe(request('back'), route('ext.shopee.products.index'))" :cancel-label="$canManage ? 'Cancel' : 'Back'">
+        <x-slot:note>{{ !$canManage
             ? 'You can read this. Editing needs the Shopee manage permission.'
             : ($link
                 ? 'Saving changes this record only. Push update to Shopee sends it onto the live listing.'
-                : 'Saving changes this record only. Shopee sees it when the product is pushed.') }}</span>
-        <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.shopee.products.index')) }}" data-guard-leave>{{ $canManage ? 'Cancel' : 'Back' }}</a>
+                : 'Saving changes this record only. Shopee sees it when the product is pushed.') }}</x-slot:note>
+        @if($canManage && !$link)
+            {{-- One trip for the common case: save what was just
+                 typed, then push - the save half runs first, so a
+                 refusal never loses the typing. The controller
+                 re-checks readiness after saving and names what is
+                 still missing instead of pushing blind. --}}
+            <x-ui.button type="submit" form="listing-form" name="push_after" value="1">Save and push to Shopee</x-ui.button>
+        @endif
+        <x-slot:primary>
+            {{-- Required means required on both presses: neither button
+                 carries formnovalidate, so a field the page marks with an
+                 asterisk is never saved empty. --}}
             @if($canManage)
-                @if(!$link)
-                    {{-- One trip for the common case: save what was just
-                         typed, then push - the save half runs first, so a
-                         refusal never loses the typing. The controller
-                         re-checks readiness after saving and names what is
-                         still missing instead of pushing blind. --}}
-                    <x-ui.button type="submit" form="listing-form" name="push_after" value="1">Save and push to Shopee</x-ui.button>
-                @endif
-                {{-- Required means required on BOTH presses (the owner,
-                     2026-09-09: "Anything that is required = null should not
-                     save as well"). Save carried formnovalidate for half a
-                     day; a field the page marks with an asterisk and then
-                     saves without teaches that the asterisk means nothing. --}}
                 <x-ui.button type="submit" form="listing-form" variant="primary">Save listing</x-ui.button>
             @endif
-        </div>
-    </div>
+        </x-slot:primary>
+    </x-ui.form-bar>
 
 </div>
 

@@ -902,6 +902,14 @@
         display: flex;
     }
 
+    /* A dialog opened from another sits above it: the image library and
+       the confirm dialog over a slide-over panel, which waits underneath
+       as it was left. */
+    .modal-backdrop[data-ilp-modal],
+    #x-confirm-modal {
+        z-index: 70;
+    }
+
     .modal {
         width: 100%;
         max-width: 460px;

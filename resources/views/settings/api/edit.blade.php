@@ -116,13 +116,10 @@
         </div>
     </div>
 
-    <div class="fm-bar">
-        <span class="fm-bar__meta">{{ $client->name }}</span>
-        <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ route('api_clients.index') }}">Cancel</a>
-            <x-ui.button type="submit" variant="primary">Save changes</x-ui.button>
-        </div>
-    </div>
+    <x-ui.form-bar :cancel="route('api_clients.index')">
+        <x-slot:note>{{ $client->name }}</x-slot:note>
+        <x-slot:primary><x-ui.button type="submit" variant="primary">Save changes</x-ui.button></x-slot:primary>
+    </x-ui.form-bar>
 </form>
 
 <form id="st-api-rotate-form" method="POST" action="{{ route('api_clients.rotate', $client->id) }}" class="x-sr">

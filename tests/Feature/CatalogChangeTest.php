@@ -192,6 +192,19 @@ class CatalogChangeTest extends TestCase
         $this->assertSame('Plug v2', LazadaProduct::query()->where('product_id', $pid)->value('item_name'));
     }
 
+    /** The image library opened from the panel (a photo tile, an editor's picture button) sits above it, and hands focus back when it closes. */
+    public function test_the_image_library_opens_above_the_comparison_panel(): void
+    {
+        $css = (string) file_get_contents(base_path('resources/css/blotter.css'));
+        $this->assertMatchesRegularExpression('/\.modal-backdrop\[data-ilp-modal\],\s*#x-confirm-modal\s*\{\s*z-index:\s*70;/', $css,
+            'the image library and the confirm dialog must stack above a slide-over panel (z-index 60)');
+        $this->assertStringContainsString("z-index: 60;", $css);
+
+        $script = (string) file_get_contents(base_path('resources/js/pages/image-library.js'));
+        $this->assertStringContainsString('returnTo = document.activeElement;', $script);
+        $this->assertStringContainsString('returnTo.focus();', $script);
+    }
+
     public function test_the_listings_table_button_opens_the_comparison(): void
     {
         $pid = $this->product('Plug', '<p>Words.</p>');

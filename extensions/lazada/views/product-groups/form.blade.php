@@ -60,7 +60,8 @@
 <form method="POST" class="fm-page"
       action="{{ $mode === 'create'
         ? route('ext.lazada.product-groups.store')
-        : route('ext.lazada.product-groups.update', $group->id) }}">
+        : route('ext.lazada.product-groups.update', $group->id) }}"
+      data-guard-unsaved>
     @csrf
     @if($mode === 'edit')
         @method('PUT')
@@ -262,16 +263,15 @@
         </div>
     </div>
 
-    <div class="fm-bar">
-        <span class="fm-bar__meta">{{ $canManageLazada
+    <x-ui.form-bar :cancel="route('ext.lazada.product-groups.index')" :cancel-label="$canManageLazada ? 'Cancel' : 'Back'">
+        <x-slot:note>{{ $canManageLazada
             ? ($mode === 'create' ? 'Nothing is saved until you create the product group.' : 'Changes are saved to this product group, not pushed to Lazada.')
-            : 'You can read this product group. Changing it needs the Lazada manage permission.' }}</span>
-        <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ route('ext.lazada.product-groups.index') }}">{{ $canManageLazada ? 'Cancel' : 'Back' }}</a>
+            : 'You can read this product group. Changing it needs the Lazada manage permission.' }}</x-slot:note>
+        <x-slot:primary>
             @if($canManageLazada)
                 <x-ui.button type="submit" variant="primary">{{ $mode === 'create' ? 'Create product group' : 'Save product group' }}</x-ui.button>
             @endif
-        </div>
-    </div>
+        </x-slot:primary>
+    </x-ui.form-bar>
 </form>
 @endsection

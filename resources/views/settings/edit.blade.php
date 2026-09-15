@@ -84,7 +84,7 @@
 
     <div class="fm-head">
         <div class="fm-head__main">
-            <a class="fm-back" href="{{ route('settings.hub') }}">
+            <a class="fm-back" href="{{ route('settings.hub') }}" data-guard-leave>
                 <x-ui.icon name="chevron-left" size="14" /> Settings
             </a>
             <h1 class="fm-title">{{ $tab['label'] }}</h1>
@@ -94,7 +94,7 @@
     <nav class="x-segment st-tabs" aria-label="Settings sections">
         @foreach($tabs as $key => $item)
             <a class="x-segment__item {{ $activeTab === $key ? 'is-active' : '' }}"
-               href="{{ $item['url'] }}"
+               href="{{ $item['url'] }}" data-guard-leave
                @if($activeTab === $key) aria-current="page" @endif>{{ $item['label'] }}</a>
         @endforeach
     </nav>
@@ -106,7 +106,7 @@
              and favicon files through this same action. All four tabs share
              one form element so the markup does not fork on which tab is
              showing. --}}
-        <form method="POST" action="{{ route('settings.update') }}" enctype="multipart/form-data" class="st-set-form">
+        <form method="POST" action="{{ route('settings.update') }}" enctype="multipart/form-data" class="st-set-form" data-guard-unsaved>
             @csrf
 
             {{-- Literal include names, not 'tab-' . $activeTab. The view
@@ -135,12 +135,10 @@
             @include('settings.partials.carry', ['setting' => $setting, 'activeTab' => $activeTab])
 
             @if($canManage)
-            <div class="fm-bar">
-                <span class="fm-bar__meta">{{ $tab['label'] }}</span>
-                <div class="fm-bar__actions">
-                    <x-ui.button type="submit" variant="primary">Save settings</x-ui.button>
-                </div>
-            </div>
+            <x-ui.form-bar>
+                <x-slot:note>{{ $tab['label'] }}</x-slot:note>
+                <x-slot:primary><x-ui.button type="submit" variant="primary">Save settings</x-ui.button></x-slot:primary>
+            </x-ui.form-bar>
             @endif
         </form>
     @else

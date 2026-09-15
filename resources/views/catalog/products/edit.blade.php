@@ -355,13 +355,10 @@
         </div>
     </div>
 
-    <div class="fm-bar">
-        <span class="fm-bar__meta">Product {{ $product->product_id }}</span>
-        <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ $backUrl }}">Cancel</a>
-            <x-ui.button type="submit" variant="primary">Save changes</x-ui.button>
-        </div>
-    </div>
+    <x-ui.form-bar :cancel="$backUrl">
+        <x-slot:note>Product {{ $product->product_id }}</x-slot:note>
+        <x-slot:primary><x-ui.button type="submit" variant="primary">Save changes</x-ui.button></x-slot:primary>
+    </x-ui.form-bar>
 </form>
 
 <form id="product-delete-form" method="POST" action="{{ route('products.destroy', $product->product_id) }}" class="x-sr">

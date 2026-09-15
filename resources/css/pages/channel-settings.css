@@ -196,13 +196,15 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
+    justify-content: flex-end;
     gap: var(--bl-space-3);
     /* Air above the Save row, so it reads as the form's foot and not as
        the last field's neighbour (the owner, 2026-09-05). */
     margin-top: var(--bl-space-5);
 }
 
-.cs-actions__note { font-size: 12px; color: var(--bl-ink-3); }
+/* The note stays on the left; the section's Save sits at its lower right. */
+.cs-actions__note { order: -1; margin-right: auto; font-size: 12px; color: var(--bl-ink-3); }
 
 /* ------------------------------------------------------------------
    OAuth steps. Three genuinely ordered actions, so they are numbered.
@@ -652,26 +654,6 @@
 
 .cs-page .automations-empty-icon { color: var(--bl-ink-3); }
 
-/* The partial's own Save All button is a legacy `.btn`. Give it the
-   system's primary treatment without editing the shared partial. */
-.cs-page .automation-btn-save-all {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: var(--bl-control-h);
-    padding: 0 var(--bl-space-4);
-    background: var(--bl-brand-deep);
-    border: 1px solid var(--bl-brand-deep);
-    border-radius: var(--bl-r-dot);
-    color: #fff;
-    font-family: var(--font-sans);
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-}
-
-.cs-page .automation-btn-save-all:hover { background: var(--bl-brand); border-color: var(--bl-brand); }
-
 /* The partial marks last-run outcome with the legacy badge classes,
    whose light-only greens and reds do not survive the dark theme. */
 .cs-page .automation-lastrun .badge {
@@ -1069,18 +1051,6 @@
    its width, so it shipped as a rule that did nothing. Not chased, because
    it was only there for redundancy and the words Production and Sandbox
    already provide it - colour is not the sole signal either way. */
-
-/* A select and its Save sitting together on a section's aside, the way the
-   sync log's Recording control does. The API log's aside holds a single
-   button; this one holds a choice, so the two need to line up rather than
-   stack. */
-.cs-inline-form {
-    display: flex;
-    align-items: center;
-    gap: var(--bl-space-2);
-    flex-wrap: wrap;
-}
-.cs-inline-form .x-select-wrap { min-width: 190px; }
 
 /* ------------------------------------------------------------------
    The Add-store modal on the Integrations board (the owner, 2026-09-04).

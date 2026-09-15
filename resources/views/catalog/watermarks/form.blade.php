@@ -151,13 +151,10 @@
             </aside>
         </div>
 
-        <div class="fm-bar">
-            <span class="fm-bar__meta">{{ $mode === 'edit' ? 'Template ' . $template->id : '' }}</span>
-            <div class="fm-bar__actions">
-                <a class="fm-cancel" href="{{ route('watermarks.index') }}" data-guard-leave>Cancel</a>
-                <x-ui.button type="submit" variant="primary">Save template</x-ui.button>
-            </div>
-        </div>
+        <x-ui.form-bar :cancel="route('watermarks.index')">
+            <x-slot:note>{{ $mode === 'edit' ? 'Template ' . $template->id : '' }}</x-slot:note>
+            <x-slot:primary><x-ui.button type="submit" variant="primary">Save template</x-ui.button></x-slot:primary>
+        </x-ui.form-bar>
     </form>
 </div>
 

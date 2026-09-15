@@ -199,8 +199,8 @@
                 @endforeach
             </div>
 
-            <div class="automations-batch-actions">
-                <button type="submit" class="btn automation-btn-save-all">Save All Automations</button>
+            <div class="cs-actions">
+                <x-ui.button type="submit" variant="primary">Save All Automations</x-ui.button>
             </div>
         </form>
 

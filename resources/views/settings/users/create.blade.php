@@ -3,7 +3,7 @@
 @section('breadcrumb', 'New')
 
 @section('content')
-<form method="POST" action="{{ route('users.store') }}" class="fm-page">
+<form method="POST" action="{{ route('users.store') }}" class="fm-page" data-guard-unsaved>
     @csrf
 
     @include('partials.flash')
@@ -18,7 +18,7 @@
 
     <div class="fm-head">
         <div class="fm-head__main">
-            <a class="fm-back" href="{{ route('users.index') }}">
+            <a class="fm-back" href="{{ route('users.index') }}" data-guard-leave>
                 <x-ui.icon name="chevron-left" size="14" /> Users
             </a>
             <h1 class="fm-title">New user</h1>
@@ -95,12 +95,9 @@
         </div>
     </div>
 
-    <div class="fm-bar">
-        <span class="fm-bar__meta">Nothing is saved until you create the user.</span>
-        <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ route('users.index') }}">Cancel</a>
-            <x-ui.button type="submit" variant="primary">Create user</x-ui.button>
-        </div>
-    </div>
+    <x-ui.form-bar :cancel="route('users.index')">
+        <x-slot:note>Nothing is saved until you create the user.</x-slot:note>
+        <x-slot:primary><x-ui.button type="submit" variant="primary">Create user</x-ui.button></x-slot:primary>
+    </x-ui.form-bar>
 </form>
 @endsection

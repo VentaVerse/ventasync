@@ -53,11 +53,11 @@
         </div>
     </div>
 
-    <div class="fm-bar">
-        <span class="fm-bar__meta">Nothing has been saved. The settings screen is where these are exchanged.</span>
-        <div class="fm-bar__actions">
+    <x-ui.form-bar>
+        <x-slot:note>Nothing has been saved. The settings screen is where these are exchanged.</x-slot:note>
+        <x-slot:primary>
             <x-ui.button variant="primary" :href="route('ext.shopee.index')">Go to Shopee settings</x-ui.button>
-        </div>
-    </div>
+        </x-slot:primary>
+    </x-ui.form-bar>
 </div>
 @endsection

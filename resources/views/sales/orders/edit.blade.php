@@ -200,13 +200,10 @@
         </div>
     </div>
 
-    <div class="fm-bar">
-        <span class="fm-bar__meta">Saves the lines, status and comment. A status that takes stock moves it on save.</span>
-        <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ route('orders.index') }}">Cancel</a>
-            <x-ui.button type="submit" variant="primary">Save order</x-ui.button>
-        </div>
-    </div>
+    <x-ui.form-bar :cancel="route('orders.index')">
+        <x-slot:note>Saves the lines, status and comment. A status that takes stock moves it on save.</x-slot:note>
+        <x-slot:primary><x-ui.button type="submit" variant="primary">Save order</x-ui.button></x-slot:primary>
+    </x-ui.form-bar>
 </form>
 
 <form id="of-delete" method="POST" action="{{ route('orders.destroy', $order->order_id) }}" class="x-sr">

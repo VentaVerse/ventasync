@@ -2,7 +2,7 @@
 @section('title', 'New category')
 
 @section('content')
-<form method="POST" action="{{ route('categories.store') }}" class="fm-page">
+<form method="POST" action="{{ route('categories.store') }}" class="fm-page" data-guard-unsaved>
     @csrf
 
     <div class="fm-flash" role="status" aria-live="polite">
@@ -15,7 +15,7 @@
 
     <div class="fm-head">
         <div class="fm-head__main">
-            <a class="fm-back" href="{{ route('categories.index') }}">
+            <a class="fm-back" href="{{ route('categories.index') }}" data-guard-leave>
                 <x-ui.icon name="chevron-left" size="14" /> Categories
             </a>
             <h1 class="fm-title">New category</h1>
@@ -93,13 +93,10 @@
         </div>
     </div>
 
-    <div class="fm-bar">
-        <span class="fm-bar__meta">Nothing is saved until you create the category.</span>
-        <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ route('categories.index') }}">Cancel</a>
-            <x-ui.button type="submit" variant="primary">Create category</x-ui.button>
-        </div>
-    </div>
+    <x-ui.form-bar :cancel="route('categories.index')">
+        <x-slot:note>Nothing is saved until you create the category.</x-slot:note>
+        <x-slot:primary><x-ui.button type="submit" variant="primary">Create category</x-ui.button></x-slot:primary>
+    </x-ui.form-bar>
 </form>
 
 @include('catalog.products.partials.wysiwyg')

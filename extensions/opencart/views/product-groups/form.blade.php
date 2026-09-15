@@ -43,7 +43,8 @@
 <form method="POST" class="fm-page"
       action="{{ $mode === 'create'
         ? route('ext.opencart.product-groups.store', $setting->id)
-        : route('ext.opencart.product-groups.update', [$setting->id, $group->id]) }}">
+        : route('ext.opencart.product-groups.update', [$setting->id, $group->id]) }}"
+      data-guard-unsaved>
     @csrf
     @if($mode === 'edit')
         @method('PUT')
@@ -116,16 +117,15 @@
         </div>
     </div>
 
-    <div class="fm-bar">
-        <span class="fm-bar__meta">{{ $canManageOpencart
+    <x-ui.form-bar :cancel="route('ext.opencart.product-groups.index', $setting->id)" :cancel-label="$canManageOpencart ? 'Cancel' : 'Back'">
+        <x-slot:note>{{ $canManageOpencart
             ? ($mode === 'create' ? 'Nothing is saved until you create the product group.' : 'Changes are saved to ' . $storeName . '.')
-            : 'You can read this product group. Changing it needs the OpenCart manage permission.' }}</span>
-        <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ route('ext.opencart.product-groups.index', $setting->id) }}">{{ $canManageOpencart ? 'Cancel' : 'Back' }}</a>
+            : 'You can read this product group. Changing it needs the OpenCart manage permission.' }}</x-slot:note>
+        <x-slot:primary>
             @if($canManageOpencart)
                 <x-ui.button type="submit" variant="primary">{{ $mode === 'create' ? 'Create product group' : 'Save product group' }}</x-ui.button>
             @endif
-        </div>
-    </div>
+        </x-slot:primary>
+    </x-ui.form-bar>
 </form>
 @endsection

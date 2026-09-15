@@ -55,7 +55,8 @@
 <form method="POST" class="fm-page"
       action="{{ $mode === 'create'
         ? route('ext.tiktok.product-groups.store')
-        : route('ext.tiktok.product-groups.update', $group->id) }}">
+        : route('ext.tiktok.product-groups.update', $group->id) }}"
+      data-guard-unsaved>
     @csrf
     @if($mode === 'edit')
         @method('PUT')
@@ -209,16 +210,15 @@
         </div>
     </div>
 
-    <div class="fm-bar">
-        <span class="fm-bar__meta">{{ $canManageTiktok
+    <x-ui.form-bar :cancel="route('ext.tiktok.product-groups.index')" :cancel-label="$canManageTiktok ? 'Cancel' : 'Back'">
+        <x-slot:note>{{ $canManageTiktok
             ? ($mode === 'create' ? 'Nothing is saved until you create the product group.' : 'Changes are saved to this product group, not pushed to TikTok Shop.')
-            : 'You can read this product group. Changing it needs the TikTok manage permission.' }}</span>
-        <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ route('ext.tiktok.product-groups.index') }}">{{ $canManageTiktok ? 'Cancel' : 'Back' }}</a>
+            : 'You can read this product group. Changing it needs the TikTok manage permission.' }}</x-slot:note>
+        <x-slot:primary>
             @if($canManageTiktok)
                 <x-ui.button type="submit" variant="primary">{{ $mode === 'create' ? 'Create product group' : 'Save product group' }}</x-ui.button>
             @endif
-        </div>
-    </div>
+        </x-slot:primary>
+    </x-ui.form-bar>
 </form>
 @endsection

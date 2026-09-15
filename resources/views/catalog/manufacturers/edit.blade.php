@@ -11,7 +11,7 @@
 
 @section('content')
 @php $backUrl = \App\Support\BackTo::safe(old('_return', $returnUrl ?? null), route('manufacturers.index')); @endphp
-<form method="POST" action="{{ route('manufacturers.update', $manufacturer->manufacturer_id) }}" class="fm-page">
+<form method="POST" action="{{ route('manufacturers.update', $manufacturer->manufacturer_id) }}" class="fm-page" data-guard-unsaved>
     <input type="hidden" name="_return" value="{{ $backUrl }}">
     @csrf
     @method('PUT')
@@ -29,7 +29,7 @@
 
     <div class="fm-head">
         <div class="fm-head__main">
-            <a class="fm-back" href="{{ $backUrl }}">
+            <a class="fm-back" href="{{ $backUrl }}" data-guard-leave>
                 <x-ui.icon name="chevron-left" size="14" /> Manufacturers
             </a>
             <h1 class="fm-title">{{ $manufacturer->name ?: 'Untitled manufacturer' }}</h1>
@@ -86,13 +86,10 @@
         </div>
     </div>
 
-    <div class="fm-bar">
-        <span class="fm-bar__meta">Manufacturer {{ $manufacturer->manufacturer_id }}</span>
-        <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ $backUrl }}">Cancel</a>
-            <x-ui.button type="submit" variant="primary">Save changes</x-ui.button>
-        </div>
-    </div>
+    <x-ui.form-bar :cancel="$backUrl">
+        <x-slot:note>Manufacturer {{ $manufacturer->manufacturer_id }}</x-slot:note>
+        <x-slot:primary><x-ui.button type="submit" variant="primary">Save changes</x-ui.button></x-slot:primary>
+    </x-ui.form-bar>
 </form>
 
 <form id="manufacturer-delete-form" method="POST" action="{{ route('manufacturers.destroy', $manufacturer->manufacturer_id) }}" class="x-sr">

@@ -406,9 +406,14 @@
         flex-wrap: wrap;
         align-items: center;
         gap: 10px;
-        padding: 11px 0 0;
+        padding: 11px 0 env(safe-area-inset-bottom, 0px);
         border-top: 1px solid var(--bl-rule-2);
         background: var(--bl-paper);
+    }
+
+    /* Room for the pinned bar, so a field that takes focus is never under it. */
+    html:has(.fm-bar) {
+        scroll-padding-bottom: 96px;
     }
 
     .fm-bar__meta {
@@ -433,6 +438,33 @@
     .fm-cancel:hover {
         color: var(--bl-ink);
         border-color: var(--bl-ink);
+    }
+
+    /* On a phone the bar is one row of thumb-sized buttons, clear of the
+       home indicator; the note gives way to them. */
+    @media (max-width: 640px) {
+        .fm-bar {
+            padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+        }
+
+        .fm-bar__meta {
+            display: none;
+        }
+
+        .fm-bar__actions {
+            width: 100%;
+            margin-left: 0;
+        }
+
+        .fm-bar__actions > .x-btn {
+            flex: 1 1 0;
+            justify-content: center;
+            min-height: 44px;
+        }
+
+        .fm-cancel {
+            padding-block: 12px;
+        }
     }
 
     /* ------------------------------------------------------------

@@ -272,29 +272,26 @@
         </x-channel.listing-body>
     </form>
 
-    <div class="fm-bar">
-        <span class="fm-bar__meta">{{ !$canManage
+    <x-ui.form-bar :cancel="\App\Support\BackTo::safe(request('back'), route('ext.tiktok.products.index'))" :cancel-label="$canManage ? 'Cancel' : 'Back'">
+        <x-slot:note>{{ !$canManage
             ? 'You can read this. Editing needs the TikTok manage permission.'
             : ($listed
                 ? 'Saving changes this record only. Push update to TikTok Shop sends it onto the live product.'
-                : 'Saving changes this record only. TikTok Shop sees it when the product is pushed.') }}</span>
-        <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.tiktok.products.index')) }}" data-guard-leave>{{ $canManage ? 'Cancel' : 'Back' }}</a>
+                : 'Saving changes this record only. TikTok Shop sees it when the product is pushed.') }}</x-slot:note>
+        @if($canManage && !$listed)
+            {{-- One trip for the common case: save what was just typed,
+                 then push. --}}
+            <x-ui.button type="submit" form="listing-form" name="push_after" value="1">Save and push to TikTok Shop</x-ui.button>
+        @endif
+        <x-slot:primary>
+            {{-- Required means required on both presses: neither button
+                 carries formnovalidate, so a field the page marks with an
+                 asterisk is never saved empty. --}}
             @if($canManage)
-                @if(!$listed)
-                    {{-- One trip for the common case (parity, 2026-09-06): save
-                         what was just typed, then push. --}}
-                    <x-ui.button type="submit" form="listing-form" name="push_after" value="1">Save and push to TikTok Shop</x-ui.button>
-                @endif
-                {{-- Required means required on BOTH presses (the owner,
-                     2026-09-09: "Anything that is required = null should not
-                     save as well"). Save carried formnovalidate for half a
-                     day; a field the page marks with an asterisk and then
-                     saves without teaches that the asterisk means nothing. --}}
                 <x-ui.button type="submit" form="listing-form" variant="primary">Save listing</x-ui.button>
             @endif
-        </div>
-    </div>
+        </x-slot:primary>
+    </x-ui.form-bar>
 
 </div>
 @include('partials.channel-description-pick-modal', ['storeUrl' => route('ext.tiktok.description-templates.store', ['store' => $storeId])])

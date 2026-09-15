@@ -11,7 +11,7 @@
     $isAdminGroup = strtolower($group->name) === 'administrator';
 @endphp
 
-<form id="st-group-form" method="POST" action="{{ route('user_groups.update', $group->id) }}" class="fm-page st-form--wide">
+<form id="st-group-form" method="POST" action="{{ route('user_groups.update', $group->id) }}" class="fm-page st-form--wide" data-guard-unsaved>
     @csrf
     @method('PUT')
 
@@ -35,7 +35,7 @@
 
     <div class="fm-head">
         <div class="fm-head__main">
-            <a class="fm-back" href="{{ route('user_groups.index') }}">
+            <a class="fm-back" href="{{ route('user_groups.index') }}" data-guard-leave>
                 <x-ui.icon name="chevron-left" size="14" /> User groups
             </a>
             <h1 class="fm-title">{{ $group->name }}</h1>
@@ -105,12 +105,9 @@
         </div>
     </div>
 
-    <div class="fm-bar">
-        <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ route('user_groups.index') }}">Cancel</a>
-            <x-ui.button type="submit" variant="primary">Save changes</x-ui.button>
-        </div>
-    </div>
+    <x-ui.form-bar :cancel="route('user_groups.index')">
+        <x-slot:primary><x-ui.button type="submit" variant="primary">Save changes</x-ui.button></x-slot:primary>
+    </x-ui.form-bar>
 </form>
 
 @unless($isAdminGroup)

@@ -197,13 +197,20 @@ function build() {
         if (e.key === 'Escape' && modal.classList.contains('active')) close();
     });
 
+    /* Focus goes back to whatever opened the picker, so a picker opened
+       from inside another dialog returns the person to where they were. */
+    var returnTo = null;
+
     function close() {
         modal.classList.remove('active');
         picked = {};
         refreshAdd();
+        if (returnTo && document.contains(returnTo)) returnTo.focus();
+        returnTo = null;
     }
 
     function open() {
+        returnTo = document.activeElement;
         picked = {};
         if (onToggle) {
             selected.forEach(function (p) { picked[p] = { path: p }; });

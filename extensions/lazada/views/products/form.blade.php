@@ -582,25 +582,21 @@
          `form` attribute. Save listing keeps everything on the page. Save and
          push keeps it and sends the listing to Lazada in the same press, as a
          create or, once the listing is linked, as an update that carries the
-         content, the price rule, the attribute answers and every variation
-         (the owner, 2026-09-06: "Everything should be in Save and Push"). --}}
-    <div class="fm-bar">
-        <span class="fm-bar__meta">{{ $mode === 'create'
+         content, the price rule, the attribute answers and every variation. --}}
+    <x-ui.form-bar :cancel="\App\Support\BackTo::safe(request('back'), route('ext.lazada.products.index'))">
+        <x-slot:note>{{ $mode === 'create'
             ? 'Nothing reaches Lazada until you push from the edit screen.'
-            : 'Save listing keeps everything on this page. Save and push keeps it and sends the listing to Lazada.' }}</span>
-        <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.lazada.products.index')) }}" data-guard-leave>Cancel</a>
-            {{-- Required means required on BOTH presses (the owner,
-                 2026-09-09: "Anything that is required = null should not save
-                 as well"). Save carried formnovalidate for half a day; a
-                 field the page marks with an asterisk and then saves without
-                 teaches that the asterisk means nothing. --}}
-            @if($mode === 'edit')
-                <x-ui.button type="submit" form="lazada-listing" name="push" value="1">{{ empty($listing->lazada_item_id) ? 'Save and push to Lazada' : 'Save and push the update' }}</x-ui.button>
-            @endif
+            : 'Save listing keeps everything on this page. Save and push keeps it and sends the listing to Lazada.' }}</x-slot:note>
+        {{-- Required means required on both presses: neither button carries
+             formnovalidate, so a field the page marks with an asterisk is
+             never saved empty. --}}
+        @if($mode === 'edit')
+            <x-ui.button type="submit" form="lazada-listing" name="push" value="1">{{ empty($listing->lazada_item_id) ? 'Save and push to Lazada' : 'Save and push the update' }}</x-ui.button>
+        @endif
+        <x-slot:primary>
             <x-ui.button type="submit" form="lazada-listing" variant="primary">{{ $mode === 'create' ? 'Create listing' : 'Save listing' }}</x-ui.button>
-        </div>
-    </div>
+        </x-slot:primary>
+    </x-ui.form-bar>
 </div>
 @include('partials.channel-description-pick-modal', ['storeUrl' => route('ext.lazada.description-templates.store', ['store' => $storeId])])
 

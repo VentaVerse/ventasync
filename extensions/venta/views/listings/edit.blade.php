@@ -260,22 +260,21 @@
         </x-channel.listing-body>
     </form>
 
-    <div class="fm-bar">
-        <span class="fm-bar__meta">{{ !$canManage
+    <x-ui.form-bar :cancel="\App\Support\BackTo::safe(request('back'), route('ext.venta.listings.index', $setting->id))" :cancel-label="$canManage ? 'Cancel' : 'Back'">
+        <x-slot:note>{{ !$canManage
             ? 'You can read this. Editing needs the Venta listing manage permission.'
             : ($onStore
                 ? 'Saving changes this record only. Push update sends it onto the live product.'
-                : 'Saving changes this record only. ' . $storeName . ' sees it when the product is pushed.') }}</span>
-        <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.venta.listings.index', $setting->id)) }}" data-guard-leave>{{ $canManage ? 'Cancel' : 'Back' }}</a>
+                : 'Saving changes this record only. ' . $storeName . ' sees it when the product is pushed.') }}</x-slot:note>
+        @if($canManage && !$onStore && $setting->enabled)
+            <x-ui.button type="submit" form="listing-form" name="push_after" value="1">Save and push to {{ $storeName }}</x-ui.button>
+        @endif
+        <x-slot:primary>
             @if($canManage)
-                @if(!$onStore && $setting->enabled)
-                    <x-ui.button type="submit" form="listing-form" name="push_after" value="1">Save and push to {{ $storeName }}</x-ui.button>
-                @endif
                 <x-ui.button type="submit" form="listing-form" variant="primary">Save listing</x-ui.button>
             @endif
-        </div>
-    </div>
+        </x-slot:primary>
+    </x-ui.form-bar>
 
 </div>
 

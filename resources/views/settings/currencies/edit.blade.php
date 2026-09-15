@@ -11,7 +11,7 @@
     $rate = rtrim(rtrim(number_format((float) $currency->exchange_rate, 8, '.', ''), '0'), '.');
 @endphp
 
-<form method="POST" action="{{ route('currencies.update', $currency->id) }}" class="fm-page">
+<form method="POST" action="{{ route('currencies.update', $currency->id) }}" class="fm-page" data-guard-unsaved>
     @csrf
     @method('PUT')
 
@@ -27,7 +27,7 @@
 
     <div class="fm-head">
         <div class="fm-head__main">
-            <a class="fm-back" href="{{ route('currencies.index') }}">
+            <a class="fm-back" href="{{ route('currencies.index') }}" data-guard-leave>
                 <x-ui.icon name="chevron-left" size="14" /> Currencies
             </a>
             <h1 class="fm-title">{{ $currency->code }}</h1>
@@ -156,13 +156,10 @@
         </div>
     </div>
 
-    <div class="fm-bar">
-        <span class="fm-bar__meta">{{ $currency->code }}</span>
-        <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ route('currencies.index') }}">Cancel</a>
-            <x-ui.button type="submit" variant="primary">Save changes</x-ui.button>
-        </div>
-    </div>
+    <x-ui.form-bar :cancel="route('currencies.index')">
+        <x-slot:note>{{ $currency->code }}</x-slot:note>
+        <x-slot:primary><x-ui.button type="submit" variant="primary">Save changes</x-ui.button></x-slot:primary>
+    </x-ui.form-bar>
 </form>
 
 @unless($isDefault)

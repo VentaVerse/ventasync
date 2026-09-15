@@ -86,12 +86,9 @@
         </div>
     </div>
 
-    <div class="fm-bar">
-        <span class="fm-bar__meta">The token is shown once, right after you create this.</span>
-        <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ route('api_clients.index') }}">Cancel</a>
-            <x-ui.button type="submit" variant="primary">Create and issue token</x-ui.button>
-        </div>
-    </div>
+    <x-ui.form-bar :cancel="route('api_clients.index')">
+        <x-slot:note>The token is shown once, right after you create this.</x-slot:note>
+        <x-slot:primary><x-ui.button type="submit" variant="primary">Create and issue token</x-ui.button></x-slot:primary>
+    </x-ui.form-bar>
 </form>
 @endsection

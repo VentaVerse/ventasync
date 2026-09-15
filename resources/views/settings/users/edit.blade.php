@@ -11,7 +11,7 @@
     $canDelete = !$isAdminAccount && !$isSelf;
 @endphp
 
-<form id="st-user-form" method="POST" action="{{ route('users.update', $user->id) }}" class="fm-page">
+<form id="st-user-form" method="POST" action="{{ route('users.update', $user->id) }}" class="fm-page" data-guard-unsaved>
     @csrf
     @method('PUT')
 
@@ -27,7 +27,7 @@
 
     <div class="fm-head">
         <div class="fm-head__main">
-            <a class="fm-back" href="{{ route('users.index') }}">
+            <a class="fm-back" href="{{ route('users.index') }}" data-guard-leave>
                 <x-ui.icon name="chevron-left" size="14" /> Users
             </a>
             <h1 class="fm-title">{{ $user->name }}</h1>
@@ -141,13 +141,10 @@
         </div>
     </div>
 
-    <div class="fm-bar">
-        <span class="fm-bar__meta">User {{ $user->id }}</span>
-        <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ route('users.index') }}">Cancel</a>
-            <x-ui.button type="submit" variant="primary">Save changes</x-ui.button>
-        </div>
-    </div>
+    <x-ui.form-bar :cancel="route('users.index')">
+        <x-slot:note>User {{ $user->id }}</x-slot:note>
+        <x-slot:primary><x-ui.button type="submit" variant="primary">Save changes</x-ui.button></x-slot:primary>
+    </x-ui.form-bar>
 </form>
 
 @if($canDelete)

@@ -3,7 +3,7 @@
 @section('breadcrumb', $orderStatus->name)
 
 @section('content')
-<form method="POST" action="{{ route('order_statuses.update', $orderStatus->order_status_id) }}" class="fm-page">
+<form method="POST" action="{{ route('order_statuses.update', $orderStatus->order_status_id) }}" class="fm-page" data-guard-unsaved>
     @csrf
     @method('PUT')
 
@@ -19,7 +19,7 @@
 
     <div class="fm-head">
         <div class="fm-head__main">
-            <a class="fm-back" href="{{ route('order_statuses.index') }}">
+            <a class="fm-back" href="{{ route('order_statuses.index') }}" data-guard-leave>
                 <x-ui.icon name="chevron-left" size="14" /> Order statuses
             </a>
             <h1 class="fm-title">{{ $orderStatus->name }}</h1>
@@ -92,13 +92,10 @@
         </div>
     </div>
 
-    <div class="fm-bar">
-        <span class="fm-bar__meta">Status {{ $orderStatus->order_status_id }}</span>
-        <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ route('order_statuses.index') }}">Cancel</a>
-            <x-ui.button type="submit" variant="primary">Save changes</x-ui.button>
-        </div>
-    </div>
+    <x-ui.form-bar :cancel="route('order_statuses.index')">
+        <x-slot:note>Status {{ $orderStatus->order_status_id }}</x-slot:note>
+        <x-slot:primary><x-ui.button type="submit" variant="primary">Save changes</x-ui.button></x-slot:primary>
+    </x-ui.form-bar>
 </form>
 
 <form id="st-os-delete-form" method="POST" action="{{ route('order_statuses.destroy', $orderStatus->order_status_id) }}" class="x-sr">

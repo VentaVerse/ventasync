@@ -3,7 +3,7 @@
 @section('breadcrumb', 'New')
 
 @section('content')
-<form method="POST" action="{{ route('user_groups.store') }}" class="fm-page st-form--wide">
+<form method="POST" action="{{ route('user_groups.store') }}" class="fm-page st-form--wide" data-guard-unsaved>
     @csrf
 
     @include('partials.flash')
@@ -18,7 +18,7 @@
 
     <div class="fm-head">
         <div class="fm-head__main">
-            <a class="fm-back" href="{{ route('user_groups.index') }}">
+            <a class="fm-back" href="{{ route('user_groups.index') }}" data-guard-leave>
                 <x-ui.icon name="chevron-left" size="14" /> User groups
             </a>
             <h1 class="fm-title">New user group</h1>
@@ -63,12 +63,9 @@
         </div>
     </div>
 
-    <div class="fm-bar">
-        <span class="fm-bar__meta">Nothing is saved until you create the group.</span>
-        <div class="fm-bar__actions">
-            <a class="fm-cancel" href="{{ route('user_groups.index') }}">Cancel</a>
-            <x-ui.button type="submit" variant="primary">Create group</x-ui.button>
-        </div>
-    </div>
+    <x-ui.form-bar :cancel="route('user_groups.index')">
+        <x-slot:note>Nothing is saved until you create the group.</x-slot:note>
+        <x-slot:primary><x-ui.button type="submit" variant="primary">Create group</x-ui.button></x-slot:primary>
+    </x-ui.form-bar>
 </form>
 @endsection
