@@ -34,11 +34,12 @@
 -->
 <div x-data="{ nav: false }" class="lg:grid lg:grid-cols-[248px_minmax(0,1fr)] min-h-screen">
 
-    {{-- Sidebar. Off-canvas below lg, permanent above it. --}}
+    {{-- Sidebar. Off-canvas below lg; above it, it stays in sight while the
+         page scrolls, one window tall, its links scrolling inside it. --}}
     <aside @keydown.escape.window="nav = false"
            :class="nav && '!flex'"
            class="fixed inset-y-0 left-0 z-40 hidden w-[248px] flex-col border-r border-side-rule bg-side
-                  lg:static lg:flex">
+                  lg:sticky lg:top-0 lg:z-auto lg:flex lg:h-screen lg:self-start">
         <div class="flex items-center gap-2.5 border-b border-side-rule px-4 py-3">
             {{-- The store's own logo, the one uploaded under Settings,
                  Website, and nothing else: no company name beside it

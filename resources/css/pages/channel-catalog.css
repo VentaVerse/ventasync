@@ -410,6 +410,33 @@
 .cc-page .x-table tbody tr.cc-err-row + tr.cc-err-row--warn > td { box-shadow: inset 0 1px 0 var(--bl-sheet); }
 .cc-warn-lead { font-weight: 640; }
 
+/* ── A ticked product ──────────────────────────────────────────────────
+   The whole product reads as one picked block (js/pages/row-picked.js):
+   the lines above its row, the row, its variation rows, the pinned
+   actions cell included. One brand tint; the lines keep their own words
+   and colour. On a phone the row is a card, so the row takes it too. */
+.cc-page .x-table > tbody > tr.is-picked,
+.cc-page .x-table > tbody > tr.is-picked:hover,
+.cc-page .x-table tbody tr.is-picked > td,
+.cc-page .x-table tbody tr.is-picked:hover > td,
+.cc-page .x-table tbody tr.cc-err-row.is-picked > td,
+.cc-page .x-table tbody tr.cc-err-row.cc-err-row--warn.is-picked > td,
+.cc-page .x-table-wrap > .x-table > tbody > tr.is-picked > td.x-td-actions {
+    background: color-mix(in srgb, var(--bl-brand) 16%, var(--bl-sheet));
+}
+.cc-page .x-table input[data-row-check] { accent-color: var(--bl-brand-deep); }
+
+/* While any product is ticked, a product's block is one large tick box: the
+   links and buttons inside it stand down, and the block under the pointer
+   shows faintly what a click will tick. */
+.cc-page .x-table.is-picking tr.is-pickable { cursor: pointer; }
+.cc-page .x-table.is-picking tr.is-pickable a,
+.cc-page .x-table.is-picking tr.is-pickable button { pointer-events: none; }
+.cc-page .x-table.is-picking tbody tr.is-pickable.is-hover:not(.is-picked) > td,
+.cc-page .x-table-wrap > .x-table.is-picking > tbody > tr.is-pickable.is-hover:not(.is-picked) > td.x-td-actions {
+    background: color-mix(in srgb, var(--bl-brand) 7%, var(--bl-sheet));
+}
+
 /* ── Belief vs fact, under the push badge ─────────────────────────────
 
    Deliberately quieter than the badge it sits beneath. The badge is the

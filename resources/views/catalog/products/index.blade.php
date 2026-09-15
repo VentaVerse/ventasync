@@ -216,7 +216,7 @@
                             <tr>
                                 @if($canManageProducts)
                                     <td>
-                                        <input type="checkbox" class="bl-check" name="ids[]"
+                                        <input type="checkbox" class="bl-check" name="ids[]" data-row-check
                                                value="{{ (string) $p->product_id }}"
                                                form="product-bulk-form" x-model="selected"
                                                aria-label="Select {{ $p->name }}">

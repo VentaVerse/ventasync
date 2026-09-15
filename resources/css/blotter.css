@@ -2743,6 +2743,27 @@
 
     .bl-varrow:last-of-type > td { padding-bottom: 9px; }
 
+    /* A ticked product and its variations read as one block
+       (js/pages/row-picked.js). While any product is ticked, the block is
+       one large tick box: its links and buttons stand down, and the block
+       under the pointer shows faintly what a click will tick. */
+    .bl-table > tbody > tr.is-picked,
+    .bl-table tbody tr.is-picked > td,
+    .bl-table tbody tr.is-picked:hover > td {
+        background: color-mix(in srgb, var(--bl-brand) 16%, var(--bl-sheet));
+    }
+
+    .bl-table input[data-row-check] { accent-color: var(--bl-brand-deep); }
+
+    .bl-table.is-picking tr.is-pickable { cursor: pointer; }
+
+    .bl-table.is-picking tr.is-pickable a,
+    .bl-table.is-picking tr.is-pickable button { pointer-events: none; }
+
+    .bl-table.is-picking tbody tr.is-pickable.is-hover:not(.is-picked) > td {
+        background: color-mix(in srgb, var(--bl-brand) 7%, var(--bl-sheet));
+    }
+
     .bl-varrow__body { padding-left: 22px; }
 
     /* One step quieter than the product's own name, which stays semibold. */
