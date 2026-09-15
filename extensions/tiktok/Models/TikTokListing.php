@@ -16,7 +16,7 @@ use Extensions\tiktok\Models\Concerns\BelongsToTikTokStore;
  */
 class TikTokListing extends Model
 {
-    use BelongsToTikTokStore;
+    use BelongsToTikTokStore, \App\Integrations\Listings\KeepsItsOwnCopy;
 
     protected $table = 'tiktok_listings';
 
@@ -51,6 +51,7 @@ class TikTokListing extends Model
         'last_push_failed_at' => 'datetime',
         'last_checked_at' => 'datetime',
         'live_checked_at' => 'datetime',
+        'catalog_seen_at' => 'datetime',
     ];
 
     /**
@@ -151,14 +152,18 @@ class TikTokListing extends Model
     }
 
     /**
-     * What this listing holds of its own (App\Integrations\Listings\ListingContent):
-     * a blank column means "follow the catalog product".
+     * This listing's own words (App\Integrations\Listings\ListingContent).
      *
      * @return array{title: ?string, description: ?string}
      */
     public function contentOverrides(): array
     {
         return ['title' => $this->title, 'description' => $this->description];
+    }
+
+    public static function copyColumns(): array
+    {
+        return ['title' => 'title', 'description' => 'description', 'images' => 'image_order', 'plain' => false];
     }
 
 }

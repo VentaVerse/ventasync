@@ -1036,6 +1036,16 @@
     },
     {
         "method": "POST",
+        "uri": "channels/lazada/{store}/products/{productId}/catalog-change",
+        "name": "ext.lazada.products.catalog_change_save"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/products/{productId}/catalog-change/ignore",
+        "name": "ext.lazada.products.catalog_change_ignore"
+    },
+    {
+        "method": "POST",
         "uri": "channels/lazada/{store}/products/{productId}/delete/lazada",
         "name": "ext.lazada.products.delete_lazada"
     },
@@ -1613,6 +1623,16 @@
         "method": "POST",
         "uri": "channels/shopee/{store}/listings/{productId}",
         "name": "ext.shopee.listings.update"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/listings/{productId}/catalog-change",
+        "name": "ext.shopee.listings.catalog_change_save"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/listings/{productId}/catalog-change/ignore",
+        "name": "ext.shopee.listings.catalog_change_ignore"
     },
     {
         "method": "POST",
@@ -2276,6 +2296,16 @@
     },
     {
         "method": "POST",
+        "uri": "channels/tiktok/{store}/listings/{productId}/catalog-change",
+        "name": "ext.tiktok.listings.catalog_change_save"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/listings/{productId}/catalog-change/ignore",
+        "name": "ext.tiktok.listings.catalog_change_ignore"
+    },
+    {
+        "method": "POST",
         "uri": "channels/tiktok/{store}/listings/{productId}/push-update",
         "name": "ext.tiktok.listings.push_update"
     },
@@ -2806,6 +2836,16 @@
     },
     {
         "method": "POST",
+        "uri": "channels/venta/{store}/listings/{productId}/catalog-change",
+        "name": "ext.venta.listings.catalog_change_save"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/listings/{productId}/catalog-change/ignore",
+        "name": "ext.venta.listings.catalog_change_ignore"
+    },
+    {
+        "method": "POST",
         "uri": "channels/venta/{store}/listings/{productId}/push",
         "name": "ext.venta.listings.push"
     },
@@ -3188,6 +3228,16 @@
         "method": "PUT",
         "uri": "channels/woocommerce/{store}/listings/{productId}",
         "name": "ext.woocommerce.listings.update"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/listings/{productId}/catalog-change",
+        "name": "ext.woocommerce.listings.catalog_change_save"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/listings/{productId}/catalog-change/ignore",
+        "name": "ext.woocommerce.listings.catalog_change_ignore"
     },
     {
         "method": "POST",

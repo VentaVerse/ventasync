@@ -66,6 +66,16 @@ class ShopeeListingStateTest extends TestCase
         return $id;
     }
 
+    /** A catalog edit, made a minute after the listing was compared. */
+    private function editCatalog(int $productId, ?string $name = null): void
+    {
+        $pfx = (string) config('catalog.prefix');
+        if ($name !== null) {
+            DB::table($pfx . 'product_description')->where('product_id', $productId)->update(['name' => $name]);
+        }
+        DB::table($pfx . 'product')->where('product_id', $productId)->update(['date_modified' => now()->addMinute()]);
+    }
+
     private function readyListing(int $productId, array $extra = []): ShopeeListing
     {
         ShopeeCategoryTemplate::query()->firstOrCreate(
@@ -234,30 +244,39 @@ class ShopeeListingStateTest extends TestCase
         $this->assertSame('catalog/g8.png', $paths[8]);
     }
 
-    public function test_live_and_out_of_date_are_different_facts_and_both_are_told(): void
+    public function test_live_and_a_catalog_change_are_different_facts_and_both_are_told(): void
     {
-        // Pushed, then the catalogue moved: live, not in sync.
-        $moved = $this->product('MOVED', 'catalog/x.png', now()->format('Y-m-d H:i:s'));
-        $this->readyListing($moved, ['last_pushed_at' => now()->subDay()]);
+        // The catalog product was edited after the listing was made, and
+        // the two now differ: live, and showing a Catalog change.
+        $moved = $this->product('MOVED');
+        $this->readyListing($moved);
         ShopeeProductLink::create(['product_id' => $moved, 'shopee_item_id' => 900, 'sku' => 'MOVED',
             'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        $this->editCatalog($moved, 'Product MOVED, renamed');
         $s = $this->states([$moved])[$moved];
         $this->assertSame(ListingState::LIVE, $s->state);
         $this->assertFalse($s->inSync);
-        $this->assertSame('Catalogue changed', $s->driftLabel());
-        $this->assertStringContainsString('changed after the last push', $s->reasons[0]);
+        $this->assertSame('Catalog change', $s->driftLabel());
+        $this->assertSame([], $s->reasons, 'a Catalog change is a button, not a reason');
 
-        // Pushed after the last catalogue change: in sync, no chip.
-        $steady = $this->product('STEADY', 'catalog/x.png', now()->subDays(3)->format('Y-m-d H:i:s'));
-        $this->readyListing($steady, ['last_pushed_at' => now()->subDay()]);
+        // The catalog saved with the same values: nothing to compare.
+        $steady = $this->product('STEADY');
+        $this->readyListing($steady);
         ShopeeProductLink::create(['product_id' => $steady, 'shopee_item_id' => 901, 'sku' => 'STEADY',
             'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        $this->editCatalog($steady);
         $s = $this->states([$steady])[$steady];
         $this->assertTrue($s->inSync);
         $this->assertNull($s->driftLabel());
 
-        // Linked but never pushed from here (matched in): nothing to
-        // compare, and the engine says so instead of guessing.
+        // A listing not on Shopee yet compares all the same.
+        $unlisted = $this->product('UNLISTED');
+        $this->readyListing($unlisted);
+        $this->editCatalog($unlisted, 'Product UNLISTED, renamed');
+        $this->assertFalse($this->states([$unlisted])[$unlisted]->inSync);
+
+        // Linked with no listing row (matched in): nothing to compare, and
+        // the engine says so instead of guessing.
         $adopted = $this->product('ADOPTED');
         ShopeeProductLink::create(['product_id' => $adopted, 'shopee_item_id' => 902, 'sku' => 'ADOPTED',
             'live_status' => 'NORMAL', 'live_checked_at' => now()]);
@@ -323,7 +342,7 @@ class ShopeeListingStateTest extends TestCase
 
     public function test_the_summary_counts_trouble_without_walking_every_product(): void
     {
-        // Two attention (banned + missing), one drifted live, one clean live.
+        // Two attention (banned + missing), one live with a Catalog change, one clean live.
         foreach ([
             ['BANNED', 1101], ['MISSING', 1102],
         ] as [$status, $item]) {
@@ -332,19 +351,22 @@ class ShopeeListingStateTest extends TestCase
                 'live_status' => $status, 'live_checked_at' => now()]);
         }
 
-        $drift = $this->product('SUMDRIFT', 'catalog/x.png', now()->format('Y-m-d H:i:s'));
-        $this->readyListing($drift, ['last_pushed_at' => now()->subDay()]);
+        $drift = $this->product('SUMDRIFT');
+        $this->readyListing($drift);
         ShopeeProductLink::create(['product_id' => $drift, 'shopee_item_id' => 1103, 'sku' => 'SUMDRIFT',
             'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        $this->editCatalog($drift, 'Product SUMDRIFT, renamed');
 
-        $clean = $this->product('SUMCLEAN', 'catalog/x.png', now()->subDays(9)->format('Y-m-d H:i:s'));
-        $this->readyListing($clean, ['last_pushed_at' => now()->subDay()]);
+        $clean = $this->product('SUMCLEAN');
+        $this->readyListing($clean);
         ShopeeProductLink::create(['product_id' => $clean, 'shopee_item_id' => 1104, 'sku' => 'SUMCLEAN',
             'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        $this->editCatalog($clean);
 
         $sum = app(ShopeeListingStates::class)->summary();
         $this->assertSame(2, $sum['attention']);
         $this->assertSame(1, $sum['drift']);
+        $this->assertSame([$drift], app(ShopeeListingStates::class)->productIdsIn('drift'), 'the count and the rows agree');
     }
 
     public function test_the_dashboard_chip_carries_the_listing_troubles_in_words(): void

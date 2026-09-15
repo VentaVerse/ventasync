@@ -156,27 +156,41 @@ class TikTokListingStateTest extends TestCase
         $this->assertSame('Not checked yet', $s->label());
     }
 
-    /** Drift is a trichotomy: in sync, behind the catalogue, or honestly unknowable. */
+    /**
+     * A listing is in sync with its catalog product, shows a Catalog change
+     * when the catalog moved since it was compared and the two differ, and
+     * without a listing row there is nothing to compare.
+     */
     public function test_drift_true_false_and_null(): void
     {
         $pfx = (string) config('catalog.prefix');
 
         $inSync = $this->seedProduct('In sync', 'DR-1');
         TikTokListing::create(['product_id' => $inSync, 'tiktok_product_id' => 'tt-801', 'live_status' => 'ACTIVATE', 'live_checked_at' => now(), 'last_pushed_at' => now()]);
+        DB::table($pfx . 'product')->where('product_id', $inSync)->update(['date_modified' => now()->addMinute()]);
 
         $behind = $this->seedProduct('Behind', 'DR-2');
-        TikTokListing::create(['product_id' => $behind, 'tiktok_product_id' => 'tt-802', 'live_status' => 'ACTIVATE', 'live_checked_at' => now(), 'last_pushed_at' => now()->subDays(5)]);
-        DB::table($pfx . 'product')->where('product_id', $behind)->update(['date_modified' => now()]);
+        TikTokListing::create(['product_id' => $behind, 'tiktok_product_id' => 'tt-802', 'live_status' => 'ACTIVATE', 'live_checked_at' => now(), 'last_pushed_at' => now()]);
+        DB::table($pfx . 'product_description')->where('product_id', $behind)->update(['name' => 'Behind, renamed']);
+        DB::table($pfx . 'product')->where('product_id', $behind)->update(['date_modified' => now()->addMinute()]);
 
-        $neverPushed = $this->seedProduct('Matched in', 'DR-3');
-        TikTokListing::create(['product_id' => $neverPushed, 'tiktok_product_id' => 'tt-803', 'live_status' => 'ACTIVATE', 'live_checked_at' => now()]);
+        $notListed = $this->seedProduct('Not listed yet', 'DR-3');
+        TikTokListing::create(['product_id' => $notListed]);
+        DB::table($pfx . 'product_description')->where('product_id', $notListed)->update(['name' => 'Not listed, renamed']);
+        DB::table($pfx . 'product')->where('product_id', $notListed)->update(['date_modified' => now()->addMinute()]);
 
-        $states = $this->engine()->forProducts([$inSync, $behind, $neverPushed]);
+        $pivotOnly = $this->seedProduct('Pivot only', 'DR-4');
+        $grp = TikTokProductGroup::create(['name' => 'Drift group', 'tiktok_category_id' => '900009']);
+        TikTokProductGroupProduct::create(['tiktok_product_group_id' => $grp->id, 'product_id' => $pivotOnly, 'tiktok_product_id' => 'tt-804', 'sync_status' => 'pushed']);
 
-        $this->assertTrue($states[$inSync]->inSync);
+        $states = $this->engine()->forProducts([$inSync, $behind, $notListed, $pivotOnly]);
+
+        $this->assertTrue($states[$inSync]->inSync, 'a catalog save that changed nothing is not a change');
         $this->assertFalse($states[$behind]->inSync);
-        $this->assertSame('Catalogue changed', $states[$behind]->driftLabel());
-        $this->assertNull($states[$neverPushed]->inSync, 'never pushed from here: nothing to compare');
+        $this->assertSame('Catalog change', $states[$behind]->driftLabel());
+        $this->assertSame([], $states[$behind]->reasons, 'the button says it; no reason line repeats it');
+        $this->assertFalse($states[$notListed]->inSync, 'a listing not on TikTok yet keeps its own copy too');
+        $this->assertNull($states[$pivotOnly]->inSync, 'no listing row: nothing to compare');
     }
 
     /** Unlinking cuts the link AND the mirror that described it. */
@@ -231,8 +245,14 @@ class TikTokListingStateTest extends TestCase
         TikTokListing::create(['product_id' => $vanished, 'tiktok_product_id' => 'tt-602', 'live_status' => 'MISSING', 'live_checked_at' => now()]);
 
         $behind = $this->seedProduct('Behind', 'SM-3');
-        TikTokListing::create(['product_id' => $behind, 'tiktok_product_id' => 'tt-603', 'live_status' => 'ACTIVATE', 'live_checked_at' => now(), 'last_pushed_at' => now()->subDays(5)]);
-        DB::table($pfx . 'product')->where('product_id', $behind)->update(['date_modified' => now()]);
+        TikTokListing::create(['product_id' => $behind, 'tiktok_product_id' => 'tt-603', 'live_status' => 'ACTIVATE', 'live_checked_at' => now(), 'last_pushed_at' => now()]);
+        DB::table($pfx . 'product_description')->where('product_id', $behind)->update(['name' => 'Behind, renamed']);
+        DB::table($pfx . 'product')->where('product_id', $behind)->update(['date_modified' => now()->addMinute()]);
+
+        // Saved in the catalog, but nothing differs: no Catalog change.
+        $touched = $this->seedProduct('Touched', 'SM-5');
+        TikTokListing::create(['product_id' => $touched, 'tiktok_product_id' => 'tt-605', 'live_status' => 'ACTIVATE', 'live_checked_at' => now()]);
+        DB::table($pfx . 'product')->where('product_id', $touched)->update(['date_modified' => now()->addMinute()]);
 
         // An unlinked leftover must not count: the trouble left with the link.
         $unlinked = $this->seedProduct('Unlinked leftover', 'SM-4');

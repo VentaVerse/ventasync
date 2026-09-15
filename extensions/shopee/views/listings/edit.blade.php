@@ -42,18 +42,6 @@
     // Shopee descriptions are plain text; the catalog HTML is converted for display and comparison.
     $coreDescription = \App\Support\Catalog\DescriptionText::of((string) ($product->description ?? ''));
 
-    /* "Core has changed" (#100). Two different situations, told apart:
-       - fields WITHOUT their own wording follow the catalog automatically,
-         so a catalog edit after the last push only means the LIVE listing
-         is behind: the staleness note below points at Push update.
-       - fields WITH their own wording never move on their own, and
-         nothing ever overwrites the operator's wording unasked. */
-    $coreChangedAt = ($product->date_modified ?? null)
-        ? \Illuminate\Support\Carbon::parse($product->date_modified)
-        : null;
-    $staleSincePush = $link && ($listing->last_pushed_at ?? null) && $coreChangedAt
-        && $coreChangedAt->gt($listing->last_pushed_at);
-
     // Readiness: what the one-click push still needs before it can run.
     // Computed by the shared ShopeeListingReadiness, the same answer the
     // listings index and the bulk push read (#101).
@@ -95,6 +83,10 @@
                             <span class="fm-stamp__v">{{ $link->shopee_item_id }}</span>
                         @endif
                     </span>
+                @endif
+                @php $catalogChange = ($listing && $listing->exists) ? $listing->catalogChange() : []; @endphp
+                @if($catalogChange)
+                    @include('partials.catalog-change-button')
                 @endif
             </div>
         </div>
@@ -247,7 +239,7 @@
 
                 <section class="fm-section">
                     <div class="fm-section__head">
-                        <h2 class="fm-section__title">Content on this channel <x-ui.hint label="About the content">A filled field is this listing's own wording and follows nobody. An empty field follows the catalog product, shown greyed as the placeholder. Clearing a field returns it to the catalog. Nothing here ever edits the catalog product itself.</x-ui.hint></h2>
+                        <h2 class="fm-section__title">Content on this channel</h2>
                     </div>
                     <div class="fm-fields">
                         <x-ui.field label="Title" for="sl-name" name="item_name" wide>
@@ -476,8 +468,19 @@
 
 @include('partials.channel-description-pick-modal', ['storeUrl' => route('ext.shopee.description-templates.store', ['store' => $storeId])])
 
-@if($canManage)
+@if($canManage || !empty($catalogChange))
     @include('partials.image-library-pick', ['browseUrl' => $browseUrl])
+@endif
+@if(!empty($catalogChange))
+    @include('catalog.products.partials.wysiwyg')
+    @include('partials.catalog-change-panel', [
+        'listing' => $listing,
+        'storeLabel' => \App\Support\StoreLabel::of('Shopee', \Extensions\shopee\Models\ShopeeSetting::query()->find($listing->shopee_setting_id)?->store_name),
+        'saveUrl' => route('ext.shopee.listings.catalog_change_save', $listing->product_id),
+        'ignoreUrl' => route('ext.shopee.listings.catalog_change_ignore', $listing->product_id),
+        'back' => request()->boolean('compare') ? \App\Support\BackTo::safe(request('back'), request()->getRequestUri()) : request()->getRequestUri(),
+        'canManage' => $canManage,
+    ])
 @endif
 
 @endsection

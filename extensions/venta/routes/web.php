@@ -158,6 +158,8 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::post('/venta/{store}/listings/refresh-status', [VentaListingController::class, 'refreshStatus'])->name('ext.venta.listings.refresh_status');
     Route::post('/venta/{store}/listings/bulk-toggle', [VentaListingController::class, 'bulkToggle'])->name('ext.venta.listings.bulk_toggle');
     Route::put('/venta/{store}/listings/{productId}', [VentaListingController::class, 'update'])->whereNumber('productId')->name('ext.venta.listings.update');
+    Route::post('/venta/{store}/listings/{productId}/catalog-change', [VentaListingController::class, 'catalogChangeSave'])->whereNumber('productId')->name('ext.venta.listings.catalog_change_save');
+    Route::post('/venta/{store}/listings/{productId}/catalog-change/ignore', [VentaListingController::class, 'catalogChangeIgnore'])->whereNumber('productId')->name('ext.venta.listings.catalog_change_ignore');
     Route::post('/venta/{store}/listings/{productId}/push', [VentaListingController::class, 'push'])->whereNumber('productId')->name('ext.venta.listings.push');
     Route::post('/venta/{store}/listings/{productId}/toggle', [VentaListingController::class, 'toggle'])->whereNumber('productId')->name('ext.venta.listings.toggle');
 });

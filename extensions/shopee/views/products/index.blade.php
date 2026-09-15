@@ -385,14 +385,12 @@
                     <span @if($rowState->checkedAt) title="Checked {{ $rowState->checkedAt->diffForHumans() }}" @endif>
                         <x-ui.badge :tone="$rowState->tone()">{{ $rowState->label() }}</x-ui.badge>
                     </span>
-                    {{-- Drift (#100), now visible on the index too: live and
-                         out of date are different facts, so both are shown. --}}
-                    @if($rowState->driftLabel())
-                        <span class="cc-checked"><x-ui.badge tone="warning">{{ $rowState->driftLabel() }}</x-ui.badge>
-                            <x-ui.hint label="What changed">{{ implode(' ', $rowState->reasons) }}</x-ui.hint></span>
-                    @elseif($rowState->reasons)
+                    @if($rowState->reasons)
                         <x-ui.hint label="What Shopee says">{{ implode(' ', $rowState->reasons) }}</x-ui.hint>
                     @endif
+                @endif
+                @if($rowState?->driftLabel() && $canManageShopee)
+                    @include('partials.catalog-change-button', ['href' => route('ext.shopee.listings.edit', [$p->product_id, 'compare' => 1])])
                 @endif
             </td>
 

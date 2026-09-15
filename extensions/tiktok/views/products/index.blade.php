@@ -318,14 +318,13 @@
                     <span @if($rowState->checkedAt) title="Checked {{ $rowState->checkedAt->diffForHumans() }}" @endif>
                         <x-ui.badge :tone="$rowState->tone()">{{ $rowState->label() }}</x-ui.badge>
                     </span>
-                    {{-- Drift (#100), on this index for the first time: live
-                         and out of date are different facts, both shown. --}}
-                    @if($rowState->driftLabel())
-                        <span class="cc-checked"><x-ui.badge tone="warning">{{ $rowState->driftLabel() }}</x-ui.badge>
-                            <x-ui.hint label="What changed">{{ implode(' ', $rowState->reasons) }}</x-ui.hint></span>
-                    @elseif($rowState->reasons)
+                    @if($rowState->reasons)
                         <x-ui.hint label="What TikTok Shop says">{{ implode(' ', $rowState->reasons) }}</x-ui.hint>
                     @endif
+                @endif
+                @if($rowState?->driftLabel() && (auth()->user()?->hasPermission('manage_tiktok/listing') ?? false))
+                    @php $editUrl = route('ext.tiktok.listings.edit', ['productId' => $pid, 'back' => request()->getRequestUri()]); @endphp
+                    @include('partials.catalog-change-button', ['href' => $editUrl . (str_contains($editUrl, '?') ? '&' : '?') . 'compare=1'])
                 @endif
             </td>
             <td class="x-td-actions">

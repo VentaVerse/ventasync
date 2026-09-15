@@ -18,8 +18,8 @@ use Tests\TestCase;
  * The individual listing page (quest 1, 2026-08-24): one product on Shopee,
  * shown the way the seller center shows it. The live half is fetched from
  * the marketplace on every load and NEVER substituted with stale data; the
- * record half edits the listing's own settings and content, where an empty
- * content field means "follows the catalog".
+ * record half edits the listing's own settings and its own copy of the
+ * catalog product's content.
  */
 class ShopeeListingPageTest extends TestCase
 {
@@ -283,25 +283,24 @@ class ShopeeListingPageTest extends TestCase
     }
 
     /**
-     * The listing arranges its own pictures (the owner, 2026-09-08). The rules
-     * are the Content fields' rules: an arrangement that says what the
-     * catalog already says is not an arrangement, and an emptied one goes
-     * back to following the catalog.
+     * The listing arranges its own pictures. It keeps its own copy, so an
+     * arrangement is stored as sent, even one equal to the catalog's, and
+     * an emptied one sends the catalog's.
      */
-    public function test_the_listing_keeps_its_own_arrangement_and_an_untouched_one_follows_the_catalog(): void
+    public function test_the_listing_keeps_its_own_arrangement_and_an_emptied_one_sends_the_catalogs(): void
     {
         $productId = $this->seedProduct();
         $pfx = (string) config('catalog.prefix');
         $paths = $this->seedRealImages($productId, 3);
         $user = $this->manager();
 
-        // Saving the catalog's own order back is not an arrangement.
+        // The catalog's own order, saved, is the listing's own copy.
         $this->actingAs($user)->post(route('ext.shopee.listings.update', $productId), [
             'shopee_category_id' => 100013, 'logistic_ids' => [8003],
             'image_order' => json_encode($paths),
         ]);
         $listing = ShopeeListing::query()->where('product_id', $productId)->firstOrFail();
-        $this->assertNull($listing->image_order, 'The catalog\'s own order means: follows the catalog.');
+        $this->assertSame($paths, $listing->image_order, 'The listing keeps its own copy, even one equal to the catalog.');
 
         // A different order is the listing's own, and the push reads it.
         $reversed = array_reverse($paths);
@@ -329,8 +328,7 @@ class ShopeeListingPageTest extends TestCase
         $this->actingAs($user)->get(route('ext.shopee.listings.edit', $productId))
             ->assertSee('name="image_order" value="' . e(json_encode($reversed)), false);
 
-        // Emptying it returns the listing to the catalog, the way clearing
-        // a Content field does.
+        // Emptying it sends the catalog's pictures again.
         $this->actingAs($user)->post(route('ext.shopee.listings.update', $productId), [
             'shopee_category_id' => 100013, 'logistic_ids' => [8003],
             'image_order' => '[]',
@@ -505,7 +503,7 @@ class ShopeeListingPageTest extends TestCase
         $r->assertDontSee('Delist from Shopee');
     }
 
-    public function test_saving_stores_settings_and_blank_content_follows_the_catalog(): void
+    public function test_saving_stores_settings_and_the_listings_own_words(): void
     {
         $productId = $this->seedProduct();
         $user = $this->manager();
@@ -524,17 +522,26 @@ class ShopeeListingPageTest extends TestCase
         $this->assertSame([8003], $listing->logistic_ids);
         $this->assertSame(10.0, (float) $listing->markup_percent);
         $this->assertSame('A Shopee-only title', $listing->item_name);
-        $this->assertNull($listing->description, 'Blank means: follows the catalog.');
+        $this->assertSame('The catalog wording.', $listing->description, 'A new listing starts as a copy of the catalog.');
         $this->assertNull($listing->weight);
 
-        // Emptying a filled field ends the divergence.
+        // Emptying the description on a listing that exists clears its own copy.
+        $this->actingAs($user)->post(route('ext.shopee.listings.update', $productId), [
+            'shopee_category_id' => 100013,
+            'logistic_ids' => [8003],
+            'description' => '',
+        ]);
+        $this->assertNull($listing->fresh()->description);
+        $this->assertSame('A Shopee-only title', $listing->fresh()->item_name, 'A save without the title leaves it alone.');
+
+        // A title sent blank is refused, and the listing keeps its own.
         $this->actingAs($user)->post(route('ext.shopee.listings.update', $productId), [
             'shopee_category_id' => 100013,
             'logistic_ids' => [8003],
             'item_name' => '',
-        ]);
+        ])->assertSessionHasErrors('item_name');
 
-        $this->assertNull($listing->fresh()->item_name, 'Clearing the field must return it to the catalog.');
+        $this->assertSame('A Shopee-only title', $listing->fresh()->item_name);
     }
 
     public function test_a_linked_product_shows_shopees_live_answer(): void
@@ -937,15 +944,11 @@ class ShopeeListingPageTest extends TestCase
             'The store\'s own image field is replaced by our description.');
     }
 
-    /** A listing that follows the catalog, whose description carries two library pictures. */
+    /** A listing copied from a catalog description that carries two library pictures. */
     private function catalogDescriptionWithTwoPictures(): int
     {
         $productId = $this->seedProduct();
         ShopeeProductLink::query()->create(['product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1']);
-        ShopeeListing::query()->create([
-            'product_id' => $productId, 'shopee_setting_id' => (int) ShopeeSetting::query()->value('id'),
-            'shopee_category_id' => 100013, 'logistic_ids' => [8003],
-        ]);
 
         $disk = \Illuminate\Support\Facades\Storage::disk('public');
         $urls = [];
@@ -957,6 +960,10 @@ class ShopeeListingPageTest extends TestCase
         DB::table((string) config('catalog.prefix') . 'product_description')->where('product_id', $productId)->update([
             'description' => '<p>Intro words.</p><p><img src="' . e($urls[0]) . '" alt="first"></p>'
                 . '<p>Middle words.</p><img src="' . e($urls[1]) . '"><p>Last words.</p>',
+        ]);
+        ShopeeListing::query()->create([
+            'product_id' => $productId, 'shopee_setting_id' => (int) ShopeeSetting::query()->value('id'),
+            'shopee_category_id' => 100013, 'logistic_ids' => [8003],
         ]);
 
         return $productId;

@@ -15,8 +15,8 @@ use Illuminate\Support\Str;
 
 /**
  * ONE state per product on a Venta store, from the ERP's own records and
- * never the store: the link, the mirror on the listing row, drift against
- * the catalog, readiness for a first push, and the latest push failure.
+ * never the store: the link, the mirror on the listing row, a Catalog
+ * change on the listing's own copy, readiness for a first push, and the latest push failure.
  * The same contract Shopee's, Lazada's, TikTok's and WooCommerce's engines
  * answer, so the shared listing cell and the core products grid read Venta
  * the way they read every other channel (parity, 2026-09-06).
@@ -32,9 +32,7 @@ class VentaListingStates
 
     /**
      * The store's listing troubles in two numbers, for the dashboard chip:
-     * how many products need a human, and how many are live but behind the
-     * catalog. Aggregate SQL, not the per-product path - the dashboard must
-     * not walk two thousand rows.
+     * how many products need a human, and how many show a Catalog change.
      *
      * @return array{attention: int, drift: int}
      */
@@ -42,8 +40,21 @@ class VentaListingStates
     {
         return [
             'attention' => $this->bucket('attention')->distinct()->count('venta_listings.product_id'),
-            'drift' => $this->bucket('drift')->distinct()->count('venta_listings.product_id'),
+            'drift' => count($this->catalogChanges()),
         ];
+    }
+
+    /**
+     * The listings showing a Catalog change: their catalog product moved
+     * since they were last compared, and the two differ.
+     *
+     * @return array<int, list<string>>  product id => the fields that differ
+     */
+    private function catalogChanges(): array
+    {
+        return \App\Integrations\Listings\CatalogCopy::pending(
+            $this->bucket('drift')->get(), 'venta_listings', VentaListing::copyColumns()
+        );
     }
 
     /**
@@ -55,6 +66,10 @@ class VentaListingStates
      */
     public function productIdsIn(string $bucket): array
     {
+        if ($bucket === 'drift') {
+            return array_map('intval', array_keys($this->catalogChanges()));
+        }
+
         return $this->bucket($bucket)->distinct()
             ->pluck('venta_listings.product_id')
             ->map(fn ($v) => (int) $v)->unique()->values()->all();
@@ -69,10 +84,10 @@ class VentaListingStates
 
         if ($bucket === 'drift') {
             return $mine
-                ->whereIn('live_status', [VentaListing::STATUS_ACTIVE, VentaListing::STATUS_INACTIVE])
+                ->select('venta_listings.*')
                 ->join($pfx . 'product as p', 'p.product_id', '=', 'venta_listings.product_id')
-                ->whereNotNull('venta_listings.last_pushed_at')
-                ->whereColumn('p.date_modified', '>', 'venta_listings.last_pushed_at');
+                ->where(fn ($q) => $q->whereNull('venta_listings.catalog_seen_at')
+                    ->orWhereColumn('p.date_modified', '>', 'venta_listings.catalog_seen_at'));
         }
 
         // The store no longer returns the product: the one condition on
@@ -87,10 +102,9 @@ class VentaListingStates
         if ($productIds === []) {
             return [];
         }
-        $pfx = (string) config('catalog.prefix');
-        $links = VentaProductLink::query()->where('venta_setting_id', $this->storeId)->whereIn('product_id', $productIds)->whereNotNull('venta_product_id')->get()->keyBy(fn ($l) => (int) $l->product_id);
+        $links =VentaProductLink::query()->where('venta_setting_id', $this->storeId)->whereIn('product_id', $productIds)->whereNotNull('venta_product_id')->get()->keyBy(fn ($l) => (int) $l->product_id);
         $listings = VentaListing::query()->where('venta_setting_id', $this->storeId)->whereIn('product_id', $productIds)->get()->keyBy(fn ($l) => (int) $l->product_id);
-        $products = DB::table($pfx . 'product')->whereIn('product_id', $productIds)->get(['product_id', 'sku', 'model', 'image', 'date_modified'])->keyBy('product_id');
+        $catalogChanges = \App\Integrations\Listings\CatalogCopy::pending($listings->values(), 'venta_listings', VentaListing::copyColumns());
         $attempts = $this->latestAttempts($productIds);
         $readiness = VentaListingReadiness::forProducts($productIds);
 
@@ -98,7 +112,7 @@ class VentaListingStates
         foreach ($productIds as $pid) {
             $link = $links->get($pid);
             $listing = $listings->get($pid);
-            $prod = $products->get($pid);
+            $inSync = $listing ? ! isset($catalogChanges[$pid]) : null;
             $attempt = $attempts->get($pid);
             $pushedAt = $listing?->last_pushed_at ? Carbon::parse($listing->last_pushed_at) : ($attempt?->last_pushed_at ? Carbon::parse($attempt->last_pushed_at) : null);
             $failure = [];
@@ -110,20 +124,12 @@ class VentaListingStates
             // product on the store and one not yet on it alike (2026-09-06).
             $r = $readiness[$pid] ?? ['ready' => false, 'gaps' => []];
             if (! $link) {
-                $out[$pid] = new ListingState(state: ListingState::NOT_LISTED, reasons: $failure, ready: (bool) $r['ready'], missing: $r['gaps'], pushedAt: $pushedAt);
+                $out[$pid] = new ListingState(state: ListingState::NOT_LISTED, inSync: $inSync, reasons: $failure, ready: (bool) $r['ready'], missing: $r['gaps'], pushedAt: $pushedAt);
                 continue;
             }
             $raw = $listing?->live_status !== null ? strtolower((string) $listing->live_status) : null;
             $checkedAt = $listing?->live_checked_at ? Carbon::parse($listing->live_checked_at) : null;
-            $inSync = null;
             $reasons = $failure;
-            if (in_array($raw, [VentaListing::STATUS_ACTIVE, VentaListing::STATUS_INACTIVE], true) && $pushedAt !== null && $prod) {
-                $movedAt = $prod->date_modified ? Carbon::parse($prod->date_modified) : null;
-                $inSync = ! ($movedAt && $movedAt->gt($pushedAt));
-                if ($inSync === false) {
-                    $reasons[] = 'The catalog changed after the last push. Push an update when ready.';
-                }
-            }
             [$state, $attentionLabel, $extra] = match ($raw) {
                 VentaListing::STATUS_ACTIVE => [ListingState::LIVE, null, null],
                 VentaListing::STATUS_INACTIVE => [ListingState::INACTIVE, null, null],

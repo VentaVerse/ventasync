@@ -13,6 +13,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class VentaListing extends Model
 {
+    use \App\Integrations\Listings\KeepsItsOwnCopy;
+
     public const STATUS_ACTIVE = 'active';
     public const STATUS_INACTIVE = 'inactive';
     public const STATUS_MISSING = 'missing';
@@ -44,6 +46,7 @@ class VentaListing extends Model
         'last_pushed_at' => 'datetime',
         'last_push_settings' => 'array',
         'image_order' => 'array',
+        'catalog_seen_at' => 'datetime',
     ];
 
     public function setting(): BelongsTo
@@ -175,14 +178,19 @@ class VentaListing extends Model
         ])->save();
     }
     /**
-     * The title and description half of overrides(), in the shape every
-     * channel answers in (App\Integrations\Listings\ListingContent).
+     * This listing's own words, the title and description half of
+     * overrides() (App\Integrations\Listings\ListingContent).
      *
      * @return array{title: ?string, description: ?string}
      */
     public function contentOverrides(): array
     {
         return ['title' => $this->name, 'description' => $this->description];
+    }
+
+    public static function copyColumns(): array
+    {
+        return ['title' => 'name', 'description' => 'description', 'images' => 'image_order', 'plain' => false];
     }
 
 }

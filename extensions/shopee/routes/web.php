@@ -255,6 +255,8 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
         Route::post('/shopee/{store}/products/{productId}/sync/quantity', [ShopeeProductController::class, 'syncQuantity'])->name('ext.shopee.products.sync_quantity');
         Route::post('/shopee/{store}/products/{productId}/sync/price', [ShopeeProductController::class, 'syncPrice'])->name('ext.shopee.products.sync_price');
         Route::post('/shopee/{store}/listings/{productId}', [ShopeeProductController::class, 'saveListing'])->whereNumber('productId')->name('ext.shopee.listings.update');
+        Route::post('/shopee/{store}/listings/{productId}/catalog-change', [ShopeeProductController::class, 'catalogChangeSave'])->whereNumber('productId')->name('ext.shopee.listings.catalog_change_save');
+        Route::post('/shopee/{store}/listings/{productId}/catalog-change/ignore', [ShopeeProductController::class, 'catalogChangeIgnore'])->whereNumber('productId')->name('ext.shopee.listings.catalog_change_ignore');
         Route::post('/shopee/{store}/listings/{productId}/toggle', [ShopeeProductController::class, 'toggleListing'])->whereNumber('productId')->name('ext.shopee.listings.toggle');
         // Re-read the item's variations from Shopee and rewire the link rows (Phase E, #184).
         Route::post('/shopee/{store}/listings/{productId}/reread-variations', [ShopeeProductController::class, 'rereadVariations'])->whereNumber('productId')->name('ext.shopee.listings.reread_variations');

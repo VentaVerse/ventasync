@@ -177,6 +177,7 @@ class LazadaListingStateTest extends TestCase
     }
 
     /** Drift is a trichotomy: in sync, behind the catalogue, or honestly unknowable. */
+    /** A Catalog change: the catalog moved since the listing was compared, and the two differ. */
     public function test_drift_true_false_and_null(): void
     {
         $pfx = (string) config('catalog.prefix');
@@ -184,31 +185,36 @@ class LazadaListingStateTest extends TestCase
         $inSync = $this->seedProduct('In sync', 'DR-1');
         LazadaProduct::create([
             'product_id' => $inSync, 'lazada_item_id' => '801',
-            'live_status' => 'active', 'live_checked_at' => now(), 'last_pushed_at' => now(),
+            'live_status' => 'active', 'live_checked_at' => now(),
         ]);
 
         $behind = $this->seedProduct('Behind', 'DR-2');
         LazadaProduct::create([
             'product_id' => $behind, 'lazada_item_id' => '802',
-            'live_status' => 'active', 'live_checked_at' => now(), 'last_pushed_at' => now()->subDays(5),
-        ]);
-        DB::table($pfx . 'product')->where('product_id', $behind)->update(['date_modified' => now()]);
-
-        $neverPushed = $this->seedProduct('Matched in', 'DR-3');
-        LazadaProduct::create([
-            'product_id' => $neverPushed, 'lazada_item_id' => '803',
             'live_status' => 'active', 'live_checked_at' => now(),
         ]);
+        DB::table($pfx . 'product_description')->where('product_id', $behind)->update(['name' => 'Behind, renamed']);
+        DB::table($pfx . 'product')->where('product_id', $behind)->update(['date_modified' => now()->addMinute()]);
 
-        $states = $this->engine()->forProducts([$inSync, $behind, $neverPushed]);
+        $savedUnchanged = $this->seedProduct('Saved unchanged', 'DR-3');
+        LazadaProduct::create([
+            'product_id' => $savedUnchanged, 'lazada_item_id' => '803',
+            'live_status' => 'active', 'live_checked_at' => now(),
+        ]);
+        DB::table($pfx . 'product')->where('product_id', $savedUnchanged)->update(['date_modified' => now()->addMinute()]);
+
+        $noListing = $this->seedProduct('No listing', 'DR-4');
+
+        $states = $this->engine()->forProducts([$inSync, $behind, $savedUnchanged, $noListing]);
 
         $this->assertTrue($states[$inSync]->inSync);
         $this->assertNull($states[$inSync]->driftLabel());
 
         $this->assertFalse($states[$behind]->inSync);
-        $this->assertSame('Catalogue changed', $states[$behind]->driftLabel());
+        $this->assertSame('Catalog change', $states[$behind]->driftLabel());
 
-        $this->assertNull($states[$neverPushed]->inSync, 'never pushed from here: nothing to compare');
+        $this->assertTrue($states[$savedUnchanged]->inSync, 'a catalog saved with nothing different raises nothing');
+        $this->assertNull($states[$noListing]->inSync ?? null, 'no listing: nothing to compare');
     }
 
     /** Deleting from Lazada must void the mirror, not leave it wearing the old status. */
@@ -262,8 +268,9 @@ class LazadaListingStateTest extends TestCase
         LazadaProduct::create(['product_id' => $vanished, 'lazada_item_id' => '602', 'live_status' => 'missing', 'live_checked_at' => now()]);
 
         $behind = $this->seedProduct('Behind', 'SM-3');
-        LazadaProduct::create(['product_id' => $behind, 'lazada_item_id' => '603', 'live_status' => 'active', 'live_checked_at' => now(), 'last_pushed_at' => now()->subDays(5)]);
-        DB::table($pfx . 'product')->where('product_id', $behind)->update(['date_modified' => now()]);
+        LazadaProduct::create(['product_id' => $behind, 'lazada_item_id' => '603', 'live_status' => 'active', 'live_checked_at' => now()]);
+        DB::table($pfx . 'product_description')->where('product_id', $behind)->update(['name' => 'Behind, renamed']);
+        DB::table($pfx . 'product')->where('product_id', $behind)->update(['date_modified' => now()->addMinute()]);
 
         // Unlinked leftovers must not count: the trouble left with the link.
         $unlinked = $this->seedProduct('Unlinked leftover', 'SM-4');

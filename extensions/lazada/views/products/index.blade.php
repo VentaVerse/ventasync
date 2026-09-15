@@ -508,14 +508,12 @@
                     <span @if($rowState->checkedAt) title="Checked {{ $rowState->checkedAt->diffForHumans() }}" @endif>
                         <x-ui.badge :tone="$rowState->tone()">{{ $rowState->label() }}</x-ui.badge>
                     </span>
-                    {{-- Drift (#100): live and out of date are different
-                         facts, so both are shown. --}}
-                    @if($rowState->driftLabel())
-                        <span class="cc-checked"><x-ui.badge tone="warning">{{ $rowState->driftLabel() }}</x-ui.badge>
-                            <x-ui.hint label="What changed">{{ implode(' ', $rowState->reasons) }}</x-ui.hint></span>
-                    @elseif($rowState->reasons)
+                    @if($rowState->reasons)
                         <x-ui.hint label="What Lazada says">{{ implode(' ', $rowState->reasons) }}</x-ui.hint>
                     @endif
+                @endif
+                @if($rowState?->driftLabel() && $canManageLazada)
+                    @include('partials.catalog-change-button', ['href' => $editUrl . (str_contains($editUrl, '?') ? '&' : '?') . 'compare=1'])
                 @endif
             </td>
 

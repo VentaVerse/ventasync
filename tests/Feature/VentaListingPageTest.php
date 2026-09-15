@@ -493,7 +493,7 @@ class VentaListingPageTest extends TestCase
         $this->assertStringNotContainsString('Another store policy', $html);
     }
 
-    public function test_saving_keeps_overrides_and_returns_blanks_to_the_catalogue(): void
+    public function test_saving_keeps_the_listings_words_and_a_new_listing_starts_as_a_copy(): void
     {
         $store = $this->store();
         $pid = $this->product();
@@ -506,14 +506,69 @@ class VentaListingPageTest extends TestCase
 
         $listing = VentaListing::where('venta_setting_id', $store->id)->where('product_id', $pid)->firstOrFail();
         $this->assertSame('Pedal, store wording', $listing->name);
-        $this->assertNull($listing->description, 'blank means "follows the catalogue"');
+        $this->assertSame('The catalogue description.', $listing->description, 'a new listing starts with the catalog\'s words');
         $this->assertSame(10.0, $listing->markup_percent);
         $this->assertNull($listing->markup_fixed);
         $this->assertSame(1100.0, $listing->priceFor(1000));
 
+        // An emptied description on the listing stays empty.
+        $this->actingAs($this->manager())
+            ->put(route('ext.venta.listings.update', [$store->id, $pid]), ['name' => 'Pedal, store wording', 'description' => '<p><br></p>', 'description_edited' => '1'])
+            ->assertRedirect();
+        $this->assertNull($listing->fresh()->description);
+
         // The catalogue product is untouched.
         $pfx = (string) config('catalog.prefix');
         $this->assertSame('Guitar Pedal 200', DB::table($pfx . 'product_description')->where('product_id', $pid)->value('name'));
+    }
+
+    public function test_a_catalog_edit_shows_a_catalog_change_that_save_and_ignore_clear(): void
+    {
+        $store = $this->store();
+        $pid = $this->product();
+        VentaListing::create(['venta_setting_id' => $store->id, 'product_id' => $pid]);
+        Http::fake([self::BASE . '/*' => Http::response(['error' => 'Product not found'], 404)]);
+
+        $pfx = (string) config('catalog.prefix');
+        $minutes = 0;
+        $editCatalog = function (array $words) use ($pfx, $pid, &$minutes) {
+            DB::table($pfx . 'product_description')->where('product_id', $pid)->update($words);
+            DB::table($pfx . 'product')->where('product_id', $pid)->update(['date_modified' => now()->addMinutes(++$minutes)]);
+        };
+        $listing = fn () => VentaListing::where('venta_setting_id', $store->id)->where('product_id', $pid)->firstOrFail();
+
+        $editCatalog(['description' => '<p>Newer catalog words.</p>']);
+        $this->assertSame('The catalogue description.', $listing()->description, 'the listing keeps its own copy');
+        $this->assertSame(['description'], $listing()->catalogChange());
+        $this->assertSame([$pid], \Extensions\venta\Services\Venta\VentaListingStates::for($store->id)->productIdsIn('drift'));
+
+        $this->actingAs($this->manager())->get(route('ext.venta.listings.edit', [$store->id, $pid]))
+            ->assertOk()
+            ->assertSee('data-lcx-open', false)
+            ->assertSee('data-lcx-panel', false)
+            ->assertSee('Newer catalog words.');
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.venta.listings.catalog_change_ignore', [$store->id, $pid]), ['back' => '/channels'])
+            ->assertRedirect('/channels')
+            ->assertSessionHas('status', 'Catalog change ignored.');
+        $this->assertSame([], $listing()->catalogChange());
+
+        $editCatalog(['name' => 'Guitar Pedal 300']);
+        $this->assertSame(['title', 'description'], $listing()->catalogChange(), 'the button comes back when the catalog moves again; Ignore kept the listing\'s own description');
+
+        $this->actingAs($this->manager())->post(route('ext.venta.listings.catalog_change_save', [$store->id, $pid]), [
+            'listing' => ['title' => 'Guitar Pedal 300', 'description' => '<p>Newer catalog words.</p>', 'description_edited' => '1'],
+        ])->assertRedirect(route('ext.venta.listings.edit', [$store->id, $pid]))->assertSessionHas('status', 'Saved.');
+
+        $this->assertSame('Guitar Pedal 300', $listing()->name);
+        $this->assertSame('<p>Newer catalog words.</p>', $listing()->description);
+        $this->assertSame([], $listing()->catalogChange());
+
+        // A product this store has no listing of has nothing to compare.
+        $this->actingAs($this->manager())
+            ->post(route('ext.venta.listings.catalog_change_ignore', [$store->id, $this->product('GP-300')]))
+            ->assertNotFound();
     }
 
     /**

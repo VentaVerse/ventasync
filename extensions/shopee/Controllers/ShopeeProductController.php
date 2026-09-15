@@ -22,6 +22,22 @@ use Illuminate\Support\Facades\Log;
 
 class ShopeeProductController extends Controller
 {
+    use \App\Http\Controllers\Concerns\ComparesWithTheCatalog;
+
+    /** This store's listing of the product. */
+    protected function catalogChangeListing(int $productId): \Illuminate\Database\Eloquent\Model
+    {
+        $listing = ShopeeListing::query()->where('product_id', $productId)->first();
+        abort_if($listing === null, 404);
+
+        return $listing;
+    }
+
+    protected function catalogChangeFallback(int $productId): string
+    {
+        return route('ext.shopee.listings.edit', $productId);
+    }
+
     public function index(Request $request, ShopeeClient $client)
     {
         $pfx = (string) config('catalog.prefix');
@@ -2778,8 +2794,6 @@ class ShopeeProductController extends Controller
     {
         $pfx = (string) config('catalog.prefix');
         $exists = DB::table($pfx . 'product')->where('product_id', $productId)->exists();
-        // The catalog's words, shaped exactly as the page pre-filled them.
-        $coreWords = \App\Support\Catalog\CoreWords::of($productId);
         if (!$exists) {
             abort(404, 'Product not found.');
         }
@@ -2792,7 +2806,7 @@ class ShopeeProductController extends Controller
             'markup_percent' => 'nullable|numeric|min:-100|max:1000',
             'markup_fixed' => 'nullable|numeric|min:-1000000|max:1000000',
             'price' => 'nullable|numeric|min:0|max:1000000000',
-            'item_name' => 'nullable|string|max:255',
+            'item_name' => 'sometimes|required|string|max:255',
             'description' => 'nullable|string|max:5000',
             'weight' => 'nullable|numeric|min:0.01',
             'description_prefix_id' => 'nullable|integer',
@@ -2815,10 +2829,6 @@ class ShopeeProductController extends Controller
          * reading it are ListingImages'. */
         $imageOrder = \App\Integrations\Listings\ListingImages::submitted($productId, $data['image_order'] ?? null);
 
-        /* Content fields are OVERRIDES: an emptied field returns to null,
-         * which means "follows the catalog". That is the whole model -
-         * saving here never writes the core product, and clearing a field
-         * is how a divergence is deliberately ended. */
         $blank = fn ($v) => ($v === null || trim((string) $v) === '') ? null : $v;
 
         $fields = [
@@ -2832,14 +2842,6 @@ class ShopeeProductController extends Controller
             'markup_fixed' => $blank($data['markup_fixed'] ?? null),
             // A product with variations prices each variation from the catalog, so it keeps no Price.
             'price' => ShopeeListing::hasVariations($productId) ? null : $blank($data['price'] ?? null),
-            /* The Content boxes are pre-filled with the catalog's words so
-             * a few can be changed without retyping the rest (the owner,
-             * 2026-09-07). Text still equal to the catalog's is stored as
-             * null, which is what "follow the catalog" is, so pre-filling
-             * never freezes a listing into a copy. */
-            'item_name' => \App\Integrations\Listings\ListingContent::overrideOrNull($data['item_name'] ?? null, $coreWords['title']),
-            // Shopee descriptions are plain text, so the value is compared as text.
-            'description' => \App\Integrations\Listings\ListingContent::descriptionToSave($data['description'] ?? null, $coreWords['description'], null, null, true),
             'weight' => $blank($data['weight'] ?? null),
             'package_length' => $blank($data['package_length'] ?? null),
             'package_width' => $blank($data['package_width'] ?? null),
@@ -2857,6 +2859,25 @@ class ShopeeProductController extends Controller
          * as one that cleared it. */
         if ($request->has('image_order')) {
             $fields['image_order'] = $imageOrder;
+        }
+
+        /* The listing's own words, as typed. Only a save that carried a
+         * field changes it. Shopee's box holds words only, so words equal
+         * to the stored description keep it as it is, pictures included;
+         * a listing not made yet starts from the catalog's. */
+        if ($request->has('item_name')) {
+            $fields['item_name'] = \App\Integrations\Listings\ListingContent::own($data['item_name'] ?? null);
+        }
+        if ($request->has('description')) {
+            $current = ShopeeListing::query()->where('product_id', $productId)->first();
+            $fields['description'] = \App\Integrations\Listings\ListingContent::descriptionToSave(
+                $data['description'] ?? null,
+                $current !== null
+                    ? $current->description
+                    : (\App\Integrations\Listings\CatalogCopy::catalog([$productId])[$productId]['description'] ?? null),
+                $request->input('description_edited'),
+                true
+            );
         }
 
         /* The group dropdown: picking a group moves the product into it,

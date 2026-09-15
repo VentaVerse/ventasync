@@ -28,7 +28,23 @@ use Illuminate\Support\Str;
 
 class LazadaProductController extends Controller
 {
+    use \App\Http\Controllers\Concerns\ComparesWithTheCatalog;
+
     // NOTE: We standardize on lazada_product_id (no legacy lazada_listing_id support).
+
+    /** The store's listing of the product: the one on Lazada, else the newest. */
+    protected function catalogChangeListing(int $productId): \Illuminate\Database\Eloquent\Model
+    {
+        $rows = LazadaProduct::query()->where('product_id', $productId)->orderBy('id')->get();
+        abort_if($rows->isEmpty(), 404);
+
+        return $rows->first(fn ($l) => ! empty($l->lazada_item_id) && ! $l->unlinked_at) ?? $rows->last();
+    }
+
+    protected function catalogChangeFallback(int $productId): string
+    {
+        return route('ext.lazada.products.edit', $productId);
+    }
 
     /** The attribute vocabulary lives in its own service now (Phase C, #184). */
     private function attrs(): LazadaAttributes
@@ -2521,7 +2537,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'markup_percent' => 'nullable|numeric|min:0',
             'attributes' => 'nullable|array',
             'attributes.*' => 'nullable|string|max:2000',
-            'item_name' => 'nullable|string|max:255',
+            'item_name' => 'sometimes|required|string|max:255',
             'description' => 'nullable|string|max:20000',
             'description_prefix_id' => 'nullable|integer',
             'watermark_template_id' => 'nullable|integer',
@@ -2549,12 +2565,14 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         }
 
         $blank = fn ($v) => ($v === null || trim((string) $v) === '') ? null : (string) $v;
-        /* The Content boxes are pre-filled with the catalog's words (the owner,
-         * 2026-09-07); text still equal to them is stored as null, so
-         * pre-filling never freezes a listing into a copy. */
-        $coreWords = \App\Support\Catalog\CoreWords::of((int) $listing->product_id);
-        $listing->item_name = \App\Integrations\Listings\ListingContent::overrideOrNull($data['item_name'] ?? null, $coreWords['title']);
-        $listing->description = \App\Integrations\Listings\ListingContent::descriptionToSave($data['description'] ?? null, $coreWords['description'], $listing->description, $request->input('description_edited'));
+        /* The listing's own words, as typed. Only a save that carried a
+         * field changes it. */
+        if ($request->has('item_name')) {
+            $listing->item_name = \App\Integrations\Listings\ListingContent::own($data['item_name'] ?? null);
+        }
+        if ($request->has('description')) {
+            $listing->description = \App\Integrations\Listings\ListingContent::descriptionToSave($data['description'] ?? null, $listing->description, $request->input('description_edited'));
+        }
         $listing->description_prefix_id = ((int) ($data['description_prefix_id'] ?? 0)) ?: null;
         $listing->forceFill(\App\Integrations\Listings\ListingImages::submittedWatermark($request));
         $listing->description_suffix_id = ((int) ($data['description_suffix_id'] ?? 0)) ?: null;

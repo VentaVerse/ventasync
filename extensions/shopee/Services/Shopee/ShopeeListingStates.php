@@ -27,12 +27,10 @@ use Illuminate\Support\Str;
  * banned" IS the product's situation. Severity: attention > reviewing >
  * inactive > live; unknown only when no row has ever been checked.
  *
- * Drift (#100): the catalogue moved after the last push from here. Judged
- * on product.date_modified vs listing.last_pushed_at - a timestamp, not a
- * content hash, so it can cry once for a change the push would not carry;
- * it can never stay silent about one it would. A linked product never
- * pushed from the ERP (matched or reconciled in) has nothing to compare,
- * and inSync stays null rather than pretending.
+ * Drift is a Catalog change (App\Integrations\Listings\CatalogCopy): the
+ * catalog product moved since the listing was last compared, and the two
+ * differ. A product with no listing row has nothing to compare, and inSync
+ * stays null rather than pretending.
  */
 class ShopeeListingStates
 {
@@ -193,8 +191,21 @@ class ShopeeListingStates
     {
         return [
             'attention' => $this->bucket('attention')->distinct()->count('shopee_product_links.product_id'),
-            'drift' => $this->bucket('drift')->distinct()->count('shopee_product_links.product_id'),
+            'drift' => count($this->catalogChanges()),
         ];
+    }
+
+    /**
+     * The listings showing a Catalog change: their catalog product moved
+     * since they were last compared, and the two differ.
+     *
+     * @return array<int, list<string>>  product id => the fields that differ
+     */
+    private function catalogChanges(): array
+    {
+        return \App\Integrations\Listings\CatalogCopy::pending(
+            $this->bucket('drift')->get(), 'shopee_listings', ShopeeListing::copyColumns()
+        );
     }
 
     /**
@@ -209,6 +220,10 @@ class ShopeeListingStates
      */
     public function productIdsIn(string $bucket): array
     {
+        if ($bucket === 'drift') {
+            return array_map('intval', array_keys($this->catalogChanges()));
+        }
+
         return $this->bucket($bucket)->distinct()
             ->pluck('shopee_product_links.product_id')
             ->map(fn ($v) => (int) $v)->unique()->values()->all();
@@ -220,12 +235,11 @@ class ShopeeListingStates
         $pfx = (string) config('catalog.prefix');
 
         if ($bucket === 'drift') {
-            return ShopeeProductLink::query()
-                ->whereIn('live_status', ['NORMAL', 'UNLIST'])
-                ->join('shopee_listings as sl', 'sl.product_id', '=', 'shopee_product_links.product_id')
-                ->join($pfx . 'product as p', 'p.product_id', '=', 'shopee_product_links.product_id')
-                ->whereNotNull('sl.last_pushed_at')
-                ->whereColumn('p.date_modified', '>', 'sl.last_pushed_at');
+            return ShopeeListing::query()
+                ->select('shopee_listings.*')
+                ->join($pfx . 'product as p', 'p.product_id', '=', 'shopee_listings.product_id')
+                ->where(fn ($q) => $q->whereNull('shopee_listings.catalog_seen_at')
+                    ->orWhereColumn('p.date_modified', '>', 'shopee_listings.catalog_seen_at'));
         }
 
         return ShopeeProductLink::query()
@@ -359,9 +373,7 @@ class ShopeeListingStates
             ->get()
             ->keyBy('product_id');
 
-        $modified = DB::table($pfx . 'product')
-            ->whereIn('product_id', $productIds)
-            ->pluck('date_modified', 'product_id');
+        $catalogChanges = \App\Integrations\Listings\CatalogCopy::pending($listings->values(), 'shopee_listings', ShopeeListing::copyColumns());
 
         /* Readiness for every product, linked or not (the owner, 2026-09-06,
          * the Ready column): a listed product answers the update's own
@@ -387,6 +399,7 @@ class ShopeeListingStates
                 $r = $readiness[$productId] ?? ['ready' => false, 'missing' => [], 'gaps' => []];
                 $out[$productId] = new ListingState(
                     state: ListingState::NOT_LISTED,
+                    inSync: $listing ? !isset($catalogChanges[$productId]) : null,
                     reasons: $failure,
                     ready: (bool) $r['ready'],
                     missing: $r['gaps'] ?? [],
@@ -407,17 +420,8 @@ class ShopeeListingStates
                 }
             }
 
-            // Drift is a fact about live and inactive listings; a listing
-            // Shopee no longer shows has bigger problems than staleness.
-            $inSync = null;
+            $inSync = $listing ? !isset($catalogChanges[$productId]) : null;
             $reasons = $failure;
-            if (in_array($worst, ['NORMAL', 'UNLIST'], true) && $pushedAt !== null) {
-                $movedAt = ($modified[$productId] ?? null) ? Carbon::parse($modified[$productId]) : null;
-                $inSync = !($movedAt && $movedAt->gt($pushedAt));
-                if ($inSync === false) {
-                    $reasons[] = 'The catalogue changed after the last push. Push an update when ready.';
-                }
-            }
 
             // The attention label is Shopee's own word for the trouble;
             // core ListingState knows no marketplace's vocabulary (#184 C).

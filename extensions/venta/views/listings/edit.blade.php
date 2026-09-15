@@ -58,6 +58,10 @@
                 @if($onStore)
                     <span class="fm-stamp"><span class="fm-stamp__k">Store product ID</span><span class="fm-stamp__v">{{ $link->venta_product_id }}</span></span>
                 @endif
+                @php $catalogChange = ($listing && $listing->exists) ? $listing->catalogChange() : []; @endphp
+                @if($catalogChange)
+                    @include('partials.catalog-change-button')
+                @endif
             </div>
         </div>
     </div>
@@ -166,7 +170,7 @@
                 ])
 
                 <section class="fm-section">
-                    <div class="fm-section__head"><h2 class="fm-section__title">Content on this store <x-ui.hint label="About the content">A filled field is this listing's own wording and follows nobody. An empty field follows the catalogue product, shown greyed as the placeholder. Clearing a field returns it to the catalogue. Nothing here ever edits the catalogue product itself.</x-ui.hint></h2></div>
+                    <div class="fm-section__head"><h2 class="fm-section__title">Content on this store</h2></div>
                     <div class="fm-fields">
                         <x-ui.field label="Name" for="vl-name" name="name" wide>
                             <x-ui.input id="vl-name" name="name" :value="old('name', \App\Integrations\Listings\ListingContent::editable($listing->name ?? null, (string) $product->name))" maxlength="255" :disabled="!$canManage" />
@@ -292,6 +296,16 @@
 
 @if($canManage)
     @include('partials.image-library-pick', ['browseUrl' => $browseUrl])
+@endif
+@if(!empty($catalogChange))
+    @include('partials.catalog-change-panel', [
+        'listing' => $listing,
+        'storeLabel' => \App\Support\StoreLabel::of('Venta', $storeName),
+        'saveUrl' => route('ext.venta.listings.catalog_change_save', [$setting->id, $listing->product_id]),
+        'ignoreUrl' => route('ext.venta.listings.catalog_change_ignore', [$setting->id, $listing->product_id]),
+        'back' => request()->boolean('compare') ? \App\Support\BackTo::safe(request('back'), request()->getRequestUri()) : request()->getRequestUri(),
+        'canManage' => $canManage,
+    ])
 @endif
 
 @endsection

@@ -598,24 +598,22 @@ class LazadaListingLiveTest extends TestCase
         $pfx = (string) config('catalog.prefix');
         $this->assertSame('Catalog name', DB::table($pfx . 'product_description')->where('product_id', $productId)->value('name'));
 
-        // Clearing the field follows the catalog again.
+        // A listing needs a title; an emptied description is blank.
         $this->actingAs($this->manager())
             ->put(route('ext.lazada.products.update', $productId), [
-                'item_name' => '', 'description' => '',
+                'item_name' => '', 'description' => 'Lazada words',
                 'primary_category_id' => 300400, 'brand_id' => 5150,
-            ])->assertSessionHasNoErrors();
-        $listing->refresh();
-        $this->assertNull($listing->item_name);
-        $this->assertNull($listing->description);
+            ])->assertSessionHasErrors('item_name');
+        $this->assertSame('Lazada name', $listing->fresh()->item_name);
 
-        /* And saving the pre-filled box UNCHANGED keeps it following, rather
-           than freezing the catalog's words onto the listing as a copy. */
         $this->actingAs($this->manager())
             ->put(route('ext.lazada.products.update', $productId), [
                 'item_name' => 'Catalog name', 'description' => '',
                 'primary_category_id' => 300400, 'brand_id' => 5150,
             ])->assertSessionHasNoErrors();
-        $this->assertNull($listing->fresh()->item_name, 'unchanged text is not an override');
+        $listing->refresh();
+        $this->assertSame('Catalog name', $listing->item_name, 'the listing keeps what was saved, even when it matches the catalog');
+        $this->assertNull($listing->description);
     }
 
     /**
@@ -1118,12 +1116,13 @@ class LazadaListingLiveTest extends TestCase
         config(['catalog.public_url' => 'https://shop.example.com']);
     }
 
-    /** A product on Lazada whose catalog description is the given HTML. */
+    /** A product on Lazada whose catalog description, and so its listing's copy, is the given HTML. */
     private function productDescribedAs(string $sku, string $html): int
     {
         $pid = $this->colourProduct($sku);
         $this->liveColours($sku);
         DB::table((string) config('catalog.prefix') . 'product_description')->where('product_id', $pid)->update(['description' => $html]);
+        LazadaProduct::query()->where('product_id', $pid)->update(['description' => $html]);
 
         return $pid;
     }

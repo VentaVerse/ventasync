@@ -55,6 +55,10 @@
                 @if($listed)
                     <span class="fm-stamp"><span class="fm-stamp__k">TikTok product ID</span><span class="fm-stamp__v">{{ $truth->tiktok_product_id }}</span></span>
                 @endif
+                @php $catalogChange = ($listing?->exists) ? $listing->catalogChange() : []; @endphp
+                @if($catalogChange)
+                    @include('partials.catalog-change-button')
+                @endif
             </div>
         </div>
     </div>
@@ -160,7 +164,7 @@
                 ])
 
                 <section class="fm-section">
-                    <div class="fm-section__head"><h2 class="fm-section__title">Content on this channel <x-ui.hint label="About the content">A filled field is this listing's own wording and follows nobody. An empty field follows the catalog product, shown greyed as the placeholder. Clearing a field returns it to the catalog. Nothing here ever edits the catalog product itself.</x-ui.hint></h2></div>
+                    <div class="fm-section__head"><h2 class="fm-section__title">Content on this channel</h2></div>
                     <div class="fm-fields">
                         <x-ui.field label="Title" for="tl-title" name="title" wide>
                             <x-ui.input id="tl-title" name="title" :value="old('title', \App\Integrations\Listings\ListingContent::editable($listing->title ?? null, (string) $product->name))" maxlength="255" :disabled="!$canManage" />
@@ -297,6 +301,16 @@
 
 @if($canManage)
     @include('partials.image-library-pick', ['browseUrl' => $browseUrl])
+@endif
+@if(!empty($catalogChange))
+    @include('partials.catalog-change-panel', [
+        'listing' => $listing,
+        'storeLabel' => \App\Support\StoreLabel::of('TikTok', \Extensions\tiktok\Models\TikTokSetting::query()->find($listing->tiktok_setting_id)?->store_name),
+        'saveUrl' => route('ext.tiktok.listings.catalog_change_save', $listing->product_id),
+        'ignoreUrl' => route('ext.tiktok.listings.catalog_change_ignore', $listing->product_id),
+        'back' => request()->boolean('compare') ? \App\Support\BackTo::safe(request('back'), request()->getRequestUri()) : request()->getRequestUri(),
+        'canManage' => $canManage,
+    ])
 @endif
 
 @endsection

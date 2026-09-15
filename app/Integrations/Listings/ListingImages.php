@@ -18,11 +18,8 @@ use App\Support\Catalog\ProductImages;
  *
  * So both halves live here, and every channel calls the same two methods.
  *
- * The rule they enforce is the Content fields' rule, because it is the
- * same idea: an empty arrangement means THIS LISTING FOLLOWS THE CATALOG.
- * A list that says exactly what the catalog already says is empty in that
- * sense, and is stored as null, so agreeing with the catalog never freezes
- * a listing into a copy of it.
+ * A listing keeps its own photos, copied from the catalog when it is made
+ * (CatalogCopy). An empty arrangement sends the catalog's.
  */
 final class ListingImages
 {
@@ -89,9 +86,7 @@ final class ListingImages
      *
      * Every path is checked against the library on disk before it is
      * stored: a hidden input is client input, and this one ends up in a
-     * file read at push time. Null means follow the catalog - which is
-     * what an empty list, an unparseable one, and one that matches the
-     * catalog exactly all mean.
+     * file read at push time. An empty or unparseable list is null.
      *
      * @param  ?string  $json  the hidden input's value, verbatim
      * @return ?array<int, string>
@@ -105,6 +100,6 @@ final class ListingImages
 
         $accepted = ProductImages::acceptable($decoded);
 
-        return ($accepted !== [] && ! ProductImages::followsCatalog($productId, $accepted)) ? $accepted : null;
+        return $accepted !== [] ? $accepted : null;
     }
 }

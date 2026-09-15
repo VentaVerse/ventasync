@@ -272,7 +272,7 @@
                      cell every other channel draws, since 2026-09-06. --}}
                 @php $state = $listingStates[$pid] ?? null; @endphp
                 @if($state)
-                    @include('partials.channel-listing-state', ['state' => $state, 'listingUrl' => $listingUrl])
+                    @include('partials.channel-listing-state', ['state' => $state, 'listingUrl' => $listingUrl, 'canCompare' => $canManage])
                 @elseif($listed)
                     <x-ui.badge tone="neutral">Not checked yet</x-ui.badge>
                 @else

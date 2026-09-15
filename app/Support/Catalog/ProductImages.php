@@ -96,17 +96,6 @@ class ProductImages
         ));
     }
 
-    /**
-     * Whether a submitted list says nothing the catalog does not already
-     * say, order included.
-     *
-     * @param  list<string>  $submitted
-     */
-    public static function followsCatalog(int $productId, array $submitted): bool
-    {
-        return $submitted === self::paths($productId);
-    }
-
     /** The public URL of one stored image path. */
     public static function url(string $path): string
     {

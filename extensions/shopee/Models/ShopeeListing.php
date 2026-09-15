@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 class ShopeeListing extends Model
 {
-    use \Extensions\shopee\Models\Concerns\BelongsToShopeeStore;
+    use \Extensions\shopee\Models\Concerns\BelongsToShopeeStore, \App\Integrations\Listings\KeepsItsOwnCopy;
 
     protected $table = 'shopee_listings';
 
@@ -43,6 +43,7 @@ class ShopeeListing extends Model
         'sale_starts_at' => 'datetime',
         'sale_ends_at' => 'datetime',
         'last_push_failed_at' => 'datetime',
+        'catalog_seen_at' => 'datetime',
     ];
 
     /** The price this listing sells at, from the core price it never stores. */
@@ -110,14 +111,18 @@ class ShopeeListing extends Model
     }
 
     /**
-     * What this listing holds of its own (App\Integrations\Listings\ListingContent):
-     * a blank column means "follow the catalog product".
+     * This listing's own words (App\Integrations\Listings\ListingContent).
      *
      * @return array{title: ?string, description: ?string}
      */
     public function contentOverrides(): array
     {
         return ['title' => $this->item_name, 'description' => $this->description];
+    }
+
+    public static function copyColumns(): array
+    {
+        return ['title' => 'item_name', 'description' => 'description', 'images' => 'image_order', 'plain' => true];
     }
 
 }

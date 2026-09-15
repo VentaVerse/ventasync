@@ -30,6 +30,22 @@ use Illuminate\Support\Facades\DB;
  */
 class TikTokListingController extends Controller
 {
+    use \App\Http\Controllers\Concerns\ComparesWithTheCatalog;
+
+    /** The store's listing of the product: the one on TikTok Shop, else the newest. */
+    protected function catalogChangeListing(int $productId): \Illuminate\Database\Eloquent\Model
+    {
+        $rows = TikTokListing::query()->where('product_id', $productId)->orderBy('id')->get();
+        abort_if($rows->isEmpty(), 404);
+
+        return $rows->first(fn ($l) => ! empty($l->tiktok_product_id)) ?? $rows->last();
+    }
+
+    protected function catalogChangeFallback(int $productId): string
+    {
+        return route('ext.tiktok.listings.edit', $productId);
+    }
+
     public function edit(int $productId, TikTokLiveListing $liveListing)
     {
         $product = $this->productOrFail($productId);
@@ -188,7 +204,6 @@ class TikTokListingController extends Controller
     public function update(Request $request, int $productId)
     {
         $this->productOrFail($productId);
-        $coreWords = \App\Support\Catalog\CoreWords::of($productId);
 
         $data = $request->validate([
             'tiktok_category_id' => 'nullable|string|max:64|exists:tiktok_categories,id',
@@ -201,7 +216,7 @@ class TikTokListingController extends Controller
             'package_length' => 'nullable|integer|min:1|max:100000',
             'package_width' => 'nullable|integer|min:1|max:100000',
             'package_height' => 'nullable|integer|min:1|max:100000',
-            'title' => 'nullable|string|max:255',
+            'title' => 'sometimes|required|string|max:255',
             'description' => 'nullable|string|max:10000',
             'description_prefix_id' => 'nullable|integer',
             'watermark_template_id' => 'nullable|integer',
@@ -223,9 +238,12 @@ class TikTokListingController extends Controller
             ? ['image_order' => \App\Integrations\Listings\ListingImages::submitted($productId, $data['image_order'] ?? null)]
             : [];
 
-        /* Content fields are OVERRIDES: an emptied field returns to null,
-         * which means "follows the catalog". Saving here never writes the
-         * core product. */
+        /* The listing's own words, as typed. Only a save that carried a
+         * field changes it. Saving here never writes the core product. */
+        $words = [];
+        if ($request->has('title')) {
+            $words['title'] = \App\Integrations\Listings\ListingContent::own($data['title'] ?? null);
+        }
         $blank = fn ($v) => ($v === null || trim((string) $v) === '') ? null : $v;
         /* The group dropdown: picking a group moves the product into it,
          * No group takes it out. */
@@ -237,12 +255,15 @@ class TikTokListingController extends Controller
                 'storeId' => (int) (TikTokSetting::defaultStore()?->id ?? 0),
             ], $productId, $picked['id']);
         }
-        $currentDescription = TikTokListing::query()->where('product_id', $productId)->value('description');
+        if ($request->has('description')) {
+            $currentDescription = TikTokListing::query()->where('product_id', $productId)->value('description');
+            $words['description'] = \App\Integrations\Listings\ListingContent::descriptionToSave($data['description'] ?? null, $currentDescription, $request->input('description_edited'));
+        }
         // A product with variations prices each one from the catalog, so it keeps no Price of its own.
         $hasVariations = isset(\Extensions\tiktok\Services\TikTok\TikTokVariationPush::withVariations([$productId])[$productId]);
         TikTokListing::query()->updateOrCreate(
             ['product_id' => $productId],
-            $images + [
+            $images + $words + [
                 'tiktok_category_id' => $blank($data['tiktok_category_id'] ?? null),
                 'brand_id' => $blank($data['brand_id'] ?? null),
                 'brand_name' => $blank($data['brand_id'] ?? null) ? $blank($data['brand_name'] ?? null) : null,
@@ -253,14 +274,9 @@ class TikTokListingController extends Controller
                 'package_length' => $blank($data['package_length'] ?? null),
                 'package_width' => $blank($data['package_width'] ?? null),
                 'package_height' => $blank($data['package_height'] ?? null),
-                /* The Content boxes are pre-filled with the catalog's words
-                 * (the owner, 2026-09-07); text still equal to them is stored as
-                 * null, so pre-filling never freezes a listing into a copy. */
-                'title' => \App\Integrations\Listings\ListingContent::overrideOrNull($data['title'] ?? null, $coreWords['title']),
                 'description_prefix_id' => ((int) ($data['description_prefix_id'] ?? 0)) ?: null,
                 ...\App\Integrations\Listings\ListingImages::submittedWatermark($request),
                 'description_suffix_id' => ((int) ($data['description_suffix_id'] ?? 0)) ?: null,
-                'description' => \App\Integrations\Listings\ListingContent::descriptionToSave($data['description'] ?? null, $coreWords['description'], $currentDescription, $request->input('description_edited')),
                 'attribute_values' => array_filter(
                     array_map(fn ($v) => trim((string) $v), $data['attributes'] ?? []),
                     fn ($v) => $v !== ''

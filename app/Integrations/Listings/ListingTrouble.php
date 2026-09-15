@@ -33,7 +33,7 @@ final class ListingTrouble
     public static function words(string $bucket, int $count): string
     {
         return $bucket === self::DRIFT
-            ? $count . ' behind the catalogue'
+            ? $count . ' catalog change' . ($count === 1 ? '' : 's')
             : $count . ' listing' . ($count === 1 ? ' needs' : 's need') . ' attention';
     }
 
@@ -45,7 +45,7 @@ final class ListingTrouble
     public static function showing(string $bucket, int $count): string
     {
         return $bucket === self::DRIFT
-            ? 'Showing the ' . $count . ' ' . ($count === 1 ? 'listing' : 'listings') . ' behind the catalogue.'
+            ? 'Showing the ' . $count . ' ' . ($count === 1 ? 'listing' : 'listings') . ' with a catalog change.'
             : 'Showing the ' . $count . ' ' . ($count === 1 ? 'listing that needs' : 'listings that need') . ' attention.';
     }
 

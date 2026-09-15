@@ -33,11 +33,9 @@ use Carbon\Carbon;
  *   unknown     linked, but the mirror has never been read. Rendered as
  *               exactly that ("Not checked yet"), never as a guess.
  *
- * inSync is the drift verdict, independent of state: true (the channel
- * matches the catalogue as far as we can tell), false (the catalogue
- * changed since the last push), null (cannot say - never pushed from
- * here, or nothing to compare). A listing can be live AND out of date;
- * those are different facts and both are shown.
+ * inSync is the Catalog change verdict, independent of state: false when
+ * the catalog product changed since the listing was last compared and the
+ * two differ (CatalogCopy::pending), true otherwise, null with no listing.
  */
 final class ListingState
 {
@@ -131,7 +129,7 @@ final class ListingState
     /** The drift chip beside a live/inactive badge, or null when there is nothing to say. */
     public function driftLabel(): ?string
     {
-        return $this->inSync === false ? 'Catalogue changed' : null;
+        return $this->inSync === false ? 'Catalog change' : null;
     }
 
     /** The gap labels as one readable list ("a Shopee category, at least one courier"). */

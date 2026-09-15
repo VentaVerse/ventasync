@@ -373,7 +373,7 @@ class ShopeeListingTest extends TestCase
         // an edit of the listing (the owner's settled rule, card #104).
         $this->assertNull($listing->shopee_category_id);
         $this->assertNull($listing->markup_fixed);
-        $this->assertNull($listing->item_name);
+        $this->assertSame('Listing test product', $listing->item_name, 'A listing made by a group push starts as a copy of the catalog.');
     }
 
     /** A group push sends the listing's own category and price rule; the group fills only what the listing leaves blank. */

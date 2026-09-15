@@ -16,10 +16,10 @@
     <span @if($st->checkedAt) title="Checked {{ $st->checkedAt->diffForHumans() }}" @endif>
         <x-ui.badge :tone="$st->tone()">{{ $st->label() }}</x-ui.badge>
     </span>
-    @if($st->driftLabel())
-        <span class="cc-checked"><x-ui.badge tone="warning">{{ $st->driftLabel() }}</x-ui.badge>
-            <x-ui.hint label="What changed">{{ implode(' ', $st->reasons) }}</x-ui.hint></span>
-    @elseif($st->reasons)
+    @if($st->reasons)
         <x-ui.hint label="What the store says">{{ implode(' ', $st->reasons) }}</x-ui.hint>
     @endif
+@endif
+@if($st?->driftLabel() && !empty($listingUrl) && ($canCompare ?? true))
+    @include('partials.catalog-change-button', ['href' => $listingUrl . (str_contains($listingUrl, '?') ? '&' : '?') . 'compare=1'])
 @endif

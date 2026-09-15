@@ -136,6 +136,10 @@
                         <a class="fm-stamp__v" href="{{ route('products.edit', $listing->product_id) }}">{{ $listing->product_id }}</a>
                     </span>
                 @endif
+                @php $catalogChange = ($mode === 'edit' && $listing->exists) ? $listing->catalogChange() : []; @endphp
+                @if($catalogChange)
+                    @include('partials.catalog-change-button')
+                @endif
             </div>
         </div>
     </div>
@@ -314,7 +318,7 @@
                 @if($mode === 'edit')
                 <section class="fm-section">
                     <div class="fm-section__head">
-                        <h2 class="fm-section__title">Content on this channel <x-ui.hint label="About the content">A filled field is this listing's own wording and follows nobody. An empty field follows the catalog product, shown greyed as the placeholder. Clearing a field returns it to the catalog. Nothing here ever edits the catalog product itself.</x-ui.hint></h2>
+                        <h2 class="fm-section__title">Content on this channel</h2>
                     </div>
                     <div class="fm-fields">
                         <x-ui.field label="Title" for="lz-item-name" name="item_name" wide>
@@ -601,5 +605,15 @@
 @include('partials.channel-description-pick-modal', ['storeUrl' => route('ext.lazada.description-templates.store', ['store' => $storeId])])
 
 @include('partials.image-library-pick', ['browseUrl' => $browseUrl])
+@if(!empty($catalogChange))
+    @include('partials.catalog-change-panel', [
+        'listing' => $listing,
+        'storeLabel' => \App\Support\StoreLabel::of('Lazada', \Extensions\lazada\Models\LazadaSetting::query()->find($listing->lazada_setting_id)?->store_name),
+        'saveUrl' => route('ext.lazada.products.catalog_change_save', $listing->product_id),
+        'ignoreUrl' => route('ext.lazada.products.catalog_change_ignore', $listing->product_id),
+        'back' => request()->boolean('compare') ? \App\Support\BackTo::safe(request('back'), request()->getRequestUri()) : request()->getRequestUri(),
+        'canManage' => (bool) (auth()->user()?->hasPermission('manage_lazada/product') ?? false),
+    ])
+@endif
 
 @endsection

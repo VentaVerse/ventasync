@@ -5,53 +5,45 @@ namespace App\Integrations\Listings;
 use App\Models\DescriptionTemplate;
 use App\Support\Catalog\DescriptionHtml;
 use App\Support\Catalog\DescriptionText;
-use App\Support\HtmlSanitizer;
 
 /**
  * What title and description go up for one product on one store.
  *
- * THE RULE, one place (the owner, 2026-09-07): the store listing's own words
- * win; where it has none, the core product's words go instead. An empty
- * column is not missing data, it means "follow the catalog", which is what
- * the greyed placeholder on the Content card shows.
+ * A store listing keeps its own copy of the catalog product's words, made
+ * when the listing is made (CatalogCopy). A product with no listing row yet
+ * sends the catalog's words, which is what its listing will start with.
  *
- * It exists because the rule used to be re-implemented at every push path,
- * about four per channel, and one of them always forgot. A push from a
- * group page sent the CORE product's title while the store listing's own
- * title sat saved and unused, on four of the five channels. Now there is
- * one answer and nothing else to call.
- *
- * A channel's listing model says what it holds through contentOverrides();
- * the column names differ per channel (item_name, title, name) and that is
- * the model's business, not the caller's.
+ * Every push path calls of(), so no path can pick different words. A
+ * channel's listing model says where it keeps them through
+ * contentOverrides(); the column names differ per channel (item_name,
+ * title, name) and that is the model's business, not the caller's.
  */
 class ListingContent
 {
     /**
      * @param  ?object  $listing  the store's listing row, or null when it has none yet
      * @param  ?string  $integration  the channel, when the store's description
-     *                  templates should wrap the result (2026-09-07)
+     *                  templates should wrap the result
      * @param  ?int  $storeId  that channel's store
      * @return array{title: string, description: string}
      */
     public static function of(?object $listing, string $coreTitle, string $coreDescription, ?string $integration = null, ?int $storeId = null): array
     {
-        $own = ($listing !== null && method_exists($listing, 'contentOverrides'))
-            ? $listing->contentOverrides()
-            : [];
+        if ($listing === null || ! method_exists($listing, 'contentOverrides') || (property_exists($listing, 'exists') && ! $listing->exists)) {
+            /* A catalog description can be stored entity-encoded, the older
+             * way; decoded here it reaches every store as markup. */
+            $decoded = DescriptionHtml::decoded($coreDescription);
+            $title = CatalogCopy::title($coreTitle);
+            $description = DescriptionText::looksLikeHtml($decoded) ? DescriptionHtml::forEditor($decoded) : $decoded;
+        } else {
+            $own = $listing->contentOverrides();
+            $title = trim((string) ($own['title'] ?? ''));
+            $description = (string) ($own['description'] ?? '');
+        }
 
-        /* A catalog description can be stored entity-encoded, the older way;
-         * decoded here it reaches every store as markup, with its pictures'
-         * links whole, the way the editor shows it. Plain words stay words. */
-        $decoded = DescriptionHtml::decoded($coreDescription);
-        $coreDescription = DescriptionText::looksLikeHtml($decoded) ? DescriptionHtml::forEditor($decoded) : $decoded;
-
-        $description = self::pick($own['description'] ?? null, $coreDescription);
-
-        /* The store's own words above and below (the owner, 2026-09-07): a
-         * returns policy or a warranty note written once and carried by
-         * every listing that points at it. It wraps whichever description
-         * won above, so a listing with its own wording keeps the policy too. */
+        /* The store's own words above and below: a returns policy or a
+         * warranty note written once and carried by every listing that
+         * points at it. */
         if ($integration !== null && $storeId !== null && $listing !== null) {
             $description = self::wrap(
                 $description,
@@ -60,10 +52,7 @@ class ListingContent
             );
         }
 
-        return [
-            'title' => self::pick($own['title'] ?? null, $coreTitle),
-            'description' => $description,
-        ];
+        return ['title' => $title, 'description' => $description];
     }
 
     /**
@@ -90,7 +79,7 @@ class ListingContent
         $out = [];
         foreach ($rows as $row) {
             $pid = (int) $row->product_id;
-            $out[$pid] = $own[$pid] ?? html_entity_decode((string) ($row->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $out[$pid] = $own[$pid] ?? CatalogCopy::title((string) ($row->name ?? ''));
         }
 
         return $out;
@@ -129,36 +118,27 @@ class ListingContent
         return ($value === null || (int) $value <= 0) ? null : (int) $value;
     }
 
-    /**
-     * What to SAVE for a field the operator edited (the owner, 2026-09-07).
-     *
-     * The box is pre-filled with the catalog's words so a few of them can be
-     * changed without retyping the rest. That must not turn every listing
-     * into a frozen copy: text that still matches the catalog is stored as
-     * null, which is what "follow the catalog" is. Only a real edit is kept.
-     */
-    public static function overrideOrNull(?string $submitted, string $core): ?string
+    /** A title as typed, to store; blank is null. */
+    public static function own(?string $submitted): ?string
     {
         $submitted = trim((string) $submitted);
-        if ($submitted === '' || $submitted === trim($core)) {
-            return null;
-        }
 
-        return $submitted;
+        return $submitted === '' ? null : $submitted;
     }
 
     /**
-     * Resolves the description to store for a listing; null means the listing
-     * follows the catalog description.
+     * The description to store for a listing.
      *
-     * When $edited is "0" the editor was loaded but not changed, so the current
-     * value is kept: rich editors normalise markup, which would otherwise look
-     * like an edit. Without the flag the submitted value is compared with the
-     * catalog. Stored HTML is sanitised like catalog descriptions, and an empty
-     * editor counts as blank. $plainText compares the value as plain text, for
-     * channels that do not accept HTML.
+     * When $edited is "0" the editor was loaded but not changed, so the
+     * current value is kept: rich editors normalise markup, which would
+     * otherwise look like an edit. Stored HTML is sanitised like catalog
+     * descriptions, and an empty editor counts as blank.
+     *
+     * $plainText is for a channel whose box holds words only. Words equal to
+     * the current description's are no edit, so a description kept as markup
+     * (with its pictures) stays as it is.
      */
-    public static function descriptionToSave(?string $submitted, string $core, ?string $current, ?string $edited, bool $plainText = false): ?string
+    public static function descriptionToSave(?string $submitted, ?string $current, ?string $edited, bool $plainText = false): ?string
     {
         if ($edited === '0') {
             return $current;
@@ -166,29 +146,23 @@ class ListingContent
 
         if ($plainText) {
             $text = DescriptionText::of($submitted);
+            if ($current !== null && $text === DescriptionText::of($current)) {
+                return $current;
+            }
 
-            return ($text === '' || $text === DescriptionText::of($core) || trim((string) $submitted) === trim($core)) ? null : $text;
+            return $text === '' ? null : $text;
         }
 
         if (DescriptionText::isBlank($submitted)) {
             return null;
         }
         $clean = trim(DescriptionHtml::store($submitted));
-        if ($clean === '' || $clean === trim($core) || $clean === trim(HtmlSanitizer::sanitize($core))) {
-            return null;
-        }
 
-        return $clean;
+        return $clean === '' ? null : $clean;
     }
 
-    /** What to SHOW in the box: the listing's own words, else the catalog's. */
+    /** What to SHOW in the box: the listing's own words, else the catalog's for a listing not made yet. */
     public static function editable(?string $own, string $core): string
-    {
-        return ($own !== null && trim($own) !== '') ? $own : $core;
-    }
-
-    /** A blank override is not an override. */
-    private static function pick(?string $own, string $core): string
     {
         return ($own !== null && trim($own) !== '') ? $own : $core;
     }

@@ -7,7 +7,7 @@ use Extensions\lazada\Models\Concerns\BelongsToLazadaStore;
 
 class LazadaProduct extends Model
 {
-    use BelongsToLazadaStore;
+    use BelongsToLazadaStore, \App\Integrations\Listings\KeepsItsOwnCopy;
 
     // Lazada products table
     protected $table = 'lazada_products';
@@ -41,6 +41,7 @@ class LazadaProduct extends Model
         'last_push_failed_at' => 'datetime',
         'last_push_settings' => 'array',
         'image_order' => 'array',
+        'catalog_seen_at' => 'datetime',
         'sale_percent' => 'float',
         'sale_starts_at' => 'datetime',
         'sale_ends_at' => 'datetime',
@@ -88,14 +89,18 @@ class LazadaProduct extends Model
     }
 
     /**
-     * What this listing holds of its own (App\Integrations\Listings\ListingContent):
-     * a blank column means "follow the catalog product".
+     * This listing's own words (App\Integrations\Listings\ListingContent).
      *
      * @return array{title: ?string, description: ?string}
      */
     public function contentOverrides(): array
     {
         return ['title' => $this->item_name, 'description' => $this->description];
+    }
+
+    public static function copyColumns(): array
+    {
+        return ['title' => 'item_name', 'description' => 'description', 'images' => 'image_order', 'plain' => false];
     }
 
 }

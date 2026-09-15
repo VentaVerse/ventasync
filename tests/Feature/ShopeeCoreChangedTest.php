@@ -16,16 +16,10 @@ use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
- * "Core has changed" (#100), in the override model's grammar. A catalog
- * edit reaches no marketplace on its own; the surfaces where pushing
- * happens say so instead:
- *
- *  - the listing page's live section notes when the catalog moved AFTER
- *    the last push, pointing at Push update;
- *  - a field holding its own wording says inline when the catalog now
- *    differs beneath it - clearing is the accept gesture, keeping it is
- *    a decision, and NOTHING ever overwrites the operator's wording;
- *  - the group page's row marks "Catalog changed since this push".
+ * A catalog edit reaches no marketplace and no listing on its own: the
+ * listing keeps its own copy, and its Catalog change button is where the
+ * two are compared (ShopeeCatalogChangeTest). What this pins is the notes
+ * the listing page and the group page no longer carry.
  */
 class ShopeeCoreChangedTest extends TestCase
 {

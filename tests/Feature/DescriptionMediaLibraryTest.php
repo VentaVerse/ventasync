@@ -205,7 +205,7 @@ class DescriptionMediaLibraryTest extends TestCase
 
         $this->actingAs($this->ventaManager())
             ->put(route('ext.venta.listings.update', [$store->id, $pid]), [
-                'name' => '',
+                'name' => 'Listing name',
                 'description' => '<p>The catalogue description.</p><p>' . $img . '</p>',
                 'description_edited' => '1',
             ])

@@ -212,8 +212,21 @@ class LazadaListingStates
     {
         return [
             'attention' => $this->bucket('attention')->distinct()->count('lazada_products.product_id'),
-            'drift' => $this->bucket('drift')->distinct()->count('lazada_products.product_id'),
+            'drift' => count($this->catalogChanges()),
         ];
+    }
+
+    /**
+     * The listings showing a Catalog change: their catalog product moved
+     * since they were last compared, and the two differ.
+     *
+     * @return array<int, list<string>>  product id => the fields that differ
+     */
+    private function catalogChanges(): array
+    {
+        return \App\Integrations\Listings\CatalogCopy::pending(
+            $this->bucket('drift')->get(), 'lazada_products', LazadaProduct::copyColumns()
+        );
     }
 
     /**
@@ -225,6 +238,10 @@ class LazadaListingStates
      */
     public function productIdsIn(string $bucket): array
     {
+        if ($bucket === 'drift') {
+            return array_map('intval', array_keys($this->catalogChanges()));
+        }
+
         return $this->bucket($bucket)->distinct()
             ->pluck('lazada_products.product_id')
             ->map(fn ($v) => (int) $v)->unique()->values()->all();
@@ -240,11 +257,11 @@ class LazadaListingStates
             ->whereNull('unlinked_at');
 
         if ($bucket === 'drift') {
-            return $linked
-                ->whereIn('live_status', ['active', 'inactive'])
+            return LazadaProduct::query()
+                ->select('lazada_products.*')
                 ->join($pfx . 'product as p', 'p.product_id', '=', 'lazada_products.product_id')
-                ->whereNotNull('lazada_products.last_pushed_at')
-                ->whereColumn('p.date_modified', '>', 'lazada_products.last_pushed_at');
+                ->where(fn ($q) => $q->whereNull('lazada_products.catalog_seen_at')
+                    ->orWhereColumn('p.date_modified', '>', 'lazada_products.catalog_seen_at'));
         }
 
         return $linked->whereIn('live_status', self::ATTENTION_RAW);
@@ -296,6 +313,7 @@ class LazadaListingStates
         // on Lazada is the create's; products with no row at all answer
         // from the catalogue.
         $rowReadiness = $this->readiness->forListings(collect(array_values($chosen)));
+        $catalogChanges = \App\Integrations\Listings\CatalogCopy::pending(array_values($chosen), 'lazada_products', LazadaProduct::copyColumns());
         $rowless = array_values(array_filter($productIds, fn ($id) => !isset($chosen[$id])));
         $rowlessReadiness = $this->readiness->forProducts($rowless);
 
@@ -318,6 +336,7 @@ class LazadaListingStates
                     : ($rowlessReadiness[$productId] ?? ['ready' => false, 'gaps' => []]);
                 $out[$productId] = new ListingState(
                     state: ListingState::NOT_LISTED,
+                    inSync: $listing ? !isset($catalogChanges[$productId]) : null,
                     reasons: $failure,
                     ready: (bool) $r['ready'],
                     missing: $r['gaps'] ?? [],
@@ -329,17 +348,8 @@ class LazadaListingStates
             $raw = $listing->live_status !== null ? strtolower((string) $listing->live_status) : null;
             $checkedAt = $listing->live_checked_at ? Carbon::parse($listing->live_checked_at) : null;
 
-            // Drift is a fact about live and inactive listings; a listing
-            // Lazada no longer shows has bigger problems than staleness.
-            $inSync = null;
+            $inSync = !isset($catalogChanges[$productId]);
             $reasons = $failure;
-            if (in_array($raw, ['active', 'inactive'], true) && $pushedAt !== null) {
-                $movedAt = ($modified[$productId] ?? null) ? Carbon::parse($modified[$productId]) : null;
-                $inSync = !($movedAt && $movedAt->gt($pushedAt));
-                if ($inSync === false) {
-                    $reasons[] = 'The catalogue changed after the last push. Push an update when ready.';
-                }
-            }
 
             [$state, $attentionLabel, $extraReason] = match ($raw) {
                 'active' => [ListingState::LIVE, null, null],

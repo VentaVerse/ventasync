@@ -179,8 +179,21 @@ class TikTokListingStates
     {
         return [
             'attention' => $this->bucket('attention')->distinct()->count('tiktok_listings.product_id'),
-            'drift' => $this->bucket('drift')->distinct()->count('tiktok_listings.product_id'),
+            'drift' => count($this->catalogChanges()),
         ];
+    }
+
+    /**
+     * The listings showing a Catalog change: their catalog product moved
+     * since they were last compared, and the two differ.
+     *
+     * @return array<int, list<string>>  product id => the fields that differ
+     */
+    private function catalogChanges(): array
+    {
+        return \App\Integrations\Listings\CatalogCopy::pending(
+            $this->bucket('drift')->get(), 'tiktok_listings', TikTokListing::copyColumns()
+        );
     }
 
     /**
@@ -192,6 +205,10 @@ class TikTokListingStates
      */
     public function productIdsIn(string $bucket): array
     {
+        if ($bucket === 'drift') {
+            return array_map('intval', array_keys($this->catalogChanges()));
+        }
+
         return $this->bucket($bucket)->distinct()
             ->pluck('tiktok_listings.product_id')
             ->map(fn ($v) => (int) $v)->unique()->values()->all();
@@ -205,11 +222,11 @@ class TikTokListingStates
         $linked = TikTokListing::query()->whereNotNull('tiktok_product_id');
 
         if ($bucket === 'drift') {
-            return $linked
-                ->whereIn('live_status', ['ACTIVATE', 'SELLER_DEACTIVATED'])
+            return TikTokListing::query()
+                ->select('tiktok_listings.*')
                 ->join($pfx . 'product as p', 'p.product_id', '=', 'tiktok_listings.product_id')
-                ->whereNotNull('tiktok_listings.last_pushed_at')
-                ->whereColumn('p.date_modified', '>', 'tiktok_listings.last_pushed_at');
+                ->where(fn ($q) => $q->whereNull('tiktok_listings.catalog_seen_at')
+                    ->orWhereColumn('p.date_modified', '>', 'tiktok_listings.catalog_seen_at'));
         }
 
         return $linked->whereIn('live_status', self::ATTENTION_RAW);
@@ -226,8 +243,6 @@ class TikTokListingStates
             return [];
         }
 
-        $pfx = (string) config('catalog.prefix');
-
         $listings = TikTokListing::query()
             ->whereIn('product_id', $productIds)
             ->get()
@@ -243,9 +258,7 @@ class TikTokListingStates
             ->groupBy(fn ($p) => (int) $p->product_id)
             ->map(fn ($rows) => $rows->first());
 
-        $modified = DB::table($pfx . 'product')
-            ->whereIn('product_id', $productIds)
-            ->pluck('date_modified', 'product_id');
+        $catalogChanges = \App\Integrations\Listings\CatalogCopy::pending($listings->values(), 'tiktok_listings', TikTokListing::copyColumns());
 
         /* Readiness for every product, linked or not (the owner, 2026-09-06,
          * the Ready column): a listed product answers the update's own
@@ -271,6 +284,7 @@ class TikTokListingStates
                 $r = $readiness[$productId] ?? ['ready' => false, 'missing' => [], 'gaps' => []];
                 $out[$productId] = new ListingState(
                     state: ListingState::NOT_LISTED,
+                    inSync: $listing ? !isset($catalogChanges[$productId]) : null,
                     reasons: $failure,
                     ready: (bool) $r['ready'],
                     missing: $r['gaps'] ?? [],
@@ -282,17 +296,9 @@ class TikTokListingStates
             $raw = $listing?->live_status !== null ? strtoupper((string) $listing->live_status) : null;
             $checkedAt = $listing?->live_checked_at ? Carbon::parse($listing->live_checked_at) : null;
 
-            // Drift is a fact about live and deactivated listings; one
-            // TikTok no longer shows has bigger problems than staleness.
-            $inSync = null;
+            // A product on TikTok only through a group pivot has no copy of its own.
+            $inSync = $listing ? !isset($catalogChanges[$productId]) : null;
             $reasons = $failure;
-            if (in_array($raw, ['ACTIVATE', 'SELLER_DEACTIVATED'], true) && $pushedAt !== null) {
-                $movedAt = ($modified[$productId] ?? null) ? Carbon::parse($modified[$productId]) : null;
-                $inSync = !($movedAt && $movedAt->gt($pushedAt));
-                if ($inSync === false) {
-                    $reasons[] = 'The catalogue changed after the last push. Push an update when ready.';
-                }
-            }
 
             [$state, $attentionLabel, $extraReason] = match ($raw) {
                 'ACTIVATE' => [ListingState::LIVE, null, null],

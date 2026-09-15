@@ -27,6 +27,41 @@ use Illuminate\Support\Str;
  */
 class VentaListingController extends Controller
 {
+    use \App\Http\Controllers\Concerns\ComparesWithTheCatalog {
+        catalogChangeSave as private saveCatalogChange;
+        catalogChangeIgnore as private ignoreCatalogChange;
+    }
+
+    /** The store the Catalog change routes named, for the two methods below. */
+    private int $catalogChangeStore = 0;
+
+    public function catalogChangeSave(Request $request, int $store, int $productId)
+    {
+        $this->catalogChangeStore = $store;
+
+        return $this->saveCatalogChange($request, $productId);
+    }
+
+    public function catalogChangeIgnore(Request $request, int $store, int $productId)
+    {
+        $this->catalogChangeStore = $store;
+
+        return $this->ignoreCatalogChange($request, $productId);
+    }
+
+    /** This store's listing of the product. */
+    protected function catalogChangeListing(int $productId): \Illuminate\Database\Eloquent\Model
+    {
+        VentaSetting::findOrFail($this->catalogChangeStore);
+
+        return VentaListing::query()->where('venta_setting_id', $this->catalogChangeStore)->where('product_id', $productId)->firstOrFail();
+    }
+
+    protected function catalogChangeFallback(int $productId): string
+    {
+        return route('ext.venta.listings.edit', [$this->catalogChangeStore, $productId]);
+    }
+
     /**
      * The store's listings index: one row per catalogue product in scope
      * (any group on this store, plus anything already linked), the
@@ -796,7 +831,6 @@ class VentaListingController extends Controller
     {
         $setting = VentaSetting::findOrFail($store);
         abort_unless((bool) VentaProductPush::for($setting)->product($productId), 404);
-        $coreWords = \App\Support\Catalog\CoreWords::of($productId);
 
         $data = $request->validate([
             'markup_percent' => 'nullable|numeric|min:-100|max:1000',
@@ -806,7 +840,7 @@ class VentaListingController extends Controller
             'package_length' => 'nullable|integer|min:1|max:1000000',
             'package_width' => 'nullable|integer|min:1|max:1000000',
             'package_height' => 'nullable|integer|min:1|max:1000000',
-            'name' => 'nullable|string|max:255',
+            'name' => 'sometimes|required|string|max:255',
             'description' => 'nullable|string|max:20000',
             'description_prefix_id' => 'nullable|integer',
             'watermark_template_id' => 'nullable|integer',
@@ -828,10 +862,8 @@ class VentaListingController extends Controller
             ? ['image_order' => \App\Integrations\Listings\ListingImages::submitted($productId, $data['image_order'] ?? null)]
             : [];
 
-        // Content fields are OVERRIDES: an emptied field returns to null,
-        // which means "follows the catalogue". Saving here never writes the
-        // core product.
-        $blank = fn ($v) => ($v === null || trim((string) $v) === '') ? null : $v;
+        // Saving here never writes the core product.
+        $blank =fn ($v) => ($v === null || trim((string) $v) === '') ? null : $v;
         // The listing's own category is one of this store's own; 0 is its "None".
         $rawCategory = $data['venta_category_id'] ?? null;
         $ownCategory = ($rawCategory === null || $rawCategory === '') ? null : (int) $rawCategory;
@@ -852,11 +884,20 @@ class VentaListingController extends Controller
             }
         }
 
+        /* The listing's own words, as typed. Only a save that carried a
+         * field changes it; a new listing fills the rest from the catalog. */
         $currentDescription = VentaListing::query()->where('venta_setting_id', $store)->where('product_id', $productId)->value('description');
+        $words = [];
+        if ($request->has('name')) {
+            $words['name'] = \App\Integrations\Listings\ListingContent::own($data['name'] ?? null);
+        }
+        if ($request->has('description')) {
+            $words['description'] = \App\Integrations\Listings\ListingContent::descriptionToSave($data['description'] ?? null, $currentDescription, $request->input('description_edited'));
+        }
 
         VentaListing::query()->updateOrCreate(
             ['venta_setting_id' => $store, 'product_id' => $productId],
-            $images + ($request->has('venta_category_id') ? ['venta_category_id' => $ownCategory] : []) + [
+            $images + $words + ($request->has('venta_category_id') ? ['venta_category_id' => $ownCategory] : []) + [
                 'markup_percent' => $blank($data['markup_percent'] ?? null),
                 'markup_fixed' => $blank($data['markup_fixed'] ?? null),
                 // A product with variations prices each variation from the catalog, so it keeps no Price of its own.
@@ -865,14 +906,9 @@ class VentaListingController extends Controller
                 'package_length' => $blank($data['package_length'] ?? null),
                 'package_width' => $blank($data['package_width'] ?? null),
                 'package_height' => $blank($data['package_height'] ?? null),
-                /* The Content boxes are pre-filled with the catalog's words
-                 * (the owner, 2026-09-07); text still equal to them is stored as
-                 * null, so pre-filling never freezes a listing into a copy. */
-                'name' => \App\Integrations\Listings\ListingContent::overrideOrNull($data['name'] ?? null, $coreWords['title']),
                 'description_prefix_id' => ((int) ($data['description_prefix_id'] ?? 0)) ?: null,
                 ...\App\Integrations\Listings\ListingImages::submittedWatermark($request),
                 'description_suffix_id' => ((int) ($data['description_suffix_id'] ?? 0)) ?: null,
-                'description' => \App\Integrations\Listings\ListingContent::descriptionToSave($data['description'] ?? null, $coreWords['description'], $currentDescription, $request->input('description_edited')),
                 'meta_title' => $blank($data['meta_title'] ?? null),
                 'meta_description' => $blank($data['meta_description'] ?? null),
             ]
