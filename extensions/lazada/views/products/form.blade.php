@@ -595,10 +595,10 @@
                  as well"). Save carried formnovalidate for half a day; a
                  field the page marks with an asterisk and then saves without
                  teaches that the asterisk means nothing. --}}
-            <x-ui.button type="submit" form="lazada-listing" :variant="$mode === 'edit' ? 'secondary' : 'primary'">{{ $mode === 'create' ? 'Create listing' : 'Save listing' }}</x-ui.button>
             @if($mode === 'edit')
-                <x-ui.button type="submit" form="lazada-listing" name="push" value="1" variant="primary">{{ empty($listing->lazada_item_id) ? 'Save and push to Lazada' : 'Save and push the update' }}</x-ui.button>
+                <x-ui.button type="submit" form="lazada-listing" name="push" value="1">{{ empty($listing->lazada_item_id) ? 'Save and push to Lazada' : 'Save and push the update' }}</x-ui.button>
             @endif
+            <x-ui.button type="submit" form="lazada-listing" variant="primary">{{ $mode === 'create' ? 'Create listing' : 'Save listing' }}</x-ui.button>
         </div>
     </div>
 </div>
