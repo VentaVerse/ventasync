@@ -90,7 +90,7 @@ class ShopeeListingStatusMenuTest extends TestCase
         $page->assertDontSee('>Shopee ID<', false);
         $page->assertDontSee('cc-head-refresh', false);
         $page->assertSee('x-segment-group__refresh', false);
-        $page->assertSee('lsm-chanid">Shopee 9001<', false);
+        $this->assertMatchesRegularExpression('/class="co-item__sku lsm-chanid"[^>]*>Shopee 9001</', $page->getContent(), 'the item id rides the product line');
         $page->assertSee('shopee_tab=live', false);
         $page->assertSee('lsm-n lsm-n--bad">1<', false);
 

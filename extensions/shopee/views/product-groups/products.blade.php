@@ -327,7 +327,7 @@
                 @if($listed)
                     @php $liveUrl = \Extensions\shopee\Models\ShopeeSetting::publicListingUrl($rowLink->shopee_item_id); @endphp
                     @if($liveUrl)
-                        <a class="x-num" href="{{ $liveUrl }}" target="_blank" rel="noopener">{{ $rowLink->shopee_item_id }}</a>
+                        <a class="x-num" href="{{ $liveUrl }}" target="_blank" rel="noopener">{{ $rowLink->shopee_item_id }}<x-ui.icon name="external-link" size="10" class="x-extlink" /><span class="x-sr"> (opens Shopee in a new tab)</span></a>
                     @else
                         <span class="x-num">{{ $rowLink->shopee_item_id }}</span>
                     @endif

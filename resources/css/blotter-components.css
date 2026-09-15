@@ -3783,6 +3783,19 @@
         .x-segment-group > .x-segment { max-width: 100%; }
     }
 
+    /* A link that leaves the app (a store's live page) carries a small
+       arrow at the upper right of its text. */
+    .x-extlink {
+        display: inline-block;
+        margin-left: 2px;
+        vertical-align: super;
+        color: var(--bl-ink-3);
+    }
+
+    a:hover > .x-extlink {
+        color: currentColor;
+    }
+
     .x-segment__item.is-active .x-segment__count {
         color: color-mix(in srgb, var(--bl-paper) 70%, transparent);
     }

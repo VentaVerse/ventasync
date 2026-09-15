@@ -311,7 +311,13 @@
                         <div class="co-item__meta">
                             <span class="co-item__sku">{{ $p->sku ?: 'No SKU' }}</span>
                             @if($link)
-                                <span class="co-item__sku lsm-chanid">Shopee {{ $link->shopee_item_id }}</span>
+                                {{-- The item id opens the live listing, as the buyer sees it. --}}
+                                @php $liveUrl = \Extensions\shopee\Models\ShopeeSetting::publicListingUrl($link->shopee_item_id); @endphp
+                                @if($liveUrl)
+                                    <a class="co-item__sku lsm-chanid" href="{{ $liveUrl }}" target="_blank" rel="noopener">Shopee {{ $link->shopee_item_id }}<x-ui.icon name="external-link" size="10" class="x-extlink" /><span class="x-sr"> (opens Shopee in a new tab)</span></a>
+                                @else
+                                    <span class="co-item__sku lsm-chanid">Shopee {{ $link->shopee_item_id }}</span>
+                                @endif
                             @endif
                             @if($p->manufacturer_name)
                                 <span>{{ $p->manufacturer_name }}</span>

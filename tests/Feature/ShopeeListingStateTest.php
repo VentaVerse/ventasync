@@ -723,6 +723,17 @@ class ShopeeListingStateTest extends TestCase
             ->assertOk()->assertDontSee('LISTGAP')->assertSee('class="x-segment-bar"', false);
     }
 
+    /** The item id on the product line opens the live Shopee listing, as the buyer sees it. */
+    public function test_the_item_id_opens_the_live_listing_on_shopee(): void
+    {
+        $this->linkedProduct('LIVELINK', 7003);
+        $this->product('NOLINK');
+
+        $this->actingAs($this->operator())->get(route('ext.shopee.products.index'))->assertOk()
+            ->assertSee('href="https://shopee.ph/product/2002/7003" target="_blank" rel="noopener">Shopee 7003', false)
+            ->assertSee('x-extlink', false);
+    }
+
     public function test_an_outcome_lands_on_the_store_it_was_about(): void
     {
         $one = ShopeeSetting::defaultStore();
