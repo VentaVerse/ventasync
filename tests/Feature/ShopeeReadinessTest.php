@@ -228,8 +228,9 @@ class ShopeeReadinessTest extends TestCase
         $r = $this->actingAs($this->manager())->get(route('ext.shopee.products.index'));
 
         $r->assertOk();
-        $r->assertSee('>Ready<', false);
-        $r->assertSee('Missing:');
+        // Only the bare product draws the amber line; a ready one draws nothing.
+        $this->assertSame(1, substr_count($r->getContent(), 'cc-err-row--warn'));
+        $r->assertSee('Needs details:');
         $r->assertSee('a Shopee category');
     }
 

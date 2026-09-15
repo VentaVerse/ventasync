@@ -299,7 +299,7 @@
         @endif
     </x-ui.empty>
 @else
-@php $colCount = 7 + ($canManageLazada ? 1 : 0); @endphp
+@php $colCount = 6 + ($canManageLazada ? 1 : 0); @endphp
 <x-ui.table id="lazada-listings-table">
     <x-slot:head>
         <tr>
@@ -331,7 +331,6 @@
                 </a>
             </th>
             <th scope="col" class="cc-col-price x-td-num">Price</th>
-            @include('partials.channel-ready-head')
             <th scope="col" class="cc-col-sync">
                 <a class="x-th-sort" href="{{ $sortUrl('lazada_status') }}">
                     Listing
@@ -381,6 +380,7 @@
             $rowLabel = $pName !== '' ? $pName : ($pSku !== '' ? $pSku : 'product ' . $pid);
         @endphp
         @include('partials.channel-error-row', ['error' => ($rowErrors ?? [])[(int) $pid] ?? null, 'cols' => $colCount])
+        @include('partials.channel-ready-row', ['state' => $rowState, 'cols' => $colCount])
         <tr>
             @if($canManageLazada)
             <td class="cc-col-check">
@@ -449,9 +449,6 @@
                 <x-money :php="(float) $row->price" />
             </td>
 
-            <td class="cc-col-ready" data-label="Ready">
-                @include('partials.channel-ready', ['state' => $rowState])
-            </td>
 
 
             <td class="cc-col-sync" data-label="Listing">
@@ -534,7 +531,7 @@
         </tr>
         @if($variationCount > 0)
             {{-- The variations as rows of this table, under the same headers (partials.channel-variation-rows). --}}
-            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManageLazada, 'trail' => ['cc-col-ready', 'cc-col-sync', 'x-td-actions']])
+            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManageLazada, 'trail' => ['cc-col-sync', 'x-td-actions']])
         @endif
     @endforeach
 </x-ui.table>

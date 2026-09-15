@@ -196,7 +196,7 @@
         </x-slot:action>
     </x-ui.empty>
 @else
-@php $colCount = 7 + ($canManage ? 1 : 0); @endphp
+@php $colCount = 6 + ($canManage ? 1 : 0); @endphp
 <x-ui.table id="venta-listings-table">
     <x-slot:head>
         <tr>
@@ -213,7 +213,6 @@
             <th scope="col"><a class="x-th-sort" href="{{ $sortUrl('product') }}">Product @if($sort === 'product')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif</a></th>
             <th scope="col" class="cc-col-qty x-td-num"><a class="x-th-sort x-th-sort--num" href="{{ $sortUrl('quantity') }}">Stock @if($sort === 'quantity')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif</a></th>
             <th scope="col" class="cc-col-price x-td-num"><a class="x-th-sort x-th-sort--num" href="{{ $sortUrl('price') }}">Price @if($sort === 'price')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif</a></th>
-            @include('partials.channel-ready-head')
             <th scope="col" class="cc-col-sync">Listing</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
@@ -237,6 +236,7 @@
             $listingUrl = route('ext.venta.listings.edit', [$setting->id, $pid, 'back' => request()->getRequestUri()]);
         @endphp
         @include('partials.channel-error-row', ['error' => $rowErrors[$pid] ?? null, 'cols' => $colCount])
+        @include('partials.channel-ready-row', ['state' => ($listingStates ?? [])[(int) $p->product_id] ?? null, 'cols' => $colCount])
         <tr>
             @if($canManage)
             <td class="cc-col-check">
@@ -268,9 +268,6 @@
             </td>
             <td class="cc-col-qty x-td-num" data-label="Stock"><span class="x-num">{{ (int) $p->quantity }}</span></td>
             <td class="cc-col-price x-td-num" data-label="Price"><x-money :php="(float) $p->price" /></td>
-            <td class="cc-col-ready" data-label="Ready">
-                @include('partials.channel-ready', ['state' => ($listingStates ?? [])[(int) $p->product_id] ?? null])
-            </td>
             <td class="cc-col-sync" data-label="Listing">
                 {{-- The engine's one state (partials.channel-listing-state), the
                      cell every other channel draws, since 2026-09-06. --}}
@@ -320,7 +317,7 @@
         </tr>
         @if($optRows && count($optRows) > 0)
             {{-- The variations as rows of this table, under the same headers (partials.channel-variation-rows). --}}
-            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManage, 'trail' => ['cc-col-ready', 'cc-col-sync', 'x-td-actions']])
+            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManage, 'trail' => ['cc-col-sync', 'x-td-actions']])
         @endif
     @endforeach
 </x-ui.table>

@@ -130,7 +130,7 @@
    beside the menu never runs past the table and makes it scroll sideways.
    Below 900px the bubble is a sheet across the screen instead. */
 @media (min-width: 900px) {
-    .lsm-layout__main .x-table :is(.cc-col-ready, .cc-col-sync) .bl-hint__bubble {
+    .lsm-layout__main .x-table .cc-col-sync .bl-hint__bubble {
         right: 0;
         left: auto;
     }

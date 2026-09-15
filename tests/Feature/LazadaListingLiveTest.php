@@ -1012,8 +1012,8 @@ class LazadaListingLiveTest extends TestCase
         $r->assertDontSee('>Failed<', false);
         // The group page draws the error line from the listing row; this
         // group's older attempt is not the product's story once the listing
-        // pushed, so no line is drawn.
-        $r->assertDontSee('cc-err-row', false);
+        // pushed, so no red line is drawn (the amber readiness line is another matter).
+        $r->assertDontSee('<tr class="cc-err-row">', false);
         $r->assertDontSee('Special characters');
     }
 
@@ -1265,7 +1265,8 @@ class LazadaListingLiveTest extends TestCase
 
         $r = $this->actingAs($this->manager())->get(route('ext.lazada.products.index'));
         $r->assertOk();
-        $r->assertSee('Missing:');
+        $r->assertSee('cc-err-row--warn', false);
+        $r->assertSee('Needs details:');
         $r->assertSee('a Lazada category');
         // No multi-tick push on the Listings page (the owner, 2026-09-06): many
         // products go up from a product group's page.

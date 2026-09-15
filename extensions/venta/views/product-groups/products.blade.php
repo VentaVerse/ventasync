@@ -142,7 +142,7 @@
         @endif
     </x-ui.empty>
 @else
-@php $colCount = 9 + ($canManageVenta ? 1 : 0); @endphp
+@php $colCount = 8 + ($canManageVenta ? 1 : 0); @endphp
 <x-ui.table>
     <x-slot:head>
         <tr>
@@ -161,7 +161,6 @@
             <th scope="col" class="cc-col-price x-td-num">Price</th>
             <th scope="col" class="cc-col-chanid">Venta ID</th>
             <th scope="col" class="cc-col-stat">Catalog</th>
-            @include('partials.channel-ready-head')
             <th scope="col" class="cc-col-sync">Push</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
@@ -204,6 +203,7 @@
             $meta = implode(' / ', $metaParts);
         @endphp
         @include('partials.channel-error-row', ['error' => $rowErrors[(int) $p->product_id] ?? null, 'cols' => $colCount])
+        @include('partials.channel-ready-row', ['state' => ($listingStates ?? [])[(int) $p->product_id] ?? null, 'cols' => $colCount])
         <tr>
             @if($canManageVenta)
             <td class="cc-col-check">
@@ -259,9 +259,6 @@
                 @else
                     <span class="x-cell-muted">Disabled</span>
                 @endif
-            </td>
-            <td class="cc-col-ready" data-label="Ready">
-                @include('partials.channel-ready', ['state' => ($listingStates ?? [])[(int) $p->product_id] ?? null])
             </td>
 
             <td class="cc-col-sync" data-label="Push">
@@ -339,7 +336,7 @@
         </tr>
         @if($variationCount > 0)
             {{-- The variations as rows of this table, under the same headers (partials.channel-variation-rows). --}}
-            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManageVenta, 'trail' => ['cc-col-chanid', 'cc-col-stat', 'cc-col-ready', 'cc-col-sync', 'x-td-actions']])
+            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManageVenta, 'trail' => ['cc-col-chanid', 'cc-col-stat', 'cc-col-sync', 'x-td-actions']])
         @endif
     @endforeach
 </x-ui.table>

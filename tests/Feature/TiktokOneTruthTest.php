@@ -107,7 +107,7 @@ class TiktokOneTruthTest extends TestCase
         $r->assertSee('tt-990077');
         $r->assertSee('Listed');
         $r->assertDontSee('>Failed<', false);
-        // The shared Readiness column, the same on every group page.
-        $r->assertSee('What Readiness means');
+        // Readiness is the shared line above a row, never a column of its own.
+        $r->assertDontSee('cc-col-ready', false);
     }
 }
