@@ -713,7 +713,7 @@ class ShopeeListingStateTest extends TestCase
         $user = $this->operator();
         $page = $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'listed_not_ready']))->assertOk();
         $page->assertSee('LISTGAP')->assertDontSee('LISTOK')->assertDontSee('NOTPUSHED')
-            ->assertSee('Listed, Needs details')->assertSee('class="x-segment-bar"', false);
+            ->assertSee('Needs details')->assertSee('class="x-segment-bar"', false);
         $this->assertMatchesRegularExpression('/sync_status=listed_not_ready[^>]*>\s*<span class="lsm-item__label">Needs details<\/span>\s*<span class="lsm-n">1</s', $page->getContent());
 
         $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'listed_ready']))->assertOk()

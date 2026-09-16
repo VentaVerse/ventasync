@@ -97,7 +97,7 @@ class TiktokListingStatusMenuTest extends TestCase
 
         $this->actingAs($user)->get(route('ext.tiktok.products.index', ['sync_status' => 'uploaded', 'failed' => 1]))
             ->assertOk()->assertSee('Listed but failed')->assertDontSee('Listed and fine')->assertDontSee('Not on TikTok yet')
-            ->assertSee('Listed · Push failed');
+            ->assertSee('Live on TikTok Shop · Push failed');
     }
 
     public function test_the_older_links_still_land_where_they_did(): void
@@ -106,7 +106,7 @@ class TiktokListingStatusMenuTest extends TestCase
         $user = $this->manager();
 
         $this->actingAs($user)->get(route('ext.tiktok.products.index', ['sync_status' => 'listed']))
-            ->assertOk()->assertSee('Listed and fine')->assertDontSee('Not on TikTok yet')->assertSee('products match: Listed', false);
+            ->assertOk()->assertSee('Listed and fine')->assertDontSee('Not on TikTok yet')->assertSee('products match: Live on TikTok Shop', false);
 
         $this->actingAs($user)->get(route('ext.tiktok.products.index', ['sync_status' => 'not_listed']))
             ->assertOk()->assertSee('Not on TikTok yet')->assertDontSee('Listed and fine');
@@ -131,7 +131,7 @@ class TiktokListingStatusMenuTest extends TestCase
 
         $page = $this->actingAs($user)->get(route('ext.tiktok.products.index', ['sync_status' => 'listed_not_ready']))->assertOk();
         $page->assertSee('Listed without a category')->assertDontSee('Listed and complete')->assertDontSee('Not on TikTok yet');
-        $page->assertSee('Listed, Needs details')->assertSee('class="x-segment-bar"', false);
+        $page->assertSee('Needs details')->assertSee('class="x-segment-bar"', false);
         $html = $page->getContent();
         $this->assertMatchesRegularExpression('/sync_status=listed_not_ready"[^>]*>\s*<span class="lsm-item__label">Needs details<\/span>\s*<span class="lsm-n">1</s', $html);
         $this->assertMatchesRegularExpression('/tiktok_tab=live"[^>]*>\s*<span>Live<\/span>\s*<span class="x-segment__count">1</s', $html, 'the tab counts only what the menu chose');

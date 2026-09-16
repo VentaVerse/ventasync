@@ -51,6 +51,18 @@ class LazadaProductController extends Controller
      */
     private function readyByProduct(): array
     {
+        return array_map(fn (array $codes) => $codes === [], $this->gapsByProduct());
+    }
+
+    /**
+     * The same answer, keeping its REASONS, so the menu can count causes.
+     * Lazada answers per LISTING row, so the row the engine judged is the
+     * one whose codes the product carries.
+     *
+     * @return array<int, list<string>>  product id => gap codes
+     */
+    private function gapsByProduct(): array
+    {
         $storeId = (int) (LazadaSetting::defaultStore()?->id ?? 0);
         $readiness = app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class);
 
@@ -63,13 +75,16 @@ class LazadaProductController extends Controller
 
             $out = [];
             foreach ($chosen as $productId => $row) {
-                $out[(int) $productId] = (bool) ($answers[(int) $row->id]['ready'] ?? false);
+                $r = $answers[(int) $row->id] ?? null;
+                $out[(int) $productId] = $r === null
+                    ? ['unknown']
+                    : array_values(array_map(fn ($gap) => (string) ($gap['code'] ?? ''), (array) ($r['gaps'] ?? [])));
             }
 
             return $out;
         };
 
-        $held = \Illuminate\Support\Facades\Cache::remember('lazada:ready-by-product:' . $storeId, 60, fn () => $answer());
+        $held = \Illuminate\Support\Facades\Cache::remember('lazada:gaps-by-product:' . $storeId, 60, fn () => $answer());
 
         /* A product that joined the store after the answer was held is
          * answered now, so it is never missing from both lists. */
@@ -244,6 +259,9 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         if ($syncStatus === 'error') {
             $syncStatus = 'all';
         }
+        /* One cause at a time: the menu counts WHY a product cannot go, and
+         * this is the address that choice lives at. */
+        $gapFilter = \App\Integrations\Listings\StatusMenu::cause($request->query('gap'));
         $groupFilter = (string) $request->query('group', 'all');
         $manufacturerFilter = (string) $request->query('manufacturer', 'all');
         $erpStatus = (string) $request->query('erp_status', 'all');
@@ -390,13 +408,25 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             return $query;
         };
 
+        /* A cause narrows the rows exactly as a status does: the products
+         * whose readiness answer carries that gap code. */
+        $gapMap = null;
+        $withGap = function ($query, string $code) use (&$gapMap) {
+            $gapMap ??= $this->gapsByProduct();
+            $matching = array_keys(array_filter($gapMap, fn ($codes) => in_array($code, $codes, true)));
+
+            return $query->whereIn('p.product_id', $matching ?: [0]);
+        };
+        $applyGap = fn ($query) => $gapFilter === 'all' ? $query : $withGap($query, $gapFilter);
+
         $errored = $this->states()->erroredProductIds();
         $changed = $this->states()->productIdsIn('drift');
 
         /* The status menu's choice, and the store's tab: each narrows the
          * rows, and each one's counts are taken under the other's choice. */
-        $applyMenu = function ($query) use ($applySync, $syncStatus, $failedFlag, $changeFlag, $errored, $changed) {
+        $applyMenu = function ($query) use ($applySync, $applyGap, $syncStatus, $failedFlag, $changeFlag, $errored, $changed) {
             $applySync($query, $syncStatus);
+            $applyGap($query);
             if ($failedFlag) {
                 /* The rows that draw an error line, by the line's own engine. */
                 $query->whereIn('p.product_id', $errored ?: [0]);
@@ -435,6 +465,21 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         }
         $menuCounts['failed'] = (clone $menuBase)->whereIn('p.product_id', $errored ?: [0])->count();
         $menuCounts['change'] = (clone $menuBase)->whereIn('p.product_id', $changed ?: [0])->count();
+        /* One number per cause, under everything chosen EXCEPT the cause
+         * itself, counted within the half it hangs under. */
+        $causeCounts = [];
+        foreach (['not_ready', 'listed_not_ready'] as $half) {
+            $halfBase = $applySync(clone $menuBase, $half);
+            if ($failedFlag) {
+                $halfBase->whereIn('p.product_id', $errored ?: [0]);
+            }
+            if ($changeFlag) {
+                $halfBase->whereIn('p.product_id', $changed ?: [0]);
+            }
+            foreach (array_keys(\App\Integrations\Listings\StatusMenu::CAUSES) as $code) {
+                $causeCounts[$half][$code] = $withGap(clone $halfBase, $code)->count();
+            }
+        }
 
         $tabBase = $applyMenu(clone $query);
         // The tab row's All: every row the menu has chosen, before a tab narrows it.
@@ -595,6 +640,10 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 'failed' => $failedFlag,
                 'change' => $changeFlag,
                 'counts' => $menuCounts,
+                'gap' => $gapFilter,
+                'causes' => $causeCounts,
+                // Live is a fact about a marketplace: a product is live ON somewhere.
+                'store' => 'Lazada',
             ]),
         ]);
     }

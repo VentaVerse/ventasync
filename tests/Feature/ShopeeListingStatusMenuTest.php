@@ -99,7 +99,7 @@ class ShopeeListingStatusMenuTest extends TestCase
 
         $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'uploaded', 'failed' => 1]))
             ->assertOk()->assertSee('Listed but failed')->assertDontSee('Listed and fine')->assertDontSee('Not on Shopee yet')
-            ->assertSee('Listed · Push failed');
+            ->assertSee('Live on Shopee · Push failed');
     }
 
     public function test_the_pages_older_links_still_land_where_they_did(): void

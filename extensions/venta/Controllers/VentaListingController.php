@@ -294,6 +294,9 @@ class VentaListingController extends Controller
         if ($syncStatus === 'error') {
             $syncStatus = 'all';
         }
+        /* One cause at a time: the menu counts WHY a product cannot go, and
+         * this is the address that choice lives at. */
+        $gapFilter = \App\Integrations\Listings\StatusMenu::cause($request->get('gap'));
         $tab = (string) $request->get('venta_tab', 'all');
         if (! array_key_exists($tab, VentaListingMirror::TABS)) {
             $tab = 'all';
@@ -400,13 +403,25 @@ class VentaListingController extends Controller
             return $query;
         };
 
+        /* A cause narrows the rows exactly as a status does: the products
+         * whose readiness answer carries that gap code. */
+        $gapMap = null;
+        $withGap = function ($query, string $code) use ($store, $scopeIds, &$gapMap) {
+            $gapMap ??= $this->gapsByProduct($store, $scopeIds);
+            $matching = array_keys(array_filter($gapMap, fn ($codes) => in_array($code, $codes, true)));
+
+            return $query->whereIn('p.product_id', $matching ?: [0]);
+        };
+        $applyGap = fn ($query) => $gapFilter === 'all' ? $query : $withGap($query, $gapFilter);
+
         $errored = $states->erroredProductIds();
         $changed = $states->productIdsIn('drift');
 
         /* The status menu's choice, and the store's tab: each narrows the
          * rows, and each one's counts are taken under the other's choice. */
-        $applyMenu = function ($query) use ($applySync, $syncStatus, $failedFlag, $changeFlag, $errored, $changed) {
+        $applyMenu = function ($query) use ($applySync, $applyGap, $syncStatus, $failedFlag, $changeFlag, $errored, $changed) {
             $applySync($query, $syncStatus);
+            $applyGap($query);
             if ($failedFlag) {
                 /* The rows that draw an error line, by the line's own engine. */
                 $query->whereIn('p.product_id', $errored ?: [0]);
@@ -453,6 +468,21 @@ class VentaListingController extends Controller
         }
         $menuCounts['failed'] = (clone $menuBase)->whereIn('p.product_id', $errored ?: [0])->count();
         $menuCounts['change'] = (clone $menuBase)->whereIn('p.product_id', $changed ?: [0])->count();
+        /* One number per cause, under everything chosen EXCEPT the cause
+         * itself, counted within the half it hangs under. */
+        $causeCounts = [];
+        foreach (['not_ready', 'listed_not_ready'] as $half) {
+            $halfBase = $applySync(clone $menuBase, $half);
+            if ($failedFlag) {
+                $halfBase->whereIn('p.product_id', $errored ?: [0]);
+            }
+            if ($changeFlag) {
+                $halfBase->whereIn('p.product_id', $changed ?: [0]);
+            }
+            foreach (array_keys(\App\Integrations\Listings\StatusMenu::CAUSES) as $code) {
+                $causeCounts[$half][$code] = $withGap(clone $halfBase, $code)->count();
+            }
+        }
 
         $tabBase = $applyMenu(clone $query);
         // The tab row's All products: every row the menu has chosen, before a tab narrows it.
@@ -528,6 +558,10 @@ class VentaListingController extends Controller
                 'failed' => $failedFlag,
                 'change' => $changeFlag,
                 'counts' => $menuCounts,
+                'gap' => $gapFilter,
+                'causes' => $causeCounts,
+                // Live is a fact about a store, so a multi-store channel names the store itself.
+                'store' => (string) $setting->store_name,
             ]),
         ]);
     }
@@ -545,16 +579,30 @@ class VentaListingController extends Controller
      */
     private function readyByProduct(int $store, array $productIds): array
     {
+        return array_map(fn (array $codes) => $codes === [], $this->gapsByProduct($store, $productIds));
+    }
+
+    /**
+     * The same answer, keeping its REASONS, so the menu can count causes
+     * rather than only how many products are short of something.
+     *
+     * @return array<int, list<string>>  product id => gap codes
+     */
+    private function gapsByProduct(int $store, array $productIds): array
+    {
         $answer = function (array $ids): array {
             $readiness = \Extensions\venta\Services\Venta\VentaListingReadiness::forProducts($ids);
             $out = [];
             foreach ($ids as $id) {
-                $out[(int) $id] = (bool) ($readiness[(int) $id]['ready'] ?? false);
+                $out[(int) $id] = array_values(array_map(
+                    fn ($gap) => (string) ($gap['code'] ?? ''),
+                    (array) ($readiness[(int) $id]['gaps'] ?? [])
+                ));
             }
 
             return $out;
         };
-        $held = \Illuminate\Support\Facades\Cache::remember('venta:ready-by-product:' . $store, 60, fn () => $answer($productIds));
+        $held = \Illuminate\Support\Facades\Cache::remember('venta:gaps-by-product:' . $store, 60, fn () => $answer($productIds));
         $missing = array_values(array_diff($productIds, array_keys($held)));
 
         return $missing === [] ? $held : $held + $answer($missing);

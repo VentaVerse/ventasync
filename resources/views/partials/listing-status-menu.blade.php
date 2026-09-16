@@ -21,6 +21,20 @@
                             <span class="lsm-item__label">{{ $kid['label'] }}</span>
                             <span class="lsm-n{{ $kid['tone'] ? ' lsm-n--' . $kid['tone'] : '' }}">{{ number_format($kid['count']) }}</span>
                         </a>
+                        {{-- Why those products are not eligible, under the line
+                             that counts them. A cause with nothing behind it is
+                             never drawn, so a store reads only its own troubles. --}}
+                        @if(($kid['causes'] ?? []) !== [])
+                            <div class="lsm-why">
+                                @foreach($kid['causes'] as $cause)
+                                    <a href="{{ $cause['url'] }}" class="lsm-item lsm-item--why{{ $cause['on'] ? ' is-active' : '' }}"
+                                       @if($cause['on']) aria-current="true" @endif>
+                                        <span class="lsm-item__label">{{ $cause['label'] }}</span>
+                                        <span class="lsm-n lsm-n--{{ $cause['tone'] }}">{{ number_format($cause['count']) }}</span>
+                                    </a>
+                                @endforeach
+                            </div>
+                        @endif
                     @endforeach
                 </div>
             @endif

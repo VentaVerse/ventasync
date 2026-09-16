@@ -94,7 +94,7 @@ class ListingStatusMenuTest extends TestCase
 
         $this->actingAs($user)->get(route('ext.lazada.products.index', ['sync_status' => 'uploaded', 'failed' => 1]))
             ->assertOk()->assertSee('Listed but failed')->assertDontSee('Listed and fine')->assertDontSee('Not on Lazada yet')
-            ->assertSee('Listed · Push failed');
+            ->assertSee('Live on Lazada · Push failed');
     }
 
     public function test_an_old_error_link_reads_as_push_failed_switched_on(): void
@@ -133,8 +133,8 @@ class ListingStatusMenuTest extends TestCase
         $this->assertStringContainsString('lazada_tab=active', $listed['url'], 'the store tab stays chosen');
         $this->assertStringNotContainsString('page=', $listed['url'], 'a new choice starts at the first page');
         $this->assertStringContainsString('failed=1', $listed['url'], 'the switch stays on when the tree moves');
-        $this->assertSame(['Ready to push', 'Needs details'], array_column($notListed['kids'], 'label'));
-        $this->assertSame(['Ready', 'Needs details'], array_column($listed['kids'], 'label'));
+        $this->assertSame(['Eligible', 'Needs details'], array_column($notListed['kids'], 'label'));
+        $this->assertSame(['Eligible', 'Needs details'], array_column($listed['kids'], 'label'));
         $this->assertSame([4, 2], array_column($listed['kids'], 'count'));
         $this->assertStringContainsString('sync_status=listed_not_ready', $listed['kids'][1]['url']);
         $this->assertStringNotContainsString('failed=1', $menu['flags'][0]['url'], 'pressing an on switch turns it off');
@@ -149,7 +149,7 @@ class ListingStatusMenuTest extends TestCase
         $user = $this->manager();
 
         $page = $this->actingAs($user)->get(route('ext.lazada.products.index', ['sync_status' => 'listed_not_ready']))->assertOk();
-        $page->assertSee('Listed and fine')->assertDontSee('Not on Lazada yet')->assertSee('Listed, Needs details');
+        $page->assertSee('Listed and fine')->assertDontSee('Not on Lazada yet')->assertSee('Live on Lazada, Needs details');
         $this->assertMatchesRegularExpression('/sync_status=listed_not_ready[^>]*>\s*<span class="lsm-item__label">Needs details<\/span>\s*<span class="lsm-n">[1-9]/s', $page->getContent());
 
         $this->actingAs($user)->get(route('ext.lazada.products.index', ['sync_status' => 'listed_not_ready', 'lazada_tab' => 'inactive']))

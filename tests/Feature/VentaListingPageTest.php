@@ -1111,7 +1111,7 @@ class VentaListingPageTest extends TestCase
         $this->assertDatabaseHas('venta_listings', ['venta_setting_id' => $store->id, 'product_id' => $nowhere]);
         $page = $this->actingAs($this->manager())->get(route('ext.venta.listings.index', $store->id))->assertOk();
         // Enabled with a SKU is all the store's push refuses on, so the Ready column says Ready (2026-09-06); the image is the store's to want.
-        $page->assertSee('>Ready<', false);
+        $page->assertSee('>Eligible<', false);
         $page->assertDontSee('a product image on the catalog product');
         $page->assertSee('Remove from this channel');
 

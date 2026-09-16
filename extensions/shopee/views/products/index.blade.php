@@ -26,6 +26,7 @@
     $hasFilters = $q !== ''
         || $syncStatus !== 'all'
         || ($shopeeTab ?? 'all') !== 'all'
+        || ($gapFilter ?? 'all') !== 'all'
         || ($failedFlag ?? false)
         || ($changeFlag ?? false)
         || $manufacturerFilter !== 'all'

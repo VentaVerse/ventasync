@@ -221,3 +221,45 @@ a.lsm-chanid:focus-visible {
 @media (prefers-reduced-motion: reduce) {
     .lsm-item { transition: none; }
 }
+
+/* WHAT IS MISSING: one line per cause, under the tree that chose the rows.
+   Subordinate to a rung by size and weight, because a cause narrows what a
+   rung has already decided; the count is what the eye comes for, so the
+   label wraps rather than pushing the figure out of its column. */
+.lsm-item--why {
+    min-height: 27px;
+    padding-block: 4px;
+    font-size: 12.5px;
+    font-weight: 500;
+}
+
+.lsm-item--why .lsm-item__label {
+    white-space: normal;
+    line-height: 1.3;
+}
+
+@media (max-width: 1000px) {
+    .lsm-item--why .lsm-item__label { white-space: nowrap; }
+}
+
+/* The causes hang off the Needs details they explain, one step deeper than
+   a half's own parts, on the same hairline the kids use. Nesting is what
+   keeps "what is missing" from reading as a second idea: it is the same
+   idea, itemised. */
+.lsm-why {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    margin: 1px 0 4px 14px;
+    padding-left: 8px;
+    border-left: 1px solid var(--bl-rule-2);
+}
+
+@media (max-width: 1000px) {
+    .lsm-why {
+        flex-direction: row;
+        gap: 6px;
+        margin: 0;
+        padding-left: 6px;
+    }
+}

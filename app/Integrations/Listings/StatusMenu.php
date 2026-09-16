@@ -17,14 +17,66 @@ namespace App\Integrations\Listings;
  */
 final class StatusMenu
 {
-    public const TREE = ['all' => 'All', 'not_uploaded' => 'Not listed', 'uploaded' => 'Listed'];
+    /**
+     * The store's name rides the two halves, because "Live" is a fact about
+     * a marketplace and not about us: a product is live ON somewhere.
+     */
+    public const TREE = ['all' => 'All', 'not_uploaded' => 'Not live on %s', 'uploaded' => 'Live on %s'];
 
-    public const NOT_LISTED_PARTS = ['ready' => 'Ready to push', 'not_ready' => 'Needs details'];
+    /**
+     * ELIGIBLE, not Ready.
+     *
+     * Ready promises an action still to come, which is true before a product
+     * goes up and false the moment it is selling. The check underneath never
+     * changed: does this listing hold everything the store demands. Before it
+     * is live that decides whether it may go; after it is live it decides
+     * whether an update would be accepted. Eligible carries both.
+     */
+    public const NOT_LISTED_PARTS = ['ready' => 'Eligible', 'not_ready' => 'Needs details'];
 
-    public const LISTED_PARTS = ['listed_ready' => 'Ready', 'listed_not_ready' => 'Needs details'];
+    public const LISTED_PARTS = ['listed_ready' => 'Eligible', 'listed_not_ready' => 'Needs details'];
 
     /** Every sync_status value the tree answers to. */
     public const VALUES = ['all', 'not_uploaded', 'ready', 'not_ready', 'uploaded', 'listed_ready', 'listed_not_ready'];
+
+    /**
+     * WHY a product cannot go, in the words a column of counts can carry.
+     *
+     * The codes are ListingState's; the labels here are short on purpose.
+     * A row's amber line spells the whole sentence ("a package weight and
+     * size (LxWxH) on the catalog product") because it is teaching one
+     * product's reader what to do. A menu line is a heading over a count,
+     * read down a column beside eleven others, and the sentence is what
+     * made "Needs details" unreadable in the first place.
+     *
+     * One list for all five channels: a channel that cannot have a cause
+     * simply never counts it, and a channel that gains one gains the line
+     * in the same place on every store.
+     *
+     * The order is the fallback when two causes hold the same number; the
+     * menu itself leads with whichever holds the most products, because
+     * that is the one worth an operator's afternoon.
+     */
+    public const CAUSES = [
+        ListingState::GAP_DISABLED => 'Disabled in the catalog',
+        ListingState::GAP_PARCEL => 'Package weight and size',
+        ListingState::GAP_SKU => 'SKU',
+        ListingState::GAP_CATEGORY => 'Category',
+        ListingState::GAP_ATTRIBUTES => 'Category attributes',
+        ListingState::GAP_SHEET => 'Category attribute sheet',
+        ListingState::GAP_COURIERS => 'Couriers',
+        ListingState::GAP_IMAGE => 'Product image',
+        ListingState::GAP_NAME => 'Name',
+        ListingState::GAP_DESCRIPTION => 'Description',
+        ListingState::GAP_PRICE => 'Price',
+        ListingState::GAP_VARIATIONS => 'Variations',
+    ];
+
+    /** The gap code a `gap=` address may carry, or 'all' when it names none we know. */
+    public static function cause(?string $candidate): string
+    {
+        return is_string($candidate) && array_key_exists($candidate, self::CAUSES) ? $candidate : 'all';
+    }
 
     /**
      * @param  array{
@@ -70,19 +122,48 @@ final class StatusMenu
             'url' => $to(['sync_status' => $key === 'all' ? null : $key]), 'active' => $active, 'parent' => $parent, 'kids' => $kids, 'meta' => null,
         ];
 
-        $kids = function (array $parts) use ($entry, $sync) {
+        /* WHY a product is not eligible, hanging off the Needs details it
+         * explains. It was a block of its own for one afternoon and read as
+         * the same idea twice: Needs details IS what is missing, so the
+         * causes belong under it, counted within that half. */
+        $order = array_flip(array_keys(self::CAUSES));
+        $gap = self::cause($spec['gap'] ?? null);
+        $causesFor = function (string $key) use ($spec, $order, $gap, $to): array {
+            $out = [];
+            foreach ((array) ($spec['causes'][$key] ?? []) as $code => $count) {
+                $label = self::CAUSES[$code] ?? null;
+                if ($label === null || (int) $count < 1) {
+                    continue;
+                }
+                $on = $gap === $code;
+                $out[] = [
+                    'key' => $code, 'label' => $label, 'count' => (int) $count, 'tone' => 'attn', 'on' => $on,
+                    'url' => $to(['sync_status' => $key, 'gap' => $on ? null : $code]),
+                ];
+            }
+            usort($out, fn ($a, $b) => [$b['count'], $order[$a['key']]] <=> [$a['count'], $order[$b['key']]]);
+
+            return $out;
+        };
+
+        $kids = function (array $parts) use ($entry, $sync, $causesFor) {
             $out = [];
             foreach ($parts as $key => $label) {
-                $out[] = $entry($key, $label, $sync === $key, str_ends_with($key, 'not_ready') ? '' : 'good');
+                $kid = $entry($key, $label, $sync === $key, str_ends_with($key, 'not_ready') ? '' : 'good');
+                $kid['causes'] = str_ends_with($key, 'not_ready') ? $causesFor($key) : [];
+                $out[] = $kid;
             }
 
             return $out;
         };
 
+        $store = trim((string) ($spec['store'] ?? '')) ?: 'the store';
+        $half = fn (string $key) => sprintf(self::TREE[$key], $store);
+
         $tree = [
             $entry('all', self::TREE['all'], $sync === 'all'),
-            $entry('not_uploaded', self::TREE['not_uploaded'], $sync === 'not_uploaded', '', isset(self::NOT_LISTED_PARTS[$sync]), $kids(self::NOT_LISTED_PARTS)),
-            $entry('uploaded', self::TREE['uploaded'], $sync === 'uploaded', '', isset(self::LISTED_PARTS[$sync]), $kids(self::LISTED_PARTS)),
+            $entry('not_uploaded', $half('not_uploaded'), $sync === 'not_uploaded', '', isset(self::NOT_LISTED_PARTS[$sync]), $kids(self::NOT_LISTED_PARTS)),
+            $entry('uploaded', $half('uploaded'), $sync === 'uploaded', '', isset(self::LISTED_PARTS[$sync]), $kids(self::LISTED_PARTS)),
         ];
 
         $flags = [
@@ -94,17 +175,21 @@ final class StatusMenu
 
         $parts = [];
         if (isset(self::NOT_LISTED_PARTS[$sync])) {
-            $parts[] = self::TREE['not_uploaded'] . ', ' . self::NOT_LISTED_PARTS[$sync];
+            $parts[] = $half('not_uploaded') . ', ' . self::NOT_LISTED_PARTS[$sync];
         } elseif (isset(self::LISTED_PARTS[$sync])) {
-            $parts[] = self::TREE['uploaded'] . ', ' . self::LISTED_PARTS[$sync];
+            $parts[] = $half('uploaded') . ', ' . self::LISTED_PARTS[$sync];
         } elseif ($sync !== 'all') {
-            $parts[] = self::TREE[$sync] ?? $sync;
+            $parts[] = isset(self::TREE[$sync]) ? $half($sync) : $sync;
         }
         if ($failed) {
             $parts[] = 'Push failed';
         }
         if ($change) {
             $parts[] = 'Catalog change';
+        }
+
+        if ($gap !== 'all') {
+            $parts[] = self::CAUSES[$gap];
         }
 
         return ['tree' => $tree, 'flags' => $flags, 'label' => $parts === [] ? null : implode(' · ', $parts)];

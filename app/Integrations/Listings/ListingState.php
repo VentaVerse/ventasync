@@ -141,6 +141,9 @@ final class ListingState
     /** The Ready column's badge: [label, tone]. */
     public function readyBadge(): array
     {
-        return $this->ready ? ['Ready', 'success'] : ['Not ready', 'warning'];
+        /* Not "Ready": a product already selling is past readiness, and the
+           same check then answers whether the store would still accept it.
+           Eligible carries both states without lying in either. */
+        return $this->ready ? ['Eligible', 'success'] : ['Needs details', 'warning'];
     }
 }

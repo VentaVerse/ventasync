@@ -178,7 +178,7 @@ class TiktokListingsTest extends TestCase
         $r->assertSee('Live');                        // tt-live, from the mirror
         $r->assertSee('Not found on TikTok Shop');    // tt-gone, from the mirror
         $r->assertSee('Not checked yet');             // tt-new, never refreshed
-        $r->assertSee('>Ready<', false);
+        $r->assertSee('>Eligible<', false);
         // The bare record inherits its group's category (a group is a preset
         // the product inherits, 2026-09-05), so nothing here lacks one.
         $r->assertDontSee('Missing: a TikTok category');

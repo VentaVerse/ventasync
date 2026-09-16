@@ -49,16 +49,34 @@ class ShopeeProductController extends Controller
      */
     private function readyByProduct(): array
     {
+        return array_map(fn (array $codes) => $codes === [], $this->gapsByProduct());
+    }
+
+    /**
+     * The same answer, keeping its REASONS.
+     *
+     * Ready was cached as a bare yes or no, which is why the page could say
+     * "102 need details" and not which details. The menu counts causes now -
+     * a package size, a disabled catalog product - so the codes are what is
+     * held, and ready is simply "no codes".
+     *
+     * @return array<int, list<string>>  product id => gap codes
+     */
+    private function gapsByProduct(): array
+    {
         $storeId = (int) (ShopeeSetting::defaultStore()?->id ?? 0);
         $readiness = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class);
         $storeIds = fn (): array => DB::query()->fromSub(ShopeeStoreProducts::query(), 'os')
             ->pluck('os.product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
         $answer = fn (array $productIds): array => $productIds === [] ? [] : array_map(
-            fn ($r) => (bool) $r['ready'],
+            fn ($r) => array_values(array_map(
+                fn ($gap) => (string) ($gap['code'] ?? ''),
+                (array) ($r['gaps'] ?? [])
+            )),
             $readiness->forProducts($productIds)
         );
 
-        $held = \Illuminate\Support\Facades\Cache::remember('shopee:ready-by-product:' . $storeId, 60,
+        $held = \Illuminate\Support\Facades\Cache::remember('shopee:gaps-by-product:' . $storeId, 60,
             fn () => $answer($storeIds()));
 
         /* A product that joined the store after the answer was held is
@@ -86,6 +104,10 @@ class ShopeeProductController extends Controller
         if ($syncStatus === 'error') {
             $syncStatus = 'all';
         }
+        /* One cause at a time: the menu counts WHY a product cannot go, and
+         * this is the address that choice lives at, so it survives a reload
+         * and can be shared like every other filter on this page. */
+        $gapFilter = \App\Integrations\Listings\StatusMenu::cause($request->get('gap'));
         $manufacturerFilter = (string) $request->get('manufacturer', 'all');
         $groupFilter = (string) $request->get('group', 'all');
         $erpStatus = (string) $request->get('erp_status', 'all');
@@ -284,13 +306,24 @@ class ShopeeProductController extends Controller
             return $query;
         };
 
+        /* A cause narrows the rows exactly as a status does: the products
+         * whose readiness answer carries that gap code. */
+        $gapsByProduct = $this->gapsByProduct();
+        $withGap = function ($query, string $code) use ($gapsByProduct) {
+            $matching = array_keys(array_filter($gapsByProduct, fn ($codes) => in_array($code, $codes, true)));
+
+            return $query->whereIn('p.product_id', $matching ?: [0]);
+        };
+        $applyGap = fn ($query) => $gapFilter === 'all' ? $query : $withGap($query, $gapFilter);
+
         $errored = $this->listingStates()->erroredProductIds();
         $changed = $this->listingStates()->productIdsIn('drift');
 
         /* The status menu's choice, and the store's tab: each narrows the
          * rows, and each one's counts are taken under the other's choice. */
-        $applyMenu = function ($query) use ($applySync, $syncStatus, $failedFlag, $changeFlag, $errored, $changed) {
+        $applyMenu = function ($query) use ($applySync, $applyGap, $syncStatus, $failedFlag, $changeFlag, $errored, $changed) {
             $applySync($query, $syncStatus);
+            $applyGap($query);
             if ($failedFlag) {
                 // Exactly the rows that carry an error line.
                 $query->whereIn('p.product_id', $errored ?: [0]);
@@ -342,6 +375,27 @@ class ShopeeProductController extends Controller
         }
         $menuCounts['failed'] = (clone $menuBase)->whereIn('p.product_id', $errored ?: [0])->count();
         $menuCounts['change'] = (clone $menuBase)->whereIn('p.product_id', $changed ?: [0])->count();
+        /* One number per cause, under everything chosen EXCEPT the cause
+         * itself, so the line and the list it leads to always agree and the
+         * other causes keep their own numbers while one is chosen.
+         *
+         * The rung above matters: Listed, Ready is by definition the
+         * products with nothing missing, so its causes are empty and the
+         * whole block goes. Counting under the tab alone left "Package
+         * weight and size 98" sitting under a rung that cannot contain it. */
+        $causeCounts = [];
+        foreach (['not_ready', 'listed_not_ready'] as $half) {
+            $halfBase = $applySync(clone $menuBase, $half);
+            if ($failedFlag) {
+                $halfBase->whereIn('p.product_id', $errored ?: [0]);
+            }
+            if ($changeFlag) {
+                $halfBase->whereIn('p.product_id', $changed ?: [0]);
+            }
+            foreach (array_keys(\App\Integrations\Listings\StatusMenu::CAUSES) as $code) {
+                $causeCounts[$half][$code] = $withGap(clone $halfBase, $code)->count();
+            }
+        }
 
         $tabBase = $applyTrouble($applyMenu(clone $query));
         // The tab row's All: every row the menu has chosen, before a tab narrows it.
@@ -507,6 +561,10 @@ class ShopeeProductController extends Controller
                 'failed' => $failedFlag,
                 'change' => $changeFlag,
                 'counts' => $menuCounts,
+                'gap' => $gapFilter,
+                'causes' => $causeCounts,
+                // Live is a fact about a marketplace: a product is live ON somewhere.
+                'store' => 'Shopee',
             ]),
         ]);
     }

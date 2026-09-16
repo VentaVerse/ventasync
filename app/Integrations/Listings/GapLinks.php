@@ -98,7 +98,7 @@ final class GapLinks
 
         $words = self::words($rest);
         if ($disabled) {
-            return ($isLive ? 'Push update' : 'Not ready for ' . $channel) . ': the ' . CatalogGaps::DISABLED_LABEL
+            return ($isLive ? 'Push update' : 'Not eligible for ' . $channel) . ': the ' . CatalogGaps::DISABLED_LABEL
                 . ($words !== '' ? ', and it needs ' . $words : '') . '.';
         }
         if ($words === '') {
@@ -107,7 +107,7 @@ final class GapLinks
 
         return $isLive
             ? 'Push update needs ' . $words . '.'
-            : 'Not ready for ' . $channel . ': it needs ' . $words . '.';
+            : 'Not eligible for ' . $channel . ': it needs ' . $words . '.';
     }
 
     /**

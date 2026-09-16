@@ -126,7 +126,7 @@ class VentaListingsIndexTest extends TestCase
         $this->assertMatchesRegularExpression('/<span>All products<\/span>\s*<span class="x-segment__count">3<\/span>/', $html);
         $this->assertStringNotContainsString('<span class="lsm-item__label">Active</span>', $html);
         $this->assertMatchesRegularExpression('/<span class="lsm-item__label">All<\/span>\s*<span class="lsm-n">3<\/span>/', $html);
-        $this->assertMatchesRegularExpression('/<span class="lsm-item__label">Listed<\/span>\s*<span class="lsm-n">2<\/span>/', $html);
+        $this->assertMatchesRegularExpression('/<span class="lsm-item__label">Live on Gear Depot<\/span>\s*<span class="lsm-n">2<\/span>/', $html);
         $this->assertStringContainsString('<span class="co-item__sku lsm-chanid">Venta 11</span>', $html);
         $this->assertStringContainsString('class="x-segment-group__refresh"', $html);
         $this->assertStringNotContainsString('class="cc-head-refresh"', $html);
@@ -153,13 +153,13 @@ class VentaListingsIndexTest extends TestCase
 
         $this->actingAs($user)->get(route('ext.venta.listings.index', ['store' => $store->id, 'sync_status' => 'uploaded', 'failed' => 1]))->assertOk()
             ->assertSee('Active pedal')->assertDontSee('Unlisted pedal')->assertDontSee('New pedal')
-            ->assertSee('matches: Listed · Push failed', false);
+            ->assertSee('matches: Live on Gear Depot · Push failed', false);
 
         $this->actingAs($user)->get(route('ext.venta.listings.index', ['store' => $store->id, 'sync_status' => 'not_listed']))->assertOk()
             ->assertSee('New pedal')->assertDontSee('Active pedal')->assertDontSee('Unlisted pedal');
 
         $this->actingAs($user)->get(route('ext.venta.listings.index', ['store' => $store->id, 'sync_status' => 'ready']))->assertOk()
-            ->assertSee('New pedal')->assertDontSee('Active pedal')->assertSee('Not listed, Ready to push');
+            ->assertSee('New pedal')->assertDontSee('Active pedal')->assertSee('Not live on Gear Depot, Eligible');
         Http::assertNothingSent();
     }
 
@@ -177,7 +177,7 @@ class VentaListingsIndexTest extends TestCase
         $html = $this->actingAs($user)->get(route('ext.venta.listings.index', ['store' => $store->id, 'sync_status' => 'listed_not_ready']))
             ->assertOk()
             ->assertSee('Unlisted pedal')->assertDontSee('Active pedal')->assertDontSee('New pedal')
-            ->assertSee('Listed, Needs details')
+            ->assertSee('Needs details')
             ->assertSee('class="x-segment-bar"', false)
             ->getContent();
         $this->assertMatchesRegularExpression('/sync_status=listed_not_ready[^>]*>\s*<span class="lsm-item__label">Needs details<\/span>\s*<span class="lsm-n">1<\/span>/s', $html);
