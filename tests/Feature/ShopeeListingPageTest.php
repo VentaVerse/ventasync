@@ -427,6 +427,34 @@ class ShopeeListingPageTest extends TestCase
         $this->assertCount(3, $seen, 'Every picture is uploaded before the update names it.');
     }
 
+    /**
+     * One verb, three calls. Shopee's update_item carries no price and no
+     * stock, so a send that stopped there left both figures behind on the
+     * live item while the flash said it had gone. Send makes the other two
+     * calls itself, because the API's shape is ours to absorb.
+     */
+    public function test_send_carries_the_price_and_the_stock_not_only_the_content(): void
+    {
+        $productId = $this->seedProduct();
+        ShopeeProductLink::query()->create([
+            'product_id' => $productId, 'shopee_item_id' => 990079, 'sku' => 'LSTP-SKU-1',
+        ]);
+        ShopeeListing::query()->create([
+            'product_id' => $productId, 'shopee_setting_id' => (int) ShopeeSetting::query()->value('id'),
+            'shopee_category_id' => 100013, 'logistic_ids' => [8003],
+        ]);
+        $this->getResponses['/api/v2/product/get_item_base_info'] = $this->baseInfoAnswer();
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.listings.push_update', $productId))
+            ->assertRedirect();
+
+        $paths = collect($this->sentPayloads)->pluck('path')->all();
+        $this->assertContains('/api/v2/product/update_item', $paths, 'the content still goes');
+        $this->assertContains('/api/v2/product/update_price', $paths, 'the price goes with it');
+        $this->assertContains('/api/v2/product/update_stock', $paths, 'the stock goes with it');
+    }
+
     /** A save keeps the way back to the search, so Cancel still returns to it. */
     public function test_a_save_keeps_the_way_back_to_the_search(): void
     {

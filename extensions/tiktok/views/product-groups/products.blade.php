@@ -133,10 +133,8 @@
 @php
     $gf = ['_return' => $returnTo];
     $bulk = ['group' => true,
-        'push' => ['action' => route('ext.tiktok.product-groups.push', $group->id), 'label' => 'Push to TikTok Shop', 'fields' => $gf, 'confirm' => 'Push the selected products to TikTok Shop with this product group\'s settings? Anything already pushed is skipped.'],
-        'update' => ['action' => route('ext.tiktok.product-groups.updateProduct', $group->id), 'label' => 'Update on TikTok Shop', 'fields' => $gf, 'confirm' => 'Update the selected products on TikTok Shop with this product group\'s settings? Anything not yet on TikTok Shop is skipped.'],
-        'stock' => ['action' => route('ext.tiktok.product-groups.pushStock', $group->id), 'fields' => $gf],
-        'prices' => ['action' => route('ext.tiktok.product-groups.pushPrices', $group->id), 'fields' => $gf],
+        'push' => ['action' => route('ext.tiktok.product-groups.push', $group->id), 'label' => 'Send to TikTok Shop', 'fields' => $gf, 'confirm' => 'Send the selected products to TikTok Shop with this product group\'s settings? Anything already sent is skipped.'],
+        'update' => ['action' => route('ext.tiktok.product-groups.updateProduct', $group->id), 'label' => 'Send to TikTok Shop', 'fields' => $gf, 'confirm' => 'Update the selected products on TikTok Shop with this product group\'s settings? Anything not yet on TikTok Shop is skipped.'],
         'link' => ['action' => route('ext.tiktok.product-groups.check', $group->id), 'label' => 'Link IDs', 'fields' => $gf],
         'switch' => [
             ['action' => route('ext.tiktok.products.bulk_toggle'), 'field' => 'product_ids[]', 'verb' => 'deactivate', 'codes' => 'ACTIVATE', 'label' => 'Deactivate :n on TikTok Shop', 'button' => 'Deactivate on TikTok Shop', 'fields' => ['action' => 'deactivate'], 'confirm' => 'Deactivate the selected products on TikTok Shop? Buyers stop seeing them. They can be activated again at any time.'],
@@ -313,15 +311,13 @@
                     $menu = ['label' => "Product {$p->product_id} actions", 'store' => 'TikTok Shop', 'catalog' => $canEditCatalog ? route('products.edit', $p->product_id) : null];
                     // Every push from this page rides the GROUP's rule (the owner, 2026-09-07).
                     if (!$listed && !$isUnlinked) {
-                        $menu['push'] = ['action' => route('ext.tiktok.product-groups.push', $group->id), 'label' => 'Push to TikTok Shop', 'fields' => $gf];
+                        $menu['push'] = ['action' => route('ext.tiktok.product-groups.push', $group->id), 'label' => 'Send to TikTok Shop', 'fields' => $gf];
                         $menu['link'] = ['action' => route('ext.tiktok.product-groups.syncId', [$group->id, $p->product_id]), 'fields' => ['_return' => $returnTo]];
                     } elseif ($isUnlinked) {
                         $menu['link'] = ['action' => route('ext.tiktok.product-groups.linkProduct', [$group->id, $p->product_id]), 'fields' => ['_return' => $returnTo]];
                     }
                     if ($listed) {
-                        $menu['update'] = ['action' => route('ext.tiktok.product-groups.updateProduct', $group->id), 'label' => 'Update on TikTok Shop', 'fields' => $gf];
-                        $menu['stock'] = ['action' => route('ext.tiktok.product-groups.pushStock', $group->id), 'fields' => $gf];
-                        $menu['price'] = ['action' => route('ext.tiktok.product-groups.pushPrices', $group->id), 'fields' => $gf];
+                        $menu['update'] = ['action' => route('ext.tiktok.product-groups.updateProduct', $group->id), 'label' => 'Send to TikTok Shop', 'fields' => $gf];
                         if ($canToggleListing && $rowState?->state === $stateClass::LIVE) {
                             $menu['switch'] = ['action' => route('ext.tiktok.listings.toggle', $p->product_id), 'label' => 'Deactivate on TikTok Shop', 'fields' => ['action' => 'deactivate'], 'confirm' => "Deactivate {$pName} on TikTok Shop? Buyers stop seeing it. It can be activated again at any time.", 'verb' => 'Deactivate'];
                         } elseif ($canToggleListing && $rowState?->state === $stateClass::INACTIVE) {

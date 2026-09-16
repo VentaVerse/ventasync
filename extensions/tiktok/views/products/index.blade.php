@@ -176,14 +176,12 @@
     $bulk = [
         /* Multi-tick push (2026-09-09): each ticked product goes up on
            its own settings and reports for itself. */
-        'push' => ['action' => route('ext.tiktok.products.bulk_push'), 'label' => 'Push to TikTok Shop',
-            'confirm' => 'Push the selected products to TikTok Shop? Each goes up on its own settings, and anything not ready is named rather than sent.'],
+        'push' => ['action' => route('ext.tiktok.products.bulk_push'), 'label' => 'Send to TikTok Shop',
+            'confirm' => 'Send the selected products to TikTok Shop? Each goes up on its own settings, and anything not ready is named rather than sent.'],
         'switch' => [
             ['action' => route('ext.tiktok.products.bulk_toggle'), 'verb' => 'deactivate', 'codes' => 'ACTIVATE', 'label' => 'Deactivate :n on TikTok Shop', 'button' => 'Deactivate on TikTok Shop', 'fields' => ['action' => 'deactivate'], 'confirm' => 'Deactivate the selected products on TikTok Shop? Buyers stop seeing them. They can be activated again at any time.'],
             ['action' => route('ext.tiktok.products.bulk_toggle'), 'verb' => 'activate', 'codes' => 'SELLER_DEACTIVATED', 'label' => 'Activate :n on TikTok Shop', 'button' => 'Activate on TikTok Shop', 'fields' => ['action' => 'activate'], 'confirm' => 'Activate the selected products on TikTok Shop? Buyers see them again once TikTok applies it.'],
         ],
-        'stock' => ['action' => route('ext.tiktok.products.bulk_push_stock')],
-        'prices' => ['action' => route('ext.tiktok.products.bulk_push_price')],
         'link' => ['action' => route('ext.tiktok.products.check'), 'label' => 'Link IDs'],
         'delete' => ['action' => route('ext.tiktok.products.bulk_delete'), 'label' => 'Delete from TikTok Shop', 'confirm' => 'Delete the selected products from TikTok Shop? They are removed at the marketplace and this cannot be undone.'],
         'remove' => ['action' => route('ext.tiktok.products.bulk_remove_from_store'), 'label' => 'Remove from this channel', 'confirm' => 'Remove the selected products from this channel? They leave this store\'s list and stop syncing. Anything already on TikTok Shop stays up until you delete it there.'],
@@ -340,12 +338,10 @@
                     ];
                     if ($canManage) {
                         if (!$listed) {
-                            $menu['push'] = ['href' => route('ext.tiktok.listings.edit', [$pid, 'back' => request()->getRequestUri()]), 'label' => 'Push to TikTok Shop'];
+                            $menu['push'] = ['href' => route('ext.tiktok.listings.edit', [$pid, 'back' => request()->getRequestUri()]), 'label' => 'Send to TikTok Shop'];
                             $menu['link'] = ['action' => route('ext.tiktok.products.check'), 'fields' => ['product_ids[]' => $pid]];
                         } else {
-                            $menu['update'] = ['action' => route('ext.tiktok.listings.push_update', $pid), 'label' => 'Update on TikTok Shop', 'confirm' => "Push this listing's content and settings onto the live TikTok Shop product? Title, description, package, category, brand, attributes, price and stock are updated.", 'verb' => 'Push update', 'tone' => 'primary'];
-                            $menu['stock'] = route('ext.tiktok.products.push_stock', $pid);
-                            $menu['price'] = route('ext.tiktok.products.push_price', $pid);
+                            $menu['update'] = ['action' => route('ext.tiktok.listings.push_update', $pid), 'label' => 'Send to TikTok Shop', 'confirm' => "Send this listing's content and settings to the live TikTok Shop product? Title, description, package, category, brand, attributes, price and stock are updated.", 'verb' => 'Send', 'tone' => 'primary'];
                             if ($rowState?->state === $stateClass::LIVE) {
                                 $menu['switch'] = ['action' => route('ext.tiktok.listings.toggle', $pid), 'label' => 'Deactivate on TikTok Shop', 'fields' => ['action' => 'deactivate'], 'confirm' => 'Deactivate this product on TikTok Shop? Buyers stop seeing it. It can be activated again at any time.', 'verb' => 'Deactivate'];
                             } elseif ($rowState?->state === $stateClass::INACTIVE) {

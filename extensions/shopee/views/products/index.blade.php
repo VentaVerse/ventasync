@@ -181,14 +181,12 @@
     $bulk = [
         /* Multi-tick push, back on 2026-09-09: each ticked product goes up
            on its own settings and reports for itself. */
-        'push' => ['action' => route('ext.shopee.products.bulk_push'), 'label' => 'Push to Shopee',
-            'confirm' => 'Push the selected products to Shopee? Each goes up on its own settings, and anything not ready is named rather than sent.'],
+        'push' => ['action' => route('ext.shopee.products.bulk_push'), 'label' => 'Send to Shopee',
+            'confirm' => 'Send the selected products to Shopee? Each goes up on its own settings, and anything not ready is named rather than sent.'],
         'switch' => [
             ['action' => route('ext.shopee.products.bulk_toggle'), 'verb' => 'unlist', 'codes' => 'NORMAL', 'label' => 'Delist :n from Shopee', 'button' => 'Delist from Shopee', 'fields' => ['action' => 'unlist'], 'confirm' => 'Delist the selected items from Shopee? Buyers stop seeing them immediately. They stay here and can be published again at any time.'],
             ['action' => route('ext.shopee.products.bulk_toggle'), 'verb' => 'list', 'codes' => 'UNLIST', 'label' => 'Publish :n on Shopee', 'button' => 'Publish on Shopee', 'fields' => ['action' => 'list'], 'confirm' => 'Publish the selected items on Shopee? Buyers see them again immediately.'],
         ],
-        'stock' => ['action' => route('ext.shopee.products.bulk_sync_quantity')],
-        'prices' => ['action' => route('ext.shopee.products.bulk_sync_price')],
         'link' => ['action' => route('ext.shopee.products.check'), 'label' => 'Link IDs'],
         'delete' => ['action' => route('ext.shopee.products.bulk_delete'), 'label' => 'Delete from Shopee', 'confirm' => 'Delete the selected products from Shopee? The listings are removed at the marketplace and this cannot be undone.'],
         'remove' => ['action' => route('ext.shopee.products.bulk_remove_from_store'), 'label' => 'Remove from this channel', 'confirm' => 'Remove the selected products from this channel? They leave this store\'s list and stop syncing. Anything already on Shopee stays up until you delete it there.'],
@@ -400,13 +398,11 @@
                             // One push, and it opens the listing page first when
                             // something is missing (#149); ready rows push at once.
                             $menu['push'] = ($rowState?->ready ?? false)
-                                ? ['action' => route('ext.shopee.products.push_direct', $p->product_id), 'label' => 'Push to Shopee', 'attrs' => ['data-push-review' => route('ext.shopee.products.push_review', $p->product_id)]]
-                                : ['href' => route('ext.shopee.listings.edit', [$p->product_id, 'back' => request()->getRequestUri()]), 'label' => 'Push to Shopee', 'title' => 'Not ready yet - the listing page names what is still missing'];
+                                ? ['action' => route('ext.shopee.products.push_direct', $p->product_id), 'label' => 'Send to Shopee', 'attrs' => ['data-push-review' => route('ext.shopee.products.push_review', $p->product_id)]]
+                                : ['href' => route('ext.shopee.listings.edit', [$p->product_id, 'back' => request()->getRequestUri()]), 'label' => 'Send to Shopee', 'title' => 'Not ready yet - the listing page names what is still missing'];
                             $menu['link'] = ['action' => route('ext.shopee.products.sync_shopee_id', $p->product_id)];
                         } else {
-                            $menu['update'] = ['action' => route('ext.shopee.listings.push_update', $p->product_id), 'label' => 'Update on Shopee', 'confirm' => "Push this listing's content and settings onto the live Shopee item? Title, description, package, category, couriers and attributes are updated. Price and stock are not touched.", 'verb' => 'Push update', 'tone' => 'primary'];
-                            $menu['stock'] = route('ext.shopee.products.sync_quantity', $p->product_id);
-                            $menu['price'] = route('ext.shopee.products.sync_price', $p->product_id);
+                            $menu['update'] = ['action' => route('ext.shopee.listings.push_update', $p->product_id), 'label' => 'Send to Shopee', 'confirm' => "Send this listing's content and settings to the live Shopee item? Title, description, package, category, couriers, attributes, price and stock are updated.", 'verb' => 'Send', 'tone' => 'primary'];
                             if ($rowState?->state === \App\Integrations\Listings\ListingState::LIVE) {
                                 $menu['switch'] = ['action' => route('ext.shopee.listings.toggle', $p->product_id), 'label' => 'Delist from Shopee', 'fields' => ['action' => 'unlist'], 'confirm' => 'Delist this item from Shopee? Buyers stop seeing it immediately. It can be published again at any time.', 'verb' => 'Delist'];
                             } elseif ($rowState?->state === \App\Integrations\Listings\ListingState::INACTIVE) {

@@ -325,13 +325,13 @@ class ShopeeReconcileTest extends TestCase
 
         // One row menu on every channel (2026-09-07): the labels sit in the spec, and both the
         // unlisted row's Push and the listed row's Update post to Send, which asks Shopee first.
-        $this->assertStringContainsString("'label' => 'Push to Shopee'", $view,
+        $this->assertStringContainsString("'label' => 'Send to Shopee'", $view,
             'The row no longer offers Send, which is the only action that works in every state.');
         $this->assertGreaterThanOrEqual(2, substr_count($view, "route('ext.shopee.product-groups.send', \$group->id), 'label' =>"), 'Push and Update both ride Send');
 
         // The verbs it replaced. Any of them returning means the row can
         // once again present a set of mutually exclusive states and hide the
-        // useful one behind the wrong guess. ('Push to Shopee' left this
+        // useful one behind the wrong guess. ('Send to Shopee' left this
         // list 2026-09-03: the one action RENAMED to it in the verb
         // unification - same single ungated action, the marketplace verb.)
         foreach (['Match Shopee ID', 'Link to Shopee again'] as $gone) {
@@ -351,7 +351,7 @@ class ShopeeReconcileTest extends TestCase
     public function test_send_is_not_hidden_by_any_status(): void
     {
         $view = $this->source(self::VIEW);
-        $at = strpos($view, 'Push to Shopee');
+        $at = strpos($view, 'Send to Shopee');
         $this->assertNotFalse($at);
 
         $before = substr($view, max(0, $at - 700), 700);

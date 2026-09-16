@@ -155,7 +155,7 @@ class VentaImageVerdictTest extends TestCase
         // can find is the defect this test exists to prevent, whichever button
         // it happens to name.
         $view = file_get_contents(base_path('extensions/venta/views/product-groups/products.blade.php'));
-        $this->assertStringContainsString("'label' => 'Push to ' . \$storeName", $view,
+        $this->assertStringContainsString("'label' => 'Send to ' . \$storeName", $view,
             'The message tells the operator to press Send, but the row menu has no Send action.');
         $this->assertStringNotContainsString('{"', $message,
             'The raw response envelope is still being shown to the operator.');

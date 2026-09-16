@@ -2,36 +2,37 @@
      2026-09-07). The order never varies; a page draws only the verbs it
      fills. Listings page:
 
-       1  Push to the store             (where the channel offers it)
+       1  Send to the store             (where the channel offers it)
        2  the store's own switch pair   (data-bulk-verb forms, shown per the ticked rows' states)
-       3  Push stock
-       4  Push prices
-       5  Link IDs
-       6  Delete from {Store}
-       7  Remove from this channel
+       3  Link IDs
+       4  Delete from {Store}
+       5  Remove from this channel
 
      Group page, the same with the group's own verbs in front and its exit
-     at the end: Push, Update, Push stock, Push prices, Link IDs, the switch
-     pair, Remove from product group. The `group` flag picks that shape.
+     at the end: Send, Update, Link IDs, the switch pair, Remove from
+     product group. The `group` flag picks that shape.
+
+     Stock and price left the bar with the row menu's copies of them: they
+     were the API's shape showing through, and Send carries whatever the
+     channel's listing carries.
 
      Every form carries data-bulk-form: channel-listings.js fills the ticked
      ids into it (the page's own field name) and names what the selection
      skips.
 
-     PUSH IS BACK ON THE LISTINGS PAGE (the owner, 2026-09-09), first in the
-     bar wherever it appears. It left on 2026-09-06 for two reasons that
-     have both expired: a batch needed a combined form for couriers,
-     category and markup, which the group page owned - and every listing
-     now takes its own price rule, else its group's, so there is nothing
-     shared left to ask for; and a bar reporting one outcome could not
-     describe ten creates refused for ten different reasons - and the push
-     answers per product, by name, in the marketplace's own words.
+     SEND LEADS THE BAR wherever it appears. It was once kept off the
+     Listings page for two reasons that have both expired: a batch needed a
+     combined form for couriers, category and markup, which the group page
+     owned - and every listing now takes its own price rule, else its
+     group's, so there is nothing shared left to ask for; and a bar
+     reporting one outcome could not describe ten creates refused for ten
+     different reasons - and a send answers per product, by name, in the
+     marketplace's own words.
 
      Spec keys:
        switch   list of ['action', 'verb', 'codes', 'label' (with :n), 'button', 'confirm', 'fields' => [...]]
        push     ['action', 'label', 'confirm']   (group only)
        update   ['action', 'label', 'confirm']   (group only)
-       stock    ['action']       prices  ['action']
        link     ['action', 'label']
        delete   ['action', 'label', 'confirm']
        remove   ['action', 'label', 'confirm']
@@ -73,8 +74,6 @@
         @else
             {!! $switches !!}
         @endif
-        @if(! empty($b['stock'])){!! $bulkForm($b['stock'], 'Push stock') !!}@endif
-        @if(! empty($b['prices'])){!! $bulkForm($b['prices'], 'Push prices') !!}@endif
         @if(! empty($b['link'])){!! $bulkForm($b['link'], $b['link']['label'] ?? 'Link IDs') !!}@endif
         @if($isGroup){!! $switches !!}@endif
         @if(! empty($b['delete'])){!! $bulkForm($b['delete'], $b['delete']['label'] ?? 'Delete', 'danger') !!}@endif

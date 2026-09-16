@@ -166,9 +166,7 @@
 @php
     $gf = ['_return' => $returnTo];
     $bulk = ['group' => true,
-        'push' => ['action' => route('ext.shopee.product-groups.send', $group->id), 'label' => 'Push to Shopee', 'fields' => $gf, 'confirm' => 'Send the selected products to Shopee? Each one is checked against Shopee first, then created or updated to match the catalog, with this product group\'s settings.'],
-        'stock' => ['action' => route('ext.shopee.product-groups.pushStock', $group->id), 'fields' => $gf],
-        'prices' => ['action' => route('ext.shopee.product-groups.pushPrices', $group->id), 'fields' => $gf],
+        'push' => ['action' => route('ext.shopee.product-groups.send', $group->id), 'label' => 'Send to Shopee', 'fields' => $gf, 'confirm' => 'Send the selected products to Shopee? Each one is checked against Shopee first, then created or updated to match the catalog, with this product group\'s settings.'],
         'link' => ['action' => route('ext.shopee.product-groups.check', $group->id), 'label' => 'Link IDs', 'fields' => $gf],
         'switch' => [
             ['action' => route('ext.shopee.products.bulk_toggle'), 'field' => 'product_ids[]', 'verb' => 'unlist', 'codes' => 'NORMAL', 'label' => 'Delist :n from Shopee', 'button' => 'Delist from Shopee', 'fields' => ['action' => 'unlist'], 'confirm' => 'Delist the selected items from Shopee? Buyers stop seeing them immediately. They can be published again at any time.'],
@@ -387,19 +385,17 @@
                     $menu = ['label' => "Product {$p->product_id} actions", 'store' => 'Shopee', 'catalog' => $canEditCatalog ? route('products.edit', $p->product_id) : null];
                     // Every push from this page rides the GROUP's rule (the owner, 2026-09-07): Send asks Shopee first, then creates or updates with the group's settings.
                     if (!$listed) {
-                        $menu['push'] = ['action' => route('ext.shopee.product-groups.send', $group->id), 'label' => 'Push to Shopee', 'fields' => $gf];
+                        $menu['push'] = ['action' => route('ext.shopee.product-groups.send', $group->id), 'label' => 'Send to Shopee', 'fields' => $gf];
                         $menu['link'] = ['action' => route('ext.shopee.products.sync_shopee_id', $p->product_id)];
                     } else {
-                        $menu['update'] = ['action' => route('ext.shopee.product-groups.send', $group->id), 'label' => 'Update on Shopee', 'fields' => $gf];
-                        $menu['stock'] = ['action' => route('ext.shopee.product-groups.pushStock', $group->id), 'fields' => $gf];
-                        $menu['price'] = ['action' => route('ext.shopee.product-groups.pushPrices', $group->id), 'fields' => $gf];
+                        $menu['update'] = ['action' => route('ext.shopee.product-groups.send', $group->id), 'label' => 'Send to Shopee', 'fields' => $gf];
                         if ($canToggleListing && $rowState?->state === \App\Integrations\Listings\ListingState::LIVE) {
                             $menu['switch'] = ['action' => route('ext.shopee.listings.toggle', $p->product_id), 'label' => 'Delist from Shopee', 'fields' => ['action' => 'unlist'], 'confirm' => "Delist {$pName} from Shopee? Buyers stop seeing it immediately. It can be published again at any time.", 'verb' => 'Delist'];
                         } elseif ($canToggleListing && $rowState?->state === \App\Integrations\Listings\ListingState::INACTIVE) {
                             $menu['switch'] = ['action' => route('ext.shopee.listings.toggle', $p->product_id), 'label' => 'Publish on Shopee', 'fields' => ['action' => 'list'], 'confirm' => "Publish {$pName} on Shopee? Buyers see it again immediately.", 'verb' => 'Publish', 'tone' => 'primary'];
                         }
                         $menu['check'] = ['action' => route('ext.shopee.product-groups.check', $group->id), 'label' => 'Check against Shopee', 'fields' => $gf];
-                        $menu['unlink'] = ['action' => route('ext.shopee.product-groups.unlinkProduct', [$group->id, $p->product_id]), 'fields' => ['_return' => $returnTo], 'confirm' => "Unlink {$pName} from Shopee? The listing stays on Shopee; the ERP just stops tracking it. Push will re-find it."];
+                        $menu['unlink'] = ['action' => route('ext.shopee.product-groups.unlinkProduct', [$group->id, $p->product_id]), 'fields' => ['_return' => $returnTo], 'confirm' => "Unlink {$pName} from Shopee? The listing stays on Shopee; the ERP just stops tracking it. Send will re-find it."];
                         $menu['delete'] = ['action' => route('ext.shopee.product-groups.deleteFromShopee', $group->id), 'fields' => $gf, 'confirm' => "Delete {$pName} from Shopee? It is removed at the marketplace and this cannot be undone."];
                     }
                     if ($isManual) {

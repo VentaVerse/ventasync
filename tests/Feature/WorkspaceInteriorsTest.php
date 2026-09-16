@@ -2542,8 +2542,6 @@ class WorkspaceInteriorsTest extends TestCase
         $products = $this->actingAs($user)->get(route('ext.venta.product-groups.products', [$one, $group->id]))->assertOk();
         foreach ([
             route('ext.venta.product-groups.push', [$one, $group->id]),
-            route('ext.venta.product-groups.push-stock', [$one, $group->id]),
-            route('ext.venta.product-groups.push-prices', [$one, $group->id]),
             route('ext.venta.product-groups.check', [$one, $group->id]),
             route('ext.venta.product-groups.mass-remove', [$one, $group->id]),
             route('ext.venta.product-groups.addProducts', [$one, $group->id]),

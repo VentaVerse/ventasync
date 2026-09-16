@@ -3110,7 +3110,63 @@ class ShopeeProductController extends Controller
     private function performListingUpdate(int $productId, ShopeeClient $client, array $auth): array
     {
         $answer = $this->attemptListingUpdate($productId, $client, $auth);
+        if ($answer['ok']) {
+            $answer = $this->sendPriceAndStock($productId, $auth, $answer);
+        }
         $this->listingStates()->recordOutcome($productId, $answer['ok'] ? ($answer['failure'] ?? null) : $answer['message']);
+
+        return $answer;
+    }
+
+    /**
+     * The other two calls a Shopee send needs.
+     *
+     * update_item carries no price and no stock - Shopee's API has no such
+     * parameters - so a send that stopped there left the two figures an
+     * operator changes most often sitting in the ERP while the live item kept
+     * the old ones, under a green flash saying it had gone. Every other
+     * channel carries both inside its one call; here it takes three, which is
+     * the API's problem and not the seller's.
+     *
+     * Neither call can undo the content that already went, so a refusal from
+     * either is reported beside the success rather than turned into one.
+     *
+     * @param  array{ok: bool, message: string, failure?: ?string, warning?: string}  $answer
+     * @return array{ok: bool, message: string, failure?: ?string, warning?: string}
+     */
+    private function sendPriceAndStock(int $productId, array $auth, array $answer): array
+    {
+        $links = ShopeeProductLink::query()->where('product_id', $productId)->get();
+        if ($links->isEmpty()) {
+            return $answer;
+        }
+
+        $pfx = (string) config('catalog.prefix');
+        $push = app(\Extensions\shopee\Services\Shopee\ShopeeStockPricePush::class);
+        $left = [];
+
+        $price = $push->push('price', $auth, $links, $pfx, \Extensions\shopee\Commands\ShopeePushPrice::priceRule([$productId]));
+        if (($price['ok'] ?? 0) < 1) {
+            $left[] = 'the price (' . (($price['last_error'] ?: null) ?? 'Shopee did not say why') . ')';
+        }
+
+        /* A disabled product has no stock to send: the catalog switch is the
+           refusal, and the gate above has already named it. */
+        if ((int) DB::table($pfx . 'product')->where('product_id', $productId)->value('status') === 1) {
+            $stock = $push->push('stock', $auth, $links, $pfx);
+            if (($stock['ok'] ?? 0) < 1) {
+                $left[] = 'the stock (' . (($stock['last_error'] ?: null) ?? 'Shopee did not say why') . ')';
+            }
+        }
+
+        /* The sentence rides the message, not the warning flag: the content
+         * went, which is what the verb promised, and the scheduled price and
+         * stock syncs try the two figures again on their own. Flipping a
+         * green send amber for a figure that retries by itself would cry
+         * wolf on the one flash an operator reads. */
+        if ($left !== []) {
+            $answer['message'] = trim($answer['message'] . ' Shopee kept its own ' . implode(' and ', $left) . '.');
+        }
 
         return $answer;
     }

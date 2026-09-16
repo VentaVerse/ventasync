@@ -169,14 +169,12 @@
     $bulk = [
         /* Multi-tick push (2026-09-09): each ticked product goes up on
            its own settings and reports for itself. */
-        'push' => ['action' => route('ext.venta.listings.bulk_push', $setting->id), 'label' => 'Push to ' . $storeName,
-            'confirm' => "Push the selected products to {$storeName}? Each goes up on its own settings, and anything not ready is named rather than sent."],
+        'push' => ['action' => route('ext.venta.listings.bulk_push', $setting->id), 'label' => 'Send to ' . $storeName,
+            'confirm' => "Send the selected products to {$storeName}? Each goes up on its own settings, and anything not ready is named rather than sent."],
         'switch' => [
             ['action' => route('ext.venta.listings.bulk_toggle', $setting->id), 'verb' => 'unlist', 'codes' => 'active', 'label' => 'Unlist :n on ' . $storeName, 'button' => 'Unlist on ' . $storeName, 'fields' => ['action' => 'unlist'], 'confirm' => "Unlist the selected products on {$storeName}? Buyers stop seeing them. They can be relisted at any time."],
             ['action' => route('ext.venta.listings.bulk_toggle', $setting->id), 'verb' => 'relist', 'codes' => 'inactive', 'label' => 'Relist :n on ' . $storeName, 'button' => 'Relist on ' . $storeName, 'fields' => ['action' => 'relist'], 'confirm' => "Relist the selected products on {$storeName}? Buyers see them again at once."],
         ],
-        'stock' => ['action' => route('ext.venta.listings.bulk_push_stock', $setting->id)],
-        'prices' => ['action' => route('ext.venta.listings.bulk_push_prices', $setting->id)],
         'link' => ['action' => route('ext.venta.listings.check', $setting->id), 'label' => 'Link IDs'],
         'delete' => ['action' => route('ext.venta.products.bulk_delete', $setting->id), 'label' => 'Delete from ' . $storeName, 'confirm' => "Delete the selected products from {$storeName}? They are removed at the storefront and this cannot be undone."],
         'remove' => ['action' => route('ext.venta.products.bulk_remove_from_store', $setting->id), 'label' => 'Remove from this channel', 'confirm' => "Remove the selected products from this channel? They leave this list and their groups and stop syncing. Anything already on {$storeName} stays up until you delete it there."],
@@ -291,12 +289,10 @@
                     ];
                     if ($canManage && $setting->enabled) {
                         if (!$listed) {
-                            $menu['push'] = ['href' => $listingUrl, 'label' => 'Push to ' . $storeName];
+                            $menu['push'] = ['href' => $listingUrl, 'label' => 'Send to ' . $storeName];
                             $menu['link'] = ['action' => route('ext.venta.listings.check', $setting->id), 'fields' => ['product_ids[]' => $pid]];
                         } else {
-                            $menu['update'] = ['action' => route('ext.venta.listings.push', [$setting->id, $pid]), 'label' => 'Update on ' . $storeName, 'confirm' => "Push this listing's content and price rule onto the live {$storeName} product? Name, description, price, stock, images and variations are updated in place.", 'verb' => 'Push update', 'tone' => 'primary'];
-                            $menu['stock'] = route('ext.venta.listings.push_stock', [$setting->id, $pid]);
-                            $menu['price'] = route('ext.venta.listings.push_price', [$setting->id, $pid]);
+                            $menu['update'] = ['action' => route('ext.venta.listings.push', [$setting->id, $pid]), 'label' => 'Send to ' . $storeName, 'confirm' => "Send this listing's content and price rule to the live {$storeName} product? Name, description, price, stock, images and variations are updated in place.", 'verb' => 'Send', 'tone' => 'primary'];
                             if ($rowLiveStatus === \Extensions\venta\Models\VentaListing::STATUS_ACTIVE) {
                                 $menu['switch'] = ['action' => route('ext.venta.listings.toggle', [$setting->id, $pid]), 'label' => 'Unlist on ' . $storeName, 'fields' => ['action' => 'unlist'], 'confirm' => "Unlist this product on {$storeName}? Buyers stop seeing it. It can be relisted at any time.", 'verb' => 'Unlist'];
                             } elseif ($rowLiveStatus === \Extensions\venta\Models\VentaListing::STATUS_INACTIVE) {

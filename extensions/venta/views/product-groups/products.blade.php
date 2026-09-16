@@ -115,9 +115,7 @@
 @php
     $gf = ['_return' => $returnTo];
     $bulk = ['group' => true,
-        'push' => ['action' => route('ext.venta.product-groups.push', [$setting->id, $group->id]), 'label' => 'Push to ' . $storeName, 'fields' => $gf, 'confirm' => "Push the selected products to {$storeName} with this product group's settings? Anything already pushed is updated in place."],
-        'stock' => ['action' => route('ext.venta.product-groups.push-stock', [$setting->id, $group->id]), 'fields' => $gf],
-        'prices' => ['action' => route('ext.venta.product-groups.push-prices', [$setting->id, $group->id]), 'fields' => $gf],
+        'push' => ['action' => route('ext.venta.product-groups.push', [$setting->id, $group->id]), 'label' => 'Send to ' . $storeName, 'fields' => $gf, 'confirm' => "Send the selected products to {$storeName} with this product group's settings? Anything already sent is updated in place."],
         'link' => ['action' => route('ext.venta.product-groups.check', [$setting->id, $group->id]), 'label' => 'Link IDs', 'fields' => $gf],
         'switch' => [
             ['action' => route('ext.venta.listings.bulk_toggle', $setting->id), 'field' => 'product_ids[]', 'verb' => 'unlist', 'codes' => 'active', 'label' => 'Unlist :n on ' . $storeName, 'button' => 'Unlist on ' . $storeName, 'fields' => ['action' => 'unlist'], 'confirm' => "Unlist the selected products on {$storeName}? Buyers stop seeing them. They can be relisted at any time."],
@@ -309,14 +307,12 @@
                     $gf = ['_return' => $returnTo, 'ids[]' => $p->product_id];
                     $gRow = ($listingStates ?? [])[(int) $p->product_id] ?? null;
                     $menu = ['label' => "Product {$p->product_id} actions", 'store' => $storeName, 'catalog' => route('products.edit', $p->product_id)];
-                    // Every push from this page rides the GROUP's rule (the owner, 2026-09-07): Push asks the store first, then creates, updates or re-links.
+                    // Every send from this page rides the GROUP's rule: Send asks the store first, then creates, updates or re-links.
                     if (!$hasVentaId) {
-                        $menu['push'] = ['action' => route('ext.venta.product-groups.push', [$setting->id, $group->id]), 'label' => 'Push to ' . $storeName, 'fields' => $gf];
+                        $menu['push'] = ['action' => route('ext.venta.product-groups.push', [$setting->id, $group->id]), 'label' => 'Send to ' . $storeName, 'fields' => $gf];
                         $menu['link'] = ['action' => route('ext.venta.product-groups.link', [$setting->id, $group->id, $p->product_id]), 'fields' => ['_return' => $returnTo]];
                     } else {
-                        $menu['update'] = ['action' => route('ext.venta.product-groups.push', [$setting->id, $group->id]), 'label' => 'Update on ' . $storeName, 'fields' => $gf];
-                        $menu['stock'] = ['action' => route('ext.venta.product-groups.push-stock', [$setting->id, $group->id]), 'fields' => $gf];
-                        $menu['price'] = ['action' => route('ext.venta.product-groups.push-prices', [$setting->id, $group->id]), 'fields' => $gf];
+                        $menu['update'] = ['action' => route('ext.venta.product-groups.push', [$setting->id, $group->id]), 'label' => 'Send to ' . $storeName, 'fields' => $gf];
                         if ($gRow?->state === \App\Integrations\Listings\ListingState::LIVE) {
                             $menu['switch'] = ['action' => route('ext.venta.listings.toggle', [$setting->id, $p->product_id]), 'label' => 'Unlist on ' . $storeName, 'fields' => ['action' => 'unlist'], 'confirm' => "Unlist {$pName} on {$storeName}? Buyers stop seeing it. It can be relisted at any time.", 'verb' => 'Unlist'];
                         } elseif ($gRow?->state === \App\Integrations\Listings\ListingState::INACTIVE) {

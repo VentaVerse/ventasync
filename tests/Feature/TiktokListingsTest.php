@@ -182,7 +182,7 @@ class TiktokListingsTest extends TestCase
         // The bare record inherits its group's category (a group is a preset
         // the product inherits, 2026-09-05), so nothing here lacks one.
         $r->assertDontSee('Missing: a TikTok category');
-        $r->assertSee('Push to TikTok Shop');
+        $r->assertSee('Send to TikTok Shop');
         $r->assertSee('Under review');                // the tab row lists the store's statuses
         $r->assertSee('Deactivate on TikTok Shop');   // the row verb for a live row
         $this->assertCount(0, $this->callsFor('POST', '/product/202309/products/search'));
@@ -539,7 +539,6 @@ class TiktokListingsTest extends TestCase
         $r->assertOk();
         $r->assertSee('TikTok listing product V');
         $r->assertDontSee('Send to TikTok Shop');
-        $r->assertDontSee('Push to TikTok Shop');
     }
     /** A row is named by this store's own title, the catalog's name when it has none, and the search finds it by that title. */
     public function test_a_row_shows_the_stores_own_title_and_the_search_finds_it(): void

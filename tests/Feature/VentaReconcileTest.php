@@ -92,7 +92,7 @@ class VentaReconcileTest extends TestCase
     {
         $view = $this->source(self::VIEW);
 
-        $this->assertStringContainsString("'label' => 'Push to ' . \$storeName", $view,
+        $this->assertStringContainsString("'label' => 'Send to ' . \$storeName", $view,
             'The row lost its single always-available action.');
 
         // Matched as rendered BUTTON labels. A bare string search also hit

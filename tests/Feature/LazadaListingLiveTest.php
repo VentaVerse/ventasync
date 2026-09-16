@@ -775,7 +775,7 @@ class LazadaListingLiveTest extends TestCase
         $this->fakeProductsGet(['live' => [], 'inactive' => [], 'pending' => [], 'rejected' => [], 'sold-out' => [], 'deleted' => []]);
 
         $index = $this->actingAs($this->manager())->get(route('ext.lazada.products.index'))->assertOk();
-        $index->assertSee('Push to Lazada');
+        $index->assertSee('Send to Lazada');
         $index->assertDontSee('Upload to Lazada');
 
         $page = $this->actingAs($this->manager())->get(route('ext.lazada.products.edit', $listing->product_id))->assertOk();

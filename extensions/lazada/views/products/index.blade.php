@@ -258,14 +258,12 @@
     $bulk = [
         /* Multi-tick push (2026-09-09): each ticked product goes up on
            its own settings and reports for itself. */
-        'push' => ['action' => route('ext.lazada.products.bulk_push'), 'label' => 'Push to Lazada',
-            'confirm' => 'Push the selected products to Lazada? Each goes up on its own settings, and anything not ready is named rather than sent.'],
+        'push' => ['action' => route('ext.lazada.products.bulk_push'), 'label' => 'Send to Lazada',
+            'confirm' => 'Send the selected products to Lazada? Each goes up on its own settings, and anything not ready is named rather than sent.'],
         'switch' => [
             ['action' => route('ext.lazada.products.bulk_toggle'), 'verb' => 'deactivate', 'codes' => 'active', 'label' => 'Deactivate :n on Lazada', 'button' => 'Deactivate on Lazada', 'fields' => ['action' => 'deactivate'], 'confirm' => 'Deactivate the selected items on Lazada? Buyers stop seeing them. They stay here and can be activated again at any time.'],
             ['action' => route('ext.lazada.products.bulk_toggle'), 'verb' => 'activate', 'codes' => 'inactive', 'label' => 'Activate :n on Lazada', 'button' => 'Activate on Lazada', 'fields' => ['action' => 'activate'], 'confirm' => 'Activate the selected items on Lazada? Buyers see them again once Lazada applies it.'],
         ],
-        'stock' => ['action' => route('ext.lazada.products.bulk_sync_quantity')],
-        'prices' => ['action' => route('ext.lazada.products.bulk_sync_price')],
         'link' => ['action' => route('ext.lazada.products.bulk_sync_lazada_id'), 'label' => 'Link IDs'],
         'delete' => ['action' => route('ext.lazada.products.bulk_delete'), 'label' => 'Delete from Lazada', 'confirm' => 'Delete the selected listings from Lazada? The listings are removed at the marketplace and this cannot be undone.'],
         'remove' => ['action' => route('ext.lazada.products.bulk_remove_from_store'), 'label' => 'Remove from this channel', 'confirm' => 'Remove the selected products from this channel? They leave this store\'s list and stop syncing. Anything already on Lazada stays up until you delete it there.'],
@@ -501,14 +499,12 @@
                     if ($canManageLazada) {
                         if (!$listing || !$hasItemId || $isUnlinked) {
                             // One push, and it opens the listing page first (#149), where Save and push sits under what is about to go up.
-                            $menu['push'] = ['href' => $editUrl, 'label' => 'Push to Lazada'];
+                            $menu['push'] = ['href' => $editUrl, 'label' => 'Send to Lazada'];
                             if ($listing) {
                                 $menu['link'] = ['action' => route('ext.lazada.products.sync_lazada_id', $pid)];
                             }
                         } else {
-                            $menu['update'] = ['action' => route('ext.lazada.products.upload', $pid), 'label' => 'Update on Lazada', 'confirm' => "Push this listing's content and settings onto the live Lazada item? Name, description, package, category, brand and attributes are updated. Price and stock are not touched.", 'verb' => 'Push update', 'tone' => 'primary'];
-                            $menu['stock'] = route('ext.lazada.products.sync_quantity', $pid);
-                            $menu['price'] = route('ext.lazada.products.sync_price', $pid);
+                            $menu['update'] = ['action' => route('ext.lazada.products.upload', $pid), 'label' => 'Send to Lazada', 'confirm' => "Send this listing's content and settings to the live Lazada item? Name, description, package, category, brand, attributes, price and stock are updated.", 'verb' => 'Send', 'tone' => 'primary'];
                             if ($rowState?->state === $stateClass::LIVE) {
                                 $menu['switch'] = ['action' => route('ext.lazada.listings.toggle', $pid), 'label' => 'Deactivate on Lazada', 'fields' => ['action' => 'deactivate'], 'confirm' => "Deactivate {$rowLabel} on Lazada? Buyers stop seeing it. It can be activated again at any time.", 'verb' => 'Deactivate'];
                             } elseif ($rowState?->state === $stateClass::INACTIVE) {

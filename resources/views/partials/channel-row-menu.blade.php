@@ -5,14 +5,18 @@
 
        1  Edit listing            (absent on a group page, by decision)
        2  Edit in catalog
-       3  Push to {Store}         when not on the store   / Push update when it is
-       4  Push stock
-       5  Push price
-       6  the store's own switch  Delist / Publish, Deactivate / Activate ...
-       7  Check against {Store}
-       8  Link ID                 when not linked         / Unlink ID when it is
-       9  Delete from {Store}     when linked
-      10  Remove from this channel, or Remove from product group
+       3  Send to {Store}         one verb, whether it is on the store yet or not
+       4  the store's own switch  Delist / Publish, Deactivate / Activate ...
+       5  Check against {Store}
+       6  Link ID                 when not linked         / Unlink ID when it is
+       7  Delete from {Store}     when linked
+       8  Remove from this channel, or Remove from product group
+
+     Stock and price are not verbs here. They were the API's shape showing
+     through: a channel whose update call cannot carry a figure needed a
+     second button, and the seller had to know which. Send carries whatever
+     the channel's own listing carries, making as many calls as that takes,
+     and the scheduled syncs keep the figures fresh between sends.
 
      Each page hands in a spec: only the keys it fills are drawn, so a
      channel without a piece simply has no line for it, and a channel that
@@ -25,7 +29,6 @@
        push      ['href' => url, 'title'] or ['action' => url, 'label', 'confirm', 'verb', 'tone', 'attrs' => [...]]
                  any form may carry 'fields' => [name => value] and 'method' => 'DELETE'
        update    ['action' => url, 'label', 'confirm', 'verb', 'tone']
-       stock     url or ['action', 'fields']   price  the same
        switch    ['action' => url, 'label', 'confirm', 'verb', 'tone', 'fields' => [...]]
                  or ['href' => url, 'label', 'title'] when a knowable gap blocks it
        check     ['action' => url, 'label', 'fields' => [...]]
@@ -91,12 +94,6 @@
     @endif
     @if(! empty($m['update']))
         {!! $formOf($m['update'], $m['update']['label'] ?? 'Update on ' . $storeWord) !!}
-    @endif
-    @if(! empty($m['stock']))
-        {!! $formOf(is_array($m['stock']) ? $m['stock'] : ['action' => $m['stock']], 'Push stock') !!}
-    @endif
-    @if(! empty($m['price']))
-        {!! $formOf(is_array($m['price']) ? $m['price'] : ['action' => $m['price']], 'Push price') !!}
     @endif
     @if(! empty($m['switch']))
         @if(! empty($m['switch']['href']))
