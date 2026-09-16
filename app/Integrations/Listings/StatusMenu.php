@@ -117,9 +117,14 @@ final class StatusMenu
             return ($spec['url'])($params);
         };
 
+        // Every tree node clears `gap`: a cause is a sub-choice of one Needs
+        // details node, so moving anywhere else drops it. Without this the
+        // cause stayed in the URL, kept its chip highlighted, and kept
+        // narrowing the rows under a heading that no longer showed it - which
+        // is how "Catalog change: 7" could open to an empty table.
         $entry = fn (string $key, string $label, bool $active, string $tone = '', bool $parent = false, array $kids = []) => [
             'key' => $key, 'label' => $label, 'count' => (int) ($counts[$key] ?? 0), 'tone' => $tone,
-            'url' => $to(['sync_status' => $key === 'all' ? null : $key]), 'active' => $active, 'parent' => $parent, 'kids' => $kids, 'meta' => null,
+            'url' => $to(['sync_status' => $key === 'all' ? null : $key, 'gap' => null]), 'active' => $active, 'parent' => $parent, 'kids' => $kids, 'meta' => null,
         ];
 
         /* WHY a product is not eligible, hanging off the Needs details it
@@ -166,11 +171,14 @@ final class StatusMenu
             $entry('uploaded', $half('uploaded'), $sync === 'uploaded', '', isset(self::LISTED_PARTS[$sync]), $kids(self::LISTED_PARTS)),
         ];
 
+        // The flags clear `gap` too: their counts are taken store-wide (not
+        // within a cause), so a flag must open to that same set, not to the
+        // intersection with a cause left over in the URL.
         $flags = [
             ['key' => 'failed', 'label' => 'Push failed', 'count' => (int) ($counts['failed'] ?? 0), 'tone' => 'bad', 'on' => $failed,
-                'url' => $to(['failed' => $failed ? null : 1, 'sync_status' => $sync === 'all' ? null : $sync])],
+                'url' => $to(['failed' => $failed ? null : 1, 'sync_status' => $sync === 'all' ? null : $sync, 'gap' => null])],
             ['key' => 'change', 'label' => 'Catalog change', 'count' => (int) ($counts['change'] ?? 0), 'tone' => 'attn', 'on' => $change,
-                'url' => $to(['change' => $change ? null : 1])],
+                'url' => $to(['change' => $change ? null : 1, 'gap' => null])],
         ];
 
         $parts = [];
