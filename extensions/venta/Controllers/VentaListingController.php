@@ -579,34 +579,73 @@ class VentaListingController extends Controller
      */
     private function readyByProduct(int $store, array $productIds): array
     {
-        return array_map(fn (array $codes) => $codes === [], $this->gapsByProduct($store, $productIds));
+        return array_map(fn (array $a) => (bool) $a['ready'], $this->readinessRich($store, $productIds));
     }
 
     /**
-     * The same answer, keeping its REASONS, so the menu can count causes
-     * rather than only how many products are short of something.
-     *
      * @return array<int, list<string>>  product id => gap codes
      */
     private function gapsByProduct(int $store, array $productIds): array
     {
-        $answer = function (array $ids): array {
-            $readiness = \Extensions\venta\Services\Venta\VentaListingReadiness::forProducts($ids);
-            $out = [];
-            foreach ($ids as $id) {
-                $out[(int) $id] = array_values(array_map(
-                    fn ($gap) => (string) ($gap['code'] ?? ''),
-                    (array) ($readiness[(int) $id]['gaps'] ?? [])
-                ));
-            }
+        return array_map(
+            fn (array $a) => array_values(array_map(fn ($g) => (string) ($g['code'] ?? ''), (array) $a['gaps'])),
+            $this->readinessRich($store, $productIds)
+        );
+    }
 
-            return $out;
-        };
-        // Computed on every load, never held: a fix must leave the list at once.
-        $held = $answer($productIds);
-        $missing = array_values(array_diff($productIds, array_keys($held)));
+    /** Held for the request, per store. */
+    private array $readinessRich = [];
 
-        return $missing === [] ? $held : $held + $answer($missing);
+    /**
+     * Ready + gaps for the store's products, from the materialised readiness
+     * cache; recomputed only for products whose inputs changed.
+     *
+     * @return array<int, array{ready: bool, gaps: list<array{code: string, label: string}>}>
+     */
+    private function readinessRich(int $store, array $productIds): array
+    {
+        if (isset($this->readinessRich[$store])) {
+            return $this->readinessRich[$store];
+        }
+        $ids = array_values(array_unique(array_map('intval', $productIds)));
+
+        return $this->readinessRich[$store] = \App\Integrations\Listings\ReadinessCache::resolve(
+            'venta', $store, $ids,
+            fn (array $x) => $this->ventaReadinessStamps($x, $store),
+            fn (array $x) => $this->ventaReadinessCompute($x),
+        );
+    }
+
+    private function ventaReadinessStamps(array $ids, int $store): array
+    {
+        $pfx = (string) config('catalog.prefix');
+        $prod = DB::table($pfx . 'product')->whereIn('product_id', $ids)->pluck('date_modified', 'product_id');
+        $listing = DB::table('venta_listings')->where('venta_setting_id', $store)->whereIn('product_id', $ids)
+            ->selectRaw('product_id, MAX(updated_at) as mu')->groupBy('product_id')->pluck('mu', 'product_id');
+        $group = DB::table('venta_product_group_products as gp')
+            ->join('venta_product_groups as g', 'g.id', '=', 'gp.venta_product_group_id')
+            ->whereIn('gp.product_id', $ids)->where('g.venta_setting_id', $store)
+            ->selectRaw('gp.product_id, MAX(g.updated_at) as mu')->groupBy('gp.product_id')->pluck('mu', 'product_id');
+
+        $out = [];
+        foreach ($ids as $pid) {
+            $out[(int) $pid] = md5(($prod[$pid] ?? '') . '|' . ($listing[$pid] ?? '') . '|' . ($group[$pid] ?? ''));
+        }
+
+        return $out;
+    }
+
+    private function ventaReadinessCompute(array $ids): array
+    {
+        $readiness = \Extensions\venta\Services\Venta\VentaListingReadiness::forProducts($ids);
+        $out = [];
+        foreach ($ids as $pid) {
+            // Venta reads a product with no answer as ready (its original behaviour).
+            $gaps = array_values((array) ($readiness[(int) $pid]['gaps'] ?? []));
+            $out[(int) $pid] = ['ready' => $gaps === [], 'gaps' => $gaps];
+        }
+
+        return $out;
     }
 
     // ── Add products slide-over (#201, on Venta since 2026-09-06) ──────────

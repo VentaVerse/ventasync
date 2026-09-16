@@ -49,44 +49,82 @@ class ShopeeProductController extends Controller
      */
     private function readyByProduct(): array
     {
-        return array_map(fn (array $codes) => $codes === [], $this->gapsByProduct());
+        return array_map(fn (array $a) => (bool) $a['ready'], $this->readinessRich());
     }
 
     /**
-     * The same answer, keeping its REASONS.
-     *
-     * Ready was cached as a bare yes or no, which is why the page could say
-     * "102 need details" and not which details. The menu counts causes now -
-     * a package size, a disabled catalog product - so the codes are what is
-     * held, and ready is simply "no codes".
-     *
      * @return array<int, list<string>>  product id => gap codes
      */
     private function gapsByProduct(): array
     {
-        $storeId = (int) (ShopeeSetting::defaultStore()?->id ?? 0);
-        $readiness = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class);
-        $storeIds = fn (): array => DB::query()->fromSub(ShopeeStoreProducts::query(), 'os')
-            ->pluck('os.product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
-        $answer = fn (array $productIds): array => $productIds === [] ? [] : array_map(
-            fn ($r) => array_values(array_map(
-                fn ($gap) => (string) ($gap['code'] ?? ''),
-                (array) ($r['gaps'] ?? [])
-            )),
-            $readiness->forProducts($productIds)
+        return array_map(
+            fn (array $a) => array_values(array_map(fn ($g) => (string) ($g['code'] ?? ''), (array) $a['gaps'])),
+            $this->readinessRich()
         );
+    }
 
-        /* Computed on every load, never held. A cache here meant a weight
-           typed on the catalog page left the product sitting under "Package
-           weight and size" until the minute ran out, so the fix looked
-           ignored. Correct beats cheap on the page that says what is wrong. */
-        $held = $answer($storeIds());
+    /** Held for the request. */
+    private ?array $readinessRich = null;
 
-        /* A product that joined the store after the answer was held is
-         * answered now, so it is never missing from both lists. */
-        $new = array_values(array_diff($storeIds(), array_keys($held)));
+    /**
+     * Ready + gaps for every product on the store, from the materialised
+     * readiness cache; recomputed only for products whose inputs changed
+     * (catalogue edit, listing/link edit or push, group preset) — so a weight
+     * typed on the catalog page shows at once, without recomputing the rest.
+     *
+     * @return array<int, array{ready: bool, gaps: list<array{code: string, label: string}>}>
+     */
+    private function readinessRich(): array
+    {
+        if ($this->readinessRich !== null) {
+            return $this->readinessRich;
+        }
+        $storeId = (int) (ShopeeSetting::defaultStore()?->id ?? 0);
+        $scope = DB::query()->fromSub(ShopeeStoreProducts::query(), 'os')
+            ->pluck('os.product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
 
-        return $new === [] ? $held : $answer($new) + $held;
+        return $this->readinessRich = \App\Integrations\Listings\ReadinessCache::resolve(
+            'shopee', $storeId, $scope,
+            fn (array $ids) => $this->shopeeReadinessStamps($ids, $storeId),
+            fn (array $ids) => $this->shopeeReadinessCompute($ids),
+        );
+    }
+
+    private function shopeeReadinessStamps(array $ids, int $storeId): array
+    {
+        $pfx = (string) config('catalog.prefix');
+        $prod = DB::table($pfx . 'product')->whereIn('product_id', $ids)->pluck('date_modified', 'product_id');
+        $listing = DB::table('shopee_listings')->whereIn('product_id', $ids)
+            ->selectRaw('product_id, MAX(updated_at) as mu')->groupBy('product_id')->pluck('mu', 'product_id');
+        $link = DB::table('shopee_product_links')->whereIn('product_id', $ids)
+            ->selectRaw('product_id, MAX(updated_at) as mu')->groupBy('product_id')->pluck('mu', 'product_id');
+        $group = DB::table('shopee_product_group_products as gp')
+            ->join('shopee_product_groups as g', 'g.id', '=', 'gp.shopee_product_group_id')
+            ->whereIn('gp.product_id', $ids)->where('g.shopee_setting_id', $storeId)
+            ->selectRaw('gp.product_id, MAX(g.updated_at) as mu')->groupBy('gp.product_id')->pluck('mu', 'product_id');
+
+        $out = [];
+        foreach ($ids as $pid) {
+            $out[(int) $pid] = md5(($prod[$pid] ?? '') . '|' . ($listing[$pid] ?? '') . '|' . ($link[$pid] ?? '') . '|' . ($group[$pid] ?? ''));
+        }
+
+        return $out;
+    }
+
+    private function shopeeReadinessCompute(array $ids): array
+    {
+        $readiness = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class);
+        $answers = $ids === [] ? [] : $readiness->forProducts($ids);
+        $out = [];
+        foreach ($ids as $pid) {
+            $r = $answers[(int) $pid] ?? null;
+            $gaps = $r === null
+                ? [['code' => 'unknown', 'label' => 'not checked yet']]
+                : array_values((array) ($r['gaps'] ?? []));
+            $out[(int) $pid] = ['ready' => $gaps === [], 'gaps' => $gaps];
+        }
+
+        return $out;
     }
 
     public function index(Request $request, ShopeeClient $client)

@@ -415,42 +415,78 @@ class TikTokProductController extends Controller
      */
     private function readyByProduct(): array
     {
-        return array_map(fn (array $codes) => $codes === [], $this->gapsByProduct());
+        return array_map(fn (array $a) => (bool) $a['ready'], $this->readinessRich());
     }
 
     /**
-     * The same answer, keeping its REASONS, so the menu can count causes
-     * rather than only how many products are short of something.
-     *
      * @return array<int, list<string>>  product id => gap codes
      */
     private function gapsByProduct(): array
     {
+        return array_map(
+            fn (array $a) => array_values(array_map(fn ($g) => (string) ($g['code'] ?? ''), (array) $a['gaps'])),
+            $this->readinessRich()
+        );
+    }
+
+    /** Held for the request. */
+    private ?array $readinessRich = null;
+
+    /**
+     * Ready + gaps for every product on the store, from the materialised
+     * readiness cache; recomputed only for products whose inputs changed.
+     *
+     * @return array<int, array{ready: bool, gaps: list<array{code: string, label: string}>}>
+     */
+    private function readinessRich(): array
+    {
+        if ($this->readinessRich !== null) {
+            return $this->readinessRich;
+        }
         $storeId = (int) (TikTokSetting::defaultStore()?->id ?? 0);
+        $scope = DB::query()->fromSub(TikTokStoreProducts::query(), 'os')
+            ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+
+        return $this->readinessRich = \App\Integrations\Listings\ReadinessCache::resolve(
+            'tiktok', $storeId, $scope,
+            fn (array $ids) => $this->tiktokReadinessStamps($ids, $storeId),
+            fn (array $ids) => $this->tiktokReadinessCompute($ids),
+        );
+    }
+
+    private function tiktokReadinessStamps(array $ids, int $storeId): array
+    {
+        $pfx = (string) config('catalog.prefix');
+        $prod = DB::table($pfx . 'product')->whereIn('product_id', $ids)->pluck('date_modified', 'product_id');
+        $listing = DB::table('tiktok_listings')->whereIn('product_id', $ids)
+            ->selectRaw('product_id, MAX(updated_at) as mu')->groupBy('product_id')->pluck('mu', 'product_id');
+        $group = DB::table('tiktok_product_group_products as gp')
+            ->join('tiktok_product_groups as g', 'g.id', '=', 'gp.tiktok_product_group_id')
+            ->whereIn('gp.product_id', $ids)->where('g.tiktok_setting_id', $storeId)
+            ->selectRaw('gp.product_id, MAX(g.updated_at) as mu')->groupBy('gp.product_id')->pluck('mu', 'product_id');
+
+        $out = [];
+        foreach ($ids as $pid) {
+            $out[(int) $pid] = md5(($prod[$pid] ?? '') . '|' . ($listing[$pid] ?? '') . '|' . ($group[$pid] ?? ''));
+        }
+
+        return $out;
+    }
+
+    private function tiktokReadinessCompute(array $ids): array
+    {
         $readiness = app(TikTokListingReadiness::class);
+        $answers = $ids === [] ? [] : $readiness->forProducts($ids);
+        $out = [];
+        foreach ($ids as $pid) {
+            $r = $answers[(int) $pid] ?? null;
+            $gaps = $r === null
+                ? [['code' => 'unknown', 'label' => 'not checked yet']]
+                : array_values((array) ($r['gaps'] ?? []));
+            $out[(int) $pid] = ['ready' => $gaps === [], 'gaps' => $gaps];
+        }
 
-        $scopeIds = fn (): array => DB::query()->fromSub(TikTokStoreProducts::query(), 'os')
-            ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
-        $answer = function (array $productIds) use ($readiness): array {
-            $out = [];
-            foreach ($productIds === [] ? [] : $readiness->forProducts($productIds) as $productId => $r) {
-                $out[(int) $productId] = array_values(array_map(
-                    fn ($gap) => (string) ($gap['code'] ?? ''),
-                    (array) ($r['gaps'] ?? [])
-                ));
-            }
-
-            return $out;
-        };
-
-        // Computed on every load, never held: a fix must leave the list at once.
-        $held = $answer($scopeIds());
-
-        /* A product that joined the store after the answer was held is
-         * answered now, so it is never missing from both lists. */
-        $new = array_values(array_diff($scopeIds(), array_keys($held)));
-
-        return $new === [] ? $held : $answer($new) + $held;
+        return $out;
     }
 
     /**
