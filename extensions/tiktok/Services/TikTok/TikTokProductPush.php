@@ -139,9 +139,12 @@ class TikTokProductPush
 
         // The parcel: the listing's own figure for each field it fills, the catalog's for each it leaves blank.
         $weight = (float) ($ttListing?->weight ?? 0) > 0 ? (float) $ttListing->weight : (float) ($erp->weight ?? 0);
-        $side = fn (string $own, string $core): string => (string) max(1, (int) ($ttListing?->{$own} ?? 0) > 0
-            ? (int) $ttListing->{$own}
-            : (int) round((float) ($erp->{$core} ?? 0)));
+        /* TikTok keeps two places on a dimension, so the figure is rounded to
+           that rather than cast to a whole number: a listing measured at
+           10.5 cm went up as 10 cm and nobody was told. */
+        $side = fn (string $own, string $core): string => (string) \App\Integrations\Listings\ParcelPrecision::of(
+            $ttListing?->{$own}, $erp->{$core} ?? 0, \App\Integrations\Listings\ParcelPrecision::TIKTOK['dimension']
+        );
 
         $payload = [
             'title' => $title,

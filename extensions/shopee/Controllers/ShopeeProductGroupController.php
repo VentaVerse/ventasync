@@ -1848,11 +1848,11 @@ class ShopeeProductGroupController extends Controller
                 'seller_stock' => [['stock' => max(0, (int) $product->quantity)]],
                 'item_sku' => (string) ($product->sku ?? ''),
                 // The listing's own parcel, each blank field following the catalog's.
-                'weight' => (float) ($eff->weight ?? $product->weight),
+                'weight' => \App\Integrations\Listings\ParcelPrecision::of($eff->weight, $product->weight, \App\Integrations\Listings\ParcelPrecision::SHOPEE['weight']),
                 'dimension' => [
-                    'package_length' => (int) ($eff->package_length ?? max(1, (int) $product->length)),
-                    'package_width' => (int) ($eff->package_width ?? max(1, (int) $product->width)),
-                    'package_height' => (int) ($eff->package_height ?? max(1, (int) $product->height)),
+                    'package_length' => \App\Integrations\Listings\ParcelPrecision::of($eff->package_length, $product->length, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
+                    'package_width' => \App\Integrations\Listings\ParcelPrecision::of($eff->package_width, $product->width, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
+                    'package_height' => \App\Integrations\Listings\ParcelPrecision::of($eff->package_height, $product->height, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
                 ],
                 'category_id' => $effCategory,
                 'image' => ['image_id_list' => $imageIds],
@@ -2156,11 +2156,11 @@ class ShopeeProductGroupController extends Controller
                 'item_name' => mb_substr($itemName, 0, 255),
                 'item_sku' => (string) ($product->sku ?? ''),
                 // The listing's own parcel, each blank field following the catalog's.
-                'weight' => (float) ($ownListing?->weight ?? $product->weight),
+                'weight' => \App\Integrations\Listings\ParcelPrecision::of($ownListing?->weight, $product->weight, \App\Integrations\Listings\ParcelPrecision::SHOPEE['weight']),
                 'dimension' => [
-                    'package_length' => (int) ($ownListing?->package_length ?? max(1, (int) $product->length)),
-                    'package_width' => (int) ($ownListing?->package_width ?? max(1, (int) $product->width)),
-                    'package_height' => (int) ($ownListing?->package_height ?? max(1, (int) $product->height)),
+                    'package_length' => \App\Integrations\Listings\ParcelPrecision::of($ownListing?->package_length, $product->length, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
+                    'package_width' => \App\Integrations\Listings\ParcelPrecision::of($ownListing?->package_width, $product->width, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
+                    'package_height' => \App\Integrations\Listings\ParcelPrecision::of($ownListing?->package_height, $product->height, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
                 ],
             ];
 

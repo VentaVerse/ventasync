@@ -3291,11 +3291,13 @@ class ShopeeProductController extends Controller
             'item_id' => (int) $link->shopee_item_id,
             'item_name' => mb_substr($itemName, 0, 255),
             'description' => mb_substr(\App\Support\Catalog\DescriptionText::of($description), 0, 5000),
-            'weight' => (float) (($listing?->weight) ?? $product->weight),
+            /* Shopee keeps one place on a dimension and two on a weight. The
+               figure is rounded to that, never cast to a whole number. */
+            'weight' => \App\Integrations\Listings\ParcelPrecision::of($listing?->weight, $product->weight, \App\Integrations\Listings\ParcelPrecision::SHOPEE['weight']),
             'dimension' => [
-                'package_length' => (int) (($listing?->package_length) ?? $product->length),
-                'package_width' => (int) (($listing?->package_width) ?? $product->width),
-                'package_height' => (int) (($listing?->package_height) ?? $product->height),
+                'package_length' => \App\Integrations\Listings\ParcelPrecision::of($listing?->package_length, $product->length, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
+                'package_width' => \App\Integrations\Listings\ParcelPrecision::of($listing?->package_width, $product->width, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
+                'package_height' => \App\Integrations\Listings\ParcelPrecision::of($listing?->package_height, $product->height, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
             ],
         ];
         if ($listing && $listing->shopee_category_id) {

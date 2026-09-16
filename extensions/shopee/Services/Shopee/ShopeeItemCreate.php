@@ -221,11 +221,14 @@ class ShopeeItemCreate
             'item_name' => mb_substr($content['title'], 0, 255),
             'seller_stock' => [['stock' => max(0, (int) $product->quantity)]],
             'item_sku' => (string) ($product->sku ?? ''),
-            'weight' => (float) ($listing->weight ?? $product->weight),
+            /* Shopee keeps one place on a dimension and two on a weight, so
+               the figure is rounded to that and not cast to a whole number:
+               a listing measured at 10.5 cm went up as 10 cm. */
+            'weight' => \App\Integrations\Listings\ParcelPrecision::of($listing->weight, $product->weight, \App\Integrations\Listings\ParcelPrecision::SHOPEE['weight']),
             'dimension' => [
-                'package_length' => (int) ($listing->package_length ?? max(1, (int) $product->length)),
-                'package_width' => (int) ($listing->package_width ?? max(1, (int) $product->width)),
-                'package_height' => (int) ($listing->package_height ?? max(1, (int) $product->height)),
+                'package_length' => \App\Integrations\Listings\ParcelPrecision::of($listing->package_length, $product->length, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
+                'package_width' => \App\Integrations\Listings\ParcelPrecision::of($listing->package_width, $product->width, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
+                'package_height' => \App\Integrations\Listings\ParcelPrecision::of($listing->package_height, $product->height, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
             ],
             'category_id' => (int) $listing->shopee_category_id,
             'image' => ['image_id_list' => $imageIds],
