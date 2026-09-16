@@ -602,7 +602,8 @@ class VentaListingController extends Controller
 
             return $out;
         };
-        $held = \Illuminate\Support\Facades\Cache::remember('venta:gaps-by-product:' . $store, 60, fn () => $answer($productIds));
+        // Computed on every load, never held: a fix must leave the list at once.
+        $held = $answer($productIds);
         $missing = array_values(array_diff($productIds, array_keys($held)));
 
         return $missing === [] ? $held : $held + $answer($missing);

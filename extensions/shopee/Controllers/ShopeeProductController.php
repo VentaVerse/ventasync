@@ -76,8 +76,11 @@ class ShopeeProductController extends Controller
             $readiness->forProducts($productIds)
         );
 
-        $held = \Illuminate\Support\Facades\Cache::remember('shopee:gaps-by-product:' . $storeId, 60,
-            fn () => $answer($storeIds()));
+        /* Computed on every load, never held. A cache here meant a weight
+           typed on the catalog page left the product sitting under "Package
+           weight and size" until the minute ran out, so the fix looked
+           ignored. Correct beats cheap on the page that says what is wrong. */
+        $held = $answer($storeIds());
 
         /* A product that joined the store after the answer was held is
          * answered now, so it is never missing from both lists. */

@@ -84,7 +84,8 @@ class LazadaProductController extends Controller
             return $out;
         };
 
-        $held = \Illuminate\Support\Facades\Cache::remember('lazada:gaps-by-product:' . $storeId, 60, fn () => $answer());
+        // Computed on every load, never held: a fix must leave the list at once.
+        $held = $answer();
 
         /* A product that joined the store after the answer was held is
          * answered now, so it is never missing from both lists. */
