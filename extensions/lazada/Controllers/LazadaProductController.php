@@ -51,49 +51,94 @@ class LazadaProductController extends Controller
      */
     private function readyByProduct(): array
     {
-        return array_map(fn (array $codes) => $codes === [], $this->gapsByProduct());
+        return array_map(fn (array $a) => (bool) $a['ready'], $this->readinessRich());
     }
 
     /**
-     * The same answer, keeping its REASONS, so the menu can count causes.
-     * Lazada answers per LISTING row, so the row the engine judged is the
-     * one whose codes the product carries.
+     * The same answer, keeping its gap codes, so the menu can count causes.
      *
      * @return array<int, list<string>>  product id => gap codes
      */
     private function gapsByProduct(): array
     {
+        return array_map(
+            fn (array $a) => array_values(array_map(fn ($g) => (string) ($g['code'] ?? ''), (array) $a['gaps'])),
+            $this->readinessRich()
+        );
+    }
+
+    /** Held for the request: the menu's several count passes read it once. */
+    private ?array $readinessRich = null;
+
+    /**
+     * Ready + gaps for every product on the store, read from the materialised
+     * readiness cache and recomputed only for products whose inputs changed
+     * (catalogue edit, listing edit/push, group preset) — O(1) in catalogue
+     * size on a warm load, never stale.
+     *
+     * @return array<int, array{ready: bool, gaps: list<array{code: string, label: string}>}>
+     */
+    private function readinessRich(): array
+    {
+        if ($this->readinessRich !== null) {
+            return $this->readinessRich;
+        }
         $storeId = (int) (LazadaSetting::defaultStore()?->id ?? 0);
+        $scope = LazadaProduct::query()->whereNotNull('product_id')->distinct()
+            ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+
+        return $this->readinessRich = \App\Integrations\Listings\ReadinessCache::resolve(
+            'lazada', $storeId, $scope,
+            fn (array $ids) => $this->lazadaReadinessStamps($ids, $storeId),
+            fn (array $ids) => $this->lazadaReadinessCompute($ids),
+        );
+    }
+
+    /** The inputs a product's Lazada readiness depends on, as one stamp. */
+    private function lazadaReadinessStamps(array $ids, int $storeId): array
+    {
+        $pfx = (string) config('catalog.prefix');
+        $prod = DB::table($pfx . 'product')->whereIn('product_id', $ids)->pluck('date_modified', 'product_id');
+        $listing = DB::table('lazada_products')->whereIn('product_id', $ids)
+            ->selectRaw('product_id, MAX(updated_at) as mu')->groupBy('product_id')->pluck('mu', 'product_id');
+        $group = DB::table('lazada_product_group_products as gp')
+            ->join('lazada_product_groups as g', 'g.id', '=', 'gp.lazada_product_group_id')
+            ->whereIn('gp.product_id', $ids)->where('g.lazada_setting_id', $storeId)
+            ->selectRaw('gp.product_id, MAX(g.updated_at) as mu')->groupBy('gp.product_id')->pluck('mu', 'product_id');
+
+        $out = [];
+        foreach ($ids as $pid) {
+            $out[(int) $pid] = md5(($prod[$pid] ?? '') . '|' . ($listing[$pid] ?? '') . '|' . ($group[$pid] ?? ''));
+        }
+
+        return $out;
+    }
+
+    /**
+     * Fresh readiness for the given product ids, one batched pass through the
+     * engine. The listing judged is the one the product carries: a linked row
+     * if any, else the last.
+     *
+     * @return array<int, array{ready: bool, gaps: list<array{code: string, label: string}>}>
+     */
+    private function lazadaReadinessCompute(array $ids): array
+    {
         $readiness = app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class);
+        $chosen = LazadaProduct::query()->whereNotNull('product_id')->whereIn('product_id', $ids ?: [0])
+            ->orderBy('id')->get()->groupBy('product_id')
+            ->map(fn ($rows) => $rows->first(fn ($l) => !empty($l->lazada_item_id) && !$l->unlinked_at) ?? $rows->last());
+        $answers = $chosen->isEmpty() ? [] : $readiness->forListings($chosen->values());
 
-        $answer = function (?array $productIds = null) use ($readiness): array {
-            $chosen = LazadaProduct::query()->whereNotNull('product_id')
-                ->when($productIds !== null, fn ($q) => $q->whereIn('product_id', $productIds ?: [0]))
-                ->orderBy('id')->get()->groupBy('product_id')
-                ->map(fn ($rows) => $rows->first(fn ($l) => !empty($l->lazada_item_id) && !$l->unlinked_at) ?? $rows->last());
-            $answers = $chosen->isEmpty() ? [] : $readiness->forListings($chosen->values());
+        $out = [];
+        foreach ($ids as $pid) {
+            $row = $chosen->get($pid);
+            $r = $row ? ($answers[(int) $row->id] ?? null) : null;
+            $out[(int) $pid] = $r === null
+                ? ['ready' => false, 'gaps' => [['code' => 'unknown', 'label' => 'not checked yet']]]
+                : ['ready' => (bool) ($r['ready'] ?? false), 'gaps' => array_values((array) ($r['gaps'] ?? []))];
+        }
 
-            $out = [];
-            foreach ($chosen as $productId => $row) {
-                $r = $answers[(int) $row->id] ?? null;
-                $out[(int) $productId] = $r === null
-                    ? ['unknown']
-                    : array_values(array_map(fn ($gap) => (string) ($gap['code'] ?? ''), (array) ($r['gaps'] ?? [])));
-            }
-
-            return $out;
-        };
-
-        // Computed on every load, never held: a fix must leave the list at once.
-        $held = $answer();
-
-        /* A product that joined the store after the answer was held is
-         * answered now, so it is never missing from both lists. */
-        $new = LazadaProduct::query()->whereNotNull('product_id')
-            ->when($held !== [], fn ($q) => $q->whereNotIn('product_id', array_keys($held)))
-            ->distinct()->pluck('product_id')->map(fn ($v) => (int) $v)->all();
-
-        return $new === [] ? $held : $answer($new) + $held;
+        return $out;
     }
 
     protected function catalogChangeFallback(int $productId): string
