@@ -106,6 +106,35 @@ class LazadaListingReadiness
             ->get()
             ->groupBy('lazada_product_id');
 
+        /* Variation data for EVERY product in one go, so variationGaps issues
+         * no per-listing query. This was the N+1 that made a full-catalog
+         * pass ~one query per listing (2,000+ on a 1,900-product store). */
+        $povByProduct = DB::table($pfx . 'product_option_value as pov')
+            ->leftJoin($pfx . 'option_description as od', function ($j) use ($langId) {
+                $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
+            })
+            ->whereIn('pov.product_id', $productIds)
+            ->orderBy('pov.product_option_value_id')
+            ->get(['pov.product_id', 'pov.product_option_value_id', 'pov.option_id', 'pov.sku', 'pov.absolute_price', 'od.name as option_name'])
+            ->groupBy('product_id');
+        $combosByProduct = DB::table('product_option_combinations')
+            ->whereIn('product_id', $productIds)
+            ->orderBy('sort_order')
+            ->get(['id', 'product_id', 'sku', 'absolute_price'])
+            ->groupBy('product_id');
+        $axisByProduct = [];
+        $allComboIds = $combosByProduct->collapse()->pluck('id')->all();
+        if ($allComboIds !== []) {
+            foreach (DB::table('product_option_combination_values as pocv')
+                ->join($pfx . 'product_option_value as pov2', 'pocv.product_option_value_id', '=', 'pov2.product_option_value_id')
+                ->join('product_option_combinations as c', 'pocv.combination_id', '=', 'c.id')
+                ->whereIn('pocv.combination_id', $allComboIds)
+                ->get(['c.product_id', 'pov2.option_id'])
+                ->groupBy('product_id') as $pid => $rows) {
+                $axisByProduct[(int) $pid] = $rows->pluck('option_id')->unique()->count();
+            }
+        }
+
         $out = [];
         foreach ($listings as $listing) {
             $productId = (int) $listing->product_id;
@@ -171,7 +200,7 @@ class LazadaListingReadiness
                 }
             }
 
-            foreach ($this->variationGaps($listing, $product, $group, $template, $requiredKeys, $pfx, $langId) as $gap) {
+            foreach ($this->variationGaps($listing, $product, $group, $template, $requiredKeys, $povByProduct->get($productId) ?? collect(), $combosByProduct->get($productId) ?? collect(), $axisByProduct[$productId] ?? 0) as $gap) {
                 $gaps[] = $gap;
             }
 
@@ -191,17 +220,9 @@ class LazadaListingReadiness
      *
      * @return list<array{code: string, label: string}>
      */
-    private function variationGaps($listing, ?object $product, ?array $group, ?LazadaCategoryTemplate $template, array $requiredKeys, string $pfx, int $langId): array
+    private function variationGaps($listing, ?object $product, ?array $group, ?LazadaCategoryTemplate $template, array $requiredKeys, $povRows, $combos, int $axes): array
     {
         $gaps = [];
-        $productId = (int) $listing->product_id;
-        $povRows = DB::table($pfx . 'product_option_value as pov')
-            ->leftJoin($pfx . 'option_description as od', function ($j) use ($langId) {
-                $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
-            })
-            ->where('pov.product_id', $productId)
-            ->orderBy('pov.product_option_value_id')
-            ->get(['pov.product_option_value_id', 'pov.option_id', 'pov.sku', 'pov.absolute_price', 'od.name as option_name']);
 
         $basePrice = (float) ($product->price ?? 0);
         $fixed = $listing->markup_fixed;
@@ -215,15 +236,10 @@ class LazadaListingReadiness
 
         if ($povRows->count() > 0) {
             $optionIds = $povRows->pluck('option_id')->filter()->unique()->values();
-            $combos = DB::table('product_option_combinations')->where('product_id', $productId)->orderBy('sort_order')->get(['id', 'sku', 'absolute_price']);
 
             if ($combos->isEmpty() && $optionIds->count() > 1) {
                 $gaps[] = ['code' => ListingState::GAP_VARIATIONS, 'label' => 'its variation combinations stored (re-save the product to build them)'];
             } elseif ($combos->isNotEmpty()) {
-                $axes = DB::table('product_option_combination_values as pocv')
-                    ->join($pfx . 'product_option_value as pov2', 'pocv.product_option_value_id', '=', 'pov2.product_option_value_id')
-                    ->whereIn('pocv.combination_id', $combos->pluck('id')->all())
-                    ->distinct()->count('pov2.option_id');
                 $keys = $template && $listing->primary_category_id
                     ? app(LazadaAttributes::class)->cachedSalePropKeys((int) $listing->primary_category_id)
                     : [];

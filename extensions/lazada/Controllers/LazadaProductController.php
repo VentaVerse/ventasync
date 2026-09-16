@@ -389,8 +389,13 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $notListed = fn ($query) => $query->where(function ($sub) {
             $sub->whereNull('lp.lazada_item_id')->orWhere('lp.lazada_item_id', '=', '');
         })->whereNull('lp.lazada_deleted_at');
-        $readyIs = function ($query, bool $wantReady) {
-            $matching = array_keys(array_filter($this->readyByProduct(), fn ($r) => $r === $wantReady));
+        // Held for this request: readyByProduct scans the whole catalog, and the
+        // menu counts ask for it several times. Computing it once, not ~6x, is the
+        // difference between a slow page and a fast one on a large store.
+        $readyMap = null;
+        $readyIs = function ($query, bool $wantReady) use (&$readyMap) {
+            $readyMap ??= $this->readyByProduct();
+            $matching = array_keys(array_filter($readyMap, fn ($r) => $r === $wantReady));
 
             return $query->whereIn('p.product_id', $matching ?: [0]);
         };
