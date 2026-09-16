@@ -1060,14 +1060,9 @@ class VentaListingController extends Controller
 
         $back = \App\Support\BackTo::safe($request->input('back'), '');
 
-        // Save and push (parity, the owner 2026-09-06): the save ran; a product
-        // not yet on the store goes on to the push, which names its own refusal.
+        // Save and push: the save ran; the push creates the product on the
+        // store or updates it in place, and names its own refusal.
         if ($request->boolean('push_after')) {
-            if (\Extensions\venta\Models\VentaProductLink::query()->where('venta_setting_id', $store)->where('product_id', $productId)->whereNotNull('venta_product_id')->exists()) {
-                return redirect()->route('ext.venta.listings.edit', $back !== '' ? [$store, $productId, 'back' => $back] : [$store, $productId])
-                    ->with('status', 'Listing saved.');
-            }
-
             return $this->push($request, $store, $productId);
         }
 

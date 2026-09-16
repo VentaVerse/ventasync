@@ -45,7 +45,7 @@
 
     <div class="fm-head">
         <div class="fm-head__main">
-            <a class="fm-back" href="{{ route('ext.tiktok.products.index') }}" data-guard-leave>
+            <a class="fm-back" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.tiktok.products.index')) }}" data-guard-leave>
                 <x-ui.icon name="chevron-left" size="14" /> Listings
             </a>
             <h1 class="fm-title">{{ ($product->name ?? '') !== '' ? $product->name : 'Product ' . $product->product_id }}</h1>
@@ -109,13 +109,6 @@
         @if($canManage)
             <x-slot:verbs>
                 @if($listed)
-                    @if(!$liveError && empty($missing))
-                        <form method="POST" action="{{ route('ext.tiktok.listings.push_update', $product->product_id) }}"
-                              data-guard-stale data-confirm="Push this listing's content and settings onto the live TikTok Shop product? Title, description, package, category, brand, attributes, price and stock are updated." data-confirm-tone="primary" data-confirm-verb="Push update">
-                            @csrf
-                            <x-ui.button type="submit" variant="oncolor" size="sm">Push update to TikTok Shop</x-ui.button>
-                        </form>
-                    @endif
                     @if($live && $live['status'] === 'ACTIVATE')
                         <form method="POST" action="{{ route('ext.tiktok.listings.toggle', $product->product_id) }}"
                               data-guard-stale data-confirm="Deactivate this product on TikTok Shop? Buyers stop seeing it. It can be activated again at any time." data-confirm-verb="Deactivate">
@@ -131,13 +124,6 @@
                             <x-ui.button type="submit" variant="oncolor" size="sm">Activate on TikTok Shop</x-ui.button>
                         </form>
                     @endif
-                @elseif(empty($missing))
-                    <form method="POST" action="{{ route('ext.tiktok.products.push_direct', $product->product_id) }}"
-                          data-guard-stale data-confirm="Push this product to TikTok Shop now? It goes up with the settings and content saved on this page." data-confirm-tone="primary" data-confirm-verb="Push to TikTok Shop">
-                        @csrf
-                        <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
-                        <x-ui.button type="submit" variant="oncolor" size="sm">Push to TikTok Shop</x-ui.button>
-                    </form>
                 @endif
             </x-slot:verbs>
         @endif
@@ -275,13 +261,11 @@
     <x-ui.form-bar :cancel="\App\Support\BackTo::safe(request('back'), route('ext.tiktok.products.index'))" :cancel-label="$canManage ? 'Cancel' : 'Back'">
         <x-slot:note>{{ !$canManage
             ? 'You can read this. Editing needs the TikTok manage permission.'
-            : ($listed
-                ? 'Saving changes this record only. Push update to TikTok Shop sends it onto the live product.'
-                : 'Saving changes this record only. TikTok Shop sees it when the product is pushed.') }}</x-slot:note>
-        @if($canManage && !$listed)
-            {{-- One trip for the common case: save what was just typed,
-                 then push. --}}
-            <x-ui.button type="submit" form="listing-form" name="push_after" value="1">Save and push to TikTok Shop</x-ui.button>
+            : 'Save listing keeps everything on this page. Save and push keeps it and sends the listing to TikTok Shop.' }}</x-slot:note>
+        @if($canManage)
+            {{-- One press saves what was just typed, then pushes: a new
+                 product, or an update onto the live one. --}}
+            <x-ui.button type="submit" form="listing-form" name="push_after" value="1">{{ $listed ? 'Save and push the update' : 'Save and push to TikTok Shop' }}</x-ui.button>
         @endif
         <x-slot:primary>
             {{-- Required means required on both presses: neither button

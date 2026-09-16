@@ -427,6 +427,43 @@ class ShopeeListingPageTest extends TestCase
         $this->assertCount(3, $seen, 'Every picture is uploaded before the update names it.');
     }
 
+    /** A save keeps the way back to the search, so Cancel still returns to it. */
+    public function test_a_save_keeps_the_way_back_to_the_search(): void
+    {
+        $productId = $this->seedProduct();
+        $back = '/channels/shopee/1/products?search=locks';
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.listings.update', $productId), ['back' => $back])
+            ->assertRedirect(route('ext.shopee.listings.edit', [$productId, 'back' => $back]));
+    }
+
+    /**
+     * Save and push on a live listing saves, updates the live item and
+     * returns to the search it came from, the way Lazada always has.
+     */
+    public function test_save_and_push_updates_a_live_listing_and_returns_to_the_search(): void
+    {
+        $productId = $this->seedProduct();
+        ShopeeProductLink::query()->create([
+            'product_id' => $productId, 'shopee_item_id' => 990078, 'sku' => 'LSTP-SKU-1',
+        ]);
+        ShopeeListing::query()->create([
+            'product_id' => $productId, 'shopee_category_id' => 100013, 'logistic_ids' => [8003],
+        ]);
+        $this->getResponses['/api/v2/product/get_item_base_info'] = $this->baseInfoAnswer();
+        $back = '/channels/shopee/1/products?search=locks';
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.listings.update', $productId), [
+                'shopee_category_id' => 100013, 'logistic_ids' => [8003], 'push_after' => 1, 'back' => $back,
+            ])
+            ->assertRedirect($back)
+            ->assertSessionMissing('error');
+
+        $this->assertNotNull(collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/update_item'), 'Save and push reaches update_item.');
+    }
+
     /**
      * A listing that carries its own pictures answers the image gap itself.
      * It used to be told it needed "a product image on the catalog product"

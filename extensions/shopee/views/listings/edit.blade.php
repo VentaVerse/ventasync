@@ -60,7 +60,7 @@
 
     <div class="fm-head">
         <div class="fm-head__main">
-            <a class="fm-back" href="{{ route('ext.shopee.products.index') }}" data-guard-leave>
+            <a class="fm-back" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.shopee.products.index')) }}" data-guard-leave>
                 <x-ui.icon name="chevron-left" size="14" /> Listings
             </a>
             <h1 class="fm-title">{{ $product->name !== '' ? $product->name : 'Product ' . $product->product_id }}</h1>
@@ -151,19 +151,6 @@
         @if($canManage)
             <x-slot:verbs>
                 @if($link)
-                    {{-- The other half of Save: the record drives the NEXT
-                         push, and this sends it onto the LIVE item now.
-                         Offered only when Shopee answered and the record has
-                         what a push needs; the note beneath says which is
-                         missing otherwise, so the button never leads to a
-                         refusal it could have named. --}}
-                    @if(!$liveError && empty($missing))
-                        <form method="POST" action="{{ route('ext.shopee.listings.push_update', $product->product_id) }}"
-                              data-guard-stale data-confirm="Push this listing's content and settings onto the live Shopee item? Title, description, pictures, weight and size, category and couriers are updated. Price and stock are not touched - they have their own syncs." data-confirm-tone="primary" data-confirm-verb="Push update">
-                            @csrf
-                            <x-ui.button type="submit" variant="oncolor" size="sm">Push update to Shopee</x-ui.button>
-                        </form>
-                    @endif
                     @if($live && $live['item_status'] === 'NORMAL')
                         <form method="POST" action="{{ route('ext.shopee.listings.toggle', $product->product_id) }}"
                               data-confirm="Delist this item from Shopee? Buyers stop seeing it immediately. It stays here and can be published again at any time." data-confirm-verb="Unlist">
@@ -191,17 +178,6 @@
                     <form method="POST" action="{{ route('ext.shopee.listings.reread_variations', $product->product_id) }}" data-slow-action>
                         @csrf
                         <x-ui.button type="submit" size="sm">Re-read variations from Shopee</x-ui.button>
-                    </form>
-                @elseif(empty($missing))
-                    {{-- Push is a verb on THIS page (2026-09-03, the
-                         one-editor merge). #149's see-before-it-goes holds:
-                         this page IS what goes up. --}}
-                    <form method="POST" action="{{ route('ext.shopee.products.push_direct', $product->product_id) }}" data-slow-action
-                          data-guard-stale data-confirm-tone="primary" data-confirm-verb="Push"
-                          data-push-review="{{ route('ext.shopee.products.push_review', $product->product_id) }}">
-                        @csrf
-                        <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
-                        <x-ui.button type="submit" variant="oncolor" size="sm">Push to Shopee</x-ui.button>
                     </form>
                 @endif
             </x-slot:verbs>
@@ -436,16 +412,13 @@
     <x-ui.form-bar :cancel="\App\Support\BackTo::safe(request('back'), route('ext.shopee.products.index'))" :cancel-label="$canManage ? 'Cancel' : 'Back'">
         <x-slot:note>{{ !$canManage
             ? 'You can read this. Editing needs the Shopee manage permission.'
-            : ($link
-                ? 'Saving changes this record only. Push update to Shopee sends it onto the live listing.'
-                : 'Saving changes this record only. Shopee sees it when the product is pushed.') }}</x-slot:note>
-        @if($canManage && !$link)
-            {{-- One trip for the common case: save what was just
-                 typed, then push - the save half runs first, so a
-                 refusal never loses the typing. The controller
-                 re-checks readiness after saving and names what is
-                 still missing instead of pushing blind. --}}
-            <x-ui.button type="submit" form="listing-form" name="push_after" value="1">Save and push to Shopee</x-ui.button>
+            : 'Save listing keeps everything on this page. Save and push keeps it and sends the listing to Shopee.' }}</x-slot:note>
+        @if($canManage)
+            {{-- One press saves what was just typed, then pushes: a new item
+                 when the product is not on Shopee yet, an update onto the
+                 live item once it is. The save half runs first, so a
+                 refusal never loses the typing. --}}
+            <x-ui.button type="submit" form="listing-form" name="push_after" value="1">{{ $link ? 'Save and push the update' : 'Save and push to Shopee' }}</x-ui.button>
         @endif
         <x-slot:primary>
             {{-- Required means required on both presses: neither button

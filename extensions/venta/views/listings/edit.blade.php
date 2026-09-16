@@ -48,8 +48,8 @@
 
     <div class="fm-head">
         <div class="fm-head__main">
-            <a class="fm-back" href="{{ route('ext.venta.product-groups.index', $setting->id) }}" data-guard-leave>
-                <x-ui.icon name="chevron-left" size="14" /> Product groups
+            <a class="fm-back" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.venta.listings.index', $setting->id)) }}" data-guard-leave>
+                <x-ui.icon name="chevron-left" size="14" /> Listings
             </a>
             <h1 class="fm-title">{{ ($product->name ?? '') !== '' ? $product->name : 'Product ' . $product->product_id }}</h1>
             <div class="fm-stamps">
@@ -115,17 +115,6 @@
     <x-channel.listing-strip :channel="$storeName" :health="false" :linked="(bool) $onStore">
         @if($canManage && $setting->enabled && ($onStore || !$noSku))
             <x-slot:verbs>
-                <form method="POST" action="{{ route('ext.venta.listings.push', [$setting->id, $product->product_id]) }}"
-                      data-guard-stale
-                      data-confirm="{{ $onStore
-                          ? 'Push this listing\'s content and price rule onto the live ' . $storeName . ' product? Name, description, price, stock, images and variations are updated in place.'
-                          : 'Push this product to ' . $storeName . ' now? It goes up with the price rule and content saved on this page.' }}"
-                      data-confirm-tone="primary" data-confirm-verb="{{ $onStore ? 'Push update' : 'Push to ' . $storeName }}"
-                      data-busy="Pushing to {{ $storeName }}">
-                    @csrf
-                    <input type="hidden" name="back" value="{{ \App\Support\BackTo::safe(request('back'), '') }}">
-                    <x-ui.button type="submit" variant="oncolor" size="sm">{{ $onStore ? 'Push update to ' . $storeName : 'Push to ' . $storeName }}</x-ui.button>
-                </form>
                 @if($found && $live['status'] === \Extensions\venta\Models\VentaListing::STATUS_ACTIVE)
                     <form method="POST" action="{{ route('ext.venta.listings.toggle', [$setting->id, $product->product_id]) }}"
                           data-guard-stale data-confirm="Unlist this product on {{ $storeName }}? Buyers stop seeing it. It can be relisted at any time."
@@ -263,11 +252,9 @@
     <x-ui.form-bar :cancel="\App\Support\BackTo::safe(request('back'), route('ext.venta.listings.index', $setting->id))" :cancel-label="$canManage ? 'Cancel' : 'Back'">
         <x-slot:note>{{ !$canManage
             ? 'You can read this. Editing needs the Venta listing manage permission.'
-            : ($onStore
-                ? 'Saving changes this record only. Push update sends it onto the live product.'
-                : 'Saving changes this record only. ' . $storeName . ' sees it when the product is pushed.') }}</x-slot:note>
-        @if($canManage && !$onStore && $setting->enabled)
-            <x-ui.button type="submit" form="listing-form" name="push_after" value="1">Save and push to {{ $storeName }}</x-ui.button>
+            : 'Save listing keeps everything on this page. Save and push keeps it and sends the listing to ' . $storeName . '.' }}</x-slot:note>
+        @if($canManage && $setting->enabled)
+            <x-ui.button type="submit" form="listing-form" name="push_after" value="1">{{ $onStore ? 'Save and push the update' : 'Save and push to ' . $storeName }}</x-ui.button>
         @endif
         <x-slot:primary>
             @if($canManage)

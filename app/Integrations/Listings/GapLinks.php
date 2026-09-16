@@ -85,7 +85,22 @@ final class GapLinks
      */
     public static function sentence(array $gaps, string $channel, bool $isLive): string
     {
-        $words = self::words($gaps);
+        /* A disabled product is said as what it is, not as a detail it needs. */
+        $disabled = false;
+        $rest = [];
+        foreach ($gaps as $gap) {
+            if (($gap['code'] ?? '') === ListingState::GAP_DISABLED) {
+                $disabled = true;
+            } else {
+                $rest[] = $gap;
+            }
+        }
+
+        $words = self::words($rest);
+        if ($disabled) {
+            return ($isLive ? 'Push update' : 'Not ready for ' . $channel) . ': the ' . CatalogGaps::DISABLED_LABEL
+                . ($words !== '' ? ', and it needs ' . $words : '') . '.';
+        }
         if ($words === '') {
             return '';
         }

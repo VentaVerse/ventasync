@@ -69,7 +69,7 @@ final class CatalogGaps
             foreach ($checks as $check) {
                 $gap = match ($check) {
                     self::ENABLED => (! $p || (int) $p->status !== 1)
-                        ? ['code' => ListingState::GAP_DISABLED, 'label' => 'the catalog product enabled (it is disabled)'] : null,
+                        ? ['code' => ListingState::GAP_DISABLED, 'label' => self::DISABLED_LABEL] : null,
                     self::NAME => (! $p || trim(html_entity_decode((string) ($p->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')) === '')
                         ? ['code' => ListingState::GAP_NAME, 'label' => 'a name on the catalog product'] : null,
                     self::DESCRIPTION => (! $p || trim(strip_tags(html_entity_decode((string) ($p->description ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'))) === '')
@@ -111,14 +111,33 @@ final class CatalogGaps
         return $out;
     }
 
+    /** The words for a catalog product that is switched off: a fact, not a detail to fill in. */
+    public const DISABLED_LABEL = 'product in catalog is disabled';
+
     /** The sentence a push refuses with, from a readiness answer. */
     public static function refusal(array $readiness, string $verb = 'push'): string
     {
-        $missing = $readiness['missing'] ?? [];
+        return 'Not ' . ($verb === 'update' ? 'updated' : 'pushed') . ': ' . self::stillNeeds($readiness['missing'] ?? []);
+    }
+
+    /**
+     * What a listing still lacks, as the words after "Not pushed: ". A
+     * disabled product is said as what it is; anything else missing follows.
+     *
+     * @param  list<string>  $missing  the readiness answer's missing labels
+     */
+    public static function stillNeeds(array $missing): string
+    {
         if ($missing === []) {
             $missing = ['its readiness could not be checked'];
         }
 
-        return 'Not ' . ($verb === 'update' ? 'updated' : 'pushed') . ': this listing still needs ' . implode(', ', $missing) . '. Set what is missing and try again.';
+        $rest = array_values(array_filter($missing, fn ($m) => $m !== self::DISABLED_LABEL));
+        if (count($rest) < count($missing)) {
+            return 'the ' . self::DISABLED_LABEL
+                . ($rest === [] ? '.' : ', and this listing still needs ' . implode(', ', $rest) . '. Set what is missing and try again.');
+        }
+
+        return 'this listing still needs ' . implode(', ', $missing) . '. Set what is missing and try again.';
     }
 }

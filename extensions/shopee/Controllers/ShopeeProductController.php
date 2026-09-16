@@ -3004,30 +3004,45 @@ class ShopeeProductController extends Controller
             \App\Integrations\Listings\ListingVariations::save('shopee', (int) (ShopeeSetting::defaultStore()?->id ?? 0), $productId, $sellHere);
         }
 
-        /* Save and push (2026-09-03, the one-editor merge): the save half
-         * has already landed, so a refusal below never loses the typing.
-         * Readiness is re-checked on what was JUST saved and every gap is
-         * named - the button never leads to a refusal it could have
-         * spelled out. */
+        // Every way out of a save keeps the way back to the search.
+        $back = \App\Support\BackTo::safe($request->input('back'), '');
+        $editRoute = $back !== '' ? [$productId, 'back' => $back] : $productId;
+
+        /* Save and push: the save half has already landed, so a refusal
+         * below never loses the typing. A product already on Shopee is
+         * updated in place; one that is not is re-checked for readiness on
+         * what was JUST saved, with every gap named, and pushed as a new
+         * item. An accepted push returns to the search it came from. */
         if ($request->boolean('push_after')) {
             if (ShopeeProductLink::query()->where('product_id', $productId)->exists()) {
-                return redirect()->route('ext.shopee.listings.edit', $productId)
-                    ->with('status', 'Listing saved.');
+                $setting = ShopeeSetting::defaultStore()?->decrypted();
+                $auth = ShopeeSetting::activeAuth($setting);
+                if (!$setting || !$auth['complete']) {
+                    $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+
+                    return redirect()->route('ext.shopee.listings.edit', $editRoute)
+                        ->with('error', "Saved, but not pushed: missing Shopee {$modeLabel} settings.");
+                }
+
+                $r = $this->performListingUpdate($productId, $client, $auth);
+                $tone = self::updateTone($r);
+
+                return ($tone !== 'error' && $back !== '' ? redirect()->to($back) : redirect()->route('ext.shopee.listings.edit', $editRoute))
+                    ->with($tone, $r['message']);
             }
 
             $readiness = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)
                 ->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => ['its readiness could not be checked']];
 
             if (!$readiness['ready']) {
-                return redirect()->route('ext.shopee.listings.edit', $productId)
-                    ->with('error', 'Saved, but not pushed: this listing still needs '
-                        . implode(', ', $readiness['missing']) . '. Set what is missing and try again.');
+                return redirect()->route('ext.shopee.listings.edit', $editRoute)
+                    ->with('error', 'Saved, but not pushed: ' . \App\Integrations\Listings\CatalogGaps::stillNeeds($readiness['missing']));
             }
 
             return $this->pushDirect($request, $productId, $client);
         }
 
-        return redirect()->route('ext.shopee.listings.edit', $productId)
+        return redirect()->route('ext.shopee.listings.edit', $editRoute)
             ->with('status', 'Listing saved.');
     }
 
@@ -3053,12 +3068,20 @@ class ShopeeProductController extends Controller
 
         $r = $this->performListingUpdate($productId, $client, $auth);
 
-        // A description picture left out is a warning: the update went, and it is never the error line.
-        $tone = (! $r['ok'] || ($r['failure'] ?? null) !== null)
+        return redirect()->back()->with(self::updateTone($r), $r['message']);
+    }
+
+    /**
+     * The flash an update answer earns. A description picture left out is a
+     * warning: the update went, and it is never the error line.
+     *
+     * @param  array{ok: bool, message: string, failure?: ?string, warning?: string}  $r
+     */
+    private static function updateTone(array $r): string
+    {
+        return (! $r['ok'] || ($r['failure'] ?? null) !== null)
             ? 'error'
             : ((($r['warning'] ?? '') !== '') ? 'warning' : 'status');
-
-        return redirect()->back()->with($tone, $r['message']);
     }
 
     /**

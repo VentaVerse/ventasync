@@ -306,19 +306,22 @@ class TikTokListingController extends Controller
 
         $back = \App\Support\BackTo::safe($request->input('back'), '');
 
-        /* Save and push (parity with Lazada and Shopee, the owner 2026-09-06):
-         * the save half runs first so a refusal never loses the typing;
-         * readiness is re-read after the save and named, and only a ready,
-         * unlisted product goes on to the push. */
+        /* Save and push: the save half runs first so a refusal never loses
+         * the typing. A product already on TikTok Shop is updated in place;
+         * one that is not has its readiness re-read after the save and
+         * named, and only a ready product goes on to the push. An accepted
+         * push returns to the search it came from. */
         if ($request->boolean('push_after')) {
             if (TikTokListing::query()->where('product_id', $productId)->whereNotNull('tiktok_product_id')->exists()) {
-                return redirect()->route('ext.tiktok.listings.edit', $back !== '' ? [$productId, 'back' => $back] : $productId)
-                    ->with('status', 'Listing saved.');
+                $r = $this->performListingUpdate($productId, app(TikTokClient::class));
+
+                return ($r['tone'] !== 'error' && $back !== '' ? redirect()->to($back) : redirect()->route('ext.tiktok.listings.edit', $back !== '' ? [$productId, 'back' => $back] : $productId))
+                    ->with($r['tone'], $r['message']);
             }
             $readiness = app(TikTokListingReadiness::class)->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => ['its readiness could not be checked']];
             if (!$readiness['ready']) {
                 return redirect()->route('ext.tiktok.listings.edit', $back !== '' ? [$productId, 'back' => $back] : $productId)
-                    ->with('error', 'Saved, but not pushed: this listing still needs ' . implode(', ', $readiness['missing']) . '. Set what is missing and try again.');
+                    ->with('error', 'Saved, but not pushed: ' . \App\Integrations\Listings\CatalogGaps::stillNeeds($readiness['missing']));
             }
 
             return app(TikTokProductController::class)->pushDirect($request, $productId, app(TikTokClient::class));
@@ -335,16 +338,28 @@ class TikTokListingController extends Controller
      */
     public function pushListingUpdate(int $productId, TikTokClient $client)
     {
+        $r = $this->performListingUpdate($productId, $client);
+
+        return redirect()->back()->with($r['tone'], $r['message']);
+    }
+
+    /**
+     * The update itself, shared by the Push update route and Save and push.
+     *
+     * @return array{tone: 'status'|'warning'|'error', message: string}
+     */
+    private function performListingUpdate(int $productId, TikTokClient $client): array
+    {
         $truth = $this->derivedTruth($productId);
         $c = $this->creds();
         if (!$truth || !$c) {
-            return redirect()->back()->with('error', 'Update failed: ' . (!$c ? 'missing TikTok settings.' : 'this product is not on TikTok Shop.'));
+            return ['tone' => 'error', 'message' => 'Update failed: ' . (!$c ? 'missing TikTok settings.' : 'this product is not on TikTok Shop.')];
         }
         $readiness = app(TikTokListingReadiness::class)->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => ['a TikTok category']];
         if (!$readiness['ready']) {
             $this->states()->recordOutcome($productId, \App\Integrations\Listings\CatalogGaps::refusal($readiness, 'update'));
 
-            return redirect()->back()->with('error', 'Update failed: this listing still needs ' . implode(', ', $readiness['missing']) . '.');
+            return ['tone' => 'error', 'message' => 'Update failed: this listing still needs ' . implode(', ', $readiness['missing']) . '.'];
         }
         $listing = TikTokListing::query()->where('product_id', $productId)->first();
         // The group's presets fill the blanks, the way readiness judged it.
@@ -372,13 +387,13 @@ class TikTokListingController extends Controller
         if (!$outcome['ok']) {
             $this->states()->recordOutcome($productId, (string) $outcome['message']);
 
-            return redirect()->back()->with('error', 'Update failed: ' . $outcome['message']);
+            return ['tone' => 'error', 'message' => 'Update failed: ' . $outcome['message']];
         }
         TikTokListing::recordPush($productId, (string) $truth->tiktok_product_id, $outcome['sku_ids'] ?? ($truth->tiktok_sku_id ?? null), 'listing', isset($outcome['sku_ids']));
         $this->states()->recordOutcome($productId, null);
         $warning = $outcome['warning'] ?? null;
 
-        return redirect()->back()->with($warning ? 'warning' : 'status', 'Update pushed.' . ($warning ? ' ' . $warning : ''));
+        return ['tone' => $warning ? 'warning' : 'status', 'message' => 'Update pushed.' . ($warning ? ' ' . $warning : '')];
     }
 
     /** The listing-state engine, pinned to the store this request acts for. */

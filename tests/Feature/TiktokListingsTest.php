@@ -364,7 +364,7 @@ class TiktokListingsTest extends TestCase
         $r = $this->actingAs($this->manager())->post(route('ext.tiktok.products.push_direct', $productId));
 
         $r->assertSessionHas('error');
-        $this->assertStringContainsString('the catalog product enabled (it is disabled)', session('error'));
+        $this->assertStringContainsString('product in catalog is disabled', session('error'));
         $this->assertSame([], $this->callsFor('POST', '/product/202309/products'));
     }
 
@@ -398,6 +398,22 @@ class TiktokListingsTest extends TestCase
         $this->actingAs($this->manager())->post(route('ext.tiktok.products.push_direct', $productId))->assertSessionHas('status');
 
         $this->assertSame('330', $this->callsFor('POST', '/product/202309/products')[0]['body']['skus'][0]['price']['amount']);
+    }
+
+    /** Save and push on a live product updates it and returns to the search it came from. */
+    public function test_save_and_push_updates_a_live_product_and_returns_to_the_search(): void
+    {
+        $productId = $this->seedProduct('SP', 300);
+        TikTokListing::create(['product_id' => $productId, 'tiktok_product_id' => 'tt-sp', 'tiktok_sku_id' => 's-sp',
+            'tiktok_category_id' => '900009', 'last_pushed_at' => now(), 'last_push_source' => 'listing']);
+        $back = '/channels/tiktok/1/products?search=sp';
+
+        $this->actingAs($this->manager())
+            ->put(route('ext.tiktok.listings.update', $productId), ['push_after' => 1, 'back' => $back])
+            ->assertRedirect($back)
+            ->assertSessionHas('status');
+
+        $this->assertCount(1, $this->callsFor('PUT', '/product/202309/products/tt-sp'));
     }
 
     /** The listing page's update onto the live item starts from the same Price. */
