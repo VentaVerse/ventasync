@@ -234,7 +234,7 @@
             $listingUrl = route('ext.venta.listings.edit', [$setting->id, $pid, 'back' => request()->getRequestUri()]);
         @endphp
         @include('partials.channel-error-row', ['error' => $rowErrors[$pid] ?? null, 'cols' => $colCount])
-        @include('partials.channel-ready-row', ['state' => ($listingStates ?? [])[(int) $p->product_id] ?? null, 'cols' => $colCount])
+        @include('partials.channel-ready-row', ['state' => ($listingStates ?? [])[(int) $p->product_id] ?? null, 'cols' => $colCount, 'productId' => (int) $p->product_id])
         <tr>
             @if($canManage)
             <td class="cc-col-check">

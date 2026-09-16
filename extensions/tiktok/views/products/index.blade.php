@@ -266,7 +266,7 @@
             $rowLabel = $pName !== '' ? $pName : (string) ($p->sku ?: 'product ' . $pid);
         @endphp
         @include('partials.channel-error-row', ['error' => ($rowErrors ?? [])[(int) $pid] ?? null, 'cols' => $colCount])
-        @include('partials.channel-ready-row', ['state' => ($listingStates ?? [])[(int) $p->product_id] ?? null, 'cols' => $colCount])
+        @include('partials.channel-ready-row', ['state' => ($listingStates ?? [])[(int) $p->product_id] ?? null, 'cols' => $colCount, 'productId' => (int) $p->product_id])
         <tr>
             @if($canManage)
             <td class="cc-col-check">

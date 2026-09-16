@@ -1020,3 +1020,26 @@ body.cc-addpanel-open { overflow: hidden; }
 }
 
 .cs-filter__clear:hover { color: var(--bl-ink); }
+
+/* The way out of a readiness line, when the fix is on a page this row cannot
+   reach. It rides the sentence rather than standing as a control: the line is
+   already amber and full width, and a button inside it would read as a second
+   row action competing with the row's own menu. */
+.cc-warn-fix {
+    margin-left: 6px;
+    color: inherit;
+    font-weight: 620;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-thickness: 1px;
+}
+
+.cc-warn-fix:hover {
+    text-decoration-thickness: 2px;
+}
+
+.cc-warn-fix:focus-visible {
+    outline: 2px solid var(--bl-brand);
+    outline-offset: 2px;
+    border-radius: 2px;
+}

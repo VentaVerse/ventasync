@@ -280,7 +280,7 @@
             $rowLabel = $pName !== '' ? $pName : (string) ($p->sku ?: 'product ' . $p->product_id);
         @endphp
         @include('partials.channel-error-row', ['error' => $rowErrors[(int) $p->product_id] ?? null, 'cols' => $colCount])
-        @include('partials.channel-ready-row', ['state' => ($listingStates ?? [])[(int) $p->product_id] ?? null, 'cols' => $colCount])
+        @include('partials.channel-ready-row', ['state' => ($listingStates ?? [])[(int) $p->product_id] ?? null, 'cols' => $colCount, 'productId' => (int) $p->product_id])
         <tr>
             @if($canManageShopee)
             <td class="cc-col-check">

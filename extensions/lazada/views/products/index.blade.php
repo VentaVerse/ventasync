@@ -378,7 +378,7 @@
             $rowLabel = $pName !== '' ? $pName : ($pSku !== '' ? $pSku : 'product ' . $pid);
         @endphp
         @include('partials.channel-error-row', ['error' => ($rowErrors ?? [])[(int) $pid] ?? null, 'cols' => $colCount])
-        @include('partials.channel-ready-row', ['state' => $rowState, 'cols' => $colCount])
+        @include('partials.channel-ready-row', ['state' => $rowState, 'cols' => $colCount, 'productId' => (int) $pid])
         <tr>
             @if($canManageLazada)
             <td class="cc-col-check">
