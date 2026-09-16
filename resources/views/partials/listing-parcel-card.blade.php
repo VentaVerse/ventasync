@@ -19,22 +19,24 @@
                         placeholder="{{ (float) ($catalog->weight ?? 0) }}"
                         :disabled="! $canManage" />
         </x-ui.field>
+        {{-- Decimals, as the catalog has always taken: a store's columns hold
+             them now, so 10.5 cm is kept rather than refused here. --}}
         <x-ui.field label="Length in cm" for="{{ $id }}-length" name="package_length">
-            <x-ui.input id="{{ $id }}-length" name="package_length" type="number" min="1"
+            <x-ui.input id="{{ $id }}-length" name="package_length" type="number" step="0.01" min="0.01"
                         :value="old('package_length', $listing->package_length ?? '')"
-                        placeholder="{{ (int) ($catalog->length ?? 0) }}"
+                        placeholder="{{ (float) ($catalog->length ?? 0) }}"
                         :disabled="! $canManage" />
         </x-ui.field>
         <x-ui.field label="Width in cm" for="{{ $id }}-width" name="package_width">
-            <x-ui.input id="{{ $id }}-width" name="package_width" type="number" min="1"
+            <x-ui.input id="{{ $id }}-width" name="package_width" type="number" step="0.01" min="0.01"
                         :value="old('package_width', $listing->package_width ?? '')"
-                        placeholder="{{ (int) ($catalog->width ?? 0) }}"
+                        placeholder="{{ (float) ($catalog->width ?? 0) }}"
                         :disabled="! $canManage" />
         </x-ui.field>
         <x-ui.field label="Height in cm" for="{{ $id }}-height" name="package_height">
-            <x-ui.input id="{{ $id }}-height" name="package_height" type="number" min="1"
+            <x-ui.input id="{{ $id }}-height" name="package_height" type="number" step="0.01" min="0.01"
                         :value="old('package_height', $listing->package_height ?? '')"
-                        placeholder="{{ (int) ($catalog->height ?? 0) }}"
+                        placeholder="{{ (float) ($catalog->height ?? 0) }}"
                         :disabled="! $canManage" />
         </x-ui.field>
     </div>

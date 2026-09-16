@@ -143,8 +143,11 @@
                                         <div class="lcx-parcel__f">
                                             <label class="lcx-mini" for="lcx-{{ $side }}-{{ $key }}">{{ $label }}</label>
                                             <input type="number" class="x-input fm-input--num" name="{{ $side }}[{{ $key }}]" id="lcx-{{ $side }}-{{ $key }}"
-                                                   step="{{ $key === 'weight' ? '0.001' : ($mine ? '1' : '0.01') }}"
-                                                   min="{{ $mine ? ($key === 'weight' ? '0.001' : '1') : '0' }}"
+                                                   {{-- Both sides take the same shapes now: the store's columns hold
+                                                        decimals as the catalog's always have, so a length of 10.5 is
+                                                        kept rather than refused with the browser's own words. --}}
+                                                   step="{{ $key === 'weight' ? '0.001' : '0.01' }}"
+                                                   min="{{ $mine ? ($key === 'weight' ? '0.001' : '0.01') : '0' }}"
                                                    value="{{ old($side . '.' . $key, $mine ? $ownNum(((float) $listing->{\App\Integrations\Listings\CatalogCopy::PARCEL[$key]}) > 0 ? $listing->{\App\Integrations\Listings\CatalogCopy::PARCEL[$key]} : null, $places) : $num($s['values']['parcel'][$key], $places)) }}"
                                                    @if($mine) placeholder="{{ $num($catalog['parcel'][$key], $places) }}" @else data-lcx-catalog @endif @disabled(!$s['can'])>
                                         </div>

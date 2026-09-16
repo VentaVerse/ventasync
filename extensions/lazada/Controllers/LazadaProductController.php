@@ -2685,9 +2685,9 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             // The listing's own starting price and parcel; blank follows the catalog.
             'price' => 'nullable|numeric|min:0|max:99999999',
             'weight' => 'nullable|numeric|min:0.001|max:99999',
-            'package_length' => 'nullable|integer|min:1|max:99999',
-            'package_width' => 'nullable|integer|min:1|max:99999',
-            'package_height' => 'nullable|integer|min:1|max:99999',
+            'package_length' => 'nullable|numeric|min:0.01|max:99999',
+            'package_width' => 'nullable|numeric|min:0.01|max:99999',
+            'package_height' => 'nullable|numeric|min:0.01|max:99999',
             // A variation's own price rides this form; its SKU and stock
             // always come from the catalog.
             'variants' => 'nullable|array',
