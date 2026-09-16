@@ -284,7 +284,7 @@
                         @if($thumbSrc)<img src="{{ $thumbSrc }}" alt="" loading="lazy" decoding="async" data-thumb>@endif
                     </div>
                     <div class="co-item__body">
-                        <a class="x-row-link co-item__name" href="{{ route('ext.tiktok.listings.edit', $pid) }}">{{ $pName ?: 'Unnamed product' }}</a>
+                        <a class="x-row-link co-item__name" href="{{ route('ext.tiktok.listings.edit', ['productId' => $pid, 'back' => request()->getRequestUri()]) }}">{{ $pName ?: 'Unnamed product' }}</a>
                         <div class="co-item__meta">
                             <span class="co-item__sku">{{ $p->sku ?: 'No SKU' }}</span>
                             @if($listed)
@@ -335,7 +335,7 @@
                     $menu = [
                         'label' => "Product {$pid} actions",
                         'store' => 'TikTok Shop',
-                        'edit' => route('ext.tiktok.listings.edit', $pid),
+                        'edit' => route('ext.tiktok.listings.edit', ['productId' => $pid, 'back' => request()->getRequestUri()]),
                         'catalog' => $canEditCatalog ? route('products.edit', $pid) : null,
                     ];
                     if ($canManage) {

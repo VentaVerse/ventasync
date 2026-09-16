@@ -230,8 +230,8 @@
                         ])
                         @include('partials.channel-description-compose', [
                             'id' => 'sl-description', 'label' => 'Description', 'name' => 'description',
-                            'value' => old('description', \App\Support\Catalog\DescriptionText::of(\App\Integrations\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription))),
-                            'rich' => false, 'disabled' => !$canManage, 'rows' => 6, 'maxlength' => 5000,
+                            'value' => old('description', \App\Integrations\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription)),
+                            'rich' => true, 'disabled' => !$canManage, 'rows' => 6, 'maxlength' => null,
                             'prefixFor' => 'sl-prefix', 'suffixFor' => 'sl-suffix',
                             'prefix' => $listing->description_prefix_id ?? null, 'suffix' => $listing->description_suffix_id ?? null,
                             'options' => $descriptionTemplates,
@@ -433,7 +433,6 @@
 </div>
 
 @if($canManage)
-    @include('ext-shopee::products._push_review_modal')
 @endif
 
 @include('partials.channel-description-pick-modal', ['storeUrl' => route('ext.shopee.description-templates.store', ['store' => $storeId])])

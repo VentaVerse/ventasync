@@ -1036,15 +1036,29 @@ class ShopeeProductController extends Controller
         /* The review modal's two editable fields (cleanup 7+9): edits are
          * saved as the listing's own wording FIRST, then the push runs on
          * what was just saved - the same order Save and push uses, so a
-         * refusal never loses the typing. Absent fields change nothing. */
+         * refusal never loses the typing. Absent fields change nothing.
+         *
+         * This modal shows the description as WORDS, while the listing
+         * keeps it as markup. So the words are compared as words: unchanged
+         * ones leave the stored description alone, pictures and all, and
+         * only something actually retyped here replaces it. */
         if ($request->filled('title') || $request->filled('description')) {
             $data = $request->validate([
                 'title' => 'nullable|string|max:255',
-                'description' => 'nullable|string|max:5000',
+                'description' => 'nullable|string|max:20000',
             ]);
+            $description = null;
+            if (trim((string) ($data['description'] ?? '')) !== '') {
+                $description = \App\Integrations\Listings\ListingContent::descriptionToSave(
+                    $data['description'],
+                    ShopeeListing::query()->where('product_id', $productId)->value('description'),
+                    null,
+                    true
+                );
+            }
             ShopeeListing::query()->updateOrCreate(['product_id' => $productId], array_filter([
                 'item_name' => $data['title'] ?? null,
-                'description' => $data['description'] ?? null,
+                'description' => $description,
             ], fn ($v) => $v !== null && trim((string) $v) !== ''));
         }
 
@@ -2897,7 +2911,7 @@ class ShopeeProductController extends Controller
             'markup_fixed' => 'nullable|numeric|min:-1000000|max:1000000',
             'price' => 'nullable|numeric|min:0|max:1000000000',
             'item_name' => 'sometimes|required|string|max:255',
-            'description' => 'nullable|string|max:5000',
+            'description' => 'nullable|string|max:20000',
             'weight' => 'nullable|numeric|min:0.01',
             'description_prefix_id' => 'nullable|integer',
             'watermark_template_id' => 'nullable|integer',
@@ -2965,8 +2979,7 @@ class ShopeeProductController extends Controller
                 $current !== null
                     ? $current->description
                     : (\App\Integrations\Listings\CatalogCopy::catalog([$productId])[$productId]['description'] ?? null),
-                $request->input('description_edited'),
-                true
+                $request->input('description_edited')
             );
         }
 

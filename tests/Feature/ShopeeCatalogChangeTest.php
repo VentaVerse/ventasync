@@ -170,8 +170,12 @@ class ShopeeCatalogChangeTest extends TestCase
             ->assertSee('compare=1', false);
     }
 
-    /** Shopee's box holds words: saving the same words keeps the stored description, pictures included. */
-    public function test_saving_unchanged_words_keeps_the_stored_description(): void
+    /**
+     * The push review modal shows the description as WORDS, while the
+     * listing keeps markup. Pushing without retyping there must not flatten
+     * the stored description and drop its pictures; retyping replaces it.
+     */
+    public function test_pushing_unchanged_words_from_the_review_keeps_the_stored_description(): void
     {
         $pid = $this->product('Plug', '<p>Words.</p><p><img src="/image/catalog/plug.jpg"></p>');
         $listing = ShopeeListing::query()->create(['product_id' => $pid]);
@@ -179,13 +183,27 @@ class ShopeeCatalogChangeTest extends TestCase
         $this->assertStringContainsString('<img', (string) $stored);
 
         $this->actingAs($this->user(false))
-            ->post(route('ext.shopee.listings.update', $pid), ['description' => 'Words.'])
-            ->assertSessionHasNoErrors();
+            ->post(route('ext.shopee.products.push_direct', $pid), ['description' => 'Words.']);
         $this->assertSame($stored, $listing->fresh()->description);
-        $this->assertSame('Plug', $listing->fresh()->item_name, 'a save without the title leaves it alone');
+        $this->assertSame('Plug', $listing->fresh()->item_name, 'a push without the title leaves it alone');
 
         $this->actingAs($this->user(false))
-            ->post(route('ext.shopee.listings.update', $pid), ['description' => 'Other words.']);
+            ->post(route('ext.shopee.products.push_direct', $pid), ['description' => 'Other words.']);
         $this->assertSame('Other words.', $listing->fresh()->description);
+    }
+
+    /** The listing page's own box is the editor, so it saves what it holds: markup. */
+    public function test_the_listing_form_saves_the_markup_it_holds(): void
+    {
+        $pid = $this->product('Plug', '<p>Words.</p>');
+        $listing = ShopeeListing::query()->create(['product_id' => $pid]);
+
+        $this->actingAs($this->user(false))
+            ->post(route('ext.shopee.listings.update', $pid), ['description' => '<p>Own words.</p><p><img src="/image/catalog/plug.jpg"></p>'])
+            ->assertSessionHasNoErrors();
+
+        $fresh = (string) $listing->fresh()->description;
+        $this->assertStringContainsString('<p>Own words.</p>', $fresh);
+        $this->assertStringContainsString('<img', $fresh, 'a picture arranged in the box survives the save');
     }
 }

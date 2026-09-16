@@ -26,7 +26,7 @@
             </label>
             <label class="pr-field">
                 <span class="pr-field__k">Description on Shopee</span>
-                <textarea class="x-input" data-pr-description rows="3" maxlength="5000"></textarea>
+                <textarea class="x-input" data-pr-description rows="3" maxlength="20000"></textarea>
             </label>
             <p class="pr-mut pr-note">Edits here are saved as this listing's own wording, then pushed. Everything else is edited on the listing page.</p>
         </div>

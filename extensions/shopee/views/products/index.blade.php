@@ -376,7 +376,7 @@
                     @endif
                 @endif
                 @if($rowState?->driftLabel() && $canManageShopee)
-                    @include('partials.catalog-change-button', ['href' => route('ext.shopee.listings.edit', [$p->product_id, 'compare' => 1])])
+                    @include('partials.catalog-change-button', ['href' => route('ext.shopee.listings.edit', [$p->product_id, 'compare' => 1, 'back' => request()->getRequestUri()])])
                 @endif
             </td>
 
@@ -392,7 +392,7 @@
                     $menu = [
                         'label' => "Product {$p->product_id} actions",
                         'store' => 'Shopee',
-                        'edit' => route('ext.shopee.listings.edit', $p->product_id),
+                        'edit' => route('ext.shopee.listings.edit', [$p->product_id, 'back' => request()->getRequestUri()]),
                         'catalog' => $canEditCatalog ? route('products.edit', $p->product_id) : null,
                     ];
                     if ($canManageShopee) {
