@@ -133,7 +133,7 @@
 @php
     $gf = ['_return' => $returnTo];
     $bulk = ['group' => true,
-        'push' => ['action' => route('ext.lazada.product-groups.push', $group->id), 'label' => 'Send to Lazada', 'fields' => $gf, 'confirm' => 'Send the selected products to Lazada with this product group\'s settings? Anything already sent is skipped.'],
+        'push' => ['action' => route('ext.lazada.product-groups.push', $group->id), 'label' => 'Send to Lazada', 'fields' => $gf, 'confirm' => 'Send the selected products to Lazada with this product group\'s settings? Anything already on Lazada is updated there.'],
         'update' => ['action' => route('ext.lazada.product-groups.updateProduct', $group->id), 'label' => 'Send to Lazada', 'fields' => $gf, 'confirm' => 'Update the selected products on Lazada with this product group\'s settings? Anything not yet on Lazada is skipped.'],
         'link' => ['action' => route('ext.lazada.product-groups.check', $group->id), 'label' => 'Link IDs', 'fields' => $gf],
         'switch' => [

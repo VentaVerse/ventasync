@@ -789,4 +789,29 @@ class ShopeeAddModelTest extends TestCase
         $this->assertNotNull($this->postIndex('/api/v2/product/update_item'));
         $this->assertLessThan($this->postIndex('/api/v2/product/update_item'), $this->postIndex('/api/v2/product/update_tier_variation'));
     }
+
+    /**
+     * Send is one verb. Ticking a product that is already on Shopee and
+     * pressing Send on the selection bar updates the item, the same update
+     * its row menu makes; it used to be refused as "already listed".
+     */
+    public function test_the_selection_bars_send_updates_a_product_already_on_shopee(): void
+    {
+        $pid = $this->variationProduct(['Pack size' => ['5 pcs', '10 pcs']], ['PK-5' => ['5 pcs'], 'PK-10' => ['10 pcs']]);
+        $this->linkForUpdate($pid);
+        $this->itemHolds([
+            'tier_variation' => [['name' => 'Pack size', 'option_list' => [['option' => '5 pcs'], ['option' => '10 pcs']]]],
+            'model' => [
+                ['model_id' => 81, 'model_sku' => 'PK-5', 'tier_index' => [0]],
+                ['model_id' => 82, 'model_sku' => 'PK-10', 'tier_index' => [1]],
+            ],
+        ]);
+
+        $this->actingAs($this->manager())
+            ->post(route('ext.shopee.products.bulk_push'), ['product_ids' => [$pid]])
+            ->assertSessionMissing('error');
+
+        $this->assertNotNull($this->postIndex('/api/v2/product/update_item'), 'the live item is updated');
+        $this->assertNull($this->postIndex('/api/v2/product/add_item'), 'nothing new is created on Shopee');
+    }
 }

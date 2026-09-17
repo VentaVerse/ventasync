@@ -133,7 +133,7 @@
 @php
     $gf = ['_return' => $returnTo];
     $bulk = ['group' => true,
-        'push' => ['action' => route('ext.tiktok.product-groups.push', $group->id), 'label' => 'Send to TikTok Shop', 'fields' => $gf, 'confirm' => 'Send the selected products to TikTok Shop with this product group\'s settings? Anything already sent is skipped.'],
+        'push' => ['action' => route('ext.tiktok.product-groups.push', $group->id), 'label' => 'Send to TikTok Shop', 'fields' => $gf, 'confirm' => 'Send the selected products to TikTok Shop with this product group\'s settings? Anything already on TikTok Shop is updated there.'],
         'update' => ['action' => route('ext.tiktok.product-groups.updateProduct', $group->id), 'label' => 'Send to TikTok Shop', 'fields' => $gf, 'confirm' => 'Update the selected products on TikTok Shop with this product group\'s settings? Anything not yet on TikTok Shop is skipped.'],
         'link' => ['action' => route('ext.tiktok.product-groups.check', $group->id), 'label' => 'Link IDs', 'fields' => $gf],
         'switch' => [

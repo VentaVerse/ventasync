@@ -348,6 +348,14 @@ class TikTokListingController extends Controller
      *
      * @return array{tone: 'status'|'warning'|'error', message: string}
      */
+    /** The update a row's Send makes, for the selection bar's Send on a product already on TikTok Shop. */
+    public function updateOne(int $productId, TikTokClient $client): array
+    {
+        $r = $this->performListingUpdate($productId, $client);
+
+        return ['ok' => ($r['tone'] ?? 'error') !== 'error', 'message' => (string) ($r['message'] ?? '')];
+    }
+
     private function performListingUpdate(int $productId, TikTokClient $client): array
     {
         $truth = $this->derivedTruth($productId);

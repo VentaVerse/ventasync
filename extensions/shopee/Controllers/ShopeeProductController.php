@@ -1445,6 +1445,14 @@ class ShopeeProductController extends Controller
             $productIds,
             'Shopee',
             function (int $productId) use ($auth, $client) {
+                /* Send is one verb: a product already on Shopee is updated
+                   there, the same update its row menu sends, which records
+                   its own error line. */
+                if (ShopeeProductLink::query()->where('product_id', $productId)->exists()) {
+                    $r = $this->performListingUpdate($productId, $client, $auth);
+
+                    return ['ok' => $r['ok'] && ($r['failure'] ?? null) === null, 'message' => (string) $r['message']];
+                }
                 $answer = $this->pushOne($productId, $auth, $client);
                 $this->listingStates()->recordOutcome($productId, $answer['ok'] ? null : $answer['message']);
 

@@ -836,7 +836,8 @@ class TikTokProductController extends Controller
     private function pushOne(int $productId, array $c, TikTokClient $client): array
     {
         if ($this->truthFor($productId)) {
-            return ['ok' => false, 'message' => 'this product is already on TikTok Shop. Use Update on TikTok Shop for it.'];
+            // Send is one verb: a product already on TikTok Shop is updated there.
+            return app(TikTokListingController::class)->updateOne($productId, $client);
         }
         // The options read the category's sheet first, so the gate judges the real one.
         $opts = $this->listingPushOptions($productId, $c);

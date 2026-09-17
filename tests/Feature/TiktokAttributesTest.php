@@ -246,4 +246,42 @@ class TiktokAttributesTest extends TestCase
         $this->assertSame('b-7', $creates[0]['body']['brand_id'] ?? null);
         $this->assertSame('900009', (string) $creates[0]['body']['category_id'], 'the group fills the category the listing leaves blank');
     }
+
+    /**
+     * Send is one verb on a group too. A product already on TikTok Shop is
+     * updated there on the group's settings; the group's Send used to count
+     * it as skipped and send nothing.
+     */
+    public function test_a_group_send_updates_a_product_already_on_tiktok_instead_of_skipping_it(): void
+    {
+        $productId = $this->seedProduct();
+        $group = TikTokProductGroup::create(['name' => 'Live group', 'tiktok_category_id' => '900009']);
+        TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $productId, 'tiktok_product_id' => 'tt-555', 'sync_status' => 'pushed']);
+        TikTokListing::query()->create(['product_id' => $productId, 'tiktok_product_id' => 'tt-555']);
+
+        $this->actingAs($this->manager())->post(route('ext.tiktok.product-groups.push', $group->id), ['ids' => [$productId]])
+            ->assertSessionMissing('error');
+
+        $this->assertCount(1, $this->callsFor('PUT', '/product/202309/products/tt-555'), 'the live product is updated');
+        $this->assertCount(0, $this->callsFor('POST', '/product/202309/products'), 'nothing new is created on TikTok Shop');
+    }
+
+    /** The Listings page's selection bar: the same, on the listing's own settings. */
+    public function test_the_selection_bars_send_updates_a_product_already_on_tiktok(): void
+    {
+        $productId = $this->seedProduct();
+        $group = TikTokProductGroup::create(['name' => 'Live group', 'tiktok_category_id' => '900009']);
+        TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $productId, 'tiktok_product_id' => 'tt-556', 'sync_status' => 'pushed']);
+        TikTokListing::query()->create(['product_id' => $productId, 'tiktok_product_id' => 'tt-556']);
+        // The category's attribute sheet is on file, as it is once a group or listing has read it.
+        \Extensions\tiktok\Models\TikTokCategoryTemplate::create(['category_id' => '900009', 'attributes' => [], 'fetched_at' => now()]);
+        $user = $this->manager();
+        $user->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_tiktok/product', 'view_tiktok/product'])->pluck('id')->all());
+
+        $this->actingAs($user)->post(route('ext.tiktok.products.bulk_push'), ['product_ids' => [$productId]])
+            ->assertSessionMissing('error');
+
+        $this->assertCount(1, $this->callsFor('PUT', '/product/202309/products/tt-556'), 'the live product is updated');
+        $this->assertCount(0, $this->callsFor('POST', '/product/202309/products'), 'nothing new is created on TikTok Shop');
+    }
 }

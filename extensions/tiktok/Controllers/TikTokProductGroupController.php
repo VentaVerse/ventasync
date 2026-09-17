@@ -1142,27 +1142,34 @@ class TikTokProductGroupController extends Controller
         $readinessAll = app(\Extensions\tiktok\Services\TikTok\TikTokListingReadiness::class)->forProducts($pivotRows->pluck('product_id')->map(fn ($v) => (int) $v)->all());
 
         $created = 0;
-        $skipped = 0;
+        $updated = 0;
         $failed = 0;
         $warnings = [];
 
         foreach ($pivotRows as $pivot) {
-            // Already on TikTok (by this group or any other, or by the
-            // listing page): Update is the verb for those.
-            $known = $pivot->tiktok_product_id ?: TikTokListing::query()->where('product_id', $pivot->product_id)->value('tiktok_product_id');
-            if ($known) {
-                if (!$pivot->tiktok_product_id) {
-                    $pivot->update(['tiktok_product_id' => $known, 'sync_status' => 'pushed']);
-                }
-                $skipped++;
-                continue;
-            }
-
             $erp = $erpProducts->get($pivot->product_id);
             if (!$erp) {
                 $pivot->update(['sync_status' => 'error', 'push_error' => 'ERP product not found']);
                 $this->states((int) $group->tiktok_setting_id)->recordOutcome((int) $pivot->product_id, 'ERP product not found');
                 $failed++;
+                continue;
+            }
+
+            /* Send is one verb: a product already on TikTok Shop (by this
+               group, another, or its listing page) is updated there on this
+               group's settings, never skipped. */
+            $listing = TikTokListing::query()->where('product_id', $pivot->product_id)->first();
+            $known = $pivot->tiktok_product_id ?: $listing?->tiktok_product_id;
+            if ($known) {
+                $outcome = $this->editLive($group, $pivot, $listing, (string) $known, $erp, $opts, $c, $client, $pusher);
+                if ($outcome['ok']) {
+                    $updated++;
+                    if (!empty($outcome['warning'])) {
+                        $warnings[] = '#' . $pivot->product_id . ': ' . $outcome['warning'];
+                    }
+                } else {
+                    $failed++;
+                }
                 continue;
             }
 
@@ -1197,13 +1204,12 @@ class TikTokProductGroupController extends Controller
             }
         }
 
-        $summary = "Push: {$created} created";
-        if ($skipped > 0) $summary .= ", {$skipped} skipped (already linked)";
+        $summary = "Push: {$created} created, {$updated} updated";
         if ($failed > 0) $summary .= ", {$failed} failed";
         if ($warnings) {
             $summary .= '. ' . implode(' ', array_slice($warnings, 0, 3)) . (count($warnings) > 3 ? ' (and ' . (count($warnings) - 3) . ' more)' : '');
         }
-        return $this->productsRedirect($id)->with($created === 0 ? 'error' : ($warnings ? 'warning' : 'status'), $summary);
+        return $this->productsRedirect($id)->with($created + $updated === 0 ? 'error' : ($failed > 0 || $warnings ? 'warning' : 'status'), $summary);
     }
 
     // ── Update Product ──────────────────────────────────────────
@@ -1212,6 +1218,36 @@ class TikTokProductGroupController extends Controller
      * Update existing TikTok listings with latest ERP data.
      * Injects TikTok SKU IDs into the payload so edits actually apply.
      */
+    /**
+     * Update one product already on TikTok Shop on this group's settings, and
+     * write the answer where the pages read it: the group's row, the listing,
+     * and the product's error line.
+     *
+     * @return array{ok: bool, warning?: string|null, message?: string}
+     */
+    private function editLive(TikTokProductGroup $group, TikTokProductGroupProduct $pivot, ?TikTokListing $listing, string $ttId, object $erp, array $opts, array $c, TikTokClient $client, TikTokProductPush $pusher): array
+    {
+        $existingRaw = $pivot->tiktok_sku_id ?: ($listing?->tiktok_sku_id);
+        $outcome = $pusher->edit($erp, $ttId, $existingRaw, array_merge($opts, $this->listingOptions((int) $erp->product_id, $group, $c, $client), $this->ownWords((int) $erp->product_id)), $c, $client);
+        if (! $outcome['ok']) {
+            $pivot->update(['sync_status' => 'error', 'push_error' => $outcome['message']]);
+            $this->states((int) $group->tiktok_setting_id)->recordOutcome((int) $pivot->product_id, (string) $outcome['message']);
+
+            return ['ok' => false, 'message' => (string) $outcome['message']];
+        }
+        $pivot->update(array_filter([
+            'tiktok_product_id' => $ttId,
+            'sync_status'    => 'pushed',
+            'last_pushed_at' => now(),
+            'push_error'     => null,
+            'tiktok_sku_id'  => $outcome['sku_ids'],
+        ], fn ($v, $k) => $k !== 'tiktok_sku_id' || $v !== null, ARRAY_FILTER_USE_BOTH));
+        TikTokListing::recordPush((int) $pivot->product_id, $ttId, $outcome['sku_ids'] ?? $existingRaw, 'group:' . $group->name, isset($outcome['sku_ids']));
+        $this->states((int) $group->tiktok_setting_id)->recordOutcome((int) $pivot->product_id, null);
+
+        return ['ok' => true, 'warning' => $outcome['warning'] ?? null];
+    }
+
     public function updateProduct(Request $request, int $id)
     {
         $group = TikTokProductGroup::findOrFail($id);
@@ -1257,25 +1293,13 @@ class TikTokProductGroupController extends Controller
                 continue;
             }
 
-            $existingRaw = $pivot->tiktok_sku_id ?: ($listing?->tiktok_sku_id);
-            $outcome = $pusher->edit($erp, (string) $ttId, $existingRaw, array_merge($opts, $this->listingOptions((int) $erp->product_id, $group, $c, $client), $this->ownWords((int) $erp->product_id)), $c, $client);
+            $outcome = $this->editLive($group, $pivot, $listing, (string) $ttId, $erp, $opts, $c, $client, $pusher);
             if ($outcome['ok']) {
-                $pivot->update(array_filter([
-                    'tiktok_product_id' => $ttId,
-                    'sync_status'    => 'pushed',
-                    'last_pushed_at' => now(),
-                    'push_error'     => null,
-                    'tiktok_sku_id'  => $outcome['sku_ids'],
-                ], fn ($v, $k) => $k !== 'tiktok_sku_id' || $v !== null, ARRAY_FILTER_USE_BOTH));
-                TikTokListing::recordPush((int) $pivot->product_id, (string) $ttId, $outcome['sku_ids'] ?? $existingRaw, 'group:' . $group->name, isset($outcome['sku_ids']));
-                $this->states((int) $group->tiktok_setting_id)->recordOutcome((int) $pivot->product_id, null);
                 $updated++;
                 if (!empty($outcome['warning'])) {
                     $warnings[] = '#' . $pivot->product_id . ': ' . $outcome['warning'];
                 }
             } else {
-                $pivot->update(['sync_status' => 'error', 'push_error' => $outcome['message']]);
-                $this->states((int) $group->tiktok_setting_id)->recordOutcome((int) $pivot->product_id, (string) $outcome['message']);
                 $failed++;
             }
         }
