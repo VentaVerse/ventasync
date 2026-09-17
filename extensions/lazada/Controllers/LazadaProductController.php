@@ -702,6 +702,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'listTab' => 'store',
             'failedFlag' => $failedFlag,
             'changeFlag' => $changeFlag,
+            // The whole group's size, whatever the search and tabs narrow: what Send group sends.
+            'groupSize' => ctype_digit((string) $groupFilter) ? app(\Extensions\lazada\Controllers\LazadaProductGroupController::class)->groupSendSize((int) $groupFilter) : null,
             'statusMenu' => \App\Integrations\Listings\StatusMenu::build([
                 'url' => fn (array $params) => route('ext.lazada.products.index', $params),
                 'query' => $request->query(),

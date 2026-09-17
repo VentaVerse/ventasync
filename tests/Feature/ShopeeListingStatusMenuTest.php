@@ -167,4 +167,40 @@ class ShopeeListingStatusMenuTest extends TestCase
             ->assertRedirect($back)->assertSessionHas('status', '1 product ungrouped.');
         $this->assertSame([], $pivot());
     }
+
+    public function test_a_whole_group_sends_as_a_run_from_the_listings_page(): void
+    {
+        $group = \Extensions\shopee\Models\ShopeeProductGroup::create(['name' => 'Fuzz', 'shopee_category_id' => 100013, 'logistic_ids' => [8003]]);
+        foreach ([$this->product('Run pedal one', 'SRN-1'), $this->product('Run pedal two', 'SRN-2')] as $pid) {
+            \Extensions\shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $pid]);
+        }
+        // A member this store does not carry is not on the page, so the group send leaves it out.
+        $offList = $this->product('Not carried here', 'SRN-3');
+        ShopeeListing::query()->where('product_id', $offList)->delete();
+        \Extensions\shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $offList]);
+        $manager = $this->manager();
+        $manager->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_shopee/product_group', 'view_shopee/product_group'])->pluck('id')->all());
+        $listingOnlyGroup = UserGroup::create(['name' => 'Listings without groups']);
+        $listingOnlyGroup->permissions()->attach(Permission::whereIn('key', ['manage_shopee/product', 'view_shopee/product'])->pluck('id')->all());
+        $listingOnly = User::factory()->create(['user_group_id' => $listingOnlyGroup->id]);
+        $page = route('ext.shopee.products.index', ['group' => $group->id]);
+
+        $this->actingAs($listingOnly)->get($page)->assertOk()->assertDontSee('Send group');
+        $this->actingAs($listingOnly)->post(route('ext.shopee.product-groups.send_run_begin', ['id' => $group->id]))->assertRedirect()->assertSessionHas('error');
+        $this->assertSame(0, \App\Models\AutomationRun::query()->count());
+
+        $this->actingAs($manager)->get($page)->assertOk()->assertSee('Send group')
+            ->assertSee('Send all 2 products in Fuzz to Shopee on group settings, rather than their own?');
+        // The Live tab narrows the list, not the group the button sends.
+        $this->actingAs($manager)->get(route('ext.shopee.products.index', ['group' => $group->id, 'sync_status' => 'uploaded']))->assertOk()
+            ->assertSee('Send all 2 products in Fuzz to Shopee on group settings, rather than their own?');
+
+        // The run reaches the group's own send, which refuses before touching anything.
+        ShopeeSetting::query()->update(['access_token' => null]);
+        $answer = $this->actingAs($manager)->postJson(route('ext.shopee.product-groups.send_run_begin', ['id' => $group->id]))->assertOk()->json();
+        $this->assertSame('failed', $answer['run']['status']);
+        $this->assertSame(2, $answer['run']['total']);
+        $this->assertSame('Missing Shopee Production settings.', $answer['outcome']);
+        $this->assertSame('group:' . $group->id, \App\Models\AutomationRun::query()->value('subject'));
+    }
 }

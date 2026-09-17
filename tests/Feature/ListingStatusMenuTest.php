@@ -287,4 +287,34 @@ class ListingStatusMenuTest extends TestCase
             ->assertRedirect($back)->assertSessionHas('status', '1 product ungrouped.');
         $this->assertSame([], $pivot());
     }
+
+    public function test_a_whole_group_sends_as_a_run_from_the_listings_page(): void
+    {
+        $ids = $this->store();
+        // No category yet, so the group's own send refuses before touching anything.
+        $group = \Extensions\lazada\Models\LazadaProductGroup::create(['name' => 'Fuzz']);
+        \Extensions\lazada\Models\LazadaProductGroupProduct::create([
+            'lazada_product_group_id' => $group->id, 'product_id' => $ids['notListed'],
+            'lazada_product_id' => LazadaProduct::query()->where('product_id', $ids['notListed'])->value('id'),
+        ]);
+        $manager = $this->manager();
+        $manager->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_lazada/product_group', 'view_lazada/product_group'])->pluck('id')->all());
+        $listingOnlyGroup = UserGroup::create(['name' => 'Listings without groups']);
+        $listingOnlyGroup->permissions()->attach(Permission::whereIn('key', ['manage_lazada/product', 'view_lazada/product'])->pluck('id')->all());
+        $listingOnly = User::factory()->create(['user_group_id' => $listingOnlyGroup->id]);
+        $page = route('ext.lazada.products.index', ['group' => $group->id]);
+
+        $this->actingAs($listingOnly)->get($page)->assertOk()->assertDontSee('Send group');
+        $this->actingAs($listingOnly)->post(route('ext.lazada.product-groups.send_run_begin', ['id' => $group->id]))->assertRedirect()->assertSessionHas('error');
+        $this->assertSame(0, \App\Models\AutomationRun::query()->count());
+
+        $this->actingAs($manager)->get($page)->assertOk()->assertSee('Send group')
+            ->assertSee('Send all 1 product in Fuzz to Lazada on group settings, rather than their own?');
+
+        $answer = $this->actingAs($manager)->postJson(route('ext.lazada.product-groups.send_run_begin', ['id' => $group->id]))->assertOk()->json();
+        $this->assertSame('failed', $answer['run']['status']);
+        $this->assertSame(1, $answer['run']['total']);
+        $this->assertSame('This product group has no Lazada category configured. Set a category first.', $answer['outcome']);
+        $this->assertSame('group:' . $group->id, \App\Models\AutomationRun::query()->value('subject'));
+    }
 }

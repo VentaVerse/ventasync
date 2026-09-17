@@ -44,23 +44,77 @@ class AutomationRunner
         return $run;
     }
 
+    /**
+     * A run with no scheduled job behind it: the caller names the units and
+     * walks them with stepWith(). One such run per subject at a time.
+     *
+     * @param list<string|int> $units
+     */
+    public function beginWork(string $integration, ?int $storeId, string $subject, array $units, string $label = 'products'): AutomationRun
+    {
+        AutomationRun::query()->where('integration', $integration)
+            ->where(fn ($q) => $storeId === null ? $q->whereNull('store_id') : $q->where('store_id', $storeId))
+            ->where('subject', $subject)->where('status', AutomationRun::RUNNING)
+            ->update(['status' => AutomationRun::STOPPED]);
+
+        $units = array_values(array_map('strval', $units));
+        $run = AutomationRun::create([
+            'scheduled_job_id' => null,
+            'integration' => $integration,
+            'store_id' => $storeId,
+            'subject' => $subject,
+            'label' => $label,
+            'units' => $units,
+            'total' => count($units),
+            'status' => AutomationRun::RUNNING,
+            'ledger' => [],
+            'user_id' => auth()->id(),
+        ]);
+        if ($units === []) {
+            $this->finish($run, null, AutomationRun::DONE, null);
+        }
+
+        return $run;
+    }
+
     public function step(AutomationRun $run, SteppableAutomation $command, ?int $chunk = null): AutomationRun
     {
         if ($run->status !== AutomationRun::RUNNING) {
             return $run;
         }
+        $job = $run->job;
+        if (! $job) {
+            $this->finish($run, null, AutomationRun::DONE, null);
+
+            return $run;
+        }
         // A command whose units are phases, not products, walks one per request.
         $chunk = $chunk ?? (method_exists($command, 'automationChunk') ? max(1, (int) $command->automationChunk()) : self::CHUNK);
+
+        return $this->stepWith($run, fn (array $slice) => $command->automationStep($job, $slice), $chunk);
+    }
+
+    /**
+     * One handful of units through $work, which answers like
+     * SteppableAutomation::automationStep.
+     *
+     * @param callable(list<string>): array $work
+     */
+    public function stepWith(AutomationRun $run, callable $work, int $chunk = self::CHUNK): AutomationRun
+    {
+        if ($run->status !== AutomationRun::RUNNING) {
+            return $run;
+        }
         $job = $run->job;
         $units = array_values((array) $run->units);
-        $slice = array_slice($units, (int) $run->done, $chunk);
-        if ($slice === [] || ! $job) {
+        $slice = array_slice($units, (int) $run->done, max(1, $chunk));
+        if ($slice === []) {
             $this->finish($run, $job, AutomationRun::DONE, null);
 
             return $run;
         }
         try {
-            $answer = $command->automationStep($job, $slice);
+            $answer = $work($slice);
         } catch (\Throwable $e) {
             $answer = ['error' => \App\Support\TransportError::plain($e, Str::title((string) $run->integration))];
         }

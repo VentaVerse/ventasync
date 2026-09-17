@@ -169,7 +169,7 @@ class AutomationsController extends Controller
     /** The run named in the route, for someone who may manage its integration. Read by name: a scalar parameter would take the first route value. */
     private function runFor(Request $request): \App\Models\AutomationRun
     {
-        $run = \App\Models\AutomationRun::query()->findOrFail((int) $request->route('run'));
+        $run = \App\Models\AutomationRun::query()->whereNotNull('scheduled_job_id')->findOrFail((int) $request->route('run'));
         abort_unless(self::mayManage((string) $run->integration), 403);
 
         return $run;

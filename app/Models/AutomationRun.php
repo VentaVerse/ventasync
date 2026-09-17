@@ -5,9 +5,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * One Run now of a scheduled job, walked in short steps by the page
- * (App\Services\AutomationRunner): the units the job will touch, how
- * many are done, and the verdict so far.
+ * One Run now of a scheduled job, or one send of a whole product group
+ * (no job, subject "group:{id}"), walked in short steps by the page
+ * (App\Services\AutomationRunner): the units it will touch, how many are
+ * done, and the verdict so far.
  */
 class AutomationRun extends Model
 {

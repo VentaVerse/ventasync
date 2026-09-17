@@ -474,4 +474,33 @@ class VentaListingsIndexTest extends TestCase
             ->assertRedirect($back)->assertSessionHas('status', '1 product ungrouped.');
         $this->assertSame([], $pivot());
     }
+
+    public function test_a_whole_group_sends_as_a_run_from_the_listings_page(): void
+    {
+        Http::fake();
+        $store = $this->store();
+        $group = VentaProductGroup::create(['venta_setting_id' => $store->id, 'name' => 'Fuzz']);
+        foreach ([$this->product('RN-1', 'Run pedal one'), $this->product('RN-2', 'Run pedal two')] as $pid) {
+            VentaListing::create(['venta_setting_id' => $store->id, 'product_id' => $pid]);
+            \Extensions\venta\Models\VentaProductGroupProduct::create(['venta_product_group_id' => $group->id, 'product_id' => $pid]);
+        }
+        $manager = $this->userWith(['view_venta/listing', 'manage_venta/listing', 'view_venta/product_group', 'manage_venta/product_group']);
+        $listingOnly = $this->manager();
+        $page = route('ext.venta.listings.index', ['store' => $store->id, 'group' => $group->id]);
+
+        $this->actingAs($listingOnly)->get($page)->assertOk()->assertDontSee('Send group');
+        $this->actingAs($listingOnly)->post(route('ext.venta.product-groups.send_run_begin', [$store->id, $group->id]))->assertRedirect()->assertSessionHas('error');
+        $this->assertSame(0, \App\Models\AutomationRun::query()->count());
+
+        $this->actingAs($manager)->get($page)->assertOk()->assertSee('Send group')
+            ->assertSee('Send all 2 products in Fuzz to Gear Depot on group settings, rather than their own?');
+
+        // A store turned off refuses before anything is sent.
+        $store->update(['enabled' => false]);
+        $answer = $this->actingAs($manager)->postJson(route('ext.venta.product-groups.send_run_begin', [$store->id, $group->id]))->assertOk()->json();
+        $this->assertSame('failed', $answer['run']['status']);
+        $this->assertSame(2, $answer['run']['total']);
+        $this->assertSame('That Venta store is turned off, so nothing was sent to it. Enable it in its settings first.', $answer['outcome']);
+        Http::assertNothingSent();
+    }
 }

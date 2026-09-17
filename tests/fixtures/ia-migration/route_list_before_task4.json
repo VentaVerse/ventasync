@@ -916,6 +916,21 @@
     },
     {
         "method": "POST",
+        "uri": "channels/lazada/{store}/product-groups/{id}/send-runs",
+        "name": "ext.lazada.product-groups.send_run_begin"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/product-groups/{id}/send-runs/{run}/step",
+        "name": "ext.lazada.product-groups.send_run_step"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/lazada/{store}/product-groups/{id}/send-runs/{run}/stop",
+        "name": "ext.lazada.product-groups.send_run_stop"
+    },
+    {
+        "method": "POST",
         "uri": "channels/lazada/{store}/product-groups/{id}/template/sync",
         "name": "ext.lazada.product-groups.template_sync"
     },
@@ -1911,6 +1926,21 @@
     },
     {
         "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/send-runs",
+        "name": "ext.shopee.product-groups.send_run_begin"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/send-runs/{run}/step",
+        "name": "ext.shopee.product-groups.send_run_step"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/shopee/{store}/product-groups/{id}/send-runs/{run}/stop",
+        "name": "ext.shopee.product-groups.send_run_stop"
+    },
+    {
+        "method": "POST",
         "uri": "channels/shopee/{store}/product-groups/{id}/template/sync",
         "name": "ext.shopee.product-groups.template_sync"
     },
@@ -2511,6 +2541,21 @@
     },
     {
         "method": "POST",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/send-runs",
+        "name": "ext.tiktok.product-groups.send_run_begin"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/send-runs/{run}/step",
+        "name": "ext.tiktok.product-groups.send_run_step"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/tiktok/{store}/product-groups/{id}/send-runs/{run}/stop",
+        "name": "ext.tiktok.product-groups.send_run_stop"
+    },
+    {
+        "method": "POST",
         "uri": "channels/tiktok/{store}/product-groups/{id}/update-product",
         "name": "ext.tiktok.product-groups.updateProduct"
     },
@@ -3086,6 +3131,21 @@
     },
     {
         "method": "POST",
+        "uri": "channels/venta/{store}/product-groups/{group}/send-runs",
+        "name": "ext.venta.product-groups.send_run_begin"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/product-groups/{group}/send-runs/{run}/step",
+        "name": "ext.venta.product-groups.send_run_step"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/venta/{store}/product-groups/{group}/send-runs/{run}/stop",
+        "name": "ext.venta.product-groups.send_run_stop"
+    },
+    {
+        "method": "POST",
         "uri": "channels/venta/{store}/products/add-to-store",
         "name": "ext.venta.products.add_to_store_bulk"
     },
@@ -3423,6 +3483,21 @@
         "method": "POST",
         "uri": "channels/woocommerce/{store}/product-groups/{group}/push-stock",
         "name": "ext.woocommerce.product-groups.push-stock"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/send-runs",
+        "name": "ext.woocommerce.product-groups.send_run_begin"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/send-runs/{run}/step",
+        "name": "ext.woocommerce.product-groups.send_run_step"
+    },
+    {
+        "method": "POST",
+        "uri": "channels/woocommerce/{store}/product-groups/{group}/send-runs/{run}/stop",
+        "name": "ext.woocommerce.product-groups.send_run_stop"
     },
     {
         "method": "POST",

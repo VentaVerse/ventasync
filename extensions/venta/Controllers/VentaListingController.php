@@ -578,6 +578,8 @@ class VentaListingController extends Controller
             'catalogueTotal' => $catalogueTotal,
             'failedFlag' => $failedFlag,
             'changeFlag' => $changeFlag,
+            // The whole group's size, whatever the search and tabs narrow: what Send group sends.
+            'groupSize' => ctype_digit((string) $groupFilter) ? app(\Extensions\venta\Controllers\VentaProductGroupController::class)->groupSendSize((int) $groupFilter) : null,
             'statusMenu' => \App\Integrations\Listings\StatusMenu::build([
                 'url' => fn (array $params) => route('ext.venta.listings.index', array_merge(['store' => $store], $params)),
                 'query' => $request->query(),

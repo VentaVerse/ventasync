@@ -4,9 +4,11 @@
      rows: the rail says which products, this says which of those are up.
 
      With a group chosen, the same line carries what acts on the group
-     itself ($group: name, manage, send). Its Send uses the group's settings,
-     which is why it lives here and not in the selection bar, where Send uses
-     each listing's own. --}}
+     itself ($group: manage, send, send_all). Its Send uses the group's
+     settings, which is why it lives here and not in the selection bar, where
+     Send uses each listing's own. With nothing ticked it sends the whole
+     group as a run of short steps (send_all: begin, step, stop, confirm,
+     name, count). --}}
 <div class="lss-row">
     <div class="lss" role="group" aria-label="Where it stands">
         @foreach($menu['stand'] as $place)
@@ -20,9 +22,18 @@
 
     @if(! empty($group))
         <div class="lss-group">
+            @if(! empty($group['send_all']))
+                <form id="automation-run-group-send" method="POST" action="{{ $group['send_all']['begin'] }}" x-show="selected.length === 0"
+                      data-run-name="{{ $group['send_all']['name'] }}"
+                      data-confirm="{{ $group['send_all']['confirm'] }}" data-confirm-tone="primary" data-confirm-verb="Send">
+                    @csrf
+                    <button type="submit" class="x-btn x-btn--secondary x-btn--sm" @disabled(($group['send_all']['count'] ?? 0) === 0)>Send group</button>
+                </form>
+            @endif
             @if(! empty($group['send']))
                 <form method="POST" action="{{ $group['send']['action'] }}" data-bulk-form data-bulk-field="ids[]"
-                      data-bulk-confirm="{{ $group['send']['confirm'] }}">
+                      data-bulk-confirm="{{ $group['send']['confirm'] }}"
+                      @if(! empty($group['send_all'])) x-show="selected.length > 0" x-cloak @endif>
                     @csrf
                     <input type="hidden" name="_return" value="{{ $group['return'] ?? '' }}">
                     <button type="submit" class="x-btn x-btn--secondary x-btn--sm" :disabled="selected.length === 0">
@@ -36,3 +47,6 @@
         </div>
     @endif
 </div>
+@if(! empty($group['send_all']))
+    @include('partials.automation-run-modal', ['stepUrl' => $group['send_all']['step'], 'stopUrl' => $group['send_all']['stop']])
+@endif

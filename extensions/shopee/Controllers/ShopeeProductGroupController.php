@@ -27,6 +27,30 @@ use Illuminate\Support\Facades\Log;
 
 class ShopeeProductGroupController extends Controller
 {
+    use \App\Http\Controllers\Concerns\DrivesGroupSendRuns;
+
+    protected function groupSendIntegration(): string
+    {
+        return 'shopee';
+    }
+
+    protected function groupSendStoreId(Request $request): int
+    {
+        return (int) ShopeeSetting::defaultStore()?->id;
+    }
+
+    protected function groupSendMembers(int $groupId): array
+    {
+        $group = ShopeeProductGroup::query()->where('shopee_setting_id', (int) ShopeeSetting::defaultStore()?->id)->findOrFail($groupId);
+
+        return $group->groupProducts()->whereIn('product_id', \Extensions\shopee\Services\ShopeeStoreProducts::query())->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+    }
+
+    protected function groupSendChunk(int $groupId, array $productIds): array
+    {
+        return $this->sendProducts(ShopeeProductGroup::query()->findOrFail($groupId), $productIds, app(ShopeeClient::class));
+    }
+
     /** The last push's skip/heal ledger, appended to the flash (Phase E). */
     private array $lastPushLedger = [];
 
@@ -1621,13 +1645,27 @@ class ShopeeProductGroupController extends Controller
             return $this->productsRedirect($id)->with('error', 'No products selected.');
         }
 
+        $r = $this->sendProducts($group, $productIds, $client);
+
+        return $this->productsRedirect($id)->with($r['tone'], $r['summary']);
+    }
+
+    /**
+     * Send these products of the group and say how it went. A stop is a
+     * refusal before any product was touched.
+     *
+     * @param list<int> $productIds
+     * @return array{tone: string, summary: string, failed: int, stop: bool}
+     */
+    public function sendProducts(ShopeeProductGroup $group, array $productIds, ShopeeClient $client): array
+    {
         $setting = ShopeeSetting::defaultStore()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
 
         if (! $setting || ! $auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
 
-            return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
+            return ['tone' => 'error', 'summary' => "Missing Shopee {$modeLabel} settings.", 'failed' => 0, 'stop' => true];
         }
 
         $pfx = (string) config('catalog.prefix');
@@ -1735,7 +1773,7 @@ class ShopeeProductGroupController extends Controller
         // Warnings with nothing failed read as a warning, not a success.
         $tone = ($warnings && $errCount === 0) ? 'warning' : $this->batchTone($okCount, $errCount);
 
-        return $this->productsRedirect($id)->with($tone, $summary);
+        return ['tone' => $tone, 'summary' => $summary, 'failed' => min(count($productIds), $errCount), 'stop' => false];
     }
 
     /**

@@ -19,6 +19,36 @@ use Illuminate\Support\Facades\Log;
 
 class VentaProductGroupController extends Controller
 {
+    use \App\Http\Controllers\Concerns\DrivesGroupSendRuns;
+
+    protected function groupSendIntegration(): string
+    {
+        return 'venta';
+    }
+
+    protected function groupSendStoreId(Request $request): int
+    {
+        return (int) $request->route('store');
+    }
+
+    protected function groupSendMembers(int $groupId): array
+    {
+        $group = VentaProductGroup::query()->where('venta_setting_id', (int) request()->route('store'))->findOrFail($groupId);
+
+        return $group->products()->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+    }
+
+    protected function groupSendChunk(int $groupId, array $productIds): array
+    {
+        $store = (int) request()->route('store');
+        $setting = $this->storeForWrite_($store);
+        if (! $setting) {
+            return ['tone' => 'error', 'summary' => 'That Venta store is turned off, so nothing was sent to it. Enable it in its settings first.', 'failed' => 0, 'stop' => true];
+        }
+
+        return $this->sendProducts($setting, VentaProductGroup::where('venta_setting_id', $store)->findOrFail($groupId), $productIds);
+    }
+
     public function navRedirect()
     {
         $store = VentaSetting::where('enabled', true)->first();
@@ -763,6 +793,21 @@ class VentaProductGroupController extends Controller
                 ->with('error', 'No products selected.');
         }
 
+        $r = $this->sendProducts($setting, $g, $ids);
+
+        return $this->productsRedirect($store, $group)->with($r['tone'], $r['summary']);
+    }
+
+    /**
+     * Send these products of the group to an enabled store and say how it went.
+     *
+     * @param list<int> $ids
+     * @return array{tone: string, summary: string, failed: int, stop: bool}
+     */
+    public function sendProducts(VentaSetting $setting, VentaProductGroup $g, array $ids): array
+    {
+        $store = (int) $setting->id;
+        $group = (int) $g->id;
         $client = new VentaClient($setting);
         $push = VentaProductPush::for($setting);
         $states = \Extensions\venta\Services\Venta\VentaListingStates::for($store);
@@ -1072,7 +1117,7 @@ class VentaProductGroupController extends Controller
             default => 'status',
         };
 
-        return $this->productsRedirect($store, $group)->with($tone, $msg);
+        return ['tone' => $tone, 'summary' => $msg, 'failed' => min(count($ids), $failed), 'stop' => false];
     }
 
     // ── Push Stock ──────────────────────────────────────────

@@ -457,8 +457,10 @@ class ShopeeStockPushHealTest extends TestCase
             $this->assertStringContainsString('SteppableAutomation', (string) file_get_contents(base_path("extensions/{$file}.php")), $file);
         }
         $tab = (string) file_get_contents(base_path('resources/views/partials/_automations_tab.blade.php'));
-        $this->assertStringContainsString('data-automation-run', $tab);
-        $this->assertStringContainsString('data-ar-ok', $tab, 'one sentence and OK, for every automation');
+        $modal = (string) file_get_contents(base_path('resources/views/partials/automation-run-modal.blade.php'));
+        $this->assertStringContainsString("@include('partials.automation-run-modal'", $tab);
+        $this->assertStringContainsString('data-automation-run', $modal);
+        $this->assertStringContainsString('data-ar-ok', $modal, 'one sentence and OK, for every automation');
         $this->assertStringNotContainsString('data-of-strip', $tab, 'no bar on the Automations tab (the owner, 2026-09-07: unity)');
         $this->assertStringContainsString("import './automation-run';", (string) file_get_contents(base_path('resources/js/app.js')));
     }

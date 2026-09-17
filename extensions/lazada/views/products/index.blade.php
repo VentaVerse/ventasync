@@ -173,6 +173,14 @@
             'action' => route('ext.lazada.product-groups.push', $chosenGroup['key']),
             'confirm' => 'Send the ticked products to ' . 'Lazada' . ' on the settings of ' . $chosenGroup['label'] . ', rather than their own?',
         ],
+        'send_all' => [
+            'begin' => route('ext.lazada.product-groups.send_run_begin', ['id' => $chosenGroup['key']]),
+            'step' => route('ext.lazada.product-groups.send_run_step', ['id' => $chosenGroup['key'], 'run' => 0]),
+            'stop' => route('ext.lazada.product-groups.send_run_stop', ['id' => $chosenGroup['key'], 'run' => 0]),
+            'name' => 'Send ' . $chosenGroup['label'],
+            'count' => (int) ($groupSize ?? 0),
+            'confirm' => 'Send all ' . number_format((int) ($groupSize ?? 0)) . ' ' . \Illuminate\Support\Str::plural('product', (int) ($groupSize ?? 0)) . ' in ' . $chosenGroup['label'] . ' to ' . 'Lazada' . ' on group settings, rather than their own?',
+        ],
     ] : null;
 @endphp
 @include('partials.listing-stand-segment', ['menu' => $statusMenu, 'group' => $groupLine])

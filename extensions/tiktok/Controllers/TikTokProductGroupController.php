@@ -23,6 +23,30 @@ use Illuminate\Support\Facades\DB;
 
 class TikTokProductGroupController extends Controller
 {
+    use \App\Http\Controllers\Concerns\DrivesGroupSendRuns;
+
+    protected function groupSendIntegration(): string
+    {
+        return 'tiktok';
+    }
+
+    protected function groupSendStoreId(Request $request): int
+    {
+        return (int) TikTokSetting::defaultStore()?->id;
+    }
+
+    protected function groupSendMembers(int $groupId): array
+    {
+        $group = TikTokProductGroup::query()->where('tiktok_setting_id', (int) TikTokSetting::defaultStore()?->id)->findOrFail($groupId);
+
+        return $group->groupProducts()->whereIn('product_id', \Extensions\tiktok\Services\TikTokStoreProducts::query())->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+    }
+
+    protected function groupSendChunk(int $groupId, array $productIds): array
+    {
+        return $this->sendProducts(TikTokProductGroup::query()->findOrFail($groupId), $productIds, app(TikTokClient::class));
+    }
+
     // ── Helpers ──────────────────────────────────────────────────
 
     /**
@@ -1096,9 +1120,6 @@ class TikTokProductGroupController extends Controller
         $group = TikTokProductGroup::findOrFail($id);
         $c = $this->creds();
         $client = app(TikTokClient::class);
-        $pfx = (string) config('catalog.prefix');
-        $langId = (int) config('catalog.default_language_id');
-
 
         // Get pivot rows to push (pending or error, unless specific IDs provided)
         $specificIds = $request->input('ids');
@@ -1129,6 +1150,31 @@ class TikTokProductGroupController extends Controller
                 ->with('status', 'No products to push.');
         }
 
+        $r = $this->sendRows($group, $pivotRows, $c, $client);
+
+        return $this->productsRedirect($id)->with($r['tone'], $r['summary']);
+    }
+
+    /**
+     * Send these products of the group and say how it went.
+     *
+     * @param list<int> $productIds
+     * @return array{tone: string, summary: string, failed: int, stop: bool}
+     */
+    public function sendProducts(TikTokProductGroup $group, array $productIds, TikTokClient $client): array
+    {
+        $pivotRows = $group->groupProducts()->whereIn('product_id', $productIds)->get();
+        if ($pivotRows->isEmpty()) {
+            return ['tone' => 'status', 'summary' => 'No products to push.', 'failed' => 0, 'stop' => false];
+        }
+
+        return $this->sendRows($group, $pivotRows, $this->creds(), $client);
+    }
+
+    private function sendRows(TikTokProductGroup $group, $pivotRows, array $c, TikTokClient $client): array
+    {
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
         $erpProducts = $this->erpProducts($pfx, $langId, $pivotRows->pluck('product_id')->all());
         $opts = $this->groupPushOptions($group, $c);
         $pusher = app(TikTokProductPush::class);
@@ -1209,7 +1255,7 @@ class TikTokProductGroupController extends Controller
         if ($warnings) {
             $summary .= '. ' . implode(' ', array_slice($warnings, 0, 3)) . (count($warnings) > 3 ? ' (and ' . (count($warnings) - 3) . ' more)' : '');
         }
-        return $this->productsRedirect($id)->with($created + $updated === 0 ? 'error' : ($failed > 0 || $warnings ? 'warning' : 'status'), $summary);
+        return ['tone' => $created + $updated === 0 ? 'error' : ($failed > 0 || $warnings ? 'warning' : 'status'), 'summary' => $summary, 'failed' => $failed, 'stop' => false];
     }
 
     // ── Update Product ──────────────────────────────────────────

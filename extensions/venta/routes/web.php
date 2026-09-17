@@ -132,6 +132,9 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::delete('/venta/{store}/product-groups/{group}', [VentaProductGroupController::class, 'destroy'])->name('ext.venta.product-groups.destroy');
 
     Route::post('/venta/{store}/product-groups/{group}/push', [VentaProductGroupController::class, 'pushProducts'])->name('ext.venta.product-groups.push');
+    Route::post('/venta/{store}/product-groups/{group}/send-runs', [VentaProductGroupController::class, 'sendRunBegin'])->whereNumber('group')->name('ext.venta.product-groups.send_run_begin');
+    Route::post('/venta/{store}/product-groups/{group}/send-runs/{run}/step', [VentaProductGroupController::class, 'sendRunStep'])->whereNumber('group')->whereNumber('run')->name('ext.venta.product-groups.send_run_step');
+    Route::post('/venta/{store}/product-groups/{group}/send-runs/{run}/stop', [VentaProductGroupController::class, 'sendRunStop'])->whereNumber('group')->whereNumber('run')->name('ext.venta.product-groups.send_run_stop');
     Route::post('/venta/{store}/product-groups/{group}/push-stock', [VentaProductGroupController::class, 'pushStock'])->name('ext.venta.product-groups.push-stock');
     Route::post('/venta/{store}/product-groups/{group}/push-prices', [VentaProductGroupController::class, 'pushPrices'])->name('ext.venta.product-groups.push-prices');
     Route::post('/venta/{store}/product-groups/{group}/add-products', [VentaProductGroupController::class, 'addProducts'])->name('ext.venta.product-groups.addProducts');

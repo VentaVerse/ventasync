@@ -289,7 +289,7 @@ class ShopeeReconcileTest extends TestCase
 
     public function test_send_reconciles_before_it_decides(): void
     {
-        $body = $this->methodBody('send');
+        $body = $this->methodBody('sendProducts');
 
         $reconcileAt = strpos($body, 'linkCheck->reconcile(');
         $createAt = strpos($body, 'createOnShopee(');
@@ -307,7 +307,7 @@ class ShopeeReconcileTest extends TestCase
 
     public function test_send_refuses_to_write_on_a_verdict_it_cannot_trust(): void
     {
-        $body = $this->methodBody('send');
+        $body = $this->methodBody('sendProducts');
 
         $this->assertMatchesRegularExpression(
             "/'taken'.*?'unreachable'.*?continue;/s",
@@ -379,7 +379,7 @@ class ShopeeReconcileTest extends TestCase
 
     public function test_a_send_also_counts_as_having_asked(): void
     {
-        $this->assertStringContainsString("'last_checked_at' => now()", $this->methodBody('send'),
+        $this->assertStringContainsString("'last_checked_at' => now()", $this->methodBody('sendProducts'),
             'Send reconciles but does not record that it did, so a row checked seconds ago still '
             .'reads as never checked.');
     }

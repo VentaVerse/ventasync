@@ -414,6 +414,8 @@ class TikTokProductController extends Controller
             'readinessByProductId' => $readinessByProductId,
             'failedFlag' => $failedFlag,
             'changeFlag' => $changeFlag,
+            // The whole group's size, whatever the search and tabs narrow: what Send group sends.
+            'groupSize' => ctype_digit((string) $groupFilter) ? app(\Extensions\tiktok\Controllers\TikTokProductGroupController::class)->groupSendSize((int) $groupFilter) : null,
             'statusMenu' => \App\Integrations\Listings\StatusMenu::build([
                 'url' => fn (array $params) => route('ext.tiktok.products.index', $params),
                 'query' => $request->query(),

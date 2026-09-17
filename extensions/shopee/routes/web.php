@@ -199,6 +199,9 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
         // the scheduler still address them directly; Send is what the row
         // offers, so no state of the page can hide the action that works.
         Route::post('/shopee/{store}/product-groups/{id}/products/send', [ShopeeProductGroupController::class, 'send'])->name('ext.shopee.product-groups.send');
+        Route::post('/shopee/{store}/product-groups/{id}/send-runs', [ShopeeProductGroupController::class, 'sendRunBegin'])->whereNumber('id')->name('ext.shopee.product-groups.send_run_begin');
+        Route::post('/shopee/{store}/product-groups/{id}/send-runs/{run}/step', [ShopeeProductGroupController::class, 'sendRunStep'])->whereNumber('id')->whereNumber('run')->name('ext.shopee.product-groups.send_run_step');
+        Route::post('/shopee/{store}/product-groups/{id}/send-runs/{run}/stop', [ShopeeProductGroupController::class, 'sendRunStop'])->whereNumber('id')->whereNumber('run')->name('ext.shopee.product-groups.send_run_stop');
         Route::post('/shopee/{store}/product-groups/{id}/products/check', [ShopeeProductGroupController::class, 'checkAgainstShopee'])->name('ext.shopee.product-groups.check');
         Route::post('/shopee/{store}/product-groups/{id}/products/push', [ShopeeProductGroupController::class, 'push'])->name('ext.shopee.product-groups.push');
         Route::post('/shopee/{store}/product-groups/{id}/products/update-product', [ShopeeProductGroupController::class, 'updateProduct'])->name('ext.shopee.product-groups.updateProduct');

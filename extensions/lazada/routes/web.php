@@ -155,6 +155,9 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
         Route::post('/lazada/{store}/product-groups/{id}/products/{productId}/add', [LazadaProductGroupController::class, 'addProduct'])->whereNumber('id')->whereNumber('productId')->name('ext.lazada.product-groups.addProduct');
         Route::post('/lazada/{store}/product-groups/{id}/products/check', [LazadaProductGroupController::class, 'checkAgainstLazada'])->whereNumber('id')->name('ext.lazada.product-groups.check');
         Route::post('/lazada/{store}/product-groups/{id}/products/push', [LazadaProductGroupController::class, 'push'])->whereNumber('id')->name('ext.lazada.product-groups.push');
+        Route::post('/lazada/{store}/product-groups/{id}/send-runs', [LazadaProductGroupController::class, 'sendRunBegin'])->whereNumber('id')->name('ext.lazada.product-groups.send_run_begin');
+        Route::post('/lazada/{store}/product-groups/{id}/send-runs/{run}/step', [LazadaProductGroupController::class, 'sendRunStep'])->whereNumber('id')->whereNumber('run')->name('ext.lazada.product-groups.send_run_step');
+        Route::post('/lazada/{store}/product-groups/{id}/send-runs/{run}/stop', [LazadaProductGroupController::class, 'sendRunStop'])->whereNumber('id')->whereNumber('run')->name('ext.lazada.product-groups.send_run_stop');
         Route::post('/lazada/{store}/product-groups/{id}/products/update-product', [LazadaProductGroupController::class, 'updateProduct'])->whereNumber('id')->name('ext.lazada.product-groups.updateProduct');
         Route::post('/lazada/{store}/product-groups/{id}/products/push-prices', [LazadaProductGroupController::class, 'pushPrices'])->whereNumber('id')->name('ext.lazada.product-groups.pushPrices');
         Route::post('/lazada/{store}/product-groups/{id}/products/push-stock', [LazadaProductGroupController::class, 'pushStock'])->whereNumber('id')->name('ext.lazada.product-groups.pushStock');

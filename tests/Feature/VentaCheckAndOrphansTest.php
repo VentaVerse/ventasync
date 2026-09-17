@@ -90,7 +90,7 @@ class VentaCheckAndOrphansTest extends TestCase
 
     public function test_an_unreachable_product_is_never_pushed(): void
     {
-        $body = $this->methodBody('pushProducts');
+        $body = $this->methodBody('sendProducts');
 
         $this->assertStringContainsString("\$verdict['state'] === 'unreachable'", $body,
             'pushProducts pushes after a check that failed, so a create can land on top of a '
@@ -124,7 +124,7 @@ class VentaCheckAndOrphansTest extends TestCase
 
     public function test_a_push_also_counts_as_having_asked(): void
     {
-        $this->assertStringContainsString("'last_confirmed_at' => now()", $this->methodBody('pushProducts'),
+        $this->assertStringContainsString("'last_confirmed_at' => now()", $this->methodBody('sendProducts'),
             'A push reconciles first but does not record that it did, so a row checked seconds ago '
             .'still reads as never checked.');
     }

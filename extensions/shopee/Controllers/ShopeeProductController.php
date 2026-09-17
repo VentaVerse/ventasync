@@ -603,6 +603,8 @@ class ShopeeProductController extends Controller
             'liveCheckedAt' => $liveCheckedAt,
             'failedFlag' => $failedFlag,
             'changeFlag' => $changeFlag,
+            // The whole group's size, whatever the search and tabs narrow: what Send group sends.
+            'groupSize' => ctype_digit((string) $groupFilter) ? app(\Extensions\shopee\Controllers\ShopeeProductGroupController::class)->groupSendSize((int) $groupFilter) : null,
             'statusMenu' => \App\Integrations\Listings\StatusMenu::build([
                 'url' => fn (array $params) => route('ext.shopee.products.index', $params),
                 'query' => $request->query(),

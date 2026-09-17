@@ -28,6 +28,30 @@ use Illuminate\Support\Facades\Log;
 
 class LazadaProductGroupController extends Controller
 {
+    use \App\Http\Controllers\Concerns\DrivesGroupSendRuns;
+
+    protected function groupSendIntegration(): string
+    {
+        return 'lazada';
+    }
+
+    protected function groupSendStoreId(Request $request): int
+    {
+        return (int) LazadaSetting::defaultStore()?->id;
+    }
+
+    protected function groupSendMembers(int $groupId): array
+    {
+        $group = LazadaProductGroup::query()->where('lazada_setting_id', (int) LazadaSetting::defaultStore()?->id)->findOrFail($groupId);
+
+        return $group->groupProducts()->whereIn('product_id', \Extensions\lazada\Models\LazadaProduct::query()->whereNotNull('product_id')->select('product_id'))->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+    }
+
+    protected function groupSendChunk(int $groupId, array $productIds): array
+    {
+        return $this->sendProducts(LazadaProductGroup::query()->findOrFail($groupId), $productIds, app(LazadaClient::class));
+    }
+
 
     /** The one attribute vocabulary (Phase C, #184): this controller carried
      * its own pre-#175 fork of the extractor, which still showed sale props
@@ -811,14 +835,28 @@ class LazadaProductGroupController extends Controller
             return $this->productsRedirect($id)->with('error', 'No products selected.');
         }
 
+        $r = $this->sendProducts($group, $productIds, $client);
+
+        return $this->productsRedirect($id)->with($r['tone'], $r['summary']);
+    }
+
+    /**
+     * Send these products of the group and say how it went. A stop is a
+     * refusal before any product was touched.
+     *
+     * @param list<int> $productIds
+     * @return array{tone: string, summary: string, failed: int, stop: bool}
+     */
+    public function sendProducts(LazadaProductGroup $group, array $productIds, LazadaClient $client): array
+    {
         if (!$group->lazada_category_id) {
-            return $this->productsRedirect($id)->with('error', 'This product group has no Lazada category configured. Set a category first.');
+            return ['tone' => 'error', 'summary' => 'This product group has no Lazada category configured. Set a category first.', 'failed' => 0, 'stop' => true];
         }
 
         $setting = LazadaSetting::defaultStore()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
-            return $this->productsRedirect($id)->with('error', 'Missing Lazada settings.');
+            return ['tone' => 'error', 'summary' => 'Missing Lazada settings.', 'failed' => 0, 'stop' => true];
         }
 
         $pfx = (string) config('catalog.prefix');
@@ -1021,7 +1059,7 @@ class LazadaProductGroupController extends Controller
         if (!empty($errors)) $summary .= '. Errors: ' . implode('; ', array_slice($errors, 0, 5));
         if (!empty($notes)) $summary .= '. ' . implode(' ', array_slice($notes, 0, 5));
 
-        return $this->productsRedirect($id)->with(($okCount + $updatedCount) > 0 ? ($picturesWarned ? 'warning' : 'status') : 'error', $summary);
+        return ['tone' => ($okCount + $updatedCount) > 0 ? ($picturesWarned ? 'warning' : 'status') : 'error', 'summary' => $summary, 'failed' => min(count($productIds), $errCount), 'stop' => false];
     }
 
     /**
