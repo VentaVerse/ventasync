@@ -197,8 +197,10 @@ final class StatusMenu
             ];
         }
 
-        /* The switches narrow whatever is chosen. Their counts are taken
-           store-wide, so each opens to that same set. */
+        /* A filter narrows whatever the menu has already chosen: its link
+           carries the group and the half along with it. So its count is
+           taken inside that same choice, never across the whole store, or
+           the number would promise one list and open a smaller one. */
         $flags = [
             ['key' => 'failed', 'label' => 'Push failed', 'count' => (int) ($counts['failed'] ?? 0), 'tone' => 'bad', 'on' => $failed,
                 'url' => $to(['failed' => $failed ? null : 1, 'sync_status' => $stand === 'all' ? null : $stand])],

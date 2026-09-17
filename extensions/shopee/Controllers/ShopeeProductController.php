@@ -409,16 +409,28 @@ class ShopeeProductController extends Controller
         foreach (['not_uploaded', 'uploaded'] as $status) {
             $menuCounts[$status] = $applySync(clone $standBase, $status)->count();
         }
-        /* The switches are counted across the store, not inside the rail's
-           group or the segment's half, because each one opens to that same
-           store-wide set: a number that counted itself somewhere narrower
-           would lead to a list bigger than the number promised. */
-        $menuCounts['failed'] = (clone $menuBase)->whereIn('p.product_id', $errored ?: [0])->count();
-        $menuCounts['change'] = (clone $menuBase)->whereIn('p.product_id', $changed ?: [0])->count();
+        /* A filter narrows whatever the menu has already chosen: its link
+           carries the group and the half along with it, and the other filter
+           when that one is on. So each is counted inside that same choice
+           and never across the store, or the number would promise one list
+           and open a smaller one. */
+        $filterBase = fn () => $applySync($applyGroup(clone $menuBase, $groupFilter), $syncStatus);
+        $failedIn = $filterBase();
+        if ($changeFlag) {
+            $failedIn->whereIn('p.product_id', $changed ?: [0]);
+        }
+        $menuCounts['failed'] = $failedIn->whereIn('p.product_id', $errored ?: [0])->count();
+        $changeIn = $filterBase();
+        if ($failedFlag) {
+            $changeIn->whereIn('p.product_id', $errored ?: [0]);
+        }
+        $menuCounts['change'] = $changeIn->whereIn('p.product_id', $changed ?: [0])->count();
 
-        /* The rail counts inside the segment's chosen half, never inside
-           itself, so every group keeps its own number while one is chosen. */
-        $railBase = $withFlags($applySync(clone $menuBase, $syncStatus));
+        /* A group's number is the group's own size, and it does not move when
+           the tabs above the table change. The tabs already carry their own
+           numbers for the breakdown inside whichever group is open, so tying
+           the two together only made the menu re-sort itself under the hand. */
+        $railBase = clone $menuBase;
         $menuCounts['store'] = (clone $railBase)->count();
         $groupRail = [];
         foreach (ShopeeProductGroup::query()->orderBy('name')->get(['id', 'name']) as $group) {
