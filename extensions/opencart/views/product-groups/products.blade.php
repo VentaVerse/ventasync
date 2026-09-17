@@ -122,7 +122,7 @@
             $isManual = in_array((int) $p->product_id, $manualIds, true);
 
             $img = trim((string) ($p->image ?? ''));
-            $thumbSrc = $img !== '' ? asset('storage/' . ltrim($img, '/')) : null;
+            $thumbSrc = $img !== '' ? \App\Services\Media\ImageCache::url($img) : null;
 
             $pName = html_entity_decode((string) ($p->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
             $pSku = (string) ($p->sku ?: ($p->model ?: ''));

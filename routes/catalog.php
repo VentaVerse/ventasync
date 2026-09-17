@@ -45,6 +45,8 @@ Route::prefix('catalog')->group(function () {
         Route::get('/products/{id}/stock-history', [ProductController::class, 'stockHistory'])->whereNumber('id')->name('products.stock_history');
         // Browse the catalog's image library — read-only operation.
         Route::get('/products/images/browse', [ProductImageController::class, 'browse'])->name('products.images.browse');
+        // One picture's small copy, made on the first request for it.
+        Route::get('/products/images/thumb', [ProductImageController::class, 'thumb'])->name('products.images.thumb');
     });
 
     // ── Products — WRITE ──
@@ -72,6 +74,11 @@ Route::prefix('catalog')->group(function () {
         Route::post('/products/images/upload-to-catalog', [ProductImageController::class, 'uploadToCatalog'])->name('products.images.upload_to_catalog');
         Route::post('/products/images/import-url-to-catalog', [ProductImageController::class, 'importUrlToCatalog'])->name('products.images.import_url_to_catalog');
         Route::post('/products/images/delete', [ProductImageController::class, 'deleteFromCatalog'])->name('products.images.delete');
+
+        // The product's one video, uploaded and removed on its own, the same
+        // way its pictures are.
+        Route::post('/products/video/upload', [\App\Http\Controllers\Catalog\ProductVideoController::class, 'upload'])->name('products.video.upload');
+        Route::post('/products/video/delete', [\App\Http\Controllers\Catalog\ProductVideoController::class, 'destroy'])->name('products.video.delete');
 
         // Product options
         Route::get('/products/{id}/options', [ProductOptionController::class, 'edit'])->whereNumber('id')->name('products.options.edit')

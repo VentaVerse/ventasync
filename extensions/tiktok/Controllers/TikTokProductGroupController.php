@@ -579,7 +579,7 @@ class TikTokProductGroupController extends Controller
                 'sku' => (string) ($r->sku ?? ''),
                 'quantity' => (int) ($r->quantity ?? 0),
                 'price' => \App\Support\Money::base((float) ($r->price ?? 0)),
-                'thumb' => $image !== '' ? asset('storage/' . ltrim($image, '/')) : null,
+                'thumb' => $image !== '' ? \App\Services\Media\ImageCache::url($image) : null,
                 // The panel's "already in" flag: in this group.
                 'on_store' => $inGroup->has($pid),
                 'elsewhere' => $owners->get($pid)?->name,

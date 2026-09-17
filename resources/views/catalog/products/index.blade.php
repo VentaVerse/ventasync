@@ -204,7 +204,7 @@
                         @foreach($products as $p)
                             @php
                                 $img = trim((string) ($p->image ?? ''));
-                                $thumbSrc = $img !== '' ? asset('storage/' . ltrim($img, '/')) : '';
+                                $thumbSrc = $img !== '' ? \App\Services\Media\ImageCache::url($img) : '';
                                 $variationCount = count($p->option_rows ?? []);
                                 $backUrl = urlencode(request()->fullUrl());
                                 $qty = (int) $p->quantity;
@@ -313,7 +313,7 @@
                             @foreach($p->option_rows ?? [] as $or)
                                 @php
                                     $orImg = trim((string) ($or->option_image ?? ''));
-                                    $orSrc = $orImg !== '' ? asset('storage/' . ltrim($orImg, '/')) : '';
+                                    $orSrc = $orImg !== '' ? \App\Services\Media\ImageCache::url($orImg) : '';
                                     $orQty = (int) ($or->quantity ?? 0);
                                     $orTone = $orQty < 0 ? 'text-bad' : ($orQty === 0 ? 'text-attn' : '');
                                 @endphp

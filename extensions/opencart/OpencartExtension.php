@@ -241,7 +241,7 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                     ->map(fn ($r) => new TopProduct(
                         sku: (string) $r->sku,
                         name: (string) ($r->name ?? $r->sku),
-                        imageUrl: $r->image ? asset('storage/' . ltrim($r->image, '/')) : null,
+                        imageUrl: $r->image ? \App\Services\Media\ImageCache::url($r->image) : null,
                         qtySold: (int) $r->qty_sold,
                         revenue: (float) $r->revenue,
                         variation: trim((string) ($r->variation ?? '')) ?: null,

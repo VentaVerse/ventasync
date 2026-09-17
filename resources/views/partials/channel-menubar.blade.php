@@ -7,9 +7,10 @@
      - a group with ONE item flattens to a direct link named by the item
        (unless the item declares children, in which case the ITEM becomes
        the parent - that is how Settings carries its page sections);
-     - no identity block: the breadcrumb already names the channel and the
-       page, so the only channel colour here is the dot on the parent that
-       owns the current page and the edge on the current item.
+     - the store's own mark opens the bar: its channel's wide logo when the
+       channel ships one, else the square mark with the channel's name. The
+       bar is the store's, so the mark says whose pages these are on every
+       page of it. A channel with no picture shows the name alone.
 
      Every entry has already passed both permission gates in
      ChannelWorkspace::groups()/allows(), so nothing here re-asks. --}}
@@ -26,6 +27,13 @@
 
         return isset($q['tab']) && $q['tab'] === request()->query('tab');
     };
+
+    /* The mark: the channel's wide logo when it is drawn on nothing, else
+       its square mark beside the channel's name. A lockup with its own
+       background would be a block of colour on the bar. */
+    $mbChannelId = (string) ($channelCard->id ?? '');
+    $mbWide = \App\Extensions\ExtensionImages::isTransparent($mbChannelId, 'logo-wide.png');
+    $mbSquare = ! $mbWide && \App\Extensions\ExtensionImages::has($mbChannelId, 'logo.png');
 
     $mbEntries = [];
 
@@ -81,6 +89,16 @@
          @click.outside="open = null"
          @mouseleave="if (hoverable) open = null"
          @keydown.escape.window="open = null">
+        <span class="x-chnav__mark">
+            @if($mbWide)
+                <img class="x-chnav__logo x-chnav__logo--wide" src="{{ \App\Extensions\ExtensionImages::url($mbChannelId, 'logo-wide.png') }}" alt="{{ $channelCard->name }}">
+            @else
+                @if($mbSquare)
+                    <img class="x-chnav__logo" src="{{ \App\Extensions\ExtensionImages::url($mbChannelId, 'logo.png') }}" alt="">
+                @endif
+                <span class="x-chnav__markname">{{ $channelCard->name }}</span>
+            @endif
+        </span>
         @foreach($mbEntries as $mi => $entry)
             @if($entry['kind'] === 'link')
                 <a class="x-chnav__link {{ $entry['active'] ? 'is-current' : '' }}"

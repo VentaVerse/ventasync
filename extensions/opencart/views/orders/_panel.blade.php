@@ -238,7 +238,7 @@
                 if ($ocItem) {
                     $ocPath = trim((string) ($productImages[$ocItem->order_product_id] ?? ''));
                     if ($ocPath !== '') {
-                        $ocImgSrc = asset('storage/' . ltrim($ocPath, '/'));
+                        $ocImgSrc = \App\Services\Media\ImageCache::url($ocPath);
                     } else {
                         $ocImgSrc = trim((string) ($lazadaImages[$ocItem->order_product_id] ?? ''));
                     }

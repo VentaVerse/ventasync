@@ -227,8 +227,20 @@
                      because the name is reversed out of it in white: Shopee's
                      orange holds white at 3.66:1, which is a label you cannot
                      read at 12.5px. --}}
+                @php
+                    /* The channel's own mark on the cap, on a white plate so
+                       any mark holds on any brand fill. With it there the cap
+                       carries the store's name alone: the channel's name in
+                       front of it was what pushed a long store name out of
+                       the card. */
+                    $fhChannelId = strtok((string) $fhCard['id'], ':');
+                    $fhMark = \App\Extensions\ExtensionImages::has($fhChannelId, 'logo.png');
+                @endphp
                 <span class="fh-card__top">
-                    <span class="fh-card__name">{{ $fhCard['label'] }}</span>
+                    @if($fhMark)
+                        <span class="fh-card__mark"><img src="{{ \App\Extensions\ExtensionImages::url($fhChannelId, 'logo.png') }}" alt=""></span>
+                    @endif
+                    <span class="fh-card__name">{{ $fhMark && ! empty($fhCard['store']) ? $fhCard['store'] : $fhCard['label'] }}</span>
                 </span>
 
                 {{-- The count first, always, when it is tracked. A stale

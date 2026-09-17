@@ -91,6 +91,54 @@ private function isWordStartMatch(string $haystack, string $term): bool
 
     
 
+    /**
+     * The product's one video, as the form carries it: a path under video/,
+     * the name it was uploaded under, and whether the seller says it was made
+     * with AI, which Shopee asks and penalises a wrong answer to.
+     *
+     * An empty path takes the video off. A video staged before the product
+     * existed settles into the product's own folder here.
+     */
+    private function saveProductVideo(int $productId, Request $request): void
+    {
+        if (! $request->has('video_path')) {
+            return;
+        }
+
+        $disk = \Illuminate\Support\Facades\Storage::disk('public');
+        $row = \App\Models\ProductVideo::query()->where('product_id', $productId)->first();
+        $path = trim((string) $request->input('video_path', ''));
+
+        if ($path === '') {
+            if ($row) {
+                \App\Services\Media\ProductVideoFile::forget((string) $row->path);
+                $row->delete();
+            }
+
+            return;
+        }
+
+        if (! str_starts_with($path, \App\Services\Media\ProductVideoFile::DIR . '/') || str_contains($path, '..')) {
+            return;
+        }
+
+        $settled = \App\Services\Media\ProductVideoFile::settle($path, $productId);
+        if (! $disk->exists($settled)) {
+            return;
+        }
+        if ($row && (string) $row->path !== $settled) {
+            \App\Services\Media\ProductVideoFile::forget((string) $row->path);
+        }
+
+        \App\Models\ProductVideo::query()->updateOrCreate(['product_id' => $productId], [
+            'path' => $settled,
+            'original_name' => (string) ($request->input('video_name') ?: basename($settled)),
+            'bytes' => (int) $disk->size($settled),
+            'duration_ms' => \App\Services\Media\ProductVideoFile::durationMs($disk->path($settled)),
+            'ai_generated' => $request->boolean('video_ai'),
+        ]);
+    }
+
     private function imagesFromRequest(?string $json): array
     {
         $json = trim((string) ($json ?? ''));
@@ -509,6 +557,9 @@ $pfx = config('catalog.prefix');
              * is pushed; nothing in the catalog CRUD points at a channel. */
             'description' => ['nullable', 'string'],
             'images_json' => ['nullable', 'string'],
+            'video_path'  => ['nullable', 'string', 'max:512'],
+            'video_name'  => ['nullable', 'string', 'max:255'],
+            'video_ai'    => ['nullable', 'boolean'],
 
             'options' => 'array',
             'options.*.option_id' => 'required|integer|min:1',
@@ -604,6 +655,8 @@ $pfx = config('catalog.prefix');
                     $items = array_map(fn ($pth) => ['path' => $pth], $paths);
                     $paths = array_map(fn ($it) => $it['path'], $this->finalizeTempImages($token, '', $id, $items));
                 }
+
+                $this->saveProductVideo($id, $request);
 
                 return $paths;
             },
@@ -997,7 +1050,9 @@ $pfx = config('catalog.prefix');
         $deleter = app(\App\Services\Catalog\ProductDeleter::class);
         $channelNote = $deleter->note($deleter->presence([(int) $product->product_id])[(int) $product->product_id] ?? []);
 
-        return view('catalog.products.edit', compact('product', 'currentCategoryId', 'categoryName', 'currentCategories', 'manufacturerName', 'existingOptions', 'existingCombinations', 'productImages', 'returnUrl', 'currencies', 'channelNote'));
+        $productVideo = \App\Models\ProductVideo::query()->where('product_id', (int) $id)->first()?->summary();
+
+        return view('catalog.products.edit', compact('product', 'currentCategoryId', 'categoryName', 'currentCategories', 'manufacturerName', 'existingOptions', 'existingCombinations', 'productImages', 'productVideo', 'returnUrl', 'currencies', 'channelNote'));
     }
 
     public function update(Request $request, $id)
@@ -1056,6 +1111,9 @@ $pfx = config('catalog.prefix');
              * is pushed; nothing in the catalog CRUD points at a channel. */
             'description' => ['nullable', 'string'],
             'images_json' => ['nullable', 'string'],
+            'video_path'  => ['nullable', 'string', 'max:512'],
+            'video_name'  => ['nullable', 'string', 'max:255'],
+            'video_ai'    => ['nullable', 'boolean'],
 
             'options' => 'array',
             'options.*.option_id' => 'required|integer|min:1',
@@ -1231,6 +1289,7 @@ $pfx = config('catalog.prefix');
                 }
                 $this->saveProductImages((int) $id, $paths);
             }
+            $this->saveProductVideo((int) $id, $request);
         });
 
         // Sync SKU changes to connected platforms (after transaction commits)

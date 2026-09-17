@@ -404,10 +404,10 @@ class LazadaPushPayload
                  * URL. */
                 $comboImg = trim((string)($c->image ?? ''));
                 if ($comboImg !== '') {
-                    $comboImg = \App\Services\Media\StoreReadyImages::fit($comboImg, \App\Services\Media\StoreReadyImages::LAZADA) ?? $comboImg;
+                    $comboImg = \App\Services\Media\ImageCache::path($comboImg, \App\Services\Media\ImageCache::PUSH) ?? $comboImg;
                 }
                 if ($comboImg !== '') {
-                    $comboUrl = app(LazadaImages::class)->normalizeImageUrl(asset('storage/' . ltrim($comboImg, '/')));
+                    $comboUrl = app(LazadaImages::class)->normalizeImageUrl(\App\Services\Media\ImageCache::publicUrl($comboImg));
                     if (is_string($comboUrl) && $comboUrl !== '') {
                         $skuRow['Images'] = ['Image' => [$comboUrl]];
                     }

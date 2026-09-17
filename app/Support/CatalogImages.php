@@ -92,6 +92,6 @@ final class CatalogImages
         }
         $path = self::forSkus([$sku])[$sku] ?? null;
 
-        return $path ? asset('storage/' . ltrim($path, '/')) : null;
+        return $path ? \App\Services\Media\ImageCache::url($path) : null;
     }
 }

@@ -260,7 +260,7 @@
             $pGroups = $groupsByProductId->get($pid, []);
             $optRows = $optionRowsByProductId->get($pid);
             $img = trim((string) ($p->image ?? ''));
-            $thumbSrc = $img !== '' ? asset('storage/' . ltrim($img, '/')) : '';
+            $thumbSrc = $img !== '' ? \App\Services\Media\ImageCache::url($img) : '';
             /* The mirrored status for this row; the strip says when it was
                refreshed. Never refreshed reads as exactly that, not as a guess. */
             $rowLiveStatus = $listed ? ($listing?->live_status) : null;

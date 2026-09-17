@@ -90,7 +90,7 @@ final class CatalogPickerSearch
                 'name' => html_entity_decode((string) ($r->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                 'model' => (string) ($r->model ?? ''),
                 'sku' => (string) ($r->sku ?? ''),
-                'image' => trim((string) ($r->image ?? '')) !== '' ? asset('storage/' . ltrim((string) $r->image, '/')) : null,
+                'image' => trim((string) ($r->image ?? '')) !== '' ? \App\Services\Media\ImageCache::url((string) $r->image) : null,
                 'options' => $optionList,
                 'skus' => $skus,
                 'linked' => $linked[$pid] ?? null,

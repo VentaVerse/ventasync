@@ -36,6 +36,11 @@
     @foreach($channels as $c)
         <article class="x-board__card">
             <header class="x-board__head">
+                @php $cMark = \App\Extensions\ExtensionImages::has(strtok((string) $c['key'], ':'), 'logo.png'); @endphp
+                @if($cMark)
+                    {{-- The channel's mark where a list's avatar goes, so a board of nine cards is read by shape before a word. --}}
+                    <img class="x-board__mark" src="{{ \App\Extensions\ExtensionImages::url(strtok((string) $c['key'], ':'), 'logo.png') }}" alt="">
+                @endif
                 <div>
                     <p class="x-board__name">{{ $c['label'] }}</p>
                     @if($c['store'])<p class="x-board__store">{{ $c['store'] }}</p>@endif

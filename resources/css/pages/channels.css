@@ -586,6 +586,18 @@
     box-shadow: var(--bl-lift);
 }
 .x-board__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--bl-space-2); }
+
+/* The channel's mark, where a list's avatar goes. It keeps its own
+   background when it has one, so a brand tile stays a brand tile. */
+.x-board__mark {
+    flex: none;
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+    border-radius: var(--bl-r-dot);
+}
+
+.x-board__head > div { flex-grow: 1; min-width: 0; }
 .x-board__name { margin: 0; font-size: 14px; font-weight: 600; color: var(--bl-ink); }
 .x-board__store { margin: 2px 0 0; font-size: 12px; color: var(--bl-ink-3); }
 

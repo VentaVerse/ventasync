@@ -31,7 +31,7 @@
         $vrQty = $vr->quantity ?? null;
         $vrPrice = (float) ($vr->absolute_price ?? 0);
         $vrImg = trim((string) ($vr->option_image ?? ''));
-        $vrSrc = $vrImg !== '' ? asset('storage/' . ltrim($vrImg, '/')) : '';
+        $vrSrc = $vrImg !== '' ? \App\Services\Media\ImageCache::url($vrImg) : '';
         $vrSold = isset($vr->sold_here) ? (bool) $vr->sold_here : null;
         $vrDotLabel = $vrSold ? 'Sold on this store' : (($vr->missing_here ?? false) ? 'Not on this store' : 'Switched off on this store');
     @endphp

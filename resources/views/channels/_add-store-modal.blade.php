@@ -5,9 +5,10 @@
      channel list and each channel's fields come from the cards'
      AddStoreAction, so a channel appears here the moment it declares one.
 
-     Logos live in public/images/channels/{id}.png (tracked). Until one is
-     uploaded the tile shows the channel's initial; channel-add.js hides a
-     broken image so no broken-image glyph ever shows. --}}
+     A channel's logo is its extension's own images/logo.png, published by
+     App\Extensions\ExtensionImages. Until one exists the tile shows the
+     channel's initial; channel-add.js hides a broken image so no
+     broken-image glyph ever shows. --}}
 <div class="modal-backdrop" id="add-store-modal" data-add-store-modal @if(request()->boolean('add')) data-add-store-auto="1" @endif>
     <div class="modal cs-addmodal" role="dialog" aria-modal="true" aria-labelledby="add-store-title">
         <div class="cs-addmodal__head">
@@ -25,7 +26,7 @@
                     <button type="button" class="cs-chtile" data-add-pick="{{ $c['id'] }}">
                         <span class="ch-logo">
                             <span class="ch-logo__ltr">{{ mb_substr($c['name'], 0, 1) }}</span>
-                            <img class="ch-logo__img" src="{{ asset('images/channels/' . $c['id'] . '.png') }}" alt="" data-ch-logo>
+                            <img class="ch-logo__img" src="{{ \App\Extensions\ExtensionImages::url($c['id'], 'logo.png') }}" alt="" data-ch-logo>
                         </span>
                         <span class="cs-chtile__name">{{ $c['name'] }}</span>
                     </button>
@@ -45,7 +46,7 @@
                 <div class="cs-addform__head">
                     <span class="ch-logo ch-logo--sm">
                         <span class="ch-logo__ltr">{{ mb_substr($c['name'], 0, 1) }}</span>
-                        <img class="ch-logo__img" src="{{ asset('images/channels/' . $c['id'] . '.png') }}" alt="" data-ch-logo>
+                        <img class="ch-logo__img" src="{{ \App\Extensions\ExtensionImages::url($c['id'], 'logo.png') }}" alt="" data-ch-logo>
                     </span>
                     <span class="cs-addform__name">New {{ $c['name'] }} store</span>
                 </div>

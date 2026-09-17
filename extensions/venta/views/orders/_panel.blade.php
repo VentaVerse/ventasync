@@ -488,7 +488,7 @@
                     'sku' => (string) ($it->sku ?? ''),
                     'variation' => (string) ($it->variant_label ?? ''),
                     'quantity' => max(1, (int) ($it->quantity ?? 1)),
-                    'image' => $img !== '' ? asset('storage/' . ltrim($img, '/')) : '',
+                    'image' => $img !== '' ? \App\Services\Media\ImageCache::url($img) : '',
                 ];
             }, $vtItems), $vtBooked ? $vtCourierName : null, trim((string) ($vtAddr['city'] ?? '')) ?: null);
         @endphp
@@ -542,7 +542,7 @@
                     @endphp
                     <div class="order-img-wrap">
                         @if($vtImg !== '')
-                            <img class="order-img" src="{{ asset('storage/' . ltrim($vtImg, '/')) }}" alt="" loading="lazy">
+                            <img class="order-img" src="{{ \App\Services\Media\ImageCache::url($vtImg) }}" alt="" loading="lazy">
                         @else
                             <span class="co-item__none">No image</span>
                         @endif

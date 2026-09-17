@@ -118,12 +118,80 @@
     // named with markup is text.
     document.querySelectorAll('.st-file__input').forEach(function (input) {
         const readout = document.querySelector('[data-file-name-for="' + input.id + '"]');
+        const errorLine = document.getElementById(input.id + '-error');
+        const reset = document.querySelector('[data-file-reset="' + input.id + '"]');
+        const preview = input.dataset.imagePreview ? document.getElementById(input.dataset.imagePreview) : null;
+        const box = preview ? preview.closest('.st-brandnow') : null;
+        // What the box held when the page was drawn: an upload that is
+        // already saved, which Undo goes back to.
+        const saved = { src: preview ? preview.getAttribute('src') : '', caption: '', shown: box ? !box.hidden : false };
+        const captionEl = preview && preview.parentNode ? preview.parentNode.querySelector('.st-brand__cap') : null;
+        if (captionEl) saved.caption = captionEl.textContent;
+
+        function say(message) {
+            if (!errorLine) return;
+            errorLine.textContent = message || '';
+            errorLine.hidden = !message;
+        }
+
+        function restore() {
+            input.value = '';
+            if (readout) readout.textContent = 'No file chosen';
+            if (reset) reset.hidden = true;
+            if (preview) preview.setAttribute('src', saved.src);
+            if (captionEl) captionEl.textContent = saved.caption;
+            if (box) box.hidden = !saved.shown;
+        }
+
+        if (reset) {
+            reset.addEventListener('click', function () {
+                restore();
+                say('');
+            });
+        }
+
+        // The size and the kind are checked before anything is sent, so a
+        // file the server would refuse never costs an upload, and the
+        // sentence says the real size rather than "invalid file".
+        function refuse(file) {
+            const maxKb = parseInt(input.dataset.maxKb || '0', 10);
+            if (maxKb && file.size > maxKb * 1024) {
+                const mb = (file.size / 1048576).toFixed(1);
+                const limit = maxKb >= 1024 ? (maxKb / 1024) + ' MB' : maxKb + ' KB';
+                return 'That file is ' + mb + ' MB. Choose one up to ' + limit + '.';
+            }
+            const accepted = (input.getAttribute('accept') || '').split(',').map(function (a) { return a.trim().toLowerCase(); }).filter(Boolean);
+            if (accepted.length) {
+                const type = (file.type || '').toLowerCase();
+                const name = file.name.toLowerCase();
+                const ok = accepted.some(function (a) {
+                    return a.charAt(0) === '.' ? name.endsWith(a) : type === a;
+                });
+                if (!ok) {
+                    return 'That file is not a picture this takes. Choose ' + (input.dataset.kinds || 'a picture') + '.';
+                }
+            }
+
+            return '';
+        }
 
         input.addEventListener('change', function () {
             const file = input.files && input.files[0];
 
+            if (file) {
+                const problem = refuse(file);
+                if (problem) {
+                    restore();
+                    say(problem);
+                    return;
+                }
+            }
+            say('');
+            if (reset) reset.hidden = !file;
+
             if (readout) {
                 readout.textContent = file ? file.name : 'No file chosen';
+                readout.title = file ? file.name : '';
             }
 
             // Preview target, for the logo and favicon. A data: URL from
@@ -137,6 +205,10 @@
             const reader = new FileReader();
             reader.onload = function (ev) {
                 img.src = ev.target.result;
+                // The box is only drawn for a picture that exists, so a
+                // picked file brings it back.
+                const box = img.closest('.st-brandnow');
+                if (box) box.hidden = false;
                 const caption = img.parentNode
                     ? img.parentNode.querySelector('.st-brand__cap')
                     : null;

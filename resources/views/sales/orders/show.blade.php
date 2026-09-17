@@ -406,7 +406,7 @@
                         @php
                             $catalogProduct = $catalogProducts[$p->order_product_id] ?? null;
                             $img = $lineImages[trim((string) $p->model)] ?? ($catalogProduct ? trim((string) ($catalogProduct->image ?? '')) : '');
-                            $imgSrc = $img !== '' ? asset('storage/' . ltrim($img, '/')) : '';
+                            $imgSrc = $img !== '' ? \App\Services\Media\ImageCache::url($img) : '';
                             if ($imgSrc === '') {
                                 $channelImg = trim($orderLineImages[$p->order_product_id] ?? '');
                                 if ($channelImg !== '') { $imgSrc = $channelImg; }

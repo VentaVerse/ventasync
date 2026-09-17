@@ -609,7 +609,7 @@ class TikTokProductController extends Controller
     {
         $image = trim((string) $image);
 
-        return $image !== '' ? asset('storage/' . ltrim($image, '/')) : null;
+        return $image !== '' ? \App\Services\Media\ImageCache::url($image) : null;
     }
 
     /**

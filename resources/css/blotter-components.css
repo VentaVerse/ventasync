@@ -2265,6 +2265,26 @@
 
     .fh-card__top .fh-card__name { color: #fff; }
 
+    /* The mark sits on white, because a brand fill behind a brand mark is
+       never legible for every channel at once. */
+    .fh-card__mark {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: none;
+        width: 24px;
+        height: 24px;
+        background: #ffffff;
+        border-radius: var(--bl-r-dot);
+    }
+
+    .fh-card__mark img {
+        display: block;
+        width: 18px;
+        height: 18px;
+        object-fit: contain;
+    }
+
 
     /* The card cap keeps the brand fill in both themes - it is a filled
        block on a sheet, not text on the page, so the white name on it is

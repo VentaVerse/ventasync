@@ -106,6 +106,25 @@ class ProductImageController extends Controller
         return 'catalog/_incoming/' . date('Y') . '/' . date('m');
     }
 
+    /**
+     * One picture's small copy, made now if it does not exist yet.
+     *
+     * The library opens a whole folder at once, so the page never draws the
+     * copies itself: a tile already copied points straight at the file, and
+     * one that is not asks for it here, which the browser does only for the
+     * tiles it actually shows.
+     */
+    public function thumb(Request $request)
+    {
+        $path = (string) $request->query('path', '');
+        abort_unless(str_starts_with($path, 'catalog/') && ! str_contains($path, '..'), 404);
+
+        $copy = \App\Services\Media\ImageCache::path($path, \App\Services\Media\ImageCache::THUMB);
+        abort_if($copy === null, 404);
+
+        return redirect(\App\Services\Media\ImageCache::publicUrl($copy));
+    }
+
     private function publicUrl(string $relativePublicDiskPath): string
     {
         $relativePublicDiskPath = str_replace('\\', '/', ltrim($relativePublicDiskPath, '/'));
@@ -737,6 +756,9 @@ class ProductImageController extends Controller
                 return [
                     'path' => $f,
                     'url' => $this->publicUrl($f),
+                    // The tile's picture: the small copy when it exists, else
+                    // the route that makes that one copy.
+                    'thumb' => \App\Services\Media\ImageCache::existing($f) ?? route('products.images.thumb', ['path' => $f]),
                     'name' => basename($f),
                     'modified' => $modified,
                 ];

@@ -167,7 +167,7 @@
     @foreach($products as $p)
         @php
             $img = trim((string) ($p->image ?? ''));
-            $thumbSrc = $img !== '' ? asset('storage/' . ltrim($img, '/')) : null;
+            $thumbSrc = $img !== '' ? \App\Services\Media\ImageCache::url($img) : null;
 
             $syncState = $p->sync_status ?? 'pending';
             $isUnlinked = $syncState === 'unlinked';

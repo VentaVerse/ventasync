@@ -1439,8 +1439,11 @@
         gap: 12px;
     }
 
-    .st-file { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .st-file { display: flex; align-items: center; gap: 12px; min-width: 0; flex-wrap: wrap; }
 
+    /* The real input is the control; the label is what you see. It keeps a
+       size rather than collapsing, so the focus ring below has something to
+       draw around. */
     .st-file__input {
         position: absolute;
         width: 1px;
@@ -1448,8 +1451,79 @@
         opacity: 0;
     }
 
-    .st-file__btn { display: inline-flex; align-items: center; }
-    .st-file__name { min-width: 0; font-size: 12.5px; color: var(--bl-ink-3); }
+    /* A button, because it opens the file picker. It was inline text with no
+       edge, so the one control in the section did not look like one. */
+    .st-file__btn {
+        display: inline-flex;
+        align-items: center;
+        flex: none;
+        min-height: var(--bl-control-h);
+        padding: 0 14px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-sheet);
+        font-size: 13px;
+        font-weight: 570;
+        color: var(--bl-ink);
+        cursor: pointer;
+        transition: background var(--bl-motion-fast), border-color var(--bl-motion-fast);
+    }
+
+    .st-file__btn:hover { background: var(--bl-paper); border-color: var(--bl-ink-3); }
+
+    /* The focus lands on the hidden input, so the label wears its ring. */
+    .st-file:has(.st-file__input:focus-visible) .st-file__btn {
+        outline: 2px solid var(--bl-brand-deep);
+        outline-offset: 2px;
+    }
+
+    .st-file:has(.st-file__input:disabled) .st-file__btn {
+        opacity: .55;
+        cursor: not-allowed;
+    }
+
+    /* A long filename ends in an ellipsis rather than pushing Undo off the row. */
+    .st-file__name {
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 12.5px;
+        color: var(--bl-ink-3);
+    }
+
+    .st-file__reset {
+        flex: none;
+        padding: 0;
+        border: 0;
+        background: none;
+        font: inherit;
+        font-size: 12.5px;
+        font-weight: 560;
+        color: var(--bl-ink-2);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        cursor: pointer;
+    }
+
+    .st-file__reset:hover { color: var(--bl-ink); }
+    .st-file__reset[hidden] { display: none; }
+
+    /* The refusal sits under the control it refuses, in the same place a
+       validation message would land. */
+    .st-file__error {
+        margin: 6px 0 0;
+        font-size: 12.5px;
+        color: var(--bl-bad);
+    }
+
+    .st-file__error[hidden] { display: none; }
+
+    @media (pointer: coarse) {
+        .st-file__btn { min-height: 44px; }
+        .st-file__reset { display: inline-flex; align-items: center; min-height: 44px; }
+    }
 
     .st-ext { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
     .st-ext__name { font-size: 13px; font-weight: 600; }
@@ -1518,6 +1592,9 @@
        Set on a ground so a logo with a transparent background is still
        readable, and bounded in height so a tall upload cannot push the
        favicon field off the fold. */
+    /* The attribute alone loses to this rule's own display. */
+    .st-brandnow[hidden] { display: none; }
+
     .st-brandnow {
         display: flex;
         flex-direction: column;
@@ -1551,6 +1628,29 @@
     }
 
     .st-brand__cap { font-size: 12px; color: var(--bl-ink-3); }
+
+    /* Back to the shipped mark. One under each upload, naming what it
+       removes, because the two sit side by side. */
+    .st-brand__remove {
+        align-self: flex-start;
+        margin-top: 8px;
+        padding: 0;
+        border: 0;
+        background: none;
+        font: inherit;
+        font-size: 12.5px;
+        font-weight: 560;
+        color: var(--bl-bad);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        cursor: pointer;
+    }
+
+    .st-brand__remove:hover { color: var(--bl-ink); }
+
+    @media (pointer: coarse) {
+        .st-brand__remove { display: inline-flex; align-items: center; min-height: 44px; }
+    }
 
     @media (max-width: 720px) {
         .st-scopes__head { display: none; }

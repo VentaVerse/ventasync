@@ -255,6 +255,8 @@
                  --------------------------------------------------------- --}}
             @include('catalog.products.partials.image_manager', ['pimToken' => '', 'pimProductId' => (int) $product->product_id])
 
+            @include('catalog.products.partials.video_manager', ['pimToken' => '', 'pimProductId' => (int) $product->product_id])
+
             {{-- ---------------------------------------------------------
                  Variations
                  --------------------------------------------------------- --}}

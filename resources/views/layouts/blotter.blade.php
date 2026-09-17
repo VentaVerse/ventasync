@@ -42,20 +42,15 @@
                   lg:sticky lg:top-0 lg:z-auto lg:flex lg:h-screen lg:self-start">
         <div class="flex items-center gap-2.5 border-b border-side-rule px-4 py-3">
             {{-- The store's own logo, the one uploaded under Settings,
-                 Website, and nothing else: no company name beside it
-                 (the owner, 2026-08-31; the logo IS the name). The name stays
-                 in the markup as the alt, so a screen reader and a broken
-                 image both still say whose sidebar this is. Without an
-                 upload, the lime V mark stands in; the mark is the only
-                 place lime appears and never carries meaning. --}}
+                 Website, and nothing else: no company name beside it (the
+                 logo IS the name). The name stays in the markup as the alt,
+                 so a screen reader and a broken image both still say whose
+                 sidebar this is. With no upload the shipped mark stands in,
+                 the same one the sign-in screen shows. --}}
             @php $blCompany = $appSetting->company_name ?? config('app.name', 'VentaSync'); @endphp
-            @if(!empty($appSetting->logo_path ?? null))
-                <img class="h-8 w-auto max-w-[150px] object-contain object-left"
-                     src="{{ asset('storage/' . $appSetting->logo_path) }}" alt="{{ $blCompany }}">
-            @else
-                <span class="grid h-[22px] w-[22px] place-items-center rounded-[--radius-ctrl] bg-lime text-[12px] font-bold tracking-tight text-side"
-                      role="img" aria-label="{{ $blCompany }}">V</span>
-            @endif
+            <img class="h-11 w-auto max-w-[184px] object-contain object-left"
+                 src="{{ !empty($appSetting->logo_path ?? null) ? asset('storage/' . $appSetting->logo_path) : asset('images/brand/ventasync.png') }}"
+                 alt="{{ $blCompany }}">
             <button type="button" @click="nav = false"
                     class="ml-auto text-side-ink hover:text-white lg:hidden" aria-label="Close navigation">
                 <x-ui.icon name="x" size="16" />

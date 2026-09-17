@@ -101,10 +101,6 @@
         <div class="fm-card">
             <div class="fm-card__head"><h2 class="fm-card__title">Send a test</h2></div>
             <div class="fm-card__body">
-                <p class="fm-hint">
-                    Save first. The test uses the settings already stored, not what is typed above.
-                </p>
-
                 {{-- A plain field and button, not a nested form: this page's
                      one <form> posts to settings.update, and a form cannot
                      contain another. The button posts JSON to

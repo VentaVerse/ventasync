@@ -8,8 +8,9 @@ use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
- * A picture a store would refuse goes up as a fitted copy; one it accepts
- * goes up untouched; the original is never changed.
+ * A description picture a store would refuse goes up as a fitted copy; one
+ * it accepts goes up untouched; the original is never changed. Product
+ * pictures go as square push copies (ImageCacheTest).
  */
 class StoreReadyImagesTest extends TestCase
 {
@@ -57,7 +58,7 @@ class StoreReadyImagesTest extends TestCase
         $fitted = StoreReadyImages::fit('catalog/heavy.jpg', StoreReadyImages::LAZADA);
 
         $this->assertNotNull($fitted);
-        $this->assertStringStartsWith(StoreReadyImages::DIR . '/', $fitted);
+        $this->assertSame('cache/catalog/heavy-fit2000.jpg', $fitted);
         $this->assertLessThanOrEqual(1000000, $disk->size($fitted));
         $info = getimagesize($disk->path($fitted));
         $this->assertSame(IMAGETYPE_JPEG, $info[2]);
@@ -81,7 +82,7 @@ class StoreReadyImagesTest extends TestCase
 
         $this->assertSame('catalog/fine.jpg', StoreReadyImages::fit('catalog/fine.jpg', StoreReadyImages::LAZADA));
         $this->assertSame(['catalog/fine.jpg'], StoreReadyImages::paths(['catalog/fine.jpg'], StoreReadyImages::SHOPEE));
-        $this->assertFalse(Storage::disk('public')->exists(StoreReadyImages::DIR), 'nothing is written for a picture that fits');
+        $this->assertFalse(Storage::disk('public')->exists(\App\Services\Media\ImageCache::DIR), 'nothing is written for a picture that fits');
     }
 
     public function test_a_copy_is_made_once_and_reused(): void
@@ -106,23 +107,6 @@ class StoreReadyImagesTest extends TestCase
         $this->assertFileExists($fitted);
         $this->assertLessThanOrEqual(1000000, filesize($fitted));
         $this->assertSame('/tmp/elsewhere.jpg', StoreReadyImages::fitLocalFile('/tmp/elsewhere.jpg', StoreReadyImages::LAZADA), 'a file off the public disk is left alone');
-    }
-
-    /** Lazada's picture list carries the fitted copy, not the heavy original. */
-    public function test_lazada_is_handed_the_fitted_copy(): void
-    {
-        $this->heavyPhoto('catalog/heavy.jpg');
-        $pid = (int) \Illuminate\Support\Facades\DB::table((string) config('catalog.prefix') . 'product')->insertGetId([
-            'model' => 'SR-1', 'sku' => 'SR-1', 'quantity' => 1, 'price' => 100, 'status' => 1,
-            'image' => 'catalog/heavy.jpg', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
-            'manufacturer_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
-        ]);
-
-        $urls = app(\Extensions\lazada\Services\Lazada\LazadaImages::class)->getProductImageUrls($pid, null);
-
-        $this->assertCount(1, $urls);
-        $this->assertStringContainsString('/' . StoreReadyImages::DIR . '/', $urls[0]);
-        $this->assertStringNotContainsString('heavy.jpg', $urls[0]);
     }
 
     public function test_a_picture_that_cannot_be_read_goes_up_as_it_is(): void

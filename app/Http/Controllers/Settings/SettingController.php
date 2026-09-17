@@ -91,7 +91,28 @@ class SettingController extends Controller
             'mail_from_address'   => ['nullable', 'email', 'max:190'],
             'mail_from_name'      => ['nullable', 'string', 'max:190'],
             'clear_mail_password' => ['nullable', 'boolean'],
+            'remove'              => ['nullable', 'in:logo,favicon'],
+            'image_thumb_size'    => ['nullable', 'integer', 'between:' . implode(',', \App\Services\Media\ImageCache::LIMITS['thumb'])],
+            'image_preview_size'  => ['nullable', 'integer', 'between:' . implode(',', \App\Services\Media\ImageCache::LIMITS['preview'])],
+            'image_push_size'     => ['nullable', 'integer', 'between:' . implode(',', \App\Services\Media\ImageCache::LIMITS['push'])],
         ]);
+        // A size not on the page this save came from is left as it is.
+        foreach (['image_thumb_size', 'image_preview_size', 'image_push_size'] as $size) {
+            if (! isset($data[$size])) {
+                unset($data[$size]);
+            }
+        }
+
+        /* Back to what the application ships with. The uploaded file goes
+           with the setting, so the folder never keeps a picture nothing
+           points at. */
+        $remove = (string) $request->input('remove', '');
+        foreach (['logo' => 'logo_path', 'favicon' => 'favicon_path'] as $what => $column) {
+            if ($remove === $what && $setting->{$column}) {
+                Storage::disk('public')->delete($setting->{$column});
+                $data[$column] = null;
+            }
+        }
 
         if ($request->hasFile('logo')) {
             if ($setting->logo_path) {
@@ -118,18 +139,24 @@ class SettingController extends Controller
         }
         unset($data['clear_mail_password']);
 
+        unset($data['remove']);
         $setting->update($data);
 
         MailConfigServiceProvider::flushCache();
+        \App\Services\Media\ImageCache::forget();
 
         $changes = ActivityLogger::diff($original, $setting->getAttributes(), [
             'company_name', 'company_email', 'phone', 'address_line1', 'address_line2', 'city', 'state', 'postal_code', 'country',
-            'from_email', 'timezone', 'activity_log_retention_days',
+            'from_email', 'timezone', 'activity_log_retention_days', 'image_thumb_size', 'image_preview_size', 'image_push_size',
             'mail_mailer', 'mail_host', 'mail_port', 'mail_username', 'mail_encryption', 'mail_from_address', 'mail_from_name',
         ]);
         ActivityLogger::log('updated', 'Setting', $setting->id, 'Website Settings', $changes);
 
-        return back()->with('success', 'Settings updated.');
+        return back()->with('success', match ($remove) {
+            'logo' => 'Logo removed.',
+            'favicon' => 'Favicon removed.',
+            default => 'Settings updated.',
+        });
     }
 
     public function sendTestMail(Request $request)

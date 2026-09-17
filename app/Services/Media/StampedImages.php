@@ -4,22 +4,29 @@ namespace App\Services\Media;
 
 use App\Models\WatermarkTemplate;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * A product's pictures as a listing sends them: marked with the listing's
  * watermark template, the main picture only unless the listing asks for
  * every picture.
  *
- * A marked picture is written once and kept, named by everything that
- * shapes it (the picture, the mark and the template's settings), so a
- * second push reuses the file and a change to any of them draws a new one.
- * A picture that cannot be marked goes up as it is: a mark is never a
- * reason to fail a push.
+ * The mark goes on the picture's push copy (ImageCache), so it sits where
+ * the buyer sees it on the square the store shows. A marked picture is not
+ * kept: it is written for the push under tmp/push, where a store that
+ * fetches by URL (Lazada, WooCommerce, Venta) reads it during the push, and
+ * a store sent the file itself (Shopee, TikTok Shop) is sent it from there.
+ * Every store keeps its own copy, so these files are removed an hour later.
+ *
+ * A picture that cannot be marked goes up as its push copy, or as it is: a
+ * mark is never a reason to fail a push.
  */
 final class StampedImages
 {
-    /** Outside catalog/, so marked copies never appear in the image library as pictures of their own. */
-    public const DIR = 'watermarked';
+    public const DIR = 'tmp/push';
+
+    /** How long a stamped picture stays, well past the push that wrote it. */
+    private const KEEP_SECONDS = 3600;
 
     /**
      * The pictures to send, in the same order, each a path on the public
@@ -34,6 +41,7 @@ final class StampedImages
             return array_values($paths);
         }
 
+        $this->prune();
         $out = [];
         foreach (array_values($paths) as $i => $path) {
             $out[] = ($i === 0 || $allImages) ? ($this->stamped($path, $template) ?? $path) : $path;
@@ -42,39 +50,48 @@ final class StampedImages
         return $out;
     }
 
-    /** The marked copy of one picture, or null when it cannot be marked. */
+    /** The marked picture written for this push, or null when it cannot be marked. */
     public function stamped(string $path, WatermarkTemplate $template): ?string
     {
-        $disk = Storage::disk('public');
-        $path = ltrim($path, '/');
-        if ($path === '' || ! $disk->exists($path) || ! is_file($template->markPath())) {
-            return null;
-        }
-
-        $target = self::DIR . '/' . $this->key($path, $template) . '.jpg';
-        if ($disk->exists($target)) {
-            return $target;
-        }
-
-        $bytes = $template->stamp($disk->path($path));
+        $bytes = $this->bytes($path, $template);
         if ($bytes === null) {
             return null;
         }
-        $disk->put($target, $bytes);
+
+        $target = self::DIR . '/' . Str::uuid()->toString() . '.jpg';
+        Storage::disk('public')->put($target, $bytes);
 
         return $target;
     }
 
-    private function key(string $path, WatermarkTemplate $template): string
+    /**
+     * The marked push copy as JPEG bytes, kept nowhere, or null when the
+     * picture or the mark cannot be read.
+     */
+    public function bytes(string $path, WatermarkTemplate $template, string $kind = ImageCache::PUSH): ?string
+    {
+        if (! is_file($template->markPath())) {
+            return null;
+        }
+        $square = ImageCache::path($path, $kind);
+        if ($square === null) {
+            return null;
+        }
+
+        $bytes = $template->stamp(Storage::disk('public')->path($square));
+
+        return $bytes !== null ? ImageCache::compressed($bytes, ImageCache::PUSH_MAX_BYTES) : null;
+    }
+
+    /** Stamped pictures from pushes that have long finished. */
+    private function prune(): void
     {
         $disk = Storage::disk('public');
-        $mark = $template->markPath();
-
-        return hash('sha256', implode('|', [
-            $path, $disk->size($path), $disk->lastModified($path),
-            (string) $template->image_path, (string) @filesize($mark), (string) @filemtime($mark),
-            (string) $template->position, (string) $template->size_percent, (string) $template->opacity,
-            (string) $template->offset_x_percent, (string) $template->offset_y_percent,
-        ]));
+        $cutoff = time() - self::KEEP_SECONDS;
+        foreach ($disk->files(self::DIR) as $file) {
+            if ($disk->lastModified($file) < $cutoff) {
+                $disk->delete($file);
+            }
+        }
     }
 }

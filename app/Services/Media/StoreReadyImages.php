@@ -5,7 +5,11 @@ namespace App\Services\Media;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * A PICTURE FITTED TO WHAT ONE STORE ACCEPTS, ON THE WAY OUT.
+ * A DESCRIPTION PICTURE FITTED TO WHAT ONE STORE ACCEPTS, ON THE WAY OUT.
+ *
+ * Product pictures go as square push copies (ImageCache). A picture inside a
+ * description keeps its own shape, so a wide size chart stays wide: it is
+ * only converted and shrunk as far as the store needs.
  *
  * Stores refuse pictures the catalog keeps without complaint: Lazada takes
  * JPG or PNG under 1 MB, Shopee JPG or PNG under 10 MB, and a phone photo or
@@ -14,9 +18,9 @@ use Illuminate\Support\Facades\Storage;
  * side is within the store's limit, and compressed until it is under the
  * store's file size. A picture the store already accepts goes up untouched.
  *
- * A copy is written once and kept, named by the picture and the rules, so
- * the next push reuses it and a changed original draws a new one: the same
- * shape as the watermark's marked copies, which come first. A picture that
+ * A copy is written once under cache/ and kept, named by the picture and the
+ * store's longest side, so the next push reuses it and a changed original
+ * draws it again. A picture that
  * cannot be read or fitted goes up as it is, so the store names the
  * problem.
  *
@@ -24,7 +28,6 @@ use Illuminate\Support\Facades\Storage;
  */
 final class StoreReadyImages
 {
-    public const DIR = 'store-ready';
 
     /** Lazada's image migrate: JPG or PNG, 1 MB, under 5000 px. */
     public const LAZADA = ['formats' => [IMAGETYPE_JPEG, IMAGETYPE_PNG], 'max_side' => 2000, 'max_bytes' => 1000000];
@@ -80,10 +83,11 @@ final class StoreReadyImages
             return $path;
         }
 
-        $target = self::DIR . '/' . hash('sha256', implode('|', [
-            $path, $bytes, $disk->lastModified($path), json_encode($rules),
-        ])) . '.jpg';
-        if ($disk->exists($target)) {
+        // Beside the sized copies, named the same way: the picture's path, and the longest side the store allows.
+        $info = pathinfo($path);
+        $dir = ($info['dirname'] ?? '.') === '.' ? '' : $info['dirname'] . '/';
+        $target = ImageCache::DIR . '/' . $dir . $info['filename'] . '-fit' . (int) $rules['max_side'] . '.jpg';
+        if (ImageCache::fresh($target, $path)) {
             return $target;
         }
 

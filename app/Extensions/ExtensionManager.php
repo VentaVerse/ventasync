@@ -183,6 +183,7 @@ class ExtensionManager
 
         $this->registerProviderNow($id);
         $this->syncPermissions();
+        ExtensionImages::publish($id);
         $this->clearCache();
 
         return true;
@@ -211,6 +212,8 @@ class ExtensionManager
         if ($extension) {
             $extension->delete();
         }
+
+        ExtensionImages::remove($id);
 
         if ($deleteFiles) {
             $dir = $this->extensionsPath . '/' . $id;
@@ -246,6 +249,7 @@ class ExtensionManager
          * the admin clicks Enable, instead of one full request later. */
         $this->registerProviderNow($id);
         $this->syncPermissions();
+        ExtensionImages::publish($id);
         $this->clearCache();
 
         return true;

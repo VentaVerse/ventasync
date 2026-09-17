@@ -306,7 +306,7 @@
             $variationCount = $optRows ? count($optRows) : 0;
 
             $img = trim((string) ($p->image ?? ''));
-            $thumbSrc = $img !== '' ? asset('storage/' . ltrim($img, '/')) : '';
+            $thumbSrc = $img !== '' ? \App\Services\Media\ImageCache::url($img) : '';
 
             $syncFailed = $link && !is_null($link->last_sync_ok) && !$link->last_sync_ok;
             $pName = (string) ($rowTitles[(int) $p->product_id] ?? $p->name);

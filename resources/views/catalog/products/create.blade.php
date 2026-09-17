@@ -168,6 +168,8 @@
                  --------------------------------------------------------- --}}
             @include('catalog.products.partials.image_manager', ['pimToken' => $pimToken, 'pimProductId' => 0])
 
+            @include('catalog.products.partials.video_manager', ['pimToken' => $pimToken, 'pimProductId' => 0, 'productVideo' => null])
+
             {{-- ---------------------------------------------------------
                  Variations
                  --------------------------------------------------------- --}}

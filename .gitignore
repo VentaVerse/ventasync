@@ -15,6 +15,7 @@
 /node_modules
 /public/hot
 /public/storage
+/public/images/extensions
 /storage/*.key
 /storage/pail
 /storage/dist

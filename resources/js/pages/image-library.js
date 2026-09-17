@@ -136,7 +136,7 @@ function build() {
             b.className = 'fm-pick__item';
             mark(b, !!picked[f.path]);
             var img = document.createElement('img');
-            img.src = f.url;
+            img.src = f.thumb || f.url;
             img.alt = '';
             img.loading = 'lazy';
             b.appendChild(img);

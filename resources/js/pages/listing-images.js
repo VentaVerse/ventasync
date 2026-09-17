@@ -383,7 +383,7 @@
         var added = 0;
         files.forEach(function (f) {
             if (have.indexOf(f.path) !== -1) return;
-            list.appendChild(tile(f.path, f.url));
+            list.appendChild(tile(f.path, f.thumb || f.url));
             have.push(f.path);
             added++;
         });

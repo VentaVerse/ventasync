@@ -38,6 +38,7 @@ import './pages/group-form';
 import './pages/description-template';
 import './pages/description-preview';
 import './pages/image-library';
+import './pages/product-video';
 import './pages/watermark-form';
 import './pages/listing-images';
 import './pages/catalog-change';

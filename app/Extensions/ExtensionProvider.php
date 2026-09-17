@@ -40,6 +40,8 @@ abstract class ExtensionProvider extends ServiceProvider
         $this->bootViews();
         $this->bootMigrations();
         $this->bootTranslations();
+        // A pulled update brings new pictures without an install or enable to publish them.
+        ExtensionImages::publish($this->id);
     }
 
     // IMPORTANT: Use different method names than parent to avoid recursion

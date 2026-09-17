@@ -220,7 +220,7 @@
             $pivot = $pivotMap->get($p->product_id);
 
             $img = trim((string) ($p->image ?? ''));
-            $thumbSrc = $img !== '' ? asset('storage/' . ltrim($img, '/')) : null;
+            $thumbSrc = $img !== '' ? \App\Services\Media\ImageCache::url($img) : null;
 
             /* PRODUCT truth vs GROUP memory (stage 1 of the one-truth
                repointing, 2026-08-24). Whether this product is on Shopee,

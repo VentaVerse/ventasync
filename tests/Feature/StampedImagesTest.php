@@ -67,7 +67,9 @@ class StampedImagesTest extends TestCase
         $this->assertStringStartsWith(StampedImages::DIR . '/', $out[1]);
         $this->assertNotSame($out[0], $out[1]);
         [$w, $h] = getimagesizefromstring(Storage::disk('public')->get($out[1]));
-        $this->assertSame([200, 200], [$w, $h], 'nothing is cropped or resized');
+        $side = \App\Services\Media\ImageCache::side(\App\Services\Media\ImageCache::PUSH);
+        $this->assertSame([$side, $side], [$w, $h], 'a marked picture is a square push copy');
+        $this->assertLessThanOrEqual(\App\Services\Media\ImageCache::PUSH_MAX_BYTES, Storage::disk('public')->size($out[1]));
     }
 
     public function test_no_template_sends_the_pictures_as_they_are(): void
@@ -77,17 +79,23 @@ class StampedImagesTest extends TestCase
         $this->assertSame($pictures, app(StampedImages::class)->paths($pictures, null, true));
     }
 
-    public function test_a_marked_copy_is_drawn_once_and_redrawn_when_the_template_changes(): void
+    public function test_a_marked_picture_is_kept_nowhere_but_the_push_and_follows_the_template(): void
     {
         $pictures = [$this->png('catalog/p/main.png', 200, 200)];
         $template = $this->template();
         $service = app(StampedImages::class);
+        $disk = Storage::disk('public');
 
         $first = $service->paths($pictures, $template, false)[0];
-        $this->assertSame($first, $service->paths($pictures, $template, false)[0], 'a second push reuses the marked copy');
+        $this->assertStringStartsWith(StampedImages::DIR . '/', $first);
+        $this->assertSame([\App\Services\Media\ImageCache::target('catalog/p/main.png', \App\Services\Media\ImageCache::side(\App\Services\Media\ImageCache::PUSH))], $disk->allFiles('cache'), 'the cache holds the unmarked push copy only');
 
         $template->update(['position' => 'top-left']);
-        $this->assertNotSame($first, $service->paths($pictures, $template->fresh(), false)[0], 'a changed template draws a new copy');
+        $this->assertNotSame($disk->get($first), $service->bytes('catalog/p/main.png', $template->fresh()), 'a changed template marks the picture differently');
+
+        touch($disk->path($first), time() - 7200);
+        $service->paths($pictures, $template->fresh(), false);
+        $this->assertFalse($disk->exists($first), 'a stamped picture from a push long finished is removed');
     }
 
     public function test_a_picture_that_cannot_be_marked_goes_up_as_it_is(): void

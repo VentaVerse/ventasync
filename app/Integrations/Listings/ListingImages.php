@@ -3,6 +3,7 @@
 namespace App\Integrations\Listings;
 
 use App\Models\WatermarkTemplate;
+use App\Services\Media\ImageCache;
 use App\Services\Media\StampedImages;
 use App\Support\Catalog\ProductImages;
 
@@ -55,10 +56,22 @@ final class ListingImages
         $groupTemplateId = ((int) $groupTemplateId) ?: null;
 
         $paths = ProductImages::paths($productId, $submitted ?? $stored);
-        $marked = app(StampedImages::class)->paths($paths, WatermarkTemplate::resolve($templateId, $groupTemplateId), $allImages);
+        $template = WatermarkTemplate::resolve($templateId, $groupTemplateId);
+        $stamper = app(StampedImages::class);
+        // A marked tile is stamped on its preview copy as the page draws it, so opening a listing writes nothing.
+        $shown = function (string $path, int $i) use ($template, $allImages, $stamper): string {
+            if ($template !== null && ($i === 0 || $allImages)) {
+                $bytes = $stamper->bytes($path, $template, ImageCache::PREVIEW);
+                if ($bytes !== null) {
+                    return 'data:image/jpeg;base64,' . base64_encode($bytes);
+                }
+            }
+
+            return ImageCache::url($path, ImageCache::PREVIEW) ?? ProductImages::url($path);
+        };
 
         return [
-            'tiles' => array_map(fn (string $path, string $shown) => ['path' => $path, 'url' => ProductImages::url($shown)], $paths, $marked),
+            'tiles' => array_map(fn (string $path, int $i) => ['path' => $path, 'url' => $shown($path, $i)], $paths, array_keys($paths)),
             'catalogTiles' => ProductImages::tiles($productId),
             'browseUrl' => route('products.images.browse'),
             'watermarkOptions' => WatermarkTemplate::forPicker(),

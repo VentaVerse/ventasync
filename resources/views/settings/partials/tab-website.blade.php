@@ -47,14 +47,8 @@
             <div class="fm-section__head">
                 <h2 class="fm-section__title">Activity history</h2>
             </div>
-            <p class="fm-section__note">
-                Activity log entries older than this are removed by the scheduled cleanup, and by
-                Clear old logs on the activity log page. Between 7 and 3650 days.
-            </p>
-
             <div class="fm-fields fm-fields--2">
-                <x-ui.field label="Keep activity for" for="st-retention" name="activity_log_retention_days" :required="true"
-                            hint="Days.">
+                <x-ui.field label="Keep activity for (days)" for="st-retention" name="activity_log_retention_days" :required="true">
                     <x-ui.input type="number" id="st-retention" name="activity_log_retention_days"
                                 min="7" max="3650" class="fm-input--num st-days" :readonly="$ro"
                                 value="{{ $retention }}" />
@@ -64,12 +58,29 @@
 
         <section class="fm-section">
             <div class="fm-section__head">
+                <h2 class="fm-section__title">Picture sizes</h2>
+            </div>
+
+            <div class="fm-fields fm-fields--3">
+                @foreach([
+                    \App\Services\Media\ImageCache::THUMB => 'Thumbnail (px)',
+                    \App\Services\Media\ImageCache::PREVIEW => 'Preview (px)',
+                    \App\Services\Media\ImageCache::PUSH => 'Product (px)',
+                ] as $kind => $label)
+                    @php [$min, $max] = \App\Services\Media\ImageCache::LIMITS[$kind]; @endphp
+                    <x-ui.field :label="$label" for="st-image-{{ $kind }}" name="image_{{ $kind }}_size">
+                        <x-ui.input type="number" id="st-image-{{ $kind }}" name="image_{{ $kind }}_size"
+                                    min="{{ $min }}" max="{{ $max }}" class="fm-input--num" :readonly="$ro"
+                                    value="{{ old('image_' . $kind . '_size', $setting->{'image_' . $kind . '_size'} ?? \App\Services\Media\ImageCache::DEFAULTS[$kind]) }}" />
+                    </x-ui.field>
+                @endforeach
+            </div>
+        </section>
+
+        <section class="fm-section">
+            <div class="fm-section__head">
                 <h2 class="fm-section__title">Branding</h2>
             </div>
-            <p class="fm-section__note">
-                Uploading replaces what is there now. There is no revert: upload again to change it back.
-            </p>
-
             {{-- Each upload sits with the thing it would replace. They were
                  split apart into a side card, which put the logo you are
                  about to overwrite in a different column from the button
@@ -86,30 +97,49 @@
                     <div class="st-file">
                         <label class="st-file__btn" for="st-logo">Choose file</label>
                         <span class="st-file__name" data-file-name-for="st-logo">No file chosen</span>
-                        <input type="file" id="st-logo" name="logo" accept="image/*" class="st-file__input"
-                               data-image-preview="st-logo-img" @disabled($ro)>
+                        <button type="button" class="st-file__reset" data-file-reset="st-logo" hidden>Undo</button>
+                        <input type="file" id="st-logo" name="logo" accept="image/png,image/jpeg,image/webp,image/svg+xml" class="st-file__input"
+                               data-image-preview="st-logo-img" data-max-kb="2048" data-kinds="PNG, JPG, WebP or SVG"
+                               aria-describedby="st-logo-error" @disabled($ro)>
                     </div>
                     <div class="fm-hint">Shown in the sidebar and on the login screen. Up to 2 MB.</div>
-                    <div class="st-brandnow">
+                    <p class="st-file__error" id="st-logo-error" role="status" hidden></p>
+                    {{-- Only what was uploaded is shown. With nothing uploaded
+                         the box stays out of the way until a file is picked,
+                         when the preview brings it back. --}}
+                    <div class="st-brandnow" @unless($setting->logo_path) hidden @endunless>
                         <img class="st-brand__logo" id="st-logo-img" alt="Logo"
-                             src="{{ $setting->logo_path ? asset('storage/'.$setting->logo_path) : asset('images/brand/ventasync.png') }}">
-                        <span class="st-brand__cap">{{ $setting->logo_path ? 'Uploaded logo' : 'Default logo' }}</span>
+                             src="{{ $setting->logo_path ? asset('storage/'.$setting->logo_path) : '' }}">
+                        <span class="st-brand__cap">{{ $setting->logo_path ? 'Uploaded logo' : 'Not saved yet' }}</span>
                     </div>
+                    @if($setting->logo_path && ! $ro)
+                        <button type="submit" name="remove" value="logo" class="st-brand__remove"
+                                data-confirm="Remove the uploaded logo? The sidebar and the sign-in screen go back to the VentaSync logo."
+                                data-confirm-verb="Remove">Remove logo</button>
+                    @endif
                 </x-ui.field>
 
                 <x-ui.field label="Favicon" for="st-favicon" name="favicon" wide>
                     <div class="st-file">
                         <label class="st-file__btn" for="st-favicon">Choose file</label>
                         <span class="st-file__name" data-file-name-for="st-favicon">No file chosen</span>
-                        <input type="file" id="st-favicon" name="favicon" accept="image/*,.ico,.svg" class="st-file__input"
-                               data-image-preview="st-favicon-img" @disabled($ro)>
+                        <button type="button" class="st-file__reset" data-file-reset="st-favicon" hidden>Undo</button>
+                        <input type="file" id="st-favicon" name="favicon" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/x-icon,image/vnd.microsoft.icon,.ico"
+                               class="st-file__input" data-image-preview="st-favicon-img" data-max-kb="512" data-kinds="PNG, SVG or ICO"
+                               aria-describedby="st-favicon-error" @disabled($ro)>
                     </div>
                     <div class="fm-hint">Shown in the browser tab. PNG, SVG or ICO, square, up to 512 KB.</div>
-                    <div class="st-brandnow st-brandnow--icon">
+                    <p class="st-file__error" id="st-favicon-error" role="status" hidden></p>
+                    <div class="st-brandnow st-brandnow--icon" @unless($setting->favicon_path) hidden @endunless>
                         <img class="st-brand__fav" id="st-favicon-img" alt="Favicon"
-                             src="{{ $setting->favicon_path ? asset('storage/'.$setting->favicon_path) : asset('images/brand/ventasync-icon.png') }}">
-                        <span class="st-brand__cap">{{ $setting->favicon_path ? 'Uploaded favicon' : 'Default favicon' }}</span>
+                             src="{{ $setting->favicon_path ? asset('storage/'.$setting->favicon_path) : '' }}">
+                        <span class="st-brand__cap">{{ $setting->favicon_path ? 'Uploaded favicon' : 'Not saved yet' }}</span>
                     </div>
+                    @if($setting->favicon_path && ! $ro)
+                        <button type="submit" name="remove" value="favicon" class="st-brand__remove"
+                                data-confirm="Remove the uploaded favicon? The browser tab goes back to the VentaSync icon."
+                                data-confirm-verb="Remove">Remove favicon</button>
+                    @endif
                 </x-ui.field>
             </div>
         </section>

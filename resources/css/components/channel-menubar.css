@@ -48,6 +48,48 @@
         padding-inline: calc(var(--bl-page-gutter) - 13px);
     }
 
+    /* The store's mark, first in the bar and divided from the pages it
+       names. A wide logo is shown as it is; a square mark takes the
+       channel's name beside it, in the channel's own colour. */
+    .x-chnav__mark {
+        display: inline-flex;
+        align-items: center;
+        flex: none;
+        gap: 8px;
+        margin-right: 4px;
+        padding: 6px 14px 6px 13px;
+        border-right: 1px solid var(--bl-rule);
+    }
+
+    .x-chnav__logo {
+        display: block;
+        width: 24px;
+        height: 24px;
+        object-fit: contain;
+        /* A logo that carries its own background (Lazada's navy, TikTok's
+           black) then reads as a tile rather than a stray rectangle. */
+        border-radius: var(--bl-r-dot);
+    }
+
+    /* A box, not one height: the logos run from 2.5:1 to 6.7:1, so a
+       single height leaves the wide ones long and the boxy ones tiny.
+       Each is drawn as large as it can be inside the same box, which is
+       what makes a row of them read as one weight. */
+    .x-chnav__logo--wide {
+        width: auto;
+        height: auto;
+        max-width: 132px;
+        max-height: 26px;
+    }
+
+    .x-chnav__markname {
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        color: var(--ch, var(--bl-ink));
+        white-space: nowrap;
+    }
+
     .x-chnav__link,
     .x-chnav__parent {
         display: inline-flex;
@@ -189,10 +231,42 @@
 
     .x-chnav__child--section:hover { color: var(--bl-ink); }
 
+    /* A logo drawn for a white page keeps its own colours in the dark
+       theme: it sits on a small white plate rather than losing its ink.
+       A channel that ships a dark logo of its own needs no plate. */
+    @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) .x-chnav__logo--wide {
+            padding: 3px 6px;
+            background: #ffffff;
+            border-radius: var(--bl-r-dot);
+        }
+    }
+
+    :root[data-theme="dark"] .x-chnav__logo--wide {
+        padding: 3px 6px;
+        background: #ffffff;
+        border-radius: var(--bl-r-dot);
+    }
+
+    @media (max-width: 640px) {
+        /* The trail above already names the channel, and the pages need the room. */
+        .x-chnav__markname { display: none; }
+
+        .x-chnav__mark { padding-inline: 10px 12px; }
+    }
+
     @media (max-width: 900px) {
         .x-chnav {
             overflow-x: auto;
             scrollbar-width: none;
+        }
+
+        /* The mark holds the left edge while the pages scroll under it. */
+        .x-chnav__mark {
+            position: sticky;
+            left: 0;
+            z-index: 1;
+            background: var(--bl-sheet);
         }
 
         .x-chnav::-webkit-scrollbar { display: none; }

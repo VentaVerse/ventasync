@@ -91,6 +91,7 @@
 @import './pages/lazada-orders.css' layer(vocabulary);
 @import './pages/shopee-orders.css' layer(vocabulary);
 @import './pages/product-vendors.css' layer(vocabulary);
+@import './pages/product-video.css' layer(vocabulary);
 @import './pages/petty-cash.css' layer(vocabulary);
 @import './pages/reports.css' layer(vocabulary);
 @import './pages/channel-listing.css' layer(vocabulary);

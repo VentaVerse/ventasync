@@ -140,8 +140,10 @@ class ShopeeItemCreate
      */
     public function uploadImage(ShopeeClient $client, array $auth, string $localPath, string $scene = 'normal'): array
     {
-        // Shopee refuses a picture over its size or in another format; product and variation pictures all come through here.
-        $localPath = \App\Services\Media\StoreReadyImages::fitLocalFile($localPath, \App\Services\Media\StoreReadyImages::SHOPEE);
+        // A product or variation picture goes as its square push copy; a description picture keeps its shape, fitted only to Shopee's limits.
+        $localPath = $scene === 'desc'
+            ? \App\Services\Media\StoreReadyImages::fitLocalFile($localPath, \App\Services\Media\StoreReadyImages::SHOPEE)
+            : \App\Services\Media\ImageCache::pushLocalFile($localPath);
         $path = '/api/v2/media_space/upload_image';
         $timestamp = time();
         $sign = $client->signShop(

@@ -47,8 +47,8 @@ class TikTokProductPush
         }
 
         $uploadUri = function (string $imgPath) use ($client, $c): ?string {
-            // Fitted first, so the squared copy below stays a modest file.
-            $imgPath = \App\Services\Media\StoreReadyImages::fit($imgPath, \App\Services\Media\StoreReadyImages::TIKTOK) ?? $imgPath;
+            // The square push copy, so the squaring below has nothing left to do.
+            $imgPath = \App\Services\Media\ImageCache::path($imgPath, \App\Services\Media\ImageCache::PUSH) ?? $imgPath;
             $fullPath = public_path('storage/' . ltrim($imgPath, '/'));
             if (!file_exists($fullPath)) {
                 return null;

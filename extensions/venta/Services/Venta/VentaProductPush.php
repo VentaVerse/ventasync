@@ -420,7 +420,7 @@ class VentaProductPush
             \App\Services\Media\ListingWatermark::groupTemplateId('venta_product_groups', 'venta_product_group_products', 'venta_product_group_id', $productId, 'venta_setting_id', (int) $this->setting->id)
         );
 
-        return array_map([\App\Support\Catalog\ProductImages::class, 'url'], $paths);
+        return array_map([\App\Support\Catalog\ProductImages::class, 'url'], \App\Services\Media\ImageCache::pushPaths($paths));
     }
 
     /** @return ?array<int, mixed> this store's listing's own arrangement, or null to follow the catalog */
@@ -432,11 +432,10 @@ class VentaProductPush
             ->value('image_order');
     }
 
+    /** The public URL of a picture's push copy, which is what the store fetches. */
     public static function imageUrl(string $path): string
     {
-        $segments = explode('/', ltrim($path, '/'));
-
-        return asset('storage/' . implode('/', array_map('rawurlencode', $segments)));
+        return \App\Services\Media\ImageCache::publicUrl(\App\Services\Media\ImageCache::path($path, \App\Services\Media\ImageCache::PUSH) ?? $path);
     }
 
     // ── The store side ──────────────────────────────────────────────────

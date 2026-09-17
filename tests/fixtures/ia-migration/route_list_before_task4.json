@@ -385,6 +385,11 @@
         "name": "products.images.import_url_to_catalog"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "catalog/products/images/thumb",
+        "name": "products.images.thumb"
+    },
+    {
         "method": "POST",
         "uri": "catalog/products/images/upload",
         "name": "products.images.upload"
@@ -393,6 +398,16 @@
         "method": "POST",
         "uri": "catalog/products/images/upload-to-catalog",
         "name": "products.images.upload_to_catalog"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/products/video/delete",
+        "name": "products.video.delete"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/products/video/upload",
+        "name": "products.video.upload"
     },
     {
         "method": "DELETE",

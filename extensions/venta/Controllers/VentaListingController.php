@@ -708,7 +708,7 @@ class VentaListingController extends Controller
             'sku' => (string) ($r->sku ?? ''),
             'quantity' => (int) ($r->quantity ?? 0),
             'price' => \App\Support\Money::base((float) ($r->price ?? 0)),
-            'thumb' => trim((string) ($r->image ?? '')) !== '' ? asset('storage/' . ltrim((string) $r->image, '/')) : null,
+            'thumb' => trim((string) ($r->image ?? '')) !== '' ? \App\Services\Media\ImageCache::url((string) $r->image) : null,
             'on_store' => ! is_null($r->on_store_pid),
         ])->values();
 

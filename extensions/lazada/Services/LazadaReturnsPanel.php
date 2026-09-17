@@ -260,7 +260,7 @@ class LazadaReturnsPanel
                 ->whereIn('pov.sku', $skus->all())
                 ->whereNotNull('p.image')->where('p.image', '!=', '')
                 ->pluck('p.image', 'pov.sku');
-            $catImgMap = $catImg->merge($ovImg)->map(fn ($img) => asset('storage/' . ltrim($img, '/')));
+            $catImgMap = $catImg->merge($ovImg)->map(fn ($img) => \App\Services\Media\ImageCache::url($img));
             $imgMap = $catImgMap->merge($imgMap); // order-product image wins; catalog fills gaps
         }
 
