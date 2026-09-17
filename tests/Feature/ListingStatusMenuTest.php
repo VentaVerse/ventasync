@@ -175,6 +175,21 @@ class ListingStatusMenuTest extends TestCase
         $this->assertStringContainsString('failed=1', $mosky['url'], 'the switch stays on when the rail moves');
         $this->assertStringContainsString('group=4', $mosky['url']);
 
+        /* Choosing a group opens it on All, whichever tab was open before:
+           a new group is a new list, and landing on Live inside it hid the
+           products that are not up yet. */
+        $onLive = StatusMenu::build([
+            'url' => fn (array $p) => '/listings?' . http_build_query($p),
+            'query' => ['sync_status' => 'uploaded', 'group' => '4', 'q' => 'cable'],
+            'sync' => 'uploaded', 'failed' => false, 'change' => false,
+            'group' => '4', 'store' => 'Lazada',
+            'counts' => ['all' => 10, 'store' => 10],
+            'groups' => [['id' => '7', 'name' => 'Cables', 'count' => 2]],
+        ]);
+        $this->assertStringNotContainsString('sync_status', $onLive['groups'][0]['url'], 'a group opens on All');
+        $this->assertStringNotContainsString('sync_status', $onLive['everything']['url'], 'All products opens on All');
+        $this->assertStringContainsString('q=cable', $onLive['groups'][0]['url'], 'the search still rides along');
+
         // Where it stands moved to the segment, and it names the store.
         $this->assertSame(['All', 'Not live on Lazada', 'Live on Lazada'], array_column($menu['stand'], 'label'));
         $this->assertSame([10, 4, 6], array_column($menu['stand'], 'count'));
@@ -209,8 +224,16 @@ class ListingStatusMenuTest extends TestCase
         ]);
         $user = $this->manager();
 
+        /* On All products a row names its group, and the name opens that
+           group on All. Inside a group every row is in it, so none says so. */
+        $all = $this->actingAs($user)->get(route('ext.lazada.products.index', ['sync_status' => 'uploaded']))->assertOk();
+        $all->assertSee('Product group: Cables');
+        $this->assertMatchesRegularExpression('/<a class="co-item__var" href="[^"]*group=' . $group->id . '"[^>]*>Product group: Cables<\/a>/', $all->getContent());
+        $this->assertDoesNotMatchRegularExpression('/href="[^"]*sync_status[^"]*"[^>]*>Product group:/', $all->getContent(), 'the group opens on All');
+
         $page = $this->actingAs($user)->get(route('ext.lazada.products.index', ['group' => $group->id]))->assertOk();
         $page->assertSee('Listed and fine')->assertDontSee('Not on Lazada yet')->assertSee('Cables');
+        $page->assertDontSee('Product group: ');
 
         // The products no group claims are their own place, never dropped.
         $this->actingAs($user)->get(route('ext.lazada.products.index', ['group' => 'none']))

@@ -3908,6 +3908,23 @@
         color: var(--bl-ink-2);
     }
 
+    /* A group chip on a Listings row opens that group, so it answers a hover
+       and a keyboard focus the way any link does, without leaving its shape. */
+    a.co-item__var {
+        text-decoration: none;
+        transition: border-color var(--bl-motion-fast), color var(--bl-motion-fast);
+    }
+
+    a.co-item__var:hover {
+        border-color: var(--bl-ink-3);
+        color: var(--bl-ink);
+    }
+
+    a.co-item__var:focus-visible {
+        outline: 2px solid var(--bl-brand);
+        outline-offset: 1px;
+    }
+
     .co-var {
         display: inline-flex;
         align-items: stretch;

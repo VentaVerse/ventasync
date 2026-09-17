@@ -100,9 +100,9 @@ class TikTokProductController extends Controller
         $groupsByProductId = DB::table('tiktok_product_group_products as tp')
             ->join('tiktok_product_groups as tg', 'tg.id', '=', 'tp.tiktok_product_group_id')
             ->where('tg.tiktok_setting_id', (int) (TikTokSetting::defaultStore()?->id ?? 0))
-            ->get(['tp.product_id', 'tg.name'])
+            ->get(['tp.product_id', 'tg.id', 'tg.name'])
             ->groupBy('product_id')
-            ->map(fn ($rows) => $rows->pluck('name')->all());
+            ->map(fn ($rows) => $rows->map(fn ($r) => ['id' => (int) $r->id, 'name' => (string) $r->name])->all());
 
         $query = DB::table($pfx . 'product as p')
             ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {

@@ -422,9 +422,8 @@
                             @if($pMfg !== '')
                                 <span>{{ $pMfg }}</span>
                             @endif
-                            @if($listing && $listing->groups->count() > 0)
-                                @php $firstGroup = $listing->groups->first(); @endphp
-                                <span class="co-item__var" @if($listing->groups->count() > 1) title="Product Groups: {{ $listing->groups->pluck('name')->implode(', ') }}" @endif>Product group{{ $listing->groups->count() > 1 ? 's' : '' }}: {{ $firstGroup->name }}@if($listing->groups->count() > 1) and {{ $listing->groups->count() - 1 }} more @endif</span>
+                            @if(($groupFilter ?? 'all') === 'all' && $listing && $listing->groups->count() > 0)
+                                <a class="co-item__var" href="{{ route('ext.lazada.products.index', array_merge(request()->except(['page', 'sync_status', 'group']), ['group' => $listing->groups->first()->id])) }}">Product group: {{ $listing->groups->first()->name }}</a>
                             @endif
                             @if($isUnlinked)
                                 <span>Unlinked</span>

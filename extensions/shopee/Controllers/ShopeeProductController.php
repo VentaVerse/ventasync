@@ -2498,11 +2498,11 @@ class ShopeeProductController extends Controller
         $rows = DB::table('shopee_product_group_products as pgp')
             ->join('shopee_product_groups as g', 'g.id', '=', 'pgp.shopee_product_group_id')
             ->whereIn('g.id', ShopeeProductGroup::query()->pluck('id'))
-            ->get(['pgp.product_id', 'g.name']);
+            ->get(['pgp.product_id', 'g.id', 'g.name']);
 
         $map = [];
         foreach ($rows as $r) {
-            $map[(int) $r->product_id][] = (string) $r->name;
+            $map[(int) $r->product_id][] = ['id' => (int) $r->id, 'name' => (string) $r->name];
         }
 
         return ['ids' => array_keys($map), 'map' => $map];

@@ -593,9 +593,11 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $pageIds = $products->pluck('product_id')->map(fn ($v) => (int) $v)->all();
         $pageListingIds = $products->pluck('listing_id')->filter()->map(fn ($v) => (int) $v)->all();
 
-        // The listing models for this page (groups ride along for display)
+        /* The listing models for this page. On All products each row names
+           and links its group, so the groups load with them; inside a group
+           the row names nothing and the query is not paid for. */
         $listingsById = LazadaProduct::query()
-            ->with('groups')
+            ->when($groupFilter === 'all', fn ($q) => $q->with('groups'))
             ->whereIn('id', $pageListingIds ?: [0])
             ->get()
             ->keyBy('id');

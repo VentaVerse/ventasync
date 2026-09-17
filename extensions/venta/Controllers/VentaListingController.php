@@ -333,9 +333,9 @@ class VentaListingController extends Controller
         $groupsByProductId = DB::table('venta_product_group_products as gp')
             ->join('venta_product_groups as g', 'g.id', '=', 'gp.venta_product_group_id')
             ->where('g.venta_setting_id', $store)
-            ->get(['gp.product_id', 'g.name'])
+            ->get(['gp.product_id', 'g.id', 'g.name'])
             ->groupBy('product_id')
-            ->map(fn ($rows) => $rows->pluck('name')->all());
+            ->map(fn ($rows) => $rows->map(fn ($r) => ['id' => (int) $r->id, 'name' => (string) $r->name])->all());
 
         $query = DB::table($pfx . 'product as p')
             ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {

@@ -317,15 +317,9 @@
                             @if($p->manufacturer_name)
                                 <span>{{ $p->manufacturer_name }}</span>
                             @endif
-                            @if(count($pGroups) > 0)
-                                {{-- Which product GROUPS hold this product.
-                                     It used to render the bare group name,
-                                     which read as a category or a variation
-                                     (the class is the variation chip on
-                                     every order page). The label now says
-                                     what it is, and the full list rides on
-                                     the title for the "and N more" case. --}}
-                                <span class="co-item__var" @if(count($pGroups) > 1) title="Product Groups: {{ implode(', ', $pGroups) }}" @endif>Product group{{ count($pGroups) > 1 ? 's' : '' }}: {{ $pGroups[0] }}@if(count($pGroups) > 1) and {{ count($pGroups) - 1 }} more @endif</span>
+                            @if(($groupFilter ?? 'all') === 'all' && count($pGroups) > 0)
+                                {{-- On All products a row names its group, and the name opens it. --}}
+                                <a class="co-item__var" href="{{ route('ext.shopee.products.index', array_merge(request()->except(['page', 'sync_status', 'group']), ['group' => $pGroups[0]['id']])) }}">Product group: {{ $pGroups[0]['name'] }}</a>
                             @endif
                         </div>
 

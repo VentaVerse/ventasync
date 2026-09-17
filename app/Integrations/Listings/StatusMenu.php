@@ -164,7 +164,7 @@ final class StatusMenu
             'label' => self::EVERYTHING,
             'count' => (int) ($counts['store'] ?? $counts['all'] ?? 0),
             'active' => $chosen === 'all',
-            'url' => $to(['group' => null]),
+            'url' => $to(['group' => null, 'sync_status' => null]),
         ];
 
         $groups = [];
@@ -179,7 +179,7 @@ final class StatusMenu
                 'label' => $entry['label'],
                 'count' => $entry['count'],
                 'active' => $on,
-                'url' => $to(['group' => $entry['key']]),
+                'url' => $to(['group' => $entry['key'], 'sync_status' => null]),
             ];
         }
 
