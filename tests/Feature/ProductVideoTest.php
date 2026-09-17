@@ -22,9 +22,9 @@ class ProductVideoTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function manager(): User
+    private function manager(string $desk = 'Catalog desk'): User
     {
-        $group = UserGroup::create(['name' => 'Catalog desk']);
+        $group = UserGroup::create(['name' => $desk]);
         $group->permissions()->attach(Permission::whereIn('key', ['view_catalog/product', 'manage_catalog/product', 'manage_catalog/product_video', 'view_catalog/product_video'])->pluck('id')->all());
 
         return User::factory()->create(['user_group_id' => $group->id]);
@@ -147,6 +147,63 @@ class ProductVideoTest extends TestCase
         $this->assertSame('video/987/clip.mp4', $settled);
         Storage::disk('public')->assertExists($settled);
         Storage::disk('public')->assertMissing($staged);
+    }
+
+    /** A remove reaches only the file some product's row claims, or this uploader's own staged file. */
+    public function test_removing_never_reaches_another_products_video(): void
+    {
+        Storage::fake('public');
+        $manager = $this->manager();
+        $mine = $this->product('VID-6');
+        $theirs = $this->product('VID-7');
+
+        $theirPath = 'video/' . $theirs . '/clip.mp4';
+        Storage::disk('public')->put($theirPath, $this->mp4(20));
+        $unclaimed = 'video/9999/orphan.mp4';
+        Storage::disk('public')->put($unclaimed, $this->mp4(20));
+
+        // A file no row claims stays where it is.
+        $this->actingAs($manager)->postJson(route('products.video.delete'), ['path' => $unclaimed, 'product_id' => $mine])
+            ->assertOk()->assertJson(['kept' => true]);
+        Storage::disk('public')->assertExists($unclaimed);
+
+        // A file another product's row claims goes with that row, never on its own.
+        ProductVideo::create(['product_id' => $theirs, 'path' => $theirPath, 'original_name' => 'clip.mp4', 'bytes' => 100, 'duration_ms' => 20000]);
+        $this->actingAs($manager)->postJson(route('products.video.delete'), ['path' => $theirPath, 'product_id' => $mine])->assertOk();
+        $this->assertNull(ProductVideo::query()->where('product_id', $theirs)->first(), 'the row goes with its file, so nothing points at a file that is gone');
+        Storage::disk('public')->assertMissing($theirPath);
+    }
+
+    public function test_a_staged_video_belongs_to_whoever_uploaded_it(): void
+    {
+        Storage::fake('public');
+        $manager = $this->manager();
+
+        $staged = $this->actingAs($manager)->postJson(route('products.video.upload'), [
+            'video' => UploadedFile::fake()->createWithContent('new.mp4', $this->mp4(20)),
+            'token' => 'tok3n',
+        ])->assertOk()->json('video.path');
+
+        $this->assertStringStartsWith('video/_incoming/' . $manager->id . '-tok3n/', $staged);
+
+        $other = $this->manager('Second catalog desk');
+        $this->actingAs($other)->postJson(route('products.video.delete'), ['path' => $staged])->assertOk()->assertJson(['kept' => true]);
+        Storage::disk('public')->assertExists($staged);
+
+        $this->actingAs($manager)->postJson(route('products.video.delete'), ['path' => $staged])->assertOk();
+        Storage::disk('public')->assertMissing($staged);
+    }
+
+    public function test_an_upload_for_a_product_that_does_not_exist_is_refused(): void
+    {
+        Storage::fake('public');
+
+        $this->actingAs($this->manager())->postJson(route('products.video.upload'), [
+            'video' => UploadedFile::fake()->createWithContent('clip.mp4', $this->mp4(20)),
+            'product_id' => 987654,
+        ])->assertNotFound();
+
+        $this->assertSame([], Storage::disk('public')->allFiles('video'));
     }
 
     public function test_removing_asks_the_server_to_forget_the_file(): void

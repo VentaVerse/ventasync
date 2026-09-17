@@ -27,7 +27,13 @@ class ProductVideoController extends Controller
             'token' => ['nullable', 'string', 'max:64'],
         ]);
 
-        $stored = ProductVideoFile::put($request->file('video'), (int) ($data['product_id'] ?? 0), (string) ($data['token'] ?? ''));
+        // A folder is only made for a product that exists.
+        $productId = (int) ($data['product_id'] ?? 0);
+        if ($productId > 0) {
+            abort_unless(\Illuminate\Support\Facades\DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $productId)->exists(), 404);
+        }
+
+        $stored = ProductVideoFile::put($request->file('video'), $productId, ProductVideoFile::stagingKey((string) ($data['token'] ?? '')));
 
         return response()->json([
             'ok' => true,
@@ -40,7 +46,15 @@ class ProductVideoController extends Controller
         ]);
     }
 
-    /** Take the video off the product, file and all. */
+    /**
+     * Take the video off the product, file and all.
+     *
+     * The file is found through the row that claims it, never through the
+     * path alone: a path is what the page sends, and one product's remove
+     * must not be able to delete another product's video and leave its row
+     * pointing at a file that is gone. The one path without a row is a
+     * video staged in this session, which its own uploader may drop.
+     */
     public function destroy(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -48,13 +62,23 @@ class ProductVideoController extends Controller
             'product_id' => ['nullable', 'integer', 'min:0'],
         ]);
 
-        $productId = (int) ($data['product_id'] ?? 0);
-        $row = $productId > 0 ? ProductVideo::query()->where('product_id', $productId)->first() : null;
-        if ($row && $row->path === $data['path']) {
-            $row->delete();
-        }
-        ProductVideoFile::forget($data['path']);
+        $path = (string) $data['path'];
+        $row = ProductVideo::query()->where('path', $path)->first();
 
-        return response()->json(['ok' => true]);
+        if ($row) {
+            $row->delete();
+            ProductVideoFile::forget($path);
+
+            return response()->json(['ok' => true]);
+        }
+
+        if (str_starts_with($path, ProductVideoFile::stagingPrefix())) {
+            ProductVideoFile::forget($path);
+
+            return response()->json(['ok' => true]);
+        }
+
+        // Nothing here claims that file, so nothing here removes it.
+        return response()->json(['ok' => true, 'kept' => true]);
     }
 }

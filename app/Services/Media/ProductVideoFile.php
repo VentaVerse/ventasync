@@ -36,12 +36,27 @@ final class ProductVideoFile
     public const MIME = ['video/mp4', 'video/quicktime'];
     public const EXTENSIONS = ['mp4', 'mov'];
 
-    /** Store the file for a product, or under a token when the product has no id yet. */
-    public static function put(UploadedFile $file, int $productId, string $token = ''): array
+    /**
+     * Where a video waits before its product exists, tied to whoever is
+     * uploading: a staged file is only ever the uploader's to drop.
+     */
+    public static function stagingPrefix(): string
+    {
+        return self::DIR . '/_incoming/' . (string) (auth()->id() ?: 'anon') . '-';
+    }
+
+    /** That folder for one upload, named by the form's token. */
+    public static function stagingKey(string $token): string
+    {
+        return substr(self::stagingPrefix() . preg_replace('/[^A-Za-z0-9_-]/', '', $token), strlen(self::DIR . '/_incoming/'), 120);
+    }
+
+    /** Store the file for a product, or under a key when the product has no id yet. */
+    public static function put(UploadedFile $file, int $productId, string $stagingKey = ''): array
     {
         $dir = $productId > 0
             ? self::DIR . '/' . $productId
-            : self::DIR . '/_incoming/' . preg_replace('/[^A-Za-z0-9_-]/', '', $token);
+            : self::DIR . '/_incoming/' . ($stagingKey !== '' ? $stagingKey : self::stagingKey(''));
 
         $name = Str::uuid()->toString() . '.' . strtolower($file->getClientOriginalExtension() ?: 'mp4');
         $path = $file->storeAs($dir, $name, 'public');
