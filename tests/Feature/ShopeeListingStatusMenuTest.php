@@ -124,4 +124,47 @@ class ShopeeListingStatusMenuTest extends TestCase
         $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'not_ready']))
             ->assertOk()->assertSee('Not on Shopee yet')->assertDontSee('Listed and fine');
     }
+
+    /**
+     * From the Listings page a ticked product moves into a group, from one
+     * group to another, and out of every group, and the page it was on is
+     * where the operator lands. Moving is a group permission: a listing
+     * manager without it sees no picker and is refused.
+     */
+    public function test_a_ticked_product_moves_between_groups_from_the_listings_page(): void
+    {
+        $pid = $this->product('Movable pedal', 'SMV-1');
+        $groupA = \Extensions\shopee\Models\ShopeeProductGroup::create(['name' => 'Fuzz', 'shopee_category_id' => 100013, 'logistic_ids' => [8003]]);
+        $groupB = \Extensions\shopee\Models\ShopeeProductGroup::create(['name' => 'Delay', 'shopee_category_id' => 100013, 'logistic_ids' => [8003]]);
+        $manager = $this->manager();
+        $manager->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_shopee/product_group', 'view_shopee/product_group'])->pluck('id')->all());
+        $listingOnlyGroup = UserGroup::create(['name' => 'Listings without groups']);
+        $listingOnlyGroup->permissions()->attach(Permission::whereIn('key', ['manage_shopee/product', 'view_shopee/product'])->pluck('id')->all());
+        $listingOnly = User::factory()->create(['user_group_id' => $listingOnlyGroup->id]);
+        $back = parse_url(route('ext.shopee.products.index'), PHP_URL_PATH);
+        $pivot = fn () => \Illuminate\Support\Facades\DB::table('shopee_product_group_products')->where('product_id', $pid)->pluck('shopee_product_group_id')->map(fn ($v) => (int) $v)->all();
+
+        // Without the group permission: no picker, and the move is refused with nothing changed.
+        $this->actingAs($listingOnly)->get(route('ext.shopee.products.index'))->assertOk()->assertDontSee('Move to group');
+        $this->actingAs($listingOnly)->post(route('ext.shopee.product-groups.move'), ['ids' => [$pid], 'group' => $groupA->id, '_return' => $back])->assertRedirect()->assertSessionHas('error');
+        $this->assertSame([], $pivot());
+
+        $this->actingAs($manager)->get(route('ext.shopee.products.index'))->assertOk()->assertSee('Move to group');
+
+        $this->actingAs($manager)->post(route('ext.shopee.product-groups.move'), ['ids' => [$pid], 'group' => $groupA->id, '_return' => $back])
+            ->assertRedirect($back)->assertSessionHas('status', '1 product moved to ' . $groupA->name . '.');
+        $this->assertSame([$groupA->id], $pivot());
+
+        // A product belongs to one group, so choosing another moves it there.
+        $this->actingAs($manager)->post(route('ext.shopee.product-groups.move'), ['ids' => [$pid], 'group' => $groupB->id, '_return' => $back])
+            ->assertRedirect($back);
+        $this->assertSame([$groupB->id], $pivot());
+
+        // Inside a group the same row can be taken straight out of it.
+        $this->actingAs($manager)->get(route('ext.shopee.products.index', ['group' => $groupB->id]))->assertOk()->assertSee('Remove from group')->assertSee('Manage group');
+
+        $this->actingAs($manager)->post(route('ext.shopee.product-groups.move'), ['ids' => [$pid], 'group' => 'none', '_return' => $back])
+            ->assertRedirect($back)->assertSessionHas('status', '1 product ungrouped.');
+        $this->assertSame([], $pivot());
+    }
 }

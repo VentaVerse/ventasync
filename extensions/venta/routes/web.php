@@ -136,6 +136,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::post('/venta/{store}/product-groups/{group}/push-prices', [VentaProductGroupController::class, 'pushPrices'])->name('ext.venta.product-groups.push-prices');
     Route::post('/venta/{store}/product-groups/{group}/add-products', [VentaProductGroupController::class, 'addProducts'])->name('ext.venta.product-groups.addProducts');
     Route::post('/venta/{store}/product-groups/{group}/mass-remove', [VentaProductGroupController::class, 'massRemove'])->name('ext.venta.product-groups.mass-remove');
+    Route::post('/venta/{store}/product-groups/move', [VentaProductGroupController::class, 'moveProducts'])->name('ext.venta.product-groups.move');
     // Renamed from sync-ids/syncIds. The old name described the mechanism
     // (write ids into rows); this one describes what the operator is asking
     // for, and the behaviour changed with it: it now examines products that

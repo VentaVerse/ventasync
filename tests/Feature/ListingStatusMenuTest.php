@@ -88,7 +88,7 @@ class ListingStatusMenuTest extends TestCase
 
         $page = $this->actingAs($user)->get(route('ext.lazada.products.index'))->assertOk();
         $page->assertSee('Product group')->assertSee('Filters')->assertSee('data-lsm', false);
-        $page->assertSee('All products')->assertSee('Not in a group');
+        $page->assertSee('All products')->assertSee('Ungrouped');
         $page->assertSee('class="lss"', false);
         $page->assertDontSee('name="sync_status"', false);
 
@@ -242,5 +242,49 @@ class ListingStatusMenuTest extends TestCase
         // The store's own tabs still sit above the table, apart from the rail.
         $this->actingAs($user)->get(route('ext.lazada.products.index', ['group' => $group->id, 'lazada_tab' => 'inactive']))
             ->assertOk()->assertSee('class="x-segment-bar"', false);
+    }
+
+    /**
+     * From the Listings page a ticked product moves into a group, from one
+     * group to another, and out of every group, and the page it was on is
+     * where the operator lands. Moving is a group permission: a listing
+     * manager without it sees no picker and is refused.
+     */
+    public function test_a_ticked_product_moves_between_groups_from_the_listings_page(): void
+    {
+        $ids = $this->store();
+        $pid = $ids['notListed'];
+        $groupA = \Extensions\lazada\Models\LazadaProductGroup::create(['name' => 'Fuzz', 'lazada_category_id' => 4321]);
+        $groupB = \Extensions\lazada\Models\LazadaProductGroup::create(['name' => 'Delay', 'lazada_category_id' => 4321]);
+        $manager = $this->manager();
+        $manager->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_lazada/product_group', 'view_lazada/product_group'])->pluck('id')->all());
+        $listingOnlyGroup = UserGroup::create(['name' => 'Listings without groups']);
+        $listingOnlyGroup->permissions()->attach(Permission::whereIn('key', ['manage_lazada/product', 'view_lazada/product'])->pluck('id')->all());
+        $listingOnly = User::factory()->create(['user_group_id' => $listingOnlyGroup->id]);
+        $back = parse_url(route('ext.lazada.products.index'), PHP_URL_PATH);
+        $pivot = fn () => \Illuminate\Support\Facades\DB::table('lazada_product_group_products')->where('product_id', $pid)->pluck('lazada_product_group_id')->map(fn ($v) => (int) $v)->all();
+
+        // Without the group permission: no picker, and the move is refused with nothing changed.
+        $this->actingAs($listingOnly)->get(route('ext.lazada.products.index'))->assertOk()->assertDontSee('Move to group');
+        $this->actingAs($listingOnly)->post(route('ext.lazada.product-groups.move'), ['ids' => [$pid], 'group' => $groupA->id, '_return' => $back])->assertRedirect()->assertSessionHas('error');
+        $this->assertSame([], $pivot());
+
+        $this->actingAs($manager)->get(route('ext.lazada.products.index'))->assertOk()->assertSee('Move to group');
+
+        $this->actingAs($manager)->post(route('ext.lazada.product-groups.move'), ['ids' => [$pid], 'group' => $groupA->id, '_return' => $back])
+            ->assertRedirect($back)->assertSessionHas('status', '1 product moved to ' . $groupA->name . '.');
+        $this->assertSame([$groupA->id], $pivot());
+
+        // A product belongs to one group, so choosing another moves it there.
+        $this->actingAs($manager)->post(route('ext.lazada.product-groups.move'), ['ids' => [$pid], 'group' => $groupB->id, '_return' => $back])
+            ->assertRedirect($back);
+        $this->assertSame([$groupB->id], $pivot());
+
+        // Inside a group the same row can be taken straight out of it.
+        $this->actingAs($manager)->get(route('ext.lazada.products.index', ['group' => $groupB->id]))->assertOk()->assertSee('Remove from group')->assertSee('Manage group');
+
+        $this->actingAs($manager)->post(route('ext.lazada.product-groups.move'), ['ids' => [$pid], 'group' => 'none', '_return' => $back])
+            ->assertRedirect($back)->assertSessionHas('status', '1 product ungrouped.');
+        $this->assertSame([], $pivot());
     }
 }

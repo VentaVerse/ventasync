@@ -1332,6 +1332,45 @@ class VentaProductGroupController extends Controller
             ->with('status', 'Product re-linked.');
     }
 
+    /**
+     * Move products from the store's Listings page: into a group, from one
+     * group to another, or out of every group. A product belongs to one group
+     * on a store, so choosing a group moves it there rather than holding it
+     * back; the choice on the picker is the operator's "Move here".
+     */
+    public function moveProducts(Request $request, int $store)
+    {
+        $this->store_($store);
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array) $request->input('ids', [])), fn ($v) => $v > 0)));
+        $back = \App\Support\BackTo::safe($request->input('_return'), route('ext.venta.listings.index', $store));
+        if ($ids === []) {
+            return redirect($back)->with('warning', 'No products selected.');
+        }
+        $target = (string) $request->input('group', '');
+        if ($target === 'none') {
+            $removed = VentaProductGroupProduct::query()
+                ->whereIn('venta_product_group_id', VentaProductGroup::where('venta_setting_id', $store)->select('id'))
+                ->whereIn('product_id', $ids)->delete();
+
+            return redirect($back)->with('status', $removed . ' ' . \Illuminate\Support\Str::plural('product', $removed) . ' ungrouped.');
+        }
+        $group = VentaProductGroup::where('venta_setting_id', $store)->findOrFail((int) $target);
+
+        $already = $group->products()->whereIn('product_id', $ids)->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        $wanted = array_values(array_diff($ids, $already));
+        $claim = \App\Integrations\OneGroupRule::claim('venta_product_group_products', 'venta_product_group_id', 'venta_product_groups', 'venta_setting_id', $group->id, $wanted, $wanted);
+        $moved = 0;
+        foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
+            VentaProductGroupProduct::create(['venta_product_group_id' => $group->id, 'product_id' => (int) $pid]);
+            $moved++;
+        }
+        if ($moved === 0) {
+            return redirect($back)->with('warning', 'Those products are already in ' . $group->name . '.');
+        }
+
+        return redirect($back)->with('status', $moved . ' ' . \Illuminate\Support\Str::plural('product', $moved) . ' moved to ' . $group->name . '.');
+    }
+
     public function massRemove(Request $request, int $store, int $group)
     {
         $this->store_($store);

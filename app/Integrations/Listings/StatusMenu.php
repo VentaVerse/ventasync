@@ -32,7 +32,7 @@ final class StatusMenu
     public const EVERYTHING = 'All products';
 
     /** The products no group claims. Never a footnote: on a real store it is one of the larger entries. */
-    public const UNGROUPED = 'Not in a group';
+    public const UNGROUPED = 'Ungrouped';
 
     /**
      * The eligibility rungs the menu used to carry, and the half each one

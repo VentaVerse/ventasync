@@ -114,7 +114,21 @@
 @include('partials.listing-status-menu', ['menu' => $statusMenu])
 <div class="lsm-layout__main">
 
-@include('partials.listing-stand-segment', ['menu' => $statusMenu])
+@php
+    /* The group a Listings page stands in, and what acts on it: its settings
+       page, and a Send that uses those settings for the ticked rows. */
+    $canManageGroups = auth()->user()?->hasPermission('manage_shopee/product_group') ?? false;
+    $chosenGroup = collect($statusMenu['groups'])->first(fn ($g) => $g['active'] && $g['key'] !== 'none');
+    $groupLine = ($chosenGroup && $canManageGroups) ? [
+        'return' => request()->getRequestUri(),
+        'manage' => route('ext.shopee.product-groups.edit', $chosenGroup['key']),
+        'send' => [
+            'action' => route('ext.shopee.product-groups.send', $chosenGroup['key']),
+            'confirm' => 'Send the ticked products to ' . 'Shopee' . ' on the settings of ' . $chosenGroup['label'] . ', rather than their own?',
+        ],
+    ] : null;
+@endphp
+@include('partials.listing-stand-segment', ['menu' => $statusMenu, 'group' => $groupLine])
 
 <form method="GET" action="{{ route('ext.shopee.products.index') }}" class="x-filters" id="shopee-listings-filter">
     {{-- The menu's choice rides a search. --}}
@@ -176,6 +190,21 @@
      re-reading five labels on every tick would be worse than silence. --}}
 @php
     $bulk = [
+        /* Filing the ticked rows: into a group, between groups, or out of
+           every group; and, standing inside one, the quick way out of it. */
+        'move' => $canManageGroups ? [
+            'action' => route('ext.shopee.product-groups.move'),
+            'groups' => collect($statusMenu['groups'])->reject(fn ($g) => $g['key'] === 'none')
+                ->map(fn ($g) => ['id' => $g['key'], 'name' => $g['label'], 'count' => $g['count']])->values()->all(),
+            'current' => $groupFilter ?? 'all',
+            'return' => request()->getRequestUri(),
+        ] : null,
+        'ungroup' => ($canManageGroups && $chosenGroup) ? [
+            'action' => route('ext.shopee.product-groups.massRemove', $chosenGroup['key']),
+            'label' => 'Remove from group',
+            'confirm' => 'Take these products out of ' . $chosenGroup['label'] . '? They become ungrouped and stop taking its settings on the next push.',
+            'return' => request()->getRequestUri(),
+        ] : null,
         /* Multi-tick push, back on 2026-09-09: each ticked product goes up
            on its own settings and reports for itself. */
         'push' => ['action' => route('ext.shopee.products.bulk_push'), 'label' => 'Send to Shopee',

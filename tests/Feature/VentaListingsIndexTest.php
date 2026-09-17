@@ -431,4 +431,47 @@ class VentaListingsIndexTest extends TestCase
                 ->assertDontSee('Unlisted pedal');
         }
     }
+
+    /**
+     * From the Listings page a ticked product moves into a group, from one
+     * group to another, and out of every group, and the page it was on is
+     * where the operator lands. Moving is a group permission: a listing
+     * manager without it sees no picker and is refused.
+     */
+    public function test_a_ticked_product_moves_between_groups_from_the_listings_page(): void
+    {
+        Http::fake();
+        $store = $this->store();
+        $pid = $this->product('MV-1', 'Movable pedal');
+        VentaListing::create(['venta_setting_id' => $store->id, 'product_id' => $pid]);
+        $groupA = VentaProductGroup::create(['venta_setting_id' => $store->id, 'name' => 'Fuzz']);
+        $groupB = VentaProductGroup::create(['venta_setting_id' => $store->id, 'name' => 'Delay']);
+        $manager = $this->userWith(['view_venta/listing', 'manage_venta/listing', 'view_venta/product_group', 'manage_venta/product_group']);
+        $listingOnly = $this->manager();
+        $back = parse_url(route('ext.venta.listings.index', $store->id), PHP_URL_PATH);
+        $pivot = fn () => \Illuminate\Support\Facades\DB::table('venta_product_group_products')->where('product_id', $pid)->pluck('venta_product_group_id')->map(fn ($v) => (int) $v)->all();
+
+        // Without the group permission: no picker, and the move is refused with nothing changed.
+        $this->actingAs($listingOnly)->get(route('ext.venta.listings.index', $store->id))->assertOk()->assertDontSee('Move to group');
+        $this->actingAs($listingOnly)->post(route('ext.venta.product-groups.move', $store->id), ['ids' => [$pid], 'group' => $groupA->id, '_return' => $back])->assertRedirect()->assertSessionHas('error');
+        $this->assertSame([], $pivot());
+
+        $this->actingAs($manager)->get(route('ext.venta.listings.index', $store->id))->assertOk()->assertSee('Move to group');
+
+        $this->actingAs($manager)->post(route('ext.venta.product-groups.move', $store->id), ['ids' => [$pid], 'group' => $groupA->id, '_return' => $back])
+            ->assertRedirect($back)->assertSessionHas('status', '1 product moved to ' . $groupA->name . '.');
+        $this->assertSame([$groupA->id], $pivot());
+
+        // A product belongs to one group, so choosing another moves it there.
+        $this->actingAs($manager)->post(route('ext.venta.product-groups.move', $store->id), ['ids' => [$pid], 'group' => $groupB->id, '_return' => $back])
+            ->assertRedirect($back);
+        $this->assertSame([$groupB->id], $pivot());
+
+        // Inside a group the same row can be taken straight out of it.
+        $this->actingAs($manager)->get(route('ext.venta.listings.index', ['store' => $store->id, 'group' => $groupB->id]))->assertOk()->assertSee('Remove from group')->assertSee('Manage group');
+
+        $this->actingAs($manager)->post(route('ext.venta.product-groups.move', $store->id), ['ids' => [$pid], 'group' => 'none', '_return' => $back])
+            ->assertRedirect($back)->assertSessionHas('status', '1 product ungrouped.');
+        $this->assertSame([], $pivot());
+    }
 }

@@ -146,6 +146,7 @@ Route::middleware(['auth', \Extensions\tiktok\Http\ResolveTikTokStore::class])
         Route::post('/tiktok/{store}/product-groups/{id}/products/{product}/link', [TikTokProductGroupController::class, 'linkProduct'])->name('ext.tiktok.product-groups.linkProduct');
         Route::delete('/tiktok/{store}/product-groups/{id}/products/{product}', [TikTokProductGroupController::class, 'removeProduct'])->name('ext.tiktok.product-groups.removeProduct');
         Route::post('/tiktok/{store}/product-groups/{id}/mass-remove', [TikTokProductGroupController::class, 'massRemove'])->name('ext.tiktok.product-groups.massRemove');
+        Route::post('/tiktok/{store}/product-groups/move', [TikTokProductGroupController::class, 'moveProducts'])->name('ext.tiktok.product-groups.move');
         Route::post('/tiktok/{store}/product-groups/{id}/delete-from-tiktok', [TikTokProductGroupController::class, 'deleteFromTikTok'])->name('ext.tiktok.product-groups.deleteFromTikTok');
         Route::post('/tiktok/{store}/product-groups/{id}/products/check', [TikTokProductGroupController::class, 'checkAgainstTikTok'])->whereNumber('id')->name('ext.tiktok.product-groups.check');
         Route::post('/tiktok/{store}/product-groups/{id}/push', [TikTokProductGroupController::class, 'push'])->name('ext.tiktok.product-groups.push');

@@ -279,6 +279,110 @@ a.lsm-chanid:focus-visible {
     color: var(--bl-ink);
 }
 
+/* The segment and, with a group chosen, what acts on that group, on one line.
+   The group's verbs sit to the right, apart from the segment, because they
+   act on the group rather than narrowing the rows. */
+.lss-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.lss-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.lss-group__manage {
+    color: var(--bl-ink-3);
+    font-size: 13px;
+    font-weight: 560;
+    text-decoration: none;
+    text-underline-offset: 3px;
+}
+
+.lss-group__manage:hover {
+    color: var(--bl-ink);
+    text-decoration: underline;
+}
+
+.lss-group__manage:focus-visible {
+    outline: 2px solid var(--bl-brand);
+    outline-offset: 2px;
+    border-radius: 3px;
+}
+
+/* The group picker behind Move to group: one row per destination, the name
+   and its size, in the same rows the left menu draws. */
+.cc-move__list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: min(60vh, 440px);
+    overflow-y: auto;
+}
+
+.cc-move__list form {
+    margin: 0;
+}
+
+.cc-move__pick {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    min-height: 36px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: var(--bl-r-ctrl);
+    background: transparent;
+    color: var(--bl-ink-2);
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 560;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--bl-motion-fast), color var(--bl-motion-fast);
+}
+
+.cc-move__pick:hover {
+    background: var(--bl-chrome);
+    color: var(--bl-ink);
+}
+
+.cc-move__pick:focus-visible {
+    outline: 2px solid var(--bl-brand);
+    outline-offset: 1px;
+}
+
+.cc-move__name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cc-move__n {
+    flex: none;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--bl-ink-3);
+}
+
+/* Ungrouped is where a product goes when it leaves every group, so it sits
+   last and apart from the groups above it. */
+.cc-move__pick--out {
+    margin-top: 6px;
+    border-top: 1px solid var(--bl-rule-2);
+    border-radius: 0 0 var(--bl-r-ctrl) var(--bl-r-ctrl);
+}
+
 /* Narrow: the labels carry a store name, so the segment scrolls on its own
    rather than pushing the table sideways. */
 @media (max-width: 700px) {

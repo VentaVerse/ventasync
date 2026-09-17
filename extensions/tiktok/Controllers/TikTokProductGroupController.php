@@ -793,6 +793,42 @@ class TikTokProductGroupController extends Controller
             ->with('status', 'Product removed from the product group.');
     }
 
+    /**
+     * Move products from the store's Listings page: into a group, from one
+     * group to another, or out of every group. A product belongs to one group
+     * on a store, so choosing a group moves it there rather than holding it
+     * back; the choice on the picker is the operator's "Move here".
+     */
+    public function moveProducts(Request $request)
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array) $request->input('ids', [])), fn ($v) => $v > 0)));
+        $back = \App\Support\BackTo::safe($request->input('_return'), route('ext.tiktok.products.index'));
+        if ($ids === []) {
+            return redirect($back)->with('warning', 'No products selected.');
+        }
+        $target = (string) $request->input('group', '');
+        if ($target === 'none') {
+            $removed = TikTokProductGroupProduct::query()->onStore()->whereIn('product_id', $ids)->delete();
+
+            return redirect($back)->with('status', $removed . ' ' . \Illuminate\Support\Str::plural('product', $removed) . ' ungrouped.');
+        }
+        $group = TikTokProductGroup::query()->findOrFail((int) $target);
+
+        $already = TikTokProductGroupProduct::where('tiktok_product_group_id', $group->id)->whereIn('product_id', $ids)->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        $wanted = array_values(array_diff($ids, $already));
+        $claim = \App\Integrations\OneGroupRule::claim('tiktok_product_group_products', 'tiktok_product_group_id', 'tiktok_product_groups', 'tiktok_setting_id', $group->id, $wanted, $wanted);
+        $moved = 0;
+        foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
+            TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => (int) $pid, 'sync_status' => 'pending']);
+            $moved++;
+        }
+        if ($moved === 0) {
+            return redirect($back)->with('warning', 'Those products are already in ' . $group->name . '.');
+        }
+
+        return redirect($back)->with('status', $moved . ' ' . \Illuminate\Support\Str::plural('product', $moved) . ' moved to ' . $group->name . '.');
+    }
+
     public function massRemove(Request $request, int $id)
     {
         $group = TikTokProductGroup::findOrFail($id);

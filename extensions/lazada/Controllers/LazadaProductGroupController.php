@@ -742,6 +742,51 @@ class LazadaProductGroupController extends Controller
     }
 
     /**
+     * Move products from the store's Listings page: into a group, from one
+     * group to another, or out of every group. A product belongs to one group
+     * on a store, so choosing a group moves it there rather than holding it
+     * back; the choice on the picker is the operator's "Move here".
+     */
+    public function moveProducts(Request $request)
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array) $request->input('ids', [])), fn ($v) => $v > 0)));
+        $back = \App\Support\BackTo::safe($request->input('_return'), route('ext.lazada.products.index'));
+        if ($ids === []) {
+            return redirect($back)->with('warning', 'No products selected.');
+        }
+        $target = (string) $request->input('group', '');
+        if ($target === 'none') {
+            $removed = LazadaProductGroupProduct::query()->onStore()->whereIn('product_id', $ids)->delete();
+
+            return redirect($back)->with('status', $removed . ' ' . \Illuminate\Support\Str::plural('product', $removed) . ' ungrouped.');
+        }
+        $group = LazadaProductGroup::query()->findOrFail((int) $target);
+        $store = LazadaSetting::defaultStore();
+
+        $already = $group->groupProducts()->whereIn('product_id', $ids)->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        $wanted = array_values(array_diff($ids, $already));
+        $claim = \App\Integrations\OneGroupRule::claim('lazada_product_group_products', 'lazada_product_group_id', 'lazada_product_groups', 'lazada_setting_id', $group->id, $wanted, $wanted);
+        $moved = 0;
+        foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
+            // The pivot names the store's listing row, so the product needs one.
+            $listingId = LazadaProduct::query()->forStore($store)->where('product_id', (int) $pid)->value('id')
+                ?? LazadaProduct::create(['product_id' => (int) $pid])->id;
+            LazadaProductGroupProduct::create([
+                'lazada_product_group_id' => $group->id,
+                'lazada_product_id' => $listingId,
+                'product_id' => (int) $pid,
+                'sync_status' => 'pending',
+            ]);
+            $moved++;
+        }
+        if ($moved === 0) {
+            return redirect($back)->with('warning', 'Those products are already in ' . $group->name . '.');
+        }
+
+        return redirect($back)->with('status', $moved . ' ' . \Illuminate\Support\Str::plural('product', $moved) . ' moved to ' . $group->name . '.');
+    }
+
+    /**
      * Bulk remove products from the group.
      */
     public function massRemove(Request $request, int $id)
