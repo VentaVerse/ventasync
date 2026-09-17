@@ -471,7 +471,8 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
 
         if (Schema::hasTable('shopee_orders')) {
             $data['shopeePending'] = (int) DB::table('shopee_orders')
-                ->whereIn('status', ['READY_TO_SHIP'])
+                // To Ship = to pack + to handover, the same set unprocessedCount() sums.
+                ->whereIn('status', ['READY_TO_SHIP', 'PROCESSED'])
                 ->count();
         }
 
@@ -536,7 +537,8 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, I
             if (Schema::hasTable('shopee_orders')) {
                 $pending[$key] = (int) DB::table('shopee_orders')
                     ->where('shopee_setting_id', $store->id)
-                    ->whereIn('status', ['READY_TO_SHIP'])
+                    // To Ship = to pack + to handover, matching unprocessedCount().
+                    ->whereIn('status', ['READY_TO_SHIP', 'PROCESSED'])
                     ->count();
             }
             /* The listing engine scopes to the bound store, so each store's

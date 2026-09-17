@@ -218,24 +218,6 @@ class DashboardController extends Controller
         }
         $extensionDashboardData = array_merge($extensionDashboardData, $merged);
 
-        // Pending order count per marketplace_source, straight off the core
-        // order table. Core owns that table and the two statuses, so this is
-        // not marketplace-specific knowledge; it exists so a channel whose
-        // extension keeps no order table of its own (Venta) still gets a
-        // pending figure. It used to be a DB::table() query inside the Blade
-        // view, which is a query in the presentation layer and re-ran once
-        // per configured store.
-        $pendingStatusIds = OrderStatus::whereIn('name', ['Pending', 'Processing'])->pluck('order_status_id');
-        $pendingBySource = $pendingStatusIds->isEmpty()
-            ? []
-            : $this->orders($storeKey)
-                ->select('marketplace_source', DB::raw('COUNT(*) as cnt'))
-                ->whereIn('order_status_id', $pendingStatusIds)
-                ->groupBy('marketplace_source')
-                ->pluck('cnt', 'marketplace_source')
-                ->map(fn ($c) => (int) $c)
-                ->all();
-
         // Marketplace source labels for the recent-orders source column.
         // Same registry-driven map used by the Orders index - core has no
         // marketplace-specific knowledge.
@@ -279,7 +261,6 @@ class DashboardController extends Controller
             'ranges' => self::RANGES,
             'storeKey' => $storeKey,
             'storeOptions' => $storeOptions,
-            'pendingBySource' => $pendingBySource,
             'recentOrders' => $recentOrders,
             'greeting' => $greeting,
             'sourceLabelsMap' => $sourceLabelsMap,

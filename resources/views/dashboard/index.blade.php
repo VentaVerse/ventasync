@@ -182,10 +182,12 @@
         $channels = [];
     }
 
-    // Waiting across every channel, from the core order table rather than
-    // any one extension, so a channel that keeps no order table of its own
-    // still counts.
-    $pendingTotal = array_sum($pendingBySource);
+    // "Waiting to ship" is the sum of what the strip shows: each channel's own
+    // To Ship count (to pack + to handover), from the contributor figure or the
+    // order tab's unprocessedCount(). Core no longer names an order status here,
+    // so the card, the strip and each channel's Orders page count the same rows.
+    // A channel with no waiting concept is null and adds nothing.
+    $pendingTotal = array_sum(array_map(static fn ($c) => (int) ($c['pending'] ?? 0), $channels));
 
     // $ranges comes from DashboardController::RANGES, which is also the
     // whitelist ?range= is checked against. It used to be declared here as a

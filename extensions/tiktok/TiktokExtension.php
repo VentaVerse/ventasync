@@ -434,7 +434,8 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
 
         if (Schema::hasTable('tiktok_orders')) {
             $data['tiktokPending'] = (int) DB::table('tiktok_orders')
-                ->where('status', 'AWAITING_SHIPMENT')
+                // To Ship = to pack + to handover, matching unprocessedCount().
+                ->whereIn('status', ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION'])
                 ->count();
         }
 

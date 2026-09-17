@@ -496,7 +496,8 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
 
         if (Schema::hasTable('lazada_orders')) {
             $data['lazadaPending'] = (int) DB::table('lazada_orders')
-                ->whereIn('status', ['pending', 'repacked'])
+                // To Ship = to pack + to handover, the same set unprocessedCount() sums.
+                ->whereIn('status', ['pending', 'repacked', 'packed', 'ready_to_ship'])
                 ->count();
         }
 
@@ -560,7 +561,8 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
             if (Schema::hasTable('lazada_orders')) {
                 $pending[$key] = (int) DB::table('lazada_orders')
                     ->where('lazada_setting_id', $store->id)
-                    ->whereIn('status', ['pending', 'repacked'])
+                    // To Ship = to pack + to handover, matching unprocessedCount().
+                    ->whereIn('status', ['pending', 'repacked', 'packed', 'ready_to_ship'])
                     ->count();
             }
             /* The listing engine scopes to the bound store, so each store's
