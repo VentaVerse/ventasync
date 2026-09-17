@@ -261,8 +261,12 @@ class TikTokProductGroupController extends Controller
 
         // The next thing to do with a new group is put products in it, and
         // that happens on its products page (#201), so land there.
-        return redirect()->route('ext.tiktok.product-groups.products', $group->id)
-            ->with('status', 'Product group created. Add products to it from this store\'s list.');
+        /* Back to the page that sent you here, the store's list or the
+           groups list, and the new group's own page when nothing did. */
+        return redirect(\App\Support\BackTo::safe(
+            $request->input('_return'),
+            route('ext.tiktok.product-groups.products', $group->id)
+        ))->with('status', 'Product group created. Add products to it from this store\'s list.');
     }
 
     public function update(Request $request, int $id)

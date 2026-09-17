@@ -133,10 +133,11 @@ class ShopeeProductController extends Controller
         $langId = (int) config('catalog.default_language_id');
         $q = trim((string) $request->get('q', ''));
         $syncStatus = (string) $request->get('sync_status', 'all');
-        // The page's older words for the two halves of the tree still land there.
+        // The page's older words for the two halves still land there, and so
+        // do the retired eligibility rungs, each on the half it belonged to.
         $syncStatus = ['listed' => 'uploaded', 'not_listed' => 'not_uploaded'][$syncStatus] ?? $syncStatus;
-        if (!in_array($syncStatus, [...\App\Integrations\Listings\StatusMenu::VALUES, 'error'], true)) {
-            $syncStatus = 'all';
+        if ($syncStatus !== 'error') {
+            $syncStatus = \App\Integrations\Listings\StatusMenu::stand($syncStatus);
         }
         /* The status menu's two switches narrow whatever the tree has
          * chosen; an old sync_status=error link is Push failed switched on. */
@@ -145,12 +146,10 @@ class ShopeeProductController extends Controller
         if ($syncStatus === 'error') {
             $syncStatus = 'all';
         }
-        /* One cause at a time: the menu counts WHY a product cannot go, and
-         * this is the address that choice lives at, so it survives a reload
-         * and can be shared like every other filter on this page. */
-        $gapFilter = \App\Integrations\Listings\StatusMenu::cause($request->get('gap'));
         $manufacturerFilter = (string) $request->get('manufacturer', 'all');
-        $groupFilter = (string) $request->get('group', 'all');
+        /* The rail's choice: a group id, `none` for the products no group
+           claims, else the whole store. */
+        $groupFilter = \App\Integrations\Listings\StatusMenu::group($request->get('group'));
         $erpStatus = (string) $request->get('erp_status', 'all');
 
         /* ── Two surfaces on one workbench (#201, the owner 2026-09-05) ──
@@ -253,24 +252,22 @@ class ShopeeProductController extends Controller
                 'm.name as manufacturer_name'
             );
 
-        // Product group filter
-        if ($groupFilter === 'none') {
-            // Show products NOT matching any product group
-            $allMatchedIds = $groupMapping['ids'];
-            if ($allMatchedIds === null || empty($allMatchedIds)) {
-                // No product groups or no matches — show all products
-            } else {
-                $query->whereNotIn('p.product_id', $allMatchedIds);
+        /* The rail's choice, as a closure rather than a filter written into
+           the query here: the rail counts every group under everything else
+           the page has chosen EXCEPT the group, so a number and the list it
+           opens always agree, and the other groups keep their own numbers
+           while one of them is chosen. */
+        $groupedIds = $groupMapping['ids'] ?: [];
+        $applyGroup = function ($query, string $choice) use ($groupedIds) {
+            if ($choice === 'none') {
+                return $groupedIds === [] ? $query : $query->whereNotIn('p.product_id', $groupedIds);
             }
-        } elseif ($groupFilter !== 'all') {
-            // Show products matching a specific product group
-            $specificIds = $this->getProductIdsByGroup((int) $groupFilter);
-            if (empty($specificIds)) {
-                $query->whereRaw('1=0');
-            } else {
-                $query->whereIn('p.product_id', $specificIds);
+            if ($choice === 'all') {
+                return $query;
             }
-        }
+
+            return $query->whereIn('p.product_id', $this->getProductIdsByGroup((int) $choice) ?: [0]);
+        };
         /* THIS STORE (#201, the owner 2026-09-05): the table is this store's own
          * list, not the catalogue. A product is on the store once it has a
          * listing record here (Add products, Import) or a link row here (a
@@ -328,43 +325,24 @@ class ShopeeProductController extends Controller
             ->map(fn ($v) => (int) $v)->unique()->values()->all();
         $listed = fn ($query) => $query->whereIn('p.product_id', $linkedIds ?: [0]);
         $notListed = fn ($query) => $linkedIds === [] ? $query : $query->whereNotIn('p.product_id', $linkedIds);
-        $readyIs = function ($query, bool $wantReady) {
-            $matching = array_keys(array_filter($this->readyByProduct(), fn ($r) => $r === $wantReady));
-
-            return $query->whereIn('p.product_id', $matching ?: [0]);
-        };
-        $applySync = function ($query, string $status) use ($listed, $notListed, $readyIs) {
+        $applySync = function ($query, string $status) use ($listed, $notListed) {
             match ($status) {
                 'uploaded' => $listed($query),
-                'listed_ready' => $readyIs($listed($query), true),
-                'listed_not_ready' => $readyIs($listed($query), false),
                 'not_uploaded' => $notListed($query),
-                'ready' => $readyIs($notListed($query), true),
-                'not_ready' => $readyIs($notListed($query), false),
                 default => $query,
             };
 
             return $query;
         };
 
-        /* A cause narrows the rows exactly as a status does: the products
-         * whose readiness answer carries that gap code. */
-        $gapsByProduct = $this->gapsByProduct();
-        $withGap = function ($query, string $code) use ($gapsByProduct) {
-            $matching = array_keys(array_filter($gapsByProduct, fn ($codes) => in_array($code, $codes, true)));
-
-            return $query->whereIn('p.product_id', $matching ?: [0]);
-        };
-        $applyGap = fn ($query) => $gapFilter === 'all' ? $query : $withGap($query, $gapFilter);
-
         $errored = $this->listingStates()->erroredProductIds();
         $changed = $this->listingStates()->productIdsIn('drift');
 
         /* The status menu's choice, and the store's tab: each narrows the
          * rows, and each one's counts are taken under the other's choice. */
-        $applyMenu = function ($query) use ($applySync, $applyGap, $syncStatus, $failedFlag, $changeFlag, $errored, $changed) {
+        $applyMenu = function ($query) use ($applySync, $applyGroup, $syncStatus, $groupFilter, $failedFlag, $changeFlag, $errored, $changed) {
+            $applyGroup($query, $groupFilter);
             $applySync($query, $syncStatus);
-            $applyGap($query);
             if ($failedFlag) {
                 // Exactly the rows that carry an error line.
                 $query->whereIn('p.product_id', $errored ?: [0]);
@@ -409,34 +387,52 @@ class ShopeeProductController extends Controller
             return $out;
         };
 
+        /* The menu's base is the store's list under the tab and the two
+           switches, with NEITHER the rail's group nor the segment's half
+           applied: each of those two counts itself under the other, so a
+           number always opens the list it names. */
         $menuBase = $applyTab(clone $query);
-        $menuCounts = ['all' => (clone $menuBase)->count()];
-        foreach (['not_uploaded', 'ready', 'not_ready', 'uploaded', 'listed_ready', 'listed_not_ready'] as $status) {
-            $menuCounts[$status] = $applySync(clone $menuBase, $status)->count();
-        }
-        $menuCounts['failed'] = (clone $menuBase)->whereIn('p.product_id', $errored ?: [0])->count();
-        $menuCounts['change'] = (clone $menuBase)->whereIn('p.product_id', $changed ?: [0])->count();
-        /* One number per cause, under everything chosen EXCEPT the cause
-         * itself, so the line and the list it leads to always agree and the
-         * other causes keep their own numbers while one is chosen.
-         *
-         * The rung above matters: Listed, Ready is by definition the
-         * products with nothing missing, so its causes are empty and the
-         * whole block goes. Counting under the tab alone left "Package
-         * weight and size 98" sitting under a rung that cannot contain it. */
-        $causeCounts = [];
-        foreach (['not_ready', 'listed_not_ready'] as $half) {
-            $halfBase = $applySync(clone $menuBase, $half);
+        $withFlags = function ($sub) use ($failedFlag, $changeFlag, $errored, $changed) {
             if ($failedFlag) {
-                $halfBase->whereIn('p.product_id', $errored ?: [0]);
+                $sub->whereIn('p.product_id', $errored ?: [0]);
             }
             if ($changeFlag) {
-                $halfBase->whereIn('p.product_id', $changed ?: [0]);
+                $sub->whereIn('p.product_id', $changed ?: [0]);
             }
-            foreach (array_keys(\App\Integrations\Listings\StatusMenu::CAUSES) as $code) {
-                $causeCounts[$half][$code] = $withGap(clone $halfBase, $code)->count();
-            }
+
+            return $sub;
+        };
+
+        // The segment counts inside the rail's chosen group, never inside itself.
+        $standBase = $withFlags($applyGroup(clone $menuBase, $groupFilter));
+        $menuCounts = ['all' => (clone $standBase)->count()];
+        foreach (['not_uploaded', 'uploaded'] as $status) {
+            $menuCounts[$status] = $applySync(clone $standBase, $status)->count();
         }
+        /* The switches are counted across the store, not inside the rail's
+           group or the segment's half, because each one opens to that same
+           store-wide set: a number that counted itself somewhere narrower
+           would lead to a list bigger than the number promised. */
+        $menuCounts['failed'] = (clone $menuBase)->whereIn('p.product_id', $errored ?: [0])->count();
+        $menuCounts['change'] = (clone $menuBase)->whereIn('p.product_id', $changed ?: [0])->count();
+
+        /* The rail counts inside the segment's chosen half, never inside
+           itself, so every group keeps its own number while one is chosen. */
+        $railBase = $withFlags($applySync(clone $menuBase, $syncStatus));
+        $menuCounts['store'] = (clone $railBase)->count();
+        $groupRail = [];
+        foreach (ShopeeProductGroup::query()->orderBy('name')->get(['id', 'name']) as $group) {
+            $groupRail[] = [
+                'id' => (string) $group->id,
+                'name' => (string) $group->name,
+                'count' => $applyGroup(clone $railBase, (string) $group->id)->count(),
+            ];
+        }
+        $groupRail[] = [
+            'id' => 'none',
+            'name' => \App\Integrations\Listings\StatusMenu::UNGROUPED,
+            'count' => $applyGroup(clone $railBase, 'none')->count(),
+        ];
 
         $tabBase = $applyTrouble($applyMenu(clone $query));
         // The tab row's All: every row the menu has chosen, before a tab narrows it.
@@ -602,8 +598,9 @@ class ShopeeProductController extends Controller
                 'failed' => $failedFlag,
                 'change' => $changeFlag,
                 'counts' => $menuCounts,
-                'gap' => $gapFilter,
-                'causes' => $causeCounts,
+                'group' => $groupFilter,
+                'groups' => $groupRail,
+                'newGroup' => route('ext.shopee.product-groups.create'),
                 // Live is a fact about a marketplace: a product is live ON somewhere.
                 'store' => 'Shopee',
             ]),

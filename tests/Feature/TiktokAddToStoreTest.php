@@ -126,7 +126,10 @@ class TiktokAddToStoreTest extends TestCase
         $this->assertStringContainsString('No products on this store yet', $html);
         $this->assertStringContainsString('data-add-panel-open', $html);
         $this->assertStringContainsString('id="tiktok-add-panel"', $html);
-        $this->assertStringNotContainsString('All products', $html, 'the catalogue framing is gone');
+        /* The tab row says "All", this store's own list, never "All
+           products", which framed the page as the whole catalogue. The left
+           menu's own total is allowed to say it: there it counts the store. */
+        $this->assertStringNotContainsString('<span>All products</span>', $html, 'the catalogue framing is gone');
     }
 
     public function test_the_panel_is_not_rendered_for_a_read_only_operator(): void

@@ -234,7 +234,14 @@ class ShopeeReadinessTest extends TestCase
         $r->assertSee('a Shopee category');
     }
 
-    public function test_the_ready_filter_answers_the_same_computation(): void
+    /**
+     * Eligibility stopped being a place in the list on 2026-09-17: a product
+     * short of something says so on its own row and is refused at push, so
+     * the page no longer sorts the store by it. What is left is where a
+     * product stands, and a retired ?sync_status=ready address folds onto
+     * the half it belonged to rather than opening nothing.
+     */
+    public function test_a_retired_readiness_filter_lands_on_not_live_with_both_products(): void
     {
         $this->catchAllGroup();
         $ready = $this->seedProduct('Ready filter product', 'RDY-F-1');
@@ -242,16 +249,19 @@ class ShopeeReadinessTest extends TestCase
         $bare = $this->seedProduct('Bare filter product', 'RDY-F-2', '');
         ShopeeListing::query()->create(['product_id' => $bare]);
 
-        $r = $this->actingAs($this->manager())
-            ->get(route('ext.shopee.products.index', ['sync_status' => 'ready']));
+        // Neither product is on Shopee, so Not live holds both, complete or not.
+        foreach (['ready', 'not_ready', 'not_uploaded'] as $address) {
+            $this->actingAs($this->manager())
+                ->get(route('ext.shopee.products.index', ['sync_status' => $address]))
+                ->assertOk()
+                ->assertSee('Ready filter product')
+                ->assertSee('Bare filter product');
+        }
 
-        $r->assertOk();
-        $r->assertSee('Ready filter product');
-        $r->assertDontSee('Bare filter product');
-
-        $r2 = $this->actingAs($this->manager())
-            ->get(route('ext.shopee.products.index', ['sync_status' => 'not_ready']));
-        $r2->assertSee('Bare filter product');
-        $r2->assertDontSee('Ready filter product');
+        // The shortfall still reaches the seller, on the row that carries it.
+        $this->actingAs($this->manager())
+            ->get(route('ext.shopee.products.index'))
+            ->assertOk()
+            ->assertSee('Needs details');
     }
 }

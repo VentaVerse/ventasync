@@ -711,15 +711,19 @@ class ShopeeListingStateTest extends TestCase
         ShopeeListing::query()->create(['product_id' => $unlisted]);
 
         $user = $this->operator();
-        $page = $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'listed_not_ready']))->assertOk();
-        $page->assertSee('LISTGAP')->assertDontSee('LISTOK')->assertDontSee('NOTPUSHED')
+        $page = $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'uploaded']))->assertOk();
+        /* Live means live, complete or not: the shortfall is the row's own
+           amber line now, not a place in the menu. */
+        $page->assertSee('LISTGAP')->assertSee('LISTOK')->assertDontSee('NOTPUSHED')
             ->assertSee('Needs details')->assertSee('class="x-segment-bar"', false);
-        $this->assertMatchesRegularExpression('/sync_status=listed_not_ready[^>]*>\s*<span class="lsm-item__label">Needs details<\/span>\s*<span class="lsm-n">1</s', $page->getContent());
 
-        $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'listed_ready']))->assertOk()
-            ->assertSee('LISTOK')->assertDontSee('LISTGAP')->assertDontSee('NOTPUSHED');
+        // Both retired rungs belonged to Listed, so both land there.
+        foreach (['listed_not_ready', 'listed_ready'] as $retired) {
+            $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => $retired]))->assertOk()
+                ->assertSee('LISTOK')->assertSee('LISTGAP')->assertDontSee('NOTPUSHED');
+        }
 
-        $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'listed_not_ready', 'shopee_tab' => 'unlisted']))
+        $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'uploaded', 'shopee_tab' => 'unlisted']))
             ->assertOk()->assertDontSee('LISTGAP')->assertSee('class="x-segment-bar"', false);
     }
 

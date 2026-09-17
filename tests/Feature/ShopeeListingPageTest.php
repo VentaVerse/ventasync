@@ -713,11 +713,14 @@ class ShopeeListingPageTest extends TestCase
         // The status menu's "All" is this store's own list, and Shopee's
         // buckets are the tab row above the table. The catalogue framing
         // stays gone.
-        $r->assertSee('lsm-item__label">All<', false);
+        $r->assertSee('lss__label">All<', false);
         $r->assertSee('class="x-segment-bar"', false);
         $r->assertSee('<span>All</span>', false);
         $r->assertDontSee('x-segment-group__k', false); // no "Your catalogue" / "On Shopee" labels
-        $r->assertDontSee('All products');
+        /* The tab row says "All", this store's own list, never "All
+           products", which framed the page as the whole catalogue. The left
+           menu's own total is allowed to say it: there it counts the store. */
+        $r->assertDontSee('<span>All products</span>', false);
         $r->assertSee('as of 08:30, Aug 28');
         // Icon-only since the cleanup (2026-09-03); the words live in the
         // accessible name.

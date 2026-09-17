@@ -83,7 +83,8 @@ class ShopeeListingStatusMenuTest extends TestCase
         $user = $this->manager();
 
         $page = $this->actingAs($user)->get(route('ext.shopee.products.index'))->assertOk();
-        $page->assertSee('Where it stands')->assertSee('Needs you')->assertSee('data-lsm', false);
+        $page->assertSee('Product group')->assertSee('Filters')->assertSee('data-lsm', false);
+        $page->assertSee('All products')->assertSee('class="lss"', false);
         $page->assertDontSee('name="sync_status"', false);
         $page->assertSee('class="x-segment-bar"', false);
         $page->assertSee('x-segment__item', false);
@@ -115,5 +116,12 @@ class ShopeeListingStatusMenuTest extends TestCase
 
         $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'error']))
             ->assertOk()->assertSee('Listed but failed')->assertDontSee('Listed and fine')->assertSee('matches: Push failed', false);
+
+        // The retired eligibility rungs land on the half each belonged to.
+        $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'listed_not_ready']))
+            ->assertOk()->assertSee('Listed and fine')->assertDontSee('Not on Shopee yet');
+
+        $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'not_ready']))
+            ->assertOk()->assertSee('Not on Shopee yet')->assertDontSee('Listed and fine');
     }
 }

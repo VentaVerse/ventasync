@@ -14,9 +14,10 @@ use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
- * The status menu down the left of a store's Listings page: Where it stands
- * as one tree, and Needs you as two switches that narrow it. Pinned on
- * Lazada; every channel builds its menu through the same StatusMenu.
+ * The menu down the left of a store's Listings page: the whole store, then
+ * the store's product groups, then two filters that narrow whichever group
+ * is chosen. Pinned on Lazada; every channel builds it through the same
+ * StatusMenu.
  */
 class ListingStatusMenuTest extends TestCase
 {
@@ -86,7 +87,9 @@ class ListingStatusMenuTest extends TestCase
         $user = $this->manager();
 
         $page = $this->actingAs($user)->get(route('ext.lazada.products.index'))->assertOk();
-        $page->assertSee('Where it stands')->assertSee('Needs you')->assertSee('data-lsm', false);
+        $page->assertSee('Product group')->assertSee('Filters')->assertSee('data-lsm', false);
+        $page->assertSee('All products')->assertSee('Not in a group');
+        $page->assertSee('class="lss"', false);
         $page->assertDontSee('name="sync_status"', false);
 
         $this->actingAs($user)->get(route('ext.lazada.products.index', ['sync_status' => 'uploaded']))
@@ -116,43 +119,105 @@ class ListingStatusMenuTest extends TestCase
             ->assertOk()->assertSee('compare=1', false)->assertDontSee('Listed but failed')->assertDontSee('Not on Lazada yet');
     }
 
-    public function test_the_tree_keeps_every_other_filter_and_splits_both_halves_by_readiness(): void
+    public function test_the_rail_keeps_every_other_filter_and_leads_with_the_biggest_group(): void
     {
         $menu = StatusMenu::build([
             'url' => fn (array $p) => '/listings?' . http_build_query($p),
             'query' => ['q' => 'cable', 'page' => 3, 'sync_status' => 'error', 'lazada_tab' => 'active'],
             'sync' => 'error', 'failed' => false, 'change' => false,
-            'counts' => ['all' => 10, 'not_uploaded' => 4, 'ready' => 3, 'not_ready' => 1, 'uploaded' => 6, 'listed_ready' => 4, 'listed_not_ready' => 2, 'failed' => 2, 'change' => 1],
+            'group' => 'all', 'store' => 'Lazada',
+            'counts' => ['all' => 10, 'store' => 10, 'not_uploaded' => 4, 'uploaded' => 6, 'failed' => 2, 'change' => 1],
+            'groups' => [
+                ['id' => '7', 'name' => 'Cables', 'count' => 2],
+                ['id' => '4', 'name' => 'Mosky', 'count' => 6],
+                ['id' => 'none', 'name' => StatusMenu::UNGROUPED, 'count' => 2],
+            ],
         ]);
 
         $this->assertSame('Push failed', $menu['label']);
         $this->assertTrue($menu['flags'][0]['on'], 'an old error link switches Push failed on');
-        [$all, $notListed, $listed] = $menu['tree'];
-        $this->assertTrue($all['active']);
-        $this->assertStringContainsString('q=cable', $listed['url'], 'the search stays');
-        $this->assertStringContainsString('lazada_tab=active', $listed['url'], 'the store tab stays chosen');
-        $this->assertStringNotContainsString('page=', $listed['url'], 'a new choice starts at the first page');
-        $this->assertStringContainsString('failed=1', $listed['url'], 'the switch stays on when the tree moves');
-        $this->assertSame(['Eligible', 'Needs details'], array_column($notListed['kids'], 'label'));
-        $this->assertSame(['Eligible', 'Needs details'], array_column($listed['kids'], 'label'));
-        $this->assertSame([4, 2], array_column($listed['kids'], 'count'));
-        $this->assertStringContainsString('sync_status=listed_not_ready', $listed['kids'][1]['url']);
+
+        /* The whole store sits apart from the list, because it is not a
+           group: it is what you see when none is chosen. The groups
+           themselves read biggest first, so the eye lands on the work. */
+        $this->assertSame(StatusMenu::EVERYTHING, $menu['everything']['label']);
+        $this->assertSame(10, $menu['everything']['count']);
+
+        $this->assertSame(
+            ['Mosky', 'Cables', StatusMenu::UNGROUPED],
+            array_column($menu['groups'], 'label')
+        );
+        $this->assertSame([6, 2, 2], array_column($menu['groups'], 'count'));
+
+        /* The leftovers sit at the bottom whatever their number: they are
+           what the groups above did not claim, not a group competing for
+           size. Give them the biggest count and they still come last. */
+        $big = StatusMenu::build([
+            'url' => fn (array $p) => '/listings?' . http_build_query($p),
+            'query' => [], 'sync' => 'all', 'failed' => false, 'change' => false,
+            'group' => 'all', 'store' => 'Lazada',
+            'counts' => ['all' => 99, 'store' => 99],
+            'groups' => [
+                ['id' => 'none', 'name' => StatusMenu::UNGROUPED, 'count' => 90],
+                ['id' => '4', 'name' => 'Mosky', 'count' => 9],
+            ],
+        ]);
+        $this->assertSame(
+            ['Mosky', StatusMenu::UNGROUPED],
+            array_column($big['groups'], 'label')
+        );
+        $this->assertTrue($menu['everything']['active'], 'no group chosen means the whole store is');
+
+        $mosky = $menu['groups'][0];
+        $this->assertStringContainsString('q=cable', $mosky['url'], 'the search stays');
+        $this->assertStringContainsString('lazada_tab=active', $mosky['url'], 'the store tab stays chosen');
+        $this->assertStringNotContainsString('page=', $mosky['url'], 'a new choice starts at the first page');
+        $this->assertStringContainsString('failed=1', $mosky['url'], 'the switch stays on when the rail moves');
+        $this->assertStringContainsString('group=4', $mosky['url']);
+
+        // Where it stands moved to the segment, and it names the store.
+        $this->assertSame(['All', 'Not live on Lazada', 'Live on Lazada'], array_column($menu['stand'], 'label'));
+        $this->assertSame([10, 4, 6], array_column($menu['stand'], 'count'));
+        $this->assertStringContainsString('sync_status=uploaded', $menu['stand'][2]['url']);
         $this->assertStringNotContainsString('failed=1', $menu['flags'][0]['url'], 'pressing an on switch turns it off');
     }
 
-    /** A live product with a gap on VentaSync's side is found under Listed, and the store's tab narrows it further. */
-    public function test_a_listed_product_that_needs_details_is_found_under_listed(): void
+    /** A retired eligibility address lands on the half it belonged to, never nowhere. */
+    public function test_a_retired_eligibility_link_folds_onto_its_half(): void
+    {
+        $this->assertSame('uploaded', StatusMenu::stand('listed_ready'));
+        $this->assertSame('uploaded', StatusMenu::stand('listed_not_ready'));
+        $this->assertSame('not_uploaded', StatusMenu::stand('ready'));
+        $this->assertSame('not_uploaded', StatusMenu::stand('not_ready'));
+        $this->assertSame('all', StatusMenu::stand('something else'));
+
+        $this->store();
+        $this->actingAs($this->manager())->get(route('ext.lazada.products.index', ['sync_status' => 'listed_not_ready']))
+            ->assertOk()->assertSee('Listed and fine')->assertDontSee('Not on Lazada yet');
+    }
+
+    /** The rail narrows to one group, and the segment then splits that group. */
+    public function test_a_group_narrows_the_list_and_the_segment_splits_it(): void
     {
         $ids = $this->store();
-        $pfx = (string) config('catalog.prefix');
-        DB::table($pfx . 'product')->where('product_id', $ids['listedOk'])->update(['sku' => '']);
+        $group = \Extensions\lazada\Models\LazadaProductGroup::create(['name' => 'Cables', 'lazada_category_id' => 4321]);
+        \Extensions\lazada\Models\LazadaProductGroupProduct::create([
+            'lazada_product_group_id' => $group->id,
+            'product_id' => $ids['listedOk'],
+            'lazada_product_id' => LazadaProduct::query()->where('product_id', $ids['listedOk'])->value('id'),
+            'sync_status' => 'pending',
+        ]);
         $user = $this->manager();
 
-        $page = $this->actingAs($user)->get(route('ext.lazada.products.index', ['sync_status' => 'listed_not_ready']))->assertOk();
-        $page->assertSee('Listed and fine')->assertDontSee('Not on Lazada yet')->assertSee('Live on Lazada, Needs details');
-        $this->assertMatchesRegularExpression('/sync_status=listed_not_ready[^>]*>\s*<span class="lsm-item__label">Needs details<\/span>\s*<span class="lsm-n">[1-9]/s', $page->getContent());
+        $page = $this->actingAs($user)->get(route('ext.lazada.products.index', ['group' => $group->id]))->assertOk();
+        $page->assertSee('Listed and fine')->assertDontSee('Not on Lazada yet')->assertSee('Cables');
 
-        $this->actingAs($user)->get(route('ext.lazada.products.index', ['sync_status' => 'listed_not_ready', 'lazada_tab' => 'inactive']))
-            ->assertOk()->assertDontSee('Listed and fine')->assertSee('class="x-segment-bar"', false);
+        // The products no group claims are their own place, never dropped.
+        $this->actingAs($user)->get(route('ext.lazada.products.index', ['group' => 'none']))
+            ->assertOk()->assertSee('Not on Lazada yet')->assertDontSee('Listed and fine');
+
+        // The store's own tabs still sit above the table, apart from the rail.
+        $this->actingAs($user)->get(route('ext.lazada.products.index', ['group' => $group->id, 'lazada_tab' => 'inactive']))
+            ->assertOk()->assertSee('class="x-segment-bar"', false);
     }
 }

@@ -125,8 +125,11 @@ class VentaListingsIndexTest extends TestCase
         $this->assertMatchesRegularExpression('/<span>Unlisted<\/span>\s*<span class="x-segment__count">1<\/span>/', $html);
         $this->assertMatchesRegularExpression('/<span>All products<\/span>\s*<span class="x-segment__count">3<\/span>/', $html);
         $this->assertStringNotContainsString('<span class="lsm-item__label">Active</span>', $html);
-        $this->assertMatchesRegularExpression('/<span class="lsm-item__label">All<\/span>\s*<span class="lsm-n">3<\/span>/', $html);
-        $this->assertMatchesRegularExpression('/<span class="lsm-item__label">Live on Gear Depot<\/span>\s*<span class="lsm-n">2<\/span>/', $html);
+        // Where it stands is the segment above the table now, not the rail.
+        $this->assertMatchesRegularExpression('/<span class="lss__label">All<\/span>\s*<span class="lss__n">3<\/span>/', $html);
+        $this->assertMatchesRegularExpression('/<span class="lss__label">Live on Gear Depot<\/span>\s*<span class="lss__n">2<\/span>/', $html);
+        // The rail carries the store's groups instead.
+        $this->assertMatchesRegularExpression('/<span class="lsm-item__label">All products<\/span>\s*<span class="lsm-n">3<\/span>/', $html);
         $this->assertStringContainsString('<span class="co-item__sku lsm-chanid">Venta 11</span>', $html);
         $this->assertStringContainsString('class="x-segment-group__refresh"', $html);
         $this->assertStringNotContainsString('class="cc-head-refresh"', $html);
@@ -148,7 +151,7 @@ class VentaListingsIndexTest extends TestCase
         $user = $this->manager();
 
         $this->actingAs($user)->get(route('ext.venta.listings.index', $store->id))->assertOk()
-            ->assertSee('Where it stands')->assertSee('Needs you')->assertSee('data-lsm', false)
+            ->assertSee('Product group')->assertSee('Filters')->assertSee('data-lsm', false)
             ->assertDontSee('name="sync_status"', false);
 
         $this->actingAs($user)->get(route('ext.venta.listings.index', ['store' => $store->id, 'sync_status' => 'uploaded', 'failed' => 1]))->assertOk()
@@ -158,13 +161,14 @@ class VentaListingsIndexTest extends TestCase
         $this->actingAs($user)->get(route('ext.venta.listings.index', ['store' => $store->id, 'sync_status' => 'not_listed']))->assertOk()
             ->assertSee('New pedal')->assertDontSee('Active pedal')->assertDontSee('Unlisted pedal');
 
+        // A retired eligibility rung lands on the half it belonged to.
         $this->actingAs($user)->get(route('ext.venta.listings.index', ['store' => $store->id, 'sync_status' => 'ready']))->assertOk()
-            ->assertSee('New pedal')->assertDontSee('Active pedal')->assertSee('Not live on Gear Depot, Eligible');
+            ->assertSee('New pedal')->assertDontSee('Active pedal')->assertSee('matches: Not live on Gear Depot', false);
         Http::assertNothingSent();
     }
 
-    /** A listed product with a readiness gap is found under Listed, and the store's tab and the menu combine. */
-    public function test_a_listed_product_that_needs_details_is_found_under_listed(): void
+    /** A retired eligibility address lands on its half, and the store's tab and the menu still combine. */
+    public function test_a_retired_eligibility_link_lands_on_its_half(): void
     {
         $store = $this->store();
         $ids = $this->scope($store);
@@ -174,23 +178,25 @@ class VentaListingsIndexTest extends TestCase
         Http::fake();
         $user = $this->manager();
 
-        $html = $this->actingAs($user)->get(route('ext.venta.listings.index', ['store' => $store->id, 'sync_status' => 'listed_not_ready']))
+        /* Both retired rungs belonged to Listed, so both land there: the
+           linked products, complete or not, and never the unlinked one. */
+        foreach (['listed_not_ready', 'listed_ready'] as $retired) {
+            $this->actingAs($user)->get(route('ext.venta.listings.index', ['store' => $store->id, 'sync_status' => $retired]))
+                ->assertOk()
+                ->assertSee('Unlisted pedal')->assertSee('Active pedal')->assertDontSee('New pedal');
+        }
+
+        $html = $this->actingAs($user)->get(route('ext.venta.listings.index', ['store' => $store->id, 'sync_status' => 'uploaded']))
             ->assertOk()
-            ->assertSee('Unlisted pedal')->assertDontSee('Active pedal')->assertDontSee('New pedal')
-            ->assertSee('Needs details')
             ->assertSee('class="x-segment-bar"', false)
             ->getContent();
-        $this->assertMatchesRegularExpression('/sync_status=listed_not_ready[^>]*>\s*<span class="lsm-item__label">Needs details<\/span>\s*<span class="lsm-n">1<\/span>/s', $html);
         // The tab row counts the rows the menu has chosen.
-        $this->assertMatchesRegularExpression('/<span>All products<\/span>\s*<span class="x-segment__count">1<\/span>/', $html);
+        $this->assertMatchesRegularExpression('/<span>All products<\/span>\s*<span class="x-segment__count">2<\/span>/', $html);
         $this->assertMatchesRegularExpression('/<span>Unlisted<\/span>\s*<span class="x-segment__count">1<\/span>/', $html);
-        $this->assertMatchesRegularExpression('/<span>Active<\/span>\s*<span class="x-segment__count">0<\/span>/', $html);
+        $this->assertMatchesRegularExpression('/<span>Active<\/span>\s*<span class="x-segment__count">1<\/span>/', $html);
 
-        $this->actingAs($user)->get(route('ext.venta.listings.index', ['store' => $store->id, 'sync_status' => 'listed_ready']))
-            ->assertOk()->assertSee('Active pedal')->assertDontSee('Unlisted pedal')->assertDontSee('New pedal');
-
-        $this->actingAs($user)->get(route('ext.venta.listings.index', ['store' => $store->id, 'sync_status' => 'listed_not_ready', 'venta_tab' => 'active']))
-            ->assertOk()->assertDontSee('Unlisted pedal')->assertDontSee('Active pedal')->assertSee('class="x-segment-bar"', false);
+        $this->actingAs($user)->get(route('ext.venta.listings.index', ['store' => $store->id, 'sync_status' => 'uploaded', 'venta_tab' => 'active']))
+            ->assertOk()->assertDontSee('Unlisted pedal')->assertSee('class="x-segment-bar"', false);
         Http::assertNothingSent();
     }
 

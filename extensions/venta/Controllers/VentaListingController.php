@@ -279,13 +279,16 @@ class VentaListingController extends Controller
         $langId = (int) config('catalog.default_language_id');
 
         $q = trim((string) $request->get('q', ''));
-        $groupFilter = (string) $request->get('group', 'all');
+        /* The rail's choice: a group id, `none` for the products no group
+           claims, else the whole store. */
+        $groupFilter = \App\Integrations\Listings\StatusMenu::group($request->get('group'));
         $erpStatus = (string) $request->get('erp_status', 'all');
         $syncStatus = (string) $request->get('sync_status', 'all');
         // The status menu's words, with the page's older listed / not_listed still read.
         $syncStatus = ['listed' => 'uploaded', 'not_listed' => 'not_uploaded'][$syncStatus] ?? $syncStatus;
-        if (! in_array($syncStatus, [...\App\Integrations\Listings\StatusMenu::VALUES, 'error'], true)) {
-            $syncStatus = 'all';
+        // A retired eligibility rung lands on the half it belonged to.
+        if ($syncStatus !== 'error') {
+            $syncStatus = \App\Integrations\Listings\StatusMenu::stand($syncStatus);
         }
         /* The status menu's two switches narrow whatever the tree has
          * chosen; an old sync_status=error link is Push failed switched on. */
@@ -294,9 +297,6 @@ class VentaListingController extends Controller
         if ($syncStatus === 'error') {
             $syncStatus = 'all';
         }
-        /* One cause at a time: the menu counts WHY a product cannot go, and
-         * this is the address that choice lives at. */
-        $gapFilter = \App\Integrations\Listings\StatusMenu::cause($request->get('gap'));
         $tab = (string) $request->get('venta_tab', 'all');
         if (! array_key_exists($tab, VentaListingMirror::TABS)) {
             $tab = 'all';
@@ -345,10 +345,25 @@ class VentaListingController extends Controller
             ->whereIn('p.product_id', $scopeIds ?: [0])
             ->select('p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as manufacturer_name');
 
-        if ($groupFilter !== 'all') {
-            $inGroup = VentaProductGroupProduct::query()->where('venta_product_group_id', (int) $groupFilter)->pluck('product_id')->all();
-            $query->whereIn('p.product_id', $inGroup ?: [0]);
-        }
+        /* The rail's choice, as a closure rather than a filter written into
+           the query here: the rail counts every group under everything else
+           the page has chosen EXCEPT the group, so a number and the list it
+           opens always agree. Grouped means grouped ON THIS STORE. */
+        $groupedIds = VentaProductGroupProduct::query()
+            ->whereIn('venta_product_group_id', VentaProductGroup::query()->where('venta_setting_id', $store)->select('id'))
+            ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+        $applyGroup = function ($query, string $choice) use ($groupedIds) {
+            if ($choice === 'none') {
+                return $groupedIds === [] ? $query : $query->whereNotIn('p.product_id', $groupedIds);
+            }
+            if ($choice === 'all') {
+                return $query;
+            }
+            $ids = VentaProductGroupProduct::query()->where('venta_product_group_id', (int) $choice)
+                ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+
+            return $query->whereIn('p.product_id', $ids ?: [0]);
+        };
         if ($erpStatus === 'enabled') {
             $query->where('p.status', 1);
         } elseif ($erpStatus === 'disabled') {
@@ -384,44 +399,24 @@ class VentaListingController extends Controller
          * readiness the row's own Ready column reads. */
         $listed = fn ($query) => $query->whereIn('p.product_id', $linkedProductIds ?: [0]);
         $notListed = fn ($query) => $query->whereNotIn('p.product_id', $linkedProductIds ?: [0]);
-        $readyIs = function ($query, bool $wantReady) use ($store, $scopeIds) {
-            $matching = array_keys(array_filter($this->readyByProduct($store, $scopeIds), fn ($r) => $r === $wantReady));
-
-            return $query->whereIn('p.product_id', $matching ?: [0]);
-        };
-        $applySync = function ($query, string $status) use ($listed, $notListed, $readyIs) {
+        $applySync = function ($query, string $status) use ($listed, $notListed) {
             match ($status) {
                 'uploaded' => $listed($query),
-                'listed_ready' => $readyIs($listed($query), true),
-                'listed_not_ready' => $readyIs($listed($query), false),
                 'not_uploaded' => $notListed($query),
-                'ready' => $readyIs($notListed($query), true),
-                'not_ready' => $readyIs($notListed($query), false),
                 default => $query,
             };
 
             return $query;
         };
 
-        /* A cause narrows the rows exactly as a status does: the products
-         * whose readiness answer carries that gap code. */
-        $gapMap = null;
-        $withGap = function ($query, string $code) use ($store, $scopeIds, &$gapMap) {
-            $gapMap ??= $this->gapsByProduct($store, $scopeIds);
-            $matching = array_keys(array_filter($gapMap, fn ($codes) => in_array($code, $codes, true)));
-
-            return $query->whereIn('p.product_id', $matching ?: [0]);
-        };
-        $applyGap = fn ($query) => $gapFilter === 'all' ? $query : $withGap($query, $gapFilter);
-
         $errored = $states->erroredProductIds();
         $changed = $states->productIdsIn('drift');
 
         /* The status menu's choice, and the store's tab: each narrows the
          * rows, and each one's counts are taken under the other's choice. */
-        $applyMenu = function ($query) use ($applySync, $applyGap, $syncStatus, $failedFlag, $changeFlag, $errored, $changed) {
+        $applyMenu = function ($query) use ($applySync, $applyGroup, $syncStatus, $groupFilter, $failedFlag, $changeFlag, $errored, $changed) {
+            $applyGroup($query, $groupFilter);
             $applySync($query, $syncStatus);
-            $applyGap($query);
             if ($failedFlag) {
                 /* The rows that draw an error line, by the line's own engine. */
                 $query->whereIn('p.product_id', $errored ?: [0]);
@@ -462,27 +457,45 @@ class VentaListingController extends Controller
         };
 
         $menuBase = $applyTab(clone $query);
-        $menuCounts = ['all' => (clone $menuBase)->count()];
-        foreach (['not_uploaded', 'ready', 'not_ready', 'uploaded', 'listed_ready', 'listed_not_ready'] as $status) {
-            $menuCounts[$status] = $applySync(clone $menuBase, $status)->count();
-        }
-        $menuCounts['failed'] = (clone $menuBase)->whereIn('p.product_id', $errored ?: [0])->count();
-        $menuCounts['change'] = (clone $menuBase)->whereIn('p.product_id', $changed ?: [0])->count();
-        /* One number per cause, under everything chosen EXCEPT the cause
-         * itself, counted within the half it hangs under. */
-        $causeCounts = [];
-        foreach (['not_ready', 'listed_not_ready'] as $half) {
-            $halfBase = $applySync(clone $menuBase, $half);
+        $withFlags = function ($sub) use ($failedFlag, $changeFlag, $errored, $changed) {
             if ($failedFlag) {
-                $halfBase->whereIn('p.product_id', $errored ?: [0]);
+                $sub->whereIn('p.product_id', $errored ?: [0]);
             }
             if ($changeFlag) {
-                $halfBase->whereIn('p.product_id', $changed ?: [0]);
+                $sub->whereIn('p.product_id', $changed ?: [0]);
             }
-            foreach (array_keys(\App\Integrations\Listings\StatusMenu::CAUSES) as $code) {
-                $causeCounts[$half][$code] = $withGap(clone $halfBase, $code)->count();
-            }
+
+            return $sub;
+        };
+
+        // The segment counts inside the rail's chosen group, never inside itself.
+        $standBase = $withFlags($applyGroup(clone $menuBase, $groupFilter));
+        $menuCounts = ['all' => (clone $standBase)->count()];
+        foreach (['not_uploaded', 'uploaded'] as $status) {
+            $menuCounts[$status] = $applySync(clone $standBase, $status)->count();
         }
+        /* The switches are counted across the store, not inside the rail's
+           group or the segment's half, because each opens to that same set. */
+        $menuCounts['failed'] = (clone $menuBase)->whereIn('p.product_id', $errored ?: [0])->count();
+        $menuCounts['change'] = (clone $menuBase)->whereIn('p.product_id', $changed ?: [0])->count();
+
+        /* The rail counts inside the segment's chosen half, never inside
+           itself, so every group keeps its own number while one is chosen. */
+        $railBase = $withFlags($applySync(clone $menuBase, $syncStatus));
+        $menuCounts['store'] = (clone $railBase)->count();
+        $groupRail = [];
+        foreach (VentaProductGroup::query()->where('venta_setting_id', $store)->orderBy('name')->get(['id', 'name']) as $group) {
+            $groupRail[] = [
+                'id' => (string) $group->id,
+                'name' => (string) $group->name,
+                'count' => $applyGroup(clone $railBase, (string) $group->id)->count(),
+            ];
+        }
+        $groupRail[] = [
+            'id' => 'none',
+            'name' => \App\Integrations\Listings\StatusMenu::UNGROUPED,
+            'count' => $applyGroup(clone $railBase, 'none')->count(),
+        ];
 
         $tabBase = $applyMenu(clone $query);
         // The tab row's All products: every row the menu has chosen, before a tab narrows it.
@@ -558,8 +571,9 @@ class VentaListingController extends Controller
                 'failed' => $failedFlag,
                 'change' => $changeFlag,
                 'counts' => $menuCounts,
-                'gap' => $gapFilter,
-                'causes' => $causeCounts,
+                'group' => $groupFilter,
+                'groups' => $groupRail,
+                'newGroup' => route('ext.venta.product-groups.create', $store),
                 // Live is a fact about a store, so a multi-store channel names the store itself.
                 'store' => (string) $setting->store_name,
             ]),

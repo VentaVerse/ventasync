@@ -114,6 +114,8 @@
 @include('partials.listing-status-menu', ['menu' => $statusMenu])
 <div class="lsm-layout__main">
 
+@include('partials.listing-stand-segment', ['menu' => $statusMenu])
+
 <form method="GET" action="{{ route('ext.shopee.products.index') }}" class="x-filters" id="shopee-listings-filter">
     {{-- The menu's choice rides a search. --}}
     @if(($shopeeTab ?? 'all') !== 'all')
@@ -121,6 +123,10 @@
     @endif
     @if($syncStatus !== 'all')
         <input type="hidden" name="sync_status" value="{{ $syncStatus }}">
+    @endif
+    {{-- The rail's choice rides a search too, or searching would drop it. --}}
+    @if(($groupFilter ?? 'all') !== 'all')
+        <input type="hidden" name="group" value="{{ $groupFilter }}">
     @endif
     @if($failedFlag ?? false)
         <input type="hidden" name="failed" value="1">
@@ -141,16 +147,6 @@
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
 
-    <div class="x-select-wrap x-filters__select">
-        <select name="group" class="x-input" data-autosubmit aria-label="Filter by product group">
-            <option value="all" @selected($groupFilter === 'all')>All product groups</option>
-            <option value="none" @selected($groupFilter === 'none')>Not in a product group</option>
-            @foreach(($allGroups ?? collect()) as $pId => $pName)
-                <option value="{{ $pId }}" @selected($groupFilter === (string) $pId)>{{ $pName }}</option>
-            @endforeach
-        </select>
-        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-    </div>
 
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
         <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by catalog status">

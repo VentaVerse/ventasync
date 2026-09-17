@@ -124,6 +124,8 @@
 @include('partials.listing-status-menu', ['menu' => $statusMenu])
 <div class="lsm-layout__main">
 
+@include('partials.listing-stand-segment', ['menu' => $statusMenu])
+
 <form method="GET" action="{{ route('ext.tiktok.products.index') }}" class="x-filters">
     {{-- The menu's choice rides a search. --}}
     @if($tiktokTab !== 'all')
@@ -131,6 +133,10 @@
     @endif
     @if($syncStatus !== 'all')
         <input type="hidden" name="sync_status" value="{{ $syncStatus }}">
+    @endif
+    {{-- The rail's choice rides a search too, or searching would drop it. --}}
+    @if(($groupFilter ?? 'all') !== 'all')
+        <input type="hidden" name="group" value="{{ $groupFilter }}">
     @endif
     @if($failedFlag ?? false)
         <input type="hidden" name="failed" value="1">
@@ -144,15 +150,6 @@
             <option value="all">All manufacturers</option>
             @foreach($allManufacturers as $mId => $mName)
                 <option value="{{ $mId }}" @selected($manufacturerFilter === (string) $mId)>{{ $mName }}</option>
-            @endforeach
-        </select>
-        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-    </div>
-    <div class="x-select-wrap x-filters__select">
-        <select name="group" class="x-input" data-autosubmit aria-label="Filter by product group">
-            <option value="all" @selected($groupFilter === 'all')>All product groups</option>
-            @foreach($allGroups as $gId => $gName)
-                <option value="{{ $gId }}" @selected($groupFilter === (string) $gId)>{{ $gName }}</option>
             @endforeach
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />

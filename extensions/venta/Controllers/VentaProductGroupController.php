@@ -291,8 +291,12 @@ class VentaProductGroupController extends Controller
 
         // A new group lands on its products page, which is where Add products
         // lives (the one group shape, 2026-09-07).
-        return redirect()->route('ext.venta.product-groups.products', [$store, $group->id])
-            ->with('status', 'Product group created. Add products to it here.');
+        /* Back to the page that sent you here, the store's list or the
+           groups list, and the new group's own page when nothing did. */
+        return redirect(\App\Support\BackTo::safe(
+            $request->input('_return'),
+            route('ext.venta.product-groups.products', [$store, $group->id])
+        ))->with('status', 'Product group created. Add products to it here.');
     }
 
     /**

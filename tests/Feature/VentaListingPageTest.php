@@ -1111,7 +1111,10 @@ class VentaListingPageTest extends TestCase
         $this->assertDatabaseHas('venta_listings', ['venta_setting_id' => $store->id, 'product_id' => $nowhere]);
         $page = $this->actingAs($this->manager())->get(route('ext.venta.listings.index', $store->id))->assertOk();
         // Enabled with a SKU is all the store's push refuses on, so the Ready column says Ready (2026-09-06); the image is the store's to want.
-        $page->assertSee('>Eligible<', false);
+        /* Eligible was a rung in the old menu, and the menu is the store's
+           product groups now. A product with nothing missing draws no
+           readiness line at all, which is what these two assert. */
+        $page->assertDontSee('a SKU on the catalog product');
         $page->assertDontSee('a product image on the catalog product');
         $page->assertSee('Remove from this channel');
 

@@ -51,6 +51,11 @@
         : route('ext.venta.product-groups.update', [$setting->id, $group->id]) }}"
       data-guard-unsaved>
     @csrf
+    @if($mode === 'create')
+        {{-- Back to the page that sent you here: the store's list, or the
+             groups list. Only a local path is ever followed. --}}
+        <input type="hidden" name="_return" value="{{ \App\Support\BackTo::capture() }}">
+    @endif
     @if($mode === 'edit')
         @method('PUT')
     @endif

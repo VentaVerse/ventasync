@@ -3,17 +3,19 @@
 namespace App\Integrations\Listings;
 
 /**
- * The status menu down the left of a store's Listings page, shaped once for
- * every channel (partials/listing-status-menu). It shows VentaSync's own
- * view of each product; the store's own statuses are the tab row above the
- * table, and the two combine.
+ * The menu down the left of a store's Listings page, shaped once for every
+ * channel (partials/listing-status-menu). The rail is the store's product
+ * groups: a product belongs to at most one, so the counts add up to the
+ * store and a number never overlaps its neighbour.
  *
- * Where it stands is one tree: All; Not listed, split into Ready to push and
- * Needs details; Listed, split into Ready and Needs details. Needs you is two
- * switches, Push failed and Catalog change, that narrow whatever the tree
- * has chosen. The tree keeps each channel's sync_status parameter, so every
- * old link still lands where it did; an old sync_status=error link reads as
- * Push failed switched on.
+ * Where a product stands with the marketplace is the segment above the table
+ * (partials/listing-stand-segment). It narrows whichever group is chosen,
+ * so the two never compete for the same place on the page and cannot
+ * disagree: one filter in the rail, one above the table.
+ *
+ * Filters are two switches, Push failed and Catalog change, that narrow
+ * whichever group is chosen rather than replacing it. An error is not a
+ * place in the catalogue, it is something waiting for the seller.
  */
 final class StatusMenu
 {
@@ -23,59 +25,52 @@ final class StatusMenu
      */
     public const TREE = ['all' => 'All', 'not_uploaded' => 'Not live on %s', 'uploaded' => 'Live on %s'];
 
-    /**
-     * ELIGIBLE, not Ready.
-     *
-     * Ready promises an action still to come, which is true before a product
-     * goes up and false the moment it is selling. The check underneath never
-     * changed: does this listing hold everything the store demands. Before it
-     * is live that decides whether it may go; after it is live it decides
-     * whether an update would be accepted. Eligible carries both.
-     */
-    public const NOT_LISTED_PARTS = ['ready' => 'Eligible', 'not_ready' => 'Needs details'];
+    /** Every sync_status value the segment answers to. */
+    public const VALUES = ['all', 'not_uploaded', 'uploaded'];
 
-    public const LISTED_PARTS = ['listed_ready' => 'Eligible', 'listed_not_ready' => 'Needs details'];
+    /** The rail's own first entry: the whole store, whatever it is grouped into. */
+    public const EVERYTHING = 'All products';
 
-    /** Every sync_status value the tree answers to. */
-    public const VALUES = ['all', 'not_uploaded', 'ready', 'not_ready', 'uploaded', 'listed_ready', 'listed_not_ready'];
+    /** The products no group claims. Never a footnote: on a real store it is one of the larger entries. */
+    public const UNGROUPED = 'Not in a group';
 
     /**
-     * WHY a product cannot go, in the words a column of counts can carry.
+     * The eligibility rungs the menu used to carry, and the half each one
+     * belonged to.
      *
-     * The codes are ListingState's; the labels here are short on purpose.
-     * A row's amber line spells the whole sentence ("a package weight and
-     * size (LxWxH) on the catalog product") because it is teaching one
-     * product's reader what to do. A menu line is a heading over a count,
-     * read down a column beside eleven others, and the sentence is what
-     * made "Needs details" unreadable in the first place.
+     * They are gone. The page says where a product stands and which group it
+     * is in; a product short of something says so on its own row and is
+     * refused at push, so counting the shortfalls in the menu bought a
+     * whole-catalogue pass for a number that read zero on a healthy store.
      *
-     * One list for all five channels: a channel that cannot have a cause
-     * simply never counts it, and a channel that gains one gains the line
-     * in the same place on every store.
-     *
-     * The order is the fallback when two causes hold the same number; the
-     * menu itself leads with whichever holds the most products, because
-     * that is the one worth an operator's afternoon.
+     * An address that still names a rung lands on its half rather than
+     * nowhere, so a bookmark, a shared link or a dashboard chip keeps working.
      */
-    public const CAUSES = [
-        ListingState::GAP_DISABLED => 'Disabled in the catalog',
-        ListingState::GAP_PARCEL => 'Package weight and size',
-        ListingState::GAP_SKU => 'SKU',
-        ListingState::GAP_CATEGORY => 'Category',
-        ListingState::GAP_ATTRIBUTES => 'Category attributes',
-        ListingState::GAP_SHEET => 'Category attribute sheet',
-        ListingState::GAP_COURIERS => 'Couriers',
-        ListingState::GAP_IMAGE => 'Product image',
-        ListingState::GAP_NAME => 'Name',
-        ListingState::GAP_DESCRIPTION => 'Description',
-        ListingState::GAP_PRICE => 'Price',
-        ListingState::GAP_VARIATIONS => 'Variations',
+    public const RETIRED = [
+        'ready' => 'not_uploaded',
+        'not_ready' => 'not_uploaded',
+        'listed_ready' => 'uploaded',
+        'listed_not_ready' => 'uploaded',
     ];
 
-    /** The gap code a `gap=` address may carry, or 'all' when it names none we know. */
-    public static function cause(?string $candidate): string
+    /** Where a `sync_status=` address stands, with a retired rung folded into its half. */
+    public static function stand(?string $candidate): string
     {
-        return is_string($candidate) && array_key_exists($candidate, self::CAUSES) ? $candidate : 'all';
+        $value = is_string($candidate) ? trim($candidate) : 'all';
+        $value = self::RETIRED[$value] ?? $value;
+
+        return in_array($value, self::VALUES, true) ? $value : 'all';
+    }
+
+    /** The group a `group=` address names: an id, `none` for the ungrouped, else all. */
+    public static function group(?string $candidate): string
+    {
+        $value = is_string($candidate) ? trim($candidate) : '';
+        if ($value === 'none') {
+            return 'none';
+        }
+
+        return ctype_digit($value) && (int) $value > 0 ? $value : 'all';
     }
 
     /**
@@ -83,26 +78,39 @@ final class StatusMenu
      *     url: callable(array<string, mixed>): string,
      *     query: array<string, mixed>,
      *     sync: string,
+     *     group?: ?string,
      *     failed: bool,
      *     change: bool,
-     *     counts: array<string, int>
+     *     counts: array<string, int>,
+     *     groups?: list<array{id: int|string, name: string, count: int}>,
+     *     newGroup?: ?string,
+     *     store?: ?string
      * }  $spec
-     * @return array{tree: list<array<string, mixed>>, flags: list<array<string, mixed>>, label: ?string}
+     * @return array{everything: array<string, mixed>, groups: list<array<string, mixed>>, stand: list<array<string, mixed>>, flags: list<array<string, mixed>>, newGroup: ?string, label: ?string}
      */
     public static function build(array $spec): array
     {
         $query = $spec['query'];
         unset($query['page']);
-        $sync = $spec['sync'] === 'error' ? 'all' : $spec['sync'];
-        $failed = $spec['failed'] || $spec['sync'] === 'error';
-        $change = $spec['change'];
-        $counts = $spec['counts'];
+        $stand = self::stand($spec['sync'] ?? 'all');
+        $failed = ($spec['failed'] ?? false) || ($spec['sync'] ?? '') === 'error';
+        $change = (bool) ($spec['change'] ?? false);
+        $counts = $spec['counts'] ?? [];
+        $chosen = self::group($spec['group'] ?? null);
 
         $base = $query;
         if (($base['sync_status'] ?? null) === 'error') {
             unset($base['sync_status']);
             $base['failed'] = 1;
         }
+        /* A retired rung in the address is rewritten before any link is built
+           from it, so every link off this page carries the half, never the
+           rung that no longer exists. */
+        if (isset($base['sync_status']) && isset(self::RETIRED[(string) $base['sync_status']])) {
+            $base['sync_status'] = self::RETIRED[(string) $base['sync_status']];
+        }
+        // The causes are gone; an old address stops carrying one here.
+        unset($base['gap']);
 
         $to = function (array $set) use ($base, $spec) {
             $params = $base;
@@ -117,77 +125,95 @@ final class StatusMenu
             return ($spec['url'])($params);
         };
 
-        // Every tree node clears `gap`: a cause is a sub-choice of one Needs
-        // details node, so moving anywhere else drops it. Without this the
-        // cause stayed in the URL, kept its chip highlighted, and kept
-        // narrowing the rows under a heading that no longer showed it - which
-        // is how "Catalog change: 7" could open to an empty table.
-        $entry = fn (string $key, string $label, bool $active, string $tone = '', bool $parent = false, array $kids = []) => [
-            'key' => $key, 'label' => $label, 'count' => (int) ($counts[$key] ?? 0), 'tone' => $tone,
-            'url' => $to(['sync_status' => $key === 'all' ? null : $key, 'gap' => null]), 'active' => $active, 'parent' => $parent, 'kids' => $kids, 'meta' => null,
+        /* The left menu. Biggest first, because the eye goes to the group
+           with the most work in it; a tie reads alphabetically so the order
+           is stable from one load to the next. A group with nothing in it is
+           still drawn: a group you made and never filled is worth seeing.
+           The products no group claims sit at the bottom whatever their
+           number, because they are the leftovers of the list above, not a
+           group competing with it for size. */
+        $entries = [];
+        $ungrouped = null;
+        foreach ((array) ($spec['groups'] ?? []) as $group) {
+            $key = trim((string) ($group['id'] ?? ''));
+            $name = trim((string) ($group['name'] ?? ''));
+            if ($key === '' || $name === '') {
+                continue;
+            }
+            $entry = ['key' => $key, 'label' => $name, 'count' => (int) ($group['count'] ?? 0)];
+            if ($key === 'none') {
+                $ungrouped = $entry;
+
+                continue;
+            }
+            $entries[] = $entry;
+        }
+        usort($entries, fn ($a, $b) => [$b['count'], $a['label']] <=> [$a['count'], $b['label']]);
+        if ($ungrouped !== null) {
+            $entries[] = $ungrouped;
+        }
+
+        /* The whole store, above the heading and apart from the list, because
+           it is not a group: it is what you see when no group is chosen.
+           Its number is counted under the chosen half and NOT under any
+           group, so it differs from the segment's All, which is counted
+           inside the chosen group. Two questions, two counts; sharing one
+           key made each of them wrong in turn. */
+        $everything = [
+            'key' => 'all',
+            'label' => self::EVERYTHING,
+            'count' => (int) ($counts['store'] ?? $counts['all'] ?? 0),
+            'active' => $chosen === 'all',
+            'url' => $to(['group' => null]),
         ];
 
-        /* WHY a product is not eligible, hanging off the Needs details it
-         * explains. It was a block of its own for one afternoon and read as
-         * the same idea twice: Needs details IS what is missing, so the
-         * causes belong under it, counted within that half. */
-        $order = array_flip(array_keys(self::CAUSES));
-        $gap = self::cause($spec['gap'] ?? null);
-        $causesFor = function (string $key) use ($spec, $order, $gap, $to): array {
-            $out = [];
-            foreach ((array) ($spec['causes'][$key] ?? []) as $code => $count) {
-                $label = self::CAUSES[$code] ?? null;
-                if ($label === null || (int) $count < 1) {
-                    continue;
-                }
-                $on = $gap === $code;
-                $out[] = [
-                    'key' => $code, 'label' => $label, 'count' => (int) $count, 'tone' => 'attn', 'on' => $on,
-                    'url' => $to(['sync_status' => $key, 'gap' => $on ? null : $code]),
-                ];
+        $groups = [];
+        $name = null;
+        foreach ($entries as $entry) {
+            $on = $chosen === $entry['key'];
+            if ($on) {
+                $name = $entry['label'];
             }
-            usort($out, fn ($a, $b) => [$b['count'], $order[$a['key']]] <=> [$a['count'], $order[$b['key']]]);
+            $groups[] = [
+                'key' => $entry['key'],
+                'label' => $entry['label'],
+                'count' => $entry['count'],
+                'active' => $on,
+                'url' => $to(['group' => $entry['key']]),
+            ];
+        }
 
-            return $out;
-        };
-
-        $kids = function (array $parts) use ($entry, $sync, $causesFor) {
-            $out = [];
-            foreach ($parts as $key => $label) {
-                $kid = $entry($key, $label, $sync === $key, str_ends_with($key, 'not_ready') ? '' : 'good');
-                $kid['causes'] = str_ends_with($key, 'not_ready') ? $causesFor($key) : [];
-                $out[] = $kid;
-            }
-
-            return $out;
-        };
-
+        /* The segment above the table: the same three places the tree used to
+           hold, narrowing whatever group the rail has chosen. */
         $store = trim((string) ($spec['store'] ?? '')) ?: 'the store';
-        $half = fn (string $key) => sprintf(self::TREE[$key], $store);
+        $standing = [];
+        foreach (self::TREE as $key => $label) {
+            $standing[] = [
+                'key' => $key,
+                'label' => $key === 'all' ? $label : sprintf($label, $store),
+                'count' => (int) ($counts[$key] ?? 0),
+                'on' => $stand === $key,
+                'url' => $to(['sync_status' => $key === 'all' ? null : $key]),
+            ];
+        }
 
-        $tree = [
-            $entry('all', self::TREE['all'], $sync === 'all'),
-            $entry('not_uploaded', $half('not_uploaded'), $sync === 'not_uploaded', '', isset(self::NOT_LISTED_PARTS[$sync]), $kids(self::NOT_LISTED_PARTS)),
-            $entry('uploaded', $half('uploaded'), $sync === 'uploaded', '', isset(self::LISTED_PARTS[$sync]), $kids(self::LISTED_PARTS)),
-        ];
-
-        // The flags clear `gap` too: their counts are taken store-wide (not
-        // within a cause), so a flag must open to that same set, not to the
-        // intersection with a cause left over in the URL.
+        /* The switches narrow whatever is chosen. Their counts are taken
+           store-wide, so each opens to that same set. */
         $flags = [
             ['key' => 'failed', 'label' => 'Push failed', 'count' => (int) ($counts['failed'] ?? 0), 'tone' => 'bad', 'on' => $failed,
-                'url' => $to(['failed' => $failed ? null : 1, 'sync_status' => $sync === 'all' ? null : $sync, 'gap' => null])],
+                'url' => $to(['failed' => $failed ? null : 1, 'sync_status' => $stand === 'all' ? null : $stand])],
             ['key' => 'change', 'label' => 'Catalog change', 'count' => (int) ($counts['change'] ?? 0), 'tone' => 'attn', 'on' => $change,
-                'url' => $to(['change' => $change ? null : 1, 'gap' => null])],
+                'url' => $to(['change' => $change ? null : 1])],
         ];
 
         $parts = [];
-        if (isset(self::NOT_LISTED_PARTS[$sync])) {
-            $parts[] = $half('not_uploaded') . ', ' . self::NOT_LISTED_PARTS[$sync];
-        } elseif (isset(self::LISTED_PARTS[$sync])) {
-            $parts[] = $half('uploaded') . ', ' . self::LISTED_PARTS[$sync];
-        } elseif ($sync !== 'all') {
-            $parts[] = isset(self::TREE[$sync]) ? $half($sync) : $sync;
+        if ($chosen === 'none') {
+            $parts[] = self::UNGROUPED;
+        } elseif ($name !== null) {
+            $parts[] = $name;
+        }
+        if ($stand !== 'all') {
+            $parts[] = sprintf(self::TREE[$stand], $store);
         }
         if ($failed) {
             $parts[] = 'Push failed';
@@ -196,10 +222,17 @@ final class StatusMenu
             $parts[] = 'Catalog change';
         }
 
-        if ($gap !== 'all') {
-            $parts[] = self::CAUSES[$gap];
-        }
-
-        return ['tree' => $tree, 'flags' => $flags, 'label' => $parts === [] ? null : implode(' · ', $parts)];
+        return [
+            'everything' => $everything,
+            'groups' => $groups,
+            'stand' => $standing,
+            'flags' => $flags,
+            /* Making a group is the one thing you do TO the list itself, so
+               it sits on the list's own heading rather than among the
+               choices underneath it. Where it returns to is the page you
+               left, which the form captures for itself. */
+            'newGroup' => ($spec['newGroup'] ?? null) ?: null,
+            'label' => $parts === [] ? null : implode(' · ', $parts),
+        ];
     }
 }

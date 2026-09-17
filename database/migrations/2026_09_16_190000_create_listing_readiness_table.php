@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\Schema;
  * compute every product's readiness from scratch on each load, which scaled
  * with catalogue size. This table holds the answer per channel/store/product
  * so the page reads it, and it is recomputed only for products whose inputs
- * changed (a per-product `stamp`). Purely a cache — safe to truncate; it is
- * rebuilt lazily on read and by listings:warm-readiness.
+ * changed (a per-product `stamp`). Purely a cache, safe to truncate; it is
+ * rebuilt lazily on read.
  */
 return new class extends Migration
 {

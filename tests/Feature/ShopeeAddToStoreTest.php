@@ -124,7 +124,10 @@ class ShopeeAddToStoreTest extends TestCase
         $this->assertStringContainsString('data-add-panel-open', $html);
         $this->assertStringContainsString('id="shopee-add-panel"', $html, 'the panel markup rides the page for a manager');
         $this->assertStringNotContainsString('cc-worktab', $html, 'the two-tab treatment never came to Shopee');
-        $this->assertStringNotContainsString('All products', $html, 'the catalogue framing is gone');
+        /* The tab row says "All", this store's own list, never "All
+           products", which framed the page as the whole catalogue. The left
+           menu's own total is allowed to say it: there it counts the store. */
+        $this->assertStringNotContainsString('<span>All products</span>', $html, 'the catalogue framing is gone');
     }
 
     public function test_the_panel_is_not_rendered_for_a_read_only_operator(): void

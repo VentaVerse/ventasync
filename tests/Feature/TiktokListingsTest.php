@@ -167,18 +167,24 @@ class TiktokListingsTest extends TestCase
         // The status menu and the tab row: "All" is this store's own list in
         // both, TikTok's statuses are the tabs with the freshness stamp, and
         // Refresh sits in the tab row.
-        $r->assertSee('lsm-item__label">All<', false);
+        $r->assertSee('lss__label">All<', false);
         $r->assertSee('class="x-segment-bar"', false);
         $r->assertSee('<span>All</span>', false);
         $r->assertDontSee('x-segment-group__k', false);
-        $r->assertDontSee('All products');
+        /* The tab row says "All", this store's own list, never "All
+           products", which framed the page as the whole catalogue. The left
+           menu's own total is allowed to say it: there it counts the store. */
+        $r->assertDontSee('<span>All products</span>', false);
         $r->assertSee('as of 08:30, Aug 28');
         $r->assertSee('Refresh from TikTok Shop', false);
         $r->assertSee('Refresh from TikTok Shop');
         $r->assertSee('Live');                        // tt-live, from the mirror
         $r->assertSee('Not found on TikTok Shop');    // tt-gone, from the mirror
         $r->assertSee('Not checked yet');             // tt-new, never refreshed
-        $r->assertSee('>Eligible<', false);
+        /* Eligible was a rung in the old menu, and the menu is the store's
+           product groups now. A product short of something says so on its
+           own row instead, so a page with nothing missing says nothing. */
+        $r->assertDontSee('a TikTok category');
         // The bare record inherits its group's category (a group is a preset
         // the product inherits, 2026-09-05), so nothing here lacks one.
         $r->assertDontSee('Missing: a TikTok category');

@@ -295,8 +295,11 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         // Search & filter params
         $q = trim((string) $request->query('q', ''));
         $syncStatus = (string) $request->query('sync_status', 'all');
-        if (!in_array($syncStatus, [...\App\Integrations\Listings\StatusMenu::VALUES, 'deleted', 'error'], true)) {
-            $syncStatus = 'all';
+        /* Lazada keeps one state of its own, deleted, beside the two halves.
+           Anything else folds home, so a retired eligibility rung lands on
+           the half it belonged to rather than resetting the page. */
+        if (!in_array($syncStatus, ['deleted', 'error'], true)) {
+            $syncStatus = \App\Integrations\Listings\StatusMenu::stand($syncStatus);
         }
         /* The status menu's two switches narrow whatever the tree has
          * chosen; an old sync_status=error link is Push failed switched on. */
@@ -305,10 +308,9 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         if ($syncStatus === 'error') {
             $syncStatus = 'all';
         }
-        /* One cause at a time: the menu counts WHY a product cannot go, and
-         * this is the address that choice lives at. */
-        $gapFilter = \App\Integrations\Listings\StatusMenu::cause($request->query('gap'));
-        $groupFilter = (string) $request->query('group', 'all');
+        /* The rail's choice: a group id, `none` for the products no group
+           claims, else the whole store. */
+        $groupFilter = \App\Integrations\Listings\StatusMenu::group($request->query('group'));
         $manufacturerFilter = (string) $request->query('manufacturer', 'all');
         $erpStatus = (string) $request->query('erp_status', 'all');
 
@@ -378,19 +380,26 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
          * is the one line that turns "the whole catalogue" into "this store". */
         $query->whereNotNull('lp.id');
 
-        // Product group filter, through the pivot's denormalised product_id
-        if ($groupFilter === 'none') {
-            // Grouped on this store; another store's group does not count.
-            $groupedIds = \Extensions\lazada\Models\LazadaProductGroupProduct::query()->onStore()->whereNotNull('product_id')->pluck('product_id')->unique()->all();
-            if (!empty($groupedIds)) {
-                $query->whereNotIn('p.product_id', $groupedIds);
+        /* The rail's choice, as a closure rather than a filter written into
+           the query here: the rail counts every group under everything else
+           the page has chosen EXCEPT the group, so a number and the list it
+           opens always agree. Grouped means grouped ON THIS STORE; another
+           store's group does not claim the product. */
+        $groupedIds = \Extensions\lazada\Models\LazadaProductGroupProduct::query()->onStore()
+            ->whereNotNull('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+        $applyGroup = function ($query, string $choice) use ($groupedIds) {
+            if ($choice === 'none') {
+                return $groupedIds === [] ? $query : $query->whereNotIn('p.product_id', $groupedIds);
             }
-        } elseif ($groupFilter !== 'all') {
-            $specificIds = DB::table('lazada_product_group_products')
-                ->where('lazada_product_group_id', (int) $groupFilter)
-                ->whereNotNull('product_id')->pluck('product_id')->unique()->all();
-            $query->whereIn('p.product_id', $specificIds ?: [0]);
-        }
+            if ($choice === 'all') {
+                return $query;
+            }
+            $ids = DB::table('lazada_product_group_products')
+                ->where('lazada_product_group_id', (int) $choice)
+                ->whereNotNull('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+
+            return $query->whereIn('p.product_id', $ids ?: [0]);
+        };
 
         // Manufacturer filter
         if ($manufacturerFilter !== 'all') {
@@ -434,24 +443,10 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $notListed = fn ($query) => $query->where(function ($sub) {
             $sub->whereNull('lp.lazada_item_id')->orWhere('lp.lazada_item_id', '=', '');
         })->whereNull('lp.lazada_deleted_at');
-        // Held for this request: readyByProduct scans the whole catalog, and the
-        // menu counts ask for it several times. Computing it once, not ~6x, is the
-        // difference between a slow page and a fast one on a large store.
-        $readyMap = null;
-        $readyIs = function ($query, bool $wantReady) use (&$readyMap) {
-            $readyMap ??= $this->readyByProduct();
-            $matching = array_keys(array_filter($readyMap, fn ($r) => $r === $wantReady));
-
-            return $query->whereIn('p.product_id', $matching ?: [0]);
-        };
-        $applySync = function ($query, string $status) use ($listed, $notListed, $readyIs) {
+        $applySync = function ($query, string $status) use ($listed, $notListed) {
             match ($status) {
                 'uploaded' => $listed($query),
-                'listed_ready' => $readyIs($listed($query), true),
-                'listed_not_ready' => $readyIs($listed($query), false),
                 'not_uploaded' => $notListed($query),
-                'ready' => $readyIs($notListed($query), true),
-                'not_ready' => $readyIs($notListed($query), false),
                 'deleted' => $query->whereNotNull('lp.lazada_deleted_at'),
                 default => $query,
             };
@@ -459,25 +454,14 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             return $query;
         };
 
-        /* A cause narrows the rows exactly as a status does: the products
-         * whose readiness answer carries that gap code. */
-        $gapMap = null;
-        $withGap = function ($query, string $code) use (&$gapMap) {
-            $gapMap ??= $this->gapsByProduct();
-            $matching = array_keys(array_filter($gapMap, fn ($codes) => in_array($code, $codes, true)));
-
-            return $query->whereIn('p.product_id', $matching ?: [0]);
-        };
-        $applyGap = fn ($query) => $gapFilter === 'all' ? $query : $withGap($query, $gapFilter);
-
         $errored = $this->states()->erroredProductIds();
         $changed = $this->states()->productIdsIn('drift');
 
         /* The status menu's choice, and the store's tab: each narrows the
          * rows, and each one's counts are taken under the other's choice. */
-        $applyMenu = function ($query) use ($applySync, $applyGap, $syncStatus, $failedFlag, $changeFlag, $errored, $changed) {
+        $applyMenu = function ($query) use ($applySync, $applyGroup, $syncStatus, $groupFilter, $failedFlag, $changeFlag, $errored, $changed) {
+            $applyGroup($query, $groupFilter);
             $applySync($query, $syncStatus);
-            $applyGap($query);
             if ($failedFlag) {
                 /* The rows that draw an error line, by the line's own engine. */
                 $query->whereIn('p.product_id', $errored ?: [0]);
@@ -510,27 +494,45 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         };
 
         $menuBase = $applyTab(clone $query);
-        $menuCounts = ['all' => (clone $menuBase)->count()];
-        foreach (['not_uploaded', 'ready', 'not_ready', 'uploaded', 'listed_ready', 'listed_not_ready'] as $status) {
-            $menuCounts[$status] = $applySync(clone $menuBase, $status)->count();
-        }
-        $menuCounts['failed'] = (clone $menuBase)->whereIn('p.product_id', $errored ?: [0])->count();
-        $menuCounts['change'] = (clone $menuBase)->whereIn('p.product_id', $changed ?: [0])->count();
-        /* One number per cause, under everything chosen EXCEPT the cause
-         * itself, counted within the half it hangs under. */
-        $causeCounts = [];
-        foreach (['not_ready', 'listed_not_ready'] as $half) {
-            $halfBase = $applySync(clone $menuBase, $half);
+        $withFlags = function ($sub) use ($failedFlag, $changeFlag, $errored, $changed) {
             if ($failedFlag) {
-                $halfBase->whereIn('p.product_id', $errored ?: [0]);
+                $sub->whereIn('p.product_id', $errored ?: [0]);
             }
             if ($changeFlag) {
-                $halfBase->whereIn('p.product_id', $changed ?: [0]);
+                $sub->whereIn('p.product_id', $changed ?: [0]);
             }
-            foreach (array_keys(\App\Integrations\Listings\StatusMenu::CAUSES) as $code) {
-                $causeCounts[$half][$code] = $withGap(clone $halfBase, $code)->count();
-            }
+
+            return $sub;
+        };
+
+        // The segment counts inside the rail's chosen group, never inside itself.
+        $standBase = $withFlags($applyGroup(clone $menuBase, $groupFilter));
+        $menuCounts = ['all' => (clone $standBase)->count()];
+        foreach (['not_uploaded', 'uploaded'] as $status) {
+            $menuCounts[$status] = $applySync(clone $standBase, $status)->count();
         }
+        /* The switches are counted across the store, not inside the rail's
+           group or the segment's half, because each opens to that same set. */
+        $menuCounts['failed'] = (clone $menuBase)->whereIn('p.product_id', $errored ?: [0])->count();
+        $menuCounts['change'] = (clone $menuBase)->whereIn('p.product_id', $changed ?: [0])->count();
+
+        /* The rail counts inside the segment's chosen half, never inside
+           itself, so every group keeps its own number while one is chosen. */
+        $railBase = $withFlags($applySync(clone $menuBase, $syncStatus));
+        $menuCounts['store'] = (clone $railBase)->count();
+        $groupRail = [];
+        foreach (\Extensions\lazada\Models\LazadaProductGroup::query()->orderBy('name')->get(['id', 'name']) as $group) {
+            $groupRail[] = [
+                'id' => (string) $group->id,
+                'name' => (string) $group->name,
+                'count' => $applyGroup(clone $railBase, (string) $group->id)->count(),
+            ];
+        }
+        $groupRail[] = [
+            'id' => 'none',
+            'name' => \App\Integrations\Listings\StatusMenu::UNGROUPED,
+            'count' => $applyGroup(clone $railBase, 'none')->count(),
+        ];
 
         $tabBase = $applyMenu(clone $query);
         // The tab row's All: every row the menu has chosen, before a tab narrows it.
@@ -691,8 +693,9 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 'failed' => $failedFlag,
                 'change' => $changeFlag,
                 'counts' => $menuCounts,
-                'gap' => $gapFilter,
-                'causes' => $causeCounts,
+                'group' => $groupFilter,
+                'groups' => $groupRail,
+                'newGroup' => route('ext.lazada.product-groups.create'),
                 // Live is a fact about a marketplace: a product is live ON somewhere.
                 'store' => 'Lazada',
             ]),

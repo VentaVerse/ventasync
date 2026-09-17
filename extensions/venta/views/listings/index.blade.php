@@ -126,6 +126,8 @@
 @include('partials.listing-status-menu', ['menu' => $statusMenu])
 <div class="lsm-layout__main">
 
+@include('partials.listing-stand-segment', ['menu' => $statusMenu])
+
 <form method="GET" action="{{ $indexUrl() }}" class="x-filters">
     {{-- The menu's choice rides a search. --}}
     @if($ventaTab !== 'all')
@@ -134,6 +136,10 @@
     @if($syncStatus !== 'all')
         <input type="hidden" name="sync_status" value="{{ $syncStatus }}">
     @endif
+    {{-- The rail's choice rides a search too, or searching would drop it. --}}
+    @if(($groupFilter ?? 'all') !== 'all')
+        <input type="hidden" name="group" value="{{ $groupFilter }}">
+    @endif
     @if($failedFlag ?? false)
         <input type="hidden" name="failed" value="1">
     @endif
@@ -141,15 +147,6 @@
         <input type="hidden" name="change" value="1">
     @endif
     <x-ui.input type="search" name="q" class="x-filters__search" value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search listings" />
-    <div class="x-select-wrap x-filters__select">
-        <select name="group" class="x-input" data-autosubmit aria-label="Filter by product group">
-            <option value="all" @selected($groupFilter === 'all')>All groups</option>
-            @foreach($allGroups as $gId => $gName)
-                <option value="{{ $gId }}" @selected($groupFilter === (string) $gId)>{{ $gName }}</option>
-            @endforeach
-        </select>
-        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-    </div>
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
         <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by catalogue status">
             <option value="all" @selected($erpStatus === 'all')>Any catalogue status</option>

@@ -39,8 +39,9 @@ class TikTokProductController extends Controller
         /* The status menu speaks the shared words; the older listed and
          * not_listed links still land where they did. */
         $syncStatus = ['listed' => 'uploaded', 'not_listed' => 'not_uploaded'][$syncStatus] ?? $syncStatus;
-        if (!in_array($syncStatus, [...\App\Integrations\Listings\StatusMenu::VALUES, 'error'], true)) {
-            $syncStatus = 'all';
+        // A retired eligibility rung lands on the half it belonged to.
+        if ($syncStatus !== 'error') {
+            $syncStatus = \App\Integrations\Listings\StatusMenu::stand($syncStatus);
         }
         /* The status menu's two switches narrow whatever the tree has
          * chosen; an old sync_status=error link is Push failed switched on. */
@@ -49,11 +50,10 @@ class TikTokProductController extends Controller
         if ($syncStatus === 'error') {
             $syncStatus = 'all';
         }
-        /* One cause at a time: the menu counts WHY a product cannot go, and
-         * this is the address that choice lives at. */
-        $gapFilter = \App\Integrations\Listings\StatusMenu::cause($request->get('gap'));
         $manufacturerFilter = (string) $request->get('manufacturer', 'all');
-        $groupFilter = (string) $request->get('group', 'all');
+        /* The rail's choice: a group id, `none` for the products no group
+           claims, else the whole store. */
+        $groupFilter = \App\Integrations\Listings\StatusMenu::group($request->get('group'));
         $erpStatus = (string) $request->get('erp_status', 'all');
         $tiktokTab = (string) $request->get('tiktok_tab', 'all');
         if (!array_key_exists($tiktokTab, TikTokLiveListing::TABS)) {
@@ -124,10 +124,24 @@ class TikTokProductController extends Controller
         // The set the listed / not listed places below answer from.
         $listedProductIds = TikTokStoreProducts::listedIds();
 
-        if ($groupFilter !== 'all') {
-            $inGroup = TikTokProductGroupProduct::query()->where('tiktok_product_group_id', (int) $groupFilter)->pluck('product_id')->all();
-            $query->whereIn('p.product_id', $inGroup ?: [0]);
-        }
+        /* The rail's choice, as a closure rather than a filter written into
+           the query here: the rail counts every group under everything else
+           the page has chosen EXCEPT the group, so a number and the list it
+           opens always agree. Grouped means grouped ON THIS STORE. */
+        $groupedIds = TikTokProductGroupProduct::query()->onStore()
+            ->whereNotNull('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+        $applyGroup = function ($query, string $choice) use ($groupedIds) {
+            if ($choice === 'none') {
+                return $groupedIds === [] ? $query : $query->whereNotIn('p.product_id', $groupedIds);
+            }
+            if ($choice === 'all') {
+                return $query;
+            }
+            $ids = TikTokProductGroupProduct::query()->where('tiktok_product_group_id', (int) $choice)
+                ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+
+            return $query->whereIn('p.product_id', $ids ?: [0]);
+        };
         if ($manufacturerFilter !== 'all') {
             $query->where('p.manufacturer_id', (int) $manufacturerFilter);
         }
@@ -163,46 +177,24 @@ class TikTokProductController extends Controller
          * for the menu's counts alike, so a number and its list agree. */
         $listed = fn ($query) => $query->whereIn('p.product_id', $listedProductIds ?: [0]);
         $notListed = fn ($query) => $query->whereNotIn('p.product_id', $listedProductIds ?: [0]);
-        $readyMap = null;
-        $readyIs = function ($query, bool $wantReady) use (&$readyMap) {
-            $readyMap ??= $this->readyByProduct();
-            $matching = array_keys(array_filter($readyMap, fn ($r) => $r === $wantReady));
-
-            return $query->whereIn('p.product_id', $matching ?: [0]);
-        };
-        $applySync = function ($query, string $status) use ($listed, $notListed, $readyIs) {
+        $applySync = function ($query, string $status) use ($listed, $notListed) {
             match ($status) {
                 'uploaded' => $listed($query),
-                'listed_ready' => $readyIs($listed($query), true),
-                'listed_not_ready' => $readyIs($listed($query), false),
                 'not_uploaded' => $notListed($query),
-                'ready' => $readyIs($notListed($query), true),
-                'not_ready' => $readyIs($notListed($query), false),
                 default => $query,
             };
 
             return $query;
         };
 
-        /* A cause narrows the rows exactly as a status does: the products
-         * whose readiness answer carries that gap code. */
-        $gapMap = null;
-        $withGap = function ($query, string $code) use (&$gapMap) {
-            $gapMap ??= $this->gapsByProduct();
-            $matching = array_keys(array_filter($gapMap, fn ($codes) => in_array($code, $codes, true)));
-
-            return $query->whereIn('p.product_id', $matching ?: [0]);
-        };
-        $applyGap = fn ($query) => $gapFilter === 'all' ? $query : $withGap($query, $gapFilter);
-
         $errored = $this->states()->erroredProductIds();
         $changed = $this->states()->productIdsIn('drift');
 
         /* The status menu's choice, and the store's tab: each narrows the
          * rows, and each one's counts are taken under the other's choice. */
-        $applyMenu = function ($query) use ($applySync, $applyGap, $syncStatus, $failedFlag, $changeFlag, $errored, $changed) {
+        $applyMenu = function ($query) use ($applySync, $applyGroup, $syncStatus, $groupFilter, $failedFlag, $changeFlag, $errored, $changed) {
+            $applyGroup($query, $groupFilter);
             $applySync($query, $syncStatus);
-            $applyGap($query);
             if ($failedFlag) {
                 /* The rows that draw an error line, by the line's own engine. */
                 $query->whereIn('p.product_id', $errored ?: [0]);
@@ -242,27 +234,45 @@ class TikTokProductController extends Controller
         };
 
         $menuBase = $applyTab(clone $query);
-        $menuCounts = ['all' => (clone $menuBase)->count()];
-        foreach (['not_uploaded', 'ready', 'not_ready', 'uploaded', 'listed_ready', 'listed_not_ready'] as $status) {
-            $menuCounts[$status] = $applySync(clone $menuBase, $status)->count();
-        }
-        $menuCounts['failed'] = (clone $menuBase)->whereIn('p.product_id', $errored ?: [0])->count();
-        $menuCounts['change'] = (clone $menuBase)->whereIn('p.product_id', $changed ?: [0])->count();
-        /* One number per cause, under everything chosen EXCEPT the cause
-         * itself, counted within the half it hangs under. */
-        $causeCounts = [];
-        foreach (['not_ready', 'listed_not_ready'] as $half) {
-            $halfBase = $applySync(clone $menuBase, $half);
+        $withFlags = function ($sub) use ($failedFlag, $changeFlag, $errored, $changed) {
             if ($failedFlag) {
-                $halfBase->whereIn('p.product_id', $errored ?: [0]);
+                $sub->whereIn('p.product_id', $errored ?: [0]);
             }
             if ($changeFlag) {
-                $halfBase->whereIn('p.product_id', $changed ?: [0]);
+                $sub->whereIn('p.product_id', $changed ?: [0]);
             }
-            foreach (array_keys(\App\Integrations\Listings\StatusMenu::CAUSES) as $code) {
-                $causeCounts[$half][$code] = $withGap(clone $halfBase, $code)->count();
-            }
+
+            return $sub;
+        };
+
+        // The segment counts inside the rail's chosen group, never inside itself.
+        $standBase = $withFlags($applyGroup(clone $menuBase, $groupFilter));
+        $menuCounts = ['all' => (clone $standBase)->count()];
+        foreach (['not_uploaded', 'uploaded'] as $status) {
+            $menuCounts[$status] = $applySync(clone $standBase, $status)->count();
         }
+        /* The switches are counted across the store, not inside the rail's
+           group or the segment's half, because each opens to that same set. */
+        $menuCounts['failed'] = (clone $menuBase)->whereIn('p.product_id', $errored ?: [0])->count();
+        $menuCounts['change'] = (clone $menuBase)->whereIn('p.product_id', $changed ?: [0])->count();
+
+        /* The rail counts inside the segment's chosen half, never inside
+           itself, so every group keeps its own number while one is chosen. */
+        $railBase = $withFlags($applySync(clone $menuBase, $syncStatus));
+        $menuCounts['store'] = (clone $railBase)->count();
+        $groupRail = [];
+        foreach (TikTokProductGroup::query()->orderBy('name')->get(['id', 'name']) as $group) {
+            $groupRail[] = [
+                'id' => (string) $group->id,
+                'name' => (string) $group->name,
+                'count' => $applyGroup(clone $railBase, (string) $group->id)->count(),
+            ];
+        }
+        $groupRail[] = [
+            'id' => 'none',
+            'name' => \App\Integrations\Listings\StatusMenu::UNGROUPED,
+            'count' => $applyGroup(clone $railBase, 'none')->count(),
+        ];
 
         $tabBase = $applyMenu(clone $query);
         // The tab row's All: every row the menu has chosen, before a tab narrows it.
@@ -397,8 +407,9 @@ class TikTokProductController extends Controller
                 'failed' => $failedFlag,
                 'change' => $changeFlag,
                 'counts' => $menuCounts,
-                'gap' => $gapFilter,
-                'causes' => $causeCounts,
+                'group' => $groupFilter,
+                'groups' => $groupRail,
+                'newGroup' => route('ext.tiktok.product-groups.create'),
                 // Live is a fact about a marketplace: a product is live ON somewhere.
                 'store' => 'TikTok Shop',
             ]),
